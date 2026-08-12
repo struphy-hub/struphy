@@ -15,8 +15,9 @@ except ModuleNotFoundError:
         x = None
 
 
-import cunumpy as xp
+import numpy as np
 from cunumpy import PyccelKernel
+from cunumpy import to_cunumpy
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
@@ -74,6 +75,14 @@ def _to_numpy_for_kernel(value):
         # This is a CuPy array
         return value.get()
     return value
+
+
+def _dev(*arrays):
+    """Convert host (marker) coordinate arrays to the active array backend,
+    for feeding into equilibrium/domain/perturbation functions that follow
+    the global backend rather than the (always host-resident) markers."""
+    out = tuple(to_cunumpy(a) for a in arrays)
+    return out[0] if len(out) == 1 else out
 
 
 class Particles(metaclass=ABCMeta):
@@ -250,11 +259,15 @@ class Particles(metaclass=ABCMeta):
         if domain_decomp is None:
             self._domain_array, self._nprocs = self._get_domain_decomp(self.sorting_params.dims_mask)
         else:
-            self._domain_array = domain_decomp[0]
+            # domain_decomp[0] may come from a Derham grid living on the device
+            # (ARRAY_BACKEND=cupy); everything below operates on markers, which
+            # are always host arrays (there is no device particle kernel), so
+            # domain_array is brought to the host once here.
+            self._domain_array = _to_numpy_for_kernel(domain_decomp[0])
             self._nprocs = domain_decomp[1]
 
         # total number of cells (equal to mpi_size if no grid)
-        n_cells = xp.sum(xp.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
+        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
 
         # total number of boxes
         if self.boxes_per_dim is None:
@@ -266,7 +279,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
-            n_boxes = xp.prod(xp.array(self.boxes_per_dim), dtype=int) * self.num_clones
+            n_boxes = np.prod(np.array(self.boxes_per_dim), dtype=int) * self.num_clones
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -381,9 +394,9 @@ class Particles(metaclass=ABCMeta):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
-        self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
-        self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
-        self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
+        self._sorting_etas = np.zeros((self.markers.shape[0], 3), dtype=float)
+        self._is_on_proc_domain = np.zeros((self.markers.shape[0], 3), dtype=bool)
+        self._can_stay = np.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
         self._recvbufs = [None] * self.mpi_size
         self._send_to_i = [None] * self.mpi_size
@@ -802,17 +815,17 @@ class Particles(metaclass=ABCMeta):
     def valid_mks(self):
         """Array of booleans stating if an entry in the markers array is a true local particle (not a hole or ghost)."""
         if not hasattr(self, "_valid_mks"):
-            self._valid_mks = ~xp.logical_or(self.holes, self.ghost_particles)
+            self._valid_mks = ~np.logical_or(self.holes, self.ghost_particles)
         return self._valid_mks
 
     def update_valid_mks(self):
-        self._valid_mks[:] = ~xp.logical_or(self.holes, self.ghost_particles)
+        self._valid_mks[:] = ~np.logical_or(self.holes, self.ghost_particles)
 
     @property
     def n_mks_loc(self):
         """Number of valid markers on process (without holes and ghosts)."""
-        # print(f"{self.kinds} on clone {self.clone_id}: counting valid markers: {xp.count_nonzero(self.valid_mks)} valid markers on process {self.mpi_rank} found.")
-        return xp.count_nonzero(self.valid_mks)
+        # print(f"{self.kinds} on clone {self.clone_id}: counting valid markers: {np.count_nonzero(self.valid_mks)} valid markers on process {self.mpi_rank} found.")
+        return np.count_nonzero(self.valid_mks)
 
     @property
     def n_mks_on_each_proc(self):
@@ -822,7 +835,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks_on_clone(self):
         """Number of valid markers on current clone (without holes and ghosts)."""
-        return xp.sum(self.n_mks_on_each_proc)
+        return np.sum(self.n_mks_on_each_proc)
 
     @property
     def n_mks_on_each_clone(self):
@@ -832,7 +845,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks_global(self):
         """Number of valid markers on current clone (without holes and ghosts)."""
-        return xp.sum(self.n_mks_on_each_clone)
+        return np.sum(self.n_mks_on_each_clone)
 
     @property
     def positions(self):
@@ -841,7 +854,7 @@ class Particles(metaclass=ABCMeta):
 
     @positions.setter
     def positions(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3)
         self._markers[self.valid_mks, self.index["pos"]] = new
 
@@ -852,12 +865,12 @@ class Particles(metaclass=ABCMeta):
 
     @velocities.setter
     def velocities(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc =} and {self.vdim =} but {new.shape =}"
         self._markers[self.valid_mks, self.index["vel"]] = new
 
     def set_velocities_comp(self, velocity, comp):
-        new = xp.ones(shape=(self.velocities.shape[0], 1)) * velocity
+        new = np.ones(shape=(self.velocities.shape[0], 1)) * velocity
 
         for c in comp:
             self._markers[self.valid_mks, slice(3 + c, 3 + c + 1)] = new
@@ -869,7 +882,7 @@ class Particles(metaclass=ABCMeta):
 
     @phasespace_coords.setter
     def phasespace_coords(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3 + self.vdim)
         self._markers[self.valid_mks, self.index["coords"]] = new
 
@@ -880,7 +893,7 @@ class Particles(metaclass=ABCMeta):
 
     @weights.setter
     def weights(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["weights"]] = new
 
@@ -896,7 +909,7 @@ class Particles(metaclass=ABCMeta):
 
     @sampling_density.setter
     def sampling_density(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["s0"]] = new
 
@@ -907,7 +920,7 @@ class Particles(metaclass=ABCMeta):
 
     @weights0.setter
     def weights0(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["w0"]] = new
 
@@ -918,7 +931,7 @@ class Particles(metaclass=ABCMeta):
 
     @marker_ids.setter
     def marker_ids(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["ids"]] = new
 
@@ -949,7 +962,7 @@ class Particles(metaclass=ABCMeta):
 
     @f_coords.setter
     def f_coords(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         self.markers[self.valid_mks, self.f_coords_index] = new
 
     @property
@@ -961,16 +974,16 @@ class Particles(metaclass=ABCMeta):
     def f_jacobian_coords(self):
         """Coordinates of the velocity jacobian determinant of the distribution fuction."""
         if isinstance(self.f_jacobian_coords_index, list):
-            return self.markers[xp.ix_(~self.holes, self.f_jacobian_coords_index)]
+            return self.markers[np.ix_(~self.holes, self.f_jacobian_coords_index)]
         else:
             return self.markers[~self.holes, self.f_jacobian_coords_index]
 
     @f_jacobian_coords.setter
     def f_jacobian_coords(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         if isinstance(self.f_jacobian_coords_index, list):
             self.markers[
-                xp.ix_(
+                np.ix_(
                     ~self.holes,
                     self.f_jacobian_coords_index,
                 )
@@ -1017,7 +1030,7 @@ class Particles(metaclass=ABCMeta):
 
         Returns
         -------
-        dom_arr : xp.ndarray
+        dom_arr : np.ndarray
             A 2d array of shape (#MPI processes, 9). The row index denotes the process rank. The columns are for n=0,1,2:
                 - arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
                 - arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
@@ -1029,7 +1042,7 @@ class Particles(metaclass=ABCMeta):
         if mpi_dims_mask is None:
             mpi_dims_mask = [True, True, True]
 
-        dom_arr = xp.zeros((self.mpi_size, 9), dtype=float)
+        dom_arr = np.zeros((self.mpi_size, 9), dtype=float)
 
         # factorize mpi size
         factors = factorint(self.mpi_size)
@@ -1053,10 +1066,10 @@ class Particles(metaclass=ABCMeta):
                 mm = (mm + 1) % 3
             nprocs[mm] *= fac
 
-        assert xp.prod(nprocs) == self.mpi_size
+        assert np.prod(nprocs) == self.mpi_size
 
         # domain decomposition
-        breaks = [xp.linspace(0.0, 1.0, nproc + 1) for nproc in nprocs]
+        breaks = [np.linspace(0.0, 1.0, nproc + 1) for nproc in nprocs]
 
         # fill domain array
         for n in range(self.mpi_size):
@@ -1117,14 +1130,14 @@ class Particles(metaclass=ABCMeta):
         """Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i,
         and 2) an array of size num_clones where the i-th entry corresponds to the number of markers on clone i."""
         # number of cells on current process
-        n_cells_loc = xp.prod(
+        n_cells_loc = np.prod(
             self.domain_array[self.mpi_rank, 2::3],
             dtype=int,
         )
 
         # array of number of markers on each process at loading stage
         if self.clone_config is not None:
-            _n_cells_clone = xp.sum(xp.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
+            _n_cells_clone = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
             _n_mks_load_tot = self.clone_config.get_Np_clone(self.Np)
             _ppc = _n_mks_load_tot / _n_cells_clone
         else:
@@ -1134,14 +1147,14 @@ class Particles(metaclass=ABCMeta):
         n_mks_load = self._gather_scalar_in_subcomm_array(int(_ppc * n_cells_loc))
 
         # add deviation from Np to rank 0
-        n_mks_load[0] += _n_mks_load_tot - xp.sum(n_mks_load)
+        n_mks_load[0] += _n_mks_load_tot - np.sum(n_mks_load)
 
         # check if all markers are there
-        assert xp.sum(n_mks_load) == _n_mks_load_tot
+        assert np.sum(n_mks_load) == _n_mks_load_tot
 
         # Np on each clone
         Np_per_clone = self._gather_scalar_in_intercomm_array(_n_mks_load_tot)
-        assert xp.sum(Np_per_clone) == self.Np
+        assert np.sum(Np_per_clone) == self.Np
 
         return n_mks_load, Np_per_clone
 
@@ -1155,7 +1168,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self._mpi_rank]
-        bufsize = self.bufsize + 1.0 / xp.sqrt(n_mks_load_loc)
+        bufsize = self.bufsize + 1.0 / np.sqrt(n_mks_load_loc)
 
         # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
         self._n_rows = round(float(n_mks_load_loc * (1 + bufsize)))
@@ -1168,19 +1181,19 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
+        self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
 
         # allocate auxiliary arrays
-        self._holes = xp.zeros(self.n_rows, dtype=bool)
-        self._ghost_particles = xp.zeros(self.n_rows, dtype=bool)
-        self._valid_mks = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside_right = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside_left = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside = xp.zeros(self.n_rows, dtype=bool)
+        self._holes = np.zeros(self.n_rows, dtype=bool)
+        self._ghost_particles = np.zeros(self.n_rows, dtype=bool)
+        self._valid_mks = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside_right = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside_left = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside = np.zeros(self.n_rows, dtype=bool)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
-        self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
+        self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)
 
         # arguments for kernels
         self._args_markers = MarkerArguments(
@@ -1289,16 +1302,16 @@ class Particles(metaclass=ABCMeta):
 
         # assert len(ns) == len(us) == len(vths)
 
-        # ns = xp.array(ns)
-        # us = xp.array(us)
-        # vths = xp.array(vths)
+        # ns = np.array(ns)
+        # us = np.array(us)
+        # vths = np.array(vths)
 
         # Use the mean of shifts and thermal velocity such that outermost shift+thermal is
         # new shift + new thermal
-        # mean_us = xp.mean(us, axis=0)
-        # us_ext = us + vths * xp.where(us >= 0, 1, -1)
+        # mean_us = np.mean(us, axis=0)
+        # us_ext = us + vths * np.where(us >= 0, 1, -1)
         # us_ext_dist = us_ext - mean_us[None, :]
-        # new_vths = xp.max(xp.abs(us_ext_dist), axis=0)
+        # new_vths = np.max(np.abs(us_ext_dist), axis=0)
 
         # new_moments = []
 
@@ -1353,6 +1366,11 @@ class Particles(metaclass=ABCMeta):
                         # TODO: add other velocity components
 
             def _f_init(*etas, flat_eval=False):
+                # self.f0/_density evaluate on the device (equilibrium and
+                # perturbation functions follow the global array backend),
+                # while markers are always host-resident; convert at this
+                # marker/field evaluation boundary and convert the result back.
+                etas = tuple(to_cunumpy(eta) for eta in etas)
                 if len(etas) == 1:
                     if _density is None:
                         out = self.f0.n0(etas[0])
@@ -1377,10 +1395,16 @@ class Particles(metaclass=ABCMeta):
                         out = out0 + out1
 
                     if flat_eval:
-                        out = xp.squeeze(out)
+                        out = np.squeeze(out)
+                # Returned in the same (active) backend as the converted
+                # `etas` above -- callers that need markers/host data convert
+                # explicitly (see _to_numpy_for_kernel at call sites), since
+                # this closure is also reused as a field function fed back
+                # into domain/grid machinery that expects the active backend.
                 return out
 
             def _u_init(*etas, flat_eval=False):
+                etas = tuple(to_cunumpy(eta) for eta in etas)
                 if len(etas) == 1:
                     if _u1 is None:
                         out = self.f0.uv(etas[0])
@@ -1405,7 +1429,12 @@ class Particles(metaclass=ABCMeta):
                         out = out0 + out1
 
                     if flat_eval:
-                        out = xp.squeeze(out)
+                        out = np.squeeze(out)
+                # Returned in the same (active) backend as the converted
+                # `etas` above -- callers that need markers/host data convert
+                # explicitly (see _to_numpy_for_kernel at call sites), since
+                # this closure is also reused as a field function fed back
+                # into domain/grid machinery that expects the active backend.
                 return out
 
             self._f_init = _f_init
@@ -1414,7 +1443,7 @@ class Particles(metaclass=ABCMeta):
     def _load_external(
         self,
         n_mks_load_loc: int,
-        n_mks_load_cum_sum: xp.ndarray,
+        n_mks_load_cum_sum: np.ndarray,
     ):
         """Load markers from external .hdf5 file.
 
@@ -1423,7 +1452,7 @@ class Particles(metaclass=ABCMeta):
         n_mks_load_loc: int
             Number of markers on the local process at loading stage.
 
-        n_mks_load_cum_sum: xp.ndarray
+        n_mks_load_cum_sum: np.ndarray
             Cumulative sum of number of markers on each process at loading stage.
         """
         if self.mpi_rank == 0:
@@ -1442,7 +1471,7 @@ class Particles(metaclass=ABCMeta):
                         tag=123,
                     )
         else:
-            recvbuf = xp.zeros(
+            recvbuf = np.zeros(
                 (n_mks_load_loc, self.markers.shape[1]),
                 dtype=float,
             )
@@ -1585,8 +1614,8 @@ class Particles(metaclass=ABCMeta):
         self.update_ghost_particles()
 
         # cumulative sum of number of markers on each process at loading stage.
-        n_mks_load_cum_sum = xp.cumsum(self.n_mks_load)
-        Np_per_clone_cum_sum = xp.cumsum(self.Np_per_clone)
+        n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+        Np_per_clone_cum_sum = np.cumsum(self.Np_per_clone)
         _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (
             n_mks_load_cum_sum - self.n_mks_load
         )[self._mpi_rank]
@@ -1613,9 +1642,9 @@ class Particles(metaclass=ABCMeta):
             self._load_tesselation()
             if self.type == "sph":
                 self._set_initial_condition()
-                self.velocities = xp.array(self.u_init(self.positions)).T
+                self.velocities = _to_numpy_for_kernel(self.u_init(self.positions)).T
             # set markers ID in last column
-            self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
         else:
             logger.debug("\nLoading fresh markers:")
             for key, val in self.loading_params.__dict__.items():
@@ -1626,7 +1655,7 @@ class Particles(metaclass=ABCMeta):
                 # set seed
                 _seed = self.loading_params.seed
                 if _seed is not None:
-                    xp.random.seed(_seed)
+                    np.random.seed(_seed)
 
                 # counting integers
                 num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
@@ -1637,15 +1666,15 @@ class Particles(metaclass=ABCMeta):
                 while num_loaded_particles_glob < int(self.Np):
                     # Generate a chunk of random particles
                     num_to_add_glob = min(chunk_size, int(self.Np) - num_loaded_particles_glob)
-                    temp = xp.random.rand(num_to_add_glob, 3 + self.vdim)
+                    temp = np.random.rand(num_to_add_glob, 3 + self.vdim)
                     # check which particles are on the current process domain
-                    is_on_proc_domain = xp.logical_and(
+                    is_on_proc_domain = np.logical_and(
                         temp[:, :3] > self.domain_array[self.mpi_rank, 0::3],
                         temp[:, :3] < self.domain_array[self.mpi_rank, 1::3],
                     )
-                    valid_idx = xp.nonzero(xp.all(is_on_proc_domain, axis=1))[0]
+                    valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
-                    valid_particles = xp.array_split(valid_particles, self.num_clones)[self.clone_id]
+                    valid_particles = np.array_split(valid_particles, self.num_clones)[self.clone_id]
                     num_valid = valid_particles.shape[0]
 
                     # Add the valid particles to the phasespace_coords array
@@ -1662,7 +1691,7 @@ class Particles(metaclass=ABCMeta):
                 # set new n_mks_load
                 self._gather_scalar_in_subcomm_array(num_loaded_particles_loc, out=self.n_mks_load)
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
-                n_mks_load_cum_sum = xp.cumsum(self.n_mks_load)
+                n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
                 # set new holes in markers array to -1
                 self._markers[num_loaded_particles_loc:] = -1.0
@@ -1702,20 +1731,20 @@ class Particles(metaclass=ABCMeta):
             # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
             if self.type == "sph":
                 self._set_initial_condition()
-                self.velocities = xp.array(self.u_init(self.positions)).T
+                self.velocities = _to_numpy_for_kernel(self.u_init(self.positions)).T
             else:
                 # inverse transform sampling in velocity space
                 # Avoid exact 0 or 1 from low-discrepancy sequences: erfinv(±1)
                 # and log(0) produce infinities or invalid polar velocities.
-                eps = xp.finfo(float).eps
-                self._markers[:n_mks_load_loc, 3 : 3 + self.vdim] = xp.clip(
+                eps = np.finfo(float).eps
+                self._markers[:n_mks_load_loc, 3 : 3 + self.vdim] = np.clip(
                     self._markers[:n_mks_load_loc, 3 : 3 + self.vdim],
                     eps,
                     1.0 - eps,
                 )
 
-                u_mean = xp.array(self.loading_params.moments[: self.vdim])
-                v_th = xp.array(self.loading_params.moments[self.vdim :])
+                u_mean = np.array(self.loading_params.moments[: self.vdim])
+                v_th = np.array(self.loading_params.moments[self.vdim :])
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
@@ -1723,7 +1752,7 @@ class Particles(metaclass=ABCMeta):
                         sp.erfinv(
                             2 * self.velocities - 1,
                         )
-                        * xp.sqrt(2)
+                        * np.sqrt(2)
                         * v_th
                         + u_mean
                     )
@@ -1733,16 +1762,16 @@ class Particles(metaclass=ABCMeta):
                         sp.erfinv(
                             2 * self.velocities[:, 0] - 1,
                         )
-                        * xp.sqrt(2)
+                        * np.sqrt(2)
                         * v_th[0]
                         + u_mean[0]
                     )
 
                     self._markers[:n_mks_load_loc, 4] = (
-                        xp.sqrt(
-                            -xp.log(1.0 - self.velocities[:, 1]),
+                        np.sqrt(
+                            -np.log(1.0 - self.velocities[:, 1]),
                         )
-                        * xp.sqrt(2)
+                        * np.sqrt(2)
                         * v_th[1]
                     )
 
@@ -1763,13 +1792,13 @@ class Particles(metaclass=ABCMeta):
 
             # inversion method for drawing uniformly on the disc
             if self.spatial == "disc":
-                self._markers[:n_mks_load_loc, 0] = xp.sqrt(
+                self._markers[:n_mks_load_loc, 0] = np.sqrt(
                     self._markers[:n_mks_load_loc, 0],
                 )
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
-            self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
             if self.loading_params.specific_markers is not None:
@@ -1790,8 +1819,8 @@ class Particles(metaclass=ABCMeta):
             # check if all particle positions are inside the unit cube [0, 1]^3
             n_mks_load_loc = self.n_mks_load[self._mpi_rank]
 
-            assert xp.all(~self.holes[:n_mks_load_loc])
-            assert xp.all(self.holes[n_mks_load_loc:])
+            assert np.all(~self.holes[:n_mks_load_loc])
+            assert np.all(self.holes[n_mks_load_loc:])
 
         if self._initialized_sorting and sort:
             logger.info("\nSorting the markers after initial draw")
@@ -1869,8 +1898,8 @@ class Particles(metaclass=ABCMeta):
 
         # check if all markers are on the right process after sorting
         if do_test:
-            all_on_right_proc = xp.all(
-                xp.logical_and(
+            all_on_right_proc = np.all(
+                np.logical_and(
                     self.positions > self.domain_array[self.mpi_rank, 0::3],
                     self.positions < self.domain_array[self.mpi_rank, 1::3],
                 ),
@@ -1931,22 +1960,28 @@ class Particles(metaclass=ABCMeta):
                 self._set_initial_condition()
 
             # evaluate initial distribution function
+            # NOTE: self.domain/self.f0/self.s0 evaluate on the device (they
+            # follow the global array backend), while markers are always
+            # host-resident, so results are converted back to NumPy at this
+            # marker/field evaluation boundary.
             if self.type == "sph":
-                f_init = self.f_init(self.positions)
+                f_init = _to_numpy_for_kernel(self.f_init(_dev(self.positions)))
             else:
-                f_init = self.f_init(*self.f_coords.T)
+                f_init = _to_numpy_for_kernel(self.f_init(*_dev(*self.f_coords.T)))
 
             # if f_init is vol-form, transform to 0-form
             if self.is_volume_form[0]:
-                f_init /= self.domain.jacobian_det(self.positions)
+                f_init /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions)))
 
             if self.is_volume_form[1]:
-                f_init /= self.f_init.velocity_jacobian_det(
-                    *self.f_jacobian_coords.T,
+                f_init /= _to_numpy_for_kernel(
+                    self.f_init.velocity_jacobian_det(
+                        *_dev(*self.f_jacobian_coords.T),
+                    )
                 )
 
             # compute s0 and save at vdim + 4
-            self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
+            self.sampling_density = _to_numpy_for_kernel(self.s0(*_dev(*self.phasespace_coords.T), flat_eval=True))
 
             # compute w0 and save at vdim + 5
             self.weights0 = f_init / self.sampling_density / self.Np
@@ -1975,37 +2010,37 @@ class Particles(metaclass=ABCMeta):
         """
 
         if self.type == "sph":
-            f0 = self.f0.n0(self.positions)
+            f0 = _to_numpy_for_kernel(self.f0.n0(_dev(self.positions)))
         else:
             # in case of CanonicalMaxwellian, evaluate constants_of_motion
             if self.f0.coords == "constants_of_motion":
                 self.save_constants_of_motion()
-            f0 = self.f0(*self.f_coords.T)
+            f0 = _to_numpy_for_kernel(self.f0(*_dev(*self.f_coords.T)))
 
         # if f_init is vol-form, transform to 0-form
         if self.is_volume_form[0]:
-            f0 /= self.domain.jacobian_det(self.positions)
+            f0 /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions)))
 
         if self.is_volume_form[1]:
-            f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
+            f0 /= _to_numpy_for_kernel(self.f0.velocity_jacobian_det(*_dev(*self.f_jacobian_coords.T)))
 
         self.weights = self.weights0 - f0 / self.sampling_density / self.Np
 
     def reset_marker_ids(self):
         """Reset the marker ids (last column in marker array) according to the current distribution of particles.
         The first marker on rank 0 gets the id '0', the last marker on the last rank gets the id 'n_mks_global - 1'."""
-        n_mks_proc_cumsum = xp.cumsum(self.n_mks_on_each_proc)
-        n_mks_clone_cumsum = xp.cumsum(self.n_mks_on_each_clone)
+        n_mks_proc_cumsum = np.cumsum(self.n_mks_on_each_proc)
+        n_mks_clone_cumsum = np.cumsum(self.n_mks_on_each_clone)
         first_marker_id = (n_mks_clone_cumsum - self.n_mks_on_each_clone)[self.clone_id] + (
             n_mks_proc_cumsum - self.n_mks_on_each_proc
         )[self.mpi_rank]
-        self.marker_ids = first_marker_id + xp.arange(self.n_mks_loc, dtype=int)
+        self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
     @profile
     def binning(
         self,
         components: tuple[bool],
-        bin_edges: tuple[xp.ndarray],
+        bin_edges: tuple[np.ndarray],
         output_quantity: LiteralOptions.BinningQuantity = "density",
         divide_by_jac: bool = True,
     ):
@@ -2035,7 +2070,13 @@ class Particles(metaclass=ABCMeta):
             The reconstructed delta-f distribution function.
         """
 
-        assert xp.count_nonzero(xp.array(components)) == len(bin_edges)
+        assert np.count_nonzero(np.array(components)) == len(bin_edges)
+
+        # bin_edges is caller-supplied and may follow the active array
+        # backend (e.g. built with xp.linspace under CuPy); markers and the
+        # rest of this method are always host-resident, so bring it to NumPy
+        # here, at the marker/caller-data boundary.
+        bin_edges = tuple(_to_numpy_for_kernel(be) for be in bin_edges)
 
         # volume of a bin
         bin_vol = 1.0
@@ -2059,7 +2100,7 @@ class Particles(metaclass=ABCMeta):
         elif quantity == "energy_tensor":
             multiplier = self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
         elif quantity == "heat_flux":
-            velocity_norm2 = xp.linalg.norm(self.velocities, axis=1) ** 2
+            velocity_norm2 = np.linalg.norm(self.velocities, axis=1) ** 2
             multiplier = velocity_norm2 * self.velocities[:, v_axis[0]]
 
         # compute weights of histogram:
@@ -2067,19 +2108,19 @@ class Particles(metaclass=ABCMeta):
         _weights = self.weights * self.Np * multiplier
 
         if divide_by_jac:
-            _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
+            _weights /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions), remove_outside=False))
             # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-            _weights0 /= self.domain.jacobian_det(self.positions, remove_outside=False)
+            _weights0 /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions), remove_outside=False))
             # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-        f_slice = xp.histogramdd(
+        f_slice = np.histogramdd(
             self.markers_wo_holes_and_ghost[:, slicing],
             bins=bin_edges,
             weights=_weights0,
         )[0]
 
-        df_slice = xp.histogramdd(
+        df_slice = np.histogramdd(
             self.markers_wo_holes_and_ghost[:, slicing],
             bins=bin_edges,
             weights=_weights,
@@ -2106,7 +2147,7 @@ class Particles(metaclass=ABCMeta):
 
         import matplotlib.pyplot as plt
 
-        n_dim = xp.count_nonzero(components)
+        n_dim = np.count_nonzero(components)
 
         assert n_dim == 1 or n_dim == 2, f"Distribution function can only be shown in 1D or 2D slices, not {n_dim}."
 
@@ -2122,7 +2163,7 @@ class Particles(metaclass=ABCMeta):
             4: "$v_2$",
             5: "$v_3$",
         }
-        indices = xp.nonzero(components)[0]
+        indices = np.nonzero(components)[0]
 
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice)
@@ -2146,13 +2187,13 @@ class Particles(metaclass=ABCMeta):
         self._is_outside_left[self.holes] = False
         self._is_outside_left[self.ghost_particles] = False
 
-        self._is_outside[:] = xp.logical_or(
+        self._is_outside[:] = np.logical_or(
             self._is_outside_right,
             self._is_outside_left,
         )
 
         # indices or particles that are outside of the logical unit cube
-        outside_inds = xp.nonzero(self._is_outside)[0]
+        outside_inds = np.nonzero(self._is_outside)[0]
 
         return outside_inds
 
@@ -2179,7 +2220,7 @@ class Particles(metaclass=ABCMeta):
                 self.particle_refilling()
 
             self._markers[self._is_outside, :-1] = -1.0
-            self._n_lost_markers += len(xp.nonzero(self._is_outside)[0])
+            self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
         for axis in self._periodic_axes:
             outside_inds = self._find_outside_particles(axis)
@@ -2190,8 +2231,8 @@ class Particles(metaclass=ABCMeta):
             self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
 
             # set shift for alpha-weighted mid-point computation
-            outside_right_inds = xp.nonzero(self._is_outside_right)[0]
-            outside_left_inds = xp.nonzero(self._is_outside_left)[0]
+            outside_right_inds = np.nonzero(self._is_outside_right)[0]
+            outside_left_inds = np.nonzero(self._is_outside_left)[0]
             if newton:
                 self.markers[
                     outside_right_inds,
@@ -2259,12 +2300,12 @@ class Particles(metaclass=ABCMeta):
         for kind in self.bc_refill:
             # sorting out particles which are out of the domain
             if kind == "inner":
-                outside_inds = xp.nonzero(self._is_outside_left)[0]
+                outside_inds = np.nonzero(self._is_outside_left)[0]
                 self.markers[outside_inds, 0] = 1e-4
                 r_loss = self.domain.params["a1"]
 
             else:
-                outside_inds = xp.nonzero(self._is_outside_right)[0]
+                outside_inds = np.nonzero(self._is_outside_right)[0]
                 self.markers[outside_inds, 0] = 1 - 1e-4
                 r_loss = 1.0
 
@@ -2313,12 +2354,12 @@ class Particles(metaclass=ABCMeta):
 
         Parameters
         ----------
-        outside_inds : xp.array (int)
+        outside_inds : np.array (int)
             An array of indices of particles which are outside of the domain.
 
         Returns
         -------
-        out : xp.array (bool)
+        out : np.array (bool)
             An array of indices of particles where its guiding centers are outside of the domain.
         """
 
@@ -2335,18 +2376,18 @@ class Particles(metaclass=ABCMeta):
         b_cart, xyz = self.equil.b_cart(self.markers[outside_inds, :])
 
         # calculate magnetic field amplitude and normalized magnetic field
-        absB0 = xp.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
+        absB0 = np.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
         norm_b_cart = b_cart / absB0
 
         # calculate parallel and perpendicular velocities
-        v_parallel = xp.einsum("ij,ij->j", v, norm_b_cart)
-        v_perp = xp.cross(norm_b_cart, xp.cross(v, norm_b_cart, axis=0), axis=0)
-        v_perp_square = xp.sqrt(v_perp[0] ** 2 + v_perp[1] ** 2 + v_perp[2] ** 2)
+        v_parallel = np.einsum("ij,ij->j", v, norm_b_cart)
+        v_perp = np.cross(norm_b_cart, np.cross(v, norm_b_cart, axis=0), axis=0)
+        v_perp_square = np.sqrt(v_perp[0] ** 2 + v_perp[1] ** 2 + v_perp[2] ** 2)
 
-        assert xp.all(xp.isclose(v_perp, v - norm_b_cart * v_parallel))
+        assert np.all(np.isclose(v_perp, v - norm_b_cart * v_parallel))
 
         # calculate Larmor radius
-        Larmor_r = xp.cross(norm_b_cart, v_perp, axis=0) / absB0 * self._epsilon
+        Larmor_r = np.cross(norm_b_cart, v_perp, axis=0) / absB0 * self._epsilon
 
         # transform cartesian coordinates to logical coordinates
         # TODO: currently only possible with the geomoetry where its inverse map is defined.
@@ -2365,17 +2406,17 @@ class Particles(metaclass=ABCMeta):
         b_cart = self.equil.b_cart(self.markers[outside_inds, :])[0]
 
         # calculate magnetic field amplitude and normalized magnetic field
-        absB0 = xp.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
+        absB0 = np.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
         norm_b_cart = b_cart / absB0
 
         Larmor_r = new_xyz - xyz
-        Larmor_r /= xp.sqrt(Larmor_r[0] ** 2 + Larmor_r[1] ** 2 + Larmor_r[2] ** 2)
+        Larmor_r /= np.sqrt(Larmor_r[0] ** 2 + Larmor_r[1] ** 2 + Larmor_r[2] ** 2)
 
-        new_v_perp = xp.cross(Larmor_r, norm_b_cart, axis=0) * v_perp_square
+        new_v_perp = np.cross(Larmor_r, norm_b_cart, axis=0) * v_perp_square
 
         self.markers[outside_inds, 3:6] = (norm_b_cart * v_parallel).T + new_v_perp.T
 
-        return xp.logical_and(1.0 > gc_etas[0], gc_etas[0] > 0.0)
+        return np.logical_and(1.0 > gc_etas[0], gc_etas[0] > 0.0)
 
     class SortingBoxes:
         """Boxes used for the sorting of the particles.
@@ -2556,26 +2597,26 @@ class Particles(metaclass=ABCMeta):
             n_particles = self._markers_shape[0]
             n_mkr = int(n_particles / n_box_in) + 1
             n_cols = round(
-                float(n_mkr) * (1 + 1 / float(xp.sqrt(n_mkr)) + self._box_bufsize),
+                float(n_mkr) * (1 + 1 / float(np.sqrt(n_mkr)) + self._box_bufsize),
             )
 
             # cartesian boxes
-            self._boxes = xp.zeros((self._n_boxes + 1, n_cols), dtype=int)
+            self._boxes = np.zeros((self._n_boxes + 1, n_cols), dtype=int)
 
             # TODO: there is still a bug here
             # the row number in self._boxes should not be n_boxes + 1; this is just a temporary fix to avoid an error that I dont understand.
             # Must be fixed soon!
 
-            self._next_index = xp.zeros((self._n_boxes + 1), dtype=int)
-            self._cumul_next_index = xp.zeros((self._n_boxes + 2), dtype=int)
-            self._neighbours = xp.zeros((self._n_boxes, 27), dtype=int)
+            self._next_index = np.zeros((self._n_boxes + 1), dtype=int)
+            self._cumul_next_index = np.zeros((self._n_boxes + 2), dtype=int)
+            self._neighbours = np.zeros((self._n_boxes, 27), dtype=int)
 
             # A particle on box i only sees particles in boxes that belong to neighbours[i]
             initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
             # logger.info(f"{self._rank = }\n{self._neighbours = }")
 
-            self._swap_line_1 = xp.zeros(self._markers_shape[1])
-            self._swap_line_2 = xp.zeros(self._markers_shape[1])
+            self._swap_line_1 = np.zeros(self._markers_shape[1])
+            self._swap_line_2 = np.zeros(self._markers_shape[1])
 
         def _set_boundary_boxes(self):
             """Gather all the boxes that are part of a boundary"""
@@ -2729,7 +2770,7 @@ class Particles(metaclass=ABCMeta):
         sorting_axis = self._sorting_boxes.box_index
 
         if not hasattr(self, "_argsort_array"):
-            self._argsort_array = xp.zeros(self.markers.shape[0], dtype=int)
+            self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
 
         self._markers[:, :] = self._markers[self._argsort_array]
@@ -2758,28 +2799,19 @@ class Particles(metaclass=ABCMeta):
             self.update_ghost_particles()
 
         # if self.verbose:
-        #     valid_box_ids = xp.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
+        #     valid_box_ids = np.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
         #     logger.info(f"Boxes holding at least one particle: {valid_box_ids}")
         #     for i in valid_box_ids:
-        #         n_mks_box = xp.count_nonzero(self._sorting_boxes._boxes[i] != -1)
+        #         n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
         #         logger.info(f"Number of markers in box {i} is {n_mks_box}")
 
     def check_and_assign_particles_to_boxes(self):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assigne the particles to boxes."""
 
-        from cunumpy.xp import array_backend
+        bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
 
-        if array_backend.backend == "numpy":
-            bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
-        else:
-            import cupy as cp
-
-            indices = self.markers_wo_holes[:, -2]
-            indices = indices.astype(cp.int64)
-            bcount = cp.bincount(indices)
-
-        max_in_box = xp.max(bcount)
+        max_in_box = np.max(bcount)
         if max_in_box > self._sorting_boxes.boxes.shape[1]:
             warnings.warn(
                 f'Strong load imbalance detected in sorting boxes: \
@@ -2826,7 +2858,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
 
     def remove_ghost_particles(self):
         self.update_ghost_particles()
-        new_holes = xp.nonzero(self.ghost_particles)
+        new_holes = np.nonzero(self.ghost_particles)
         self._markers[new_holes] = -1.0
         self.update_holes()
 
@@ -3066,17 +3098,19 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 if "x_m" in arr_name and is_domain_boundary["x_m"]:
                     arr[:, 0] *= -1.0
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(
-                            *arr[:, :3].T,
+                        # f_init/s0 evaluate on the active array backend; arr is
+                        # always host-resident, so convert at this boundary.
+                        boundary_values = _to_numpy_for_kernel(self.f_init(
+                            *_dev(*arr[:, :3].T),
                             flat_eval=True,
-                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        ))  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = (
                             -boundary_values
-                            / self.s0(
-                                *arr[:, :3].T,
+                            / _to_numpy_for_kernel(self.s0(
+                                *_dev(*arr[:, :3].T),
                                 flat_eval=True,
                                 remove_holes=False,
-                            )
+                            ))
                             / self.Np
                         )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
@@ -3093,17 +3127,19 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 elif "x_p" in arr_name and is_domain_boundary["x_p"]:
                     arr[:, 0] = 2.0 - arr[:, 0]
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(
-                            *arr[:, :3].T,
+                        # f_init/s0 evaluate on the active array backend; arr is
+                        # always host-resident, so convert at this boundary.
+                        boundary_values = _to_numpy_for_kernel(self.f_init(
+                            *_dev(*arr[:, :3].T),
                             flat_eval=True,
-                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        ))  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = (
                             -boundary_values
-                            / self.s0(
-                                *arr[:, :3].T,
+                            / _to_numpy_for_kernel(self.s0(
+                                *_dev(*arr[:, :3].T),
                                 flat_eval=True,
                                 remove_holes=False,
-                            )
+                            ))
                             / self.Np
                         )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
@@ -3122,17 +3158,19 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 if "y_m" in arr_name and is_domain_boundary["y_m"]:
                     arr[:, 1] *= -1.0
                     if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(
-                            *arr[:, :3].T,
+                        # f_init/s0 evaluate on the active array backend; arr is
+                        # always host-resident, so convert at this boundary.
+                        boundary_values = _to_numpy_for_kernel(self.f_init(
+                            *_dev(*arr[:, :3].T),
                             flat_eval=True,
-                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        ))  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = (
                             -boundary_values
-                            / self.s0(
-                                *arr[:, :3].T,
+                            / _to_numpy_for_kernel(self.s0(
+                                *_dev(*arr[:, :3].T),
                                 flat_eval=True,
                                 remove_holes=False,
-                            )
+                            ))
                             / self.Np
                         )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
@@ -3149,17 +3187,19 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 elif "y_p" in arr_name and is_domain_boundary["y_p"]:
                     arr[:, 1] = 2.0 - arr[:, 1]
                     if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(
-                            *arr[:, :3].T,
+                        # f_init/s0 evaluate on the active array backend; arr is
+                        # always host-resident, so convert at this boundary.
+                        boundary_values = _to_numpy_for_kernel(self.f_init(
+                            *_dev(*arr[:, :3].T),
                             flat_eval=True,
-                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        ))  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = (
                             -boundary_values
-                            / self.s0(
-                                *arr[:, :3].T,
+                            / _to_numpy_for_kernel(self.s0(
+                                *_dev(*arr[:, :3].T),
                                 flat_eval=True,
                                 remove_holes=False,
-                            )
+                            ))
                             / self.Np
                         )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
@@ -3178,17 +3218,19 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 if "z_m" in arr_name and is_domain_boundary["z_m"]:
                     arr[:, 2] *= -1.0
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(
-                            *arr[:, :3].T,
+                        # f_init/s0 evaluate on the active array backend; arr is
+                        # always host-resident, so convert at this boundary.
+                        boundary_values = _to_numpy_for_kernel(self.f_init(
+                            *_dev(*arr[:, :3].T),
                             flat_eval=True,
-                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        ))  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = (
                             -boundary_values
-                            / self.s0(
-                                *arr[:, :3].T,
+                            / _to_numpy_for_kernel(self.s0(
+                                *_dev(*arr[:, :3].T),
                                 flat_eval=True,
                                 remove_holes=False,
-                            )
+                            ))
                             / self.Np
                         )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
@@ -3205,17 +3247,19 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                 elif "z_p" in arr_name and is_domain_boundary["z_p"]:
                     arr[:, 2] = 2.0 - arr[:, 2]
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(
-                            *arr[:, :3].T,
+                        # f_init/s0 evaluate on the active array backend; arr is
+                        # always host-resident, so convert at this boundary.
+                        boundary_values = _to_numpy_for_kernel(self.f_init(
+                            *_dev(*arr[:, :3].T),
                             flat_eval=True,
-                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        ))  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = (
                             -boundary_values
-                            / self.s0(
-                                *arr[:, :3].T,
+                            / _to_numpy_for_kernel(self.s0(
+                                *_dev(*arr[:, :3].T),
                                 flat_eval=True,
                                 remove_holes=False,
-                            )
+                            ))
                             / self.Np
                         )  # clarify in case of tesselation: multiple by tile volume (=1/Np) to get the integral value right
                         self._fixed_markers_set[arr_name] = True
@@ -3235,161 +3279,161 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         for i in list_boxes:
             indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i] != -1])
 
-        indices = xp.array(indices, dtype=int)
+        indices = np.array(indices, dtype=int)
         markers_in_box = self.markers[indices]
         return markers_in_box
 
     def get_destinations_box(self):
         """Find the destination proc for the particles to communicate for the box structure."""
-        self._send_info_box = xp.zeros(self.mpi_size, dtype=int)
-        self._send_list_box = [xp.zeros((0, self.n_cols))] * self.mpi_size
+        self._send_info_box = np.zeros(self.mpi_size, dtype=int)
+        self._send_list_box = [np.zeros((0, self.n_cols))] * self.mpi_size
 
         # Faces
         # if self._x_m_proc is not None:
         self._send_info_box[self._x_m_proc] += len(self._markers_x_m)
-        self._send_list_box[self._x_m_proc] = xp.concatenate((self._send_list_box[self._x_m_proc], self._markers_x_m))
+        self._send_list_box[self._x_m_proc] = np.concatenate((self._send_list_box[self._x_m_proc], self._markers_x_m))
 
         # if self._x_p_proc is not None:
         self._send_info_box[self._x_p_proc] += len(self._markers_x_p)
-        self._send_list_box[self._x_p_proc] = xp.concatenate((self._send_list_box[self._x_p_proc], self._markers_x_p))
+        self._send_list_box[self._x_p_proc] = np.concatenate((self._send_list_box[self._x_p_proc], self._markers_x_p))
 
         # if self._y_m_proc is not None:
         self._send_info_box[self._y_m_proc] += len(self._markers_y_m)
-        self._send_list_box[self._y_m_proc] = xp.concatenate((self._send_list_box[self._y_m_proc], self._markers_y_m))
+        self._send_list_box[self._y_m_proc] = np.concatenate((self._send_list_box[self._y_m_proc], self._markers_y_m))
 
         # if self._y_p_proc is not None:
         self._send_info_box[self._y_p_proc] += len(self._markers_y_p)
-        self._send_list_box[self._y_p_proc] = xp.concatenate((self._send_list_box[self._y_p_proc], self._markers_y_p))
+        self._send_list_box[self._y_p_proc] = np.concatenate((self._send_list_box[self._y_p_proc], self._markers_y_p))
 
         # if self._z_m_proc is not None:
         self._send_info_box[self._z_m_proc] += len(self._markers_z_m)
-        self._send_list_box[self._z_m_proc] = xp.concatenate((self._send_list_box[self._z_m_proc], self._markers_z_m))
+        self._send_list_box[self._z_m_proc] = np.concatenate((self._send_list_box[self._z_m_proc], self._markers_z_m))
 
         # if self._z_p_proc is not None:
         self._send_info_box[self._z_p_proc] += len(self._markers_z_p)
-        self._send_list_box[self._z_p_proc] = xp.concatenate((self._send_list_box[self._z_p_proc], self._markers_z_p))
+        self._send_list_box[self._z_p_proc] = np.concatenate((self._send_list_box[self._z_p_proc], self._markers_z_p))
 
         # x-y edges
         # if self._x_m_y_m_proc is not None:
         self._send_info_box[self._x_m_y_m_proc] += len(self._markers_x_m_y_m)
-        self._send_list_box[self._x_m_y_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_proc], self._markers_x_m_y_m),
         )
 
         # if self._x_m_y_p_proc is not None:
         self._send_info_box[self._x_m_y_p_proc] += len(self._markers_x_m_y_p)
-        self._send_list_box[self._x_m_y_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_proc], self._markers_x_m_y_p),
         )
 
         # if self._x_p_y_m_proc is not None:
         self._send_info_box[self._x_p_y_m_proc] += len(self._markers_x_p_y_m)
-        self._send_list_box[self._x_p_y_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_proc], self._markers_x_p_y_m),
         )
 
         # if self._x_p_y_p_proc is not None:
         self._send_info_box[self._x_p_y_p_proc] += len(self._markers_x_p_y_p)
-        self._send_list_box[self._x_p_y_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_proc], self._markers_x_p_y_p),
         )
 
         # x-z edges
         # if self._x_m_z_m_proc is not None:
         self._send_info_box[self._x_m_z_m_proc] += len(self._markers_x_m_z_m)
-        self._send_list_box[self._x_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_z_m_proc], self._markers_x_m_z_m),
         )
 
         # if self._x_m_z_p_proc is not None:
         self._send_info_box[self._x_m_z_p_proc] += len(self._markers_x_m_z_p)
-        self._send_list_box[self._x_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_z_p_proc], self._markers_x_m_z_p),
         )
 
         # if self._x_p_z_m_proc is not None:
         self._send_info_box[self._x_p_z_m_proc] += len(self._markers_x_p_z_m)
-        self._send_list_box[self._x_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_z_m_proc], self._markers_x_p_z_m),
         )
 
         # if self._x_p_z_p_proc is not None:
         self._send_info_box[self._x_p_z_p_proc] += len(self._markers_x_p_z_p)
-        self._send_list_box[self._x_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_z_p_proc], self._markers_x_p_z_p),
         )
 
         # y-z edges
         # if self._y_m_z_m_proc is not None:
         self._send_info_box[self._y_m_z_m_proc] += len(self._markers_y_m_z_m)
-        self._send_list_box[self._y_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._y_m_z_m_proc], self._markers_y_m_z_m),
         )
 
         # if self._y_m_z_p_proc is not None:
         self._send_info_box[self._y_m_z_p_proc] += len(self._markers_y_m_z_p)
-        self._send_list_box[self._y_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._y_m_z_p_proc], self._markers_y_m_z_p),
         )
 
         # if self._y_p_z_m_proc is not None:
         self._send_info_box[self._y_p_z_m_proc] += len(self._markers_y_p_z_m)
-        self._send_list_box[self._y_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._y_p_z_m_proc], self._markers_y_p_z_m),
         )
 
         # if self._y_p_z_p_proc is not None:
         self._send_info_box[self._y_p_z_p_proc] += len(self._markers_y_p_z_p)
-        self._send_list_box[self._y_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._y_p_z_p_proc], self._markers_y_p_z_p),
         )
 
         # corners
         # if self._x_m_y_m_z_m_proc is not None:
         self._send_info_box[self._x_m_y_m_z_m_proc] += len(self._markers_x_m_y_m_z_m)
-        self._send_list_box[self._x_m_y_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_z_m_proc], self._markers_x_m_y_m_z_m),
         )
 
         # if self._x_m_y_m_z_p_proc is not None:
         self._send_info_box[self._x_m_y_m_z_p_proc] += len(self._markers_x_m_y_m_z_p)
-        self._send_list_box[self._x_m_y_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_z_p_proc], self._markers_x_m_y_m_z_p),
         )
 
         # if self._x_m_y_p_z_m_proc is not None:
         self._send_info_box[self._x_m_y_p_z_m_proc] += len(self._markers_x_m_y_p_z_m)
-        self._send_list_box[self._x_m_y_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_z_m_proc], self._markers_x_m_y_p_z_m),
         )
 
         # if self._x_m_y_p_z_p_proc is not None:
         self._send_info_box[self._x_m_y_p_z_p_proc] += len(self._markers_x_m_y_p_z_p)
-        self._send_list_box[self._x_m_y_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_z_p_proc], self._markers_x_m_y_p_z_p),
         )
 
         # if self._x_p_y_m_z_m_proc is not None:
         self._send_info_box[self._x_p_y_m_z_m_proc] += len(self._markers_x_p_y_m_z_m)
-        self._send_list_box[self._x_p_y_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_z_m_proc], self._markers_x_p_y_m_z_m),
         )
 
         # if self._x_p_y_m_z_p_proc is not None:
         self._send_info_box[self._x_p_y_m_z_p_proc] += len(self._markers_x_p_y_m_z_p)
-        self._send_list_box[self._x_p_y_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_z_p_proc], self._markers_x_p_y_m_z_p),
         )
 
         # if self._x_p_y_p_z_m_proc is not None:
         self._send_info_box[self._x_p_y_p_z_m_proc] += len(self._markers_x_p_y_p_z_m)
-        self._send_list_box[self._x_p_y_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_z_m_proc], self._markers_x_p_y_p_z_m),
         )
 
         # if self._x_p_y_p_z_p_proc is not None:
         self._send_info_box[self._x_p_y_p_z_p_proc] += len(self._markers_x_p_y_p_z_p)
-        self._send_list_box[self._x_p_y_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_z_p_proc], self._markers_x_p_y_p_z_p),
         )
 
@@ -3399,7 +3443,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
 
         if self._send_info_box[self.mpi_rank] > 0:
             self.update_holes()
-            holes_inds = xp.nonzero(self.holes)[0]
+            holes_inds = np.nonzero(self.holes)[0]
 
             if holes_inds.size < self._send_info_box[self.mpi_rank]:
                 warnings.warn(
@@ -3421,16 +3465,16 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 # self.update_holes()
                 # self.update_ghost_particles()
                 # self.update_valid_mks()
-                # holes_inds = xp.nonzero(self.holes)[0]
+                # holes_inds = np.nonzero(self.holes)[0]
 
-            self.markers[holes_inds[xp.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
+            self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
     @profile
     def communicate_boxes(self):
         # if verbose:
-        #     n_valid = xp.count_nonzero(self.valid_mks)
-        #     n_holes = xp.count_nonzero(self.holes)
-        #     n_ghosts = xp.count_nonzero(self.ghost_particles)
+        #     n_valid = np.count_nonzero(self.valid_mks)
+        #     n_holes = np.count_nonzero(self.holes)
+        #     n_ghosts = np.count_nonzero(self.ghost_particles)
         #     logger.info(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
 
         self.prepare_ghost_particles()
@@ -3445,9 +3489,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.update_ghost_particles()
 
         # if verbose:
-        #     n_valid = xp.count_nonzero(self.valid_mks)
-        #     n_holes = xp.count_nonzero(self.holes)
-        #     n_ghosts = xp.count_nonzero(self.ghost_particles)
+        #     n_valid = np.count_nonzero(self.valid_mks)
+        #     n_holes = np.count_nonzero(self.holes)
+        #     n_ghosts = np.count_nonzero(self.ghost_particles)
         #     logger.info(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
 
     def sendrecv_all_to_all_boxes(self):
@@ -3456,7 +3500,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         for the communication of particles in boundary boxes.
         """
 
-        self._recv_info_box = xp.zeros(self.mpi_comm.Get_size(), dtype=int)
+        self._recv_info_box = np.zeros(self.mpi_comm.Get_size(), dtype=int)
 
         self.mpi_comm.Alltoall(self._send_info_box, self._recv_info_box)
 
@@ -3467,8 +3511,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
-        first_hole = xp.cumsum(self._recv_info_box) - self._recv_info_box
-        hole_inds = xp.nonzero(self._holes)[0]
+        first_hole = np.cumsum(self._recv_info_box) - self._recv_info_box
+        hole_inds = np.nonzero(self._holes)[0]
         # Initialize send and receive commands
         reqs = []
         recvbufs = []
@@ -3479,7 +3523,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             else:
                 self.mpi_comm.Isend(data, dest=i, tag=self.mpi_comm.Get_rank())
 
-                recvbufs += [xp.zeros((N_recv, self._markers.shape[1]), dtype=float)]
+                recvbufs += [np.zeros((N_recv, self._markers.shape[1]), dtype=float)]
                 reqs += [self.mpi_comm.Irecv(recvbufs[-1], source=i, tag=i)]
 
         # Wait for buffer, then put markers into holes
@@ -3502,7 +3546,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                             self.mpi_comm.Abort()
                             # exit()
 
-                        self._markers[hole_inds[first_hole[i] + xp.arange(self._recv_info_box[i])]] = recvbufs[i]
+                        self._markers[hole_inds[first_hole[i] + np.arange(self._recv_info_box[i])]] = recvbufs[i]
 
                         test_reqs.pop()
                         reqs[i] = None
@@ -3960,10 +4004,12 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         Returns
         -------
-        out : xp.ndarray
+        out : np.ndarray
             Estimated number density (or requested derivative component) at the
-            provided evaluation points. The array uses the same shape as `eta1`
-            and is returned as a `cunumpy` (`xp`) array.
+            provided evaluation points. The array uses the same shape as `eta1`.
+            Always a NumPy array: markers are host-resident (there is no device
+            particle kernel), and `eta1`/`eta2`/`eta3` are converted to NumPy
+            if they arrive as CuPy arrays.
 
         Notes
         -----
@@ -4019,7 +4065,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         Returns
         -------
-        (v1, v2, v3) : tuple of xp.ndarray
+        (v1, v2, v3) : tuple of np.ndarray
             Three arrays containing the estimated velocity components at the
             provided evaluation points. Each array has the same shape as `eta1`.
 
@@ -4032,14 +4078,14 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
 
         first_free_idx = self.args_markers.first_free_idx
-        comps = xp.array((0, 1, 2))
+        comps = np.array((0, 1, 2))
 
         self.put_particles_in_boxes()
 
         func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
 
         func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
+            alpha=np.array((0.0, 0.0, 0.0)),
             column_nr=first_free_idx,
             comps=comps,
             args_markers=self.args_markers,
@@ -4131,7 +4177,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         Returns
         -------
-        (gamma_x, gamma_y, gamma_z) : tuple of xp.ndarray
+        (gamma_x, gamma_y, gamma_z) : tuple of np.ndarray
             Components of the divergence of the viscous stress evaluated at the
             provided points. Each array matches the shape of `eta1`.
 
@@ -4149,9 +4195,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         # 1st kernel
         func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
-        comps = xp.array((0, 1, 2))
+        comps = np.array((0, 1, 2))
         func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
+            alpha=np.array((0.0, 0.0, 0.0)),
             column_nr=first_free_idx,
             comps=comps,
             args_markers=self.args_markers,
@@ -4170,9 +4216,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         # 2nd kernel
         func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
-        comps = xp.arange(9)
+        comps = np.arange(9)
         func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
+            alpha=np.array((0.0, 0.0, 0.0)),
             column_nr=first_free_idx + 3,
             comps=comps,
             args_markers=self.args_markers,
@@ -4218,11 +4264,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
     def eval_sph(
         self,
-        eta1: xp.ndarray,
-        eta2: xp.ndarray,
-        eta3: xp.ndarray,
+        eta1: np.ndarray,
+        eta2: np.ndarray,
+        eta3: np.ndarray,
         index: int,
-        out: xp.ndarray = None,
+        out: np.ndarray = None,
         fast: bool = True,
         kernel_type: str = "gaussian_1d",
         derivative: int = 0,
@@ -4274,12 +4320,18 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         h1, h2, h3 : float
             Radius of the smoothing kernel in each dimension.
         """
-        _shp = xp.shape(eta1)
-        assert _shp == xp.shape(eta2) == xp.shape(eta3)
+        # markers are always host-resident (there is no device particle kernel);
+        # bring evaluation points to the host too so they can be combined with them.
+        eta1 = _to_numpy_for_kernel(eta1)
+        eta2 = _to_numpy_for_kernel(eta2)
+        eta3 = _to_numpy_for_kernel(eta3)
+
+        _shp = np.shape(eta1)
+        assert _shp == np.shape(eta2) == np.shape(eta3)
         if out is not None:
-            assert _shp == xp.shape(out)
+            assert _shp == np.shape(out)
         else:
-            out = xp.zeros_like(eta1)
+            out = np.zeros_like(eta1)
 
         assert derivative in {0, 1, 2, 3}, f"derivative must be 0, 1, 2 or 3, but is {derivative}."
 
@@ -4362,7 +4414,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
     def sendrecv_determine_mtbs(
         self,
-        alpha: list | tuple | xp.ndarray = (1.0, 1.0, 1.0),
+        alpha: list | tuple | np.ndarray = (1.0, 1.0, 1.0),
     ):
         """
         Determine which markers have to be sent from current process and put them in a new array.
@@ -4384,12 +4436,12 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Eta-values of shape (n_send, :) according to which the sorting is performed.
         """
         # position that determines the sorting (including periodic shift of boundary conditions)
-        if not isinstance(alpha, xp.ndarray):
-            alpha = xp.array(alpha, dtype=float)
+        if not isinstance(alpha, np.ndarray):
+            alpha = np.array(alpha, dtype=float)
         assert alpha.size == 3
-        assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
+        assert np.all(alpha >= 0.0) and np.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        xp.mod(
+        np.mod(
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
             + (1.0 - alpha) * self.markers[:, bi : bi + 3],
             1.0,
@@ -4397,22 +4449,22 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         # check which particles are on the current process domain
-        self._is_on_proc_domain = xp.logical_and(
+        self._is_on_proc_domain = np.logical_and(
             self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
             self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
         )
 
         # to stay on the current process, all three columns must be True
-        self._can_stay = xp.all(self._is_on_proc_domain, axis=1)
+        self._can_stay = np.all(self._is_on_proc_domain, axis=1)
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
         self._can_stay[self.ghost_particles] = True
 
         # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
-        send_inds = xp.nonzero(~self._can_stay)[0]
+        send_inds = np.nonzero(~self._can_stay)[0]
 
-        hole_inds_after_send = xp.nonzero(xp.logical_or(~self._can_stay, self.holes))[0]
+        hole_inds_after_send = np.nonzero(np.logical_or(~self._can_stay, self.holes))[0]
 
         return hole_inds_after_send, send_inds
 
@@ -4431,16 +4483,16 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
 
         # One entry for each process
-        send_info = xp.zeros(self.mpi_size, dtype=int)
+        send_info = np.zeros(self.mpi_size, dtype=int)
 
         # TODO: do not loop over all processes, start with neighbours and work outwards (using while)
         for i in range(self.mpi_size):
-            conds = xp.logical_and(
+            conds = np.logical_and(
                 self._sorting_etas[send_inds] > self.domain_array[i, 0::3],
                 self._sorting_etas[send_inds] < self.domain_array[i, 1::3],
             )
 
-            self._send_to_i[i] = xp.nonzero(xp.all(conds, axis=1))[0]
+            self._send_to_i[i] = np.nonzero(np.all(conds, axis=1))[0]
             send_info[i] = self._send_to_i[i].size
 
             self._send_list[i] = self.markers[send_inds][self._send_to_i[i]]
@@ -4462,7 +4514,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Amount of marticles to be received from i-th process.
         """
 
-        recv_info = xp.zeros(self.mpi_size, dtype=int)
+        recv_info = np.zeros(self.mpi_size, dtype=int)
 
         self.mpi_comm.Alltoall(send_info, recv_info)
 
@@ -4482,7 +4534,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
-        first_hole = xp.cumsum(recv_info) - recv_info
+        first_hole = np.cumsum(recv_info) - recv_info
 
         # Initialize send and receive commands
         for i, (data, N_recv) in enumerate(zip(self._send_list, list(recv_info))):
@@ -4492,7 +4544,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             else:
                 self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank)
 
-                self._recvbufs[i] = xp.zeros((N_recv, self.markers.shape[1]), dtype=float)
+                self._recvbufs[i] = np.zeros((N_recv, self.markers.shape[1]), dtype=float)
                 self._reqs[i] = self.mpi_comm.Irecv(self._recvbufs[i], source=i, tag=i)
 
         # Wait for buffer, then put markers into holes
@@ -4514,12 +4566,12 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                             )
                             self.mpi_comm.Abort()
 
-                        self.markers[hole_inds_after_send[first_hole[i] + xp.arange(recv_info[i])]] = self._recvbufs[i]
+                        self.markers[hole_inds_after_send[first_hole[i] + np.arange(recv_info[i])]] = self._recvbufs[i]
 
                         test_reqs.pop()
                         self._reqs[i] = None
 
-    def _gather_scalar_in_subcomm_array(self, scalar: int, out: xp.ndarray = None):
+    def _gather_scalar_in_subcomm_array(self, scalar: int, out: np.ndarray = None):
         """Return an array of length sub_comm.size, where the i-th entry corresponds to the value
         of the scalar on process i.
 
@@ -4528,11 +4580,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         scalar : int
             The scalar value on each process.
 
-        out : xp.ndarray
+        out : np.ndarray
             The returned array (optional).
         """
         if out is None:
-            _tmp = xp.zeros(self.mpi_size, dtype=int)
+            _tmp = np.zeros(self.mpi_size, dtype=int)
         else:
             assert out.size == self.mpi_size
             _tmp = out
@@ -4548,7 +4600,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return _tmp
 
-    def _gather_scalar_in_intercomm_array(self, scalar: int, out: xp.ndarray = None):
+    def _gather_scalar_in_intercomm_array(self, scalar: int, out: np.ndarray = None):
         """Return an array of length inter_comm.size, where the i-th entry corresponds to the value
         of the scalar on clone i.
 
@@ -4557,11 +4609,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         scalar : int
             The scalar value on each clone.
 
-        out : xp.ndarray
+        out : np.ndarray
             The returned array (optional).
         """
         if out is None:
-            _tmp = xp.zeros(self.num_clones, dtype=int)
+            _tmp = np.zeros(self.num_clones, dtype=int)
         else:
             assert out.size == self.num_clones
             _tmp = out
@@ -4590,7 +4642,7 @@ class Tesselation:
     comm : Intracomm
         MPI communicator.
 
-    domain_array : xp.ndarray
+    domain_array : np.ndarray
         A 2d array[float] of shape (comm.Get_size(), 9) holding info on the domain decomposition.
 
     sorting_boxes : Particles.SortingBoxes
@@ -4602,7 +4654,7 @@ class Tesselation:
         tiles_pb: int | float,
         *,
         comm: Intracomm = None,
-        domain_array: xp.ndarray = None,
+        domain_array: np.ndarray = None,
         sorting_boxes: Particles.SortingBoxes = None,
     ):
         if isinstance(tiles_pb, int):
@@ -4620,8 +4672,8 @@ class Tesselation:
             assert domain_array is not None
 
         if domain_array is None:
-            self._starts = xp.zeros(3)
-            self._ends = xp.ones(3)
+            self._starts = np.zeros(3)
+            self._ends = np.ones(3)
         else:
             self._starts = domain_array[self.rank, 0::3]
             self._ends = domain_array[self.rank, 1::3]
@@ -4644,9 +4696,9 @@ class Tesselation:
         if n_boxes == 1:
             self._dims_mask = [True] * 3
         else:
-            self._dims_mask = xp.array(self.boxes_per_dim) > 1
+            self._dims_mask = np.array(self.boxes_per_dim) > 1
 
-        min_tiles = 2 ** xp.count_nonzero(self.dims_mask)
+        min_tiles = 2 ** np.count_nonzero(self.dims_mask)
         assert self.tiles_pb >= min_tiles, (
             f"At least {min_tiles} tiles per sorting box is enforced, but you have {self.tiles_pb}!"
         )
@@ -4669,19 +4721,19 @@ class Tesselation:
         # logger.info(f'{self.dims_mask = }')
 
         # tiles in one sorting box
-        self._nt_per_dim = xp.array([1, 1, 1])
-        _ids = xp.nonzero(self._dims_mask)[0]
+        self._nt_per_dim = np.array([1, 1, 1])
+        _ids = np.nonzero(self._dims_mask)[0]
         for fac in factors_vec:
             _nt = self.nt_per_dim[self._dims_mask]
-            d = _ids[xp.argmin(_nt)]
+            d = _ids[np.argmin(_nt)]
             self._nt_per_dim[d] *= fac
             # logger.info(f'{_nt = }, {d = }, {self.nt_per_dim = }')
 
-        assert xp.prod(self.nt_per_dim) == self.tiles_pb
+        assert np.prod(self.nt_per_dim) == self.tiles_pb
 
         # tiles between [0, box_width] in each direction
-        self._tile_breaks = [xp.linspace(0.0, bw, nt + 1) for bw, nt in zip(self.box_widths, self.nt_per_dim)]
-        self._tile_midpoints = [(xp.roll(tbs, -1)[:-1] + tbs[:-1]) / 2 for tbs in self.tile_breaks]
+        self._tile_breaks = [np.linspace(0.0, bw, nt + 1) for bw, nt in zip(self.box_widths, self.nt_per_dim)]
+        self._tile_midpoints = [(np.roll(tbs, -1)[:-1] + tbs[:-1]) / 2 for tbs in self.tile_breaks]
         self._tile_volume = 1.0
         for tb in self.tile_breaks:
             self._tile_volume *= tb[1]
@@ -4689,8 +4741,8 @@ class Tesselation:
     def draw_markers(self):
         """Draw markers on the tile midpoints."""
         _, eta1 = self._tile_output_arrays()
-        eta2 = xp.zeros_like(eta1)
-        eta3 = xp.zeros_like(eta1)
+        eta2 = np.zeros_like(eta1)
+        eta3 = np.zeros_like(eta1)
 
         nt_x, nt_y, nt_z = self.nt_per_dim
 
@@ -4701,7 +4753,7 @@ class Tesselation:
                 for k in range(self.boxes_per_dim[2]):
                     z_midpoints = self._get_midpoints(k, 2)
 
-                    xx, yy, zz = xp.meshgrid(
+                    xx, yy, zz = np.meshgrid(
                         x_midpoints,
                         y_midpoints,
                         z_midpoints,
@@ -4738,10 +4790,13 @@ class Tesselation:
         self._tile_quad_pts = []
         self._tile_quad_wts = []
         for nq, tb in zip(n_quad, self.tile_breaks):
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(nq)
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(nq)
+            # quadrature_grid follows the active array backend (it is also
+            # used for genuine device grid quadrature elsewhere); tesselation
+            # bookkeeping is always host-resident, so convert back here.
             pts, wts = quadrature_grid(tb[:2], pts_loc, wts_loc)
-            self._tile_quad_pts += [pts[0]]
-            self._tile_quad_wts += [wts[0]]
+            self._tile_quad_pts += [_to_numpy_for_kernel(pts[0])]
+            self._tile_quad_wts += [_to_numpy_for_kernel(wts[0])]
 
     def cell_averages(self, fun, n_quad=None):
         """Compute cell averages of fun over all tiles on current process.
@@ -4765,14 +4820,16 @@ class Tesselation:
                 for k in range(self.boxes_per_dim[2]):
                     z_pts = self._get_box_quad_pts(k, 2)
 
-                    xx, yy, zz = xp.meshgrid(
+                    xx, yy, zz = np.meshgrid(
                         x_pts.flatten(),
                         y_pts.flatten(),
                         z_pts.flatten(),
                         indexing="ij",
                     )
 
-                    fun_vals = fun(xx, yy, zz)
+                    # fun (f_init/domain transform) follows the active array
+                    # backend; tesselation bookkeeping is always host-resident.
+                    fun_vals = _to_numpy_for_kernel(fun(*_dev(xx, yy, zz)))
 
                     sampling_kernels.tile_int_kernel(
                         fun_vals,
@@ -4794,9 +4851,9 @@ class Tesselation:
         * the first with one entry for each tile on one sorting box
         * the second with one entry for each tile on current process
         """
-        # self._quad_pts = [xp.zeros((nt, nq)).flatten() for nt, nq in zip(self.nt_per_dim, self.tile_quad_pts)]
-        single_box_out = xp.zeros(self.nt_per_dim)
-        out = xp.tile(single_box_out, self.boxes_per_dim)
+        # self._quad_pts = [np.zeros((nt, nq)).flatten() for nt, nq in zip(self.nt_per_dim, self.tile_quad_pts)]
+        single_box_out = np.zeros(self.nt_per_dim)
+        out = np.tile(single_box_out, self.boxes_per_dim)
         return single_box_out, out
 
     def _get_midpoints(self, i: int, dim: int):
@@ -4817,13 +4874,13 @@ class Tesselation:
 
         Returns
         -------
-        x_pts : xp.array
+        x_pts : np.array
             2d array of shape (n_tiles_pb, n_tile_quad_pts)
         """
         xl = self.starts[dim] + i * self.box_widths[dim]
         x_tile_breaks = xl + self.tile_breaks[dim][:-1]
         x_tile_pts = self.tile_quad_pts[dim]
-        x_pts = xp.tile(x_tile_breaks, (x_tile_pts.size, 1)).T + x_tile_pts
+        x_pts = np.tile(x_tile_breaks, (x_tile_pts.size, 1)).T + x_tile_pts
         return x_pts
 
     @property

@@ -113,7 +113,9 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
 
     params = {
         "grid": {"num_elements": num_elements},
-        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(num_elements)}}},
+        # num_elements is a plain Python list; CuPy's prod() (unlike NumPy's)
+        # doesn't accept one, so wrap it explicitly.
+        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(xp.array(num_elements))}}},
     }
 
     grid = TensorProductGrid(num_elements=num_elements)
@@ -175,9 +177,10 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
 
     _sqrtg = float(domain.jacobian_det(0.5, 0.5, 0.5, squeeze_out=True))
 
+    # particles.weights is always host (NumPy).
     logger.info(
-        f"rank {mpi_rank}: weights min={float(xp.min(particles.weights)):.6g}, "
-        f"max={float(xp.max(particles.weights)):.6g}  "
+        f"rank {mpi_rank}: weights min={float(particles.weights.min()):.6g}, "
+        f"max={float(particles.weights.max()):.6g}  "
         f"(expected range [{0.5 * _sqrtg / Np:.6g}, {1.5 * _sqrtg / Np:.6g}])"
     )
 
@@ -466,8 +469,13 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     # indexing particles.markers directly, since those already apply the #
     # correct valid_mks mask (excludes holes and ghosts).                #
     # ------------------------------------------------------------------ #
+    # particles.positions is always host (NumPy), while n_xyz (like the rest
+    # of this file) follows the active array backend; convert both ways here.
     eta = particles.positions
-    particles.markers[particles.valid_mks, particles.first_free_idx] = n_xyz(eta[:, 0], eta[:, 1], eta[:, 2])
+    n_vals = n_xyz(xp.asarray(eta[:, 0]), xp.asarray(eta[:, 1]), xp.asarray(eta[:, 2]))
+    if hasattr(n_vals, "get"):
+        n_vals = n_vals.get()
+    particles.markers[particles.valid_mks, particles.first_free_idx] = n_vals
 
     # ------------------------------------------------------------------ #
     # Accumulate the weak-divergence-1form RHS vector V^1.                #
