@@ -800,9 +800,34 @@ well, and the following regions are recorded out of the box:
    ``setup: geometry vtk``, ``setup: plasma params``,
    ``setup: initial diagnostics``, ``setup: hdf5 datasets`` and, for restarted
    runs, ``setup: restart``.
-3. Time loop: ``model.integrate`` (with the nested ``prop: <PropagatorName>``
-   and ``kernel: <kernel_name>`` regions), ``diagnostics``, ``save data`` and
+3. Time loop: ``model.integrate``, ``diagnostics``, ``save data`` and
    ``sort particles``.
+
+Inside ``model.integrate`` the regions nest as follows:
+
+1. ``prop: <PropagatorName>``, one per propagator call (twice per step for the
+   half steps of Strang splitting).
+2. Particle pushing: ``pusher: <kernel_name>`` for a full
+   :class:`~struphy.pic.pushing.pusher.Pusher` call, containing one
+   ``kernel: <kernel_name>`` region per pusher, init and eval kernel call.
+3. Accumulation: ``accum: <kernel_name>`` for a full
+   :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` call,
+   containing the ``kernel: <kernel_name>`` region of the accumulation kernel
+   and ``accum comm: <kernel_name>`` for the assembly/ghost-region exchange and
+   the inter-clone ``Allreduce``.
+4. Particle bookkeeping and communication, recorded wherever they are called
+   from: ``mpi_sort_markers``, ``apply_kinetic_bc``, ``put_particles_in_boxes``
+   and ``do_sort``.
+5. Linear solves: ``solve: SchurSolver``, ``solve: SchurSolverFull``,
+   ``solve: SchurSolverFull3``, ``solve: SaddlePointSolver``,
+   ``solve: ODEsolverFEEC`` for the shared solver classes, and
+   ``solve: <PropagatorName>`` for propagators that call a
+   ``feectools`` inverse operator directly.
+6. ``update_feec_variables`` for writing back FEEC coefficients (includes the
+   ghost-region update).
+
+Since regions nest, the sum over all regions exceeds the wall-clock time; use
+the flame graph (below) to read the containment.
 
 Example configuration:
 

@@ -184,7 +184,7 @@ class Simulation(SimulationBase):
                 self.env.sim_folder,
                 "profiling_data.h5",
             ),
-            label=self.env.profiling_label,
+            label=self.env.sim_label,
         )
 
     def show_parameters(self):
@@ -848,7 +848,8 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         if self.clone_config is not None:
             self.clone_config.free()
 
-        ProfileManager.finalize()
+        ProfileManager.finalize(verbose=True)
+        print('done')
 
     def pproc(
         self,
