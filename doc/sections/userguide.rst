@@ -780,8 +780,6 @@ Struphy's simulation-wide profiler is configured in
 The relevant switches live in :class:`~struphy.EnvironmentOptions`:
 
 1. ``profiling_activated=True`` enables profiling data collection.
-2. ``profiling_trace=True`` additionally records a time trace of profiling
-   regions.
 
 The profiler is set up automatically in ``Simulation.__init__()`` and finalized
 when ``Simulation.run()`` finishes. The simulation code already wraps key work
