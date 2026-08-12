@@ -33,9 +33,15 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 
 # Pyccel kernels only understand NumPy arrays; wrap the ones called directly
 # in this module so they also work with CuPy arrays (see cunumpy.kernel).
+#
+# `outputs` names the arguments the kernel writes to. Without it every array
+# that was copied to the host is copied back to the device afterwards, which on
+# these kernels means shipping the spline coefficients and the knot vectors
+# back on every single call even though only the result array changed. The
+# indices refer to positional arguments, which is how they are called below.
 eval_3d.eval_spline_mpi_sparse_meshgrid = PyccelKernel(eval_3d.eval_spline_mpi_sparse_meshgrid)
 eval_3d.eval_spline_mpi_markers = PyccelKernel(eval_3d.eval_spline_mpi_markers)
-eval_3d.eval_spline_mpi_matrix = PyccelKernel(eval_3d.eval_spline_mpi_matrix)
+eval_3d.eval_spline_mpi_matrix = PyccelKernel(eval_3d.eval_spline_mpi_matrix, outputs=(10,))
 eval_spline_mpi_tensor_product_fixed = PyccelKernel(eval_spline_mpi_tensor_product_fixed)
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
