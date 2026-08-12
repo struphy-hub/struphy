@@ -14,6 +14,21 @@ the grid, the Derham options, and the initial conditions.
 Users can modify this file to set up their own simulations with different parameters and initial conditions.
 """
 
+import argparse
+import os
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument(
+    "--backend",
+    choices=("numpy", "cupy"),
+    default="numpy",
+    help="Array backend to run the simulation with (default: numpy).",
+)
+args = parser.parse_args()
+
+# Must be set before struphy (and therefore cunumpy) is imported.
+os.environ["ARRAY_BACKEND"] = args.backend
+
 import logging
 from struphy import set_logging_level
 set_logging_level(logging.WARNING)
@@ -71,7 +86,11 @@ model.energetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(profiling_activated=True, profiling_trace=True)
+env = EnvironmentOptions(
+    sim_folder=f"sim_{args.backend}",
+    profiling_activated=True,
+    profiling_trace=True,
+)
 
 # Time stepping
 time_opts = Time()
@@ -83,7 +102,7 @@ domain = domains.Cuboid()
 equil = equils.HomogenSlab()
 
 # Grid
-grid = grids.TensorProductGrid()
+grid = grids.TensorProductGrid(num_elements = (16, 16, 16))
 
 # Derham options
 derham_opts = DerhamOptions()
