@@ -108,8 +108,10 @@ def push_v_sph_pressure(
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[1]
 
-    # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
-    # -- removed omp: #$ omp for
+    # fmt: off
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    #$ omp for
+    # fmt: on
     for ip in range(n_markers):
         if not valid_mks[ip]:
             continue
@@ -265,7 +267,9 @@ def push_v_sph_pressure(
         # update velocities
         markers[ip, 3:6] -= dt * (grad_u_cart - gravity)
 
-    # -- removed omp: #$ omp end parallel
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
 
 
 @stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
@@ -356,8 +360,10 @@ def push_v_sph_pressure_ideal_gas(
 
     gamma = 5 / 3
 
-    # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
-    # -- removed omp: #$ omp for
+    # fmt: off
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    #$ omp for
+    # fmt: on
     for ip in range(n_markers):
         if not valid_mks[ip]:
             continue
@@ -512,7 +518,9 @@ def push_v_sph_pressure_ideal_gas(
         # update velocities
         markers[ip, 3:6] -= dt * (grad_u_cart - gravity)
 
-    # -- removed omp: #$ omp end parallel
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
 
 
 @stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
@@ -595,8 +603,10 @@ def push_v_viscosity(
     f_visc = zeros(3, dtype=float)
     f_visc_cart = zeros(3, dtype=float)
 
-    # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
-    # -- removed omp: #$ omp for
+    # fmt: off
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    #$ omp for
+    # fmt: on
     for ip in range(n_markers):
         if not valid_mks[ip]:
             continue
@@ -659,4 +669,6 @@ def push_v_viscosity(
         # update velocities
         markers[ip, 3:6] -= dt * (f_visc_cart)
 
-    # -- removed omp: #$ omp end parallel
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
