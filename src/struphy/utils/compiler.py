@@ -29,11 +29,8 @@ class Compiler:
     compiler_config : str, optional
         Path to a JSON compiler config file. Takes precedence over `compiler` if given.
 
-    omp_pic : bool
-        Whether to compile PIC kernels with OpenMP (default=False).
-
-    omp_feec : bool
-        Whether to compile FEEC kernels with OpenMP (default=False).
+    openmp : bool
+        Whether to compile all kernels with OpenMP (default=False).
 
     verbose : bool
         Call pyccel in verbose mode (default=False).
@@ -58,8 +55,7 @@ class Compiler:
         language: Language = "fortran",
         compiler: CompilerFamily = "GNU",
         compiler_config: Optional[str] = None,
-        omp_pic: bool = False,
-        omp_feec: bool = False,
+        openmp: bool = False,
         verbose: bool = False,
         time_execution: bool = False,
         yes: bool = False,
@@ -67,8 +63,7 @@ class Compiler:
         self.language = language.lower()
         self.compiler = compiler
         self.compiler_config = compiler_config
-        self.omp_pic = omp_pic
-        self.omp_feec = omp_feec
+        self.openmp = openmp
         self.verbose = verbose
         self.time_execution = time_execution
         self.yes = yes
@@ -78,8 +73,7 @@ class Compiler:
         language: Optional[Language] = None,
         compiler: Optional[CompilerFamily] = None,
         compiler_config: Optional[str] = None,
-        omp_pic: Optional[bool] = None,
-        omp_feec: Optional[bool] = None,
+        openmp: Optional[bool] = None,
         verbose: Optional[bool] = None,
         time_execution: Optional[bool] = None,
         yes: Optional[bool] = None,
@@ -101,11 +95,8 @@ class Compiler:
         compiler_config : str, optional
             Path to a JSON compiler config file. Takes precedence over `compiler` if given.
 
-        omp_pic : bool
-            Whether to compile PIC kernels with OpenMP (default=False).
-
-        omp_feec : bool
-            Whether to compile FEEC kernels with OpenMP (default=False).
+        openmp : bool
+            Whether to compile all kernels with OpenMP (default=False).
 
         verbose : bool
             Call pyccel in verbose mode (default=False).
@@ -122,10 +113,8 @@ class Compiler:
             self.compiler = compiler
         if compiler_config is not None:
             self.compiler_config = compiler_config
-        if omp_pic is not None:
-            self.omp_pic = omp_pic
-        if omp_feec is not None:
-            self.omp_feec = omp_feec
+        if openmp is not None:
+            self.openmp = openmp
         if verbose is not None:
             self.verbose = verbose
         if time_execution is not None:
@@ -137,8 +126,7 @@ class Compiler:
             language=self.language,
             compiler=self.compiler,
             compiler_config=self.compiler_config,
-            omp_pic=self.omp_pic,
-            omp_feec=self.omp_feec,
+            openmp=self.openmp,
             delete=False,
             status=False,
             verbose=self.verbose,
@@ -153,8 +141,7 @@ class Compiler:
             language="fortran",
             compiler="GNU",
             compiler_config=None,
-            omp_pic=False,
-            omp_feec=False,
+            openmp=False,
             delete=False,
             status=True,
             verbose=False,
@@ -169,8 +156,7 @@ class Compiler:
             language="fortran",
             compiler="GNU",
             compiler_config=None,
-            omp_pic=False,
-            omp_feec=False,
+            openmp=False,
             delete=True,
             status=False,
             verbose=False,
@@ -185,8 +171,7 @@ class Compiler:
             language="fortran",
             compiler="GNU",
             compiler_config=None,
-            omp_pic=False,
-            omp_feec=False,
+            openmp=False,
             delete=False,
             status=False,
             verbose=False,
@@ -201,8 +186,7 @@ class Compiler:
             "language": self.language,
             "compiler": self.compiler,
             "compiler_config": self.compiler_config,
-            "omp_pic": self.omp_pic,
-            "omp_feec": self.omp_feec,
+            "openmp": self.openmp,
             "verbose": self.verbose,
             "time_execution": self.time_execution,
             "yes": self.yes,
