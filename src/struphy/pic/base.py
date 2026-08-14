@@ -819,7 +819,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks_loc(self):
         """Number of valid markers on process (without holes and ghosts)."""
-        return xp.count_nonzero(self.valid_mks)
+        return np.count_nonzero(self.valid_mks)
 
     @property
     def n_mks_on_each_proc(self):
@@ -848,7 +848,7 @@ class Particles(metaclass=ABCMeta):
 
     @positions.setter
     def positions(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3)
         self._markers[self.valid_mks, self.index["pos"]] = new
 
@@ -859,7 +859,7 @@ class Particles(metaclass=ABCMeta):
 
     @velocities.setter
     def velocities(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc =} and {self.vdim =} but {new.shape =}"
         self._markers[self.valid_mks, self.index["vel"]] = new
 
@@ -870,7 +870,7 @@ class Particles(metaclass=ABCMeta):
 
     @phasespace_coords.setter
     def phasespace_coords(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3 + self.vdim)
         self._markers[self.valid_mks, self.index["coords"]] = new
 
@@ -881,7 +881,7 @@ class Particles(metaclass=ABCMeta):
 
     @weights.setter
     def weights(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["weights"]] = new
 
@@ -892,7 +892,7 @@ class Particles(metaclass=ABCMeta):
 
     @sampling_density_values.setter
     def sampling_density_values(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["s0"]] = new
 
@@ -903,7 +903,7 @@ class Particles(metaclass=ABCMeta):
 
     @weights0.setter
     def weights0(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["w0"]] = new
 
@@ -914,7 +914,7 @@ class Particles(metaclass=ABCMeta):
 
     @marker_ids.setter
     def marker_ids(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["ids"]] = new
 
@@ -925,7 +925,7 @@ class Particles(metaclass=ABCMeta):
 
     @f_coords.setter
     def f_coords(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         self.markers[self.valid_mks, self.f_coords_index] = new
 
     @property
@@ -938,7 +938,7 @@ class Particles(metaclass=ABCMeta):
 
     @f_jacobian_coords.setter
     def f_jacobian_coords(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         if isinstance(self.f_jacobian_coords_index, list):
             self.markers[
                 xp.ix_(
@@ -1171,8 +1171,8 @@ class Particles(metaclass=ABCMeta):
         self._update_ghost_particles()
 
         # cumulative sum of number of markers on each process at loading stage.
-        n_mks_load_cum_sum = xp.cumsum(self.n_mks_load)
-        Np_per_clone_cum_sum = xp.cumsum(self.Np_per_clone)
+        n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+        Np_per_clone_cum_sum = np.cumsum(self.Np_per_clone)
         _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (
             n_mks_load_cum_sum - self.n_mks_load
         )[self._mpi_rank]
@@ -1200,7 +1200,7 @@ class Particles(metaclass=ABCMeta):
                 self._set_initial_condition()
                 self.velocities = _to_numpy_for_kernel(self.u_init(_dev(self.positions))).T
             # set markers ID in last column
-            self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
         else:
             logger.debug("\nLoading fresh markers:")
             for key, val in self.loading_params.__dict__.items():
@@ -1247,7 +1247,7 @@ class Particles(metaclass=ABCMeta):
                 # set new n_mks_load
                 self.gather_scalar_in_subcomm_array(num_loaded_particles_loc, out=self.n_mks_load)
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
-                n_mks_load_cum_sum = xp.cumsum(self.n_mks_load)
+                n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
                 # set new holes in markers array to -1
                 self._markers[num_loaded_particles_loc:] = -1.0
@@ -1374,7 +1374,7 @@ class Particles(metaclass=ABCMeta):
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
-            self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
             if self.loading_params.specific_markers is not None:
@@ -2243,7 +2243,7 @@ class Particles(metaclass=ABCMeta):
             The returned array (optional).
         """
         if out is None:
-            _tmp = xp.zeros(self.mpi_size, dtype=int)
+            _tmp = np.zeros(self.mpi_size, dtype=int)
         else:
             assert out.size == self.mpi_size
             _tmp = out
@@ -2271,7 +2271,7 @@ class Particles(metaclass=ABCMeta):
             The returned array (optional).
         """
         if out is None:
-            _tmp = xp.zeros(self.num_clones, dtype=int)
+            _tmp = np.zeros(self.num_clones, dtype=int)
         else:
             assert out.size == self.num_clones
             _tmp = out
@@ -2321,7 +2321,7 @@ class Particles(metaclass=ABCMeta):
         if mpi_dims_mask is None:
             mpi_dims_mask = [True, True, True]
 
-        dom_arr = xp.zeros((self.mpi_size, 9), dtype=float)
+        dom_arr = np.zeros((self.mpi_size, 9), dtype=float)
 
         # factorize mpi size
         factors = factorint(self.mpi_size)
@@ -2348,7 +2348,7 @@ class Particles(metaclass=ABCMeta):
         assert xp.prod(nprocs) == self.mpi_size
 
         # domain decomposition
-        breaks = [xp.linspace(0.0, 1.0, nproc + 1) for nproc in nprocs]
+        breaks = [np.linspace(0.0, 1.0, nproc + 1) for nproc in nprocs]
 
         # fill domain array
         for n in range(self.mpi_size):
@@ -2784,12 +2784,12 @@ class Particles(metaclass=ABCMeta):
     def _reset_marker_ids(self):
         """Reset the marker ids (last column in marker array) according to the current distribution of particles.
         The first marker on rank 0 gets the id '0', the last marker on the last rank gets the id 'n_mks_global - 1'."""
-        n_mks_proc_cumsum = xp.cumsum(self.n_mks_on_each_proc)
-        n_mks_clone_cumsum = xp.cumsum(self.n_mks_on_each_clone)
+        n_mks_proc_cumsum = np.cumsum(self.n_mks_on_each_proc)
+        n_mks_clone_cumsum = np.cumsum(self.n_mks_on_each_clone)
         first_marker_id = (n_mks_clone_cumsum - self.n_mks_on_each_clone)[self.clone_id] + (
             n_mks_proc_cumsum - self.n_mks_on_each_proc
         )[self.mpi_rank]
-        self.marker_ids = first_marker_id + xp.arange(self.n_mks_loc, dtype=int)
+        self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
     def _find_outside_particles(self, axis):
         """Find markers whose ``axis``-th logical coordinate lies outside ``[0, 1]``
@@ -3705,7 +3705,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 # self._update_valid_mks()
                 # holes_inds = xp.nonzero(self.holes)[0]
 
-            self.markers[holes_inds[xp.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
+            self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
     def _sendrecv_all_to_all_boxes(self):
         """
@@ -3724,7 +3724,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
-        first_hole = xp.cumsum(self._recv_info_box) - self._recv_info_box
+        first_hole = np.cumsum(self._recv_info_box) - self._recv_info_box
         hole_inds = xp.nonzero(self._holes)[0]
         # Initialize send and receive commands
         reqs = []
@@ -3759,7 +3759,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                             self.mpi_comm.Abort()
                             # exit()
 
-                        self._markers[hole_inds[first_hole[i] + xp.arange(self._recv_info_box[i])]] = recvbufs[i]
+                        self._markers[hole_inds[first_hole[i] + np.arange(self._recv_info_box[i])]] = recvbufs[i]
 
                         test_reqs.pop()
                         reqs[i] = None
@@ -4467,7 +4467,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
-        first_hole = xp.cumsum(recv_info) - recv_info
+        first_hole = np.cumsum(recv_info) - recv_info
 
         # Initialize send and receive commands
         for i, (data, N_recv) in enumerate(zip(self._send_list, list(recv_info))):
@@ -4499,7 +4499,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                             )
                             self.mpi_comm.Abort()
 
-                        self.markers[hole_inds_after_send[first_hole[i] + xp.arange(recv_info[i])]] = self._recvbufs[i]
+                        self.markers[hole_inds_after_send[first_hole[i] + np.arange(recv_info[i])]] = self._recvbufs[i]
 
                         test_reqs.pop()
                         self._reqs[i] = None
