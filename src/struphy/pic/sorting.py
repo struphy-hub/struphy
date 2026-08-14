@@ -1,5 +1,7 @@
 import logging
 
+import numpy as np
+
 try:
     from mpi4py.MPI import Intracomm
 except ModuleNotFoundError:
@@ -233,18 +235,19 @@ class SortingBoxes:
             n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
         )
 
-        # cartesian boxes (extra last row stores holes/outside particles)
-        self._boxes = xp.full((self._n_boxes + 1, n_cols), -1, dtype=int)
-        self._next_index = xp.zeros((self._n_boxes + 1), dtype=int)
-        self._cumul_next_index = xp.zeros((self._n_boxes + 2), dtype=int)
-        self._neighbours = xp.zeros((self._n_boxes, 27), dtype=int)
+        # cartesian boxes (extra last row stores holes/outside particles); host-resident,
+        # read/written directly by the compiled, host-only sorting kernels
+        self._boxes = np.full((self._n_boxes + 1, n_cols), -1, dtype=int)
+        self._next_index = np.zeros((self._n_boxes + 1), dtype=int)
+        self._cumul_next_index = np.zeros((self._n_boxes + 2), dtype=int)
+        self._neighbours = np.zeros((self._n_boxes, 27), dtype=int)
 
         # A particle on box i only sees particles in boxes that belong to neighbours[i]
         initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
         # logger.info(f"{self._rank = }\n{self._neighbours = }")
 
-        self._swap_line_1 = xp.zeros(self._markers_shape[1])
-        self._swap_line_2 = xp.zeros(self._markers_shape[1])
+        self._swap_line_1 = np.zeros(self._markers_shape[1])
+        self._swap_line_2 = np.zeros(self._markers_shape[1])
 
     def _set_boundary_boxes(self):
         """Collect the (flat) indices of all non-ghost boxes that lie on the outer surface
