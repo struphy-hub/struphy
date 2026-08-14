@@ -15,6 +15,7 @@ except ModuleNotFoundError:
         x = None
 
 
+import cunumpy
 import numpy as np
 from cunumpy import PyccelKernel
 from cunumpy import to_cunumpy
@@ -83,6 +84,37 @@ def _dev(*arrays):
     the global backend rather than the (always host-resident) markers."""
     out = tuple(to_cunumpy(a) for a in arrays)
     return out[0] if len(out) == 1 else out
+
+
+def _pinned_zeros(shape, dtype=float):
+    """Allocate a zeroed NumPy array, backed by page-locked ("pinned") host
+    memory when the active backend is CuPy.
+
+    The returned object is a plain ``numpy.ndarray`` in every respect
+    (Pyccel kernels, aliasing with ``args_markers.markers``, etc. all work
+    exactly as with a regular allocation) — pinning only changes how fast the
+    *host* memory can later be DMA'd to/from the device. Pageable memory
+    (the default) transfers the full markers array at roughly PCIe-over-copy
+    speed (~90 ms for 137 MiB, measured); pinned memory reaches near the
+    PCIe link's true bandwidth (~5 ms for the same array), which is what
+    makes it worthwhile to bounce the per-step vectorized bookkeeping
+    (:meth:`Particles._find_outside_particles`, the column-block resets in
+    :class:`~struphy.pic.pushing.pusher.Pusher`) through the device.
+
+    Under the NumPy backend nothing is ever transferred, so pinning would
+    only tie up a scarcer resource for no benefit; a plain allocation is
+    used instead.
+    """
+    if not cunumpy.cupy_backend:
+        return np.zeros(shape, dtype=dtype)
+    import cupy as cp
+
+    size = int(np.prod(shape))
+    nbytes = size * np.dtype(dtype).itemsize
+    mem = cp.cuda.alloc_pinned_memory(nbytes)
+    arr = np.frombuffer(mem, dtype=dtype, count=size).reshape(shape)
+    arr[:] = 0
+    return arr
 
 
 class Particles(metaclass=ABCMeta):
@@ -1181,12 +1213,21 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
+        self._markers = _pinned_zeros((self.n_rows, self.n_cols), dtype=float)
 
         # allocate auxiliary arrays
         self._holes = np.zeros(self.n_rows, dtype=bool)
         self._ghost_particles = np.zeros(self.n_rows, dtype=bool)
         self._valid_mks = np.zeros(self.n_rows, dtype=bool)
+
+        # device-resident copies of _holes/_ghost_particles used by
+        # _find_outside_particles_gpu; re-synced lazily, only when stale
+        # (see _holes_ghost_dev and the dirty flag set in update_holes()/
+        # update_ghost_particles(), the only two places that mutate the
+        # host arrays in place).
+        self._holes_dev = None
+        self._ghost_dev = None
+        self._holes_ghost_dev_dirty = True
         self._is_outside_right = np.zeros(self.n_rows, dtype=bool)
         self._is_outside_left = np.zeros(self.n_rows, dtype=bool)
         self._is_outside = np.zeros(self.n_rows, dtype=bool)
@@ -2178,6 +2219,9 @@ class Particles(metaclass=ABCMeta):
         plt.show()
 
     def _find_outside_particles(self, axis):
+        if cunumpy.cupy_backend:
+            return self._find_outside_particles_gpu(axis)
+
         # determine particles outside of the logical unit cube
         self._is_outside_right[:] = self.markers[:, axis] > 1.0
         self._is_outside_left[:] = self.markers[:, axis] < 0.0
@@ -2193,6 +2237,50 @@ class Particles(metaclass=ABCMeta):
         )
 
         # indices or particles that are outside of the logical unit cube
+        outside_inds = np.nonzero(self._is_outside)[0]
+
+        return outside_inds
+
+    def _find_outside_particles_gpu(self, axis):
+        """Device version of :meth:`_find_outside_particles`.
+
+        ``self.markers[:, axis]`` is a single column out of ``n_cols``, so
+        reading it is a heavily strided gather; the reference (CPU) version
+        pays that cost twice (once each for the ``>`` and ``<`` comparison).
+        Reading it once into a device array and doing both comparisons plus
+        the hole/ghost masking there is measurably faster end-to-end even
+        after paying for the host<->device copies, because ``self._markers``
+        is pinned memory (see :func:`_pinned_zeros`) — the transfers alone
+        run at a few hundred MiB, not tens of ms.
+
+        ``holes``/``ghost_particles`` are re-transferred only when stale
+        (see ``_holes_ghost_dev_dirty``), since they are unchanged across
+        the several axes checked per :meth:`apply_kinetic_bc` call and are
+        only ever updated in place by :meth:`update_holes`/
+        :meth:`update_ghost_particles`.
+        """
+        import cupy as cp
+
+        col_dev = cp.asarray(self.markers[:, axis])
+
+        if self._holes_ghost_dev_dirty or self._holes_dev is None:
+            self._holes_dev = cp.asarray(self.holes)
+            self._ghost_dev = cp.asarray(self.ghost_particles)
+            self._holes_ghost_dev_dirty = False
+        holes_dev = self._holes_dev
+        ghost_dev = self._ghost_dev
+
+        is_r = col_dev > 1.0
+        is_l = col_dev < 0.0
+        not_hole_or_ghost = ~(holes_dev | ghost_dev)
+        is_r &= not_hole_or_ghost
+        is_l &= not_hole_or_ghost
+        is_out = is_r | is_l
+
+        is_r.get(out=self._is_outside_right)
+        is_l.get(out=self._is_outside_left)
+        is_out.get(out=self._is_outside)
+
         outside_inds = np.nonzero(self._is_outside)[0]
 
         return outside_inds
@@ -4403,11 +4491,13 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
     def update_holes(self):
         """Compute new holes, new number of holes and markers on process"""
         self._holes[:] = self.markers[:, 0] == -1.0
+        self._holes_ghost_dev_dirty = True
         self.update_valid_mks()
 
     def update_ghost_particles(self):
         """Compute new particles that belong to boundary processes needed for sph evaluation"""
         self._ghost_particles[:] = self.markers[:, -1] == -2.0
+        self._holes_ghost_dev_dirty = True
         self.update_valid_mks()
 
     ### MPI comm for domain decomposition ###
