@@ -149,7 +149,7 @@ class Simulation(SimulationBase):
         self.name = name
         self.description = description
         self.params_path = params_path
-        self.env = env # Set name first since it's used as a label
+        self.env = env  # Set name first since it's used as a label
         self.time_opts = time_opts
         self.domain = domain
         self.equil = equil
@@ -1830,7 +1830,7 @@ if __name__ == "__main__":
 
         # create output folders
         self._setup_folders()
-        self._setup_profiling(label = self.name)
+        self._setup_profiling(label=self.name)
 
     @property
     def time_opts(self):
