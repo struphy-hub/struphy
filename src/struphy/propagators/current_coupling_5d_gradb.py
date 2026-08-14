@@ -95,7 +95,7 @@ class CurrentCoupling5DGradB(Propagator):
         @energetic_ions.setter
         def energetic_ions(self, new):
             assert isinstance(new, PICVariable)
-            assert new.space == "Particles5D"
+            assert "Particles5D" in new.space
             self._energetic_ions = new
 
     def __init__(self, b_tilde: FEECVariable = None):
@@ -227,10 +227,11 @@ class CurrentCoupling5DGradB(Propagator):
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,
             verbose=self.options.solver_params.verbose,
+            recycle=self.options.solver_params.recycle,
         )
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._b2 = self.projected_equil.b2
         gradB1 = self.projected_equil.gradB1
         absB0 = self.projected_equil.absB0
@@ -268,12 +269,15 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._grad_PB_b[0]._data,
                 self._grad_PB_b[1]._data,
                 self._grad_PB_b[2]._data,
+                gradB1[0]._data,
+                gradB1[1]._data,
+                gradB1[2]._data,
                 self._u_form_int,
             )
 
@@ -299,9 +303,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._u_temp[0]._data,
                 self._u_temp[1]._data,
                 self._u_temp[2]._data,
@@ -340,9 +344,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._grad_PB_b[0]._data,
                 self._grad_PB_b[1]._data,
                 self._grad_PB_b[2]._data,
@@ -391,9 +395,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self.variables.u.spline.vector[0]._data,
                 self.variables.u.spline.vector[1]._data,
                 self.variables.u.spline.vector[2]._data,
@@ -409,9 +413,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._u_mid[0]._data,
                 self._u_mid[1]._data,
                 self._u_mid[2]._data,
@@ -448,12 +452,13 @@ class CurrentCoupling5DGradB(Propagator):
         b_full.update_ghost_regions()
 
         if self.options.algo == "explicit":
-            PB_b = self._PB.dot(b_full, out=self._PB_b)
+            PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
             grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
             grad_PB_b.update_ghost_regions()
 
             # save old u
             u_new = un.copy(out=self._u_new)
+            u_temp = un.copy(out=self._u_temp)
 
             for stage in range(self.options.butcher.n_stages):
                 # accumulate
@@ -486,6 +491,8 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # calculate u^{n+1}
                 u_new += ku * dt * self.options.butcher.b[stage]
+
+                u_new.update_ghost_regions()
 
                 if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                     logger.info(f"Stage: {stage}")

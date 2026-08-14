@@ -182,7 +182,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         logger.info("... Done.")
 
         # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
+        particles.weights = particles.weights0.copy()
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

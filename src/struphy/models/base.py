@@ -608,10 +608,14 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     elif "5D" in var.space:
-                        init_bckgr_pic += "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
+                        init_bckgr_pic += (
+                            "maxwellian_1 = maxwellians.GyroMaxwellian2Dvperp(n=(1.0, None), equil=equil)\n"
+                        )
+                        init_bckgr_pic += (
+                            "maxwellian_2 = maxwellians.GyroMaxwellian2Dvperp(n=(0.1, None), equil=equil)\n"
+                        )
                         init_pert_pic += (
-                            "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
+                            "maxwellian_1pt = maxwellians.GyroMaxwellian2Dvperp(n=(1.0, perturbation), equil=equil)\n"
                         )
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"

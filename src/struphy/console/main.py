@@ -226,14 +226,8 @@ def add_parser_compile(
     )
 
     parser_compile.add_argument(
-        "--omp-pic",
-        help="compile PIC kernels with OpenMP",
-        action="store_true",
-    )
-
-    parser_compile.add_argument(
-        "--omp-feec",
-        help="compile FEEC kernels with OpenMP",
+        "--openmp",
+        help="compile all kernels with OpenMP",
         action="store_true",
     )
 

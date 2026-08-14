@@ -100,6 +100,10 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.title(r"Full-$f$: Maxwellian in $v_1$-direction")
         plt.xlabel(r"$v_1$")
         plt.ylabel(r"$f(v_1)$")
+
+        integrate_resol = (0.5, 0.5, 0.5, None, 100, 100)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval("v1", integrate_resol=integrate_resol)
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -146,6 +150,10 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.title(r"Full-$f$: Cosine in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 50, 50, 50)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval("e1", integrate_resol=integrate_resol)
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -241,6 +249,12 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.title(r"Full-$f$: Two backgrounds with cosines in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 60, 60, 60)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval(
+            "e1", v_lim=15.0, integrate_resol=integrate_resol
+        )
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -346,6 +360,10 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         plt.title(r"$\delta f$: Cosine in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 50, 50, 50)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval("e1", integrate_resol=integrate_resol)
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -441,6 +459,12 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         plt.title(r"$\delta f$: Two backgrounds with cosines in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 60, 60, 60)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval(
+            "e1", v_lim=10.0, integrate_resol=integrate_resol
+        )
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -563,6 +587,10 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.title(r"Full-$f$ with MPI: Maxwellian in $v_1$-direction")
         plt.xlabel(r"$v_1$")
         plt.ylabel(r"$f(v_1)$")
+
+        integrate_resol = (0.5, 0.5, 0.5, None, 100, 100)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval("v1", integrate_resol=integrate_resol)
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -618,6 +646,10 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.title(r"Full-$f$ with MPI: Cosine in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 50, 50, 50)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval("e1", integrate_resol=integrate_resol)
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -750,6 +782,12 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.title(r"Full-$f$ with MPI: Two backgrounds with cosines in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 60, 60, 60)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval(
+            "e1", v_lim=10.0, integrate_resol=integrate_resol
+        )
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -883,6 +921,10 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         plt.title(r"$\delta f$ with MPI: Cosine in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 50, 50, 50)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval("e1", integrate_resol=integrate_resol)
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -1017,6 +1059,12 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         plt.title(r"$\delta f$ with MPI: Two backgrounds with cosines in $\eta_1$-direction")
         plt.xlabel(r"$\eta_1$")
         plt.ylabel(r"$f(\eta_1)$")
+
+        integrate_resol = (None, 0.5, 0.5, 60, 60, 60)
+        reduced_density, plot_pts1, _, __ = particles.f_init.reduced_eval(
+            "e1", v_lim=10.0, integrate_resol=integrate_resol
+        )
+        plt.plot(plot_pts1, reduced_density, "g--", label="Reduced f_init")
         plt.legend()
         plt.show()
 
@@ -1428,38 +1476,38 @@ if __name__ == "__main__":
             ],
             show_plot=True,
         )
-        test_binning_6D_delta_f(
-            mapping=[
-                "Cuboid",
-                # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
-        test_binning_current_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
-        test_binning_energy_tensor_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
-        test_binning_heat_flux_6D_full_f(
-            mapping=[
-                "Cuboid",
-                # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
-                {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
-            ],
-            show_plot=True,
-        )
+        # test_binning_6D_delta_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
+        # test_binning_current_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
+        # test_binning_energy_tensor_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
+        # test_binning_heat_flux_6D_full_f(
+        #     mapping=[
+        #         "Cuboid",
+        #         # {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
+        #         {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 10.0, "r3": 20.0},
+        #     ],
+        #     show_plot=True,
+        # )
     else:
         test_binning_6D_full_f_mpi(
             mapping=[

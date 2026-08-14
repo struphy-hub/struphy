@@ -1,26 +1,33 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
 import copy
+import logging
+from inspect import signature
 from typing import Callable
 
 import cunumpy as xp
 
-from struphy.fields_background.base import FluidEquilibriumWithB
-from struphy.fields_background.equils import set_defaults
+from struphy.fields_background.base import AxisymmMHDequilibrium, FluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import Maxwellian
 
+logger = logging.getLogger("struphy")
+
 
 class Maxwellian3D(Maxwellian):
-    r"""A :class:`~struphy.kinetic_background.base.Maxwellian` depending on three (:math:`n=3`) Cartesian velocities.
+    r"""A :class:`~struphy.kinetic_background.base.Maxwellian` depending :math:`(\eta_1, \eta_2, \eta_3)`
+    and on three (:math:`n=3`) Cartesian velocities.
 
     Parameters
     ----------
     n, ui, vthi : tuple
         Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
+
+    uniform_on_disc : bool
+        Whether the density n is uniform on the disc.
     """
 
     def __init__(
@@ -32,6 +39,7 @@ class Maxwellian3D(Maxwellian):
         vth1: tuple[float | Callable, Perturbation] = (1.0, None),
         vth2: tuple[float | Callable, Perturbation] = (1.0, None),
         vth3: tuple[float | Callable, Perturbation] = (1.0, None),
+        uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -46,22 +54,17 @@ class Maxwellian3D(Maxwellian):
         }
 
     @property
-    def coords(self):
-        """Coordinates of the Maxwellian6D, :math:`(v_1, v_2, v_3)`."""
-        return "cartesian"
-
-    @property
     def vdim(self):
         """Dimension of the velocity space."""
         return 3
 
     @property
-    def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return [False, False, False]
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return "cartesian"
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """Jacobian determinant of the velocity coordinate transformation from Maxwellian6D('cartesian') to Particles6D('cartesian').
+    def velocity_jacobian_det(self, eta1, eta2, eta3, vx, vy, vz):
+        """Jacobian determinant is 1 (Cartesian velocity coordinates).
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -70,7 +73,7 @@ class Maxwellian3D(Maxwellian):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
+        vx, vy, vz : array_like
             Velocity evaluation points.
 
         Returns
@@ -80,10 +83,8 @@ class Maxwellian3D(Maxwellian):
         -------
         """
 
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-        assert len(v) == 3
+        assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        assert vx.ndim == vy.ndim == vz.ndim == 1
 
         return 1.0 + 0 * eta1
 
@@ -99,7 +100,7 @@ class Maxwellian3D(Maxwellian):
 
     @moment_factors.setter
     def moment_factors(self, **kwargs):
-        for kw, arg in kwargs:
+        for kw, arg in kwargs.items():
             if kw in {"u", "vth"}:
                 assert len(arg) == 3
             self._moment_factors[kw] = arg
@@ -128,8 +129,134 @@ class Maxwellian3D(Maxwellian):
 
 class GyroMaxwellian2D(Maxwellian):
     r"""A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
+    two velocities :math:`(v_\parallel, \mu)`, :math:`n=2`,
+    where :math:`v_\parallel = \mathbf v \cdot \mathbf b_0` and
+    :math:`\mu = v_\perp^2/(2B_0)` is the magnetic moment, with :math:`B_0` the background magnetic field strength.
+
+    Parameters
+    ----------
+    n, u_para, u_perp, vth_para, vth_perp : tuple
+        Moments of the Maxwellian as tuples. The first entry defines the background
+        (float for constant background or callable), the second entry defines a Perturbation (can be None).
+
+    equil : FluidEquilibriumWithB
+        Fluid background.
+
+    volume_form : bool
+        Whether to represent the Maxwellian as a volume form;
+        if True it is multiplied by the Jacobian determinant |v_perp|
+        of the polar coordinate transofrmation (default = False).
+
+    B0: float | Callable
+        Constant or callable background magnetic field strength (default = 2.0).
+
+    uniform_on_disc : bool
+        Whether the density n is uniform on the disc.
+    """
+
+    def __init__(
+        self,
+        n: tuple[float | Callable, Perturbation] = (1.0, None),
+        u_para: tuple[float | Callable, Perturbation] = (0.0, None),
+        u_perp: tuple[float | Callable, Perturbation] = (0.0, None),
+        vth_para: tuple[float | Callable, Perturbation] = (1.0, None),
+        vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
+        volume_form: bool = True,
+        B0: float | Callable = 2.0,
+        uniform_on_disc: bool = False,
+    ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        self.check_maxw_params()
+
+        # volume form represenation
+        self._volume_form = volume_form
+
+        # factors multiplied onto the defined moments n, u and vth (can be set via setter)
+        self._moment_factors = {
+            "n": 1.0,
+            "u": [1.0, 1.0],
+            "vth": [1.0, 1.0],
+        }
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space."""
+        return 2
+
+    @property
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return "vpara_mu"
+
+    def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, mu):
+        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, mu)`, is :math:`B_0`.
+
+        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        v_para, mu : array_like
+            Parallel velocity and magnetic moment evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The Jacobian determinant evaluated at given logical coordinates.
+        -------
+        """
+        assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        assert v_para.ndim == mu.ndim == 1
+
+        B0 = self.params["B0"]
+
+        return B0(eta1, eta2, eta3) if callable(B0) else B0 + 0 * eta1
+
+    @property
+    def volume_form(self) -> bool:
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
+        return self._volume_form
+
+    @property
+    def moment_factors(self):
+        """Collection of factors multiplied onto the defined moments n, u, and vth."""
+        return self._moment_factors
+
+    @moment_factors.setter
+    def moment_factors(self, **kwargs):
+        for kw, arg in kwargs.items():
+            if kw in {"u", "vth"}:
+                assert len(arg) == 2
+            self._moment_factors[kw] = arg
+
+    def n(self, eta1, eta2, eta3):
+        """Zero-th moment (density)."""
+        out = self._evaluate_moment(eta1, eta2, eta3, name="n")
+        return out * self.moment_factors["n"]
+
+    def u(self, eta1, eta2, eta3):
+        """Mean velocities."""
+        out = []
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="u_para")]
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="u_perp")]
+        return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["u"])]
+
+    def vth(self, eta1, eta2, eta3):
+        """Thermal velocities."""
+        out = []
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_para")]
+        out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_perp")]
+        return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
+
+
+class GyroMaxwellian2Dvperp(Maxwellian):
+    r"""A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
     two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`,
-    where :math:`v_\parallel = \matbf v \cdot \mathbf b_0` and :math:`v_\perp`
+    where :math:`v_\parallel = \mathbf v \cdot \mathbf b_0` and :math:`v_\perp`
     is the radial component of a polar coordinate system perpendicular
     to the magentic direction :math:`\mathbf b_0`.
 
@@ -146,6 +273,9 @@ class GyroMaxwellian2D(Maxwellian):
         Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
+
+    uniform_on_disc : bool
+        Whether the density n is uniform on the disc (default = False).
     """
 
     def __init__(
@@ -157,6 +287,7 @@ class GyroMaxwellian2D(Maxwellian):
         vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
         equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
+        uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -175,37 +306,17 @@ class GyroMaxwellian2D(Maxwellian):
         }
 
     @property
-    def coords(self):
-        r"""Coordinates of the Maxwellian5D, :math:`(v_\parallel, v_\perp)`."""
-        return "vpara_vperp"
-
-    @property
     def vdim(self):
         """Dimension of the velocity space."""
         return 2
 
     @property
-    def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return [False, True]
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return "vpara_vperp"
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        r"""Jacobian determinant of the velocity coordinate transformation from Maxwellian5D('vpara_vperp') to Particles5D('vpara_mu').
-
-        .. math::
-
-            \begin{aligned}
-            F &: (v_\parallel, v_\perp) \to (v_\parallel, \mu) \,,
-            \\[3mm]
-            DF &= \begin{bmatrix} \frac{\partial v_\parallel}{\partial v_\parallel} & \frac{\partial v_\parallel}{\partial v_\perp} \\
-                 \frac{\partial \mu}{\partial v_\parallel} & \frac{\partial \mu}{\partial v_\perp}  \end{bmatrix} =
-                 \begin{bmatrix} 1 & 0 \\
-                 0 & \frac{v_\perp}{B}  \end{bmatrix} \,,
-            \\[3mm]
-            J_F &= \frac{v_\perp}{B} \,,
-            \end{aligned}
-
-        where :math:`\mu = \frac{v_\perp^2}{2B}`.
+    def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, v_perp):
+        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, v_\perp)`, is :math:`v_\perp`.
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -214,8 +325,8 @@ class GyroMaxwellian2D(Maxwellian):
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
 
-        *v : array_like
-            Velocity evaluation points.
+        v_para, v_perp : array_like
+            Parallel and perpendicular velocity evaluation points.
 
         Returns
         -------
@@ -223,20 +334,10 @@ class GyroMaxwellian2D(Maxwellian):
             The Jacobian determinant evaluated at given logical coordinates.
         -------
         """
+        assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        assert v_para.ndim == v_perp.ndim == 1
 
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-        assert len(v) == 2
-
-        # call equilibrium
-        etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
-        absB0 = self.equil.absB0(etas)
-
-        # J = v_perp/B
-        jacobian_det = v[1] / absB0
-
-        return jacobian_det
+        return v_perp
 
     @property
     def volume_form(self) -> bool:
@@ -279,43 +380,11 @@ class GyroMaxwellian2D(Maxwellian):
         out += [self._evaluate_moment(eta1, eta2, eta3, name="vth_perp")]
         return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
 
-    def plot_density_profile(
-        self,
-        dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
-        dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
-        v_lim: float = 5.0,
-        resol: int = 100,
-        integrate_resol: int = 10,
-        logical_coord: tuple[float] = (0.5, 0.5, 0.5),
-        in_physical: bool = False,
-        domain: Domain | None = None,
-        proj_axis: tuple[float,] = (0, 1),
-        plot_3D: bool = False,
-        title: str | None = None,
-        use_mu: bool = False,
-        equil: FluidEquilibriumWithB | None = None,
-    ):
-        if equil is None:
-            equil = self.equil
-        super().plot_density_profile(
-            dim_1,
-            dim_2,
-            v_lim,
-            resol,
-            integrate_resol,
-            logical_coord,
-            in_physical,
-            domain,
-            proj_axis,
-            plot_3D,
-            title,
-            use_mu=use_mu,
-            equil=equil,
-        )
 
-
-class CanonicalMaxwellian:
-    r"""Canonical Maxwellian distribution function in constants-of-motion coordinates.
+class CanonicalMaxwellian2D(GyroMaxwellian2D):
+    r"""Canonical Maxwellian distribution function in
+    :math:`(\eta_1, \eta_2, \eta_3, v_\parallel, \mu)` coordinates.
+    Uses caching for evaluation of the canonical toroidal momentum in these coordinates.
 
     The distribution is parameterized by the density and thermal speed as functions of the
     canonical toroidal momentum :math:`\psi_c`:
@@ -346,35 +415,58 @@ class CanonicalMaxwellian:
 
     Parameters
     ----------
-    n : tuple[float | Callable, Perturbation]
-        Density background and optional perturbation.
+    n, vth : tuple
+        Moments of the canonical Maxwellian as tuples. The first entry defines the background
+        (float for constant background or callable), the second entry defines a Perturbation (can be None).
+
+    maxw_params : dict
+        Parameters for the kinetic background.
 
     vth : tuple[float | Callable, Perturbation]
         Thermal-speed background and optional perturbation.
 
-    equil : FluidEquilibriumWithB, optional
+    equil : AxisymmMHDequilibrium, optional
         Fluid equilibrium used to evaluate background profiles in the magnetic geometry.
 
     volume_form : bool, default=True
         If ``True``, represent the distribution as a volume form and include the appropriate
         velocity-space Jacobian when evaluating it.
+
+    cache_size : int, optional
+        Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
+        Must be able to accomodate all markers on the current process.
     """
 
     def __init__(
         self,
         n: tuple[float | Callable, Perturbation] = (1.0, None),
         vth: tuple[float | Callable, Perturbation] = (1.0, None),
-        equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
+        uniform_on_disc: bool = False,
+        equil: AxisymmMHDequilibrium = None,
+        epsilon: float = 1.0,
+        cache_size: int | None = None,
     ):
-        # use setter to store input parameters
-        self.params = copy.deepcopy(locals())
+        assert isinstance(equil, AxisymmMHDequilibrium)
 
-        self.check_maxw_params()
+        super().__init__(
+            n=n,
+            u_para=(0.0, None),
+            u_perp=(0.0, None),
+            vth_para=vth,
+            vth_perp=vth,
+            volume_form=volume_form,
+            B0=equil.absB0,
+            uniform_on_disc=uniform_on_disc,
+        )
 
-        # volume form represenation
-        self._volume_form = volume_form
+        # store additional parameters
         self._equil = equil
+        self._epsilon = epsilon
+        self.params["vth"] = vth
+        self.params["equil"] = equil
+        self.params["epsilon"] = epsilon
+        self.params["cache_size"] = cache_size
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -382,143 +474,245 @@ class CanonicalMaxwellian:
             "vth": 1.0,
         }
 
-    @property
-    def coords(self):
-        r"""Coordinates of the CanonicalMaxwellian, :math:`(\epsilon, \mu, \psi_c)`."""
-        return "constants_of_motion"
+        # create cache for psi_c evaluation
+        if cache_size is not None:
+            self.cbufs = {}
+            self.cbufs["absB0"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["x"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["y"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["z"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["R"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["P"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["Z"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["psi"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["energy"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["psic"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["positive_mask"] = xp.empty(cache_size, dtype=bool)
+            self.cbufs["correction"] = xp.empty(cache_size, dtype=float)
+            logger.debug(f"Created {len(self.cbufs)} cache buffers for psi_c evaluation, each with size {cache_size}.")
+        else:
+            self.cbufs = None
 
     @property
-    def equil(self) -> FluidEquilibriumWithB:
+    def equil(self) -> AxisymmMHDequilibrium:
         """One of :mod:`~struphy.fields_background.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._equil
 
-    def check_maxw_params(self):
-        for k, v in self.params.items():
-            assert isinstance(k, str)
-            if isinstance(v, tuple):
-                assert len(v) == 2
-                assert isinstance(v[0], (float, int, Callable))
-                assert isinstance(v[1], Perturbation) or v[1] is None
+    @property
+    def epsilon(self) -> float:
+        """Epsilon parameter in the canonical toroidal momentum."""
+        return self._epsilon
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
-        r"""TODO"""
-
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-
-        if self.params["type"] == "Particles6D":
-            return xp.sqrt(2.0 * energy) * 4.0 * xp.pi
-        else:
-            # call equilibrium
-            etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
-            absB0 = self.equil.absB0(etas)
-
-            return xp.sqrt(energy) * 2.0 * xp.sqrt(2.0) / absB0
-
-    def gaussian(self, e, vth=1.0):
-        """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
+    def _evaluate_moment(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        v_parallel,
+        mu,
+        *,
+        name: str = "n",
+        add_perturbation: bool = None,
+    ):
+        """Scalar moment evaluation as background + perturbation.
+        Incontrast to standard Maxwellians, here the moments are evaluated
+        at the phase space coordinates.
 
         Parameters
         ----------
-        e : float | array-like
-            Energy.
+        eta1, eta2, eta3, v_parallel, mu : numpy.arrays
+            Phase space evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
 
-        vth : float | array-like
-            Thermal velocity evaluated at psic.
+        name : str
+            Which moment to evaluate (see varaible "dct" below).
 
-        Returns
-        -------
-        An array of size(e).
-        """
-
-        if isinstance(vth, xp.ndarray):
-            assert e.shape == vth.shape, f"{e.shape =} but {vth.shape =}"
-
-        return 2.0 * xp.sqrt(e / xp.pi) / vth**3 * xp.exp(-e / vth**2)
-
-    def __call__(self, *args):
-        """Evaluates the canonical Maxwellian distribution function.
-
-        There are two use-cases for this function in the code:
-
-        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
-        2. Evaluating the function on a meshgrid (in phase space).
-
-        Hence all arguments must always have
-
-        1. the same shape
-        2. either ndim = 1 or ndim = 3.
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order energy, magnetic moment, canonical toroidal momentum.
+        add_perturbation : bool | None
+            Whether to add the perturbation defined in params. If None, is taken from self.add_perturbation.
 
         Returns
         -------
-        f : xp.ndarray
-            The evaluated Maxwellian.
+        A float (background value) or a numpy.array of the evaluated scalar moment.
         """
 
-        # Check that all args have the same shape
-        shape0 = xp.shape(args[0])
-        for i, arg in enumerate(args):
-            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) =}, but must be {shape0 =}."
-            assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3, (
-                f"{xp.ndim(arg) =} not allowed for canonical Maxwellian evaluation."
-            )  # flat or meshgrid evaluation
+        # collect arguments
+        assert isinstance(eta1, xp.ndarray)
+        assert isinstance(eta2, xp.ndarray)
+        assert isinstance(eta3, xp.ndarray)
+        assert isinstance(v_parallel, xp.ndarray)
+        assert isinstance(mu, xp.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape == v_parallel.shape == mu.shape
 
-        # Get result evaluated with each particles' psic
-        res = self.n(args[2])
-        vths = self.vth(args[2])
+        params = self.params[name]
+        assert isinstance(params, tuple)
+        assert len(params) == 2
 
-        # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if xp.ndim(args[0]) == 3:
-            # move eta axes to the back
-            arg_t = xp.moveaxis(args[0], 0, -1)
-            arg_t = xp.moveaxis(arg_t, 0, -1)
-            arg_t = xp.moveaxis(arg_t, 0, -1)
-
-            # broadcast
-            res_broad = res + 0.0 * arg_t
-
-            # move eta axes to the front
-            res = xp.moveaxis(res_broad, -1, 0)
-            res = xp.moveaxis(res, -1, 0)
-            res = xp.moveaxis(res, -1, 0)
-
-        # Multiply result with gaussian in energy
-        if xp.ndim(args[0]) == 3:
-            vth_broad = vths + 0.0 * arg_t
-            vth = xp.moveaxis(vth_broad, -1, 0)
-            vth = xp.moveaxis(vth, -1, 0)
-            vth = xp.moveaxis(vth, -1, 0)
+        # flat evaluation for markers
+        if eta1.ndim == 1:
+            coords = [
+                xp.concatenate(
+                    (eta1[:, None], eta2[:, None], eta3[:, None], v_parallel[:, None], mu[:, None]),
+                    axis=1,
+                ),
+            ]
+        # assuming that input comes from meshgrid.
+        elif eta1.ndim == 5:
+            coords = (eta1, eta2, eta3, v_parallel, mu)
         else:
-            vth = vths
+            raise ValueError(f"Input arrays must be 1d or 5d (from meshgrid), but got {eta1.ndim}d.")
 
-        res *= self.gaussian(args[0], vth=vth)
+        # initialize output
+        if eta1.ndim == 1:
+            out = 0.0 * eta1
+        else:
+            out = 0.0 * coords[0]
 
-        return res
+        # evaluate background
+        background = params[0]
+        if isinstance(background, (float, int)):
+            out += background
+        else:
+            assert callable(background)
+            sig = signature(background)
+            assert len(sig.parameters) == 1, (
+                f"Background function {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
+            )
 
-    @property
-    def volume_form(self):
-        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
-        return self._volume_form
+            cached = self._check_psi_c_cached(*coords)
+            logger.debug(f"{'Using cached psi_c' if cached else 'Evaluating psi_c'} for background evaluation.")
 
-    @property
-    def moment_factors(self):
-        """Collection of factors multiplied onto the defined moments n, u, and vth."""
-        return self._moment_factors
+            if not cached:
+                self.psi_c = self.eval_psic(*coords)
+            out += background(self.psi_c)
 
-    @moment_factors.setter
-    def moment_factors(self, **kwargs):
-        for kw, arg in kwargs:
-            self._moment_factors[kw] = arg
+        # add perturbation
+        if add_perturbation is None:
+            add_perturbation = self.add_perturbation
 
-    def rc(self, psic):
+        perturbation = params[1]
+        if perturbation is not None and add_perturbation:
+            assert isinstance(perturbation, Perturbation)
+            if eta1.ndim == 1:
+                out += perturbation(eta1, eta2, eta3)
+            else:
+                raise NotImplementedError("Perturbation evaluation for meshgrid input not implemented yet.")
+
+        # uniform density on disc (n=2 eta_1)
+        if name == "n" and self.params.get("uniform_on_disc", False):
+            if eta1.ndim == 1:
+                out *= 2.0 * eta1
+            else:
+                out *= 2.0 * coords[0]
+
+        return out
+
+    def _check_psi_c_cached(self, *coords):
+        """Check if psi_c has been cached for the given coordinates."""
+        cached = False
+        if hasattr(self, "psi_c"):
+            if self.psi_c is not None:
+                if self.psi_c.shape == coords[0].shape:
+                    if len(coords) == 1:
+                        test_coords = coords[0][self.test_mask]
+                        cached_psi_c = self.eval_psic(test_coords)
+                        cached = xp.allclose(self.psi_c[self.test_mask], cached_psi_c)
+                else:
+                    if len(coords) == 1:
+                        self.test_mask = xp.zeros_like(coords[0], dtype=bool)
+                        n_markers = coords[0].shape[0]
+                        self.test_mask[0] = True
+                        self.test_mask[-1] = True
+                        self.test_mask[1 * n_markers // 3] = True
+                        self.test_mask[2 * n_markers // 3] = True
+        return cached
+
+    def eval_psic(self, *coords):
+        r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
+
+        a1 = self.equil.domain.params["a1"]
+        B0 = self.equil.params["B0"]
+        R0 = self.equil.params["R0"]
+
+        if len(coords) == 1:
+            if self.cbufs is None:
+                logger.warning(
+                    f"Initialize {self.__class__.__name__} with `cache_size` for faster psi_c evaluation for markers!"
+                )
+            etas = coords[0][:, :3]  # these are views (no mem allocation)
+            vparallel = coords[0][:, 3]
+            mu = coords[0][:, 4]
+            n_markers = etas.shape[0]
+            if self.cbufs is None:
+                absB0 = self.equil.absB0(etas)
+                x, y, z = self.equil.domain(etas)
+            else:
+                absB0 = self.cbufs["absB0"][:n_markers]
+                x = self.cbufs["x"][:n_markers]
+                y = self.cbufs["y"][:n_markers]
+                z = self.cbufs["z"][:n_markers]
+                absB0[:] = self.equil.absB0(etas)
+                x[:], y[:], z[:] = self.equil.domain(etas)
+        else:
+            assert len(coords) == 5
+            assert coords[0].ndim == coords[1].ndim == coords[2].ndim == coords[3].ndim == coords[4].ndim == 5
+            eta1 = coords[0][:, :, :, 0, 0]
+            eta2 = coords[1][:, :, :, 0, 0]
+            eta3 = coords[2][:, :, :, 0, 0]
+            etas = (eta1, eta2, eta3)
+            absB0 = self.equil.absB0(*etas)[:, :, :, None, None]
+            x, y, z = self.equil.domain(*etas)
+            vparallel = coords[3]
+            mu = coords[4]
+
+        if self.cbufs is None or len(coords) != 1:
+            R, P, Z = self.equil.inverse_map(x, y, z)
+            psi = self.equil.psi(R, Z)
+            if len(coords) != 1:
+                psi = psi[:, :, :, None, None]
+
+            energy = 1 / 2 * vparallel**2 + mu * absB0
+
+            psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
+
+            positive_mask = (energy - mu * B0) > 0
+            correction = xp.zeros_like(psi_c)
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * R0
+            )
+            psi_c += correction
+        else:
+            R = self.cbufs["R"][:n_markers]
+            P = self.cbufs["P"][:n_markers]
+            Z = self.cbufs["Z"][:n_markers]
+            psi = self.cbufs["psi"][:n_markers]
+            energy = self.cbufs["energy"][:n_markers]
+            psi_c = self.cbufs["psic"][:n_markers]
+            positive_mask = self.cbufs["positive_mask"][:n_markers]
+            correction = self.cbufs["correction"][:n_markers]
+
+            R[:], P[:], Z[:] = self.equil.inverse_map(x, y, z)
+            psi[:] = self.equil.psi(R, Z)
+
+            energy[:] = 1 / 2 * vparallel**2 + mu * absB0
+
+            psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
+
+            positive_mask[:] = (energy - mu * B0) > 0
+            correction[:] = 0.0
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * R0
+            )
+            psi_c[:] += correction
+        return psi_c
+
+    def eval_rc(self, eta1, eta2, eta3, vparallel, mu):
         r""" Square root of radially normalized canonical toroidal momentum.
 
         .. math::
@@ -532,17 +726,9 @@ class CanonicalMaxwellian:
             \end{aligned}
 
         where :math:`\psi_\text{axis}` and :math:`\psi_\text{edge}` are poloidal magnetic flux function at the center and edge of poloidal plane respectively.
-
-        Parameters
-        ----------
-        psic : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A numpy.array of the evaluated :math:`r_c`.
-
         """
+        # calculate psic
+        psic = self.eval_psic(eta1, eta2, eta3, vparallel, mu)
 
         # calculate rc²
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
@@ -559,85 +745,20 @@ class CanonicalMaxwellian:
 
         return rc
 
-    def n(self, psic, add_perturbation: bool = None):
-        """Density as background + perturbation.
+    def n(self, eta1, eta2, eta3, vparallel, mu):
+        """Zero-th moment (density)."""
+        out = self._evaluate_moment(eta1, eta2, eta3, vparallel, mu, name="n")
+        return out * self.moment_factors["n"]
 
-        Parameters
-        ----------
-        psic : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
+    def u(self, eta1, eta2, eta3, vparallel, mu):
+        """Mean velocities (zero for the canonical Maxwellian)."""
+        return [0.0 * eta1, 0.0 * eta1]
 
-        Returns
-        -------
-        A float (background value) or a numpy.array of the evaluated density.
-        """
-        # collect arguments
-        assert isinstance(psic, xp.ndarray)
-
-        # assuming that input comes from meshgrid.
-        if psic.ndim == 3:
-            psic = psic[0, 0, :]
-
-        # set background density
-        if isinstance(self.params["n"][0], (float, int)):
-            res = self.params["n"][0] + 0.0 * psic
-        else:
-            nfun = self.params["n"][1]
-            # for typ, params in mom_funcs.items():
-            #     nfun = getattr(moment_functions, typ)(**params)
-            res = nfun(eta1=self.rc(psic))
-
-        # add perturbation
-        if add_perturbation is None:
-            add_perturbation = self.add_perturbation
-
-        perturbation = self.params["n"][1]
-        if perturbation is not None and add_perturbation:
-            assert isinstance(perturbation, Perturbation)
-            res = perturbation(eta1=self.rc(psic))
-            # if eta1.ndim == 1:
-            #     out += perturbation(eta1, eta2, eta3)
-            # else:
-            #     out += perturbation(*etas)
-
-        return res * self.moment_factors["n"]
-
-    def vth(self, psic):
-        """Thermal velocities as background + perturbation.
-
-        Parameters
-        ----------
-        psic : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A list[float] (background value) or a list[numpy.array] of the evaluated thermal velocities.
-        """
-
-        # collect arguments
-        assert isinstance(psic, xp.ndarray)
-
-        # assuming that input comes from meshgrid.
-        if psic.ndim == 3:
-            psic = psic[0, 0, :]
-
-        res = self.params["vth"][0] + 0.0 * psic
-
-        # TODO: add perturbation
-
-        return res * self.moment_factors["vth"]
-
-    @property
-    def add_perturbation(self) -> bool:
-        if not hasattr(self, "_add_perturbation"):
-            self._add_perturbation = True
-        return self._add_perturbation
-
-    @add_perturbation.setter
-    def add_perturbation(self, new):
-        assert isinstance(new, bool)
-        self._add_perturbation = new
+    def vth(self, eta1, eta2, eta3, vparallel, mu):
+        """Thermal velocities."""
+        out = self._evaluate_moment(eta1, eta2, eta3, vparallel, mu, name="vth")
+        out = out * self.moment_factors["vth"]
+        return [out, out]
 
 
 class ColdPlasma(Maxwellian):
@@ -664,6 +785,7 @@ class ColdPlasma(Maxwellian):
         u2: tuple[float | Callable, Perturbation] = (0.0, None),
         u3: tuple[float | Callable, Perturbation] = (0.0, None),
         equil: FluidEquilibriumWithB = None,
+        uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
@@ -676,19 +798,14 @@ class ColdPlasma(Maxwellian):
         self._equil = equil
 
     @property
-    def coords(self):
-        """Coordinates of the constant background."""
-        return None
-
-    @property
     def vdim(self):
         """Dimension of the velocity space (vdim = 0)."""
         return 0
 
     @property
-    def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
-        return []
+    def velocity_coords(self) -> LiteralOptions.VelocityCoordinates:
+        """Velocity coordinates of the background."""
+        return None
 
     @property
     def volume_form(self):
@@ -702,7 +819,7 @@ class ColdPlasma(Maxwellian):
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
-        return 1.0
+        return 1.0 + 0.0 * eta1
 
     def n(self, eta1, eta2, eta3):
         """Zero-th moment (density)."""
