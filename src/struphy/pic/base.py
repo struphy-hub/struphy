@@ -2443,9 +2443,14 @@ class Particles(metaclass=ABCMeta):
         self._holes = np.zeros(self.n_rows, dtype=bool)
         self._ghost_particles = np.zeros(self.n_rows, dtype=bool)
         self._valid_mks = np.zeros(self.n_rows, dtype=bool)
-        self._is_outside_right = np.zeros(self.n_rows, dtype=bool)
-        self._is_outside_left = np.zeros(self.n_rows, dtype=bool)
-        self._is_outside = np.zeros(self.n_rows, dtype=bool)
+
+        # _is_outside_right/_is_outside_left/_is_outside are views into one
+        # buffer so that _find_outside_particles_gpu can fill all three with
+        # a single device->host transfer instead of three.
+        self._is_outside_buf = np.zeros((3, self.n_rows), dtype=bool)
+        self._is_outside_right = self._is_outside_buf[0]
+        self._is_outside_left = self._is_outside_buf[1]
+        self._is_outside = self._is_outside_buf[2]
 
         # device-resident copies of _holes/_ghost_particles used by
         # _find_outside_particles_gpu; re-synced lazily, only when stale
@@ -2454,6 +2459,7 @@ class Particles(metaclass=ABCMeta):
         self._holes_dev = None
         self._ghost_dev = None
         self._holes_ghost_dev_dirty = True
+        self._is_outside_buf_dev = None
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
@@ -2857,16 +2863,20 @@ class Particles(metaclass=ABCMeta):
         holes_dev = self._holes_dev
         ghost_dev = self._ghost_dev
 
-        is_r = col_dev > 1.0
-        is_l = col_dev < 0.0
-        not_hole_or_ghost = ~(holes_dev | ghost_dev)
-        is_r &= not_hole_or_ghost
-        is_l &= not_hole_or_ghost
-        is_out = is_r | is_l
+        if self._is_outside_buf_dev is None:
+            self._is_outside_buf_dev = cp.empty_like(cp.asarray(self._is_outside_buf))
+        buf_dev = self._is_outside_buf_dev
 
-        is_r.get(out=self._is_outside_right)
-        is_l.get(out=self._is_outside_left)
-        is_out.get(out=self._is_outside)
+        not_hole_or_ghost = ~(holes_dev | ghost_dev)
+        cp.greater(col_dev, 1.0, out=buf_dev[0])
+        buf_dev[0] &= not_hole_or_ghost
+        cp.less(col_dev, 0.0, out=buf_dev[1])
+        buf_dev[1] &= not_hole_or_ghost
+        cp.logical_or(buf_dev[0], buf_dev[1], out=buf_dev[2])
+
+        # single D2H transfer for all three (is_outside_right/left/is_outside
+        # are views into self._is_outside_buf, see _allocate_marker_array)
+        buf_dev.get(out=self._is_outside_buf)
 
         outside_inds = np.nonzero(self._is_outside)[0]
 
