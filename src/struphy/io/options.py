@@ -315,6 +315,9 @@ class EnvironmentOptions(OptionsBase):
         Folder in ``out_folders/`` for the current simulation (default= ``sim_1/`` ).
         Will create the folder if it does not exist OR cleans the folder for new runs.
 
+    sim_label: str | None, optional
+        Label for the simulation (default=None)
+
     restart : bool
         Whether to restart a run (default=False).
 
@@ -332,13 +335,11 @@ class EnvironmentOptions(OptionsBase):
 
     profiling_activated: bool, optional
         Activate profiling with scope-profiler (default=False)
-
-    profiling_trace: bool, optional
-        Save time-trace of each profiling region (default=False)
     """
 
     out_folders: str = os.getcwd()
     sim_folder: str = "sim_1"
+    sim_label: str | None = None
     restart: bool = False
     max_runtime: int = 300
     save_step: int = 1
