@@ -83,7 +83,7 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
 
-    U0 = 0.3
+    U0 = 0.0
     A = 0.5
     background = equils.ConstantVelocity(ux=U0)
     model.fluid.density.add_background(background)
