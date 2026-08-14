@@ -149,7 +149,7 @@ class Simulation(SimulationBase):
         self.name = name
         self.description = description
         self.params_path = params_path
-        self.env = env
+        self.env = env # Set name first since it's used as a label
         self.time_opts = time_opts
         self.domain = domain
         self.equil = equil
@@ -174,7 +174,7 @@ class Simulation(SimulationBase):
     # Abstract methods
     # ----------------
 
-    def _setup_profiling(self):
+    def _setup_profiling(self, label: str = ""):
         # setup profiling agent
         ProfileManager.setup(
             deactivate_profiling=not self.env.profiling_activated,
@@ -184,7 +184,7 @@ class Simulation(SimulationBase):
                 self.env.sim_folder,
                 "profiling_data.h5",
             ),
-            label=self.env.sim_label,
+            label=label,
         )
 
     def show_parameters(self):
@@ -1830,7 +1830,7 @@ if __name__ == "__main__":
 
         # create output folders
         self._setup_folders()
-        self._setup_profiling()
+        self._setup_profiling(label = self.name)
 
     @property
     def time_opts(self):
