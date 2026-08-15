@@ -129,7 +129,7 @@ sim = Simulation(
 # particle push dominates the run, small enough to fit comfortably on one GPU.
 # The seed is fixed because marker loading is otherwise unseeded, and two runs
 # of the *same* backend then differ enough to swamp any backend comparison.
-loading_params = LoadingParameters(Np=200_000, seed=1234)
+loading_params = LoadingParameters(Np=8_000_000, seed=1234)
 weights_params = WeightsParameters()
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
