@@ -20,6 +20,7 @@ from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
+from scope_profiler import ProfileManager
 from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid
@@ -1622,6 +1623,7 @@ class Particles(metaclass=ABCMeta):
         plt.show()
 
     @profile
+    @ProfileManager.profile("mpi_sort_markers")
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
@@ -1703,6 +1705,7 @@ class Particles(metaclass=ABCMeta):
         self._Barrier()
 
     @profile
+    @ProfileManager.profile("apply_kinetic_bc")
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -1810,6 +1813,7 @@ class Particles(metaclass=ABCMeta):
             self._markers[self.valid_mks, slice(3 + c, 3 + c + 1)] = new
 
     @profile
+    @ProfileManager.profile("put_particles_in_boxes")
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
         If sorting_boxes was instantiated with an MPI comm, then the particles in the
@@ -1840,6 +1844,7 @@ class Particles(metaclass=ABCMeta):
         #         logger.info(f"Number of markers in box {i} is {n_mks_box}")
 
     @profile
+    @ProfileManager.profile("do_sort")
     def do_sort(self, use_numpy_argsort=False):
         """Assign the particles to their sorting boxes and reorder the markers array accordingly,
         so that markers in the same box occupy contiguous rows.

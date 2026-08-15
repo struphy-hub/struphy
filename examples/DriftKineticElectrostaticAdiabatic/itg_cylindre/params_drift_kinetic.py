@@ -78,7 +78,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, profiling_trace=True, restart=False)
+env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, restart=False)
 
 # Time stepping
 time_opts = Time(dt=5.0, Tend=500.0, split_algo="LieTrotter")

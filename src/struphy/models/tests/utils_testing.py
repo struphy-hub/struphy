@@ -55,7 +55,6 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
         out_folders=test_folder,
         sim_folder=f"{model_name}",
         profiling_activated=test_profiling,
-        profiling_trace=test_profiling,
     )
 
     # read parameters
