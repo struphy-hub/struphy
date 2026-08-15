@@ -11,7 +11,11 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.pic.pushing.pusher_kernels_cuda import push_eta_rk_periodic_gpu, push_eta_stage_cuboid_gpu
+from struphy.pic.pushing.pusher_kernels_cuda import (
+    push_eta_rk_periodic_gpu,
+    push_eta_stage_cuboid_gpu,
+    push_v_with_efield_cuboid_gpu,
+)
 
 logger = logging.getLogger("struphy")
 
@@ -195,6 +199,46 @@ class Pusher:
             and not self._newton
         )
 
+        # hand-written CUDA replacement for push_v_with_efield on a Cuboid
+        # domain: same narrow scoping as _gpu_eta_cuboid_periodic (this kernel
+        # only ever touches velocity columns, never position, so the periodic
+        # requirement below just keeps us from having to reason about
+        # non-periodic apply_kinetic_bc branches we don't otherwise skip; see
+        # pusher_kernels_cuda.push_v_with_efield_cuboid_gpu).
+        self._gpu_v_efield_cuboid = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_v_with_efield"
+            and args_domain.kind_map == 10
+            and all(b == "periodic" for b in self.particles.bc)
+            and not init_kernels
+            and not eval_kernels
+            and self.particles.mpi_comm is None
+            and maxiter == 1
+            and not self._newton
+            and n_stages == 1
+        )
+        if self._gpu_v_efield_cuboid:
+            import cupy as cp
+
+            l1, r1, l2, r2, l3, r3 = (float(p) for p in args_domain.params[:6])
+            self._gpu_v_efield_scale = (1.0 / (r1 - l1), 1.0 / (r2 - l2), 1.0 / (r3 - l3))
+
+            args_derham, e1_1, e1_2, e1_3, const = args_kernel
+            self._gpu_v_efield_const = float(const)
+            self._gpu_v_efield_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_v_efield_starts = tuple(int(s) for s in args_derham.starts)
+            # knot vectors are tiny host arrays; cache them on the device once
+            self._gpu_v_efield_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_v_efield_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_v_efield_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            # FE coefficients are already device-resident CuPy arrays under the
+            # CuPy backend (StencilVector allocates via cunumpy's xp) and are
+            # never reassigned after PushVinEfield.allocate() builds them, so
+            # these references stay valid and need no per-call transfer.
+            self._gpu_v_efield_e1_1 = e1_1
+            self._gpu_v_efield_e1_2 = e1_2
+            self._gpu_v_efield_e1_3 = e1_3
+
     @staticmethod
     def _reset_marker_buffers_gpu(markers, init_slice, shift_slice, residual_idx, vdim):
         """Device version of the per-step marker buffer bookkeeping at the top
@@ -224,6 +268,8 @@ class Pusher:
         with ProfileManager.profile_region(self._region_name):
             if self._gpu_eta_cuboid_periodic:
                 self._push_eta_cuboid_periodic_gpu(dt)
+            elif self._gpu_v_efield_cuboid:
+                self._push_v_efield_cuboid_gpu(dt)
             else:
                 self._push(dt)
 
@@ -243,6 +289,32 @@ class Pusher:
             a,
             b,
             self.n_stages,
+        )
+
+    def _push_v_efield_cuboid_gpu(self, dt: float):
+        """Whole-push GPU-resident fast path, see
+        :func:`~struphy.pic.pushing.pusher_kernels_cuda.push_v_with_efield_cuboid_gpu`.
+
+        Only the velocity columns are touched (positions and holes/ghost
+        status are untouched), so unlike :meth:`_push`, there is no marker
+        buffer reset and no ``apply_kinetic_bc``/``update_holes`` call to
+        replicate here: both would be no-ops given this kernel never moves a
+        marker.
+        """
+        particles = self.particles
+        push_v_with_efield_cuboid_gpu(
+            particles.markers,
+            particles.n_cols,
+            self._gpu_v_efield_pn,
+            self._gpu_v_efield_tn1,
+            self._gpu_v_efield_tn2,
+            self._gpu_v_efield_tn3,
+            self._gpu_v_efield_starts,
+            self._gpu_v_efield_e1_1,
+            self._gpu_v_efield_e1_2,
+            self._gpu_v_efield_e1_3,
+            self._gpu_v_efield_scale,
+            dt * self._gpu_v_efield_const,
         )
 
     def _kernel_region(self, kernel) -> str:
