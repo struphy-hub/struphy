@@ -64,6 +64,10 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
 )
+from struphy.pic.sph_eval_kernels_cuda import (
+    box_based_evaluation_flat_gpu,
+    box_based_evaluation_meshgrid_gpu,
+)
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
 
@@ -4320,6 +4324,40 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.put_particles_in_boxes()
 
         if fast:
+            if xp.cupy_backend and len(_shp) in (1, 3):
+                # CUDA replacement for box_based_evaluation_flat/_meshgrid:
+                # one thread per evaluation point, see sph_eval_kernels_cuda.
+                if len(_shp) == 3:
+                    if _shp[0] > 1:
+                        assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
+                    if _shp[1] > 1:
+                        assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
+                    if _shp[2] > 1:
+                        assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
+                gpu_func = box_based_evaluation_flat_gpu if len(_shp) == 1 else box_based_evaluation_meshgrid_gpu
+                gpu_func(
+                    self.markers,
+                    eta1,
+                    eta2,
+                    eta3,
+                    self.sorting_boxes.nx,
+                    self.sorting_boxes.ny,
+                    self.sorting_boxes.nz,
+                    self.domain_array[self.mpi_rank],
+                    self.sorting_boxes.boxes,
+                    self.sorting_boxes.neighbours,
+                    self.holes,
+                    periodic1,
+                    periodic2,
+                    periodic3,
+                    index,
+                    ker_id,
+                    h1,
+                    h2,
+                    h3,
+                    out,
+                )
+                return out
             if len(_shp) == 1:
                 func = PyccelKernel(box_based_evaluation_flat)
             elif len(_shp) == 3:
