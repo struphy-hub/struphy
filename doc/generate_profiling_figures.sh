@@ -30,8 +30,7 @@ if needle not in content:
 content = content.replace(
     needle,
     "env = EnvironmentOptions(\n"
-    "    profiling_activated=True,\n"
-    "    profiling_trace=True,\n"
+    "    deactivate_profiling=False,\n"
     ")",
 )
 open(path, "w").write(content)

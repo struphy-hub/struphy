@@ -85,7 +85,6 @@ args, _ = parser.parse_known_args()
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
     profiling_activated=True,
-    profiling_trace=True,
     restart=False
 )
 

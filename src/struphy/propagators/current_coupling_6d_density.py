@@ -5,6 +5,7 @@ from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -286,7 +287,8 @@ class CurrentCoupling6DDensity(Propagator):
         rhs = rhs.dot(un, out=self._rhs_v)
         self._solver.linop = lhs
 
-        un1 = self._solver.solve(rhs, out=self._u_new)
+        with ProfileManager.profile_region(self._solve_region):
+            un1 = self._solver.solve(rhs, out=self._u_new)
         info = self._solver._info
 
         # write new coeffs into Propagator.variables
