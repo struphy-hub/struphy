@@ -342,6 +342,10 @@ class EnvironmentOptions(OptionsBase):
 
     profiling_activated: bool, optional
         Activate profiling with scope-profiler (default=False)
+
+    profiling_label: str | None, optional
+        Label for the profiling report, overriding the simulation name
+        (default=None, which uses the simulation name as the label)
     """
 
     out_folders: str = os.getcwd()
@@ -354,7 +358,6 @@ class EnvironmentOptions(OptionsBase):
     sort_step: int = 0
     num_clones: int = 1
     profiling_activated: bool = False
-    profiling_trace: bool = False
     profiling_label: str | None = None
 
     def __post_init__(self):
