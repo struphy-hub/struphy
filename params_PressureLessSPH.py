@@ -87,6 +87,7 @@ env = EnvironmentOptions(
     sim_folder=f"sim_{args.backend}",
     profiling_activated=True,
     profiling_trace=True,
+    save_restart=False,
 )
 
 
