@@ -13,7 +13,7 @@ Usage::
 
     ARRAY_BACKEND=<numpy|cupy> python _bench_cuda_kernels_worker.py <op> <Np> <n_reps>
 
-``op`` is one of: push_eta, push_v, eval_density_flat, eval_density_mesh, sort_boxes
+``op`` is one of: push_eta, push_v, eval_density_flat, eval_density_mesh, sort_boxes, do_sort
 """
 
 import statistics
@@ -241,6 +241,58 @@ def _bench_sort_boxes(Np: int, n_reps: int) -> list[float]:
     return _timed_calls(call, n_reps)
 
 
+def _bench_do_sort(Np: int, n_reps: int) -> list[float]:
+    """particles.do_sort(): reorders markers so same-box rows are contiguous
+    (called periodically, per ``EnvironmentOptions.sort_step``). Times
+    per-call: unlike the other ops here, this is NOT a CUDA-ported op --
+    :func:`~struphy.pic.sorting_kernels.sort_boxed_particles` (the Pyccel
+    cycle-sort) and its NumPy-argsort alternative (see
+    ``Particles.do_sort``/``_sort_boxed_particles_numpy`` in
+    ``struphy.pic.base``) are both host-only; ``do_sort`` under CuPy now
+    automatically picks the argsort path since it measured faster even on
+    plain CPU (no GPU kernel can help here: the dominant cost is the
+    marker-row gather, on the always-host-resident ``markers`` array -- see
+    ``ISSUE_cupy_particles_never_pushed.md``). This benchmark exists to make
+    that "no GPU win here, and here's why" result reproducible, not because
+    a speedup is expected."""
+    from struphy import BoundaryParameters, LoadingParameters, SortingParameters, domains, perturbations
+    from struphy.fields_background.equils import ConstantVelocity
+    from struphy.pic.particles import ParticlesSPH
+
+    domain = domains.Cuboid()
+    n_per_dim = max(2, round((Np / 30.0) ** (1.0 / 3.0)))
+    boxes_per_dim = (n_per_dim, n_per_dim, n_per_dim)
+
+    loading_params = LoadingParameters(Np=Np, seed=1234)
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
+    pert = {"n": perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(0.3,))}
+    boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=3.0)
+
+    particles = ParticlesSPH(
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        bufsize=5.0,
+        domain=domain,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
+    )
+    particles.draw_markers(sort=False)
+    particles.initialize_weights()
+    particles.sorting_boxes._communicate = False
+
+    def call():
+        particles.do_sort()
+
+    for _ in range(N_WARMUP):
+        call()
+
+    return _timed_calls(call, n_reps)
+
+
 def main(op: str, Np: int, n_reps: int) -> float:
     if op in ("push_eta", "push_v"):
         times = _bench_pushers(op, Np, n_reps)
@@ -248,6 +300,8 @@ def main(op: str, Np: int, n_reps: int) -> float:
         times = _bench_eval_density(op, Np, n_reps)
     elif op == "sort_boxes":
         times = _bench_sort_boxes(Np, n_reps)
+    elif op == "do_sort":
+        times = _bench_do_sort(Np, n_reps)
     else:
         raise ValueError(f"unknown op {op!r}")
 
