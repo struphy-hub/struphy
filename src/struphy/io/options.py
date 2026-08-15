@@ -324,6 +324,13 @@ class EnvironmentOptions(OptionsBase):
     save_step : int
         When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
 
+    save_restart : bool
+        Whether to write the restart checkpoint (full marker arrays and FEEC
+        restart coefficients, written once at setup and once at the end of
+        the run). Restart data can dominate the run time for large particle
+        counts; set to ``False`` to skip it when restart capability isn't
+        needed, e.g. for pure timing/benchmark runs (default=True).
+
     sort_step: int, optional
         Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
 
@@ -342,6 +349,7 @@ class EnvironmentOptions(OptionsBase):
     restart: bool = False
     max_runtime: int = 300
     save_step: int = 1
+    save_restart: bool = True
     sort_step: int = 0
     num_clones: int = 1
     profiling_activated: bool = False
