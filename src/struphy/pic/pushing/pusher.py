@@ -11,6 +11,7 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
+from struphy.pic.pushing.pusher_kernels_cuda import push_eta_rk_periodic_gpu, push_eta_stage_cuboid_gpu
 
 logger = logging.getLogger("struphy")
 
@@ -125,6 +126,13 @@ class Pusher:
         self._args_kernel = args_kernel
         self._args_domain = args_domain
 
+        # hand-written CUDA replacement for push_eta_stage on a Cuboid domain
+        # (constant, diagonal Jacobian -> no spline evaluation needed at all)
+        self._gpu_eta_cuboid = cunumpy.cupy_backend and kernel.name == "push_eta_stage" and args_domain.kind_map == 10
+        if self._gpu_eta_cuboid:
+            l1, r1, l2, r2, l3, r3 = (float(p) for p in args_domain.params[:6])
+            self._gpu_eta_cuboid_scale = (1.0 / (r1 - l1), 1.0 / (r2 - l2), 1.0 / (r3 - l3))
+
         # determines the evaluation points for kernel
         self._alpha_in_kernel = alpha_in_kernel
         self._n_stages = n_stages
@@ -172,6 +180,21 @@ class Pusher:
         else:
             self._box_comm = False
 
+        # whole-push GPU-resident fast path: on top of _gpu_eta_cuboid, also
+        # requires an all-periodic bc (so apply_kinetic_bc reduces to wrap +
+        # shift bookkeeping, which push_eta_rk_periodic_gpu fuses in) and no
+        # MPI / iterative-solver / eval-kernel machinery (none of which
+        # push_eta uses, but other Pusher users might).
+        self._gpu_eta_cuboid_periodic = (
+            self._gpu_eta_cuboid
+            and all(b == "periodic" for b in self.particles.bc)
+            and not self._init_kernels
+            and not self._eval_kernels
+            and self.particles.mpi_comm is None
+            and self._maxiter == 1
+            and not self._newton
+        )
+
     @staticmethod
     def _reset_marker_buffers_gpu(markers, init_slice, shift_slice, residual_idx, vdim):
         """Device version of the per-step marker buffer bookkeeping at the top
@@ -199,7 +222,28 @@ class Pusher:
         applies kinetic boundary conditions and performs MPI sorting.
         """
         with ProfileManager.profile_region(self._region_name):
-            self._push(dt)
+            if self._gpu_eta_cuboid_periodic:
+                self._push_eta_cuboid_periodic_gpu(dt)
+            else:
+                self._push(dt)
+
+    def _push_eta_cuboid_periodic_gpu(self, dt: float):
+        """Whole-push GPU-resident fast path, see :func:`push_eta_rk_periodic_gpu`."""
+        particles = self.particles
+        a, b, _c = self._args_kernel
+        push_eta_rk_periodic_gpu(
+            particles.markers,
+            particles.n_cols,
+            particles.vdim,
+            particles.first_pusher_idx,
+            particles.first_shift_idx,
+            particles.first_free_idx,
+            self._gpu_eta_cuboid_scale,
+            dt,
+            a,
+            b,
+            self.n_stages,
+        )
 
     def _kernel_region(self, kernel) -> str:
         """Cached name of the profiling region of an init/eval kernel."""
@@ -320,14 +364,29 @@ class Pusher:
                     )
 
                 # push markers
-                with ProfileManager.profile_region("kernel: " + self.kernel.name):
-                    self.kernel(
-                        dt,
-                        stage,
-                        self.particles.args_markers,
-                        self._args_domain,
-                        *self._args_kernel,
-                    )
+                if self._gpu_eta_cuboid:
+                    a, b, _c = self._args_kernel
+                    last = 1.0 if stage == self.n_stages - 1 else 0.0
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        push_eta_stage_cuboid_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_eta_cuboid_scale,
+                            dt * float(a[stage]),
+                            dt * float(b[stage]),
+                            last,
+                        )
+                else:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name):
+                        self.kernel(
+                            dt,
+                            stage,
+                            self.particles.args_markers,
+                            self._args_domain,
+                            *self._args_kernel,
+                        )
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
                 self.particles.update_holes()
