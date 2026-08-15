@@ -721,7 +721,13 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     all_particles_psy = np.zeros((int(accum_sendcounts) * 3,), dtype=float)
 
     comm.Barrier()
-    comm.Allgatherv(to_numpy(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
+    # particles.markers[:, :3] is a column slice (stride = n_cols), so it's
+    # not C-contiguous; mpi4py's buffer acquisition goes through a DLPack
+    # export that requires contiguous memory and raises BufferError otherwise.
+    comm.Allgatherv(
+        np.ascontiguousarray(to_numpy(particles.markers[:, :3])),
+        [all_particles_psy, sendcounts, displacements, MPI.DOUBLE],
+    )
     comm.Barrier()
 
 

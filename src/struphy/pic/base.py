@@ -1322,11 +1322,20 @@ class Particles(metaclass=ABCMeta):
                 # inverse transform sampling in velocity space
                 # Avoid exact 0 or 1 from low-discrepancy sequences: erfinv(±1)
                 # and log(0) produce infinities or invalid polar velocities.
+                #
+                # self._markers is always host-resident (see
+                # ISSUE_cupy_particles_never_pushed.md), so every xp.<func> call
+                # below that reads from it must first convert via _dev(), and
+                # every result written back into it must convert back via
+                # _to_numpy_for_kernel() -- mirrors the ParticlesSPH branch above,
+                # which already needed the same treatment.
                 eps = xp.finfo(float).eps
-                self._markers[:n_mks_load_loc, 3 : 3 + self.vdim] = xp.clip(
-                    self._markers[:n_mks_load_loc, 3 : 3 + self.vdim],
-                    eps,
-                    1.0 - eps,
+                self._markers[:n_mks_load_loc, 3 : 3 + self.vdim] = _to_numpy_for_kernel(
+                    xp.clip(
+                        _dev(self._markers[:n_mks_load_loc, 3 : 3 + self.vdim]),
+                        eps,
+                        1.0 - eps,
+                    )
                 )
 
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
@@ -1335,9 +1344,15 @@ class Particles(metaclass=ABCMeta):
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if isinstance(self, Particles6D):
-                    self.velocities = (
-                        sp.erfinv(
-                            2 * self.velocities - 1,
+                    # sp is plain scipy.special (host-only, unlike xp), so
+                    # erfinv itself runs on the already-host self.velocities;
+                    # only its result needs converting before mixing with the
+                    # device-resident v_th/u_mean.
+                    self.velocities = _to_numpy_for_kernel(
+                        _dev(
+                            sp.erfinv(
+                                2 * self.velocities - 1,
+                            )
                         )
                         * xp.sqrt(2)
                         * v_th
@@ -1345,16 +1360,20 @@ class Particles(metaclass=ABCMeta):
                     )
                 # Particles5D: (1d Maxwellian, muB0-Maxwellian as volume-form)
                 elif isinstance(self, Particles5D):
-                    self._markers[:n_mks_load_loc, 3] = (
-                        sp.erfinv(
-                            2 * self.velocities[:, 0] - 1,
+                    self._markers[:n_mks_load_loc, 3] = _to_numpy_for_kernel(
+                        _dev(
+                            sp.erfinv(
+                                2 * self.velocities[:, 0] - 1,
+                            )
                         )
                         * xp.sqrt(2)
                         * v_th[0]
                         + u_mean[0]
                     )
 
-                    self._markers[:n_mks_load_loc, 4] = -xp.log(1.0 - self.velocities[:, 1]) * v_th[1] ** 2 / B0
+                    self._markers[:n_mks_load_loc, 4] = _to_numpy_for_kernel(
+                        -xp.log(1.0 - _dev(self.velocities[:, 1])) * v_th[1] ** 2 / B0
+                    )
 
                     # mu is a magnetic moment and must be >= 0.
                     # A mean shift in this coordinate is not physically consistent.
@@ -1365,18 +1384,20 @@ class Particles(metaclass=ABCMeta):
                         )
                 # Particles5Dvperp: (1d Maxwellian, polar Maxwellian as volume-form)
                 elif isinstance(self, Particles5Dvperp):
-                    self._markers[:n_mks_load_loc, 3] = (
-                        sp.erfinv(
-                            2 * self.velocities[:, 0] - 1,
+                    self._markers[:n_mks_load_loc, 3] = _to_numpy_for_kernel(
+                        _dev(
+                            sp.erfinv(
+                                2 * self.velocities[:, 0] - 1,
+                            )
                         )
                         * xp.sqrt(2)
                         * v_th[0]
                         + u_mean[0]
                     )
 
-                    self._markers[:n_mks_load_loc, 4] = (
+                    self._markers[:n_mks_load_loc, 4] = _to_numpy_for_kernel(
                         xp.sqrt(
-                            -xp.log(1.0 - self.velocities[:, 1]),
+                            -xp.log(1.0 - _dev(self.velocities[:, 1])),
                         )
                         * xp.sqrt(2)
                         * v_th[1]
@@ -1398,8 +1419,10 @@ class Particles(metaclass=ABCMeta):
 
             # inversion method for drawing uniformly on the disc
             if self.spatial == "disc":
-                self._markers[:n_mks_load_loc, 0] = xp.sqrt(
-                    self._markers[:n_mks_load_loc, 0],
+                self._markers[:n_mks_load_loc, 0] = _to_numpy_for_kernel(
+                    xp.sqrt(
+                        _dev(self._markers[:n_mks_load_loc, 0]),
+                    )
                 )
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
