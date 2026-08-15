@@ -13,7 +13,7 @@ Usage::
 
     ARRAY_BACKEND=<numpy|cupy> python _bench_cuda_kernels_worker.py <op> <Np> <n_reps>
 
-``op`` is one of: push_eta, push_v, eval_density_flat, eval_density_mesh
+``op`` is one of: push_eta, push_v, eval_density_flat, eval_density_mesh, sort_boxes
 """
 
 import statistics
@@ -175,11 +175,79 @@ def _bench_eval_density(op: str, Np: int, n_reps: int) -> list[float]:
     return _timed_calls(call, n_reps)
 
 
+def _bench_sort_boxes(Np: int, n_reps: int) -> list[float]:
+    """assign_box_to_each_particle + assign_particles_to_boxes (see
+    :mod:`~struphy.pic.sorting_kernels_cuda`) via
+    :meth:`~struphy.pic.base.Particles.put_particles_in_boxes` -- the
+    per-step box-sorting bookkeeping that both the SPH pushers
+    (``Pusher._box_comm``) and every ``eval_density``/``eval_velocity`` call
+    (via ``_eval_sph``) run before touching the box-based marker structure.
+    Same particle setup as :func:`_bench_eval_density`, minus the evaluation
+    points, since only the box bookkeeping is being timed here.
+
+    ``sorting_boxes._communicate`` (true by default for SPH particles) is
+    forced off: it makes ``put_particles_in_boxes`` additionally run
+    ``_communicate_boxes()``, whose ghost-particle-destination bookkeeping
+    (``_get_destinations_box``, MPI-send-buffer prep) is pure host/NumPy
+    Python control flow -- unrelated to, and in single-process runs far more
+    expensive than, the two CUDA-ported kernels this benchmark targets. With
+    an actual MPI communicator that bookkeeping is unavoidable and would
+    dominate real per-step cost regardless of backend; it is out of scope for
+    this GPU-kernel benchmark specifically.
+
+    Unlike :func:`_bench_eval_density`, ``boxes_per_dim`` is scaled with
+    ``Np`` here (targeting ~30 particles/box) instead of using a fixed
+    ``(8, 8, 4)`` grid: box-based SPH only makes sense with a modest,
+    Np-independent number of particles per box (that's the point of the
+    27-neighbour search), and a fixed grid at Np=10**6 would put ~4000
+    particles in every box, inflating the ``boxes`` array (and therefore its
+    host<->device transfer, which -- unlike the in-place CPU kernel -- this
+    GPU port must do) by two orders of magnitude for no physical reason."""
+    from struphy import BoundaryParameters, LoadingParameters, SortingParameters, domains, perturbations
+    from struphy.fields_background.equils import ConstantVelocity
+    from struphy.pic.particles import ParticlesSPH
+
+    domain = domains.Cuboid()
+    n_per_dim = max(2, round((Np / 30.0) ** (1.0 / 3.0)))
+    boxes_per_dim = (n_per_dim, n_per_dim, n_per_dim)
+
+    loading_params = LoadingParameters(Np=Np, seed=1234)
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
+    pert = {"n": perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(0.3,))}
+    boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=3.0)
+
+    particles = ParticlesSPH(
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        bufsize=5.0,
+        domain=domain,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
+    )
+    particles.draw_markers(sort=False)
+    particles.initialize_weights()
+    particles.sorting_boxes._communicate = False
+
+    def call():
+        particles.put_particles_in_boxes()
+
+    for _ in range(N_WARMUP):
+        call()
+
+    return _timed_calls(call, n_reps)
+
+
 def main(op: str, Np: int, n_reps: int) -> float:
     if op in ("push_eta", "push_v"):
         times = _bench_pushers(op, Np, n_reps)
     elif op in ("eval_density_flat", "eval_density_mesh"):
         times = _bench_eval_density(op, Np, n_reps)
+    elif op == "sort_boxes":
+        times = _bench_sort_boxes(Np, n_reps)
     else:
         raise ValueError(f"unknown op {op!r}")
 

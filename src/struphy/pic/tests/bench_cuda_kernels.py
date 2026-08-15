@@ -6,6 +6,8 @@ speedup of the CUDA ``RawKernel``-ported particle operations:
 * ``push_v``               -- :func:`~struphy.pic.pushing.pusher_kernels_cuda.push_v_with_efield_cuboid_gpu`
 * ``eval_density_flat``     -- :func:`~struphy.pic.sph_eval_kernels_cuda.box_based_evaluation_flat_gpu`
 * ``eval_density_mesh``     -- :func:`~struphy.pic.sph_eval_kernels_cuda.box_based_evaluation_meshgrid_gpu`
+* ``sort_boxes``            -- :func:`~struphy.pic.sorting_kernels_cuda.assign_box_to_each_particle_gpu` +
+  :func:`~struphy.pic.sorting_kernels_cuda.assign_particles_to_boxes_gpu`
 
 across a marker-count (``Np``) sweep, one subprocess per (backend, op, Np)
 combination (``ARRAY_BACKEND`` is read once at import time by ``cunumpy`` and
@@ -28,7 +30,7 @@ import sys
 
 WORKER = os.path.join(os.path.dirname(__file__), "_bench_cuda_kernels_worker.py")
 
-ALL_OPS = ("push_eta", "push_v", "eval_density_flat", "eval_density_mesh")
+ALL_OPS = ("push_eta", "push_v", "eval_density_flat", "eval_density_mesh", "sort_boxes")
 
 
 def _median_runtime(backend: str, op: str, Np: int, n_reps: int) -> float:

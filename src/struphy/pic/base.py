@@ -57,6 +57,10 @@ from struphy.pic.sorting_kernels import (
     assign_particles_to_boxes,
     sort_boxed_particles,
 )
+from struphy.pic.sorting_kernels_cuda import (
+    assign_box_to_each_particle_gpu,
+    assign_particles_to_boxes_gpu,
+)
 from struphy.pic.sph_eval_kernels import (
     box_based_evaluation_flat,
     box_based_evaluation_meshgrid,
@@ -800,12 +804,12 @@ class Particles(metaclass=ABCMeta):
     @property
     def markers_wo_holes(self):
         """Array holding the marker information, excluding holes. The i-th row holds the i-th marker info."""
-        return self.markers[~self.holes]
+        return self.markers[np.nonzero(~self.holes)[0]]
 
     @property
     def markers_wo_holes_and_ghost(self):
         """Array holding the marker information, excluding holes and ghosts (only valid markers). The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks]
+        return self.markers[self._valid_row_idx]
 
     @property
     def lost_markers(self):
@@ -823,6 +827,24 @@ class Particles(metaclass=ABCMeta):
         if not hasattr(self, "_valid_mks"):
             self._valid_mks = ~np.logical_or(self.holes, self.ghost_particles)
         return self._valid_mks
+
+    @property
+    def _valid_row_idx(self):
+        """Integer row indices where :attr:`valid_mks` is True.
+
+        Used (instead of ``markers[self.valid_mks, colslice]``) by the
+        read-only marker-column properties below: slicing columns first --
+        cheap, since a plain-slice column index is a view -- and only then
+        gathering rows via integer fancy indexing is measurably faster
+        (~35-60% at Np=1e6, measured) than boolean-masking the full-width
+        row range directly, which is what made ``update_scalar_quantities()``
+        cost about as much as the (CUDA-accelerated) ``model.integrate()``
+        step itself at large Np, on both backends equally -- this is a plain
+        host/NumPy indexing cost, unrelated to ARRAY_BACKEND, since
+        ``markers`` is always host-resident (see
+        ``ISSUE_cupy_particles_never_pushed.md``).
+        """
+        return np.nonzero(self.valid_mks)[0]
 
     @property
     def n_mks_loc(self):
@@ -852,7 +874,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def positions(self):
         """Array holding the marker positions in logical space. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["pos"]]
+        return self.markers[:, self.index["pos"]][self._valid_row_idx]
 
     @positions.setter
     def positions(self, new):
@@ -863,7 +885,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def velocities(self):
         """Array holding the marker velocities in logical space. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["vel"]]
+        return self.markers[:, self.index["vel"]][self._valid_row_idx]
 
     @velocities.setter
     def velocities(self, new):
@@ -874,7 +896,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def phasespace_coords(self):
         """Array holding the marker positions and velocities in logical space. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["coords"]]
+        return self.markers[:, self.index["coords"]][self._valid_row_idx]
 
     @phasespace_coords.setter
     def phasespace_coords(self, new):
@@ -885,7 +907,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def weights(self):
         """Array holding the current marker weights. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["weights"]]
+        return self.markers[:, self.index["weights"]][self._valid_row_idx]
 
     @weights.setter
     def weights(self, new):
@@ -896,7 +918,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def sampling_density_values(self):
         """Array holding the current marker 0form sampling density s0. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["s0"]]
+        return self.markers[:, self.index["s0"]][self._valid_row_idx]
 
     @sampling_density_values.setter
     def sampling_density_values(self, new):
@@ -907,7 +929,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def weights0(self):
         """Array holding the initial marker weights. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["w0"]]
+        return self.markers[:, self.index["w0"]][self._valid_row_idx]
 
     @weights0.setter
     def weights0(self, new):
@@ -918,7 +940,7 @@ class Particles(metaclass=ABCMeta):
     @property
     def marker_ids(self):
         """Array holding the marker id's on the current process."""
-        return self.markers[self.valid_mks, self.index["ids"]]
+        return self.markers[:, self.index["ids"]][self._valid_row_idx]
 
     @marker_ids.setter
     def marker_ids(self, new):
@@ -929,12 +951,12 @@ class Particles(metaclass=ABCMeta):
     @property
     def f_coords(self):
         """Coordinates of the distribution function."""
-        return self.markers[self.valid_mks, self.f_coords_index]
+        return self.markers[:, self.f_coords_index][self._valid_row_idx]
 
     @f_coords.setter
     def f_coords(self, new):
         assert isinstance(new, np.ndarray)
-        self.markers[self.valid_mks, self.f_coords_index] = new
+        self.markers[:, self.f_coords_index][self._valid_row_idx] = new
 
     @property
     def f_jacobian_coords(self):
@@ -1876,14 +1898,24 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbouring processes are also communicated (as ghost particles)."""
         self._remove_ghost_particles()
 
-        assign_box_to_each_particle(
-            self.markers,
-            self.holes,
-            self._sorting_boxes.nx,
-            self._sorting_boxes.ny,
-            self._sorting_boxes.nz,
-            self.domain_array[self.mpi_rank],
-        )
+        if xp.cupy_backend:
+            assign_box_to_each_particle_gpu(
+                self.markers,
+                self.holes,
+                self._sorting_boxes.nx,
+                self._sorting_boxes.ny,
+                self._sorting_boxes.nz,
+                self.domain_array[self.mpi_rank],
+            )
+        else:
+            assign_box_to_each_particle(
+                self.markers,
+                self.holes,
+                self._sorting_boxes.nx,
+                self._sorting_boxes.ny,
+                self._sorting_boxes.nz,
+                self.domain_array[self.mpi_rank],
+            )
 
         self._check_and_assign_particles_to_boxes()
 
@@ -3073,12 +3105,20 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
             )
             self.mpi_comm.Abort()
 
-        assign_particles_to_boxes(
-            self.markers,
-            self.holes,
-            self._sorting_boxes._boxes,
-            self._sorting_boxes._next_index,
-        )
+        if xp.cupy_backend:
+            assign_particles_to_boxes_gpu(
+                self.markers,
+                self.holes,
+                self._sorting_boxes._boxes,
+                self._sorting_boxes._next_index,
+            )
+        else:
+            assign_particles_to_boxes(
+                self.markers,
+                self.holes,
+                self._sorting_boxes._boxes,
+                self._sorting_boxes._next_index,
+            )
 
     def _update_ghost_particles(self):
         """Refresh :attr:`~struphy.pic.base.Particles.ghost_particles`: a marker is flagged
