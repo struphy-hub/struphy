@@ -1370,18 +1370,19 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                         file[key_field].attrs["pads"] = DataContainer._as_numpy_array(spline.pads)
 
                     # save numpy array to be updated only at the end of the simulation for restart.
-                    key_field_restart = os.path.join(species_path_restart, variable)
+                    if self.env.save_restart:
+                        key_field_restart = os.path.join(species_path_restart, variable)
 
-                    if isinstance(spline.vector_stencil, StencilVector):
-                        data.add_data(
-                            {key_field_restart: spline.vector_stencil._data},
-                        )
-                    else:
-                        for n in range(3):
-                            key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                        if isinstance(spline.vector_stencil, StencilVector):
                             data.add_data(
-                                {key_component_restart: spline.vector_stencil[n]._data},
+                                {key_field_restart: spline.vector_stencil._data},
                             )
+                        else:
+                            for n in range(3):
+                                key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                                data.add_data(
+                                    {key_component_restart: spline.vector_stencil[n]._data},
+                                )
 
             # save kinetic data in group 'kinetic/'
             for name, species in self.model.particle_species.items():
@@ -1393,10 +1394,11 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                     assert isinstance(obj, Particles)
 
                 key_spec = os.path.join("kinetic", name)
-                key_spec_restart = os.path.join("restart", name)
 
                 # restart data
-                data.add_data({key_spec_restart: obj.markers})
+                if self.env.save_restart:
+                    key_spec_restart = os.path.join("restart", name)
+                    data.add_data({key_spec_restart: obj.markers})
 
                 # marker data
                 key_mks = os.path.join(key_spec, "markers")
