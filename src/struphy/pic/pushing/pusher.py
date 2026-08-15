@@ -199,23 +199,16 @@ class Pusher:
             and not self._newton
         )
 
-        # hand-written CUDA replacement for push_v_with_efield on a Cuboid
-        # domain: same narrow scoping as _gpu_eta_cuboid_periodic (this kernel
-        # only ever touches velocity columns, never position, so the periodic
-        # requirement below just keeps us from having to reason about
-        # non-periodic apply_kinetic_bc branches we don't otherwise skip; see
-        # pusher_kernels_cuda.push_v_with_efield_cuboid_gpu).
+        # hand-written CUDA replacement for push_v_with_efield's per-marker
+        # math on a Cuboid domain. Unlike the whole-push fast path below, this
+        # is unconditional on MPI/bc/maxiter -- it only swaps out the inner
+        # kernel call (see the "push markers" branch in _push(), mirroring
+        # how _gpu_eta_cuboid is used there), so it stays correct alongside
+        # unmodified apply_kinetic_bc/mpi_sort_markers/update_holes for
+        # multi-rank runs, exactly like _gpu_eta_cuboid already does for
+        # push_eta_stage.
         self._gpu_v_efield_cuboid = (
-            cunumpy.cupy_backend
-            and kernel.name == "push_v_with_efield"
-            and args_domain.kind_map == 10
-            and all(b == "periodic" for b in self.particles.bc)
-            and not init_kernels
-            and not eval_kernels
-            and self.particles.mpi_comm is None
-            and maxiter == 1
-            and not self._newton
-            and n_stages == 1
+            cunumpy.cupy_backend and kernel.name == "push_v_with_efield" and args_domain.kind_map == 10
         )
         if self._gpu_v_efield_cuboid:
             import cupy as cp
@@ -238,6 +231,24 @@ class Pusher:
             self._gpu_v_efield_e1_1 = e1_1
             self._gpu_v_efield_e1_2 = e1_2
             self._gpu_v_efield_e1_3 = e1_3
+
+        # whole-push GPU-resident fast path: on top of _gpu_v_efield_cuboid,
+        # additionally bypasses the per-call reset/apply_kinetic_bc/
+        # update_holes machinery entirely (this kernel never touches position
+        # or holes/ghost columns, so that machinery is a no-op for it -- but
+        # only provably so under the same conditions as
+        # _gpu_eta_cuboid_periodic: no MPI, since mpi_sort_markers does real
+        # host-side communication we can't just skip).
+        self._gpu_v_efield_cuboid_wholepush = (
+            self._gpu_v_efield_cuboid
+            and all(b == "periodic" for b in self.particles.bc)
+            and not init_kernels
+            and not eval_kernels
+            and self.particles.mpi_comm is None
+            and maxiter == 1
+            and not self._newton
+            and n_stages == 1
+        )
 
     @staticmethod
     def _reset_marker_buffers_gpu(markers, init_slice, shift_slice, residual_idx, vdim):
@@ -268,7 +279,7 @@ class Pusher:
         with ProfileManager.profile_region(self._region_name):
             if self._gpu_eta_cuboid_periodic:
                 self._push_eta_cuboid_periodic_gpu(dt)
-            elif self._gpu_v_efield_cuboid:
+            elif self._gpu_v_efield_cuboid_wholepush:
                 self._push_v_efield_cuboid_gpu(dt)
             else:
                 self._push(dt)
@@ -449,6 +460,22 @@ class Pusher:
                             dt * float(a[stage]),
                             dt * float(b[stage]),
                             last,
+                        )
+                elif self._gpu_v_efield_cuboid:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        push_v_with_efield_cuboid_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            self._gpu_v_efield_pn,
+                            self._gpu_v_efield_tn1,
+                            self._gpu_v_efield_tn2,
+                            self._gpu_v_efield_tn3,
+                            self._gpu_v_efield_starts,
+                            self._gpu_v_efield_e1_1,
+                            self._gpu_v_efield_e1_2,
+                            self._gpu_v_efield_e1_3,
+                            self._gpu_v_efield_scale,
+                            dt * self._gpu_v_efield_const,
                         )
                 else:
                     with ProfileManager.profile_region("kernel: " + self.kernel.name):
