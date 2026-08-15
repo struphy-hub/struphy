@@ -1988,11 +1988,14 @@ class Derham:
         else:
             nproc = 1
 
-        # send buffer
-        ind_arr_loc = xp.zeros(6, dtype=int)
+        # send/receive buffers for Allgather -- rank/topology bookkeeping
+        # (nproc * 6 ints), always host regardless of backend: mpi4py's
+        # uppercase buffer-protocol Allgather needs host-readable buffers,
+        # and there is no benefit to a device round trip for data this small.
+        ind_arr_loc = np.zeros(6, dtype=int)
 
         # main array (receive buffers)
-        ind_arr = xp.zeros(nproc * 6, dtype=int)
+        ind_arr = np.zeros(nproc * 6, dtype=int)
 
         # Get global starts and ends of cart OR domain decomposition
         gl_s = decomposition.starts
@@ -2041,7 +2044,9 @@ class Derham:
             neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index.
         """
 
-        neighs = xp.empty((3, 3, 3), dtype=int)
+        # rank/topology bookkeeping (27 neighbour ranks), always host, see
+        # _get_index_array.
+        neighs = np.empty((3, 3, 3), dtype=int)
 
         for i in range(3):
             for j in range(3):
@@ -2086,8 +2091,12 @@ class Derham:
         if comp == [1, 1, 1]:
             return neigh_id
 
-        comp = xp.array(comp)
-        kinds = xp.array(kinds)
+        # rank/index bookkeeping, always host: neigh_inds below holds a mix
+        # of ints and None (compared against None further down), which is a
+        # NumPy object-dtype array and has no CuPy equivalent -- see
+        # _get_index_array.
+        comp = np.array(comp)
+        kinds = np.array(kinds)
 
         # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
         if size == 1:
@@ -2122,15 +2131,15 @@ class Derham:
                         "Wrong value for component; must be 0 or 1 or 2 !",
                     )
 
-            neigh_inds = xp.array(neigh_inds)
+            neigh_inds = np.array(neigh_inds)
 
             # only use indices where information is present to find the neighbours rank
-            inds = xp.where(xp.not_equal(neigh_inds, None))
+            inds = np.where(np.not_equal(neigh_inds, None))
 
             # find ranks (row index of domain_array) which agree in start/end indices
-            index_temp = xp.squeeze(self.index_array[:, inds])
-            unique_ranks = xp.where(
-                xp.equal(index_temp, neigh_inds[inds]).all(1),
+            index_temp = np.squeeze(self.index_array[:, inds])
+            unique_ranks = np.where(
+                np.equal(index_temp, neigh_inds[inds]).all(1),
             )[0]
 
             # if any row satisfies condition, return its index (=rank of neighbour)
@@ -3617,7 +3626,10 @@ def get_pts_and_wts_quasi(
             n_quad = degree + 1
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+            # cupy has no polynomial.legendre; this is tiny host-scale math,
+            # and quadrature_grid below converts to the active backend via
+            # xp.asarray, which (unlike the reverse direction) is always safe.
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             pts = x % 1.0

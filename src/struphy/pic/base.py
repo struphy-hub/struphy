@@ -434,10 +434,13 @@ class Particles(metaclass=ABCMeta):
         # if self.loading_params["moments"] is None and not isinstance(self, ParticlesSPH) and isinstance(self.bckgr_params, dict):
         self._generate_sampling_moments()
 
-        # create buffers for mpi_sort_markers
-        self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
-        self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
-        self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
+        # create buffers for mpi_sort_markers -- marker-row-indexed, like
+        # markers itself always host-resident regardless of backend (see
+        # ISSUE_cupy_particles_never_pushed.md), and fed straight into mpi4py
+        # Alltoall/Isend/Irecv calls below, which need host buffers.
+        self._sorting_etas = np.zeros((self.markers.shape[0], 3), dtype=float)
+        self._is_on_proc_domain = np.zeros((self.markers.shape[0], 3), dtype=bool)
+        self._can_stay = np.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
         self._recvbufs = [None] * self.mpi_size
         self._send_to_i = [None] * self.mpi_size
@@ -1563,6 +1566,12 @@ class Particles(metaclass=ABCMeta):
             The reconstructed delta-f distribution function.
         """
 
+        # np.histogramdd below needs host bin edges, like the markers-derived
+        # sample/weights arrays it's called with (see ISSUE_cupy_particles_never_pushed.md);
+        # accept xp-typed input defensively so callers on the active backend
+        # don't need to know that.
+        bin_edges = tuple(_to_numpy_for_kernel(be) for be in bin_edges)
+
         assert np.count_nonzero(components) == len(bin_edges)
 
         # volume of a bin
@@ -2350,7 +2359,10 @@ class Particles(metaclass=ABCMeta):
                 mm = (mm + 1) % 3
             nprocs[mm] *= fac
 
-        assert xp.prod(nprocs) == self.mpi_size
+        # nprocs is a plain 3-element Python list (process counts, not
+        # physics data); np.prod handles it on both backends, unlike
+        # xp.prod which (on CuPy) requires an actual ndarray input.
+        assert np.prod(nprocs) == self.mpi_size
 
         # domain decomposition
         breaks = [np.linspace(0.0, 1.0, nproc + 1) for nproc in nprocs]
@@ -2787,6 +2799,7 @@ class Particles(metaclass=ABCMeta):
             sorting_boxes=self.sorting_boxes,
         )
         eta1, eta2, eta3 = self.tesselation.draw_markers()
+        eta1, eta2, eta3 = _to_numpy_for_kernel(eta1), _to_numpy_for_kernel(eta2), _to_numpy_for_kernel(eta3)
         self._markers[: eta1.size, 0] = eta1
         self._markers[: eta2.size, 1] = eta2
         self._markers[: eta3.size, 2] = eta3
@@ -3039,18 +3052,14 @@ class Particles(metaclass=ABCMeta):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assign the particles to boxes."""
 
-        from cunumpy.xp import array_backend
+        # self.markers (and therefore markers_wo_holes) is always host-resident
+        # regardless of backend (see ISSUE_cupy_particles_never_pushed.md), so
+        # this is plain numpy unconditionally -- the previous backend branch
+        # predates that fix and fed a host array into cp.bincount, which
+        # (unlike xp.bincount on an actual CuPy array) does not accept one.
+        bcount = np.bincount(self.markers_wo_holes[:, -2].astype(np.int64))
 
-        if array_backend.backend == "numpy":
-            bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
-        else:
-            import cupy as cp
-
-            indices = self.markers_wo_holes[:, -2]
-            indices = indices.astype(cp.int64)
-            bcount = cp.bincount(indices)
-
-        max_in_box = xp.max(bcount)
+        max_in_box = np.max(bcount)
         if max_in_box > self._sorting_boxes.boxes.shape[1]:
             warnings.warn(
                 f'Strong load imbalance detected in sorting boxes: \
@@ -3527,7 +3536,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         for i in list_boxes:
             indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i] != -1])
 
-        indices = xp.array(indices, dtype=int)
+        # row indices into self.markers, which is always host-resident
+        indices = np.array(indices, dtype=int)
         markers_in_box = self.markers[indices]
         return markers_in_box
 
@@ -3537,156 +3547,164 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         :meth:`_get_neighbouring_proc`), accumulating, per destination rank, the number of
         markers to send (:attr:`_send_info_box`) and the markers themselves
         (:attr:`_send_list_box`, used by :meth:`_self_communication_boxes` and
-        :meth:`_sendrecv_markers_boxes`)."""
-        self._send_info_box = xp.zeros(self.mpi_size, dtype=int)
-        self._send_list_box = [xp.zeros((0, self.n_cols))] * self.mpi_size
+        :meth:`_sendrecv_markers_boxes`).
+
+        This method and the rest of the box-communication subsystem below are
+        host-resident throughout, like the analogous MPI marker-sort methods
+        (:meth:`_sendrecv_determine_mtbs` etc.): they operate on rows of
+        ``self.markers`` (always host, see ISSUE_cupy_particles_never_pushed.md)
+        and feed counts/buffers straight into mpi4py Alltoall/Isend/Irecv,
+        which need host-readable arguments regardless of backend.
+        """
+        self._send_info_box = np.zeros(self.mpi_size, dtype=int)
+        self._send_list_box = [np.zeros((0, self.n_cols))] * self.mpi_size
 
         # Faces
         # if self._x_m_proc is not None:
         self._send_info_box[self._x_m_proc] += len(self._markers_x_m)
-        self._send_list_box[self._x_m_proc] = xp.concatenate((self._send_list_box[self._x_m_proc], self._markers_x_m))
+        self._send_list_box[self._x_m_proc] = np.concatenate((self._send_list_box[self._x_m_proc], self._markers_x_m))
 
         # if self._x_p_proc is not None:
         self._send_info_box[self._x_p_proc] += len(self._markers_x_p)
-        self._send_list_box[self._x_p_proc] = xp.concatenate((self._send_list_box[self._x_p_proc], self._markers_x_p))
+        self._send_list_box[self._x_p_proc] = np.concatenate((self._send_list_box[self._x_p_proc], self._markers_x_p))
 
         # if self._y_m_proc is not None:
         self._send_info_box[self._y_m_proc] += len(self._markers_y_m)
-        self._send_list_box[self._y_m_proc] = xp.concatenate((self._send_list_box[self._y_m_proc], self._markers_y_m))
+        self._send_list_box[self._y_m_proc] = np.concatenate((self._send_list_box[self._y_m_proc], self._markers_y_m))
 
         # if self._y_p_proc is not None:
         self._send_info_box[self._y_p_proc] += len(self._markers_y_p)
-        self._send_list_box[self._y_p_proc] = xp.concatenate((self._send_list_box[self._y_p_proc], self._markers_y_p))
+        self._send_list_box[self._y_p_proc] = np.concatenate((self._send_list_box[self._y_p_proc], self._markers_y_p))
 
         # if self._z_m_proc is not None:
         self._send_info_box[self._z_m_proc] += len(self._markers_z_m)
-        self._send_list_box[self._z_m_proc] = xp.concatenate((self._send_list_box[self._z_m_proc], self._markers_z_m))
+        self._send_list_box[self._z_m_proc] = np.concatenate((self._send_list_box[self._z_m_proc], self._markers_z_m))
 
         # if self._z_p_proc is not None:
         self._send_info_box[self._z_p_proc] += len(self._markers_z_p)
-        self._send_list_box[self._z_p_proc] = xp.concatenate((self._send_list_box[self._z_p_proc], self._markers_z_p))
+        self._send_list_box[self._z_p_proc] = np.concatenate((self._send_list_box[self._z_p_proc], self._markers_z_p))
 
         # x-y edges
         # if self._x_m_y_m_proc is not None:
         self._send_info_box[self._x_m_y_m_proc] += len(self._markers_x_m_y_m)
-        self._send_list_box[self._x_m_y_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_proc], self._markers_x_m_y_m),
         )
 
         # if self._x_m_y_p_proc is not None:
         self._send_info_box[self._x_m_y_p_proc] += len(self._markers_x_m_y_p)
-        self._send_list_box[self._x_m_y_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_proc], self._markers_x_m_y_p),
         )
 
         # if self._x_p_y_m_proc is not None:
         self._send_info_box[self._x_p_y_m_proc] += len(self._markers_x_p_y_m)
-        self._send_list_box[self._x_p_y_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_proc], self._markers_x_p_y_m),
         )
 
         # if self._x_p_y_p_proc is not None:
         self._send_info_box[self._x_p_y_p_proc] += len(self._markers_x_p_y_p)
-        self._send_list_box[self._x_p_y_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_proc], self._markers_x_p_y_p),
         )
 
         # x-z edges
         # if self._x_m_z_m_proc is not None:
         self._send_info_box[self._x_m_z_m_proc] += len(self._markers_x_m_z_m)
-        self._send_list_box[self._x_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_z_m_proc], self._markers_x_m_z_m),
         )
 
         # if self._x_m_z_p_proc is not None:
         self._send_info_box[self._x_m_z_p_proc] += len(self._markers_x_m_z_p)
-        self._send_list_box[self._x_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_z_p_proc], self._markers_x_m_z_p),
         )
 
         # if self._x_p_z_m_proc is not None:
         self._send_info_box[self._x_p_z_m_proc] += len(self._markers_x_p_z_m)
-        self._send_list_box[self._x_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_z_m_proc], self._markers_x_p_z_m),
         )
 
         # if self._x_p_z_p_proc is not None:
         self._send_info_box[self._x_p_z_p_proc] += len(self._markers_x_p_z_p)
-        self._send_list_box[self._x_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_z_p_proc], self._markers_x_p_z_p),
         )
 
         # y-z edges
         # if self._y_m_z_m_proc is not None:
         self._send_info_box[self._y_m_z_m_proc] += len(self._markers_y_m_z_m)
-        self._send_list_box[self._y_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._y_m_z_m_proc], self._markers_y_m_z_m),
         )
 
         # if self._y_m_z_p_proc is not None:
         self._send_info_box[self._y_m_z_p_proc] += len(self._markers_y_m_z_p)
-        self._send_list_box[self._y_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._y_m_z_p_proc], self._markers_y_m_z_p),
         )
 
         # if self._y_p_z_m_proc is not None:
         self._send_info_box[self._y_p_z_m_proc] += len(self._markers_y_p_z_m)
-        self._send_list_box[self._y_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._y_p_z_m_proc], self._markers_y_p_z_m),
         )
 
         # if self._y_p_z_p_proc is not None:
         self._send_info_box[self._y_p_z_p_proc] += len(self._markers_y_p_z_p)
-        self._send_list_box[self._y_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._y_p_z_p_proc], self._markers_y_p_z_p),
         )
 
         # corners
         # if self._x_m_y_m_z_m_proc is not None:
         self._send_info_box[self._x_m_y_m_z_m_proc] += len(self._markers_x_m_y_m_z_m)
-        self._send_list_box[self._x_m_y_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_z_m_proc], self._markers_x_m_y_m_z_m),
         )
 
         # if self._x_m_y_m_z_p_proc is not None:
         self._send_info_box[self._x_m_y_m_z_p_proc] += len(self._markers_x_m_y_m_z_p)
-        self._send_list_box[self._x_m_y_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_z_p_proc], self._markers_x_m_y_m_z_p),
         )
 
         # if self._x_m_y_p_z_m_proc is not None:
         self._send_info_box[self._x_m_y_p_z_m_proc] += len(self._markers_x_m_y_p_z_m)
-        self._send_list_box[self._x_m_y_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_z_m_proc], self._markers_x_m_y_p_z_m),
         )
 
         # if self._x_m_y_p_z_p_proc is not None:
         self._send_info_box[self._x_m_y_p_z_p_proc] += len(self._markers_x_m_y_p_z_p)
-        self._send_list_box[self._x_m_y_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_m_y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_z_p_proc], self._markers_x_m_y_p_z_p),
         )
 
         # if self._x_p_y_m_z_m_proc is not None:
         self._send_info_box[self._x_p_y_m_z_m_proc] += len(self._markers_x_p_y_m_z_m)
-        self._send_list_box[self._x_p_y_m_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_z_m_proc], self._markers_x_p_y_m_z_m),
         )
 
         # if self._x_p_y_m_z_p_proc is not None:
         self._send_info_box[self._x_p_y_m_z_p_proc] += len(self._markers_x_p_y_m_z_p)
-        self._send_list_box[self._x_p_y_m_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_z_p_proc], self._markers_x_p_y_m_z_p),
         )
 
         # if self._x_p_y_p_z_m_proc is not None:
         self._send_info_box[self._x_p_y_p_z_m_proc] += len(self._markers_x_p_y_p_z_m)
-        self._send_list_box[self._x_p_y_p_z_m_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_z_m_proc], self._markers_x_p_y_p_z_m),
         )
 
         # if self._x_p_y_p_z_p_proc is not None:
         self._send_info_box[self._x_p_y_p_z_p_proc] += len(self._markers_x_p_y_p_z_p)
-        self._send_list_box[self._x_p_y_p_z_p_proc] = xp.concatenate(
+        self._send_list_box[self._x_p_y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_z_p_proc], self._markers_x_p_y_p_z_p),
         )
 
@@ -3696,7 +3714,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
 
         if self._send_info_box[self.mpi_rank] > 0:
             self.update_holes()
-            holes_inds = xp.nonzero(self.holes)[0]
+            holes_inds = np.nonzero(self.holes)[0]
 
             if holes_inds.size < self._send_info_box[self.mpi_rank]:
                 warnings.warn(
@@ -3718,7 +3736,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 # self.update_holes()
                 # self._update_ghost_particles()
                 # self._update_valid_mks()
-                # holes_inds = xp.nonzero(self.holes)[0]
+                # holes_inds = np.nonzero(self.holes)[0]
 
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
@@ -3728,7 +3746,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         for the communication of particles in boundary boxes.
         """
 
-        self._recv_info_box = xp.zeros(self.mpi_comm.Get_size(), dtype=int)
+        self._recv_info_box = np.zeros(self.mpi_comm.Get_size(), dtype=int)
 
         self.mpi_comm.Alltoall(self._send_info_box, self._recv_info_box)
 
@@ -3740,7 +3758,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
         first_hole = np.cumsum(self._recv_info_box) - self._recv_info_box
-        hole_inds = xp.nonzero(self._holes)[0]
+        hole_inds = np.nonzero(self._holes)[0]
         # Initialize send and receive commands
         reqs = []
         recvbufs = []
@@ -3751,7 +3769,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             else:
                 self.mpi_comm.Isend(data, dest=i, tag=self.mpi_comm.Get_rank())
 
-                recvbufs += [xp.zeros((N_recv, self._markers.shape[1]), dtype=float)]
+                recvbufs += [np.zeros((N_recv, self._markers.shape[1]), dtype=float)]
                 reqs += [self.mpi_comm.Irecv(recvbufs[-1], source=i, tag=i)]
 
         # Wait for buffer, then put markers into holes
@@ -4384,12 +4402,15 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Eta-values of shape (n_send, :) according to which the sorting is performed.
         """
         # position that determines the sorting (including periodic shift of boundary conditions)
-        if not isinstance(alpha, xp.ndarray):
-            alpha = xp.array(alpha, dtype=float)
+        # host throughout: self.markers is always host-resident (see
+        # ISSUE_cupy_particles_never_pushed.md), and alpha is a 3-element
+        # weighting, not physics data.
+        if not isinstance(alpha, np.ndarray):
+            alpha = np.array(alpha, dtype=float)
         assert alpha.size == 3
-        assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
+        assert np.all(alpha >= 0.0) and np.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        xp.mod(
+        np.mod(
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
             + (1.0 - alpha) * self.markers[:, bi : bi + 3],
             1.0,
@@ -4397,22 +4418,22 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         # check which particles are on the current process domain
-        self._is_on_proc_domain = xp.logical_and(
+        self._is_on_proc_domain = np.logical_and(
             self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
             self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
         )
 
         # to stay on the current process, all three columns must be True
-        self._can_stay = xp.all(self._is_on_proc_domain, axis=1)
+        self._can_stay = np.all(self._is_on_proc_domain, axis=1)
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
         self._can_stay[self.ghost_particles] = True
 
         # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
-        send_inds = xp.nonzero(~self._can_stay)[0]
+        send_inds = np.nonzero(~self._can_stay)[0]
 
-        hole_inds_after_send = xp.nonzero(xp.logical_or(~self._can_stay, self.holes))[0]
+        hole_inds_after_send = np.nonzero(np.logical_or(~self._can_stay, self.holes))[0]
 
         return hole_inds_after_send, send_inds
 
@@ -4431,16 +4452,16 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
 
         # One entry for each process
-        send_info = xp.zeros(self.mpi_size, dtype=int)
+        send_info = np.zeros(self.mpi_size, dtype=int)
 
         # TODO: do not loop over all processes, start with neighbours and work outwards (using while)
         for i in range(self.mpi_size):
-            conds = xp.logical_and(
+            conds = np.logical_and(
                 self._sorting_etas[send_inds] > self.domain_array[i, 0::3],
                 self._sorting_etas[send_inds] < self.domain_array[i, 1::3],
             )
 
-            self._send_to_i[i] = xp.nonzero(xp.all(conds, axis=1))[0]
+            self._send_to_i[i] = np.nonzero(np.all(conds, axis=1))[0]
             send_info[i] = self._send_to_i[i].size
 
             self._send_list[i] = self.markers[send_inds][self._send_to_i[i]]
@@ -4462,7 +4483,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Amount of marticles to be received from i-th process.
         """
 
-        recv_info = xp.zeros(self.mpi_size, dtype=int)
+        recv_info = np.zeros(self.mpi_size, dtype=int)
 
         self.mpi_comm.Alltoall(send_info, recv_info)
 
@@ -4492,7 +4513,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             else:
                 self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank)
 
-                self._recvbufs[i] = xp.zeros((N_recv, self.markers.shape[1]), dtype=float)
+                self._recvbufs[i] = np.zeros((N_recv, self.markers.shape[1]), dtype=float)
                 self._reqs[i] = self.mpi_comm.Irecv(self._recvbufs[i], source=i, tag=i)
 
         # Wait for buffer, then put markers into holes
@@ -4576,9 +4597,11 @@ class Tesselation:
             self._rank = comm.Get_rank()
             assert domain_array is not None
 
+        # tile/box geometry bookkeeping (small, ndim-sized), always host --
+        # domain_array (when given) is already host, see _get_domain_decomp.
         if domain_array is None:
-            self._starts = xp.zeros(3)
-            self._ends = xp.ones(3)
+            self._starts = np.zeros(3)
+            self._ends = np.ones(3)
         else:
             self._starts = domain_array[self.rank, 0::3]
             self._ends = domain_array[self.rank, 1::3]
@@ -4601,9 +4624,9 @@ class Tesselation:
         if n_boxes == 1:
             self._dims_mask = [True] * 3
         else:
-            self._dims_mask = xp.array(self.boxes_per_dim) > 1
+            self._dims_mask = np.array(self.boxes_per_dim) > 1
 
-        min_tiles = 2 ** xp.count_nonzero(self.dims_mask)
+        min_tiles = 2 ** np.count_nonzero(self.dims_mask)
         assert self.tiles_pb >= min_tiles, (
             f"At least {min_tiles} tiles per sorting box is enforced, but you have {self.tiles_pb}!"
         )
@@ -4631,20 +4654,25 @@ class Tesselation:
         # logger.info(f'{factors_vec = }')
         # logger.info(f'{self.dims_mask = }')
 
-        # tiles in one sorting box
-        self._nt_per_dim = xp.array([1, 1, 1])
-        _ids = xp.nonzero(self._dims_mask)[0]
+        # tiles in one sorting box -- geometry bookkeeping, always host (see
+        # note in __init__); nt below must be a plain int for xp.linspace's
+        # num= argument.
+        self._nt_per_dim = np.array([1, 1, 1])
+        _ids = np.nonzero(self._dims_mask)[0]
         for fac in factors_vec:
             _nt = self.nt_per_dim[self._dims_mask]
-            d = _ids[xp.argmin(_nt)]
+            d = _ids[np.argmin(_nt)]
             self._nt_per_dim[d] *= fac
             # logger.info(f'{_nt = }, {d = }, {self.nt_per_dim = }')
 
-        assert xp.prod(self.nt_per_dim) == self.tiles_pb
+        assert np.prod(self.nt_per_dim) == self.tiles_pb
 
-        # tiles between [0, box_width] in each direction
-        self._tile_breaks = [xp.linspace(0.0, bw, nt + 1) for bw, nt in zip(self.box_widths, self.nt_per_dim)]
-        self._tile_midpoints = [(xp.roll(tbs, -1)[:-1] + tbs[:-1]) / 2 for tbs in self.tile_breaks]
+        # tiles between [0, box_width] in each direction -- geometry, always
+        # host (like the rest of this method); the only legitimate device
+        # computation in this class is fun() in cell_averages, which already
+        # crosses via _dev()/_to_numpy_for_kernel at that one boundary.
+        self._tile_breaks = [np.linspace(0.0, bw, int(nt) + 1) for bw, nt in zip(self.box_widths, self.nt_per_dim)]
+        self._tile_midpoints = [(np.roll(tbs, -1)[:-1] + tbs[:-1]) / 2 for tbs in self.tile_breaks]
         self._tile_volume = 1.0
         for tb in self.tile_breaks:
             self._tile_volume *= tb[1]
@@ -4659,8 +4687,8 @@ class Tesselation:
             1d arrays of logical-space marker coordinates, one entry per tile
             (length :attr:`n_tiles`)."""
         _, eta1 = self._tile_output_arrays()
-        eta2 = xp.zeros_like(eta1)
-        eta3 = xp.zeros_like(eta1)
+        eta2 = np.zeros_like(eta1)
+        eta3 = np.zeros_like(eta1)
 
         nt_x, nt_y, nt_z = self.nt_per_dim
 
@@ -4671,7 +4699,7 @@ class Tesselation:
                 for k in range(self.boxes_per_dim[2]):
                     z_midpoints = self._get_midpoints(k, 2)
 
-                    xx, yy, zz = xp.meshgrid(
+                    xx, yy, zz = np.meshgrid(
                         x_midpoints,
                         y_midpoints,
                         z_midpoints,
@@ -4710,10 +4738,17 @@ class Tesselation:
         self._tile_quad_pts = []
         self._tile_quad_wts = []
         for nq, tb in zip(n_quad, self.tile_breaks):
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(nq)
+            # cupy has no polynomial.legendre; this is tiny host-scale math
+            # (n_quad eigenvalues), and quadrature_grid below converts the
+            # result to the active backend via xp.asarray, which (unlike
+            # the reverse direction) is always safe.
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(nq)
+            # quadrature_grid always converts its output to the active
+            # backend (xp.asarray internally); convert straight back so the
+            # rest of this class stays host, like tile_breaks above.
             pts, wts = quadrature_grid(tb[:2], pts_loc, wts_loc)
-            self._tile_quad_pts += [pts[0]]
-            self._tile_quad_wts += [wts[0]]
+            self._tile_quad_pts += [_to_numpy_for_kernel(pts[0])]
+            self._tile_quad_wts += [_to_numpy_for_kernel(wts[0])]
 
     def cell_averages(self, fun, n_quad=None):
         """Compute the cell average of ``fun`` over every tile on the current process,
@@ -4750,7 +4785,12 @@ class Tesselation:
                 for k in range(self.boxes_per_dim[2]):
                     z_pts = self._get_box_quad_pts(k, 2)
 
-                    xx, yy, zz = xp.meshgrid(
+                    # meshgrid stays host (x_pts/y_pts/z_pts are host, see
+                    # _get_box_quad_pts); fun() is evaluated on the active
+                    # backend via _dev(), the one legitimate device boundary
+                    # in this class, and converted straight back for
+                    # tile_int_kernel (a compiled, host-only Pyccel kernel).
+                    xx, yy, zz = np.meshgrid(
                         x_pts.flatten(),
                         y_pts.flatten(),
                         z_pts.flatten(),
@@ -4784,8 +4824,11 @@ class Tesselation:
           on the current process (i.e. the first array tiled over all sorting boxes).
         """
         # self._quad_pts = [xp.zeros((nt, nq)).flatten() for nt, nq in zip(self.nt_per_dim, self.tile_quad_pts)]
-        single_box_out = xp.zeros(self.nt_per_dim)
-        out = xp.tile(single_box_out, self.boxes_per_dim)
+        # host, like the rest of this class (see get_tiles); feeds
+        # tile_int_kernel (cell_averages) and self._markers (draw_markers),
+        # both host-only.
+        single_box_out = np.zeros(self.nt_per_dim)
+        out = np.tile(single_box_out, self.boxes_per_dim)
         return single_box_out, out
 
     def _get_midpoints(self, i: int, dim: int):
@@ -4828,7 +4871,7 @@ class Tesselation:
         xl = self.starts[dim] + i * self.box_widths[dim]
         x_tile_breaks = xl + self.tile_breaks[dim][:-1]
         x_tile_pts = self.tile_quad_pts[dim]
-        x_pts = xp.tile(x_tile_breaks, (x_tile_pts.size, 1)).T + x_tile_pts
+        x_pts = np.tile(x_tile_breaks, (x_tile_pts.size, 1)).T + x_tile_pts
         return x_pts
 
     @property

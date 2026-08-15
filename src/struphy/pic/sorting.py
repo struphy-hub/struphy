@@ -231,8 +231,11 @@ class SortingBoxes:
 
         n_particles = self._markers_shape[0]
         n_mkr = int(n_particles / n_box_in) + 1
+        # scalar box-sizing estimate, not physics data; the rest of this box
+        # structure is host-resident (see below), and round() doesn't accept
+        # a CuPy 0-d array, so this must stay plain math regardless of backend.
         n_cols = round(
-            n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
+            n_mkr * (1 + 1 / np.sqrt(n_mkr) + self._box_bufsize),
         )
 
         # cartesian boxes (extra last row stores holes/outside particles); host-resident,
