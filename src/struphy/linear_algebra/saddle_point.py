@@ -7,6 +7,7 @@ from feectools.linalg.basic import LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.direct_solvers import SparseSolver
 from feectools.linalg.solvers import inverse
+from scope_profiler import ProfileManager
 
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
@@ -249,6 +250,7 @@ class SaddlePointSolver:
         elif self._variant == "Inverse_Solver":
             self._Apre = a
 
+    @ProfileManager.profile("solve: SaddlePointSolver")
     def __call__(self, U_init=None, Ue_init=None, P_init=None, out=None):
         """
         Solves the saddle-point problem using the Uzawa algorithm.
