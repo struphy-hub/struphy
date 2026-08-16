@@ -25,7 +25,10 @@ from struphy.pic.accumulation.accum_kernels_cuda import (
     pc_lin_mhd_6d_gpu,
     vlasov_maxwell_gpu,
 )
-from struphy.pic.accumulation.accum_kernels_gc_cuda import gc_mag_density_0form_gpu
+from struphy.pic.accumulation.accum_kernels_gc_cuda import (
+    cc_lin_mhd_5d_D_gpu,
+    gc_mag_density_0form_gpu,
+)
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
@@ -297,6 +300,27 @@ class Accumulator:
             self._gpu_cc2_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
             self._gpu_cc2_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
 
+        # GPU replacement for cc_lin_mhd_5d_D: 3-block antisymmetric fill like
+        # cc_lin_mhd_6d_1, with the guiding-centre density prefactor
+        # (1 - b_para/b*_para) / epsilon.
+        self._gpu_cc_lin_mhd_5d_D = (
+            xp.cupy_backend
+            and kernel.name == "cc_lin_mhd_5d_D"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_cc_lin_mhd_5d_D:
+            import cupy as cp
+            import numpy as np
+
+            self._gpu_cc5d_kind_map = int(args_domain.kind_map)
+            self._gpu_cc5d_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            args_derham = self.derham.args_derham
+            self._gpu_cc5d_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_cc5d_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_cc5d_tn1 = cp.asarray(np.asarray(args_derham.tn1, dtype=float), dtype=cp.float64)
+            self._gpu_cc5d_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
+            self._gpu_cc5d_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
+
         # GPU replacement for pc_lin_mhd_6d_full / pc_lin_mhd_6d: the
         # symmetry="pressure" case -- 45-array (36 matrix + 9 vector)
         # velocity-moment "pressure tensor" fill. See accum_kernels_cuda.py
@@ -425,6 +449,32 @@ class Accumulator:
                     scale_mat,
                     scale_vec,
                     boundary_cut,
+                    *self._args_data,
+                )
+        elif self._gpu_cc_lin_mhd_5d_D and len(optional_args) == 12:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                (
+                    epsilon, ep_scale,
+                    b2_1, b2_2, b2_3,
+                    nb1_1, nb1_2, nb1_3,
+                    cnb_1, cnb_2, cnb_3,
+                    basis_u,
+                ) = optional_args
+                cc_lin_mhd_5d_D_gpu(
+                    self.particles.markers,
+                    self._gpu_cc5d_kind_map,
+                    self._gpu_cc5d_params,
+                    epsilon,
+                    ep_scale,
+                    self._gpu_cc5d_pn,
+                    self._gpu_cc5d_tn1,
+                    self._gpu_cc5d_tn2,
+                    self._gpu_cc5d_tn3,
+                    self._gpu_cc5d_starts,
+                    (b2_1, b2_2, b2_3),
+                    (nb1_1, nb1_2, nb1_3),
+                    (cnb_1, cnb_2, cnb_3),
+                    basis_u,
                     *self._args_data,
                 )
         elif (self._gpu_pc_lin_mhd_6d_full or self._gpu_pc_lin_mhd_6d) and len(optional_args) == 1:
@@ -781,7 +831,12 @@ class AccumulatorVector:
         # hand-written CUDA replacement for charge_density_0form (the only
         # AccumulatorVector kernel ported so far -- see accum_kernels_cuda.py).
         # No optional_args/domain-mapping support needed for this one.
-        self._gpu_charge_density_0form = xp.cupy_backend and kernel.name == "charge_density_0form"
+        self._gpu_charge_density_0form = xp.cupy_backend and kernel.name in (
+            "charge_density_0form",
+            # gc_density_0form is the same 0-form weight scatter (see
+            # accum_kernels_gc_cuda.gc_density_0form_gpu)
+            "gc_density_0form",
+        )
         if self._gpu_charge_density_0form:
             import cupy as cp
 
