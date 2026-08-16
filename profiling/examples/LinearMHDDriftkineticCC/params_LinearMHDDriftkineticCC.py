@@ -24,7 +24,12 @@ parser.add_argument(
     default="numpy",
     help="Array backend to run the simulation with (default: numpy).",
 )
-args = parser.parse_args()
+# `--id` distinguishes runs that share a rank count but differ in something else (here:
+# the array backend); the profiling driver passes its launch counter and looks for the
+# output under `sim_<id>` (see `ProfilingCase.build_commands` / `package_run`).
+# Unknown flags are ignored so the driver can forward other parameters as well.
+parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+args, _ = parser.parse_known_args()
 
 # Must be set before struphy (and therefore cunumpy) is imported.
 os.environ["ARRAY_BACKEND"] = args.backend
@@ -85,7 +90,7 @@ model.energetic_ions.var.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
-    sim_folder=f"sim_{args.backend}",
+    sim_folder=f"sim_{args.id:02d}",
     profiling_activated=True,
 )
 
