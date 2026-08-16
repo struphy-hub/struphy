@@ -2662,11 +2662,18 @@ class SplineFunction:
         """
         TODO
         """
+        # h5py always returns plain host numpy arrays; under the cupy
+        # backend a bare `cupy_array[:] = numpy_array` full-slice
+        # assignment raises ("non-scalar numpy.ndarray cannot be used for
+        # fill" -- cupy's `[:] =` fast path doesn't do the host->device
+        # transfer implicitly), so route through xp.asarray first, which is
+        # a no-op under the numpy backend and a safe host->device copy
+        # under cupy.
         if isinstance(self.vector, StencilVector):
-            self.vector._data[:] = file[key][-1]
+            self.vector._data[:] = xp.asarray(file[key][-1])
         else:
             for n in range(3):
-                self.vector[n]._data[:] = file[key + "/" + str(n + 1)][-1]
+                self.vector[n]._data[:] = xp.asarray(file[key + "/" + str(n + 1)][-1])
 
         self._vector.update_ghost_regions()
 

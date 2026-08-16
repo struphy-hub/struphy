@@ -25,6 +25,7 @@ from struphy.pic.accumulation.accum_kernels_cuda import (
     pc_lin_mhd_6d_gpu,
     vlasov_maxwell_gpu,
 )
+from struphy.pic.accumulation.accum_kernels_gc_cuda import gc_mag_density_0form_gpu
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
@@ -786,6 +787,21 @@ class AccumulatorVector:
             self._gpu_cd0_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
             self._gpu_cd0_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
 
+        # hand-written CUDA replacement for gc_mag_density_0form (5D
+        # guiding-center analog of charge_density_0form -- see
+        # accum_kernels_gc_cuda.py). optional_args = (ep_scale,).
+        self._gpu_gc_mag_density_0form = xp.cupy_backend and kernel.name == "gc_mag_density_0form"
+        if self._gpu_gc_mag_density_0form:
+            import cupy as cp
+
+            args_derham = self.derham.args_derham
+            self._gpu_gcmd_mu_idx = int(self.particles.mu_idx)
+            self._gpu_gcmd_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_gcmd_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_gcmd_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_gcmd_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_gcmd_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+
     def __call__(self, *optional_args, **args_control):
         """
         Performs the accumulation into the vector by calling the chosen accumulation kernel
@@ -828,6 +844,20 @@ class AccumulatorVector:
                     self._gpu_cd0_tn2,
                     self._gpu_cd0_tn3,
                     self._gpu_cd0_starts,
+                    self._args_data[0],
+                )
+        elif self._gpu_gc_mag_density_0form and len(optional_args) == 1:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                (scale,) = optional_args
+                gc_mag_density_0form_gpu(
+                    self.particles.markers,
+                    self._gpu_gcmd_mu_idx,
+                    scale,
+                    self._gpu_gcmd_pn,
+                    self._gpu_gcmd_tn1,
+                    self._gpu_gcmd_tn2,
+                    self._gpu_gcmd_tn3,
+                    self._gpu_gcmd_starts,
                     self._args_data[0],
                 )
         else:

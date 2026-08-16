@@ -11,7 +11,7 @@ from struphy.initial.base import Perturbation
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
-from struphy.pic.base import Particles
+from struphy.pic.base import Particles, _to_numpy_for_kernel
 
 
 class Particles6D(Particles):
@@ -461,14 +461,17 @@ class Particles5D(Particles):
         PBbt = E0T.dot(PBb, out=self._tmp0)
         PBbt.update_ghost_regions()
 
+        # utilities_kernels is a Pyccel-compiled extension that requires
+        # real numpy buffers; absB0_h/PBbt follow the active backend, so
+        # under cupy their ._data needs converting first.
         utilities_kernels.eval_magnetic_energy_PBb(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
             self.mu_idx,
-            self.absB0_h._data,
-            PBbt._data,
+            _to_numpy_for_kernel(self.absB0_h._data),
+            _to_numpy_for_kernel(PBbt._data),
         )
 
     def save_magnetic_background_energy(self):
@@ -483,7 +486,7 @@ class Particles5D(Particles):
             self.domain.args_domain,
             self.first_diagnostics_idx,
             self.mu_idx,
-            self.absB0_h._data,
+            _to_numpy_for_kernel(self.absB0_h._data),
         )
 
 

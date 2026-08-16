@@ -32,6 +32,10 @@ from struphy.pic.pushing.pusher_kernels_cuda import (
     push_vxb_implicit_general_gpu,
     push_weights_with_efield_lin_va_general_gpu,
 )
+from struphy.pic.pushing.pusher_kernels_gc_cuda import (
+    push_gc_bxEstar_explicit_multistage_general_gpu,
+    push_gc_Bstar_explicit_multistage_general_gpu,
+)
 
 logger = logging.getLogger("struphy")
 
@@ -516,6 +520,94 @@ class Pusher:
             self._gpu_random_diffusion_coeff = float(diffusion_coeff)
             self._gpu_random_diffusion_noise = noise
 
+        # general (non-Cuboid) CUDA replacement for
+        # push_gc_bxEstar_explicit_multistage (5D guiding-center pusher).
+        self._gpu_gc_bxestar_general = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_gc_bxEstar_explicit_multistage"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_gc_bxestar_general:
+            import cupy as cp
+
+            self._gpu_gc_bxestar_kind_map = int(args_domain.kind_map)
+            self._gpu_gc_bxestar_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            (
+                args_derham,
+                epsilon,
+                unit_b1_1,
+                unit_b1_2,
+                unit_b1_3,
+                grad_b_full_1,
+                grad_b_full_2,
+                grad_b_full_3,
+                B_dot_b_coeffs,
+                curl_unit_b_dot_b0,
+                e_field_1,
+                e_field_2,
+                e_field_3,
+                evaluate_e_field,
+            ) = args_kernel[:14]
+            self._gpu_gc_bxestar_epsilon = float(epsilon)
+            self._gpu_gc_bxestar_evaluate_e_field = bool(evaluate_e_field)
+            self._gpu_gc_bxestar_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_gc_bxestar_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_gc_bxestar_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_gc_bxestar_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_gc_bxestar_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_gc_bxestar_unit_b1 = (unit_b1_1, unit_b1_2, unit_b1_3)
+            self._gpu_gc_bxestar_grad_b_full = (grad_b_full_1, grad_b_full_2, grad_b_full_3)
+            self._gpu_gc_bxestar_B_dot_b_coeffs = B_dot_b_coeffs
+            self._gpu_gc_bxestar_curl_unit_b_dot_b0 = curl_unit_b_dot_b0
+            self._gpu_gc_bxestar_e_field = (e_field_1, e_field_2, e_field_3)
+            self._gpu_gc_bxestar_mu_idx = int(particles.mu_idx)
+
+        # general (non-Cuboid) CUDA replacement for
+        # push_gc_Bstar_explicit_multistage (5D guiding-center pusher).
+        self._gpu_gc_bstar_general = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_gc_Bstar_explicit_multistage"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_gc_bstar_general:
+            import cupy as cp
+
+            self._gpu_gc_bstar_kind_map = int(args_domain.kind_map)
+            self._gpu_gc_bstar_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            (
+                args_derham,
+                epsilon,
+                grad_b_full_1,
+                grad_b_full_2,
+                grad_b_full_3,
+                b2_1,
+                b2_2,
+                b2_3,
+                curl_unit_b2_1,
+                curl_unit_b2_2,
+                curl_unit_b2_3,
+                B_dot_b_coeffs,
+                curl_unit_b_dot_b0,
+                e_field_1,
+                e_field_2,
+                e_field_3,
+                evaluate_e_field,
+            ) = args_kernel[:17]
+            self._gpu_gc_bstar_epsilon = float(epsilon)
+            self._gpu_gc_bstar_evaluate_e_field = bool(evaluate_e_field)
+            self._gpu_gc_bstar_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_gc_bstar_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_gc_bstar_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_gc_bstar_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_gc_bstar_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_gc_bstar_grad_b_full = (grad_b_full_1, grad_b_full_2, grad_b_full_3)
+            self._gpu_gc_bstar_b2 = (b2_1, b2_2, b2_3)
+            self._gpu_gc_bstar_curl_unit_b2 = (curl_unit_b2_1, curl_unit_b2_2, curl_unit_b2_3)
+            self._gpu_gc_bstar_B_dot_b_coeffs = B_dot_b_coeffs
+            self._gpu_gc_bstar_curl_unit_b_dot_b0 = curl_unit_b_dot_b0
+            self._gpu_gc_bstar_e_field = (e_field_1, e_field_2, e_field_3)
+            self._gpu_gc_bstar_mu_idx = int(particles.mu_idx)
+
     @staticmethod
     def _reset_marker_buffers_gpu(markers, init_slice, shift_slice, residual_idx, vdim):
         """Device version of the per-step marker buffer bookkeeping at the top
@@ -820,6 +912,63 @@ class Pusher:
                             self._gpu_random_diffusion_noise,
                             self._gpu_random_diffusion_coeff,
                             dt,
+                        )
+                elif self._gpu_gc_bxestar_general:
+                    a, b, _c = self._args_kernel[-3:]
+                    last = 1.0 if stage == self.n_stages - 1 else 0.0
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_gc_bxEstar_explicit_multistage_general_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_gc_bxestar_mu_idx,
+                            self._gpu_gc_bxestar_kind_map,
+                            self._gpu_gc_bxestar_params,
+                            self._gpu_gc_bxestar_epsilon,
+                            self._gpu_gc_bxestar_pn,
+                            self._gpu_gc_bxestar_tn1,
+                            self._gpu_gc_bxestar_tn2,
+                            self._gpu_gc_bxestar_tn3,
+                            self._gpu_gc_bxestar_starts,
+                            *self._gpu_gc_bxestar_unit_b1,
+                            *self._gpu_gc_bxestar_grad_b_full,
+                            self._gpu_gc_bxestar_B_dot_b_coeffs,
+                            self._gpu_gc_bxestar_curl_unit_b_dot_b0,
+                            *self._gpu_gc_bxestar_e_field,
+                            self._gpu_gc_bxestar_evaluate_e_field,
+                            dt * float(a[stage]),
+                            dt * float(b[stage]),
+                            last,
+                        )
+                elif self._gpu_gc_bstar_general:
+                    a, b, _c = self._args_kernel[-3:]
+                    last = 1.0 if stage == self.n_stages - 1 else 0.0
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_gc_Bstar_explicit_multistage_general_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_gc_bstar_mu_idx,
+                            self._gpu_gc_bstar_kind_map,
+                            self._gpu_gc_bstar_params,
+                            self._gpu_gc_bstar_epsilon,
+                            self._gpu_gc_bstar_pn,
+                            self._gpu_gc_bstar_tn1,
+                            self._gpu_gc_bstar_tn2,
+                            self._gpu_gc_bstar_tn3,
+                            self._gpu_gc_bstar_starts,
+                            *self._gpu_gc_bstar_grad_b_full,
+                            *self._gpu_gc_bstar_b2,
+                            *self._gpu_gc_bstar_curl_unit_b2,
+                            self._gpu_gc_bstar_B_dot_b_coeffs,
+                            self._gpu_gc_bstar_curl_unit_b_dot_b0,
+                            *self._gpu_gc_bstar_e_field,
+                            self._gpu_gc_bstar_evaluate_e_field,
+                            dt * float(a[stage]),
+                            dt * float(b[stage]),
+                            last,
                         )
                 elif self._gpu_v_efield_general:
                     with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):

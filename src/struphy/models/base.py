@@ -471,8 +471,13 @@ class StruphyModel(metaclass=StruphyModelMeta):
                         components, edges, output_quantity=binning_quantity, divide_by_jac=divide_by_jac
                     )
 
-                    bin_plot.f[:] = f_slice
-                    bin_plot.df[:] = df_slice
+                    # obj.binning() computes on host (markers are always
+                    # host-resident regardless of backend, see
+                    # ISSUE_cupy_particles_never_pushed.md), but bin_plot.f/df
+                    # follow the active backend -- xp.asarray is a no-op
+                    # under numpy and a safe host->device copy under cupy.
+                    bin_plot.f[:] = xp.asarray(f_slice)
+                    bin_plot.df[:] = xp.asarray(df_slice)
 
                 for kd_plot in species.saving_params.kernel_density_plots:
                     h1 = 1 / obj.boxes_per_dim[0]

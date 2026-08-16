@@ -634,11 +634,17 @@ class PostProcessor:
                         e1, e2, e3 = gl_e
                         p1, p2, p3 = pads
 
+                        # h5py always returns plain host numpy arrays; under
+                        # the cupy backend a bare full-slice assignment from
+                        # a numpy array into a cupy-backed vector raises
+                        # ("non-scalar numpy.ndarray cannot be used for
+                        # fill"), so route through xp.asarray (no-op under
+                        # numpy, a safe host->device copy under cupy).
                         vector[
                             s1 : e1 + 1,
                             s2 : e2 + 1,
                             s3 : e3 + 1,
-                        ] = ddset[n * step, p1:-p1, p2:-p2, p3:-p3]
+                        ] = xp.asarray(ddset[n * step, p1:-p1, p2:-p2, p3:-p3])
 
                     # vector-valued field
                     else:
@@ -651,7 +657,7 @@ class PostProcessor:
                                 s1 : e1 + 1,
                                 s2 : e2 + 1,
                                 s3 : e3 + 1,
-                            ] = ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3]
+                            ] = xp.asarray(ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3])
 
                     vector.update_ghost_regions()
 
@@ -897,18 +903,23 @@ class PostProcessor:
                 for name, data in vars.items():
                     points_list = data[t]
 
+                    # pyevtk asserts on isinstance(data, numpy.ndarray), so
+                    # field values (and the grid coordinates below) must be
+                    # real host arrays here regardless of backend --
+                    # xp.to_numpy is a no-op under the numpy backend.
+
                     # scalar
                     if len(points_list) == 1:
-                        point_data_n[species][name] = points_list[0]
+                        point_data_n[species][name] = xp.to_numpy(points_list[0])
 
                     # vectorpoint_data[name]
                     else:
                         for j in range(3):
-                            point_data_n[species][name + f"_{j + 1}"] = points_list[j]
+                            point_data_n[species][name + f"_{j + 1}"] = xp.to_numpy(points_list[j])
 
                 gridToVTK(
                     os.path.join(species_path, "step_{0:0{1}d}".format(n, log_nt)),
-                    *grids_phy,
+                    *(xp.to_numpy(g) for g in grids_phy),
                     pointData=point_data_n[species],
                 )
 
@@ -1015,7 +1026,12 @@ class PostProcessor:
                 temp[lost_particles_mask, -1] = ids_lost_particles
                 ids = xp.unique(xp.append(ids, ids_lost_particles))
 
-            assert xp.all(sorted(ids) == xp.arange(n_markers))
+            # sorted() on a cupy array returns a plain Python list of 0-d
+            # cupy scalars, which cupy's stricter __array_ufunc__ then
+            # refuses to compare against an ndarray -- xp.sort keeps this
+            # backend-safe (numpy's sorted()-vs-ndarray comparison happened
+            # to work, cupy's doesn't).
+            assert xp.all(xp.sort(ids) == xp.arange(n_markers))
 
             # compute physical positions (x, y, z)
             pos_phys = self.domain(xp.array(temp[~lost_particles_mask, :3]), change_out_order=True)
@@ -1223,8 +1239,12 @@ class PostProcessor:
                     # correct integrating out in v-direction
                     data_bckgr *= factor
 
-                    # Now all data is just the data for delta_f
-                    data_delta_f = data_df
+                    # Now all data is just the data for delta_f. data_df
+                    # comes from particle binning, which is always
+                    # host-resident (see ISSUE_cupy_particles_never_pushed.md),
+                    # while data_bckgr follows the active backend -- convert
+                    # before combining them.
+                    data_delta_f = xp.asarray(data_df)
 
                     # save distribution function
                     xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
