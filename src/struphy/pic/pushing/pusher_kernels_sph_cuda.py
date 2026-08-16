@@ -309,39 +309,111 @@ def _launch(
 
 
 def push_v_sph_pressure_gpu(
-    markers, valid_mks, weight_idx, first_free_idx, boxes, neighbours, holes,
-    periodic, kernel_type, h, gravity, kappa, kind_map, params_dev, dt,
+    markers,
+    valid_mks,
+    weight_idx,
+    first_free_idx,
+    boxes,
+    neighbours,
+    holes,
+    periodic,
+    kernel_type,
+    h,
+    gravity,
+    kappa,
+    kind_map,
+    params_dev,
+    dt,
 ):
     """GPU replacement for
     :func:`~struphy.pic.pushing.pusher_kernels_sph.push_v_sph_pressure`."""
     _launch(
-        "push_v_sph_pressure_cuda", markers, valid_mks, boxes, neighbours, holes,
-        periodic, kernel_type, h, kind_map, params_dev, dt,
-        weight_idx=weight_idx, first_free_idx=first_free_idx, gravity=gravity, kappa=kappa,
+        "push_v_sph_pressure_cuda",
+        markers,
+        valid_mks,
+        boxes,
+        neighbours,
+        holes,
+        periodic,
+        kernel_type,
+        h,
+        kind_map,
+        params_dev,
+        dt,
+        weight_idx=weight_idx,
+        first_free_idx=first_free_idx,
+        gravity=gravity,
+        kappa=kappa,
     )
 
 
 def push_v_sph_pressure_ideal_gas_gpu(
-    markers, valid_mks, weight_idx, first_free_idx, boxes, neighbours, holes,
-    periodic, kernel_type, h, gravity, kappa, kind_map, params_dev, dt,
+    markers,
+    valid_mks,
+    weight_idx,
+    first_free_idx,
+    boxes,
+    neighbours,
+    holes,
+    periodic,
+    kernel_type,
+    h,
+    gravity,
+    kappa,
+    kind_map,
+    params_dev,
+    dt,
 ):
     """GPU replacement for
     :func:`~struphy.pic.pushing.pusher_kernels_sph.push_v_sph_pressure_ideal_gas`."""
     _launch(
-        "push_v_sph_pressure_ideal_gas_cuda", markers, valid_mks, boxes, neighbours, holes,
-        periodic, kernel_type, h, kind_map, params_dev, dt,
-        weight_idx=weight_idx, first_free_idx=first_free_idx, gravity=gravity, kappa=kappa,
+        "push_v_sph_pressure_ideal_gas_cuda",
+        markers,
+        valid_mks,
+        boxes,
+        neighbours,
+        holes,
+        periodic,
+        kernel_type,
+        h,
+        kind_map,
+        params_dev,
+        dt,
+        weight_idx=weight_idx,
+        first_free_idx=first_free_idx,
+        gravity=gravity,
+        kappa=kappa,
     )
 
 
 def push_v_viscosity_gpu(
-    markers, valid_mks, first_free_idx, boxes, neighbours, holes,
-    periodic, kernel_type, h, kind_map, params_dev, dt,
+    markers,
+    valid_mks,
+    first_free_idx,
+    boxes,
+    neighbours,
+    holes,
+    periodic,
+    kernel_type,
+    h,
+    kind_map,
+    params_dev,
+    dt,
 ):
     """GPU replacement for
     :func:`~struphy.pic.pushing.pusher_kernels_sph.push_v_viscosity`."""
     _launch(
-        "push_v_viscosity_cuda", markers, valid_mks, boxes, neighbours, holes,
-        periodic, kernel_type, h, kind_map, params_dev, dt,
+        "push_v_viscosity_cuda",
+        markers,
+        valid_mks,
+        boxes,
+        neighbours,
+        holes,
+        periodic,
+        kernel_type,
+        h,
+        kind_map,
+        params_dev,
+        dt,
         first_free_idx=first_free_idx,
     )

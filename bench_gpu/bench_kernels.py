@@ -649,16 +649,26 @@ def make_cases(scene: Scene, dt: float):
         for v in vm_vec_gpu:
             v.fill(0.0)
         vlasov_maxwell_gpu(
-            scene.particles.markers, kind_map, params_dev, pn, tn1, tn2, tn3, starts,
-            *[vm_mat_gpu[k] for k in mat_keys], *vm_vec_gpu,
+            scene.particles.markers,
+            kind_map,
+            params_dev,
+            pn,
+            tn1,
+            tn2,
+            tn3,
+            starts,
+            *[vm_mat_gpu[k] for k in mat_keys],
+            *vm_vec_gpu,
         )
 
     add("vlasov_maxwell", _vm_cpu, _vm_gpu)
 
     # --- cc_lin_mhd_6d_1 (Accumulator, antisymmetric 3-block fill, u_space=Hcurl i.e. basis_u=1) ---
     op_cc1 = scene.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights="asym")
-    cc1_cpu = {k: np.zeros(op_cc1.matrix.blocks[a_][b_]._data.shape, dtype=float) for k, (a_, b_) in
-               zip(["12", "13", "23"], [(0, 1), (0, 2), (1, 2)])}
+    cc1_cpu = {
+        k: np.zeros(op_cc1.matrix.blocks[a_][b_]._data.shape, dtype=float)
+        for k, (a_, b_) in zip(["12", "13", "23"], [(0, 1), (0, 2), (1, 2)])
+    }
     cc1_gpu = {k: scene.dev(v) for k, v in cc1_cpu.items()}
     b2_1, b2_2, b2_3 = scene.fields["2"]
     b2_1_dev, b2_2_dev, b2_3_dev = (scene.dev(a) for a in scene.fields["2"])
@@ -669,17 +679,41 @@ def make_cases(scene: Scene, dt: float):
         for v in cc1_cpu.values():
             v.fill(0.0)
         accum_kernels.cc_lin_mhd_6d_1(
-            am, ah, ad, cc1_cpu["12"], cc1_cpu["13"], cc1_cpu["23"],
-            b2_1, b2_2, b2_3, basis_u_hcurl, cc1_scale_mat, cc1_boundary_cut,
+            am,
+            ah,
+            ad,
+            cc1_cpu["12"],
+            cc1_cpu["13"],
+            cc1_cpu["23"],
+            b2_1,
+            b2_2,
+            b2_3,
+            basis_u_hcurl,
+            cc1_scale_mat,
+            cc1_boundary_cut,
         )
 
     def _cc1_gpu():
         for v in cc1_gpu.values():
             v.fill(0.0)
         cc_lin_mhd_6d_1_gpu(
-            scene.particles.markers, kind_map, params_dev, pn, tn1, tn2, tn3, starts,
-            b2_1_dev, b2_2_dev, b2_3_dev, basis_u_hcurl, cc1_scale_mat, cc1_boundary_cut,
-            cc1_gpu["12"], cc1_gpu["13"], cc1_gpu["23"],
+            scene.particles.markers,
+            kind_map,
+            params_dev,
+            pn,
+            tn1,
+            tn2,
+            tn3,
+            starts,
+            b2_1_dev,
+            b2_2_dev,
+            b2_3_dev,
+            basis_u_hcurl,
+            cc1_scale_mat,
+            cc1_boundary_cut,
+            cc1_gpu["12"],
+            cc1_gpu["13"],
+            cc1_gpu["23"],
         )
 
     add("cc_lin_mhd_6d_1", _cc1_cpu, _cc1_gpu)
@@ -705,8 +739,18 @@ def make_cases(scene: Scene, dt: float):
         for v in cc2_vec_cpu:
             v.fill(0.0)
         accum_kernels.cc_lin_mhd_6d_2(
-            am, ah, ad, *[cc2_mat_cpu[k] for k in mat_keys], *cc2_vec_cpu,
-            b2_1, b2_2, b2_3, basis_u_hcurl, cc2_scale_mat, cc2_scale_vec, cc2_boundary_cut,
+            am,
+            ah,
+            ad,
+            *[cc2_mat_cpu[k] for k in mat_keys],
+            *cc2_vec_cpu,
+            b2_1,
+            b2_2,
+            b2_3,
+            basis_u_hcurl,
+            cc2_scale_mat,
+            cc2_scale_vec,
+            cc2_boundary_cut,
         )
 
     def _cc2_gpu():
@@ -715,9 +759,23 @@ def make_cases(scene: Scene, dt: float):
         for v in cc2_vec_gpu:
             v.fill(0.0)
         cc_lin_mhd_6d_2_gpu(
-            scene.particles.markers, kind_map, params_dev, pn, tn1, tn2, tn3, starts,
-            b2_1_dev, b2_2_dev, b2_3_dev, basis_u_hcurl, cc2_scale_mat, cc2_scale_vec, cc2_boundary_cut,
-            *[cc2_mat_gpu[k] for k in mat_keys], *cc2_vec_gpu,
+            scene.particles.markers,
+            kind_map,
+            params_dev,
+            pn,
+            tn1,
+            tn2,
+            tn3,
+            starts,
+            b2_1_dev,
+            b2_2_dev,
+            b2_3_dev,
+            basis_u_hcurl,
+            cc2_scale_mat,
+            cc2_scale_vec,
+            cc2_boundary_cut,
+            *[cc2_mat_gpu[k] for k in mat_keys],
+            *cc2_vec_gpu,
         )
 
     add("cc_lin_mhd_6d_2", _cc2_cpu, _cc2_gpu)
@@ -751,7 +809,12 @@ def make_cases(scene: Scene, dt: float):
         for v in pc_vec_cpu.values():
             v.fill(0.0)
         accum_kernels.pc_lin_mhd_6d_full(
-            am, ah, ad, *[pc_mat_cpu[k] for k in pc_mat_order], *[pc_vec_cpu[k] for k in pc_vec_order], ep_scale,
+            am,
+            ah,
+            ad,
+            *[pc_mat_cpu[k] for k in pc_mat_order],
+            *[pc_vec_cpu[k] for k in pc_vec_order],
+            ep_scale,
         )
 
     def _pc_full_gpu():
@@ -760,8 +823,17 @@ def make_cases(scene: Scene, dt: float):
         for v in pc_vec_gpu.values():
             v.fill(0.0)
         pc_lin_mhd_6d_full_gpu(
-            scene.particles.markers, kind_map, params_dev, pn, tn1, tn2, tn3, starts, ep_scale,
-            *[pc_mat_gpu[k] for k in pc_mat_order], *[pc_vec_gpu[k] for k in pc_vec_order],
+            scene.particles.markers,
+            kind_map,
+            params_dev,
+            pn,
+            tn1,
+            tn2,
+            tn3,
+            starts,
+            ep_scale,
+            *[pc_mat_gpu[k] for k in pc_mat_order],
+            *[pc_vec_gpu[k] for k in pc_vec_order],
         )
 
     add("pc_lin_mhd_6d_full", _pc_full_cpu, _pc_full_gpu)
@@ -772,7 +844,12 @@ def make_cases(scene: Scene, dt: float):
         for v in pc_vec_cpu.values():
             v.fill(0.0)
         accum_kernels.pc_lin_mhd_6d(
-            am, ah, ad, *[pc_mat_cpu[k] for k in pc_mat_order], *[pc_vec_cpu[k] for k in pc_vec_order], ep_scale,
+            am,
+            ah,
+            ad,
+            *[pc_mat_cpu[k] for k in pc_mat_order],
+            *[pc_vec_cpu[k] for k in pc_vec_order],
+            ep_scale,
         )
 
     def _pc_gpu():
@@ -781,8 +858,17 @@ def make_cases(scene: Scene, dt: float):
         for v in pc_vec_gpu.values():
             v.fill(0.0)
         pc_lin_mhd_6d_gpu(
-            scene.particles.markers, kind_map, params_dev, pn, tn1, tn2, tn3, starts, ep_scale,
-            *[pc_mat_gpu[k] for k in pc_mat_order], *[pc_vec_gpu[k] for k in pc_vec_order],
+            scene.particles.markers,
+            kind_map,
+            params_dev,
+            pn,
+            tn1,
+            tn2,
+            tn3,
+            starts,
+            ep_scale,
+            *[pc_mat_gpu[k] for k in pc_mat_order],
+            *[pc_vec_gpu[k] for k in pc_vec_order],
         )
 
     add("pc_lin_mhd_6d", _pc_cpu, _pc_gpu)

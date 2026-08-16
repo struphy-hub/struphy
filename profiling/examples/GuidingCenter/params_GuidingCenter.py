@@ -88,7 +88,6 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-
 from struphy.models import GuidingCenter
 
 # Units

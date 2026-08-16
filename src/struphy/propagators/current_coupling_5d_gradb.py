@@ -335,9 +335,7 @@ class CurrentCoupling5DGradB(Propagator):
                 import numpy as np
 
                 self._gpu_j2_stage_fn = (
-                    push_gc_cc_J2_stage_H1vec_gpu
-                    if self.options.u_space == "H1vec"
-                    else push_gc_cc_J2_stage_Hdiv_gpu
+                    push_gc_cc_J2_stage_H1vec_gpu if self.options.u_space == "H1vec" else push_gc_cc_J2_stage_Hdiv_gpu
                 )
                 self._gpu_j2_stage_kind_map = int(self.domain.args_domain.kind_map)
                 self._gpu_j2_stage_params = cp.asarray(

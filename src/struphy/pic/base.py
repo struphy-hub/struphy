@@ -1499,23 +1499,16 @@ class Particles(metaclass=ABCMeta):
                     # copy of the velocities and its result converted back to the
                     # active backend before mixing with v_th/u_mean.
                     self.velocities = (
-                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities) - 1))
-                        * xp.sqrt(2)
-                        * v_th
-                        + u_mean
+                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities) - 1)) * xp.sqrt(2) * v_th + u_mean
                     )
                 # Particles5D: (1d Maxwellian, muB0-Maxwellian as volume-form)
                 elif isinstance(self, Particles5D):
                     self._markers[:n_mks_load_loc, 3] = (
-                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities[:, 0]) - 1))
-                        * xp.sqrt(2)
-                        * v_th[0]
+                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities[:, 0]) - 1)) * xp.sqrt(2) * v_th[0]
                         + u_mean[0]
                     )
 
-                    self._markers[:n_mks_load_loc, 4] = (
-                        -xp.log(1.0 - self.velocities[:, 1]) * v_th[1] ** 2 / B0
-                    )
+                    self._markers[:n_mks_load_loc, 4] = -xp.log(1.0 - self.velocities[:, 1]) * v_th[1] ** 2 / B0
 
                     # mu is a magnetic moment and must be >= 0.
                     # A mean shift in this coordinate is not physically consistent.
@@ -1527,9 +1520,7 @@ class Particles(metaclass=ABCMeta):
                 # Particles5Dvperp: (1d Maxwellian, polar Maxwellian as volume-form)
                 elif isinstance(self, Particles5Dvperp):
                     self._markers[:n_mks_load_loc, 3] = (
-                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities[:, 0]) - 1))
-                        * xp.sqrt(2)
-                        * v_th[0]
+                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities[:, 0]) - 1)) * xp.sqrt(2) * v_th[0]
                         + u_mean[0]
                     )
 

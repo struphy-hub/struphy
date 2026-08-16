@@ -555,7 +555,13 @@ def vlasov_maxwell_gpu(
     blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
-        return (np.int32(a.shape[1]), np.int32(a.shape[2]), np.int32(a.shape[3]), np.int32(a.shape[4]), np.int32(a.shape[5]))
+        return (
+            np.int32(a.shape[1]),
+            np.int32(a.shape[2]),
+            np.int32(a.shape[3]),
+            np.int32(a.shape[4]),
+            np.int32(a.shape[5]),
+        )
 
     _get_vlasov_maxwell_kernel()(
         (blocks,),
@@ -578,18 +584,27 @@ def vlasov_maxwell_gpu(
             np.int32(starts[0]),
             np.int32(starts[1]),
             np.int32(starts[2]),
-            mat11_dev, mat12_dev, mat13_dev,
-            mat22_dev, mat23_dev, mat33_dev,
-            vec1_dev, vec2_dev, vec3_dev,
+            mat11_dev,
+            mat12_dev,
+            mat13_dev,
+            mat22_dev,
+            mat23_dev,
+            mat33_dev,
+            vec1_dev,
+            vec2_dev,
+            vec3_dev,
             *dims(mat11_dev),
             *dims(mat12_dev),
             *dims(mat13_dev),
             *dims(mat22_dev),
             *dims(mat23_dev),
             *dims(mat33_dev),
-            np.int32(vec1_dev.shape[1]), np.int32(vec1_dev.shape[2]),
-            np.int32(vec2_dev.shape[1]), np.int32(vec2_dev.shape[2]),
-            np.int32(vec3_dev.shape[1]), np.int32(vec3_dev.shape[2]),
+            np.int32(vec1_dev.shape[1]),
+            np.int32(vec1_dev.shape[2]),
+            np.int32(vec2_dev.shape[1]),
+            np.int32(vec2_dev.shape[2]),
+            np.int32(vec3_dev.shape[1]),
+            np.int32(vec3_dev.shape[2]),
         ),
     )
 
@@ -895,7 +910,13 @@ def cc_lin_mhd_6d_1_gpu(
     blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
-        return (np.int32(a.shape[1]), np.int32(a.shape[2]), np.int32(a.shape[3]), np.int32(a.shape[4]), np.int32(a.shape[5]))
+        return (
+            np.int32(a.shape[1]),
+            np.int32(a.shape[2]),
+            np.int32(a.shape[3]),
+            np.int32(a.shape[4]),
+            np.int32(a.shape[5]),
+        )
 
     _get_cc_lin_mhd_6d_1_kernel()(
         (blocks,),
@@ -918,13 +939,21 @@ def cc_lin_mhd_6d_1_gpu(
             np.int32(starts[0]),
             np.int32(starts[1]),
             np.int32(starts[2]),
-            b2_1_dev, np.int32(b2_1_dev.shape[1]), np.int32(b2_1_dev.shape[2]),
-            b2_2_dev, np.int32(b2_2_dev.shape[1]), np.int32(b2_2_dev.shape[2]),
-            b2_3_dev, np.int32(b2_3_dev.shape[1]), np.int32(b2_3_dev.shape[2]),
+            b2_1_dev,
+            np.int32(b2_1_dev.shape[1]),
+            np.int32(b2_1_dev.shape[2]),
+            b2_2_dev,
+            np.int32(b2_2_dev.shape[1]),
+            np.int32(b2_2_dev.shape[2]),
+            b2_3_dev,
+            np.int32(b2_3_dev.shape[1]),
+            np.int32(b2_3_dev.shape[2]),
             np.int32(basis_u),
             np.float64(scale_mat),
             np.float64(boundary_cut),
-            mat12_dev, mat13_dev, mat23_dev,
+            mat12_dev,
+            mat13_dev,
+            mat23_dev,
             *dims(mat12_dev),
             *dims(mat13_dev),
             *dims(mat23_dev),
@@ -1183,7 +1212,13 @@ def cc_lin_mhd_6d_2_gpu(
     blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
-        return (np.int32(a.shape[1]), np.int32(a.shape[2]), np.int32(a.shape[3]), np.int32(a.shape[4]), np.int32(a.shape[5]))
+        return (
+            np.int32(a.shape[1]),
+            np.int32(a.shape[2]),
+            np.int32(a.shape[3]),
+            np.int32(a.shape[4]),
+            np.int32(a.shape[5]),
+        )
 
     _get_cc_lin_mhd_6d_2_kernel()(
         (blocks,),
@@ -1206,25 +1241,40 @@ def cc_lin_mhd_6d_2_gpu(
             np.int32(starts[0]),
             np.int32(starts[1]),
             np.int32(starts[2]),
-            b2_1_dev, np.int32(b2_1_dev.shape[1]), np.int32(b2_1_dev.shape[2]),
-            b2_2_dev, np.int32(b2_2_dev.shape[1]), np.int32(b2_2_dev.shape[2]),
-            b2_3_dev, np.int32(b2_3_dev.shape[1]), np.int32(b2_3_dev.shape[2]),
+            b2_1_dev,
+            np.int32(b2_1_dev.shape[1]),
+            np.int32(b2_1_dev.shape[2]),
+            b2_2_dev,
+            np.int32(b2_2_dev.shape[1]),
+            np.int32(b2_2_dev.shape[2]),
+            b2_3_dev,
+            np.int32(b2_3_dev.shape[1]),
+            np.int32(b2_3_dev.shape[2]),
             np.int32(basis_u),
             np.float64(scale_mat),
             np.float64(scale_vec),
             np.float64(boundary_cut),
-            mat11_dev, mat12_dev, mat13_dev,
-            mat22_dev, mat23_dev, mat33_dev,
-            vec1_dev, vec2_dev, vec3_dev,
+            mat11_dev,
+            mat12_dev,
+            mat13_dev,
+            mat22_dev,
+            mat23_dev,
+            mat33_dev,
+            vec1_dev,
+            vec2_dev,
+            vec3_dev,
             *dims(mat11_dev),
             *dims(mat12_dev),
             *dims(mat13_dev),
             *dims(mat22_dev),
             *dims(mat23_dev),
             *dims(mat33_dev),
-            np.int32(vec1_dev.shape[1]), np.int32(vec1_dev.shape[2]),
-            np.int32(vec2_dev.shape[1]), np.int32(vec2_dev.shape[2]),
-            np.int32(vec3_dev.shape[1]), np.int32(vec3_dev.shape[2]),
+            np.int32(vec1_dev.shape[1]),
+            np.int32(vec1_dev.shape[2]),
+            np.int32(vec2_dev.shape[1]),
+            np.int32(vec2_dev.shape[2]),
+            np.int32(vec3_dev.shape[1]),
+            np.int32(vec3_dev.shape[2]),
         ),
     )
 
@@ -1607,14 +1657,10 @@ def _build_pc_lin_mhd_6d_kernel_src(full: bool) -> str:
         else:
             if full:
                 lines.append(
-                    f"    fill_mat_pressure_full_dev({common},\n"
-                    f"        {mat_out}, {dims}, {fillmat}, vx,vy,vz);"
+                    f"    fill_mat_pressure_full_dev({common},\n        {mat_out}, {dims}, {fillmat}, vx,vy,vz);"
                 )
             else:
-                lines.append(
-                    f"    fill_mat_pressure_dev({common},\n"
-                    f"        {mat_out}, {dims}, {fillmat}, vx,vy);"
-                )
+                lines.append(f"    fill_mat_pressure_dev({common},\n        {mat_out}, {dims}, {fillmat}, vx,vy);")
         lines.append("")
 
     lines.append("}")
@@ -1690,7 +1736,13 @@ def _pc_lin_mhd_6d_launch(
     blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
-        return (np.int32(a.shape[1]), np.int32(a.shape[2]), np.int32(a.shape[3]), np.int32(a.shape[4]), np.int32(a.shape[5]))
+        return (
+            np.int32(a.shape[1]),
+            np.int32(a.shape[2]),
+            np.int32(a.shape[3]),
+            np.int32(a.shape[4]),
+            np.int32(a.shape[5]),
+        )
 
     args = [
         dev_markers,
@@ -1758,8 +1810,19 @@ def pc_lin_mhd_6d_full_gpu(
     }
     _pc_lin_mhd_6d_launch(
         _get_pc_lin_mhd_6d_full_kernel(),
-        markers, kind_map, params_dev, pn, tn1_dev, tn2_dev, tn3_dev, starts, ep_scale,
-        mat_args_45, vec_args_45, _SPATIAL_BLOCKS, ("1", "2", "3"),
+        markers,
+        kind_map,
+        params_dev,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        ep_scale,
+        mat_args_45,
+        vec_args_45,
+        _SPATIAL_BLOCKS,
+        ("1", "2", "3"),
     )
 
 
@@ -1794,6 +1857,17 @@ def pc_lin_mhd_6d_gpu(
     }
     _pc_lin_mhd_6d_launch(
         _get_pc_lin_mhd_6d_kernel(),
-        markers, kind_map, params_dev, pn, tn1_dev, tn2_dev, tn3_dev, starts, ep_scale,
-        mat_args_45, vec_args_45, ("11", "12", "22"), ("1", "2"),
+        markers,
+        kind_map,
+        params_dev,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        ep_scale,
+        mat_args_45,
+        vec_args_45,
+        ("11", "12", "22"),
+        ("1", "2"),
     )

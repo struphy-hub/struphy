@@ -279,7 +279,6 @@ def push_eta_rk_periodic_gpu(
         )
 
 
-
 _PUSH_V_EFIELD_CUBOID_SRC = r"""
 #define MAXP 8
 

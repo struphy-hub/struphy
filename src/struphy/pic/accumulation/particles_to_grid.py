@@ -241,9 +241,7 @@ class Accumulator:
         # matrix-plus-vector fill as linear_vlasov_ampere above, but with a
         # G^-1(eta_p)-based filling (no f0_values/optional_args needed).
         self._gpu_vlasov_maxwell = (
-            xp.cupy_backend
-            and kernel.name == "vlasov_maxwell"
-            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+            xp.cupy_backend and kernel.name == "vlasov_maxwell" and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
         )
         if self._gpu_vlasov_maxwell:
             import cupy as cp
@@ -264,9 +262,7 @@ class Accumulator:
         # b2_*/basis_u/scale_mat/boundary_cut arrive fresh via optional_args
         # each call (only the spline/domain info below is cached).
         self._gpu_cc_lin_mhd_6d_1 = (
-            xp.cupy_backend
-            and kernel.name == "cc_lin_mhd_6d_1"
-            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+            xp.cupy_backend and kernel.name == "cc_lin_mhd_6d_1" and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
         )
         if self._gpu_cc_lin_mhd_6d_1:
             import cupy as cp
@@ -286,9 +282,7 @@ class Accumulator:
         # matrix-plus-vector fill (like linear_vlasov_ampere/vlasov_maxwell)
         # instead of the 3 antisymmetric off-diagonal blocks only.
         self._gpu_cc_lin_mhd_6d_2 = (
-            xp.cupy_backend
-            and kernel.name == "cc_lin_mhd_6d_2"
-            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+            xp.cupy_backend and kernel.name == "cc_lin_mhd_6d_2" and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
         )
         if self._gpu_cc_lin_mhd_6d_2:
             import cupy as cp
@@ -307,9 +301,7 @@ class Accumulator:
         # cc_lin_mhd_6d_1, with the guiding-centre density prefactor
         # (1 - b_para/b*_para) / epsilon.
         self._gpu_cc_lin_mhd_5d_D = (
-            xp.cupy_backend
-            and kernel.name == "cc_lin_mhd_5d_D"
-            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+            xp.cupy_backend and kernel.name == "cc_lin_mhd_5d_D" and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
         )
         if self._gpu_cc_lin_mhd_5d_D:
             import cupy as cp
@@ -366,9 +358,7 @@ class Accumulator:
             and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
         )
         self._gpu_pc_lin_mhd_6d = (
-            xp.cupy_backend
-            and kernel.name == "pc_lin_mhd_6d"
-            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+            xp.cupy_backend and kernel.name == "pc_lin_mhd_6d" and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
         )
         if self._gpu_pc_lin_mhd_6d_full or self._gpu_pc_lin_mhd_6d:
             import cupy as cp
@@ -488,10 +478,17 @@ class Accumulator:
         elif self._gpu_cc_lin_mhd_5d_D and len(optional_args) == 12:
             with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
                 (
-                    epsilon, ep_scale,
-                    b2_1, b2_2, b2_3,
-                    nb1_1, nb1_2, nb1_3,
-                    cnb_1, cnb_2, cnb_3,
+                    epsilon,
+                    ep_scale,
+                    b2_1,
+                    b2_2,
+                    b2_3,
+                    nb1_1,
+                    nb1_2,
+                    nb1_3,
+                    cnb_1,
+                    cnb_2,
+                    cnb_3,
                     basis_u,
                 ) = optional_args
                 cc_lin_mhd_5d_D_gpu(
@@ -514,10 +511,17 @@ class Accumulator:
         elif self._gpu_cc_lin_mhd_5d_curlb and len(optional_args) == 12:
             with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
                 (
-                    epsilon, ep_scale,
-                    b2_1, b2_2, b2_3,
-                    nb1_1, nb1_2, nb1_3,
-                    cnb_1, cnb_2, cnb_3,
+                    epsilon,
+                    ep_scale,
+                    b2_1,
+                    b2_2,
+                    b2_3,
+                    nb1_1,
+                    nb1_2,
+                    nb1_3,
+                    cnb_1,
+                    cnb_2,
+                    cnb_3,
                     basis_u,
                 ) = optional_args
                 cc_lin_mhd_5d_curlb_gpu(
@@ -540,12 +544,23 @@ class Accumulator:
         elif self._gpu_cc_lin_mhd_5d_gradB and len(optional_args) == 17:
             with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
                 (
-                    epsilon, ep_scale,
-                    b2_1, b2_2, b2_3,
-                    nb1_1, nb1_2, nb1_3,
-                    cnb_1, cnb_2, cnb_3,
-                    gpb_1, gpb_2, gpb_3,
-                    gpq_1, gpq_2, gpq_3,
+                    epsilon,
+                    ep_scale,
+                    b2_1,
+                    b2_2,
+                    b2_3,
+                    nb1_1,
+                    nb1_2,
+                    nb1_3,
+                    cnb_1,
+                    cnb_2,
+                    cnb_3,
+                    gpb_1,
+                    gpb_2,
+                    gpb_3,
+                    gpq_1,
+                    gpq_2,
+                    gpq_3,
                     basis_u,
                 ) = optional_args
                 # the kernel's own 6 matrix args + vector are already in

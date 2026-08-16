@@ -11,6 +11,7 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
+from struphy.pic.pushing.eval_kernels_gc_cuda import driftkinetic_hamiltonian_gpu
 from struphy.pic.pushing.pusher_kernels_cuda import (
     SUPPORTED_GENERAL_KIND_MAPS,
     push_bxu_H1vec_general_gpu,
@@ -32,20 +33,19 @@ from struphy.pic.pushing.pusher_kernels_cuda import (
     push_vxb_implicit_general_gpu,
     push_weights_with_efield_lin_va_general_gpu,
 )
-from struphy.pic.pushing.eval_kernels_gc_cuda import driftkinetic_hamiltonian_gpu
+from struphy.pic.pushing.pusher_kernels_gc_cuda import (
+    push_gc_Bstar_discrete_gradient_1st_order_gpu,
+    push_gc_Bstar_explicit_multistage_general_gpu,
+    push_gc_bxEstar_discrete_gradient_1st_order_gpu,
+    push_gc_bxEstar_explicit_multistage_general_gpu,
+    push_gc_cc_J1_H1vec_gpu,
+    push_gc_cc_J1_Hcurl_gpu,
+    push_gc_cc_J1_Hdiv_gpu,
+)
 from struphy.pic.pushing.pusher_kernels_sph_cuda import (
     push_v_sph_pressure_gpu,
     push_v_sph_pressure_ideal_gas_gpu,
     push_v_viscosity_gpu,
-)
-from struphy.pic.pushing.pusher_kernels_gc_cuda import (
-    push_gc_bxEstar_discrete_gradient_1st_order_gpu,
-    push_gc_bxEstar_explicit_multistage_general_gpu,
-    push_gc_Bstar_discrete_gradient_1st_order_gpu,
-    push_gc_Bstar_explicit_multistage_general_gpu,
-    push_gc_cc_J1_H1vec_gpu,
-    push_gc_cc_J1_Hcurl_gpu,
-    push_gc_cc_J1_Hdiv_gpu,
 )
 
 logger = logging.getLogger("struphy")
@@ -643,8 +643,18 @@ class Pusher:
                 self._gpu_sph_kappa = None
             else:
                 (
-                    boxes, neighbours, holes, per1, per2, per3,
-                    kernel_nr, h1, h2, h3, gravity, kappa,
+                    boxes,
+                    neighbours,
+                    holes,
+                    per1,
+                    per2,
+                    per3,
+                    kernel_nr,
+                    h1,
+                    h2,
+                    h3,
+                    gravity,
+                    kappa,
                 ) = args_kernel
                 self._gpu_sph_gravity = cp.asarray(np.asarray(gravity, dtype=float), dtype=cp.float64)
                 self._gpu_sph_kappa = float(kappa)
@@ -671,8 +681,12 @@ class Pusher:
             (
                 args_derham,
                 epsilon,
-                gb1, gb2, gb3,
-                ef1, ef2, ef3,
+                gb1,
+                gb2,
+                gb3,
+                ef1,
+                ef2,
+                ef3,
                 evaluate_e_field,
             ) = args_kernel[:9]
             self._gpu_gc_dg1_epsilon = float(epsilon)
@@ -691,11 +705,16 @@ class Pusher:
         # is accepted but unused by the CPU kernels too), needs DF(eta) so
         # restricted like the other "general" paths to
         # SUPPORTED_GENERAL_KIND_MAPS.
-        self._gpu_gc_cc_j1 = cunumpy.cupy_backend and kernel.name in (
-            "push_gc_cc_J1_H1vec",
-            "push_gc_cc_J1_Hcurl",
-            "push_gc_cc_J1_Hdiv",
-        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        self._gpu_gc_cc_j1 = (
+            cunumpy.cupy_backend
+            and kernel.name
+            in (
+                "push_gc_cc_J1_H1vec",
+                "push_gc_cc_J1_Hcurl",
+                "push_gc_cc_J1_Hdiv",
+            )
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
         if self._gpu_gc_cc_j1:
             import cupy as cp
 
@@ -703,10 +722,18 @@ class Pusher:
             (
                 args_derham,
                 epsilon,
-                b1, b2, b3,
-                nb1, nb2, nb3,
-                cnb1, cnb2, cnb3,
-                u1, u2, u3,
+                b1,
+                b2,
+                b3,
+                nb1,
+                nb2,
+                nb3,
+                cnb1,
+                cnb2,
+                cnb3,
+                u1,
+                u2,
+                u3,
             ) = args_kernel
             self._gpu_gc_cc_j1_kind_map = int(args_domain.kind_map)
             self._gpu_gc_cc_j1_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
@@ -786,7 +813,6 @@ class Pusher:
             name = "kernel: " + _kernel_name(kernel)
             self._kernel_region_names[id(kernel)] = name
         return name
-
 
     def _run_marker_column_kernel(self, ker, alpha, column_nr, comps, add_args):
         """Run one init/eval kernel (they write a marker column in place).

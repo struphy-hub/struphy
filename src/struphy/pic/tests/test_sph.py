@@ -1895,7 +1895,6 @@ def test_sph_no_slip_boundary_1d(
         # ghost_particles follows the active backend; this is a
         # diagnostics-only log, so pull the indices to the host.
         import numpy as np
-
         from cunumpy import to_numpy
 
         ghost_inds = np.where(to_numpy(particles.ghost_particles))[0]
