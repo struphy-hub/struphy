@@ -1,13 +1,19 @@
-"""Linear MHD NumPy-vs-CuPy profiling case.
+"""Guiding-centre NumPy-vs-CuPy profiling case.
 
-This file defines the Linear MHD backend-comparison profiling case (the `ProfilingCase`)
+This file defines the guiding-centre backend-comparison profiling case (the `ProfilingCase`)
 and submits it: the same simulation is run twice, once with `ARRAY_BACKEND=numpy` on a
 CPU partition and once with `ARRAY_BACKEND=cupy` on a GPU partition, so the two runs can
 be compared directly. For each run, `ProfilingCase.launch` builds and submits a SLURM
 script, or, without a batch system, runs directly on this machine. `finalize_run` then
 packages and uploads each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_LinearMHDDriftkineticCC.py`
+Each generated script runs the simulation itself by invoking `params_GuidingCenter.py`
 directly (its `__main__` block is the worker), with `--backend numpy` or `--backend cupy`.
+
+`GuidingCenter` is used here rather than `LinearMHDDriftkineticCC` because its runtime is
+actually dominated by the particle kernels this comparison is meant to measure. Its whole
+propagator stack is CUDA-ported and it has no FEEC field solve, so the backend difference
+shows up in the total wall clock. `LinearMHDDriftkineticCC` is dominated by MHD field
+propagators and one-off setup instead, which masks any particle-kernel speedup.
 """
 
 import argparse
@@ -61,15 +67,15 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "examples" / "LinearMHDDriftkineticCC"
-    params_source = params_dir / "params_LinearMHDDriftkineticCC.py"
+    params_dir = script_dir / "examples" / "GuidingCenter"
+    params_source = params_dir / "params_GuidingCenter.py"
 
     profiling_case = ProfilingCase(
-        label="linearmhd_numpy_vs_cupy",
-        name="Linear MHD on cube, NumPy vs CuPy",
-        description="Linear MHD model with manufactured solution on 3D cube, run with the NumPy and the CuPy array backend.",
-        physics_problem="Occurs in many plasma applications.",
-        struphy_model_used="LinearMHDDriftkineticCC",
+        label="guidingcenter_numpy_vs_cupy",
+        name="Guiding-centre particles on cube, NumPy vs CuPy",
+        description="5D guiding-centre test particles in a homogeneous slab on a 3D cube, run with the NumPy and the CuPy array backend. Runtime is dominated by the (CUDA-ported) particle pushers.",
+        physics_problem="Guiding-centre drift-kinetic particle motion; the particle-push hot loop common to all PIC/drift-kinetic models.",
+        struphy_model_used="GuidingCenter",
         params_source=params_source,
         language="fortran",
         compiler="GNU",
