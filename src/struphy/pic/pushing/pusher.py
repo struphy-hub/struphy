@@ -32,6 +32,11 @@ from struphy.pic.pushing.pusher_kernels_cuda import (
     push_vxb_implicit_general_gpu,
     push_weights_with_efield_lin_va_general_gpu,
 )
+from struphy.pic.pushing.pusher_kernels_sph_cuda import (
+    push_v_sph_pressure_gpu,
+    push_v_sph_pressure_ideal_gas_gpu,
+    push_v_viscosity_gpu,
+)
 from struphy.pic.pushing.pusher_kernels_gc_cuda import (
     push_gc_bxEstar_explicit_multistage_general_gpu,
     push_gc_Bstar_explicit_multistage_general_gpu,
@@ -608,6 +613,40 @@ class Pusher:
             self._gpu_gc_bstar_e_field = (e_field_1, e_field_2, e_field_3)
             self._gpu_gc_bstar_mu_idx = int(particles.mu_idx)
 
+        # CUDA replacements for the three SPH velocity pushers. Their inner
+        # work is the box-neighbourhood SPH sum (see
+        # pusher_kernels_sph_cuda.box_based_kernel_dev); boxes/neighbours are
+        # host-owned by SortingBoxes and uploaded per call, everything else is
+        # already device-resident.
+        self._gpu_sph_pusher = (
+            cunumpy.cupy_backend
+            and kernel.name in ("push_v_sph_pressure", "push_v_sph_pressure_ideal_gas", "push_v_viscosity")
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_sph_pusher:
+            import cupy as cp
+
+            self._gpu_sph_name = kernel.name
+            self._gpu_sph_kind_map = int(args_domain.kind_map)
+            self._gpu_sph_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            if kernel.name == "push_v_viscosity":
+                (boxes, neighbours, holes, per1, per2, per3, kernel_nr, h1, h2, h3) = args_kernel
+                self._gpu_sph_gravity = None
+                self._gpu_sph_kappa = None
+            else:
+                (
+                    boxes, neighbours, holes, per1, per2, per3,
+                    kernel_nr, h1, h2, h3, gravity, kappa,
+                ) = args_kernel
+                self._gpu_sph_gravity = cp.asarray(np.asarray(gravity, dtype=float), dtype=cp.float64)
+                self._gpu_sph_kappa = float(kappa)
+            self._gpu_sph_boxes = boxes
+            self._gpu_sph_neighbours = neighbours
+            self._gpu_sph_holes = holes
+            self._gpu_sph_periodic = (bool(per1), bool(per2), bool(per3))
+            self._gpu_sph_kernel_nr = int(kernel_nr)
+            self._gpu_sph_h = (float(h1), float(h2), float(h3))
+
     @profile
     def __call__(self, dt: float):
         """
@@ -1087,6 +1126,41 @@ class Pusher:
                             self._gpu_weights_efield_general_params,
                             dt,
                         )
+                elif self._gpu_sph_pusher:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        common = dict(
+                            boxes=self.particles.sorting_boxes.boxes,
+                            neighbours=self.particles.sorting_boxes.neighbours,
+                            holes=self.particles.holes,
+                            periodic=self._gpu_sph_periodic,
+                            kernel_type=self._gpu_sph_kernel_nr,
+                            h=self._gpu_sph_h,
+                            kind_map=self._gpu_sph_kind_map,
+                            params_dev=self._gpu_sph_params,
+                            dt=dt,
+                        )
+                        if self._gpu_sph_name == "push_v_viscosity":
+                            push_v_viscosity_gpu(
+                                markers,
+                                self.particles.valid_mks,
+                                self.particles.first_free_idx,
+                                **common,
+                            )
+                        else:
+                            fn = (
+                                push_v_sph_pressure_gpu
+                                if self._gpu_sph_name == "push_v_sph_pressure"
+                                else push_v_sph_pressure_ideal_gas_gpu
+                            )
+                            fn(
+                                markers,
+                                self.particles.valid_mks,
+                                self.particles.index["weights"],
+                                self.particles.first_free_idx,
+                                gravity=self._gpu_sph_gravity,
+                                kappa=self._gpu_sph_kappa,
+                                **common,
+                            )
                 else:
                     # no CUDA port for this kernel: fall back to the compiled
                     # host-only one, which pushes markers in place
