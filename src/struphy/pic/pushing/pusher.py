@@ -43,6 +43,9 @@ from struphy.pic.pushing.pusher_kernels_gc_cuda import (
     push_gc_bxEstar_explicit_multistage_general_gpu,
     push_gc_Bstar_discrete_gradient_1st_order_gpu,
     push_gc_Bstar_explicit_multistage_general_gpu,
+    push_gc_cc_J1_H1vec_gpu,
+    push_gc_cc_J1_Hcurl_gpu,
+    push_gc_cc_J1_Hdiv_gpu,
 )
 
 logger = logging.getLogger("struphy")
@@ -683,6 +686,41 @@ class Pusher:
             self._gpu_gc_dg1_ef = (ef1, ef2, ef3)
             self._gpu_gc_dg1_mu_idx = int(particles.mu_idx)
 
+        # CUDA replacements for push_gc_cc_J1_{H1vec,Hcurl,Hdiv} (velocity
+        # update of CurrentCoupling5DCurlb). Single-stage (dt only, `stage`
+        # is accepted but unused by the CPU kernels too), needs DF(eta) so
+        # restricted like the other "general" paths to
+        # SUPPORTED_GENERAL_KIND_MAPS.
+        self._gpu_gc_cc_j1 = cunumpy.cupy_backend and kernel.name in (
+            "push_gc_cc_J1_H1vec",
+            "push_gc_cc_J1_Hcurl",
+            "push_gc_cc_J1_Hdiv",
+        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        if self._gpu_gc_cc_j1:
+            import cupy as cp
+
+            self._gpu_gc_cc_j1_name = kernel.name
+            (
+                args_derham,
+                epsilon,
+                b1, b2, b3,
+                nb1, nb2, nb3,
+                cnb1, cnb2, cnb3,
+                u1, u2, u3,
+            ) = args_kernel
+            self._gpu_gc_cc_j1_kind_map = int(args_domain.kind_map)
+            self._gpu_gc_cc_j1_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            self._gpu_gc_cc_j1_epsilon = float(epsilon)
+            self._gpu_gc_cc_j1_pn = tuple(int(x) for x in args_derham.pn)
+            self._gpu_gc_cc_j1_starts = tuple(int(x) for x in args_derham.starts)
+            self._gpu_gc_cc_j1_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_gc_cc_j1_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_gc_cc_j1_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_gc_cc_j1_b2 = (b1, b2, b3)
+            self._gpu_gc_cc_j1_norm_b1 = (nb1, nb2, nb3)
+            self._gpu_gc_cc_j1_curl_norm_b = (cnb1, cnb2, cnb3)
+            self._gpu_gc_cc_j1_u = (u1, u2, u3)
+
     @profile
     def __call__(self, dt: float):
         """
@@ -1201,6 +1239,29 @@ class Pusher:
                             self._gpu_gc_dg1_gb,
                             self._gpu_gc_dg1_ef,
                             self._gpu_gc_dg1_eval_e,
+                            dt,
+                        )
+                elif self._gpu_gc_cc_j1:
+                    fn = {
+                        "push_gc_cc_J1_H1vec": push_gc_cc_J1_H1vec_gpu,
+                        "push_gc_cc_J1_Hcurl": push_gc_cc_J1_Hcurl_gpu,
+                        "push_gc_cc_J1_Hdiv": push_gc_cc_J1_Hdiv_gpu,
+                    }[self._gpu_gc_cc_j1_name]
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        fn(
+                            markers,
+                            self._gpu_gc_cc_j1_kind_map,
+                            self._gpu_gc_cc_j1_params,
+                            self._gpu_gc_cc_j1_epsilon,
+                            self._gpu_gc_cc_j1_pn,
+                            self._gpu_gc_cc_j1_tn1,
+                            self._gpu_gc_cc_j1_tn2,
+                            self._gpu_gc_cc_j1_tn3,
+                            self._gpu_gc_cc_j1_starts,
+                            self._gpu_gc_cc_j1_b2,
+                            self._gpu_gc_cc_j1_norm_b1,
+                            self._gpu_gc_cc_j1_curl_norm_b,
+                            self._gpu_gc_cc_j1_u,
                             dt,
                         )
                 elif self._gpu_sph_pusher:
