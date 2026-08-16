@@ -1892,10 +1892,13 @@ def test_sph_no_slip_boundary_1d(
 
     particles.draw_markers(sort=False)
     if rank == 0:
-        # particles.ghost_particles is always host (NumPy).
+        # ghost_particles follows the active backend; this is a
+        # diagnostics-only log, so pull the indices to the host.
         import numpy as np
 
-        ghost_inds = np.where(particles.ghost_particles)[0]
+        from cunumpy import to_numpy
+
+        ghost_inds = np.where(to_numpy(particles.ghost_particles))[0]
         logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
         if len(ghost_inds) > 0:
             logger.info(f"First 10 ghost eta1: {particles.markers[ghost_inds[:10], 0]}")

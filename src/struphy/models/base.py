@@ -425,16 +425,17 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 assert isinstance(obj, Particles)
 
             if var.n_to_save > 0:
-                # obj.markers/var.saved_markers are always host-resident (no
-                # device particle kernel exists), unlike the general xp used
-                # elsewhere in this module.
-                markers_on_proc = np.logical_and(
+                # The selection runs on whichever backend the markers live
+                # on (device under CuPy); var.saved_markers is the host
+                # buffer that gets written to HDF5, so the selected rows are
+                # brought across explicitly here.
+                markers_on_proc = xp.logical_and(
                     obj.markers[:, -1] >= 0.0,
                     obj.markers[:, -1] < var.n_to_save,
                 )
-                n_markers_on_proc = np.count_nonzero(markers_on_proc)
+                n_markers_on_proc = int(xp.count_nonzero(markers_on_proc))
                 var.saved_markers[:] = -1.0
-                var.saved_markers[:n_markers_on_proc] = obj.markers[markers_on_proc]
+                var.saved_markers[:n_markers_on_proc] = xp.to_numpy(obj.markers[markers_on_proc])
 
     @profile
     def update_distr_functions(self):

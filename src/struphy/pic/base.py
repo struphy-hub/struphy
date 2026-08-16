@@ -1636,24 +1636,25 @@ class Particles(metaclass=ABCMeta):
                 # if isinstance(self.f_init, CanonicalMaxwellian):
                 #     self.save_constants_of_motion()
 
-            # evaluate initial distribution function
+            # evaluate initial distribution function. Marker-derived inputs
+            # and the field/background functions now agree on the backend
+            # (both follow xp), so no conversion is needed either way.
             if isinstance(self, ParticlesSPH):
-                f_init = _to_numpy_for_kernel(self.f_init(_dev(self.positions)))
+                f_init = self.f_init(self.positions)
             else:
-                f_init = _to_numpy_for_kernel(self.f_init(*_dev(*self.f_coords.T)))
+                f_init = self.f_init(*self.f_coords.T)
 
             # if f_init is vol-form, transform to 0-form
             if self.is_volume_form[0]:
-                f_init /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions)))
+                f_init = f_init / self.domain.jacobian_det(self.positions)
 
             if self.is_volume_form[1]:
-                f_init /= _to_numpy_for_kernel(
-                    self.f_init.velocity_jacobian_det(*_dev(*self.f_jacobian_coords.T)),
-                )
+                f_init = f_init / self.f_init.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
             # compute s0 and save at vdim + 4
-            self.sampling_density_values = _to_numpy_for_kernel(
-                self.s0(*_dev(*self.phasespace_coords.T), flat_eval=True),
+            self.sampling_density_values = self.s0(
+                *self.phasespace_coords.T,
+                flat_eval=True,
             )
 
             # compute w0 and save at vdim + 5
@@ -1687,19 +1688,19 @@ class Particles(metaclass=ABCMeta):
             return
 
         if isinstance(self, ParticlesSPH):
-            f0 = _to_numpy_for_kernel(self.f0.n0(_dev(self.positions)))
+            f0 = self.f0.n0(self.positions)
         else:
             # in case of CanonicalMaxwellian, evaluate constants_of_motion
             # if isinstance(self.f0, CanonicalMaxwellian):
             #     self.save_constants_of_motion()
-            f0 = _to_numpy_for_kernel(self.f0(*_dev(*self.f_coords.T)))
+            f0 = self.f0(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
         if self.is_volume_form[0]:
-            f0 /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions)))
+            f0 = f0 / self.domain.jacobian_det(self.positions)
 
         if self.is_volume_form[1]:
-            f0 /= _to_numpy_for_kernel(self.f0.velocity_jacobian_det(*_dev(*self.f_jacobian_coords.T)))
+            f0 = f0 / self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
         self.weights = self.weights0 - f0 / self.sampling_density_values / self.Np
 
@@ -1767,7 +1768,7 @@ class Particles(metaclass=ABCMeta):
         elif quantity == "energy_tensor":
             multiplier = self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
         elif quantity == "heat_flux":
-            velocity_norm2 = np.linalg.norm(self.velocities, axis=1) ** 2
+            velocity_norm2 = xp.linalg.norm(self.velocities, axis=1) ** 2
             multiplier = velocity_norm2 * self.velocities[:, v_axis[0]]
 
         # compute weights of histogram:
@@ -1775,22 +1776,27 @@ class Particles(metaclass=ABCMeta):
         _weights = self.weights * self.Np * multiplier
 
         if divide_by_jac:
-            _weights /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions), remove_outside=False))
+            jac_det = self.domain.jacobian_det(self.positions, remove_outside=False)
+            _weights = _weights / jac_det
             # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-            _weights0 /= _to_numpy_for_kernel(self.domain.jacobian_det(_dev(self.positions), remove_outside=False))
+            _weights0 = _weights0 / jac_det
             # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
+        # numpy.histogramdd has no CuPy equivalent, so the binning itself is
+        # done on the host; the inputs are brought across explicitly here.
+        _binned_coords = _to_numpy_for_kernel(self.markers_wo_holes_and_ghost[:, slicing])
+
         f_slice = np.histogramdd(
-            self.markers_wo_holes_and_ghost[:, slicing],
-            bins=bin_edges,
-            weights=_weights0,
+            _binned_coords,
+            bins=[_to_numpy_for_kernel(be) for be in bin_edges],
+            weights=_to_numpy_for_kernel(_weights0),
         )[0]
 
         df_slice = np.histogramdd(
-            self.markers_wo_holes_and_ghost[:, slicing],
-            bins=bin_edges,
-            weights=_weights,
+            _binned_coords,
+            bins=[_to_numpy_for_kernel(be) for be in bin_edges],
+            weights=_to_numpy_for_kernel(_weights),
         )[0]
 
         f_slice /= self.Np * bin_vol

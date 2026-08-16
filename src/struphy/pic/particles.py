@@ -137,17 +137,20 @@ class Particles6D(Particles):
         )
 
         # eval guiding center phase space
-        utilities_kernels.eval_guiding_center_from_6d(
-            self.markers,
-            self._derham.args_derham,
-            self.domain.args_domain,
-            self.first_diagnostics_idx,
-            self.equation_params.epsilon,
-            self._b2_h[0]._data,
-            self._b2_h[1]._data,
-            self._b2_h[2]._data,
-            self._absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_guiding_center_from_6d(
+                _args_markers.markers,
+                self._derham.args_derham,
+                self.domain.args_domain,
+                self.first_diagnostics_idx,
+                self.equation_params.epsilon,
+                _to_numpy_for_kernel(self._b2_h[0]._data),
+                _to_numpy_for_kernel(self._b2_h[1]._data),
+                _to_numpy_for_kernel(self._b2_h[2]._data),
+                _to_numpy_for_kernel(self._absB0_h._data),
+            )
 
         # apply domain inverse map to get logical guiding center positions
         # TODO: currently only possible with the geometry where its inverse map is defined.
@@ -179,15 +182,18 @@ class Particles6D(Particles):
         if self.mpi_comm is not None:
             self.mpi_sort_markers(alpha=1)
 
-        utilities_kernels.eval_canonical_toroidal_moment_6d(
-            self.markers,
-            self._derham.args_derham,
-            self.first_diagnostics_idx,
-            self.equation_params.epsilon,
-            B0,
-            R0,
-            self._absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_canonical_toroidal_moment_6d(
+                _args_markers.markers,
+                self._derham.args_derham,
+                self.first_diagnostics_idx,
+                self.equation_params.epsilon,
+                B0,
+                R0,
+                _to_numpy_for_kernel(self._absB0_h._data),
+            )
 
         # send back and clear buffer
         if self.mpi_comm is not None:
@@ -418,13 +424,16 @@ class Particles5D(Particles):
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 1
 
-        utilities_kernels.eval_energy_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            self.absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_energy_5d(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                _to_numpy_for_kernel(self.absB0_h._data),
+            )
 
         # eval psi at etas
         a1 = self.equil.domain.params["a1"]
@@ -434,17 +443,20 @@ class Particles5D(Particles):
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
-        utilities_kernels.eval_canonical_toroidal_moment_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            idx_can_momentum,
-            self.equation_params.epsilon,
-            B0,
-            R0,
-            self.absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_canonical_toroidal_moment_5d(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                idx_can_momentum,
+                self.equation_params.epsilon,
+                B0,
+                R0,
+                _to_numpy_for_kernel(self.absB0_h._data),
+            )
 
     def save_magnetic_energy(self, PBb):
         r"""
@@ -464,15 +476,18 @@ class Particles5D(Particles):
         # utilities_kernels is a Pyccel-compiled extension that requires
         # real numpy buffers; absB0_h/PBbt follow the active backend, so
         # under cupy their ._data needs converting first.
-        utilities_kernels.eval_magnetic_energy_PBb(
-            self.markers,
-            self.derham.args_derham,
-            self.domain.args_domain,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            _to_numpy_for_kernel(self.absB0_h._data),
-            _to_numpy_for_kernel(PBbt._data),
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_magnetic_energy_PBb(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.domain.args_domain,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                _to_numpy_for_kernel(self.absB0_h._data),
+                _to_numpy_for_kernel(PBbt._data),
+            )
 
     def save_magnetic_background_energy(self):
         r"""
@@ -480,14 +495,17 @@ class Particles5D(Particles):
         The result is stored in the energy diagnostics column (``self.first_diagnostics_idx``).
         """
 
-        utilities_kernels.eval_magnetic_background_energy(
-            self.markers,
-            self.derham.args_derham,
-            self.domain.args_domain,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            _to_numpy_for_kernel(self.absB0_h._data),
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_magnetic_background_energy(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.domain.args_domain,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                _to_numpy_for_kernel(self.absB0_h._data),
+            )
 
 
 class Particles5Dvperp(Particles):
@@ -672,12 +690,15 @@ class Particles5Dvperp(Particles):
         super().draw_markers(sort=sort)
 
         # magnetic moment is an adiabatic invariant: evaluate once at draw time (diagnostics column 1)
-        utilities_kernels.eval_magnetic_moment_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self._absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_magnetic_moment_5d(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                _to_numpy_for_kernel(self._absB0_h._data),
+            )
 
     def save_constants_of_motion(self):
         """
@@ -696,13 +717,16 @@ class Particles5Dvperp(Particles):
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 2
 
-        utilities_kernels.eval_energy_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            self.absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_energy_5d(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                _to_numpy_for_kernel(self.absB0_h._data),
+            )
 
         # eval psi at etas
         a1 = self.equil.domain.params["a1"]
@@ -712,17 +736,20 @@ class Particles5Dvperp(Particles):
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
-        utilities_kernels.eval_canonical_toroidal_moment_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            idx_can_momentum,
-            self.equation_params.epsilon,
-            B0,
-            R0,
-            self.absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_canonical_toroidal_moment_5d(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                idx_can_momentum,
+                self.equation_params.epsilon,
+                B0,
+                R0,
+                _to_numpy_for_kernel(self.absB0_h._data),
+            )
 
     def save_magnetic_energy(self, PBb):
         r"""
@@ -739,15 +766,18 @@ class Particles5Dvperp(Particles):
         PBbt = E0T.dot(PBb, out=self._tmp0)
         PBbt.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy_PBb(
-            self.markers,
-            self.derham.args_derham,
-            self.domain.args_domain,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            self.absB0_h._data,
-            PBbt._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_magnetic_energy_PBb(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.domain.args_domain,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                _to_numpy_for_kernel(self.absB0_h._data),
+                PBbt._data,
+            )
 
     def save_magnetic_background_energy(self):
         r"""
@@ -755,14 +785,17 @@ class Particles5Dvperp(Particles):
         The result is stored in the energy diagnostics column (``self.first_diagnostics_idx``).
         """
 
-        utilities_kernels.eval_magnetic_background_energy(
-            self.markers,
-            self.derham.args_derham,
-            self.domain.args_domain,
-            self.first_diagnostics_idx,
-            self.mu_idx,
-            self.absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_magnetic_background_energy(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.domain.args_domain,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                _to_numpy_for_kernel(self.absB0_h._data),
+            )
 
     def save_magnetic_moment(self):
         r"""
@@ -770,12 +803,15 @@ class Particles5Dvperp(Particles):
         diagnostics column (``self.first_diagnostics_idx + 1``).
         """
 
-        utilities_kernels.eval_magnetic_moment_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self.absB0_h._data,
-        )
+        # compiled host-only Pyccel kernel: writes a marker diagnostics
+        # column in place, so it needs the host mirror of the markers.
+        with self.host_markers(write=True) as _args_markers:
+            utilities_kernels.eval_magnetic_moment_5d(
+                _args_markers.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                _to_numpy_for_kernel(self.absB0_h._data),
+            )
 
 
 class Particles3D(Particles):

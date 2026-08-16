@@ -115,14 +115,15 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # are all markers in the correct domain?
-    # particles.markers is always host (NumPy); derham.domain_array may be a
-    # device array under CuPy, so bring it to the host for this comparison.
+    # Markers follow the active backend; compare on the host so the rest of
+    # this test can use plain NumPy.
     domain_array_host = to_numpy(derham.domain_array)
+    markers_host = to_numpy(particles.markers)
     conds = np.logical_and(
-        particles.markers[:, :3] > domain_array_host[rank, 0::3],
-        particles.markers[:, :3] < domain_array_host[rank, 1::3],
+        markers_host[:, :3] > domain_array_host[rank, 0::3],
+        markers_host[:, :3] < domain_array_host[rank, 1::3],
     )
-    holes = particles.markers[:, 0] == -1.0
+    holes = markers_host[:, 0] == -1.0
     stay = np.all(conds, axis=1)
 
     error_mks = particles.markers[np.logical_and(~stay, ~holes)]

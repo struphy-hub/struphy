@@ -178,15 +178,16 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         plt.show()
 
     # test
-    # particles.weights is always host (NumPy), while f_init follows the
-    # active array backend, so bring f_init's result to the host before
-    # comparing (with plain NumPy, not xp, since both operands are host now).
+    # Marker data and f_init both follow the active array backend, so the
+    # comparison is done there and only the final scalar is brought to the
+    # host for the assert/log.
     import numpy as np
     from cunumpy import to_numpy
 
-    f_init_at_markers = to_numpy(particles.f_init(particles.positions))
-    logger.info(f"\n{rank =}, {np.max(np.abs(particles.weights * particles.Np - f_init_at_markers)) =}")
-    assert np.max(np.abs(particles.weights * particles.Np - f_init_at_markers)) < 0.012
+    f_init_at_markers = particles.f_init(particles.positions)
+    max_err = float(to_numpy(xp.max(xp.abs(particles.weights * particles.Np - f_init_at_markers))))
+    logger.info(f"\n{rank =}, {max_err =}")
+    assert max_err < 0.012
 
 
 if __name__ == "__main__":
