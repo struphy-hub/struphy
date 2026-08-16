@@ -217,7 +217,9 @@ class Pusher:
         self._region_name = "pusher: " + self.kernel.name
         self._kernel_region_names = {}
 
-        self._residuals = np.zeros(self.particles.markers.shape[0])
+        # marker-row-indexed, so they live on the same backend as the markers
+        # (device under CuPy) -- see Particles._allocate_marker_array
+        self._residuals = cunumpy.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
@@ -1186,13 +1188,15 @@ class Pusher:
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
                     self._residuals[:] = markers[:, residual_idx]
-                    max_res = np.max(self._residuals)
+                    max_res = float(cunumpy.max(self._residuals))
                     if max_res < 0.0:
                         max_res = None
                     self._converged_loc[:] = self._residuals < self._tol
                     self._not_converged_loc[:] = ~self._converged_loc
-                    n_not_converged[0] = np.count_nonzero(
-                        self._not_converged_loc,
+                    # n_not_converged is a host buffer: it is passed straight
+                    # into an mpi4py Allreduce below.
+                    n_not_converged[0] = int(
+                        cunumpy.count_nonzero(self._not_converged_loc),
                     )
 
                     logger.debug(
