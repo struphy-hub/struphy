@@ -4,18 +4,19 @@ from dataclasses import dataclass
 
 import cunumpy as xp
 from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.block import BlockVector
-from feectools.linalg.stencil import StencilMatrix, StencilVector
 from scope_profiler import ProfileManager
 
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilMatrix, StencilVector
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import LiteralOptions
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.models.variables import PICVariable, SPHVariable
+from struphy.pic.accumulation.accum_kernels_cuda import charge_density_0form_gpu, linear_vlasov_ampere_gpu
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
@@ -196,6 +197,31 @@ class Accumulator:
         # initialize filter
         self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
+        # GPU replacement for linear_vlasov_ampere: evaluates DF^-1(eta_p) per
+        # marker and atomically scatters into the 6 symmetric V1 -> V1 matrix
+        # blocks plus the V1 vector, instead of the CPU's strictly-sequential
+        # marker loop. See pusher_kernels_cuda.SUPPORTED_GENERAL_KIND_MAPS
+        # for the domains this covers.
+        from struphy.pic.pushing.pusher_kernels_cuda import SUPPORTED_GENERAL_KIND_MAPS
+
+        self._gpu_linear_vlasov_ampere = (
+            xp.cupy_backend
+            and kernel.name == "linear_vlasov_ampere"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_linear_vlasov_ampere:
+            import cupy as cp
+            import numpy as np
+
+            self._gpu_lva_kind_map = int(args_domain.kind_map)
+            self._gpu_lva_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            args_derham = self.derham.args_derham
+            self._gpu_lva_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_lva_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_lva_tn1 = cp.asarray(np.asarray(args_derham.tn1, dtype=float), dtype=cp.float64)
+            self._gpu_lva_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
+            self._gpu_lva_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
+
     def __call__(self, *optional_args, **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
@@ -229,14 +255,30 @@ class Accumulator:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.name):
-            self.kernel(
-                self.particles.args_markers,
-                self.derham.args_derham,
-                self.args_domain,
-                *self._args_data,
-                *optional_args,
-            )
+        if self._gpu_linear_vlasov_ampere and len(optional_args) == 1:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                (f0_values,) = optional_args
+                linear_vlasov_ampere_gpu(
+                    self.particles.markers,
+                    self._gpu_lva_kind_map,
+                    self._gpu_lva_params,
+                    f0_values,
+                    self._gpu_lva_pn,
+                    self._gpu_lva_tn1,
+                    self._gpu_lva_tn2,
+                    self._gpu_lva_tn3,
+                    self._gpu_lva_starts,
+                    *self._args_data,
+                )
+        else:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name):
+                self.kernel(
+                    self.particles.args_markers,
+                    self.derham.args_derham,
+                    self.args_domain,
+                    *self._args_data,
+                    *optional_args,
+                )
 
         # apply filter
         if self.accfilter.params.use_filter is not None:
@@ -557,6 +599,21 @@ class AccumulatorVector:
         # initialize filter
         self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
+        # hand-written CUDA replacement for charge_density_0form (the only
+        # AccumulatorVector kernel ported so far -- see accum_kernels_cuda.py).
+        # No optional_args/domain-mapping support needed for this one.
+        self._gpu_charge_density_0form = xp.cupy_backend and kernel.name == "charge_density_0form"
+        if self._gpu_charge_density_0form:
+            import cupy as cp
+
+            args_derham = self.derham.args_derham
+            self._gpu_cd0_weight_idx = self.particles.index["weights"]
+            self._gpu_cd0_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_cd0_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_cd0_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_cd0_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_cd0_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+
     def __call__(self, *optional_args, **args_control):
         """
         Performs the accumulation into the vector by calling the chosen accumulation kernel
@@ -589,14 +646,27 @@ class AccumulatorVector:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.name):
-            self.kernel(
-                self.particles.args_markers,
-                self.derham.args_derham,
-                self.args_domain,
-                *self._args_data,
-                *optional_args,
-            )
+        if self._gpu_charge_density_0form and not optional_args:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                charge_density_0form_gpu(
+                    self.particles.markers,
+                    self._gpu_cd0_weight_idx,
+                    self._gpu_cd0_pn,
+                    self._gpu_cd0_tn1,
+                    self._gpu_cd0_tn2,
+                    self._gpu_cd0_tn3,
+                    self._gpu_cd0_starts,
+                    self._args_data[0],
+                )
+        else:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name):
+                self.kernel(
+                    self.particles.args_markers,
+                    self.derham.args_derham,
+                    self.args_domain,
+                    *self._args_data,
+                    *optional_args,
+                )
 
         # apply filter
         if self.accfilter.params.use_filter is not None:
