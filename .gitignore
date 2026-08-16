@@ -101,6 +101,7 @@ src/struphy/io/out/
 src/struphy/state.yml
 src/struphy/io/inp/params_*
 *.bin
+bench_gpu/out_*
 
 # models list
 bin/
@@ -112,3 +113,4 @@ pyvenv.cfg
 *profile_output*.txt
 *kernels.txt
 struphy.log
+
