@@ -102,6 +102,7 @@ src/struphy/state.yml
 src/struphy/io/inp/params_*
 *.bin
 bench_gpu/out_*
+bench_gpu/
 
 # models list
 bin/
