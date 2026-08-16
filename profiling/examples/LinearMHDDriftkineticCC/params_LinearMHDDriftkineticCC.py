@@ -171,14 +171,20 @@ model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="
 # For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
 
 # Background for kinetic species
-maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)
-maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)
+# GyroMaxwellian2D takes the background field strength as `B0` (a float or a callable of
+# the logical coordinates) rather than a whole equilibrium. HomogenSlab is uniform, so
+# |B| is a constant taken straight from its parameters -- which keeps `B0` a plain float
+# and avoids a per-marker Python callback in the velocity Jacobian on the GPU path.
+absB0 = (equil.params["B0x"] ** 2 + equil.params["B0y"] ** 2 + equil.params["B0z"] ** 2) ** 0.5
+
+maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), B0=absB0)
+maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), B0=absB0)
 background = maxwellian_1 + maxwellian_2
 model.energetic_ions.var.add_background(background)
 
 # Perturbations for (some) kinetic species
 perturbation = perturbations.TorusModesCos()
-maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)
+maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), B0=absB0)
 init = maxwellian_1pt + maxwellian_2
 model.energetic_ions.var.add_initial_condition(init)
 
