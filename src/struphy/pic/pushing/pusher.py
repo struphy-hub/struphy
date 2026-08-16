@@ -12,9 +12,25 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_kernels_cuda import (
+    SUPPORTED_GENERAL_KIND_MAPS,
     push_eta_rk_periodic_gpu,
     push_eta_stage_cuboid_gpu,
+    push_bxu_H1vec_general_gpu,
+    push_bxu_Hcurl_general_gpu,
+    push_bxu_Hdiv_general_gpu,
+    push_deterministic_diffusion_stage_general_gpu,
+    push_eta_stage_general_gpu,
+    push_pc_eta_stage_H1vec_general_gpu,
+    push_pc_eta_stage_Hcurl_general_gpu,
+    push_pc_eta_stage_Hdiv_general_gpu,
+    push_pc_GXu_full_general_gpu,
+    push_pc_GXu_general_gpu,
+    push_random_diffusion_stage_gpu,
     push_v_with_efield_cuboid_gpu,
+    push_v_with_efield_general_gpu,
+    push_vxb_analytic_general_gpu,
+    push_vxb_implicit_general_gpu,
+    push_weights_with_efield_lin_va_general_gpu,
 )
 
 logger = logging.getLogger("struphy")
@@ -137,6 +153,23 @@ class Pusher:
             l1, r1, l2, r2, l3, r3 = (float(p) for p in args_domain.params[:6])
             self._gpu_eta_cuboid_scale = (1.0 / (r1 - l1), 1.0 / (r2 - l2), 1.0 / (r3 - l3))
 
+        # general (non-Cuboid) CUDA replacement for push_eta_stage: evaluates
+        # DF(eta) per marker instead of assuming it's constant, so it covers
+        # any domain in SUPPORTED_GENERAL_KIND_MAPS -- currently Cuboid and
+        # Colella, see pusher_kernels_cuda.py. Only used when the more
+        # specialized _gpu_eta_cuboid path above doesn't already apply.
+        self._gpu_eta_general = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_eta_stage"
+            and not self._gpu_eta_cuboid
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_eta_general:
+            import cupy as cp
+
+            self._gpu_eta_general_kind_map = int(args_domain.kind_map)
+            self._gpu_eta_general_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+
         # determines the evaluation points for kernel
         self._alpha_in_kernel = alpha_in_kernel
         self._n_stages = n_stages
@@ -232,6 +265,37 @@ class Pusher:
             self._gpu_v_efield_e1_2 = e1_2
             self._gpu_v_efield_e1_3 = e1_3
 
+        # general (non-Cuboid) CUDA replacement for push_v_with_efield: same
+        # B-spline evaluation as _gpu_v_efield_cuboid, but with DF(eta)
+        # evaluated per marker instead of assumed constant-diagonal -- see
+        # _gpu_eta_general above.
+        self._gpu_v_efield_general = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_v_with_efield"
+            and not self._gpu_v_efield_cuboid
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_v_efield_general:
+            import cupy as cp
+
+            self._gpu_v_efield_general_kind_map = int(args_domain.kind_map)
+            self._gpu_v_efield_general_params = cp.asarray(
+                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
+            )
+
+            args_derham, e1_1, e1_2, e1_3, const = args_kernel
+            self._gpu_v_efield_general_const = float(const)
+            self._gpu_v_efield_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_v_efield_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_v_efield_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_v_efield_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_v_efield_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            # FE coefficients are already device-resident under CuPy, see
+            # _gpu_v_efield_cuboid above.
+            self._gpu_v_efield_general_e1_1 = e1_1
+            self._gpu_v_efield_general_e1_2 = e1_2
+            self._gpu_v_efield_general_e1_3 = e1_3
+
         # whole-push GPU-resident fast path: on top of _gpu_v_efield_cuboid,
         # additionally bypasses the per-call reset/apply_kinetic_bc/
         # update_holes machinery entirely (this kernel never touches position
@@ -249,6 +313,192 @@ class Pusher:
             and not self._newton
             and n_stages == 1
         )
+
+        # general (non-Cuboid) CUDA replacement for push_vxb_analytic /
+        # push_vxb_implicit, sharing the same B-spline/geometry evaluation as
+        # _gpu_v_efield_general above (2-form instead of 1-form field).
+        self._gpu_vxb_general = cunumpy.cupy_backend and kernel.name in (
+            "push_vxb_analytic",
+            "push_vxb_implicit",
+        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        if self._gpu_vxb_general:
+            import cupy as cp
+
+            self._gpu_vxb_general_analytic = kernel.name == "push_vxb_analytic"
+            self._gpu_vxb_general_kind_map = int(args_domain.kind_map)
+            self._gpu_vxb_general_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+
+            args_derham, b2_1, b2_2, b2_3 = args_kernel
+            self._gpu_vxb_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_vxb_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_vxb_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_vxb_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_vxb_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            # FE coefficients are already device-resident under CuPy, see
+            # _gpu_v_efield_cuboid above. Unlike push_v_with_efield's e1_*,
+            # b2_* here can be *reassigned* between calls (PushVxB.allocate()
+            # rebuilds self._b_full = b2_0 (+ b2_var) once per allocate(), but
+            # __call__ does not touch the underlying StencilVector objects
+            # again after that), so caching the references once here is
+            # still valid for the propagator's lifetime.
+            self._gpu_vxb_general_b2_1 = b2_1
+            self._gpu_vxb_general_b2_2 = b2_2
+            self._gpu_vxb_general_b2_3 = b2_3
+
+        # general (non-Cuboid) CUDA replacement for push_bxu_{Hdiv,Hcurl,H1vec},
+        # sharing the same B-field (2-form) evaluation as _gpu_vxb_general;
+        # only the U-field's FEEC space (and therefore its evaluation/metric
+        # handling) differs between the three.
+        self._gpu_bxu_general = cunumpy.cupy_backend and kernel.name in (
+            "push_bxu_Hdiv",
+            "push_bxu_Hcurl",
+            "push_bxu_H1vec",
+        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        if self._gpu_bxu_general:
+            import cupy as cp
+
+            self._gpu_bxu_general_variant = kernel.name
+            self._gpu_bxu_general_kind_map = int(args_domain.kind_map)
+            self._gpu_bxu_general_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+
+            args_derham, b2_1, b2_2, b2_3, u_1, u_2, u_3, boundary_cut = args_kernel
+            self._gpu_bxu_general_boundary_cut = float(boundary_cut)
+            self._gpu_bxu_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_bxu_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_bxu_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_bxu_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_bxu_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            # FE coefficients are device-resident under CuPy, see
+            # _gpu_v_efield_cuboid above.
+            self._gpu_bxu_general_b2_1 = b2_1
+            self._gpu_bxu_general_b2_2 = b2_2
+            self._gpu_bxu_general_b2_3 = b2_3
+            self._gpu_bxu_general_u_1 = u_1
+            self._gpu_bxu_general_u_2 = u_2
+            self._gpu_bxu_general_u_3 = u_3
+
+        # general (non-Cuboid) CUDA replacement for push_pc_GXu_full /
+        # push_pc_GXu: the propagator (PressureCoupling6D) always builds the
+        # full 9-array args_kernel regardless of which of the two it uses
+        # (push_pc_GXu's CPU kernel also takes all 9, only 6 are read) -- so
+        # both branches cache the same 9 g_ij arrays and the *_full variant
+        # is picked purely by kernel.name.
+        self._gpu_pc_gxu_general = cunumpy.cupy_backend and kernel.name in (
+            "push_pc_GXu_full",
+            "push_pc_GXu",
+        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        if self._gpu_pc_gxu_general:
+            import cupy as cp
+
+            self._gpu_pc_gxu_general_full = kernel.name == "push_pc_GXu_full"
+            self._gpu_pc_gxu_general_kind_map = int(args_domain.kind_map)
+            self._gpu_pc_gxu_general_params = cp.asarray(
+                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
+            )
+
+            args_derham, g11, g12, g13, g21, g22, g23, g31, g32, g33 = args_kernel
+            self._gpu_pc_gxu_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_pc_gxu_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_pc_gxu_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_pc_gxu_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_pc_gxu_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_pc_gxu_general_g = (g11, g12, g13, g21, g22, g23, g31, g32, g33)
+
+        # general (non-Cuboid) CUDA replacement for
+        # push_pc_eta_stage_{Hcurl,Hdiv,H1vec}: a variant of _gpu_eta_general
+        # with an extra U-field vector contribution added to the eta rate.
+        self._gpu_pc_eta_general = cunumpy.cupy_backend and kernel.name in (
+            "push_pc_eta_stage_Hcurl",
+            "push_pc_eta_stage_Hdiv",
+            "push_pc_eta_stage_H1vec",
+        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        if self._gpu_pc_eta_general:
+            import cupy as cp
+
+            self._gpu_pc_eta_general_variant = kernel.name
+            self._gpu_pc_eta_general_kind_map = int(args_domain.kind_map)
+            self._gpu_pc_eta_general_params = cp.asarray(
+                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
+            )
+
+            args_derham, u_1, u_2, u_3, use_perp_model = args_kernel[:5]
+            self._gpu_pc_eta_general_use_perp_model = bool(use_perp_model)
+            self._gpu_pc_eta_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_pc_eta_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_pc_eta_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_pc_eta_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_pc_eta_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_pc_eta_general_u_1 = u_1
+            self._gpu_pc_eta_general_u_2 = u_2
+            self._gpu_pc_eta_general_u_3 = u_3
+
+        # general (non-Cuboid) CUDA replacement for
+        # push_weights_with_efield_lin_va. Unlike the FE-coefficient
+        # arguments cached above, f0_values is recomputed by the caller
+        # every step, in place (self._f0_values[:] = ...) -- so the
+        # reference can be cached once here like the other FE-coefficient
+        # arguments (see push_weights_with_efield_lin_va_general_gpu's
+        # docstring).
+        self._gpu_weights_efield_general = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_weights_with_efield_lin_va"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_weights_efield_general:
+            import cupy as cp
+
+            self._gpu_weights_efield_general_kind_map = int(args_domain.kind_map)
+            self._gpu_weights_efield_general_params = cp.asarray(
+                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
+            )
+
+            args_derham, e1_1, e1_2, e1_3, f0_values, kappa, vth = args_kernel
+            self._gpu_weights_efield_general_kappa = float(kappa)
+            self._gpu_weights_efield_general_vth = float(vth)
+            self._gpu_weights_efield_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_weights_efield_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_weights_efield_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_weights_efield_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_weights_efield_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_weights_efield_general_e1_1 = e1_1
+            self._gpu_weights_efield_general_e1_2 = e1_2
+            self._gpu_weights_efield_general_e1_3 = e1_3
+            self._gpu_weights_efield_general_f0_values = f0_values
+
+        # general (non-Cuboid) CUDA replacement for
+        # push_deterministic_diffusion_stage.
+        self._gpu_det_diffusion_general = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_deterministic_diffusion_stage"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_det_diffusion_general:
+            import cupy as cp
+
+            self._gpu_det_diffusion_general_kind_map = int(args_domain.kind_map)
+            self._gpu_det_diffusion_general_params = cp.asarray(
+                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
+            )
+
+            args_derham, pi_u, pi_grad_u1, pi_grad_u2, pi_grad_u3, diffusion_coeff = args_kernel[:6]
+            self._gpu_det_diffusion_general_coeff = float(diffusion_coeff)
+            self._gpu_det_diffusion_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_det_diffusion_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_det_diffusion_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_det_diffusion_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_det_diffusion_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_det_diffusion_general_pi_u = pi_u
+            self._gpu_det_diffusion_general_pi_grad_u1 = pi_grad_u1
+            self._gpu_det_diffusion_general_pi_grad_u2 = pi_grad_u2
+            self._gpu_det_diffusion_general_pi_grad_u3 = pi_grad_u3
+
+        # CUDA replacement for push_random_diffusion_stage: domain-independent
+        # (pure additive noise, no geometry), so no kind_map restriction.
+        self._gpu_random_diffusion = cunumpy.cupy_backend and kernel.name == "push_random_diffusion_stage"
+        if self._gpu_random_diffusion:
+            noise, diffusion_coeff = args_kernel[0], args_kernel[1]
+            self._gpu_random_diffusion_coeff = float(diffusion_coeff)
+            self._gpu_random_diffusion_noise = noise
 
     @staticmethod
     def _reset_marker_buffers_gpu(markers, init_slice, shift_slice, residual_idx, vdim):
@@ -476,6 +726,199 @@ class Pusher:
                             self._gpu_v_efield_e1_3,
                             self._gpu_v_efield_scale,
                             dt * self._gpu_v_efield_const,
+                        )
+                elif self._gpu_eta_general:
+                    a, b, _c = self._args_kernel
+                    last = 1.0 if stage == self.n_stages - 1 else 0.0
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_eta_stage_general_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_eta_general_kind_map,
+                            self._gpu_eta_general_params,
+                            dt * float(a[stage]),
+                            dt * float(b[stage]),
+                            last,
+                        )
+                elif self._gpu_pc_eta_general:
+                    a, b = self._args_kernel[-3], self._args_kernel[-2]
+                    last = 1.0 if stage == self.n_stages - 1 else 0.0
+                    gpu_pc_eta_fn = {
+                        "push_pc_eta_stage_Hcurl": push_pc_eta_stage_Hcurl_general_gpu,
+                        "push_pc_eta_stage_Hdiv": push_pc_eta_stage_Hdiv_general_gpu,
+                        "push_pc_eta_stage_H1vec": push_pc_eta_stage_H1vec_general_gpu,
+                    }[self._gpu_pc_eta_general_variant]
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        gpu_pc_eta_fn(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_pc_eta_general_pn,
+                            self._gpu_pc_eta_general_tn1,
+                            self._gpu_pc_eta_general_tn2,
+                            self._gpu_pc_eta_general_tn3,
+                            self._gpu_pc_eta_general_starts,
+                            self._gpu_pc_eta_general_u_1,
+                            self._gpu_pc_eta_general_u_2,
+                            self._gpu_pc_eta_general_u_3,
+                            self._gpu_pc_eta_general_use_perp_model,
+                            self._gpu_pc_eta_general_kind_map,
+                            self._gpu_pc_eta_general_params,
+                            dt * float(a[stage]),
+                            dt * float(b[stage]),
+                            last,
+                        )
+                elif self._gpu_det_diffusion_general:
+                    a, b, _c = self._args_kernel[-3:]
+                    last = 1.0 if stage == self.n_stages - 1 else 0.0
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_deterministic_diffusion_stage_general_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_det_diffusion_general_pn,
+                            self._gpu_det_diffusion_general_tn1,
+                            self._gpu_det_diffusion_general_tn2,
+                            self._gpu_det_diffusion_general_tn3,
+                            self._gpu_det_diffusion_general_starts,
+                            self._gpu_det_diffusion_general_pi_u,
+                            self._gpu_det_diffusion_general_pi_grad_u1,
+                            self._gpu_det_diffusion_general_pi_grad_u2,
+                            self._gpu_det_diffusion_general_pi_grad_u3,
+                            self._gpu_det_diffusion_general_coeff,
+                            self._gpu_det_diffusion_general_kind_map,
+                            self._gpu_det_diffusion_general_params,
+                            dt * float(a[stage]),
+                            dt * float(b[stage]),
+                            last,
+                        )
+                elif self._gpu_random_diffusion:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_random_diffusion_stage_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            self._gpu_random_diffusion_noise,
+                            self._gpu_random_diffusion_coeff,
+                            dt,
+                        )
+                elif self._gpu_v_efield_general:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_v_with_efield_general_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            self._gpu_v_efield_general_pn,
+                            self._gpu_v_efield_general_tn1,
+                            self._gpu_v_efield_general_tn2,
+                            self._gpu_v_efield_general_tn3,
+                            self._gpu_v_efield_general_starts,
+                            self._gpu_v_efield_general_e1_1,
+                            self._gpu_v_efield_general_e1_2,
+                            self._gpu_v_efield_general_e1_3,
+                            self._gpu_v_efield_general_kind_map,
+                            self._gpu_v_efield_general_params,
+                            dt * self._gpu_v_efield_general_const,
+                        )
+                elif self._gpu_vxb_general:
+                    gpu_vxb_fn = (
+                        push_vxb_analytic_general_gpu if self._gpu_vxb_general_analytic else push_vxb_implicit_general_gpu
+                    )
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        gpu_vxb_fn(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self._gpu_vxb_general_pn,
+                            self._gpu_vxb_general_tn1,
+                            self._gpu_vxb_general_tn2,
+                            self._gpu_vxb_general_tn3,
+                            self._gpu_vxb_general_starts,
+                            self._gpu_vxb_general_b2_1,
+                            self._gpu_vxb_general_b2_2,
+                            self._gpu_vxb_general_b2_3,
+                            self._gpu_vxb_general_kind_map,
+                            self._gpu_vxb_general_params,
+                            dt,
+                        )
+                elif self._gpu_bxu_general:
+                    gpu_bxu_fn = {
+                        "push_bxu_Hdiv": push_bxu_Hdiv_general_gpu,
+                        "push_bxu_Hcurl": push_bxu_Hcurl_general_gpu,
+                        "push_bxu_H1vec": push_bxu_H1vec_general_gpu,
+                    }[self._gpu_bxu_general_variant]
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        gpu_bxu_fn(
+                            markers,
+                            self.particles.n_cols,
+                            self._gpu_bxu_general_pn,
+                            self._gpu_bxu_general_tn1,
+                            self._gpu_bxu_general_tn2,
+                            self._gpu_bxu_general_tn3,
+                            self._gpu_bxu_general_starts,
+                            self._gpu_bxu_general_b2_1,
+                            self._gpu_bxu_general_b2_2,
+                            self._gpu_bxu_general_b2_3,
+                            self._gpu_bxu_general_u_1,
+                            self._gpu_bxu_general_u_2,
+                            self._gpu_bxu_general_u_3,
+                            self._gpu_bxu_general_kind_map,
+                            self._gpu_bxu_general_params,
+                            self._gpu_bxu_general_boundary_cut,
+                            dt,
+                        )
+                elif self._gpu_pc_gxu_general:
+                    g11, g12, g13, g21, g22, g23, g31, g32, g33 = self._gpu_pc_gxu_general_g
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        if self._gpu_pc_gxu_general_full:
+                            push_pc_GXu_full_general_gpu(
+                                markers,
+                                self.particles.n_cols,
+                                self._gpu_pc_gxu_general_pn,
+                                self._gpu_pc_gxu_general_tn1,
+                                self._gpu_pc_gxu_general_tn2,
+                                self._gpu_pc_gxu_general_tn3,
+                                self._gpu_pc_gxu_general_starts,
+                                g11, g12, g13, g21, g22, g23, g31, g32, g33,
+                                self._gpu_pc_gxu_general_kind_map,
+                                self._gpu_pc_gxu_general_params,
+                                dt,
+                            )
+                        else:
+                            push_pc_GXu_general_gpu(
+                                markers,
+                                self.particles.n_cols,
+                                self._gpu_pc_gxu_general_pn,
+                                self._gpu_pc_gxu_general_tn1,
+                                self._gpu_pc_gxu_general_tn2,
+                                self._gpu_pc_gxu_general_tn3,
+                                self._gpu_pc_gxu_general_starts,
+                                g11, g12, g13, g21, g22, g23,
+                                self._gpu_pc_gxu_general_kind_map,
+                                self._gpu_pc_gxu_general_params,
+                                dt,
+                            )
+                elif self._gpu_weights_efield_general:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_weights_with_efield_lin_va_general_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            self._gpu_weights_efield_general_pn,
+                            self._gpu_weights_efield_general_tn1,
+                            self._gpu_weights_efield_general_tn2,
+                            self._gpu_weights_efield_general_tn3,
+                            self._gpu_weights_efield_general_starts,
+                            self._gpu_weights_efield_general_e1_1,
+                            self._gpu_weights_efield_general_e1_2,
+                            self._gpu_weights_efield_general_e1_3,
+                            self._gpu_weights_efield_general_f0_values,
+                            self._gpu_weights_efield_general_kappa,
+                            self._gpu_weights_efield_general_vth,
+                            self._gpu_weights_efield_general_kind_map,
+                            self._gpu_weights_efield_general_params,
+                            dt,
                         )
                 else:
                     with ProfileManager.profile_region("kernel: " + self.kernel.name):
