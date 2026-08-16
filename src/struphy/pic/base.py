@@ -52,6 +52,7 @@ from struphy.particles.parameters import (
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import eval_kernels_sph
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
+from struphy.pic.pushing.pusher_utilities_kernels_cuda import reflect_gpu
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -803,6 +804,15 @@ class Particles(metaclass=ABCMeta):
             * domain_array[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
         """
         return self._domain_array
+
+    @property
+    def _reflect_params_dev(self):
+        """Domain mapping parameters on the device, cached for :func:`reflect_gpu`."""
+        if getattr(self, "_reflect_params_dev_cache", None) is None:
+            self._reflect_params_dev_cache = xp.asarray(
+                np.asarray(self.domain.args_domain.params, dtype=float),
+            )
+        return self._reflect_params_dev_cache
 
     @property
     def domain_array_dev(self):
@@ -2008,15 +2018,27 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
-            # flip velocity. reflect() is a compiled host-only Pyccel kernel
-            # that writes markers in place, so it needs the host mirror.
-            with self.host_markers(write=True) as args_markers:
-                reflect(
-                    args_markers.markers,
-                    self.domain.args_domain,
-                    _to_numpy_for_kernel(outside_inds_per_axis[axis]),
+            # flip velocity
+            from struphy.pic.pushing.pusher_kernels_cuda import SUPPORTED_GENERAL_KIND_MAPS
+
+            if xp.cupy_backend and self.domain.args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS:
+                reflect_gpu(
+                    self.markers,
+                    int(self.domain.args_domain.kind_map),
+                    self._reflect_params_dev,
+                    outside_inds_per_axis[axis],
                     axis,
                 )
+            else:
+                # no CUDA port for this domain kind_map: fall back to the
+                # compiled host-only kernel via the marker host mirror.
+                with self.host_markers(write=True) as args_markers:
+                    reflect(
+                        args_markers.markers,
+                        self.domain.args_domain,
+                        _to_numpy_for_kernel(outside_inds_per_axis[axis]),
+                        axis,
+                    )
 
     def update_holes(self):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
@@ -2387,24 +2409,26 @@ class Particles(metaclass=ABCMeta):
         # 2nd kernel
         func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
         comps = xp.arange(9)
-        func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx + 3,
-            comps=comps,
-            args_markers=self.args_markers,
-            args_domain=self.domain.args_domain,
-            boxes=self.sorting_boxes.boxes,
-            neighbours=self.sorting_boxes.neighbours,
-            holes=self.holes,
-            periodic1=self.boundary_params.bc_sph[0] == "periodic",
-            periodic2=self.boundary_params.bc_sph[1] == "periodic",
-            periodic3=self.boundary_params.bc_sph[2] == "periodic",
-            kernel_type=self.ker_dct()[kernel_type],
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            mu=mu,
-        )
+        # compiled host-only SPH kernel; writes marker columns in place
+        with self.host_markers(write=True) as _args_markers:
+            func(
+                alpha=xp.array((0.0, 0.0, 0.0)),
+                column_nr=first_free_idx + 3,
+                comps=comps,
+                args_markers=_args_markers,
+                args_domain=self.domain.args_domain,
+                boxes=self.sorting_boxes.boxes,
+                neighbours=self.sorting_boxes.neighbours,
+                holes=self.holes,
+                periodic1=self.boundary_params.bc_sph[0] == "periodic",
+                periodic2=self.boundary_params.bc_sph[1] == "periodic",
+                periodic3=self.boundary_params.bc_sph[2] == "periodic",
+                kernel_type=self.ker_dct()[kernel_type],
+                h1=h1,
+                h2=h2,
+                h3=h3,
+                mu=mu,
+            )
 
         # grid evaluation
         gamma = []
@@ -3218,18 +3242,18 @@ class Particles(metaclass=ABCMeta):
     def _sort_boxed_particles_numpy(self):
         """Sort the particles by box using numpy.argsort.
 
-        ``_argsort_array`` must be a plain NumPy array, not an ``xp`` one:
-        ``self._markers`` is always host-resident (see
-        ``ISSUE_cupy_particles_never_pushed.md``), and NumPy fancy indexing
-        (``self._markers[self._argsort_array]``) rejects a CuPy index array
-        outright under the CuPy backend.
+        ``_argsort_array`` lives on the same backend as the markers, so both
+        the argsort and the subsequent gather run entirely on the device
+        under CuPy.
         """
         sorting_axis = self._sorting_boxes.box_index
 
         if not hasattr(self, "_argsort_array"):
-            self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
+            self._argsort_array = xp.zeros(self.markers.shape[0], dtype=int)
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
 
+        # gather into a temporary: an in-place fancy-index self-assignment is
+        # not safe (source and destination overlap).
         self._markers[:, :] = self._markers[self._argsort_array]
 
     def _check_and_assign_particles_to_boxes(self):
@@ -3727,9 +3751,10 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         for i in list_boxes:
             indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i] != -1])
 
-        # row indices into self.markers, which is always host-resident
+        # Box membership is host bookkeeping; the gathered rows are handed to
+        # the mpi4py box-communication path below, which needs host buffers.
         indices = np.array(indices, dtype=int)
-        markers_in_box = self.markers[indices]
+        markers_in_box = _to_numpy_for_kernel(self.markers[xp.asarray(indices)])
         return markers_in_box
 
     def _get_destinations_box(self):

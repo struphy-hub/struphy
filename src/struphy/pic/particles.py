@@ -12,6 +12,15 @@ from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles, _to_numpy_for_kernel
+from struphy.pic.utilities_kernels_cuda import (
+    eval_canonical_toroidal_moment_5d_gpu,
+    eval_canonical_toroidal_moment_6d_gpu,
+    eval_energy_5d_gpu,
+    eval_guiding_center_from_6d_gpu,
+    eval_magnetic_background_energy_gpu,
+    eval_magnetic_energy_PBb_gpu,
+    eval_magnetic_moment_5d_gpu,
+)
 
 
 class Particles6D(Particles):
@@ -139,18 +148,39 @@ class Particles6D(Particles):
         # eval guiding center phase space
         # compiled host-only Pyccel kernel: writes a marker diagnostics
         # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_guiding_center_from_6d(
-                _args_markers.markers,
+        from struphy.pic.pushing.pusher_kernels_cuda import SUPPORTED_GENERAL_KIND_MAPS
+
+        if xp.cupy_backend and self.domain.args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS:
+            import cupy as cp
+            import numpy as np
+
+            eval_guiding_center_from_6d_gpu(
+                self.markers,
                 self._derham.args_derham,
-                self.domain.args_domain,
+                int(self.domain.args_domain.kind_map),
+                cp.asarray(np.asarray(self.domain.args_domain.params, dtype=float), dtype=cp.float64),
                 self.first_diagnostics_idx,
                 self.equation_params.epsilon,
-                _to_numpy_for_kernel(self._b2_h[0]._data),
-                _to_numpy_for_kernel(self._b2_h[1]._data),
-                _to_numpy_for_kernel(self._b2_h[2]._data),
-                _to_numpy_for_kernel(self._absB0_h._data),
+                self._b2_h[0]._data,
+                self._b2_h[1]._data,
+                self._b2_h[2]._data,
+                self._absB0_h._data,
             )
+        else:
+            # no CUDA port for this domain kind_map: fall back to the
+            # compiled host-only kernel via the marker host mirror.
+            with self.host_markers(write=True) as _args_markers:
+                utilities_kernels.eval_guiding_center_from_6d(
+                    _args_markers.markers,
+                    self._derham.args_derham,
+                    self.domain.args_domain,
+                    self.first_diagnostics_idx,
+                    self.equation_params.epsilon,
+                    _to_numpy_for_kernel(self._b2_h[0]._data),
+                    _to_numpy_for_kernel(self._b2_h[1]._data),
+                    _to_numpy_for_kernel(self._b2_h[2]._data),
+                    _to_numpy_for_kernel(self._absB0_h._data),
+                )
 
         # apply domain inverse map to get logical guiding center positions
         # TODO: currently only possible with the geometry where its inverse map is defined.
@@ -182,17 +212,25 @@ class Particles6D(Particles):
         if self.mpi_comm is not None:
             self.mpi_sort_markers(alpha=1)
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_canonical_toroidal_moment_6d(
-                _args_markers.markers,
+        if xp.cupy_backend:
+            eval_canonical_toroidal_moment_6d_gpu(
+                self.markers,
                 self._derham.args_derham,
                 self.first_diagnostics_idx,
                 self.equation_params.epsilon,
                 B0,
                 R0,
-                _to_numpy_for_kernel(self._absB0_h._data),
+                self._absB0_h._data,
+            )
+        else:
+            utilities_kernels.eval_canonical_toroidal_moment_6d(
+                self.markers,
+                self._derham.args_derham,
+                self.first_diagnostics_idx,
+                self.equation_params.epsilon,
+                B0,
+                R0,
+                self._absB0_h._data,
             )
 
         # send back and clear buffer
@@ -424,15 +462,22 @@ class Particles5D(Particles):
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 1
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_energy_5d(
-                _args_markers.markers,
+        if xp.cupy_backend:
+            # CUDA port: operates on the device-resident markers directly.
+            eval_energy_5d_gpu(
+                self.markers,
                 self.derham.args_derham,
                 self.first_diagnostics_idx,
                 self.mu_idx,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
+            )
+        else:
+            utilities_kernels.eval_energy_5d(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                self.absB0_h._data,
             )
 
         # eval psi at etas
@@ -443,11 +488,9 @@ class Particles5D(Particles):
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_canonical_toroidal_moment_5d(
-                _args_markers.markers,
+        if xp.cupy_backend:
+            eval_canonical_toroidal_moment_5d_gpu(
+                self.markers,
                 self.derham.args_derham,
                 self.first_diagnostics_idx,
                 self.mu_idx,
@@ -455,7 +498,19 @@ class Particles5D(Particles):
                 self.equation_params.epsilon,
                 B0,
                 R0,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
+            )
+        else:
+            utilities_kernels.eval_canonical_toroidal_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                idx_can_momentum,
+                self.equation_params.epsilon,
+                B0,
+                R0,
+                self.absB0_h._data,
             )
 
     def save_magnetic_energy(self, PBb):
@@ -476,17 +531,24 @@ class Particles5D(Particles):
         # utilities_kernels is a Pyccel-compiled extension that requires
         # real numpy buffers; absB0_h/PBbt follow the active backend, so
         # under cupy their ._data needs converting first.
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
+        if xp.cupy_backend:
+            eval_magnetic_energy_PBb_gpu(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                self.absB0_h._data,
+                PBbt._data,
+            )
+        else:
             utilities_kernels.eval_magnetic_energy_PBb(
-                _args_markers.markers,
+                self.markers,
                 self.derham.args_derham,
                 self.domain.args_domain,
                 self.first_diagnostics_idx,
                 self.mu_idx,
-                _to_numpy_for_kernel(self.absB0_h._data),
-                _to_numpy_for_kernel(PBbt._data),
+                self.absB0_h._data,
+                PBbt._data,
             )
 
     def save_magnetic_background_energy(self):
@@ -495,16 +557,23 @@ class Particles5D(Particles):
         The result is stored in the energy diagnostics column (``self.first_diagnostics_idx``).
         """
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
+        if xp.cupy_backend:
+            # CUDA port: operates on the device-resident markers directly.
+            eval_magnetic_background_energy_gpu(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                self.absB0_h._data,
+            )
+        else:
             utilities_kernels.eval_magnetic_background_energy(
-                _args_markers.markers,
+                self.markers,
                 self.derham.args_derham,
                 self.domain.args_domain,
                 self.first_diagnostics_idx,
                 self.mu_idx,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
             )
 
 
@@ -692,12 +761,19 @@ class Particles5Dvperp(Particles):
         # magnetic moment is an adiabatic invariant: evaluate once at draw time (diagnostics column 1)
         # compiled host-only Pyccel kernel: writes a marker diagnostics
         # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_magnetic_moment_5d(
-                _args_markers.markers,
+        if xp.cupy_backend:
+            eval_magnetic_moment_5d_gpu(
+                self.markers,
                 self.derham.args_derham,
                 self.first_diagnostics_idx,
-                _to_numpy_for_kernel(self._absB0_h._data),
+                self._absB0_h._data,
+            )
+        else:
+            utilities_kernels.eval_magnetic_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self._absB0_h._data,
             )
 
     def save_constants_of_motion(self):
@@ -717,15 +793,22 @@ class Particles5Dvperp(Particles):
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 2
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_energy_5d(
-                _args_markers.markers,
+        if xp.cupy_backend:
+            # CUDA port: operates on the device-resident markers directly.
+            eval_energy_5d_gpu(
+                self.markers,
                 self.derham.args_derham,
                 self.first_diagnostics_idx,
                 self.mu_idx,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
+            )
+        else:
+            utilities_kernels.eval_energy_5d(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                self.absB0_h._data,
             )
 
         # eval psi at etas
@@ -736,11 +819,9 @@ class Particles5Dvperp(Particles):
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_canonical_toroidal_moment_5d(
-                _args_markers.markers,
+        if xp.cupy_backend:
+            eval_canonical_toroidal_moment_5d_gpu(
+                self.markers,
                 self.derham.args_derham,
                 self.first_diagnostics_idx,
                 self.mu_idx,
@@ -748,7 +829,19 @@ class Particles5Dvperp(Particles):
                 self.equation_params.epsilon,
                 B0,
                 R0,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
+            )
+        else:
+            utilities_kernels.eval_canonical_toroidal_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                idx_can_momentum,
+                self.equation_params.epsilon,
+                B0,
+                R0,
+                self.absB0_h._data,
             )
 
     def save_magnetic_energy(self, PBb):
@@ -768,14 +861,23 @@ class Particles5Dvperp(Particles):
 
         # compiled host-only Pyccel kernel: writes a marker diagnostics
         # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
+        if xp.cupy_backend:
+            eval_magnetic_energy_PBb_gpu(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                self.absB0_h._data,
+                PBbt._data,
+            )
+        else:
             utilities_kernels.eval_magnetic_energy_PBb(
-                _args_markers.markers,
+                self.markers,
                 self.derham.args_derham,
                 self.domain.args_domain,
                 self.first_diagnostics_idx,
                 self.mu_idx,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
                 PBbt._data,
             )
 
@@ -785,16 +887,23 @@ class Particles5Dvperp(Particles):
         The result is stored in the energy diagnostics column (``self.first_diagnostics_idx``).
         """
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
+        if xp.cupy_backend:
+            # CUDA port: operates on the device-resident markers directly.
+            eval_magnetic_background_energy_gpu(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.mu_idx,
+                self.absB0_h._data,
+            )
+        else:
             utilities_kernels.eval_magnetic_background_energy(
-                _args_markers.markers,
+                self.markers,
                 self.derham.args_derham,
                 self.domain.args_domain,
                 self.first_diagnostics_idx,
                 self.mu_idx,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
             )
 
     def save_magnetic_moment(self):
@@ -803,14 +912,19 @@ class Particles5Dvperp(Particles):
         diagnostics column (``self.first_diagnostics_idx + 1``).
         """
 
-        # compiled host-only Pyccel kernel: writes a marker diagnostics
-        # column in place, so it needs the host mirror of the markers.
-        with self.host_markers(write=True) as _args_markers:
-            utilities_kernels.eval_magnetic_moment_5d(
-                _args_markers.markers,
+        if xp.cupy_backend:
+            eval_magnetic_moment_5d_gpu(
+                self.markers,
                 self.derham.args_derham,
                 self.first_diagnostics_idx,
-                _to_numpy_for_kernel(self.absB0_h._data),
+                self.absB0_h._data,
+            )
+        else:
+            utilities_kernels.eval_magnetic_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self.absB0_h._data,
             )
 
 

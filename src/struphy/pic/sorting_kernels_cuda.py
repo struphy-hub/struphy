@@ -173,8 +173,8 @@ def assign_box_to_each_particle_gpu(
     # ignoring strides, so a per-axis strided view can't be passed directly --
     # see sph_eval_kernels_cuda.py's meshgrid contiguity fix for the same
     # failure mode).
-    dev_eta = cp.asarray(np.ascontiguousarray(markers[:, :3]), dtype=cp.float64)
-    dev_holes = cp.asarray(np.ascontiguousarray(holes), dtype=cp.int32)
+    dev_eta = cp.ascontiguousarray(markers[:, :3], dtype=cp.float64)
+    dev_holes = cp.ascontiguousarray(holes, dtype=cp.int32)
     dev_domain = cp.asarray(domain_array, dtype=cp.float64)
     dev_box = cp.empty(n_mks, dtype=cp.float64)
 
@@ -195,7 +195,8 @@ def assign_box_to_each_particle_gpu(
         ),
     )
 
-    markers[:, box_col] = cp.asnumpy(dev_box)
+    # markers is device-resident; write the box column back in place
+    markers[:, box_col] = dev_box
 
 
 def assign_particles_to_boxes_gpu(
@@ -217,8 +218,8 @@ def assign_particles_to_boxes_gpu(
     box_col = n_cols + box_index
     n_box_rows, box_cols = boxes.shape
 
-    dev_box_id = cp.asarray(np.ascontiguousarray(markers[:, box_col]), dtype=cp.float64)
-    dev_holes = cp.asarray(np.ascontiguousarray(holes), dtype=cp.int32)
+    dev_box_id = cp.ascontiguousarray(markers[:, box_col], dtype=cp.float64)
+    dev_holes = cp.ascontiguousarray(holes, dtype=cp.int32)
     dev_boxes = cp.full((n_box_rows, box_cols), -1, dtype=cp.int32)
     dev_next_index = cp.zeros(n_box_rows, dtype=cp.int32)
 
@@ -237,5 +238,8 @@ def assign_particles_to_boxes_gpu(
         ),
     )
 
+    # boxes/next_index belong to SortingBoxes and stay host-resident (they
+    # are also consumed by the host-only SPH kernels), so these two do
+    # need an explicit device->host copy.
     boxes[:, :] = cp.asnumpy(dev_boxes)
     next_index[:] = cp.asnumpy(dev_next_index)
