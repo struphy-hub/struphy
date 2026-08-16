@@ -104,6 +104,8 @@ model.kinetic_ions.var.save_data = True
 # Instance of the simulation
 # --------------------------
 
+name = f"GuidingCenter ({args.backend})"
+
 # Environment options
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
