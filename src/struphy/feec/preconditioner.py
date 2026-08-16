@@ -1,8 +1,7 @@
 import logging
 
-import numpy as np
-
 import cunumpy as xp
+import numpy as np
 from cunumpy.xp import to_cunumpy, to_numpy
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition

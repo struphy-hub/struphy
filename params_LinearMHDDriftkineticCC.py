@@ -1,7 +1,7 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 name = "Default LinearMHDDriftkineticCC"
@@ -30,42 +30,40 @@ args = parser.parse_args()
 os.environ["ARRAY_BACKEND"] = args.backend
 
 import logging
+
 from struphy import set_logging_level
+
 set_logging_level(logging.WARNING)
 
 # ------------------
 # Import Struphy API
 # ------------------
 
+# For particles:
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    KernelDensityPlot,
+    LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
+    WeightsParameters,
     domains,
     equils,
     grids,
-    perturbations,
-)
-
-# For particles:
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
-    SavingParameters,
     maxwellians,
+    perturbations,
 )
 
 # ---------------------
 # Instance of the model
 # ---------------------
-
 from struphy.models import LinearMHDDriftkineticCC
 
 # Units
@@ -101,7 +99,7 @@ domain = domains.Cuboid()
 equil = equils.HomogenSlab()
 
 # Grid
-grid = grids.TensorProductGrid(num_elements = (16, 16, 16))
+grid = grids.TensorProductGrid(num_elements=(16, 16, 16))
 
 # Derham options
 derham_opts = DerhamOptions()
@@ -129,12 +127,13 @@ weights_params = WeightsParameters()
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
 saving_params = SavingParameters()
-model.energetic_ions.set_markers(loading_params=loading_params,
-                                 weights_params=weights_params,
-                                 boundary_params=boundary_params,
-                                 sorting_params=sorting_params,
-                                 saving_params=saving_params,
-                                 )
+model.energetic_ions.set_markers(
+    loading_params=loading_params,
+    weights_params=weights_params,
+    boundary_params=boundary_params,
+    sorting_params=sorting_params,
+    saving_params=saving_params,
+)
 
 # ------------------
 # Propagator options
@@ -158,9 +157,9 @@ model.propagators.cc5d_curlb.options = model.propagators.cc5d_curlb.Options()
 model.mhd.velocity.add_background(FieldsBackground())
 
 # Perturbations for (some) FEEC variables
-model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))
-model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=1))
-model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))
+model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="v", comp=0))
+model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="v", comp=1))
+model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="v", comp=2))
 
 # For kinetic species the background is mandatory.
 # For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.

@@ -13,12 +13,12 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_kernels_cuda import (
     SUPPORTED_GENERAL_KIND_MAPS,
-    push_eta_rk_periodic_gpu,
-    push_eta_stage_cuboid_gpu,
     push_bxu_H1vec_general_gpu,
     push_bxu_Hcurl_general_gpu,
     push_bxu_Hdiv_general_gpu,
     push_deterministic_diffusion_stage_general_gpu,
+    push_eta_rk_periodic_gpu,
+    push_eta_stage_cuboid_gpu,
     push_eta_stage_general_gpu,
     push_pc_eta_stage_H1vec_general_gpu,
     push_pc_eta_stage_Hcurl_general_gpu,
@@ -317,10 +317,15 @@ class Pusher:
         # general (non-Cuboid) CUDA replacement for push_vxb_analytic /
         # push_vxb_implicit, sharing the same B-spline/geometry evaluation as
         # _gpu_v_efield_general above (2-form instead of 1-form field).
-        self._gpu_vxb_general = cunumpy.cupy_backend and kernel.name in (
-            "push_vxb_analytic",
-            "push_vxb_implicit",
-        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        self._gpu_vxb_general = (
+            cunumpy.cupy_backend
+            and kernel.name
+            in (
+                "push_vxb_analytic",
+                "push_vxb_implicit",
+            )
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
         if self._gpu_vxb_general:
             import cupy as cp
 
@@ -349,11 +354,16 @@ class Pusher:
         # sharing the same B-field (2-form) evaluation as _gpu_vxb_general;
         # only the U-field's FEEC space (and therefore its evaluation/metric
         # handling) differs between the three.
-        self._gpu_bxu_general = cunumpy.cupy_backend and kernel.name in (
-            "push_bxu_Hdiv",
-            "push_bxu_Hcurl",
-            "push_bxu_H1vec",
-        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        self._gpu_bxu_general = (
+            cunumpy.cupy_backend
+            and kernel.name
+            in (
+                "push_bxu_Hdiv",
+                "push_bxu_Hcurl",
+                "push_bxu_H1vec",
+            )
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
         if self._gpu_bxu_general:
             import cupy as cp
 
@@ -383,18 +393,21 @@ class Pusher:
         # (push_pc_GXu's CPU kernel also takes all 9, only 6 are read) -- so
         # both branches cache the same 9 g_ij arrays and the *_full variant
         # is picked purely by kernel.name.
-        self._gpu_pc_gxu_general = cunumpy.cupy_backend and kernel.name in (
-            "push_pc_GXu_full",
-            "push_pc_GXu",
-        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        self._gpu_pc_gxu_general = (
+            cunumpy.cupy_backend
+            and kernel.name
+            in (
+                "push_pc_GXu_full",
+                "push_pc_GXu",
+            )
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
         if self._gpu_pc_gxu_general:
             import cupy as cp
 
             self._gpu_pc_gxu_general_full = kernel.name == "push_pc_GXu_full"
             self._gpu_pc_gxu_general_kind_map = int(args_domain.kind_map)
-            self._gpu_pc_gxu_general_params = cp.asarray(
-                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
-            )
+            self._gpu_pc_gxu_general_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
 
             args_derham, g11, g12, g13, g21, g22, g23, g31, g32, g33 = args_kernel
             self._gpu_pc_gxu_general_pn = tuple(int(p) for p in args_derham.pn)
@@ -407,19 +420,22 @@ class Pusher:
         # general (non-Cuboid) CUDA replacement for
         # push_pc_eta_stage_{Hcurl,Hdiv,H1vec}: a variant of _gpu_eta_general
         # with an extra U-field vector contribution added to the eta rate.
-        self._gpu_pc_eta_general = cunumpy.cupy_backend and kernel.name in (
-            "push_pc_eta_stage_Hcurl",
-            "push_pc_eta_stage_Hdiv",
-            "push_pc_eta_stage_H1vec",
-        ) and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        self._gpu_pc_eta_general = (
+            cunumpy.cupy_backend
+            and kernel.name
+            in (
+                "push_pc_eta_stage_Hcurl",
+                "push_pc_eta_stage_Hdiv",
+                "push_pc_eta_stage_H1vec",
+            )
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
         if self._gpu_pc_eta_general:
             import cupy as cp
 
             self._gpu_pc_eta_general_variant = kernel.name
             self._gpu_pc_eta_general_kind_map = int(args_domain.kind_map)
-            self._gpu_pc_eta_general_params = cp.asarray(
-                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
-            )
+            self._gpu_pc_eta_general_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
 
             args_derham, u_1, u_2, u_3, use_perp_model = args_kernel[:5]
             self._gpu_pc_eta_general_use_perp_model = bool(use_perp_model)
@@ -824,7 +840,9 @@ class Pusher:
                         )
                 elif self._gpu_vxb_general:
                     gpu_vxb_fn = (
-                        push_vxb_analytic_general_gpu if self._gpu_vxb_general_analytic else push_vxb_implicit_general_gpu
+                        push_vxb_analytic_general_gpu
+                        if self._gpu_vxb_general_analytic
+                        else push_vxb_implicit_general_gpu
                     )
                     with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
                         gpu_vxb_fn(
@@ -881,7 +899,15 @@ class Pusher:
                                 self._gpu_pc_gxu_general_tn2,
                                 self._gpu_pc_gxu_general_tn3,
                                 self._gpu_pc_gxu_general_starts,
-                                g11, g12, g13, g21, g22, g23, g31, g32, g33,
+                                g11,
+                                g12,
+                                g13,
+                                g21,
+                                g22,
+                                g23,
+                                g31,
+                                g32,
+                                g33,
                                 self._gpu_pc_gxu_general_kind_map,
                                 self._gpu_pc_gxu_general_params,
                                 dt,
@@ -895,7 +921,12 @@ class Pusher:
                                 self._gpu_pc_gxu_general_tn2,
                                 self._gpu_pc_gxu_general_tn3,
                                 self._gpu_pc_gxu_general_starts,
-                                g11, g12, g13, g21, g22, g23,
+                                g11,
+                                g12,
+                                g13,
+                                g21,
+                                g22,
+                                g23,
                                 self._gpu_pc_gxu_general_kind_map,
                                 self._gpu_pc_gxu_general_params,
                                 dt,

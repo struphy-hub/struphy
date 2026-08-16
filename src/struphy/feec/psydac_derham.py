@@ -5,6 +5,7 @@ import logging
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 import numpy as np
+from cunumpy import PyccelKernel
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -25,8 +26,6 @@ from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
-
-from cunumpy import PyccelKernel
 
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed

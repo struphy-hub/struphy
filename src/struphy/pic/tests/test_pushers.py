@@ -702,7 +702,6 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     # MPI communication buffers/counts must be host (NumPy) arrays regardless
     # of the active cunumpy backend.
     import numpy as np
-
     from cunumpy.xp import to_numpy
 
     n_mks_load = np.zeros(size, dtype=int)

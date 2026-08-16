@@ -7,10 +7,10 @@ translate directly to Fortran without requiring gFTL container modules.
 
 import numpy as np
 
-
 # ======================================================================
 # 1D
 # ======================================================================
+
 
 def kernel_1d_mat(
     spans1: "int[:]",
@@ -31,26 +31,16 @@ def kernel_1d_mat(
 
     for iel1 in range(ne1):
         for il1 in range(pi1 + 1):
-
             i_global1 = spans1[iel1] - pi1 + il1
             i_local1 = i_global1 - starts1
 
             for jl1 in range(pj1 + 1):
-
                 value = 0.0
 
                 for q1 in range(nq1):
-                    value += (
-                        w1[iel1, q1]
-                        * bi1[iel1, il1, 0, q1]
-                        * bj1[iel1, jl1, 0, q1]
-                        * mat_fun[iel1 * nq1 + q1]
-                    )
+                    value += w1[iel1, q1] * bi1[iel1, il1, 0, q1] * bj1[iel1, jl1, 0, q1] * mat_fun[iel1 * nq1 + q1]
 
-                data[
-                    pads1 + i_local1,
-                    pads1 + jl1 - il1
-                ] += value
+                data[pads1 + i_local1, pads1 + jl1 - il1] += value
 
 
 def kernel_1d_vec(
@@ -70,18 +60,13 @@ def kernel_1d_vec(
 
     for iel1 in range(ne1):
         for il1 in range(pi1 + 1):
-
             i_global1 = spans1[iel1] - pi1 + il1
             i_local1 = i_global1 - starts1
 
             value = 0.0
 
             for q1 in range(nq1):
-                value += (
-                    w1[iel1, q1]
-                    * bi1[iel1, il1, 0, q1]
-                    * mat_fun[iel1 * nq1 + q1]
-                )
+                value += w1[iel1, q1] * bi1[iel1, il1, 0, q1] * mat_fun[iel1 * nq1 + q1]
 
             data[pads1 + i_local1] += value
 
@@ -104,21 +89,19 @@ def kernel_1d_eval(
 
     for iel1 in range(ne1):
         for il1 in range(pi1 + 1):
-
             i_global1 = spans1[iel1] - pi1 + il1
             i_local1 = i_global1 - starts1
 
             coeff = coeffs_data[pads1 + i_local1]
 
             for q1 in range(nq1):
-                values[iel1 * nq1 + q1] += (
-                    coeff * bi1[iel1, il1, 0, q1]
-                )
+                values[iel1 * nq1 + q1] += coeff * bi1[iel1, il1, 0, q1]
 
 
 # ======================================================================
 # 2D
 # ======================================================================
+
 
 def kernel_2d_mat(
     spans1: "int[:]",
@@ -150,10 +133,8 @@ def kernel_2d_mat(
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):
-
             for il1 in range(pi1 + 1):
                 for il2 in range(pi2 + 1):
-
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_global2 = spans2[iel2] - pi2 + il2
 
@@ -162,7 +143,6 @@ def kernel_2d_mat(
 
                     for jl1 in range(pj1 + 1):
                         for jl2 in range(pj2 + 1):
-
                             value = 0.0
 
                             for q1 in range(nq1):
@@ -171,29 +151,11 @@ def kernel_2d_mat(
                                 w_1 = w1[iel1, q1]
 
                                 for q2 in range(nq2):
-                                    wvol = (
-                                        w_1
-                                        * w2[iel2, q2]
-                                        * mat_fun[
-                                            iel1 * nq1 + q1,
-                                            iel2 * nq2 + q2
-                                        ]
-                                    )
+                                    wvol = w_1 * w2[iel2, q2] * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
 
-                                    value += (
-                                        wvol
-                                        * bi_1
-                                        * bi2[iel2, il2, 0, q2]
-                                        * bj_1
-                                        * bj2[iel2, jl2, 0, q2]
-                                    )
+                                    value += wvol * bi_1 * bi2[iel2, il2, 0, q2] * bj_1 * bj2[iel2, jl2, 0, q2]
 
-                            data[
-                                pads1 + i_local1,
-                                pads2 + i_local2,
-                                pads1 + jl1 - il1,
-                                pads2 + jl2 - il2
-                            ] += value
+                            data[pads1 + i_local1, pads2 + i_local2, pads1 + jl1 - il1, pads2 + jl2 - il2] += value
 
 
 def kernel_2d_vec(
@@ -222,10 +184,8 @@ def kernel_2d_vec(
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):
-
             for il1 in range(pi1 + 1):
                 for il2 in range(pi2 + 1):
-
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_global2 = spans2[iel2] - pi2 + il2
 
@@ -242,18 +202,12 @@ def kernel_2d_vec(
                             value += (
                                 w_1
                                 * w2[iel2, q2]
-                                * mat_fun[
-                                    iel1 * nq1 + q1,
-                                    iel2 * nq2 + q2
-                                ]
+                                * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
                                 * bi_1
                                 * bi2[iel2, il2, 0, q2]
                             )
 
-                    data[
-                        pads1 + i_local1,
-                        pads2 + i_local2
-                    ] += value
+                    data[pads1 + i_local1, pads2 + i_local2] += value
 
 
 def kernel_2d_eval(
@@ -282,38 +236,27 @@ def kernel_2d_eval(
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):
-
             for il1 in range(pi1 + 1):
                 for il2 in range(pi2 + 1):
-
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_global2 = spans2[iel2] - pi2 + il2
 
                     i_local1 = i_global1 - starts1
                     i_local2 = i_global2 - starts2
 
-                    coeff = coeffs_data[
-                        pads1 + i_local1,
-                        pads2 + i_local2
-                    ]
+                    coeff = coeffs_data[pads1 + i_local1, pads2 + i_local2]
 
                     for q1 in range(nq1):
                         bi_1 = bi1[iel1, il1, 0, q1]
 
                         for q2 in range(nq2):
-                            values[
-                                iel1 * nq1 + q1,
-                                iel2 * nq2 + q2
-                            ] += (
-                                coeff
-                                * bi_1
-                                * bi2[iel2, il2, 0, q2]
-                            )
+                            values[iel1 * nq1 + q1, iel2 * nq2 + q2] += coeff * bi_1 * bi2[iel2, il2, 0, q2]
 
 
 # ======================================================================
 # 3D
 # ======================================================================
+
 
 def kernel_3d_mat(
     spans1: "int[:]",
@@ -356,7 +299,6 @@ def kernel_3d_mat(
     for iel1 in range(ne1):
         for iel2 in range(ne2):
             for iel3 in range(ne3):
-
                 for il1 in range(pi1 + 1):
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_local1 = i_global1 - starts1
@@ -372,55 +314,27 @@ def kernel_3d_mat(
                             for jl1 in range(pj1 + 1):
                                 for jl2 in range(pj2 + 1):
                                     for jl3 in range(pj3 + 1):
-
                                         value = 0.0
 
                                         for q1 in range(nq1):
-                                            bi_1 = bi1[
-                                                iel1, il1, 0, q1
-                                            ]
-                                            bj_1 = bj1[
-                                                iel1, jl1, 0, q1
-                                            ]
+                                            bi_1 = bi1[iel1, il1, 0, q1]
+                                            bj_1 = bj1[iel1, jl1, 0, q1]
                                             w_1 = w1[iel1, q1]
 
                                             for q2 in range(nq2):
-                                                bi_12 = (
-                                                    bi_1
-                                                    * bi2[
-                                                        iel2, il2, 0, q2
-                                                    ]
-                                                )
-                                                bj_12 = (
-                                                    bj_1
-                                                    * bj2[
-                                                        iel2, jl2, 0, q2
-                                                    ]
-                                                )
-                                                w_12 = (
-                                                    w_1
-                                                    * w2[iel2, q2]
-                                                )
+                                                bi_12 = bi_1 * bi2[iel2, il2, 0, q2]
+                                                bj_12 = bj_1 * bj2[iel2, jl2, 0, q2]
+                                                w_12 = w_1 * w2[iel2, q2]
 
                                                 for q3 in range(nq3):
                                                     value += (
                                                         w_12
-                                                        * w3[
-                                                            iel3, q3
-                                                        ]
-                                                        * mat_fun[
-                                                            iel1 * nq1 + q1,
-                                                            iel2 * nq2 + q2,
-                                                            iel3 * nq3 + q3
-                                                        ]
+                                                        * w3[iel3, q3]
+                                                        * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3]
                                                         * bi_12
-                                                        * bi3[
-                                                            iel3, il3, 0, q3
-                                                        ]
+                                                        * bi3[iel3, il3, 0, q3]
                                                         * bj_12
-                                                        * bj3[
-                                                            iel3, jl3, 0, q3
-                                                        ]
+                                                        * bj3[iel3, jl3, 0, q3]
                                                     )
 
                                         data[
@@ -429,7 +343,7 @@ def kernel_3d_mat(
                                             pads3 + i_local3,
                                             pads1 + jl1 - il1,
                                             pads2 + jl2 - il2,
-                                            pads3 + jl3 - il3
+                                            pads3 + jl3 - il3,
                                         ] += value
 
 
@@ -468,7 +382,6 @@ def kernel_3d_vec(
     for iel1 in range(ne1):
         for iel2 in range(ne2):
             for iel3 in range(ne3):
-
                 for il1 in range(pi1 + 1):
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_local1 = i_global1 - starts1
@@ -488,35 +401,19 @@ def kernel_3d_vec(
                                 w_1 = w1[iel1, q1]
 
                                 for q2 in range(nq2):
-                                    bi_12 = (
-                                        bi_1
-                                        * bi2[iel2, il2, 0, q2]
-                                    )
-                                    w_12 = (
-                                        w_1
-                                        * w2[iel2, q2]
-                                    )
+                                    bi_12 = bi_1 * bi2[iel2, il2, 0, q2]
+                                    w_12 = w_1 * w2[iel2, q2]
 
                                     for q3 in range(nq3):
                                         value += (
                                             w_12
                                             * w3[iel3, q3]
-                                            * mat_fun[
-                                                iel1 * nq1 + q1,
-                                                iel2 * nq2 + q2,
-                                                iel3 * nq3 + q3
-                                            ]
+                                            * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3]
                                             * bi_12
-                                            * bi3[
-                                                iel3, il3, 0, q3
-                                            ]
+                                            * bi3[iel3, il3, 0, q3]
                                         )
 
-                            data[
-                                pads1 + i_local1,
-                                pads2 + i_local2,
-                                pads3 + i_local3
-                            ] += value
+                            data[pads1 + i_local1, pads2 + i_local2, pads3 + i_local3] += value
 
 
 def kernel_3d_eval(
@@ -553,7 +450,6 @@ def kernel_3d_eval(
     for iel1 in range(ne1):
         for iel2 in range(ne2):
             for iel3 in range(ne3):
-
                 for il1 in range(pi1 + 1):
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_local1 = i_global1 - starts1
@@ -566,36 +462,17 @@ def kernel_3d_eval(
                             i_global3 = spans3[iel3] - pi3 + il3
                             i_local3 = i_global3 - starts3
 
-                            coeff = coeffs_data[
-                                pads1 + i_local1,
-                                pads2 + i_local2,
-                                pads3 + i_local3
-                            ]
+                            coeff = coeffs_data[pads1 + i_local1, pads2 + i_local2, pads3 + i_local3]
 
                             for q1 in range(nq1):
-                                bi_1 = bi1[
-                                    iel1, il1, 0, q1
-                                ]
+                                bi_1 = bi1[iel1, il1, 0, q1]
 
                                 for q2 in range(nq2):
-                                    bi_12 = (
-                                        bi_1
-                                        * bi2[
-                                            iel2, il2, 0, q2
-                                        ]
-                                    )
+                                    bi_12 = bi_1 * bi2[iel2, il2, 0, q2]
 
                                     for q3 in range(nq3):
-                                        values[
-                                            iel1 * nq1 + q1,
-                                            iel2 * nq2 + q2,
-                                            iel3 * nq3 + q3
-                                        ] += (
-                                            coeff
-                                            * bi_12
-                                            * bi3[
-                                                iel3, il3, 0, q3
-                                            ]
+                                        values[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3] += (
+                                            coeff * bi_12 * bi3[iel3, il3, 0, q3]
                                         )
 
 
@@ -650,129 +527,54 @@ def kernel_3d_matrixfree(
     for iel1 in range(ne1):
         for iel2 in range(ne2):
             for iel3 in range(ne3):
-
                 for q1 in range(nq1):
                     for q2 in range(nq2):
                         for q3 in range(nq3):
-
                             bj = 0.0
 
                             for jl1 in range(pj1 + 1):
-                                j_global1 = (
-                                    spansj1[iel1] - pj1 + jl1
-                                )
-                                j_local1 = (
-                                    j_global1
-                                    - startsj1
-                                    + padsj1
-                                )
+                                j_global1 = spansj1[iel1] - pj1 + jl1
+                                j_local1 = j_global1 - startsj1 + padsj1
 
-                                bj_1 = bj1[
-                                    iel1, jl1, 0, q1
-                                ]
+                                bj_1 = bj1[iel1, jl1, 0, q1]
 
                                 for jl2 in range(pj2 + 1):
-                                    j_global2 = (
-                                        spansj2[iel2] - pj2 + jl2
-                                    )
-                                    j_local2 = (
-                                        j_global2
-                                        - startsj2
-                                        + padsj2
-                                    )
+                                    j_global2 = spansj2[iel2] - pj2 + jl2
+                                    j_local2 = j_global2 - startsj2 + padsj2
 
-                                    bj_12 = (
-                                        bj_1
-                                        * bj2[
-                                            iel2, jl2, 0, q2
-                                        ]
-                                    )
+                                    bj_12 = bj_1 * bj2[iel2, jl2, 0, q2]
 
                                     for jl3 in range(pj3 + 1):
-                                        j_global3 = (
-                                            spansj3[iel3] - pj3 + jl3
-                                        )
-                                        j_local3 = (
-                                            j_global3
-                                            - startsj3
-                                            + padsj3
-                                        )
+                                        j_global3 = spansj3[iel3] - pj3 + jl3
+                                        j_local3 = j_global3 - startsj3 + padsj3
 
-                                        bj += (
-                                            bj_12
-                                            * bj3[
-                                                iel3, jl3, 0, q3
-                                            ]
-                                            * data_in[
-                                                j_local1,
-                                                j_local2,
-                                                j_local3
-                                            ]
-                                        )
+                                        bj += bj_12 * bj3[iel3, jl3, 0, q3] * data_in[j_local1, j_local2, j_local3]
 
                             wvol = (
                                 w1[iel1, q1]
                                 * w2[iel2, q2]
                                 * w3[iel3, q3]
-                                * mat_fun[
-                                    iel1 * nq1 + q1,
-                                    iel2 * nq2 + q2,
-                                    iel3 * nq3 + q3
-                                ]
+                                * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3]
                             )
 
                             for il1 in range(pi1 + 1):
-                                i_global1 = (
-                                    spansi1[iel1] - pi1 + il1
-                                )
-                                i_local1 = (
-                                    i_global1
-                                    - startsi1
-                                    + padsi1
-                                )
+                                i_global1 = spansi1[iel1] - pi1 + il1
+                                i_local1 = i_global1 - startsi1 + padsi1
 
-                                bi_1 = bi1[
-                                    iel1, il1, 0, q1
-                                ]
+                                bi_1 = bi1[iel1, il1, 0, q1]
 
                                 for il2 in range(pi2 + 1):
-                                    i_global2 = (
-                                        spansi2[iel2] - pi2 + il2
-                                    )
-                                    i_local2 = (
-                                        i_global2
-                                        - startsi2
-                                        + padsi2
-                                    )
+                                    i_global2 = spansi2[iel2] - pi2 + il2
+                                    i_local2 = i_global2 - startsi2 + padsi2
 
-                                    bi_12 = (
-                                        bi_1
-                                        * bi2[
-                                            iel2, il2, 0, q2
-                                        ]
-                                    )
+                                    bi_12 = bi_1 * bi2[iel2, il2, 0, q2]
 
                                     for il3 in range(pi3 + 1):
-                                        i_global3 = (
-                                            spansi3[iel3] - pi3 + il3
-                                        )
-                                        i_local3 = (
-                                            i_global3
-                                            - startsi3
-                                            + padsi3
-                                        )
+                                        i_global3 = spansi3[iel3] - pi3 + il3
+                                        i_local3 = i_global3 - startsi3 + padsi3
 
-                                        data_out[
-                                            i_local1,
-                                            i_local2,
-                                            i_local3
-                                        ] += (
-                                            wvol
-                                            * bi_12
-                                            * bi3[
-                                                iel3, il3, 0, q3
-                                            ]
-                                            * bj
+                                        data_out[i_local1, i_local2, i_local3] += (
+                                            wvol * bi_12 * bi3[iel3, il3, 0, q3] * bj
                                         )
 
 
@@ -815,7 +617,6 @@ def kernel_3d_diag(
     for iel1 in range(ne1):
         for iel2 in range(ne2):
             for iel3 in range(ne3):
-
                 for il1 in range(pi1 + 1):
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_local1 = i_global1 - starts1
@@ -840,56 +641,31 @@ def kernel_3d_diag(
                             value = 0.0
 
                             for q1 in range(nq1):
-                                bi_1 = bi1[
-                                    iel1, il1, 0, q1
-                                ]
+                                bi_1 = bi1[iel1, il1, 0, q1]
 
                                 for q2 in range(nq2):
-                                    bi_12 = (
-                                        bi_1
-                                        * bi2[
-                                            iel2, il2, 0, q2
-                                        ]
-                                    )
+                                    bi_12 = bi_1 * bi2[iel2, il2, 0, q2]
 
                                     for q3 in range(nq3):
                                         value += (
                                             w1[iel1, q1]
                                             * w2[iel2, q2]
                                             * w3[iel3, q3]
-                                            * mat_fun[
-                                                iel1 * nq1 + q1,
-                                                iel2 * nq2 + q2,
-                                                iel3 * nq3 + q3
-                                            ]
+                                            * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3]
                                             * bi_12
-                                            * bi3[
-                                                iel3, il3, 0, q3
-                                            ]
+                                            * bi3[iel3, il3, 0, q3]
                                             * bi_12
-                                            * bi3[
-                                                iel3, il3, 0, q3
-                                            ]
-                                            / (
-                                                bi2[
-                                                    iel2, il2, 0, q2
-                                                ]
-                                                * bi3[
-                                                    iel3, il3, 0, q3
-                                                ]
-                                            )
+                                            * bi3[iel3, il3, 0, q3]
+                                            / (bi2[iel2, il2, 0, q2] * bi3[iel3, il3, 0, q3])
                                         )
 
-                            data[
-                                i_local1,
-                                i_local2,
-                                i_local3
-                            ] += value
+                            data[i_local1, i_local2, i_local3] += value
 
 
 # ======================================================================
 # 3D surface kernels
 # ======================================================================
+
 
 def surface_kernel_3d_vec(
     spans1: "int[:]",
@@ -923,7 +699,6 @@ def surface_kernel_3d_vec(
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):
-
             for il1 in range(pi1 + 1):
                 i_global1 = spans1[iel1] - pi1 + il1
                 i_local1 = i_global1 - starts1
@@ -941,19 +716,12 @@ def surface_kernel_3d_vec(
                             value += (
                                 w1[iel1, q1]
                                 * w2[iel2, q2]
-                                * mat_fun[
-                                    iel1 * nq1 + q1,
-                                    iel2 * nq2 + q2
-                                ]
+                                * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
                                 * bi_1
                                 * bi2[iel2, il2, 0, q2]
                             )
 
-                    data[
-                        pads0 + i_local0,
-                        pads1 + i_local1,
-                        pads2 + i_local2
-                    ] += value
+                    data[pads0 + i_local0, pads1 + i_local1, pads2 + i_local2] += value
 
 
 def surface_kernel_3d_mat(
@@ -997,12 +765,10 @@ def surface_kernel_3d_mat(
     nq2 = w2.shape[1]
 
     if normal_dir == 0:
-
         i_local_n = boundary_index - starts0
 
         for iel1 in range(ne1):
             for iel2 in range(ne2):
-
                 for il1 in range(pi1 + 1):
                     i_global1 = spans1[iel1] - pi1 + il1
                     i_local1 = i_global1 - starts1
@@ -1013,33 +779,21 @@ def surface_kernel_3d_mat(
 
                         for jl1 in range(pj1 + 1):
                             for jl2 in range(pj2 + 1):
-
                                 value = 0.0
 
                                 for q1 in range(nq1):
-                                    bi_1 = bi1[
-                                        iel1, il1, 0, q1
-                                    ]
-                                    bj_1 = bj1[
-                                        iel1, jl1, 0, q1
-                                    ]
+                                    bi_1 = bi1[iel1, il1, 0, q1]
+                                    bj_1 = bj1[iel1, jl1, 0, q1]
 
                                     for q2 in range(nq2):
                                         value += (
                                             w1[iel1, q1]
                                             * w2[iel2, q2]
-                                            * mat_fun[
-                                                iel1 * nq1 + q1,
-                                                iel2 * nq2 + q2
-                                            ]
+                                            * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
                                             * bi_1
-                                            * bi2[
-                                                iel2, il2, 0, q2
-                                            ]
+                                            * bi2[iel2, il2, 0, q2]
                                             * bj_1
-                                            * bj2[
-                                                iel2, jl2, 0, q2
-                                            ]
+                                            * bj2[iel2, jl2, 0, q2]
                                         )
 
                                 data[
@@ -1048,16 +802,14 @@ def surface_kernel_3d_mat(
                                     pads2 + i_local2,
                                     pads0,
                                     pads1 + jl1 - il1,
-                                    pads2 + jl2 - il2
+                                    pads2 + jl2 - il2,
                                 ] += value
 
     elif normal_dir == 1:
-
         i_local_n = boundary_index - starts1
 
         for iel1 in range(ne1):
             for iel2 in range(ne2):
-
                 for il1 in range(pi0 + 1):
                     i_global1 = spans1[iel1] - pi0 + il1
                     i_local1 = i_global1 - starts0
@@ -1068,33 +820,21 @@ def surface_kernel_3d_mat(
 
                         for jl1 in range(pj0 + 1):
                             for jl2 in range(pj2 + 1):
-
                                 value = 0.0
 
                                 for q1 in range(nq1):
-                                    bi_1 = bi1[
-                                        iel1, il1, 0, q1
-                                    ]
-                                    bj_1 = bj1[
-                                        iel1, jl1, 0, q1
-                                    ]
+                                    bi_1 = bi1[iel1, il1, 0, q1]
+                                    bj_1 = bj1[iel1, jl1, 0, q1]
 
                                     for q2 in range(nq2):
                                         value += (
                                             w1[iel1, q1]
                                             * w2[iel2, q2]
-                                            * mat_fun[
-                                                iel1 * nq1 + q1,
-                                                iel2 * nq2 + q2
-                                            ]
+                                            * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
                                             * bi_1
-                                            * bi2[
-                                                iel2, il2, 0, q2
-                                            ]
+                                            * bi2[iel2, il2, 0, q2]
                                             * bj_1
-                                            * bj2[
-                                                iel2, jl2, 0, q2
-                                            ]
+                                            * bj2[iel2, jl2, 0, q2]
                                         )
 
                                 data[
@@ -1103,16 +843,14 @@ def surface_kernel_3d_mat(
                                     pads2 + i_local2,
                                     pads0 + jl1 - il1,
                                     pads1,
-                                    pads2 + jl2 - il2
+                                    pads2 + jl2 - il2,
                                 ] += value
 
     else:
-
         i_local_n = boundary_index - starts2
 
         for iel1 in range(ne1):
             for iel2 in range(ne2):
-
                 for il1 in range(pi0 + 1):
                     i_global1 = spans1[iel1] - pi0 + il1
                     i_local1 = i_global1 - starts0
@@ -1123,33 +861,21 @@ def surface_kernel_3d_mat(
 
                         for jl1 in range(pj0 + 1):
                             for jl2 in range(pj1 + 1):
-
                                 value = 0.0
 
                                 for q1 in range(nq1):
-                                    bi_1 = bi1[
-                                        iel1, il1, 0, q1
-                                    ]
-                                    bj_1 = bj1[
-                                        iel1, jl1, 0, q1
-                                    ]
+                                    bi_1 = bi1[iel1, il1, 0, q1]
+                                    bj_1 = bj1[iel1, jl1, 0, q1]
 
                                     for q2 in range(nq2):
                                         value += (
                                             w1[iel1, q1]
                                             * w2[iel2, q2]
-                                            * mat_fun[
-                                                iel1 * nq1 + q1,
-                                                iel2 * nq2 + q2
-                                            ]
+                                            * mat_fun[iel1 * nq1 + q1, iel2 * nq2 + q2]
                                             * bi_1
-                                            * bi2[
-                                                iel2, il2, 0, q2
-                                            ]
+                                            * bi2[iel2, il2, 0, q2]
                                             * bj_1
-                                            * bj2[
-                                                iel2, jl2, 0, q2
-                                            ]
+                                            * bj2[iel2, jl2, 0, q2]
                                         )
 
                                 data[
@@ -1158,6 +884,5 @@ def surface_kernel_3d_mat(
                                     pads2 + i_local_n,
                                     pads0 + jl1 - il1,
                                     pads1 + jl2 - il2,
-                                    pads2
+                                    pads2,
                                 ] += value
-

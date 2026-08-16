@@ -4,13 +4,13 @@ from dataclasses import dataclass
 
 import cunumpy as xp
 from cunumpy import PyccelKernel
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilMatrix, StencilVector
 from scope_profiler import ProfileManager
 
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
-from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.block import BlockVector
-from feectools.linalg.stencil import StencilMatrix, StencilVector
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import LiteralOptions

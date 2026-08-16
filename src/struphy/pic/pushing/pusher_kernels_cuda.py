@@ -2179,8 +2179,23 @@ def _get_vxb_implicit_general_kernel():
     return _push_vxb_implicit_general_kernel
 
 
-def _launch_vxb_general(kernel, markers, n_cols, first_init_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-                         b2_1_dev, b2_2_dev, b2_3_dev, kind_map, params_dev, dt):
+def _launch_vxb_general(
+    kernel,
+    markers,
+    n_cols,
+    first_init_idx,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    b2_1_dev,
+    b2_2_dev,
+    b2_3_dev,
+    kind_map,
+    params_dev,
+    dt,
+):
     import cupy as cp
     import numpy as np
 
@@ -2249,8 +2264,20 @@ def push_vxb_analytic_general_gpu(
     """
     _launch_vxb_general(
         _get_vxb_analytic_general_kernel(),
-        markers, n_cols, first_init_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-        b2_1_dev, b2_2_dev, b2_3_dev, kind_map, params_dev, dt,
+        markers,
+        n_cols,
+        first_init_idx,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        b2_1_dev,
+        b2_2_dev,
+        b2_3_dev,
+        kind_map,
+        params_dev,
+        dt,
     )
 
 
@@ -2276,8 +2303,20 @@ def push_vxb_implicit_general_gpu(
     See :func:`push_vxb_analytic_general_gpu` for argument conventions."""
     _launch_vxb_general(
         _get_vxb_implicit_general_kernel(),
-        markers, n_cols, first_init_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-        b2_1_dev, b2_2_dev, b2_3_dev, kind_map, params_dev, dt,
+        markers,
+        n_cols,
+        first_init_idx,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        b2_1_dev,
+        b2_2_dev,
+        b2_3_dev,
+        kind_map,
+        params_dev,
+        dt,
     )
 
 
@@ -2313,9 +2352,26 @@ def _get_bxu_h1vec_general_kernel():
     return _push_bxu_h1vec_general_kernel
 
 
-def _launch_bxu_general(kernel, markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-                         b2_1_dev, b2_2_dev, b2_3_dev, u_1_dev, u_2_dev, u_3_dev,
-                         kind_map, params_dev, boundary_cut, dt):
+def _launch_bxu_general(
+    kernel,
+    markers,
+    n_cols,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    b2_1_dev,
+    b2_2_dev,
+    b2_3_dev,
+    u_1_dev,
+    u_2_dev,
+    u_3_dev,
+    kind_map,
+    params_dev,
+    boundary_cut,
+    dt,
+):
     import cupy as cp
     import numpy as np
 
@@ -2370,47 +2426,137 @@ def _launch_bxu_general(kernel, markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, 
 
 
 def push_bxu_Hdiv_general_gpu(
-    markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    b2_1_dev, b2_2_dev, b2_3_dev, u2_1_dev, u2_2_dev, u2_3_dev,
-    kind_map: int, params_dev, boundary_cut: float, dt: float,
+    markers,
+    n_cols,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    b2_1_dev,
+    b2_2_dev,
+    b2_3_dev,
+    u2_1_dev,
+    u2_2_dev,
+    u2_3_dev,
+    kind_map: int,
+    params_dev,
+    boundary_cut: float,
+    dt: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_bxu_Hdiv`, for any domain
     in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u2_*_dev`` is the U-field's
     2-form FE coefficients (same evaluation as ``b2_*_dev``)."""
     _launch_bxu_general(
-        _get_bxu_hdiv_general_kernel(), markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-        b2_1_dev, b2_2_dev, b2_3_dev, u2_1_dev, u2_2_dev, u2_3_dev, kind_map, params_dev, boundary_cut, dt,
+        _get_bxu_hdiv_general_kernel(),
+        markers,
+        n_cols,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        b2_1_dev,
+        b2_2_dev,
+        b2_3_dev,
+        u2_1_dev,
+        u2_2_dev,
+        u2_3_dev,
+        kind_map,
+        params_dev,
+        boundary_cut,
+        dt,
     )
 
 
 def push_bxu_Hcurl_general_gpu(
-    markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    b2_1_dev, b2_2_dev, b2_3_dev, u1_1_dev, u1_2_dev, u1_3_dev,
-    kind_map: int, params_dev, boundary_cut: float, dt: float,
+    markers,
+    n_cols,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    b2_1_dev,
+    b2_2_dev,
+    b2_3_dev,
+    u1_1_dev,
+    u1_2_dev,
+    u1_3_dev,
+    kind_map: int,
+    params_dev,
+    boundary_cut: float,
+    dt: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_bxu_Hcurl`, for any
     domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u1_*_dev`` is the
     U-field's 1-form FE coefficients."""
     _launch_bxu_general(
-        _get_bxu_hcurl_general_kernel(), markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-        b2_1_dev, b2_2_dev, b2_3_dev, u1_1_dev, u1_2_dev, u1_3_dev, kind_map, params_dev, boundary_cut, dt,
+        _get_bxu_hcurl_general_kernel(),
+        markers,
+        n_cols,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        b2_1_dev,
+        b2_2_dev,
+        b2_3_dev,
+        u1_1_dev,
+        u1_2_dev,
+        u1_3_dev,
+        kind_map,
+        params_dev,
+        boundary_cut,
+        dt,
     )
 
 
 def push_bxu_H1vec_general_gpu(
-    markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    b2_1_dev, b2_2_dev, b2_3_dev, uv_1_dev, uv_2_dev, uv_3_dev,
-    kind_map: int, params_dev, boundary_cut: float, dt: float,
+    markers,
+    n_cols,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    b2_1_dev,
+    b2_2_dev,
+    b2_3_dev,
+    uv_1_dev,
+    uv_2_dev,
+    uv_3_dev,
+    kind_map: int,
+    params_dev,
+    boundary_cut: float,
+    dt: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_bxu_H1vec`, for any
     domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``uv_*_dev`` is the
     U-field's (H^1)^3 vector-field FE coefficients."""
     _launch_bxu_general(
-        _get_bxu_h1vec_general_kernel(), markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-        b2_1_dev, b2_2_dev, b2_3_dev, uv_1_dev, uv_2_dev, uv_3_dev, kind_map, params_dev, boundary_cut, dt,
+        _get_bxu_h1vec_general_kernel(),
+        markers,
+        n_cols,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        b2_1_dev,
+        b2_2_dev,
+        b2_3_dev,
+        uv_1_dev,
+        uv_2_dev,
+        uv_3_dev,
+        kind_map,
+        params_dev,
+        boundary_cut,
+        dt,
     )
 
 
@@ -2437,9 +2583,25 @@ def _get_pc_gxu_general_kernel():
 
 
 def push_pc_GXu_full_general_gpu(
-    markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    g11_dev, g12_dev, g13_dev, g21_dev, g22_dev, g23_dev, g31_dev, g32_dev, g33_dev,
-    kind_map: int, params_dev, dt: float,
+    markers,
+    n_cols,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    g11_dev,
+    g12_dev,
+    g13_dev,
+    g21_dev,
+    g22_dev,
+    g23_dev,
+    g31_dev,
+    g32_dev,
+    g33_dev,
+    kind_map: int,
+    params_dev,
+    dt: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_pc_GXu_full`, for any
@@ -2490,9 +2652,22 @@ def push_pc_GXu_full_general_gpu(
 
 
 def push_pc_GXu_general_gpu(
-    markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    g11_dev, g12_dev, g13_dev, g21_dev, g22_dev, g23_dev,
-    kind_map: int, params_dev, dt: float,
+    markers,
+    n_cols,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    g11_dev,
+    g12_dev,
+    g13_dev,
+    g21_dev,
+    g22_dev,
+    g23_dev,
+    kind_map: int,
+    params_dev,
+    dt: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_pc_GXu` (the 2-row
@@ -2572,9 +2747,27 @@ def _get_pc_eta_h1vec_general_kernel():
     return _push_pc_eta_h1vec_general_kernel
 
 
-def _launch_pc_eta_general(kernel, markers, n_cols, first_init_idx, first_free_idx, pn,
-                            tn1_dev, tn2_dev, tn3_dev, starts, u_1_dev, u_2_dev, u_3_dev,
-                            use_perp_model, kind_map, params_dev, dt_a, dt_b, last):
+def _launch_pc_eta_general(
+    kernel,
+    markers,
+    n_cols,
+    first_init_idx,
+    first_free_idx,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    u_1_dev,
+    u_2_dev,
+    u_3_dev,
+    use_perp_model,
+    kind_map,
+    params_dev,
+    dt_a,
+    dt_b,
+    last,
+):
     import cupy as cp
     import numpy as np
 
@@ -2624,47 +2817,143 @@ def _launch_pc_eta_general(kernel, markers, n_cols, first_init_idx, first_free_i
 
 
 def push_pc_eta_stage_Hcurl_general_gpu(
-    markers, n_cols, first_init_idx, first_free_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    u_1_dev, u_2_dev, u_3_dev, use_perp_model: bool, kind_map: int, params_dev, dt_a: float, dt_b: float, last: float,
+    markers,
+    n_cols,
+    first_init_idx,
+    first_free_idx,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    u_1_dev,
+    u_2_dev,
+    u_3_dev,
+    use_perp_model: bool,
+    kind_map: int,
+    params_dev,
+    dt_a: float,
+    dt_b: float,
+    last: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_pc_eta_stage_Hcurl`, for
     any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u_*_dev`` is the
     U-field's 1-form FE coefficients."""
     _launch_pc_eta_general(
-        _get_pc_eta_hcurl_general_kernel(), markers, n_cols, first_init_idx, first_free_idx, pn,
-        tn1_dev, tn2_dev, tn3_dev, starts, u_1_dev, u_2_dev, u_3_dev,
-        use_perp_model, kind_map, params_dev, dt_a, dt_b, last,
+        _get_pc_eta_hcurl_general_kernel(),
+        markers,
+        n_cols,
+        first_init_idx,
+        first_free_idx,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        u_1_dev,
+        u_2_dev,
+        u_3_dev,
+        use_perp_model,
+        kind_map,
+        params_dev,
+        dt_a,
+        dt_b,
+        last,
     )
 
 
 def push_pc_eta_stage_Hdiv_general_gpu(
-    markers, n_cols, first_init_idx, first_free_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    u_1_dev, u_2_dev, u_3_dev, use_perp_model: bool, kind_map: int, params_dev, dt_a: float, dt_b: float, last: float,
+    markers,
+    n_cols,
+    first_init_idx,
+    first_free_idx,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    u_1_dev,
+    u_2_dev,
+    u_3_dev,
+    use_perp_model: bool,
+    kind_map: int,
+    params_dev,
+    dt_a: float,
+    dt_b: float,
+    last: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_pc_eta_stage_Hdiv`, for
     any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u_*_dev`` is the
     U-field's 2-form FE coefficients."""
     _launch_pc_eta_general(
-        _get_pc_eta_hdiv_general_kernel(), markers, n_cols, first_init_idx, first_free_idx, pn,
-        tn1_dev, tn2_dev, tn3_dev, starts, u_1_dev, u_2_dev, u_3_dev,
-        use_perp_model, kind_map, params_dev, dt_a, dt_b, last,
+        _get_pc_eta_hdiv_general_kernel(),
+        markers,
+        n_cols,
+        first_init_idx,
+        first_free_idx,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        u_1_dev,
+        u_2_dev,
+        u_3_dev,
+        use_perp_model,
+        kind_map,
+        params_dev,
+        dt_a,
+        dt_b,
+        last,
     )
 
 
 def push_pc_eta_stage_H1vec_general_gpu(
-    markers, n_cols, first_init_idx, first_free_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    u_1_dev, u_2_dev, u_3_dev, use_perp_model: bool, kind_map: int, params_dev, dt_a: float, dt_b: float, last: float,
+    markers,
+    n_cols,
+    first_init_idx,
+    first_free_idx,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    u_1_dev,
+    u_2_dev,
+    u_3_dev,
+    use_perp_model: bool,
+    kind_map: int,
+    params_dev,
+    dt_a: float,
+    dt_b: float,
+    last: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_pc_eta_stage_H1vec`, for
     any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u_*_dev`` is the
     U-field's (H^1)^3 vector-field FE coefficients."""
     _launch_pc_eta_general(
-        _get_pc_eta_h1vec_general_kernel(), markers, n_cols, first_init_idx, first_free_idx, pn,
-        tn1_dev, tn2_dev, tn3_dev, starts, u_1_dev, u_2_dev, u_3_dev,
-        use_perp_model, kind_map, params_dev, dt_a, dt_b, last,
+        _get_pc_eta_h1vec_general_kernel(),
+        markers,
+        n_cols,
+        first_init_idx,
+        first_free_idx,
+        pn,
+        tn1_dev,
+        tn2_dev,
+        tn3_dev,
+        starts,
+        u_1_dev,
+        u_2_dev,
+        u_3_dev,
+        use_perp_model,
+        kind_map,
+        params_dev,
+        dt_a,
+        dt_b,
+        last,
     )
 
 
@@ -2683,9 +2972,22 @@ def _get_weights_efield_lin_va_general_kernel():
 
 
 def push_weights_with_efield_lin_va_general_gpu(
-    markers, n_cols, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    e1_1_dev, e1_2_dev, e1_3_dev, f0_values, kappa: float, vth: float,
-    kind_map: int, params_dev, dt: float,
+    markers,
+    n_cols,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    e1_1_dev,
+    e1_2_dev,
+    e1_3_dev,
+    f0_values,
+    kappa: float,
+    vth: float,
+    kind_map: int,
+    params_dev,
+    dt: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_weights_with_efield_lin_va`,
@@ -2755,9 +3057,25 @@ def _get_deterministic_diffusion_general_kernel():
 
 
 def push_deterministic_diffusion_stage_general_gpu(
-    markers, n_cols, first_init_idx, first_free_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts,
-    pi_u_dev, pi_grad_u1_dev, pi_grad_u2_dev, pi_grad_u3_dev, diffusion_coeff: float,
-    kind_map: int, params_dev, dt_a: float, dt_b: float, last: float,
+    markers,
+    n_cols,
+    first_init_idx,
+    first_free_idx,
+    pn,
+    tn1_dev,
+    tn2_dev,
+    tn3_dev,
+    starts,
+    pi_u_dev,
+    pi_grad_u1_dev,
+    pi_grad_u2_dev,
+    pi_grad_u3_dev,
+    diffusion_coeff: float,
+    kind_map: int,
+    params_dev,
+    dt_a: float,
+    dt_b: float,
+    last: float,
 ):
     """GPU replacement for one call of
     :func:`~struphy.pic.pushing.pusher_kernels.push_deterministic_diffusion_stage`,
