@@ -16,7 +16,15 @@ from struphy.feec.psydac_derham import Derham
 from struphy.io.options import LiteralOptions
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.models.variables import PICVariable, SPHVariable
-from struphy.pic.accumulation.accum_kernels_cuda import charge_density_0form_gpu, linear_vlasov_ampere_gpu
+from struphy.pic.accumulation.accum_kernels_cuda import (
+    cc_lin_mhd_6d_1_gpu,
+    cc_lin_mhd_6d_2_gpu,
+    charge_density_0form_gpu,
+    linear_vlasov_ampere_gpu,
+    pc_lin_mhd_6d_full_gpu,
+    pc_lin_mhd_6d_gpu,
+    vlasov_maxwell_gpu,
+)
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
@@ -222,6 +230,100 @@ class Accumulator:
             self._gpu_lva_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
             self._gpu_lva_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
 
+        # GPU replacement for vlasov_maxwell: same 6-block symmetric V1 -> V1
+        # matrix-plus-vector fill as linear_vlasov_ampere above, but with a
+        # G^-1(eta_p)-based filling (no f0_values/optional_args needed).
+        self._gpu_vlasov_maxwell = (
+            xp.cupy_backend
+            and kernel.name == "vlasov_maxwell"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_vlasov_maxwell:
+            import cupy as cp
+            import numpy as np
+
+            self._gpu_vm_kind_map = int(args_domain.kind_map)
+            self._gpu_vm_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            args_derham = self.derham.args_derham
+            self._gpu_vm_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_vm_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_vm_tn1 = cp.asarray(np.asarray(args_derham.tn1, dtype=float), dtype=cp.float64)
+            self._gpu_vm_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
+            self._gpu_vm_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
+
+        # GPU replacement for cc_lin_mhd_6d_1: 3-block antisymmetric fill
+        # (mat12, mat13, mat23 only, no vector) into whichever of
+        # H1vec/Hcurl/Hdiv the propagator's basis_u optional_arg selects.
+        # b2_*/basis_u/scale_mat/boundary_cut arrive fresh via optional_args
+        # each call (only the spline/domain info below is cached).
+        self._gpu_cc_lin_mhd_6d_1 = (
+            xp.cupy_backend
+            and kernel.name == "cc_lin_mhd_6d_1"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_cc_lin_mhd_6d_1:
+            import cupy as cp
+            import numpy as np
+
+            self._gpu_cc1_kind_map = int(args_domain.kind_map)
+            self._gpu_cc1_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            args_derham = self.derham.args_derham
+            self._gpu_cc1_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_cc1_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_cc1_tn1 = cp.asarray(np.asarray(args_derham.tn1, dtype=float), dtype=cp.float64)
+            self._gpu_cc1_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
+            self._gpu_cc1_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
+
+        # GPU replacement for cc_lin_mhd_6d_2: same runtime basis_u
+        # dispatch as cc_lin_mhd_6d_1, but a full symmetric 6-block
+        # matrix-plus-vector fill (like linear_vlasov_ampere/vlasov_maxwell)
+        # instead of the 3 antisymmetric off-diagonal blocks only.
+        self._gpu_cc_lin_mhd_6d_2 = (
+            xp.cupy_backend
+            and kernel.name == "cc_lin_mhd_6d_2"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_cc_lin_mhd_6d_2:
+            import cupy as cp
+            import numpy as np
+
+            self._gpu_cc2_kind_map = int(args_domain.kind_map)
+            self._gpu_cc2_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            args_derham = self.derham.args_derham
+            self._gpu_cc2_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_cc2_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_cc2_tn1 = cp.asarray(np.asarray(args_derham.tn1, dtype=float), dtype=cp.float64)
+            self._gpu_cc2_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
+            self._gpu_cc2_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
+
+        # GPU replacement for pc_lin_mhd_6d_full / pc_lin_mhd_6d: the
+        # symmetry="pressure" case -- 45-array (36 matrix + 9 vector)
+        # velocity-moment "pressure tensor" fill. See accum_kernels_cuda.py
+        # for why both variants share one call convention (pc_lin_mhd_6d
+        # only ever writes 24 of the 45 arrays, matching the CPU reference).
+        self._gpu_pc_lin_mhd_6d_full = (
+            xp.cupy_backend
+            and kernel.name == "pc_lin_mhd_6d_full"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        self._gpu_pc_lin_mhd_6d = (
+            xp.cupy_backend
+            and kernel.name == "pc_lin_mhd_6d"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_pc_lin_mhd_6d_full or self._gpu_pc_lin_mhd_6d:
+            import cupy as cp
+            import numpy as np
+
+            self._gpu_pc_kind_map = int(args_domain.kind_map)
+            self._gpu_pc_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            args_derham = self.derham.args_derham
+            self._gpu_pc_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_pc_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_pc_tn1 = cp.asarray(np.asarray(args_derham.tn1, dtype=float), dtype=cp.float64)
+            self._gpu_pc_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
+            self._gpu_pc_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
+
     def __call__(self, *optional_args, **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
@@ -268,6 +370,76 @@ class Accumulator:
                     self._gpu_lva_tn2,
                     self._gpu_lva_tn3,
                     self._gpu_lva_starts,
+                    *self._args_data,
+                )
+        elif self._gpu_vlasov_maxwell and not optional_args:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                vlasov_maxwell_gpu(
+                    self.particles.markers,
+                    self._gpu_vm_kind_map,
+                    self._gpu_vm_params,
+                    self._gpu_vm_pn,
+                    self._gpu_vm_tn1,
+                    self._gpu_vm_tn2,
+                    self._gpu_vm_tn3,
+                    self._gpu_vm_starts,
+                    *self._args_data,
+                )
+        elif self._gpu_cc_lin_mhd_6d_1 and len(optional_args) == 6:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                b2_1, b2_2, b2_3, basis_u, scale_mat, boundary_cut = optional_args
+                cc_lin_mhd_6d_1_gpu(
+                    self.particles.markers,
+                    self._gpu_cc1_kind_map,
+                    self._gpu_cc1_params,
+                    self._gpu_cc1_pn,
+                    self._gpu_cc1_tn1,
+                    self._gpu_cc1_tn2,
+                    self._gpu_cc1_tn3,
+                    self._gpu_cc1_starts,
+                    b2_1,
+                    b2_2,
+                    b2_3,
+                    basis_u,
+                    scale_mat,
+                    boundary_cut,
+                    *self._args_data,
+                )
+        elif self._gpu_cc_lin_mhd_6d_2 and len(optional_args) == 7:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                b2_1, b2_2, b2_3, basis_u, scale_mat, scale_vec, boundary_cut = optional_args
+                cc_lin_mhd_6d_2_gpu(
+                    self.particles.markers,
+                    self._gpu_cc2_kind_map,
+                    self._gpu_cc2_params,
+                    self._gpu_cc2_pn,
+                    self._gpu_cc2_tn1,
+                    self._gpu_cc2_tn2,
+                    self._gpu_cc2_tn3,
+                    self._gpu_cc2_starts,
+                    b2_1,
+                    b2_2,
+                    b2_3,
+                    basis_u,
+                    scale_mat,
+                    scale_vec,
+                    boundary_cut,
+                    *self._args_data,
+                )
+        elif (self._gpu_pc_lin_mhd_6d_full or self._gpu_pc_lin_mhd_6d) and len(optional_args) == 1:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                (ep_scale,) = optional_args
+                pc_fn = pc_lin_mhd_6d_full_gpu if self._gpu_pc_lin_mhd_6d_full else pc_lin_mhd_6d_gpu
+                pc_fn(
+                    self.particles.markers,
+                    self._gpu_pc_kind_map,
+                    self._gpu_pc_params,
+                    self._gpu_pc_pn,
+                    self._gpu_pc_tn1,
+                    self._gpu_pc_tn2,
+                    self._gpu_pc_tn3,
+                    self._gpu_pc_starts,
+                    ep_scale,
                     *self._args_data,
                 )
         else:
