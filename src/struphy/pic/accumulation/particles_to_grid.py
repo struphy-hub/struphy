@@ -26,7 +26,10 @@ from struphy.pic.accumulation.accum_kernels_cuda import (
     vlasov_maxwell_gpu,
 )
 from struphy.pic.accumulation.accum_kernels_gc_cuda import (
+    cc_lin_mhd_5d_curlb_gpu,
     cc_lin_mhd_5d_D_gpu,
+    cc_lin_mhd_5d_gradB_dg_gpu,
+    cc_lin_mhd_5d_gradB_gpu,
     gc_mag_density_0form_gpu,
 )
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
@@ -321,6 +324,37 @@ class Accumulator:
             self._gpu_cc5d_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
             self._gpu_cc5d_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
 
+        # GPU replacements for the two remaining 5D current-coupling
+        # accumulators. cc_lin_mhd_5d_curlb is a full symmetric 6-block
+        # matrix-plus-vector curvature fill; cc_lin_mhd_5d_gradB is
+        # vector-only (its 6 matrix args are unused by the CPU body, so the
+        # matrices stay zero on both backends). They need the same cached
+        # spline/domain data, so one block covers both.
+        self._gpu_cc_lin_mhd_5d_curlb = (
+            xp.cupy_backend
+            and kernel.name == "cc_lin_mhd_5d_curlb"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        self._gpu_cc_lin_mhd_5d_gradB = (
+            xp.cupy_backend
+            and kernel.name == "cc_lin_mhd_5d_gradB"
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_cc_lin_mhd_5d_curlb or self._gpu_cc_lin_mhd_5d_gradB:
+            import cupy as cp
+            import numpy as np
+
+            self._gpu_cg_kind_map = int(args_domain.kind_map)
+            self._gpu_cg_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            args_derham = self.derham.args_derham
+            self._gpu_cg_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_cg_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_cg_tn1 = cp.asarray(np.asarray(args_derham.tn1, dtype=float), dtype=cp.float64)
+            self._gpu_cg_tn2 = cp.asarray(np.asarray(args_derham.tn2, dtype=float), dtype=cp.float64)
+            self._gpu_cg_tn3 = cp.asarray(np.asarray(args_derham.tn3, dtype=float), dtype=cp.float64)
+            self._gpu_cg_first_init_idx = int(self.particles.args_markers.first_init_idx)
+            self._gpu_cg_mu_idx = int(self.particles.mu_idx)
+
         # GPU replacement for pc_lin_mhd_6d_full / pc_lin_mhd_6d: the
         # symmetry="pressure" case -- 45-array (36 matrix + 9 vector)
         # velocity-moment "pressure tensor" fill. See accum_kernels_cuda.py
@@ -476,6 +510,67 @@ class Accumulator:
                     (cnb_1, cnb_2, cnb_3),
                     basis_u,
                     *self._args_data,
+                )
+        elif self._gpu_cc_lin_mhd_5d_curlb and len(optional_args) == 12:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                (
+                    epsilon, ep_scale,
+                    b2_1, b2_2, b2_3,
+                    nb1_1, nb1_2, nb1_3,
+                    cnb_1, cnb_2, cnb_3,
+                    basis_u,
+                ) = optional_args
+                cc_lin_mhd_5d_curlb_gpu(
+                    self.particles.markers,
+                    self._gpu_cg_kind_map,
+                    self._gpu_cg_params,
+                    epsilon,
+                    ep_scale,
+                    self._gpu_cg_pn,
+                    self._gpu_cg_tn1,
+                    self._gpu_cg_tn2,
+                    self._gpu_cg_tn3,
+                    self._gpu_cg_starts,
+                    (b2_1, b2_2, b2_3),
+                    (nb1_1, nb1_2, nb1_3),
+                    (cnb_1, cnb_2, cnb_3),
+                    basis_u,
+                    *self._args_data,
+                )
+        elif self._gpu_cc_lin_mhd_5d_gradB and len(optional_args) == 17:
+            with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                (
+                    epsilon, ep_scale,
+                    b2_1, b2_2, b2_3,
+                    nb1_1, nb1_2, nb1_3,
+                    cnb_1, cnb_2, cnb_3,
+                    gpb_1, gpb_2, gpb_3,
+                    gpq_1, gpq_2, gpq_3,
+                    basis_u,
+                ) = optional_args
+                # the kernel's own 6 matrix args + vector are already in
+                # self._args_data; only the vector blocks are ever written.
+                vec_data = self._args_data[6:]
+                cc_lin_mhd_5d_gradB_gpu(
+                    self.particles.markers,
+                    self._gpu_cg_first_init_idx,
+                    self._gpu_cg_mu_idx,
+                    self._gpu_cg_kind_map,
+                    self._gpu_cg_params,
+                    epsilon,
+                    ep_scale,
+                    self._gpu_cg_pn,
+                    self._gpu_cg_tn1,
+                    self._gpu_cg_tn2,
+                    self._gpu_cg_tn3,
+                    self._gpu_cg_starts,
+                    (b2_1, b2_2, b2_3),
+                    (nb1_1, nb1_2, nb1_3),
+                    (cnb_1, cnb_2, cnb_3),
+                    (gpb_1, gpb_2, gpb_3),
+                    (gpq_1, gpq_2, gpq_3),
+                    basis_u,
+                    *vec_data,
                 )
         elif (self._gpu_pc_lin_mhd_6d_full or self._gpu_pc_lin_mhd_6d) and len(optional_args) == 1:
             with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
