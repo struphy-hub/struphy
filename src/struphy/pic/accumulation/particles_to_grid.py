@@ -444,9 +444,15 @@ class Accumulator:
                     *self._args_data,
                 )
         else:
-            with ProfileManager.profile_region("kernel: " + self.kernel.name):
+            # no CUDA port for this kernel: fall back to the compiled
+            # host-only one. Accumulation kernels only read markers (they
+            # write into the grid arrays), so no write-back is needed.
+            with (
+                ProfileManager.profile_region("kernel: " + self.kernel.name),
+                self.particles.host_markers(write=False) as args_markers,
+            ):
                 self.kernel(
-                    self.particles.args_markers,
+                    args_markers,
                     self.derham.args_derham,
                     self.args_domain,
                     *self._args_data,
@@ -861,9 +867,15 @@ class AccumulatorVector:
                     self._args_data[0],
                 )
         else:
-            with ProfileManager.profile_region("kernel: " + self.kernel.name):
+            # no CUDA port for this kernel: fall back to the compiled
+            # host-only one. Accumulation kernels only read markers (they
+            # write into the grid arrays), so no write-back is needed.
+            with (
+                ProfileManager.profile_region("kernel: " + self.kernel.name),
+                self.particles.host_markers(write=False) as args_markers,
+            ):
                 self.kernel(
-                    self.particles.args_markers,
+                    args_markers,
                     self.derham.args_derham,
                     self.args_domain,
                     *self._args_data,

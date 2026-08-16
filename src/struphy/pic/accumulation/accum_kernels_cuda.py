@@ -152,7 +152,7 @@ def charge_density_0form_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev_markers = cp.asarray(markers)
+    dev_markers = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     _get_charge_density_0form_kernel()(
@@ -550,7 +550,7 @@ def vlasov_maxwell_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev_markers = cp.asarray(markers)
+    dev_markers = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
 
@@ -641,7 +641,7 @@ def linear_vlasov_ampere_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev_markers = cp.asarray(markers)
+    dev_markers = markers
     f0_values_dev = cp.ascontiguousarray(f0_values_dev)
     threads = 256
     blocks = (n_markers + threads - 1) // threads
@@ -887,7 +887,7 @@ def cc_lin_mhd_6d_1_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev_markers = cp.asarray(markers)
+    dev_markers = markers
     b2_1_dev = cp.ascontiguousarray(b2_1_dev)
     b2_2_dev = cp.ascontiguousarray(b2_2_dev)
     b2_3_dev = cp.ascontiguousarray(b2_3_dev)
@@ -1175,7 +1175,7 @@ def cc_lin_mhd_6d_2_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev_markers = cp.asarray(markers)
+    dev_markers = markers
     b2_1_dev = cp.ascontiguousarray(b2_1_dev)
     b2_2_dev = cp.ascontiguousarray(b2_2_dev)
     b2_3_dev = cp.ascontiguousarray(b2_3_dev)
@@ -1685,7 +1685,7 @@ def _pc_lin_mhd_6d_launch(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev_markers = cp.asarray(markers)
+    dev_markers = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
 

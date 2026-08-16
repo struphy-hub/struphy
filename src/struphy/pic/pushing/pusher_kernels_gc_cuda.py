@@ -287,7 +287,7 @@ def push_gc_bxEstar_explicit_multistage_general_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
 
@@ -315,7 +315,6 @@ def push_gc_bxEstar_explicit_multistage_general_gpu(
             np.float64(dt_a), np.float64(dt_b), np.float64(last),
         ),
     )
-    dev.get(out=markers)
 
 
 def push_gc_Bstar_explicit_multistage_general_gpu(
@@ -338,7 +337,7 @@ def push_gc_Bstar_explicit_multistage_general_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
 
@@ -367,4 +366,3 @@ def push_gc_Bstar_explicit_multistage_general_gpu(
             np.float64(dt_a), np.float64(dt_b), np.float64(last),
         ),
     )
-    dev.get(out=markers)

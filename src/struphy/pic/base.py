@@ -3,6 +3,7 @@ import logging
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
+from contextlib import contextmanager
 
 import h5py
 import numpy as np
@@ -78,6 +79,23 @@ from struphy.utils.clone_config import CloneConfig
 logger = logging.getLogger("struphy")
 
 
+def _array_types():
+    """Array classes a marker-column setter may legitimately be handed.
+
+    Marker data lives on the active backend (device under CuPy), so a
+    setter must accept that backend's array type as well as NumPy's --
+    plain NumPy is still valid input and gets converted on assignment.
+    """
+    if xp.cupy_backend:
+        import cupy as cp
+
+        return (np.ndarray, cp.ndarray)
+    return (np.ndarray,)
+
+
+_ARRAY_TYPES = _array_types()
+
+
 def _to_numpy_for_kernel(value):
     """Convert CuPy arrays to NumPy for compiled kernel calls."""
     if hasattr(value, "get"):
@@ -123,6 +141,67 @@ def _pinned_zeros(shape, dtype=float):
     arr = np.frombuffer(mem, dtype=dtype, count=size).reshape(shape)
     arr[:] = 0
     return arr
+
+
+class _HostMarkerMirror:
+    """Explicit host mirror of a device-resident marker array.
+
+    Under ``ARRAY_BACKEND=cupy`` the marker array (and its companion boolean
+    masks) live on the device — that is where every ported CUDA particle
+    kernel reads and writes them, and where the vectorized bookkeeping
+    (boundary conditions, hole tracking, sorting) runs, so no transfer is
+    needed in the hot path at all.
+
+    A handful of *cold-path* consumers are still compiled, host-only Pyccel
+    kernels (SPH evaluation, some diagnostics/accumulation kernels that have
+    no CUDA port yet). Those need a real ``numpy.ndarray`` that they can read
+    -- and in some cases write -- in place. This class owns that host buffer
+    and makes the crossing explicit rather than implicit: callers wrap the
+    Pyccel call in :meth:`Particles.host_markers`, which copies device->host
+    on entry and (when ``write=True``) host->device on exit.
+
+    The buffer is allocated once, in pinned memory, and reused; the mirror
+    object handed to ``MarkerArguments`` therefore stays identity-stable for
+    the lifetime of the :class:`Particles` instance, exactly as the old
+    always-host array did.
+    """
+
+    __slots__ = ("_pairs", "_depth")
+
+    def __init__(self):
+        # list of [device_array, host_array]; host buffers are identity-stable
+        self._pairs = []
+        self._depth = 0
+
+    def add(self, device_array):
+        """Register a device array and return its identity-stable host buffer."""
+        host = _pinned_zeros(device_array.shape, dtype=device_array.dtype)
+        self._pairs.append([device_array, host])
+        return host
+
+    def rebind(self, old_device_array, new_device_array):
+        """Point the mirror at a new device array (after a resize/realloc).
+
+        Returns the host buffer for the new array, reallocating it only if
+        the shape actually changed.
+        """
+        for pair in self._pairs:
+            if pair[0] is old_device_array:
+                pair[0] = new_device_array
+                if new_device_array.shape != pair[1].shape:
+                    pair[1] = _pinned_zeros(new_device_array.shape, dtype=new_device_array.dtype)
+                return pair[1]
+        return self.add(new_device_array)
+
+    def pull(self):
+        """device -> host, for every registered array."""
+        for device, host in self._pairs:
+            device.get(out=host)
+
+    def push(self):
+        """host -> device (in place, so device array identities are kept)."""
+        for device, host in self._pairs:
+            device.set(host)
 
 
 class Particles(metaclass=ABCMeta):
@@ -442,13 +521,13 @@ class Particles(metaclass=ABCMeta):
         # if self.loading_params["moments"] is None and not isinstance(self, ParticlesSPH) and isinstance(self.bckgr_params, dict):
         self._generate_sampling_moments()
 
-        # create buffers for mpi_sort_markers -- marker-row-indexed, like
-        # markers itself always host-resident regardless of backend (see
-        # ISSUE_cupy_particles_never_pushed.md), and fed straight into mpi4py
-        # Alltoall/Isend/Irecv calls below, which need host buffers.
-        self._sorting_etas = np.zeros((self.markers.shape[0], 3), dtype=float)
-        self._is_on_proc_domain = np.zeros((self.markers.shape[0], 3), dtype=bool)
-        self._can_stay = np.zeros(self.markers.shape[0], dtype=bool)
+        # create buffers for mpi_sort_markers -- marker-row-indexed, so they
+        # live on the same backend as the markers themselves (device under
+        # CuPy). The actual mpi4py Alltoall/Isend/Irecv calls further below
+        # take host buffers and convert explicitly at that point.
+        self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
+        self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
+        self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
         self._recvbufs = [None] * self.mpi_size
         self._send_to_i = [None] * self.mpi_size
@@ -726,6 +805,19 @@ class Particles(metaclass=ABCMeta):
         return self._domain_array
 
     @property
+    def domain_array_dev(self):
+        """:attr:`domain_array` on the active backend.
+
+        The domain decomposition is small, fixed metadata built once on the
+        host, but it is repeatedly compared against marker positions, which
+        live on the device under CuPy. Cached here so those comparisons do
+        not re-upload it on every call.
+        """
+        if getattr(self, "_domain_array_dev", None) is None:
+            self._domain_array_dev = xp.asarray(self._domain_array)
+        return self._domain_array_dev
+
+    @property
     def mpi_dims_mask(self):
         """3-list | tuple; True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed."""
@@ -878,7 +970,7 @@ class Particles(metaclass=ABCMeta):
 
     @positions.setter
     def positions(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         assert new.shape == (self.n_mks_loc, 3)
         self._markers[self.valid_mks, self.index["pos"]] = new
 
@@ -889,7 +981,7 @@ class Particles(metaclass=ABCMeta):
 
     @velocities.setter
     def velocities(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc =} and {self.vdim =} but {new.shape =}"
         self._markers[self.valid_mks, self.index["vel"]] = new
 
@@ -900,7 +992,7 @@ class Particles(metaclass=ABCMeta):
 
     @phasespace_coords.setter
     def phasespace_coords(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         assert new.shape == (self.n_mks_loc, 3 + self.vdim)
         self._markers[self.valid_mks, self.index["coords"]] = new
 
@@ -911,7 +1003,7 @@ class Particles(metaclass=ABCMeta):
 
     @weights.setter
     def weights(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["weights"]] = new
 
@@ -922,7 +1014,7 @@ class Particles(metaclass=ABCMeta):
 
     @sampling_density_values.setter
     def sampling_density_values(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["s0"]] = new
 
@@ -933,7 +1025,7 @@ class Particles(metaclass=ABCMeta):
 
     @weights0.setter
     def weights0(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["w0"]] = new
 
@@ -944,7 +1036,7 @@ class Particles(metaclass=ABCMeta):
 
     @marker_ids.setter
     def marker_ids(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["ids"]] = new
 
@@ -955,7 +1047,7 @@ class Particles(metaclass=ABCMeta):
 
     @f_coords.setter
     def f_coords(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         self.markers[:, self.f_coords_index][self._valid_row_idx] = new
 
     @property
@@ -968,7 +1060,7 @@ class Particles(metaclass=ABCMeta):
 
     @f_jacobian_coords.setter
     def f_jacobian_coords(self, new):
-        assert isinstance(new, np.ndarray)
+        assert isinstance(new, _ARRAY_TYPES)
         if isinstance(self.f_jacobian_coords_index, list):
             self.markers[
                 xp.ix_(
@@ -981,8 +1073,64 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def args_markers(self) -> MarkerArguments:
-        """Collection of mandatory arguments for pusher kernels."""
+        """Collection of mandatory arguments for pusher kernels.
+
+        Note
+        ----
+        Under ``ARRAY_BACKEND=cupy`` the arrays inside are the *host mirror*
+        of the device-resident markers, not the markers themselves. They are
+        only valid inside a :meth:`host_markers` block — outside one they
+        hold whatever the last such block left behind. Every compiled
+        (Pyccel) kernel call that takes ``args_markers`` must therefore be
+        wrapped; CUDA kernels take :attr:`markers` directly instead and need
+        no wrapping.
+        """
         return self._args_markers
+
+    @contextmanager
+    def host_markers(self, *, write: bool = True):
+        """Make :attr:`args_markers` valid for a compiled, host-only (Pyccel)
+        kernel call, and write any changes back to the device afterwards.
+
+        Under the NumPy backend this is a no-op: ``args_markers`` already
+        aliases the marker array, so there is nothing to copy either way.
+
+        Under CuPy the markers live on the device (that is the whole point
+        -- the ported CUDA kernels and the vectorized bookkeeping never
+        transfer them), so a kernel that can only run on the host needs an
+        explicit crossing. Entering copies device->host; leaving copies
+        host->device, unless ``write=False`` marks the call read-only (the
+        common case for accumulation/evaluation kernels, which only ever
+        read markers and write into grid arrays), in which case the
+        write-back is skipped.
+
+        Nested blocks are reference-counted, so the transfer happens once
+        per outermost block. A nested ``write=True`` upgrades the outer
+        block, never the reverse.
+
+        Parameters
+        ----------
+        write : bool
+            Whether the wrapped kernel may modify the marker array. Passing
+            ``False`` when it actually does modify markers silently discards
+            those changes, so only use it for kernels verified read-only.
+        """
+        if self._markers_mirror is None:
+            yield self._args_markers
+            return
+
+        mirror = self._markers_mirror
+        if mirror._depth == 0:
+            mirror.pull()
+            self._markers_mirror_write = False
+        mirror._depth += 1
+        self._markers_mirror_write = self._markers_mirror_write or write
+        try:
+            yield self._args_markers
+        finally:
+            mirror._depth -= 1
+            if mirror._depth == 0 and self._markers_mirror_write:
+                mirror.push()
 
     # -------------------------------------------
     # Initial condition and background -> weights
@@ -1228,9 +1376,9 @@ class Particles(metaclass=ABCMeta):
             self._load_tesselation()
             if isinstance(self, ParticlesSPH):
                 self._set_initial_condition()
-                self.velocities = _to_numpy_for_kernel(self.u_init(_dev(self.positions))).T
+                self.velocities = self.u_init(self.positions).T
             # set markers ID in last column
-            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
+            self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
         else:
             logger.debug("\nLoading fresh markers:")
             for key, val in self.loading_params.__dict__.items():
@@ -1255,8 +1403,8 @@ class Particles(metaclass=ABCMeta):
                     temp = np.random.rand(num_to_add_glob, 3 + self.vdim)
                     # check which particles are on the current process domain
                     is_on_proc_domain = np.logical_and(
-                        temp[:, :3] > self.domain_array[self.mpi_rank, 0::3],
-                        temp[:, :3] < self.domain_array[self.mpi_rank, 1::3],
+                        temp[:, :3] > self._domain_array[self.mpi_rank, 0::3],
+                        temp[:, :3] < self._domain_array[self.mpi_rank, 1::3],
                     )
                     valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
@@ -1267,7 +1415,7 @@ class Particles(metaclass=ABCMeta):
                     self._markers[
                         num_loaded_particles_loc : num_loaded_particles_loc + num_valid,
                         : 3 + self.vdim,
-                    ] = valid_particles
+                    ] = xp.asarray(valid_particles)
                     num_loaded_particles_glob += num_to_add_glob
                     num_loaded_particles_loc += num_valid
 
@@ -1303,10 +1451,12 @@ class Particles(metaclass=ABCMeta):
                     1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] // 64,
                 )
 
-                sampling_kernels.set_particles_symmetric_3d_3v(
-                    temp_markers,
-                    self.markers,
-                )
+                # compiled host-only sampler; fills marker rows in place
+                with self.host_markers(write=True) as args_markers:
+                    sampling_kernels.set_particles_symmetric_3d_3v(
+                        _to_numpy_for_kernel(temp_markers),
+                        args_markers.markers,
+                    )
 
             # 4. Wrong specification
             else:
@@ -1317,25 +1467,16 @@ class Particles(metaclass=ABCMeta):
             # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
             if isinstance(self, ParticlesSPH):
                 self._set_initial_condition()
-                self.velocities = _to_numpy_for_kernel(self.u_init(_dev(self.positions))).T
+                self.velocities = self.u_init(self.positions).T
             else:
                 # inverse transform sampling in velocity space
                 # Avoid exact 0 or 1 from low-discrepancy sequences: erfinv(±1)
                 # and log(0) produce infinities or invalid polar velocities.
-                #
-                # self._markers is always host-resident (see
-                # ISSUE_cupy_particles_never_pushed.md), so every xp.<func> call
-                # below that reads from it must first convert via _dev(), and
-                # every result written back into it must convert back via
-                # _to_numpy_for_kernel() -- mirrors the ParticlesSPH branch above,
-                # which already needed the same treatment.
                 eps = xp.finfo(float).eps
-                self._markers[:n_mks_load_loc, 3 : 3 + self.vdim] = _to_numpy_for_kernel(
-                    xp.clip(
-                        _dev(self._markers[:n_mks_load_loc, 3 : 3 + self.vdim]),
-                        eps,
-                        1.0 - eps,
-                    )
+                self._markers[:n_mks_load_loc, 3 : 3 + self.vdim] = xp.clip(
+                    self._markers[:n_mks_load_loc, 3 : 3 + self.vdim],
+                    eps,
+                    1.0 - eps,
                 )
 
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
@@ -1344,35 +1485,26 @@ class Particles(metaclass=ABCMeta):
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if isinstance(self, Particles6D):
-                    # sp is plain scipy.special (host-only, unlike xp), so
-                    # erfinv itself runs on the already-host self.velocities;
-                    # only its result needs converting before mixing with the
-                    # device-resident v_th/u_mean.
-                    self.velocities = _to_numpy_for_kernel(
-                        _dev(
-                            sp.erfinv(
-                                2 * self.velocities - 1,
-                            )
-                        )
+                    # sp is plain scipy.special: host-only, so it needs a host
+                    # copy of the velocities and its result converted back to the
+                    # active backend before mixing with v_th/u_mean.
+                    self.velocities = (
+                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities) - 1))
                         * xp.sqrt(2)
                         * v_th
                         + u_mean
                     )
                 # Particles5D: (1d Maxwellian, muB0-Maxwellian as volume-form)
                 elif isinstance(self, Particles5D):
-                    self._markers[:n_mks_load_loc, 3] = _to_numpy_for_kernel(
-                        _dev(
-                            sp.erfinv(
-                                2 * self.velocities[:, 0] - 1,
-                            )
-                        )
+                    self._markers[:n_mks_load_loc, 3] = (
+                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities[:, 0]) - 1))
                         * xp.sqrt(2)
                         * v_th[0]
                         + u_mean[0]
                     )
 
-                    self._markers[:n_mks_load_loc, 4] = _to_numpy_for_kernel(
-                        -xp.log(1.0 - _dev(self.velocities[:, 1])) * v_th[1] ** 2 / B0
+                    self._markers[:n_mks_load_loc, 4] = (
+                        -xp.log(1.0 - self.velocities[:, 1]) * v_th[1] ** 2 / B0
                     )
 
                     # mu is a magnetic moment and must be >= 0.
@@ -1384,23 +1516,15 @@ class Particles(metaclass=ABCMeta):
                         )
                 # Particles5Dvperp: (1d Maxwellian, polar Maxwellian as volume-form)
                 elif isinstance(self, Particles5Dvperp):
-                    self._markers[:n_mks_load_loc, 3] = _to_numpy_for_kernel(
-                        _dev(
-                            sp.erfinv(
-                                2 * self.velocities[:, 0] - 1,
-                            )
-                        )
+                    self._markers[:n_mks_load_loc, 3] = (
+                        _dev(sp.erfinv(2 * _to_numpy_for_kernel(self.velocities[:, 0]) - 1))
                         * xp.sqrt(2)
                         * v_th[0]
                         + u_mean[0]
                     )
 
-                    self._markers[:n_mks_load_loc, 4] = _to_numpy_for_kernel(
-                        xp.sqrt(
-                            -xp.log(1.0 - _dev(self.velocities[:, 1])),
-                        )
-                        * xp.sqrt(2)
-                        * v_th[1]
+                    self._markers[:n_mks_load_loc, 4] = (
+                        xp.sqrt(-xp.log(1.0 - self.velocities[:, 1])) * xp.sqrt(2) * v_th[1]
                     )
 
                     # v_perp is a polar velocity coordinate and must be >= 0.
@@ -1419,15 +1543,13 @@ class Particles(metaclass=ABCMeta):
 
             # inversion method for drawing uniformly on the disc
             if self.spatial == "disc":
-                self._markers[:n_mks_load_loc, 0] = _to_numpy_for_kernel(
-                    xp.sqrt(
-                        _dev(self._markers[:n_mks_load_loc, 0]),
-                    )
+                self._markers[:n_mks_load_loc, 0] = xp.sqrt(
+                    self._markers[:n_mks_load_loc, 0],
                 )
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
-            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
+            self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
             if self.loading_params.specific_markers is not None:
@@ -1794,8 +1916,8 @@ class Particles(metaclass=ABCMeta):
         if do_test:
             all_on_right_proc = xp.all(
                 xp.logical_and(
-                    self.positions > self.domain_array[self.mpi_rank, 0::3],
-                    self.positions < self.domain_array[self.mpi_rank, 1::3],
+                    self.positions > self.domain_array_dev[self.mpi_rank, 0::3],
+                    self.positions < self.domain_array_dev[self.mpi_rank, 1::3],
                 ),
             )
 
@@ -1880,13 +2002,15 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
-            # flip velocity
-            reflect(
-                self.markers,
-                self.domain.args_domain,
-                outside_inds_per_axis[axis],
-                axis,
-            )
+            # flip velocity. reflect() is a compiled host-only Pyccel kernel
+            # that writes markers in place, so it needs the host mirror.
+            with self.host_markers(write=True) as args_markers:
+                reflect(
+                    args_markers.markers,
+                    self.domain.args_domain,
+                    _to_numpy_for_kernel(outside_inds_per_axis[axis]),
+                    axis,
+                )
 
     def update_holes(self):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
@@ -1894,7 +2018,6 @@ class Particles(metaclass=ABCMeta):
         Must be called after any operation that creates, removes or moves markers
         (e.g. sorting, boundary conditions, refilling), since holes are tracked per row index."""
         self._holes[:] = self.markers[:, 0] == -1.0
-        self._holes_ghost_dev_dirty = True
         self._update_valid_mks()
 
     def set_velocities_comp(self, velocity, comp):
@@ -1988,14 +2111,16 @@ class Particles(metaclass=ABCMeta):
         if use_numpy_argsort:
             self._sort_boxed_particles_numpy()
         else:
-            sort_boxed_particles(
-                self._markers,
-                self._sorting_boxes._swap_line_1,
-                self._sorting_boxes._swap_line_2,
-                nboxes + 1,
-                self._sorting_boxes._next_index,
-                self._sorting_boxes._cumul_next_index,
-            )
+            # compiled host-only cycle-sort; reorders marker rows in place
+            with self.host_markers(write=True) as args_markers:
+                sort_boxed_particles(
+                    args_markers.markers,
+                    self._sorting_boxes._swap_line_1,
+                    self._sorting_boxes._swap_line_2,
+                    nboxes + 1,
+                    self._sorting_boxes._next_index,
+                    self._sorting_boxes._cumul_next_index,
+                )
 
         # The marker rows have just been reordered. The masks are row-based,
         # so they must be rebuilt before any later use of valid_mks/f_coords.
@@ -2119,23 +2244,25 @@ class Particles(metaclass=ABCMeta):
 
         func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
 
-        func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
-            args_markers=self.args_markers,
-            args_domain=self.domain.args_domain,
-            boxes=self.sorting_boxes.boxes,
-            neighbours=self.sorting_boxes.neighbours,
-            holes=self.holes,
-            periodic1=self.boundary_params.bc_sph[0] == "periodic",
-            periodic2=self.boundary_params.bc_sph[1] == "periodic",
-            periodic3=self.boundary_params.bc_sph[2] == "periodic",
-            kernel_type=self.ker_dct()[kernel_type],
-            h1=h1,
-            h2=h2,
-            h3=h3,
-        )
+        # compiled host-only SPH kernel; writes a marker column in place
+        with self.host_markers(write=True) as _args_markers:
+            func(
+                alpha=xp.array((0.0, 0.0, 0.0)),
+                column_nr=first_free_idx,
+                comps=comps,
+                args_markers=_args_markers,
+                args_domain=self.domain.args_domain,
+                boxes=self.sorting_boxes.boxes,
+                neighbours=self.sorting_boxes.neighbours,
+                holes=self.holes,
+                periodic1=self.boundary_params.bc_sph[0] == "periodic",
+                periodic2=self.boundary_params.bc_sph[1] == "periodic",
+                periodic3=self.boundary_params.bc_sph[2] == "periodic",
+                kernel_type=self.ker_dct()[kernel_type],
+                h1=h1,
+                h2=h2,
+                h3=h3,
+            )
 
         v1 = self._eval_sph(
             eta1,
@@ -2231,23 +2358,25 @@ class Particles(metaclass=ABCMeta):
         # 1st kernel
         func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
         comps = xp.array((0, 1, 2))
-        func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
-            args_markers=self.args_markers,
-            args_domain=self.domain.args_domain,
-            boxes=self.sorting_boxes.boxes,
-            neighbours=self.sorting_boxes.neighbours,
-            holes=self.holes,
-            periodic1=self.boundary_params.bc_sph[0] == "periodic",
-            periodic2=self.boundary_params.bc_sph[1] == "periodic",
-            periodic3=self.boundary_params.bc_sph[2] == "periodic",
-            kernel_type=self.ker_dct()[kernel_type],
-            h1=h1,
-            h2=h2,
-            h3=h3,
-        )
+        # compiled host-only SPH kernel; writes a marker column in place
+        with self.host_markers(write=True) as _args_markers:
+            func(
+                alpha=xp.array((0.0, 0.0, 0.0)),
+                column_nr=first_free_idx,
+                comps=comps,
+                args_markers=_args_markers,
+                args_domain=self.domain.args_domain,
+                boxes=self.sorting_boxes.boxes,
+                neighbours=self.sorting_boxes.neighbours,
+                holes=self.holes,
+                periodic1=self.boundary_params.bc_sph[0] == "periodic",
+                periodic2=self.boundary_params.bc_sph[1] == "periodic",
+                periodic3=self.boundary_params.bc_sph[2] == "periodic",
+                kernel_type=self.ker_dct()[kernel_type],
+                h1=h1,
+                h2=h2,
+                h3=h3,
+            )
 
         # 2nd kernel
         func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
@@ -2524,39 +2653,48 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = _pinned_zeros((self.n_rows, self.n_cols), dtype=float)
+        # The marker array and every array indexed by marker row live on the
+        # active backend: on the device under CuPy, where the ported CUDA
+        # particle kernels and all the vectorized bookkeeping below (boundary
+        # conditions, hole/ghost tracking, sorting) operate on them directly,
+        # with no per-call host<->device transfer. The remaining host-only
+        # Pyccel kernels reach them through the explicit host mirror
+        # (see :class:`_HostMarkerMirror` and :meth:`host_markers`).
+        self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
 
-        # allocate auxiliary arrays (host-resident: read/written by compiled,
-        # host-only Pyccel kernels via args_markers, see _to_numpy_for_kernel)
-        self._holes = np.zeros(self.n_rows, dtype=bool)
-        self._ghost_particles = np.zeros(self.n_rows, dtype=bool)
-        self._valid_mks = np.zeros(self.n_rows, dtype=bool)
+        self._holes = xp.zeros(self.n_rows, dtype=bool)
+        self._ghost_particles = xp.zeros(self.n_rows, dtype=bool)
+        self._valid_mks = xp.zeros(self.n_rows, dtype=bool)
 
         # _is_outside_right/_is_outside_left/_is_outside are views into one
-        # buffer so that _find_outside_particles_gpu can fill all three with
-        # a single device->host transfer instead of three.
-        self._is_outside_buf = np.zeros((3, self.n_rows), dtype=bool)
+        # buffer, so the three masks stay contiguous for the combined
+        # comparison in _find_outside_particles.
+        self._is_outside_buf = xp.zeros((3, self.n_rows), dtype=bool)
         self._is_outside_right = self._is_outside_buf[0]
         self._is_outside_left = self._is_outside_buf[1]
         self._is_outside = self._is_outside_buf[2]
 
-        # device-resident copies of _holes/_ghost_particles used by
-        # _find_outside_particles_gpu; re-synced lazily, only when stale
-        # (see the dirty flag set in update_holes()/_update_ghost_particles(),
-        # the only two places that mutate the host arrays in place).
-        self._holes_dev = None
-        self._ghost_dev = None
-        self._holes_ghost_dev_dirty = True
-        self._is_outside_buf_dev = None
-
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
-        self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)
+        self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
+
+        # Host mirror for the compiled, host-only Pyccel kernels. Under the
+        # NumPy backend there is nothing to mirror -- markers already are a
+        # host array -- so args_markers keeps aliasing it directly and
+        # host_markers() is a no-op.
+        if xp.cupy_backend:
+            self._markers_mirror = _HostMarkerMirror()
+            markers_for_kernels = self._markers_mirror.add(self._markers)
+            valid_mks_for_kernels = self._markers_mirror.add(self._valid_mks)
+        else:
+            self._markers_mirror = None
+            markers_for_kernels = self._markers
+            valid_mks_for_kernels = self._valid_mks
 
         # arguments for kernels
         self._args_markers = MarkerArguments(
-            _to_numpy_for_kernel(self.markers),
-            _to_numpy_for_kernel(self.valid_mks),
+            markers_for_kernels,
+            valid_mks_for_kernels,
             _to_numpy_for_kernel(self.Np),
             _to_numpy_for_kernel(self.vdim),
             _to_numpy_for_kernel(self.index["weights"]),
@@ -2843,7 +2981,7 @@ class Particles(metaclass=ABCMeta):
                 dtype=float,
             )
             self._mpi_comm.Recv(recvbuf, source=0, tag=123)
-            self._markers[:n_mks_load_loc, :] = recvbuf
+            self._markers[:n_mks_load_loc, :] = xp.asarray(recvbuf)
 
     def _load_restart(self):
         """Load markers from restart .hdf5 file."""
@@ -2862,7 +3000,7 @@ class Particles(metaclass=ABCMeta):
 
         data = DataContainer(data_path, comm=self.mpi_comm)
         with h5py.File(data.file_path, "a") as file:
-            self._markers[:, :] = file["restart/" + self.loading_params.restart_key][-1, :, :]
+            self._markers[:, :] = xp.asarray(file["restart/" + self.loading_params.restart_key][-1, :, :])
 
     def _load_tesselation(self, n_quad: int = 1):
         """
@@ -2881,9 +3019,9 @@ class Particles(metaclass=ABCMeta):
         )
         eta1, eta2, eta3 = self.tesselation.draw_markers()
         eta1, eta2, eta3 = _to_numpy_for_kernel(eta1), _to_numpy_for_kernel(eta2), _to_numpy_for_kernel(eta3)
-        self._markers[: eta1.size, 0] = eta1
-        self._markers[: eta2.size, 1] = eta2
-        self._markers[: eta3.size, 2] = eta3
+        self._markers[: eta1.size, 0] = xp.asarray(eta1)
+        self._markers[: eta2.size, 1] = xp.asarray(eta2)
+        self._markers[: eta3.size, 2] = xp.asarray(eta3)
         self._update_valid_mks()
 
     def _reset_marker_ids(self):
@@ -2911,73 +3049,25 @@ class Particles(metaclass=ABCMeta):
         outside_inds : numpy.ndarray[int]
             Row indices of the markers that are outside the logical unit cube.
         """
-        if xp.cupy_backend:
-            return self._find_outside_particles_gpu(axis)
+        # Runs on whichever backend the markers live on -- device under
+        # CuPy, with no transfer: markers, the holes/ghost masks and the
+        # _is_outside_* views are all allocated with xp (see
+        # _allocate_marker_array).
+        col = self.markers[:, axis]
+        not_hole_or_ghost = ~(self.holes | self.ghost_particles)
 
-        # determine particles outside of the logical unit cube
-        self._is_outside_right[:] = self.markers[:, axis] > 1.0
-        self._is_outside_left[:] = self.markers[:, axis] < 0.0
-
-        self._is_outside_right[self.holes] = False
-        self._is_outside_right[self.ghost_particles] = False
-        self._is_outside_left[self.holes] = False
-        self._is_outside_left[self.ghost_particles] = False
-
-        self._is_outside[:] = np.logical_or(
+        xp.greater(col, 1.0, out=self._is_outside_right)
+        self._is_outside_right &= not_hole_or_ghost
+        xp.less(col, 0.0, out=self._is_outside_left)
+        self._is_outside_left &= not_hole_or_ghost
+        xp.logical_or(
             self._is_outside_right,
             self._is_outside_left,
+            out=self._is_outside,
         )
 
         # indices or particles that are outside of the logical unit cube
-        outside_inds = np.nonzero(self._is_outside)[0]
-
-        return outside_inds
-
-    def _find_outside_particles_gpu(self, axis):
-        """Device version of :meth:`_find_outside_particles`.
-
-        ``self.markers[:, axis]`` is a single column out of ``n_cols``, so
-        reading it is a heavily strided gather; the reference (CPU) version
-        pays that cost twice (once each for the ``>`` and ``<`` comparison).
-        Reading it once into a device array and doing both comparisons plus
-        the hole/ghost masking there is measurably faster end-to-end even
-        after paying for the host<->device copies, because ``self._markers``
-        is pinned memory (see :func:`_pinned_zeros`) — the transfers alone
-        run at a few hundred MiB, not tens of ms.
-
-        ``holes``/``ghost_particles`` are re-transferred only when stale
-        (see ``_holes_ghost_dev_dirty``), since they are unchanged across
-        the several axes checked per :meth:`apply_kinetic_bc` call and are
-        only ever updated in place by :meth:`update_holes`/
-        :meth:`_update_ghost_particles`.
-        """
-        import cupy as cp
-
-        col_dev = cp.asarray(self.markers[:, axis])
-
-        if self._holes_ghost_dev_dirty or self._holes_dev is None:
-            self._holes_dev = cp.asarray(self.holes)
-            self._ghost_dev = cp.asarray(self.ghost_particles)
-            self._holes_ghost_dev_dirty = False
-        holes_dev = self._holes_dev
-        ghost_dev = self._ghost_dev
-
-        if self._is_outside_buf_dev is None:
-            self._is_outside_buf_dev = cp.empty_like(cp.asarray(self._is_outside_buf))
-        buf_dev = self._is_outside_buf_dev
-
-        not_hole_or_ghost = ~(holes_dev | ghost_dev)
-        cp.greater(col_dev, 1.0, out=buf_dev[0])
-        buf_dev[0] &= not_hole_or_ghost
-        cp.less(col_dev, 0.0, out=buf_dev[1])
-        buf_dev[1] &= not_hole_or_ghost
-        cp.logical_or(buf_dev[0], buf_dev[1], out=buf_dev[2])
-
-        # single D2H transfer for all three (is_outside_right/left/is_outside
-        # are views into self._is_outside_buf, see _allocate_marker_array)
-        buf_dev.get(out=self._is_outside_buf)
-
-        outside_inds = np.nonzero(self._is_outside)[0]
+        outside_inds = xp.nonzero(self._is_outside)[0]
 
         return outside_inds
 
@@ -3178,7 +3268,6 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         :meth:`_prepare_ghost_particles`/:meth:`_sendrecv_markers_boxes` for SPH ghost-box
         particles received from a neighbouring process."""
         self._ghost_particles[:] = self.markers[:, -1] == -2.0
-        self._holes_ghost_dev_dirty = True
         self._update_valid_mks()
 
     def _remove_ghost_particles(self):
@@ -4531,16 +4620,14 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             sorting_etas : array[float]
                 Eta-values of shape (n_send, :) according to which the sorting is performed.
         """
-        # position that determines the sorting (including periodic shift of boundary conditions)
-        # host throughout: self.markers is always host-resident (see
-        # ISSUE_cupy_particles_never_pushed.md), and alpha is a 3-element
-        # weighting, not physics data.
-        if not isinstance(alpha, np.ndarray):
-            alpha = np.array(alpha, dtype=float)
+        # position that determines the sorting (including periodic shift of boundary conditions).
+        # Runs on the backend the markers live on; alpha is a 3-element
+        # weighting, not physics data, so it is converted to match.
+        alpha = xp.asarray(alpha, dtype=float)
         assert alpha.size == 3
-        assert np.all(alpha >= 0.0) and np.all(alpha <= 1.0)
+        assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        np.mod(
+        xp.mod(
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
             + (1.0 - alpha) * self.markers[:, bi : bi + 3],
             1.0,
@@ -4548,22 +4635,22 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         )
 
         # check which particles are on the current process domain
-        self._is_on_proc_domain = np.logical_and(
-            self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
-            self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
+        self._is_on_proc_domain = xp.logical_and(
+            self._sorting_etas > self.domain_array_dev[self.mpi_rank, 0::3],
+            self._sorting_etas < self.domain_array_dev[self.mpi_rank, 1::3],
         )
 
         # to stay on the current process, all three columns must be True
-        self._can_stay = np.all(self._is_on_proc_domain, axis=1)
+        self._can_stay = xp.all(self._is_on_proc_domain, axis=1)
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
         self._can_stay[self.ghost_particles] = True
 
         # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
-        send_inds = np.nonzero(~self._can_stay)[0]
+        send_inds = xp.nonzero(~self._can_stay)[0]
 
-        hole_inds_after_send = np.nonzero(np.logical_or(~self._can_stay, self.holes))[0]
+        hole_inds_after_send = xp.nonzero(xp.logical_or(~self._can_stay, self.holes))[0]
 
         return hole_inds_after_send, send_inds
 
@@ -4585,16 +4672,18 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         send_info = np.zeros(self.mpi_size, dtype=int)
 
         # TODO: do not loop over all processes, start with neighbours and work outwards (using while)
+        etas_to_send = self._sorting_etas[send_inds]
         for i in range(self.mpi_size):
-            conds = np.logical_and(
-                self._sorting_etas[send_inds] > self.domain_array[i, 0::3],
-                self._sorting_etas[send_inds] < self.domain_array[i, 1::3],
+            conds = xp.logical_and(
+                etas_to_send > self.domain_array_dev[i, 0::3],
+                etas_to_send < self.domain_array_dev[i, 1::3],
             )
 
-            self._send_to_i[i] = np.nonzero(np.all(conds, axis=1))[0]
+            self._send_to_i[i] = xp.nonzero(xp.all(conds, axis=1))[0]
             send_info[i] = self._send_to_i[i].size
 
-            self._send_list[i] = self.markers[send_inds][self._send_to_i[i]]
+            # mpi4py needs host buffers for the actual Isend below
+            self._send_list[i] = _to_numpy_for_kernel(self.markers[send_inds][self._send_to_i[i]])
 
         return send_info
 

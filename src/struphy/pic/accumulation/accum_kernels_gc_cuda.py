@@ -133,7 +133,7 @@ def gc_mag_density_0form_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev_markers = cp.asarray(markers)
+    dev_markers = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     _get_gc_mag_density_0form_kernel()(

@@ -608,26 +608,6 @@ class Pusher:
             self._gpu_gc_bstar_e_field = (e_field_1, e_field_2, e_field_3)
             self._gpu_gc_bstar_mu_idx = int(particles.mu_idx)
 
-    @staticmethod
-    def _reset_marker_buffers_gpu(markers, init_slice, shift_slice, residual_idx, vdim):
-        """Device version of the per-step marker buffer bookkeeping at the top
-        of :meth:`__call__` (save initial phase-space coordinates, zero the
-        boundary-shift columns, zero the residual/scratch columns).
-
-        ``markers`` is a pinned-memory-backed host array (see
-        :func:`struphy.pic.base._pinned_zeros`), so a full round trip through
-        the device is fast (~5 ms for the 137 MiB ``PressureLessSPH`` marker
-        array) and cheaper than the equivalent strided in-place NumPy writes
-        (~35 ms), which touch three disjoint, non-contiguous column ranges.
-        """
-        import cupy as cp
-
-        dev = cp.asarray(markers)
-        dev[:, init_slice] = dev[:, : 3 + vdim]
-        dev[:, shift_slice] = 0.0
-        dev[:, residual_idx:-2] = 0.0
-        dev.get(out=markers)
-
     @profile
     def __call__(self, dt: float):
         """
@@ -712,17 +692,16 @@ class Pusher:
         init_slice = slice(first_pusher_idx, first_shift_idx)
         shift_slice = slice(first_shift_idx, residual_idx)
 
-        if cunumpy.cupy_backend:
-            self._reset_marker_buffers_gpu(markers, init_slice, shift_slice, residual_idx, vdim)
-        else:
-            # save initial phase space coordinates
-            markers[:, init_slice] = markers[:, : 3 + vdim]
+        # Runs in place on whichever backend the markers live on -- device
+        # under CuPy, with no transfer (see Particles._allocate_marker_array).
+        # save initial phase space coordinates
+        markers[:, init_slice] = markers[:, : 3 + vdim]
 
-            # set boundary shifts to zero
-            markers[:, shift_slice] = 0.0
+        # set boundary shifts to zero
+        markers[:, shift_slice] = 0.0
 
-            # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-            markers[:, residual_idx:-2] = 0.0
+        # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
+        markers[:, residual_idx:-2] = 0.0
 
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
@@ -734,12 +713,16 @@ class Pusher:
             comps = ker_args[2]
             add_args = ker_args[3]
 
-            with ProfileManager.profile_region(self._kernel_region(ker)):
+            # compiled host-only kernel: writes into marker buffer columns
+            with (
+                ProfileManager.profile_region(self._kernel_region(ker)),
+                self.particles.host_markers(write=True) as args_markers,
+            ):
                 ker(
                     np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                     column_nr,
                     comps,
-                    self.particles.args_markers,
+                    args_markers,
                     self._args_domain,
                     *add_args,
                 )
@@ -782,12 +765,16 @@ class Pusher:
                         )
 
                     # evaluate
-                    with ProfileManager.profile_region(self._kernel_region(ker)):
+                    # compiled host-only kernel: writes into marker buffer columns
+                    with (
+                        ProfileManager.profile_region(self._kernel_region(ker)),
+                        self.particles.host_markers(write=True) as args_markers,
+                    ):
                         ker(
                             alpha,
                             column_nr,
                             comps,
-                            self.particles.args_markers,
+                            args_markers,
                             self._args_domain,
                             *add_args,
                         )
@@ -1101,11 +1088,16 @@ class Pusher:
                             dt,
                         )
                 else:
-                    with ProfileManager.profile_region("kernel: " + self.kernel.name):
+                    # no CUDA port for this kernel: fall back to the compiled
+                    # host-only one, which pushes markers in place
+                    with (
+                        ProfileManager.profile_region("kernel: " + self.kernel.name),
+                        self.particles.host_markers(write=True) as args_markers,
+                    ):
                         self.kernel(
                             dt,
                             stage,
-                            self.particles.args_markers,
+                            args_markers,
                             self._args_domain,
                             *self._args_kernel,
                         )

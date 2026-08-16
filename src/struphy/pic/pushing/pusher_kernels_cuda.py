@@ -125,7 +125,7 @@ def push_eta_stage_cuboid_gpu(
     kernel = _get_kernel()
     n_markers = markers.shape[0]
 
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     kernel(
@@ -145,7 +145,6 @@ def push_eta_stage_cuboid_gpu(
             np.float64(last),
         ),
     )
-    dev.get(out=markers)
 
 
 _PUSH_ETA_RK_PERIODIC_SRC = r"""
@@ -251,7 +250,7 @@ def push_eta_rk_periodic_gpu(
     threads = 256
     blocks = (n_markers + threads - 1) // threads
 
-    dev = cp.asarray(markers)
+    dev = markers
 
     # reset: save initial phase-space coords, zero shift/free/residual columns
     # (matches Pusher._reset_marker_buffers_gpu, done once instead of per stage)
@@ -279,7 +278,6 @@ def push_eta_rk_periodic_gpu(
             ),
         )
 
-    dev.get(out=markers)
 
 
 _PUSH_V_EFIELD_CUBOID_SRC = r"""
@@ -480,7 +478,7 @@ def push_v_with_efield_cuboid_gpu(
     kernel = _get_v_efield_kernel()
     n_markers = markers.shape[0]
 
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     kernel(
@@ -517,7 +515,6 @@ def push_v_with_efield_cuboid_gpu(
             np.float64(dt_const),
         ),
     )
-    dev.get(out=markers)
 
 
 # ============================================================================
@@ -2068,7 +2065,7 @@ def push_eta_stage_general_gpu(
     kernel = _get_eta_general_kernel()
     n_markers = markers.shape[0]
 
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     kernel(
@@ -2087,7 +2084,6 @@ def push_eta_stage_general_gpu(
             np.float64(last),
         ),
     )
-    dev.get(out=markers)
 
 
 def push_v_with_efield_general_gpu(
@@ -2118,7 +2114,7 @@ def push_v_with_efield_general_gpu(
     kernel = _get_v_efield_general_kernel()
     n_markers = markers.shape[0]
 
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     kernel(
@@ -2154,7 +2150,6 @@ def push_v_with_efield_general_gpu(
             np.float64(dt_const),
         ),
     )
-    dev.get(out=markers)
 
 
 _push_vxb_analytic_general_kernel = None
@@ -2200,7 +2195,7 @@ def _launch_vxb_general(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     kernel(
@@ -2237,7 +2232,6 @@ def _launch_vxb_general(
             np.float64(dt),
         ),
     )
-    dev.get(out=markers)
 
 
 def push_vxb_analytic_general_gpu(
@@ -2376,7 +2370,7 @@ def _launch_bxu_general(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     kernel(
@@ -2422,7 +2416,6 @@ def _launch_bxu_general(
             np.float64(dt),
         ),
     )
-    dev.get(out=markers)
 
 
 def push_bxu_Hdiv_general_gpu(
@@ -2613,7 +2606,7 @@ def push_pc_GXu_full_general_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     g = (g11_dev, g12_dev, g13_dev, g21_dev, g22_dev, g23_dev, g31_dev, g32_dev, g33_dev)
@@ -2648,7 +2641,6 @@ def push_pc_GXu_full_general_gpu(
             np.float64(dt),
         ),
     )
-    dev.get(out=markers)
 
 
 def push_pc_GXu_general_gpu(
@@ -2677,7 +2669,7 @@ def push_pc_GXu_general_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     g = (g11_dev, g12_dev, g13_dev, g21_dev, g22_dev, g23_dev)
@@ -2712,7 +2704,6 @@ def push_pc_GXu_general_gpu(
             np.float64(dt),
         ),
     )
-    dev.get(out=markers)
 
 
 _push_pc_eta_hcurl_general_kernel = None
@@ -2772,7 +2763,7 @@ def _launch_pc_eta_general(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     kernel(
@@ -2813,7 +2804,6 @@ def _launch_pc_eta_general(
             np.float64(last),
         ),
     )
-    dev.get(out=markers)
 
 
 def push_pc_eta_stage_Hcurl_general_gpu(
@@ -2999,7 +2989,7 @@ def push_weights_with_efield_lin_va_general_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     f0_dev = cp.ascontiguousarray(f0_values)
     threads = 256
     blocks = (n_markers + threads - 1) // threads
@@ -3039,7 +3029,6 @@ def push_weights_with_efield_lin_va_general_gpu(
             np.float64(dt),
         ),
     )
-    dev.get(out=markers)
 
 
 _push_deterministic_diffusion_general_kernel = None
@@ -3086,7 +3075,7 @@ def push_deterministic_diffusion_stage_general_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     threads = 256
     blocks = (n_markers + threads - 1) // threads
     _get_deterministic_diffusion_general_kernel()(
@@ -3130,7 +3119,6 @@ def push_deterministic_diffusion_stage_general_gpu(
             np.float64(last),
         ),
     )
-    dev.get(out=markers)
 
 
 # push_random_diffusion_stage does not touch geometry at all (a pure additive
@@ -3182,7 +3170,7 @@ def push_random_diffusion_stage_gpu(markers, n_cols, noise, diffusion_coeff: flo
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = cp.asarray(markers)
+    dev = markers
     noise_dev = cp.asarray(np.ascontiguousarray(noise), dtype=cp.float64)
     scale = float(np.sqrt(2.0 * dt * diffusion_coeff))
     threads = 256
@@ -3198,4 +3186,3 @@ def push_random_diffusion_stage_gpu(markers, n_cols, noise, diffusion_coeff: flo
             np.float64(scale),
         ),
     )
-    dev.get(out=markers)
