@@ -32,13 +32,16 @@ from struphy.pic.pushing.pusher_kernels_cuda import (
     push_vxb_implicit_general_gpu,
     push_weights_with_efield_lin_va_general_gpu,
 )
+from struphy.pic.pushing.eval_kernels_gc_cuda import driftkinetic_hamiltonian_gpu
 from struphy.pic.pushing.pusher_kernels_sph_cuda import (
     push_v_sph_pressure_gpu,
     push_v_sph_pressure_ideal_gas_gpu,
     push_v_viscosity_gpu,
 )
 from struphy.pic.pushing.pusher_kernels_gc_cuda import (
+    push_gc_bxEstar_discrete_gradient_1st_order_gpu,
     push_gc_bxEstar_explicit_multistage_general_gpu,
+    push_gc_Bstar_discrete_gradient_1st_order_gpu,
     push_gc_Bstar_explicit_multistage_general_gpu,
 )
 
@@ -649,6 +652,37 @@ class Pusher:
             self._gpu_sph_kernel_nr = int(kernel_nr)
             self._gpu_sph_h = (float(h1), float(h2), float(h3))
 
+        # CUDA replacements for the 1st-order discrete-gradient guiding-centre
+        # pushers. Each call is ONE Picard iteration (the fixed-point loop is
+        # the `while` in _push below), so they are per-marker parallel like the
+        # explicit pushers; no domain Jacobian is needed, the Poisson-matrix
+        # pieces come from marker columns filled by the init/eval kernels.
+        self._gpu_gc_dg1 = cunumpy.cupy_backend and kernel.name in (
+            "push_gc_bxEstar_discrete_gradient_1st_order",
+            "push_gc_Bstar_discrete_gradient_1st_order",
+        )
+        if self._gpu_gc_dg1:
+            import cupy as cp
+
+            self._gpu_gc_dg1_name = kernel.name
+            (
+                args_derham,
+                epsilon,
+                gb1, gb2, gb3,
+                ef1, ef2, ef3,
+                evaluate_e_field,
+            ) = args_kernel[:9]
+            self._gpu_gc_dg1_epsilon = float(epsilon)
+            self._gpu_gc_dg1_eval_e = bool(evaluate_e_field)
+            self._gpu_gc_dg1_pn = tuple(int(x) for x in args_derham.pn)
+            self._gpu_gc_dg1_starts = tuple(int(x) for x in args_derham.starts)
+            self._gpu_gc_dg1_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_gc_dg1_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_gc_dg1_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_gc_dg1_gb = (gb1, gb2, gb3)
+            self._gpu_gc_dg1_ef = (ef1, ef2, ef3)
+            self._gpu_gc_dg1_mu_idx = int(particles.mu_idx)
+
     @profile
     def __call__(self, dt: float):
         """
@@ -715,6 +749,39 @@ class Pusher:
             self._kernel_region_names[id(kernel)] = name
         return name
 
+
+    def _run_marker_column_kernel(self, ker, alpha, column_nr, comps, add_args):
+        """Run one init/eval kernel (they write a marker column in place).
+
+        Dispatches to a CUDA port when one exists for this kernel and the
+        CuPy backend is active; otherwise falls back to the compiled
+        host-only kernel via the marker host mirror.
+        """
+        name = _kernel_name(ker)
+        if cunumpy.cupy_backend and name == "driftkinetic_hamiltonian":
+            args_derham, epsilon, B_dot_b, phi, evaluate_e_field = add_args[:5]
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                driftkinetic_hamiltonian_gpu(
+                    self.particles.markers,
+                    alpha,
+                    column_nr,
+                    self.particles.first_pusher_idx,
+                    self.particles.first_shift_idx,
+                    self.particles.mu_idx,
+                    args_derham,
+                    epsilon,
+                    B_dot_b,
+                    phi,
+                    evaluate_e_field,
+                )
+            return
+
+        with (
+            ProfileManager.profile_region(self._kernel_region(ker)),
+            self.particles.host_markers(write=True) as args_markers,
+        ):
+            ker(alpha, column_nr, comps, args_markers, self._args_domain, *add_args)
+
     def _push(self, dt: float):
         """Body of :meth:`__call__`, see there."""
 
@@ -754,19 +821,13 @@ class Pusher:
             comps = ker_args[2]
             add_args = ker_args[3]
 
-            # compiled host-only kernel: writes into marker buffer columns
-            with (
-                ProfileManager.profile_region(self._kernel_region(ker)),
-                self.particles.host_markers(write=True) as args_markers,
-            ):
-                ker(
-                    np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                    column_nr,
-                    comps,
-                    args_markers,
-                    self._args_domain,
-                    *add_args,
-                )
+            self._run_marker_column_kernel(
+                ker,
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                column_nr,
+                comps,
+                add_args,
+            )
 
             # update boxes
             if self._box_comm:
@@ -806,19 +867,7 @@ class Pusher:
                         )
 
                     # evaluate
-                    # compiled host-only kernel: writes into marker buffer columns
-                    with (
-                        ProfileManager.profile_region(self._kernel_region(ker)),
-                        self.particles.host_markers(write=True) as args_markers,
-                    ):
-                        ker(
-                            alpha,
-                            column_nr,
-                            comps,
-                            args_markers,
-                            self._args_domain,
-                            *add_args,
-                        )
+                    self._run_marker_column_kernel(ker, alpha, column_nr, comps, add_args)
 
                     # update boxes
                     if self._box_comm:
@@ -1126,6 +1175,32 @@ class Pusher:
                             self._gpu_weights_efield_general_vth,
                             self._gpu_weights_efield_general_kind_map,
                             self._gpu_weights_efield_general_params,
+                            dt,
+                        )
+                elif self._gpu_gc_dg1:
+                    fn = (
+                        push_gc_bxEstar_discrete_gradient_1st_order_gpu
+                        if self._gpu_gc_dg1_name == "push_gc_bxEstar_discrete_gradient_1st_order"
+                        else push_gc_Bstar_discrete_gradient_1st_order_gpu
+                    )
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        fn(
+                            markers,
+                            self.particles.n_cols,
+                            first_pusher_idx,
+                            self.particles.first_shift_idx,
+                            self.particles.residual_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_gc_dg1_mu_idx,
+                            self._gpu_gc_dg1_epsilon,
+                            self._gpu_gc_dg1_pn,
+                            self._gpu_gc_dg1_tn1,
+                            self._gpu_gc_dg1_tn2,
+                            self._gpu_gc_dg1_tn3,
+                            self._gpu_gc_dg1_starts,
+                            self._gpu_gc_dg1_gb,
+                            self._gpu_gc_dg1_ef,
+                            self._gpu_gc_dg1_eval_e,
                             dt,
                         )
                 elif self._gpu_sph_pusher:
