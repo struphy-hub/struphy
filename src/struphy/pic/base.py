@@ -2739,6 +2739,14 @@ class Particles(metaclass=ABCMeta):
                         # TODO: add other velocity components
 
             def _f_init(*etas, flat_eval=False):
+                # etas may come from a host-resident marker property (e.g.
+                # Particles.positions, always NumPy -- see
+                # ISSUE_cupy_particles_never_pushed.md), while self.f0.n0/
+                # _density are generic field-evaluation callables that follow
+                # the active array backend; convert on entry so both callers
+                # that already pass backend-native points (a no-op then) and
+                # ones that pass host marker data work correctly.
+                etas = tuple(_dev(e) for e in etas)
                 if len(etas) == 1:
                     if _density is None:
                         out = self.f0.n0(etas[0])
@@ -2767,6 +2775,8 @@ class Particles(metaclass=ABCMeta):
                 return out
 
             def _u_init(*etas, flat_eval=False):
+                # see _f_init above for why this conversion is needed.
+                etas = tuple(_dev(e) for e in etas)
                 if len(etas) == 1:
                     if _u1 is None:
                         out = self.f0.uv(etas[0])
