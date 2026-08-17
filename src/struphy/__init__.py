@@ -4,6 +4,12 @@ import logging
 import logging.config
 import os
 
+# HDF5's file locking relies on flock(), which is unreliable/unsupported on
+# parallel filesystems such as Lustre or GPFS (common on HPC clusters) and
+# causes spurious `BlockingIOError: Unable to synchronously open file` errors.
+# Disable it unless the user has explicitly configured it.
+os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.utils.mpi_launch import launched_under_mpi
