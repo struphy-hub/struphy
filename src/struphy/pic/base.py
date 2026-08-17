@@ -529,7 +529,6 @@ class Particles(metaclass=ABCMeta):
         # CuPy). The actual mpi4py Alltoall/Isend/Irecv calls further below
         # take host buffers and convert explicitly at that point.
         self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
-        self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
         self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
         self._recvbufs = [None] * self.mpi_size
@@ -675,7 +674,6 @@ class Particles(metaclass=ABCMeta):
         nbytes = 0
         nbytes += n_rows * n_cols * float_size  # markers
         nbytes += n_rows * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
-        nbytes += n_rows * 3 * bool_size  # is_on_proc_domain
         nbytes += n_rows * bool_size  # can_stay
         # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
         nbytes += n_rows * bool_size * 6
@@ -1904,6 +1902,16 @@ class Particles(metaclass=ABCMeta):
         # before sorting, apply kinetic bc
         if apply_bc:
             self.apply_kinetic_bc()
+
+        # With a single MPI rank there is no destination calculation or
+        # communication to perform.  Keep the bookkeeping updates that the
+        # exchange path performs below (boundary conditions may have created
+        # holes), but avoid materialising the O(n_markers) sorting masks and
+        # destination arrays just to discover that every marker stays local.
+        if self.mpi_size == 1:
+            self.update_holes()
+            self._update_ghost_particles()
+            return
 
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = (alpha, alpha, alpha)
@@ -4690,6 +4698,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
     ### MPI comm for domain decomposition ###
 
+    @ProfileManager.profile("_sendrecv_determine_mtbs")
     def _sendrecv_determine_mtbs(
         self,
         alpha: list | tuple | xp.ndarray = (1.0, 1.0, 1.0),
@@ -4727,19 +4736,32 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             out=self._sorting_etas,
         )
 
-        # check which particles are on the current process domain
-        self._is_on_proc_domain = xp.logical_and(
-            self._sorting_etas > self.domain_array_dev[self.mpi_rank, 0::3],
-            self._sorting_etas < self.domain_array_dev[self.mpi_rank, 1::3],
-        )
-
-        # to stay on the current process, all three columns must be True. Elementwise AND
-        # of the 3 columns instead of xp.all(..., axis=1): on CuPy, reducing over a size-3
-        # trailing axis of a multi-million-row array is a poor fit for the "many small
-        # reductions" GPU kernel it dispatches to -- measured ~9x slower than 3 plain
-        # elementwise ANDs for the same (correctness-verified identical) result, and this
-        # was the single largest cost in mpi_sort_markers (about 30% of the whole call).
-        self._can_stay = self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
+        if xp.cupy_backend:
+            # Keep the established CuPy path unchanged for now; its kernel
+            # characteristics differ from NumPy's allocation costs.
+            self._is_on_proc_domain = xp.logical_and(
+                self._sorting_etas > self.domain_array_dev[self.mpi_rank, 0::3],
+                self._sorting_etas < self.domain_array_dev[self.mpi_rank, 1::3],
+            )
+            self._can_stay[:] = (
+                self._is_on_proc_domain[:, 0]
+                & self._is_on_proc_domain[:, 1]
+                & self._is_on_proc_domain[:, 2]
+            )
+        else:
+            # Build only the one-dimensional result needed by the exchange
+            # path; retaining a temporary (n_markers, 3) boolean array adds
+            # another full marker-sized allocation and memory pass on NumPy.
+            bounds = self.domain_array_dev[self.mpi_rank]
+            eta = self._sorting_etas
+            self._can_stay[:] = (
+                (eta[:, 0] > bounds[0])
+                & (eta[:, 0] < bounds[1])
+                & (eta[:, 1] > bounds[3])
+                & (eta[:, 1] < bounds[4])
+                & (eta[:, 2] > bounds[6])
+                & (eta[:, 2] < bounds[7])
+            )
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
@@ -4752,6 +4774,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return hole_inds_after_send, send_inds
 
+    @ProfileManager.profile("_compute_neighbor_ranks")
     def _compute_neighbor_ranks(self) -> tuple[list[int], list[int]]:
         """Split every other rank into geometric neighbours of this rank's sub-domain
         box and everyone else, for :meth:`_sendrecv_get_destinations`.
@@ -4802,6 +4825,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return neighbor_ranks, non_neighbor_ranks
 
+    @ProfileManager.profile("_sendrecv_get_destinations")
     def _sendrecv_get_destinations(self, send_inds):
         """
         Determine to which process particles have to be sent.
@@ -4888,6 +4912,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return send_info
 
+    @ProfileManager.profile("_sendrecv_all_to_all")
     def _sendrecv_all_to_all(self, send_info):
         """
         Distribute info on how many markers will be sent/received to/from each process via all-to-all.
@@ -4909,6 +4934,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return recv_info
 
+    @ProfileManager.profile("_sendrecv_markers")
     def _sendrecv_markers(self, recv_info, hole_inds_after_send):
         """
         Use non-blocking communication. In-place modification of markers
