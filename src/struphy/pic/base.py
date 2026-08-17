@@ -1949,8 +1949,14 @@ class Particles(metaclass=ABCMeta):
         """
 
         # apply boundary conditions
+        if self._remove_axes:
+            # extract the (n_rows, 3) logical coordinates once per contiguous
+            # cache line instead of re-striding into the full row-major
+            # markers array once per axis (see _find_outside_particles)
+            self._eta_bc_buf[:] = self.markers[:, :3]
+
         for axis in self._remove_axes:
-            outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
             if len(outside_inds) == 0:
                 continue
@@ -1961,8 +1967,11 @@ class Particles(metaclass=ABCMeta):
             self._markers[self._is_outside, :-1] = -1.0
             self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
+        if self._periodic_axes:
+            self._eta_bc_buf[:] = self.markers[:, :3]
+
         for axis in self._periodic_axes:
-            outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
             if len(outside_inds) == 0:
                 continue
@@ -1997,8 +2006,11 @@ class Particles(metaclass=ABCMeta):
 
         # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
         outside_inds_per_axis = {}
+        if self._reflect_axes:
+            self._eta_bc_buf[:] = self.markers[:, :3]
+
         for axis in self._reflect_axes:
-            outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
             self.markers[self._is_outside_left, axis] *= -1.0
             self.markers[self._is_outside_right, axis] *= -1.0
@@ -2688,7 +2700,6 @@ class Particles(metaclass=ABCMeta):
         self._holes = xp.zeros(self.n_rows, dtype=bool)
         self._ghost_particles = xp.zeros(self.n_rows, dtype=bool)
         self._valid_mks = xp.zeros(self.n_rows, dtype=bool)
-
         # _is_outside_right/_is_outside_left/_is_outside are views into one
         # buffer, so the three masks stay contiguous for the combined
         # comparison in _find_outside_particles.
@@ -2696,6 +2707,10 @@ class Particles(metaclass=ABCMeta):
         self._is_outside_right = self._is_outside_buf[0]
         self._is_outside_left = self._is_outside_buf[1]
         self._is_outside = self._is_outside_buf[2]
+        # contiguous scratch copy of markers[:, :3], refreshed once per apply_kinetic_bc
+        # boundary-condition-type loop (see there) instead of re-striding into the full
+        # (n_rows, n_cols) row-major marker array once per axis.
+        self._eta_bc_buf = xp.zeros((self.n_rows, 3), dtype=float)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
@@ -3057,7 +3072,7 @@ class Particles(metaclass=ABCMeta):
         )[self.mpi_rank]
         self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
-    def _find_outside_particles(self, axis):
+    def _find_outside_particles(self, axis, eta=None):
         """Find markers whose ``axis``-th logical coordinate lies outside ``[0, 1]``
         (holes and ghost particles are excluded), updating
         :attr:`_is_outside_left`/:attr:`_is_outside_right`/:attr:`_is_outside` accordingly.
@@ -3066,6 +3081,12 @@ class Particles(metaclass=ABCMeta):
         ----------
         axis : int
             Column of the markers array (0, 1 or 2) holding the logical coordinate to check.
+
+        eta : xp.ndarray[float], optional
+            Pre-extracted, contiguous ``(n_rows, 3)`` copy of ``markers[:, :3]`` (see
+            :meth:`apply_kinetic_bc`). If ``None``, reads straight from ``markers`` --
+            correct but slower, since a single-column slice of the row-major ``markers``
+            array is strided (see the comment in :meth:`apply_kinetic_bc`).
 
         Returns
         -------
@@ -3076,7 +3097,7 @@ class Particles(metaclass=ABCMeta):
         # CuPy, with no transfer: markers, the holes/ghost masks and the
         # _is_outside_* views are all allocated with xp (see
         # _allocate_marker_array).
-        col = self.markers[:, axis]
+        col = self.markers[:, axis] if eta is None else eta[:, axis]
         not_hole_or_ghost = ~(self.holes | self.ghost_particles)
 
         xp.greater(col, 1.0, out=self._is_outside_right)
