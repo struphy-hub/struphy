@@ -4296,9 +4296,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # Reducing over a size-3 trailing axis of an array with many rows is slow
         # This is faster
         # Improvement of approximately 10x (both numpy and cupy)
-        self._can_stay = (
-            self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
-        )
+        self._can_stay = self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
