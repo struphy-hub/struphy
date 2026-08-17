@@ -4686,8 +4686,15 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             self._sorting_etas < self.domain_array_dev[self.mpi_rank, 1::3],
         )
 
-        # to stay on the current process, all three columns must be True
-        self._can_stay = xp.all(self._is_on_proc_domain, axis=1)
+        # to stay on the current process, all three columns must be True. Elementwise AND
+        # of the 3 columns instead of xp.all(..., axis=1): on CuPy, reducing over a size-3
+        # trailing axis of a multi-million-row array is a poor fit for the "many small
+        # reductions" GPU kernel it dispatches to -- measured ~9x slower than 3 plain
+        # elementwise ANDs for the same (correctness-verified identical) result, and this
+        # was the single largest cost in mpi_sort_markers (about 30% of the whole call).
+        self._can_stay = (
+            self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
+        )
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
