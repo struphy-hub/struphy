@@ -629,92 +629,93 @@ class Simulation(SimulationBase):
 
         self._remove_existing_output_files()
 
-        # equation paramters
-        self.allocate()
-        with ProfileManager.profile_region("setup: run metadata"):
-            self._write_run_metadata(one_time_step=one_time_step)
+        with ProfileManager.profile_region("setup: total"):
+            # equation paramters
+            self.allocate()
+            with ProfileManager.profile_region("setup: run metadata"):
+                self._write_run_metadata(one_time_step=one_time_step)
 
-        # output
-        with ProfileManager.profile_region("setup: data storage"):
-            self.initialize_data_storage()
+            # output
+            with ProfileManager.profile_region("setup: data storage"):
+                self.initialize_data_storage()
 
-        # peek view into geometry
-        with ProfileManager.profile_region("setup: geometry vtk"):
-            self.save_geometry_and_equil_vtk()
+            # peek view into geometry
+            with ProfileManager.profile_region("setup: geometry vtk"):
+                self.save_geometry_and_equil_vtk()
 
-        # plasma parameters
-        with ProfileManager.profile_region("setup: plasma params"):
-            self.compute_plasma_params()
+            # plasma parameters
+            with ProfileManager.profile_region("setup: plasma params"):
+                self.compute_plasma_params()
 
-        # print info on mpi procs
-        if self.comm_size < 32:
-            if self.derham is not None:
-                logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+            # print info on mpi procs
+            if self.comm_size < 32:
+                if self.derham is not None:
+                    logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+                else:
+                    for _, species in self.model.species.items():
+                        for _, variable in species.variables.items():
+                            if isinstance(variable, (PICVariable, SPHVariable)):
+                                logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
+                                break
+
+            if self.rank < 32:
+                logger.debug("")
+                logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+
+            if self.comm_size > 32 and self.rank == 32:
+                logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
+
+            # retrieve time parameters
+            dt = self.time_opts.dt
+            if one_time_step:
+                Tend = dt
             else:
-                for _, species in self.model.species.items():
-                    for _, variable in species.variables.items():
-                        if isinstance(variable, (PICVariable, SPHVariable)):
-                            logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
-                            break
+                Tend = self.time_opts.Tend
+            split_algo = self.time_opts.split_algo
 
-        if self.rank < 32:
-            logger.debug("")
-            logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+            # set initial conditions for all variables
+            if self.env.restart:
+                with ProfileManager.profile_region("setup: restart"):
+                    self._initialize_from_restart(self.data)
 
-        if self.comm_size > 32 and self.rank == 32:
-            logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
+                with h5py.File(self.data.file_path, "a") as file:
+                    self.time_state["value"][0] = file["restart/time/value"][-1]
+                    self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+                    self.time_state["index"][0] = file["restart/time/index"][-1]
+                    start_step = file["restart/time/index"][-1]
 
-        # retrieve time parameters
-        dt = self.time_opts.dt
-        if one_time_step:
-            Tend = dt
-        else:
-            Tend = self.time_opts.Tend
-        split_algo = self.time_opts.split_algo
-
-        # set initial conditions for all variables
-        if self.env.restart:
-            with ProfileManager.profile_region("setup: restart"):
-                self._initialize_from_restart(self.data)
-
-            with h5py.File(self.data.file_path, "a") as file:
-                self.time_state["value"][0] = file["restart/time/value"][-1]
-                self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
-                self.time_state["index"][0] = file["restart/time/index"][-1]
-                start_step = file["restart/time/index"][-1]
-
-            total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
-            logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
+                logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RESTARTing from:
 self.time_state["value"][0]={float(self.time_state["value"][0])}
 self.time_state["value_sec"][0]={float(self.time_state["value_sec"][0])}
 self.time_state["index"][0]={int(self.time_state["index"][0])}
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 """)
-        else:
-            total_steps = int(round(Tend / dt))
-            start_step = 0
+            else:
+                total_steps = int(round(Tend / dt))
+                start_step = 0
 
-        total_steps_str = str(total_steps)
+            total_steps_str = str(total_steps)
 
-        # compute initial scalars and kinetic data, pass time state to all propagators
-        with ProfileManager.profile_region("setup: initial diagnostics"):
+            # compute initial scalars and kinetic data, pass time state to all propagators
+            with ProfileManager.profile_region("setup: initial diagnostics"):
+                self.model.update_scalar_quantities()
+                self.model.update_markers_to_be_saved()
+                self.model.update_distr_functions()
+                self._add_time_state(self.time_state["value"])
+
+            # add all variables to be saved to data object
+            with ProfileManager.profile_region("setup: hdf5 datasets"):
+                save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
+
+            # ======================== main time loop ======================
             self.model.update_scalar_quantities()
-            self.model.update_markers_to_be_saved()
-            self.model.update_distr_functions()
-            self._add_time_state(self.time_state["value"])
 
-        # add all variables to be saved to data object
-        with ProfileManager.profile_region("setup: hdf5 datasets"):
-            save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
-
-        # ======================== main time loop ======================
-        self.model.update_scalar_quantities()
-
-        if logger.level <= logging.INFO and self.rank == 0:
-            print("\nINITIAL SCALAR QUANTITIES:")
-            self.model.print_scalar_quantities()
-            print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
+            if logger.level <= logging.INFO and self.rank == 0:
+                print("\nINITIAL SCALAR QUANTITIES:")
+                self.model.print_scalar_quantities()
+                print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
         # time loop
         run_time_now = 0.0
