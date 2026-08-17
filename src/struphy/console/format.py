@@ -121,7 +121,7 @@ def check_omp_flags(file_path, verbose=False):
         True if no incorrect OpenMP-like flags (`# $`) are found, False otherwise.
     """
     try:
-        with open(file_path, "r") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             if verbose:
                 for iline, line in enumerate(f):
                     if line.lstrip().startswith("# $"):
@@ -561,7 +561,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
     """
 
     try:
-        with open(json_file_path, "r") as file:
+        with open(json_file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
 
         if not isinstance(data, list):
@@ -817,7 +817,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
                 # Read the file and extract the code snippet
                 if os.path.exists(filename) and row is not None:
-                    with open(filename, "r") as source_file:
+                    with open(filename, "r", encoding="utf-8") as source_file:
                         lines = source_file.readlines()
                         total_lines = len(lines)
                         # Adjust indices for zero-based indexing
@@ -887,7 +887,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         html_content.extend(["</body>", "</html>"])
 
         # Write the HTML content to the output file
-        with open(html_output_path, "w") as html_file:
+        with open(html_output_path, "w", encoding="utf-8") as html_file:
             html_file.write("\n".join(html_content))
 
         print(f"HTML report generated at {html_output_path}")
@@ -1269,7 +1269,7 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                 subprocess.run(command, check=False)
 
             # Loop over each line and replace '# $' with '#$' in place
-            for line in fileinput.input(python_file, inplace=True):
+            for line in fileinput.input(python_file, inplace=True, encoding="utf-8"):
                 if line.lstrip().startswith("# $"):
                     print(line.replace("# $", "#$"), end="")
                 else:
@@ -1302,7 +1302,7 @@ def construct_package_init_file(
     existing_init_path = os.path.join(package_dir, "__init__.py")
     docstring = None
     if os.path.isfile(existing_init_path):
-        with open(existing_init_path, "r") as f:
+        with open(existing_init_path, "r", encoding="utf-8") as f:
             docstring = ast.get_docstring(ast.parse(f.read()), clean=False)
 
     init_content = f'"""{docstring}"""\n\n' if docstring else ""
@@ -1473,12 +1473,12 @@ def struphy_build_init_files(config, verbose, yes=False):
 
     print(f"Rewriting {MODELS_INIT_PATH}")
     models_init = construct_models_init_file()
-    with open(MODELS_INIT_PATH, "w") as f:
+    with open(MODELS_INIT_PATH, "w", encoding="utf-8") as f:
         f.write(models_init)
 
     print(f"Rewriting {PROPAGATORS_INIT_PATH}")
     propagators_init = construct_propagators_init_file()
-    with open(PROPAGATORS_INIT_PATH, "w") as f:
+    with open(PROPAGATORS_INIT_PATH, "w", encoding="utf-8") as f:
         f.write(propagators_init)
 
     python_files = [MODELS_INIT_PATH, PROPAGATORS_INIT_PATH]
