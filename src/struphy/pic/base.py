@@ -1891,10 +1891,15 @@ class Particles(metaclass=ABCMeta):
         remove_ghost : bool
             Remove ghost particles before send.
         """
+        # No self._Barrier() here (there used to be one): _remove_ghost_particles and
+        # apply_kinetic_bc below are both purely local -- neither touches self.mpi_comm
+        # -- so there is no cross-rank dependency for a barrier to protect at this
+        # point. The barrier previously here looks like it was compensating for
+        # _sendrecv_markers not waiting on its Isend requests (see there); now that it
+        # does, buffer reuse across mpi_sort_markers calls is safe without it too (see
+        # the trailing comment at the end of this method).
         if remove_ghost:
             self._remove_ghost_particles()
-
-        self._Barrier()
 
         # before sorting, apply kinetic bc
         if apply_bc:
@@ -1938,7 +1943,13 @@ class Particles(metaclass=ABCMeta):
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
-        self._Barrier()
+        # No trailing self._Barrier() here either (there used to be one): every Isend
+        # and Irecv issued by _sendrecv_markers is now waited on before it returns, so
+        # this rank's send/recv buffers are already safe to overwrite on the next call
+        # without an extra rendezvous. Cross-round message ordering between any given
+        # pair of ranks is additionally guaranteed by MPI itself (non-overtaking
+        # messages for the same source/dest/tag), so a later round's Isend can't be
+        # mistaken for an earlier one even without this barrier.
 
     @profile
     @ProfileManager.profile("apply_kinetic_bc")
@@ -1975,10 +1986,17 @@ class Particles(metaclass=ABCMeta):
         if self._periodic_axes:
             self._eta_bc_buf[:] = self.markers[:, :3]
 
-        if self._periodic_axes:
-            self._eta_bc_buf[:] = self.markers[:, :3]
-
         for axis in self._periodic_axes:
+            # Reverted from a branchless/xp.where + unconditional-elementwise version:
+            # measured on a real 50M-marker GPU run, that version was a net loss -- on
+            # each call only a small fraction of markers are ever actually outside
+            # (holes/ghosts and in-range markers are the overwhelming majority), so the
+            # sparse, index-based writes below plus the early exit (skipping this axis
+            # entirely when nothing is outside) touch far less memory than an
+            # unconditional dense pass over all n_rows markers, even accounting for the
+            # nonzero sync the indices cost. Avoiding a device sync is not free if the
+            # alternative is doing O(n_rows) dense work every call instead of O(outside
+            # markers) sparse work most calls skip entirely.
             outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
             if len(outside_inds) == 0:
@@ -4903,13 +4921,21 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
         first_hole = np.cumsum(recv_info) - recv_info
 
+        # Send requests are waited on below (unlike the previous version, which never
+        # stored or waited on them): otherwise nothing guarantees the send buffer
+        # (self._send_list[i]) is safe to overwrite before the underlying transfer has
+        # actually completed -- MPI is free to defer completing a large Isend until the
+        # receiver posts a matching receive (rendezvous protocol), so a fire-and-forget
+        # Isend is not necessarily done just because this call returns.
+        send_reqs = []
+
         # Initialize send and receive commands
         for i, (data, N_recv) in enumerate(zip(self._send_list, list(recv_info))):
             if i == self.mpi_rank:
                 self._reqs[i] = None
                 self._recvbufs[i] = None
             else:
-                self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank)
+                send_reqs.append(self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank))
 
                 # xp.zeros, not np.zeros: under CuPy this is a device buffer, so mpi4py
                 # receives straight onto the GPU (CUDA-aware BTL/UCX) instead of into host
@@ -4917,29 +4943,29 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 self._recvbufs[i] = xp.zeros((N_recv, self.markers.shape[1]), dtype=float)
                 self._reqs[i] = self.mpi_comm.Irecv(self._recvbufs[i], source=i, tag=i)
 
-        # Wait for buffer, then put markers into holes
-        test_reqs = [False] * (recv_info.size - 1)
-        while len(test_reqs) > 0:
-            # loop over all receive requests
-            for i, req in enumerate(self._reqs):
-                if req is None:
-                    continue
-                else:
-                    # check if data has been received
-                    if req.Test():
-                        if hole_inds_after_send.size < first_hole[i] + recv_info[i]:
-                            warnings.warn(
-                                f'Strong load imbalance detected: \
+        # Block on every receive at once via the MPI library's own wait, instead of a
+        # tight Python-level req.Test() poll loop -- lets the MPI progress engine (not
+        # our interpreter) do the waiting, and avoids repeatedly re-scanning still-
+        # pending requests from Python.
+        recv_ranks = [i for i, req in enumerate(self._reqs) if req is not None]
+        if recv_ranks:
+            MPI.Request.Waitall([self._reqs[i] for i in recv_ranks])
+
+        for i in recv_ranks:
+            if hole_inds_after_send.size < first_hole[i] + recv_info[i]:
+                warnings.warn(
+                    f'Strong load imbalance detected: \
 number of holes ({hole_inds_after_send.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({first_hole[i] + recv_info[i]}). \
 Increasing the value of "bufsize" in the markers parameters for the next run.',
-                            )
-                            self.mpi_comm.Abort()
+                )
+                self.mpi_comm.Abort()
 
-                        self.markers[hole_inds_after_send[first_hole[i] + np.arange(recv_info[i])]] = self._recvbufs[i]
+            self.markers[hole_inds_after_send[first_hole[i] + np.arange(recv_info[i])]] = self._recvbufs[i]
+            self._reqs[i] = None
 
-                        test_reqs.pop()
-                        self._reqs[i] = None
+        if send_reqs:
+            MPI.Request.Waitall(send_reqs)
 
 
 class Tesselation:
