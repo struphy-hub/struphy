@@ -166,7 +166,7 @@ sim = Simulation(
 # Marker count is the knob that decides how particle-dominated (vs. communication-bound)
 # the run is -- see the description for why this file defaults to 10,000,000 rather than
 # params_GuidingCenter.py's 200,000.
-loading_params = LoadingParameters(Np=args.Np if args.Np is not None else 10_000_000)
+loading_params = LoadingParameters(Np=args.Np if args.Np is not None else 50_000_000)
 weights_params = WeightsParameters()
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
