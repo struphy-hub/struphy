@@ -4860,7 +4860,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                     etas_remaining < self.domain_array_dev[i, 1::3],
                 )
 
-                matched_local = xp.nonzero(xp.all(conds, axis=1))[0]
+                # Elementwise AND of the 3 columns instead of xp.all(conds, axis=1):
+                # same fix as _sendrecv_determine_mtbs (measured ~9x faster on CuPy --
+                # reducing over a size-3 trailing axis of a multi-million-row array is a
+                # poor fit for the "many small reductions" GPU kernel it dispatches to).
+                matched_local = xp.nonzero(conds[:, 0] & conds[:, 1] & conds[:, 2])[0]
                 matched = remaining[matched_local]
 
                 self._send_to_i[i] = matched
