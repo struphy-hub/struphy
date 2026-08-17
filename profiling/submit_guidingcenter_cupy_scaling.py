@@ -51,7 +51,7 @@ from profiling_job import ProfilingCase
 # cannot tell the Booster partition apart), and this case must still get the Booster
 # preset. Keying on the detected name also keeps this working, without a KeyError, on a
 # machine detection does not recognise (name None).
-GPU_PRESET = SLURM_PRESETS["pitagora_booster"]
+GPU_PRESET = SLURM_PRESETS["pitagora_boost_fua_dbg"]
 
 # GPUs per node on the Booster partition (the preset requests `gres=gpu:4`). Runs are
 # spread so that no node holds more ranks than it has GPUs, matching the one-GPU-per-rank
@@ -74,8 +74,14 @@ def main() -> None:
         "--ranks",
         type=int,
         nargs="+",
-        default=[1, 2, 4, 8],
+        default=[2, 4, 8],
         help="MPI rank counts to run with, one GPU per rank (default: 1 2 4 8; 8 spans 2 Booster nodes).",
+    )
+    parser.add_argument(
+        "--Np",
+        type=int,
+        default=None,
+        help="Total marker count, overriding params_GuidingCenter_scaling.py's default (50,000,000).",
     )
     args = parser.parse_args()
 
@@ -100,6 +106,10 @@ def main() -> None:
     # under whatever name detection reports for this machine.
     cluster_name = detect_machine_name()
 
+    param_flags = ["--backend", "cupy"]
+    if args.Np is not None:
+        param_flags += ["--Np", str(args.Np)]
+
     # Launch one run per rank count. One node per GPUS_PER_NODE ranks -- `launch` would
     # otherwise derive the node count from `cpus_per_node`, which on a GPU partition packs
     # far more ranks per node than there are GPUs.
@@ -108,7 +118,7 @@ def main() -> None:
         profiling_case.launch(
             num_tasks,
             num_nodes=num_nodes,
-            param_flags=["--backend", "cupy"],
+            param_flags=param_flags,
             slurm_presets={cluster_name: GPU_PRESET},
         )
 

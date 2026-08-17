@@ -69,13 +69,26 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
-    "pitagora_booster": {
+    "pitagora_boost_fua_dbg": {
         # "nodes": 1, # Should be set by ProfilingCase.launch()
         # "ntasks_per_node": 1,  # Should be set by ProfilingCase.launch()
         "cpus_per_task": 16,
         "mem": "480GB",
         "gres": "gpu:4,tmpfs:10g",
         "partition": "boost_fua_dbg",
+        "account": "FUSIO_HLST_6",
+        "output": "myJob_%j.out",
+        "error": "myJob_%j.err",
+        "mail_type": "none",
+        "time": "00:15:00",
+    },
+    "pitagora_boost_fua_prod": {
+        # "nodes": 1, # Should be set by ProfilingCase.launch()
+        # "ntasks_per_node": 1,  # Should be set by ProfilingCase.launch()
+        "cpus_per_task": 16,
+        "mem": "480GB",
+        "gres": "gpu:4,tmpfs:10g",
+        "partition": "boost_fua_prod",
         "account": "FUSIO_HLST_6",
         "output": "myJob_%j.out",
         "error": "myJob_%j.err",
