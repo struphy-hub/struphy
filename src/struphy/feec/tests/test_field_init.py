@@ -213,16 +213,26 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
             )
 
             if isinstance(mhd_equil, FluidEquilibriumWithB):
-                logger.info(
-                    f"{xp.max(xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))}",
-                )
-                assert (
-                    xp.max(
-                        xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids)),
+                absB0_ref = mhd_equil.absB0(*meshgrids)
+                absB0_max = xp.max(xp.abs(absB0_ref))
+                
+                if absB0_max < 1e-11:
+                    # If absB0 is essentially zero, check that the field is also near zero
+                    logger.info(
+                        f"{xp.max(xp.abs(field_0(*meshgrids)))} (absB0 is near zero)",
                     )
-                    / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))
-                    < 0.057
-                )
+                    assert xp.max(xp.abs(field_0(*meshgrids))) < 1e-10
+                else:
+                    logger.info(
+                        f"{xp.max(xp.abs(field_0(*meshgrids) - absB0_ref)) / absB0_max}",
+                    )
+                    assert (
+                        xp.max(
+                            xp.abs(field_0(*meshgrids) - absB0_ref),
+                        )
+                        / absB0_max
+                        < 0.057
+                    )
             logger.info("Scalar asserts passed.")
 
             # vector-valued spaces
