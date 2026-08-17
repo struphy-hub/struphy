@@ -46,8 +46,12 @@ from struphy.pic.pushing.pusher_kernels_cuda import (
 )
 from struphy.pic.pushing.pusher_kernels_gc_cuda import (
     push_gc_Bstar_discrete_gradient_1st_order_gpu,
+    push_gc_Bstar_discrete_gradient_1st_order_newton_gpu,
+    push_gc_Bstar_discrete_gradient_2nd_order_gpu,
     push_gc_Bstar_explicit_multistage_general_gpu,
     push_gc_bxEstar_discrete_gradient_1st_order_gpu,
+    push_gc_bxEstar_discrete_gradient_1st_order_newton_gpu,
+    push_gc_bxEstar_discrete_gradient_2nd_order_gpu,
     push_gc_bxEstar_explicit_multistage_general_gpu,
     push_gc_cc_J1_H1vec_gpu,
     push_gc_cc_J1_Hcurl_gpu,
@@ -710,6 +714,116 @@ class Pusher:
             self._gpu_gc_dg1_gb = (gb1, gb2, gb3)
             self._gpu_gc_dg1_ef = (ef1, ef2, ef3)
             self._gpu_gc_dg1_mu_idx = int(particles.mu_idx)
+
+        # CUDA replacements for the discrete-gradient GC Newton pushers. Each
+        # call is ONE Newton iteration (again per-marker parallel, no domain
+        # Jacobian), reading marker columns filled by driftkinetic_hamiltonian/
+        # grad_driftkinetic_hamiltonian eval_kernels (also CUDA-ported above).
+        self._gpu_gc_dg1_newton = cunumpy.cupy_backend and kernel.name in (
+            "push_gc_bxEstar_discrete_gradient_1st_order_newton",
+            "push_gc_Bstar_discrete_gradient_1st_order_newton",
+        )
+        if self._gpu_gc_dg1_newton:
+            import cupy as cp
+
+            self._gpu_gc_dg1n_name = kernel.name
+            (
+                args_derham,
+                epsilon,
+                gb1,
+                gb2,
+                gb3,
+                B_dot_b,
+                ef1,
+                ef2,
+                ef3,
+                phi,
+                evaluate_e_field,
+            ) = args_kernel[:11]
+            self._gpu_gc_dg1n_epsilon = float(epsilon)
+            self._gpu_gc_dg1n_eval_e = bool(evaluate_e_field)
+            self._gpu_gc_dg1n_pn = tuple(int(x) for x in args_derham.pn)
+            self._gpu_gc_dg1n_starts = tuple(int(x) for x in args_derham.starts)
+            self._gpu_gc_dg1n_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_gc_dg1n_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_gc_dg1n_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_gc_dg1n_gb = (gb1, gb2, gb3)
+            self._gpu_gc_dg1n_bdb = B_dot_b
+            self._gpu_gc_dg1n_ef = (ef1, ef2, ef3)
+            self._gpu_gc_dg1n_phi = phi
+            self._gpu_gc_dg1n_mu_idx = int(particles.mu_idx)
+
+        # CUDA replacements for the Gonzalez discrete-gradient GC pushers
+        # (one Picard iteration per call, evaluated at the midpoint -- needs
+        # DF(eta_mid), so restricted to SUPPORTED_GENERAL_KIND_MAPS like the
+        # other Jacobian-dependent GC kernels).
+        self._gpu_gc_dg2 = (
+            cunumpy.cupy_backend
+            and kernel.name
+            in (
+                "push_gc_bxEstar_discrete_gradient_2nd_order",
+                "push_gc_Bstar_discrete_gradient_2nd_order",
+            )
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_gc_dg2:
+            import cupy as cp
+
+            self._gpu_gc_dg2_name = kernel.name
+            self._gpu_gc_dg2_kind_map = int(args_domain.kind_map)
+            self._gpu_gc_dg2_params = cp.asarray(np.asarray(args_domain.params, dtype=float), dtype=cp.float64)
+            if kernel.name == "push_gc_bxEstar_discrete_gradient_2nd_order":
+                (
+                    args_derham,
+                    epsilon,
+                    ub1,
+                    ub2,
+                    ub3,
+                    gb1,
+                    gb2,
+                    gb3,
+                    B_dot_b,
+                    curl_unit_b_dot_b0,
+                    ef1,
+                    ef2,
+                    ef3,
+                    evaluate_e_field,
+                ) = args_kernel[:14]
+                self._gpu_gc_dg2_unit_b1 = (ub1, ub2, ub3)
+            else:
+                (
+                    args_derham,
+                    epsilon,
+                    gb1,
+                    gb2,
+                    gb3,
+                    b2_1,
+                    b2_2,
+                    b2_3,
+                    cb1,
+                    cb2,
+                    cb3,
+                    B_dot_b,
+                    curl_unit_b_dot_b0,
+                    ef1,
+                    ef2,
+                    ef3,
+                    evaluate_e_field,
+                ) = args_kernel[:17]
+                self._gpu_gc_dg2_b2 = (b2_1, b2_2, b2_3)
+                self._gpu_gc_dg2_curl_unit_b2 = (cb1, cb2, cb3)
+            self._gpu_gc_dg2_epsilon = float(epsilon)
+            self._gpu_gc_dg2_eval_e = bool(evaluate_e_field)
+            self._gpu_gc_dg2_pn = tuple(int(x) for x in args_derham.pn)
+            self._gpu_gc_dg2_starts = tuple(int(x) for x in args_derham.starts)
+            self._gpu_gc_dg2_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_gc_dg2_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_gc_dg2_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            self._gpu_gc_dg2_gb = (gb1, gb2, gb3)
+            self._gpu_gc_dg2_bdb = B_dot_b
+            self._gpu_gc_dg2_cub = curl_unit_b_dot_b0
+            self._gpu_gc_dg2_ef = (ef1, ef2, ef3)
+            self._gpu_gc_dg2_mu_idx = int(particles.mu_idx)
 
         # CUDA replacements for push_gc_cc_J1_{H1vec,Hcurl,Hdiv} (velocity
         # update of CurrentCoupling5DCurlb). Single-stage (dt only, `stage`
@@ -1399,6 +1513,84 @@ class Pusher:
                             self._gpu_gc_dg1_eval_e,
                             dt,
                         )
+                elif self._gpu_gc_dg1_newton:
+                    fn = (
+                        push_gc_bxEstar_discrete_gradient_1st_order_newton_gpu
+                        if self._gpu_gc_dg1n_name == "push_gc_bxEstar_discrete_gradient_1st_order_newton"
+                        else push_gc_Bstar_discrete_gradient_1st_order_newton_gpu
+                    )
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        fn(
+                            markers,
+                            first_pusher_idx,
+                            self.particles.first_shift_idx,
+                            self.particles.residual_idx,
+                            self.particles.first_free_idx,
+                            self._gpu_gc_dg1n_mu_idx,
+                            self._gpu_gc_dg1n_epsilon,
+                            self._gpu_gc_dg1n_pn,
+                            self._gpu_gc_dg1n_tn1,
+                            self._gpu_gc_dg1n_tn2,
+                            self._gpu_gc_dg1n_tn3,
+                            self._gpu_gc_dg1n_starts,
+                            self._gpu_gc_dg1n_gb,
+                            self._gpu_gc_dg1n_bdb,
+                            self._gpu_gc_dg1n_ef,
+                            self._gpu_gc_dg1n_phi,
+                            self._gpu_gc_dg1n_eval_e,
+                            dt,
+                        )
+                elif self._gpu_gc_dg2:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        if self._gpu_gc_dg2_name == "push_gc_bxEstar_discrete_gradient_2nd_order":
+                            push_gc_bxEstar_discrete_gradient_2nd_order_gpu(
+                                markers,
+                                first_pusher_idx,
+                                self.particles.first_shift_idx,
+                                self.particles.residual_idx,
+                                self.particles.first_free_idx,
+                                self._gpu_gc_dg2_mu_idx,
+                                self._gpu_gc_dg2_kind_map,
+                                self._gpu_gc_dg2_params,
+                                self._gpu_gc_dg2_epsilon,
+                                self._gpu_gc_dg2_pn,
+                                self._gpu_gc_dg2_tn1,
+                                self._gpu_gc_dg2_tn2,
+                                self._gpu_gc_dg2_tn3,
+                                self._gpu_gc_dg2_starts,
+                                self._gpu_gc_dg2_unit_b1,
+                                self._gpu_gc_dg2_gb,
+                                self._gpu_gc_dg2_bdb,
+                                self._gpu_gc_dg2_cub,
+                                self._gpu_gc_dg2_ef,
+                                self._gpu_gc_dg2_eval_e,
+                                dt,
+                            )
+                        else:
+                            push_gc_Bstar_discrete_gradient_2nd_order_gpu(
+                                markers,
+                                first_pusher_idx,
+                                self.particles.first_shift_idx,
+                                self.particles.residual_idx,
+                                self.particles.first_free_idx,
+                                self._gpu_gc_dg2_mu_idx,
+                                self._gpu_gc_dg2_kind_map,
+                                self._gpu_gc_dg2_params,
+                                self._gpu_gc_dg2_epsilon,
+                                self._gpu_gc_dg2_pn,
+                                self._gpu_gc_dg2_tn1,
+                                self._gpu_gc_dg2_tn2,
+                                self._gpu_gc_dg2_tn3,
+                                self._gpu_gc_dg2_starts,
+                                self._gpu_gc_dg2_gb,
+                                self._gpu_gc_dg2_b2,
+                                self._gpu_gc_dg2_curl_unit_b2,
+                                self._gpu_gc_dg2_bdb,
+                                self._gpu_gc_dg2_cub,
+                                self._gpu_gc_dg2_ef,
+                                self._gpu_gc_dg2_eval_e,
+                                dt,
+                            )
                 elif self._gpu_gc_cc_j1:
                     fn = {
                         "push_gc_cc_J1_H1vec": push_gc_cc_J1_H1vec_gpu,

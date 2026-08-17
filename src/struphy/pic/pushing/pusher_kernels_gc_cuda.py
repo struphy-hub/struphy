@@ -1639,3 +1639,674 @@ def push_gc_cc_J2_dg_Hdiv_gpu(
             *d(ud[0]), *d(ud[1]), *d(ud[2]),
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# push_gc_bxEstar_discrete_gradient_1st_order_newton /
+# push_gc_Bstar_discrete_gradient_1st_order_newton: one Newton iteration
+# (per marker, so per-marker parallel like the non-Newton 1st_order variants
+# above) for the Itoh-Abe discrete-gradient guiding-centre pushers. Unlike
+# the *_1st_order Picard kernels, these read a richer set of pre-evaluated
+# marker columns (the Hamiltonian and its gradient at several points along
+# the coordinate axes, written by driftkinetic_hamiltonian/
+# grad_driftkinetic_hamiltonian eval_kernels -- both already CUDA-ported
+# above) and solve one 3x3 (bxEstar) or 4x4 (Bstar, via Schur complement of
+# its [[I,B],[C,1]] block structure) Newton step in closed form; no domain
+# Jacobian is needed. Purely marker-local, no shared per-marker helper beyond
+# what's already in _GENERAL_GEOMETRY_SRC.
+# ---------------------------------------------------------------------------
+
+_DG_NEWTON_SRC = r"""
+extern "C" __global__
+void push_gc_bxEstar_discrete_gradient_1st_order_newton_cuda(
+    double* markers, const int n_cols, const int n_markers,
+    const int first_init_idx, const int first_shift_idx,
+    const int residual_idx, const int first_free_idx, const int mu_idx,
+    const double epsilon,
+    const int p1, const int p2, const int p3,
+    const double* tn1, const int len_tn1,
+    const double* tn2, const int len_tn2,
+    const double* tn3, const int len_tn3,
+    const int start0, const int start1, const int start2,
+    const double* gb1, const int g1_n2, const int g1_n3,
+    const double* gb2, const int g2_n2, const int g2_n3,
+    const double* gb3, const int g3_n2, const int g3_n3,
+    const double* bdb, const int bdb_n2, const int bdb_n3,
+    const double* ef1, const int e1_n2, const int e1_n3,
+    const double* ef2, const int e2_n2, const int e2_n3,
+    const double* ef3, const int e3_n2, const int e3_n3,
+    const double* phi, const int p_n2, const int p_n3,
+    const int evaluate_e_field, const double dt)
+{
+    int ip = blockIdx.x * blockDim.x + threadIdx.x;
+    if (ip >= n_markers) return;
+
+    double* row = markers + (size_t)ip * n_cols;
+    if (row[first_init_idx] == -1.0) return;
+
+    double eta_k[3], eta_diff[3];
+    for (int k = 0; k < 3; k++) {
+        const double eta_k_shifted = row[k] + row[first_shift_idx + k];
+        eta_k[k] = row[k];
+        eta_diff[k] = eta_k_shifted - row[first_init_idx + k];
+    }
+    const double v = row[3];
+    const double mu = row[mu_idx];
+
+    const double H_n = row[first_free_idx];
+    const double b_star_parallel = row[first_free_idx + 1];
+    const double unit_b1[3] = {row[first_free_idx + 2], row[first_free_idx + 3], row[first_free_idx + 4]};
+    const double H_k1 = row[first_free_idx + 5];
+    const double H_k12 = row[first_free_idx + 6];
+    const double grad_H_1 = row[first_free_idx + 7];
+    const double grad_H_12[2] = {row[first_free_idx + 8], row[first_free_idx + 9]};
+
+    const int span1 = find_span_dev(tn1, p1, len_tn1, eta_k[0]);
+    const int span2 = find_span_dev(tn2, p2, len_tn2, eta_k[1]);
+    const int span3 = find_span_dev(tn3, p3, len_tn3, eta_k[2]);
+    double bn1[MAXP+1], bd1[MAXP];
+    double bn2[MAXP+1], bd2[MAXP];
+    double bn3[MAXP+1], bd3[MAXP];
+    b_d_splines_dev(tn1, p1, eta_k[0], span1, bn1, bd1);
+    b_d_splines_dev(tn2, p2, eta_k[1], span2, bn2, bd2);
+    b_d_splines_dev(tn3, p3, eta_k[2], span3, bn3, bd3);
+
+    double phi_val = 0.0;
+    if (evaluate_e_field) {
+        phi_val = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+            start0, start1, start2, phi, p_n2, p_n3);
+    }
+    const double B_dot_b = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+        start0, start1, start2, bdb, bdb_n2, bdb_n3);
+    const double H_k = epsilon * v * v / 2.0 + epsilon * mu * B_dot_b + phi_val;
+
+    double grad_H[3];
+    eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+        gb1,g1_n2,g1_n3, gb2,g2_n2,g2_n3, gb3,g3_n2,g3_n3, grad_H);
+    for (int k = 0; k < 3; k++) grad_H[k] *= epsilon * mu;
+
+    if (evaluate_e_field) {
+        double e_field[3];
+        eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+            ef1,e1_n2,e1_n3, ef2,e2_n2,e2_n3, ef3,e3_n2,e3_n3, e_field);
+        for (int k = 0; k < 3; k++) grad_H[k] -= e_field[k];
+    }
+
+    double grad_I[3];
+    grad_I[0] = (eta_diff[0] == 0.0) ? grad_H[0] : (H_k1 - H_n) / eta_diff[0];
+    grad_I[1] = (eta_diff[1] == 0.0) ? grad_H[1] : (H_k12 - H_k1) / eta_diff[1];
+    grad_I[2] = (eta_diff[2] == 0.0) ? grad_H[2] : (H_k - H_k12) / eta_diff[2];
+
+    double bcross_mat[9] = {
+        0.0, -unit_b1[2], unit_b1[1],
+        unit_b1[2], 0.0, -unit_b1[0],
+        -unit_b1[1], unit_b1[0], 0.0};
+    for (int k = 0; k < 9; k++) bcross_mat[k] /= b_star_parallel;
+
+    double func[3];
+    matvec_dev(bcross_mat, grad_I, func);
+    for (int k = 0; k < 3; k++) func[k] = eta_diff[k] - dt * func[k];
+
+    double Ddg[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    if (eta_diff[0] != 0.0) Ddg[0] = (grad_H_1 * eta_diff[0] - (H_k1 - H_n)) / (eta_diff[0] * eta_diff[0]);
+    if (eta_diff[1] != 0.0) {
+        Ddg[4] = (grad_H_12[1] * eta_diff[1] - (H_k12 - H_k1)) / (eta_diff[1] * eta_diff[1]);
+        Ddg[3] = (grad_H_12[0] - grad_H_1) / eta_diff[1];
+    }
+    if (eta_diff[2] != 0.0) {
+        Ddg[8] = (grad_H[2] * eta_diff[2] - (H_k - H_k12)) / (eta_diff[2] * eta_diff[2]);
+        Ddg[6] = (grad_H[0] - grad_H_12[0]) / eta_diff[2];
+        Ddg[7] = (grad_H[1] - grad_H_12[1]) / eta_diff[2];
+    }
+
+    double Dfunc[9];
+    matmat_dev(bcross_mat, Ddg, Dfunc);
+    for (int k = 0; k < 9; k++) Dfunc[k] *= -dt;
+    Dfunc[0] += 1.0; Dfunc[4] += 1.0; Dfunc[8] += 1.0;
+
+    double Dfunc_inv[9], k_vec[3];
+    matrix_inv_dev(Dfunc, Dfunc_inv);
+    matvec_dev(Dfunc_inv, func, k_vec);
+
+    row[0] -= k_vec[0];
+    row[1] -= k_vec[1];
+    row[2] -= k_vec[2];
+
+    row[residual_idx] = sqrt(k_vec[0]*k_vec[0] + k_vec[1]*k_vec[1] + k_vec[2]*k_vec[2]);
+}
+
+extern "C" __global__
+void push_gc_Bstar_discrete_gradient_1st_order_newton_cuda(
+    double* markers, const int n_cols, const int n_markers,
+    const int first_init_idx, const int first_shift_idx,
+    const int residual_idx, const int first_free_idx, const int mu_idx,
+    const double epsilon,
+    const int p1, const int p2, const int p3,
+    const double* tn1, const int len_tn1,
+    const double* tn2, const int len_tn2,
+    const double* tn3, const int len_tn3,
+    const int start0, const int start1, const int start2,
+    const double* gb1, const int g1_n2, const int g1_n3,
+    const double* gb2, const int g2_n2, const int g2_n3,
+    const double* gb3, const int g3_n2, const int g3_n3,
+    const double* bdb, const int bdb_n2, const int bdb_n3,
+    const double* ef1, const int e1_n2, const int e1_n3,
+    const double* ef2, const int e2_n2, const int e2_n3,
+    const double* ef3, const int e3_n2, const int e3_n3,
+    const double* phi, const int p_n2, const int p_n3,
+    const int evaluate_e_field, const double dt)
+{
+    int ip = blockIdx.x * blockDim.x + threadIdx.x;
+    if (ip >= n_markers) return;
+
+    double* row = markers + (size_t)ip * n_cols;
+    if (row[first_init_idx] == -1.0) return;
+
+    double eta_k[3], eta_diff[3];
+    for (int k = 0; k < 3; k++) {
+        const double eta_k_shifted = row[k] + row[first_shift_idx + k];
+        eta_k[k] = row[k];
+        eta_diff[k] = eta_k_shifted - row[first_init_idx + k];
+    }
+    const double v_k = row[3];
+    const double v_n = row[first_init_idx + 3];
+    const double v_diff = v_k - v_n;
+    const double mu = row[mu_idx];
+
+    const double H_n = row[first_free_idx];
+    const double b_star_parallel = epsilon * row[first_free_idx + 1];
+    const double b_star[3] = {row[first_free_idx + 2], row[first_free_idx + 3], row[first_free_idx + 4]};
+    const double H_k1 = row[first_free_idx + 5];
+    const double H_k12 = row[first_free_idx + 6];
+    const double grad_H_1 = row[first_free_idx + 7];
+    const double grad_H_12[2] = {row[first_free_idx + 8], row[first_free_idx + 9]};
+
+    const int span1 = find_span_dev(tn1, p1, len_tn1, eta_k[0]);
+    const int span2 = find_span_dev(tn2, p2, len_tn2, eta_k[1]);
+    const int span3 = find_span_dev(tn3, p3, len_tn3, eta_k[2]);
+    double bn1[MAXP+1], bd1[MAXP];
+    double bn2[MAXP+1], bd2[MAXP];
+    double bn3[MAXP+1], bd3[MAXP];
+    b_d_splines_dev(tn1, p1, eta_k[0], span1, bn1, bd1);
+    b_d_splines_dev(tn2, p2, eta_k[1], span2, bn2, bd2);
+    b_d_splines_dev(tn3, p3, eta_k[2], span3, bn3, bd3);
+
+    double phi_val = 0.0;
+    if (evaluate_e_field) {
+        phi_val = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+            start0, start1, start2, phi, p_n2, p_n3);
+    }
+    const double B_dot_b = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+        start0, start1, start2, bdb, bdb_n2, bdb_n3);
+    const double H_k = epsilon * v_k * v_k / 2.0 + epsilon * mu * B_dot_b + phi_val;
+    const double H_k123 = epsilon * v_n * v_n / 2.0 + epsilon * mu * B_dot_b + phi_val;
+
+    double grad_H[3];
+    eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+        gb1,g1_n2,g1_n3, gb2,g2_n2,g2_n3, gb3,g3_n2,g3_n3, grad_H);
+    for (int k = 0; k < 3; k++) grad_H[k] *= epsilon * mu;
+
+    if (evaluate_e_field) {
+        double e_field[3];
+        eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+            ef1,e1_n2,e1_n3, ef2,e2_n2,e2_n3, ef3,e3_n2,e3_n3, e_field);
+        for (int k = 0; k < 3; k++) grad_H[k] -= e_field[k];
+    }
+
+    const double grad_H_v = epsilon * v_k;
+
+    double grad_I[3];
+    grad_I[0] = (eta_diff[0] == 0.0) ? grad_H[0] : (H_k1 - H_n) / eta_diff[0];
+    grad_I[1] = (eta_diff[1] == 0.0) ? grad_H[1] : (H_k12 - H_k1) / eta_diff[1];
+    grad_I[2] = (eta_diff[2] == 0.0) ? grad_H[2] : (H_k123 - H_k12) / eta_diff[2];
+    const double grad_I_v = (v_diff == 0.0) ? grad_H_v : (H_k - H_k123) / v_diff;
+
+    double J_vec[3];
+    for (int k = 0; k < 3; k++) J_vec[k] = b_star[k] / b_star_parallel;
+
+    double func[3];
+    for (int k = 0; k < 3; k++) func[k] = eta_diff[k] - dt * (J_vec[k] * grad_I_v);
+    double func_v = v_diff + dt * dot3_dev(J_vec, grad_I);
+
+    double Ddg[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    if (eta_diff[0] != 0.0) Ddg[0] = (grad_H_1 * eta_diff[0] - (H_k1 - H_n)) / (eta_diff[0] * eta_diff[0]);
+    if (eta_diff[1] != 0.0) {
+        Ddg[4] = (grad_H_12[1] * eta_diff[1] - (H_k12 - H_k1)) / (eta_diff[1] * eta_diff[1]);
+        Ddg[3] = (grad_H_12[0] - grad_H_1) / eta_diff[1];
+    }
+    if (eta_diff[2] != 0.0) {
+        Ddg[8] = (grad_H[2] * eta_diff[2] - (H_k123 - H_k12)) / (eta_diff[2] * eta_diff[2]);
+        Ddg[6] = (grad_H[0] - grad_H_12[0]) / eta_diff[2];
+        Ddg[7] = (grad_H[1] - grad_H_12[1]) / eta_diff[2];
+    }
+    const double Ddg_v = (v_diff == 0.0) ? 0.0 : (grad_H_v * v_diff - (H_k - H_k123)) / (v_diff * v_diff);
+
+    // DF = [[I, B], [C^T, 1]], B = -dt*Ddg_v*J_vec, C = dt*Ddg^T @ J_vec
+    double Bv[3], Cv[3];
+    for (int k = 0; k < 3; k++) Bv[k] = -dt * Ddg_v * J_vec[k];
+    double DdgT[9] = {Ddg[0], Ddg[3], Ddg[6], Ddg[1], Ddg[4], Ddg[7], Ddg[2], Ddg[5], Ddg[8]};
+    matvec_dev(DdgT, J_vec, Cv);
+    for (int k = 0; k < 3; k++) Cv[k] *= dt;
+
+    const double schur = 1.0 - dot3_dev(Cv, Bv);
+
+    double A_inv[9];
+    A_inv[0] = Bv[0]*Cv[0]; A_inv[1] = Bv[0]*Cv[1]; A_inv[2] = Bv[0]*Cv[2];
+    A_inv[3] = Bv[1]*Cv[0]; A_inv[4] = Bv[1]*Cv[1]; A_inv[5] = Bv[1]*Cv[2];
+    A_inv[6] = Bv[2]*Cv[0]; A_inv[7] = Bv[2]*Cv[1]; A_inv[8] = Bv[2]*Cv[2];
+    for (int k = 0; k < 9; k++) A_inv[k] /= schur;
+    A_inv[0] += 1.0; A_inv[4] += 1.0; A_inv[8] += 1.0;
+
+    double Binv[3], Cinv[3];
+    for (int k = 0; k < 3; k++) { Binv[k] = -Bv[k] / schur; Cinv[k] = -Cv[k] / schur; }
+
+    double k_vec[3];
+    matvec_dev(A_inv, func, k_vec);
+    for (int k = 0; k < 3; k++) k_vec[k] += Binv[k] * func_v;
+    double k_v = dot3_dev(Cinv, func) + func_v / schur;
+
+    row[0] -= k_vec[0];
+    row[1] -= k_vec[1];
+    row[2] -= k_vec[2];
+    row[3] -= k_v;
+
+    row[residual_idx] = sqrt(k_vec[0]*k_vec[0] + k_vec[1]*k_vec[1] + k_vec[2]*k_vec[2] + (k_v/v_k)*(k_v/v_k));
+}
+"""
+
+_dg_newton_kernels = {}
+
+
+def _get_dg_newton_kernel(name):
+    if name not in _dg_newton_kernels:
+        import cupy as cp
+
+        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+        _dg_newton_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _DG_NEWTON_SRC, name)
+    return _dg_newton_kernels[name]
+
+
+def _dg_newton_launch(
+    name, markers, first_init_idx, first_shift_idx, residual_idx, first_free_idx,
+    mu_idx, epsilon, pn, tn1_dev, tn2_dev, tn3_dev, starts,
+    grad_b_full, B_dot_b_coeffs, e_field, phi_coeffs, evaluate_e_field, dt,
+):
+    import cupy as cp
+    import numpy as np
+
+    n_markers = markers.shape[0]
+    threads = 256
+    blocks = (n_markers + threads - 1) // threads
+
+    def d(a):
+        a = cp.ascontiguousarray(a)
+        return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
+
+    _get_dg_newton_kernel(name)(
+        (blocks,),
+        (threads,),
+        (
+            markers, np.int32(markers.shape[1]), np.int32(n_markers),
+            np.int32(first_init_idx), np.int32(first_shift_idx),
+            np.int32(residual_idx), np.int32(first_free_idx), np.int32(mu_idx),
+            np.float64(epsilon),
+            np.int32(pn[0]), np.int32(pn[1]), np.int32(pn[2]),
+            tn1_dev, np.int32(tn1_dev.shape[0]),
+            tn2_dev, np.int32(tn2_dev.shape[0]),
+            tn3_dev, np.int32(tn3_dev.shape[0]),
+            np.int32(starts[0]), np.int32(starts[1]), np.int32(starts[2]),
+            *d(grad_b_full[0]), *d(grad_b_full[1]), *d(grad_b_full[2]),
+            *d(B_dot_b_coeffs),
+            *d(e_field[0]), *d(e_field[1]), *d(e_field[2]),
+            *d(phi_coeffs),
+            np.int32(bool(evaluate_e_field)), np.float64(dt),
+        ),
+    )
+
+
+def push_gc_bxEstar_discrete_gradient_1st_order_newton_gpu(*args, **kwargs):
+    """GPU replacement for one Newton iteration of
+    :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`."""
+    _dg_newton_launch("push_gc_bxEstar_discrete_gradient_1st_order_newton_cuda", *args, **kwargs)
+
+
+def push_gc_Bstar_discrete_gradient_1st_order_newton_gpu(*args, **kwargs):
+    """GPU replacement for one Newton iteration of
+    :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton`."""
+    _dg_newton_launch("push_gc_Bstar_discrete_gradient_1st_order_newton_cuda", *args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# push_gc_bxEstar_discrete_gradient_2nd_order /
+# push_gc_Bstar_discrete_gradient_2nd_order: one Picard iteration (per
+# marker, so per-marker parallel like the *_1st_order variants) of the
+# Gonzalez discrete-gradient guiding-centre pushers -- unlike *_1st_order_newton
+# this evaluates fields at the midpoint eta_mid = mod((eta_k+eta_n)/2, 1) and
+# needs the domain Jacobian there (df_dispatch_dev/det3_dev), and only reads
+# 2 pre-evaluated marker columns (H_n, H_k) instead of the Itoh-Abe set.
+# ---------------------------------------------------------------------------
+
+_DG_2ND_ORDER_SRC = r"""
+extern "C" __global__
+void push_gc_bxEstar_discrete_gradient_2nd_order_cuda(
+    double* markers, const int n_cols, const int n_markers,
+    const int first_init_idx, const int first_shift_idx,
+    const int residual_idx, const int first_free_idx, const int mu_idx,
+    const int kind_map, const double* params,
+    const double epsilon,
+    const int p1, const int p2, const int p3,
+    const double* tn1, const int len_tn1,
+    const double* tn2, const int len_tn2,
+    const double* tn3, const int len_tn3,
+    const int start0, const int start1, const int start2,
+    const double* ub1, const int u1_n2, const int u1_n3,
+    const double* ub2, const int u2_n2, const int u2_n3,
+    const double* ub3, const int u3_n2, const int u3_n3,
+    const double* gb1, const int g1_n2, const int g1_n3,
+    const double* gb2, const int g2_n2, const int g2_n3,
+    const double* gb3, const int g3_n2, const int g3_n3,
+    const double* bdb, const int bdb_n2, const int bdb_n3,
+    const double* cub, const int cub_n2, const int cub_n3,
+    const double* ef1, const int e1_n2, const int e1_n3,
+    const double* ef2, const int e2_n2, const int e2_n3,
+    const double* ef3, const int e3_n2, const int e3_n3,
+    const int evaluate_e_field, const double dt)
+{
+    int ip = blockIdx.x * blockDim.x + threadIdx.x;
+    if (ip >= n_markers) return;
+
+    double* row = markers + (size_t)ip * n_cols;
+    if (row[first_init_idx] == -1.0) return;
+
+    double eta_k[3], eta_n[3], eta_mid[3], eta_diff[3];
+    for (int k = 0; k < 3; k++) {
+        eta_k[k] = row[k] + row[first_shift_idx + k];
+        eta_n[k] = row[first_init_idx + k];
+        double m = fmod((eta_k[k] + eta_n[k]) / 2.0, 1.0);
+        if (m < 0.0) m += 1.0;
+        eta_mid[k] = m;
+        eta_diff[k] = eta_k[k] - eta_n[k];
+    }
+    const double v = row[3];
+    const double mu = row[mu_idx];
+
+    const double H_n = row[first_free_idx];
+    const double H_k = row[first_free_idx + 1];
+
+    double dfm[9];
+    if (!df_dispatch_dev(kind_map, eta_mid[0], eta_mid[1], eta_mid[2], params, dfm)) return;
+    const double det_df = det3_dev(dfm);
+
+    const int span1 = find_span_dev(tn1, p1, len_tn1, eta_mid[0]);
+    const int span2 = find_span_dev(tn2, p2, len_tn2, eta_mid[1]);
+    const int span3 = find_span_dev(tn3, p3, len_tn3, eta_mid[2]);
+    double bn1[MAXP+1], bd1[MAXP];
+    double bn2[MAXP+1], bd2[MAXP];
+    double bn3[MAXP+1], bd3[MAXP];
+    b_d_splines_dev(tn1, p1, eta_mid[0], span1, bn1, bd1);
+    b_d_splines_dev(tn2, p2, eta_mid[1], span2, bn2, bd2);
+    b_d_splines_dev(tn3, p3, eta_mid[2], span3, bn3, bd3);
+
+    double unit_b1[3];
+    eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+        ub1,u1_n2,u1_n3, ub2,u2_n2,u2_n3, ub3,u3_n2,u3_n3, unit_b1);
+
+    double grad_H[3];
+    eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+        gb1,g1_n2,g1_n3, gb2,g2_n2,g2_n3, gb3,g3_n2,g3_n3, grad_H);
+    for (int k = 0; k < 3; k++) grad_H[k] *= epsilon * mu;
+
+    if (evaluate_e_field) {
+        double e_field[3];
+        eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+            ef1,e1_n2,e1_n3, ef2,e2_n2,e2_n3, ef3,e3_n2,e3_n3, e_field);
+        for (int k = 0; k < 3; k++) grad_H[k] -= e_field[k];
+    }
+
+    const double dZ_dot_grad_H = dot3_dev(eta_diff, grad_H);
+    const double dZ_squared = dot3_dev(eta_diff, eta_diff);
+
+    double grad_I[3];
+    if (dZ_squared == 0.0) {
+        for (int k = 0; k < 3; k++) grad_I[k] = grad_H[k];
+    } else {
+        const double s = (H_k - H_n - dZ_dot_grad_H) / dZ_squared;
+        for (int k = 0; k < 3; k++) grad_I[k] = grad_H[k] + eta_diff[k] * s;
+    }
+
+    const double B_dot_b = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+        start0, start1, start2, bdb, bdb_n2, bdb_n3);
+    double b_star_parallel = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+        start0, start1, start2, cub, cub_n2, cub_n3);
+    b_star_parallel = (b_star_parallel * epsilon * v + B_dot_b) * det_df;
+
+    double Exb[3];
+    cross_dev(unit_b1, grad_I, Exb);
+
+    double k_vec[3];
+    for (int k = 0; k < 3; k++) k_vec[k] = Exb[k] / b_star_parallel;
+
+    row[0] = eta_n[0] + dt * k_vec[0];
+    row[1] = eta_n[1] + dt * k_vec[1];
+    row[2] = eta_n[2] + dt * k_vec[2];
+
+    const double r0 = row[0] - eta_k[0], r1 = row[1] - eta_k[1], r2 = row[2] - eta_k[2];
+    row[residual_idx] = sqrt(r0*r0 + r1*r1 + r2*r2);
+}
+
+extern "C" __global__
+void push_gc_Bstar_discrete_gradient_2nd_order_cuda(
+    double* markers, const int n_cols, const int n_markers,
+    const int first_init_idx, const int first_shift_idx,
+    const int residual_idx, const int first_free_idx, const int mu_idx,
+    const int kind_map, const double* params,
+    const double epsilon,
+    const int p1, const int p2, const int p3,
+    const double* tn1, const int len_tn1,
+    const double* tn2, const int len_tn2,
+    const double* tn3, const int len_tn3,
+    const int start0, const int start1, const int start2,
+    const double* gb1, const int g1_n2, const int g1_n3,
+    const double* gb2, const int g2_n2, const int g2_n3,
+    const double* gb3, const int g3_n2, const int g3_n3,
+    const double* b2_1, const int b1_n2, const int b1_n3,
+    const double* b2_2, const int b2_n2, const int b2_n3,
+    const double* b2_3, const int b3_n2, const int b3_n3,
+    const double* cb1, const int c1_n2, const int c1_n3,
+    const double* cb2, const int c2_n2, const int c2_n3,
+    const double* cb3, const int c3_n2, const int c3_n3,
+    const double* bdb, const int bdb_n2, const int bdb_n3,
+    const double* cub, const int cub_n2, const int cub_n3,
+    const double* ef1, const int e1_n2, const int e1_n3,
+    const double* ef2, const int e2_n2, const int e2_n3,
+    const double* ef3, const int e3_n2, const int e3_n3,
+    const int evaluate_e_field, const double dt)
+{
+    int ip = blockIdx.x * blockDim.x + threadIdx.x;
+    if (ip >= n_markers) return;
+
+    double* row = markers + (size_t)ip * n_cols;
+    if (row[first_init_idx] == -1.0) return;
+
+    double eta_k[3], eta_n[3], eta_mid[3], eta_diff[3];
+    for (int k = 0; k < 3; k++) {
+        eta_k[k] = row[k] + row[first_shift_idx + k];
+        eta_n[k] = row[first_init_idx + k];
+        double m = fmod((eta_k[k] + eta_n[k]) / 2.0, 1.0);
+        if (m < 0.0) m += 1.0;
+        eta_mid[k] = m;
+        eta_diff[k] = eta_k[k] - eta_n[k];
+    }
+    const double v_k = row[3];
+    const double v_n = row[first_init_idx + 3];
+    const double v_mid = (v_k + v_n) / 2.0;
+    const double v_diff = v_k - v_n;
+    const double mu = row[mu_idx];
+
+    const double H_n = row[first_free_idx];
+    const double H_k = row[first_free_idx + 1];
+
+    double dfm[9];
+    if (!df_dispatch_dev(kind_map, eta_mid[0], eta_mid[1], eta_mid[2], params, dfm)) return;
+    const double det_df = det3_dev(dfm);
+
+    const int span1 = find_span_dev(tn1, p1, len_tn1, eta_mid[0]);
+    const int span2 = find_span_dev(tn2, p2, len_tn2, eta_mid[1]);
+    const int span3 = find_span_dev(tn3, p3, len_tn3, eta_mid[2]);
+    double bn1[MAXP+1], bd1[MAXP];
+    double bn2[MAXP+1], bd2[MAXP];
+    double bn3[MAXP+1], bd3[MAXP];
+    b_d_splines_dev(tn1, p1, eta_mid[0], span1, bn1, bd1);
+    b_d_splines_dev(tn2, p2, eta_mid[1], span2, bn2, bd2);
+    b_d_splines_dev(tn3, p3, eta_mid[2], span3, bn3, bd3);
+
+    double grad_H[3];
+    eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+        gb1,g1_n2,g1_n3, gb2,g2_n2,g2_n3, gb3,g3_n2,g3_n3, grad_H);
+    for (int k = 0; k < 3; k++) grad_H[k] *= epsilon * mu;
+
+    if (evaluate_e_field) {
+        double e_field[3];
+        eval_1form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+            ef1,e1_n2,e1_n3, ef2,e2_n2,e2_n3, ef3,e3_n2,e3_n3, e_field);
+        for (int k = 0; k < 3; k++) grad_H[k] -= e_field[k];
+    }
+
+    const double grad_H_v = epsilon * v_mid;
+    const double dZ_dot_grad_H = dot3_dev(eta_diff, grad_H) + v_diff * grad_H_v;
+    const double dZ_squared = dot3_dev(eta_diff, eta_diff) + v_diff * v_diff;
+
+    double grad_I[3];
+    double grad_I_v;
+    if (dZ_squared == 0.0) {
+        for (int k = 0; k < 3; k++) grad_I[k] = grad_H[k];
+        grad_I_v = grad_H_v;
+    } else {
+        const double s = (H_k - H_n - dZ_dot_grad_H) / dZ_squared;
+        for (int k = 0; k < 3; k++) grad_I[k] = grad_H[k] + eta_diff[k] * s;
+        grad_I_v = grad_H_v + v_diff * s;
+    }
+
+    double b2[3], b_star[3];
+    eval_2form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+        b2_1,b1_n2,b1_n3, b2_2,b2_n2,b2_n3, b2_3,b3_n2,b3_n3, b2);
+    eval_2form_dev(p1,p2,p3, bn1,bd1,bn2,bd2,bn3,bd3, span1,span2,span3, start0,start1,start2,
+        cb1,c1_n2,c1_n3, cb2,c2_n2,c2_n3, cb3,c3_n2,c3_n3, b_star);
+    for (int k = 0; k < 3; k++) b_star[k] = b_star[k] * epsilon * v_mid + b2[k];
+
+    const double B_dot_b = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+        start0, start1, start2, bdb, bdb_n2, bdb_n3);
+    double b_star_parallel = eval_0form_dev(p1, p2, p3, bn1, bn2, bn3, span1, span2, span3,
+        start0, start1, start2, cub, cub_n2, cub_n3);
+    b_star_parallel = (b_star_parallel * epsilon * v_mid + B_dot_b) * epsilon * det_df;
+
+    double k_vec[3];
+    for (int k = 0; k < 3; k++) k_vec[k] = b_star[k] / b_star_parallel * grad_I_v;
+    const double k_v = -dot3_dev(b_star, grad_I) / b_star_parallel;
+
+    row[0] = eta_n[0] + dt * k_vec[0];
+    row[1] = eta_n[1] + dt * k_vec[1];
+    row[2] = eta_n[2] + dt * k_vec[2];
+    row[3] = v_n + dt * k_v;
+
+    const double r0 = row[0] - eta_k[0], r1 = row[1] - eta_k[1], r2 = row[2] - eta_k[2];
+    const double rv = (row[3] - v_k) / v_k;
+    row[residual_idx] = sqrt(r0*r0 + r1*r1 + r2*r2 + rv*rv);
+}
+"""
+
+_dg_2nd_order_kernels = {}
+
+
+def _get_dg_2nd_order_kernel(name):
+    if name not in _dg_2nd_order_kernels:
+        import cupy as cp
+
+        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+        _dg_2nd_order_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _DG_2ND_ORDER_SRC, name)
+    return _dg_2nd_order_kernels[name]
+
+
+def push_gc_bxEstar_discrete_gradient_2nd_order_gpu(
+    markers, first_init_idx, first_shift_idx, residual_idx, first_free_idx, mu_idx,
+    kind_map, params_dev, epsilon, pn, tn1_dev, tn2_dev, tn3_dev, starts,
+    unit_b1, grad_b_full, B_dot_b_coeffs, curl_unit_b_dot_b0, e_field, evaluate_e_field, dt,
+):
+    """GPU replacement for one Picard iteration of
+    :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`."""
+    import cupy as cp
+    import numpy as np
+
+    n_markers = markers.shape[0]
+    threads = 256
+    blocks = (n_markers + threads - 1) // threads
+
+    def d(a):
+        a = cp.ascontiguousarray(a)
+        return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
+
+    _get_dg_2nd_order_kernel("push_gc_bxEstar_discrete_gradient_2nd_order_cuda")(
+        (blocks,),
+        (threads,),
+        (
+            markers, np.int32(markers.shape[1]), np.int32(n_markers),
+            np.int32(first_init_idx), np.int32(first_shift_idx),
+            np.int32(residual_idx), np.int32(first_free_idx), np.int32(mu_idx),
+            np.int32(kind_map), params_dev,
+            np.float64(epsilon),
+            np.int32(pn[0]), np.int32(pn[1]), np.int32(pn[2]),
+            tn1_dev, np.int32(tn1_dev.shape[0]),
+            tn2_dev, np.int32(tn2_dev.shape[0]),
+            tn3_dev, np.int32(tn3_dev.shape[0]),
+            np.int32(starts[0]), np.int32(starts[1]), np.int32(starts[2]),
+            *d(unit_b1[0]), *d(unit_b1[1]), *d(unit_b1[2]),
+            *d(grad_b_full[0]), *d(grad_b_full[1]), *d(grad_b_full[2]),
+            *d(B_dot_b_coeffs), *d(curl_unit_b_dot_b0),
+            *d(e_field[0]), *d(e_field[1]), *d(e_field[2]),
+            np.int32(bool(evaluate_e_field)), np.float64(dt),
+        ),
+    )
+
+
+def push_gc_Bstar_discrete_gradient_2nd_order_gpu(
+    markers, first_init_idx, first_shift_idx, residual_idx, first_free_idx, mu_idx,
+    kind_map, params_dev, epsilon, pn, tn1_dev, tn2_dev, tn3_dev, starts,
+    grad_b_full, b2, curl_unit_b2, B_dot_b_coeffs, curl_unit_b_dot_b0, e_field, evaluate_e_field, dt,
+):
+    """GPU replacement for one Picard iteration of
+    :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`."""
+    import cupy as cp
+    import numpy as np
+
+    n_markers = markers.shape[0]
+    threads = 256
+    blocks = (n_markers + threads - 1) // threads
+
+    def d(a):
+        a = cp.ascontiguousarray(a)
+        return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
+
+    _get_dg_2nd_order_kernel("push_gc_Bstar_discrete_gradient_2nd_order_cuda")(
+        (blocks,),
+        (threads,),
+        (
+            markers, np.int32(markers.shape[1]), np.int32(n_markers),
+            np.int32(first_init_idx), np.int32(first_shift_idx),
+            np.int32(residual_idx), np.int32(first_free_idx), np.int32(mu_idx),
+            np.int32(kind_map), params_dev,
+            np.float64(epsilon),
+            np.int32(pn[0]), np.int32(pn[1]), np.int32(pn[2]),
+            tn1_dev, np.int32(tn1_dev.shape[0]),
+            tn2_dev, np.int32(tn2_dev.shape[0]),
+            tn3_dev, np.int32(tn3_dev.shape[0]),
+            np.int32(starts[0]), np.int32(starts[1]), np.int32(starts[2]),
+            *d(grad_b_full[0]), *d(grad_b_full[1]), *d(grad_b_full[2]),
+            *d(b2[0]), *d(b2[1]), *d(b2[2]),
+            *d(curl_unit_b2[0]), *d(curl_unit_b2[1]), *d(curl_unit_b2[2]),
+            *d(B_dot_b_coeffs), *d(curl_unit_b_dot_b0),
+            *d(e_field[0]), *d(e_field[1]), *d(e_field[2]),
+            np.int32(bool(evaluate_e_field)), np.float64(dt),
+        ),
+    )
