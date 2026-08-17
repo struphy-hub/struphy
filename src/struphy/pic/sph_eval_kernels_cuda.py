@@ -524,3 +524,270 @@ def box_based_evaluation_meshgrid_gpu(
         out[:] = dev_out
     else:
         dev_out.get(out=out)
+
+
+# ---------------------------------------------------------------------------
+# naive_evaluation_flat / naive_evaluation_meshgrid: the O(N) reference
+# implementation of the SPH kernel-density sum above (sums over every marker
+# instead of the 27 neighbouring boxes), used only for testing/verification
+# per the CPU docstring -- not a hot loop, so like box_based_evaluation_*
+# this round-trips its (host-resident) inputs through the device once per
+# call rather than caching device buffers. Reuses distance_dev/
+# smoothing_kernel_dev from _SPH_EVAL_FLAT_SRC above; unlike the box-based
+# kernels the result is divided by Np, matching
+# :func:`~struphy.pic.sph_eval_kernels.naive_evaluation_kernel`.
+# ---------------------------------------------------------------------------
+
+_SPH_EVAL_NAIVE_SRC = r"""
+extern "C" __global__
+void naive_evaluation_flat_cuda(
+    const double* markers,
+    const int n_cols,
+    const int n_markers,
+    const double Np,
+    const double* eta1,
+    const double* eta2,
+    const double* eta3,
+    const int n_eval,
+    const int* holes,
+    const int periodic1,
+    const int periodic2,
+    const int periodic3,
+    const int index,
+    const int kernel_type,
+    const double h1,
+    const double h2,
+    const double h3,
+    double* out)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n_eval) return;
+
+    double e1 = eta1[i], e2 = eta2[i], e3 = eta3[i];
+
+    double acc = 0.0;
+    for (int p = 0; p < n_markers; p++) {
+        if (!holes[p]) {
+            double r1 = distance_dev(e1, markers[(size_t)p * n_cols + 0], (bool)periodic1);
+            double r2 = distance_dev(e2, markers[(size_t)p * n_cols + 1], (bool)periodic2);
+            double r3 = distance_dev(e3, markers[(size_t)p * n_cols + 2], (bool)periodic3);
+            acc += markers[(size_t)p * n_cols + index]
+                 * smoothing_kernel_dev(kernel_type, r1, r2, r3, h1, h2, h3);
+        }
+    }
+    out[i] = acc / Np;
+}
+
+extern "C" __global__
+void naive_evaluation_meshgrid_cuda(
+    const double* markers,
+    const int n_cols,
+    const int n_markers,
+    const double Np,
+    const double* eta1,
+    const double* eta2,
+    const double* eta3,
+    const int n1_eval,
+    const int n2_eval,
+    const int n3_eval,
+    const int* holes,
+    const int periodic1,
+    const int periodic2,
+    const int periodic3,
+    const int index,
+    const int kernel_type,
+    const double h1,
+    const double h2,
+    const double h3,
+    double* out)
+{
+    size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    size_t n_total = (size_t)n1_eval * n2_eval * n3_eval;
+    if (idx >= n_total) return;
+
+    int i = idx / ((size_t)n2_eval * n3_eval);
+    int rem = idx % ((size_t)n2_eval * n3_eval);
+    int j = rem / n3_eval;
+    int k = rem % n3_eval;
+
+    double e1 = eta1[i], e2 = eta2[j], e3 = eta3[k];
+
+    double acc = 0.0;
+    for (int p = 0; p < n_markers; p++) {
+        if (!holes[p]) {
+            double r1 = distance_dev(e1, markers[(size_t)p * n_cols + 0], (bool)periodic1);
+            double r2 = distance_dev(e2, markers[(size_t)p * n_cols + 1], (bool)periodic2);
+            double r3 = distance_dev(e3, markers[(size_t)p * n_cols + 2], (bool)periodic3);
+            acc += markers[(size_t)p * n_cols + index]
+                 * smoothing_kernel_dev(kernel_type, r1, r2, r3, h1, h2, h3);
+        }
+    }
+    out[idx] = acc / Np;
+}
+"""
+
+_naive_evaluation_flat_kernel = None
+_naive_evaluation_meshgrid_kernel = None
+
+
+def _get_naive_flat_kernel():
+    global _naive_evaluation_flat_kernel
+    if _naive_evaluation_flat_kernel is None:
+        import cupy as cp
+
+        _naive_evaluation_flat_kernel = cp.RawKernel(
+            _SPH_EVAL_FLAT_SRC + _SPH_EVAL_NAIVE_SRC, "naive_evaluation_flat_cuda"
+        )
+    return _naive_evaluation_flat_kernel
+
+
+def _get_naive_meshgrid_kernel():
+    global _naive_evaluation_meshgrid_kernel
+    if _naive_evaluation_meshgrid_kernel is None:
+        import cupy as cp
+
+        _naive_evaluation_meshgrid_kernel = cp.RawKernel(
+            _SPH_EVAL_FLAT_SRC + _SPH_EVAL_NAIVE_SRC, "naive_evaluation_meshgrid_cuda"
+        )
+    return _naive_evaluation_meshgrid_kernel
+
+
+def naive_evaluation_flat_gpu(
+    markers,
+    Np: float,
+    eta1,
+    eta2,
+    eta3,
+    holes,
+    periodic1: bool,
+    periodic2: bool,
+    periodic3: bool,
+    index: int,
+    kernel_type: int,
+    h1: float,
+    h2: float,
+    h3: float,
+    out,
+):
+    """GPU replacement for one call of
+    :func:`~struphy.pic.sph_eval_kernels.naive_evaluation_flat`."""
+    import cupy as cp
+    import numpy as np
+
+    kernel = _get_naive_flat_kernel()
+    n_cols = markers.shape[1]
+    n_markers = markers.shape[0]
+    n_eval = eta1.shape[0]
+
+    dev_markers = cp.asarray(markers)
+    dev_eta1 = cp.ascontiguousarray(eta1, dtype=cp.float64)
+    dev_eta2 = cp.ascontiguousarray(eta2, dtype=cp.float64)
+    dev_eta3 = cp.ascontiguousarray(eta3, dtype=cp.float64)
+    dev_holes = cp.asarray(holes, dtype=cp.int32)
+    dev_out = cp.zeros(n_eval, dtype=cp.float64)
+
+    threads = 256
+    blocks = (n_eval + threads - 1) // threads
+    kernel(
+        (blocks,),
+        (threads,),
+        (
+            dev_markers,
+            np.int32(n_cols),
+            np.int32(n_markers),
+            np.float64(Np),
+            dev_eta1,
+            dev_eta2,
+            dev_eta3,
+            np.int32(n_eval),
+            dev_holes,
+            np.int32(1 if periodic1 else 0),
+            np.int32(1 if periodic2 else 0),
+            np.int32(1 if periodic3 else 0),
+            np.int32(index),
+            np.int32(kernel_type),
+            np.float64(h1),
+            np.float64(h2),
+            np.float64(h3),
+            dev_out,
+        ),
+    )
+    if isinstance(out, cp.ndarray):
+        out[:] = dev_out
+    else:
+        dev_out.get(out=out)
+
+
+def naive_evaluation_meshgrid_gpu(
+    markers,
+    Np: float,
+    eta1,
+    eta2,
+    eta3,
+    holes,
+    periodic1: bool,
+    periodic2: bool,
+    periodic3: bool,
+    index: int,
+    kernel_type: int,
+    h1: float,
+    h2: float,
+    h3: float,
+    out,
+):
+    """GPU replacement for one call of
+    :func:`~struphy.pic.sph_eval_kernels.naive_evaluation_meshgrid`.
+
+    Like :func:`box_based_evaluation_meshgrid_gpu`, ``eta1``/``eta2``/``eta3``
+    are the 3 distinct 1-D axis vectors of the meshgrid, not the broadcast
+    arrays -- the CPU kernel this ports only ever reads
+    ``eta1[i,0,0]``/``eta2[0,j,0]``/``eta3[0,0,k]``.
+    """
+    import cupy as cp
+    import numpy as np
+
+    kernel = _get_naive_meshgrid_kernel()
+    n_cols = markers.shape[1]
+    n_markers = markers.shape[0]
+    n1_eval, n2_eval, n3_eval = eta1.shape[0], eta2.shape[1], eta3.shape[2]
+
+    dev_markers = cp.asarray(markers)
+    dev_eta1 = cp.ascontiguousarray(eta1[:, 0, 0], dtype=cp.float64)
+    dev_eta2 = cp.ascontiguousarray(eta2[0, :, 0], dtype=cp.float64)
+    dev_eta3 = cp.ascontiguousarray(eta3[0, 0, :], dtype=cp.float64)
+    dev_holes = cp.asarray(holes, dtype=cp.int32)
+    dev_out = cp.zeros((n1_eval, n2_eval, n3_eval), dtype=cp.float64)
+
+    threads = 256
+    n_total = n1_eval * n2_eval * n3_eval
+    blocks = (n_total + threads - 1) // threads
+    kernel(
+        (blocks,),
+        (threads,),
+        (
+            dev_markers,
+            np.int32(n_cols),
+            np.int32(n_markers),
+            np.float64(Np),
+            dev_eta1,
+            dev_eta2,
+            dev_eta3,
+            np.int32(n1_eval),
+            np.int32(n2_eval),
+            np.int32(n3_eval),
+            dev_holes,
+            np.int32(1 if periodic1 else 0),
+            np.int32(1 if periodic2 else 0),
+            np.int32(1 if periodic3 else 0),
+            np.int32(index),
+            np.int32(kernel_type),
+            np.float64(h1),
+            np.float64(h2),
+            np.float64(h3),
+            dev_out,
+        ),
+    )
+    if isinstance(out, cp.ndarray):
+        out[:] = dev_out
+    else:
+        dev_out.get(out=out)
