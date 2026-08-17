@@ -73,6 +73,8 @@ from struphy.pic.sph_eval_kernels import (
 from struphy.pic.sph_eval_kernels_cuda import (
     box_based_evaluation_flat_gpu,
     box_based_evaluation_meshgrid_gpu,
+    naive_evaluation_flat_gpu,
+    naive_evaluation_meshgrid_gpu,
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
@@ -4594,13 +4596,13 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 h3,
                 out,
             )
-        else:
-            if len(_shp) == 1:
-                func = PyccelKernel(naive_evaluation_flat)
-            elif len(_shp) == 3:
-                func = PyccelKernel(naive_evaluation_meshgrid)
-            func(
-                self.args_markers,
+        elif xp.cupy_backend and len(_shp) in (1, 3):
+            # CUDA replacement for naive_evaluation_flat/_meshgrid: one
+            # thread per evaluation point, see sph_eval_kernels_cuda.
+            gpu_func = naive_evaluation_flat_gpu if len(_shp) == 1 else naive_evaluation_meshgrid_gpu
+            gpu_func(
+                self.markers,
+                float(self.Np),
                 eta1,
                 eta2,
                 eta3,
@@ -4615,6 +4617,28 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 h3,
                 out,
             )
+        else:
+            if len(_shp) == 1:
+                func = PyccelKernel(naive_evaluation_flat)
+            elif len(_shp) == 3:
+                func = PyccelKernel(naive_evaluation_meshgrid)
+            with self.host_markers(write=False) as args_markers:
+                func(
+                    args_markers,
+                    eta1,
+                    eta2,
+                    eta3,
+                    self.holes,
+                    periodic1,
+                    periodic2,
+                    periodic3,
+                    index,
+                    ker_id,
+                    h1,
+                    h2,
+                    h3,
+                    out,
+                )
         return out
 
     ### MPI comm for domain decomposition ###

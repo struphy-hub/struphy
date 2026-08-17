@@ -11,7 +11,18 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.pic.pushing.eval_kernels_gc_cuda import driftkinetic_hamiltonian_gpu
+from struphy.pic.pushing.eval_kernels_gc_cuda import (
+    bstar_2form_gpu,
+    bstar_parallel_3form_gpu,
+    driftkinetic_hamiltonian_gpu,
+    grad_driftkinetic_hamiltonian_gpu,
+    unit_b_1form_gpu,
+)
+from struphy.pic.pushing.eval_kernels_sph_cuda import (
+    sph_mean_velocity_coeffs_gpu,
+    sph_pressure_coeffs_gpu,
+    sph_viscosity_tensor_gpu,
+)
 from struphy.pic.pushing.pusher_kernels_cuda import (
     SUPPORTED_GENERAL_KIND_MAPS,
     push_bxu_H1vec_general_gpu,
@@ -837,6 +848,127 @@ class Pusher:
                     B_dot_b,
                     phi,
                     evaluate_e_field,
+                )
+            return
+
+        if cunumpy.cupy_backend and name == "grad_driftkinetic_hamiltonian":
+            args_derham, epsilon, gb1, gb2, gb3, ef1, ef2, ef3, evaluate_e_field = add_args[:9]
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                grad_driftkinetic_hamiltonian_gpu(
+                    self.particles.markers,
+                    alpha,
+                    column_nr,
+                    comps,
+                    self.particles.first_pusher_idx,
+                    self.particles.first_shift_idx,
+                    self.particles.mu_idx,
+                    args_derham,
+                    epsilon,
+                    (gb1, gb2, gb3),
+                    (ef1, ef2, ef3),
+                    evaluate_e_field,
+                )
+            return
+
+        if (
+            cunumpy.cupy_backend
+            and name == "bstar_parallel_3form"
+            and self._args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        ):
+            import cupy as cp
+            import numpy as np
+
+            args_derham, epsilon, B_dot_b_coeffs, curl_unit_b_dot_b0_coeffs = add_args[:4]
+            if not hasattr(self, "_gpu_marker_col_params_dev"):
+                self._gpu_marker_col_kind_map = int(self._args_domain.kind_map)
+                self._gpu_marker_col_params_dev = cp.asarray(
+                    np.asarray(self._args_domain.params, dtype=float), dtype=cp.float64
+                )
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                bstar_parallel_3form_gpu(
+                    self.particles.markers,
+                    alpha,
+                    column_nr,
+                    self.particles.first_pusher_idx,
+                    self.particles.first_shift_idx,
+                    self._gpu_marker_col_kind_map,
+                    self._gpu_marker_col_params_dev,
+                    args_derham,
+                    epsilon,
+                    B_dot_b_coeffs,
+                    curl_unit_b_dot_b0_coeffs,
+                )
+            return
+
+        if cunumpy.cupy_backend and name == "bstar_2form":
+            args_derham, epsilon, b1, b2, b3, cb1, cb2, cb3 = add_args[:8]
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                bstar_2form_gpu(
+                    self.particles.markers,
+                    alpha,
+                    column_nr,
+                    comps,
+                    self.particles.first_pusher_idx,
+                    self.particles.first_shift_idx,
+                    args_derham,
+                    epsilon,
+                    (b1, b2, b3),
+                    (cb1, cb2, cb3),
+                )
+            return
+
+        if cunumpy.cupy_backend and name == "unit_b_1form":
+            args_derham, ub1, ub2, ub3 = add_args[:4]
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                unit_b_1form_gpu(
+                    self.particles.markers,
+                    alpha,
+                    column_nr,
+                    comps,
+                    self.particles.first_pusher_idx,
+                    self.particles.first_shift_idx,
+                    args_derham,
+                    (ub1, ub2, ub3),
+                )
+            return
+
+        if cunumpy.cupy_backend and name == "sph_pressure_coeffs":
+            boxes, neighbours, holes, p1, p2, p3, kernel_type, h1, h2, h3 = add_args[:10]
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                sph_pressure_coeffs_gpu(
+                    self.particles.markers,
+                    self.particles.valid_mks,
+                    column_nr,
+                    self.particles.index["weights"],
+                    boxes, neighbours, holes,
+                    (p1, p2, p3), kernel_type, (h1, h2, h3),
+                )
+            return
+
+        if cunumpy.cupy_backend and name == "sph_mean_velocity_coeffs":
+            boxes, neighbours, holes, p1, p2, p3, kernel_type, h1, h2, h3 = add_args[:10]
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                sph_mean_velocity_coeffs_gpu(
+                    self.particles.markers,
+                    self.particles.valid_mks,
+                    column_nr,
+                    self.particles.index["weights"],
+                    boxes, neighbours, holes,
+                    (p1, p2, p3), kernel_type, (h1, h2, h3),
+                )
+            return
+
+        if cunumpy.cupy_backend and name == "sph_viscosity_tensor":
+            boxes, neighbours, holes, p1, p2, p3, kernel_type, h1, h2, h3, mu = add_args[:11]
+            with ProfileManager.profile_region(self._kernel_region(ker) + " [cuda]"):
+                sph_viscosity_tensor_gpu(
+                    self.particles.markers,
+                    self.particles.valid_mks,
+                    column_nr,
+                    self.particles.index["weights"],
+                    self.particles.first_free_idx,
+                    boxes, neighbours, holes,
+                    (p1, p2, p3), kernel_type, (h1, h2, h3), mu,
                 )
             return
 
