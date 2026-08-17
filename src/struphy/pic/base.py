@@ -4713,9 +4713,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # reductions" GPU kernel it dispatches to -- measured ~9x slower than 3 plain
         # elementwise ANDs for the same (correctness-verified identical) result, and this
         # was the single largest cost in mpi_sort_markers (about 30% of the whole call).
-        self._can_stay = (
-            self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
-        )
+        self._can_stay = self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
