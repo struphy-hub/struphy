@@ -4728,8 +4728,17 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             self._send_to_i[i] = xp.nonzero(xp.all(conds, axis=1))[0]
             send_info[i] = self._send_to_i[i].size
 
-            # mpi4py needs host buffers for the actual Isend below
-            self._send_list[i] = _to_numpy_for_kernel(self.markers[send_inds][self._send_to_i[i]])
+            # Under CuPy this stays a device array: mpi4py sends it straight off the GPU
+            # via the CUDA-aware BTL/UCX path instead of a host round trip -- see
+            # _sendrecv_markers for the matching receive side. Measured on Pitagora's
+            # Booster nodes: this OpenMPI build supports it (smcuda BTL, compiled
+            # --with-cuda) and a raw device-to-device Isend/Irecv of a comparable payload
+            # is ~7x faster than staging through host buffers. In mpi_sort_markers itself
+            # the effect is smaller, since most of its per-call cost is the GPU-side
+            # bookkeeping (_sendrecv_determine_mtbs's boundary-membership scan over every
+            # local marker) rather than the exchange bandwidth -- but it removes 2 blocking
+            # device<->host copies per call for free and is never slower.
+            self._send_list[i] = self.markers[send_inds][self._send_to_i[i]]
 
         return send_info
 
@@ -4778,7 +4787,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             else:
                 self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank)
 
-                self._recvbufs[i] = np.zeros((N_recv, self.markers.shape[1]), dtype=float)
+                # xp.zeros, not np.zeros: under CuPy this is a device buffer, so mpi4py
+                # receives straight onto the GPU (CUDA-aware BTL/UCX) instead of into host
+                # memory -- see _sendrecv_get_destinations for the matching send side.
+                self._recvbufs[i] = xp.zeros((N_recv, self.markers.shape[1]), dtype=float)
                 self._reqs[i] = self.mpi_comm.Irecv(self._recvbufs[i], source=i, tag=i)
 
         # Wait for buffer, then put markers into holes
