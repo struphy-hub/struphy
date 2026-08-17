@@ -4729,12 +4729,24 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         assert alpha.size == 3
         assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        xp.mod(
-            alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
-            + (1.0 - alpha) * self.markers[:, bi : bi + 3],
-            1.0,
-            out=self._sorting_etas,
-        )
+        _y = alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3]) + (
+            1.0 - alpha
+        ) * self.markers[:, bi : bi + 3]
+
+        # y - floor(y), not xp.mod(y, 1.0): mathematically identical for a modulus of 1
+        # (verified bit-for-bit equal), but xp.mod dispatches to a true floating-point
+        # remainder (fmod-like). On NumPy that fmod path is ~15x slower than plain
+        # floor+subtract (313k x 3: ~15ms vs ~1ms), making this single line the
+        # dominant cost of the whole function before this fix. On CuPy it is the other
+        # way around: cp.mod is one fused kernel launch, while floor+subtract is two,
+        # and kernel-launch overhead dominates at this array size (~0.07ms vs ~0.17ms)
+        # -- so this is backend-conditional rather than a universal fix. xp.floor
+        # (unlike xp.subtract/xp.mod) does not accept out= in the array-api-compat
+        # wrapper, so the NumPy path gets its own temporary for it.
+        if xp.cupy_backend:
+            xp.mod(_y, 1.0, out=self._sorting_etas)
+        else:
+            xp.subtract(_y, xp.floor(_y), out=self._sorting_etas)
 
         if xp.cupy_backend:
             # Keep the established CuPy path unchanged for now; its kernel
@@ -4843,10 +4855,14 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # One entry for each process
         send_info = np.zeros(self.mpi_size, dtype=int)
 
-        # Gathered once and reused for every rank below, instead of re-gathering
-        # self.markers[send_inds] and self._sorting_etas[send_inds] fresh on every
-        # iteration of the rank loop (as the previous version did).
-        candidates = self.markers[send_inds]
+        # etas_to_send is gathered once and reused for every rank below (cheap: 3
+        # columns wide). The full marker payload is deliberately NOT gathered into a
+        # "candidates" intermediate here: that would gather all of send_inds' rows
+        # (every column) once, only to re-gather a subset of that copy per matched
+        # rank below -- two gather passes moving comparable total data. Composing the
+        # index instead (self.markers[send_inds[matched]] per rank, below) does the
+        # same total row selection in one gather pass per rank instead of two overall
+        # -- measured ~30% faster for this function on NumPy at Np=1e6/4 ranks.
         etas_to_send = self._sorting_etas[send_inds]
 
         # Reset every rank's send buffer to empty first. The neighbour/non-neighbour
@@ -4856,7 +4872,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # non-empty buffer from a previous call (send/recv size would then disagree
         # with send_info, which is always correct since it defaults to 0 above).
         empty_local = xp.empty(0, dtype=int)
-        empty_rows = candidates[:0]
+        empty_rows = self._markers[:0]
         for i in range(self.mpi_size):
             self._send_to_i[i] = empty_local
             self._send_list[i] = empty_rows
@@ -4869,6 +4885,14 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # everyone (a marker moved further than one sub-domain this step), the leftover
         # few are checked against every other rank in the second pass, so this changes
         # only how many ranks get checked in the common case, not correctness.
+        # A batched, per-pass variant of this loop (one broadcasted compare + one
+        # argsort per pass instead of one xp.nonzero per rank) was tried here to cut
+        # CuPy device syncs from O(n_group) to O(1) per pass. Measured net loss on
+        # BOTH backends at mpi_size=4 (NumPy: no sync cost to amortize against the
+        # extra broadcast memory traffic; CuPy: too few ranks per group -- 3 here --
+        # for the eliminated syncs to outweigh the broadcast/argsort/searchsorted
+        # overhead). Might still win at much larger rank counts (more neighbours per
+        # group), but not re-added without measuring that regime first.
         remaining = xp.arange(send_inds.shape[0])
         for rank_group in (self._neighbor_ranks, self._non_neighbor_ranks):
             if remaining.size == 0:
@@ -4877,34 +4901,16 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             etas_remaining = etas_to_send[remaining]
             still_remaining = xp.ones(remaining.shape[0], dtype=bool)
             for i in rank_group:
-                # domain_array_dev, not domain_array: under CuPy this stays a device
-                # array, avoiding a host round trip on every rank checked here.
                 conds = xp.logical_and(
                     etas_remaining > self.domain_array_dev[i, 0::3],
                     etas_remaining < self.domain_array_dev[i, 1::3],
                 )
-
-                # Elementwise AND of the 3 columns instead of xp.all(conds, axis=1):
-                # same fix as _sendrecv_determine_mtbs (measured ~9x faster on CuPy --
-                # reducing over a size-3 trailing axis of a multi-million-row array is a
-                # poor fit for the "many small reductions" GPU kernel it dispatches to).
                 matched_local = xp.nonzero(conds[:, 0] & conds[:, 1] & conds[:, 2])[0]
                 matched = remaining[matched_local]
 
                 self._send_to_i[i] = matched
                 send_info[i] = matched.size
-
-                # Under CuPy this stays a device array: mpi4py sends it straight off the
-                # GPU via the CUDA-aware BTL/UCX path instead of a host round trip -- see
-                # _sendrecv_markers for the matching receive side. Measured on Pitagora's
-                # Booster nodes: this OpenMPI build supports it (smcuda BTL, compiled
-                # --with-cuda) and a raw device-to-device Isend/Irecv of a comparable
-                # payload is ~7x faster than staging through host buffers. In
-                # mpi_sort_markers itself the effect is smaller, since most of its
-                # per-call cost is the GPU-side bookkeeping rather than the exchange
-                # bandwidth -- but it removes 2 blocking device<->host copies per call
-                # for free and is never slower.
-                self._send_list[i] = candidates[matched]
+                self._send_list[i] = self._markers[send_inds[matched]]
 
                 still_remaining[matched_local] = False
 
@@ -4967,10 +4973,14 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             else:
                 send_reqs.append(self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank))
 
-                # xp.zeros, not np.zeros: under CuPy this is a device buffer, so mpi4py
-                # receives straight onto the GPU (CUDA-aware BTL/UCX) instead of into host
-                # memory -- see _sendrecv_get_destinations for the matching send side.
-                self._recvbufs[i] = xp.zeros((N_recv, self.markers.shape[1]), dtype=float)
+                # xp.empty, not xp.zeros: Irecv below overwrites the buffer completely
+                # (exactly N_recv rows, matching what the sender sent -- see the
+                # send/recv size cross-check in _sendrecv_get_destinations/_sendrecv_
+                # all_to_all), so zero-initializing it first is wasted work. Under CuPy
+                # this is a device buffer, so mpi4py receives straight onto the GPU
+                # (CUDA-aware BTL/UCX) instead of into host memory -- see
+                # _sendrecv_get_destinations for the matching send side.
+                self._recvbufs[i] = xp.empty((N_recv, self.markers.shape[1]), dtype=float)
                 self._reqs[i] = self.mpi_comm.Irecv(self._recvbufs[i], source=i, tag=i)
 
         # Block on every receive at once via the MPI library's own wait, instead of a
