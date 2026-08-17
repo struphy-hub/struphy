@@ -4,35 +4,34 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "GuidingCenter NumPy vs CuPy"
+name = "GuidingCenter CuPy multi-GPU scaling"
 description = """
 Guiding-centre (5D drift-kinetic) test particles in a homogeneous slab, used as the
-NumPy-vs-CuPy backend comparison case.
+CuPy multi-GPU/multi-rank strong-scaling case (see profiling/submit_guidingcenter_cupy_scaling.py).
 
-This model is chosen for the backend comparison because its entire propagator stack
-(PushGuidingCenterBxEstar, PushGuidingCenterParallel) is backed by kernels that have a
-hand-written CUDA implementation, and it carries no FEEC field solve. The measured
-wall-clock time is therefore dominated by the particle kernels themselves, which is what
-the GPU port is meant to accelerate -- unlike e.g. LinearMHDDriftkineticCC, whose runtime
-is dominated by MHD field propagators and one-off setup, so that particle-kernel speedups
-are invisible in the total.
+This is a separate, much larger params file from params_GuidingCenter.py (the
+NumPy-vs-CuPy single-GPU comparison): its Np default is 10,000,000, ~50x that case's
+200,000. That matters here specifically because of the marker-exchange cost measured
+while validating this case -- at Np=200,000 (50,000/rank at 4 ranks), mpi_sort_markers
+(the device-to-device particle exchange between ranks after each stage) ate 79-89% of
+model.integrate, and total wall time got *worse* with more ranks:
 
-Both propagators are run with algo="explicit"; the default
-("discrete_gradient_1st_order") is also CUDA-ported, but the explicit scheme keeps the
-comparison to a single kernel call per stage and avoids the outer Picard loop, whose
-iteration count can differ between runs.
+    ranks   total (setup to finalize)
+    1       4.48 s
+    2       5.19 s
+    4       5.50 s   (slower than 1 rank)
 
-Measured at the defaults below (Np=200000, 100 steps, single rank, one A100):
+At Np=4,000,000 the same 1/2/4-rank comparison did show a clear speedup (9.93 s / 5.88 s
+/ 3.79 s -> 1.7x / 2.6x), because there is enough per-rank compute between exchanges for
+it to outweigh the communication cost. This file goes further (10,000,000) so the
+scaling trend has more headroom before communication catches back up. Whether it still
+does at this size, and at what rank count, is what running this case answers -- it is not
+assumed here.
 
-    backend   total (setup to finalize)
-    numpy     126.2 s
-    cupy        9.7 s          -> 13.0x
-
-    region                                    numpy      cupy    speedup
-    prop: PushGuidingCenterParallel          46.87 s   0.685 s     68x
-    prop: PushGuidingCenterBxEstar           42.16 s   0.556 s     76x
-    kernel: push_gc_Bstar_explicit_multistage 33.48 s  0.050 s    665x
-    kernel: push_gc_bxEstar_explicit_multistage 29.66 s 0.051 s   581x
+`GuidingCenter` is used (as in params_GuidingCenter.py) because its whole propagator
+stack (PushGuidingCenterBxEstar, PushGuidingCenterParallel) is CUDA-ported and it carries
+no FEEC field solve, so wall-clock time is dominated by the particle kernels and their
+MPI exchange, not by anything unrelated to the CUDA port.
 """
 
 import argparse
@@ -60,8 +59,7 @@ os.environ["ARRAY_BACKEND"] = args.backend
 if args.backend == "cupy":
     import cunumpy
 
-    # Under CuPy with more than one MPI rank per node (e.g. the Booster scaling case in
-    # profiling/submit_guidingcenter_cupy_scaling.py), every rank must bind to its own GPU
+    # Under CuPy with more than one MPI rank per node, every rank must bind to its own GPU
     # -- cupy defaults to device 0, so without this every rank on a node would contend for
     # the same GPU instead of getting one each. SLURM_LOCALID (the rank's index within its
     # node) is set by srun before this process even starts, so it works without MPI being
@@ -71,9 +69,9 @@ if args.backend == "cupy":
     # feectools.ddm.mpi disables MPI by default on the CuPy backend (see the comment
     # there): every rank falls back to a MockComm reporting rank 0/size 1, so with more
     # than one rank every process independently creates the same output directory/HDF5
-    # dataset and the survivors deadlock in the next collective. This profiling script is
-    # specifically meant to run multi-rank/multi-GPU (see submit_guidingcenter_cupy_scaling.py),
-    # so opt back in; a single-GPU run pays only a no-op collective for it.
+    # dataset and the survivors deadlock in the next collective. This file is specifically
+    # meant to run multi-rank/multi-GPU, so opt back in; a single-GPU run pays only a
+    # no-op collective for it.
     os.environ.setdefault("FEECTOOLS_ENABLE_MPI", "1")
 
 import logging
@@ -122,7 +120,7 @@ model.kinetic_ions.var.save_data = True
 # Instance of the simulation
 # --------------------------
 
-name = f"GuidingCenter ({args.backend})"
+name = f"GuidingCenter scaling ({args.backend})"
 
 # Environment options
 env = EnvironmentOptions(
@@ -130,8 +128,9 @@ env = EnvironmentOptions(
     profiling_activated=True,
 )
 
-# Time stepping. Enough steps that the per-step particle work, not the one-off
-# setup (which includes the CUDA RawKernel JIT compile), dominates the total.
+# Time stepping. Enough steps that the per-step particle work (and its MPI exchange),
+# not the one-off setup (marker loading scales with Np, plus the CUDA RawKernel JIT
+# compile), dominates the total -- see the setup-vs-loop measurement in the description.
 time_opts = Time(dt=0.01, Tend=args.Tend if args.Tend is not None else 1.0)
 
 # Geometry
@@ -164,8 +163,10 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-# Marker count is the knob that decides how particle-dominated the run is.
-loading_params = LoadingParameters(Np=args.Np if args.Np is not None else 200000)
+# Marker count is the knob that decides how particle-dominated (vs. communication-bound)
+# the run is -- see the description for why this file defaults to 10,000,000 rather than
+# params_GuidingCenter.py's 200,000.
+loading_params = LoadingParameters(Np=args.Np if args.Np is not None else 10_000_000)
 weights_params = WeightsParameters()
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
