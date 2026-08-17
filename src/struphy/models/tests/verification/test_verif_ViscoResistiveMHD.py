@@ -3,9 +3,9 @@ import os
 import shutil
 
 import cunumpy as xp
-import matplotlib.pyplot as plt
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import colors
+from matplotlib import pyplot as plt
 
 from struphy import (
     DerhamOptions,
@@ -21,7 +21,6 @@ from struphy import (
 )
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import ViscoResistiveMHD
-
 
 set_logging_level()
 logger = logging.getLogger("struphy")
@@ -67,19 +66,12 @@ def fit_branch_near_expected_speed(
         # Skip points at which this branch is not distinguishable from a
         # nearby competing branch at the available FFT frequency resolution.
         if competing_speed is not None:
-            separation = (
-                abs(float(expected_speed) - float(competing_speed))
-                * k
-            )
+            separation = abs(float(expected_speed) - float(competing_speed)) * k
 
             if separation < min_separation_bins * domega:
                 continue
 
-        center = int(
-            xp.argmin(
-                xp.abs(omega - omega_expected)
-            )
-        )
+        center = int(xp.argmin(xp.abs(omega - omega_expected)))
 
         lower = max(1, center - search_bins)
         upper = min(
@@ -104,11 +96,7 @@ def fit_branch_near_expected_speed(
             denominator = y_minus - 2.0 * y_zero + y_plus
 
             if abs(denominator) > 1e-30:
-                offset = (
-                    0.5
-                    * (y_minus - y_plus)
-                    / denominator
-                )
+                offset = 0.5 * (y_minus - y_plus) / denominator
 
                 if abs(offset) <= 1.0:
                     omega_peak += offset * domega
@@ -116,9 +104,7 @@ def fit_branch_near_expected_speed(
         k_fit.append(k)
         omega_fit.append(omega_peak)
 
-    assert len(k_fit) >= 2, (
-        "Not enough spectrally resolved points to fit the branch."
-    )
+    assert len(k_fit) >= 2, "Not enough spectrally resolved points to fit the branch."
 
     k_fit = xp.asarray(k_fit)
     omega_fit = xp.asarray(omega_fit)
@@ -126,10 +112,7 @@ def fit_branch_near_expected_speed(
     # Least-squares fit constrained through the origin:
     #
     #     omega = v*k.
-    slope = (
-        xp.sum(k_fit * omega_fit)
-        / xp.sum(k_fit**2)
-    )
+    slope = xp.sum(k_fit * omega_fit) / xp.sum(k_fit**2)
 
     return float(slope)
 
@@ -234,24 +217,18 @@ def test_slab_waves_1d(do_plot: bool = False):
     # Full thermodynamic model
     # ------------------------------------------------------------------
 
-    model.propagators.variat_dens.options = (
-        model.propagators.variat_dens.Options(
-            model="full",
-            gamma=gamma,
-        )
+    model.propagators.variat_dens.options = model.propagators.variat_dens.Options(
+        model="full",
+        gamma=gamma,
     )
 
-    model.propagators.variat_ent.options = (
-        model.propagators.variat_ent.Options(
-            model="full",
-            gamma=gamma,
-        )
+    model.propagators.variat_ent.options = model.propagators.variat_ent.Options(
+        model="full",
+        gamma=gamma,
     )
 
-    model.propagators.variat_mag.options = (
-        model.propagators.variat_mag.Options(
-            model="full",
-        )
+    model.propagators.variat_mag.options = model.propagators.variat_mag.Options(
+        model="full",
     )
 
     # ------------------------------------------------------------------
@@ -310,36 +287,17 @@ def test_slab_waves_1d(do_plot: bool = False):
 
     cS = xp.sqrt(gamma * p0 / n0)
 
-    delta = (
-        4.0
-        * B0z**2
-        * cS**2
-        * vA**2
-        / (
-            (cS**2 + vA**2) ** 2
-            * Bsquare
-        )
-    )
+    delta = 4.0 * B0z**2 * cS**2 * vA**2 / ((cS**2 + vA**2) ** 2 * Bsquare)
 
-    v_slow = xp.sqrt(
-        0.5
-        * (cS**2 + vA**2)
-        * (1.0 - xp.sqrt(1.0 - delta))
-    )
+    v_slow = xp.sqrt(0.5 * (cS**2 + vA**2) * (1.0 - xp.sqrt(1.0 - delta)))
 
-    v_fast = xp.sqrt(
-        0.5
-        * (cS**2 + vA**2)
-        * (1.0 + xp.sqrt(1.0 - delta))
-    )
+    v_fast = xp.sqrt(0.5 * (cS**2 + vA**2) * (1.0 + xp.sqrt(1.0 - delta)))
 
     # ------------------------------------------------------------------
     # Plot 1: Alfvén-wave velocity spectrum
     # ------------------------------------------------------------------
 
-    velocity_data = (
-        sim.spline_values.mhd.velocity_log.data
-    )
+    velocity_data = sim.spline_values.mhd.velocity_log.data
 
     _, _, _, coeffs_alfven = power_spectrum_2d(
         velocity_data,
@@ -358,9 +316,7 @@ def test_slab_waves_1d(do_plot: bool = False):
     )
 
     v_alfven_fit = float(coeffs_alfven[0][0])
-    alfven_error = abs(
-        v_alfven_fit - float(v_alfven)
-    )
+    alfven_error = abs(v_alfven_fit - float(v_alfven))
 
     logger.info(f"{v_alfven = }")
     logger.info(f"{v_alfven_fit = }")
@@ -373,42 +329,25 @@ def test_slab_waves_1d(do_plot: bool = False):
     # ------------------------------------------------------------------
 
     ## This is different than the Linear case, because pressure spectrum is more complicated, it does not only contain linear pertubations
-    ##The automatic branch fitter inside power_spectrum_2d seems to be the problem. 
+    ##The automatic branch fitter inside power_spectrum_2d seems to be the problem.
 
-    density_data = (
-        sim.spline_values.mhd.density_log.data
-    )
-    entropy_data = (
-        sim.spline_values.mhd.entropy_log.data
-    )
+    density_data = sim.spline_values.mhd.density_log.data
+    entropy_data = sim.spline_values.mhd.entropy_log.data
 
-    times, density_3form = extract_scalar_time_data(
-        density_data
-    )
-    entropy_times, entropy_3form = (
-        extract_scalar_time_data(entropy_data)
-    )
+    times, density_3form = extract_scalar_time_data(density_data)
+    entropy_times, entropy_3form = extract_scalar_time_data(entropy_data)
 
     assert len(times) == len(entropy_times)
-    assert all(
-        xp.isclose(float(t1), float(t2))
-        for t1, t2 in zip(times, entropy_times)
-    )
+    assert all(xp.isclose(float(t1), float(t2)) for t1, t2 in zip(times, entropy_times))
 
     # Post-processed L2 variables are logical 3-forms. Convert them
     # to physical scalar density and entropy density.
-    jacobian = sim.domain.jacobian_det(
-        *sim.grids_log
-    )
+    jacobian = sim.domain.jacobian_det(*sim.grids_log)
 
     rho = density_3form / jacobian[None, ...]
     entropy = entropy_3form / jacobian[None, ...]
 
-    pressure = (
-        (gamma - 1.0)
-        * rho**gamma
-        * xp.exp(entropy / rho)
-    )
+    pressure = (gamma - 1.0) * rho**gamma * xp.exp(entropy / rho)
 
     assert xp.all(xp.isfinite(rho))
     assert xp.all(xp.isfinite(pressure))
@@ -417,28 +356,23 @@ def test_slab_waves_1d(do_plot: bool = False):
 
     # Convert total pressure to a pressure perturbation, matching the
     # evolved pressure variable of LinearMHD.
-    pressure_data = {
-        time: [pressure[i] - pressure[0]]
-        for i, time in enumerate(times)
-    }
+    pressure_data = {time: [pressure[i] - pressure[0]] for i, time in enumerate(times)}
 
     # ------------------------------------------------------------------
     # Compute pressure spectrum without the automatic branch fitter
     # ------------------------------------------------------------------
 
-    omega, kvec, pressure_spectrum, _ = (
-        power_spectrum_2d(
-            pressure_data,
-            "pressure_log",
-            grids=sim.grids_log,
-            grids_mapped=sim.grids_phy,
-            component=0,
-            slice_at=[0, 0, None],
-            do_plot=False,
-            disp_name="MHDhomogenSlab",
-            disp_params=disp_params,
-            fit_branches=0,
-        )
+    omega, kvec, pressure_spectrum, _ = power_spectrum_2d(
+        pressure_data,
+        "pressure_log",
+        grids=sim.grids_log,
+        grids_mapped=sim.grids_phy,
+        component=0,
+        slice_at=[0, 0, None],
+        do_plot=False,
+        disp_name="MHDhomogenSlab",
+        disp_params=disp_params,
+        fit_branches=0,
     )
 
     # Slow and Alfvén branches are close. Skip unresolved low-k points.
@@ -460,12 +394,8 @@ def test_slab_waves_1d(do_plot: bool = False):
         search_bins=2,
     )
 
-    slow_error = abs(
-        v_slow_fit - float(v_slow)
-    )
-    fast_error = abs(
-        v_fast_fit - float(v_fast)
-    )
+    slow_error = abs(v_slow_fit - float(v_slow))
+    fast_error = abs(v_fast_fit - float(v_fast))
 
     logger.info(f"{v_slow = }")
     logger.info(f"{v_slow_fit = }")
@@ -543,9 +473,7 @@ def test_slab_waves_1d(do_plot: bool = False):
             label=rf"fast exact: $v={float(v_fast):.4f}$",
         )
 
-        ax.set_title(
-            "Reconstructed pressure, space-time power spectrum"
-        )
+        ax.set_title("Reconstructed pressure, space-time power spectrum")
         ax.set_xlabel(r"$k$")
         ax.set_ylabel(r"$\omega$")
         ax.set_xlim(0.0, kvec[-1])
