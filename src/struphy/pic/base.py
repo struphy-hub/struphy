@@ -1360,7 +1360,7 @@ class Particles(metaclass=ABCMeta):
         self._markers[n_mks_load_loc:] = -1.0
 
         # number of holes and markers on process
-        self.update_holes()
+        self.update_holes(update_valid_mks=False)
         self._update_ghost_particles()
 
         # cumulative sum of number of markers on each process at loading stage.
@@ -1909,7 +1909,7 @@ class Particles(metaclass=ABCMeta):
         # holes), but avoid materialising the O(n_markers) sorting masks and
         # destination arrays just to discover that every marker stays local.
         if self.mpi_size == 1:
-            self.update_holes()
+            self.update_holes(update_valid_mks=False)
             self._update_ghost_particles()
             return
 
@@ -1931,12 +1931,11 @@ class Particles(metaclass=ABCMeta):
         # send and receive markers
         self._sendrecv_markers(recv_info, hole_inds_after_send)
 
-        # new holes and new number of holes and markers on process
-        self.update_holes()
-
-        # refresh ghost mask: received markers may land in rows that previously held
-        # ghost particles. update_holes alone recomputes valid_mks from a stale
-        # _ghost_particles mask, which would wrongly exclude these incoming real markers.
+        # new holes and new number of holes and markers on process. update_valid_mks
+        # deferred to _update_ghost_particles below (see its parameter docstring) --
+        # this alone recomputing valid_mks would use a stale _ghost_particles mask
+        # anyway (received markers may land in rows that previously held ghosts).
+        self.update_holes(update_valid_mks=False)
         self._update_ghost_particles()
 
         # check if all markers are on the right process after sorting
@@ -2091,13 +2090,24 @@ class Particles(metaclass=ABCMeta):
                         axis,
                     )
 
-    def update_holes(self):
+    def update_holes(self, update_valid_mks: bool = True):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
         and, from it, refresh :attr:`~struphy.pic.base.Particles.valid_mks`.
         Must be called after any operation that creates, removes or moves markers
-        (e.g. sorting, boundary conditions, refilling), since holes are tracked per row index."""
+        (e.g. sorting, boundary conditions, refilling), since holes are tracked per row index.
+
+        Parameters
+        ----------
+        update_valid_mks : bool
+            Set to False when the caller is about to call :meth:`_update_ghost_particles`
+            immediately afterwards (which also refreshes ``valid_mks``, from fresh
+            holes *and* fresh ghosts) -- refreshing it here first would just be
+            overwritten a moment later with the ghost mask still stale, a full-array
+            pass wasted on every call to a very hot path (called every substep from
+            :meth:`mpi_sort_markers`)."""
         self._holes[:] = self.markers[:, 0] == -1.0
-        self._update_valid_mks()
+        if update_valid_mks:
+            self._update_valid_mks()
 
     def set_velocities_comp(self, velocity, comp):
         """Set one or several velocity components to the same constant value, for all valid markers.
@@ -2203,9 +2213,11 @@ class Particles(metaclass=ABCMeta):
 
         # The marker rows have just been reordered. The masks are row-based,
         # so they must be rebuilt before any later use of valid_mks/f_coords.
-        self.update_holes()
+        # _update_ghost_particles already refreshes valid_mks from fresh holes and
+        # fresh ghosts -- update_holes redoing it first, then a third explicit call
+        # redoing it again right after, were both pure repeats of the same result.
+        self.update_holes(update_valid_mks=False)
         self._update_ghost_particles()
-        self._update_valid_mks()
 
     def eval_density(
         self,
@@ -4515,12 +4527,17 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self._prepare_ghost_particles()
         self._get_destinations_box()
         self._self_communication_boxes()
-        self.update_holes()
+        # Both update_holes calls below defer valid_mks to the final
+        # _update_ghost_particles call, which is always the last of these to run
+        # (whichever update_holes call precedes it) and refreshes it from fresh
+        # holes and fresh ghosts in one pass, instead of every intermediate call
+        # redoing the same full-array work with a ghost mask that's about to change.
+        self.update_holes(update_valid_mks=False)
         if self.mpi_comm is not None:
             self._Barrier()
             self._sendrecv_all_to_all_boxes()
             self._sendrecv_markers_boxes()
-            self.update_holes()
+            self.update_holes(update_valid_mks=False)
         self._update_ghost_particles()
 
         # if verbose:
