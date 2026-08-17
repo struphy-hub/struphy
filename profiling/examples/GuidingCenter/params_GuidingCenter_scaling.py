@@ -141,6 +141,7 @@ name = f"GuidingCenter scaling ({args.backend})"
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
     profiling_activated=True,
+    save_restart=False,
 )
 
 # Time stepping. Enough steps that the per-step particle work (and its MPI exchange),
