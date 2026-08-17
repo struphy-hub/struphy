@@ -72,11 +72,16 @@ logger = logging.getLogger("struphy")
 
 
 def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for compiled kernel calls."""
-    if hasattr(value, "get"):
-        # This is a CuPy array
-        return value.get()
-    return value
+    """Convert CuPy arrays to NumPy for compiled kernel calls.
+
+    xp.is_gpu, not xp.to_numpy: some callers pass plain Python scalars (e.g. a
+    degree or index) that must reach the compiled kernel unchanged, and
+    xp.to_numpy would wrap those into 0-d NumPy arrays via np.asarray -- a type
+    the kernel signature does not expect. xp.is_gpu leaves anything that isn't
+    actually a CuPy array untouched, matching the original hasattr(value, "get")
+    passthrough behaviour exactly.
+    """
+    return value.get() if xp.is_gpu(value) else value
 
 
 class DiscreteDerham:
@@ -3478,7 +3483,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
     # make sure that greville points used for interpolation are in [0, 1]
     # Use numpy for comparison since greville points are NumPy arrays
-    greville_loc_np = greville_loc.get() if hasattr(greville_loc, "get") else greville_loc
+    greville_loc_np = xp.to_numpy(greville_loc)
     assert np.all(np.logical_and(greville_loc_np >= 0.0, greville_loc_np <= 1.0))
 
     # interpolation
@@ -3542,7 +3547,11 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
         pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
-        if "cupy" in xp.__name__:
+        # xp.cupy_backend, not "cupy" in xp.__name__: xp is `cunumpy` here, so
+        # xp.__name__ is always the literal string "cunumpy" -- which does not
+        # contain "cupy" as a substring -- so that check was dead code, never
+        # true even when the active backend actually is CuPy.
+        if xp.cupy_backend:
             import cupy as cp
 
             pts_loc = cp.array(pts_loc)

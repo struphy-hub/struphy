@@ -100,11 +100,16 @@ _ARRAY_TYPES = _array_types()
 
 
 def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for compiled kernel calls."""
-    if hasattr(value, "get"):
-        # This is a CuPy array
-        return value.get()
-    return value
+    """Convert CuPy arrays to NumPy for compiled kernel calls.
+
+    xp.is_gpu, not xp.to_numpy: some callers pass plain Python scalars (e.g.
+    self.Np, self.vdim) that must reach MarkerArguments unchanged, and
+    xp.to_numpy would wrap those into 0-d NumPy arrays via np.asarray -- not
+    the plain int MarkerArguments' typed fields expect. xp.is_gpu leaves
+    anything that isn't actually a CuPy array untouched, matching the original
+    hasattr(value, "get") passthrough behaviour exactly.
+    """
+    return value.get() if xp.is_gpu(value) else value
 
 
 def _dev(*arrays):

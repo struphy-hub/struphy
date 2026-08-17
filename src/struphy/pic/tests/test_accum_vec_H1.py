@@ -473,8 +473,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     # of this file) follows the active array backend; convert both ways here.
     eta = particles.positions
     n_vals = n_xyz(xp.asarray(eta[:, 0]), xp.asarray(eta[:, 1]), xp.asarray(eta[:, 2]))
-    if hasattr(n_vals, "get"):
-        n_vals = n_vals.get()
+    n_vals = xp.to_numpy(n_vals)
     particles.markers[particles.valid_mks, particles.first_free_idx] = n_vals
 
     # ------------------------------------------------------------------ #

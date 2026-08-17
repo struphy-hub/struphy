@@ -1,5 +1,6 @@
 import logging
 
+import cunumpy as xp
 import numpy as np
 import pytest
 
@@ -76,7 +77,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     # host-only scenario, so _data is brought to the host right after
     # construction.
     def _host(a):
-        return a.get() if hasattr(a, "get") else a
+        return xp.to_numpy(a)
 
     # _data of StencilMatrices/Vectors
     mat = {}

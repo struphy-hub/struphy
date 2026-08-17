@@ -77,9 +77,10 @@ class CuPyJSONEncoder(json.JSONEncoder):
     """JSON encoder that handles CuPy arrays and NumPy arrays."""
 
     def default(self, obj):
-        # Check if it has a .get() method (CuPy array)
-        if hasattr(obj, "get"):
-            return obj.get().tolist() if hasattr(obj.get(), "tolist") else obj.get()
+        if xp.is_gpu(obj):
+            # xp.to_numpy(obj) is always a NumPy array (CuPy's .get()), which always
+            # has .tolist(), so no further hasattr check is needed here.
+            return xp.to_numpy(obj).tolist()
         # Handle NumPy arrays and scalars
         import numpy as np
 
