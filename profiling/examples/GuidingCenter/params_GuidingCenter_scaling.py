@@ -23,10 +23,25 @@ model.integrate, and total wall time got *worse* with more ranks:
 
 At Np=4,000,000 the same 1/2/4-rank comparison did show a clear speedup (9.93 s / 5.88 s
 / 3.79 s -> 1.7x / 2.6x), because there is enough per-rank compute between exchanges for
-it to outweigh the communication cost. This file goes further (10,000,000) so the
-scaling trend has more headroom before communication catches back up. Whether it still
-does at this size, and at what rank count, is what running this case answers -- it is not
-assumed here.
+it to outweigh the communication cost.
+
+At Np=10,000,000, a full 1/2/4/8-rank sweep (8 ranks = 2 Booster nodes) still regressed
+at the 4->8 step (22.87 s -> 24.98 s): `mpi_sort_markers`'s share of the pusher loop grew
+from 60.5% (2 ranks) to 65.8% (4 ranks) to 76.5% (8 ranks), while actual GPU kernel compute
+stayed under 5% throughout -- the sort/exchange is latency- (not bandwidth-) bound, so its
+share keeps growing even as its own average per-call cost keeps shrinking. This file goes
+further still (50,000,000) to test whether enough per-rank compute between exchanges can
+push the crossover point past 8 ranks, without changing the sort/BC call frequency itself
+(deliberately not touched -- that would be an algorithmic change, not a scaling-parameter
+one). Whether it does, and at what rank count, is what running this case answers.
+
+`num_elements` (the Derham/FEEC grid resolution) was also bumped from (16, 16, 16) to
+(32, 32, 32): a coarser grid means each rank's local sub-grid is small relative to the
+fixed-width ghost/halo padding needed for local spline evaluation, so a larger grid should
+shrink that fixed overhead's share as well -- this is a different mechanism from the
+particle-exchange cost above (marker sorting is about markers crossing rank sub-domain
+boundaries, not grid ghost cells), tested here as a separate, independent lever since it
+requires no algorithmic change either.
 
 `GuidingCenter` is used (as in params_GuidingCenter.py) because its whole propagator
 stack (PushGuidingCenterBxEstar, PushGuidingCenterParallel) is CUDA-ported and it carries
@@ -139,8 +154,10 @@ domain = domains.Cuboid()
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.HomogenSlab()
 
-# Grid
-grid = grids.TensorProductGrid(num_elements=(16, 16, 16))
+# Grid. Coarser than this relative to Np/rank count means the fixed-width ghost/halo
+# padding around each rank's local sub-grid is a bigger fraction of its data -- see the
+# description for why this was raised from (16, 16, 16).
+grid = grids.TensorProductGrid(num_elements=(32, 32, 32))
 
 # Derham options
 derham_opts = DerhamOptions()
@@ -164,9 +181,9 @@ sim = Simulation(
 # -------------------
 
 # Marker count is the knob that decides how particle-dominated (vs. communication-bound)
-# the run is -- see the description for why this file defaults to 10,000,000 rather than
+# the run is -- see the description for why this file defaults to 50,000,000 rather than
 # params_GuidingCenter.py's 200,000.
-loading_params = LoadingParameters(Np=args.Np if args.Np is not None else 10_000_000)
+loading_params = LoadingParameters(Np=args.Np if args.Np is not None else 50_000_000)
 weights_params = WeightsParameters()
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
