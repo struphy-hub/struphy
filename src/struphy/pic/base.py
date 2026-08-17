@@ -536,6 +536,11 @@ class Particles(metaclass=ABCMeta):
         self._send_to_i = [None] * self.mpi_size
         self._send_list = [None] * self.mpi_size
 
+        # Domain decomposition is static for the lifetime of this object, so the
+        # neighbour/non-neighbour split used by _sendrecv_get_destinations only needs
+        # computing once here rather than on every mpi_sort_markers call.
+        self._neighbor_ranks, self._non_neighbor_ranks = self._compute_neighbor_ranks()
+
         # post init
         self.__post_init__()
 
@@ -4729,6 +4734,56 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         return hole_inds_after_send, send_inds
 
+    def _compute_neighbor_ranks(self) -> tuple[list[int], list[int]]:
+        """Split every other rank into geometric neighbours of this rank's sub-domain
+        box and everyone else, for :meth:`_sendrecv_get_destinations`.
+
+        A rank is a neighbour (Moore neighbourhood: touching along every axis, sharing
+        at least a corner) if, for each of the 3 axes, its box interval touches or
+        overlaps this rank's -- including wrap-around for axes with a periodic boundary
+        condition (:attr:`_periodic_axes`), where the box touching ``eta=1`` is also
+        adjacent to the box touching ``eta=0``.
+
+        Domain decomposition is a static, non-overlapping Cartesian tiling of the unit
+        cube (see :meth:`_get_domain_decomp`) computed once at construction, so this is
+        safe to compute once here rather than re-derived every call.
+
+        Returns
+        -------
+        neighbor_ranks : list[int]
+            Ranks (excluding this one) whose box touches or overlaps this rank's.
+
+        non_neighbor_ranks : list[int]
+            Every other rank (excluding this one and ``neighbor_ranks``).
+        """
+        # Tiny (mpi_size, 9) array -- brought to the host once so the O(mpi_size)
+        # comparisons below don't pay a device sync per rank checked.
+        domain_array_host = _to_numpy_for_kernel(self.domain_array)
+        own = domain_array_host[self.mpi_rank]
+        tol = 1e-12
+
+        neighbor_ranks = []
+        non_neighbor_ranks = []
+        for j in range(self.mpi_size):
+            if j == self.mpi_rank:
+                continue
+            other = domain_array_host[j]
+            touching = True
+            for axis in range(3):
+                own_l, own_r = own[3 * axis], own[3 * axis + 1]
+                other_l, other_r = other[3 * axis], other[3 * axis + 1]
+                axis_touches = other_r >= own_l - tol and other_l <= own_r + tol
+                if not axis_touches and axis in self._periodic_axes:
+                    axis_touches = (abs(own_r - 1.0) < tol and abs(other_l) < tol) or (
+                        abs(own_l) < tol and abs(other_r - 1.0) < tol
+                    )
+                if not axis_touches:
+                    touching = False
+                    break
+            (neighbor_ranks if touching else non_neighbor_ranks).append(j)
+
+        return neighbor_ranks, non_neighbor_ranks
+
     def _sendrecv_get_destinations(self, send_inds):
         """
         Determine to which process particles have to be sent.
@@ -4746,28 +4801,68 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # One entry for each process
         send_info = np.zeros(self.mpi_size, dtype=int)
 
-        # TODO: do not loop over all processes, start with neighbours and work outwards (using while)
+        # Gathered once and reused for every rank below, instead of re-gathering
+        # self.markers[send_inds] and self._sorting_etas[send_inds] fresh on every
+        # iteration of the rank loop (as the previous version did).
+        candidates = self.markers[send_inds]
         etas_to_send = self._sorting_etas[send_inds]
+
+        # Reset every rank's send buffer to empty first. The neighbour/non-neighbour
+        # loop below can `break` before visiting every rank once all candidates are
+        # matched, but _sendrecv_markers unconditionally Isends self._send_list[i] for
+        # every i != mpi_rank -- a rank skipped this call must not keep a stale,
+        # non-empty buffer from a previous call (send/recv size would then disagree
+        # with send_info, which is always correct since it defaults to 0 above).
+        empty_local = xp.empty(0, dtype=int)
+        empty_rows = candidates[:0]
         for i in range(self.mpi_size):
-            conds = xp.logical_and(
-                etas_to_send > self.domain_array_dev[i, 0::3],
-                etas_to_send < self.domain_array_dev[i, 1::3],
-            )
+            self._send_to_i[i] = empty_local
+            self._send_list[i] = empty_rows
 
-            self._send_to_i[i] = xp.nonzero(xp.all(conds, axis=1))[0]
-            send_info[i] = self._send_to_i[i].size
+        # A marker leaving this rank's domain is overwhelmingly likely to land in a
+        # geometrically adjacent sub-domain -- one push (sub-)step is small compared to
+        # a sub-domain -- so check neighbour ranks (_compute_neighbor_ranks) first
+        # instead of every rank. `remaining` tracks positions into send_inds/
+        # etas_to_send not yet matched to a destination; if neighbours don't cover
+        # everyone (a marker moved further than one sub-domain this step), the leftover
+        # few are checked against every other rank in the second pass, so this changes
+        # only how many ranks get checked in the common case, not correctness.
+        remaining = xp.arange(send_inds.shape[0])
+        for rank_group in (self._neighbor_ranks, self._non_neighbor_ranks):
+            if remaining.size == 0:
+                break
 
-            # Under CuPy this stays a device array: mpi4py sends it straight off the GPU
-            # via the CUDA-aware BTL/UCX path instead of a host round trip -- see
-            # _sendrecv_markers for the matching receive side. Measured on Pitagora's
-            # Booster nodes: this OpenMPI build supports it (smcuda BTL, compiled
-            # --with-cuda) and a raw device-to-device Isend/Irecv of a comparable payload
-            # is ~7x faster than staging through host buffers. In mpi_sort_markers itself
-            # the effect is smaller, since most of its per-call cost is the GPU-side
-            # bookkeeping (_sendrecv_determine_mtbs's boundary-membership scan over every
-            # local marker) rather than the exchange bandwidth -- but it removes 2 blocking
-            # device<->host copies per call for free and is never slower.
-            self._send_list[i] = self.markers[send_inds][self._send_to_i[i]]
+            etas_remaining = etas_to_send[remaining]
+            still_remaining = xp.ones(remaining.shape[0], dtype=bool)
+            for i in rank_group:
+                # domain_array_dev, not domain_array: under CuPy this stays a device
+                # array, avoiding a host round trip on every rank checked here.
+                conds = xp.logical_and(
+                    etas_remaining > self.domain_array_dev[i, 0::3],
+                    etas_remaining < self.domain_array_dev[i, 1::3],
+                )
+
+                matched_local = xp.nonzero(xp.all(conds, axis=1))[0]
+                matched = remaining[matched_local]
+
+                self._send_to_i[i] = matched
+                send_info[i] = matched.size
+
+                # Under CuPy this stays a device array: mpi4py sends it straight off the
+                # GPU via the CUDA-aware BTL/UCX path instead of a host round trip -- see
+                # _sendrecv_markers for the matching receive side. Measured on Pitagora's
+                # Booster nodes: this OpenMPI build supports it (smcuda BTL, compiled
+                # --with-cuda) and a raw device-to-device Isend/Irecv of a comparable
+                # payload is ~7x faster than staging through host buffers. In
+                # mpi_sort_markers itself the effect is smaller, since most of its
+                # per-call cost is the GPU-side bookkeeping rather than the exchange
+                # bandwidth -- but it removes 2 blocking device<->host copies per call
+                # for free and is never slower.
+                self._send_list[i] = candidates[matched]
+
+                still_remaining[matched_local] = False
+
+            remaining = remaining[still_remaining]
 
         return send_info
 
