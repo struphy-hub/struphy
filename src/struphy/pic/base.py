@@ -1970,6 +1970,9 @@ class Particles(metaclass=ABCMeta):
         if self._periodic_axes:
             self._eta_bc_buf[:] = self.markers[:, :3]
 
+        if self._periodic_axes:
+            self._eta_bc_buf[:] = self.markers[:, :3]
+
         for axis in self._periodic_axes:
             outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
