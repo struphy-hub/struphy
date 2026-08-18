@@ -29,7 +29,7 @@ from profiling_job import ProfilingCase
 # GPU run must still get the Booster preset. Keying on the detected name also keeps this
 # working, without a KeyError, on a machine detection does not recognise (name None).
 CPU_PRESET = SLURM_PRESETS["pitagora_dcgp"]
-GPU_PRESET = SLURM_PRESETS["pitagora_booster"]
+GPU_PRESET = SLURM_PRESETS["pitagora_boost_fua_dbg"]
 
 BACKEND_PRESETS = {
     "numpy": CPU_PRESET,
