@@ -1718,8 +1718,14 @@ class Particles(metaclass=ABCMeta):
         """
 
         # apply boundary conditions
+        if self._remove_axes:
+            # extract the (n_rows, 3) logical coordinates once per contiguous
+            # cache line instead of re-striding into the full row-major
+            # markers array once per axis (see _find_outside_particles)
+            self._eta_bc_buf[:] = self.markers[:, :3]
+
         for axis in self._remove_axes:
-            outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
             if len(outside_inds) == 0:
                 continue
@@ -1730,8 +1736,11 @@ class Particles(metaclass=ABCMeta):
             self._markers[self._is_outside, :-1] = -1.0
             self._n_lost_markers += len(xp.nonzero(self._is_outside)[0])
 
+        if self._periodic_axes:
+            self._eta_bc_buf[:] = self.markers[:, :3]
+
         for axis in self._periodic_axes:
-            outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
             if len(outside_inds) == 0:
                 continue
@@ -1766,8 +1775,11 @@ class Particles(metaclass=ABCMeta):
 
         # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
         outside_inds_per_axis = {}
+        if self._reflect_axes:
+            self._eta_bc_buf[:] = self.markers[:, :3]
+
         for axis in self._reflect_axes:
-            outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
 
             self.markers[self._is_outside_left, axis] *= -1.0
             self.markers[self._is_outside_right, axis] *= -1.0
@@ -2407,6 +2419,10 @@ class Particles(metaclass=ABCMeta):
         self._is_outside_right = xp.zeros(self.n_rows, dtype=bool)
         self._is_outside_left = xp.zeros(self.n_rows, dtype=bool)
         self._is_outside = xp.zeros(self.n_rows, dtype=bool)
+        # contiguous scratch copy of markers[:, :3], refreshed once per apply_kinetic_bc
+        # boundary-condition-type loop (see there) instead of re-striding into the full
+        # (n_rows, n_cols) row-major marker array once per axis.
+        self._eta_bc_buf = xp.zeros((self.n_rows, 3), dtype=float)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
@@ -2744,7 +2760,7 @@ class Particles(metaclass=ABCMeta):
         )[self.mpi_rank]
         self.marker_ids = first_marker_id + xp.arange(self.n_mks_loc, dtype=int)
 
-    def _find_outside_particles(self, axis):
+    def _find_outside_particles(self, axis, eta=None):
         """Find markers whose ``axis``-th logical coordinate lies outside ``[0, 1]``
         (holes and ghost particles are excluded), updating
         :attr:`_is_outside_left`/:attr:`_is_outside_right`/:attr:`_is_outside` accordingly.
@@ -2754,14 +2770,22 @@ class Particles(metaclass=ABCMeta):
         axis : int
             Column of the markers array (0, 1 or 2) holding the logical coordinate to check.
 
+        eta : xp.ndarray[float], optional
+            Pre-extracted, contiguous ``(n_rows, 3)`` copy of ``markers[:, :3]`` (see
+            :meth:`apply_kinetic_bc`). If ``None``, reads straight from ``markers`` --
+            correct but slower, since a single-column slice of the row-major ``markers``
+            array is strided (see the comment in :meth:`apply_kinetic_bc`).
+
         Returns
         -------
         outside_inds : xp.ndarray[int]
             Row indices of the markers that are outside the logical unit cube.
         """
+        col = self.markers[:, axis] if eta is None else eta[:, axis]
+
         # determine particles outside of the logical unit cube
-        self._is_outside_right[:] = self.markers[:, axis] > 1.0
-        self._is_outside_left[:] = self.markers[:, axis] < 0.0
+        self._is_outside_right[:] = col > 1.0
+        self._is_outside_left[:] = col < 0.0
 
         self._is_outside_right[self.holes] = False
         self._is_outside_right[self.ghost_particles] = False
