@@ -40,10 +40,10 @@ name = f"runs/sim_2D_hcurl_{BC}"
 env = EnvironmentOptions(sim_folder=name)
 
 B0 = 0
-nu = 10.0
+nu = 1.0
 nu_e = 1.0
 mu = 1.0
-Nel = (20, 20, 1)
+Nel = (21, 21, 1)
 p = (2, 2, 1)
 epsilon = 1.0
 dt = 1

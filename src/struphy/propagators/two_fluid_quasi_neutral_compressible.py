@@ -432,9 +432,7 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
                 - self._A_i.dot(self._boundary_spline_u)
                 - self._M1_u.dot(self._boundary_spline_u) / dt
                 + self.options.nu * self._M1_u.dot(self._grad_u.dot(self._M0inv_u.dot(
-                    self._B0_normal_u.dot(self._boundary_spline_u)
-                    - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
-                )))
+                    self._B0_normal_u.dot(self._boundary_spline_u))))                
             )
             + self._M1.dot(self._u_0.vector) / dt
         )
@@ -445,9 +443,8 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
                 self._M1_ue.dot(self._src_ue.vector)
                 - self._A_e.dot(self._boundary_spline_ue)
                 + self.options.mu * self.options.nu_e * self._M1_ue.dot(self._grad_ue.dot(self._M0inv_ue.dot(
-                    self._B0_normal_ue.dot(self._boundary_spline_ue)
-                    - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
-                )))
+                    self._B0_normal_ue.dot(self._boundary_spline_ue))))
+                
             )
         )
 
