@@ -27,9 +27,19 @@ Both sides run with more than one rank, so both exercise the domain-decomposed
 marker-exchange path (`mpi_sort_markers`/`apply_kinetic_bc`), not just single-rank kernel
 throughput -- the grid is domain-decomposed along the two poloidal-plane directions only
 (`mpi_dims_mask=(True, True, False)` in `params_cyclone.py`, matching the toroidal
-Fourier filter's own `nprocs[2] == 1` requirement), so the rank count on either side is
-bounded by that grid's first two `num_elements` (default 16 x 64 = at most 1024 ranks
-before `--num-elements` needs to grow too).
+Fourier filter's own `nprocs[2] == 1` requirement).
+
+**Grid size, and why it's much bigger than `params_cyclone.py`'s own default.**
+`feectools.fem.partitioning.partition_coefficients` requires at least `degree` elements
+*per rank* (not just in total) in each decomposed direction, so the actual rank cap is
+`(num_elements[0] // degree) * (num_elements[1] // degree)`. `params_cyclone.py`'s own
+default grid, `(16, 64, 4)` at `degree=3`, caps out around `(16 // 3) * (64 // 3) = 105`
+ranks -- nowhere near a full `pitagora_dcgp` node's 256 cores, and running this case at
+that default grid fails outright with an assertion from `partition_coefficients` ("Local
+number of elements ... is to small for spline degree"). `--num-elements` therefore
+defaults here to `(96, 256, 4)` instead (cap around `32 * 85 = 2720`, comfortably above
+256 with margin for an uneven decomposition split) -- see the `--num-elements` help text
+for the exact math if you need to raise `--cpu-ranks` further.
 """
 
 import argparse
@@ -44,8 +54,17 @@ from profiling_job import ProfilingCase
 # for both partitions (it cannot tell the Booster partition apart), and the GPU run must
 # still get the Booster preset. Keying on the detected name also keeps this working,
 # without a KeyError, on a machine detection does not recognise (name None).
-CPU_PRESET = SLURM_PRESETS["pitagora_dcgp"]
-GPU_PRESET = SLURM_PRESETS["pitagora_boost_fua_dbg"]
+#
+# `time` is bumped from the presets' own 15 min to 30 min, the actual hard cap of the
+# "*_fua_dbg" debug partitions both presets use (a longer request just gets clamped by
+# SLURM) -- the much larger grid below (needed for the domain decomposition to support
+# 256 ranks in the first place, see the module docstring) means setup (matrix assembly,
+# with `solver="pcg"` forced) has real room to run past the original 15 min budget. If
+# 30 min still isn't enough, the partition itself needs to change (the "_fua_prod"
+# presets in clusters.py allow up to 24h, at the cost of a probably much longer queue
+# wait) -- that tradeoff is left to the caller rather than made here.
+CPU_PRESET = {**SLURM_PRESETS["pitagora_dcgp"], "time": "00:30:00"}
+GPU_PRESET = {**SLURM_PRESETS["pitagora_boost_fua_dbg"], "time": "00:30:00"}
 
 # One CPU-node's worth of ranks (`HARDWARE_INFO["pitagora_dcgp"]["cpus_per_node"]`), and
 # one GPU-node's worth (the Booster preset requests `gres=gpu:4`), one rank per GPU as in
@@ -83,12 +102,21 @@ def main() -> None:
         "--num-elements",
         type=int,
         nargs=3,
-        default=None,
+        default=[64, 128, 4],
         help=(
-            "Grid resolution (overrides params_cyclone.py's default, 16 64 4). Must "
-            "support at least as many ranks as --cpu-ranks in num_elements[0] * "
-            "num_elements[1] (the only two domain-decomposed directions), so raise this "
-            "before raising --cpu-ranks much past the default grid's 16*64=1024 cap."
+            "Grid resolution (default: 96 256 4 -- deliberately much larger than "
+            "params_cyclone.py's own default, 16 64 4, which only supports up to "
+            "~105 ranks at degree 3; see the note below). Domain decomposition "
+            "(feectools.fem.partitioning.partition_coefficients) requires at least "
+            "`degree` elements *per rank* in each decomposed direction, not just "
+            "`degree` elements total, so the usable rank cap is "
+            "`(num_elements[0] // degree) * (num_elements[1] // degree)` (the only two "
+            "decomposed directions, degree=3 by default) -- 16 64 4 caps out around "
+            "(16//3)*(64//3) = 5*21 = 105 ranks, well under a full pitagora_dcgp node's "
+            "256 cores, and fails with an assertion from partition_coefficients (\"Local "
+            "number of elements ... is to small for spline degree\") past that. The "
+            "default here, 96 256 4, caps out around (96//3)*(256//3) = 32*85 = 2720, "
+            "comfortably above 256 with margin for an uneven decomposition split."
         ),
     )
     args = parser.parse_args()
