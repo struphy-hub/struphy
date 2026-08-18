@@ -4268,8 +4268,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
         )
 
-        # to stay on the current process, all three columns must be True
-        self._can_stay = xp.all(self._is_on_proc_domain, axis=1)
+        # to stay on the current process, all three columns must be True.
+        # Reducing over a size-3 trailing axis of an array with many rows is slow
+        # This is faster
+        # Improvement of approximately 10x (both numpy and cupy)
+        self._can_stay = self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
