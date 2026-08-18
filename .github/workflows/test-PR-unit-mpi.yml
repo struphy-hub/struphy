@@ -18,6 +18,6 @@ jobs:
     uses: ./.github/workflows/reusable-unit-testing.yml
     with:
       os: ubuntu-latest
-      n-procs: 2
+      n-procs: 4
     secrets:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
