@@ -253,6 +253,10 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._rhs_vec_ue = self.derham.create_spline_function("rhs_vec_ue", space_id="Hcurl")
         self._rhs_vec_phi = self.derham.create_spline_function("rhs_vec_phi", space_id="H1")
 
+        # TODO This is still a bad solution.
+        self._qn_boundary_u = self.derham.create_spline_function("div_boundary_u", space_id="L2")
+        self._qn_boundary_ue = self.derham.create_spline_function("div_boundary_ue", space_id="L2")
+
         # ---- source terms projected onto unconstrained H(curl) ---
         self._src_u = self._derham_lift_u.create_spline_function("rhs_u", space_id="Hcurl")
         self._src_ue = self._derham_lift_ue.create_spline_function("rhs_ue", space_id="Hcurl")
@@ -447,12 +451,12 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             )
         )
 
+        self._qn_boundary_u.vector = self._B0_normal_u.dot(self._boundary_spline_u) - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
+        self._qn_boundary_ue.vector = self._B0_normal_ue.dot(self._boundary_spline_ue) - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
+
+
         # --- assemble RHS for quasineutrality ---
-        self._rhs_vec_phi.vector = (
-            self._B0_normal_u.dot(self._boundary_spline_u)
-            - self._B0_normal_ue.dot(self._boundary_spline_ue)
-            - self._grad.T.dot(self._M1.dot(self._boundary_spline_u - self._boundary_spline_ue))
-        )
+        self._rhs_vec_phi.vector = self._qn_boundary_u.vector - self._qn_boundary_ue.vector
 
         # --- build block RHS and solve ---
         self._Minv.dot(

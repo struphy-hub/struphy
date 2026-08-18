@@ -428,7 +428,7 @@ class FEECVariable(Variable):
                 )
                 self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
 
-            elif self.space in {"Hcurl", "Hdiv", "H1vec"}:  # TODO What is going on?
+            elif self.space in {"Hcurl", "Hdiv", "H1vec"}:
                 fun_vec = [None] * 3
                 for ptb in lifting_list:
                     if fun_vec[ptb.comp] is not None:
