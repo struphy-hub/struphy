@@ -215,7 +215,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
             if isinstance(mhd_equil, FluidEquilibriumWithB):
                 absB0_ref = mhd_equil.absB0(*meshgrids)
                 absB0_max = xp.max(xp.abs(absB0_ref))
-                
+
                 if absB0_max < 1e-11:
                     # If absB0 is essentially zero, check that the field is also near zero
                     logger.info(

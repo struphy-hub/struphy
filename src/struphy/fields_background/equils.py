@@ -3470,9 +3470,7 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
         return self._n_xyz(x, y, z)
 
 
-class GenericCartesianFluidEquilibriumWithB(
-    CartesianFluidEquilibriumWithB
-):
+class GenericCartesianFluidEquilibriumWithB(CartesianFluidEquilibriumWithB):
     """Generic Cartesian fluid equilibrium with callable fields."""
 
     def __init__(

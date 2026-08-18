@@ -59,9 +59,9 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)
 
     # initial conditions (background + perturbation)
-    model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
-    model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
-    model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=2, seed=123))
+    model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.001, comp=0, seed=123))
+    model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.001, comp=1, seed=123))
+    model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.001, comp=2, seed=123))
 
     # instance of simulation
     sim = Simulation(
