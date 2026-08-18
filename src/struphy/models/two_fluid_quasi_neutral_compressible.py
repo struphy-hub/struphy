@@ -30,7 +30,7 @@ class TwoFluidQuasiNeutral(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.prop = TwoFluidQuasiNeutralCompressible()
+            self.qn_comp = TwoFluidQuasiNeutralCompressible()
 
     def __init__(
         self,
@@ -52,9 +52,9 @@ class TwoFluidQuasiNeutral(StruphyModel):
 
         self.propagators = self.Propagators()
 
-        self.propagators.prop.variables.u = self.ions.u
-        self.propagators.prop.variables.ue = self.electrons.u
-        self.propagators.prop.variables.phi = self.em_fields.phi
+        self.propagators.qn_comp.variables.u = self.ions.u
+        self.propagators.qn_comp.variables.ue = self.electrons.u
+        self.propagators.qn_comp.variables.phi = self.em_fields.phi
 
     @property
     def bulk_species(self):

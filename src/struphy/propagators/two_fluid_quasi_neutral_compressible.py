@@ -280,13 +280,13 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._M0_u = self._mass_ops_lift_u.M0
         self._M1B_u = self._mass_ops_lift_u.M1B
         self._curl_u = self._derham_lift_u.curl
-        self._div_u = self._derham_lift_u.div
+        self._grad_u = self._derham_lift_u.grad
 
         self._M1_ue = self._mass_ops_lift_ue.M1
         self._M0_ue = self._mass_ops_lift_ue.M0
         self._M1B_ue = self._mass_ops_lift_ue.M1B
         self._curl_ue = self._derham_lift_ue.curl
-        self._div_ue = self._derham_lift_ue.div
+        self._grad_ue = self._derham_lift_ue.grad
 
         self._mass_pc_u = MassMatrixPreconditioner(mass_operator=self._M0_u)
         self._M0inv_u = inverse(self._M0_u, "pcg", pc=self._mass_pc_u, tol=1e-10, maxiter=1000, recycle=True)
@@ -296,11 +296,11 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
 
         self._lapl_u = (
             self._curl_u.T @ self._mass_ops_lift_u.M2 @ self._curl_u
-            + self._M1_u @ self._div_u.T @ self._M0inv_u @ self._div_u @ self._M1_u
+            + self._M1_u @ self._grad_u @ self._M0inv_u @ self._grad_u.T @ self._M1_u
         )
         self._lapl_ue = (
             self._curl_ue.T @ self._mass_ops_lift_ue.M2 @ self._curl_ue
-            + self._M1_ue @ self._div_ue.T @ self._M0inv_ue @ self._div_ue @ self._M1_ue
+            + self._M1_ue @ self._grad_ue @ self._M0inv_ue @ self._grad_ue.T @ self._M1_ue
         )
 
         self._A_i = (
@@ -317,14 +317,14 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._M0 = self.mass_ops.M0
         self._M1B = self.mass_ops.M1B
         self._curl = self.derham.curl
-        self._div = self.derham.div
+        self._grad = self.derham.grad
 
         self._mass_pc = MassMatrixPreconditioner(mass_operator=self._M0)
         self._M0inv = inverse(self._M0, "pcg", pc=self._mass_pc, tol=1e-10, maxiter=1000, recycle=True)
 
         self._lapl_v0 = (
             self._curl.T @ self.mass_ops.M2 @ self._curl
-            + self._M1 @ self._div.T @ self._M0inv @ self._div @ self._M1
+            + self._M1 @ self._grad @ self._M0inv @ self._grad.T @ self._M1
         )
 
         self._A11 = -self._M1B / self.options.eps_norm + self.options.nu * self._lapl_v0
@@ -341,12 +341,11 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._B0_normal_ue = bnd_ops_ue.normal(data_space="Hcurl", test_space="H1")
 
         # ---- saddle point system: B = D M1, B^T = M1 D^T ---
-        self._B = self._div @ self._M1
+        self._B = self._grad.T @ self._M1
 
         self._block_domain = BlockVectorSpace(self.derham.coeff_spaces["1"], self.derham.coeff_spaces["1"])
         self._block_codomain_B = self.derham.coeff_spaces["0"]
 
-        # B = [B1, -B2] acting on [u_i, u_e]
         self._B = BlockLinearOperator(
             self._block_domain, self._block_codomain_B,
             blocks=[[self._B, -self._B]],
@@ -428,9 +427,9 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
                 self._M1_u.dot(self._src_u.vector)
                 - self._A_i.dot(self._boundary_spline_u)
                 - self._M1_u.dot(self._boundary_spline_u) / dt
-                + self.options.nu * self._M1_u.dot(self._div_u.T.dot(self._M0inv_u.dot(
+                + self.options.nu * self._M1_u.dot(self._grad_u.dot(self._M0inv_u.dot(
                     self._B0_normal_u.dot(self._boundary_spline_u)
-                    - self._div_u.dot(self._M1_u.dot(self._boundary_spline_u))
+                    - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
                 )))
             )
             + self._M1.dot(self._u_0.vector) / dt
@@ -441,9 +440,9 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             self._hcurl_b_op_ue.dot(
                 self._M1_ue.dot(self._src_ue.vector)
                 - self._A_e.dot(self._boundary_spline_ue)
-                + self.options.mu * self.options.nu_e * self._M1_ue.dot(self._div_ue.T.dot(self._M0inv_ue.dot(
+                + self.options.mu * self.options.nu_e * self._M1_ue.dot(self._grad_ue.dot(self._M0inv_ue.dot(
                     self._B0_normal_ue.dot(self._boundary_spline_ue)
-                    - self._div_ue.dot(self._M1_ue.dot(self._boundary_spline_ue))
+                    - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
                 )))
             )
         )
@@ -452,7 +451,7 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._rhs_vec_phi.vector = (
             self._B0_normal_u.dot(self._boundary_spline_u)
             - self._B0_normal_ue.dot(self._boundary_spline_ue)
-            - self._div.dot(self._M1.dot(self._boundary_spline_u - self._boundary_spline_ue))
+            - self._grad.T.dot(self._M1.dot(self._boundary_spline_u - self._boundary_spline_ue))
         )
 
         # --- build block RHS and solve ---
