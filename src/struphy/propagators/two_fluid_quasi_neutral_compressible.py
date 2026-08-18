@@ -407,44 +407,45 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             _A11 = self._A11 + self._M1 / dt
             _A = BlockLinearOperator(
                 self._block_domain, self._block_domain,
-                blocks=[[_A11, None], [None, self._A22]],
+                blocks=[[_A11, None], [None, self._A22]]
             )
             _M = BlockLinearOperator(
                 self._block_domain_M, self._block_domain_M,
-                blocks=[[_A, self._B.T], [self._B, None]],
+                blocks=[[_A, self._B.T], [self._B, None]]
             )
             self._Minv.linop = _M
-
+            
             if self.options.solver in get_args(LiteralOptions.OptsSaddlePointSolver):
                 self._Minv.update_A11(_A11)
+
 
         # --- copy current homogeneous solution ---
         self._u_0.vector = self.variables.u.spline.vector
 
-        # --- omega_i and omega_e from auxiliary equations ---
-        # TODO Redundant!
-        _omega_i_lift = self._M0inv_u.dot(
-            self._B0_normal_u.dot(self._boundary_spline_u)
-            - self._div_u.dot(self._M1_u.dot(self._boundary_spline_u))
-        )
-        _omega_e_lift = self._M0inv_ue.dot(
-            self._B0_normal_ue.dot(self._boundary_spline_ue)
-            - self._div_ue.dot(self._M1_ue.dot(self._boundary_spline_ue))
-        )
-
         # --- assemble RHS for ions ---
-        self._rhs_vec_u.vector = self._hcurl_b_op_u.dot(
-            self._M1_u.dot(self._src_u.vector)
-            - self._A_i.dot(self._boundary_spline_u)
-            - self._M1_u.dot(self._boundary_spline_u) / dt
-            + self.options.nu * self._M1_u.dot(self._div_u.T.dot(_omega_i_lift))
-        ) + self._M1.dot(self._u_0.vector) / dt
+        self._rhs_vec_u.vector = (
+            self._hcurl_b_op_u.dot(
+                self._M1_u.dot(self._src_u.vector)
+                - self._A_i.dot(self._boundary_spline_u)
+                - self._M1_u.dot(self._boundary_spline_u) / dt
+                + self.options.nu * self._M1_u.dot(self._div_u.T.dot(self._M0inv_u.dot(
+                    self._B0_normal_u.dot(self._boundary_spline_u)
+                    - self._div_u.dot(self._M1_u.dot(self._boundary_spline_u))
+                )))
+            )
+            + self._M1.dot(self._u_0.vector) / dt
+        )
 
         # --- assemble RHS for electrons ---
-        self._rhs_vec_ue.vector = self._hcurl_b_op_ue.dot(
-            self._M1_ue.dot(self._src_ue.vector)
-            - self._A_e.dot(self._boundary_spline_ue)
-            + self.options.mu * self.options.nu_e * self._M1_ue.dot(self._div_ue.T.dot(_omega_e_lift))
+        self._rhs_vec_ue.vector = (
+            self._hcurl_b_op_ue.dot(
+                self._M1_ue.dot(self._src_ue.vector)
+                - self._A_e.dot(self._boundary_spline_ue)
+                + self.options.mu * self.options.nu_e * self._M1_ue.dot(self._div_ue.T.dot(self._M0inv_ue.dot(
+                    self._B0_normal_ue.dot(self._boundary_spline_ue)
+                    - self._div_ue.dot(self._M1_ue.dot(self._boundary_spline_ue))
+                )))
+            )
         )
 
         # --- assemble RHS for quasineutrality ---
@@ -454,15 +455,12 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             - self._div.dot(self._M1.dot(self._boundary_spline_u - self._boundary_spline_ue))
         )
 
-        # --- solve ---
+        # --- build block RHS and solve ---
         self._Minv.dot(
             BlockVector(
                 self._block_domain_M,
                 blocks=[
-                    BlockVector(
-                        self._block_domain,
-                        blocks=[self._rhs_vec_u.vector, self._rhs_vec_ue.vector],
-                    ),
+                    BlockVector(self._block_domain, blocks=[self._rhs_vec_u.vector, self._rhs_vec_ue.vector]),
                     self._rhs_vec_phi.vector,
                 ],
             ),
@@ -471,9 +469,8 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
 
         info = self._Minv.get_info()
 
-        max_diffs = self.update_feec_variables(
-            u=self._SOL[0][0], ue=self._SOL[0][1], phi=self._SOL[1]
-        )
+        # --- update FEEC variables ---
+        max_diffs = self.update_feec_variables(u=self._SOL[0][0], ue=self._SOL[0][1], phi=self._SOL[1])
 
         if self.options.solver_params.info and self._rank == 0:
             print(f"Status: {info['success']}, Iterations: {info['niter']}")
