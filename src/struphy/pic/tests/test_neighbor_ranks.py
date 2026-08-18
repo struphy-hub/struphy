@@ -69,8 +69,7 @@ def test_neighbor_relation_is_symmetric(periodic_axes):
         if j == rank:
             continue
         assert (j in all_neighbor_sets[rank]) == (rank in all_neighbor_sets[j]), (
-            f"neighbour relation between rank {rank} and rank {j} is not symmetric "
-            f"(periodic_axes={periodic_axes})"
+            f"neighbour relation between rank {rank} and rank {j} is not symmetric (periodic_axes={periodic_axes})"
         )
 
 
