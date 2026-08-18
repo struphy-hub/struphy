@@ -7,7 +7,7 @@ from struphy.models.variables import FEECVariable
 from struphy.propagators.two_fluid_quasi_neutral_compressible import TwoFluidQuasiNeutralCompressible
 
 
-class TwoFluidQuasiNeutralCompressibleModel(StruphyModel):
+class TwoFluidQuasiNeutral(StruphyModel):
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -15,23 +15,22 @@ class TwoFluidQuasiNeutralCompressibleModel(StruphyModel):
 
     class EMfields(FieldSpecies):
         def __init__(self):
-            self.phi = FEECVariable(space="L2")
-            self.n = FEECVariable(space="L2")
+            self.phi = FEECVariable(space="H1")
             self.init_variables()
 
     class Ions(FluidSpecies):
         def __init__(self, charge_number=1, mass_number=1.0, epsilon=None):
-            self.u = FEECVariable(space="Hdiv")
+            self.u = FEECVariable(space="Hcurl")
             self.init_variables(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon)
 
     class Electrons(FluidSpecies):
         def __init__(self, charge_number=1, mass_number=1.0, epsilon=None):
-            self.u = FEECVariable(space="Hdiv")
+            self.u = FEECVariable(space="Hcurl")
             self.init_variables(charge_number=charge_number, mass_number=mass_number, epsilon=epsilon)
 
     class Propagators:
         def __init__(self):
-            self.qn_compressible = TwoFluidQuasiNeutralCompressible()
+            self.prop = TwoFluidQuasiNeutralCompressible()
 
     def __init__(
         self,
@@ -53,10 +52,9 @@ class TwoFluidQuasiNeutralCompressibleModel(StruphyModel):
 
         self.propagators = self.Propagators()
 
-        self.propagators.qn_compressible.variables.u = self.ions.u
-        self.propagators.qn_compressible.variables.ue = self.electrons.u
-        self.propagators.qn_compressible.variables.phi = self.em_fields.phi
-        self.propagators.qn_compressible.variables.n = self.em_fields.n
+        self.propagators.prop.variables.u = self.ions.u
+        self.propagators.prop.variables.ue = self.electrons.u
+        self.propagators.prop.variables.phi = self.em_fields.phi
 
     @property
     def bulk_species(self):
