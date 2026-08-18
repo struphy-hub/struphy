@@ -78,14 +78,48 @@ is intentionally omitted rather than reported: a rerun on this shared login-node
 same session), evidently due to GPU contention from other jobs -- worth knowing if you
 reproduce this yourself, but not a number to trust as `pcg`'s true cost.
 
+With `direct` removing the field-solve bottleneck, one more non-obvious cost stayed
+hidden until the field solve itself got fast: `ImplicitDiffusion.__call__` runs a
+*second*, completely separate solve every step when `diagnostic is not None`
+(`proj = L2Projector("H1", self.mass_ops); self.diagnostic.spline.vector = proj.solve(rhs)`)
+-- a fresh, uncached `L2Projector` with the default `"pcg"` solver, untouched by
+`--solver direct` above since it is a different `InverseLinearOperator` entirely. The
+physics case this file is adapted from enables it (`use_diagnostic_poisson=True`), but it
+only feeds `self.diagnostics.rho`, an extra saved diagnostic field nothing else in this
+model reads back (the `phi_integral` scalar uses `phi` directly) -- disabled here
+(`use_diagnostic_poisson=False`) since it was otherwise the dominant per-step cost left
+after fixing the main solve.
+
+## CuPy actually winning end to end
+
+At the tiny `ppc=5` used to validate correctness above, CuPy still loses in total wall
+time even with `direct` and the diagnostic-solve fix: setup (CUDA context/kernel
+compilation, done once) is a larger fixed cost on CuPy than on NumPy, and there isn't
+enough per-step *work* -- the whole point of `direct` and disabling the diagnostic
+solve -- for the CUDA-ported pushers to out-earn that fixed cost. Scaling up `ppc` (more
+markers per cell, i.e. more actual particle-push/accumulation work, which is exactly what
+was CUDA-ported) is what tips the balance, not a bigger grid. Measured at
+num_elements=(16, 64, 4), **ppc=200** (the physics case's own suggested minimum), 10
+steps (dt=0.001, Tend=0.01), single rank, one H100, `--solver direct` (the default),
+`use_diagnostic_poisson=False`:
+
+    backend   total (setup to finalize)   model.integrate/step   push_gc_bxe/step   push_gc_para/step
+    numpy     145.5 s                     8.71 s                 3.84 s             4.37 s
+    cupy       80.0 s (1.82x FASTER)      0.59 s (14.8x)          0.14 s (28x)       0.14 s (32x)
+
+`en_phi`/`en_tot`/`phi_integral` scalars match to ~1e-21 (round-off) between the two
+runs. This is now the default configuration (`ppc=200`, `Tend=0.01`); override with
+`--ppc`/`--Tend`/`--num-elements` to explore further (e.g. a larger grid should shift
+the crossover point the other way, back toward NumPy, per the still-open question below).
+
 Whether a larger, more production-scale grid (num_elements=(32, 135, 5), the physics
 case's own default) changes any of this is open -- `direct`'s one-time factorization cost
 should grow with problem size (the setup-phase matrix assembly alone took 226 s on NumPy
-at that size when this case was first validated), so whether it stays worth it at scale,
+at that size when this case was first validated), so whether CuPy still wins at scale,
 and by how much, needs its own longer-budget run; pass a larger --num-elements (with a
 longer SLURM walltime) to check.
 
-`num_elements`/`ppc`/`Tend` default to the validated, quick configuration above (a
+`num_elements`/`ppc`/`Tend` default to the validated configuration above (a
 speed/coverage tradeoff against the physics case's own (32, 135, 5)/50/0.01); override
 with --num-elements/--ppc/--Tend for a larger run.
 """
@@ -105,8 +139,8 @@ parser.add_argument(
 # output under `sim_<id>` (see `ProfilingCase.build_commands` / `package_run`).
 # Unknown flags are ignored so the driver can forward other parameters as well.
 parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
-parser.add_argument("--ppc", type=int, default=None, help="Markers per cell (overrides the default, 5).")
-parser.add_argument("--Tend", type=float, default=None, help="End time (overrides the default, 0.001 -> 1 step).")
+parser.add_argument("--ppc", type=int, default=None, help="Markers per cell (overrides the default, 200).")
+parser.add_argument("--Tend", type=float, default=None, help="End time (overrides the default, 0.01 -> 10 steps).")
 parser.add_argument(
     "--solver",
     choices=("pcg", "direct"),
@@ -192,7 +226,15 @@ from struphy.pic.accumulation.filter import FilterParameters
 base_units = BaseUnits(kBT=0.1916)
 model = DriftKineticElectrostaticAdiabatic(
     base_units=base_units,
-    use_diagnostic_poisson=True,
+    # The physics case (examples/.../cyclone/params_cyclone.py) enables this, but it
+    # wires up a *second*, completely separate solve every step
+    # (ImplicitDiffusion.__call__'s `if self.diagnostic is not None: ... proj.solve(rhs)`,
+    # a fresh, uncached L2Projector with the default "pcg" solver -- unrelated to and not
+    # sped up by --solver direct above). It only feeds `self.diagnostics.rho`, an extra
+    # saved diagnostic field that nothing else in this model reads back (the
+    # `phi_integral` scalar uses `phi` directly) -- disabled here so this profiling case
+    # measures the model's actual per-step cost, not an unrelated, unoptimized solve.
+    use_diagnostic_poisson=False,
 )
 
 # List all variables and decide whether to save their data
@@ -214,7 +256,7 @@ env = EnvironmentOptions(
 
 # Time stepping. Short by default: enough steps to warm past one-off setup (Poisson
 # assembly, particle loading, CUDA RawKernel JIT compile) without a long profiling run.
-time_opts = Time(dt=0.001, Tend=args.Tend if args.Tend is not None else 0.001, split_algo="LieTrotter")
+time_opts = Time(dt=0.001, Tend=args.Tend if args.Tend is not None else 0.01, split_algo="LieTrotter")
 
 a, r_min, R0 = 0.36, 0.01, 1.0
 num_elements = tuple(args.num_elements) if args.num_elements is not None else (16, 64, 4)
@@ -253,7 +295,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-ppc = args.ppc if args.ppc is not None else 5
+ppc = args.ppc if args.ppc is not None else 200
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="uniform", moments=(0, 0, 4, 4))
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"))
