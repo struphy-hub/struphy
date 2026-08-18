@@ -111,6 +111,10 @@ class Accumulator:
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
+        # profiling region names (precomputed, they are looked up on every call)
+        self._region_name = "accum: " + kernel.name
+        self._comm_region_name = "accum comm: " + kernel.name
+
         self._symmetry = symmetry
 
         self._form = self.derham.space_to_form[space_id]
@@ -210,6 +214,11 @@ class Accumulator:
         args_control : any
             Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
+        with ProfileManager.profile_region(self._region_name):
+            self._accumulate(*optional_args, **args_control)
+
+    def _accumulate(self, *optional_args, **args_control):
+        """Body of :meth:`__call__`, see there."""
 
         # flags for break
         vec_finished = False
@@ -232,11 +241,12 @@ class Accumulator:
         # apply filter
         if self.accfilter.params.use_filter is not None:
             for vec in self._vectors:
-                vec.exchange_assembly_data()
-                vec.update_ghost_regions()
+                with ProfileManager.profile_region(self._comm_region_name):
+                    vec.exchange_assembly_data()
+                    vec.update_ghost_regions()
 
                 self.accfilter(vec)
-                vec_finished = True
+            vec_finished = True
 
         if self.particles.clone_config is None:
             num_clones = 1
@@ -244,12 +254,13 @@ class Accumulator:
             num_clones = self.particles.clone_config.num_clones
 
         if num_clones > 1:
-            for data_array in self._args_data:
-                self.particles.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    data_array,
-                    op=MPI.SUM,
-                )
+            with ProfileManager.profile_region(self._comm_region_name):
+                for data_array in self._args_data:
+                    self.particles.clone_config.inter_comm.Allreduce(
+                        MPI.IN_PLACE,
+                        data_array,
+                        op=MPI.SUM,
+                    )
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
@@ -270,15 +281,17 @@ class Accumulator:
 
         # finish vector: accumulate ghost regions and update ghost regions
         if not vec_finished:
-            for vec in self._vectors:
-                vec.exchange_assembly_data()
-                vec.update_ghost_regions()
+            with ProfileManager.profile_region(self._comm_region_name):
+                for vec in self._vectors:
+                    vec.exchange_assembly_data()
+                    vec.update_ghost_regions()
 
         # finish matrix: accumulate ghost regions, update ghost regions and copy data for symmetric/antisymmetric block matrices
         if not mat_finished:
-            for op in self._operators:
-                op.matrix.exchange_assembly_data()
-                op.matrix.update_ghost_regions()
+            with ProfileManager.profile_region(self._comm_region_name):
+                for op in self._operators:
+                    op.matrix.exchange_assembly_data()
+                    op.matrix.update_ghost_regions()
 
             if self.symmetry == "symm":
                 self._operators[0].matrix[0, 1].transpose(
@@ -492,6 +505,10 @@ class AccumulatorVector:
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
+        # profiling region names (precomputed, they are looked up on every call)
+        self._region_name = "accum: " + kernel.name
+        self._comm_region_name = "accum comm: " + kernel.name
+
         self._form = self.derham.space_to_form[space_id]
 
         # initialize vectors
@@ -558,6 +575,11 @@ class AccumulatorVector:
             Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
             Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
+        with ProfileManager.profile_region(self._region_name):
+            self._accumulate(*optional_args, **args_control)
+
+    def _accumulate(self, *optional_args, **args_control):
+        """Body of :meth:`__call__`, see there."""
 
         # flags for break
         vec_finished = False
@@ -579,8 +601,9 @@ class AccumulatorVector:
         # apply filter
         if self.accfilter.params.use_filter is not None:
             for vec in self._vectors:
-                vec.exchange_assembly_data()
-                vec.update_ghost_regions()
+                with ProfileManager.profile_region(self._comm_region_name):
+                    vec.exchange_assembly_data()
+                    vec.update_ghost_regions()
 
                 self.accfilter(vec)
                 vec_finished = True
@@ -591,12 +614,13 @@ class AccumulatorVector:
             num_clones = self.particles.clone_config.num_clones
 
         if num_clones > 1:
-            for data_array in self._args_data:
-                self.particles.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    data_array,
-                    op=MPI.SUM,
-                )
+            with ProfileManager.profile_region(self._comm_region_name):
+                for data_array in self._args_data:
+                    self.particles.clone_config.inter_comm.Allreduce(
+                        MPI.IN_PLACE,
+                        data_array,
+                        op=MPI.SUM,
+                    )
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
@@ -609,9 +633,10 @@ class AccumulatorVector:
 
         # finish vector: accumulate ghost regions and update ghost regions
         if not vec_finished:
-            for vec in self._vectors:
-                vec.exchange_assembly_data()
-                vec.update_ghost_regions()
+            with ProfileManager.profile_region(self._comm_region_name):
+                for vec in self._vectors:
+                    vec.exchange_assembly_data()
+                    vec.update_ghost_regions()
 
     @property
     def particles(self):

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -165,7 +166,8 @@ class Hall(Propagator):
         rhs = rhs.dot(bn, out=self._rhs_b)
         self._solver.linop = lhs
 
-        bn1 = self._solver.solve(rhs, out=self._b_new)
+        with ProfileManager.profile_region(self._solve_region):
+            bn1 = self._solver.solve(rhs, out=self._b_new)
         info = self._solver._info
 
         # write new coeffs into self.feec_vars

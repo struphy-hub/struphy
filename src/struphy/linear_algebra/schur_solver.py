@@ -2,6 +2,7 @@ from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.linear_algebra.solver import inverse as struphy_inverse
@@ -148,6 +149,7 @@ class SchurSolver:
         self._schur_dirty = True
 
     @profile
+    @ProfileManager.profile("solve: SchurSolver")
     def __call__(self, xn, Byn, dt, out=None):
         """Solves the 2x2 block matrix linear system.
 
@@ -280,6 +282,7 @@ class SchurSolverFull:
         self._rhs = self._A.codomain.zeros()
 
     @profile
+    @ProfileManager.profile("solve: SchurSolverFull")
     def dot(self, v, out=None):
         """Solves the 2x2 block matrix linear system.
 
@@ -399,6 +402,7 @@ class SchurSolverFull3:
         self._rhs2 = self._A.codomain.zeros()
 
     @profile
+    @ProfileManager.profile("solve: SchurSolverFull3")
     def dot(self, v, out=None):
         """Solves the 3x3 block matrix linear system.
 
