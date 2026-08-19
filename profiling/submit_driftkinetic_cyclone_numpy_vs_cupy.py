@@ -38,47 +38,12 @@ def main() -> None:
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
     )
-    parser.add_argument("--ppc", type=int, default=None, help="Markers per cell (overrides the default, 5).")
-    parser.add_argument("--Tend", type=float, default=None, help="End time (overrides the default, 0.001 -> 1 step).")
-    parser.add_argument(
-        "--solver",
-        choices=("pcg", "direct"),
-        default=None,
-        help=(
-            "Symmetric solver for the field solve (overrides params_cyclone.py's own "
-            "default, 'direct'). 'direct' is a cached sparse LU factorization, valid "
-            "because the LHS operator here is constant across time steps; see "
-            "params_cyclone.py's docstring for the measured PCG-vs-direct comparison."
-        ),
-    )
-    parser.add_argument(
-        "--num-elements",
-        type=int,
-        nargs=3,
-        default=None,
-        help=(
-            "Grid resolution (overrides the default, 16 64 4). The physics case's own "
-            "default, 32 135 5, is much heavier -- NumPy setup alone took 226 s at that "
-            "size when this case was validated -- so raise --time in the SLURM preset "
-            "before using it."
-        ),
-    )
     args = parser.parse_args()
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
     params_dir = script_dir / "examples" / "DriftKineticElectrostaticAdiabatic"
     params_source = params_dir / "params_cyclone.py"
-
-    param_flags = []
-    if args.ppc is not None:
-        param_flags += ["--ppc", str(args.ppc)]
-    if args.Tend is not None:
-        param_flags += ["--Tend", str(args.Tend)]
-    if args.num_elements is not None:
-        param_flags += ["--num-elements", *[str(n) for n in args.num_elements]]
-    if args.solver is not None:
-        param_flags += ["--solver", args.solver]
 
     profiling_case = ProfilingCase(
         label="driftkinetic_cyclone_numpy_vs_cupy",
@@ -105,7 +70,7 @@ def main() -> None:
         profiling_case.launch(
             1,
             num_nodes=1,
-            param_flags=["--backend", backend, *param_flags],
+            param_flags=["--backend", backend],
             slurm_presets={cluster_name: preset},
         )
 

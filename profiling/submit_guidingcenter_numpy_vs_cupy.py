@@ -29,6 +29,10 @@ BACKEND_PRESETS = {
 # runs are spread so that no node holds more ranks than it has GPUs.
 GPUS_PER_NODE = 4
 
+# MPI rank count to run each backend with. This params file selects no GPU per rank, so
+# more than one rank per node would share device 0 -- keep at 1 unless that's fixed.
+RANKS = 1
+
 
 def main() -> None:
 
@@ -40,17 +44,6 @@ def main() -> None:
         "--upload",
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
-    )
-    parser.add_argument(
-        "--ranks",
-        type=int,
-        nargs="+",
-        default=[1],
-        help=(
-            "MPI rank counts to run each backend with (default: 1). Note that the CuPy "
-            "runs currently select no GPU per rank, so more than one rank per node all "
-            "share device 0."
-        ),
     )
     args = parser.parse_args()
 
@@ -75,24 +68,23 @@ def main() -> None:
     # under whatever name detection reports for this machine.
     cluster_name = detect_machine_name()
 
-    # Launch one run per (rank count, backend) pair.
-    for num_tasks in args.ranks:
-        for backend, preset in BACKEND_PRESETS.items():
-            if backend == "cupy":
-                # One node per `GPUS_PER_NODE` ranks. `launch` would otherwise derive the
-                # node count from `cpus_per_node`, which on a GPU partition packs far more
-                # ranks per node than there are GPUs.
-                num_nodes = -(-num_tasks // GPUS_PER_NODE)
-            else:
-                # Let `launch` derive the node count from the cluster's CPU count.
-                num_nodes = None
+    # Launch one run per backend.
+    for backend, preset in BACKEND_PRESETS.items():
+        if backend == "cupy":
+            # One node per `GPUS_PER_NODE` ranks. `launch` would otherwise derive the
+            # node count from `cpus_per_node`, which on a GPU partition packs far more
+            # ranks per node than there are GPUs.
+            num_nodes = -(-RANKS // GPUS_PER_NODE)
+        else:
+            # Let `launch` derive the node count from the cluster's CPU count.
+            num_nodes = None
 
-            profiling_case.launch(
-                num_tasks,
-                num_nodes=num_nodes,
-                param_flags=["--backend", backend],
-                slurm_presets={cluster_name: preset},
-            )
+        profiling_case.launch(
+            RANKS,
+            num_nodes=num_nodes,
+            param_flags=["--backend", backend],
+            slurm_presets={cluster_name: preset},
+        )
 
     # Package and push each run as its own job finishes.
     profiling_case.finalize_run()

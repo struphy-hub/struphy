@@ -4,12 +4,15 @@ Strong-scaling study (not a backend comparison, see `submit_driftkinetic_cyclone
 for that): the same grid/marker configuration runs under `ARRAY_BACKEND=cupy` at
 increasing MPI rank counts, one rank per GPU. `--ranks 1 2 4 8` (default) covers
 intra-node scaling plus one cross-node step. Grid is hardcoded to `NUM_ELEMENTS` below
-(not a CLI flag), so a run's grid is always readable straight from this file; `(12, 32,
-4)` -- smaller than `params_cyclone.py`'s own default -- was chosen so the `direct`
-solver's one-time matrix-assembly cost (see `feectools.linalg.utilities.tosparse_via_matvec`)
-reliably fits `pitagora_boost_fua_dbg`'s walltime. Uses `params_cyclone.py`'s default
-solver (`direct`) at every rank count, now that `DirectSolver` supports `nprocs > 1`.
-`Tend` is shortened to 3 steps to leave walltime headroom for that one-time cost.
+(not a CLI flag), so a run's grid is always readable straight from this file.
+
+**Solver forced to `pcg`, not `params_cyclone.py`'s own default (`direct`).**
+`DirectSolver` now supports `nprocs > 1` (a replicated matrix assembly, see
+`feectools.linalg.utilities.tosparse_via_matvec`), but that assembly is currently too
+slow under CuPy in practice (measured ~270-300s one-time cost even at a modest grid,
+dominated by per-`dot()`-call kernel-launch/sync overhead the array-transfer
+optimization only dents) to be worth using in a scaling study yet -- `pcg` gives a
+cleaner, apples-to-apples comparison across rank counts until that's fixed.
 """
 
 import argparse
@@ -30,9 +33,15 @@ GPU_PRESET = SLURM_PRESETS["pitagora_boost_fua_dbg"]
 # binding in params_cyclone.py.
 GPUS_PER_NODE = 4
 
-# Grid resolution, hardcoded rather than a `--num-elements` CLI flag -- see the module
-# docstring for why this specific size was chosen.
-NUM_ELEMENTS = (12, 32, 4)
+# Grid resolution, matching params_cyclone.py's own default.
+NUM_ELEMENTS = (16, 64, 4)
+
+# MPI rank counts to run with, one GPU per rank -- 1/2/4 intra-node, 8 = 2 Booster nodes.
+RANKS = [1, 2, 4, 8]
+
+# End time: 0.003 -> 3 steps, shortened from params_cyclone.py's own 0.01/10 steps to
+# keep the pcg-forced sweep quick.
+TEND = 0.003
 
 
 def main() -> None:
@@ -46,24 +55,6 @@ def main() -> None:
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
     )
-    parser.add_argument(
-        "--ranks",
-        type=int,
-        nargs="+",
-        default=[1, 2, 4, 8],
-        help="MPI rank counts to run with, one GPU per rank (default: 1 2 4 8; 8 spans 2 Booster nodes).",
-    )
-    parser.add_argument("--ppc", type=int, default=None, help="Markers per cell (overrides params_cyclone.py's default, 200).")
-    parser.add_argument(
-        "--Tend",
-        type=float,
-        default=0.003,
-        help=(
-            "End time (default: 0.003 -> 3 steps, shortened from params_cyclone.py's own "
-            "0.01/10 steps to leave walltime headroom for the direct solver's one-time "
-            "matrix-assembly cost at every rank count; see the module docstring)."
-        ),
-    )
     args = parser.parse_args()
 
     # Paths relative to this script's location, so it can be run from anywhere.
@@ -76,7 +67,8 @@ def main() -> None:
         name="ITG cyclone: CuPy scaling",
         description=(
             "Cyclone-instability ITG turbulence (DriftKineticElectrostaticAdiabatic) on "
-            "CuPy, strong-scaled across GPUs with the direct field solver."
+            "CuPy, strong-scaled across GPUs. Solver forced to pcg (direct's multi-rank "
+            "assembly is not fast enough yet, see module docstring)."
         ),
         physics_problem="Electrostatic drift-kinetic ITG turbulence with adiabatic electrons in toroidal geometry.",
         struphy_model_used="DriftKineticElectrostaticAdiabatic",
@@ -92,16 +84,15 @@ def main() -> None:
 
     param_flags = [
         "--backend", "cupy",
-        "--Tend", str(args.Tend),
+        "--solver", "pcg",
+        "--Tend", str(TEND),
         "--num-elements", *[str(n) for n in NUM_ELEMENTS],
     ]
-    if args.ppc is not None:
-        param_flags += ["--ppc", str(args.ppc)]
 
     # Launch one run per rank count. One node per GPUS_PER_NODE ranks -- `launch` would
     # otherwise derive the node count from `cpus_per_node`, which on a GPU partition packs
     # far more ranks per node than there are GPUs.
-    for num_tasks in args.ranks:
+    for num_tasks in RANKS:
         num_nodes = -(-num_tasks // GPUS_PER_NODE)
         profiling_case.launch(
             num_tasks,

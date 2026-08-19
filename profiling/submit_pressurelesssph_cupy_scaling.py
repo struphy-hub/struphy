@@ -3,7 +3,7 @@
 Companion to submit_guidingcenter_cupy_scaling.py and submit_vlasovampere_cupy_scaling.py:
 a model with no FEEC field solve at all, the low-per-marker-compute end of the three.
 Same total marker count, run with `ARRAY_BACKEND=cupy` at increasing MPI rank counts
-(one rank per GPU); `--ranks 2 4 8` (default) covers intra-node scaling plus one
+(one rank per GPU); `RANKS = [2, 4, 8]` below covers intra-node scaling plus one
 cross-node step.
 """
 
@@ -26,6 +26,9 @@ GPU_PRESET = SLURM_PRESETS["pitagora_boost_fua_dbg"]
 # binding in params_PressureLessSPH_scaling.py.
 GPUS_PER_NODE = 4
 
+# MPI rank counts to run with, one GPU per rank -- 2/4 intra-node, 8 = 2 Booster nodes.
+RANKS = [2, 4, 8]
+
 
 def main() -> None:
 
@@ -37,19 +40,6 @@ def main() -> None:
         "--upload",
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
-    )
-    parser.add_argument(
-        "--ranks",
-        type=int,
-        nargs="+",
-        default=[2, 4, 8],
-        help="MPI rank counts to run with, one GPU per rank (default: 2 4 8; 8 spans 2 Booster nodes).",
-    )
-    parser.add_argument(
-        "--Np",
-        type=int,
-        default=None,
-        help="Total marker count, overriding params_PressureLessSPH_scaling.py's default (10,000,000).",
     )
     args = parser.parse_args()
 
@@ -75,13 +65,11 @@ def main() -> None:
     cluster_name = detect_machine_name()
 
     param_flags = ["--backend", "cupy"]
-    if args.Np is not None:
-        param_flags += ["--Np", str(args.Np)]
 
     # Launch one run per rank count. One node per GPUS_PER_NODE ranks -- `launch` would
     # otherwise derive the node count from `cpus_per_node`, which on a GPU partition packs
     # far more ranks per node than there are GPUs.
-    for num_tasks in args.ranks:
+    for num_tasks in RANKS:
         num_nodes = -(-num_tasks // GPUS_PER_NODE)
         profiling_case.launch(
             num_tasks,

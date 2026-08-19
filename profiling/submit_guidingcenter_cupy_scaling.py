@@ -3,7 +3,7 @@
 Strong-scaling study (not a backend comparison, see `submit_guidingcenter_numpy_vs_cupy.py`
 for that): the same total marker count runs under `ARRAY_BACKEND=cupy` at increasing MPI
 rank counts, one rank per GPU, to measure whether more rank+GPU pairs actually speed up a
-fixed-size problem. `--ranks 1 2 4 8` (default) covers intra-node scaling plus one
+fixed-size problem. `RANKS = [2, 4, 8]` below covers intra-node scaling plus one
 cross-node step (8 = 2 Booster nodes x 4 GPUs). Uses `params_GuidingCenter_scaling.py`'s
 much larger default `Np` (not `params_GuidingCenter.py`'s) since a small per-rank marker
 count makes MPI exchange cost dominate and scaling look worse than it is.
@@ -28,6 +28,9 @@ GPU_PRESET = SLURM_PRESETS["pitagora_boost_fua_dbg"]
 # binding in params_GuidingCenter_scaling.py.
 GPUS_PER_NODE = 4
 
+# MPI rank counts to run with, one GPU per rank -- 2/4 intra-node, 8 = 2 Booster nodes.
+RANKS = [2, 4, 8]
+
 
 def main() -> None:
 
@@ -39,19 +42,6 @@ def main() -> None:
         "--upload",
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
-    )
-    parser.add_argument(
-        "--ranks",
-        type=int,
-        nargs="+",
-        default=[2, 4, 8],
-        help="MPI rank counts to run with, one GPU per rank (default: 1 2 4 8; 8 spans 2 Booster nodes).",
-    )
-    parser.add_argument(
-        "--Np",
-        type=int,
-        default=None,
-        help="Total marker count, overriding params_GuidingCenter_scaling.py's default (50,000,000).",
     )
     args = parser.parse_args()
 
@@ -77,13 +67,11 @@ def main() -> None:
     cluster_name = detect_machine_name()
 
     param_flags = ["--backend", "cupy"]
-    if args.Np is not None:
-        param_flags += ["--Np", str(args.Np)]
 
     # Launch one run per rank count. One node per GPUS_PER_NODE ranks -- `launch` would
     # otherwise derive the node count from `cpus_per_node`, which on a GPU partition packs
     # far more ranks per node than there are GPUs.
-    for num_tasks in args.ranks:
+    for num_tasks in RANKS:
         num_nodes = -(-num_tasks // GPUS_PER_NODE)
         profiling_case.launch(
             num_tasks,

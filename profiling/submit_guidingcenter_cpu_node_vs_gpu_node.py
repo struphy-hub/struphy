@@ -40,24 +40,6 @@ def main() -> None:
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
     )
-    parser.add_argument(
-        "--cpu-ranks",
-        type=int,
-        default=CPU_RANKS_PER_NODE,
-        help=f"MPI ranks for the NumPy/CPU-node run (default: {CPU_RANKS_PER_NODE}, one full pitagora_dcgp node).",
-    )
-    parser.add_argument(
-        "--gpu-ranks",
-        type=int,
-        default=GPU_RANKS_PER_NODE,
-        help=f"MPI ranks for the CuPy/GPU-node run, one rank per GPU (default: {GPU_RANKS_PER_NODE}, one full Booster node).",
-    )
-    parser.add_argument(
-        "--Np",
-        type=int,
-        default=None,
-        help="Total marker count, overriding params_GuidingCenter_scaling.py's default (10,000,000).",
-    )
     args = parser.parse_args()
 
     # Paths relative to this script's location, so it can be run from anywhere.
@@ -84,21 +66,19 @@ def main() -> None:
     # under whatever name detection reports for this machine.
     cluster_name = detect_machine_name()
 
-    Np_flags = ["--Np", str(args.Np)] if args.Np is not None else []
-
     # One full CPU node, NumPy backend.
     profiling_case.launch(
-        args.cpu_ranks,
+        CPU_RANKS_PER_NODE,
         num_nodes=1,
-        param_flags=["--backend", "numpy", *Np_flags],
+        param_flags=["--backend", "numpy"],
         slurm_presets={cluster_name: CPU_PRESET},
     )
 
     # One full GPU node, CuPy backend, one rank per GPU.
     profiling_case.launch(
-        args.gpu_ranks,
+        GPU_RANKS_PER_NODE,
         num_nodes=1,
-        param_flags=["--backend", "cupy", *Np_flags],
+        param_flags=["--backend", "cupy"],
         slurm_presets={cluster_name: GPU_PRESET},
     )
 
