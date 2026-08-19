@@ -4,11 +4,18 @@ import cunumpy as xp
 
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
+    H1vecKineticMetric,
     InternalEnergyEvaluator,
 )
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
+from struphy.models.scalars import (
+    BilinearEnergyFEEC,
+    FunctionScalarFEEC,
+    Scalars,
+    VolumeFormEnergyFEEC,
+    WeightedBilinearEnergyFEEC,
+)
 from struphy.models.species import (
     FieldSpecies,
     FluidSpecies,
@@ -68,9 +75,9 @@ class ViscoResistiveMHD(StruphyModel):
             with_resistivity: bool = True,
         ):
             self.variat_dens = VariationalDensityEvolve(s=s)
-            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_mom = VariationalMomentumAdvection(rho=rho)
             self.variat_ent = VariationalEntropyEvolve(rho=rho)
-            self.variat_mag = VariationalMagFieldEvolve()
+            self.variat_mag = VariationalMagFieldEvolve(rho=rho)
             if with_viscosity:
                 self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
@@ -84,9 +91,14 @@ class ViscoResistiveMHD(StruphyModel):
         mass_number: float = 1.0,
         with_viscosity: bool = True,
         with_resistivity: bool = True,
+        with_regularization: bool = False,
+        divdiv_alpha: float = 0.0,
     ):
 
         # 0. store input parameters
+        if with_regularization:
+            assert divdiv_alpha >= 0.0
+
         self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
@@ -102,6 +114,29 @@ class ViscoResistiveMHD(StruphyModel):
             rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
+        )
+
+        # 3.5 Instantiate options for propagators
+
+        self.propagators.variat_dens.options = self.propagators.variat_dens.Options(
+            model="full",
+            with_regularization=with_regularization,
+            alpha_divdiv=divdiv_alpha,
+        )
+
+        self.propagators.variat_mom.options = self.propagators.variat_mom.Options(
+            with_regularization=with_regularization,
+            alpha_divdiv=divdiv_alpha,
+        )
+
+        self.propagators.variat_ent.options = self.propagators.variat_ent.Options(
+            with_regularization=with_regularization,
+            alpha_divdiv=divdiv_alpha,
+        )
+
+        self.propagators.variat_mag.options = self.propagators.variat_mag.Options(
+            with_regularization=with_regularization,
+            alpha_divdiv=divdiv_alpha,
         )
 
         # 4. assign variables to propagators
@@ -120,7 +155,15 @@ class ViscoResistiveMHD(StruphyModel):
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
         # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
+        if with_regularization:
+            kinetic_energy = WeightedBilinearEnergyFEEC(
+                left_variable=self.mhd.velocity,
+                weight_variable=self.mhd.density,
+                bilinear_form_getter=lambda: self.propagators.variat_dens._kinetic_metric,
+            )
+        else:
+            kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
+
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + magnetic_energy + thermo_energy
@@ -143,6 +186,8 @@ class ViscoResistiveMHD(StruphyModel):
         return "alfvén"
 
     def allocate_helpers(self):
+        domain = Propagator.mass_ops.domain
+
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
@@ -151,7 +196,10 @@ class ViscoResistiveMHD(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
+        self._energy_evaluator = InternalEnergyEvaluator(
+            Propagator.derham,
+            self.propagators.variat_ent.options.gamma,
+        )
 
         self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):

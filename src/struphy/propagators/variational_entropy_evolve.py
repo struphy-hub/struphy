@@ -11,8 +11,12 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.preconditioner import (
+    H1vecKineticMetricPreconditioner,
+    H1vecKineticMetricWoodburyPreconditioner,
+    MassMatrixDiagonalPreconditioner,
+)
+from struphy.feec.variational_utilities import H1vecKineticMetric, InternalEnergyEvaluator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -130,6 +134,16 @@ class VariationalEntropyEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
+        with_regularization : bool, default=False
+            Whether to use the density-weighted H1vec div-div kinetic
+            regularization.
+        alpha_divdiv : float, default=1.0
+            Coefficient in
+
+                alpha_divdiv * int rho (div u)^2 dx.
+
+            The corresponding coefficient in the momentum metric is
+            2 * alpha_divdiv.
         """
 
         # specific literals
@@ -141,6 +155,8 @@ class VariationalEntropyEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        with_regularization: bool = False
+        alpha_divdiv: float = 1.0
 
         def __post_init__(self):
             # checks
@@ -154,6 +170,12 @@ class VariationalEntropyEvolve(Propagator):
 
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters()
+
+            if not isinstance(self.with_regularization, bool):
+                raise TypeError(f"with_regularization must be a bool, got {type(self.with_regularization)}.")
+
+            if self.alpha_divdiv < 0.0:
+                raise ValueError(f"alpha_divdiv must be non-negative, got {self.alpha_divdiv}.")
 
     @property
     def options(self) -> Options:
@@ -177,20 +199,58 @@ class VariationalEntropyEvolve(Propagator):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
+        self._with_regularization = self.options.with_regularization
+        self._alpha_divdiv = self.options.alpha_divdiv
+        self._metric_alpha = 2.0 * self._alpha_divdiv
+
+        if self._with_regularization and not self.domain.has_exact_mapping_hessian:
+            raise NotImplementedError(
+                "VariationalEntropyEvolve regularization requires an "
+                "analytical mapping Hessian. "
+                f"Mapping {type(self.domain).__name__} with "
+                f"kind_map={self.domain.kind_map} is not currently supported."
+            )
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-        self._Mrho_inv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=pc,
-            tol=1e-16,
-            maxiter=500,
-            recycle=True,
-        )
+
+        rho = self.rho.spline.vector
+
+        if self._with_regularization:
+            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
+                self._metric_alpha,
+            )
+
+            self._Kdivrho = self._kinetic_metric.divdiv_operator
+
+            # Assemble both M_rho and K_div,rho.
+            self._kinetic_metric.update_weight(rho)
+
+            self._momentum_operator = self._kinetic_metric
+            pc = H1vecKineticMetricPreconditioner(
+                self._kinetic_metric,
+            )
+        else:
+            self._Kdivrho = None
+            self._kinetic_metric = None
+
+            # Do not rely exclusively on VariationalDensityEvolve having
+            # assembled this operator previously.
+            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.assemble()
+
+            self._momentum_operator = self._Mrho
+            # pc = H1vecKineticMetricWoodburyPreconditioner(
+            #                     self._kinetic_metric,
+            #                     auxiliary_nsteps=5,
+            #                     spectral_iterations=8,
+            #                     spectral_safety=1.5,
+            # )
+            pc = MassMatrixDiagonalPreconditioner(self._momentum_operator)
+
+        self._momentum_pc = pc
 
         # Projector
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
@@ -219,11 +279,10 @@ class VariationalEntropyEvolve(Propagator):
         if self._linearize:
             self._compute_init_linear_form()
 
+    @profile
     def __call__(self, dt):
-        pc = self._Mrho_inv._options["pc"]
-        if isinstance(pc, MassMatrixDiagonalPreconditioner):
-            pc.update_mass_operator(self._Mrho)
-    
+        rho = self.rho.spline.vector
+        self._update_momentum_operator(rho)
         self.__call_newton(dt)
 
     def __call_newton(self, dt):
@@ -239,14 +298,41 @@ class VariationalEntropyEvolve(Propagator):
         rho = self.rho.spline.vector
         self._update_Pis(sn)
 
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        mn = self._momentum_operator.dot(
+            un,
+            out=self._tmp_mn,
+        )
         sn1 = sn.copy(out=self._tmp_sn1)
         sn1 += self._tmp_sn_diff
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
-        tol = self._nonlin_solver.tol
-        err = tol + 1
+        mn1 = self._momentum_operator.dot(
+            un1,
+            out=self._tmp_mn1,
+        )
+
+        tol = float(self._nonlin_solver.tol)
+        tol_sq = tol * tol
+
+        # _get_error_newton returns a squared norm. The inner linear systems are
+        # solved only to tol, so requiring an exact value below tol**2 is too
+        # strict near floating-point/inexact-solve stagnation.
+        acceptance_factor = 4.0
+        absolute_threshold = acceptance_factor * tol_sq
+
+        stagnation_threshold = 10.0 * tol_sq
+        stagnation_relative_change = 1.0e-3
+        stagnation_iterations = 3
+
+        tiny = float(xp.finfo(float).tiny)
+
+        err = float("inf")
+        err0 = None
+        previous_err = None
+        stagnation_count = 0
+        converged = False
+        accepted_by_stagnation = False
+        schur_calls = 0
 
         for it in range(self._nonlin_solver.maxiter):
             # Newton iteration
@@ -285,9 +371,51 @@ class VariationalEntropyEvolve(Propagator):
 
             if self._info:
                 logger.info(f"iteration : {it} error : {err}")
+            err = float(err)
 
-            if err < tol**2 or xp.isnan(err):
+            if not bool(xp.isfinite(err)):
+                raise FloatingPointError(
+                    f"Non-finite residual in VariationalEntropyEvolve: iteration={it + 1}, err={err}."
+                )
+
+            if err0 is None:
+                err0 = max(err, tiny)
+
+            relative_err = err / err0
+
+            if self._info:
+                logger.info(
+                    "Entropy iteration: %d, error: %.16e, relative error: %.16e",
+                    it + 1,
+                    err,
+                    relative_err,
+                )
+
+            # Primary convergence criterion. The returned error is a squared norm.
+            if err <= absolute_threshold or relative_err <= tol_sq:
+                converged = True
                 break
+
+            # Accept a residual that has stopped changing near the requested
+            # tolerance. Continuing to 100 iterations cannot improve this residual.
+            if previous_err is not None:
+                relative_change = abs(previous_err - err) / max(
+                    previous_err,
+                    err,
+                    tiny,
+                )
+
+                if relative_change <= stagnation_relative_change:
+                    stagnation_count += 1
+                else:
+                    stagnation_count = 0
+
+                if stagnation_count >= stagnation_iterations and err <= stagnation_threshold:
+                    converged = True
+                    accepted_by_stagnation = True
+                    break
+
+            previous_err = err
 
             # Derivative for Newton
             self._get_jacobian(dt, rho, sn, sn1)
@@ -306,14 +434,21 @@ class VariationalEntropyEvolve(Propagator):
             sn1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            mn1 = self._momentum_operator.dot(
+                un1,
+                out=self._tmp_mn1,
+            )
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
-        self._tmp_sn_diff = sn1 - sn
-        self._tmp_un_diff = un1 - un
+
+        sn1.copy(out=self._tmp_sn_diff)
+        self._tmp_sn_diff -= sn
+
+        un1.copy(out=self._tmp_un_diff)
+        self._tmp_un_diff -= un
         self.update_feec_variables(s=sn1, u=un1)
 
     def _initialize_projectors_and_mass(self):
@@ -334,7 +469,7 @@ class VariationalEntropyEvolve(Propagator):
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -358,7 +493,7 @@ class VariationalEntropyEvolve(Propagator):
         self._dt_pc_divPisT = 2 * (self.divPisT)
         self._dt2_divPis = 2 * self.divPis
 
-        self._Jacobian[0, 0] = self._Mrho
+        self._Jacobian[0, 0] = self._momentum_operator
         self._Jacobian[0, 1] = self._dt_pc_divPisT @ self._M_ds
         self._Jacobian[1, 0] = self._dt2_divPis
         self._Jacobian[1, 1] = self._I3
@@ -368,11 +503,11 @@ class VariationalEntropyEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho_inv,
+            pc=self._momentum_pc,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
-            recycle=True,
+            recycle=False,
         )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
@@ -440,6 +575,33 @@ class VariationalEntropyEvolve(Propagator):
             self._tmp_int_grid *= -1.0
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_ds)
+
+    def _update_momentum_operator(self, rho):
+        """Update the fixed-density momentum metric and preconditioner."""
+
+        if self._with_regularization:
+            metric_changed = self._kinetic_metric.update_weight_if_needed(
+                rho,
+                self.rho.generation,
+            )
+        else:
+            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.assemble()
+            metric_changed = True
+
+        if not metric_changed:
+            return
+
+        pc = self._momentum_pc
+
+        if isinstance(pc, H1vecKineticMetricPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
 
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:

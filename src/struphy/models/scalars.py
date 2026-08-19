@@ -137,6 +137,7 @@ class SPHScalar(Scalar):
             op=MPI.SUM,
         )
 
+
 class Scalars:
     """Container for multiple Scalar objects."""
 
@@ -159,6 +160,7 @@ class Scalars:
         # so that all quantities are recomputed on the next call.
         for scalar in self.dct.values():
             scalar.invalidate()
+
 
 @auto_convert_docstring
 class BilinearEnergyFEEC(Scalar):
@@ -215,6 +217,108 @@ class BilinearEnergyFEEC(Scalar):
     \mathcal E = \alpha \frac{1}{2} \int_{\Omega} \mathbf{u}^\top A \mathbf u  \, d \mathbf x\,,
     
 where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
+
+
+class WeightedBilinearEnergyFEEC(Scalar):
+    r"""
+    Scalar from a density-dependent bilinear FEEC form.
+
+    The computed energy is
+
+    .. math::
+
+        \mathcal E
+        =
+        \frac{\alpha}{2}
+        \mathbf u^\top
+        \mathbb A(\rho)
+        \mathbf v,
+
+    where the bilinear operator is updated from a weight variable before
+    each evaluation.
+
+    Parameters
+    ----------
+    left_variable : FEECVariable
+        Variable on the left of the bilinear form.
+
+    weight_variable : FEECVariable
+        Variable used to update the bilinear-form weight.
+
+    bilinear_form_getter : Callable
+        Zero-argument callable returning the bilinear operator. Delayed
+        lookup allows the operator to be allocated in ``allocate_helpers``.
+
+    right_variable : FEECVariable | str | None
+        Variable on the right of the bilinear form. If omitted,
+        ``left_variable`` is used.
+
+    normalization : float
+        Multiplicative normalization.
+    """
+
+    def __init__(
+        self,
+        left_variable: FEECVariable,
+        weight_variable: FEECVariable,
+        bilinear_form_getter: Callable,
+        right_variable: FEECVariable | str | None = None,
+        normalization: float = 1.0,
+    ):
+        assert isinstance(left_variable, FEECVariable)
+        assert isinstance(weight_variable, FEECVariable)
+        assert callable(bilinear_form_getter)
+
+        if right_variable is None:
+            right_variable = left_variable
+
+        assert isinstance(right_variable, (FEECVariable, str))
+
+        super().__init__(
+            left_variable,
+            right_variable,
+            weight_variable,
+        )
+
+        self.bilinear_form_getter = bilinear_form_getter
+        self.normalization = normalization
+
+    def _local_update(self):
+        if not hasattr(self, "left_vec"):
+            self.left_vec = self.variables[0].spline.vector
+
+            if isinstance(self.variables[1], str):
+                self.right_vec = getattr(
+                    Propagator.projected_equil,
+                    self.variables[1],
+                )
+            else:
+                self.right_vec = self.variables[1].spline.vector
+
+            self.weight_vec = self.variables[2].spline.vector
+            self.vec_space = self.left_vec.space
+
+        # Delayed lookup because helpers are allocated after the model
+        # and its scalar diagnostics are constructed.
+        bilinear_form = self.bilinear_form_getter()
+
+        assert bilinear_form.domain == self.right_vec.space
+        assert bilinear_form.codomain == self.left_vec.space
+
+        bilinear_form.update_weight(self.weight_vec)
+
+        self.local_value[0] = (
+            self.normalization
+            * 0.5
+            * bilinear_form.dot_inner(
+                self.right_vec,
+                self.left_vec,
+            )
+        )
+
+    def _mpi_sum(self):
+        """Communication is handled by the distributed inner product."""
+        self.value[0] = self.local_value[0]
 
 
 class VolumeFormEnergyFEEC(Scalar):
@@ -338,6 +442,7 @@ class KineticEnergySPH(SPHScalar):
         energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
         self.local_value[0] = energy
 
+
 class FunctionScalarSPH(SPHScalar):
     """Scalar defined by a callable working on a SPH variable."""
 
@@ -351,4 +456,3 @@ class FunctionScalarSPH(SPHScalar):
 
     def _local_update(self):
         self.local_value[0] = float(self.function())
-

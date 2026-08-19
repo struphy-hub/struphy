@@ -1,19 +1,25 @@
 import logging
 from copy import deepcopy
+from typing import Callable
 
 import cunumpy as xp
+from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.linalg.basic import IdentityOperator, Vector
-from feectools.linalg.block import BlockVector
+from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
+from feectools.linalg.stencil import StencilMatrix
 
-from struphy.feec import preconditioner
+from struphy.feec import mass_kernels, preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
     BasisProjectionOperatorLocal,
     CoordinateProjector,
 )
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
+from struphy.geometry.base import Domain
+from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
@@ -1421,6 +1427,716 @@ class H1vecMassMatrix_density:
         )
 
 
+class H1vecKineticMetric(LinOpWithTransp):
+    def __init__(
+        self,
+        mass_rho,
+        divdiv_rho,
+        *,
+        alpha: float = 1.0,
+    ):
+        assert alpha >= 0.0
+        assert mass_rho.domain == divdiv_rho.domain
+        assert mass_rho.codomain == divdiv_rho.codomain
+
+        self._mass_rho = mass_rho
+        self._divdiv_rho = divdiv_rho
+        self._alpha = alpha
+
+        self._domain = mass_rho.domain
+        self._codomain = mass_rho.codomain
+        self._dtype = mass_rho.dtype
+
+        self._tmp_div = self.codomain.zeros()
+        self._tmp_scaled_div = self.codomain.zeros()
+        self._tmp_apply = self.codomain.zeros()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def mass_operator(self):
+        return self._mass_rho
+
+    @property
+    def divdiv_operator(self):
+        return self._divdiv_rho
+
+    @property
+    def alpha(self):
+        return self._alpha
+
+    def update_weight(self, rho):
+        self.mass_operator.spline_functions["l2_field"].vector = rho
+        self.mass_operator.assemble()
+        self.divdiv_operator.update_weight(rho)
+
+    def update_weight_if_needed(self, rho, generation):
+        if getattr(self, "_rho_generation", None) == generation:
+            return False
+
+        self.update_weight(rho)
+        self._rho_generation = generation
+        return True
+
+    def mark_weight_generation(self, generation):
+        """Record the generation represented by the currently assembled weight."""
+        self._rho_generation = generation
+
+    def dot(self, v, out=None):
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        if out is None:
+            out = self.codomain.zeros()
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+
+        self.mass_operator.dot(v, out=out)
+
+        if self.alpha != 0.0:
+            self.divdiv_operator.dot(
+                v,
+                out=self._tmp_div,
+            )
+
+            self._tmp_scaled_div *= 0.0
+            self._tmp_scaled_div += self._tmp_div
+            self._tmp_scaled_div *= self.alpha
+
+            out += self._tmp_scaled_div
+
+        return out
+
+    def dot_inner(self, v, w):
+        self.dot(v, out=self._tmp_apply)
+        return w.inner(self._tmp_apply)
+
+    def transpose(self, conjugate=False):
+        return self
+
+    def tosparse(self):
+        r"""
+        Return the sparse matrix representation of
+
+            M_rho + alpha * K_rho.
+
+        This requires the constituent operators to support sparse
+        conversion for the active extraction and boundary operators.
+        """
+        mass_sparse = self.mass_operator.tosparse()
+
+        if self.alpha == 0.0:
+            return mass_sparse
+
+        divdiv_sparse = self.divdiv_operator.tosparse()
+
+        if mass_sparse.shape != divdiv_sparse.shape:
+            raise ValueError(
+                "The mass and div-div sparse matrices have "
+                "incompatible shapes: "
+                f"{mass_sparse.shape} and {divdiv_sparse.shape}."
+            )
+
+        return mass_sparse + self.alpha * divdiv_sparse
+
+    def toarray(self):
+        r"""
+        Return the dense matrix representation of
+
+            M_rho + alpha * K_rho.
+        """
+        return self.tosparse().toarray()
+
+
+class H1vecDivergenceEvaluator:
+    r"""
+    Evaluate the physical divergence of an H1vec field on a fixed
+    tensor-product grid.
+
+    The H1vec proxy is pushed forward according to
+
+    .. math::
+
+        \mathbf u = DF\,\widehat{\mathbf u},
+
+    and therefore
+
+    .. math::
+
+        \nabla_{\mathbf x}\cdot\mathbf u
+        =
+        \sum_{\mu=1}^3
+        \left(
+            \partial_{\eta_\mu}\widehat u_\mu
+            +
+            \widehat u_\mu
+            \partial_{\eta_\mu}\log|\det DF|
+        \right).
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    domain : Domain
+        Mapping from logical to physical coordinates.
+
+    evaluation_grid : tuple | list
+        Three one-dimensional logical evaluation grids.
+
+    dlog_jacobian_det : callable, optional
+        Callable evaluating
+
+        ``grad_eta(log(abs(det(DF))))``.
+
+        If omitted, ``domain.log_jacobian_det_gradient`` is used.
+    """
+
+    def __init__(
+        self,
+        derham,
+        domain,
+        evaluation_grid,
+    ):
+        self._derham = derham
+        self._domain = domain
+        self._evaluation_grid = tuple(grid.flatten() for grid in evaluation_grid)
+
+        if len(self._evaluation_grid) != 3:
+            raise ValueError("evaluation_grid must contain three one-dimensional grids.")
+
+        (
+            self._spans,
+            self._bn,
+            self._bd,
+        ) = derham.prepare_eval_tp_fixed(
+            self._evaluation_grid,
+        )
+
+        self._grid_shape = tuple(grid.size for grid in self._evaluation_grid)
+
+        # Basis arrays for evaluating an Hcurl field. These correspond to
+        # the three components of grad(V0):
+        #
+        #   (DNN, NDN, NND).
+        self._hcurl_bases = (
+            (
+                self._bd[0],
+                self._bn[1],
+                self._bn[2],
+            ),
+            (
+                self._bn[0],
+                self._bd[1],
+                self._bn[2],
+            ),
+            (
+                self._bn[0],
+                self._bn[1],
+                self._bd[2],
+            ),
+        )
+
+        # H1vec field used to evaluate the logical vector proxy.
+        self._velocity_field = derham.create_spline_function(
+            "h1vec_divergence_velocity",
+            "H1vec",
+        )
+
+        # Extract each H1vec component as a scalar H1 field, then apply
+        # the exact discrete gradient H1 -> Hcurl.
+        self._coordinate_projectors = tuple(
+            CoordinateProjector(
+                component,
+                derham.Vvpol,
+                derham.V0pol,
+            )
+            @ derham.boundary_ops["v"]
+            for component in range(3)
+        )
+
+        self._gradient_operators = tuple(derham.grad_bcfree @ projector for projector in self._coordinate_projectors)
+
+        self._gradient_vectors = tuple(derham.V1pol.zeros() for _ in range(3))
+
+        self._gradient_fields = tuple(
+            derham.create_spline_function(
+                f"h1vec_divergence_gradient_{component}",
+                "Hcurl",
+            )
+            for component in range(3)
+        )
+
+        # Logical velocity values at the evaluation points.
+        self._velocity_values = [xp.zeros(self._grid_shape, dtype=float) for _ in range(3)]
+
+        # gradient_values[a][b] contains
+        #
+        #     partial_{eta_b} uhat_a.
+        self._gradient_values = [[xp.zeros(self._grid_shape, dtype=float) for _ in range(3)] for _ in range(3)]
+
+        # Evaluate grad_eta(log(abs(det(DF)))) once, since the geometry
+        # does not change during the simulation.
+        dlogj = domain.log_jacobian_det_gradient(
+            *self._evaluation_grid,
+            squeeze_out=False,
+            remove_outside=False,
+        )
+        expected_shape = (3, *self._grid_shape)
+
+        if isinstance(dlogj, (list, tuple)):
+            if len(dlogj) != 3:
+                raise ValueError("dlog_jacobian_det must return three components.")
+
+            self._dlogj = tuple(xp.ascontiguousarray(component).copy() for component in dlogj)
+
+            for component in self._dlogj:
+                if component.shape != self._grid_shape:
+                    raise ValueError(
+                        "Invalid dlog_jacobian_det component shape: "
+                        f"expected {self._grid_shape}, "
+                        f"got {component.shape}."
+                    )
+
+        elif isinstance(dlogj, xp.ndarray):
+            if dlogj.shape != expected_shape:
+                raise ValueError(f"Invalid dlog_jacobian_det shape: expected {expected_shape}, got {dlogj.shape}.")
+
+            self._dlogj = tuple(xp.ascontiguousarray(dlogj[component]).copy() for component in range(3))
+
+        else:
+            raise TypeError("dlog_jacobian_det must return a list, tuple, or xp.ndarray.")
+
+        self._output = xp.zeros(
+            self._grid_shape,
+            dtype=float,
+        )
+
+    @property
+    def derham(self):
+        """Discrete de Rham sequence."""
+        return self._derham
+
+    @property
+    def domain(self):
+        """Mapping from logical to physical coordinates."""
+        return self._domain
+
+    @property
+    def evaluation_grid(self):
+        """Logical tensor-product evaluation grid."""
+        return self._evaluation_grid
+
+    @property
+    def grid_shape(self):
+        """Shape of scalar fields evaluated on the grid."""
+        return self._grid_shape
+
+    @property
+    def dlog_jacobian_det(self):
+        """Logical gradient of log(abs(det(DF))) on the grid."""
+        return self._dlogj
+
+    @property
+    def velocity_values(self):
+        """Logical H1vec proxy values on the grid."""
+        return self._velocity_values
+
+    @property
+    def gradient_values(self):
+        """Logical component gradients on the grid."""
+        return self._gradient_values
+
+    def evaluate(self, coeffs, out=None):
+        r"""
+        Evaluate the physical divergence of an H1vec field.
+
+        Parameters
+        ----------
+        coeffs : BlockVector | PolarVector
+            H1vec coefficients.
+
+        out : xp.ndarray, optional
+            Output array of shape :attr:`grid_shape`.
+
+        Returns
+        -------
+        out : xp.ndarray
+            Physical divergence evaluated on the configured grid.
+        """
+        if coeffs.space != self.derham.Vvpol:
+            raise ValueError("coeffs must belong to the H1vec polar coefficient space.")
+
+        if out is None:
+            out = self._output
+        else:
+            if not isinstance(out, xp.ndarray):
+                raise TypeError("out must be an xp.ndarray.")
+
+            if out.shape != self.grid_shape:
+                raise ValueError(f"Expected out shape {self.grid_shape}, got {out.shape}.")
+
+        # Evaluate the logical H1vec proxy.
+        self._velocity_field.vector = coeffs
+
+        velocity_values = self._velocity_field.eval_tp_fixed_loc(
+            self._spans,
+            [self._bn] * 3,
+            out=self._velocity_values,
+        )
+
+        # Evaluate grad(uhat_a) for each component a.
+        for component in range(3):
+            self._gradient_operators[component].dot(
+                coeffs,
+                out=self._gradient_vectors[component],
+            )
+
+            self._gradient_fields[component].vector = self._gradient_vectors[component]
+
+            self._gradient_fields[component].eval_tp_fixed_loc(
+                self._spans,
+                self._hcurl_bases,
+                out=self._gradient_values[component],
+            )
+
+        out[:] = 0.0
+
+        # div_x(u) =
+        #
+        #   sum_a [
+        #       partial_{eta_a}(uhat_a)
+        #       + uhat_a * partial_{eta_a}(log(abs(J)))
+        #   ].
+        for component in range(3):
+            out += self._gradient_values[component][component]
+            out += velocity_values[component] * self._dlogj[component]
+
+        return out
+
+
+class H1vecWeakDivergenceMultiplicationOperator(LinOpWithTransp):
+    r"""
+    Weak H1vec divergence multiplication operator
+
+    .. math::
+
+        B_w : V_h^v \longrightarrow (V_h^3)^*,
+
+    defined by
+
+    .. math::
+
+        \mathbf q^\top B_w\mathbf v
+        =
+        \int_{\widehat\Omega}
+        q_h\,w\,
+        \nabla_{\mathbf x}\cdot\mathbf v_h
+        \,\mathrm d\boldsymbol\eta.
+
+    Here :math:`w` is a scalar function evaluated at quadrature points.
+    The H1vec push-forward is
+
+    .. math::
+
+        \mathbf v = DF\,\widehat{\mathbf v},
+
+    and therefore
+
+    .. math::
+
+        \nabla_{\mathbf x}\cdot\mathbf v
+        =
+        \sum_{a=1}^3
+        \left(
+            \partial_{\eta_a}\widehat v_a
+            +
+            \widehat v_a
+            \partial_{\eta_a}\log|\det DF|
+        \right).
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    domain : Domain
+        Mapping from logical to physical coordinates.
+
+    name : str
+        Name of the operator.
+
+    dlog_jacobian_det : Callable, optional
+        Callable returning
+        ``grad_eta(log(abs(det(DF))))``. If omitted,
+        :meth:`Domain.log_jacobian_det_gradient` is used.
+    """
+
+    def __init__(
+        self,
+        derham: Derham,
+        domain: Domain,
+        *,
+        name: str = "H1vecWeakDivergenceMultiplication",
+    ):
+        self._derham = derham
+        self._physical_domain = domain
+        self._name = name
+
+        V = derham.Vvfem
+        W = derham.V3fem
+
+        assert len(V.spaces) == 3
+
+        reference_space = V.spaces[0]
+
+        assert all(space.coeff_space == reference_space.coeff_space for space in V.spaces)
+        assert all(space.degree == reference_space.degree for space in V.spaces)
+
+        self._dtype = V.coeff_space.dtype
+
+        # One L2 row and three H1vec columns.
+        blocks = [
+            [
+                StencilMatrix(
+                    trial_space.coeff_space,
+                    W.coeff_space,
+                    backend=PSYDAC_BACKEND_GPYCCEL,
+                    precompiled=True,
+                )
+                for trial_space in V.spaces
+            ],
+        ]
+
+        self._mat = BlockLinearOperator(
+            V.coeff_space,
+            W.coeff_space,
+            blocks=blocks,
+        )
+
+        # Extraction and boundary operators.
+        self._V_extraction_op = derham.extraction_ops["v"]
+        self._W_extraction_op = derham.extraction_ops["3"]
+
+        self._V_boundary_op = derham.boundary_ops["v"]
+        self._W_boundary_op = derham.boundary_ops["3"]
+
+        self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op.T
+
+        self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op.T
+
+        self._domain = self._M0.domain
+        self._codomain = self._M0.codomain
+
+        # Use the L2 quadrature grid, since L2 is the test/codomain space.
+        test_attr = derham.V3splines
+        trial_attr = derham.V0splines
+
+        self._quad_pts = tuple(points.flatten() for points in test_attr.quad_grid_pts[0])
+
+        self._test_spans = test_attr.quad_grid_spans[0]
+        self._test_weights = test_attr.quad_grid_wts[0]
+        self._test_bases = test_attr.quad_grid_bases[0]
+
+        self._trial_spans = trial_attr.quad_grid_spans[0]
+        self._trial_bases = trial_attr.quad_grid_bases[0]
+
+        # Both spaces must use the same local elements and quadrature grid.
+        trial_quad_pts = tuple(points.flatten() for points in trial_attr.quad_grid_pts[0])
+
+        for test_points, trial_points in zip(
+            self._quad_pts,
+            trial_quad_pts,
+        ):
+            if test_points.shape != trial_points.shape:
+                raise ValueError(
+                    "The H1 and L2 quadrature grids must have the same shape for weak-divergence assembly."
+                )
+
+            if not bool(
+                xp.all(
+                    xp.abs(test_points - trial_points) < 1e-14,
+                ),
+            ):
+                raise ValueError("The H1 and L2 quadrature points must coincide for weak-divergence assembly.")
+
+        for basis in self._trial_bases:
+            if basis.shape[2] < 2:
+                raise ValueError(
+                    "H1vecWeakDivergenceMultiplicationOperator requires first derivatives of the H1 basis."
+                )
+
+        self._quad_shape = tuple(points.size for points in self._quad_pts)
+
+        self._weight_values = xp.zeros(
+            self._quad_shape,
+            dtype=float,
+        )
+
+        # Geometry coefficient.
+        self._dlogj = [xp.zeros(self._quad_shape, dtype=float) for _ in range(3)]
+
+        values = domain.log_jacobian_det_gradient(
+            *self._quad_pts,
+            squeeze_out=False,
+            remove_outside=False,
+        )
+
+        expected_shape = (3, *self._quad_shape)
+
+        if not isinstance(values, xp.ndarray):
+            raise TypeError("Domain.log_jacobian_det_gradient must return an xp.ndarray.")
+
+        if values.shape != expected_shape:
+            raise ValueError(f"Invalid log-Jacobian gradient shape: expected {expected_shape}, got {values.shape}.")
+
+        for component in range(3):
+            self._dlogj[component][:] = values[component]
+
+        self._assembly_kernel = Pyccelkernel(
+            mass_kernels.kernel_3d_h1vec_weak_divergence,
+        )
+
+    @property
+    def derham(self):
+        return self._derham
+
+    @property
+    def physical_domain(self):
+        return self._physical_domain
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def matrix(self):
+        """Tensor-product matrix before extraction and boundary operators."""
+        return self._mat
+
+    @property
+    def M(self):
+        """Operator including extraction but excluding boundary operators."""
+        return self._M
+
+    @property
+    def M0(self):
+        """Operator including extraction and boundary operators."""
+        return self._M0
+
+    @property
+    def weight_values(self):
+        """Scalar weight evaluated at quadrature points."""
+        return self._weight_values
+
+    def assemble(
+        self,
+        weight_values: xp.ndarray,
+        clear: bool = True,
+    ):
+        r"""
+        Assemble the operator with scalar quadrature weight ``w``.
+
+        Parameters
+        ----------
+        weight_values : xp.ndarray
+            Values of ``w`` at the L2 quadrature points.
+
+        clear : bool
+            Whether to clear existing matrix entries before assembly.
+        """
+        if not isinstance(weight_values, xp.ndarray):
+            raise TypeError("weight_values must be an xp.ndarray.")
+
+        if weight_values.shape != self._quad_shape:
+            raise ValueError(f"Expected weight shape {self._quad_shape}, got {weight_values.shape}.")
+
+        self._weight_values[:] = weight_values
+
+        if clear:
+            for block in self._mat.blocks[0]:
+                block._data[:] = 0.0
+
+        W = self.derham.V3fem
+        V = self.derham.Vvfem
+
+        starts = tuple(int(start) for start in W.coeff_space.starts)
+        pads = W.coeff_space.pads
+
+        for component_trial in range(3):
+            trial_space = V.spaces[component_trial]
+            mat = self._mat[0, component_trial]
+
+            self._assembly_kernel(
+                *self._test_spans,
+                *W.degree,
+                *trial_space.degree,
+                *starts,
+                *pads,
+                *self._test_weights,
+                *self._test_bases,
+                *self._trial_bases,
+                self._weight_values,
+                self._dlogj[0],
+                self._dlogj[1],
+                self._dlogj[2],
+                component_trial,
+                mat._data,
+            )
+
+        self._mat.exchange_assembly_data()
+
+    def dot(self, v, out=None):
+        """Apply the weak-divergence multiplication operator."""
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+
+        return self._M0.dot(v, out=out)
+
+    def transpose(self, conjugate=False):
+        """
+        Return the transposed L2-to-H1vec operator.
+
+        The returned composite operator references the same underlying
+        stencil matrix, so later calls to :meth:`assemble` update both
+        orientations.
+        """
+        return self._M0.T
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+
 class KineticEnergyEvaluator:
     r"""Helper class to evaluate the different Kinetic energy terms appearing in VariationalDensityEvolve.
 
@@ -1439,34 +2155,88 @@ class KineticEnergyEvaluator:
         The weighted mass operators needed to create new mass matrices
     """
 
-    def __init__(self, derham, domain, mass_ops):
+    def __init__(
+        self,
+        derham,
+        domain,
+        mass_ops,
+        *,
+        with_regularization: bool = False,
+    ):
+        self._derham = derham
+        self._domain = domain
+        self._mass_ops = mass_ops
+        self._with_regularization = with_regularization
+
         integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
-        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
-            integration_grid,
-        )
+        grid_shape = tuple(len(loc_grid) for loc_grid in integration_grid)
 
-        # tmps
-        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+        (
+            self.integration_grid_spans,
+            self.integration_grid_bn,
+            self.integration_grid_bd,
+        ) = derham.prepare_eval_tp_fixed(integration_grid)
 
         self.uf = derham.create_spline_function("uf", "H1vec")
         self.uf1 = derham.create_spline_function("uf1", "H1vec")
 
-        self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._Guf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf_values = [xp.zeros(grid_shape, dtype=float) for _ in range(3)]
+        self._uf1_values = [xp.zeros(grid_shape, dtype=float) for _ in range(3)]
+        self._Guf_values = [xp.zeros(grid_shape, dtype=float) for _ in range(3)]
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
-        metric = domain.metric(
-            *integration_grid,
-        ) * domain.jacobian_det(*integration_grid)
+        metric = domain.metric(*integration_grid) * domain.jacobian_det(*integration_grid)
         self._proj_u2_metric_term = deepcopy(metric)
 
         metric = domain.metric(*integration_grid)
         self._mass_u_metric_term = deepcopy(metric)
 
-        self._M_un = mass_ops.create_weighted_mass("H1vec", "L2")
-        self._M_un1 = mass_ops.create_weighted_mass("L2", "H1vec")
+        self._M_un = mass_ops.create_weighted_mass(
+            "H1vec",
+            "L2",
+        )
+        self._M_un1 = mass_ops.create_weighted_mass(
+            "L2",
+            "H1vec",
+        )
+        self._jacobian_det = deepcopy(domain.jacobian_det(*integration_grid))
+        if self._with_regularization:
+            self._divergence_evaluator = H1vecDivergenceEvaluator(
+                derham,
+                domain,
+                integration_grid,
+            )
+
+            self._div_u_values = xp.zeros(
+                grid_shape,
+                dtype=float,
+            )
+            self._div_u1_values = xp.zeros(
+                grid_shape,
+                dtype=float,
+            )
+
+            self._M_div_un = H1vecWeakDivergenceMultiplicationOperator(
+                derham,
+                domain,
+                name="M_div_un",
+            )
+
+            # A separate mutable matrix is required because both operators
+            # occur simultaneously in the Newton Jacobian with different
+            # weights.
+            self._M_div_un1_base = H1vecWeakDivergenceMultiplicationOperator(
+                derham,
+                domain,
+                name="M_div_un1",
+            )
+        else:
+            self._divergence_evaluator = None
+            self._div_u_values = None
+            self._div_u1_values = None
+            self._M_div_un = None
+            self._M_div_un1_base = None
 
     @property
     def M_un(
@@ -1483,6 +2253,51 @@ class KineticEnergyEvaluator:
         """Weighted mass matrix with domain L2 et codomain H1vec
         represented the integration against a vector field in H1vec"""
         return self._M_un1
+
+    @property
+    def M_div_un(self):
+        """H1vec-to-L2 weak divergence operator weighted by div(un)."""
+        return self._M_div_un
+
+    @property
+    def M_div_un1(self):
+        """L2-to-H1vec transpose weighted by div(un1)."""
+        if self._M_div_un1_base is None:
+            return None
+        return self._M_div_un1_base.T
+
+    def get_div_u_product_grid(self, un, un1, out):
+        r"""
+        Evaluate
+
+        .. math::
+
+            |\det DF|\,
+            \operatorname{div}(u^n)
+            \operatorname{div}(u^{n+1})
+
+        on the integration grid.
+
+        The Jacobian factor compensates for the ``1/sqrt_g`` geometric
+        weight applied by ``L2Projector.get_dofs``.
+        """
+        if not self._with_regularization:
+            raise RuntimeError("The divergence evaluator was not allocated.")
+
+        div_un = self._divergence_evaluator.evaluate(
+            un,
+            out=self._div_u_values,
+        )
+        div_un1 = self._divergence_evaluator.evaluate(
+            un1,
+            out=self._div_u1_values,
+        )
+
+        out[:] = div_un
+        out *= div_un1
+        out *= self._jacobian_det
+
+        return out
 
     def get_u2_grid(self, un, un1, out):
         r"""Values of :math:`u_n \cdot u_{n+1}` represented by the coefficient un and un1, on the integration grid"""
@@ -1567,3 +2382,23 @@ class KineticEnergyEvaluator:
         self._M_un1.assemble(
             [[self._Guf_values[0]], [self._Guf_values[1]], [self._Guf_values[2]]],
         )
+
+    def assemble_M_div_un(self, un):
+        if not self._with_regularization:
+            return
+
+        div_un = self._divergence_evaluator.evaluate(
+            un,
+            out=self._div_u_values,
+        )
+        self._M_div_un.assemble(div_un)
+
+    def assemble_M_div_un1(self, un1):
+        if not self._with_regularization:
+            return
+
+        div_un1 = self._divergence_evaluator.evaluate(
+            un1,
+            out=self._div_u1_values,
+        )
+        self._M_div_un1_base.assemble(div_un1)

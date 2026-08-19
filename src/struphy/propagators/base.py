@@ -128,6 +128,7 @@ class Propagator(metaclass=ABCMeta):
 
             # important: sync processes!
             old.update_ghost_regions()
+            old_var.mark_updated()
 
         return diffs
 

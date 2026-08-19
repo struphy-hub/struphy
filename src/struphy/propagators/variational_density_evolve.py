@@ -11,8 +11,13 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import (
+    H1vecKineticMetricPreconditioner,
+    H1vecKineticMetricWoodburyPreconditioner,
+    MassMatrixDiagonalPreconditioner,
+)
 from struphy.feec.variational_utilities import (
+    H1vecKineticMetric,
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
 )
@@ -140,6 +145,15 @@ class VariationalDensityEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
+        with_regularization : bool, default=False
+            Whether to use the metric-based H1vec div-div regularization.
+        alpha_divdiv : float, default=1.0
+            Coefficient in
+
+            alpha_divdiv * int rho (div u)^2 dx.
+
+            The corresponding coefficient in the momentum metric is
+            2 * alpha_divdiv.
         """
 
         # specific literals
@@ -161,6 +175,8 @@ class VariationalDensityEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        with_regularization: bool = False
+        alpha_divdiv: float = 1.0
 
         def __post_init__(self):
             # checks
@@ -174,6 +190,11 @@ class VariationalDensityEvolve(Propagator):
 
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters()
+            if not isinstance(self.with_regularization, bool):
+                raise TypeError(f"with_regularization must be a bool, got {type(self.with_regularization)}.")
+
+            if self.alpha_divdiv < 0.0:
+                raise ValueError(f"alpha_divdiv must be non-negative, got {self.alpha_divdiv}.")
 
     @property
     def options(self) -> Options:
@@ -191,53 +212,64 @@ class VariationalDensityEvolve(Propagator):
     def allocate(self):
         if self.options.model == "full":
             assert self.s is not None
-    
         self._model = self.options.model
         self._gamma = self.options.gamma
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
-    
-        self._info = (
-            self.options.nonlin_solver.info
-            and MPI.COMM_WORLD.Get_rank() == 0
-        )
-    
+        self._with_regularization = self.options.with_regularization
+        self._alpha_divdiv = self.options.alpha_divdiv
+        self._metric_alpha = 2.0 * self._alpha_divdiv
+
+        if self._with_regularization and not self.domain.has_exact_mapping_hessian:
+            raise NotImplementedError(
+                "VariationalDensityEvolve regularization requires an "
+                "analytical mapping Hessian. "
+                f"Mapping {type(self.domain).__name__} with "
+                f"kind_map={self.domain.kind_map} is not currently supported."
+            )
+
+        self._info = self.options.nonlin_solver.info and MPI.COMM_WORLD.Get_rank() == 0
+
         # Obtain variables before assembling the density-weighted matrix.
         rho = self.variables.rho.spline.vector
         u = self.variables.u.spline.vector
-    
         self._Mrho = self.mass_ops.WMMnew
-    
-        # Select the total density used to weight WMMnew.
-        if self._model in ["linear", "linear_q"]:
+
+        if self._model in ("linear", "linear_q"):
             rhotmp = self.projected_equil.n3
-    
-        elif self._model in ["deltaf", "deltaf_q"]:
+
+        elif self._model in ("deltaf", "deltaf_q"):
             self._tmp_rho_deltaf = rho.space.zeros()
             rhotmp = rho.copy(out=self._tmp_rho_deltaf)
             rhotmp += self.projected_equil.n3
-    
+
         else:
-            # pressureless, barotropic, full, full_p, full_q
             rhotmp = rho
-    
-        # IMPORTANT:
-        # Assemble WMMnew before constructing its diagonal preconditioner.
-        self._Mrho.spline_functions["l2_field"].vector = rhotmp
-        self._Mrho.assemble()
-    
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-    
-        self._Mrho_inv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=pc,
-            tol=1e-16,
-            maxiter=500,
-            recycle=False,
-        )
-    
+
+        if self._with_regularization:
+            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
+                self._metric_alpha,
+            )
+            self._Kdivrho = self._kinetic_metric.divdiv_operator
+
+            self._kinetic_metric.update_weight(rhotmp)
+
+            self._momentum_operator = self._kinetic_metric
+            self._momentum_pc = H1vecKineticMetricPreconditioner(
+                self._kinetic_metric,
+            )
+        else:
+            self._Mrho.spline_functions["l2_field"].vector = rhotmp
+            self._Mrho.assemble()
+
+            self._Kdivrho = None
+            self._kinetic_metric = None
+            self._momentum_operator = self._Mrho
+            self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                self._Mrho,
+            )
+
         # FEM fields used by the projector.
         self.rhof = self.derham.create_spline_function(
             "rhof",
@@ -247,7 +279,7 @@ class VariationalDensityEvolve(Propagator):
             "rhof1",
             "L2",
         )
-    
+
         # Projectors/evaluators.
         self._energy_evaluator = InternalEnergyEvaluator(
             self.derham,
@@ -257,9 +289,10 @@ class VariationalDensityEvolve(Propagator):
             self.derham,
             self.domain,
             self.mass_ops,
+            with_regularization=self._with_regularization,
         )
         self._initialize_projectors_and_mass()
-        
+
         # if self._model in ["linear", "linear_q"]:
         #     rhotmp = self.projected_equil.n3
         # elif self._model in ["deltaf", "deltaf_q"]:
@@ -298,143 +331,318 @@ class VariationalDensityEvolve(Propagator):
         self.__call_newton(dt)
 
     def __call_newton(self, dt):
-        """Solve the non linear system for updating the variables using Newton iteration method"""
+        """Advance density and velocity using Newton iteration."""
 
         if self._info:
             logger.info("")
             logger.info("Newton iteration in VariationalDensityEvolve")
 
-        # Initial variables
+        # Current solution.
         rhon = self.variables.rho.spline.vector
         un = self.variables.u.spline.vector
 
-        if self._model in ["linear", "linear_q"]:
-            advection = self.divPirho.dot(un, out=self._tmp_rho_advection)
-            advection *= dt
-            rhon1 = rhon.copy(out=self._tmp_rhon1)
-            rhon1 -= advection
-            self.update_feec_variables(rho=rhon1, u=un)
+        # ---------------------------------------------------------------
+        # Linear models
+        # ---------------------------------------------------------------
+        if self._model in ("linear", "linear_q"):
+            self.divPirho.dot(
+                un,
+                out=self._tmp_rho_advection,
+            )
+            self._tmp_rho_advection *= dt
+
+            rhon.copy(out=self._tmp_rhon1)
+            self._tmp_rhon1 -= self._tmp_rho_advection
+
+            self.update_feec_variables(
+                rho=self._tmp_rhon1,
+                u=un,
+            )
+            if self._with_regularization:
+                self._kinetic_metric.mark_weight_generation(
+                    self.variables.rho.generation,
+                )
             return
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
-            rho += self.projected_equil.n3
+        # ---------------------------------------------------------------
+        # Momentum at the beginning of the time step
+        # ---------------------------------------------------------------
+        if self._model in ("deltaf", "deltaf_q"):
+            rhon.copy(out=self._tmp_rho_deltaf)
+            self._tmp_rho_deltaf += self.projected_equil.n3
+            rho = self._tmp_rho_deltaf
         else:
             rho = rhon
-        self._update_weighted_MM(rho)
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
 
-        # Initialize variable for Newton iteration
+        self._update_momentum_operator(rho, update_preconditioner=False)
+
+        self._momentum_operator.dot(
+            un,
+            out=self._tmp_mn,
+        )
+        mn = self._tmp_mn
+
+        # Entropy is only needed for the full model.
         if self._model == "full":
             s = self.s.spline.vector
         else:
             s = None
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
-            rho += self.projected_equil.n3
-        else:
-            rho = rhon
+        # The transport operator uses the density at the beginning of the
+        # time step.
         self._update_Pirho(rho)
 
-        rhon1 = rhon.copy(out=self._tmp_rhon1)
-        rhon1 += self._tmp_rhon_diff
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon1.copy(out=self._tmp_rho_deltaf)
-            rho += self.projected_equil.n3
+        # ---------------------------------------------------------------
+        # Initial Newton iterate
+        # ---------------------------------------------------------------
+        rhon.copy(out=self._tmp_rhon1)
+        self._tmp_rhon1 += self._tmp_rhon_diff
+        rhon1 = self._tmp_rhon1
+
+        un.copy(out=self._tmp_un1)
+        self._tmp_un1 += self._tmp_un_diff
+        un1 = self._tmp_un1
+
+        if self._model in ("deltaf", "deltaf_q"):
+            rhon1.copy(out=self._tmp_rho_deltaf)
+            self._tmp_rho_deltaf += self.projected_equil.n3
+            rho1 = self._tmp_rho_deltaf
         else:
-            rho = rhon1
-        self._update_weighted_MM(rho)
-        un1 = un.copy(out=self._tmp_un1)
-        un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
-        tol = self._nonlin_solver.tol
-        err = tol + 1
+            rho1 = rhon1
 
+        self._update_momentum_operator(rho1)
+
+        self._momentum_operator.dot(
+            un1,
+            out=self._tmp_mn1,
+        )
+        mn1 = self._tmp_mn1
+
+        # ---------------------------------------------------------------
+        # Nonlinear convergence controls
+        # ---------------------------------------------------------------
+        tol = float(self._nonlin_solver.tol)
+        tol_sq = tol * tol
+
+        # The nonlinear error returned by _get_error_newton is a squared
+        # norm. Allow a small factor around tol**2 to account for roundoff
+        # and the inexact inner linear solve.
+        acceptance_factor = 2.0
+        absolute_threshold = acceptance_factor * tol_sq
+
+        # If the residual stagnates within this factor of tol**2, accept it.
+        stagnation_acceptance_factor = 10.0
+        stagnation_threshold = stagnation_acceptance_factor * tol_sq
+
+        stagnation_relative_change = 1.0e-3
+        stagnation_iterations = 3
+
+        tiny = float(xp.finfo(float).tiny)
+
+        err = float("inf")
+        err0 = None
+        previous_err = None
+        stagnation_count = 0
+        converged = False
+        accepted_by_stagnation = False
+
+        # ---------------------------------------------------------------
+        # Newton iteration
+        # ---------------------------------------------------------------
         for it in range(self._nonlin_solver.maxiter):
-            # Newton iteration
+            # Midpoint velocity.
+            un.copy(out=self._tmp_un12)
+            self._tmp_un12 += un1
+            self._tmp_un12 *= 0.5
+            un12 = self._tmp_un12
 
-            un12 = un.copy(out=self._tmp_un12)
-            un12 += un1
-            un12 *= 0.5
+            # Update the discrete variational derivative.
+            self._update_linear_form_dl_drho(
+                rhon,
+                rhon1,
+                un,
+                un1,
+                s,
+            )
 
-            # rhon12 = rhon.copy(out=self._tmp_rhon12)
-            # rhon12 += rhon1
-            # rhon12 *= 0.5
-            # if self._model == "deltaf":
-            #     rhon12 += self.projected_equil.n3
-
-            # self._update_Pirho(rhon12)
-
-            # Update the linear form
-            self._update_linear_form_dl_drho(rhon, rhon1, un, un1, s)
-
-            # Compute the advection terms
-            advection = self.divPirhoT.dot(
+            # Momentum advection contribution.
+            self.divPirhoT.dot(
                 self._linear_form_dl_drho,
                 out=self._tmp_advection,
             )
-            advection *= dt
+            self._tmp_advection *= dt
 
-            rho_advection = self.divPirho.dot(
+            # Density advection contribution.
+            self.divPirho.dot(
                 un12,
                 out=self._tmp_rho_advection,
             )
-            rho_advection *= dt
+            self._tmp_rho_advection *= dt
 
-            # Get diff
-            rhon_diff = rhon1.copy(out=self._tmp_rhon_diff)
-            rhon_diff -= rhon
-            rhon_diff += rho_advection
+            # Density-equation residual.
+            rhon1.copy(out=self._tmp_rhon_diff)
+            self._tmp_rhon_diff -= rhon
+            self._tmp_rhon_diff += self._tmp_rho_advection
+            rhon_diff = self._tmp_rhon_diff
 
-            mn_diff = mn1.copy(out=self._tmp_mn_diff)
-            mn_diff -= mn
-            mn_diff += advection
+            # Momentum-equation residual.
+            mn1.copy(out=self._tmp_mn_diff)
+            self._tmp_mn_diff -= mn
+            self._tmp_mn_diff += self._tmp_advection
+            mn_diff = self._tmp_mn_diff
 
-            # Get error
-            err = self._get_error_newton(mn_diff, rhon_diff)
+            # Squared nonlinear residual norm.
+            err = float(
+                self._get_error_newton(
+                    mn_diff,
+                    rhon_diff,
+                )
+            )
+
+            if not bool(xp.isfinite(err)):
+                raise FloatingPointError(
+                    f"Non-finite residual in VariationalDensityEvolve: iteration={it + 1}, err={err}."
+                )
+
+            if err0 is None:
+                err0 = max(err, tiny)
+
+            relative_err = err / err0
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(
+                    "iteration: %d, error: %.16e, relative error: %.16e",
+                    it + 1,
+                    err,
+                    relative_err,
+                )
 
-            if err < tol**2 or xp.isnan(err):
+            # Primary convergence criterion.
+            #
+            # _get_error_newton returns a squared norm, hence both the
+            # absolute and relative targets are tol**2.
+            if err <= absolute_threshold or relative_err <= tol_sq:
+                converged = True
                 break
 
-            # Derivative for Newton
-            self._get_jacobian(dt, rhon, rhon1, un, un1, s)
+            # Detect stagnation near the requested tolerance. This handles
+            # cases such as err=1.12e-16 with tol**2=1.00e-16, where further
+            # Newton iterations cannot improve the result because of
+            # roundoff and inexact inner solves.
+            if previous_err is not None:
+                relative_change = abs(previous_err - err) / max(previous_err, err, tiny)
 
-            # Newton step
+                if relative_change <= stagnation_relative_change:
+                    stagnation_count += 1
+                else:
+                    stagnation_count = 0
+
+                if stagnation_count >= stagnation_iterations and err <= stagnation_threshold:
+                    converged = True
+                    accepted_by_stagnation = True
+
+                    if self._info:
+                        logger.info(
+                            "Accepting stagnated Newton residual near tolerance: err=%.16e, target=%.16e.",
+                            err,
+                            tol_sq,
+                        )
+
+                    break
+
+            previous_err = err
+
+            # -----------------------------------------------------------
+            # Newton correction
+            # -----------------------------------------------------------
+            self._get_jacobian(
+                dt,
+                rhon,
+                rhon1,
+                un,
+                un1,
+                s,
+            )
+
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = rhon_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            self._inv_Jacobian.dot(
+                self._tmp_f,
+                out=self._tmp_incr,
+            )
+            incr = self._tmp_incr
+
             if self._info:
                 logger.info(
-                    "information on the linear solver : ",
+                    "Information on the linear solver: %s",
                     self._inv_Jacobian._solver._info,
                 )
+
             un1 -= incr[0]
             rhon1 -= incr[1]
 
-            # Multiply by the mass matrix to get the momentum
-
-            if self._model in ["deltaf", "deltaf_q"]:
-                rho = rhon1.copy(out=self._tmp_rho_deltaf)
-                rho += self.projected_equil.n3
-                self._update_weighted_MM(rho)
+            # Reassemble the density-dependent momentum operator and update
+            # the momentum of the current Newton iterate.
+            if self._model in ("deltaf", "deltaf_q"):
+                rhon1.copy(out=self._tmp_rho_deltaf)
+                self._tmp_rho_deltaf += self.projected_equil.n3
+                rho1 = self._tmp_rho_deltaf
             else:
-                self._update_weighted_MM(rhon1)
+                rho1 = rhon1
 
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            self._update_momentum_operator(rho1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err =} \n {tol**2 =}",
+            self._momentum_operator.dot(
+                un1,
+                out=self._tmp_mn1,
+            )
+            mn1 = self._tmp_mn1
+
+        # ---------------------------------------------------------------
+        # Convergence report
+        # ---------------------------------------------------------------
+        newton_iterations = it + 1
+
+        if not converged:
+            logger.warning(
+                "Maximum iteration count in VariationalDensityEvolve "
+                "reached without convergence:\n"
+                "  iterations = %d\n"
+                "  err        = %.16e\n"
+                "  target     = %.16e",
+                newton_iterations,
+                err,
+                tol_sq,
+            )
+        elif accepted_by_stagnation:
+            logger.debug(
+                "Newton iteration accepted after stagnation near the "
+                "requested tolerance: iterations=%d, err=%.16e, "
+                "target=%.16e.",
+                newton_iterations,
+                err,
+                tol_sq,
             )
 
-        self._tmp_un_diff = un1 - un
-        self._tmp_rhon_diff = rhon1 - rhon
-        self.update_feec_variables(rho=rhon1, u=un1)
+        logger.info(
+            "Newton iterations: %d",
+            newton_iterations,
+        )
+
+        # ---------------------------------------------------------------
+        # Store the converged increment for the next initial guess
+        # ---------------------------------------------------------------
+        un1.copy(out=self._tmp_un_diff)
+        self._tmp_un_diff -= un
+
+        rhon1.copy(out=self._tmp_rhon_diff)
+        self._tmp_rhon_diff -= rhon
+
+        self.update_feec_variables(
+            rho=rhon1,
+            u=un1,
+        )
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
@@ -454,7 +662,7 @@ class VariationalDensityEvolve(Propagator):
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
             recycle=True,
@@ -492,8 +700,25 @@ class VariationalDensityEvolve(Propagator):
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
 
-        self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
-        self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
+        if self._with_regularization:
+            # dt * alpha_divdiv * divPirhoT @ B_div_un
+            self._dt_alpha_div_term = 2 * (self.divPirhoT @ self._kinetic_evaluator.M_div_un)
+
+            # 2 * alpha_divdiv * B_div_un1.T
+            self._alpha_div_rho_term = 2 * (self._kinetic_evaluator.M_div_un1)
+
+        if self._with_regularization:
+            self._Jacobian[0, 0] = (
+                self._kinetic_metric + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un + self._dt_alpha_div_term
+            )
+
+            self._Jacobian[0, 1] = (
+                self._kinetic_evaluator.M_un1 + self._alpha_div_rho_term + self._dt_pc_divPirhoT @ self._M_drho
+            )
+        else:
+            self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
+            self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
+
         self._Jacobian[1, 0] = self._dt2_divPirho
         self._Jacobian[1, 1] = self._I3
 
@@ -502,7 +727,7 @@ class VariationalDensityEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             "pbicgstab",
-            pc=self._Mrho_inv,
+            pc=self._momentum_pc,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -554,37 +779,79 @@ class VariationalDensityEvolve(Propagator):
             if self._linearize:
                 self._init_dener_drho = xp.zeros(grid_shape, dtype=float)
 
+        if self._with_regularization:
+            self._eval_div_dl_drho = xp.zeros(
+                grid_shape,
+                dtype=float,
+            )
+
     def _update_Pirho(self, rho):
         """Update the weights of the `BasisProjectionOperator` Pirho"""
 
         self.divPirho.update_coeffs(rho)
         self.divPirhoT.update_coeffs(rho)
 
-    def _update_weighted_MM(self, rho):
-        """Update the density-weighted velocity mass matrix."""
-    
-        self._Mrho.spline_functions["l2_field"].vector = rho
-        self._Mrho.assemble()
-    
-        if hasattr(self, "_Mrho_inv"):
-            pc = self._Mrho_inv._options.get("pc")
-    
-            logger.debug(
-                "In VariationalDensityEvolve: "
-                f"preconditioner = {pc}"
+    def _update_momentum_operator(
+        self,
+        rho,
+        *,
+        update_preconditioner=True,
+    ):
+        """Update the density-dependent momentum operator."""
+
+        if self._with_regularization:
+            # rho may be a Newton iterate, while FEECVariable.generation remains
+            # unchanged. Therefore update_weight_if_needed() is invalid here.
+            self._kinetic_metric.update_weight(rho)
+        else:
+            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.assemble()
+
+        if not update_preconditioner:
+            return
+
+        pc = self._momentum_pc
+
+        logger.debug(
+            "In VariationalDensityEvolve: preconditioner = %s",
+            pc,
+        )
+
+        if isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
+            if not self._with_regularization:
+                raise TypeError("The Woodbury preconditioner requires the regularized kinetic metric.")
+            pc.update_metric(
+                self._kinetic_metric,
+                update_spectrum=True,
             )
-    
-            if isinstance(
-                pc,
-                MassMatrixDiagonalPreconditioner,
-            ):
-                pc.update_mass_operator(self._Mrho)
+
+        elif isinstance(pc, H1vecKineticMetricPreconditioner):
+            if not self._with_regularization:
+                raise TypeError("H1vecKineticMetricPreconditioner requires the regularized kinetic metric.")
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+            if self._with_regularization:
+                raise TypeError("MassMatrixDiagonalPreconditioner cannot represent the regularized kinetic metric.")
+            pc.update_mass_operator(self._Mrho)
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""
 
         self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
 
+        if self._with_regularization:
+            self._kinetic_evaluator.get_div_u_product_grid(
+                un,
+                un1,
+                self._eval_div_dl_drho,
+            )
+
+            self._eval_div_dl_drho *= self._alpha_divdiv
+            self._eval_dl_drho += self._eval_div_dl_drho
+
+        self.rhof.vector = rhon
+        self.rhof1.vector = rhon1
         if self._model == "barotropic":
             rhof_values = self.rhof.eval_tp_fixed_loc(
                 self.integration_grid_spans,
@@ -639,6 +906,10 @@ class VariationalDensityEvolve(Propagator):
         self._kinetic_evaluator.assemble_M_un(un)
         self._kinetic_evaluator.assemble_M_un1(un1)
 
+        if self._with_regularization:
+            self._kinetic_evaluator.assemble_M_div_un(un)
+            self._kinetic_evaluator.assemble_M_div_un1(un1)
+
         if self._model == "barotropic":
             self._M_drho = -self.mass_ops.M3 / 2.0
 
@@ -655,6 +926,11 @@ class VariationalDensityEvolve(Propagator):
         self._dt_pc_divPirhoT._scalar = dt
         self._dt2_pc_divPirhoT._scalar = dt / 2
         self._dt2_divPirho._scalar = dt / 2
+
+        if self._with_regularization:
+            self._dt_alpha_div_term._scalar = dt * self._alpha_divdiv
+
+            self._alpha_div_rho_term._scalar = 2.0 * self._alpha_divdiv
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""

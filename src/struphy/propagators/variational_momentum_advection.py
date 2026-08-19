@@ -7,8 +7,12 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
-from struphy.feec.variational_utilities import BracketOperator
+from struphy.feec.preconditioner import (
+    H1vecKineticMetricPreconditioner,
+    H1vecKineticMetricWoodburyPreconditioner,
+    MassMatrixDiagonalPreconditioner,
+)
+from struphy.feec.variational_utilities import BracketOperator, H1vecKineticMetric
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -70,8 +74,10 @@ class VariationalMomentumAdvection(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self):
+    def __init__(self, rho: FEECVariable = None):
         self.variables = self.Variables()
+        ##Needed for metric regularization
+        self.rho = rho
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -94,6 +100,8 @@ class VariationalMomentumAdvection(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        with_regularization: bool = False
+        alpha_divdiv: float = 1.0
 
         def __post_init__(self):
             # checks
@@ -126,16 +134,63 @@ class VariationalMomentumAdvection(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
+        self._with_regularization = self.options.with_regularization
+        self._alpha_divdiv = self.options.alpha_divdiv
+        self._metric_alpha = 2.0 * self._alpha_divdiv
+
+        assert self.rho is not None
+        assert isinstance(self.rho, FEECVariable)
+        assert self.rho.space == "L2"
+
+        if self._with_regularization and not self.domain.has_exact_mapping_hessian:
+            raise NotImplementedError(
+                "VariationalMomentumAdvection regularization requires an "
+                "analytical mapping Hessian. "
+                f"Mapping {type(self.domain).__name__} with "
+                f"kind_map={self.domain.kind_map} is not currently supported."
+            )
+
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-        self._Mrho_inv = inverse(
-            self._Mrho,
+        rho = self.rho.spline.vector
+
+        if self._with_regularization:
+            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
+                self._metric_alpha,
+            )
+
+            self._Kdivrho = self._kinetic_metric.divdiv_operator
+
+            self._kinetic_metric.update_weight_if_needed(rho, self.rho.generation)
+
+            self._momentum_operator = self._kinetic_metric
+            # pc = H1vecKineticMetricWoodburyPreconditioner(
+            #                     self._kinetic_metric,
+            #                     auxiliary_nsteps=5,
+            #                     spectral_iterations=8,
+            #                     spectral_safety=1.5,
+            #     )
+            pc = H1vecKineticMetricPreconditioner(self._kinetic_metric)
+        else:
+            self._Kdivrho = None
+            self._kinetic_metric = None
+
+            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.assemble()
+
+            self._momentum_operator = self._Mrho
+            pc = MassMatrixDiagonalPreconditioner(self._momentum_operator)
+
+        self._momentum_pc = pc
+
+        self._momentum_solve = inverse(
+            self._momentum_operator,
             "pcg",
-            pc=pc,
-            tol=1e-16,
-            maxiter=500,
-            recycle=True,
+            pc=self._momentum_pc,
+            tol=self._lin_solver.tol,
+            maxiter=self._lin_solver.maxiter,
+            verbose=False,
+            recycle=False,
         )
 
         self._initialize_mass()
@@ -154,21 +209,22 @@ class VariationalMomentumAdvection(Propagator):
 
         self.brack = BracketOperator(self.derham, self._tmp_mn)
         self._dt2_brack = 2.0 * self.brack
-        self.derivative = self._Mrho + self._dt2_brack
+        self.derivative = self._momentum_operator + self._dt2_brack
+
         self.inv_derivative = inverse(
-            self._Mrho_inv @ self.derivative,
+            self._momentum_pc @ self.derivative,
             "gmres",
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
-            recycle=True,
+            recycle=False,
         )
 
+    @profile
     def __call__(self, dt):
-        pc = self._Mrho_inv._options["pc"]
-        if isinstance(pc, MassMatrixDiagonalPreconditioner):
-            pc.update_mass_operator(self._Mrho)
-    
+        rho = self.rho.spline.vector
+        self._update_momentum_operator(rho)
+
         if self._nonlin_solver.type == "Newton":
             self.__call_newton(dt)
         elif self._nonlin_solver.type == "Picard":
@@ -177,7 +233,8 @@ class VariationalMomentumAdvection(Propagator):
     def __call_newton(self, dt):
         # Initialize variable for Newton iteration
         un = self.variables.u.spline.vector
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        mn = self._momentum_operator.dot(un, out=self._tmp_mn)
+        self.brack.update_u(mn)
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
         tol = self.options.nonlin_solver.tol
@@ -208,11 +265,19 @@ class VariationalMomentumAdvection(Propagator):
 
             if self._info:
                 logger.info(f"iteration : {it} error : {err}")
-            if err < tol**2 or xp.isnan(err):
+
+            if xp.isnan(err):
+                raise FloatingPointError("NaN residual in VariationalDensityEvolve.")
+            if it == 0:
+                err0 = max(float(err), xp.finfo(float).tiny)
+
+            relative_err = err / err0
+
+            if err <= tol**2 or relative_err <= tol**2:
                 break
 
             # Newton step
-            pc_diff = self._Mrho_inv.dot(diff, out=self._tmp__pc_diff)
+            pc_diff = self._momentum_pc.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
                 logger.info(
@@ -220,7 +285,7 @@ class VariationalMomentumAdvection(Propagator):
                     self.inv_derivative._info,
                 )
             un1 -= update
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            mn1 = self._momentum_operator.dot(un1, out=self._tmp_mn1)
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
@@ -230,47 +295,157 @@ class VariationalMomentumAdvection(Propagator):
         self.update_feec_variables(u=un1)
 
     def __call_picard(self, dt):
-        # Initialize variable for Picard iteration
+        """Advance momentum using Picard iteration."""
+
         un = self.variables.u.spline.vector
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+
+        mn = self._momentum_operator.dot(
+            un,
+            out=self._tmp_mn,
+        )
+        self.brack.update_u(mn)
+
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
-        tol = self.options.nonlin_solver.tol
-        err = tol + 1
-        # Jacobian matrix for Newton solve
 
-        for it in range(self.options.nonlin_solver.maxiter):
-            # Picard iteration
-            if err < tol**2 or xp.isnan(err):
-                break
-            # half time step approximation
-            un12 = un.copy(out=self._tmp_un12)
-            un12 += un1
-            un12 *= 0.5
+        tol = float(self._nonlin_solver.tol)
+        tol_sq = tol * tol
 
-            # Compute the advection term
-            advection = self.brack.dot(un12, out=self._tmp_advection)
-            advection *= dt
+        # _momentum_solve.dot_inner() returns a squared norm.
+        absolute_threshold = 4.0 * tol_sq
+        stagnation_threshold = 10.0 * tol_sq
+        stagnation_relative_change = 1.0e-3
+        stagnation_iterations = 3
 
-            # Difference with the previous approximation :
-            # diff = m^{n+1,r}-m^{n+1,r+1} = m^{n+1,r}-m^{n}+advection
-            diff = mn1.copy(out=self._tmp_diff)
-            diff -= mn
-            diff += advection
+        tiny = float(xp.finfo(float).tiny)
 
-            # Compute the norm of the difference
-            err = self._Mrho_inv.dot_inner(self._tmp_diff, self._tmp_diff)
+        err = float("inf")
+        err0 = None
+        previous_err = None
+        stagnation_count = 0
+        converged = False
+        accepted_by_stagnation = False
 
-            # Update : m^{n+1,r+1} = m^n-advection
-            mn1 = mn.copy(out=self._tmp_mn1)
-            mn1 -= advection
-
-            # Inverse the mass matrix to get the velocity
-            un1 = self._Mrho_inv.dot(mn1, out=self._tmp_un1)
-
-        if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
+        if self._info:
+            logger.info("")
             logger.info(
-                f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err =} \n {tol**2 =}",
+                "Picard iteration in VariationalMomentumAdvection",
+            )
+
+        for it in range(self._nonlin_solver.maxiter):
+            # Midpoint velocity.
+            un.copy(out=self._tmp_un12)
+            self._tmp_un12 += un1
+            self._tmp_un12 *= 0.5
+            un12 = self._tmp_un12
+
+            # Advection term.
+            self.brack.dot(
+                un12,
+                out=self._tmp_advection,
+            )
+            self._tmp_advection *= dt
+            advection = self._tmp_advection
+
+            # Residual:
+            #
+            #     F = m^{n+1,r} - m^n + dt * advection.
+            mn1.copy(out=self._tmp_diff)
+            self._tmp_diff -= mn
+            self._tmp_diff += advection
+
+            err = float(
+                self._momentum_solve.dot_inner(
+                    self._tmp_diff,
+                    self._tmp_diff,
+                )
+            )
+
+            if not bool(xp.isfinite(err)):
+                raise FloatingPointError(
+                    f"Non-finite residual in VariationalMomentumAdvection: iteration={it + 1}, err={err}."
+                )
+
+            if err0 is None:
+                err0 = max(err, tiny)
+
+            relative_err = err / err0
+
+            if self._info:
+                logger.info(
+                    "Momentum Picard iteration: %d, error: %.16e, relative error: %.16e",
+                    it + 1,
+                    err,
+                    relative_err,
+                )
+
+            # Since err is a squared norm, compare it against tol**2.
+            # The factor four prevents pointless iterations at roundoff level.
+            if err <= absolute_threshold or relative_err <= tol_sq:
+                converged = True
+                break
+
+            # Accept stagnation only when already close to the requested
+            # absolute tolerance.
+            if previous_err is not None:
+                relative_change = abs(previous_err - err) / max(
+                    previous_err,
+                    err,
+                    tiny,
+                )
+
+                if relative_change <= stagnation_relative_change:
+                    stagnation_count += 1
+                else:
+                    stagnation_count = 0
+
+                if stagnation_count >= stagnation_iterations and err <= stagnation_threshold:
+                    converged = True
+                    accepted_by_stagnation = True
+                    break
+
+            previous_err = err
+
+            # Picard update:
+            #
+            #     m^{n+1,r+1} = m^n - dt * advection.
+            mn.copy(out=self._tmp_mn1)
+            self._tmp_mn1 -= advection
+            mn1 = self._tmp_mn1
+
+            # Recover velocity from momentum.
+            self._momentum_solve.dot(
+                mn1,
+                out=self._tmp_un1,
+            )
+            un1 = self._tmp_un1
+
+        iterations = it + 1
+
+        if not converged:
+            logger.warning(
+                "Maximum iteration count in "
+                "VariationalMomentumAdvection reached without "
+                "convergence:\n"
+                "  iterations = %d\n"
+                "  err        = %.16e\n"
+                "  target     = %.16e",
+                iterations,
+                err,
+                tol_sq,
+            )
+        elif accepted_by_stagnation and self._info:
+            logger.info(
+                "Accepted stagnated momentum Picard residual: iterations=%d, err=%.16e, target=%.16e.",
+                iterations,
+                err,
+                tol_sq,
+            )
+
+        if self._info:
+            logger.info(
+                "Momentum Picard iterations: %d",
+                iterations,
             )
 
         self.update_feec_variables(u=un1)
@@ -285,7 +460,7 @@ class VariationalMomentumAdvection(Propagator):
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -293,3 +468,30 @@ class VariationalMomentumAdvection(Propagator):
     def _get_error_newton(self, mn_diff):
         err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
         return err_u
+
+    def _update_momentum_operator(self, rho):
+        """Update the density-weighted momentum metric and preconditioner."""
+
+        if self._with_regularization:
+            metric_changed = self._kinetic_metric.update_weight_if_needed(
+                rho,
+                self.rho.generation,
+            )
+        else:
+            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.assemble()
+            metric_changed = True
+
+        if not metric_changed:
+            return
+
+        pc = self._momentum_pc
+
+        if isinstance(pc, H1vecKineticMetricPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
