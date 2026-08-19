@@ -1,5 +1,4 @@
 import logging
-from typing import Callable
 
 import cunumpy as xp
 import pytest
@@ -236,106 +235,41 @@ def test_tangential_cuboid_nontrivial(num_elements, degree, bcs, active_faces, u
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("num_elements", [[10, 10, 10]])
+@pytest.mark.parametrize("num_elements", [[20, 20, 20]])
 @pytest.mark.parametrize("degree", [[2, 2, 2]])
-@pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
-@pytest.mark.parametrize("data_space", ["Hdiv", "Hcurl"])
-@pytest.mark.parametrize(
-    "active_faces, u_idx, exact",
-    [
-        # face 0: normal = +e0, only u=e0 contributes -> area = 1
-        ([True, False, False, False, False, False], 0, 1.0),
-        ([True, False, False, False, False, False], 1, 0.0),
-        ([True, False, False, False, False, False], 2, 0.0),
-        # face 1: normal = +e1
-        ([False, True, False, False, False, False], 1, 1.0),
-        ([False, True, False, False, False, False], 0, 0.0),
-        # face 2: normal = +e2
-        ([False, False, True, False, False, False], 2, 1.0),
-        ([False, False, True, False, False, False], 0, 0.0),
-        # face 3: normal = -e0, (u.n)^2 = 1 still
-        ([False, False, False, True, False, False], 0, 1.0),
-        ([False, False, False, True, False, False], 1, 0.0),
-        # face 4: normal = -e1
-        ([False, False, False, False, True, False], 1, 1.0),
-        # face 5: normal = -e2
-        ([False, False, False, False, False, True], 2, 1.0),
-    ],
-)
-def test_normal_unit_cube_per_face(num_elements, degree, bcs, data_space, active_faces, u_idx, exact):
+def test_normal_linear_unit_cube(num_elements, degree):
     """
-    NormalBoundaryMass: int (u.n) * alpha dS with u = e_{u_idx}, alpha = 1.
-    On a face with normal e_d, only u=e_d contributes, giving the face area (=1 on unit cube).
+    NormalBoundaryMass: u = (-1 + 2*x) e_0, all faces active.
+
+    On face 0 (x=0), outward normal n = -e_0:  (u.n) = -(-1) = +1, area = 1  -> +1
+    On face 3 (x=1), outward normal n = +e_0:  (u.n) =  (+1) = +1, area = 1  -> +1
+    Faces 1,2,4,5: u has no e_1 or e_2 component -> (u.n) = 0.
+
+    Total: int_{dOmega} (u.n) dS = 2.
     """
     comm = MPI.COMM_WORLD
-    derham = Derham(TensorProductGrid(num_elements=num_elements), DerhamOptions(degree=degree, bcs=bcs), comm=comm)
+    bcs = (("free", "free"), ("free", "free"), ("free", "free"))
+    derham = Derham(
+        TensorProductGrid(num_elements=num_elements),
+        DerhamOptions(degree=degree, bcs=bcs),
+        comm=comm,
+    )
     domain = domains.Cuboid(l1=0.0, r1=1.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
     mass_ops = WeightedMassOperators(derham, domain)
 
-    P_vec = L2Projector(data_space, mass_ops)
-    P_sca = L2Projector("H1", mass_ops)
+    P_vec = L2Projector("Hdiv", mass_ops)
+    u_h = P_vec([
+        lambda e1, e2, e3: -1.0 + 2.0 * e1,
+        lambda e1, e2, e3: xp.zeros_like(e1),
+        lambda e1, e2, e3: xp.zeros_like(e1),
+    ])
 
-    u_h = P_vec([lambda e1, e2, e3, i=i: xp.ones_like(e1) if i == u_idx else xp.zeros_like(e1) for i in range(3)])
-    alpha_h = P_sca(lambda e1, e2, e3: xp.ones_like(e1))
+    bnd_ops = BoundaryIntegralOperators(mass_ops)
+    Su = bnd_ops.normal().dot(u_h)
+    numerical = _sum_coeffs(comm, Su)
 
-    bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
-    Su = bnd_ops.normal(data_space=data_space).dot(u_h)
-    numerical = _sum_coeffs(comm, Su * alpha_h)  # inner product with constant 1
-
-    logger.info(f"data_space={data_space}, {u_idx=}, numerical = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
-    assert xp.abs(numerical - exact) < 1e-1
-
-
-@pytest.mark.parametrize("num_elements", [[10, 10, 10]])
-@pytest.mark.parametrize("degree", [[2, 2, 2]])
-@pytest.mark.parametrize("bcs", [(("free", "free"), ("free", "free"), ("free", "free"))])
-@pytest.mark.parametrize("data_space", ["Hdiv", "Hcurl"])
-@pytest.mark.parametrize(
-    "active_faces, u_idx, exact",
-    [
-        # both sides of direction 0: two faces of area 1 each -> 2*(+1) + 2*(-1) = 0
-        # but since (u.n)^2 is always positive, for u=e0 summing both faces gives 2
-        ([True, False, False, True, False, False], 0, 2.0),
-        ([False, True, False, False, True, False], 1, 2.0),
-        ([False, False, True, False, False, True], 2, 2.0),
-        # all faces, u=e0: only faces 0 and 3 contribute -> 2
-        ([True, True, True, True, True, True], 0, 2.0),
-        ([True, True, True, True, True, True], 1, 2.0),
-        ([True, True, True, True, True, True], 2, 2.0),
-    ],
-)
-def test_normal_unit_cube_both_sides(num_elements, degree, bcs, data_space, active_faces, u_idx, exact):
-    """
-    NormalBoundaryMass: int (u.n)^2 dS = sum over active faces of (u.n_face)^2 * area.
-    For u = e_d, only the two faces with normal ±e_d contribute, each giving area = 1.
-    """
-    comm = MPI.COMM_WORLD
-    derham = Derham(TensorProductGrid(num_elements=num_elements), DerhamOptions(degree=degree, bcs=bcs), comm=comm)
-    domain = domains.Cuboid(l1=0.0, r1=1.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
-    mass_ops = WeightedMassOperators(derham, domain)
-
-    P_vec = L2Projector(data_space, mass_ops)
-
-    u_h = P_vec([lambda e1, e2, e3, i=i: xp.ones_like(e1) if i == u_idx else xp.zeros_like(e1) for i in range(3)])
-
-    bnd_ops = BoundaryIntegralOperators(mass_ops, active_faces=active_faces)
-    # compute int (u.n)^2 dS = <S_normal u, u_normal_component>
-    # use dot_inner with u itself projected onto the scalar result
-    Su = bnd_ops.normal(data_space=data_space).dot(u_h)
-
-    # Su is a scalar field; inner product with the normal component of u
-    # For u = e_{u_idx}, the normal component on each face is ±1 or 0
-    # We sum Su * 1 (constant test function) which gives int (u.n) dS summed
-    # but we want int (u.n)^2 — so we dotted against u.n implicitly by using Su
-    # Actually: dot(u_h) gives int (u.n) Lambda^0 dS, and to get int (u.n)^2 dS
-    # we need to dot against the projection of (u.n) as a scalar H1 function.
-    # For simplicity here we just verify int (u.n) * 1 dS per face via summing coeffs.
-    # For u=e0 on face 0 (normal +e0): int 1*1 dS = 1. On face 3 (normal -e0): int (-1)*1 dS = -1.
-    # So sum over both = 0. Instead test int (u.n)^2 differently: use dot_inner trick below.
-    # Reframe: just check |int (u.n) dS| over one face.
-    numerical = float(xp.abs(_sum_coeffs(comm, Su)))
-
-    logger.info(f"data_space={data_space}, {u_idx=}, |numerical| = {numerical}, exact = {exact}, error = {xp.abs(numerical - exact)}")
+    exact = 2.0
+    logger.info(f"numerical={numerical:.6f}, exact={exact}, error={xp.abs(numerical - exact):.2e}")
     assert xp.abs(numerical - exact) < 1e-1
 
 
@@ -343,7 +277,7 @@ def test_normal_unit_cube_both_sides(num_elements, degree, bcs, data_space, acti
 # Main
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":  # TODO Add normal trace tests!
+if __name__ == "__main__":
     from struphy import set_logging_level
     set_logging_level(logging.INFO)
 
@@ -361,7 +295,4 @@ if __name__ == "__main__":  # TODO Add normal trace tests!
         [True, False, False, False, False, False], 1, 2, 12.0,
     )
 
-    test_normal_unit_cube_per_face(
-        [10, 10, 10], [2, 2, 2], (("free", "free"), ("free", "free"), ("free", "free")), "Hdiv",
-        [True, False, False, False, False, False], 0, 1.0,
-    )
+    test_normal_linear_unit_cube([20, 20, 20], [2, 2, 2])

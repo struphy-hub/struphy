@@ -7,6 +7,8 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
+from struphy.feec.linear_operators import BoundaryOperator
+
 
 from struphy.feec.boundary_mass import BoundaryIntegralOperators
 from struphy.feec.mass import WeightedMassOperators
@@ -339,10 +341,25 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
 
         # ---- normal boundary mass: int_{dOmega} (g.n) * alpha dS ---
         bnd_ops_u = BoundaryIntegralOperators(self._mass_ops_lift_u, active_faces=[True] * 6)
-        self._B0_normal_u = bnd_ops_u.normal(data_space="Hcurl", test_space="H1")
+        self._B0_normal_u = bnd_ops_u.normal()
 
         bnd_ops_ue = BoundaryIntegralOperators(self._mass_ops_lift_ue, active_faces=[True] * 6)
-        self._B0_normal_ue = bnd_ops_ue.normal(data_space="Hcurl", test_space="H1")
+        self._B0_normal_ue = bnd_ops_ue.normal()
+
+        self._boundary_normal_u = self.derham.create_spline_function("boundary_normal_u", space_id="H1")
+        self._boundary_normal_ue = self.derham.create_spline_function("boundary_normal_ue", space_id="H1")
+
+        # natural data splines (Hdiv, projected from Hcurl g_i, g_e)
+        self._natural_spline_u = (
+            self.variables.u.spline_natural.vector
+            if self.variables.u.spline_natural is not None
+            else self._derham_lift_u.coeff_spaces["2"].zeros()
+        )
+        self._natural_spline_ue = (
+            self.variables.ue.spline_natural.vector
+            if self.variables.ue.spline_natural is not None
+            else self._derham_lift_ue.coeff_spaces["2"].zeros()
+        )
 
         # ---- saddle point system: B = D M1, B^T = M1 D^T ---
         self._B = self._grad.T @ self._M1
@@ -425,16 +442,20 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         # --- copy current homogeneous solution ---
         self._u_0.vector = self.variables.u.spline.vector
 
+        # --- copy boundary integral terms from Hdiv natural data ---
+        self._boundary_normal_u.vector = self._B0_normal_u.dot(self._natural_spline_u)  # TODO Bad.
+        self._boundary_normal_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue)
+
         # --- assemble RHS for ions ---
         self._rhs_vec_u.vector = (
             self._hcurl_b_op_u.dot(
                 self._M1_u.dot(self._src_u.vector)
                 - self._A_i.dot(self._boundary_spline_u)
                 - self._M1_u.dot(self._boundary_spline_u) / dt
-                + self.options.nu * self._M1_u.dot(self._grad_u.dot(self._M0inv_u.dot(
-                    self._B0_normal_u.dot(self._boundary_spline_u))))                
             )
-            + self._M1.dot(self._u_0.vector) / dt
+            + self._M1.dot(self._u_0.vector) / dt + self.options.nu * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_u.vector)
+                )
+            )
         )
 
         # --- assemble RHS for electrons ---
@@ -442,15 +463,14 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             self._hcurl_b_op_ue.dot(
                 self._M1_ue.dot(self._src_ue.vector)
                 - self._A_e.dot(self._boundary_spline_ue)
-                + self.options.mu * self.options.nu_e * self._M1_ue.dot(self._grad_ue.dot(self._M0inv_ue.dot(
-                    self._B0_normal_ue.dot(self._boundary_spline_ue))))
-                
+            )
+            + self.options.mu * self.options.nu_e * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_ue.vector)
+                )
             )
         )
 
-        self._qn_boundary_u.vector = self._B0_normal_u.dot(self._boundary_spline_u) - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
-        self._qn_boundary_ue.vector = self._B0_normal_ue.dot(self._boundary_spline_ue) - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
-
+        self._qn_boundary_u.vector = self._boundary_normal_u.vector - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
+        self._qn_boundary_ue.vector = self._boundary_normal_ue.vector - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
 
         # --- assemble RHS for quasineutrality ---
         self._rhs_vec_phi.vector = self._qn_boundary_u.vector - self._qn_boundary_ue.vector

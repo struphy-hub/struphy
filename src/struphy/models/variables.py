@@ -243,11 +243,32 @@ class FEECVariable(Variable):
         self._lifting_function = new
 
     @property
+    def natural_data(self) -> Perturbation | list[Perturbation] | None:
+        """Optional natural boundary data in the opposite vector space (Hdiv <-> Hcurl).
+        Only supported for Hdiv and Hcurl spaces. The data is pulled back and projected
+        into the opposite space during allocate(). If None, no natural data is applied."""
+        if not hasattr(self, "_natural_data"):
+            self._natural_data = None
+        return self._natural_data
+
+    @natural_data.setter
+    def natural_data(self, new: Perturbation | list[Perturbation] | None):
+        self._natural_data = new
+
+    @property
     def spline(self) -> SplineFunction:
         """The solution spline function."""
         if not hasattr(self, "_spline"):
             raise ValueError("Warning: spline not allocated yet. Call allocate() first.")
         return self._spline
+
+    @property
+    def spline_natural(self) -> SplineFunction | None:
+        """The spline representation of the natural data projected into the opposite space
+        (Hdiv -> Hcurl or Hcurl -> Hdiv). Only allocated if natural_data is not None."""
+        if not hasattr(self, "_spline_natural"):
+            self._spline_natural = None
+        return self._spline_natural
 
     @property
     def spline_lift(self) -> SplineFunction | None:
@@ -354,6 +375,45 @@ class FEECVariable(Variable):
             equil=equil,
         )
 
+        # --- natural data ---
+        self._spline_natural = None
+        if self.natural_data is not None:
+            opposite_space = {"Hdiv": "Hcurl", "Hcurl": "Hdiv"}.get(self.space)
+            if opposite_space is None:
+                raise ValueError(
+                    f"natural_data is only supported for Hdiv and Hcurl spaces, got '{self.space}'."
+                )
+
+            self._spline_natural = derham.create_spline_function(
+                name=self.__name__ + "_natural" if self.__name__ is not None else None,
+                space_id=opposite_space,
+                domain=domain,
+                equil=equil,
+            )
+
+            natural_list = self.natural_data if isinstance(self.natural_data, list) else [self.natural_data]
+            form_id = derham.space_to_form[opposite_space]
+            fun_vec = [None] * 3
+            for ptb in natural_list:
+                if fun_vec[ptb.comp] is not None:
+                    raise ValueError(f"Component {ptb.comp} assigned more than once in natural_data list.")
+                fun_vec[ptb.comp] = ptb
+                if ptb.given_in_basis is None:
+                    ptb.given_in_basis = "v"
+
+            fun = [
+                TransformedPformComponent(
+                    fun_vec,
+                    fun_vec[comp].given_in_basis if fun_vec[comp] is not None else natural_list[0].given_in_basis,
+                    form_id,
+                    comp=comp,
+                    domain=domain,
+                )
+                for comp in range(3)
+            ]
+            self.spline_natural.vector += derham.projectors[form_id](fun)
+
+        # --- lifting ---
         self._derham_lift = None
         self._spline_lift = None
 
@@ -472,6 +532,9 @@ class FEECVariable(Variable):
         nbytes = coeff_space_nbytes(derham.coeff_spaces[self.space])
         if self.lifting_function is not None:
             nbytes *= 4  # spline + spline_lift + spline_0 + boundary_spline
+        opposite_space = {"Hdiv": "Hcurl", "Hcurl": "Hdiv"}.get(self.space)
+        if opposite_space is not None and self.natural_data is not None:
+            nbytes += coeff_space_nbytes(derham.coeff_spaces[opposite_space])
         return nbytes
 
     def compute_boundary_spline(self, spline_lift: SplineFunction | None = None):
@@ -485,7 +548,7 @@ class FEECVariable(Variable):
         # set new boundary spline
         diff_vec = spline_lift.vector - self.spline_0.vector
         diff_vec.copy(out=self.boundary_spline.vector)
-
+        
 
 class PICVariable(Variable):
     """

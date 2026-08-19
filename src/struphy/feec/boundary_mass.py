@@ -32,19 +32,19 @@ class BoundaryIntegralOperators:
     """
     Collection of boundary integral operators for scalar and vector fields.
 
-    Three operators are exposed via methods:
+    The three operators follow the de Rham complex trace structure:
 
     ``scalar(test_space)``
         int_{dOmega} alpha * beta dS
-        data: H1, test: H1 or L2
+        data: H1 (canonical),  test: H1 or L2
 
-    ``normal(data_space, test_space)``
+    ``normal(test_space)``
         int_{dOmega} (u . n) * alpha dS
-        data: Hdiv (canonical) or Hcurl, test: H1 or L2
+        data: Hdiv (canonical),  test: H1 or L2
 
-    ``tangential(data_space, test_space)``
+    ``tangential(test_space)``
         int_{dOmega} (u x n) . v dS
-        data: Hcurl (canonical) or Hdiv, test: Hcurl or Hdiv
+        data: Hcurl (canonical),  test: Hcurl or Hdiv
 
     Parameters
     ----------
@@ -86,31 +86,21 @@ class BoundaryIntegralOperators:
             )
         return self._cache[key]
 
-    def normal(
-        self,
-        data_space: VectorSpace = "Hdiv",
-        test_space: ScalarSpace = "H1",
-    ) -> "NormalBoundaryMass":
-        """Normal trace boundary mass: int_{dOmega} (u.n) * alpha dS."""
-        key = ("normal", data_space, test_space)
+    def normal(self, test_space: ScalarSpace = "H1") -> "NormalBoundaryMass":
+        """Normal trace boundary mass: int_{dOmega} (u.n) * alpha dS. Data: Hdiv."""
+        key = ("normal", test_space)
         if key not in self._cache:
             self._cache[key] = NormalBoundaryMass(
-                self._mass_ops, self._active_faces,
-                data_space=data_space, test_space=test_space,
+                self._mass_ops, self._active_faces, test_space=test_space,
             )
         return self._cache[key]
 
-    def tangential(
-        self,
-        data_space: VectorSpace = "Hcurl",
-        test_space: VectorSpace = "Hcurl",
-    ) -> "TangentialBoundaryMass":
-        """Tangential trace boundary mass: int_{dOmega} (u x n).v dS."""
-        key = ("tangential", data_space, test_space)
+    def tangential(self, test_space: VectorSpace = "Hcurl") -> "TangentialBoundaryMass":
+        """Tangential trace boundary mass: int_{dOmega} (u x n).v dS. Data: Hcurl."""
+        key = ("tangential", test_space)
         if key not in self._cache:
             self._cache[key] = TangentialBoundaryMass(
-                self._mass_ops, self._active_faces,
-                data_space=data_space, test_space=test_space,
+                self._mass_ops, self._active_faces, test_space=test_space,
             )
         return self._cache[key]
 
@@ -128,8 +118,8 @@ class BoundaryMassOperator(LinOpWithTransp):
     ``super().__init__``, and implement:
         _build_mat, _setup_surface_data, _assemble_face, _clear_mat, _finalize_mat, transpose.
 
-    The data (trial/column) space provides the basis functions for the field being integrated.
-    The test (row) space provides the basis functions for the test functions.
+    The data (trial/column) space is fixed by the FEEC trace structure.
+    The test (row) space is a modelling choice passed by the subclass.
     """
 
     _data_space_key: str  # set by subclass before super().__init__
@@ -263,7 +253,7 @@ class BoundaryMassOperator(LinOpWithTransp):
 
 # ---------------------------------------------------------------------------
 # ScalarBoundaryMass: int_{dOmega} alpha * beta dS
-# data: H1,  test: H1 or L2
+# data: H1 (fixed),  test: H1 or L2
 # ---------------------------------------------------------------------------
 
 
@@ -273,7 +263,7 @@ class ScalarBoundaryMass(BoundaryMassOperator):
 
         int_{dOmega} alpha * beta dS
 
-    Data space : H1
+    Data space : H1 (fixed by FEEC trace structure)
     Test space : H1 (default) or L2
 
     Parameters
@@ -375,12 +365,12 @@ class ScalarBoundaryMass(BoundaryMassOperator):
         self._mat.update_ghost_regions()
 
     def transpose(self, conjugate=False):
-        return self  # symmetric when data == test space
+        return self  # symmetric when data == test space == H1
 
 
 # ---------------------------------------------------------------------------
 # NormalBoundaryMass: int_{dOmega} (u . n) * alpha dS
-# data: Hdiv or Hcurl (vector),  test: H1 or L2 (scalar)
+# data: Hdiv (fixed),  test: H1 or L2 (scalar)
 # ---------------------------------------------------------------------------
 
 
@@ -390,20 +380,16 @@ class NormalBoundaryMass(BoundaryMassOperator):
 
         int_{dOmega} (u . n) * alpha dS
 
-    The normal trace (u.n) is scalar, so the test space is always scalar.
-
-    Data space : Hdiv (canonical) or Hcurl
+    Data space : Hdiv (fixed by FEEC trace structure)
     Test space : H1 (default) or L2
 
     The raw matrix is a BlockLinearOperator with 1 test block x 3 data blocks.
-    On each face only the component aligned with the normal contributes,
-    since (e_mu . n) = 0 for tangential components.
+    On each face only the component aligned with the outward normal contributes.
 
     Parameters
     ----------
     mass_ops : WeightedMassOperators
     active_faces : list[bool]
-    data_space : "Hdiv" or "Hcurl"
     test_space : "H1" or "L2"
     """
 
@@ -411,10 +397,9 @@ class NormalBoundaryMass(BoundaryMassOperator):
         self,
         mass_ops: WeightedMassOperators,
         active_faces: list[bool],
-        data_space: VectorSpace = "Hdiv",
         test_space: ScalarSpace = "H1",
     ):
-        self._data_space_key = _SPACE_KEY[data_space]
+        self._data_space_key = _SPACE_KEY["Hdiv"]
         self._test_space_key = _SPACE_KEY[test_space]
         super().__init__(mass_ops, active_faces)
 
@@ -458,12 +443,13 @@ class NormalBoundaryMass(BoundaryMassOperator):
 
             normal_dir = face_idx % 3
             surf_dirs = [d for d in range(3) if d != normal_dir]
-            sign = 1.0 if face_idx < 3 else -1.0
+            # outward normal: -e_{normal_dir} on low faces, +e_{normal_dir} on high faces
+            sign = -1.0 if face_idx < 3 else 1.0
 
             self._surface_sign.append(sign)
             self._surface_normal_dir.append(normal_dir)
 
-            # only the normal_dir component of the data field contributes
+            # only the normal_dir component of the Hdiv field contributes to u.n
             mu = normal_dir
             self._surface_data_spans.append([self._data_spans_l[mu][d] for d in surf_dirs])
             self._surface_data_wts.append([self._data_wts_l[mu][d] for d in surf_dirs])
@@ -473,7 +459,7 @@ class NormalBoundaryMass(BoundaryMassOperator):
     def _assemble_face(self, face_idx: int, mat: BlockLinearOperator):
         normal_dir = self._surface_normal_dir[face_idx]
         sign = self._surface_sign[face_idx]
-        mu = normal_dir  # only normal component contributes
+        mu = normal_dir
 
         data_fem_mu = self._data_tensor_spaces[mu]
         starts_mu = [int(s) for s in data_fem_mu.coeff_space.starts]
@@ -520,7 +506,7 @@ class NormalBoundaryMass(BoundaryMassOperator):
 
 # ---------------------------------------------------------------------------
 # TangentialBoundaryMass: int_{dOmega} (u x n) . v dS
-# data: Hcurl or Hdiv (vector),  test: Hcurl or Hdiv (vector)
+# data: Hcurl (fixed),  test: Hcurl or Hdiv (vector)
 # ---------------------------------------------------------------------------
 
 
@@ -530,10 +516,7 @@ class TangentialBoundaryMass(BoundaryMassOperator):
 
         int_{dOmega} (u x n) . v dS
 
-    The tangential trace (u x n) is a vector on the boundary, so the test
-    space is also vector-valued.
-
-    Data space : Hcurl (canonical) or Hdiv
+    Data space : Hcurl (fixed by FEEC trace structure)
     Test space : Hcurl (default) or Hdiv
 
     The raw matrix is a 3x3 BlockLinearOperator. The skew-symmetry of (n x .)
@@ -544,7 +527,6 @@ class TangentialBoundaryMass(BoundaryMassOperator):
     ----------
     mass_ops : WeightedMassOperators
     active_faces : list[bool]
-    data_space : "Hcurl" or "Hdiv"
     test_space : "Hcurl" or "Hdiv"
     """
 
@@ -552,10 +534,9 @@ class TangentialBoundaryMass(BoundaryMassOperator):
         self,
         mass_ops: WeightedMassOperators,
         active_faces: list[bool],
-        data_space: VectorSpace = "Hcurl",
         test_space: VectorSpace = "Hcurl",
     ):
-        self._data_space_key = _SPACE_KEY[data_space]
+        self._data_space_key = _SPACE_KEY["Hcurl"]
         self._test_space_key = _SPACE_KEY[test_space]
         super().__init__(mass_ops, active_faces)
 
@@ -600,7 +581,8 @@ class TangentialBoundaryMass(BoundaryMassOperator):
 
             normal_dir = face_idx % 3
             surf_dirs = [d for d in range(3) if d != normal_dir]
-            sign = 1.0 if face_idx < 3 else -1.0
+            # outward normal: -e_{normal_dir} on low faces, +e_{normal_dir} on high faces
+            sign = -1.0 if face_idx < 3 else 1.0
 
             n_hat = xp.zeros(3)
             n_hat[normal_dir] = sign
