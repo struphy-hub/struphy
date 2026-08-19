@@ -334,10 +334,10 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         )
 
         # ---- normal boundary mass: int_{dOmega} (g.n) * alpha dS ---
-        bnd_ops_u = BoundaryIntegralOperators(self._mass_ops_lift_u, active_faces=[False, False, False, False, True, False])
+        bnd_ops_u = BoundaryIntegralOperators(self._mass_ops_lift_u, active_faces=[True] * 6)
         self._B0_normal_u = bnd_ops_u.normal(test_space="H1")
 
-        bnd_ops_ue = BoundaryIntegralOperators(self._mass_ops_lift_ue, active_faces=[False, False, False, False, True, False])
+        bnd_ops_ue = BoundaryIntegralOperators(self._mass_ops_lift_ue, active_faces=[True] * 6)
         self._B0_normal_ue = bnd_ops_ue.normal(test_space="H1")
 
         self._boundary_normal_u = self.derham.create_spline_function("boundary_normal_u", space_id="H1")
@@ -368,7 +368,7 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
                     )
                     for comp in range(3)
                 ]
-                natural_spline.vector = derham_lift.projectors["2"](fun)
+                natural_spline.vector = derham_lift.projectors["2"](fun, apply_bc=False)
 
         # ---- saddle point system: B = D M1, B^T = M1 D^T ---
         self._B = self._grad.T @ self._M1
@@ -452,8 +452,19 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._u_0.vector = self.variables.u.spline.vector
 
         # --- copy boundary integral terms from lifted H1 space to constrained H1 space ---
-        self._boundary_normal_u.vector = self._B0_normal_u.dot(self._natural_spline_u.vector)
-        self._boundary_normal_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue.vector)
+        self._boundary_normal_u.vector = self._B0_normal_u.dot(self._natural_spline_u.vector, apply_bc=False)
+        self._boundary_normal_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue.vector, apply_bc=False)
+
+        # --- assemble RHS for ions ---
+        self._rhs_vec_u.vector = (
+            self._hcurl_b_op_u.dot(
+                self._M1_u.dot(self._src_u.vector)
+                - self._A_i.dot(self._boundary_spline_u)
+                - self._M1_u.dot(self._boundary_spline_u) / dt
+            )
+            + self._M1.dot(self._u_0.vector) / dt
+            + self.options.nu * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_u.vector)))
+        )
 
 
         # --- assemble RHS for electrons ---

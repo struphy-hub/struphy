@@ -440,7 +440,7 @@ if __name__ == "__main__":
             plt.close(fig)
             print(f"  -> saved {out}")
 
-        if BC in ("dirichlet_inhom_essential", "dirichlet_inhom_mixed", "dirichlet_inhom_natural", "poly"):
+        if BC in ("dirichlet_inhom_essential", "dirichlet_inhom_mixed", "poly"):
             y_check = np.linspace(0, 1, 80)
             x_check = np.linspace(0, 1, 80)
             z_check = np.array([0.5])

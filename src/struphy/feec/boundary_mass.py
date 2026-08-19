@@ -185,6 +185,7 @@ class BoundaryMassOperator(LinOpWithTransp):
         self._temp_WE = self._W_extraction_op.domain.zeros()
         self._temp_VB = self._V_boundary_op.domain.zeros()
         self._temp_mat = self._mat.domain.zeros()
+        
 
         self._setup_surface_data()
         self._assembly_kernel = PyccelKernel(mass_kernels.surface_kernel_3d_mat)
@@ -400,6 +401,23 @@ class NormalBoundaryMass(BoundaryMassOperator):
     On each face only the component aligned with the normal contributes,
     since (e_mu . n) = 0 for tangential components.
 
+    Notes
+    -----
+    ``surface_kernel_3d_mat`` builds the *row* index from the ``spans``/``pi``/
+    ``starts``/``pads`` arguments, and the *column* index as an offset relative
+    to the row. The row belongs to the codomain, which for this operator is the
+    test space -- so the test space must be passed in the ``i`` slots and the
+    data space in the ``j`` slots.
+
+    The kernel hard-codes the column offset in ``normal_dir`` to zero, i.e. it
+    assumes row and column carry the same global index on the boundary layer.
+    That holds for ``data_space="Hdiv"`` with ``test_space="H1"`` (component
+    ``mu = normal_dir`` is N-splines in ``normal_dir``, as is H1). It does NOT
+    hold for ``test_space="L2"``, nor for ``data_space="Hcurl"`` on the high
+    faces, where the data component is a D-spline in ``normal_dir`` and the
+    true offset is -1. Those cases need ``boundary_index_i`` /
+    ``boundary_index_j`` plumbed separately through the kernel.
+
     Parameters
     ----------
     mass_ops : WeightedMassOperators
@@ -420,7 +438,7 @@ class NormalBoundaryMass(BoundaryMassOperator):
         super().__init__(mass_ops, active_faces)
 
     def _build_mat(self) -> BlockLinearOperator:
-        # 1 x 3 block operator: scalar test, vector data
+        # 1 x 3 block operator: scalar test (rows), vector data (columns)
         test_fem = self._test_tensor_spaces[0]
         blocks = [
             [
@@ -443,7 +461,9 @@ class NormalBoundaryMass(BoundaryMassOperator):
         self._surface_sign = []
         self._surface_normal_dir = []
         self._surface_data_spans = []
+        self._surface_test_spans = []
         self._surface_data_wts = []
+        self._surface_test_wts = []
         self._surface_data_bases = []
         self._surface_test_bases = []
 
@@ -451,7 +471,8 @@ class NormalBoundaryMass(BoundaryMassOperator):
             if not self._active_faces[face_idx]:
                 for lst in (
                     self._surface_sign, self._surface_normal_dir,
-                    self._surface_data_spans, self._surface_data_wts,
+                    self._surface_data_spans, self._surface_test_spans,
+                    self._surface_data_wts, self._surface_test_wts,
                     self._surface_data_bases, self._surface_test_bases,
                 ):
                     lst.append(None)
@@ -459,16 +480,21 @@ class NormalBoundaryMass(BoundaryMassOperator):
 
             normal_dir = face_idx % 3
             surf_dirs = [d for d in range(3) if d != normal_dir]
-            sign = - 1.0 if face_idx < 3 else 1.0
-    
+            # outward normal: -e_{normal_dir} on low faces, +e_{normal_dir} on high faces
+            sign = -1.0 if face_idx < 3 else 1.0
+
             self._surface_sign.append(sign)
             self._surface_normal_dir.append(normal_dir)
 
             # only the normal_dir component of the data field contributes
             mu = normal_dir
+
             self._surface_data_spans.append([self._data_spans_l[mu][d] for d in surf_dirs])
             self._surface_data_wts.append([self._data_wts_l[mu][d] for d in surf_dirs])
             self._surface_data_bases.append([self._data_bases_l[mu][d] for d in surf_dirs])
+
+            self._surface_test_spans.append([self._test_spans_l[0][d] for d in surf_dirs])
+            self._surface_test_wts.append([self._test_wts_l[0][d] for d in surf_dirs])
             self._surface_test_bases.append([self._test_bases_l[0][d] for d in surf_dirs])
 
     def _assemble_face(self, face_idx: int, mat: BlockLinearOperator):
@@ -477,28 +503,45 @@ class NormalBoundaryMass(BoundaryMassOperator):
         mu = normal_dir  # only normal component contributes
 
         data_fem_mu = self._data_tensor_spaces[mu]
-        starts_mu = [int(s) for s in data_fem_mu.coeff_space.starts]
-        ends_mu = [int(e) for e in data_fem_mu.coeff_space.ends]
-        pads_mu = data_fem_mu.coeff_space.pads
-        boundary_index_mu = 0 if face_idx < 3 else self._data_nbasis[mu][normal_dir] - 1
+        test_fem = self._test_tensor_spaces[0]
 
-        nq1 = self._surface_data_spans[face_idx][0].size * self._surface_data_wts[face_idx][0].shape[1]
-        nq2 = self._surface_data_spans[face_idx][1].size * self._surface_data_wts[face_idx][1].shape[1]
+        # --- row space = test ---
+        starts_t = [int(s) for s in test_fem.coeff_space.starts]
+        ends_t = [int(e) for e in test_fem.coeff_space.ends]
+        pads_t = test_fem.coeff_space.pads
+        boundary_index_t = 0 if face_idx < 3 else self._test_nbasis[0][normal_dir] - 1
+
+        # --- column space = data (ownership guard only) ---
+        starts_d = [int(s) for s in data_fem_mu.coeff_space.starts]
+        ends_d = [int(e) for e in data_fem_mu.coeff_space.ends]
+        boundary_index_d = 0 if face_idx < 3 else self._data_nbasis[mu][normal_dir] - 1
+
+        # quadrature grid is shared; size mat_fun from the row-space element loop
+        nq1 = self._surface_test_spans[face_idx][0].size * self._surface_test_wts[face_idx][0].shape[1]
+        nq2 = self._surface_test_spans[face_idx][1].size * self._surface_test_wts[face_idx][1].shape[1]
         geom_weight = xp.full((nq1, nq2), sign)
 
-        logger.debug(f"{normal_dir=}, {face_idx=}, {boundary_index_mu=}, {starts_mu=}, {ends_mu=}, {pads_mu=}")
+        logger.debug(
+            f"{normal_dir=}, {face_idx=}, {boundary_index_t=}, {starts_t=}, {ends_t=}, {pads_t=}"
+        )
+        logger.debug(
+            f"{normal_dir=}, {face_idx=}, {boundary_index_d=}, {starts_d=}, {ends_d=}"
+        )
 
-        if starts_mu[normal_dir] == boundary_index_mu or ends_mu[normal_dir] == boundary_index_mu:
+        owns_row = starts_t[normal_dir] == boundary_index_t or ends_t[normal_dir] == boundary_index_t
+        owns_col = starts_d[normal_dir] == boundary_index_d or ends_d[normal_dir] == boundary_index_d
+
+        if owns_row and owns_col:
             self._assembly_kernel(
-                *self._surface_data_spans[face_idx],
-                *data_fem_mu.degree,
-                *self._test_tensor_spaces[0].degree,
-                *starts_mu,
-                *pads_mu,
-                *self._surface_data_wts[face_idx],
-                *self._surface_data_bases[face_idx],
-                *self._surface_test_bases[face_idx],
-                boundary_index_mu,
+                *self._surface_test_spans[face_idx],   # spans -> row (test)
+                *test_fem.degree,                      # pi    -> row (test)
+                *data_fem_mu.degree,                   # pj    -> col (data)
+                *starts_t,                             # starts of row space
+                *pads_t,                               # pads of row space
+                *self._surface_test_wts[face_idx],
+                *self._surface_test_bases[face_idx],   # bi    -> row (test)
+                *self._surface_data_bases[face_idx],   # bj    -> col (data)
+                boundary_index_t,
                 normal_dir,
                 geom_weight,
                 mat.blocks[0][mu]._data,
@@ -517,7 +560,6 @@ class NormalBoundaryMass(BoundaryMassOperator):
         raise NotImplementedError(
             "Transpose of NormalBoundaryMass maps scalar -> vector; not implemented."
         )
-
 
 # ---------------------------------------------------------------------------
 # TangentialBoundaryMass: int_{dOmega} (u x n) . v dS
