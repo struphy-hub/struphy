@@ -11,7 +11,7 @@ from line_profiler import profile
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import CoordinateProjector
 from struphy.feec.mass import L2Projector
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import H1vecKineticMetricPreconditioner, H1vecKineticMetricWoodburyPreconditioner, MassMatrixDiagonalPreconditioner
 from struphy.feec.variational_utilities import InternalEnergyEvaluator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -142,6 +142,16 @@ class VariationalViscosity(Propagator):
             Artificial-viscosity coefficient.
         alpha : float, default=0.0
             Optional linear damping/regularization parameter.
+                with_regularization : bool, default=False
+            Whether to use the density-weighted H1vec div-div kinetic
+            regularization.
+        alpha_divdiv : float, default=1.0
+            Coefficient of the regularization term
+
+                alpha_divdiv * int rho (div u)^2 dx
+
+            in the kinetic Hamiltonian. The corresponding coefficient in the
+            momentum metric is ``2 * alpha_divdiv``.
         """
 
         # specific literals
@@ -156,6 +166,8 @@ class VariationalViscosity(Propagator):
         mu: float = 0.0
         mu_a: float = 0.0
         alpha: float = 0.0
+        with_regularization: bool = False
+        alpha_divdiv: float = 1.0
 
         def __post_init__(self):
             # checks
@@ -169,6 +181,17 @@ class VariationalViscosity(Propagator):
 
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters(type="Newton")
+            if not isinstance(self.with_regularization, bool):
+                raise TypeError(
+                    "with_regularization must be a bool, "
+                    f"got {type(self.with_regularization)}."
+                )
+
+            if self.alpha_divdiv < 0.0:
+                raise ValueError(
+                    "alpha_divdiv must be non-negative, "
+                    f"got {self.alpha_divdiv}."
+                )
 
     @property
     def options(self) -> Options:
@@ -191,20 +214,57 @@ class VariationalViscosity(Propagator):
         self._mu_a = self.options.mu_a
         self._alpha = self.options.alpha
         self._mu = self.options.mu
+        self._with_regularization = self.options.with_regularization
+        self._alpha_divdiv = self.options.alpha_divdiv
+
+        # alpha_divdiv is the coefficient in the kinetic Hamiltonian.
+        # Its Hessian with respect to velocity contains the factor two.
+        self._metric_alpha = 2.0 * self._alpha_divdiv
+
+        if self._model == "full" and self.rho is None:
+            raise ValueError(
+                "VariationalViscosity with model='full' requires rho."
+            )
+
+        if self._with_regularization and not self.domain.has_exact_mapping_hessian:
+            raise NotImplementedError(
+                "VariationalViscosity regularization requires an "
+                "analytical mapping Hessian. "
+                f"Mapping {type(self.domain).__name__} with "
+                f"kind_map={self.domain.kind_map} is not currently supported."
+            )
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
-        # assembly of WMMnew happens in VariationalDensityEvolve
+        # Density-weighted momentum metric. Do not rely on another propagator
+        # having assembled WMMnew with the current density.
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-        self._Mrho_inv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=pc,
-            tol=1e-16,
-            maxiter=500,
-            recycle=True,
-        )
+        rho = self.rho.spline.vector
+
+        if self._with_regularization:
+            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
+                self._metric_alpha,
+            )
+            self._Kdivrho = self._kinetic_metric.divdiv_operator
+
+            # Assemble both M_rho and K_div,rho with the current density.
+            self._kinetic_metric.update_weight(rho)
+
+            self._momentum_operator = self._kinetic_metric
+            self._momentum_pc = H1vecKineticMetricPreconditioner(
+                self._kinetic_metric,
+            )
+        else:
+            self._kinetic_metric = None
+            self._Kdivrho = None
+
+            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.assemble()
+
+            self._momentum_operator = self._Mrho
+            self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                self._Mrho,
+            )
 
         # Femfields for the projector
         self.sf = self.derham.create_spline_function("sf", "L2")
@@ -240,8 +300,10 @@ class VariationalViscosity(Propagator):
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_en1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
-
+    @profile
     def __call__(self, dt):
+        rho = self.rho.spline.vector
+        self._update_momentum_operator(rho)
         if self._nonlin_solver.type == "Newton":
             self.__call_newton(dt)
         else:
@@ -281,7 +343,7 @@ class VariationalViscosity(Propagator):
         # 1) Pointwize energy change
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
-        rho = self.rho
+        rho = self.rho.spline.vector
         if self._model in ["deltaf_q", "linear_q"]:
             self.sf.vector = self.pt3.spline.vector
         else:
@@ -294,6 +356,7 @@ class VariationalViscosity(Propagator):
         )
 
         if self._model == "full":
+            
             rhof_values = self._energy_evaluator.eval_3form(rho, out=self._rhof_values)
 
             e_n = self._energy_evaluator.ener(
@@ -334,10 +397,26 @@ class VariationalViscosity(Propagator):
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
 
-        tol = self._nonlin_solver["tol"]
-        err = tol + 1
+        tol = float(self._nonlin_solver.tol)
+        tol_sq = tol * tol
+        
+        acceptance_factor = 4.0
+        absolute_threshold = acceptance_factor * tol_sq
+        
+        stagnation_threshold = 10.0 * tol_sq
+        stagnation_relative_change = 1.0e-3
+        stagnation_iterations = 3
+        
+        tiny = float(xp.finfo(float).tiny)
+        
+        err = float("inf")
+        err0 = None
+        previous_err = None
+        stagnation_count = 0
+        converged = False
+        accepted_by_stagnation = False
 
-        for it in range(self._nonlin_solver["maxiter"]):
+        for it in range(self._nonlin_solver.maxiter):
             if self._model in ["deltaf_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
@@ -386,14 +465,53 @@ class VariationalViscosity(Propagator):
             self.tot_rhs -= self._linear_form_en1
             self.tot_rhs += self._linear_form_tot_e
 
-            err = self._get_error_newton(self.tot_rhs)
+            err = float(self._get_error_newton(self.tot_rhs))
 
+            if not bool(xp.isfinite(err)):
+                raise FloatingPointError(
+                    "Non-finite residual in VariationalViscosity: "
+                    f"iteration={it + 1}, err={err}."
+                )
+        
+            if err0 is None:
+                err0 = max(err, tiny)
+        
+            relative_err = err / err0
+        
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
-
-            if (err < tol**2 and it > 0) or xp.isnan(err):
-                # force at least one iteration
+                logger.info(
+                    "Viscosity iteration: %d, error: %.16e, relative error: %.16e",
+                    it + 1,
+                    err,
+                    relative_err,
+                )
+        
+            # _get_error_newton returns a squared norm.
+            if err <= absolute_threshold or relative_err <= tol_sq:
+                converged = True
                 break
+        
+            if previous_err is not None:
+                relative_change = abs(previous_err - err) / max(
+                    previous_err,
+                    err,
+                    tiny,
+                )
+        
+                if relative_change <= stagnation_relative_change:
+                    stagnation_count += 1
+                else:
+                    stagnation_count = 0
+        
+                if (
+                    stagnation_count >= stagnation_iterations
+                    and err <= stagnation_threshold
+                ):
+                    converged = True
+                    accepted_by_stagnation = True
+                    break
+        
+            previous_err = err
 
             if self._model == "full":
                 deds = self._energy_evaluator.dener_ds(
@@ -429,7 +547,7 @@ class VariationalViscosity(Propagator):
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
+        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err =} \n {tol**2 =}",
             )
@@ -466,7 +584,7 @@ class VariationalViscosity(Propagator):
             self.mass_ops.M3,
             "pcg",
             pc=self.pc_M3,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -513,12 +631,12 @@ class VariationalViscosity(Propagator):
 
         self.du_phy_stiffness = Xv.T @ self.du_log_stiffness @ Xv
 
-        self._scaled_stiffness = 0.00001 * self.phy_stiffness
-
         self._scaled_Mv = 0.1 * self.mass_ops.Mv
 
-        self.r_op = self._Mrho  # - self._scaled_stiffness - self.du_phy_stiffness
-        self.l_op = self._Mrho + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
+        # The regularization is part of the conservative kinetic metric, so it
+        # must appear on both sides of the velocity update.
+        self.r_op = self._momentum_operator
+        self.l_op = self._momentum_operator+ self._scaled_Mv+ self._scaled_stiffness+ self.du_phy_stiffness
 
         self.grad_0 = grad @ Pcoord0 @ Xv
         self.grad_1 = grad @ Pcoord1 @ Xv
@@ -527,7 +645,7 @@ class VariationalViscosity(Propagator):
         self.inv_lop = inverse(
             self.l_op,
             "pcg",
-            pc=self._Mrho_inv,
+            pc=self._momentum_pc,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=False,
@@ -658,10 +776,23 @@ class VariationalViscosity(Propagator):
         )
         self._sq_term_metric = deepcopy(metric)
 
-        metric = self.domain.metric_inv(
-            *integration_grid,
-        ) * self.domain.jacobian_det(*integration_grid)
-        self._mass_M1_metric = deepcopy(metric)
+        self._jacobian_det = deepcopy(
+            self.domain.jacobian_det(*integration_grid),
+        )
+        
+        self._metric_inv = deepcopy(
+            self.domain.metric_inv(*integration_grid),
+        )
+        
+        # Integral metric:
+        #
+        #   |det(DF)| * (DF^T DF)^(-1).
+        #
+        # This is used for the physical gradient contraction inside integrals.
+        self._mass_M1_metric = deepcopy(self._metric_inv)
+        self._mass_M1_metric *= self._jacobian_det
+        
+        
 
         if self._model in ["linear_q", "deltaf_q"]:
             self.sf1.vector = self.projected_equil.q3
@@ -680,16 +811,32 @@ class VariationalViscosity(Propagator):
         return err_s
 
     def _update_artificial_viscosity(self, un, dt):
-        """Update the artificial viscosity as the norm of the gradient of un.
-        Update the associated mass matrix and return the total viscosity for later computation"""
+        r"""Update the frozen artificial-viscosity coefficient.
+    
+        The artificial viscosity is evaluated from the old velocity,
+    
+            mu_a(x) = mu_a * |grad_x u^n(x)|,
+    
+        and is used consistently in both the momentum equation and the
+        internal-energy update.
+    
+        Returns
+        -------
+        total_viscosity : xp.ndarray
+            Quadrature values of
+    
+                dt * (mu + mu_a * |grad_x u^n|).
+        """
         gu0 = self.grad_0.dot(un, out=self._tmp_gu0)
         gu1 = self.grad_1.dot(un, out=self._tmp_gu1)
         gu2 = self.grad_2.dot(un, out=self._tmp_gu2)
-
+    
         self.gu0f.vector = gu0
         self.gu1f.vector = gu1
         self.gu2f.vector = gu2
-
+    
+        # gua_v[i] is the logical derivative d_{eta_i} u_a, where `a`
+        # denotes the physical Cartesian velocity component.
         gu0_v = self.gu0f.eval_tp_fixed_loc(
             self.integration_grid_spans,
             self.integration_grid_gradient,
@@ -705,45 +852,112 @@ class VariationalViscosity(Propagator):
             self.integration_grid_gradient,
             out=self._guf2_values,
         )
-
-        gu_sq_v = self._gu_init_values
-        gu_sq_v *= 0.0
-        for i in range(3):
-            gu0_v[i] **= 2
-            gu1_v[i] **= 2
-            gu2_v[i] **= 2
-            gu_sq_v += gu0_v[i]
-            gu_sq_v += gu1_v[i]
-            gu_sq_v += gu2_v[i]
-
-        xp.sqrt(gu_sq_v, out=gu_sq_v)
-
-        gu_sq_v *= dt * self._mu_a  # /2
-
+    
+        # Compute
+        #
+        #   |grad_x u|^2
+        #       = sum_a sum_{i,j}
+        #           d_{eta_i} u_a * g^{ij} * d_{eta_j} u_a.
+        #
+        # Do not include |det(DF)| here: this is a pointwise physical norm,
+        # not an integral.
+        grad_u_norm = self._gu_init_values
+        grad_u_norm *= 0.0
+    
+        gradients = (gu0_v, gu1_v, gu2_v)
+    
+        for gradient in gradients:
+            for i in range(3):
+                for j in range(3):
+                    grad_u_norm += (
+                        gradient[i]
+                        * self._metric_inv[i, j]
+                        * gradient[j]
+                    )
+    
+        # Roundoff can produce very small negative values, particularly
+        # near coordinate singularities.
+        xp.maximum(grad_u_norm, 0.0, out=grad_u_norm)
+        xp.sqrt(grad_u_norm, out=grad_u_norm)
+    
+        # At this point:
+        #
+        #   grad_u_norm = |grad_x u^n|.
+        #
+        # Convert it into the time-scaled artificial viscosity used in the
+        # implicit velocity operator.
+        grad_u_norm *= dt * self._mu_a
+    
+        # Assemble
+        #
+        #   dt * mu_a * |grad_x u^n| * |J| * g^{-1}.
+        #
+        # The physical viscosity dt*mu is handled separately through
+        # `_scaled_stiffness`.
         self.M1_du.assemble(
             [
                 [
-                    gu_sq_v * self._mass_M1_metric[0, 0],
-                    gu_sq_v * self._mass_M1_metric[0, 1],
-                    gu_sq_v * self._mass_M1_metric[0, 2],
+                    grad_u_norm * self._mass_M1_metric[0, 0],
+                    grad_u_norm * self._mass_M1_metric[0, 1],
+                    grad_u_norm * self._mass_M1_metric[0, 2],
                 ],
                 [
-                    gu_sq_v * self._mass_M1_metric[1, 0],
-                    gu_sq_v * self._mass_M1_metric[1, 1],
-                    gu_sq_v * self._mass_M1_metric[1, 2],
+                    grad_u_norm * self._mass_M1_metric[1, 0],
+                    grad_u_norm * self._mass_M1_metric[1, 1],
+                    grad_u_norm * self._mass_M1_metric[1, 2],
                 ],
                 [
-                    gu_sq_v * self._mass_M1_metric[2, 0],
-                    gu_sq_v * self._mass_M1_metric[2, 1],
-                    gu_sq_v * self._mass_M1_metric[2, 2],
+                    grad_u_norm * self._mass_M1_metric[2, 0],
+                    grad_u_norm * self._mass_M1_metric[2, 1],
+                    grad_u_norm * self._mass_M1_metric[2, 2],
                 ],
             ],
         )
+    
+        # Reuse the same quadrature array for the heating update. This is
+        # essential: the coefficient in the momentum equation and the
+        # coefficient in the internal-energy equation must be identical.
+        #
+        # After this operation:
+        #
+        #   grad_u_norm = dt * (mu + mu_a * |grad_x u^n|).
+        grad_u_norm += dt * self._mu
+    
+        return grad_u_norm
 
-        # gu_sq_v *= 2.
-        gu_sq_v += dt * self._mu
+    def _update_momentum_operator(self, rho):
+        """Update the fixed-density momentum metric and its preconditioner.
 
-        return gu_sq_v
+        Without regularization, the momentum metric is M_rho. With
+        regularization, it is
+
+            M_rho + 2 * alpha_divdiv * K_div,rho.
+
+        The operator is fixed during one viscosity substep.
+        """
+        if self._with_regularization:
+            metric_changed = self._kinetic_metric.update_weight_if_needed(
+                rho,
+                self.rho.generation,
+            )
+        else:
+            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.assemble()
+            metric_changed = True
+
+        if not metric_changed:
+            return
+
+        pc = self._momentum_pc
+
+        if isinstance(pc, H1vecKineticMetricPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
 
     def _get_energy_change(self, un, un1, dt, total_viscosity):
         """Return the total energy change caused by the viscosity"""
