@@ -90,7 +90,7 @@ env = EnvironmentOptions(
 )
 
 # Time stepping
-time_opts = Time()
+time_opts = Time(dt=0.01, Tend=0.05)
 
 # Geometry
 domain = domains.Cuboid()
@@ -122,7 +122,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters()
+loading_params = LoadingParameters(seed=1234)
 weights_params = WeightsParameters()
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
@@ -166,14 +166,14 @@ model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="
 # For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
 
 # Background for kinetic species
-maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)
-maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)
+maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None))
+maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None))
 background = maxwellian_1 + maxwellian_2
 model.energetic_ions.var.add_background(background)
 
 # Perturbations for (some) kinetic species
 perturbation = perturbations.TorusModesCos()
-maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)
+maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation))
 init = maxwellian_1pt + maxwellian_2
 model.energetic_ions.var.add_initial_condition(init)
 
