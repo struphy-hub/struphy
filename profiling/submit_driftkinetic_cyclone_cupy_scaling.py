@@ -38,6 +38,16 @@ matters more than using the fastest one available only at rank 1, so `--solver p
 forced across the whole sweep (including at `--ranks 1`) for a consistent, apples-to-apples
 comparison. Whether a (currently nonexistent) distributed direct solve would change this
 picture is an open question -- see the ISSUE file's "Known limitations".
+
+**`Tend` shortened to 3 steps.** `params_cyclone.py`'s own default (`Tend=0.01`, `dt=0.001`
+-> 10 steps) was written for the `direct`-solver comparison, where the field solve is
+essentially free after the first call. Here `--solver pcg` is forced instead, and the
+case's own profiling notes (`driftkinetic_cyclone_numpy_vs_cupy`'s run metadata) recorded
+a single CuPy `pcg` step taking anywhere from ~14.5 s (clean, isolated GPU) up to 174 s
+under GPU contention on this shared partition -- 10 such steps plus ~90 s of CUDA
+setup/compile do not reliably fit in `pitagora_boost_fua_dbg`'s 15-30 min walltime (its
+partition-enforced cap). 3 steps is enough to warm up and get a stable per-step timing for
+the scaling comparison this case cares about; pass `--Tend` to override.
 """
 
 import argparse
@@ -78,7 +88,16 @@ def main() -> None:
         help="MPI rank counts to run with, one GPU per rank (default: 1 2 4 8; 8 spans 2 Booster nodes).",
     )
     parser.add_argument("--ppc", type=int, default=None, help="Markers per cell (overrides params_cyclone.py's default, 200).")
-    parser.add_argument("--Tend", type=float, default=None, help="End time (overrides params_cyclone.py's default, 0.01 -> 10 steps).")
+    parser.add_argument(
+        "--Tend",
+        type=float,
+        default=0.003,
+        help=(
+            "End time (default: 0.003 -> 3 steps, shortened from params_cyclone.py's own "
+            "0.01/10 steps so the forced pcg solver reliably fits in the debug partition's "
+            "walltime; see the module docstring)."
+        ),
+    )
     parser.add_argument(
         "--num-elements",
         type=int,
@@ -122,11 +141,9 @@ def main() -> None:
     # under whatever name detection reports for this machine.
     cluster_name = detect_machine_name()
 
-    param_flags = ["--backend", "cupy", "--solver", "pcg"]
+    param_flags = ["--backend", "cupy", "--solver", "pcg", "--Tend", str(args.Tend)]
     if args.ppc is not None:
         param_flags += ["--ppc", str(args.ppc)]
-    if args.Tend is not None:
-        param_flags += ["--Tend", str(args.Tend)]
     if args.num_elements is not None:
         param_flags += ["--num-elements", *[str(n) for n in args.num_elements]]
 
