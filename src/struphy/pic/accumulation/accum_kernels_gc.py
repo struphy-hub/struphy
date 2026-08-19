@@ -448,8 +448,8 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 * ep_scale
-            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para * ep_scale
+            filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 * ep_scale
+            filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para * ep_scale
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v0vec_symm(
