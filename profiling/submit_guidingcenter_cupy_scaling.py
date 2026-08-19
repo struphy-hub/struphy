@@ -1,42 +1,12 @@
 """Guiding-centre CuPy multi-GPU/multi-rank scaling case.
 
-This is a strong-scaling study, not a backend comparison (see
-`submit_guidingcenter_numpy_vs_cupy.py` for that): the same total marker count
-(`LoadingParameters.Np` is the *total* across ranks, see
-`struphy.particles.parameters.LoadingParameters`) is run with `ARRAY_BACKEND=cupy` at
-increasing MPI rank counts, one rank per GPU, on the Booster partition -- so it measures
-whether adding more rank+GPU pairs actually speeds up a fixed-size problem, and whether
-the CUDA-ported kernels behave correctly under MPI (domain-decomposed markers, particle
-sorting/communication across ranks, etc.), not just single-GPU.
-
-Each rank binds to its own GPU via `SLURM_LOCALID` in `params_GuidingCenter_scaling.py`
-(see the comment there) -- without that, every rank on a node would default to CuPy's
-device 0 and contend for the same GPU, which would make this scaling study meaningless.
-`SLURM_LOCALID` is a rank's index *within its node*, so this binding is correct on
-multi-node runs too without any extra handling.
-
-`--ranks 1 2 4 8` (the default) covers both intra-node scaling (1/2/4 ranks, all on a
-single Booster node, 4 GPUs/node) and one inter-node step (8 ranks = 2 nodes x 4 GPUs),
-so the 4->8 step is the first data point that includes cross-node MPI exchange traffic
-(mpi_sort_markers) instead of only intra-node/NVLink-less PCIe traffic. `launch()` derives
-`num_nodes = ceil(num_tasks / GPUS_PER_NODE)` and requires `num_tasks % num_nodes == 0`,
-so rank counts must stay multiples of `GPUS_PER_NODE` once they exceed it (8, 12, 16, ...).
-
-Uses `params_GuidingCenter_scaling.py`, not `params_GuidingCenter.py` (the single-GPU
-NumPy-vs-CuPy comparison case): its much larger default Np (50,000,000 vs. 200,000) is
-needed for a scaling study specifically because at smaller sizes, per-rank compute between
-marker exchanges is too small to outweigh the exchange cost -- adding ranks there measured
-*slower*, not faster (see that file's docstring for the numbers), and even at 10,000,000
-the 4->8-rank (cross-node) step regressed. Whether 50,000,000 gives enough per-rank compute
-to push the crossover point past 8 ranks, and how far, is what this case measures; see
-`params_GuidingCenter_scaling.py`'s docstring for the 10,000,000 numbers this raise is
-responding to.
-
-`GuidingCenter` is used here rather than `LinearMHDDriftkineticCC` because its runtime is
-actually dominated by the particle kernels this comparison is meant to measure. Its whole
-propagator stack is CUDA-ported and it has no FEEC field solve, so the backend difference
-shows up in the total wall clock. `LinearMHDDriftkineticCC` is dominated by MHD field
-propagators and one-off setup instead, which masks any particle-kernel speedup.
+Strong-scaling study (not a backend comparison, see `submit_guidingcenter_numpy_vs_cupy.py`
+for that): the same total marker count runs under `ARRAY_BACKEND=cupy` at increasing MPI
+rank counts, one rank per GPU, to measure whether more rank+GPU pairs actually speed up a
+fixed-size problem. `--ranks 1 2 4 8` (default) covers intra-node scaling plus one
+cross-node step (8 = 2 Booster nodes x 4 GPUs). Uses `params_GuidingCenter_scaling.py`'s
+much larger default `Np` (not `params_GuidingCenter.py`'s) since a small per-rank marker
+count makes MPI exchange cost dominate and scaling look worse than it is.
 """
 
 import argparse
@@ -92,8 +62,8 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="guidingcenter_cupy_scaling",
-        name="Guiding-centre particles on cube, CuPy multi-GPU scaling",
-        description="5D guiding-centre test particles (Np=50,000,000) in a homogeneous slab on a 3D cube, run with the CuPy array backend at increasing MPI rank counts (one GPU per rank) to measure strong-scaling speedup and verify the CUDA-ported kernels work correctly under MPI.",
+        name="GuidingCenter: CuPy scaling",
+        description="GuidingCenter particles (Np=50,000,000) on CuPy, strong-scaled across 1-8 GPUs.",
         physics_problem="Guiding-centre drift-kinetic particle motion; the particle-push hot loop common to all PIC/drift-kinetic models.",
         struphy_model_used="GuidingCenter",
         params_source=params_source,

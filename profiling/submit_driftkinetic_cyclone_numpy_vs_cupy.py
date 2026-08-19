@@ -1,24 +1,9 @@
 """DriftKineticElectrostaticAdiabatic (ITG cyclone) NumPy-vs-CuPy profiling case.
 
-This is the first CuPy profiling case for a real gyrokinetic model rather than a toy
-one (see `params_cyclone.py`'s docstring for the device-portability bugs that had to be
-fixed just to get it running under CuPy at all). Unlike GuidingCenter
-(submit_guidingcenter_numpy_vs_cupy.py), this model carries a real per-step FEEC field
-solve (PoissonAdiabaticGyrokinetic) on top of the two CUDA-ported guiding-center
-pushers, so it measures whether the CUDA port helps a model end to end rather than just
-the particle kernels it directly targeted.
-
-The field solve's own solver defaults to 'direct' (a cached sparse LU factorization,
-`feectools.linalg.solvers.DirectSolver`) rather than the naive 'pcg': the LHS operator
-here is constant across time steps, so the iterative solver was redoing (close to)
-maxiter=3000 dependent, sync-per-iteration steps on every single call for no reason --
-see params_cyclone.py's docstring for the measured PCG-vs-direct comparison (~1900x
-faster per solve after the first, on CuPy). `--solver pcg` reproduces the original,
-much slower baseline for comparison.
-
-Runs the same simulation twice, once with `ARRAY_BACKEND=numpy` on a CPU partition and
-once with `ARRAY_BACKEND=cupy` on a GPU partition, so the two runs can be compared
-directly, exactly as `submit_guidingcenter_numpy_vs_cupy.py` does.
+Runs `params_cyclone.py` once with `ARRAY_BACKEND=numpy` and once with
+`ARRAY_BACKEND=cupy`. Unlike GuidingCenter, this model has a real per-step FEEC field
+solve (PoissonAdiabaticGyrokinetic, default solver='direct'), so it measures whether
+the CUDA port helps end to end, not just the particle kernels.
 """
 
 import argparse
@@ -97,14 +82,10 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="driftkinetic_cyclone_numpy_vs_cupy",
-        name="DriftKineticElectrostaticAdiabatic Cyclone, NumPy vs CuPy",
+        name="ITG cyclone: NumPy vs CuPy",
         description=(
-            "Cyclone-instability ITG turbulence case for DriftKineticElectrostaticAdiabatic "
-            "(toroidal HollowTorus geometry, control-variate weights, Fourier-filtered "
-            "PoissonAdiabaticGyrokinetic field solve plus the two CUDA-ported guiding-center "
-            "pushers), run with the NumPy and the CuPy array backend. Unlike GuidingCenter, "
-            "this model has a real per-step FEEC field solve, so this measures whether the "
-            "CUDA port helps a real gyrokinetic model end to end."
+            "Cyclone-instability ITG turbulence (DriftKineticElectrostaticAdiabatic), run "
+            "once on NumPy and once on CuPy."
         ),
         physics_problem="Electrostatic drift-kinetic ITG turbulence with adiabatic electrons in toroidal geometry.",
         struphy_model_used="DriftKineticElectrostaticAdiabatic",

@@ -1,27 +1,10 @@
 """VlasovAmpereOneSpecies CuPy multi-GPU/multi-rank scaling case.
 
-Companion to submit_guidingcenter_cupy_scaling.py, deliberately using a different
-model that is NOT dominated by mpi_sort_markers the way GuidingCenter's scaling case
-is (see params_VlasovAmpere_scaling.py's docstring for the full rationale):
-VlasovAmpereOneSpecies's VlasovAmpereCoupling propagator solves a real linear system
-each step to update the field from the accumulated particle current, giving it real
-per-step compute that GuidingCenter's pure-push propagator stack doesn't have.
-
-Same strong-scaling structure as the GuidingCenter case: the same total marker count
-(`LoadingParameters.Np` is the *total* across ranks) is run with `ARRAY_BACKEND=cupy`
-at increasing MPI rank counts, one rank per GPU, on the Booster partition.
-
-Each rank binds to its own GPU via `SLURM_LOCALID` in `params_VlasovAmpere_scaling.py`
-(see the comment there) -- without that, every rank on a node would default to CuPy's
-device 0 and contend for the same GPU, which would make this scaling study meaningless.
-`SLURM_LOCALID` is a rank's index *within its node*, so this binding is correct on
-multi-node runs too without any extra handling.
-
-`--ranks 2 4 8` (the default, matching the GuidingCenter case's current default) covers
-both intra-node scaling (2/4 ranks, on a single Booster node, 4 GPUs/node) and one
-inter-node step (8 ranks = 2 nodes x 4 GPUs). `launch()` derives
-`num_nodes = ceil(num_tasks / GPUS_PER_NODE)` and requires `num_tasks % num_nodes == 0`,
-so rank counts must stay multiples of `GPUS_PER_NODE` once they exceed it (8, 12, 16, ...).
+Companion to submit_guidingcenter_cupy_scaling.py, using a model with a real per-step
+field solve (VlasovAmpereCoupling) instead of a pure particle push, so its scaling
+behaviour isn't dominated by mpi_sort_markers the way GuidingCenter's is. Same total
+marker count, run with `ARRAY_BACKEND=cupy` at increasing MPI rank counts (one rank per
+GPU); `--ranks 2 4 8` (default) covers intra-node scaling plus one cross-node step.
 """
 
 import argparse
@@ -77,8 +60,8 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="vlasovampere_cupy_scaling",
-        name="Vlasov-Ampere particles on cube, CuPy multi-GPU scaling",
-        description="6D full-orbit Vlasov-Ampere test particles (Np=50,000,000) in a homogeneous cube, run with the CuPy array backend at increasing MPI rank counts (one GPU per rank) -- a companion to guidingcenter_cupy_scaling using a model with a real per-step field solve instead of a pure particle push, to measure scaling behaviour when mpi_sort_markers is not the dominant cost.",
+        name="VlasovAmpere: CuPy scaling",
+        description="VlasovAmpereOneSpecies particles (Np=50,000,000) on CuPy, strong-scaled across GPUs. Has a real per-step field solve.",
         physics_problem="6D full-orbit Vlasov-Ampere particle motion with a self-consistent electric field, solved via VlasovAmpereCoupling's SchurSolver each step.",
         struphy_model_used="VlasovAmpereOneSpecies",
         params_source=params_source,

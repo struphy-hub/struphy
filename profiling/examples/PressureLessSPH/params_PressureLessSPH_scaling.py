@@ -7,34 +7,8 @@
 name = "PressureLessSPH CuPy multi-GPU scaling"
 description = """
 SPH test particles in a homogeneous cube, used as a third CuPy multi-GPU/multi-rank
-strong-scaling case alongside submit_guidingcenter_cupy_scaling.py and
-submit_vlasovampere_cupy_scaling.py -- this one is close to a pure particle push: no
-FEEC field solve at all (model_type="Fluid", no linear system to solve every step, unlike
-VlasovAmpereOneSpecies's SchurSolver), and per CUDA_KERNEL_PORTING_STATUS.md its SPH
-kernel families (pushers, evaluation, marker-column kernels) are all fully CUDA-ported
-for their live code paths -- as close to "everything runs on GPU" as any model in this
-repo gets. `PressureLessSPH` specifically (not IncompressibleNavierStokesSPH or
-ViscousEulerSPH) is used because it was the one explicitly re-verified to agree to
-round-off across backends after the marker-detachment bug fix (see
-ISSUE_mhd_cupy_physics_divergence.md's "Does not affect" note) -- not just ported, but
-checked correct.
-
-Two propagators: PushEta (position push) and PushVinEfield (velocity push against a
-background force field derived from equil.p0) -- both simpler, cheaper-per-marker
-kernels than GuidingCenter's multistage guiding-centre push, so if anything this case
-should push mpi_sort_markers's share *up* rather than down relative to GuidingCenter,
-making it a useful third data point on the low-per-marker-compute end (GuidingCenter
-in the middle, VlasovAmpereOneSpecies's real field solve on the high end).
-
-Adapted from the repo's own `params_PressureLessSPH.py` (root directory -- the
-model's reference/template params file) into the scaling-case pattern used by the
-other two cases here: same SLURM_LOCALID device binding, FEECTOOLS_ENABLE_MPI opt-in,
---backend/--Np/--Tend/--id CLI surface, and the same Cuboid domain (32, 32, 32) grid
-for comparability. Np default kept smaller (10,000,000) than the other two cases'
-50,000,000 for an initial run, since this is the first time this case has been run at
-scale -- see the docstring in params_GuidingCenter_scaling.py for why marker count
-matters for the mpi_sort_markers/per-rank-compute balance being compared here; raise
-it once a first sweep confirms this scales the way the other two cases did.
+strong-scaling case alongside GuidingCenter and VlasovAmpereOneSpecies -- this one has no
+FEEC field solve at all, the low-per-marker-compute end of the three.
 """
 
 import argparse

@@ -1,26 +1,10 @@
-"""Guiding-centre full-node CPU-vs-GPU comparison case.
+"""Guiding-centre full-node CPU-vs-GPU comparison.
 
-The other two GuidingCenter cases each answer a narrower question:
-`submit_guidingcenter_numpy_vs_cupy.py` compares backends at a fixed, small rank count
-(default 1), and `submit_guidingcenter_cupy_scaling.py` measures CuPy strong-scaling
-alone. Neither answers the practical question a user actually has: given one full CPU
-node and one full GPU node, which one do you point a job at? This case runs exactly
-that comparison -- `ARRAY_BACKEND=numpy` using every core of one `pitagora_dcgp` node
-against `ARRAY_BACKEND=cupy` using every GPU of one Booster node -- at the same total
-marker count on both sides.
-
-Both sides run with more than one rank, so both exercise the domain-decomposed
-marker-exchange path (`mpi_sort_markers`/`apply_kinetic_bc`) this session's performance
-work targeted, not just single-rank kernel throughput. `params_GuidingCenter_scaling.py`
-is used (not `params_GuidingCenter.py`) for the same reason `submit_guidingcenter_cupy_scaling.py`
-uses it: its default Np is large enough that per-rank compute between exchanges has a
-chance of outweighing the exchange cost -- see that file's docstring for the measurements
-this default responds to. `--Np` overrides it if a different problem size is of interest.
-
-`GuidingCenter` is used, as in the other two cases, because its whole propagator stack is
-CUDA-ported and it has no FEEC field solve, so wall-clock time is dominated by the
-particle kernels and their MPI exchange rather than by anything the backend choice
-doesn't touch.
+Runs `params_GuidingCenter_scaling.py` once across every core of one CPU node
+(`ARRAY_BACKEND=numpy`) and once across every GPU of one GPU node (`ARRAY_BACKEND=cupy`),
+same total marker count on both sides -- the realistic "which node do I use" comparison,
+as opposed to `submit_guidingcenter_numpy_vs_cupy.py` (single-rank backend comparison) or
+`submit_guidingcenter_cupy_scaling.py` (CuPy-only rank scaling).
 """
 
 import argparse
@@ -83,13 +67,10 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="guidingcenter_cpu_node_vs_gpu_node",
-        name="Guiding-centre particles on cube, 1 CPU node vs 1 GPU node",
+        name="GuidingCenter: CPU node vs GPU node",
         description=(
-            "5D guiding-centre test particles in a homogeneous slab on a 3D cube, run once "
-            "with the NumPy array backend across every core of one CPU node and once with "
-            "the CuPy array backend across every GPU of one GPU node, at the same total "
-            "marker count, to compare realistic full-node throughput rather than "
-            "single-rank kernel speed."
+            "GuidingCenter particles on a cube, run across one full CPU node (NumPy) vs "
+            "one full GPU node (CuPy) at the same marker count."
         ),
         physics_problem="Guiding-centre drift-kinetic particle motion; the particle-push hot loop common to all PIC/drift-kinetic models.",
         struphy_model_used="GuidingCenter",

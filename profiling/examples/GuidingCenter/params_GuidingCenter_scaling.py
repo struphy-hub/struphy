@@ -6,47 +6,10 @@
 
 name = "GuidingCenter CuPy multi-GPU scaling"
 description = """
-Guiding-centre (5D drift-kinetic) test particles in a homogeneous slab, used as the
-CuPy multi-GPU/multi-rank strong-scaling case (see profiling/submit_guidingcenter_cupy_scaling.py).
-
-This is a separate, much larger params file from params_GuidingCenter.py (the
-NumPy-vs-CuPy single-GPU comparison): its Np default is 10,000,000, ~50x that case's
-200,000. That matters here specifically because of the marker-exchange cost measured
-while validating this case -- at Np=200,000 (50,000/rank at 4 ranks), mpi_sort_markers
-(the device-to-device particle exchange between ranks after each stage) ate 79-89% of
-model.integrate, and total wall time got *worse* with more ranks:
-
-    ranks   total (setup to finalize)
-    1       4.48 s
-    2       5.19 s
-    4       5.50 s   (slower than 1 rank)
-
-At Np=4,000,000 the same 1/2/4-rank comparison did show a clear speedup (9.93 s / 5.88 s
-/ 3.79 s -> 1.7x / 2.6x), because there is enough per-rank compute between exchanges for
-it to outweigh the communication cost.
-
-At Np=10,000,000, a full 1/2/4/8-rank sweep (8 ranks = 2 Booster nodes) still regressed
-at the 4->8 step (22.87 s -> 24.98 s): `mpi_sort_markers`'s share of the pusher loop grew
-from 60.5% (2 ranks) to 65.8% (4 ranks) to 76.5% (8 ranks), while actual GPU kernel compute
-stayed under 5% throughout -- the sort/exchange is latency- (not bandwidth-) bound, so its
-share keeps growing even as its own average per-call cost keeps shrinking. This file goes
-further still (50,000,000) to test whether enough per-rank compute between exchanges can
-push the crossover point past 8 ranks, without changing the sort/BC call frequency itself
-(deliberately not touched -- that would be an algorithmic change, not a scaling-parameter
-one). Whether it does, and at what rank count, is what running this case answers.
-
-`num_elements` (the Derham/FEEC grid resolution) was also bumped from (16, 16, 16) to
-(32, 32, 32): a coarser grid means each rank's local sub-grid is small relative to the
-fixed-width ghost/halo padding needed for local spline evaluation, so a larger grid should
-shrink that fixed overhead's share as well -- this is a different mechanism from the
-particle-exchange cost above (marker sorting is about markers crossing rank sub-domain
-boundaries, not grid ghost cells), tested here as a separate, independent lever since it
-requires no algorithmic change either.
-
-`GuidingCenter` is used (as in params_GuidingCenter.py) because its whole propagator
-stack (PushGuidingCenterBxEstar, PushGuidingCenterParallel) is CUDA-ported and it carries
-no FEEC field solve, so wall-clock time is dominated by the particle kernels and their
-MPI exchange, not by anything unrelated to the CUDA port.
+Guiding-centre (5D drift-kinetic) test particles in a homogeneous slab, used as the CuPy
+multi-GPU/multi-rank strong-scaling case. Np is much larger than params_GuidingCenter.py's
+(50,000,000 vs 200,000) so there's enough per-rank compute between marker-exchange calls
+for scaling to actually pay off, rather than being dominated by mpi_sort_markers.
 """
 
 import argparse

@@ -6,40 +6,10 @@
 
 name = "VlasovAmpereOneSpecies CuPy multi-GPU scaling"
 description = """
-6D full-orbit Vlasov-Ampere test particles in a homogeneous cube, used as a second
-CuPy multi-GPU/multi-rank strong-scaling case alongside
-profiling/submit_guidingcenter_cupy_scaling.py -- deliberately NOT dominated by
-mpi_sort_markers the way that case is.
-
-GuidingCenter's whole propagator stack is a pure particle push with no FEEC field
-solve, so at every rank count profiled so far (see
-params_GuidingCenter_scaling.py's docstring) mpi_sort_markers/apply_kinetic_bc ate
-57-70% of the pusher loop and actual GPU kernel compute stayed under 5% -- i.e. that
-case is a communication/bookkeeping benchmark more than a compute one, by design.
-VlasovAmpereOneSpecies's VlasovAmpereCoupling propagator instead solves a real linear
-system each step (SchurSolver over the E-field mass matrix, solver="pcg") to update
-the field from the accumulated particle current, on top of the push -- real per-step
-compute that doesn't exist in GuidingCenter's scaling case at all. Whether that shifts
-the balance away from mpi_sort_markers, and by how much, is what this case measures.
-
-Kept as close to params_GuidingCenter_scaling.py's setup as the different model
-allows for comparability: same Cuboid domain and (32, 32, 32) grid, same
-SLURM_LOCALID device binding and FEECTOOLS_ENABLE_MPI opt-in, same --backend/--Np/
---Tend/--id CLI surface, and a similarly large default Np (also 50,000,000, i.e. the
-same total marker count already validated to give real per-rank compute between
-exchanges for GuidingCenter -- see that file's docstring for the 10M/50M numbers this
-follows). `with_B0=False` (electrostatic only, no PushVxB) keeps the propagator stack
-close to GuidingCenter's 2-propagator-plus-coupling shape (PushEta + VlasovAmpereCoupling
-here vs PushGuidingCenterBxEstar + PushGuidingCenterParallel there) rather than adding a
-third.
-
-Per CUDA_KERNEL_PORTING_STATUS.md, VlasovAmpereOneSpecies is one of the models verified
-fully device-resident (zero host<->device marker crossings) alongside GuidingCenter, so
-this is a like-for-like comparison of the CUDA port, not a case exercising unported code
-paths. LinearMHDDriftkineticCC was deliberately NOT used instead, despite also having a
-real field solve: it has an unresolved, tracked physics-divergence bug on the CuPy
-backend (ISSUE_mhd_cupy_physics_divergence.md, status "needs re-measurement"), which
-would make any timing from it untrustworthy for a comparison like this one.
+6D full-orbit Vlasov-Ampere test particles in a homogeneous cube, used as a second CuPy
+multi-GPU/multi-rank strong-scaling case alongside GuidingCenter -- deliberately not
+dominated by mpi_sort_markers, since VlasovAmpereCoupling solves a real linear system
+each step on top of the particle push.
 """
 
 import argparse
