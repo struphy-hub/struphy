@@ -84,7 +84,7 @@ def main() -> None:
         "--ranks",
         type=int,
         nargs="+",
-        default=[1, 2], #, 4, 8],
+        default=[1, 2, 4, 8],
         help="MPI rank counts to run with, one GPU per rank (default: 1 2 4 8; 8 spans 2 Booster nodes).",
     )
     parser.add_argument("--ppc", type=int, default=None, help="Markers per cell (overrides params_cyclone.py's default, 200).")
