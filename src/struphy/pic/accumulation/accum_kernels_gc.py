@@ -448,12 +448,6 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            # NOTE: these were `+=`, but filling_m/filling_v are allocated
-            # once *outside* the marker loop and never reset, so every marker
-            # deposited the running sum of all markers before it -- making the
-            # result depend on marker row order. The basis_u == 2 branch below
-            # (and every comparable kernel) uses plain assignment.
-            # See ISSUE_cc_lin_mhd_5d_curlb_order_dependent.md.
             filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 * ep_scale
             filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para * ep_scale
 
