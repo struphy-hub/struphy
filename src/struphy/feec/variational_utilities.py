@@ -1475,6 +1475,7 @@ class H1vecKineticMetric(LinOpWithTransp):
     def alpha(self):
         return self._alpha
 
+    @property
     def update_weight(self, rho):
         self.mass_operator.spline_functions["l2_field"].vector = rho
         self.mass_operator.assemble()

@@ -469,6 +469,7 @@ class VariationalMomentumAdvection(Propagator):
         err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
         return err_u
 
+    @profile
     def _update_momentum_operator(self, rho):
         """Update the density-weighted momentum metric and preconditioner."""
 

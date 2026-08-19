@@ -13,6 +13,7 @@ from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, Line
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
+from line_profiler import profile
 
 from struphy import equils
 from struphy.feec import mass_kernels
@@ -1998,6 +1999,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         return M
 
+    @profile
     def assemble(self, weights=None, clear=True):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
@@ -2675,6 +2677,7 @@ class H1vecDivDivOperator(LinOpWithTransp):
     def quadrature_shape(self):
         return self._quad_shape
 
+    @profile
     def update_weight(self, rho_coeffs):
         assert isinstance(rho_coeffs, (StencilVector, PolarVector))
         assert rho_coeffs.space == self.derham.V3pol
@@ -2730,6 +2733,7 @@ class H1vecDivDivOperator(LinOpWithTransp):
             out=self._sqrt_weight,
         )
 
+    @profile
     def assemble(
         self,
         rho_values: xp.ndarray = None,

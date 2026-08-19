@@ -572,6 +572,20 @@ class VariationalDensityEvolve(Propagator):
                 out=self._tmp_incr,
             )
             incr = self._tmp_incr
+            linear_info = self._inv_Jacobian._solver._info
+            linear_niter = int(linear_info.get("niter", -1))
+            linear_success = bool(linear_info.get("success", False))
+            if linear_success and linear_niter == 0:
+                converged = True
+                accepted_by_stagnation = True
+            
+                if self._info:
+                    logger.info(
+                        "Stopping Newton because the Jacobian solve accepted the "
+                        "current residual without an iteration."
+                    )
+            
+                break
 
             if self._info:
                 logger.info(
@@ -791,6 +805,7 @@ class VariationalDensityEvolve(Propagator):
         self.divPirho.update_coeffs(rho)
         self.divPirhoT.update_coeffs(rho)
 
+    @profile
     def _update_momentum_operator(
         self,
         rho,
@@ -902,6 +917,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
+    @profile
     def _get_jacobian(self, dt, rhon, rhon1, un, un1, sn):
         self._kinetic_evaluator.assemble_M_un(un)
         self._kinetic_evaluator.assemble_M_un1(un1)

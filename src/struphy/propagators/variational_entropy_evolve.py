@@ -575,7 +575,7 @@ class VariationalEntropyEvolve(Propagator):
             self._tmp_int_grid *= -1.0
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_ds)
-
+    @profile
     def _update_momentum_operator(self, rho):
         """Update the fixed-density momentum metric and preconditioner."""
 
