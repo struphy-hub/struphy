@@ -222,16 +222,16 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._u_0 = self.derham.create_spline_function("u", space_id="Hcurl")
 
         # boundary splines (tangential lifting g_i, g_e) in unconstrained H(curl)
-        self._boundary_spline_u = (
+        self._essential_spline_u = (
             self.variables.u.spline_lift.vector
             if self._has_lifting_u
             else self._derham_lift_u.coeff_spaces["1"].zeros()
         )
-        self._boundary_spline_ue = (
+        self._essential_spline_ue = (
             self.variables.ue.spline_lift.vector
             if self._has_lifting_ue
             else self._derham_lift_ue.coeff_spaces["1"].zeros()
-        )  # TODO Naming is weird!
+        )
 
         self._hcurl_b_op_u = (
             self.variables.u.boundary_op_lift
@@ -249,7 +249,6 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._rhs_vec_ue = self.derham.create_spline_function("rhs_vec_ue", space_id="Hcurl")
         self._rhs_vec_phi = self.derham.create_spline_function("rhs_vec_phi", space_id="H1")
 
-        # TODO This is still a bad solution.
         self._qn_boundary_u = self.derham.create_spline_function("div_boundary_u", space_id="H1")
         self._qn_boundary_ue = self.derham.create_spline_function("div_boundary_ue", space_id="H1")
 
@@ -399,7 +398,7 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
                 A11=self._A11,
                 A22=self._A22,
                 B1=self._B,
-                B2=-self._B2,
+                B2=-self._B,
                 recycle=self.options.solver_params.recycle,
                 tol=self.options.solver_params.tol,
                 maxiter=self.options.solver_params.maxiter,
@@ -459,8 +458,8 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._rhs_vec_u.vector = (
             self._hcurl_b_op_u.dot(
                 self._M1_u.dot(self._src_u.vector)
-                - self._A_i.dot(self._boundary_spline_u)
-                - self._M1_u.dot(self._boundary_spline_u) / dt
+                - self._A_i.dot(self._essential_spline_u)
+                - self._M1_u.dot(self._essential_spline_u) / dt
             )
             + self._M1.dot(self._u_0.vector) / dt
             + self.options.nu * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_u.vector)))
@@ -471,15 +470,15 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._rhs_vec_ue.vector = (
             self._hcurl_b_op_ue.dot(
                 self._M1_ue.dot(self._src_ue.vector)
-                - self._A_e.dot(self._boundary_spline_ue)
+                - self._A_e.dot(self._essential_spline_ue)
             )
             + self.options.mu * self.options.nu_e * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_ue.vector)
                 )
             )
         )
 
-        self._qn_boundary_u.vector = self._B0_normal_u.dot(self._natural_spline_u.vector) - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
-        self._qn_boundary_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue.vector) - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
+        self._qn_boundary_u.vector = self._B0_normal_u.dot(self._natural_spline_u.vector, apply_bc=False) - self._grad_u.T.dot(self._M1_u.dot(self._essential_spline_u))
+        self._qn_boundary_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue.vector, apply_bc=False) - self._grad_ue.T.dot(self._M1_ue.dot(self._essential_spline_ue))
 
         # --- assemble RHS for quasineutrality ---
         self._rhs_vec_phi.vector = self._qn_boundary_u.vector - self._qn_boundary_ue.vector

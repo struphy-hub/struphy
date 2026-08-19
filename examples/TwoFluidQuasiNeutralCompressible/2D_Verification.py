@@ -294,6 +294,13 @@ elif BC == "poly":
 # ------------------ model ------------------
 model = TwoFluidQuasiNeutral()
 
+if BC in ("dirichlet_inhom_natural", "dirichlet_inhom_mixed", "poly"):
+    natural_function_u = lifting_function_u
+    natural_function_ue = lifting_function_ue
+else:
+    natural_function_u = None
+    natural_function_ue = None
+
 model.propagators.qn_comp.options = model.propagators.qn_comp.Options(
     nu=nu,
     nu_e=nu_e,
@@ -301,8 +308,8 @@ model.propagators.qn_comp.options = model.propagators.qn_comp.Options(
     eps_norm=epsilon,
     source_u=source_function_u,
     source_ue=source_function_ue,
-    natural_u=lifting_function_u,
-    natural_ue=lifting_function_ue,
+    natural_u=natural_function_u,
+    natural_ue=natural_function_ue,
     solver="gmres",
     solver_params=SolverParameters(info=True, tol=tol),
 )
