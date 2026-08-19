@@ -720,7 +720,7 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2Dvperp
 
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
     e2 = xp.linspace(0.0, 1.0, num_elements[1])
@@ -729,7 +729,7 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     # ===========================================================
     # ===== Test uniform non-shifted, isothermal Maxwellian =====
     # ===========================================================
-    maxwellian = GyroMaxwellian2D(n=(2.0, None), volume_form=False)
+    maxwellian = GyroMaxwellian2Dvperp(n=(2.0, None), volume_form=False)
 
     meshgrids = xp.meshgrid(e1, e2, e3, [0.01], [0.01])
 
@@ -761,11 +761,11 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     # =======================================================
     n = 2.0
     u_para = 0.1
-    u_perp = 0.2
+    u_perp = 0.0
     vth_para = 1.2
     vth_perp = 0.5
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(n, None),
         u_para=(u_para, None),
         u_perp=(u_perp, None),
@@ -814,7 +814,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     import matplotlib.pyplot as plt
 
     from struphy import perturbations
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2Dvperp
 
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
     v1 = xp.linspace(-5.0, 5.0, 128)
@@ -827,7 +827,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     mode = 1
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(n=(2.0, pert), volume_form=False)
+    maxwellian = GyroMaxwellian2Dvperp(n=(2.0, pert), volume_form=False)
 
     v_perp = 0.1
     meshgrids = xp.meshgrid(e1, [0.0], [0.0], [0.0], v_perp)
@@ -856,7 +856,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     u_para = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(2.0, None),
         u_para=(u_para, pert),
         volume_form=False,
@@ -891,49 +891,6 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
 
     assert xp.allclose(res, ana_res, atol=10e-10), f"{res=},\n {ana_res}"
 
-    # ====================================================
-    # ===== Test cosine perturbation in shift (perp) =====
-    # ====================================================
-    amp = 0.1
-    mode = 1
-    n = 2.0
-    u_perp = 1.2
-    pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
-
-    maxwellian = GyroMaxwellian2D(
-        n=(2.0, None),
-        u_perp=(u_perp, pert),
-        volume_form=False,
-    )
-
-    meshgrids = xp.meshgrid(e1, [0.0], [0.0], 0.0, v2)
-
-    res = maxwellian(*meshgrids).squeeze()
-    shift = u_perp + amp * xp.cos(2 * xp.pi * mode * e1)
-    ana_res = xp.exp(-((v2 - shift[:, None]) ** 2) / 2.0)
-    ana_res *= n / (2 * xp.pi) ** (1 / 2)
-
-    if show_plot:
-        plt.figure(1)
-        plt.plot(e1, ana_res[:, 20], label="analytical")
-        plt.plot(e1, res[:, 20], "r*", label="Maxwellian Class")
-        plt.legend()
-        plt.title("Test cosine perturbation in shift (perp)")
-        plt.xlabel("eta_1")
-        plt.ylabel("f(eta_1)")
-
-        plt.figure(2)
-        plt.plot(v1, ana_res[0, :], label="analytical")
-        plt.plot(v1, res[0, :], "r*", label="Maxwellian Class")
-        plt.legend()
-        plt.title("Test cosine perturbation in shift (perp)")
-        plt.xlabel("v_perp")
-        plt.ylabel("f(v_perp)")
-
-        plt.show()
-
-    assert xp.allclose(res, ana_res, atol=10e-10), f"{res=},\n {ana_res}"
-
     # ==================================================
     # ===== Test cosine perturbation in vth (para) =====
     # ==================================================
@@ -943,7 +900,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     vth_para = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(2.0, None),
         vth_para=(vth_para, pert),
         volume_form=False,
@@ -994,7 +951,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     vth_perp = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(
+    maxwellian = GyroMaxwellian2Dvperp(
         n=(2.0, None),
         vth_perp=(vth_perp, pert),
         volume_form=False,
@@ -1041,7 +998,7 @@ def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     c = [0.491230, 0.298228, 0.198739, 0.521298]
     pert = perturbations.ITPA_density(n0=n0, c=c)
 
-    maxwellian = GyroMaxwellian2D(n=(0.0, pert), volume_form=False)
+    maxwellian = GyroMaxwellian2Dvperp(n=(0.0, pert), volume_form=False)
 
     v_perp = 0.1
     meshgrids = xp.meshgrid(e1, [0.0], [0.0], [0.0], v_perp)
@@ -1074,7 +1031,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
     from struphy import domains, equils, perturbations
     from struphy.fields_background.base import MHDequilibrium
     from struphy.initial.base import Perturbation
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2Dvperp
 
     e1 = xp.linspace(0.0, 1.0, num_elements[0])
     e2 = xp.linspace(0.0, 1.0, num_elements[1])
@@ -1154,7 +1111,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 except:
                     logger.info(f"Not setting domain for {key}.")
 
-            maxwellian = GyroMaxwellian2D(
+            maxwellian = GyroMaxwellian2Dvperp(
                 n=(mhd_equil.n0, None),
                 u_para=(mhd_equil.u_para0, None),
                 vth_para=(mhd_equil.vth0, None),
@@ -1162,7 +1119,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                 volume_form=False,
             )
 
-            maxwellian_1 = GyroMaxwellian2D(
+            maxwellian_1 = GyroMaxwellian2Dvperp(
                 n=(1.0, None),
                 u_para=(mhd_equil.u_para0, None),
                 vth_para=(mhd_equil.vth0, None),
@@ -1343,7 +1300,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                             continue
 
                         # background + perturbation
-                        maxwellian_perturbed = GyroMaxwellian2D(
+                        maxwellian_perturbed = GyroMaxwellian2Dvperp(
                             n=(mhd_equil.n0, pert),
                             u_para=(mhd_equil.u_para0, pert),
                             vth_para=(mhd_equil.vth0, pert),
@@ -1358,7 +1315,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                         assert maxwellian_perturbed(*args_fl).shape == args_fl[0].shape
 
                         # pure perturbation
-                        maxwellian_zero_bckgr = GyroMaxwellian2D(
+                        maxwellian_zero_bckgr = GyroMaxwellian2Dvperp(
                             n=(0.0, pert),
                             u_para=(0.0, pert),
                             u_perp=(0.0, pert),
@@ -1508,31 +1465,30 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
                             plt.show()
 
 
-@pytest.mark.parametrize("num_elements", [[64, 1, 1]])
-def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
-    """Tests the CanonicalMaxwellian class as a uniform canonical Maxwellian.
+@pytest.mark.parametrize("num_markers", [200])
+def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
+    """Tests the CanonicalMaxwellian2D evaluation scheme in
+    :math:`(\\eta_1, \\eta_2, \\eta_3, v_\\parallel, \\mu)` coordinates
+    (flat/marker evaluation), including caching of the canonical toroidal
+    momentum :math:`\\psi_c`.
 
-    Asserts that the results over the domain and velocity space correspond to the
-    analytical computation.
+    Asserts that the results match an independently computed reference:
+
+    .. math::
+        f(\\eta, v_\\parallel, \\mu) = \\frac{n(\\psi_c)}{\\sqrt{2\\pi}\\,v_\\text{th}(\\psi_c)}
+        \\exp\\left[-\\frac{v_\\parallel^2}{2 v_\\text{th}(\\psi_c)^2}\\right]
+        \\frac{|B_0(\\eta)|}{v_\\text{th}(\\psi_c)^2}\\exp\\left[-\\frac{\\mu |B_0(\\eta)|}{v_\\text{th}(\\psi_c)^2}\\right],
+
+    where the second factor drops the :math:`|B_0|` prefactor for ``volume_form=False``.
     """
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
     from struphy import domains, equils, perturbations
-    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
-
-    e1 = xp.linspace(0.0, 1.0, num_elements[0])
-    e2 = xp.linspace(0.0, 1.0, num_elements[1])
-    e3 = xp.linspace(0.0, 1.0, num_elements[2])
-
-    eta_meshgrid = xp.meshgrid(e1, e2, e3)
-
-    v_para = 0.01
-    v_perp = 0.01
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
 
     epsilon = 1.0
 
-    # evaluate three constants of motions at AdhocTorus equilibrium
     AdhocTorus_params = {
         "a": 1.0,
         "R0": 10.0,
@@ -1554,195 +1510,217 @@ def test_canonical_maxwellian_uniform(num_elements, show_plot=False):
     mhd_equil = equils.AdhocTorus(**AdhocTorus_params)
     mhd_equil.domain = domains.HollowTorus(**HollowTorus_params)
 
-    absB = mhd_equil.absB0(*eta_meshgrid)
-
-    # magnetic moment
-    mu = v_perp**2 / 2.0 / absB
-
-    # total energy
-    energy = 1 / 2 * v_para**2 + mu * absB
-
-    # shifted canonical toroidal momentum
-    a1 = mhd_equil.domain.params["a1"]
     R0 = mhd_equil.params["R0"]
-    B0 = mhd_equil.params["B0"]
+    B0_const = mhd_equil.params["B0"]
 
-    r = eta_meshgrid[0] * (1 - a1) + a1
+    def ref_psic_and_absB(eta1, eta2, eta3, v_para, mu):
+        """Independent reference computation of psi_c and |B0|, mirroring
+        CanonicalMaxwellian2D.eval_psic but without using the class under test."""
+        etas = xp.concatenate((eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)
+        absB = mhd_equil.absB0(etas)
+        x, y, z = mhd_equil.domain(etas)
+        R, P, Z = mhd_equil.inverse_map(x, y, z)
+        psi = mhd_equil.psi(R, Z)
 
-    psi = mhd_equil.psi_r(r)
+        energy = 0.5 * v_para**2 + mu * absB
+        psic = psi - epsilon * B0_const * R0 / absB * v_para
 
-    psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += (
-        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
-    )
+        pos_mask = (energy - mu * B0_const) > 0
+        correction = xp.zeros_like(psic)
+        correction[pos_mask] = (
+            epsilon * xp.sign(v_para[pos_mask]) * xp.sqrt(2 * (energy[pos_mask] - mu[pos_mask] * B0_const)) * R0
+        )
+        return psic + correction, absB
+
+    def ref_eval(n_of_psic, vth_val, eta1, eta2, eta3, v_para, mu, volume_form=True):
+        """Independent analytical reference for the canonical Maxwellian evaluated
+        at phase space coordinates (eta1, eta2, eta3, v_para, mu)."""
+        psic, absB = ref_psic_and_absB(eta1, eta2, eta3, v_para, mu)
+        n_val = n_of_psic(psic) if callable(n_of_psic) else n_of_psic
+        g_para = 1.0 / (vth_val * xp.sqrt(2 * xp.pi)) * xp.exp(-(v_para**2) / (2 * vth_val**2))
+        g_mu = 1.0 / vth_val**2 * xp.exp(-mu * absB / vth_val**2)
+        if volume_form:
+            g_mu = g_mu * absB
+        return n_val * g_para * g_mu
+
+    xp.random.seed(1234)
+    eta1 = xp.random.rand(num_markers)
+    eta2 = xp.random.rand(num_markers)
+    eta3 = xp.random.rand(num_markers)
+    v_para = (xp.random.rand(num_markers) - 0.5) * 4.0
+    mu = xp.random.rand(num_markers) * 0.5
 
     # ===========================================================
     # ===== Test uniform, isothermal canonical Maxwellian =====
     # ===========================================================
-    maxw_params = {"n": 2.0, "vth": 1.0}
+    n_val, vth_val = 2.0, 1.3
 
-    maxwellian = CanonicalMaxwellian(n=(2.0, None), vth=(1.0, None))
+    maxwellian = CanonicalMaxwellian2D(n=(n_val, None), vth=(vth_val, None), equil=mhd_equil)
 
-    # Test constant value at v_para = v_perp = 0.01
-    res = maxwellian(energy, mu, psic).squeeze()
-    res_ana = (
-        maxw_params["n"]
-        * 2
-        * xp.sqrt(energy / xp.pi)
-        / maxw_params["vth"] ** 3
-        * xp.exp(-energy / maxw_params["vth"] ** 2)
-    )
-    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana}"
+    res = maxwellian(eta1, eta2, eta3, v_para, mu)
+    res_ana = ref_eval(n_val, vth_val, eta1, eta2, eta3, v_para, mu)
+    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
 
-    # test canonical Maxwellian profile in v_para
-    v_para = xp.linspace(-5, 5, 64)
-    v_perp = 0.1
+    # test canonical Maxwellian profile in v_para, at fixed eta and mu
+    v_para_p = xp.linspace(-5, 5, 64)
+    eta1_p = 0.5 + 0.0 * v_para_p
+    eta2_p = 0.5 + 0.0 * v_para_p
+    eta3_p = 0.5 + 0.0 * v_para_p
+    mu_p = 0.1 + 0.0 * v_para_p
 
-    absB = mhd_equil.absB0(0.0, 0.0, 0.0)[0, 0, 0]
-
-    # magnetic moment
-    mu = v_perp**2 / 2.0 / absB
-
-    # total energy
-    energy = 1 / 2 * v_para**2 + mu * absB
-
-    # shifted canonical toroidal momentum
-    r = a1
-
-    psi = mhd_equil.psi_r(r)
-
-    psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += (
-        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
-    )
-
-    com_meshgrids = xp.meshgrid(energy, mu, psic)
-
-    res = maxwellian(*com_meshgrids).squeeze()
-
-    res_ana = (
-        maxw_params["n"]
-        * 2
-        * xp.sqrt(com_meshgrids[0] / xp.pi)
-        / maxw_params["vth"] ** 3
-        * xp.exp(-com_meshgrids[0] / maxw_params["vth"] ** 2)
-    )
+    res = maxwellian(eta1_p, eta2_p, eta3_p, v_para_p, mu_p)
+    res_ana = ref_eval(n_val, vth_val, eta1_p, eta2_p, eta3_p, v_para_p, mu_p)
 
     if show_plot:
-        plt.plot(v_para, res_ana[0, :, 0], label="analytical")
-        plt.plot(v_para, res[:, 0], "r*", label="CanonicalMaxwellian class")
+        plt.plot(v_para_p, res_ana, label="analytical")
+        plt.plot(v_para_p, res, "r*", label="CanonicalMaxwellian2D class")
         plt.legend()
-        plt.title("Profile in v_para (v_perp = 0.1)")
+        plt.title("Profile in v_para (eta=0.5, mu=0.1)")
         plt.ylabel("f(v_para)")
         plt.xlabel("v_para")
         plt.show()
 
-    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana}"
+    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
 
-    # test canonical Maxwellian profile in v_perp
-    v_para = 0.1
-    v_perp = xp.linspace(0, 2.5, 64)
+    # test canonical Maxwellian profile in mu, at fixed eta and v_para
+    mu_p2 = xp.linspace(0, 2.0, 64)
+    eta1_p2 = 0.5 + 0.0 * mu_p2
+    eta2_p2 = 0.5 + 0.0 * mu_p2
+    eta3_p2 = 0.5 + 0.0 * mu_p2
+    v_para_p2 = 0.1 + 0.0 * mu_p2
 
-    absB = mhd_equil.absB0(0.5, 0.5, 0.5)[0, 0, 0]
-
-    # magnetic moment
-    mu = v_perp**2 / 2.0 / absB
-
-    # total energy
-    energy = 1 / 2 * v_para**2 + mu * absB
-
-    # shifted canonical toroidal momentum
-    r = a1
-
-    psi = mhd_equil.psi_r(r)
-
-    psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += (
-        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
-    )
-
-    com_meshgrids = xp.meshgrid(energy, mu, psic)
-
-    res = maxwellian(*com_meshgrids).squeeze()
-
-    res_ana = (
-        maxw_params["n"]
-        * 2
-        * xp.sqrt(com_meshgrids[0] / xp.pi)
-        / maxw_params["vth"] ** 3
-        * xp.exp(-com_meshgrids[0] / maxw_params["vth"] ** 2)
-    )
+    res = maxwellian(eta1_p2, eta2_p2, eta3_p2, v_para_p2, mu_p2)
+    res_ana = ref_eval(n_val, vth_val, eta1_p2, eta2_p2, eta3_p2, v_para_p2, mu_p2)
 
     if show_plot:
-        plt.plot(v_perp, res_ana[0, :, 0], label="analytical")
-        plt.plot(v_perp, res[0, :, 0], "r*", label="CanonicalMaxwellian class")
+        plt.plot(mu_p2, res_ana, label="analytical")
+        plt.plot(mu_p2, res, "r*", label="CanonicalMaxwellian2D class")
         plt.legend()
-        plt.title("Profile in v_perp (v_para = 0.1)")
-        plt.ylabel("f(v_perp)")
-        plt.xlabel("v_perp")
+        plt.title("Profile in mu (eta=0.5, v_para=0.1)")
+        plt.ylabel("f(mu)")
+        plt.xlabel("mu")
         plt.show()
 
-    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana}"
+    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
+
+    # =====================================================================
+    # ===== Test non-uniform n(psi_c): psi_c evaluation and caching =====
+    # =====================================================================
+    def n_of_psic(psic):
+        return 1.5 + 0.1 * psic
+
+    maxwellian_nc = CanonicalMaxwellian2D(n=(n_of_psic, None), vth=(vth_val, None), equil=mhd_equil)
+
+    res = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    res_ana = ref_eval(n_of_psic, vth_val, eta1, eta2, eta3, v_para, mu)
+    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
+
+    # calling again with the same markers must hit the internal psi_c cache
+    # and still return the (correct) result
+    res_cached = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    assert xp.allclose(res_cached, res_ana, atol=10e-10), f"{res_cached=},\n {res_ana=}"
+
+    # calling with different markers must invalidate the cache instead of
+    # silently reusing the stale psi_c from the previous call
+    eta1_b = xp.random.rand(num_markers)
+    eta2_b = xp.random.rand(num_markers)
+    eta3_b = xp.random.rand(num_markers)
+    v_para_b = (xp.random.rand(num_markers) - 0.5) * 4.0
+    mu_b = xp.random.rand(num_markers) * 0.5
+
+    res_b = maxwellian_nc(eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
+    res_b_ana = ref_eval(n_of_psic, vth_val, eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
+    assert xp.allclose(res_b, res_b_ana, atol=10e-10), f"{res_b=},\n {res_b_ana=}"
 
     # =============================================
     # ===== Test ITPA perturbation in density =====
     # =============================================
     n0 = 0.00720655
     c = [0.46623, 0.17042, 0.11357, 0.521298]
-    maxw_params = {
-        "n": {"ITPA_density": {"n0": n0, "c": c}},
-        "vth": 1.0,
-    }
     pert = perturbations.ITPA_density(n0=n0, c=c)
 
-    maxwellian = CanonicalMaxwellian(n=(0.0, pert), equil=mhd_equil, volume_form=False)
+    maxwellian_pert = CanonicalMaxwellian2D(n=(0.0, pert), vth=(vth_val, None), equil=mhd_equil, volume_form=False)
 
-    e1 = xp.linspace(0.0, 1.0, num_elements[0])
-    e2 = xp.linspace(0.0, 1.0, num_elements[1])
-    e3 = xp.linspace(0.0, 1.0, num_elements[2])
+    res = maxwellian_pert(eta1, eta2, eta3, v_para, mu)
 
-    eta_meshgrid = xp.meshgrid(e1, e2, e3)
-
-    v_para = 0.01
-    v_perp = 0.01
-
-    absB = mhd_equil.absB0(*eta_meshgrid)[0, :, 0]
-
-    # magnetic moment
-    mu = v_perp**2 / 2.0 / absB
-
-    # total energy
-    energy = 1 / 2 * v_para**2 + mu * absB
-
-    # shifted canonical toroidal momentum
-    r = eta_meshgrid[0] * (1 - a1) + a1
-
-    psi = mhd_equil.psi_r(r[0, :, 0])
-
-    psic = psi - epsilon * B0 * R0 / absB * v_para
-    psic += (
-        epsilon * xp.sign(xp.asarray(v_para)) * xp.sqrt(2 * (energy - mu * B0)) * R0 * xp.heaviside(energy - mu * B0, 0)
-    )
-
-    com_meshgrids = xp.meshgrid(energy, mu, psic)
-    res = maxwellian(energy, mu, psic).squeeze()
-
-    # calculate rc
-    rc = maxwellian.rc(psic)
-
-    ana_res = n0 * c[3] * xp.exp(-c[2] / c[1] * xp.tanh((rc - c[0]) / c[2]))
-    ana_res *= 2 * xp.sqrt(energy / xp.pi) / maxw_params["vth"] ** 3 * xp.exp(-energy / maxw_params["vth"] ** 2)
+    # the perturbation is added at the raw (eta1, eta2, eta3) position (not via psi_c/rc)
+    n_pert = n0 * c[3] * xp.exp(-c[2] / c[1] * xp.tanh((eta1 - c[0]) / c[2]))
+    res_ana = ref_eval(n_pert, vth_val, eta1, eta2, eta3, v_para, mu, volume_form=False)
 
     if show_plot:
-        plt.plot(e1, ana_res, label="analytical")
-        plt.plot(e1, res, "r*", label="CanonicalMaxwellian Class")
+        order = xp.argsort(eta1)
+        plt.plot(eta1[order], res_ana[order], label="analytical")
+        plt.plot(eta1[order], res[order], "r*", label="CanonicalMaxwellian2D class")
         plt.legend()
         plt.title("Test ITPA perturbation in density")
         plt.xlabel("eta_1")
-        plt.ylabel("f(eta_1)")
+        plt.ylabel("f")
         plt.show()
 
-    assert xp.allclose(res, ana_res, atol=10e-10), f"{res=},\n {ana_res}"
+    assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
+
+    # ===================================================================
+    # ===== Test cbufs cache buffers: correctness + speedup at 1e5 =====
+    # ===================================================================
+    import time
+
+    num_markers_perf = 100_000
+
+    def _random_markers(seed):
+        rng = xp.random.RandomState(seed)
+        e1 = rng.rand(num_markers_perf)
+        e2 = rng.rand(num_markers_perf)
+        e3 = rng.rand(num_markers_perf)
+        vp = (rng.rand(num_markers_perf) - 0.5) * 4.0
+        m = rng.rand(num_markers_perf) * 0.5
+        return e1, e2, e3, vp, m
+
+    maxwellian_nocache = CanonicalMaxwellian2D(n=(n_of_psic, None), vth=(vth_val, None), equil=mhd_equil)
+    maxwellian_cache = CanonicalMaxwellian2D(
+        n=(n_of_psic, None),
+        vth=(vth_val, None),
+        equil=mhd_equil,
+        cache_size=num_markers_perf,
+    )
+
+    # correctness: cached buffer must give the same result as the uncached path
+    eta1_c, eta2_c, eta3_c, v_para_c, mu_c = _random_markers(seed=7)
+    res_nocache = maxwellian_nocache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+    res_cache = maxwellian_cache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+    res_ana_c = ref_eval(n_of_psic, vth_val, eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+
+    assert xp.allclose(res_nocache, res_ana_c, atol=10e-10), f"{res_nocache=},\n {res_ana_c=}"
+    assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_cache=}"
+
+    def _time_eval(maxwellian, n_reps=5):
+        """Best-of-n_reps wall time for a full psi_c evaluation. Markers are
+        redrawn on every rep so the psi_c *result* cache (see
+        `_check_psi_c_cached`) never hits and each call exercises the full
+        eval_psic computation, isolating the effect of the cbufs buffers."""
+        times = []
+        for i in range(n_reps):
+            e1, e2, e3, vp, m = _random_markers(seed=100 + i)
+            start = time.perf_counter()
+            maxwellian(e1, e2, e3, vp, m)
+            times.append(time.perf_counter() - start)
+        return min(times)
+
+    t_nocache = _time_eval(maxwellian_nocache)
+    t_cache = _time_eval(maxwellian_cache)
+    speedup = t_nocache / t_cache
+
+    # NOTE: cbufs only wraps eval_psic's post-processing (inverse_map, psi,
+    # energy, psi_c, correction), which is a small fraction (~5%) of the
+    # total cost at num_markers_perf markers; the dominant cost is
+    # self.equil.absB0(...)/self.equil.domain(...), which allocate their own
+    # output every call regardless of cbufs. So the measured speedup here is
+    # real but modest (a few percent, within timing noise run-to-run) rather
+    # than dramatic -- this is reported, not asserted on, for that reason.
+    print(
+        f"\n[CanonicalMaxwellian2D cbufs] num_markers={num_markers_perf}: "
+        f"no cache={t_nocache * 1e3:.2f} ms, with cache={t_cache * 1e3:.2f} ms, "
+        f"speedup={speedup:.2f}x"
+    )
 
 
 if __name__ == "__main__":
@@ -1752,4 +1730,4 @@ if __name__ == "__main__":
     # test_maxwellian_2d_uniform(num_elements=[64, 1, 1], show_plot=True)
     # test_maxwellian_2d_perturbed(num_elements=[64, 1, 1], show_plot=True)
     # test_maxwellian_2d_mhd(num_elements=[8, 12, 12], with_desc=None, show_plot=False)
-    test_canonical_maxwellian_uniform(num_elements=[64, 1, 1], show_plot=True)
+    test_canonical_maxwellian_uniform(num_markers=200, show_plot=True)

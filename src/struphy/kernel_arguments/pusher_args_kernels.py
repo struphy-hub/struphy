@@ -37,6 +37,9 @@ class MarkerArguments:
 
     first_free_idx : int
         First index for storing auxiliary quantities for each particle.
+
+    mu_idx : int
+        Column index of particle magnetic moment.
     """
 
     def __init__(
@@ -51,6 +54,7 @@ class MarkerArguments:
         first_shift_idx: int,
         residual_idx: int,
         first_free_idx: int,
+        mu_idx: int,
     ):
         self.markers = markers
         self.valid_mks = valid_mks
@@ -65,11 +69,7 @@ class MarkerArguments:
         self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
         self.residual_idx = residual_idx  # residual in iterative solvers
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
-
-        # only used for Particles5D
-        self.energy_idx = 8  # particle energy
-        self.mu_idx = 9  # particle magnetic moment
-        self.toroidalmom_idx = 10  # particle toroidal momentum
+        self.mu_idx = mu_idx  # particle magnetic moment
 
 
 class DerhamArguments:

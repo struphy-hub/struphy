@@ -149,7 +149,7 @@ class Simulation(SimulationBase):
         self.name = name
         self.description = description
         self.params_path = params_path
-        self.env = env
+        self.env = env  # Set name first since it's used as a label
         self.time_opts = time_opts
         self.domain = domain
         self.equil = equil
@@ -174,17 +174,17 @@ class Simulation(SimulationBase):
     # Abstract methods
     # ----------------
 
-    def _setup_profiling(self):
+    def _setup_profiling(self, label: str = ""):
         # setup profiling agent
         ProfileManager.setup(
-            profiling_activated=self.env.profiling_activated,
-            time_trace=self.env.profiling_trace,
+            deactivate_profiling=not self.env.profiling_activated,
             use_likwid=False,
             file_path=os.path.join(
                 self.env.out_folders,
                 self.env.sim_folder,
                 "profiling_data.h5",
             ),
+            label=label,
         )
 
     def show_parameters(self):
@@ -239,17 +239,22 @@ class Simulation(SimulationBase):
 
         logger.debug("\nAllocating simulation data ...")
 
-        # feec
-        self._allocate_feec(self.grid, self.derham_opts)
+        with ProfileManager.profile_region("setup: allocate"):
+            # feec
+            with ProfileManager.profile_region("setup: feec"):
+                self._allocate_feec(self.grid, self.derham_opts)
 
-        # allocate model variables
-        self._allocate_variables()
+            # allocate model variables
+            with ProfileManager.profile_region("setup: variables"):
+                self._allocate_variables()
 
-        # pass info to propagators
-        self._allocate_propagators()
+            # pass info to propagators
+            with ProfileManager.profile_region("setup: propagators"):
+                self._allocate_propagators()
 
-        # allocate helper fields and perform initial solves if needed
-        self.model.allocate_helpers()
+            # allocate helper fields and perform initial solves if needed
+            with ProfileManager.profile_region("setup: helpers"):
+                self.model.allocate_helpers()
 
         logger.debug("... Done.")
 
@@ -624,85 +629,93 @@ class Simulation(SimulationBase):
 
         self._remove_existing_output_files()
 
-        # equation paramters
-        self.allocate()
-        self._write_run_metadata(one_time_step=one_time_step)
+        with ProfileManager.profile_region("setup: total"):
+            # equation paramters
+            self.allocate()
+            with ProfileManager.profile_region("setup: run metadata"):
+                self._write_run_metadata(one_time_step=one_time_step)
 
-        # output
-        self.initialize_data_storage()
+            # output
+            with ProfileManager.profile_region("setup: data storage"):
+                self.initialize_data_storage()
 
-        # peek view into geometry
-        self.save_geometry_and_equil_vtk()
+            # peek view into geometry
+            with ProfileManager.profile_region("setup: geometry vtk"):
+                self.save_geometry_and_equil_vtk()
 
-        # plasma parameters
-        self.compute_plasma_params()
+            # plasma parameters
+            with ProfileManager.profile_region("setup: plasma params"):
+                self.compute_plasma_params()
 
-        # print info on mpi procs
-        if self.comm_size < 32:
-            if self.derham is not None:
-                logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+            # print info on mpi procs
+            if self.comm_size < 32:
+                if self.derham is not None:
+                    logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+                else:
+                    for _, species in self.model.species.items():
+                        for _, variable in species.variables.items():
+                            if isinstance(variable, (PICVariable, SPHVariable)):
+                                logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
+                                break
+
+            if self.rank < 32:
+                logger.debug("")
+                logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+
+            if self.comm_size > 32 and self.rank == 32:
+                logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
+
+            # retrieve time parameters
+            dt = self.time_opts.dt
+            if one_time_step:
+                Tend = dt
             else:
-                for _, species in self.model.species.items():
-                    for _, variable in species.variables.items():
-                        if isinstance(variable, (PICVariable, SPHVariable)):
-                            logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
-                            break
+                Tend = self.time_opts.Tend
+            split_algo = self.time_opts.split_algo
 
-        if self.rank < 32:
-            logger.debug("")
-            logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+            # set initial conditions for all variables
+            if self.env.restart:
+                with ProfileManager.profile_region("setup: restart"):
+                    self._initialize_from_restart(self.data)
 
-        if self.comm_size > 32 and self.rank == 32:
-            logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
+                with h5py.File(self.data.file_path, "a") as file:
+                    self.time_state["value"][0] = file["restart/time/value"][-1]
+                    self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+                    self.time_state["index"][0] = file["restart/time/index"][-1]
+                    start_step = file["restart/time/index"][-1]
 
-        # retrieve time parameters
-        dt = self.time_opts.dt
-        if one_time_step:
-            Tend = dt
-        else:
-            Tend = self.time_opts.Tend
-        split_algo = self.time_opts.split_algo
-
-        # set initial conditions for all variables
-        if self.env.restart:
-            self._initialize_from_restart(self.data)
-
-            with h5py.File(self.data.file_path, "a") as file:
-                self.time_state["value"][0] = file["restart/time/value"][-1]
-                self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
-                self.time_state["index"][0] = file["restart/time/index"][-1]
-                start_step = file["restart/time/index"][-1]
-
-            total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
-            logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
+                logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RESTARTing from:
 self.time_state["value"][0]={float(self.time_state["value"][0])}
 self.time_state["value_sec"][0]={float(self.time_state["value_sec"][0])}
 self.time_state["index"][0]={int(self.time_state["index"][0])}
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 """)
-        else:
-            total_steps = int(round(Tend / dt))
-            start_step = 0
+            else:
+                total_steps = int(round(Tend / dt))
+                start_step = 0
 
-        total_steps_str = str(total_steps)
+            total_steps_str = str(total_steps)
 
-        # compute initial scalars and kinetic data, pass time state to all propagators
-        self.model.update_scalar_quantities()
-        self.model.update_markers_to_be_saved()
-        self.model.update_distr_functions()
-        self._add_time_state(self.time_state["value"])
+            # compute initial scalars and kinetic data, pass time state to all propagators
+            with ProfileManager.profile_region("setup: initial diagnostics"):
+                self.model.update_scalar_quantities()
+                self.model.update_markers_to_be_saved()
+                self.model.update_distr_functions()
+                self._add_time_state(self.time_state["value"])
 
-        # add all variables to be saved to data object
-        save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
+            # add all variables to be saved to data object
+            with ProfileManager.profile_region("setup: hdf5 datasets"):
+                save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
 
-        # ======================== main time loop ======================
-        self.model.update_scalar_quantities()
+            # ======================== main time loop ======================
+            self.model.update_scalar_quantities()
 
-        if logger.level <= logging.INFO and self.rank == 0:
-            print("\nINITIAL SCALAR QUANTITIES:")
-            self.model.print_scalar_quantities()
-            print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
+            if logger.level <= logging.INFO and self.rank == 0:
+                print("\nINITIAL SCALAR QUANTITIES:")
+                self.model.print_scalar_quantities()
+                print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
         # time loop
         run_time_now = 0.0
@@ -722,7 +735,8 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 
             if break_cond_1 or break_cond_2:
                 # save restart data (other data already saved below)
-                self.data.save_data(keys=save_keys_end)
+                with ProfileManager.profile_region("save data"):
+                    self.data.save_data(keys=save_keys_end)
                 end_time = time.time()
                 logger.info(f"\nTime steps done: {int(self.time_state['index'][0])}")
                 logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
@@ -731,9 +745,10 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 
             if self.env.sort_step and int(self.time_state["index"][0]) % self.env.sort_step == 0:
                 t0 = time.time()
-                for key, val in self.model.pointer.items():
-                    if isinstance(val, Particles):
-                        val.do_sort()
+                with ProfileManager.profile_region("sort particles"):
+                    for key, val in self.model.pointer.items():
+                        if isinstance(val, Particles):
+                            val.do_sort()
                 t1 = time.time()
                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
                     run_time_now * 60,
@@ -760,22 +775,24 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             # update diagnostics data and save data
             if int(self.time_state["index"][0]) % self.env.save_step == 0:
                 # compute scalars and kinetic data
-                self.model.update_scalar_quantities()
-                self.model.update_markers_to_be_saved()
-                self.model.update_distr_functions()
+                with ProfileManager.profile_region("diagnostics"):
+                    self.model.update_scalar_quantities()
+                    self.model.update_markers_to_be_saved()
+                    self.model.update_distr_functions()
 
-                # extract FEEC coefficients
-                feec_species = self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
-                for species, val in feec_species.items():
-                    assert isinstance(val, Species)
-                    for variable, subval in val.variables.items():
-                        assert isinstance(subval, FEECVariable)
-                        spline = subval.spline
-                        # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                        spline.extract_coeffs(update_ghost_regions=False)
+                    # extract FEEC coefficients
+                    feec_species = self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
+                    for species, val in feec_species.items():
+                        assert isinstance(val, Species)
+                        for variable, subval in val.variables.items():
+                            assert isinstance(subval, FEECVariable)
+                            spline = subval.spline
+                            # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                            spline.extract_coeffs(update_ghost_regions=False)
 
                 # save data (everything but restart data)
-                self.data.save_data(keys=save_keys_all)
+                with ProfileManager.profile_region("save data"):
+                    self.data.save_data(keys=save_keys_all)
 
                 # print current time and scalar quantities to screen
                 step = str(int(self.time_state["index"][0])).zfill(len(total_steps_str))
@@ -832,7 +849,29 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         if self.clone_config is not None:
             self.clone_config.free()
 
-        ProfileManager.finalize()
+        # ProfileManager.finalize(verbose=True)
+        results = ProfileManager.finalize(return_results=True, verbose=False)
+
+        # one table per region family; the last group catches everything not matched above,
+        # so that no recorded region is silently missing from the printed summary
+        groups = (
+            ("Setup", [r"^setup:", r"^setup prop:", r"^setup var:"]),
+            ("Model propagation", [r"^model\.integrate", r"^prop:"]),
+            ("Pusher", [r"^pusher:"]),
+            ("Kernel", [r"^kernel:"]),
+            ("Accumulation", [r"^accum:", r"^accum comm:"]),
+            ("Linear solves", [r"^solve:"]),
+            (
+                "Particle sorting and communication",
+                [r"^mpi_sort_markers$", r"^apply_kinetic_bc$", r"^put_particles_in_boxes$", r"^do_sort$"],
+            ),
+        )
+        all_patterns = [pattern for _, include in groups for pattern in include]
+        for title, include in groups + (("Other", None),):
+            kwargs = {"include": include} if include is not None else {"exclude": all_patterns}
+            if not results.get_regions(**kwargs):
+                continue
+            results.print_summary(title=title, suppress_notes=True, **kwargs)
 
     def pproc(
         self,
@@ -1151,47 +1190,51 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             logger.debug(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
-            self._derham = Derham(
-                grid,
-                derham_opts,
-                comm=derham_comm,
-                domain=self.domain,
-            )
+            with ProfileManager.profile_region("setup: derham"):
+                self._derham = Derham(
+                    grid,
+                    derham_opts,
+                    comm=derham_comm,
+                    domain=self.domain,
+                )
 
         # create weighted mass and basis operators
         if self.derham is None:
             self._mass_ops = None
             self._basis_ops = None
         else:
-            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil)
+            with ProfileManager.profile_region("setup: mass ops"):
+                self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil)
 
-            self._basis_ops = BasisProjectionOperators(
-                self.derham,
-                self.domain,
-                eq_mhd=self.equil,
-            )
+            with ProfileManager.profile_region("setup: basis ops"):
+                self._basis_ops = BasisProjectionOperators(
+                    self.derham,
+                    self.domain,
+                    eq_mhd=self.equil,
+                )
 
         # create projected equilibrium
         if self.derham is None:
             self._projected_equil = None
         else:
-            if isinstance(self.equil, MHDequilibrium):
-                self._projected_equil = ProjectedMHDequilibrium(
-                    self.equil,
-                    self.derham,
-                )
-            elif isinstance(self.equil, FluidEquilibriumWithB):
-                self._projected_equil = ProjectedFluidEquilibriumWithB(
-                    self.equil,
-                    self.derham,
-                )
-            elif isinstance(self.equil, FluidEquilibrium):
-                self._projected_equil = ProjectedFluidEquilibrium(
-                    self.equil,
-                    self.derham,
-                )
-            else:
-                self._projected_equil = None
+            with ProfileManager.profile_region("setup: projected equil"):
+                if isinstance(self.equil, MHDequilibrium):
+                    self._projected_equil = ProjectedMHDequilibrium(
+                        self.equil,
+                        self.derham,
+                    )
+                elif isinstance(self.equil, FluidEquilibriumWithB):
+                    self._projected_equil = ProjectedFluidEquilibriumWithB(
+                        self.equil,
+                        self.derham,
+                    )
+                elif isinstance(self.equil, FluidEquilibrium):
+                    self._projected_equil = ProjectedFluidEquilibrium(
+                        self.equil,
+                        self.derham,
+                    )
+                else:
+                    self._projected_equil = None
 
     @profile
     def _allocate_variables(self):
@@ -1204,11 +1247,12 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, FieldSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                    )
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
 
         # allocate memory for FE coeffs of fluid variables
         if self.model.fluid_species:
@@ -1216,11 +1260,12 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, FluidSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                    )
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
 
         # allocate memory for marker arrays of kinetic variables
         if self.model.particle_species:
@@ -1228,20 +1273,22 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, ParticleSpecies)
                 for k, v in spec.variables.items():
                     if isinstance(v, PICVariable):
-                        v.allocate(
-                            clone_config=self.clone_config,
-                            derham=self.derham,
-                            domain=self.domain,
-                            equil=self.equil,
-                            projected_equil=self.projected_equil,
-                        )
+                        with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                            v.allocate(
+                                clone_config=self.clone_config,
+                                derham=self.derham,
+                                domain=self.domain,
+                                equil=self.equil,
+                                projected_equil=self.projected_equil,
+                            )
                     if isinstance(v, SPHVariable):
-                        v.allocate(
-                            derham=self.derham,
-                            domain=self.domain,
-                            equil=self.equil,
-                            projected_equil=self.projected_equil,
-                        )
+                        with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                            v.allocate(
+                                derham=self.derham,
+                                domain=self.domain,
+                                equil=self.equil,
+                                projected_equil=self.projected_equil,
+                            )
 
         # allocate memory for FE coeffs of fluid variables
         if self.model.diagnostic_species:
@@ -1249,11 +1296,12 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, DiagnosticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                    )
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
 
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
@@ -1291,7 +1339,8 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
-            prop.allocate()
+            with ProfileManager.profile_region("setup prop: " + prop.__class__.__name__):
+                prop.allocate()
             logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
@@ -1370,18 +1419,19 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                         file[key_field].attrs["pads"] = DataContainer._as_numpy_array(spline.pads)
 
                     # save numpy array to be updated only at the end of the simulation for restart.
-                    key_field_restart = os.path.join(species_path_restart, variable)
+                    if self.env.save_restart:
+                        key_field_restart = os.path.join(species_path_restart, variable)
 
-                    if isinstance(spline.vector_stencil, StencilVector):
-                        data.add_data(
-                            {key_field_restart: spline.vector_stencil._data},
-                        )
-                    else:
-                        for n in range(3):
-                            key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                        if isinstance(spline.vector_stencil, StencilVector):
                             data.add_data(
-                                {key_component_restart: spline.vector_stencil[n]._data},
+                                {key_field_restart: spline.vector_stencil._data},
                             )
+                        else:
+                            for n in range(3):
+                                key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                                data.add_data(
+                                    {key_component_restart: spline.vector_stencil[n]._data},
+                                )
 
             # save kinetic data in group 'kinetic/'
             for name, species in self.model.particle_species.items():
@@ -1393,10 +1443,11 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                     assert isinstance(obj, Particles)
 
                 key_spec = os.path.join("kinetic", name)
-                key_spec_restart = os.path.join("restart", name)
 
                 # restart data
-                data.add_data({key_spec_restart: obj.markers})
+                if self.env.save_restart:
+                    key_spec_restart = os.path.join("restart", name)
+                    data.add_data({key_spec_restart: obj.markers})
 
                 # marker data
                 key_mks = os.path.join(key_spec, "markers")
@@ -1782,7 +1833,7 @@ if __name__ == "__main__":
 
         # create output folders
         self._setup_folders()
-        self._setup_profiling()
+        self._setup_profiling(label=self.name)
 
     @property
     def time_opts(self):

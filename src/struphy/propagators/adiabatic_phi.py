@@ -2,6 +2,7 @@ import logging
 
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
@@ -183,7 +184,8 @@ class AdiabaticPhi(Propagator):
             self._rhs += self._rho
 
         # solve
-        out = self._solver.solve(self._rhs, out=self._tmp)
+        with ProfileManager.profile_region(self._solve_region):
+            out = self._solver.solve(self._rhs, out=self._tmp)
         info = self._solver._info
 
         if self._lin_solver["info"]:
