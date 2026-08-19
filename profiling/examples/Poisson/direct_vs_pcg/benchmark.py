@@ -9,13 +9,27 @@ Usage: python benchmark.py [--num-elements NX NY NZ] [--repeats N]
 """
 
 import argparse
+import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
+REPO_ROOT = HERE.parents[3]
 PARAMS = HERE / "params_poisson_solver.py"
+
+
+def child_python() -> str:
+    if sys.prefix != sys.base_prefix:
+        return sys.executable
+
+    repo_venv_python = REPO_ROOT / ".venv" / "bin" / "python"
+    if repo_venv_python.exists():
+        return str(repo_venv_python)
+
+    return sys.executable
 
 LINE_RE = re.compile(
     r"^\s*solve: PoissonSolve\s+\d+\s+(?P<calls>\d+)\s+(?P<total>[\d.eE+-]+)\s+"
@@ -27,17 +41,26 @@ ERR_RE = re.compile(r"max relative error in Phi after \d+ steps: ([\d.eE+-]+)")
 
 def run(solver: str, num_elements: list[int], repeats: int) -> dict:
     sim_folder = HERE / "sim_00"  # params_poisson_solver.py names it f"sim_{id:02d}"
-    subprocess.run(["rm", "-rf", str(sim_folder)], check=True)
+    shutil.rmtree(sim_folder, ignore_errors=True)
     cmd = [
-        sys.executable,
+        child_python(),
         str(PARAMS),
         "--solver", solver,
         "--num-elements", *map(str, num_elements),
         "--repeats", str(repeats),
         "--id", "0",
     ]
-    proc = subprocess.run(cmd, cwd=HERE, capture_output=True, text=True)
-    subprocess.run(["rm", "-rf", str(sim_folder)], check=True)
+    env = os.environ.copy()
+    pythonpath = [
+        str(REPO_ROOT / "src"),
+        str(REPO_ROOT / "feectools"),
+    ]
+    if env.get("PYTHONPATH"):
+        pythonpath.append(env["PYTHONPATH"])
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath)
+
+    proc = subprocess.run(cmd, cwd=HERE, capture_output=True, text=True, env=env)
+    shutil.rmtree(sim_folder, ignore_errors=True)
     out = proc.stdout + proc.stderr
     if proc.returncode != 0:
         print(out)
