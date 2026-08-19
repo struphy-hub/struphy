@@ -3,6 +3,7 @@ from typing import Literal
 
 import cunumpy as xp
 from cunumpy import PyccelKernel
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.linalg.block import BlockLinearOperator
 from feectools.linalg.stencil import StencilMatrix
