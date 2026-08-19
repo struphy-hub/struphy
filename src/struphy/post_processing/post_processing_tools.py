@@ -1017,7 +1017,10 @@ class PostProcessor:
             ids = temp[:, -1].astype("int")
             ids_lost_particles = xp.setdiff1d(xp.arange(n_markers), ids)
             ids_removed_particles = xp.nonzero(temp[:, 0] == -1.0)[0]
-            ids_lost_particles = xp.array(list(set(ids_lost_particles) | set(ids_removed_particles)), dtype=int)
+            # xp.union1d (not Python set()) stays backend-safe: iterating a CuPy
+            # array yields 0-d CuPy arrays, which are unhashable, unlike NumPy
+            # scalars (same class of issue as the xp.sort note below).
+            ids_lost_particles = xp.union1d(ids_lost_particles, ids_removed_particles).astype(int)
             lost_particles_mask[:] = False
             lost_particles_mask[ids_lost_particles] = True
 
