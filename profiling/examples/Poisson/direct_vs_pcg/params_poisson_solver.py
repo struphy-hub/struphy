@@ -4,9 +4,10 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Poisson on cube, PCG vs DirectSolver"
+name = "Poisson 8x8x8: DirectSolver vs. PCG"
 description = """
-Benchmark for feectools.linalg.solvers.DirectSolver
+Single-rank Poisson benchmark on an 8x8x8 cuboid grid comparing PCG with the
+cached feectools DirectSolver over repeated solves of the same operator.
 """
 
 import logging

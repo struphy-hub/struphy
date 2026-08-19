@@ -1,6 +1,6 @@
-"""Poisson DirectSolver vs. PCG profiling case.
+"""Poisson 8x8x8 DirectSolver vs. PCG profiling case.
 
-This submits one profiling run per solver/resolution combination using
+This submits one profiling run per solver using
 ``params_poisson_solver.py``. Each run is single-rank by default because the goal is to
 compare repeated solve cost and DirectSolver factorization amortization, not MPI scaling.
 """
@@ -13,7 +13,7 @@ from profiling_job import ProfilingCase
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Submit Poisson DirectSolver vs. PCG profiling jobs.",
+        description="Submit Poisson 8x8x8 DirectSolver vs. PCG profiling jobs.",
     )
     parser.add_argument(
         "--upload",
@@ -30,20 +30,20 @@ def main() -> None:
         "--ranks",
         type=int,
         default=1,
-        help="MPI ranks per solver/resolution run.",
+        help="MPI ranks per solver run.",
     )
     args = parser.parse_args()
 
-    resolutions = [(8, 8, 8), (16, 8, 8)]
+    resolution = (8, 8, 8)
 
     script_dir = Path(__file__).resolve().parent
     params_dir = script_dir / "examples" / "Poisson" / "direct_vs_pcg"
 
     profiling_case = ProfilingCase(
-        label="poisson_direct_vs_pcg",
-        name="Poisson DirectSolver vs. PCG",
-        description="Repeated Poisson solves comparing cached DirectSolver against PCG.",
-        physics_problem="Poisson field solve with manufactured solution on a 3D cuboid.",
+        label="poisson_direct_vs_pcg_8x8x8",
+        name="Poisson 8x8x8: DirectSolver vs. PCG",
+        description="Single-rank repeated Poisson solves on an 8x8x8 grid, comparing cached DirectSolver against PCG.",
+        physics_problem="Small manufactured Poisson field solve on a 3D cuboid.",
         struphy_model_used="Poisson",
         params_source=params_dir / "params_poisson_solver.py",
         language="fortran",
@@ -51,19 +51,18 @@ def main() -> None:
         upload=args.upload,
     )
 
-    for resolution in resolutions:
-        for solver in ("pcg", "direct"):
-            profiling_case.launch(
-                args.ranks,
-                param_flags=[
-                    "--solver",
-                    solver,
-                    "--num-elements",
-                    *map(str, resolution),
-                    "--repeats",
-                    str(args.repeats),
-                ],
-            )
+    for solver in ("pcg", "direct"):
+        profiling_case.launch(
+            args.ranks,
+            param_flags=[
+                "--solver",
+                solver,
+                "--num-elements",
+                *map(str, resolution),
+                "--repeats",
+                str(args.repeats),
+            ],
+        )
 
     profiling_case.finalize_run()
 
