@@ -1,5 +1,5 @@
 """
-Standalone benchmark (not a pytest test) that measures the OpenMP speedup of
+Standalone benchmark that measures the OpenMP speedup of
 ``struphy.pic.pushing.pusher_kernels.push_vxb_analytic`` as a function of the
 number of OpenMP threads.
 
@@ -10,13 +10,7 @@ Usage::
 
     python src/struphy/pic/tests/bench_openmp_speedup.py [--threads 1,2,4,8,16,32] [--repeats 3]
 
-Thread pinning (``OMP_PROC_BIND=close``, ``OMP_PLACES=cores``) matters a lot
-for this memory-bandwidth-bound kernel on multi-socket/NUMA machines; without
-it more threads can be *slower* than fewer due to remote-memory-access
-effects. To keep the benchmark meaningful on such machines, threads are also
-confined to a single NUMA node (via ``taskset``) whenever the machine has
-more than one and ``taskset`` is available, matching how the OpenMP speedup
-test itself is intended to be interpreted.
+Thread pinning (``OMP_PROC_BIND=close``, ``OMP_PLACES=cores``) matters a lot for this test.
 """
 
 import argparse
