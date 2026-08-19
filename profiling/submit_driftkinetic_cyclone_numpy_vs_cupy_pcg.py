@@ -1,9 +1,9 @@
-"""DriftKineticElectrostaticAdiabatic (ITG cyclone) NumPy-vs-CuPy profiling case.
+"""DriftKineticElectrostaticAdiabatic (ITG cyclone) NumPy-vs-CuPy, pcg solver.
 
 Runs `params_cyclone.py` once with `ARRAY_BACKEND=numpy` and once with
-`ARRAY_BACKEND=cupy`. Unlike GuidingCenter, this model has a real per-step FEEC field
-solve (PoissonAdiabaticGyrokinetic, default solver='direct'), so it measures whether
-the CUDA port helps end to end, not just the particle kernels.
+`ARRAY_BACKEND=cupy`, forcing the naive iterative solver ('pcg') instead of
+`params_cyclone.py`'s own default ('direct') -- the direct solver isn't
+production-ready yet, so this case sticks to pcg rather than featuring it.
 """
 
 import argparse
@@ -46,11 +46,11 @@ def main() -> None:
     params_source = params_dir / "params_cyclone.py"
 
     profiling_case = ProfilingCase(
-        label="driftkinetic_cyclone_numpy_vs_cupy",
-        name="ITG cyclone: NumPy vs CuPy",
+        label="driftkinetic_cyclone_numpy_vs_cupy_pcg",
+        name="ITG cyclone: NumPy vs CuPy (pcg)",
         description=(
             "Cyclone-instability ITG turbulence (DriftKineticElectrostaticAdiabatic), run "
-            "once on NumPy and once on CuPy."
+            "once on NumPy and once on CuPy, with the naive iterative field solver."
         ),
         physics_problem="Electrostatic drift-kinetic ITG turbulence with adiabatic electrons in toroidal geometry.",
         struphy_model_used="DriftKineticElectrostaticAdiabatic",
@@ -70,7 +70,7 @@ def main() -> None:
         profiling_case.launch(
             1,
             num_nodes=1,
-            param_flags=["--backend", backend],
+            param_flags=["--backend", backend, "--solver", "pcg"],
             slurm_presets={cluster_name: preset},
         )
 

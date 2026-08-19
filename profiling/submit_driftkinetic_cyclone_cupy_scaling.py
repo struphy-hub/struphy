@@ -1,6 +1,6 @@
 """DriftKineticElectrostaticAdiabatic (ITG cyclone) CuPy multi-GPU/multi-rank scaling case.
 
-Strong-scaling study (not a backend comparison, see `submit_driftkinetic_cyclone_numpy_vs_cupy.py`
+Strong-scaling study (not a backend comparison, see `submit_driftkinetic_cyclone_numpy_vs_cupy_pcg.py`
 for that): the same grid/marker configuration runs under `ARRAY_BACKEND=cupy` at
 increasing MPI rank counts, one rank per GPU. `--ranks 1 2 4 8` (default) covers
 intra-node scaling plus one cross-node step. Grid is hardcoded to `NUM_ELEMENTS` below
