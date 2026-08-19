@@ -290,6 +290,7 @@ if __name__ == "__main__":
         [10, 10, 10], [2, 2, 2], (("free", "free"), ("free", "free"), ("free", "free")),
         [True, False, False, False, False, False], 1, 2, 1.0,
     )
+    
     test_tangential_cuboid_nontrivial(
         [10, 10, 10], [1, 2, 3], (("free", "free"), ("free", "free"), ("free", "free")),
         [True, False, False, False, False, False], 1, 2, 12.0,

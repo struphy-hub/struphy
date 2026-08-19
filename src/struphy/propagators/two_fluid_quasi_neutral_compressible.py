@@ -141,11 +141,6 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             Source term for ion momentum equation.
         source_ue : Callable or None
             Source term for electron momentum equation.
-        essential_u : list[Perturbation] or None
-            Essential (tangential) boundary data for ions — enforced strongly via
-            the constrained H(curl) space. Set via ``variables.u.lifting_function``.
-        essential_ue : list[Perturbation] or None
-            Essential (tangential) boundary data for electrons — enforced strongly.
         solver : str, default="gmres"
             Linear solver for the saddle point system.
         solver_params : SolverParameters or None
@@ -165,9 +160,8 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         source_u: Callable | None = None
         source_ue: Callable | None = None
 
-        # tangential BC: enforced strongly on H(curl)
-        essential_u: list[Perturbation] | Perturbation | None = None
-        essential_ue: list[Perturbation] | Perturbation | None = None
+        natural_u: list[Perturbation] | Perturbation | None = None
+        natural_ue: list[Perturbation] | Perturbation | None = None
 
         solver: LiteralOptions.OptsGenSolver = "gmres"
         solver_params: SolverParameters | None = None
@@ -256,8 +250,8 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._rhs_vec_phi = self.derham.create_spline_function("rhs_vec_phi", space_id="H1")
 
         # TODO This is still a bad solution.
-        self._qn_boundary_u = self.derham.create_spline_function("div_boundary_u", space_id="L2")
-        self._qn_boundary_ue = self.derham.create_spline_function("div_boundary_ue", space_id="L2")
+        self._qn_boundary_u = self.derham.create_spline_function("div_boundary_u", space_id="H1")
+        self._qn_boundary_ue = self.derham.create_spline_function("div_boundary_ue", space_id="H1")
 
         # ---- source terms projected onto unconstrained H(curl) ---
         self._src_u = self._derham_lift_u.create_spline_function("rhs_u", space_id="Hcurl")
@@ -340,26 +334,41 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         )
 
         # ---- normal boundary mass: int_{dOmega} (g.n) * alpha dS ---
-        bnd_ops_u = BoundaryIntegralOperators(self._mass_ops_lift_u, active_faces=[True] * 6)
-        self._B0_normal_u = bnd_ops_u.normal()
+        bnd_ops_u = BoundaryIntegralOperators(self._mass_ops_lift_u, active_faces=[False, False, False, False, True, False])
+        self._B0_normal_u = bnd_ops_u.normal(test_space="H1")
 
-        bnd_ops_ue = BoundaryIntegralOperators(self._mass_ops_lift_ue, active_faces=[True] * 6)
-        self._B0_normal_ue = bnd_ops_ue.normal()
+        bnd_ops_ue = BoundaryIntegralOperators(self._mass_ops_lift_ue, active_faces=[False, False, False, False, True, False])
+        self._B0_normal_ue = bnd_ops_ue.normal(test_space="H1")
 
         self._boundary_normal_u = self.derham.create_spline_function("boundary_normal_u", space_id="H1")
         self._boundary_normal_ue = self.derham.create_spline_function("boundary_normal_ue", space_id="H1")
 
-        # natural data splines (Hdiv, projected from Hcurl g_i, g_e)
-        self._natural_spline_u = (
-            self.variables.u.spline_natural.vector
-            if self.variables.u.spline_natural is not None
-            else self._derham_lift_u.coeff_spaces["2"].zeros()
-        )
-        self._natural_spline_ue = (
-            self.variables.ue.spline_natural.vector
-            if self.variables.ue.spline_natural is not None
-            else self._derham_lift_ue.coeff_spaces["2"].zeros()
-        )
+        # ---- natural boundary data projected into Hdiv (unconstrained) ---
+        self._natural_spline_u = self._derham_lift_u.create_spline_function("natural_u", space_id="Hdiv")
+        self._natural_spline_ue = self._derham_lift_ue.create_spline_function("natural_ue", space_id="Hdiv")
+
+        for natural_spline, natural_source, derham_lift in [
+            (self._natural_spline_u, self.options.natural_u, self._derham_lift_u),
+            (self._natural_spline_ue, self.options.natural_ue, self._derham_lift_ue),
+        ]:
+            if natural_source is not None:
+                natural_list = natural_source if isinstance(natural_source, list) else [natural_source]
+                fun_vec = [None] * 3
+                for ptb in natural_list:
+                    fun_vec[ptb.comp] = ptb
+                    if ptb.given_in_basis is None:
+                        ptb.given_in_basis = "v"
+                fun = [
+                    TransformedPformComponent(
+                        fun_vec,
+                        fun_vec[comp].given_in_basis if fun_vec[comp] is not None else natural_list[0].given_in_basis,
+                        "2",
+                        comp=comp,
+                        domain=self.domain,
+                    )
+                    for comp in range(3)
+                ]
+                natural_spline.vector = derham_lift.projectors["2"](fun)
 
         # ---- saddle point system: B = D M1, B^T = M1 D^T ---
         self._B = self._grad.T @ self._M1
@@ -442,21 +451,10 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         # --- copy current homogeneous solution ---
         self._u_0.vector = self.variables.u.spline.vector
 
-        # --- copy boundary integral terms from Hdiv natural data ---
-        self._boundary_normal_u.vector = self._B0_normal_u.dot(self._natural_spline_u)  # TODO Bad.
-        self._boundary_normal_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue)
+        # --- copy boundary integral terms from lifted H1 space to constrained H1 space ---
+        self._boundary_normal_u.vector = self._B0_normal_u.dot(self._natural_spline_u.vector)
+        self._boundary_normal_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue.vector)
 
-        # --- assemble RHS for ions ---
-        self._rhs_vec_u.vector = (
-            self._hcurl_b_op_u.dot(
-                self._M1_u.dot(self._src_u.vector)
-                - self._A_i.dot(self._boundary_spline_u)
-                - self._M1_u.dot(self._boundary_spline_u) / dt
-            )
-            + self._M1.dot(self._u_0.vector) / dt + self.options.nu * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_u.vector)
-                )
-            )
-        )
 
         # --- assemble RHS for electrons ---
         self._rhs_vec_ue.vector = (
@@ -469,8 +467,8 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             )
         )
 
-        self._qn_boundary_u.vector = self._boundary_normal_u.vector - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
-        self._qn_boundary_ue.vector = self._boundary_normal_ue.vector - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
+        self._qn_boundary_u.vector = self._B0_normal_u.dot(self._natural_spline_u.vector) - self._grad_u.T.dot(self._M1_u.dot(self._boundary_spline_u))
+        self._qn_boundary_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue.vector) - self._grad_ue.T.dot(self._M1_ue.dot(self._boundary_spline_ue))
 
         # --- assemble RHS for quasineutrality ---
         self._rhs_vec_phi.vector = self._qn_boundary_u.vector - self._qn_boundary_ue.vector

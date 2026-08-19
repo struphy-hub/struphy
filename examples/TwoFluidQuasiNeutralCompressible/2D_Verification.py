@@ -43,7 +43,7 @@ B0 = 0
 nu = 1.0
 nu_e = 1.0
 mu = 1.0
-Nel = (21, 21, 1)
+Nel = (10, 10, 1)
 p = (2, 2, 1)
 epsilon = 1.0
 dt = 1
@@ -60,65 +60,11 @@ grid = grids.TensorProductGrid(num_elements=Nel)
 if BC == "periodic":
     derham_opts = DerhamOptions(degree=p, bcs=(None, None, None))
 
-elif BC == "dirichlet_hom":
+else:
     derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
-
-elif BC == "dirichlet_inhom_essential":
-    derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
-
-    # tangential lifting: g_i x n enforced strongly on H(curl)
-    lifting_function_u = [
-        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.cos(2*pi*y), comp=1, given_in_basis="physical"),
-    ]
-    lifting_function_ue = [
-        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.cos(2*pi*y), comp=1, given_in_basis="physical"),
-    ]
-
-elif BC == "dirichlet_inhom_mixed":
-    derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
-
-    lifting_function_u = [
-        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -np.cos(2*pi*x)*np.cos(2*pi*y), comp=1, given_in_basis="physical"),
-    ]
-    lifting_function_ue = [
-        GenericPerturbation(lambda x, y, z: -np.sin(4*pi*x)*np.sin(4*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -np.cos(4*pi*x)*np.cos(4*pi*y), comp=1, given_in_basis="physical"),
-    ]
-
-elif BC == "poly":
-    derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
-
-    lifting_function_u = [
-        GenericPerturbation(lambda x, y, z: x**2 * y, comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -x * y**2, comp=1, given_in_basis="physical"),
-    ]
-    lifting_function_ue = [
-        GenericPerturbation(lambda x, y, z: x**2 * y, comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -x * y**2, comp=1, given_in_basis="physical"),
-    ]
-
-elif BC == "dirichlet_inhom_natural":
-    derham_opts = DerhamOptions(degree=p, bcs=(("dirichlet", "dirichlet"), ("dirichlet", "dirichlet"), None))
-
-    # tangential lifting for the essential part
-    lifting_function_u = [
-        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -np.cos(2*pi*x)*np.sin(2*pi*y), comp=1, given_in_basis="physical"),
-    ]
-    lifting_function_ue = [
-        GenericPerturbation(lambda x, y, z: -np.sin(2*pi*x)*np.sin(2*pi*y), comp=0, given_in_basis="physical"),
-        GenericPerturbation(lambda x, y, z: -np.cos(2*pi*x)*np.sin(2*pi*y), comp=1, given_in_basis="physical"),
-    ]
-
-# defaults for BCs without natural lifting
-if BC in ("periodic", "dirichlet_hom"):
-    lifting_function_u = None
-    lifting_function_ue = None
 
 # ------------------ manufactured solutions ------------------
+
 if BC == "periodic":
     def mms_phi(x, y, z):
         return np.cos(2*pi*x) + np.sin(2*pi*y), np.zeros_like(x), np.zeros_like(x)
@@ -140,6 +86,16 @@ elif BC == "dirichlet_hom":
         return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.sin(2*pi*x)*np.sin(2*pi*y), np.zeros_like(x)
 
 elif BC == "dirichlet_inhom_essential":
+    def mms_phi(x, y, z):
+        return np.cos(2*pi*x) + np.sin(2*pi*y), np.zeros_like(x), np.zeros_like(x)
+
+    def mms_ion_u(x, y, z):
+        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.cos(2*pi*x)*np.sin(2*pi*y), np.zeros_like(x)
+
+    def mms_electron_u(x, y, z):
+        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.cos(2*pi*x)*np.sin(2*pi*y), np.zeros_like(x)
+
+elif BC == "dirichlet_inhom_natural":
     def mms_phi(x, y, z):
         return np.cos(2*pi*x) + np.sin(2*pi*y), np.zeros_like(x), np.zeros_like(x)
 
@@ -169,15 +125,20 @@ elif BC == "poly":
     def mms_electron_u(x, y, z):
         return x**2 * y, -x * y**2, np.zeros_like(x)
 
-elif BC == "dirichlet_inhom_natural":
-    def mms_phi(x, y, z):
-        return np.cos(2*pi*x) + np.sin(2*pi*y), np.zeros_like(x), np.zeros_like(x)
+# ------------------ lifting functions (derived from MMS) ------------------
 
-    def mms_ion_u(x, y, z):
-        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.cos(2*pi*x)*np.sin(2*pi*y), np.zeros_like(x)
-
-    def mms_electron_u(x, y, z):
-        return -np.sin(2*pi*x)*np.sin(2*pi*y), -np.cos(2*pi*x)*np.sin(2*pi*y), np.zeros_like(x)
+if BC in ("periodic", "dirichlet_hom"):
+    lifting_function_u = None
+    lifting_function_ue = None
+else:
+    lifting_function_u = [
+        GenericPerturbation(lambda x, y, z: mms_ion_u(x, y, z)[0], comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: mms_ion_u(x, y, z)[1], comp=1, given_in_basis="physical"),
+    ]
+    lifting_function_ue = [
+        GenericPerturbation(lambda x, y, z: mms_electron_u(x, y, z)[0], comp=0, given_in_basis="physical"),
+        GenericPerturbation(lambda x, y, z: mms_electron_u(x, y, z)[1], comp=1, given_in_basis="physical"),
+    ]
 
 # ------------------ source terms ------------------
 
@@ -234,8 +195,35 @@ elif BC == "dirichlet_hom":
             - nu_e*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
         )
         return fx, fy, zeros_like(x)
-    
+
 elif BC == "dirichlet_inhom_essential":
+    def source_function_u(x, y, z):
+        fx = (
+            -2*pi*np.sin(2*pi*x)
+            - B0/epsilon * np.cos(2*pi*x)*np.sin(2*pi*y)
+            - nu*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
+        )
+        fy = (
+            2*pi*np.cos(2*pi*y)
+            + B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
+            - nu*8*pi**2 * np.cos(2*pi*x)*np.sin(2*pi*y)
+        )
+        return fx, fy, zeros_like(x)
+
+    def source_function_ue(x, y, z):
+        fx = (
+            2*pi*np.sin(2*pi*x)
+            + B0/epsilon * np.cos(2*pi*x)*np.sin(2*pi*y)
+            - nu_e*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
+        )
+        fy = (
+            -2*pi*np.cos(2*pi*y)
+            - B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
+            - nu_e*8*pi**2 * np.cos(2*pi*x)*np.sin(2*pi*y)
+        )
+        return fx, fy, zeros_like(x)
+
+elif BC == "dirichlet_inhom_natural":
     def source_function_u(x, y, z):
         fx = (
             -2*pi*np.sin(2*pi*x)
@@ -261,6 +249,7 @@ elif BC == "dirichlet_inhom_essential":
             - nu_e*8*pi**2 * np.sin(2*pi*x)*np.cos(2*pi*y)
         )
         return fx, fy, zeros_like(x)
+
 
 elif BC == "dirichlet_inhom_mixed":
     def source_function_u(x, y, z):
@@ -300,32 +289,6 @@ elif BC == "poly":
         fy = -2*y - B0/epsilon * x**2*y - nu_e*2*x
         return fx, fy, zeros_like(x)
 
-elif BC == "dirichlet_inhom_natural":
-    def source_function_u(x, y, z):
-        fx = (
-            -2*pi*np.sin(2*pi*x)
-            - B0/epsilon * np.cos(2*pi*x)*np.sin(2*pi*y)
-            - nu*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
-        )
-        fy = (
-            2*pi*np.cos(2*pi*y)
-            + B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
-            - nu*8*pi**2 * np.cos(2*pi*x)*np.sin(2*pi*y)
-        )
-        return fx, fy, zeros_like(x)
-
-    def source_function_ue(x, y, z):
-        fx = (
-            2*pi*np.sin(2*pi*x)
-            + B0/epsilon * np.cos(2*pi*x)*np.sin(2*pi*y)
-            - nu_e*8*pi**2 * np.sin(2*pi*x)*np.sin(2*pi*y)
-        )
-        fy = (
-            -2*pi*np.cos(2*pi*y)
-            - B0/epsilon * np.sin(2*pi*x)*np.sin(2*pi*y)
-            - nu_e*8*pi**2 * np.cos(2*pi*x)*np.sin(2*pi*y)
-        )
-        return fx, fy, zeros_like(x)
 
 
 # ------------------ model ------------------
@@ -338,13 +301,13 @@ model.propagators.qn_comp.options = model.propagators.qn_comp.Options(
     eps_norm=epsilon,
     source_u=source_function_u,
     source_ue=source_function_ue,
-    essential_u=lifting_function_u,
-    essential_ue=lifting_function_ue,
+    natural_u=lifting_function_u,
+    natural_ue=lifting_function_ue,
     solver="gmres",
     solver_params=SolverParameters(info=True, tol=tol),
 )
 
-if BC in ("dirichlet_inhom_essential", "dirichlet_inhom_mixed", "dirichlet_inhom_natural", "poly"):
+if BC in ("dirichlet_inhom_essential", "dirichlet_inhom_mixed", "poly"):
     model.ions.u.lifting_function = lifting_function_u
     model.electrons.u.lifting_function = lifting_function_ue
 
@@ -406,7 +369,7 @@ if __name__ == "__main__":
             uex_plot = u_electrons[0][:, :, 0]
             uey_plot = u_electrons[1][:, :, 0]
 
-            if BC in ("dirichlet_inhom_essential", "dirichlet_inhom_mixed", "dirichlet_inhom_natural", "poly"):
+            if BC in ("dirichlet_inhom_essential", "dirichlet_inhom_mixed", "poly"):
                 e1 = np.array(n1_vals)
                 e2 = np.array(n2_vals)
                 e3 = np.array([0.5])
