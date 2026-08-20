@@ -14,6 +14,7 @@ from struphy.feec import preconditioner
 from struphy.feec.preconditioner import (
     H1vecKineticMetricPreconditioner,
     H1vecKineticMetricWoodburyPreconditioner,
+    MassMatrixPreconditioner,
     MassMatrixDiagonalPreconditioner,
 )
 from struphy.feec.variational_utilities import (
@@ -357,6 +358,7 @@ class VariationalDensityEvolve(Propagator):
     def __call__(self, dt):
         self.__call_newton(dt)
 
+    @profile
     def __call_newton(self, dt):
         """Advance density and velocity using Newton iteration."""
 
@@ -718,7 +720,7 @@ class VariationalDensityEvolve(Propagator):
         self.divPirhoT = self.divPirho.T
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = MassMatrixPreconditioner(
             self.mass_ops.Mv,
         )
         self._inv_Mv = inverse(
@@ -790,7 +792,8 @@ class VariationalDensityEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             "pbicgstab",
-            pc=self._momentum_inv,
+            # pc=self._momentum_inv,
+            pc=None,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
