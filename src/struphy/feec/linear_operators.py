@@ -455,8 +455,7 @@ class BoundaryOperator(LinOpWithTransp):
         applying it once to an all-ones vector directly gives that diagonal, far cheaper
         than a generic basis-vector sweep (see AverageOperator.tosparse for that
         approach, used where the operator isn't diagonal). Serial (single MPI rank)
-        only, meant for feectools.linalg.solvers.DirectSolver's factor-once use (see its
-        docstring).
+        only.
         """
 
         def _stencil_diag_flat(v):

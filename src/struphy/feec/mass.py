@@ -3395,14 +3395,12 @@ class AverageOperator(LinOpWithTransp):
         that share its other two indices, with coefficient `weights[o]`. That is fully
         vectorizable with `numpy`, unlike a basis-vector sweep (one `dot()` call per
         domain DOF, i.e. per grid point): that would mean thousands of individual CuPy
-        kernel launches with a device sync each under the CuPy backend -- exactly the
-        per-iteration launch/sync overhead
-        feectools.linalg.solvers.DirectSolver exists to eliminate from the *solve* path,
-        reappearing in its one-time *setup* path instead. This builds the sparse matrix
-        entirely on the host regardless of backend (`self._weights` is the only device
-        array involved, and is tiny -- one value per grid point along `d0`).
+        kernel launches with a device sync each under the CuPy backend. This builds
+        the sparse matrix entirely on the host regardless of backend (`self._weights`
+        is the only device array involved, and is tiny -- one value per grid point
+        along `d0`).
 
-        Serial (single MPI rank) only, like `DirectSolver` itself.
+        Serial (single MPI rank) only.
         """
         from scipy.sparse import coo_matrix
 

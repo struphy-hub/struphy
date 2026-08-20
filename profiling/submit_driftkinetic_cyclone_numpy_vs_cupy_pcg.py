@@ -1,9 +1,7 @@
-"""DriftKineticElectrostaticAdiabatic (ITG cyclone) NumPy-vs-CuPy, pcg solver.
+"""DriftKineticElectrostaticAdiabatic (ITG cyclone) NumPy-vs-CuPy, PCG solver.
 
 Runs `params_cyclone.py` once with `ARRAY_BACKEND=numpy` and once with
-`ARRAY_BACKEND=cupy`, forcing the naive iterative solver ('pcg') instead of
-`params_cyclone.py`'s own default ('direct') -- the direct solver isn't
-production-ready yet, so this case sticks to pcg rather than featuring it.
+`ARRAY_BACKEND=cupy`, using the PCG field solver.
 """
 
 import argparse

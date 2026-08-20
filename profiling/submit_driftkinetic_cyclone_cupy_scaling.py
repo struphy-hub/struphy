@@ -5,14 +5,6 @@ for that): the same grid/marker configuration runs under `ARRAY_BACKEND=cupy` at
 increasing MPI rank counts, one rank per GPU. `--ranks 1 2 4 8` (default) covers
 intra-node scaling plus one cross-node step. Grid is hardcoded to `NUM_ELEMENTS` below
 (not a CLI flag), so a run's grid is always readable straight from this file.
-
-**Solver forced to `pcg`, not `params_cyclone.py`'s own default (`direct`).**
-`DirectSolver` now supports `nprocs > 1` (a replicated matrix assembly, see
-`feectools.linalg.utilities.tosparse_via_matvec`), but that assembly is currently too
-slow under CuPy in practice (measured ~270-300s one-time cost even at a modest grid,
-dominated by per-`dot()`-call kernel-launch/sync overhead the array-transfer
-optimization only dents) to be worth using in a scaling study yet -- `pcg` gives a
-cleaner, apples-to-apples comparison across rank counts until that's fixed.
 """
 
 import argparse
@@ -67,8 +59,7 @@ def main() -> None:
         name="ITG cyclone: CuPy scaling",
         description=(
             "Cyclone-instability ITG turbulence (DriftKineticElectrostaticAdiabatic) on "
-            "CuPy, strong-scaled across GPUs. Solver forced to pcg (direct's multi-rank "
-            "assembly is not fast enough yet, see module docstring)."
+            "CuPy, strong-scaled across GPUs with the PCG field solver."
         ),
         physics_problem="Electrostatic drift-kinetic ITG turbulence with adiabatic electrons in toroidal geometry.",
         struphy_model_used="DriftKineticElectrostaticAdiabatic",

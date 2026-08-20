@@ -31,17 +31,9 @@ parser.add_argument("--ppc", type=int, default=None, help="Markers per cell (ove
 parser.add_argument("--Tend", type=float, default=None, help="End time (overrides the default, 0.01 -> 10 steps).")
 parser.add_argument(
     "--solver",
-    choices=("pcg", "direct"),
-    default="direct",
-    help=(
-        "Symmetric solver for the PoissonAdiabaticGyrokinetic field solve (default: "
-        "direct). 'direct' uses feectools.linalg.solvers.DirectSolver, a cached sparse "
-        "LU factorization -- valid here because the LHS operator is constant across "
-        "time steps (divide_by_dt=False, fixed epsilon/Z), so one factorization serves "
-        "every step instead of a fresh (near-maxiter, since tol=1e-12 barely converges) "
-        "PCG solve each time; see this file's docstring for the measured ~1900x "
-        "per-solve speedup on CuPy. 'pcg' reproduces the original, much slower baseline."
-    ),
+    choices=("pcg",),
+    default="pcg",
+    help="Symmetric solver for the PoissonAdiabaticGyrokinetic field solve (default: pcg).",
 )
 parser.add_argument(
     "--num-elements",
@@ -118,11 +110,10 @@ model = DriftKineticElectrostaticAdiabatic(
     # The physics case (examples/.../cyclone/params_cyclone.py) enables this, but it
     # wires up a *second*, completely separate solve every step
     # (ImplicitDiffusion.__call__'s `if self.diagnostic is not None: ... proj.solve(rhs)`,
-    # a fresh, uncached L2Projector with the default "pcg" solver -- unrelated to and not
-    # sped up by --solver direct above). It only feeds `self.diagnostics.rho`, an extra
-    # saved diagnostic field that nothing else in this model reads back (the
-    # `phi_integral` scalar uses `phi` directly) -- disabled here so this profiling case
-    # measures the model's actual per-step cost, not an unrelated, unoptimized solve.
+    # a fresh L2Projector with the default "pcg" solver). It only feeds
+    # `self.diagnostics.rho`, an extra saved diagnostic field that nothing else in this
+    # model reads back (the `phi_integral` scalar uses `phi` directly) -- disabled here
+    # so this profiling case measures the model's actual per-step cost.
     use_diagnostic_poisson=False,
 )
 
