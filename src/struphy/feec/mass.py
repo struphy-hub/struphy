@@ -24,6 +24,7 @@ from struphy.fields_background.base import MHDequilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
@@ -68,7 +69,13 @@ class WeightedMassOperators:
             self._eq_mhd = equils.HomogenSlab()
         if not hasattr(self.eq_mhd, "_domain"):
             self._eq_mhd.domain = self._domain
-
+        self._committed_h1vec_mass = None
+        self._committed_h1vec_divdiv = None
+        self._committed_h1vec_metrics = {}
+        self._committed_h1vec_generation = None
+        self._committed_h1vec_valid = False
+        
+        self._committed_WMMnew_valid = False
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
@@ -886,6 +893,122 @@ class WeightedMassOperators:
             )
         return self._WMMnew
 
+    def _initialize_committed_h1vec_storage(self):
+        """Create the committed-density operators once."""
+    
+        if self._committed_h1vec_mass is None:
+            self._committed_h1vec_mass = self.WMMnew
+    
+        if self._committed_h1vec_divdiv is None:
+            self._committed_h1vec_divdiv = (
+                self.create_h1vec_div_div(
+                    name="CommittedH1vecDivDiv",
+                )
+            )
+
+    def update_committed_WMMnew(self, rho_variable):
+        """
+        Assemble WMMnew only if the committed density has changed.
+        """
+        mass_operator = self.WMMnew
+        generation = rho_variable.generation
+    
+        if mass_operator.weight_generation != generation:
+            mass_operator.spline_functions["l2_field"].vector = (
+                rho_variable.spline.vector
+            )
+            mass_operator.assemble()
+            mass_operator.mark_weight_generation(generation)
+    
+        return mass_operator
+
+    def committed_h1vec_divdiv(self):
+        """Shared div-div operator for the committed density."""
+        if not hasattr(self, "_committed_h1vec_divdiv"):
+            self._committed_h1vec_divdiv = self.create_h1vec_div_div(
+                name="CommittedH1vecDivDiv",
+            )
+            self._committed_h1vec_divdiv._weight_generation = None
+    
+        return self._committed_h1vec_divdiv
+
+    def update_committed_h1vec_divdiv(self, rho_variable):
+        """
+        Assemble the committed-density div-div operator at most once per
+        density generation.
+        """
+        operator = self.committed_h1vec_divdiv()
+        generation = rho_variable.generation
+    
+        if operator._weight_generation != generation:
+            operator.update_weight(rho_variable.spline.vector)
+            operator._weight_generation = generation
+    
+        return operator
+
+    def ensure_committed_h1vec_metric(
+        self,
+        rho_variable,
+    ):    
+        """
+        Ensure that the persistent committed-density operators are assembled.
+    
+        This method never creates or replaces a metric wrapper.
+        """
+        self._initialize_committed_h1vec_storage()
+    
+        generation = rho_variable.generation
+    
+        if (
+            self._committed_h1vec_valid
+            and self._committed_h1vec_generation == generation
+        ):
+            return
+    
+        # Mark invalid before beginning assembly.
+        self._committed_h1vec_valid = False
+        self._committed_h1vec_generation = None
+    
+        rho = rho_variable.spline.vector
+    
+        mass_operator = self._committed_h1vec_mass
+        mass_operator.spline_functions["l2_field"].vector = rho
+        mass_operator.assemble()
+    
+        self._committed_h1vec_divdiv.update_weight(rho)
+    
+        # Mark valid only after both assemblies completed.
+        self._committed_h1vec_generation = generation
+        self._committed_h1vec_valid = True
+
+    def get_committed_h1vec_metric(self, metric_alpha):
+        """
+        Return a stable kinetic-metric wrapper.
+    
+        This method does not assemble anything.
+        """
+        from struphy.feec.variational_utilities import (
+            H1vecKineticMetric,
+        )
+    
+        self._initialize_committed_h1vec_storage()
+    
+        alpha = float(metric_alpha)
+    
+        if alpha not in self._committed_h1vec_metrics:
+            self._committed_h1vec_metrics[alpha] = (
+                H1vecKineticMetric(
+                    self._committed_h1vec_mass,
+                    self._committed_h1vec_divdiv,
+                    alpha=alpha,
+                )
+            )
+    
+        return self._committed_h1vec_metrics[alpha]
+
+    def invalidate_committed_h1vec_metric(self):
+        self._committed_h1vec_valid = False
+        self._committed_h1vec_generation = None
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################
@@ -1230,7 +1353,87 @@ class WeightedMassOperators:
 
         return self._h1vec_kinetic_metrics[alpha]
 
-    #######################################
+    def publish_committed_h1vec_metric(
+        self,
+        source_divdiv_operator,
+        rho_variable,
+    ):    
+        """
+        Publish the final density-Newton metric as the committed snapshot.
+    
+        WMMnew is assumed to already contain the mass matrix associated
+        with the committed density.
+        """
+        self._initialize_committed_h1vec_storage()
+    
+        self._committed_h1vec_valid = False
+        self._committed_h1vec_generation = None
+    
+        destination = self._committed_h1vec_divdiv
+    
+        for row in range(3):
+            for col in range(3):
+                source_block = source_divdiv_operator.matrix[row, col]
+                destination_block = destination.matrix[row, col]
+    
+                if (
+                    source_block._data.shape
+                    != destination_block._data.shape
+                ):
+                    raise ValueError(
+                        "Cannot publish div-div block "
+                        f"({row}, {col}): incompatible storage shapes."
+                    )
+    
+                destination_block._data[:] = source_block._data
+    
+        destination._rho_values[:] = (
+            source_divdiv_operator.rho_values
+        )
+        # WMMnew already contains the accepted density's mass matrix.
+        self.publish_committed_WMMnew()
+        self._committed_h1vec_generation = (
+            rho_variable.generation
+        )
+        self._committed_h1vec_valid = True
+
+    def invalidate_committed_WMMnew(self):
+        """
+        Mark WMMnew as containing a temporary or unknown density.
+        """
+        self._committed_WMMnew_valid = False
+    
+    
+    def publish_committed_WMMnew(self):
+        """
+        Mark WMMnew as containing the current committed density.
+    
+        No assembly is performed.
+        """
+        self._committed_WMMnew_valid = True
+    
+    
+    def ensure_committed_WMMnew(self, rho_variable):
+        """
+        Ensure that WMMnew contains the current committed density.
+    
+        Density evolution should normally publish the final matrix, so this
+        assembly is primarily an allocation/recovery fallback.
+        """
+        mass_operator = self.WMMnew
+    
+        if self._committed_WMMnew_valid:
+            return mass_operator
+    
+        mass_operator.spline_functions[
+            "l2_field"
+        ].vector = rho_variable.spline.vector
+    
+        mass_operator.assemble()
+    
+        self._committed_WMMnew_valid = True
+    
+        return mass_operator
     # Aux classes (to be removed in TODO) #
     #######################################
     class H1vecMassMatrix_density:
@@ -1780,6 +1983,8 @@ class WeightedMassOperator(LinOpWithTransp):
         self._temp_VE = self._V_extraction_op.domain.zeros()
         self._temp_mat = self._mat.domain.zeros()
 
+        self._weight_generation = None
+
         # load assembly kernel
         if not self._matrix_free:
             self._assembly_kernel = Pyccelkernel(
@@ -1885,6 +2090,13 @@ class WeightedMassOperator(LinOpWithTransp):
     @property
     def weights(self):
         return self._weights
+
+    @property
+    def weight_generation(self):
+        return self._weight_generation
+    
+    def mark_weight_generation(self, generation):
+        self._weight_generation = generation
 
     def dot(self, v, out=None, apply_bc=True):
         """Dot product of the operator with a vector.
@@ -2976,6 +3188,24 @@ class H1vecDivDivOperator(LinOpWithTransp):
 
         raise NotImplementedError("toarray() is not implemented with extraction or boundary operators.")
 
+    def copy_matrix_to(self, destination):
+        """Copy the assembled tensor matrix into another compatible operator."""
+        if not isinstance(destination, H1vecDivDivOperator):
+            raise TypeError(
+                "destination must be an H1vecDivDivOperator."
+            )
+    
+        for row in range(3):
+            for col in range(3):
+                source_block = self._mat[row, col]
+                destination_block = destination._mat[row, col]
+    
+                if source_block._data.shape != destination_block._data.shape:
+                    raise ValueError(
+                        "Incompatible div-div stencil storage."
+                    )
+    
+                destination_block._data[:] = source_block._data
 
 class StencilMatrixFreeMassOperator(LinOpWithTransp):
     r"""Class implementing matrix-free weighted mass operators between StencilVectorSpaces.

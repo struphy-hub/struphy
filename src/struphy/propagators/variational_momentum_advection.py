@@ -150,40 +150,41 @@ class VariationalMomentumAdvection(Propagator):
                 f"kind_map={self.domain.kind_map} is not currently supported."
             )
 
-        # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        rho = self.rho.spline.vector
 
         if self._with_regularization:
-            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
-                self._metric_alpha,
+            self.mass_ops.ensure_committed_h1vec_metric(
+                self.rho,
             )
-
+            
+            self._kinetic_metric = (
+                self.mass_ops.get_committed_h1vec_metric(
+                    self._metric_alpha,
+                )
+            )
+        
+            self._Mrho = self._kinetic_metric.mass_operator
             self._Kdivrho = self._kinetic_metric.divdiv_operator
-
-            self._kinetic_metric.update_weight_if_needed(rho, self.rho.generation)
-
             self._momentum_operator = self._kinetic_metric
-            # pc = H1vecKineticMetricWoodburyPreconditioner(
-            #                     self._kinetic_metric,
-            #                     auxiliary_nsteps=5,
-            #                     spectral_iterations=8,
-            #                     spectral_safety=1.5,
-            #     )
-            pc = H1vecKineticMetricPreconditioner(self._kinetic_metric)
+        
+            self._momentum_pc = H1vecKineticMetricPreconditioner(
+                self._kinetic_metric,
+            )
+        
         else:
             self._Kdivrho = None
             self._kinetic_metric = None
-
-            self._Mrho.spline_functions["l2_field"].vector = rho
-            self._Mrho.assemble()
-
+        
+            self._Mrho = self.mass_ops.update_committed_WMMnew(
+                self.rho,
+            )
             self._momentum_operator = self._Mrho
-            pc = MassMatrixDiagonalPreconditioner(self._momentum_operator)
+        
+            self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                self._momentum_operator,
+            )
 
-        self._momentum_pc = pc
-
-        self._momentum_solve = inverse(
+        self._momentum_inv = inverse(
             self._momentum_operator,
             "pcg",
             pc=self._momentum_pc,
@@ -212,7 +213,7 @@ class VariationalMomentumAdvection(Propagator):
         self.derivative = self._momentum_operator + self._dt2_brack
 
         self.inv_derivative = inverse(
-            self._momentum_pc @ self.derivative,
+            self._momentum_inv @ self.derivative,
             "gmres",
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
@@ -355,7 +356,7 @@ class VariationalMomentumAdvection(Propagator):
             self._tmp_diff += advection
 
             err = float(
-                self._momentum_solve.dot_inner(
+                self._momentum_inv.dot_inner(
                     self._tmp_diff,
                     self._tmp_diff,
                 )
@@ -414,7 +415,7 @@ class VariationalMomentumAdvection(Propagator):
             mn1 = self._tmp_mn1
 
             # Recover velocity from momentum.
-            self._momentum_solve.dot(
+            self._momentum_inv.dot(
                 mn1,
                 out=self._tmp_un1,
             )
@@ -468,31 +469,26 @@ class VariationalMomentumAdvection(Propagator):
     def _get_error_newton(self, mn_diff):
         err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
         return err_u
-
     @profile
     def _update_momentum_operator(self, rho):
-        """Update the density-weighted momentum metric and preconditioner."""
-
-        if self._with_regularization:
-            metric_changed = self._kinetic_metric.update_weight_if_needed(
-                rho,
-                self.rho.generation,
-            )
-        else:
-            self._Mrho.spline_functions["l2_field"].vector = rho
-            self._Mrho.assemble()
-            metric_changed = True
-
-        if not metric_changed:
-            return
-
-        pc = self._momentum_pc
-
-        if isinstance(pc, H1vecKineticMetricPreconditioner):
-            pc.update_metric(self._kinetic_metric)
-
-        elif isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
-            pc.update_metric(self._kinetic_metric)
-
-        elif isinstance(pc, MassMatrixDiagonalPreconditioner):
-            pc.update_mass_operator(self._Mrho)
+            """Update the metric from the current committed density."""
+        
+            if self._with_regularization:
+                self.mass_ops.ensure_committed_h1vec_metric(
+                    self.rho,
+                )
+            else:
+                self._Mrho = self.mass_ops.ensure_committed_WMMnew(
+                    self.rho,)
+            
+            if not hasattr(self, "_momentum_inv"):
+                return
+        
+            pc = self._momentum_inv._options.get("pc")
+        
+            if isinstance(pc, H1vecKineticMetricPreconditioner):
+                pc.update_metric(self._kinetic_metric)
+        
+            elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+                pc.update_mass_operator(self._Mrho)
+           

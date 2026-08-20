@@ -209,49 +209,46 @@ class VariationalMagFieldEvolve(Propagator):
         # Density-weighted H1vec mass operator. Its assembly normally happens in
         # VariationalDensityEvolve, but the magnetic propagator explicitly updates
         # it below so that it does not depend on propagator ordering.
+        rho = self.rho.spline.vector
         self._Mrho = self.mass_ops.WMMnew
-
+        
         if self._with_regularization:
-            if self.rho is None:
-                raise ValueError("VariationalMagFieldEvolve requires rho when with_regularization=True.")
-
-            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
-                self._metric_alpha,
+            self.mass_ops.ensure_committed_h1vec_metric(
+                self.rho,
             )
-
+            
+            self._kinetic_metric = (self.mass_ops.get_committed_h1vec_metric(
+                    self._metric_alpha,
+                )
+            )
+            
+            self._Mrho = self._kinetic_metric.mass_operator
             self._Kdivrho = self._kinetic_metric.divdiv_operator
-
-            # Assemble M_rho and K_div,rho with the current density.
-            self._kinetic_metric.update_weight(
-                self.rho.spline.vector,
-            )
-
-            self._kinetic_metric.update_weight_if_needed(
-                self.rho.spline.vector,
-                self.rho.generation,
-            )
-
             self._momentum_operator = self._kinetic_metric
-            # pc = H1vecKineticMetricWoodburyPreconditioner(
-            #                     self._kinetic_metric,
-            #                     auxiliary_nsteps=1,
-            #                     spectral_iterations=4,
-            #                     spectral_safety=1.5,
-            #     )
-            pc = H1vecKineticMetricPreconditioner(self._kinetic_metric)
+            pc = H1vecKineticMetricPreconditioner(
+                self._kinetic_metric,
+            )
         else:
+            self.mass_ops.update_committed_WMMnew(self.rho)
+        
             self._Kdivrho = None
             self._kinetic_metric = None
             self._momentum_operator = self._Mrho
-
-            # Preserve compatibility with models which do not pass rho explicitly.
-            if self.rho is not None:
-                self._Mrho.spline_functions["l2_field"].vector = self.rho.spline.vector
-                self._Mrho.assemble()
-
-            pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        
+            pc = MassMatrixDiagonalPreconditioner(
+                self._Mrho,
+            )
 
         self._momentum_pc = pc
+        self._momentum_inv = inverse(
+            self._momentum_operator,
+            "pcg",
+            pc=self._momentum_pc,
+            tol=1.0e-10,  # or the original value
+            maxiter=500,
+            verbose=False,
+            recycle=True,
+        )
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -280,62 +277,35 @@ class VariationalMagFieldEvolve(Propagator):
 
         if self._linearize:
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
-
+    @profile
     def __call__(self, dt):
-        self._update_momentum_operator()
+        rho = self.rho.spline.vector
+        self._update_momentum_operator(rho)
         self.__call_newton(dt)
-
-    def _update_momentum_operator(self):
-        """Update the fixed-density momentum metric and preconditioner."""
-
-        if self.rho is None:
-            raise ValueError("VariationalMagFieldEvolve requires a density variable.")
-
-        if self._with_regularization:
-            changed = self._kinetic_metric.update_weight_if_needed(
-                self.rho.spline.vector,
-                self.rho.generation,
-            )
-        else:
-            generation = self.rho.generation
-            changed = getattr(self, "_rho_generation", None) != generation
-
-            if changed:
-                self._Mrho.spline_functions["l2_field"].vector = self.rho.spline.vector
-                self._Mrho.assemble()
-                self._rho_generation = generation
-
-        if not changed:
-            return
-
-        pc = self._momentum_pc
-
-        if isinstance(
-            pc,
-            H1vecKineticMetricPreconditioner,
-        ):
-            if not self._with_regularization:
-                raise TypeError("H1vecKineticMetricPreconditioner requires the regularized kinetic metric.")
-
-            pc.update_metric(self._kinetic_metric)
-
-        elif isinstance(
-            pc,
-            H1vecKineticMetricWoodburyPreconditioner,
-        ):
-            if not self._with_regularization:
-                raise TypeError("H1vecKineticMetricWoodburyPreconditioner requires the regularized kinetic metric.")
-
-            pc.update_metric(self._kinetic_metric)
-
-        elif isinstance(
-            pc,
-            MassMatrixDiagonalPreconditioner,
-        ):
+    
+    @profile
+    def _update_momentum_operator(self, rho):
+            """Update the metric from the current committed density."""
+        
             if self._with_regularization:
-                raise TypeError("MassMatrixDiagonalPreconditioner cannot represent the regularized kinetic metric.")
-
-            pc.update_mass_operator(self._Mrho)
+                self.mass_ops.ensure_committed_h1vec_metric(
+                    self.rho,
+                )
+            else:
+                self._Mrho = self.mass_ops.ensure_committed_WMMnew(
+                    self.rho,)
+            
+            if not hasattr(self, "_momentum_inv"):
+                return
+        
+            pc = self._momentum_inv._options.get("pc")
+        
+            if isinstance(pc, H1vecKineticMetricPreconditioner):
+                pc.update_metric(self._kinetic_metric)
+        
+            elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+                pc.update_mass_operator(self._Mrho)
+           
 
     def __call_newton(self, dt):
         """Advance magnetic field and velocity using Newton iteration."""
@@ -637,7 +607,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._momentum_pc,
+            pc=self._momentum_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,

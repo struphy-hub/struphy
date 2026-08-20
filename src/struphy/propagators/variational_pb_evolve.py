@@ -295,12 +295,8 @@ class VariationalPBEvolve(Propagator):
         self._create_linear_form_p()
 
         if self._model == "linear":
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(
-                self.projected_equil.b2
-            )
-            self._extracted_p3 = self.derham.extraction_ops["3"].dot(
-                self.projected_equil.p3
-            )
+            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
+            self._extracted_p3 = self.derham.extraction_ops["3"].dot(self.projected_equil.p3)
 
     def __call__(self, dt):
         if self._nonlin_solver.type == "Picard":
@@ -310,88 +306,86 @@ class VariationalPBEvolve(Propagator):
 
     def __call_picard(self, dt):
         """Advance u, B, and p with midpoint Picard coupling."""
-    
+
         if self._info:
             logger.info("")
             logger.info("Picard iteration in VariationalPBEvolve")
-    
+
         un = self.variables.u.spline.vector
         pn = self.variables.p.spline.vector
         bn = self.variables.b.spline.vector
-    
+
         # Values from the previous time step.
         mn = self._Mrho.dot(un, out=self._tmp_mn)
-    
+
         # Initial Picard guesses, using the previous time-step increments.
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-    
+
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
-    
+
         pn1 = pn.copy(out=self._tmp_pn1)
         pn1 += self._tmp_pn_diff
-    
+
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
-    
+
         tol = self._nonlin_solver.tol
         err = tol + 1.0
-    
+
         for it in range(self._nonlin_solver.maxiter):
             # --------------------------------------------------------------
             # Current midpoint Picard iterates
             # --------------------------------------------------------------
-    
+
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
-    
+
             bn12 = bn.copy(out=self._tmp_bn12)
             bn12 += bn1
             bn12 *= 0.5
-    
+
             pn12 = pn.copy(out=self._tmp_pn12)
             pn12 += pn1
             pn12 *= 0.5
-    
+
             # --------------------------------------------------------------
             # Update transport operators with the appropriate fields
             # --------------------------------------------------------------
-    
+
             if self._model == "linear":
                 # The linear model stores total fields. Its variable
                 # transport operators must therefore be weighted by the
                 # perturbations B - B0 and p - p0.
                 bn12 -= self._extracted_b2
                 pn12 -= self._extracted_p3
-    
+
                 self._update_Pib(bn12)
                 self._update_Projp(pn12)
-    
+
             elif self._model == "deltaf":
                 # In the delta-f model, bn12 and pn12 are perturbations.
                 # The equilibrium contributions are represented separately
                 # by curlPib0 and _transop_p0.
                 self._update_Pib(bn12)
                 self._update_Projp(pn12)
-    
+
             elif self._model == "full_p":
                 # In the full-p model, use the full midpoint fields.
                 self._update_Pib(bn12)
                 self._update_Projp(pn12)
-    
+
             else:
-                raise ValueError(
-                    f"Unsupported VariationalPBEvolve model: {self._model}"
-                )
-    
+                raise ValueError(f"Unsupported VariationalPBEvolve model: {self._model}")
+
             # Magnetic-energy derivative at the midpoint.
             self._update_linear_form_dl_db(bn, bn1)
-    
+
             # --------------------------------------------------------------
             # Momentum, magnetic, and pressure transport terms
             # --------------------------------------------------------------
-    
+
             if self._model == "linear":
                 # Linearized Lorentz force:
                 #
@@ -400,156 +394,153 @@ class VariationalPBEvolve(Propagator):
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
                 )
-    
+
                 advection += self.curlPibT.dot(
                     self._linear_form_dl_db0,
                     out=self._tmp_advection2,
                 )
-    
+
                 # Linear pressure force from delta-p.
                 advection += self._transop_pT.dot(
                     self._linear_form_dl_dp,
                     out=self._tmp_advection2,
                 )
-    
+
                 # Linear induction equation uses B0.
                 b_advection = self.curlPib0.dot(
                     un12,
                     out=self._tmp_b_advection,
                 )
-    
+
                 # Linear pressure equation uses p0 and midpoint velocity.
                 p_advection = self._transop_p0.dot(
                     un12,
                     out=self._tmp_p_advection,
                 )
-    
+
             elif self._model == "deltaf":
                 # Equilibrium and perturbation magnetic forces.
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
                 )
-    
+
                 advection += self.curlPibT.dot(
                     self._linear_form_dl_db0,
                     out=self._tmp_advection2,
                 )
-    
+
                 advection += self.curlPibT.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection2,
                 )
-    
+
                 # Perturbed pressure force.
                 advection += self._transop_pT.dot(
                     self._linear_form_dl_dp,
                     out=self._tmp_advection2,
                 )
-    
+
                 # Induction with B0 + delta-B.
                 b_advection = self.curlPib0.dot(
                     un12,
                     out=self._tmp_b_advection,
                 )
-    
+
                 b_advection += self.curlPib.dot(
                     un12,
                     out=self._tmp_b_advection2,
                 )
-    
+
                 # Pressure evolution with p0 + delta-p.
                 p_advection = self._transop_p0.dot(
                     un12,
                     out=self._tmp_p_advection,
                 )
-    
+
                 p_advection += self._transop_p.dot(
                     un12,
                     out=self._tmp_p_advection2,
                 )
-    
+
             else:
                 # Full-p momentum equation.
                 advection = self.curlPibT.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
                 )
-    
+
                 advection += self._transop_pT.dot(
                     self._linear_form_dl_dp,
                     out=self._tmp_advection2,
                 )
-    
+
                 # Full induction and pressure equations.
                 b_advection = self.curlPib.dot(
                     un12,
                     out=self._tmp_b_advection,
                 )
-    
+
                 p_advection = self._transop_p.dot(
                     un12,
                     out=self._tmp_p_advection,
                 )
-    
+
             advection *= dt
             b_advection *= dt
             p_advection *= dt
-    
+
             # --------------------------------------------------------------
             # Residuals
             # --------------------------------------------------------------
-    
+
             bn_diff = bn1.copy(out=self._tmp_bn_diff)
             bn_diff -= bn
             bn_diff += b_advection
-    
+
             mn_diff = mn1.copy(out=self._tmp_mn_diff)
             mn_diff -= mn
             mn_diff += advection
-    
+
             # Pressure is determined from the current midpoint velocity and
             # midpoint pressure operator. On the next Picard iteration, pn1
             # feeds back into pn12 and therefore into the momentum equation.
             pn1 = pn.copy(out=self._tmp_pn1)
             pn1 -= p_advection
-    
+
             err = self._get_error(mn_diff, bn_diff)
-    
+
             if self._info:
                 logger.info(f"iteration: {it}, error: {err}")
-    
+
             if err < tol**2 or xp.isnan(err):
                 break
-    
+
             # --------------------------------------------------------------
             # Picard/Newton correction of velocity and magnetic field
             # --------------------------------------------------------------
-    
+
             self._get_jacobian(dt)
-    
+
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = bn_diff
-    
+
             incr = self._inv_Jacobian.dot(
                 self._tmp_f,
                 out=self._tmp_incr,
             )
-    
+
             if self._info:
-                logger.info(
-                    "information on the linear solver: "
-                    f"{self._inv_Jacobian._solver._info}"
-                )
-    
+                logger.info(f"information on the linear solver: {self._inv_Jacobian._solver._info}")
+
             un1 -= incr[0]
             bn1 -= incr[1]
-    
+
             mn1 = self._Mrho.dot(
                 un1,
                 out=self._tmp_mn1,
             )
-    
+
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 "!!! Warning: maximum iteration in "
@@ -557,38 +548,38 @@ class VariationalPBEvolve(Propagator):
                 f"{err =}\n"
                 f"{tol**2 =}"
             )
-    
+
         # Save increments for the initial guess at the next time step.
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
         self._tmp_pn_diff = pn1 - pn
-    
+
         self.update_feec_variables(
             p=pn1,
             b=bn1,
             u=un1,
         )
-    
+
         # --------------------------------------------------------------
         # Diagnostics
         # --------------------------------------------------------------
-    
+
         if self._divu is not None:
             self._transop_p.div.dot(
                 un12,
                 out=self._divu,
             )
-    
+
         if self._u2 is not None:
             self._transop_p._Uv.dot(
                 un1,
                 out=self._u2,
             )
-    
+
         # --------------------------------------------------------------
         # Optional second-order variables
         # --------------------------------------------------------------
-    
+
         if self._pt3 is not None:
             p_advection = self._transop_p.dot(
                 un12,
@@ -596,7 +587,7 @@ class VariationalPBEvolve(Propagator):
             )
             p_advection *= dt
             self._pt3 -= p_advection
-    
+
         if self._bt2 is not None:
             b_advection = self.curlPib.dot(
                 un12,
@@ -604,7 +595,6 @@ class VariationalPBEvolve(Propagator):
             )
             b_advection *= dt
             self._bt2 -= b_advection
-
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -721,10 +711,8 @@ class VariationalPBEvolve(Propagator):
     def _create_Pib0(self):
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
         self.curlPibT0 = self.curlPib0.T
-    
-        self.curlPib0.update_coeffs(self.projected_equil.b2)
 
-   
+        self.curlPib0.update_coeffs(self.projected_equil.b2)
 
     def _update_Projp(self, p):
         """Update the weights of the `BasisProjectionOperator`"""
@@ -741,14 +729,14 @@ class VariationalPBEvolve(Propagator):
 
     def _update_linear_form_dl_db(self, bn, bn1):
         """Form the magnetic-energy derivative."""
-    
+
         bn12 = bn.copy(out=self._tmp_bn12)
         bn12 += bn1
         bn12 *= 0.5
-    
+
         if self._model == "linear":
             bn12 -= self._extracted_b2
-    
+
         wb = self.mass_ops.M2.dot(
             bn12,
             out=self._linear_form_dl_db,

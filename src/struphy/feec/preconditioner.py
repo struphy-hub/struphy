@@ -876,6 +876,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def transpose(self, conjugate=False):
         return self
 
+    @profile
     def _solve_no_bc(self, rhs, out):
         r"""
         Apply
@@ -930,7 +931,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         )
 
         return out
-
+    @profile
     def _solve_with_core(self, rhs, out, core_solver):
         """
         Apply a supplied tensor-space inverse while preserving the existing

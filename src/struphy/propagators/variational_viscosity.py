@@ -245,10 +245,16 @@ class VariationalViscosity(Propagator):
             self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
                 self._metric_alpha,
             )
-            self._Kdivrho = self._kinetic_metric.divdiv_operator
+            self._Kdivrho = self.mass_ops.committed_h1vec_divdiv()
 
             # Assemble both M_rho and K_div,rho with the current density.
-            self._kinetic_metric.update_weight(rho)
+            self.mass_ops.update_committed_WMMnew(self.rho)
+
+            self._kinetic_metric.update_weight(
+                rho,
+                update_mass=False,
+                update_divdiv=True,
+            )
 
             self._momentum_operator = self._kinetic_metric
             self._momentum_pc = H1vecKineticMetricPreconditioner(
@@ -924,41 +930,26 @@ class VariationalViscosity(Propagator):
         grad_u_norm += dt * self._mu
     
         return grad_u_norm
-
     def _update_momentum_operator(self, rho):
-        """Update the fixed-density momentum metric and its preconditioner.
-
-        Without regularization, the momentum metric is M_rho. With
-        regularization, it is
-
-            M_rho + 2 * alpha_divdiv * K_div,rho.
-
-        The operator is fixed during one viscosity substep.
-        """
+        """Update the metric from the committed density."""
+    
         if self._with_regularization:
-            metric_changed = self._kinetic_metric.update_weight_if_needed(
-                rho,
-                self.rho.generation,
-            )
+            self.mass_ops.update_committed_WMMnew(self.rho)
+            self.mass_ops.update_committed_h1vec_divdiv(self.rho)
         else:
-            self._Mrho.spline_functions["l2_field"].vector = rho
-            self._Mrho.assemble()
-            metric_changed = True
-
-        if not metric_changed:
+            self.mass_ops.update_committed_WMMnew(self.rho)
+    
+        if not hasattr(self, "_momentum_inv"):
             return
-
-        pc = self._momentum_pc
-
+    
+        pc = self._momentum_inv._options.get("pc")
+    
         if isinstance(pc, H1vecKineticMetricPreconditioner):
             pc.update_metric(self._kinetic_metric)
-
-        elif isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
-            pc.update_metric(self._kinetic_metric)
-
+    
         elif isinstance(pc, MassMatrixDiagonalPreconditioner):
             pc.update_mass_operator(self._Mrho)
-
+    
     def _get_energy_change(self, un, un1, dt, total_viscosity):
         """Return the total energy change caused by the viscosity"""
         un12 = un.copy(out=self._tmp_un12)

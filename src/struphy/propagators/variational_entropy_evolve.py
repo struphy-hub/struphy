@@ -212,45 +212,54 @@ class VariationalEntropyEvolve(Propagator):
             )
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
-
-        # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-
         rho = self.rho.spline.vector
 
+        # This object is shared by the committed-density metrics.
+        self._Mrho = self.mass_ops.WMMnew
+        
         if self._with_regularization:
-            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
-                self._metric_alpha,
+            self.mass_ops.ensure_committed_h1vec_metric(
+                self.rho,
             )
-
+            
+            self._kinetic_metric = (
+                self.mass_ops.get_committed_h1vec_metric(
+                    self._metric_alpha,
+                )
+            )
+        
+            self._Mrho = self._kinetic_metric.mass_operator
             self._Kdivrho = self._kinetic_metric.divdiv_operator
-
-            # Assemble both M_rho and K_div,rho.
-            self._kinetic_metric.update_weight(rho)
-
             self._momentum_operator = self._kinetic_metric
-            pc = H1vecKineticMetricPreconditioner(
+        
+            self._momentum_pc = H1vecKineticMetricPreconditioner(
                 self._kinetic_metric,
             )
+        
         else:
             self._Kdivrho = None
             self._kinetic_metric = None
-
-            # Do not rely exclusively on VariationalDensityEvolve having
-            # assembled this operator previously.
-            self._Mrho.spline_functions["l2_field"].vector = rho
-            self._Mrho.assemble()
-
+        
+            self.mass_ops.update_committed_WMMnew(self.rho)
+        
             self._momentum_operator = self._Mrho
-            # pc = H1vecKineticMetricWoodburyPreconditioner(
-            #                     self._kinetic_metric,
-            #                     auxiliary_nsteps=5,
-            #                     spectral_iterations=8,
-            #                     spectral_safety=1.5,
-            # )
-            pc = MassMatrixDiagonalPreconditioner(self._momentum_operator)
-
-        self._momentum_pc = pc
+        
+            self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                self._momentum_operator,
+            )
+        
+        # Keep the original strong momentum inverse. Using the raw
+        # preconditioner directly in SchurSolverFull was substantially slower
+        # in your measurements.
+        self._momentum_inv = inverse(
+            self._momentum_operator,
+            "pcg",
+            pc=self._momentum_pc,
+            tol=1.0e-16,
+            maxiter=500,
+            verbose=False,
+            recycle=False,
+        )
 
         # Projector
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
@@ -293,7 +302,7 @@ class VariationalEntropyEvolve(Propagator):
         sn = self.variables.s.spline.vector
         un = self.variables.u.spline.vector
 
-        sn1 = sn.copy(out=self._tmp_sn1)
+        
         # Initialize variable for Newton iteration
         rho = self.rho.spline.vector
         self._update_Pis(sn)
@@ -503,11 +512,11 @@ class VariationalEntropyEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._momentum_pc,
+            pc=self._momentum_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
-            recycle=False,
+            recycle=True,
         )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
@@ -575,34 +584,33 @@ class VariationalEntropyEvolve(Propagator):
             self._tmp_int_grid *= -1.0
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_ds)
+
     @profile
     def _update_momentum_operator(self, rho):
-        """Update the fixed-density momentum metric and preconditioner."""
-
+        """Update the metric from the current committed density."""
+    
         if self._with_regularization:
-            metric_changed = self._kinetic_metric.update_weight_if_needed(
-                rho,
-                self.rho.generation,
+            self.mass_ops.ensure_committed_h1vec_metric(
+                self.rho,
             )
         else:
-            self._Mrho.spline_functions["l2_field"].vector = rho
-            self._Mrho.assemble()
-            metric_changed = True
-
-        if not metric_changed:
+            self._Mrho = self.mass_ops.ensure_committed_WMMnew(
+                self.rho,)
+        
+        if not hasattr(self, "_momentum_inv"):
             return
-
-        pc = self._momentum_pc
-
+    
+        pc = self._momentum_inv._options.get("pc")
+    
         if isinstance(pc, H1vecKineticMetricPreconditioner):
             pc.update_metric(self._kinetic_metric)
-
-        elif isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
-            pc.update_metric(self._kinetic_metric)
-
+    
         elif isinstance(pc, MassMatrixDiagonalPreconditioner):
             pc.update_mass_operator(self._Mrho)
-
+       
+    
+        
+    
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:
             self._energy_evaluator.evaluate_exact_de_ds_grid(

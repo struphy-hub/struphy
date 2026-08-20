@@ -248,13 +248,31 @@ class VariationalDensityEvolve(Propagator):
             rhotmp = rho
 
         if self._with_regularization:
-            self._kinetic_metric = self.mass_ops.get_h1vec_kinetic_metric(
-                self._metric_alpha,
+            # WMMnew is shared with the committed metric cache. Density Newton
+            # is about to overwrite it with a private iterate, so invalidate the
+            # committed cache first.
+            self.mass_ops.invalidate_committed_h1vec_metric()
+        
+            self._Kdivrho = self.mass_ops.create_h1vec_div_div(
+                name="DensityNewtonH1vecDivDiv",
             )
-            self._Kdivrho = self._kinetic_metric.divdiv_operator
-
+        
+            self._kinetic_metric = H1vecKineticMetric(
+                self._Mrho,
+                self._Kdivrho,
+                alpha=self._metric_alpha,
+            )
+        
+            # Assemble before constructing the preconditioner.
             self._kinetic_metric.update_weight(rhotmp)
-
+        
+            # The initial FEEC density has already been committed, and the private
+            # metric now corresponds to it.
+            self.mass_ops.publish_committed_h1vec_metric(
+                self._Kdivrho,
+                self.variables.rho,
+            )
+            
             self._momentum_operator = self._kinetic_metric
             self._momentum_pc = H1vecKineticMetricPreconditioner(
                 self._kinetic_metric,
@@ -262,12 +280,21 @@ class VariationalDensityEvolve(Propagator):
         else:
             self._Mrho.spline_functions["l2_field"].vector = rhotmp
             self._Mrho.assemble()
-
+        
             self._Kdivrho = None
             self._kinetic_metric = None
             self._momentum_operator = self._Mrho
             self._momentum_pc = MassMatrixDiagonalPreconditioner(
                 self._Mrho,
+            )
+        self._momentum_inv = inverse(
+                self._momentum_operator,
+                "pcg",
+                pc=self._momentum_pc,
+                tol=1.0e-10,
+                maxiter=500,
+                verbose=False,
+                recycle=False,
             )
 
         # FEM fields used by the projector.
@@ -445,6 +472,7 @@ class VariationalDensityEvolve(Propagator):
         stagnation_count = 0
         converged = False
         accepted_by_stagnation = False
+        metric_matches_rho1 = True
 
         # ---------------------------------------------------------------
         # Newton iteration
@@ -595,6 +623,7 @@ class VariationalDensityEvolve(Propagator):
 
             un1 -= incr[0]
             rhon1 -= incr[1]
+            metric_matches_rho1 = False
 
             # Reassemble the density-dependent momentum operator and update
             # the momentum of the current Newton iterate.
@@ -606,6 +635,7 @@ class VariationalDensityEvolve(Propagator):
                 rho1 = rhon1
 
             self._update_momentum_operator(rho1)
+            metric_matches_rho1 = True
 
             self._momentum_operator.dot(
                 un1,
@@ -653,11 +683,34 @@ class VariationalDensityEvolve(Propagator):
         rhon1.copy(out=self._tmp_rhon_diff)
         self._tmp_rhon_diff -= rhon
 
-        self.update_feec_variables(
-            rho=rhon1,
-            u=un1,
-        )
+        
+        if self._model in ("deltaf", "deltaf_q"):
+            rhon1.copy(out=self._tmp_rho_deltaf)
+            self._tmp_rho_deltaf += self.projected_equil.n3
+            final_metric_rho = self._tmp_rho_deltaf
+        else:
+            final_metric_rho = rhon1
+        
+        if self._with_regularization and not metric_matches_rho1:
+            self.mass_ops.invalidate_committed_h1vec_metric()
+        
+            self._kinetic_metric.update_weight(
+                final_metric_rho,
+            )
+            metric_matches_rho1 = True
+        
+        self.update_feec_variables(rho=rhon1, u=un1)
+                
+        if self._with_regularization:
+            self.mass_ops.publish_committed_h1vec_metric(
+                        self._Kdivrho,
+                        self.variables.rho,
+                    )
+        else:
+            self.mass_ops.publish_committed_WMMnew()
 
+             
+        
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
@@ -741,7 +794,7 @@ class VariationalDensityEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             "pbicgstab",
-            pc=self._momentum_pc,
+            pc=self._momentum_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -812,44 +865,32 @@ class VariationalDensityEvolve(Propagator):
         *,
         update_preconditioner=True,
     ):
-        """Update the density-dependent momentum operator."""
-
+        # WMMnew is about to represent a temporary Newton state.
+        self.mass_ops.invalidate_committed_WMMnew()
+    
         if self._with_regularization:
-            # rho may be a Newton iterate, while FEECVariable.generation remains
-            # unchanged. Therefore update_weight_if_needed() is invalid here.
+            self.mass_ops.invalidate_committed_h1vec_metric()
             self._kinetic_metric.update_weight(rho)
         else:
-            self._Mrho.spline_functions["l2_field"].vector = rho
+            self._Mrho.spline_functions[
+                "l2_field"
+            ].vector = rho
             self._Mrho.assemble()
-
+    
         if not update_preconditioner:
             return
-
-        pc = self._momentum_pc
-
-        logger.debug(
-            "In VariationalDensityEvolve: preconditioner = %s",
-            pc,
-        )
-
-        if isinstance(pc, H1vecKineticMetricWoodburyPreconditioner):
-            if not self._with_regularization:
-                raise TypeError("The Woodbury preconditioner requires the regularized kinetic metric.")
-            pc.update_metric(
-                self._kinetic_metric,
-                update_spectrum=True,
-            )
-
-        elif isinstance(pc, H1vecKineticMetricPreconditioner):
-            if not self._with_regularization:
-                raise TypeError("H1vecKineticMetricPreconditioner requires the regularized kinetic metric.")
+    
+        if not hasattr(self, "_momentum_inv"):
+            return
+    
+        pc = self._momentum_inv._options.get("pc")
+    
+        if isinstance(pc, H1vecKineticMetricPreconditioner):
             pc.update_metric(self._kinetic_metric)
-
+    
         elif isinstance(pc, MassMatrixDiagonalPreconditioner):
-            if self._with_regularization:
-                raise TypeError("MassMatrixDiagonalPreconditioner cannot represent the regularized kinetic metric.")
             pc.update_mass_operator(self._Mrho)
-
+        
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""
 

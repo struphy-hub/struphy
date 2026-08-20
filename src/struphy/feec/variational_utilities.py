@@ -8,6 +8,7 @@ from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilMatrix
+from line_profiler import profile
 
 from struphy.feec import mass_kernels, preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -1475,11 +1476,31 @@ class H1vecKineticMetric(LinOpWithTransp):
     def alpha(self):
         return self._alpha
 
-    @property
-    def update_weight(self, rho):
+    def update_mass_weight(self, rho):
+        """Reassemble only the density-weighted H1vec mass operator."""
         self.mass_operator.spline_functions["l2_field"].vector = rho
         self.mass_operator.assemble()
+    
+    
+    def update_divdiv_weight(self, rho):
+        """Reassemble only the density-weighted div-div operator."""
         self.divdiv_operator.update_weight(rho)
+    
+    
+    def update_weight(
+        self,
+        rho,
+        *,
+        update_mass=True,
+        update_divdiv=True,
+    ):
+        """Update selected density-dependent parts of the metric."""
+    
+        if update_mass:
+            self.update_mass_weight(rho)
+    
+        if update_divdiv:
+            self.update_divdiv_weight(rho)
 
     def update_weight_if_needed(self, rho, generation):
         if getattr(self, "_rho_generation", None) == generation:
