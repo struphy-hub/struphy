@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 
@@ -17,7 +18,6 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing import pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -92,7 +92,7 @@ class CurrentCoupling5DCurlb(Propagator):
         @energetic_ions.setter
         def energetic_ions(self, new):
             assert isinstance(new, PICVariable)
-            assert new.space == "Particles5D"
+            assert "Particles5D" in new.space
             self._energetic_ions = new
 
     def __init__(self, b_tilde: FEECVariable = None):
@@ -188,7 +188,7 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._b2 = self.projected_equil.b2
 
         # scaling factor
@@ -203,7 +203,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._ACC = Accumulator(
             self.variables.energetic_ions.particles,
             self.options.u_space,
-            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_curlb),
+            PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_curlb),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -220,19 +220,19 @@ class CurrentCoupling5DCurlb(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_form_int,
         )
 
         # define Pusher
         if self.options.u_space == "Hcurl":
-            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
+            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
         elif self.options.u_space == "Hdiv":
-            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
+            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
         elif self.options.u_space == "H1vec":
-            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
+            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
         else:
             raise ValueError(
                 f'{self.options.u_space  =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -247,9 +247,9 @@ class CurrentCoupling5DCurlb(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_avg[0]._data,
             self._u_avg[1]._data,
             self._u_avg[2]._data,

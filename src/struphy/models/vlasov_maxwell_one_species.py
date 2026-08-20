@@ -2,6 +2,7 @@ import copy
 import logging
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
@@ -21,7 +22,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
@@ -147,7 +147,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         particles_to_grid = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            Pyccelkernel(accum_kernels.charge_density_0form),
+            PyccelKernel(accum_kernels.charge_density_0form),
         )
 
         self.initial_poisson = PoissonSolve(
@@ -200,7 +200,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         logger.info("... Done.")
 
         # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
+        particles.weights = particles.weights0.copy()
 
     def calculate_gauss_error(self):
         # control variate method
@@ -209,7 +209,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.charge_accum()
         rhs = self.charge_accum.vectors[0]
         # reset particle weights
-        particles.weights = particles.weights_at_t0.copy()
+        particles.weights = particles.weights0.copy()
 
         # non control variate method
         e = self.em_fields.e_field.spline.vector
@@ -223,8 +223,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # logger.info(f"{loc_residual = }")
 
         # return the maximum residual across all MPI rank
-        particles._gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
-        particles._gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
+        particles.gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
+        particles.gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
 
         return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
 

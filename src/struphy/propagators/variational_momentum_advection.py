@@ -5,6 +5,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import (
@@ -276,7 +277,11 @@ class VariationalMomentumAdvection(Propagator):
                 break
 
             # Newton step
-            pc_diff = self._momentum_pc.dot(diff, out=self._tmp__pc_diff)
+            
+            with ProfileManager.profile_region(self._solve_region):
+                # pc_diff = self._Mrho_inv.dot(diff, out=self._tmp__pc_diff)
+                pc_diff = self._momentum_pc.dot(diff, out=self._tmp__pc_diff)
+
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
                 logger.info(

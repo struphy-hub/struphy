@@ -1,9 +1,11 @@
 import logging
 from dataclasses import dataclass
 
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -13,7 +15,6 @@ from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -184,7 +185,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._accumulator = Accumulator(
             particles,
             self.options.u_space,
-            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_1),
+            PyccelKernel(accum_kernels.cc_lin_mhd_6d_1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
@@ -286,7 +287,8 @@ class CurrentCoupling6DDensity(Propagator):
         rhs = rhs.dot(un, out=self._rhs_v)
         self._solver.linop = lhs
 
-        un1 = self._solver.solve(rhs, out=self._u_new)
+        with ProfileManager.profile_region(self._solve_region):
+            un1 = self._solver.solve(rhs, out=self._u_new)
         info = self._solver._info
 
         # write new coeffs into Propagator.variables

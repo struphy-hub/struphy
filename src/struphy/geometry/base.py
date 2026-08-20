@@ -8,6 +8,8 @@ from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
 import h5py
+import numpy as np
+from cunumpy import PyccelKernel
 from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
@@ -19,6 +21,13 @@ from struphy.linear_algebra import linalg_kron
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
+
+
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for passing to compiled kernels."""
+    if hasattr(value, "get"):  # CuPy array
+        return value.get()
+    return value
 
 
 class DomainMeta(ABCMeta):
@@ -209,17 +218,17 @@ class Domain(metaclass=DomainMeta):
 
         self._args_domain = DomainArguments(
             self.kind_map,
-            self.params_numpy,
-            xp.array(self.degree),
-            self.T[0],
-            self.T[1],
-            self.T[2],
-            self.indN[0],
-            self.indN[1],
-            self.indN[2],
-            self.cx.copy(),  # make sure we don't have stride = 0
-            self.cy.copy(),  # make sure we don't have stride = 0
-            self.cz.copy(),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.params_numpy),
+            _to_numpy_for_kernel(xp.array(self.degree)),
+            _to_numpy_for_kernel(self.T[0]),
+            _to_numpy_for_kernel(self.T[1]),
+            _to_numpy_for_kernel(self.T[2]),
+            _to_numpy_for_kernel(self.indN[0]),
+            _to_numpy_for_kernel(self.indN[1]),
+            _to_numpy_for_kernel(self.indN[2]),
+            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
         )
         self._mapping_hessian_supported_kinds = (0, 1, 2, 10)
 
@@ -228,16 +237,16 @@ class Domain(metaclass=DomainMeta):
         return DomainArguments(
             self.kind_map,
             self.params_numpy,
-            xp.array(self.degree),
-            self.T[0],
-            self.T[1],
-            self.T[2],
-            self.indN[0],
-            self.indN[1],
-            self.indN[2],
-            self.cx.copy(),  # make sure we don't have stride = 0
-            self.cy.copy(),  # make sure we don't have stride = 0
-            self.cz.copy(),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(xp.array(self.degree)),
+            _to_numpy_for_kernel(self.T[0]),
+            _to_numpy_for_kernel(self.T[1]),
+            _to_numpy_for_kernel(self.T[2]),
+            _to_numpy_for_kernel(self.indN[0]),
+            _to_numpy_for_kernel(self.indN[1]),
+            _to_numpy_for_kernel(self.indN[2]),
+            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
         )
 
     def _can_build_args_domain(self):
@@ -1116,8 +1125,8 @@ class Domain(metaclass=DomainMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-
-            n_inside = evaluation_kernels.kernel_evaluate_pic(
+            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate_pic)
+            n_inside = kernel(
                 markers,
                 which,
                 self.args_domain,
@@ -1160,7 +1169,8 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            evaluation_kernels.kernel_evaluate(
+            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate)
+            kernel(
                 E1,
                 E2,
                 E3,
@@ -1302,20 +1312,24 @@ class Domain(metaclass=DomainMeta):
                 A_has_holes = False
 
             # call evaluation kernel
-            out = xp.empty((markers.shape[0], 3), dtype=float)
+            # Always create output as NumPy since compiled kernels require NumPy arrays
+            out_np = np.empty((markers.shape[0], 3), dtype=float)
 
             # make sure we don't have stride = 0
             A = A.copy()
 
             n_inside = transform_kernels.kernel_pullpush_pic(
-                A,
-                markers,
-                self._transformation_ids[which],
-                kind_int,
-                self.args_domain,
-                out,
-                remove_outside,
+                _to_numpy_for_kernel(A),
+                _to_numpy_for_kernel(markers),
+                _to_numpy_for_kernel(self._transformation_ids[which]),
+                _to_numpy_for_kernel(kind_int),
+                _to_numpy_for_kernel(self.args_domain),
+                out_np,
+                _to_numpy_for_kernel(remove_outside),
             )
+
+            # Convert back to current backend if needed
+            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(1, 0))
@@ -1359,21 +1373,25 @@ class Domain(metaclass=DomainMeta):
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
             # call evaluation kernel
-            out = xp.empty(
+            # Always create output as NumPy since compiled kernels require NumPy arrays
+            out_np = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
             transform_kernels.kernel_pullpush(
-                A,
-                E1,
-                E2,
-                E3,
-                self._transformation_ids[which],
-                kind_int,
-                self.args_domain,
-                is_sparse_meshgrid,
-                out,
+                _to_numpy_for_kernel(A),
+                _to_numpy_for_kernel(E1),
+                _to_numpy_for_kernel(E2),
+                _to_numpy_for_kernel(E3),
+                _to_numpy_for_kernel(self._transformation_ids[which]),
+                _to_numpy_for_kernel(kind_int),
+                _to_numpy_for_kernel(self.args_domain),
+                _to_numpy_for_kernel(is_sparse_meshgrid),
+                out_np,
             )
+
+            # Convert back to current backend if needed
+            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(3, 0, 1, 2))

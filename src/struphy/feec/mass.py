@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Callable
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -28,7 +29,6 @@ from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
@@ -64,6 +64,7 @@ class WeightedMassOperators:
         self._domain = domain
         self._matrix_free = matrix_free
         self._eq_mhd = eq_mhd
+        self._dry_run = False
 
         if self._eq_mhd is None:
             self._eq_mhd = equils.HomogenSlab()
@@ -98,6 +99,77 @@ class WeightedMassOperators:
     def matrix_free(self) -> bool:
         """If set to true will not compute the matrix associated with the operators but directly compute the dot product when called."""
         return self._matrix_free
+
+    @property
+    def dry_run(self) -> bool:
+        """If True, mass operators created from now on do not allocate (nor assemble) their
+        stencil matrices; only their sizes are computed. Set temporarily by :meth:`estimate_mem`."""
+        return self._dry_run
+
+    def estimate_mem(
+        self,
+        names: tuple[str] = ("M0", "M1", "M2", "M3", "Mv"),
+        print_report: bool = False,
+    ) -> dict[str, int]:
+        """Estimate the local (per-MPI-rank) memory footprint of mass matrices, in bytes,
+        without allocating them.
+
+        Each requested operator is created exactly as by the corresponding property (same weights,
+        hence the same zero-block detection), but with ``dry_run=True``, so that only the sizes of
+        its stencil matrices are computed, see
+        :attr:`~struphy.feec.mass.WeightedMassOperator.nbytes`. Operators that have already been
+        created (and hence allocated) report their actual size instead; dry-run operators are not
+        kept in the cache.
+
+        Parameters
+        ----------
+        names : tuple[str]
+            Names of the mass operator properties to estimate, e.g. ``("M0", "M1")``.
+
+        print_report : bool
+            Whether to print the breakdown on MPI rank 0.
+
+        Returns
+        -------
+        dict
+            Mapping ``{name: local_bytes}``.
+        """
+        mem = {}
+
+        self._dry_run = True
+        try:
+            for name in names:
+                assert isinstance(getattr(type(self), name, None), property), (
+                    f"'{name}' is not a mass operator property of {type(self).__name__}."
+                )
+                cached = "_" + name
+                was_cached = hasattr(self, cached)
+
+                mem[name] = getattr(self, name).nbytes
+
+                # do not keep a dry-run (unusable) operator in the cache
+                if not was_cached:
+                    delattr(self, cached)
+        finally:
+            self._dry_run = False
+
+        if print_report and (self.derham.comm is None or self.derham.comm.Get_rank() == 0):
+            print("\nESTIMATED MASS MATRIX MEMORY (local, rank 0):")
+            for name, nbytes in mem.items():
+                print(f"  {name}: {nbytes / 1e6:.2f} MB")
+
+        return mem
+
+    def allocated_mem(self) -> dict[str, int]:
+        """Local (per-MPI-rank) memory footprint, in bytes, of the mass matrices that have
+        actually been created so far (i.e. those whose property has been accessed)."""
+        mem = {}
+        for name, method in inspect.getmembers(type(self), predicate=inspect.isdatadescriptor):
+            if isinstance(method, property) and hasattr(self, "_" + name):
+                op = getattr(self, "_" + name)
+                if isinstance(op, WeightedMassOperator):
+                    mem[name] = op.nbytes
+        return mem
 
     def info(self):
         print("The mass matrices of the Derham complex are:")
@@ -1028,6 +1100,7 @@ class WeightedMassOperators:
         weights: tuple | list | str | None = None,
         assemble: bool = False,
         transposed: bool = False,
+        dry_run: bool = None,
     ):
         r"""Weighted mass matrix :math:`V^\alpha_h \to V^\beta_h` with given (matrix-valued) weight function :math:`W(\boldsymbol \eta)`:
 
@@ -1081,11 +1154,19 @@ class WeightedMassOperators:
         transposed: bool
             Whether to assemble the transposed operator.
 
+        dry_run: bool
+            Whether to create the operator without allocating (and assembling) its stencil matrices,
+            for memory estimation only. If None (default), the value of the ``dry_run`` attribute of
+            this :class:`WeightedMassOperators` object is used, see :meth:`estimate_mem`.
+
         Returns
         -------
         out : A WeightedMassOperator object.
         """
-        logger.debug(f"\nCreating weighted mass matrix {name} from {V_id} to {W_id}.")
+        if dry_run is None:
+            dry_run = self.dry_run
+
+        logger.debug(f"\nCreating weighted mass matrix {name} from {V_id} to {W_id} ({dry_run = }).")
 
         spline_functions = {}
         if isinstance(weights, tuple):  # Case 3 (1D tuple)
@@ -1306,9 +1387,10 @@ class WeightedMassOperators:
             spline_functions=spline_functions,
             transposed=transposed,
             matrix_free=self.matrix_free,
+            dry_run=dry_run,
         )
 
-        if assemble:
+        if assemble and not dry_run:
             out.assemble()
 
         return out
@@ -1552,6 +1634,14 @@ class WeightedMassOperator(LinOpWithTransp):
 
     matrix_free : bool
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
+
+    dry_run : bool
+        If True, the (potentially large) stencil matrices of the operator are not allocated;
+        only their sizes are computed, see :attr:`nbytes`. The block structure (which blocks are
+        non-zero) is determined in exactly the same way as for a regular operator, but the operator
+        can neither be assembled nor applied. Used to estimate the memory footprint of the FEEC
+        matrices before allocating them, see
+        :meth:`~struphy.feec.mass.WeightedMassOperators.estimate_mem`.
     """
 
     def __init__(
@@ -1569,6 +1659,7 @@ class WeightedMassOperator(LinOpWithTransp):
         transposed: bool = False,
         matrix_free: bool = False,
         nquads: tuple | list = None,
+        dry_run: bool = False,
     ):
         logger.debug(f"{derham = }")
         logger.debug(f"{V = }")
@@ -1593,6 +1684,9 @@ class WeightedMassOperator(LinOpWithTransp):
         self._V = V
         self._W = W
         self._name = name
+        self._dry_run = dry_run
+
+        assert not (dry_run and transposed), "dry_run=True is not supported for transposed operators."
 
         # spline functions that are used as weights in the operator, to be evaluated at quadrature points
         self._spline_functions = spline_functions if spline_functions is not None else {}
@@ -1723,6 +1817,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
+                                dry_run=dry_run,
                             )
                             for Vs in V.spaces
                         ]
@@ -1736,6 +1831,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
+                                dry_run=dry_run,
                             )
                             if i != j
                             else None
@@ -1751,6 +1847,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
+                                dry_run=dry_run,
                             )
                             if i == j
                             else None
@@ -1829,6 +1926,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                     wspace.coeff_space,
                                     backend=PSYDAC_BACKEND_GPYCCEL,
                                     precompiled=True,
+                                    dry_run=dry_run,
                                 ),
                             ]
                         self._weights[-1] += [lambda *etas: 0 * etas[0]]
@@ -1885,6 +1983,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                         wspace.coeff_space,
                                         backend=PSYDAC_BACKEND_GPYCCEL,
                                         precompiled=True,
+                                        dry_run=dry_run,
                                     )
                                 ]
 
@@ -1908,6 +2007,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             wspace.coeff_space,
                             backend=PSYDAC_BACKEND_GPYCCEL,
                             precompiled=True,
+                            dry_run=dry_run,
                         )
                 else:
                     self._mat = blocks[0][0]
@@ -1942,6 +2042,14 @@ class WeightedMassOperator(LinOpWithTransp):
         self._V_extraction_op_T = self._V_extraction_op.T
         self._V_boundary_op_T = self._V_boundary_op.T
 
+        if self._dry_run:
+            # memory estimation only (see the nbytes property): skip the composite operators,
+            # the .dot() temporaries and the assembly kernel; none of them is needed for sizing
+            # and all of them would allocate memory.
+            self._domain = self._mat.domain
+            self._codomain = self._mat.codomain
+            return
+
         # TODO: maybe remove since this is done in the .dot() explicitly
         # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
         if self._transposed:
@@ -1966,7 +2074,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # load assembly kernel
         if not self._matrix_free:
-            self._assembly_kernel = Pyccelkernel(
+            self._assembly_kernel = PyccelKernel(
                 getattr(
                     mass_kernels,
                     "kernel_" + str(self._V.ldim) + "d_mat",
@@ -2008,6 +2116,19 @@ class WeightedMassOperator(LinOpWithTransp):
     @property
     def spline_functions(self):
         return self._spline_functions
+
+    @property
+    def dry_run(self) -> bool:
+        """Whether the operator was created for memory estimation only, i.e. without allocating
+        its stencil matrices (in which case it can neither be assembled nor applied)."""
+        return self._dry_run
+
+    @property
+    def nbytes(self) -> int:
+        """Local (per-MPI-rank) memory footprint of the stencil matrices of this operator, in bytes.
+        Also available for operators created with ``dry_run=True``, i.e. before/without allocation.
+        Matrix-free operators do not store a matrix and return 0."""
+        return int(getattr(self._mat, "nbytes", 0))
 
     @property
     def dtype(self):
@@ -2213,6 +2334,9 @@ class WeightedMassOperator(LinOpWithTransp):
             Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
         """
+        assert not self._dry_run, (
+            "A dry-run operator has no matrix data and cannot be assembled (memory estimation only)."
+        )
 
         if self._matrix_free:
             if weights is not None:
@@ -2559,7 +2683,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = Pyccelkernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
+        kernel = PyccelKernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -3219,14 +3343,14 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = Pyccelkernel(
+        self._dot_kernel = PyccelKernel(
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_matrixfree",
             ),
         )
 
-        self._diag_kernel = Pyccelkernel(
+        self._diag_kernel = PyccelKernel(
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_diag",

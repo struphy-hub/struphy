@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -144,7 +145,8 @@ class JxBCold(Propagator):
         self._solver.linop = lhs
 
         # solve linear system for updated j coefficients (in-place)
-        jn1 = self._solver.solve(rhsv, out=self._j_new)
+        with ProfileManager.profile_region(self._solve_region):
+            jn1 = self._solver.solve(rhsv, out=self._j_new)
         info = self._solver._info
 
         # write new coeffs into Propagator.variables

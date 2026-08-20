@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
+from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -12,7 +13,6 @@ from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -65,7 +65,7 @@ class PushGuidingCenterBxEstar(Propagator):
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable)
-            assert new.space == "Particles5D"
+            assert "Particles5D" in new.space
             self._ions = new
 
     def __init__(
@@ -306,7 +306,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton)
+                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton)
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -340,7 +340,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )  # evaluate at eta^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order)
+                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order)
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -386,7 +386,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 )  # evaluate at eta^{n+1,k} and save)
 
                 # pusher kernel
-                kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order)
+                kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order)
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -427,7 +427,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
 
-            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
+            kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
 
             args_kernel = (
                 self.derham.args_derham,

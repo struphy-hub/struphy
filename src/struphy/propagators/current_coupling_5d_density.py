@@ -1,9 +1,11 @@
 import logging
 from dataclasses import dataclass
 
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -13,7 +15,6 @@ from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -91,8 +92,8 @@ class CurrentCoupling5DDensity(Propagator):
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the unknown ``u`` variable.
 
-        solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Symmetric iterative solver used for the linear system.
+        solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
+            General iterative solver used for the linear system.
 
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner applied to the FEEC mass matrix.
@@ -109,7 +110,7 @@ class CurrentCoupling5DDensity(Propagator):
         # propagator options
         ep_scale: float = 1.0
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
-        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
@@ -117,7 +118,7 @@ class CurrentCoupling5DDensity(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
-            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
 
@@ -153,7 +154,7 @@ class CurrentCoupling5DDensity(Propagator):
 
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._b2 = self.projected_equil.b2
 
         # scaling factor
@@ -168,7 +169,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._ACC = Accumulator(
             self.energetic_ions.particles,
             self.options.u_space,
-            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_D),
+            PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_D),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
@@ -185,9 +186,9 @@ class CurrentCoupling5DDensity(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_form_int,
         )
 
@@ -230,7 +231,8 @@ class CurrentCoupling5DDensity(Propagator):
         rhs = rhs.dot(un, out=self._rhs_v)
         self._A_inv.linop = lhs
 
-        _u = self._A_inv.solve(rhs, out=self._u_new)
+        with ProfileManager.profile_region(self._solve_region):
+            _u = self._A_inv.solve(rhs, out=self._u_new)
         info = self._A_inv._info
 
         diffs = self.update_feec_variables(u=_u)

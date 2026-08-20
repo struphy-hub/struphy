@@ -3,15 +3,20 @@
 import logging
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
+
+
+def _kernel_name(kernel) -> str:
+    """Name of a pyccelized kernel, which can be a bare pyccel function or a PyccelKernel."""
+    return getattr(kernel, "name", None) or getattr(kernel, "__name__", type(kernel).__name__)
 
 
 class Pusher:
@@ -100,7 +105,7 @@ class Pusher:
     def __init__(
         self,
         particles: Particles,
-        kernel: Pyccelkernel,
+        kernel: PyccelKernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
         *,
@@ -113,7 +118,7 @@ class Pusher:
         mpi_sort: str = None,
     ):
         self._particles = particles
-        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
+        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
         self._kernel = kernel
         self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
@@ -153,6 +158,10 @@ class Pusher:
         self._init_kernels = init_kernels
         self._eval_kernels = eval_kernels
 
+        # profiling region names (cached, they are looked up on every call)
+        self._region_name = "pusher: " + self.kernel.name
+        self._kernel_region_names = {}
+
         self._residuals = xp.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
@@ -168,6 +177,19 @@ class Pusher:
         Applies the chosen pusher kernel by a time step dt,
         applies kinetic boundary conditions and performs MPI sorting.
         """
+        with ProfileManager.profile_region(self._region_name):
+            self._push(dt)
+
+    def _kernel_region(self, kernel) -> str:
+        """Cached name of the profiling region of an init/eval kernel."""
+        name = self._kernel_region_names.get(id(kernel))
+        if name is None:
+            name = "kernel: " + _kernel_name(kernel)
+            self._kernel_region_names[id(kernel)] = name
+        return name
+
+    def _push(self, dt: float):
+        """Body of :meth:`__call__`, see there."""
 
         # some idx and slice
         markers = self.particles.markers
@@ -203,14 +225,15 @@ class Pusher:
             comps = ker_args[2]
             add_args = ker_args[3]
 
-            ker(
-                xp.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                column_nr,
-                comps,
-                self.particles.args_markers,
-                self._args_domain,
-                *add_args,
-            )
+            with ProfileManager.profile_region(self._kernel_region(ker)):
+                ker(
+                    xp.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                    column_nr,
+                    comps,
+                    self.particles.args_markers,
+                    self._args_domain,
+                    *add_args,
+                )
 
             # update boxes
             if self._box_comm:
@@ -250,14 +273,15 @@ class Pusher:
                         )
 
                     # evaluate
-                    ker(
-                        alpha,
-                        column_nr,
-                        comps,
-                        self.particles.args_markers,
-                        self._args_domain,
-                        *add_args,
-                    )
+                    with ProfileManager.profile_region(self._kernel_region(ker)):
+                        ker(
+                            alpha,
+                            column_nr,
+                            comps,
+                            self.particles.args_markers,
+                            self._args_domain,
+                            *add_args,
+                        )
 
                     # update boxes
                     if self._box_comm:

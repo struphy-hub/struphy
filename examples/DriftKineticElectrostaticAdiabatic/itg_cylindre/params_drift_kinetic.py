@@ -75,7 +75,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, profiling_trace=True, restart=False)
+env = EnvironmentOptions(sim_folder="sim_1", profiling_activated=True, restart=False)
 
 # Time stepping
 time_opts = Time(dt=5.0, Tend=500.0, split_algo="LieTrotter")
@@ -246,11 +246,9 @@ equil.n_xyz = n0_xyz
 
 
 perturbation = GenericPerturbation(pert_func)
-background = maxwellians.GyroMaxwellian2D(n=(n_init, None), equil=equil, vth_para=(vth_i, None), vth_perp=(vth_i, None))
+background = maxwellians.GyroMaxwellian2D(n=(n_init, None), vth_para=(vth_i,None), vth_perp=(vth_i,None),)# B0=equil.absB0)
 model.kinetic_ions.var.add_background(background)
-init = maxwellians.GyroMaxwellian2D(
-    n=(n_init, perturbation), equil=equil, vth_para=(vth_i, None), vth_perp=(vth_i, None)
-)
+init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), vth_para=(vth_i,None), vth_perp=(vth_i,None),)# B0=equil.absB0)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

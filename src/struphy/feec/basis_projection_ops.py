@@ -1,6 +1,8 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.basic import FemSpace
@@ -19,7 +21,6 @@ from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
@@ -53,9 +54,7 @@ class BasisProjectionOperators:
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
-        if xp.any(
-            [degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]
-        ):
+        if any([degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]):
             logger.warning(
                 f'WARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
             )
@@ -1057,11 +1056,11 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         if isinstance(V, TensorFemSpace):
             self._Vspaces = [V.coeff_space]
             self._V1ds = [V.spaces]
-            self._VNbasis = xp.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
+            self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
         else:
             self._Vspaces = V.coeff_space
             self._V1ds = [comp.spaces for comp in V.spaces]
-            self._VNbasis = xp.array(
+            self._VNbasis = np.array(
                 [
                     [self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis],
                     [
@@ -1949,13 +1948,13 @@ class BasisProjectionOperator(LinOpWithTransp):
 
             # input vector space (domain), column of block
             for j, (Vspace, V1d, loc_weight) in enumerate(zip(_Vspaces, _V1ds, weight_line)):
-                _starts_in = xp.array(Vspace.starts)
-                _ends_in = xp.array(Vspace.ends)
-                _pads_in = xp.array(Vspace.pads)
+                _starts_in = np.array(Vspace.starts)
+                _ends_in = np.array(Vspace.ends)
+                _pads_in = np.array(Vspace.pads)
 
-                _starts_out = xp.array(Wspace.starts)
-                _ends_out = xp.array(Wspace.ends)
-                _pads_out = xp.array(Wspace.pads)
+                _starts_out = np.array(Wspace.starts)
+                _ends_out = np.array(Wspace.ends)
+                _pads_out = np.array(Wspace.pads)
 
                 # use cached information if asked
                 if self._use_cache:
@@ -2043,7 +2042,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = Pyccelkernel(
+                    kernel = PyccelKernel(
                         getattr(
                             basis_projection_kernels,
                             "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
