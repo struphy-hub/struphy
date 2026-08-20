@@ -20,8 +20,7 @@ from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
-from struphy.utils.pyccel import Pyccelkernel
-
+from cunumpy import PyccelKernel
 logger = logging.getLogger("struphy")
 
 
@@ -2024,7 +2023,7 @@ class H1vecWeakDivergenceMultiplicationOperator(LinOpWithTransp):
         for component in range(3):
             self._dlogj[component][:] = values[component]
 
-        self._assembly_kernel = Pyccelkernel(
+        self._assembly_kernel = PyccelKernel(
             mass_kernels.kernel_3d_h1vec_weak_divergence,
         )
 
