@@ -5,6 +5,8 @@ from cunumpy import PyccelKernel
 
 from struphy import set_logging_level
 
+pytestmark = pytest.mark.mpi_pic
+
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
 

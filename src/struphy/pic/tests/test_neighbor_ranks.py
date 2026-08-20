@@ -34,6 +34,7 @@ def ijk_rank(i, j, k, nprocs):
 
 
 @pytest.mark.mpi(min_size=2)
+@pytest.mark.mpi_pic
 @pytest.mark.parametrize("periodic_axes", [(), (0,), (0, 1, 2)])
 def test_neighbor_ranks_partition_all_other_ranks(periodic_axes):
     """Every other rank must end up in exactly one of the two output lists."""
@@ -51,6 +52,7 @@ def test_neighbor_ranks_partition_all_other_ranks(periodic_axes):
 
 
 @pytest.mark.mpi(min_size=2)
+@pytest.mark.mpi_pic
 @pytest.mark.parametrize("periodic_axes", [(), (0,), (0, 1, 2)])
 def test_neighbor_relation_is_symmetric(periodic_axes):
     """If rank j is a neighbour of rank i, rank i must be a neighbour of rank j.
@@ -74,6 +76,7 @@ def test_neighbor_relation_is_symmetric(periodic_axes):
 
 
 @pytest.mark.mpi(min_size=2)
+@pytest.mark.mpi_pic
 @pytest.mark.parametrize("periodic_axes", [(), (0,), (1,), (0, 1, 2)])
 def test_face_adjacent_ranks_are_always_neighbors(periodic_axes):
     """Ranks whose process-grid index differs by 1 along a single axis share a

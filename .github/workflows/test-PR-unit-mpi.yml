@@ -26,3 +26,49 @@ jobs:
       n-procs: ${{ matrix.n-procs }}
     secrets:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
+
+  pic-mpi-tests:
+    name: Marked PIC MPI tests (${{ matrix.n-procs }} ranks)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        n-procs: [3, 4]
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 5
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          start-dir: /struphy_fortran_
+
+      - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Compile Struphy
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Run marked PIC MPI tests
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd ${{ env.STRUPHY_PATH }}
+          mpirun --oversubscribe -n ${{ matrix.n-procs }} pytest -v --with-mpi -m mpi_pic pic/tests
