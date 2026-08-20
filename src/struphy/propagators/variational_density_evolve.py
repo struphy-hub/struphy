@@ -792,8 +792,7 @@ class VariationalDensityEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             "pbicgstab",
-            # pc=self._momentum_inv,
-            pc=None,
+            pc=self._momentum_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
