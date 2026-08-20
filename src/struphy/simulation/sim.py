@@ -618,15 +618,11 @@ class Simulation(SimulationBase):
 
         with ProfileManager.session(
                             deactivate_profiling=not self.env.profiling_activated,
-                            file_path=os.path.join(
-                                self.env.out_folders,
-                                self.env.sim_folder,
-                                "profiling_data.h5",
-                            ),
+                            file_path=self.profiling_filepath,
                             use_likwid=False,
                             verbose=False,
                             label=self.name,
-                            return_results=True) as run:
+                            return_results=True) as profiling_run:
 
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
@@ -850,7 +846,7 @@ class Simulation(SimulationBase):
 
         if self.env.profiling_activated:
             # Gather profiling results from all ranks and print a summary on rank 0
-            results = run.results
+            results = profiling_run.results
 
             # one table per region family; the last group catches everything not matched above,
             # so that no recorded region is silently missing from the printed summary
@@ -1833,6 +1829,14 @@ if __name__ == "__main__":
 
         # create output folders
         self._setup_folders()
+
+    @property
+    def profiling_filepath(self) -> str:
+        """Path to the profiling file, if profiling is enabled."""
+        return os.path.join(
+            self.env.out_folders,
+            self.env.sim_folder,
+            "profiling_data.h5",)
 
     @property
     def time_opts(self):
