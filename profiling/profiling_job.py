@@ -38,6 +38,7 @@ mpi4py.rc.finalize = False
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import time
@@ -661,7 +662,12 @@ class ProfilingCase:
                 print("Upload skipped; nothing was pushed to the profiling-data repo.")
                 print("Push this case later, exactly as packaged, without re-running it:")
                 print(f"    python {script_dir / 'upload.py'} {self.destination_dir}")
-                print("Or plot the results locally by opening the HTML files in the packaged directories, e.g.:")
-                print(f"    scope-profiler pproc {self.destination_dir / _run_folder_name(sorted(packaged_launch_ids)[0]) / '*.h5'} --rank 0")
+                first_run_glob = self.destination_dir / _run_folder_name(sorted(packaged_launch_ids)[0]) / "*.h5"
+                plot_dir = self.destination_dir / "figures"
+                print("Or plot the results locally from the packaged profiling_data.h5 files, e.g.:")
+                print(
+                    "    scope-profiler plot all "
+                    f"{shlex.quote(str(first_run_glob))} --ranks 0 -o {shlex.quote(str(plot_dir))}",
+                )
         else:
             print(f"No profiling output found for '{self.label}'; nothing to package.")

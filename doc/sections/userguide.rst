@@ -850,7 +850,6 @@ to:
 
     env = EnvironmentOptions(
         profiling_activated=True,
-        profiling_trace=True,
     )
 
 Then run the file as usual:
@@ -860,10 +859,9 @@ Then run the file as usual:
     python params_Vlasov.py
 
 When profiling is enabled, Struphy writes the main profiling data to
-``profiling_data.h5`` in the simulation output folder. If ``profiling_trace``
-is enabled, this file also contains the per-call timestamps needed for
-time-based plots such as Gantt charts; without it, only call counts are
-recorded.
+``profiling_data.h5`` in the simulation output folder. The file contains the
+region timings and per-call timestamps needed for time-based plots such as
+Gantt charts and flame graphs.
 
 Note that ``profiling_data.h5`` is a plain ``scope-profiler`` output file, so
 it is post-processed with ``scope-profiler`` itself rather than with
@@ -873,19 +871,22 @@ it is post-processed with ``scope-profiler`` itself rather than with
 Post-processing with the ``scope-profiler`` CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``scope-profiler`` ships its own post-processing command, ``scope-profiler
-pproc``, which turns one or more ``profiling_data.h5`` files into Gantt
-charts, flame graphs, duration bar charts, a duration-over-time view, and a
-``region_statistics.json`` summary — without writing any code:
+``scope-profiler`` ships its own post-processing commands. In version 0.3.1,
+plotting lives under ``scope-profiler plot``. For the full set of standard
+figures, use the ``all`` preset:
 
 .. code-block:: bash
 
-    scope-profiler pproc sim_1/profiling_data.h5 -o figures
+    scope-profiler plot all sim_1/profiling_data.h5 \
+        --include '^setup: total$' '^model\.integrate$' '^prop: ' '^kernel: ' \
+        -o figures
 
 The two figures below were generated exactly this way, from the
 ``params_Vlasov.py`` example above (default grid and time stepping,
-3 saved steps, 1 MPI rank). To regenerate them, run
-``doc/generate_profiling_figures.sh`` from the repository root.
+3 saved steps, 1 MPI rank), filtered to ``setup: total``,
+``model.integrate``, ``prop: <PropagatorName>`` and ``kernel: <kernel_name>``
+regions. To regenerate them, run ``doc/generate_profiling_figures.sh`` from the
+repository root.
 
 The Gantt chart places one lane per ``(region, rank)`` pair and is the view to
 reach for when the question is *when* things happened — startup cost, gaps
@@ -895,7 +896,7 @@ between steps, ranks drifting apart:
     :figwidth: 100%
     :alt: Gantt chart of profiling regions across MPI ranks
 
-    Gantt chart produced by ``scope-profiler pproc`` for the ``Vlasov``
+    Gantt chart produced by ``scope-profiler plot all`` for the ``Vlasov``
     example, one lane per region.
 
 The flame graph instead answers *where the time went*: the call stack is
@@ -910,19 +911,18 @@ reconstructed from timestamp containment, so nested regions such as
     Flame graph for the same run, rank 0, showing nested profiling regions.
 
 Passing several ``profiling_data.h5`` files (e.g. from runs at different MPI
-rank counts) additionally produces a per-region speedup plot, and
-``--x-field`` can compare runs along other metadata fields such as
+rank counts) to ``scope-profiler plot speedup`` produces a per-region speedup
+plot, and ``--x`` can compare runs along other metadata fields such as
 ``omp_num_threads``. Filtering regions with ``--include``/``--exclude``,
 selecting ranks with ``--ranks``, switching to interactive HTML output with
-``--backend plotly``, and exporting the underlying data or ``.prof`` /
-speedscope files for external viewers are all covered in the
+``--backend plotly``, inspecting text summaries with ``scope-profiler
+inspect``, and exporting the underlying plot data or ``.prof`` / speedscope
+files with ``scope-profiler export`` are all covered in the
 `postprocessing CLI guide <https://max-models.github.io/scope-profiler/guide/postprocessing_cli.html>`_.
 This documentation page is not meant to duplicate that guide — see the link
 for the full set of flags and examples.
 
-If you need a quick sanity check without the CLI, look at
-``region_statistics.json`` for the total runtime of the dominant regions and
-compare them across ranks. A large imbalance between ranks usually means the
-expensive section is load-dependent rather than purely algorithmic.
-
-
+For a quick text sanity check, run ``scope-profiler inspect
+sim_1/profiling_data.h5`` and compare the total runtime of the dominant regions
+across ranks. A large imbalance between ranks usually means the expensive
+section is load-dependent rather than purely algorithmic.
