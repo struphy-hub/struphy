@@ -4774,13 +4774,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # forces a sync just to decide. Only an xp.ndarray alpha (the dynamic,
         # per-kernel case in pusher.py) skips the check and always takes the general
         # path below, since its value isn't known without a sync anyway.
-        alpha_is_one = (
-            (isinstance(alpha, (int, float)) and alpha == 1.0)
-            or (
-                not isinstance(alpha, xp.ndarray)
-                and hasattr(alpha, "__iter__")
-                and all(a == 1.0 for a in alpha)
-            )
+        alpha_is_one = (isinstance(alpha, (int, float)) and alpha == 1.0) or (
+            not isinstance(alpha, xp.ndarray) and hasattr(alpha, "__iter__") and all(a == 1.0 for a in alpha)
         )
         bi = self.first_pusher_idx
         if alpha_is_one:
@@ -4797,9 +4792,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             alpha = xp.asarray(alpha, dtype=float)
             assert alpha.size == 3
             assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
-            _y = alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3]) + (
-                1.0 - alpha
-            ) * self.markers[:, bi : bi + 3]
+            _y = (
+                alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
+                + (1.0 - alpha) * self.markers[:, bi : bi + 3]
+            )
 
         # y - floor(y), not xp.mod(y, 1.0): mathematically identical for a modulus of 1
         # (verified bit-for-bit equal), but xp.mod dispatches to a true floating-point
@@ -4824,9 +4820,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 self._sorting_etas < self.domain_array_dev[self.mpi_rank, 1::3],
             )
             self._can_stay[:] = (
-                self._is_on_proc_domain[:, 0]
-                & self._is_on_proc_domain[:, 1]
-                & self._is_on_proc_domain[:, 2]
+                self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
             )
         else:
             # Build only the one-dimensional result needed by the exchange

@@ -2,8 +2,8 @@ import ctypes
 import logging
 import os
 
-import h5py
 import cunumpy as xp
+import h5py
 import numpy as np
 
 logger = logging.getLogger("struphy")

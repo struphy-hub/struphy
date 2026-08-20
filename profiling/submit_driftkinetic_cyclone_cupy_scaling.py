@@ -83,10 +83,14 @@ def main() -> None:
     cluster_name = detect_machine_name()
 
     param_flags = [
-        "--backend", "cupy",
-        "--solver", "pcg",
-        "--Tend", str(TEND),
-        "--num-elements", *[str(n) for n in NUM_ELEMENTS],
+        "--backend",
+        "cupy",
+        "--solver",
+        "pcg",
+        "--Tend",
+        str(TEND),
+        "--num-elements",
+        *[str(n) for n in NUM_ELEMENTS],
     ]
 
     # Launch one run per rank count. One node per GPUS_PER_NODE ranks -- `launch` would

@@ -30,13 +30,12 @@ import argparse
 import os
 import time
 
-import numpy as np
-
 # cunumpy does not import feectools.ddm.mpi (verified), so this is safe to import
 # first and do CUDA-only, MPI-independent setup (device binding, the MPI opt-in env
 # var below) before struphy -- which does transitively import feectools.ddm.mpi as
 # part of its own __init__ -- gets imported next.
 import cunumpy as xp
+import numpy as np
 
 # Under CuPy with more than one MPI rank per node, every rank must bind to its own
 # GPU -- cunumpy defaults to device 0, so without this every rank on a node would
@@ -60,9 +59,9 @@ if xp.cupy_backend:
 # hcoll/Alltoallv segfault on this cluster (see the comment there). struphy itself
 # imports feectools.ddm.mpi as part of this same import, so this line satisfies
 # both ordering requirements at once.
-from struphy import BoundaryParameters, LoadingParameters, SortingParameters
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BoundaryParameters, LoadingParameters, SortingParameters
 from struphy.pic.particles import Particles6D
 
 

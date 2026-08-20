@@ -1054,8 +1054,12 @@ class Pusher:
                     self.particles.valid_mks,
                     column_nr,
                     self.particles.index["weights"],
-                    boxes, neighbours, holes,
-                    (p1, p2, p3), kernel_type, (h1, h2, h3),
+                    boxes,
+                    neighbours,
+                    holes,
+                    (p1, p2, p3),
+                    kernel_type,
+                    (h1, h2, h3),
                 )
             return
 
@@ -1067,8 +1071,12 @@ class Pusher:
                     self.particles.valid_mks,
                     column_nr,
                     self.particles.index["weights"],
-                    boxes, neighbours, holes,
-                    (p1, p2, p3), kernel_type, (h1, h2, h3),
+                    boxes,
+                    neighbours,
+                    holes,
+                    (p1, p2, p3),
+                    kernel_type,
+                    (h1, h2, h3),
                 )
             return
 
@@ -1081,8 +1089,13 @@ class Pusher:
                     column_nr,
                     self.particles.index["weights"],
                     self.particles.first_free_idx,
-                    boxes, neighbours, holes,
-                    (p1, p2, p3), kernel_type, (h1, h2, h3), mu,
+                    boxes,
+                    neighbours,
+                    holes,
+                    (p1, p2, p3),
+                    kernel_type,
+                    (h1, h2, h3),
+                    mu,
                 )
             return
 
