@@ -761,7 +761,6 @@ def _run_orszag_tang(
         ),
         sim_folder=("orszag_tang_regularized"),
         profiling_activated=True,
-        profiling_trace=True,
     )
 
     # ------------------------------------------------------------------
