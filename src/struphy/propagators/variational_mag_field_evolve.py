@@ -211,17 +211,16 @@ class VariationalMagFieldEvolve(Propagator):
         # it below so that it does not depend on propagator ordering.
         rho = self.rho.spline.vector
         self._Mrho = self.mass_ops.WMMnew
-        
+
         if self._with_regularization:
             self.mass_ops.ensure_committed_h1vec_metric(
                 self.rho,
             )
-            
-            self._kinetic_metric = (self.mass_ops.get_committed_h1vec_metric(
-                    self._metric_alpha,
-                )
+
+            self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
+                self._metric_alpha,
             )
-            
+
             self._Mrho = self._kinetic_metric.mass_operator
             self._Kdivrho = self._kinetic_metric.divdiv_operator
             self._momentum_operator = self._kinetic_metric
@@ -230,11 +229,11 @@ class VariationalMagFieldEvolve(Propagator):
             )
         else:
             self.mass_ops.update_committed_WMMnew(self.rho)
-        
+
             self._Kdivrho = None
             self._kinetic_metric = None
             self._momentum_operator = self._Mrho
-        
+
             pc = MassMatrixDiagonalPreconditioner(
                 self._Mrho,
             )
@@ -277,35 +276,36 @@ class VariationalMagFieldEvolve(Propagator):
 
         if self._linearize:
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
+
     @profile
     def __call__(self, dt):
         rho = self.rho.spline.vector
         self._update_momentum_operator(rho)
         self.__call_newton(dt)
-    
+
     @profile
     def _update_momentum_operator(self, rho):
-            """Update the metric from the current committed density."""
-        
-            if self._with_regularization:
-                self.mass_ops.ensure_committed_h1vec_metric(
-                    self.rho,
-                )
-            else:
-                self._Mrho = self.mass_ops.ensure_committed_WMMnew(
-                    self.rho,)
-            
-            if not hasattr(self, "_momentum_inv"):
-                return
-        
-            pc = self._momentum_inv._options.get("pc")
-        
-            if isinstance(pc, H1vecKineticMetricPreconditioner):
-                pc.update_metric(self._kinetic_metric)
-        
-            elif isinstance(pc, MassMatrixDiagonalPreconditioner):
-                pc.update_mass_operator(self._Mrho)
-           
+        """Update the metric from the current committed density."""
+
+        if self._with_regularization:
+            self.mass_ops.ensure_committed_h1vec_metric(
+                self.rho,
+            )
+        else:
+            self._Mrho = self.mass_ops.ensure_committed_WMMnew(
+                self.rho,
+            )
+
+        if not hasattr(self, "_momentum_inv"):
+            return
+
+        pc = self._momentum_inv._options.get("pc")
+
+        if isinstance(pc, H1vecKineticMetricPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
 
     def __call_newton(self, dt):
         """Advance magnetic field and velocity using Newton iteration."""

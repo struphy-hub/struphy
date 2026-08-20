@@ -252,27 +252,27 @@ class VariationalDensityEvolve(Propagator):
             # is about to overwrite it with a private iterate, so invalidate the
             # committed cache first.
             self.mass_ops.invalidate_committed_h1vec_metric()
-        
+
             self._Kdivrho = self.mass_ops.create_h1vec_div_div(
                 name="DensityNewtonH1vecDivDiv",
             )
-        
+
             self._kinetic_metric = H1vecKineticMetric(
                 self._Mrho,
                 self._Kdivrho,
                 alpha=self._metric_alpha,
             )
-        
+
             # Assemble before constructing the preconditioner.
             self._kinetic_metric.update_weight(rhotmp)
-        
+
             # The initial FEEC density has already been committed, and the private
             # metric now corresponds to it.
             self.mass_ops.publish_committed_h1vec_metric(
                 self._Kdivrho,
                 self.variables.rho,
             )
-            
+
             self._momentum_operator = self._kinetic_metric
             self._momentum_pc = H1vecKineticMetricPreconditioner(
                 self._kinetic_metric,
@@ -280,7 +280,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             self._Mrho.spline_functions["l2_field"].vector = rhotmp
             self._Mrho.assemble()
-        
+
             self._Kdivrho = None
             self._kinetic_metric = None
             self._momentum_operator = self._Mrho
@@ -288,14 +288,14 @@ class VariationalDensityEvolve(Propagator):
                 self._Mrho,
             )
         self._momentum_inv = inverse(
-                self._momentum_operator,
-                "pcg",
-                pc=self._momentum_pc,
-                tol=1.0e-10,
-                maxiter=500,
-                verbose=False,
-                recycle=False,
-            )
+            self._momentum_operator,
+            "pcg",
+            pc=self._momentum_pc,
+            tol=1.0e-10,
+            maxiter=500,
+            verbose=False,
+            recycle=False,
+        )
 
         # FEM fields used by the projector.
         self.rhof = self.derham.create_spline_function(
@@ -606,13 +606,12 @@ class VariationalDensityEvolve(Propagator):
             if linear_success and linear_niter == 0:
                 converged = True
                 accepted_by_stagnation = True
-            
+
                 if self._info:
                     logger.info(
-                        "Stopping Newton because the Jacobian solve accepted the "
-                        "current residual without an iteration."
+                        "Stopping Newton because the Jacobian solve accepted the current residual without an iteration."
                     )
-            
+
                 break
 
             if self._info:
@@ -683,34 +682,31 @@ class VariationalDensityEvolve(Propagator):
         rhon1.copy(out=self._tmp_rhon_diff)
         self._tmp_rhon_diff -= rhon
 
-        
         if self._model in ("deltaf", "deltaf_q"):
             rhon1.copy(out=self._tmp_rho_deltaf)
             self._tmp_rho_deltaf += self.projected_equil.n3
             final_metric_rho = self._tmp_rho_deltaf
         else:
             final_metric_rho = rhon1
-        
+
         if self._with_regularization and not metric_matches_rho1:
             self.mass_ops.invalidate_committed_h1vec_metric()
-        
+
             self._kinetic_metric.update_weight(
                 final_metric_rho,
             )
             metric_matches_rho1 = True
-        
+
         self.update_feec_variables(rho=rhon1, u=un1)
-                
+
         if self._with_regularization:
             self.mass_ops.publish_committed_h1vec_metric(
-                        self._Kdivrho,
-                        self.variables.rho,
-                    )
+                self._Kdivrho,
+                self.variables.rho,
+            )
         else:
             self.mass_ops.publish_committed_WMMnew()
 
-             
-        
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
@@ -867,30 +863,28 @@ class VariationalDensityEvolve(Propagator):
     ):
         # WMMnew is about to represent a temporary Newton state.
         self.mass_ops.invalidate_committed_WMMnew()
-    
+
         if self._with_regularization:
             self.mass_ops.invalidate_committed_h1vec_metric()
             self._kinetic_metric.update_weight(rho)
         else:
-            self._Mrho.spline_functions[
-                "l2_field"
-            ].vector = rho
+            self._Mrho.spline_functions["l2_field"].vector = rho
             self._Mrho.assemble()
-    
+
         if not update_preconditioner:
             return
-    
+
         if not hasattr(self, "_momentum_inv"):
             return
-    
+
         pc = self._momentum_inv._options.get("pc")
-    
+
         if isinstance(pc, H1vecKineticMetricPreconditioner):
             pc.update_metric(self._kinetic_metric)
-    
+
         elif isinstance(pc, MassMatrixDiagonalPreconditioner):
             pc.update_mass_operator(self._Mrho)
-        
+
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""
 

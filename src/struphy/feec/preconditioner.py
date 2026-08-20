@@ -931,6 +931,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         )
 
         return out
+
     @profile
     def _solve_with_core(self, rhs, out, core_solver):
         """

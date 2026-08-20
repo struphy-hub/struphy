@@ -329,16 +329,16 @@ class VariationalResistivity(Propagator):
 
         tol = float(self._nonlin_solver.tol)
         tol_sq = tol * tol
-        
+
         acceptance_factor = 4.0
         absolute_threshold = acceptance_factor * tol_sq
-        
+
         stagnation_threshold = 10.0 * tol_sq
         stagnation_relative_change = 1.0e-3
         stagnation_iterations = 3
-        
+
         tiny = float(xp.finfo(float).tiny)
-        
+
         err = float("inf")
         err0 = None
         previous_err = None
@@ -399,15 +399,14 @@ class VariationalResistivity(Propagator):
 
             if not bool(xp.isfinite(err)):
                 raise FloatingPointError(
-                    "Non-finite residual in VariationalResistivity: "
-                    f"iteration={it + 1}, err={err}."
+                    f"Non-finite residual in VariationalResistivity: iteration={it + 1}, err={err}."
                 )
-        
+
             if err0 is None:
                 err0 = max(err, tiny)
-        
+
             relative_err = err / err0
-        
+
             if self._info:
                 logger.info(
                     "Resistivity iteration: %d, error: %.16e, relative error: %.16e",
@@ -415,32 +414,29 @@ class VariationalResistivity(Propagator):
                     err,
                     relative_err,
                 )
-        
+
             # _get_error_newton returns a squared norm.
             if err <= absolute_threshold or relative_err <= tol_sq:
                 converged = True
                 break
-        
+
             if previous_err is not None:
                 relative_change = abs(previous_err - err) / max(
                     previous_err,
                     err,
                     tiny,
                 )
-        
+
                 if relative_change <= stagnation_relative_change:
                     stagnation_count += 1
                 else:
                     stagnation_count = 0
-        
-                if (
-                    stagnation_count >= stagnation_iterations
-                    and err <= stagnation_threshold
-                ):
+
+                if stagnation_count >= stagnation_iterations and err <= stagnation_threshold:
                     converged = True
                     accepted_by_stagnation = True
                     break
-        
+
             previous_err = err
 
             if self._model == "full":
@@ -482,14 +478,13 @@ class VariationalResistivity(Propagator):
                 f"iterations={maxiter}, err={err:.16e}, "
                 f"requested squared tolerance={tol_sq:.16e}."
             )
-        
+
         if accepted_by_stagnation and self._info:
             logger.info(
-                "VariationalResistivity accepted a near-tolerance stagnated "
-                "residual: err=%.16e.",
+                "VariationalResistivity accepted a near-tolerance stagnated residual: err=%.16e.",
                 err,
             )
-        
+
         self.update_feec_variables(s=sn1, b=bn1)
         # if self.pt3 is not None:
         #     bn12 = bn.copy(out=self._tmp_bn12)

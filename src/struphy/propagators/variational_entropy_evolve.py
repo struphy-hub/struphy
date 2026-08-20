@@ -216,38 +216,36 @@ class VariationalEntropyEvolve(Propagator):
 
         # This object is shared by the committed-density metrics.
         self._Mrho = self.mass_ops.WMMnew
-        
+
         if self._with_regularization:
             self.mass_ops.ensure_committed_h1vec_metric(
                 self.rho,
             )
-            
-            self._kinetic_metric = (
-                self.mass_ops.get_committed_h1vec_metric(
-                    self._metric_alpha,
-                )
+
+            self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
+                self._metric_alpha,
             )
-        
+
             self._Mrho = self._kinetic_metric.mass_operator
             self._Kdivrho = self._kinetic_metric.divdiv_operator
             self._momentum_operator = self._kinetic_metric
-        
+
             self._momentum_pc = H1vecKineticMetricPreconditioner(
                 self._kinetic_metric,
             )
-        
+
         else:
             self._Kdivrho = None
             self._kinetic_metric = None
-        
+
             self.mass_ops.update_committed_WMMnew(self.rho)
-        
+
             self._momentum_operator = self._Mrho
-        
+
             self._momentum_pc = MassMatrixDiagonalPreconditioner(
                 self._momentum_operator,
             )
-        
+
         # Keep the original strong momentum inverse. Using the raw
         # preconditioner directly in SchurSolverFull was substantially slower
         # in your measurements.
@@ -302,7 +300,6 @@ class VariationalEntropyEvolve(Propagator):
         sn = self.variables.s.spline.vector
         un = self.variables.u.spline.vector
 
-        
         # Initialize variable for Newton iteration
         rho = self.rho.spline.vector
         self._update_Pis(sn)
@@ -588,29 +585,27 @@ class VariationalEntropyEvolve(Propagator):
     @profile
     def _update_momentum_operator(self, rho):
         """Update the metric from the current committed density."""
-    
+
         if self._with_regularization:
             self.mass_ops.ensure_committed_h1vec_metric(
                 self.rho,
             )
         else:
             self._Mrho = self.mass_ops.ensure_committed_WMMnew(
-                self.rho,)
-        
+                self.rho,
+            )
+
         if not hasattr(self, "_momentum_inv"):
             return
-    
+
         pc = self._momentum_inv._options.get("pc")
-    
+
         if isinstance(pc, H1vecKineticMetricPreconditioner):
             pc.update_metric(self._kinetic_metric)
-    
+
         elif isinstance(pc, MassMatrixDiagonalPreconditioner):
             pc.update_mass_operator(self._Mrho)
-       
-    
-        
-    
+
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:
             self._energy_evaluator.evaluate_exact_de_ds_grid(

@@ -117,15 +117,12 @@ def fit_branch_near_expected_speed(
     return float(slope)
 
 
-def test_slab_waves_1d(do_plot: bool = False, with_dissipation : bool = False):
+def test_slab_waves_1d(do_plot: bool = False, with_dissipation: bool = False):
     # ------------------------------------------------------------------
     # Model: ideal limit of ViscoResistiveMHD
     # ------------------------------------------------------------------
 
-    model = ViscoResistiveMHD(
-        with_viscosity=  with_dissipation,
-        with_resistivity=with_dissipation
-    )
+    model = ViscoResistiveMHD(with_viscosity=with_dissipation, with_resistivity=with_dissipation)
 
     # ------------------------------------------------------------------
     # Output
@@ -231,12 +228,14 @@ def test_slab_waves_1d(do_plot: bool = False, with_dissipation : bool = False):
         model="full",
     )
 
-    if with_dissipation: 
+    if with_dissipation:
         model.propagators.variat_resist.options = model.propagators.variat_resist.Options(
-            model="full", eta_a = 2 * (1/N_el)**2, 
+            model="full",
+            eta_a=2 * (1 / N_el) ** 2,
         )
         model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(
-            model="full", mu_a= 2 * (1/N_el)**2, 
+            model="full",
+            mu_a=2 * (1 / N_el) ** 2,
         )
 
     # ------------------------------------------------------------------

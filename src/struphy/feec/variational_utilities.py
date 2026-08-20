@@ -1480,13 +1480,11 @@ class H1vecKineticMetric(LinOpWithTransp):
         """Reassemble only the density-weighted H1vec mass operator."""
         self.mass_operator.spline_functions["l2_field"].vector = rho
         self.mass_operator.assemble()
-    
-    
+
     def update_divdiv_weight(self, rho):
         """Reassemble only the density-weighted div-div operator."""
         self.divdiv_operator.update_weight(rho)
-    
-    
+
     def update_weight(
         self,
         rho,
@@ -1495,10 +1493,10 @@ class H1vecKineticMetric(LinOpWithTransp):
         update_divdiv=True,
     ):
         """Update selected density-dependent parts of the metric."""
-    
+
         if update_mass:
             self.update_mass_weight(rho)
-    
+
         if update_divdiv:
             self.update_divdiv_weight(rho)
 
