@@ -117,14 +117,14 @@ def fit_branch_near_expected_speed(
     return float(slope)
 
 
-def test_slab_waves_1d(do_plot: bool = False):
+def test_slab_waves_1d(do_plot: bool = False, with_dissipation : bool = False):
     # ------------------------------------------------------------------
     # Model: ideal limit of ViscoResistiveMHD
     # ------------------------------------------------------------------
 
     model = ViscoResistiveMHD(
-        with_viscosity=False,
-        with_resistivity=False,
+        with_viscosity=  with_dissipation,
+        with_resistivity=with_dissipation
     )
 
     # ------------------------------------------------------------------
@@ -204,9 +204,9 @@ def test_slab_waves_1d(do_plot: bool = False):
     # ------------------------------------------------------------------
     # Spatial discretization
     # ------------------------------------------------------------------
-
+    N_el = 64
     grid = grids.TensorProductGrid(
-        num_elements=(1, 1, 64),
+        num_elements=(1, 1, N_el),
     )
 
     derham_opts = DerhamOptions(
@@ -230,6 +230,14 @@ def test_slab_waves_1d(do_plot: bool = False):
     model.propagators.variat_mag.options = model.propagators.variat_mag.Options(
         model="full",
     )
+
+    if with_dissipation: 
+        model.propagators.variat_resist.options = model.propagators.variat_resist.Options(
+            model="full", eta_a = 2 * (1/N_el)**2, 
+        )
+        model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(
+            model="full", mu_a= 2 * (1/N_el)**2, 
+        )
 
     # ------------------------------------------------------------------
     # Initial velocity perturbations
@@ -495,4 +503,4 @@ def test_slab_waves_1d(do_plot: bool = False):
 
 
 if __name__ == "__main__":
-    test_slab_waves_1d(do_plot=True)
+    test_slab_waves_1d(do_plot=True, with_dissipation=True)
