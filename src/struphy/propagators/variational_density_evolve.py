@@ -295,7 +295,7 @@ class VariationalDensityEvolve(Propagator):
             tol=1.0e-10,
             maxiter=500,
             verbose=False,
-            recycle=False,
+            recycle=True,
         )
 
         # FEM fields used by the projector.
