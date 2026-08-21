@@ -74,7 +74,7 @@ def test_flattening_roundtrip(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[18, 19, 20]])
 @pytest.mark.parametrize("degree", [[2, 3, 4]])
 @pytest.mark.parametrize(
     "bcs",
