@@ -125,7 +125,10 @@ def test_sorting(num_elements, degree, bcs, mapping, Np):
     domain_decomp = (domain_array, nprocs)
 
     loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
-    boxes_per_dim = (3, 3, 6)
+    # The marked MPI test runs with 1-4 ranks.
+    # Use box counts divisible by the process-grid dimensions selected
+    # for both 3 and 4 ranks.
+    boxes_per_dim = (6, 6, 6)
 
     sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
