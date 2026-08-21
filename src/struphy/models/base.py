@@ -382,7 +382,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             for propagator in self.prop_list:
                 prop_name = propagator.__class__.__name__
 
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt)
 
         # second order in time
@@ -391,17 +391,17 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
             for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
             propagator = self.prop_list[-1]
             prop_name = type(propagator).__name__
-            with ProfileManager.profile_region("prop: " + prop_name):
+            with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                 propagator(dt)
 
             for propagator in self.prop_list[:-1][::-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
         else:

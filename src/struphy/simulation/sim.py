@@ -233,19 +233,19 @@ class Simulation(SimulationBase):
 
         with ProfileManager.profile_region("setup: allocate"):
             # feec
-            with ProfileManager.profile_region("setup: feec"):
+            with ProfileManager.profile_region("setup: feec", functions=[self._allocate_feec]):
                 self._allocate_feec(self.grid, self.derham_opts)
 
             # allocate model variables
-            with ProfileManager.profile_region("setup: variables"):
+            with ProfileManager.profile_region("setup: variables", functions=[self._allocate_variables]):
                 self._allocate_variables()
 
             # pass info to propagators
-            with ProfileManager.profile_region("setup: propagators"):
+            with ProfileManager.profile_region("setup: propagators", functions=[self._allocate_propagators]):
                 self._allocate_propagators()
 
             # allocate helper fields and perform initial solves if needed
-            with ProfileManager.profile_region("setup: helpers"):
+            with ProfileManager.profile_region("setup: helpers", functions=[self.model.allocate_helpers]):
                 self.model.allocate_helpers()
 
         logger.debug("... Done.")
@@ -637,22 +637,22 @@ class Simulation(SimulationBase):
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
                 self.allocate()
-                with ProfileManager.profile_region("setup: run metadata"):
+                with ProfileManager.profile_region("setup: run metadata", functions=[self._write_run_metadata]):
                     self._write_run_metadata(
                         one_time_step=one_time_step,
                         profiling_activated=profiling_activated,
                     )
 
                 # output
-                with ProfileManager.profile_region("setup: data storage"):
+                with ProfileManager.profile_region("setup: data storage", functions=[self.initialize_data_storage]):
                     self.initialize_data_storage()
 
                 # peek view into geometry
-                with ProfileManager.profile_region("setup: geometry vtk"):
+                with ProfileManager.profile_region("setup: geometry vtk", functions=[self.save_geometry_and_equil_vtk]):
                     self.save_geometry_and_equil_vtk()
 
                 # plasma parameters
-                with ProfileManager.profile_region("setup: plasma params"):
+                with ProfileManager.profile_region("setup: plasma params", functions=[self.compute_plasma_params]):
                     self.compute_plasma_params()
 
                 # print info on mpi procs
@@ -683,7 +683,7 @@ class Simulation(SimulationBase):
 
                 # set initial conditions for all variables
                 if self.env.restart:
-                    with ProfileManager.profile_region("setup: restart"):
+                    with ProfileManager.profile_region("setup: restart", functions=[self._initialize_from_restart]):
                         self._initialize_from_restart(self.data)
 
                     with h5py.File(self.data.file_path, "a") as file:
@@ -707,14 +707,23 @@ class Simulation(SimulationBase):
                 total_steps_str = str(total_steps)
 
                 # compute initial scalars and kinetic data, pass time state to all propagators
-                with ProfileManager.profile_region("setup: initial diagnostics"):
+                initial_diagnostics_functions = [
+                    self.model.update_scalar_quantities,
+                    self.model.update_markers_to_be_saved,
+                    self.model.update_distr_functions,
+                    self._add_time_state,
+                ]
+                with ProfileManager.profile_region(
+                    "setup: initial diagnostics",
+                    functions=initial_diagnostics_functions,
+                ):
                     self.model.update_scalar_quantities()
                     self.model.update_markers_to_be_saved()
                     self.model.update_distr_functions()
                     self._add_time_state(self.time_state["value"])
 
                 # add all variables to be saved to data object
-                with ProfileManager.profile_region("setup: hdf5 datasets"):
+                with ProfileManager.profile_region("setup: hdf5 datasets", functions=[self._initialize_hdf5_datasets]):
                     save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
 
                 # ======================== main time loop ======================
@@ -743,7 +752,7 @@ class Simulation(SimulationBase):
 
                 if break_cond_1 or break_cond_2:
                     # save restart data (other data already saved below)
-                    with ProfileManager.profile_region("save data"):
+                    with ProfileManager.profile_region("save data", functions=[self.data.save_data]):
                         self.data.save_data(keys=save_keys_end)
                     end_time = time.time()
                     logger.info(f"\nTime steps done: {int(self.time_state['index'][0])}")
@@ -753,7 +762,8 @@ class Simulation(SimulationBase):
 
                 if self.env.sort_step and int(self.time_state["index"][0]) % self.env.sort_step == 0:
                     t0 = time.time()
-                    with ProfileManager.profile_region("sort particles"):
+                    sort_functions = [val.do_sort for val in self.model.pointer.values() if isinstance(val, Particles)]
+                    with ProfileManager.profile_region("sort particles", functions=sort_functions):
                         for key, val in self.model.pointer.items():
                             if isinstance(val, Particles):
                                 val.do_sort()
@@ -774,7 +784,7 @@ class Simulation(SimulationBase):
 
                 # perform one time step dt
                 t0 = time.time()
-                with ProfileManager.profile_region("model.integrate"):
+                with ProfileManager.profile_region("model.integrate", functions=[self.model.integrate]):
                     self.model.integrate(dt, split_algo)
                 t1 = time.time()
 
@@ -783,7 +793,12 @@ class Simulation(SimulationBase):
                 # update diagnostics data and save data
                 if int(self.time_state["index"][0]) % self.env.save_step == 0:
                     # compute scalars and kinetic data
-                    with ProfileManager.profile_region("diagnostics"):
+                    diagnostics_functions = [
+                        self.model.update_scalar_quantities,
+                        self.model.update_markers_to_be_saved,
+                        self.model.update_distr_functions,
+                    ]
+                    with ProfileManager.profile_region("diagnostics", functions=diagnostics_functions):
                         self.model.update_scalar_quantities()
                         self.model.update_markers_to_be_saved()
                         self.model.update_distr_functions()
@@ -801,7 +816,7 @@ class Simulation(SimulationBase):
                                 spline.extract_coeffs(update_ghost_regions=False)
 
                     # save data (everything but restart data)
-                    with ProfileManager.profile_region("save data"):
+                    with ProfileManager.profile_region("save data", functions=[self.data.save_data]):
                         self.data.save_data(keys=save_keys_all)
 
                     # print current time and scalar quantities to screen
@@ -1207,7 +1222,7 @@ class Simulation(SimulationBase):
             logger.debug(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
-            with ProfileManager.profile_region("setup: derham"):
+            with ProfileManager.profile_region("setup: derham", functions=[Derham.__init__]):
                 self._derham = Derham(
                     grid,
                     derham_opts,
@@ -1220,10 +1235,10 @@ class Simulation(SimulationBase):
             self._mass_ops = None
             self._basis_ops = None
         else:
-            with ProfileManager.profile_region("setup: mass ops"):
+            with ProfileManager.profile_region("setup: mass ops", functions=[WeightedMassOperators.__init__]):
                 self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil)
 
-            with ProfileManager.profile_region("setup: basis ops"):
+            with ProfileManager.profile_region("setup: basis ops", functions=[BasisProjectionOperators.__init__]):
                 self._basis_ops = BasisProjectionOperators(
                     self.derham,
                     self.domain,
@@ -1233,8 +1248,15 @@ class Simulation(SimulationBase):
         # create projected equilibrium
         if self.derham is None:
             self._projected_equil = None
+        elif self.equil is None:
+            self._projected_equil = None
         else:
-            with ProfileManager.profile_region("setup: projected equil"):
+            projected_equil_functions = [
+                ProjectedMHDequilibrium.__init__,
+                ProjectedFluidEquilibriumWithB.__init__,
+                ProjectedFluidEquilibrium.__init__,
+            ]
+            with ProfileManager.profile_region("setup: projected equil", functions=projected_equil_functions):
                 if isinstance(self.equil, MHDequilibrium):
                     self._projected_equil = ProjectedMHDequilibrium(
                         self.equil,
@@ -1264,7 +1286,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, FieldSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1277,7 +1299,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, FluidSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1290,7 +1312,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, ParticleSpecies)
                 for k, v in spec.variables.items():
                     if isinstance(v, PICVariable):
-                        with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
                             v.allocate(
                                 clone_config=self.clone_config,
                                 derham=self.derham,
@@ -1299,7 +1321,7 @@ class Simulation(SimulationBase):
                                 projected_equil=self.projected_equil,
                             )
                     if isinstance(v, SPHVariable):
-                        with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
                             v.allocate(
                                 derham=self.derham,
                                 domain=self.domain,
@@ -1313,7 +1335,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, DiagnosticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}"):
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1356,7 +1378,7 @@ class Simulation(SimulationBase):
         assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
-            with ProfileManager.profile_region("setup prop: " + prop.__class__.__name__):
+            with ProfileManager.profile_region("setup prop: " + prop.__class__.__name__, functions=[prop.allocate]):
                 prop.allocate()
             logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 

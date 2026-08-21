@@ -1,0 +1,7 @@
+{platform: linux-x86_64, python version: '3.12', model name: ViscoResistiveMHD, parameter file: /home/maxlinadmin/git_repos/struphy-hub/struphy/src/struphy/models/tests/Test_Full_MHD/OrszagTang.py,
+
+    output folder: /home/maxlinadmin/git_repos/struphy-hub/struphy/src/struphy/models/tests/Test_Full_MHD/verification_tests_full/ViscoResistiveMHD/orszag_tang_regularized,
+
+    MPI processes: 1, use MPI.COMM_WORLD: true, number of domain clones: 1, restart: false,
+
+    'max wall-clock [min]': 300, 'save interval [steps]': 1, 'wall-clock time[min]': 0.07647893428802491}
