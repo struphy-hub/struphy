@@ -494,6 +494,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
     ],
 )
+@pytest.mark.mpi_pic
 def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     """Test Maxwellian in v1-direction and cosine perturbation for full-f Particles6D with mpi.
 
@@ -814,6 +815,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
     ],
 )
+@pytest.mark.mpi_pic
 def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     """Test Maxwellian in v1-direction and cosine perturbation for delta-f Particles6D with mpi.
 

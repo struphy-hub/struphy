@@ -181,4 +181,5 @@ markers = [
     "kinetic",
     "hybrid",
     "single",
+    "mpi_pic",
 ]
