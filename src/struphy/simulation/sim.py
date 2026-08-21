@@ -27,6 +27,7 @@ from struphy import (
     EnvironmentOptions,
     PlottingData,
     PostProcessor,
+    ProfilingOptions,
     Time,
     domains,
     equils,
@@ -121,6 +122,8 @@ class Simulation(SimulationBase):
         Spatial grid used for FEEC variables.
     derham_opts : DerhamOptions
         Options for discrete differential operators.
+    profiling_opts : ProfilingOptions
+        Options passed to scope-profiler when profiling is active.
     comm: MPI.Intracomm, optional
         MPI communicator for parallel execution. If None, uses MPI.COMM_WORLD.
     logging_level : int, optional
@@ -139,6 +142,7 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
+        profiling_opts: ProfilingOptions = ProfilingOptions(),
         comm: MPI.Intracomm = None,
         logging_level: int | None = None,
     ):
@@ -155,6 +159,7 @@ class Simulation(SimulationBase):
         self.equil = equil
         self.grid = grid
         self.derham_opts = derham_opts
+        self.profiling_opts = profiling_opts
         self.comm = comm
 
         if logger.level <= logging.INFO and self.rank == 0:
@@ -617,12 +622,11 @@ class Simulation(SimulationBase):
         self._remove_existing_output_files()
 
         with ProfileManager.session(
-            deactivate_profiling=not self.env.profiling_activated,
-            file_path=self.profiling_filepath,
-            use_likwid=False,
-            verbose=False,
-            label=self.name,
-            return_results=True,
+            **self.profiling_opts.session_kwargs(
+                deactivate_profiling=not self.env.profiling_activated,
+                file_path=self.profiling_filepath,
+                label=self.name,
+            )
         ) as profiling_run:
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
@@ -849,6 +853,8 @@ class Simulation(SimulationBase):
         if self.env.profiling_activated:
             # Gather profiling results from all ranks and print a summary on rank 0
             results = profiling_run.results
+            if results is None:
+                return
 
             # one table per region family; the last group catches everything not matched above,
             # so that no recorded region is silently missing from the printed summary
@@ -1043,6 +1049,7 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = None,
         derham_opts: DerhamOptions = None,
+        profiling_opts: ProfilingOptions = None,
     ):
         """Spawn a sister simulation with parameters that default to the current instance.
         This can be used to quickly generate multiple similar simulations."""
@@ -1062,6 +1069,8 @@ class Simulation(SimulationBase):
             grid = self.grid
         if derham_opts is None:
             derham_opts = self.derham_opts
+        if profiling_opts is None:
+            profiling_opts = self.profiling_opts
 
         sister = Simulation(
             model=model,
@@ -1072,6 +1081,7 @@ class Simulation(SimulationBase):
             equil=equil,
             grid=grid,
             derham_opts=derham_opts,
+            profiling_opts=profiling_opts,
         )
         return sister
 
@@ -1563,6 +1573,7 @@ class Simulation(SimulationBase):
             "equil": self.equil.to_dict() if self.equil is not None else None,
             "grid": self.grid.to_dict() if self.grid is not None else None,
             "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
+            "profiling_opts": self.profiling_opts.to_dict(),
         }
 
     def _collect_particle_metadata(self) -> dict:
@@ -1636,6 +1647,7 @@ class Simulation(SimulationBase):
             equil=FluidEquilibrium.from_dict(dct["equil"]),
             grid=grids.TensorProductGrid.from_dict(dct["grid"]),
             derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
+            profiling_opts=ProfilingOptions.from_dict(dct.get("profiling_opts", {})),
         )
 
     @classmethod
@@ -1680,6 +1692,7 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -1713,6 +1726,9 @@ from struphy.models import {self.model.__class__.__name__}
 
             sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
             sim_class_def += "derham_opts=derham_opts,"
+
+            sim_setup += f"profiling_opts = {self.profiling_opts.__repr__()}\n"
+            sim_class_def += "profiling_opts=profiling_opts,"
         else:
             # Only include parameters that are not default to avoid
             # cluttering the script with unnecessary lines
@@ -1735,6 +1751,9 @@ from struphy.models import {self.model.__class__.__name__}
             if not self.derham_opts.is_default:
                 sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
                 sim_class_def += "derham_opts=derham_opts,"
+            if not self.profiling_opts.is_default:
+                sim_setup += f"profiling_opts = {self.profiling_opts.__repr_no_defaults__()}\n"
+                sim_class_def += "profiling_opts=profiling_opts,"
 
         # This is a bit of a special case since the default is None,
         if self.equil is not None:
@@ -1916,6 +1935,16 @@ if __name__ == "__main__":
     def derham_opts(self, value: DerhamOptions | None):
         assert value is None or isinstance(value, DerhamOptions)
         self._derham_opts = value
+
+    @property
+    def profiling_opts(self):
+        """Options passed to scope-profiler for profiling sessions."""
+        return self._profiling_opts
+
+    @profiling_opts.setter
+    def profiling_opts(self, value: ProfilingOptions):
+        assert isinstance(value, ProfilingOptions)
+        self._profiling_opts = value
 
     @property
     def comm(self):
