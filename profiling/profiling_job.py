@@ -527,8 +527,7 @@ class ProfilingCase:
         results_files = _copy_run_results(sim_dir, run_dir)
         if verbose and results_files:
             print(
-                f"Packaged {len(results_files)} results file(s) from "
-                f"{sim_dir / RESULTS_DIR_NAME} into {run_dir.name}/",
+                f"Packaged {len(results_files)} results file(s) from {sim_dir / RESULTS_DIR_NAME} into {run_dir.name}/",
             )
 
         if not profiling_data and not results_files:

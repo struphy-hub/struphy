@@ -617,13 +617,13 @@ class Simulation(SimulationBase):
         self._remove_existing_output_files()
 
         with ProfileManager.session(
-                            deactivate_profiling=not self.env.profiling_activated,
-                            file_path=self.profiling_filepath,
-                            use_likwid=False,
-                            verbose=False,
-                            label=self.name,
-                            return_results=True) as profiling_run:
-
+            deactivate_profiling=not self.env.profiling_activated,
+            file_path=self.profiling_filepath,
+            use_likwid=False,
+            verbose=False,
+            label=self.name,
+            return_results=True,
+        ) as profiling_run:
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
                 self.allocate()
@@ -776,7 +776,9 @@ class Simulation(SimulationBase):
                         self.model.update_distr_functions()
 
                         # extract FEEC coefficients
-                        feec_species = self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
+                        feec_species = (
+                            self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
+                        )
                         for species, val in feec_species.items():
                             assert isinstance(val, Species)
                             for variable, subval in val.variables.items():
@@ -1836,7 +1838,8 @@ if __name__ == "__main__":
         return os.path.join(
             self.env.out_folders,
             self.env.sim_folder,
-            "profiling_data.h5",)
+            "profiling_data.h5",
+        )
 
     @property
     def time_opts(self):
