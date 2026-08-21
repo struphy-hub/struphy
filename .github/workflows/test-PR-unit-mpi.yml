@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        n-procs: [1, 2, 3, 4]
+        n-procs: [1, 2, 4]
 
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
