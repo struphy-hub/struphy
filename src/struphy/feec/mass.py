@@ -2883,15 +2883,15 @@ class H1vecDivDivOperator(LinOpWithTransp):
         for component in range(3):
             self._dlogj[component][:] = values[component]
 
-        self._assembly_kernel = Pyccelkernel(
+        self._assembly_kernel = PyccelKernel(
             mass_kernels.kernel_3d_h1vec_divdiv,
         )
 
-        self._divergence_eval_kernel = Pyccelkernel(
+        self._divergence_eval_kernel = PyccelKernel(
             mass_kernels.kernel_3d_h1vec_divergence_eval,
         )
 
-        self._divergence_transpose_kernel = Pyccelkernel(
+        self._divergence_transpose_kernel = PyccelKernel(
             mass_kernels.kernel_3d_h1vec_divergence_transpose,
         )
 

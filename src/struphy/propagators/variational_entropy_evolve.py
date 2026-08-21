@@ -253,7 +253,7 @@ class VariationalEntropyEvolve(Propagator):
             self._momentum_operator,
             "pcg",
             pc=self._momentum_pc,
-            tol=1.0e-16,
+            tol=1.0e-10,
             maxiter=500,
             verbose=False,
             recycle=False,
