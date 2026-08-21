@@ -599,7 +599,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, one_time_step: bool = False):
+    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None):
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -611,7 +611,13 @@ class Simulation(SimulationBase):
         ----------
         one_time_step : bool
             If True, only perform one time step (useful for testing).
+
+        profiling_activated : bool | None
+            If True, activate profiling with scope-profiler for this run. If
+            None, profiling is disabled.
         """
+        if profiling_activated is None:
+            profiling_activated = False
 
         logger.info(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
         if self.name != "":
@@ -623,7 +629,7 @@ class Simulation(SimulationBase):
 
         with ProfileManager.session(
             **self.profiling_opts.session_kwargs(
-                deactivate_profiling=not self.env.profiling_activated,
+                deactivate_profiling=not profiling_activated,
                 file_path=self.profiling_filepath,
                 label=self.name,
             )
@@ -632,7 +638,10 @@ class Simulation(SimulationBase):
                 # equation paramters
                 self.allocate()
                 with ProfileManager.profile_region("setup: run metadata"):
-                    self._write_run_metadata(one_time_step=one_time_step)
+                    self._write_run_metadata(
+                        one_time_step=one_time_step,
+                        profiling_activated=profiling_activated,
+                    )
 
                 # output
                 with ProfileManager.profile_region("setup: data storage"):
@@ -850,7 +859,7 @@ class Simulation(SimulationBase):
             if self.clone_config is not None:
                 self.clone_config.free()
 
-        if self.env.profiling_activated:
+        if profiling_activated:
             # Gather profiling results from all ranks and print a summary on rank 0
             results = profiling_run.results
             if results is None:
@@ -1506,7 +1515,7 @@ class Simulation(SimulationBase):
 
         return save_keys_all, save_keys_end
 
-    def _write_run_metadata(self, one_time_step: bool = False):
+    def _write_run_metadata(self, one_time_step: bool = False, profiling_activated: bool = False):
         """Write run-specific JSON metadata for each sim.run() event, reusing to_run_metadata()."""
         if self.rank != 0:
             return
@@ -1515,6 +1524,7 @@ class Simulation(SimulationBase):
             file_path=os.path.join(self.env.path_out, "run_metadata.json"),
             started_at_epoch_s=self.start_time,
             one_time_step=one_time_step,
+            profiling_activated=profiling_activated,
         )
 
     def _add_time_state(self, time_state):

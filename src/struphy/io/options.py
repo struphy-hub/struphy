@@ -340,8 +340,6 @@ class EnvironmentOptions(OptionsBase):
     num_clones: int, optional
         Number of domain clones (default=1)
 
-    profiling_activated: bool, optional
-        Activate profiling with scope-profiler (default=False)
     """
 
     out_folders: str = os.getcwd()
@@ -353,7 +351,6 @@ class EnvironmentOptions(OptionsBase):
     save_restart: bool = True
     sort_step: int = 0
     num_clones: int = 1
-    profiling_activated: bool = False
 
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
@@ -378,8 +375,8 @@ class EnvironmentOptions(OptionsBase):
 class ProfilingOptions(OptionsBase):
     """Set options passed to :meth:`scope_profiler.ProfileManager.session`.
 
-    ``EnvironmentOptions.profiling_activated`` remains the main switch used by
-    Struphy to enable profiling. These options configure how scope-profiler
+    ``Simulation.run(profiling_activated=...)`` is the switch used by Struphy to
+    enable profiling for a run. These options configure how scope-profiler
     collects and writes profiling data when that switch is active.
 
     Parameters
