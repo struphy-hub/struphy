@@ -82,7 +82,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
 args, _ = parser.parse_known_args()
 
-env = EnvironmentOptions(sim_folder=f"sim_{args.id:02d}", restart=False)
+env = EnvironmentOptions(
+    sim_folder=f"sim_{args.id:02d}",
+    restart=False
+)
 
 # Time stepping
 time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
@@ -189,4 +192,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(one_time_step=True, profiling_activated=True)
+    sim.run(profiling_activated=True, one_time_step=True)
