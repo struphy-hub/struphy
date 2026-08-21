@@ -14,8 +14,8 @@ from struphy.feec import preconditioner
 from struphy.feec.preconditioner import (
     H1vecKineticMetricPreconditioner,
     H1vecKineticMetricWoodburyPreconditioner,
-    MassMatrixPreconditioner,
     MassMatrixDiagonalPreconditioner,
+    MassMatrixPreconditioner,
 )
 from struphy.feec.variational_utilities import (
     H1vecKineticMetric,

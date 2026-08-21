@@ -220,19 +220,13 @@ class VariationalViscosity(Propagator):
         self._metric_alpha = 2.0 * self._alpha_divdiv
 
         if self.rho is None:
-            raise ValueError(
-                "VariationalViscosity requires a density variable."
-            )
-        
+            raise ValueError("VariationalViscosity requires a density variable.")
+
         if not isinstance(self.rho, FEECVariable):
-            raise TypeError(
-                "VariationalViscosity.rho must be an FEECVariable."
-            )
-        
+            raise TypeError("VariationalViscosity.rho must be an FEECVariable.")
+
         if self.rho.space != "L2":
-            raise ValueError(
-                "VariationalViscosity.rho must belong to the L2 space."
-            )
+            raise ValueError("VariationalViscosity.rho must belong to the L2 space.")
 
         if self._with_regularization and not self.domain.has_exact_mapping_hessian:
             raise NotImplementedError(
@@ -252,30 +246,28 @@ class VariationalViscosity(Propagator):
             self.mass_ops.ensure_committed_h1vec_metric(
                 self.rho,
             )
-        
-            self._kinetic_metric = (
-                self.mass_ops.get_committed_h1vec_metric(
-                    self._metric_alpha,
-                )
+
+            self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
+                self._metric_alpha,
             )
-        
+
             self._Mrho = self._kinetic_metric.mass_operator
             self._Kdivrho = self._kinetic_metric.divdiv_operator
             self._momentum_operator = self._kinetic_metric
-        
+
             self._momentum_pc = H1vecKineticMetricPreconditioner(
                 self._kinetic_metric,
             )
-        
+
         else:
             self._kinetic_metric = None
             self._Kdivrho = None
-        
+
             self._Mrho = self.mass_ops.ensure_committed_WMMnew(
                 self.rho,
             )
             self._momentum_operator = self._Mrho
-        
+
             self._momentum_pc = MassMatrixDiagonalPreconditioner(
                 self._Mrho,
             )
@@ -601,20 +593,22 @@ class VariationalViscosity(Propagator):
             "L2",
             "L2",
         )
-        
+
         # Bootstrap with a positive logical mass matrix before constructing
         # its preconditioner. The physically correct derivative-weighted
         # matrix is assembled and the preconditioner is refreshed before each
         # actual Newton solve.
         self.M_de_ds.assemble(
-            [[
-                lambda e1, e2, e3: xp.ones_like(
-                    e1,
-                    dtype=float,
-                )
-            ]]
+            [
+                [
+                    lambda e1, e2, e3: xp.ones_like(
+                        e1,
+                        dtype=float,
+                    )
+                ]
+            ]
         )
-        
+
         if self.options.precond is None:
             self.pc_jac = None
         else:
@@ -950,54 +944,45 @@ class VariationalViscosity(Propagator):
         Update the persistent committed-density momentum operator and
         refresh this propagator's private preconditioner.
         """
-    
+
         if self._with_regularization:
             # This updates the persistent mass and div-div matrix data in
             # place only if the committed density generation changed.
             self.mass_ops.ensure_committed_h1vec_metric(
                 self.rho,
             )
-    
+
             if not isinstance(
                 self._momentum_pc,
                 H1vecKineticMetricPreconditioner,
             ):
-                raise TypeError(
-                    "Regularized VariationalViscosity requires an "
-                    "H1vecKineticMetricPreconditioner."
-                )
-    
+                raise TypeError("Regularized VariationalViscosity requires an H1vecKineticMetricPreconditioner.")
+
             # The wrapper and its operators retain their identities; only
             # their assembled data have changed.
             self._momentum_pc.update_metric(
                 self._kinetic_metric,
             )
-    
+
         else:
             mass_operator = self.mass_ops.ensure_committed_WMMnew(
                 self.rho,
             )
-    
+
             if mass_operator is not self._Mrho:
                 raise RuntimeError(
-                    "The persistent committed WMMnew object changed after "
-                    "VariationalViscosity allocation."
+                    "The persistent committed WMMnew object changed after VariationalViscosity allocation."
                 )
-    
+
             if not isinstance(
                 self._momentum_pc,
                 MassMatrixDiagonalPreconditioner,
             ):
-                raise TypeError(
-                    "Unregularized VariationalViscosity requires a "
-                    "MassMatrixDiagonalPreconditioner."
-                )
-    
+                raise TypeError("Unregularized VariationalViscosity requires a MassMatrixDiagonalPreconditioner.")
+
             self._momentum_pc.update_mass_operator(
                 self._Mrho,
             )
-
-    
 
     def _get_energy_change(self, un, un1, dt, total_viscosity):
         """Return the total energy change caused by the viscosity"""
