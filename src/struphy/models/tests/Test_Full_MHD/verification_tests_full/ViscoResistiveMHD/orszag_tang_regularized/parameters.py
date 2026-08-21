@@ -760,7 +760,6 @@ def _run_orszag_tang(
             "ViscoResistiveMHD",
         ),
         sim_folder=("orszag_tang_regularized"),
-        profiling_activated=True,
     )
 
     # ------------------------------------------------------------------
@@ -805,7 +804,7 @@ def _run_orszag_tang(
     diagnostics = None
 
     try:
-        simulation.run()
+        simulation.run(profiling_activated=True)
 
         if rank == 0:
             simulation.pproc(

@@ -24,15 +24,10 @@ struphy params Vlasov -y
 python - <<'PY'
 path = "params_Vlasov.py"
 content = open(path).read()
-needle = "env = EnvironmentOptions()"
+needle = "sim.run()"
 if needle not in content:
     raise SystemExit(f"Could not find '{needle}' in {path} -- template may have changed.")
-content = content.replace(
-    needle,
-    "env = EnvironmentOptions(\n"
-    "    profiling_activated=True,\n"
-    ")",
-)
+content = content.replace(needle, "sim.run(profiling_activated=True)")
 open(path, "w").write(content)
 PY
 

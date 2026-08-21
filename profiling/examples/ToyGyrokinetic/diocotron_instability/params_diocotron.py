@@ -84,7 +84,6 @@ args, _ = parser.parse_known_args()
 
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
-    profiling_activated=True,
     restart=False
 )
 
@@ -193,4 +192,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(one_time_step=True)
+    sim.run(one_time_step=True, profiling_activated=True)
