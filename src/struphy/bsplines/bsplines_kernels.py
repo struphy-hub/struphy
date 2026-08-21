@@ -695,6 +695,39 @@ def b_spl_1st_der_slim(t: "float[:]", p: "int", eta: "float", span: "int", value
 
 
 @pure
+@stack_array("left", "right", "ders")
+def b_2der_splines_slim(
+    tn: "float[:]",
+    pn: int,
+    eta: float,
+    span: int,
+    bn: "float[:]",
+    der1: "float[:]",
+    der2: "float[:]",
+):
+    left = zeros(pn, dtype=float)
+    right = zeros(pn, dtype=float)
+    ders = zeros((3, pn + 1), dtype=float)
+
+    basis_funs_all_ders(
+        tn,
+        pn,
+        eta,
+        span,
+        left,
+        right,
+        2,
+        ders,
+    )
+
+    # Explicit loops are safer for generated code than slice assignment.
+    for j in range(pn + 1):
+        bn[j] = ders[0, j]
+        der1[j] = ders[1, j]
+        der2[j] = ders[2, j]
+
+
+@pure
 def piecewise(p: "int", delta: "float", eta: "float") -> "float":
     r"""
     evaluate a hat function (B-spline) centered at eta0 (the center of the support) at eta1, i.e.

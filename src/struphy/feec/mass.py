@@ -14,6 +14,7 @@ from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, Line
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
+from line_profiler import profile
 
 from struphy import equils
 from struphy.feec import mass_kernels
@@ -24,6 +25,7 @@ from struphy.fields_background.base import MHDequilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
@@ -68,7 +70,13 @@ class WeightedMassOperators:
             self._eq_mhd = equils.HomogenSlab()
         if not hasattr(self.eq_mhd, "_domain"):
             self._eq_mhd.domain = self._domain
+        self._committed_h1vec_mass = None
+        self._committed_h1vec_divdiv = None
+        self._committed_h1vec_metrics = {}
+        self._committed_h1vec_generation = None
+        self._committed_h1vec_valid = False
 
+        self._committed_WMMnew_valid = False
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
@@ -957,9 +965,132 @@ class WeightedMassOperators:
             )
         return self._WMMnew
 
+    def _initialize_committed_h1vec_storage(self):
+        """Create the committed-density operators once."""
+
+        if self._committed_h1vec_mass is None:
+            self._committed_h1vec_mass = self.WMMnew
+
+        if self._committed_h1vec_divdiv is None:
+            self._committed_h1vec_divdiv = self.create_h1vec_div_div(
+                name="CommittedH1vecDivDiv",
+            )
+
+    def update_committed_WMMnew(self, rho_variable):
+        """
+        Assemble WMMnew only if the committed density has changed.
+        """
+        mass_operator = self.WMMnew
+        generation = rho_variable.generation
+
+        if mass_operator.weight_generation != generation:
+            mass_operator.spline_functions["l2_field"].vector = rho_variable.spline.vector
+            mass_operator.assemble()
+            mass_operator.mark_weight_generation(generation)
+
+        return mass_operator
+
+    def committed_h1vec_divdiv(self):
+        """Shared div-div operator for the committed density."""
+        if not hasattr(self, "_committed_h1vec_divdiv"):
+            self._committed_h1vec_divdiv = self.create_h1vec_div_div(
+                name="CommittedH1vecDivDiv",
+            )
+            self._committed_h1vec_divdiv._weight_generation = None
+
+        return self._committed_h1vec_divdiv
+
+    def update_committed_h1vec_divdiv(self, rho_variable):
+        """
+        Assemble the committed-density div-div operator at most once per
+        density generation.
+        """
+        operator = self.committed_h1vec_divdiv()
+        generation = rho_variable.generation
+
+        if operator._weight_generation != generation:
+            operator.update_weight(rho_variable.spline.vector)
+            operator._weight_generation = generation
+
+        return operator
+
+    def ensure_committed_h1vec_metric(
+        self,
+        rho_variable,
+    ):
+        """
+        Ensure that the persistent committed-density operators are assembled.
+
+        This method never creates or replaces a metric wrapper.
+        """
+        self._initialize_committed_h1vec_storage()
+
+        generation = rho_variable.generation
+
+        if self._committed_h1vec_valid and self._committed_h1vec_generation == generation:
+            return
+
+        # Mark invalid before beginning assembly.
+        self._committed_h1vec_valid = False
+        self._committed_h1vec_generation = None
+
+        rho = rho_variable.spline.vector
+
+        mass_operator = self._committed_h1vec_mass
+        mass_operator.spline_functions["l2_field"].vector = rho
+        mass_operator.assemble()
+
+        self._committed_h1vec_divdiv.update_weight(rho)
+
+        # Mark valid only after both assemblies completed.
+        self._committed_h1vec_generation = generation
+        self._committed_h1vec_valid = True
+
+    def get_committed_h1vec_metric(self, metric_alpha):
+        """
+        Return a stable kinetic-metric wrapper.
+
+        This method does not assemble anything.
+        """
+        from struphy.feec.variational_utilities import (
+            H1vecKineticMetric,
+        )
+
+        self._initialize_committed_h1vec_storage()
+
+        alpha = float(metric_alpha)
+
+        if alpha not in self._committed_h1vec_metrics:
+            self._committed_h1vec_metrics[alpha] = H1vecKineticMetric(
+                self._committed_h1vec_mass,
+                self._committed_h1vec_divdiv,
+                alpha=alpha,
+            )
+
+        return self._committed_h1vec_metrics[alpha]
+
+    def invalidate_committed_h1vec_metric(self):
+        self._committed_h1vec_valid = False
+        self._committed_h1vec_generation = None
+
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################
+    def create_h1vec_div_div(self, *, name: str = "H1vecDivDiv"):
+        r"""
+        Create the weighted H1vec div-div operator.
+
+        The density weight is provided later through ``update_weight``.
+        """
+        if self.matrix_free:
+            raise NotImplementedError("Matrix-free H1vecDivDivOperator is not implemented.")
+
+        return H1vecDivDivOperator(
+            self.derham,
+            self.domain,
+            name=name,
+        )
+
     def create_weighted_mass(
         self,
         V_id: str,
@@ -1264,7 +1395,106 @@ class WeightedMassOperators:
 
         return out
 
-    #######################################
+    def get_h1vec_kinetic_metric(
+        self,
+        alpha,
+        *,
+        name="SharedH1vecKineticMetric",
+    ):
+        """
+        Return a shared density-weighted H1vec kinetic metric.
+
+        One instance is stored for each regularization coefficient.
+        """
+        alpha = float(alpha)
+        from struphy.feec.variational_utilities import H1vecKineticMetric
+
+        if not hasattr(self, "_h1vec_kinetic_metrics"):
+            self._h1vec_kinetic_metrics = {}
+
+        if alpha not in self._h1vec_kinetic_metrics:
+            divdiv = self.create_h1vec_div_div(
+                name=name + "DivDiv",
+            )
+
+            metric = H1vecKineticMetric(
+                self.WMMnew,
+                divdiv,
+                alpha=alpha,
+            )
+
+            self._h1vec_kinetic_metrics[alpha] = metric
+
+        return self._h1vec_kinetic_metrics[alpha]
+
+    def publish_committed_h1vec_metric(
+        self,
+        source_divdiv_operator,
+        rho_variable,
+    ):
+        """
+        Publish the final density-Newton metric as the committed snapshot.
+
+        WMMnew is assumed to already contain the mass matrix associated
+        with the committed density.
+        """
+        self._initialize_committed_h1vec_storage()
+
+        self._committed_h1vec_valid = False
+        self._committed_h1vec_generation = None
+
+        destination = self._committed_h1vec_divdiv
+
+        for row in range(3):
+            for col in range(3):
+                source_block = source_divdiv_operator.matrix[row, col]
+                destination_block = destination.matrix[row, col]
+
+                if source_block._data.shape != destination_block._data.shape:
+                    raise ValueError(f"Cannot publish div-div block ({row}, {col}): incompatible storage shapes.")
+
+                destination_block._data[:] = source_block._data
+
+        destination._rho_values[:] = source_divdiv_operator.rho_values
+        # WMMnew already contains the accepted density's mass matrix.
+        self.publish_committed_WMMnew()
+        self._committed_h1vec_generation = rho_variable.generation
+        self._committed_h1vec_valid = True
+
+    def invalidate_committed_WMMnew(self):
+        """
+        Mark WMMnew as containing a temporary or unknown density.
+        """
+        self._committed_WMMnew_valid = False
+
+    def publish_committed_WMMnew(self):
+        """
+        Mark WMMnew as containing the current committed density.
+
+        No assembly is performed.
+        """
+        self._committed_WMMnew_valid = True
+
+    def ensure_committed_WMMnew(self, rho_variable):
+        """
+        Ensure that WMMnew contains the current committed density.
+
+        Density evolution should normally publish the final matrix, so this
+        assembly is primarily an allocation/recovery fallback.
+        """
+        mass_operator = self.WMMnew
+
+        if self._committed_WMMnew_valid:
+            return mass_operator
+
+        mass_operator.spline_functions["l2_field"].vector = rho_variable.spline.vector
+
+        mass_operator.assemble()
+
+        self._committed_WMMnew_valid = True
+
+        return mass_operator
+
     # Aux classes (to be removed in TODO) #
     #######################################
     class H1vecMassMatrix_density:
@@ -1307,36 +1537,22 @@ class WeightedMassOperators:
                 self._create_inv()
             return self._inv
 
-        def update_weight(self, coeffs):
-            """Update the weighted mass matrix operator"""
+        def update_weight(self, rho_coeffs, *, update_sqrt_weight=False):
+            assert isinstance(rho_coeffs, (StencilVector, PolarVector))
+            assert rho_coeffs.space == self.derham.V3pol
 
-            self.field.vector = coeffs
-            f_values = self.field.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._f_values,
-            )
-            for i in range(3):
-                for j in range(3):
-                    self._full_term_mass[i, j] = f_values * self._mass_metric_term[i, j]
+            self._rho_field.vector = rho_coeffs
 
-            self._massop.assemble(
-                [
-                    [self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
-                    [
-                        self._full_term_mass[1, 0],
-                        self._full_term_mass[
-                            1,
-                            1,
-                        ],
-                        self._full_term_mass[1, 2],
-                    ],
-                    [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
-                ],
+            self._rho_field.eval_tp_fixed_loc(
+                self._rho_spans,
+                self._rho_bd,
+                out=self._rho_values,
             )
 
-            if hasattr(self, "_inv") and self.inv._options["pc"] is not None:
-                self.inv._options["pc"].update_mass_operator(self.massop)
+            if update_sqrt_weight:
+                self._update_sqrt_weight()
+
+            self.assemble()
 
         def _create_inv(self, type="pcg", tol=1e-16, maxiter=500):
             """Inverse the  weighted mass matrix, preconditioner must be set outside
@@ -1731,7 +1947,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 PTS = xp.meshgrid(*pts, indexing="ij")
                                 mat_w = loc_weight(*PTS).copy()
                             elif isinstance(loc_weight, xp.ndarray):
-                                mat_w = loc_weight
+                                mat_w = loc_weight.copy()
                             else:
                                 raise TypeError(f"Invalid weight type: {type(loc_weight)}")
 
@@ -1854,6 +2070,8 @@ class WeightedMassOperator(LinOpWithTransp):
         self._temp_VE = self._V_extraction_op.domain.zeros()
         self._temp_mat = self._mat.domain.zeros()
 
+        self._weight_generation = None
+
         # load assembly kernel
         if not self._matrix_free:
             self._assembly_kernel = PyccelKernel(
@@ -1973,6 +2191,13 @@ class WeightedMassOperator(LinOpWithTransp):
     def weights(self):
         return self._weights
 
+    @property
+    def weight_generation(self):
+        return self._weight_generation
+
+    def mark_weight_generation(self, generation):
+        self._weight_generation = generation
+
     def dot(self, v, out=None, apply_bc=True):
         """Dot product of the operator with a vector.
 
@@ -2086,6 +2311,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         return M
 
+    @profile
     def assemble(self, weights=None, clear=True):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
@@ -2233,7 +2459,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                     f"The spline weight {name} is close to zero at all quadrature points in the assembly of the weighted mass matrix {self.name}. Weights are not multiplied."
                                 )
                                 continue
-                            mat_w *= values
+                            mat_w = mat_w * values
                     else:
                         logger.debug(f"No weight for block {a, b}, setting mat_w to None.")
                         mat_w = None
@@ -2517,6 +2743,568 @@ class WeightedMassOperator(LinOpWithTransp):
 
     def info(self, use_rst=False):
         return info(self, use_rst=use_rst)
+
+
+class H1vecDivDivOperator(LinOpWithTransp):
+    r"""
+    Weighted H1vec div-div operator
+
+    .. math::
+
+        a_\rho(\mathbf u_h,\mathbf v_h)
+        =
+        \int_\Omega
+        \rho\,
+        (\nabla_x\cdot\mathbf u_h)
+        (\nabla_x\cdot\mathbf v_h)
+        \,\mathrm d\mathbf x.
+
+    The H1vec push-forward is
+
+    .. math::
+
+        \mathbf u = DF\,\widehat{\mathbf u},
+
+    and therefore
+
+    .. math::
+
+        \nabla_x\cdot\mathbf u
+        =
+        \sum_{\mu=1}^3
+        \left(
+            \partial_{\eta_\mu}\widehat u_\mu
+            +
+            \widehat u_\mu
+            \partial_{\eta_\mu}\log|\det DF|
+        \right).
+
+    The density is supplied as coefficients of an L2/3-form.
+    """
+
+    def __init__(
+        self,
+        derham: Derham,
+        domain: Domain,
+        *,
+        name: str = "H1vecDivDiv",
+    ):
+        self._derham = derham
+        self._physical_domain = domain
+        self._name = name
+
+        V = derham.Vvfem
+        assert isinstance(V, VectorFemSpace)
+        assert len(V.spaces) == 3
+
+        reference_space = V.spaces[0]
+        assert all(space.coeff_space == reference_space.coeff_space for space in V.spaces)
+        assert all(space.degree == reference_space.degree for space in V.spaces)
+
+        self._dtype = V.coeff_space.dtype
+
+        blocks = [
+            [
+                StencilMatrix(
+                    trial_space.coeff_space,
+                    test_space.coeff_space,
+                    backend=PSYDAC_BACKEND_GPYCCEL,
+                    precompiled=True,
+                )
+                for trial_space in V.spaces
+            ]
+            for test_space in V.spaces
+        ]
+
+        self._mat = BlockLinearOperator(
+            V.coeff_space,
+            V.coeff_space,
+            blocks=blocks,
+        )
+
+        self._extraction_op = derham.extraction_ops["v"]
+        self._boundary_op = derham.boundary_ops["v"]
+        self._extraction_op_T = self._extraction_op.T
+        self._boundary_op_T = self._boundary_op.T
+
+        self._M = self._extraction_op @ self._mat @ self._extraction_op_T
+        self._M0 = self._boundary_op @ self._M @ self._boundary_op_T
+
+        self._domain = self._M0.domain
+        self._codomain = self._M0.codomain
+
+        spline_attr = derham.V0splines
+
+        self._quad_pts = tuple(points.flatten() for points in spline_attr.quad_grid_pts[0])
+        self._quad_spans = spline_attr.quad_grid_spans[0]
+        self._quad_weights = spline_attr.quad_grid_wts[0]
+        self._quad_bases = spline_attr.quad_grid_bases[0]
+
+        for basis in self._quad_bases:
+            assert basis.shape[2] >= 2, "H1vecDivDivOperator requires first derivatives of the H1 basis."
+
+        self._quad_shape = tuple(point.size for point in self._quad_pts)
+
+        self._rho_field = derham.create_spline_function(
+            name + "_rho",
+            "L2",
+        )
+        self._rho_values = xp.zeros(
+            self._quad_shape,
+            dtype=float,
+        )
+        self._weighted_rho_values = xp.zeros(
+            self._quad_shape,
+            dtype=float,
+        )
+
+        (
+            self._rho_spans,
+            self._rho_bn,
+            self._rho_bd,
+        ) = derham.prepare_eval_tp_fixed(self._quad_pts)
+
+        self._dlogj = [xp.zeros(self._quad_shape, dtype=float) for _ in range(3)]
+
+        values = domain.log_jacobian_det_gradient(
+            *self._quad_pts,
+            squeeze_out=False,
+            remove_outside=False,
+        )
+
+        expected_shape = (3, *self._quad_shape)
+
+        if not isinstance(values, xp.ndarray):
+            raise TypeError("Domain.log_jacobian_det_gradient must return an xp.ndarray.")
+
+        if values.shape != expected_shape:
+            raise ValueError(f"Invalid log-Jacobian gradient shape: expected {expected_shape}, got {values.shape}.")
+
+        for component in range(3):
+            self._dlogj[component][:] = values[component]
+
+        self._assembly_kernel = PyccelKernel(
+            mass_kernels.kernel_3d_h1vec_divdiv,
+        )
+
+        self._divergence_eval_kernel = PyccelKernel(
+            mass_kernels.kernel_3d_h1vec_divergence_eval,
+        )
+
+        self._divergence_transpose_kernel = PyccelKernel(
+            mass_kernels.kernel_3d_h1vec_divergence_transpose,
+        )
+
+        # Temporary vectors used to apply
+        #
+        #   Qbar = Q E.T B.T
+        #   Qbar.T = B E Q.T.
+        self._tmp_boundary = self._boundary_op.domain.zeros()
+        self._tmp_tensor = self._extraction_op.domain.zeros()
+
+        # Quadrature volume weights.
+        w1 = self._quad_weights[0].flatten()
+        w2 = self._quad_weights[1].flatten()
+        w3 = self._quad_weights[2].flatten()
+
+        self._quadrature_volume_weight = xp.zeros(
+            self._quad_shape,
+            dtype=float,
+        )
+
+        self._quadrature_volume_weight[:] = w1[:, None, None] * w2[None, :, None] * w3[None, None, :]
+
+        # sqrt(W_rho) where
+        #
+        #   W_rho = diag(w_q * rho_q).
+        self._sqrt_weight = xp.zeros(
+            self._quad_shape,
+            dtype=float,
+        )
+
+        self._divergence_values = xp.zeros(
+            self._quad_shape,
+            dtype=float,
+        )
+
+        self._weighted_values = xp.zeros(
+            self._quad_shape,
+            dtype=float,
+        )
+
+    @property
+    def derham(self):
+        return self._derham
+
+    @property
+    def physical_domain(self):
+        return self._physical_domain
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def matrix(self):
+        return self._mat
+
+    @property
+    def M(self):
+        return self._M
+
+    @property
+    def M0(self):
+        return self._M0
+
+    @property
+    def rho_field(self):
+        return self._rho_field
+
+    @property
+    def rho_values(self):
+        return self._rho_values
+
+    @property
+    def dlog_jacobian_det(self):
+        return tuple(self._dlogj)
+
+    @property
+    def quadrature_volume_weight(self):
+        return self._quadrature_volume_weight
+
+    @property
+    def sqrt_weight(self):
+        return self._sqrt_weight
+
+    @property
+    def quadrature_shape(self):
+        return self._quad_shape
+
+    @profile
+    def update_weight(self, rho_coeffs):
+        assert isinstance(rho_coeffs, (StencilVector, PolarVector))
+        assert rho_coeffs.space == self.derham.V3pol
+
+        self._rho_field.vector = rho_coeffs
+
+        self._rho_field.eval_tp_fixed_loc(
+            self._rho_spans,
+            self._rho_bd,
+            out=self._rho_values,
+        )
+
+        self._update_sqrt_weight()
+        self.assemble()
+
+    def _update_sqrt_weight(self):
+        """
+        Update sqrt(w_q * rho_q).
+
+        The SPD Woodbury formulation requires non-negative density at
+        every quadrature point.
+        """
+        local_min = float(xp.min(self._rho_values))
+
+        comm = self.derham.comm
+
+        if comm is not None and not isinstance(comm, MockComm):
+            global_min = comm.allreduce(
+                local_min,
+                op=MPI.MIN,
+            )
+        else:
+            global_min = local_min
+
+        if global_min < -1e-14:
+            raise ValueError(
+                "The Woodbury kinetic-metric preconditioner requires "
+                "non-negative density at quadrature points. "
+                f"Minimum density is {global_min}."
+            )
+
+        # Ignore roundoff-sized negative values.
+        xp.maximum(
+            self._rho_values,
+            0.0,
+            out=self._weighted_values,
+        )
+
+        self._weighted_values *= self._quadrature_volume_weight
+
+        xp.sqrt(
+            self._weighted_values,
+            out=self._sqrt_weight,
+        )
+
+    @profile
+    def assemble(
+        self,
+        rho_values: xp.ndarray = None,
+        clear: bool = True,
+    ):
+        r"""Assemble the weighted H1vec div-div matrix."""
+
+        if rho_values is None:
+            rho_values = self._rho_values
+        else:
+            assert isinstance(rho_values, xp.ndarray)
+            assert rho_values.shape == self._quad_shape
+            self._rho_values[:] = rho_values
+            rho_values = self._rho_values
+
+        if clear:
+            for block_row in self._mat.blocks:
+                for block in block_row:
+                    block._data[:] = 0.0
+
+        V = self.derham.Vvfem
+        reference_space = V.spaces[0]
+
+        starts = tuple(int(start) for start in reference_space.coeff_space.starts)
+        pads = reference_space.coeff_space.pads
+        self._weighted_rho_values[:] = rho_values
+        self._weighted_rho_values *= self._quadrature_volume_weight
+
+        for component_test in range(3):
+            for component_trial in range(component_test, 3):
+                mat = self._mat[
+                    component_test,
+                    component_trial,
+                ]
+
+                self._assembly_kernel(
+                    *self._quad_spans,
+                    *reference_space.degree,
+                    *starts,
+                    *pads,
+                    *self._quad_bases,
+                    self._weighted_rho_values,
+                    self._dlogj[0],
+                    self._dlogj[1],
+                    self._dlogj[2],
+                    component_test,
+                    component_trial,
+                    mat._data,
+                )
+
+        self._mat.exchange_assembly_data()
+        self._mat.update_ghost_regions()
+
+        self._mat[1, 0]._data[:] = self._mat[0, 1].T._data
+        self._mat[2, 0]._data[:] = self._mat[0, 2].T._data
+        self._mat[2, 1]._data[:] = self._mat[1, 2].T._data
+
+    def dot(self, v, out=None):
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+
+        return self._M0.dot(v, out=out)
+
+    def apply_Q(self, v, out=None):
+        r"""
+        Apply
+
+            Qbar = Q E.T B.T,
+
+        returning the physical divergence at quadrature points.
+        """
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        if out is None:
+            out = self._divergence_values
+        else:
+            if not isinstance(out, xp.ndarray):
+                raise TypeError("out must be an xp.ndarray.")
+            if out.shape != self._quad_shape:
+                raise ValueError(f"Expected quadrature shape {self._quad_shape}, got {out.shape}.")
+
+        # Tensor coefficients = E.T B.T v.
+        self._boundary_op_T.dot(
+            v,
+            out=self._tmp_boundary,
+        )
+        self._extraction_op_T.dot(
+            self._tmp_boundary,
+            out=self._tmp_tensor,
+        )
+
+        self._tmp_tensor.update_ghost_regions()
+
+        out[:] = 0.0
+
+        V = self.derham.Vvfem
+        reference_space = V.spaces[0]
+
+        starts = tuple(int(start) for start in reference_space.coeff_space.starts)
+        pads = reference_space.coeff_space.pads
+
+        for component in range(3):
+            self._divergence_eval_kernel(
+                *self._quad_spans,
+                *reference_space.degree,
+                *starts,
+                *pads,
+                *self._quad_bases,
+                self._dlogj[0],
+                self._dlogj[1],
+                self._dlogj[2],
+                component,
+                self._tmp_tensor[component]._data,
+                out,
+            )
+
+        return out
+
+    def apply_QT(self, values, out=None):
+        r"""
+        Apply
+
+            Qbar.T = B E Q.T
+
+        to an unweighted quadrature array.
+        """
+        if not isinstance(values, xp.ndarray):
+            raise TypeError("values must be an xp.ndarray.")
+
+        if values.shape != self._quad_shape:
+            raise ValueError(f"Expected quadrature shape {self._quad_shape}, got {values.shape}.")
+
+        if out is None:
+            out = self.codomain.zeros()
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+
+        # Clear tensor coefficient vector.
+        for block in self._tmp_tensor.blocks:
+            block._data[:] = 0.0
+
+        V = self.derham.Vvfem
+        reference_space = V.spaces[0]
+
+        starts = tuple(int(start) for start in reference_space.coeff_space.starts)
+        pads = reference_space.coeff_space.pads
+
+        for component in range(3):
+            self._divergence_transpose_kernel(
+                *self._quad_spans,
+                *reference_space.degree,
+                *starts,
+                *pads,
+                *self._quad_bases,
+                self._dlogj[0],
+                self._dlogj[1],
+                self._dlogj[2],
+                component,
+                values,
+                self._tmp_tensor[component]._data,
+            )
+
+        # Accumulate shared basis coefficients.
+        self._tmp_tensor.exchange_assembly_data()
+        self._tmp_tensor.update_ghost_regions()
+
+        # Return B E Q.T values.
+        self._extraction_op.dot(
+            self._tmp_tensor,
+            out=self._tmp_boundary,
+        )
+
+        self._boundary_op.dot(
+            self._tmp_boundary,
+            out=out,
+        )
+
+        return out
+
+    # @profile
+    def apply_R(self, v, out=None):
+        r"""
+        Apply
+
+            R = sqrt(W_rho) Qbar.
+        """
+        if out is None:
+            out = self._divergence_values
+
+        self.apply_Q(v, out=out)
+        out *= self._sqrt_weight
+
+        return out
+
+    # @profile
+    def apply_RT(self, values, out=None):
+        r"""
+        Apply
+
+            R.T = Qbar.T sqrt(W_rho).
+        """
+        if not isinstance(values, xp.ndarray):
+            raise TypeError("values must be an xp.ndarray.")
+
+        if values.shape != self._quad_shape:
+            raise ValueError(f"Expected quadrature shape {self._quad_shape}, got {values.shape}.")
+
+        self._weighted_values[:] = values
+        self._weighted_values *= self._sqrt_weight
+
+        return self.apply_QT(
+            self._weighted_values,
+            out=out,
+        )
+
+    def transpose(self, conjugate=False):
+        return self
+
+    def tosparse(self):
+        if isinstance(self._extraction_op, IdentityOperator) and isinstance(
+            self._boundary_op,
+            IdentityOperator,
+        ):
+            return self._mat.tosparse()
+
+        raise NotImplementedError("tosparse() is not implemented with extraction or boundary operators.")
+
+    def toarray(self):
+        if isinstance(self._extraction_op, IdentityOperator) and isinstance(
+            self._boundary_op,
+            IdentityOperator,
+        ):
+            return self._mat.toarray()
+
+        raise NotImplementedError("toarray() is not implemented with extraction or boundary operators.")
+
+    def copy_matrix_to(self, destination):
+        """Copy the assembled tensor matrix into another compatible operator."""
+        if not isinstance(destination, H1vecDivDivOperator):
+            raise TypeError("destination must be an H1vecDivDivOperator.")
+
+        for row in range(3):
+            for col in range(3):
+                source_block = self._mat[row, col]
+                destination_block = destination._mat[row, col]
+
+                if source_block._data.shape != destination_block._data.shape:
+                    raise ValueError("Incompatible div-div stencil storage.")
+
+                destination_block._data[:] = source_block._data
 
 
 class StencilMatrixFreeMassOperator(LinOpWithTransp):

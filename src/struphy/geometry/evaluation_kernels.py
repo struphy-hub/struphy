@@ -337,6 +337,90 @@ def df(
         )
 
 
+def d2f(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    args: "DomainArguments",
+    d2f_out: "float[:,:,:]",
+):
+    r"""
+    Pointwise exact mapping Hessian.
+
+    The output convention is
+
+    .. math::
+
+        \mathtt{d2f\_out[i,j,k]}
+        =
+        \frac{\partial^2F_i}
+        {\partial\eta_j\partial\eta_k}.
+    """
+    d2f_out[:, :, :] = 0.0
+
+    if args.kind_map == 0:
+        mappings_kernels.spline_3d_d2f(
+            eta1,
+            eta2,
+            eta3,
+            args.degree,
+            args.ind1,
+            args.ind2,
+            args.ind3,
+            args,
+            d2f_out,
+        )
+
+    elif args.kind_map == 1:
+        mappings_kernels.spline_2d_straight_d2f(
+            eta1,
+            eta2,
+            args.degree,
+            args.ind1,
+            args.ind2,
+            args,
+            d2f_out,
+        )
+
+    elif args.kind_map == 2:
+        mappings_kernels.spline_2d_torus_d2f(
+            eta1,
+            eta2,
+            eta3,
+            args.degree,
+            args.ind1,
+            args.ind2,
+            args,
+            args.params[0],
+            d2f_out,
+        )
+
+    elif args.kind_map == 10:
+        mappings_kernels.cuboid_d2f(
+            d2f_out,
+        )
+    # NOT SUPPPORTED YET @TODO
+    # elif args.kind_map == 11:
+    #     mappings_kernels.orthogonal_d2f(
+    #         eta1,
+    #         eta2,
+    #         args.params[0],
+    #         args.params[1],
+    #         args.params[2],
+    #         d2f_out,
+    #     )
+
+    # elif args.kind_map == 12:
+    #     mappings_kernels.colella_d2f(
+    #         eta1,
+    #         eta2,
+    #         args.params[0],
+    #         args.params[1],
+    #         args.params[2],
+    #         d2f_out,
+    #     )
+
+
 def det_df(
     eta1: float,
     eta2: float,
@@ -881,6 +965,75 @@ def kernel_evaluate(
                 mat_f[i1, i2, i3, :, :] = out
 
 
+@stack_array("out")
+def kernel_evaluate_hessian(
+    eta1: "float[:,:,:]",
+    eta2: "float[:,:,:]",
+    eta3: "float[:,:,:]",
+    args: "DomainArguments",
+    hessian: "float[:,:,:,:,:,:]",
+    is_sparse_meshgrid: bool,
+):
+    r"""
+    Evaluate the exact mapping Hessian on a three-dimensional grid.
+
+    The output uses component-last storage:
+
+    .. math::
+
+        \mathtt{hessian[i1,i2,i3,a,j,k]}
+        =
+        \frac{\partial^2 F_a}
+        {\partial\eta_j\partial\eta_k}.
+    """
+    out = zeros((3, 3, 3), dtype=float)
+
+    n1 = shape(eta1)[0]
+    n2 = shape(eta2)[1]
+    n3 = shape(eta3)[2]
+
+    if is_sparse_meshgrid:
+        sparse_factor = 0
+    else:
+        sparse_factor = 1
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                e1 = eta1[
+                    i1,
+                    i2 * sparse_factor,
+                    i3 * sparse_factor,
+                ]
+                e2 = eta2[
+                    i1 * sparse_factor,
+                    i2,
+                    i3 * sparse_factor,
+                ]
+                e3 = eta3[
+                    i1 * sparse_factor,
+                    i2 * sparse_factor,
+                    i3,
+                ]
+
+                d2f(
+                    e1,
+                    e2,
+                    e3,
+                    args,
+                    out,
+                )
+
+                hessian[
+                    i1,
+                    i2,
+                    i3,
+                    :,
+                    :,
+                    :,
+                ] = out
+
+
 @stack_array("tmp0", "tmp1", "tmp2", "tmp3", "out")
 def kernel_evaluate_pic(
     markers: "float[:,:]",
@@ -947,6 +1100,78 @@ def kernel_evaluate_pic(
 
             mat_f[counter, :, :] = out
 
+            counter += 1
+
+    return counter
+
+
+@stack_array("out")
+def kernel_evaluate_hessian_pic(
+    markers: "float[:,:]",
+    args: "DomainArguments",
+    hessian: "float[:,:,:,:]",
+    remove_outside: bool,
+) -> int:
+    r"""
+    Evaluate the exact mapping Hessian at marker points.
+
+    The output uses component-last storage:
+
+    .. math::
+
+        \mathtt{hessian[p,a,j,k]}
+        =
+        \frac{\partial^2 F_a}
+        {\partial\eta_j\partial\eta_k}.
+
+    Parameters
+    ----------
+    markers : array[float]
+        Marker coordinates with shape ``(n_points, 3)``.
+
+    args : DomainArguments
+        Mapping arguments.
+
+    hessian : array[float]
+        Output array with shape ``(n_points, 3, 3, 3)``.
+
+    remove_outside : bool
+        If true, markers outside the logical domain are omitted.
+
+    Returns
+    -------
+    counter : int
+        Number of output points written.
+    """
+    out = zeros((3, 3, 3), dtype=float)
+
+    npoints = shape(markers)[0]
+    counter = 0
+
+    for point in range(npoints):
+        e1 = markers[point, 0]
+        e2 = markers[point, 1]
+        e3 = markers[point, 2]
+
+        outside = e1 < 0.0 or e1 > 1.0 or e2 < 0.0 or e2 > 1.0 or e3 < 0.0 or e3 > 1.0
+
+        if outside:
+            if remove_outside:
+                continue
+
+            hessian[counter, :, :, :] = -1.0
+            counter += 1
+
+        else:
+            d2f(
+                e1,
+                e2,
+                e3,
+                args,
+                out,
+            )
+
+            hessian[counter, :, :, :] = out
             counter += 1
 
     return counter

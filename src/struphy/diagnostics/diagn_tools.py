@@ -186,7 +186,7 @@ def power_spectrum_2d(
         # fit
         coeffs = []
         for m, om in omega_fit.items():
-            coeffs += [xp.polyfit(k_fit, om, deg=fit_degree[n])]
+            coeffs += [xp.polyfit(k_fit, om, deg=fit_degree[m])]
         logger.info(f"\nFitted {coeffs =}")
 
     if do_plot:

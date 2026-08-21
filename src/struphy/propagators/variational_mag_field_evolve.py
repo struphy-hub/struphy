@@ -10,8 +10,12 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
-from struphy.feec.variational_utilities import Hdiv0_transport_operator
+from struphy.feec.preconditioner import (
+    H1vecKineticMetricPreconditioner,
+    H1vecKineticMetricWoodburyPreconditioner,
+    MassMatrixDiagonalPreconditioner,
+)
+from struphy.feec.variational_utilities import H1vecKineticMetric, Hdiv0_transport_operator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolverFull
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -100,8 +104,16 @@ class VariationalMagFieldEvolve(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, rho: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho : FEECVariable, default=None
+            Density variable used to construct the density-weighted momentum
+            metric.
+        """
         self.variables = self.Variables()
+        self.rho = rho
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -119,6 +131,16 @@ class VariationalMagFieldEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear iteration controls.
+        with_regularization : bool, default=False
+            Whether to use the density-weighted H1vec div-div kinetic
+            regularization.
+        alpha_divdiv : float, default=1.0
+            Coefficient of
+
+                alpha_divdiv * int rho * (div u)^2 dx
+
+            in the kinetic energy. The corresponding coefficient in the
+            momentum metric is ``2 * alpha_divdiv``.
         """
 
         OptsModel = Literal["full", "full_p", "linear"]
@@ -128,6 +150,8 @@ class VariationalMagFieldEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        with_regularization: bool = False
+        alpha_divdiv: float = 1.0
 
         def __post_init__(self):
             # checks
@@ -141,6 +165,11 @@ class VariationalMagFieldEvolve(Propagator):
 
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters(type="Newton")
+            if not isinstance(self.with_regularization, bool):
+                raise TypeError(f"with_regularization must be a bool, got {type(self.with_regularization)}.")
+
+            if self.alpha_divdiv < 0.0:
+                raise ValueError(f"alpha_divdiv must be non-negative, got {self.alpha_divdiv}.")
 
     @property
     def options(self) -> Options:
@@ -160,18 +189,63 @@ class VariationalMagFieldEvolve(Propagator):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self._nonlin_solver.linearize
+        self._with_regularization = self.options.with_regularization
+        self._alpha_divdiv = self.options.alpha_divdiv
+
+        # alpha_divdiv is the coefficient in the kinetic energy. Differentiating
+        # with respect to velocity produces a factor of two in the momentum metric.
+        self._metric_alpha = 2.0 * self._alpha_divdiv
+
+        if self._with_regularization and not self.domain.has_exact_mapping_hessian:
+            raise NotImplementedError(
+                "VariationalMagFieldEvolve regularization requires an "
+                "analytical mapping Hessian. "
+                f"Mapping {type(self.domain).__name__} with "
+                f"kind_map={self.domain.kind_map} is not currently supported."
+            )
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
-        # assembly of WMMnew happens in VariationalDensityEvolve
+        # Density-weighted H1vec mass operator. Its assembly normally happens in
+        # VariationalDensityEvolve, but the magnetic propagator explicitly updates
+        # it below so that it does not depend on propagator ordering.
+        rho = self.rho.spline.vector
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-        self._Mrho_inv = inverse(
-            self._Mrho,
+
+        if self._with_regularization:
+            self.mass_ops.ensure_committed_h1vec_metric(
+                self.rho,
+            )
+
+            self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
+                self._metric_alpha,
+            )
+
+            self._Mrho = self._kinetic_metric.mass_operator
+            self._Kdivrho = self._kinetic_metric.divdiv_operator
+            self._momentum_operator = self._kinetic_metric
+            pc = H1vecKineticMetricPreconditioner(
+                self._kinetic_metric,
+            )
+        else:
+            self.mass_ops.update_committed_WMMnew(self.rho)
+
+            self._Kdivrho = None
+            self._kinetic_metric = None
+            self._momentum_operator = self._Mrho
+
+            pc = MassMatrixDiagonalPreconditioner(
+                self._Mrho,
+            )
+
+        self._momentum_pc = pc
+        self._momentum_inv = inverse(
+            self._momentum_operator,
             "pcg",
-            pc=pc,
-            tol=1e-16,
+            pc=self._momentum_pc,
+            tol=1.0e-10,  # or the original value
             maxiter=500,
+            verbose=False,
             recycle=True,
         )
 
@@ -203,123 +277,281 @@ class VariationalMagFieldEvolve(Propagator):
         if self._linearize:
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
+    @profile
     def __call__(self, dt):
+        rho = self.rho.spline.vector
+        self._update_momentum_operator(rho)
         self.__call_newton(dt)
 
+    @profile
+    def _update_momentum_operator(self, rho):
+        """Update the metric from the current committed density."""
+
+        if self._with_regularization:
+            self.mass_ops.ensure_committed_h1vec_metric(
+                self.rho,
+            )
+        else:
+            self._Mrho = self.mass_ops.ensure_committed_WMMnew(
+                self.rho,
+            )
+
+        if not hasattr(self, "_momentum_inv"):
+            return
+
+        pc = self._momentum_inv._options.get("pc")
+
+        if isinstance(pc, H1vecKineticMetricPreconditioner):
+            pc.update_metric(self._kinetic_metric)
+
+        elif isinstance(pc, MassMatrixDiagonalPreconditioner):
+            pc.update_mass_operator(self._Mrho)
+
     def __call_newton(self, dt):
-        """Solve the non linear system for updating the variables using Newton iteration method"""
+        """Advance magnetic field and velocity using Newton iteration."""
+
         if self._info:
             logger.info("")
-            logger.info("Newton iteration in VariationalMagFieldEvolve")
-        # Compute implicit approximation of s^{n+1}
+            logger.info(
+                "Newton iteration in VariationalMagFieldEvolve",
+            )
+
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
 
-        bn1 = bn.copy(out=self._tmp_bn1)
-        # Initialize variable for Newton iteration
-
+        # The transport operator uses the magnetic field at the beginning
+        # of the substep.
         self._update_Pib(bn)
 
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
-        bn1 = bn.copy(out=self._tmp_bn1)
-        bn1 += self._tmp_bn_diff
-        un1 = un.copy(out=self._tmp_un1)
-        un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
-        tol = self._nonlin_solver.tol
-        err = tol + 1
+        self._momentum_operator.dot(
+            un,
+            out=self._tmp_mn,
+        )
+        mn = self._tmp_mn
+
+        # Recycle the previous converged increment as initial guess.
+        bn.copy(out=self._tmp_bn1)
+        self._tmp_bn1 += self._tmp_bn_diff
+        bn1 = self._tmp_bn1
+
+        un.copy(out=self._tmp_un1)
+        self._tmp_un1 += self._tmp_un_diff
+        un1 = self._tmp_un1
+
+        self._momentum_operator.dot(
+            un1,
+            out=self._tmp_mn1,
+        )
+        mn1 = self._tmp_mn1
+
+        tol = float(self._nonlin_solver.tol)
+        tol_sq = tol * tol
+
+        # _get_error_newton returns a squared norm. Account for roundoff
+        # and for the inexact inner linear solves.
+        absolute_threshold = 4.0 * tol_sq
+
+        # Optional stagnation acceptance close to the requested tolerance.
+        stagnation_threshold = 10.0 * tol_sq
+        stagnation_relative_change = 1.0e-3
+        stagnation_iterations = 3
+
+        tiny = float(xp.finfo(float).tiny)
+
+        err = float("inf")
+        err0 = None
+        previous_err = None
+        stagnation_count = 0
+
+        converged = False
+        accepted_by_stagnation = False
+        schur_calls = 0
 
         for it in range(self._nonlin_solver.maxiter):
-            # Newton iteration
-            # half time step approximation
-            bn12 = bn.copy(out=self._tmp_bn12)
-            bn12 += bn1
-            bn12 *= 0.5
+            # Midpoint magnetic field.
+            bn.copy(out=self._tmp_bn12)
+            self._tmp_bn12 += bn1
+            self._tmp_bn12 *= 0.5
 
-            un12 = un.copy(out=self._tmp_un12)
-            un12 += un1
-            un12 *= 0.5
+            # Midpoint velocity.
+            un.copy(out=self._tmp_un12)
+            self._tmp_un12 += un1
+            self._tmp_un12 *= 0.5
 
-            # Update the linear form
+            # Update M2 * B^(n+1/2).
             self._update_linear_form_dl_db()
 
-            # Compute the advection terms
+            # Compute the coupled advection terms.
             if self._model == "linear":
-                advection = self.curlPibT0.dot(
+                self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
                 )
 
-                advection2 = self.curlPibT.dot(
+                self.curlPibT.dot(
                     self._linear_form_dl_db0,
                     out=self._tmp_advection2,
                 )
 
-                advection += advection2
+                self._tmp_advection += self._tmp_advection2
 
-                b_advection = self.curlPib0.dot(
-                    un12,
+                self.curlPib0.dot(
+                    self._tmp_un12,
                     out=self._tmp_b_advection,
                 )
             else:
-                advection = self.curlPibT.dot(
+                self.curlPibT.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
                 )
 
-                b_advection = self.curlPib.dot(
-                    un12,
+                self.curlPib.dot(
+                    self._tmp_un12,
                     out=self._tmp_b_advection,
                 )
 
-            advection *= dt
-            b_advection *= dt
+            self._tmp_advection *= dt
+            self._tmp_b_advection *= dt
 
-            # Get diff
-            bn_diff = bn1.copy(out=self._tmp_bn_diff)
-            bn_diff -= bn
-            bn_diff += b_advection
+            # Magnetic residual.
+            bn1.copy(out=self._tmp_bn_diff)
+            self._tmp_bn_diff -= bn
+            self._tmp_bn_diff += self._tmp_b_advection
+            bn_diff = self._tmp_bn_diff
 
-            mn_diff = mn1.copy(out=self._tmp_mn_diff)
-            mn_diff -= mn
-            mn_diff += advection
+            # Momentum residual.
+            mn1.copy(out=self._tmp_mn_diff)
+            self._tmp_mn_diff -= mn
+            self._tmp_mn_diff += self._tmp_advection
+            mn_diff = self._tmp_mn_diff
 
-            # Get error
-            err = self._get_error_newton(mn_diff, bn_diff)
+            err = float(
+                self._get_error_newton(
+                    mn_diff,
+                    bn_diff,
+                )
+            )
+
+            if not bool(xp.isfinite(err)):
+                raise FloatingPointError(
+                    f"Non-finite residual in VariationalMagFieldEvolve: iteration={it + 1}, err={err}."
+                )
+
+            if err0 is None:
+                err0 = max(err, tiny)
+
+            relative_err = err / err0
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(
+                    "Magnetic Newton iteration: %d, error: %.16e, relative error: %.16e",
+                    it + 1,
+                    err,
+                    relative_err,
+                )
 
-            if err < tol**2 or xp.isnan(err):
+            # The error is a squared norm, so the targets are tol**2.
+            if err <= absolute_threshold or relative_err <= tol_sq:
+                converged = True
                 break
 
-            # Derivative for Newton
+            # Accept roundoff/inexact-solve stagnation only when the
+            # residual is already close to the absolute target.
+            if previous_err is not None:
+                relative_change = abs(previous_err - err) / max(
+                    previous_err,
+                    err,
+                    tiny,
+                )
+
+                if relative_change <= stagnation_relative_change:
+                    stagnation_count += 1
+                else:
+                    stagnation_count = 0
+
+                if stagnation_count >= stagnation_iterations and err <= stagnation_threshold:
+                    converged = True
+                    accepted_by_stagnation = True
+                    break
+
+            previous_err = err
+
+            # Update scalar factors in the Jacobian.
             self._get_jacobian(dt)
 
-            # Newton step
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = bn_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            self._inv_Jacobian.dot(
+                self._tmp_f,
+                out=self._tmp_incr,
+            )
+            schur_calls += 1
+
             if self._info:
                 logger.info(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
+                    "Magnetic Schur linear solver info: %r",
+                    getattr(
+                        self._inv_Jacobian._solver,
+                        "_info",
+                        None,
+                    ),
                 )
-            un1 -= incr[0]
-            bn1 -= incr[1]
 
-            # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            un1 -= self._tmp_incr[0]
+            bn1 -= self._tmp_incr[1]
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
+            # The density is fixed in this substep, so no momentum-metric
+            # reassembly is necessary inside Newton.
+            self._momentum_operator.dot(
+                un1,
+                out=self._tmp_mn1,
+            )
+            mn1 = self._tmp_mn1
+
+        newton_iterations = it + 1
+
+        if not converged:
+            logger.warning(
+                "Maximum iteration count in "
+                "VariationalMagFieldEvolve reached without convergence:\n"
+                "  iterations  = %d\n"
+                "  Schur calls = %d\n"
+                "  err         = %.16e\n"
+                "  target      = %.16e",
+                newton_iterations,
+                schur_calls,
+                err,
+                tol_sq,
+            )
+        elif accepted_by_stagnation and self._info:
             logger.info(
-                f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err =} \n {tol**2 =}",
+                "Accepted stagnated magnetic Newton residual: iterations=%d, Schur calls=%d, err=%.16e, target=%.16e.",
+                newton_iterations,
+                schur_calls,
+                err,
+                tol_sq,
             )
 
-        self._tmp_un_diff = un1 - un
-        self._tmp_bn_diff = bn1 - bn
-        self.update_feec_variables(b=bn1, u=un1)
+        if self._info:
+            logger.info(
+                "Magnetic Newton iterations: %d, Schur calls: %d",
+                newton_iterations,
+                schur_calls,
+            )
+
+        # Save the converged increments without allocating new vectors or
+        # replacing the temporary-vector references.
+        un1.copy(out=self._tmp_un_diff)
+        self._tmp_un_diff -= un
+
+        bn1.copy(out=self._tmp_bn_diff)
+        self._tmp_bn_diff -= bn
+
+        self.update_feec_variables(
+            b=bn1,
+            u=un1,
+        )
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -335,7 +567,7 @@ class VariationalMagFieldEvolve(Propagator):
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -367,7 +599,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._Mrho
+        self._Jacobian[0, 0] = self._momentum_operator
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
         self._Jacobian[1, 1] = self._I2
@@ -375,7 +607,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho_inv,
+            pc=self._momentum_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -411,8 +643,21 @@ class VariationalMagFieldEvolve(Propagator):
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
-        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
-        err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
+        self.derham.boundary_ops["v"].dot(
+            mn_diff,
+            out=self._tmp_un_weak_diff,
+        )
+
+        err_u = self._inv_Mv.dot_inner(
+            self._tmp_un_weak_diff,
+            mn_diff,
+        )
+
+        err_b = self.mass_ops.M2.dot_inner(
+            bn_diff,
+            bn_diff,
+        )
+
         return max(err_b, err_u)
 
     def _get_jacobian(self, dt):

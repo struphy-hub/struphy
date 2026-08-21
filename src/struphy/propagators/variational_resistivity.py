@@ -327,10 +327,26 @@ class VariationalResistivity(Propagator):
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
 
-        tol = self._nonlin_solver["tol"]
-        err = tol + 1
+        tol = float(self._nonlin_solver.tol)
+        tol_sq = tol * tol
 
-        for it in range(self._nonlin_solver["maxiter"]):
+        acceptance_factor = 4.0
+        absolute_threshold = acceptance_factor * tol_sq
+
+        stagnation_threshold = 10.0 * tol_sq
+        stagnation_relative_change = 1.0e-3
+        stagnation_iterations = 3
+
+        tiny = float(xp.finfo(float).tiny)
+
+        err = float("inf")
+        err0 = None
+        previous_err = None
+        stagnation_count = 0
+        converged = False
+        accepted_by_stagnation = False
+
+        for it in range(self._nonlin_solver.maxiter):
             if self._model in ["deltaf_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
@@ -379,13 +395,49 @@ class VariationalResistivity(Propagator):
             self.tot_rhs -= self._linear_form_en1
             self.tot_rhs += self._linear_form_tot_e
 
-            err = self._get_error_newton(self.tot_rhs)
+            err = float(self._get_error_newton(self.tot_rhs))
+
+            if not bool(xp.isfinite(err)):
+                raise FloatingPointError(
+                    f"Non-finite residual in VariationalResistivity: iteration={it + 1}, err={err}."
+                )
+
+            if err0 is None:
+                err0 = max(err, tiny)
+
+            relative_err = err / err0
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(
+                    "Resistivity iteration: %d, error: %.16e, relative error: %.16e",
+                    it + 1,
+                    err,
+                    relative_err,
+                )
 
-            if (err < tol**2 and it > 0) or xp.isnan(err):
+            # _get_error_newton returns a squared norm.
+            if err <= absolute_threshold or relative_err <= tol_sq:
+                converged = True
                 break
+
+            if previous_err is not None:
+                relative_change = abs(previous_err - err) / max(
+                    previous_err,
+                    err,
+                    tiny,
+                )
+
+                if relative_change <= stagnation_relative_change:
+                    stagnation_count += 1
+                else:
+                    stagnation_count = 0
+
+                if stagnation_count >= stagnation_iterations and err <= stagnation_threshold:
+                    converged = True
+                    accepted_by_stagnation = True
+                    break
+
+            previous_err = err
 
             if self._model == "full":
                 deds = self._energy_evaluator.dener_ds(
@@ -420,13 +472,20 @@ class VariationalResistivity(Propagator):
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
+        if not converged:
+            raise RuntimeError(
+                "VariationalResistivity Newton iteration did not converge: "
+                f"iterations={maxiter}, err={err:.16e}, "
+                f"requested squared tolerance={tol_sq:.16e}."
+            )
+
+        if accepted_by_stagnation and self._info:
             logger.info(
-                f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err =} \n {tol**2 =}",
+                "VariationalResistivity accepted a near-tolerance stagnated residual: err=%.16e.",
+                err,
             )
 
         self.update_feec_variables(s=sn1, b=bn1)
-
         # if self.pt3 is not None:
         #     bn12 = bn.copy(out=self._tmp_bn12)
         #     bn12 += bn1
@@ -523,7 +582,7 @@ class VariationalResistivity(Propagator):
             self.mass_ops.M1,
             "pcg",
             pc=pc_M1,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -535,7 +594,7 @@ class VariationalResistivity(Propagator):
             self.mass_ops.M3,
             "pcg",
             pc=pc_M3,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -546,24 +605,7 @@ class VariationalResistivity(Propagator):
         D = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
         self.M1_cb = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=(D, "sqrt_g"))
 
-        if self.options.precond is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self.options.precond,
-            )
-            self.pc_jac = pc_class(self.M_de_ds)
-
-        self.inv_jac = inverse(
-            self.M_de_ds,
-            "pcg",
-            pc=self.pc_jac,
-            tol=self._lin_solver.tol,
-            maxiter=self._lin_solver.maxiter,
-            verbose=False,
-            recycle=True,
-        )
+        
 
         self.curl = self.derham.curl
         self.Tcurl = inv_M1 @ self.curl.T @ M2
@@ -709,9 +751,121 @@ class VariationalResistivity(Propagator):
 
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
+        # ------------------------------------------------------------
+        # Assemble the initial thermodynamic Jacobian before creating
+        # its diagonal preconditioner.
+        # ------------------------------------------------------------
+        
+        rho_values = None
+        
+        if self._model == "full":
+            if self.rho is None:
+                raise ValueError(
+                    "The full resistivity model requires a density variable."
+                )
+        
+            self.rhof.vector = self.rho.spline.vector
+        
+            rho_values = self.rhof.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._rhof_values,
+            )
+        
+        if self._model in ("linear_q", "deltaf_q"):
+            scalar_values = self._q0_values
+        else:
+            self.sf1.vector = self.variables.s.spline.vector
+        
+            scalar_values = self.sf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf1_values,
+            )
+        
+        self._assemble_thermodynamic_jacobian(
+            rho_values,
+            scalar_values,
+        )
+        
+        # Only now is it safe to extract and invert the diagonal.
+        if self.options.precond is None:
+            self.pc_jac = None
+        else:
+            pc_class = getattr(
+                preconditioner,
+                self.options.precond,
+            )
+            self.pc_jac = pc_class(self.M_de_ds)
+        
+        self.inv_jac = inverse(
+            self.M_de_ds,
+            "pcg",
+            pc=self.pc_jac,
+            tol=self._lin_solver.tol,
+            maxiter=self._lin_solver.maxiter,
+            verbose=False,
+            recycle=True,
+        )
+
     def _get_error_newton(self, sn_diff):
         err_s = self._inv_M3.dot_inner(sn_diff, sn_diff)
         return err_s
+
+    def _assemble_thermodynamic_jacobian(self, rho_values, scalar_values):
+        """
+        Assemble the scalar thermodynamic Jacobian M_de_ds.
+    
+        Parameters
+        ----------
+        rho_values : xp.ndarray or None
+            Density evaluated on the integration grid. Required by the
+            ``full`` model.
+    
+        scalar_values : xp.ndarray
+            Current entropy-, pressure- or q-like scalar values evaluated on
+            the integration grid.
+        """
+        deds = self._de_s1_values
+        deds[:] = 0.0
+    
+        if self._model == "full":
+            if rho_values is None:
+                raise ValueError(
+                    "Density values are required by the full resistivity model."
+                )
+    
+            self._energy_evaluator.dener_ds(
+                rho_values,
+                scalar_values,
+                out=deds,
+            )
+    
+        elif self._model in (
+            "full_p",
+            "linear_p",
+        ):
+            deds[:] = 1.0 / (self._gamma - 1.0)
+    
+        elif self._model == "full_q":
+            deds[:] = scalar_values
+            deds *= 2.0 / (self._gamma - 1.0)
+    
+        elif self._model in (
+            "linear_q",
+            "deltaf_q",
+        ):
+            deds[:] = self._q0_values
+            deds *= 2.0 / (self._gamma - 1.0)
+    
+        else:
+            raise ValueError(
+                f"Unsupported resistivity model {self._model!r}."
+            )
+    
+        deds *= self._mass_metric_term
+    
+        self.M_de_ds.assemble([[deds]])
 
     def _update_artificial_resistivity(self, bn, dt):
         """Update the artificial resistivity as the norm of the gradient of un.

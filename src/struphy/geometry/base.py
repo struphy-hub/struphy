@@ -230,6 +230,7 @@ class Domain(metaclass=DomainMeta):
             _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
             _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
         )
+        self._mapping_hessian_supported_kinds = (0, 1, 2, 10)
 
     def _build_args_domain(self):
         """Build runtime mapping arguments used by compiled evaluation kernels."""
@@ -434,6 +435,10 @@ class Domain(metaclass=DomainMeta):
         """Dictionary of str->int for pull, push and transformation functions."""
         return self._dict_transformations
 
+    @property
+    def has_exact_mapping_hessian(self):
+        return self.kind_map in self._mapping_hessian_supported_kinds
+
     def __call__(
         self,
         *etas,
@@ -562,6 +567,179 @@ class Domain(metaclass=DomainMeta):
             squeeze_out=squeeze_out,
             remove_outside=remove_outside,
         )
+
+    def log_jacobian_det_gradient(
+        self,
+        *etas,
+        squeeze_out=False,
+        remove_outside=True,
+    ):
+        r"""
+        Evaluate exactly
+
+        .. math::
+
+            \nabla_\eta\log|\det DF|.
+
+        Jacobi's determinant identity gives
+
+        .. math::
+
+            \partial_{\eta_k}\log|\det DF|
+            =
+            \operatorname{tr}
+            \left(
+                DF^{-1}\partial_{\eta_k}DF
+            \right).
+        """
+        jac_inv = self.jacobian_inv(
+            *etas,
+            squeeze_out=False,
+            remove_outside=remove_outside,
+            avoid_round_off=False,
+        )
+
+        hessian = self.mapping_hessian(
+            *etas,
+            squeeze_out=False,
+            remove_outside=remove_outside,
+        )
+
+        # Marker case:
+        #
+        # jac_inv.shape = (3,3,np)
+        # hessian.shape = (3,3,3,np)
+        #
+        # Grid case:
+        #
+        # jac_inv.shape = (3,3,n1,n2,n3)
+        # hessian.shape = (3,3,3,n1,n2,n3)
+        grid_shape = jac_inv.shape[2:]
+
+        expected_hessian_shape = (3, 3, 3, *grid_shape)
+
+        if hessian.shape != expected_hessian_shape:
+            raise ValueError(f"Incompatible Jacobian-inverse and Hessian shapes: {jac_inv.shape} and {hessian.shape}.")
+
+        out = xp.zeros(
+            (3, *grid_shape),
+            dtype=float,
+        )
+
+        # J^{-1}_{j i} * d_k J_{i j}
+        for k in range(3):
+            for i in range(3):
+                for j in range(3):
+                    out[k] += jac_inv[j, i] * hessian[i, j, k]
+
+        if squeeze_out:
+            out = xp.squeeze(out)
+
+        return out.copy()
+
+    def mapping_hessian(
+        self,
+        *etas,
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+    ):
+        r"""
+        Evaluate the exact logical Hessian of the mapping.
+
+        The component-first convention is
+
+        .. math::
+
+            H_{ijk}
+            =
+            \frac{\partial^2 F_i}
+            {\partial\eta_j\partial\eta_k}.
+
+        No finite differences are used.
+        """
+        supported_kinds = (0, 1, 2, 10, 11, 12)
+
+        if self.kind_map not in supported_kinds:
+            raise NotImplementedError(
+                f"Exact mapping Hessian is not implemented for {type(self).__name__} with kind_map={self.kind_map}."
+            )
+
+        if len(etas) == 1:
+            markers = etas[0]
+
+            if not isinstance(markers, xp.ndarray):
+                raise TypeError("Single-argument evaluation requires an xp.ndarray.")
+
+            if markers.ndim != 2 or markers.shape[1] != 3:
+                raise ValueError(f"Marker input must have shape (n_points, 3), got {markers.shape}.")
+
+            # Kernel uses component-last ordering for contiguous storage.
+            out = xp.empty(
+                (markers.shape[0], 3, 3, 3),
+                dtype=float,
+            )
+
+            n_inside = evaluation_kernels.kernel_evaluate_hessian_pic(
+                markers,
+                self.args_domain,
+                out,
+                remove_outside,
+            )
+
+            out = out[:n_inside]
+
+            if not change_out_order:
+                out = xp.transpose(
+                    out,
+                    axes=(1, 2, 3, 0),
+                )
+
+        elif len(etas) == 3:
+            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                etas[0],
+                etas[1],
+                etas[2],
+                flat_eval=False,
+            )
+
+            out = xp.empty(
+                (
+                    E1.shape[0],
+                    E2.shape[1],
+                    E3.shape[2],
+                    3,
+                    3,
+                    3,
+                ),
+                dtype=float,
+            )
+
+            evaluation_kernels.kernel_evaluate_hessian(
+                E1,
+                E2,
+                E3,
+                self.args_domain,
+                out,
+                is_sparse_meshgrid,
+            )
+
+            if not change_out_order:
+                out = xp.transpose(
+                    out,
+                    axes=(3, 4, 5, 0, 1, 2),
+                )
+
+        else:
+            raise ValueError("mapping_hessian expects either one marker array or three logical-coordinate arguments.")
+
+        if squeeze_out:
+            out = xp.squeeze(out)
+
+        if isinstance(out, float):
+            return out
+
+        return out.copy()
 
     def jacobian_inv(
         self,
