@@ -76,7 +76,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1",profiling_activated=True, restart=False)
+env = EnvironmentOptions(sim_folder="sim_1", restart=False)
 
 # Time stepping
 time_opts = Time(dt=0.001, Tend=0.01, split_algo="LieTrotter")
@@ -234,4 +234,4 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), vth_para=(vth_init
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(profiling_activated=True)
