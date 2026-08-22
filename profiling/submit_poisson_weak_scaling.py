@@ -20,6 +20,13 @@ def main() -> None:
         default=64,
         help="Number of cells assigned to each rank in the weak-scaling direction.",
     )
+    parser.add_argument(
+        "--ranks",
+        type=int,
+        nargs="+",
+        default=(1, 2, 4),
+        help="MPI rank counts to submit (default: 1 2 4).",
+    )
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
@@ -42,7 +49,7 @@ def main() -> None:
 
     param_flags = ["--cells-per-rank", str(args.cells_per_rank)]
 
-    for num_tasks in (1, 2, 4): #, 8, 16, 32, 64, 128, 256):
+    for num_tasks in args.ranks:
         profiling_case.launch(num_tasks, param_flags=param_flags)
 
     profiling_case.finalize_run()
