@@ -11,7 +11,7 @@ logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
 
 
-@pytest.mark.parametrize("num_elements", [[16, 1, 1]])
+@pytest.mark.parametrize("num_elements", [[24, 1, 1]])
 @pytest.mark.parametrize("degree", [[3, 1, 1]])
 @pytest.mark.parametrize(
     "bcs",
@@ -323,7 +323,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
             plt.show()
 
 
-@pytest.mark.parametrize("num_elements", [[16, 1, 1]])
+@pytest.mark.parametrize("num_elements", [[24, 1, 1]])
 @pytest.mark.parametrize("degree", [[3, 1, 1]])
 @pytest.mark.parametrize(
     "bcs",
