@@ -26,12 +26,12 @@ dependencies = [
     "numpy<=2.5.0",
     "cunumpy>=0.1.4, <=0.1.5",
     "pyccel>=2.2.0, <=2.2.3",
-    "feectools<=0.1.10",
+    "feectools >= 0.1.10, <=0.1.10",
     "scipy<=1.18.0",
     "h5py<=3.16.0",
     "matplotlib<=3.11.0",
     "pyyaml<=6.0.3",
-    "vtk<=9.6.1",
+    "vtk<=9.7.0",
     "tqdm<=4.70.0",
     "argcomplete<=3.7.0",
     "ipywidgets<=8.1.8",
@@ -41,13 +41,13 @@ dependencies = [
     "trame-vtk<=2.11.8",
     "trame-vuetify<=3.2.2",
     "nest_asyncio2<=1.7.2",
-    "vtk<=9.6.1",
+    "vtk<=9.7.0",
     "pytest<=9.1.0",
     "pytest-mpi<=0.6",
     "pytest-testmon<=2.2.0",
     "ruff==0.15.0, <=0.16.0",
     "line_profiler<=5.0.2",
-    "scope-profiler<=0.2.8",
+    "scope-profiler[pproc] >= 0.3.3, <=0.3.3",
 ]
 
 [project.license]
@@ -58,7 +58,7 @@ mpi = [
     "mpi4py<=4.1.1",
 ]
 phys = [
-    "gvec>=1.1.0, <=1.4.1",
+    "gvec>=1.1.0, <=1.5.0",
     "desc-opt<=0.17.1",
 ]
 dev = [
