@@ -42,7 +42,7 @@ def main() -> None:
 
     param_flags = ["--cells-per-rank", str(args.cells_per_rank)]
 
-    for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
+    for num_tasks in (1, 2, 4): #, 8, 16, 32, 64, 128, 256):
         profiling_case.launch(num_tasks, param_flags=param_flags)
 
     profiling_case.finalize_run()

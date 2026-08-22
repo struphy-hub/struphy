@@ -78,7 +78,6 @@ model.em_fields.source.save_data = args.verify
 
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
-    profiling_activated=True,
     restart=False,
 )
 
@@ -145,7 +144,7 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 
 if __name__ == "__main__":
-    sim.run(one_time_step=True)
+    sim.run(profiling_activated=True, one_time_step=True)
 
     if not args.verify:
         if sim.comm.rank == 0:
