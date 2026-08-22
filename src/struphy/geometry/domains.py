@@ -601,6 +601,56 @@ class Colella(Domain):
         super().__init__()
 
 
+class MagnetotailSlab(Domain):
+    r"""Elongated slab with a pinched center.
+
+    This mapping is intended as a simple geometry for studying reconnection in
+    the Earth's night-side magnetotail. The domain is a long slab in the
+    tail-aligned direction with a smooth reduction of the cross-tail width near
+    the center plane.
+
+    Parameters
+    ----------
+    Lx : float
+        Length in the tail-aligned direction (default: 12.0).
+    Ly : float
+        Full width of the slab in the cross-tail direction away from the pinch (default: 4.0).
+    Lz : float
+        Thickness in the normal direction (default: 2.0).
+    pinch : float
+        Relative pinch strength in [0, 1). Larger values give a narrower center (default: 0.6).
+    pinch_width : float
+        Characteristic width of the pinched region in physical x-units (default: 2.0).
+    x_center : float
+        Center position of the pinch in physical x-coordinate (default: 0.0).
+    """
+
+    def __init__(
+        self,
+        Lx: float = 12.0,
+        Ly: float = 4.0,
+        Lz: float = 2.0,
+        pinch: float = 0.6,
+        pinch_width: float = 2.0,
+        x_center: float = 0.0,
+    ):
+        self.kind_map = 13
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert Lx > 0.0, f"Need positive slab length, got {Lx =}"
+        assert Ly > 0.0, f"Need positive slab width, got {Ly =}"
+        assert Lz > 0.0, f"Need positive slab thickness, got {Lz =}"
+        assert 0.0 <= pinch < 1.0, f"Pinch strength must satisfy 0 <= pinch < 1, got {pinch =}"
+        assert pinch_width > 0.0, f"Need positive pinch width, got {pinch_width =}"
+
+        self.periodic_eta3 = False
+        self.pole = False
+
+        super().__init__()
+
+
 class HollowCylinder(Domain):
     r""" Cylinder with possible hole around the axis.
 
@@ -830,6 +880,219 @@ class HollowTorus(Domain):
             return eta1, eta2, eta3
 
 
+class GeospaceFluxDomain(Domain):
+    r"""Global magnetospheric flux-surface inspired mapping.
+
+    This domain maps the logical unit cube onto an Earth-centered, solar-wind
+    distorted geometry with compressed dayside and elongated nightside tail.
+    It provides a single smooth coordinate mapping useful for idealized studies
+    of bow-shock/magnetosheath/magnetotail coupling and tail reconnection setup.
+
+    Coordinates
+    -----------
+    * :math:`\eta_1`: radial/normal-like coordinate from ionosphere to bow shock
+    * :math:`\eta_2`: dayside-to-nightside poloidal angle coordinate
+    * :math:`\eta_3`: clock angle around Earth-Sun axis
+
+    Parameters
+    ----------
+    r_iono : float
+        Inner reference radius (ionosphere-like boundary).
+    r_mp_dayside : float
+        Magnetopause radius on dayside.
+    r_mp_tail : float
+        Magnetopause radius in the nightside tail.
+    r_bs_dayside : float
+        Bow-shock radius on dayside.
+    r_bs_tail : float
+        Bow-shock radius in the nightside tail.
+    mp_eta1 : float
+        Logical location of magnetopause in :math:`\eta_1` (0 < mp_eta1 < 1).
+    sheet_flatten : float
+        Tail current-sheet flattening strength in [0, 1).
+    """
+
+    def __init__(
+        self,
+        r_iono: float = 1.0,
+        r_mp_dayside: float = 8.0,
+        r_mp_tail: float = 30.0,
+        r_bs_dayside: float = 12.0,
+        r_bs_tail: float = 45.0,
+        mp_eta1: float = 0.72,
+        sheet_flatten: float = 0.45,
+    ):
+        self.kind_map = 24
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r_iono > 0.0, f"Need positive ionosphere radius, got {r_iono =}"
+        assert r_mp_dayside > r_iono, f"Need r_mp_dayside > r_iono, got {r_mp_dayside =}, {r_iono =}"
+        assert r_mp_tail > r_iono, f"Need r_mp_tail > r_iono, got {r_mp_tail =}, {r_iono =}"
+        assert r_bs_dayside > r_mp_dayside, f"Need r_bs_dayside > r_mp_dayside, got {r_bs_dayside =}, {r_mp_dayside =}"
+        assert r_bs_tail > r_mp_tail, f"Need r_bs_tail > r_mp_tail, got {r_bs_tail =}, {r_mp_tail =}"
+        assert 0.0 < mp_eta1 < 1.0, f"Need 0 < mp_eta1 < 1, got {mp_eta1 =}"
+        assert 0.0 <= sheet_flatten < 1.0, f"Need 0 <= sheet_flatten < 1, got {sheet_flatten =}"
+
+        self.periodic_eta3 = True
+        self.pole = False
+
+        super().__init__()
+
+
+class WarpedAccretionDisk(Domain):
+    r"""Warped accretion disk mapping.
+
+    This mapping describes a cylindrical disk with finite thickness and a smooth,
+    radius-dependent vertical warp of the disk midplane.
+
+    Coordinates
+    -----------
+    * :math:`\eta_1`: radial coordinate from inner to outer disk radius
+    * :math:`\eta_2`: azimuthal coordinate around the central object
+    * :math:`\eta_3`: vertical coordinate across disk thickness
+
+    Parameters
+    ----------
+    r_in : float
+        Inner disk radius.
+    r_out : float
+        Outer disk radius.
+    thickness : float
+        Half-thickness scaling in the vertical direction.
+    warp_amp : float
+        Warp amplitude factor.
+    warp_power : float
+        Power-law exponent for radial growth of the warp.
+    node_angle : float
+        Azimuthal node angle of the warp in radians.
+    tor_period : int
+        Azimuthal periodicity: :math:`\phi = 2\pi\eta_2/\mathrm{tor\_period}`.
+    """
+
+    def __init__(
+        self,
+        r_in: float = 2.0,
+        r_out: float = 12.0,
+        thickness: float = 0.3,
+        warp_amp: float = 0.15,
+        warp_power: float = 1.5,
+        node_angle: float = 0.0,
+        tor_period: int = 1,
+    ):
+        self.kind_map = 25
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r_in > 0.0, f"Need positive inner radius, got {r_in =}"
+        assert r_out > r_in, f"Need r_out > r_in, got {r_out =}, {r_in =}"
+        assert thickness > 0.0, f"Need positive thickness, got {thickness =}"
+        assert warp_amp >= 0.0, f"Need non-negative warp amplitude, got {warp_amp =}"
+        assert warp_power >= 0.0, f"Need non-negative warp power, got {warp_power =}"
+        assert tor_period > 0, f"Need positive toroidal periodicity, got {tor_period =}"
+
+        self.periodic_eta3 = True
+        self.pole = False
+
+        super().__init__()
+
+
+class Spheromak(Domain):
+    r"""Compact toroidal plasma proxy in a spherical-like shell.
+
+    This mapping provides a simple geometry for spheromak studies using nested
+    closed flux-surface-like shells with optional vertical elongation.
+
+    Coordinates
+    -----------
+    * :math:`\eta_1`: radial shell coordinate
+    * :math:`\eta_2`: poloidal angle coordinate
+    * :math:`\eta_3`: toroidal/azimuthal angle coordinate
+
+    Parameters
+    ----------
+    r0 : float
+        Inner radius.
+    a : float
+        Plasma minor-size scale (outer radius is r0 + a).
+    kappa : float
+        Vertical elongation factor.
+    tor_period : int
+        Azimuthal periodicity: :math:`\phi=2\pi\eta_3/\mathrm{tor\_period}`.
+    """
+
+    def __init__(
+        self,
+        r0: float = 0.0,
+        a: float = 1.0,
+        kappa: float = 1.0,
+        tor_period: int = 1,
+    ):
+        self.kind_map = 26
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r0 >= 0.0, f"Need non-negative inner radius, got {r0 =}"
+        assert a > 0.0, f"Need positive minor size a, got {a =}"
+        assert kappa > 0.0, f"Need positive elongation kappa, got {kappa =}"
+        assert tor_period > 0, f"Need positive toroidal periodicity, got {tor_period =}"
+
+        self.periodic_eta3 = True
+        self.pole = r0 == 0.0
+
+        super().__init__()
+
+
+class HallEffectThrusterChannel(Domain):
+    r"""Coaxial annular Hall thruster channel with axial end packing.
+
+    The mapping models an annular channel where :math:`\eta_3` is the axial
+    coordinate (anode to exit), with increased point packing near both ends
+    controlled by a smooth high-frequency modulation.
+
+    Parameters
+    ----------
+    r_in : float
+        Inner channel radius.
+    r_out : float
+        Outer channel radius.
+    length : float
+        Axial channel length.
+    pack_strength : float
+        End-packing strength in [0, 1). Higher values cluster more points at
+        the anode and exit.
+    tor_period : int
+        Azimuthal periodicity: :math:`\phi=2\pi\eta_2/\mathrm{tor\_period}`.
+    """
+
+    def __init__(
+        self,
+        r_in: float = 1.0,
+        r_out: float = 2.0,
+        length: float = 5.0,
+        pack_strength: float = 0.7,
+        tor_period: int = 1,
+    ):
+        self.kind_map = 27
+
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert r_in > 0.0, f"Need positive inner radius, got {r_in =}"
+        assert r_out > r_in, f"Need r_out > r_in, got {r_out =}, {r_in =}"
+        assert length > 0.0, f"Need positive channel length, got {length =}"
+        assert 0.0 <= pack_strength < 1.0, f"Need 0 <= pack_strength < 1, got {pack_strength =}"
+        assert tor_period > 0, f"Need positive toroidal periodicity, got {tor_period =}"
+
+        self.periodic_eta3 = False
+        self.pole = False
+
+        super().__init__()
+
+
 class ShafranovShiftCylinder(Domain):
     r""" Cylinder with quadratic Shafranov shift.
 
@@ -1006,5 +1269,123 @@ class ShafranovDshapedCylinder(Domain):
         # periodicity in eta3-direction and pole at eta1=0
         self.periodic_eta3 = False
         self.pole = True
+
+        super().__init__()
+
+class MoebiusStrip(Domain):
+    r"""Thickened Moebius strip domain.
+    
+    A toroidal ribbon that performs a 180-degree twist over one revolution.
+    This serves as a test for non-standard periodicity and metric tensor shifts.
+
+    Parameters
+    ----------
+    R : float
+        Major radius of the loop (default: 3.0).
+    width : float
+        Width of the ribbon (default: 1.0).
+    thickness : float
+        Thickness of the ribbon (default: 0.1).
+    """
+
+    def __init__(
+        self,
+        R: float = 3.0,
+        width: float = 1.0,
+        thickness: float = 0.1,
+    ):
+        self.kind_map = 50  # Unique ID for the new domain
+
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        # Periodicity logic: 
+        # Technically, eta3 is periodic, but the boundary at eta3=1 
+        # maps to a flipped version of eta3=0.
+        self.periodic_eta3 = True
+        self.pole = False
+
+        super().__init__()
+
+    def map(self, eta1, eta2, eta3):
+        """Analytical mapping for MoebiusStrip"""
+        
+        # Center the coordinates for width and thickness
+        w_hat = self.params['width'] * (eta1 - 0.5)
+        t_hat = self.params['thickness'] * (eta2 - 0.5)
+        
+        # Half-twist angle
+        alpha = xp.pi * eta3
+        # Standard toroidal angle
+        phi = 2 * xp.pi * eta3
+
+        # Effective radius in the XY plane
+        r_eff = self.params['R'] + w_hat * xp.cos(alpha) - t_hat * xp.sin(alpha)
+
+        x = r_eff * xp.cos(phi)
+        y = r_eff * xp.sin(phi)
+        z = w_hat * xp.sin(alpha) + t_hat * xp.cos(alpha)
+
+        return x, y, z
+
+
+class DiagnosticPortHoleTorus(Domain):
+    r"""Torus with a localized diagnostic port deformation.
+
+    This mapping models a toroidal vessel with a smooth, localized outward bulge
+    attached to the torus tube. The bulge approximates the effect of a small
+    radial/poloidal cylindrical diagnostic port while remaining a single smooth
+    patch, making it suitable for studying perturbations near reactor openings.
+
+    Parameters
+    ----------
+    a1 : float
+        Inner minor radius of the torus tube (default: 0.1).
+    a2 : float
+        Outer minor radius of the torus tube (default: 1.0).
+    R0 : float
+        Major radius of the torus (default: 3.0).
+    tor_period : int
+        Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1).
+    port_depth : float
+        Maximum outward radial deformation of the localized port (default: 0.25).
+    port_eta2_center : float
+        Center of the port in logical poloidal coordinate :math:`\eta_2` (default: 0.0).
+    port_eta3_center : float
+        Center of the port in logical toroidal coordinate :math:`\eta_3` (default: 0.0).
+    port_eta2_width : float
+        Width parameter of the port in logical poloidal coordinate (default: 0.08).
+    port_eta3_width : float
+        Width parameter of the port in logical toroidal coordinate (default: 0.08).
+    """
+
+    def __init__(
+        self,
+        a1: float = 0.1,
+        a2: float = 1.0,
+        R0: float = 3.0,
+        tor_period: int = 1,
+        port_depth: float = 0.25,
+        port_eta2_center: float = 0.0,
+        port_eta3_center: float = 0.0,
+        port_eta2_width: float = 0.08,
+        port_eta3_width: float = 0.08,
+    ):
+        self.kind_map = 23
+
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
+
+        assert a2 <= R0, f"The minor radius must be smaller or equal than the major radius! {a2 =}, {R0 =}"
+        assert a2 + port_depth <= R0, (
+            f"The localized port deformation must keep the torus non-self-intersecting! {a2 =}, {port_depth =}, {R0 =}"
+        )
+        assert port_eta2_width > 0.0, f"Need positive port width in eta2, got {port_eta2_width =}"
+        assert port_eta3_width > 0.0, f"Need positive port width in eta3, got {port_eta3_width =}"
+
+        self.periodic_eta3 = True
+        self.pole = a1 == 0.0
 
         super().__init__()
