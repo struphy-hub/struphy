@@ -54,10 +54,7 @@ def test_optimizer_selects_fastest_candidate(monkeypatch):
 
 def test_eight_rank_anisotropic_case_can_leave_one_direction_undecomposed(monkeypatch):
     """An anisotropic 3D case can prefer a 2D process grid."""
-    costs = {
-        mask: 0.01
-        for mask in candidate_masks((48, 24, 8), 8)
-    }
+    costs = {mask: 0.01 for mask in candidate_masks((48, 24, 8), 8)}
     costs[(True, True, False)] = 0.001
     clock = [0.0]
 

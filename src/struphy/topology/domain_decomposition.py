@@ -16,7 +16,6 @@ from typing import Callable, Iterable
 from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.partition import compute_dims
 
-
 Mask = tuple[bool, bool, bool]
 
 
