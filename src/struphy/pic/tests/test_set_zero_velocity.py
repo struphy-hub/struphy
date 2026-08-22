@@ -117,6 +117,7 @@ def test_set_zero_velocity(mapping, comp: int, show_plot=False):
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08>
     ],
 )
+@pytest.mark.mpi_pic
 def test_set_zero_velocity_mpi(mapping, comp: int, show_plot=False):
     """Test set_zero_velocity argument in LoadingParameters with mpi.
 
