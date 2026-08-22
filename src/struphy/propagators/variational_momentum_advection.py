@@ -209,7 +209,7 @@ class VariationalMomentumAdvection(Propagator):
                 break
 
             # Newton step
-            with ProfileManager.profile_region(self._solve_region):
+            with ProfileManager.profile_region(self._solve_region, functions=[self._Mrho_inv.dot]):
                 pc_diff = self._Mrho_inv.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
@@ -264,7 +264,7 @@ class VariationalMomentumAdvection(Propagator):
             mn1 -= advection
 
             # Inverse the mass matrix to get the velocity
-            with ProfileManager.profile_region(self._solve_region):
+            with ProfileManager.profile_region(self._solve_region, functions=[self._Mrho_inv.dot]):
                 un1 = self._Mrho_inv.dot(mn1, out=self._tmp_un1)
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):

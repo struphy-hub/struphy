@@ -3,7 +3,7 @@
 # doc/sections/userguide.rst.
 #
 # Runs the default Vlasov example with profiling enabled, post-processes it
-# with `scope-profiler pproc`, and copies the resulting Gantt chart and flame
+# with `scope-profiler plot all`, and copies the resulting Gantt chart and flame
 # graph into doc/pics/.
 #
 # Requires `struphy` and `scope-profiler` to be installed and on PATH.
@@ -24,21 +24,18 @@ struphy params Vlasov -y
 python - <<'PY'
 path = "params_Vlasov.py"
 content = open(path).read()
-needle = "env = EnvironmentOptions()"
+needle = "sim.run()"
 if needle not in content:
     raise SystemExit(f"Could not find '{needle}' in {path} -- template may have changed.")
-content = content.replace(
-    needle,
-    "env = EnvironmentOptions(\n"
-    "    deactivate_profiling=False,\n"
-    ")",
-)
+content = content.replace(needle, "sim.run(profiling_activated=True)")
 open(path, "w").write(content)
 PY
 
 python params_Vlasov.py
 
-scope-profiler pproc sim_1/profiling_data.h5 -o figures
+scope-profiler plot all sim_1/profiling_data.h5 \
+    --include '^setup: total$' '^model\.integrate$' '^prop: ' '^kernel: ' \
+    -o figures
 
 cp figures/gantt_plot.png "$PICS_DIR/profiling_gantt_chart.png"
 cp figures/flame_plot.png "$PICS_DIR/profiling_flame_graph.png"

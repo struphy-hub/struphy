@@ -94,7 +94,6 @@ This affects runtime behavior and output organization, not the physics:
         save_step=5,
         sort_step=20,
         max_runtime=180,
-        profiling_activated=False,
     )
 
     sim = Simulation(model=model, env=env)
@@ -777,15 +776,57 @@ ProfileManager
 
 Struphy's simulation-wide profiler is configured in
 :class:`~struphy.Simulation` through :class:`~scope_profiler.ProfileManager`.
-The relevant switches live in :class:`~struphy.EnvironmentOptions`:
+The run-time switch is passed to :meth:`~struphy.Simulation.run`:
 
-1. ``profiling_activated=True`` enables profiling data collection.
+.. code-block:: python
 
-The profiler is set up automatically in ``Simulation.__init__()`` and finalized
-when ``Simulation.run()`` finishes. The simulation code already wraps key work
-inside regions via ``ProfileManager.profile_region(...)``. Since the profiler is
-active from the end of ``Simulation.__init__()``, the setup phase is covered as
-well, and the following regions are recorded out of the box:
+    sim.run(profiling_activated=True)
+
+Profiling details are configured with :class:`~struphy.ProfilingOptions` and
+passed to the simulation:
+
+.. code-block:: python
+
+    from struphy import ProfilingOptions, Simulation
+
+    profiling_opts = ProfilingOptions(
+        file_path="profiling_data.h5",
+        use_line_profiler=False,
+        recursive_profile=False,
+        capture_region_source=True,
+        verbose=False,
+    )
+
+    sim = Simulation(model=model, profiling_opts=profiling_opts)
+    sim.run(profiling_activated=True)
+
+Useful :class:`~struphy.ProfilingOptions` fields are:
+
+1. ``file_path``: optional output file name or path. If omitted, Struphy writes
+   ``profiling_data.h5`` in the simulation output folder.
+2. ``use_line_profiler``: include line-by-line timings for functions decorated
+   with ``@profile``.
+3. ``recursive_profile``: recursively profile decorated functions by default.
+4. ``capture_region_source``: store the source location/text that defines each
+   profiling region, useful for later inspection with ``scope-profiler
+   inspect --source``.
+5. ``buffer_limit``: initial event-buffer size per region. Buffers grow on
+   demand, but increasing this can reduce reallocations for very hot regions.
+6. ``use_likwid``: collect LIKWID hardware counter data when the run environment
+   is set up for LIKWID.
+7. ``use_nvtx``, ``use_gpu_timing`` and ``gpu_timing_backend``: add NVIDIA
+   Nsight ranges and/or CUDA-event timings for GPU-oriented runs.
+8. ``config_path``: TOML configuration file with a ``[profiling]`` table. Values
+   passed directly through ``ProfilingOptions`` take precedence.
+9. ``deactivate_file_output``: skip writing the HDF5 file when only in-memory
+   results are needed.
+10. ``native_traces``: native trace path(s) to merge during finalization.
+
+The profiler is set up at the start of ``Simulation.run()`` and finalized when
+``Simulation.run()`` finishes. The simulation code already wraps key work inside
+regions via ``ProfileManager.profile_region(...)``. This means setup,
+time-stepping, diagnostics and selected lower-level solver/particle operations
+are recorded out of the box:
 
 1. Setup: ``setup: allocate`` (total allocation time), with the nested regions
    ``setup: feec`` (``setup: derham``, ``setup: mass ops``, ``setup: basis ops``,
@@ -827,43 +868,55 @@ Inside ``model.integrate`` the regions nest as follows:
 Since regions nest, the sum over all regions exceeds the wall-clock time; use
 the flame graph (below) to read the containment.
 
-Example configuration:
+Example configuration in a parameter file:
 
 The quickest way to try this out is to generate a default parameter file for
-a model and enable profiling on its ``env``. For example, with the
-``Vlasov`` model:
+a model. For example, with the ``Vlasov`` model:
 
 .. code-block:: bash
 
     struphy params Vlasov
 
-This writes ``params_Vlasov.py`` in the current directory. Everything in that
-file can stay at its default — only the ``env`` line needs to change, from:
+This writes ``params_Vlasov.py`` in the current directory. The generated file
+contains:
 
 .. code-block:: python
 
-    env = EnvironmentOptions()
+    profiling_opts = ProfilingOptions()
 
-to:
+Adjust it if you need specific profiler settings:
 
 .. code-block:: python
 
-    env = EnvironmentOptions(
-        profiling_activated=True,
-        profiling_trace=True,
+    profiling_opts = ProfilingOptions(
+        file_path="vlasov_profile.h5",
+        use_line_profiler=True,
+        capture_region_source=True,
     )
 
-Then run the file as usual:
+Then activate profiling manually in the run call:
+
+.. code-block:: python
+
+    sim.run(profiling_activated=True)
+
+or edit the generated ``if __name__ == "__main__":`` block while profiling:
+
+.. code-block:: python
+
+    if __name__ == "__main__":
+        sim.run(profiling_activated=True)
+
+Run the file as usual:
 
 .. code-block:: bash
 
     python params_Vlasov.py
 
 When profiling is enabled, Struphy writes the main profiling data to
-``profiling_data.h5`` in the simulation output folder. If ``profiling_trace``
-is enabled, this file also contains the per-call timestamps needed for
-time-based plots such as Gantt charts; without it, only call counts are
-recorded.
+``profiling_data.h5`` in the simulation output folder. The file contains the
+region timings and per-call timestamps needed for time-based plots such as
+Gantt charts and flame graphs.
 
 Note that ``profiling_data.h5`` is a plain ``scope-profiler`` output file, so
 it is post-processed with ``scope-profiler`` itself rather than with
@@ -873,19 +926,22 @@ it is post-processed with ``scope-profiler`` itself rather than with
 Post-processing with the ``scope-profiler`` CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``scope-profiler`` ships its own post-processing command, ``scope-profiler
-pproc``, which turns one or more ``profiling_data.h5`` files into Gantt
-charts, flame graphs, duration bar charts, a duration-over-time view, and a
-``region_statistics.json`` summary — without writing any code:
+``scope-profiler`` ships its own post-processing commands. In version 0.3.3,
+plotting lives under ``scope-profiler plot``. For the full set of standard
+figures, use the ``all`` preset:
 
 .. code-block:: bash
 
-    scope-profiler pproc sim_1/profiling_data.h5 -o figures
+    scope-profiler plot all sim_1/profiling_data.h5 \
+        --include '^setup: total$' '^model\.integrate$' '^prop: ' '^kernel: ' \
+        -o figures
 
 The two figures below were generated exactly this way, from the
 ``params_Vlasov.py`` example above (default grid and time stepping,
-3 saved steps, 1 MPI rank). To regenerate them, run
-``doc/generate_profiling_figures.sh`` from the repository root.
+3 saved steps, 1 MPI rank), filtered to ``setup: total``,
+``model.integrate``, ``prop: <PropagatorName>`` and ``kernel: <kernel_name>``
+regions. To regenerate them, run ``doc/generate_profiling_figures.sh`` from the
+repository root.
 
 The Gantt chart places one lane per ``(region, rank)`` pair and is the view to
 reach for when the question is *when* things happened — startup cost, gaps
@@ -895,7 +951,7 @@ between steps, ranks drifting apart:
     :figwidth: 100%
     :alt: Gantt chart of profiling regions across MPI ranks
 
-    Gantt chart produced by ``scope-profiler pproc`` for the ``Vlasov``
+    Gantt chart produced by ``scope-profiler plot all`` for the ``Vlasov``
     example, one lane per region.
 
 The flame graph instead answers *where the time went*: the call stack is
@@ -910,19 +966,31 @@ reconstructed from timestamp containment, so nested regions such as
     Flame graph for the same run, rank 0, showing nested profiling regions.
 
 Passing several ``profiling_data.h5`` files (e.g. from runs at different MPI
-rank counts) additionally produces a per-region speedup plot, and
-``--x-field`` can compare runs along other metadata fields such as
+rank counts) to ``scope-profiler plot speedup`` produces a per-region speedup
+plot, and ``--x`` can compare runs along other metadata fields such as
 ``omp_num_threads``. Filtering regions with ``--include``/``--exclude``,
 selecting ranks with ``--ranks``, switching to interactive HTML output with
-``--backend plotly``, and exporting the underlying data or ``.prof`` /
-speedscope files for external viewers are all covered in the
+``--backend plotly``, inspecting text summaries with ``scope-profiler
+inspect``, and exporting the underlying plot data or ``.prof`` / speedscope
+files with ``scope-profiler export`` are all covered in the
 `postprocessing CLI guide <https://max-models.github.io/scope-profiler/guide/postprocessing_cli.html>`_.
 This documentation page is not meant to duplicate that guide — see the link
 for the full set of flags and examples.
 
-If you need a quick sanity check without the CLI, look at
-``region_statistics.json`` for the total runtime of the dominant regions and
-compare them across ranks. A large imbalance between ranks usually means the
-expensive section is load-dependent rather than purely algorithmic.
+For a quick text sanity check, run ``scope-profiler inspect
+sim_1/profiling_data.h5`` and compare the total runtime of the dominant regions
+across ranks. A large imbalance between ranks usually means the expensive
+section is load-dependent rather than purely algorithmic.
 
+If ``use_line_profiler=True`` was set in :class:`~struphy.ProfilingOptions`, the
+same HDF5 file also stores line-profiler timings. Inspect them with:
 
+.. code-block:: bash
+
+    scope-profiler line-profile sim_1/profiling_data.h5
+
+For interactive terminal exploration, use:
+
+.. code-block:: bash
+
+    scope-profiler tui sim_1/profiling_data.h5
