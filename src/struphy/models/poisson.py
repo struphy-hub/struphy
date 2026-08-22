@@ -147,7 +147,7 @@ class Poisson(StruphyModel):
 
 {TimeDependentSource.__doc__}
 
-**2. PoissonFieldSolve:**
+**2. PoissonSolve:**
 
 {PoissonSolve.__doc__}
 """

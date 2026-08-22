@@ -11,6 +11,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.memory import coeff_space_nbytes
+from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
@@ -232,7 +233,7 @@ class FEECVariable(Variable):
     def lifting_function(self) -> Perturbation | None:
         """The lifting function for the case of lifting of boundary conditions.
         Its values at the boundary determine the inhomogeneous boundary conditions.
-        If None, no lifting is applied."""
+        The interior part is irrelevant. If None, no lifting is applied."""
         if not hasattr(self, "_lifting_function"):
             self._lifting_function = None
         return self._lifting_function
@@ -243,44 +244,78 @@ class FEECVariable(Variable):
 
     @property
     def spline(self) -> SplineFunction:
+        """The solution spline function."""
         if not hasattr(self, "_spline"):
             raise ValueError("Warning: spline not allocated yet. Call allocate() first.")
         return self._spline
 
     @property
     def spline_lift(self) -> SplineFunction | None:
-        """The lifting function for the case of lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """The spline representation of the lifting function for the case of lifting of boundary conditions.
+        The values in the interior are irrelevant, only the boundary values determine the boundary conditions.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_spline_lift"):
             self._spline_lift = None
         return self._spline_lift
 
     @property
     def spline_0(self) -> SplineFunction | None:
-        """The spline function with zero boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """Is equal to spline_lift but with boundary coeffcients set to zero.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_spline_0"):
             self._spline_0 = None
         return self._spline_0
 
     @property
     def boundary_spline(self) -> SplineFunction | None:
-        """The spline function representing the boundary conditions, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """Is given by spline_lift - spline_0 and computed by the method set_boundary_spline.
+        This spline appears in the weak form of the equations as a source term and is responsible for the inhomogeneous boundary conditions.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_boundary_spline"):
             self._boundary_spline = None
         return self._boundary_spline
 
     @property
+    def spline_full(self) -> SplineFunction | None:
+        """Full solution spline in the unconstrained (helper) space.
+        Its values are equal to spline + boundary_spline.
+        Only allocated if lifting_function is not None."""
+        # update coeffs
+        self._spline_full.vector = self.boundary_op_lift.T.dot(self.spline.vector) + self.boundary_spline.vector
+        return self._spline_full
+
+    @property
     def boundary_op(self) -> BoundaryOperator | None:
-        """The boundary operator, used for the lifting of boundary conditions. Only allocated if lifting_function is not None."""
+        """Boundary operator in the unconstrained (helper) space.
+        Is used to compute spline_0 for instance.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_boundary_op"):
             self._boundary_op = None
         return self._boundary_op
 
     @property
+    def boundary_op_lift(self) -> BoundaryOperator | None:
+        """Boundary operator from the unconstrained (helper) space to the solution space (with homogeneous Dirichlet conditions).
+        Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_boundary_op_lift"):
+            self._boundary_op_lift = None
+        return self._boundary_op_lift
+
+    @property
     def derham_lift(self) -> Derham | None:
-        """The Derham object for the lifting function. Only allocated if lifting_function is not None."""
+        """The Derham object for the lifting function, yielding the unconstrained (helper) spaces.
+        Only allocated if lifting_function is not None."""
         if not hasattr(self, "_derham_lift"):
             self._derham_lift = None
         return self._derham_lift
+
+    @property
+    def mass_ops_lift(self) -> WeightedMassOperators | None:
+        """The mass operators for the unconstrained (helper) spaces for the case of lifting of boundary conditions.
+        Only allocated if lifting_function is not None."""
+        if not hasattr(self, "_mass_ops_lift"):
+            self._mass_ops_lift = None
+        return self._mass_ops_lift
 
     @property
     def species(self) -> FieldSpecies | FluidSpecies:
@@ -325,30 +360,46 @@ class FEECVariable(Variable):
         if self.lifting_function is not None:
             check_bcs = False
             for bc in derham.bcs:
-                if "dirichlet" in bc:
+                if bc is not None and "dirichlet" in bc:
                     check_bcs = True
                     break
             assert check_bcs, (
                 f"Lifting of boundary conditions can only be applied if at least one homogenous Dirichlet boundary condition is present in the Derham object, but here {derham.bcs = }"
             )
 
-            # create another Derham object with the same options but with homogenous Dirichlet BCs replaced by free BCs, to be used for the lifting function
+            # normalise to list
+            lifting_list = self.lifting_function if isinstance(self.lifting_function, list) else [self.lifting_function]
+
+            # validation
+            if self.space in {"H1", "L2"}:
+                if len(lifting_list) > 1:
+                    raise ValueError("H1/L2 lifting only accepts a single Perturbation, not a list.")
+            elif self.space in {"Hcurl", "Hdiv", "H1vec"}:
+                if len(lifting_list) > 3:
+                    raise ValueError("Hdiv/Hcurl/H1vec lifting accepts at most 3 Perturbations (one per component).")
+                comps = [ptb.comp for ptb in lifting_list]
+                if len(comps) != len(set(comps)):
+                    raise ValueError(f"Each component may only appear once in the lifting list, got {comps}.")
+
+            # create unconstrained Derham
             dct = derham.to_dict()
             bcs_lift = list(dct["options"]["bcs"])
             for i, bc in enumerate(bcs_lift):
                 if bc is not None:
-                    bcn = list(bc)  # convert tuple to list to allow modification
+                    bcn = list(bc)
                     if bcn[0] == "dirichlet":
                         bcn[0] = "free"
                     if bcn[1] == "dirichlet":
                         bcn[1] = "free"
-                    bcn = tuple(bcn)  # convert back to tuple
-                    bcs_lift[i] = bcn
-            dct["options"]["bcs"] = tuple(bcs_lift)  # convert list back to tuple
+                    bcs_lift[i] = tuple(bcn)
+            dct["options"]["bcs"] = tuple(bcs_lift)
 
             self._derham_lift = Derham.from_dict(dct, comm=derham.comm)
 
-            # spline function for the lifting function
+            # unconstrained mass operators
+            self._mass_ops_lift = WeightedMassOperators(self.derham_lift, domain, eq_mhd=equil)
+
+            # spline function for the lifting
             self._spline_lift = self.derham_lift.create_spline_function(
                 name=self.__name__ + "_lift" if self.__name__ is not None else None,
                 space_id=self.space,
@@ -356,49 +407,58 @@ class FEECVariable(Variable):
                 equil=equil,
             )
 
-            # project lifting function to spline space
-            ptb = self.lifting_function
+            # spline function for unconstrained solution
+            self._spline_full = self.derham_lift.create_spline_function(
+                name=self.__name__ + "_full" if self.__name__ is not None else None,
+                space_id=self.space,
+                domain=domain,
+                equil=equil,
+            )
 
-            if self.space in {
-                "H1",
-                "L2",
-            }:  # TODO: this is a copy-paste from SplineFunction.initialize_coeffs(), to be unified
+            # project each perturbation and accumulate into spline_lift
+            if self.space in {"H1", "L2"}:
+                ptb = lifting_list[0]
                 if ptb.given_in_basis is None:
                     ptb.given_in_basis = "0"
-
                 fun = TransformedPformComponent(
                     ptb,
                     ptb.given_in_basis,
                     derham.space_to_form[self.space],
                     domain=domain,
                 )
-            elif self.space in {"Hcurl", "Hdiv", "H1vec"}:
+                self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
+
+            elif self.space in {"Hcurl", "Hdiv", "H1vec"}:  # TODO This is wrong for Hcurl.
                 fun_vec = [None] * 3
-                fun_vec[ptb.comp] = ptb
+                for ptb in lifting_list:
+                    if fun_vec[ptb.comp] is not None:
+                        raise ValueError(f"Component {ptb.comp} assigned more than once in lifting list.")
+                    fun_vec[ptb.comp] = ptb
+                    if ptb.given_in_basis is None:
+                        ptb.given_in_basis = "v"
 
-                if ptb.given_in_basis is None:
-                    ptb.given_in_basis = "v"
-                # pullback callable for each component
-                fun = []
-                for comp in range(3):
-                    fun += [
-                        TransformedPformComponent(
-                            fun_vec,
-                            ptb.given_in_basis,
-                            derham.space_to_form[self.space],
-                            comp=comp,
-                            domain=domain,
-                        ),
-                    ]
+                fun = [
+                    TransformedPformComponent(
+                        fun_vec,
+                        fun_vec[comp].given_in_basis if fun_vec[comp] is not None else lifting_list[0].given_in_basis,
+                        derham.space_to_form[self.space],
+                        comp=comp,
+                        domain=domain,
+                    )
+                    for comp in range(3)
+                ]
+                self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
 
-            # peform projection
-            self.spline_lift.vector += self.derham_lift.projectors[derham.space_to_form[self.space]](fun)
-
-            # other helper objects for the lifting of boundary conditions
+            # other helper objects
             self._spline_0 = self.spline_lift.copy()
-            self.spline_0.vector[:] = self.spline_lift.vector[:]
+            self.spline_lift.vector.copy(out=self.spline_0.vector)
             self._boundary_spline = self.spline_lift.copy()
+
             self._boundary_op = BoundaryOperator(self.spline_lift.space, self.space, derham.dirichlet_bc)
+
+            self._boundary_op_lift = BoundaryOperator(
+                self.spline_lift.space, self.space, derham.dirichlet_bc, codomain=self._spline.space
+            )
 
             self.compute_boundary_spline()
 
@@ -424,7 +484,7 @@ class FEECVariable(Variable):
 
         # set new boundary spline
         diff_vec = spline_lift.vector - self.spline_0.vector
-        self.boundary_spline.vector[:] = diff_vec[:]
+        diff_vec.copy(out=self.boundary_spline.vector)
 
 
 class PICVariable(Variable):

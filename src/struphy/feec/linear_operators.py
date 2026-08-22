@@ -10,7 +10,9 @@ from feectools.linalg.stencil import StencilVectorSpace
 from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
+from struphy.io.options import LiteralOptions
 from struphy.polar.basic import PolarDerhamSpace
+from struphy.utils.utils import check_option
 
 
 class LinOpWithTransp(LinearOperator):
@@ -304,21 +306,37 @@ class BoundaryOperator(LinOpWithTransp):
     Parameters
     ----------
     vector_space : feectools.linalg.basic.VectorSpace
-        The vector space associated to the operator.
+        The vector space of the domain (input).
 
     space_id : str
         Symbolic space ID of vector_space (H1, Hcurl, Hdiv, L2 or H1vec).
 
     dirichlet_bc : tuple[tuple[bool]]
         Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+
+    codomain : feectools.linalg.basic.VectorSpace, optional
+        The vector space of the codomain (output). If given, the operator maps between two different spaces
+        (e.g. unconstrained to constrained). If None, domain and codomain are the same.
     """
 
-    def __init__(self, vector_space, space_id, dirichlet_bc):
+    def __init__(
+        self,
+        vector_space: VectorSpace,
+        space_id: LiteralOptions.OptsFEECSpace,
+        dirichlet_bc: tuple[tuple[bool]],
+        codomain: VectorSpace | None = None,
+    ):
         assert isinstance(vector_space, VectorSpace)
-        assert isinstance(space_id, str)
+        check_option(space_id, LiteralOptions.OptsFEECSpace)
 
         self._domain = vector_space
-        self._codomain = vector_space
+        if codomain is not None:
+            assert isinstance(codomain, VectorSpace)
+            self._codomain = codomain
+            self._cross_space = True
+        else:
+            self._codomain = vector_space
+            self._cross_space = False
         self._dtype = vector_space.dtype
 
         self._space_id = space_id
@@ -491,14 +509,29 @@ class BoundaryOperator(LinOpWithTransp):
         assert isinstance(v, Vector)
         assert v.space == self._domain
 
-        if out is None:
-            out = v.copy()
-        else:
+        if self._space_id == "H1":  # TODO
+            if out is not None:
+                assert isinstance(out, Vector)
+                assert out.space == self._codomain
+                v.copy(out=out)
+            elif self._cross_space:
+                out = self._codomain.zeros()
+                v.copy(out=out)
+            else:
+                out = v.copy()
+            return out
+
+
+        if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
             v.copy(out=out)
+        elif self._cross_space:
+            out = self._codomain.zeros()
+            v.copy(out=out)
+        else:
+            out = v.copy()
 
-        # apply boundary conditions to output vector
         apply_essential_bc_to_array(self._space_id, out, self.bc)
 
         return out
@@ -507,4 +540,4 @@ class BoundaryOperator(LinOpWithTransp):
         """
         Returns the transposed operator.
         """
-        return BoundaryOperator(self._domain, self._space_id, self.bc)
+        return BoundaryOperator(self._codomain, self._space_id, self.bc, codomain=self._domain)
