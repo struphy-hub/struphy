@@ -166,7 +166,7 @@ class Hall(Propagator):
         rhs = rhs.dot(bn, out=self._rhs_b)
         self._solver.linop = lhs
 
-        with ProfileManager.profile_region(self._solve_region):
+        with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
             bn1 = self._solver.solve(rhs, out=self._b_new)
         info = self._solver._info
 

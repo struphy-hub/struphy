@@ -64,7 +64,6 @@ args, _ = parser.parse_known_args()
 
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
-    profiling_activated=True,
     restart=False,
 )
 
@@ -130,7 +129,7 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 
 if __name__ == "__main__":
-    sim.run(one_time_step=True)
+    sim.run(profiling_activated=True, one_time_step=True)
     sim.pproc(parallel_pproc=True)
     
     def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
