@@ -484,7 +484,7 @@ class ImplicitDiffusion(Propagator):
         self._solver.linop = self._lhs_op
 
         # solve
-        with ProfileManager.profile_region(self._solve_region):
+        with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
             out = self._solver.solve(rhs, out=self._tmp)
         info = self._solver._info
 

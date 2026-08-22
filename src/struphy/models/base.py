@@ -382,7 +382,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             for propagator in self.prop_list:
                 prop_name = propagator.__class__.__name__
 
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt)
 
         # second order in time
@@ -391,17 +391,17 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
             for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
             propagator = self.prop_list[-1]
             prop_name = type(propagator).__name__
-            with ProfileManager.profile_region("prop: " + prop_name):
+            with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                 propagator(dt)
 
             for propagator in self.prop_list[:-1][::-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
         else:
@@ -661,6 +661,7 @@ set_logging_level(logging.WARNING)\n""")
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -725,6 +726,9 @@ set_logging_level(logging.WARNING)\n""")
         file.write("\n# Derham options\n")
         file.write(derham)
 
+        file.write("\n# Profiling options\n")
+        file.write("profiling_opts = ProfilingOptions()\n")
+
         file.write("\n# Simulation object\n")
         file.write("""sim = Simulation(
     model=model,
@@ -737,6 +741,7 @@ set_logging_level(logging.WARNING)\n""")
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=profiling_opts,
 )\n""")
 
         if has_pic or has_sph:

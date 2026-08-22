@@ -145,7 +145,7 @@ class JxBCold(Propagator):
         self._solver.linop = lhs
 
         # solve linear system for updated j coefficients (in-place)
-        with ProfileManager.profile_region(self._solve_region):
+        with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
             jn1 = self._solver.solve(rhsv, out=self._j_new)
         info = self._solver._info
 
