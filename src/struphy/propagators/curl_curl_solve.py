@@ -325,7 +325,7 @@ class CurlCurlSolve(Propagator):
         self._solver.linop = self._diffusion_op - self._sigma * self._stab_mat
 
         # solve
-        with ProfileManager.profile_region(self._solve_region):
+        with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
             out = self._solver.solve(self._rhs, out=self._tmp)
         info = self._solver._info
 

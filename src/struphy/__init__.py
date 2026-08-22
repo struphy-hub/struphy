@@ -177,6 +177,7 @@ from struphy.api.options import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Time,
 )
 from struphy.api.particles import (
@@ -201,6 +202,7 @@ __all__ = [
     "EnvironmentOptions",
     "BaseUnits",
     "Time",
+    "ProfilingOptions",
     "perturbations",
     "LoadingParameters",
     "WeightsParameters",
