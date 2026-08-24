@@ -330,6 +330,42 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         j1_binned = np.asarray(sim.f.fluid.e2_current_1.f_binned)  # (Nt+1, n_bins)
         j2_binned = np.asarray(sim.f.fluid.e2_current_2.f_binned)  # (Nt+1, n_bins)
 
+        # Analytische Profile
+        U = 0.5
+        H = 1.0
+        u1_analytic = U * np.sin(np.pi * e2_grid / H)
+        u2_analytic = np.zeros_like(e2_grid)
+
+        # Zwei Subplots: u1 und u2
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+        # Linker Plot: u1 (longitudinal)
+        ax1.plot(e2_grid, j1_binned[0], 'o-', label='Numerisch t=0', markersize=3)
+        ax1.plot(e2_grid, j1_binned[-1], 'o-', label=f'Numerisch t={time_opts.Tend}', markersize=3)
+        ax1.plot(e2_grid, u1_analytic, 'k--', linewidth=2, label='Analytisch t=0')
+        ax1.set_xlabel('y')
+        ax1.set_ylabel(r'$u_1$ (current_1)')
+        ax1.set_title('Longitudinale Geschwindigkeit')
+        ax1.legend()
+        ax1.grid(True)
+
+        # Rechter Plot: u2 (transversal)
+        ax2.plot(e2_grid, j2_binned[0], 'o-', label='Numerisch t=0', markersize=3, color='red')
+        ax2.plot(e2_grid, j2_binned[-1], 'o-', label=f'Numerisch t={time_opts.Tend}', markersize=3, color='orange')
+        ax2.plot(e2_grid, u2_analytic, 'k--', linewidth=2, label='Analytisch t=0 (sollte 0 sein)')
+        ax2.set_xlabel('y')
+        ax2.set_ylabel(r'$u_2$ (current_2)')
+        ax2.set_title('Transversale Geschwindigkeit (sollte 0 sein)')
+        ax2.legend()
+        ax2.grid(True)
+
+        plt.tight_layout()
+        plt.show()
+
+        e2_grid = np.asarray(sim.f.fluid.e2_current_1.grid_e2).flatten()
+        j1_binned = np.asarray(sim.f.fluid.e2_current_1.f_binned)  # (Nt+1, n_bins)
+        j2_binned = np.asarray(sim.f.fluid.e2_current_2.f_binned)  # (Nt+1, n_bins)
+
         # --- DEBUG: Check marker velocities ---
         markers = model.fluid.density.particles.markers
         # markers columns: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
