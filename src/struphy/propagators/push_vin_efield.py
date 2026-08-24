@@ -110,7 +110,8 @@ class PushVinEfield(Propagator):
         self._e_field = None
 
         if self.e_field is not None:
-            if isinstance(self.e_field, tuple[Callable]):
+            if isinstance(self.e_field, tuple) and all(callable(x) for x in self.e_field):
+            #if isinstance(self.e_field, tuple[Callable]):
                 self._e_field = self.derham.P1(self.e_field)
             else:
                 self._e_field = self.e_field.spline.vector

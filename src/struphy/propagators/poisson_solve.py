@@ -115,7 +115,7 @@ class PoissonSolve(ImplicitDiffusion):
             self.sigma_1 = self.stab_eps
             self.sigma_2 = 0.0
             self.sigma_3 = 1.0
-            self.divide_by_dt = False
+            self.divide_by_dt = True
 
     def __init__(
         self,

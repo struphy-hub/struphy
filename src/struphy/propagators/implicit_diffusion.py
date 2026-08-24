@@ -407,6 +407,8 @@ class ImplicitDiffusion(Propagator):
 
     @profile
     def __call__(self, dt):
+        from feectools.ddm.mpi import mpi as MPI
+        rank = MPI.COMM_WORLD.Get_rank()
         # set parameters
         if self._divide_by_dt:
             sig_1 = self._sigma_1 / dt
@@ -442,6 +444,13 @@ class ImplicitDiffusion(Propagator):
                     valid_mks = src.particles.valid_mks
                     first_free_idx = src.particles.first_free_idx
                     density = src.particles.f0.n0(eta)
+
+
+                    # --- DEBUG: inspect f0 output (rank 0 only) ---
+                    if rank == 0:
+                        import numpy as np
+                        print(f"[DEBUG] f0.n0(eta) min = {density.min():.6e}, max = {density.max():.6e}, mean = {density.mean():.6e}")
+                        print(f"[DEBUG] first 5 densities: {density[:5]}")
                     src.particles.markers[valid_mks, first_free_idx] = density
                     # 2. accumulate
                     src()
