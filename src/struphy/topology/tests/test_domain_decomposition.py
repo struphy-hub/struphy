@@ -1,7 +1,16 @@
 import pytest
 
 import struphy.topology.domain_decomposition as dd
-from struphy.topology.domain_decomposition import candidate_masks, optimize_domain_decomposition
+from struphy.topology.domain_decomposition import (
+    candidate_clone_counts,
+    candidate_masks,
+    optimize_domain_decomposition,
+    optimize_parallel_configuration,
+)
+
+
+def test_candidate_clone_counts_are_divisors():
+    assert candidate_clone_counts(8) == (1, 2, 4, 8)
 
 
 def test_candidate_masks_are_valid_and_stable():
@@ -118,6 +127,41 @@ def test_optimizer_rejects_invalid_mask():
 def test_candidate_masks_reject_too_many_ranks():
     with pytest.raises(ValueError, match="cannot exceed"):
         candidate_masks((2, 2, 2), 9)
+
+
+def test_parallel_optimizer_selects_clone_count_and_mask(monkeypatch):
+    class Comm:
+        def Get_size(self):
+            return 8
+
+        def Barrier(self):
+            pass
+
+        def allreduce(self, value, op=None):
+            return value
+
+    costs = {
+        (1, (True, True, True)): 0.01,
+        (2, (True, True, False)): 0.002,
+        (4, (True, False, False)): 0.004,
+    }
+    clock = [0.0]
+    monkeypatch.setattr(dd.time, "perf_counter", lambda: clock[0])
+
+    def step(num_clones, mask):
+        clock[0] += costs.get((num_clones, mask), 0.02)
+
+    result = optimize_parallel_configuration(
+        (8, 8, 8),
+        step,
+        comm=Comm(),
+        clone_counts=(1, 2, 4),
+        warmups=0,
+        repetitions=1,
+    )
+
+    assert result.best_num_clones == 2
+    assert result.best_mask == (True, True, False)
 
 
 def test_candidate_masks_reject_empty_short_direction():

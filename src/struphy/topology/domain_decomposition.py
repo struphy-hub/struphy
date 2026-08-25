@@ -39,6 +39,35 @@ class DomainDecompositionOptimization:
     timings: tuple[DomainDecompositionTiming, ...]
 
 
+@dataclass(frozen=True)
+class ParallelConfigurationTiming:
+    """Measured wall time for one clone/decomposition configuration."""
+
+    num_clones: int
+    mask: Mask
+    seconds: float
+
+
+@dataclass(frozen=True)
+class ParallelConfigurationOptimization:
+    """Result of an empirical clone and domain-decomposition search."""
+
+    best_num_clones: int
+    best_mask: Mask
+    timings: tuple[ParallelConfigurationTiming, ...]
+
+
+def candidate_clone_counts(comm_size: int) -> tuple[int, ...]:
+    """Return clone counts that evenly divide the MPI communicator size."""
+    if comm_size < 1:
+        raise ValueError("comm_size must be positive")
+    return tuple(
+        clones
+        for clones in range(1, comm_size + 1)
+        if comm_size % clones == 0
+    )
+
+
 def candidate_masks(
     num_elements: tuple[int, int, int],
     comm_size: int,
@@ -205,6 +234,75 @@ def optimize_domain_decomposition(
 
     best = min(timings, key=lambda timing: timing.seconds)
     return DomainDecompositionOptimization(best_mask=best.mask, timings=tuple(timings))
+
+
+def optimize_parallel_configuration(
+    num_elements: tuple[int, int, int],
+    step: Callable[[int, Mask], object],
+    *,
+    comm=None,
+    clone_counts: Iterable[int] | None = None,
+    min_local_elements: LocalMinimum = 1,
+    mask_pattern: MaskPattern | None = None,
+    warmups: int = 1,
+    repetitions: int = 3,
+) -> ParallelConfigurationOptimization:
+    """Select the fastest clone count and spatial decomposition together.
+
+    ``step(num_clones, mask)`` must construct a fresh simulation using
+    ``EnvironmentOptions(num_clones=num_clones)`` and the supplied
+    ``mpi_dims_mask=mask``. It is called collectively by every world rank.
+    Spatial decomposition candidates are generated for the communicator size
+    inside one clone, ``comm_size // num_clones``.
+    """
+    if warmups < 0 or repetitions < 1:
+        raise ValueError("warmups must be non-negative and repetitions must be positive")
+    if comm is None:
+        comm = MPI.COMM_WORLD
+
+    comm_size = comm.Get_size()
+    valid_clone_counts = set(candidate_clone_counts(comm_size))
+    selected_clones = valid_clone_counts if clone_counts is None else set(clone_counts)
+    if not selected_clones:
+        raise ValueError("no clone counts were supplied")
+    if not selected_clones.issubset(valid_clone_counts):
+        raise ValueError("clone counts must be positive divisors of the MPI communicator size")
+
+    timings: list[ParallelConfigurationTiming] = []
+    for num_clones in sorted(selected_clones):
+        masks = candidate_masks(
+            num_elements,
+            comm_size // num_clones,
+            min_local_elements=min_local_elements,
+            mask_pattern=mask_pattern,
+        )
+        for mask in masks:
+            for _ in range(warmups):
+                _barrier(comm)
+                step(num_clones, mask)
+            samples = []
+            for _ in range(repetitions):
+                _barrier(comm)
+                start = time.perf_counter()
+                step(num_clones, mask)
+                samples.append(_global_max(comm, time.perf_counter() - start))
+            _barrier(comm)
+            timings.append(
+                ParallelConfigurationTiming(
+                    num_clones=num_clones,
+                    mask=mask,
+                    seconds=sum(samples) / len(samples),
+                )
+            )
+
+    if not timings:
+        raise ValueError("no valid clone/decomposition configurations were found")
+    best = min(timings, key=lambda timing: timing.seconds)
+    return ParallelConfigurationOptimization(
+        best_num_clones=best.num_clones,
+        best_mask=best.mask,
+        timings=tuple(timings),
+    )
 
 
 def _validate_masks(masks: Iterable[Mask], valid_masks: set[Mask]) -> set[Mask]:
