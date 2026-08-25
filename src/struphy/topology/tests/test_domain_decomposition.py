@@ -29,9 +29,22 @@ def test_candidate_masks_can_fix_one_direction_and_auto_tune_the_rest():
     )
 
 
+def test_candidate_masks_can_fix_process_count_in_one_direction():
+    masks = candidate_masks((8, 8, 8), 4, mask_pattern=(1, "auto", "auto"))
+
+    assert masks == (
+        (False, False, True),
+        (False, True, False),
+        (False, True, True),
+    )
+
+
 def test_candidate_masks_reject_invalid_pattern():
-    with pytest.raises(ValueError, match="True, False, or 'auto'"):
+    with pytest.raises(ValueError, match="positive integer"):
         candidate_masks((8, 8, 8), 4, mask_pattern=(True, "sometimes", "auto"))
+
+    with pytest.raises(ValueError, match="positive integer"):
+        candidate_masks((8, 8, 8), 4, mask_pattern=(0, "auto", "auto"))
 
 
 def test_optimizer_selects_fastest_candidate(monkeypatch):

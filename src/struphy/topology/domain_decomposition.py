@@ -16,7 +16,11 @@ from feectools.ddm.partition import compute_dims
 
 Mask = tuple[bool, bool, bool]
 LocalMinimum = int | tuple[int, int, int]
-MaskPattern = tuple[bool | Literal["auto"], bool | Literal["auto"], bool | Literal["auto"]]
+MaskPattern = tuple[
+    bool | int | Literal["auto"],
+    bool | int | Literal["auto"],
+    bool | int | Literal["auto"],
+]
 
 
 @dataclass(frozen=True)
@@ -73,7 +77,14 @@ def candidate_masks(
         if not any(mask):
             continue
         if pattern is not None and any(
-            expected != "auto" and value != expected
+            isinstance(expected, bool) and value != expected
+            for value, expected in zip(mask, pattern)
+        ):
+            continue
+        if pattern is not None and any(
+            isinstance(expected, int)
+            and not isinstance(expected, bool)
+            and ((expected > 1 and not value) or (expected == 1 and value))
             for value, expected in zip(mask, pattern)
         ):
             continue
@@ -88,6 +99,13 @@ def candidate_masks(
         if any(
             p > n or block < minimum
             for p, n, block, minimum in zip(nprocs, num_elements, blocksizes, local_minimum)
+        ):
+            continue
+        if pattern is not None and any(
+            isinstance(expected, int)
+            and not isinstance(expected, bool)
+            and nproc != expected
+            for nproc, expected in zip(nprocs, pattern)
         ):
             continue
         masks.append(mask)
@@ -128,6 +146,12 @@ def optimize_domain_decomposition(
         Minimum number of elements in every local block. This can be one
         integer for all directions or a three-tuple for direction-specific
         requirements. For FEEC grids, pass the spline degree tuple.
+    mask_pattern
+        Optional per-direction constraint. Boolean entries fix whether a
+        direction may be decomposed, positive integers require an exact
+        process-grid extent, and ``"auto"`` lets the optimizer vary it. For
+        example, ``(1, "auto", "auto")`` requires one process in the first
+        direction.
     mask_pattern
         Optional per-direction constraint. Use ``True`` or ``False`` to fix a
         direction and ``"auto"`` to let the optimizer vary it, e.g.
@@ -200,8 +224,11 @@ def _normalize_mask_pattern(mask_pattern: MaskPattern | None) -> MaskPattern | N
         return None
     if len(mask_pattern) != 3:
         raise ValueError("mask_pattern must contain exactly three dimensions")
-    if not all(value in (True, False, "auto") for value in mask_pattern):
-        raise ValueError("mask_pattern entries must be True, False, or 'auto'")
+    if not all(
+        value == "auto" or isinstance(value, bool) or isinstance(value, int) and value >= 1
+        for value in mask_pattern
+    ):
+        raise ValueError("mask_pattern entries must be True, False, a positive integer, or 'auto'")
     return mask_pattern
 
 
