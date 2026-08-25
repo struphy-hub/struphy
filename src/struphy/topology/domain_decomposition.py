@@ -9,13 +9,14 @@ step for a given mask.
 import itertools
 import time
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Literal
 
 from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.partition import compute_dims
 
 Mask = tuple[bool, bool, bool]
 LocalMinimum = int | tuple[int, int, int]
+MaskPattern = tuple[bool | Literal["auto"], bool | Literal["auto"], bool | Literal["auto"]]
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ def candidate_masks(
     comm_size: int,
     *,
     min_local_elements: LocalMinimum = 1,
+    mask_pattern: MaskPattern | None = None,
 ) -> tuple[Mask, ...]:
     """Return valid non-empty ``mpi_dims_mask`` candidates.
 
@@ -64,10 +66,16 @@ def candidate_masks(
         raise ValueError("num_elements must contain positive values")
     if int(comm_size) > num_elements[0] * num_elements[1] * num_elements[2]:
         raise ValueError("comm_size cannot exceed the number of grid elements")
+    pattern = _normalize_mask_pattern(mask_pattern)
 
     masks: list[Mask] = []
     for mask in itertools.product((False, True), repeat=3):
         if not any(mask):
+            continue
+        if pattern is not None and any(
+            expected != "auto" and value != expected
+            for value, expected in zip(mask, pattern)
+        ):
             continue
         try:
             nprocs, blocksizes = compute_dims(comm_size, list(num_elements), mpi_dims_mask=list(mask))
@@ -94,6 +102,7 @@ def optimize_domain_decomposition(
     comm=None,
     masks: Iterable[Mask] | None = None,
     min_local_elements: LocalMinimum = 1,
+    mask_pattern: MaskPattern | None = None,
     warmups: int = 1,
     repetitions: int = 3,
 ) -> DomainDecompositionOptimization:
@@ -119,6 +128,10 @@ def optimize_domain_decomposition(
         Minimum number of elements in every local block. This can be one
         integer for all directions or a three-tuple for direction-specific
         requirements. For FEEC grids, pass the spline degree tuple.
+    mask_pattern
+        Optional per-direction constraint. Use ``True`` or ``False`` to fix a
+        direction and ``"auto"`` to let the optimizer vary it, e.g.
+        ``(True, "auto", "auto")``.
 
     Returns
     -------
@@ -143,6 +156,7 @@ def optimize_domain_decomposition(
             num_elements,
             comm_size,
             min_local_elements=min_local_elements,
+            mask_pattern=mask_pattern,
         )
     )
     selected_masks = tuple(valid_masks if masks is None else _validate_masks(masks, valid_masks))
@@ -179,6 +193,16 @@ def _validate_masks(masks: Iterable[Mask], valid_masks: set[Mask]) -> set[Mask]:
             raise ValueError(f"decomposition mask is not valid for this grid/MPI size: {mask!r}")
         selected.add(normalized)
     return selected
+
+
+def _normalize_mask_pattern(mask_pattern: MaskPattern | None) -> MaskPattern | None:
+    if mask_pattern is None:
+        return None
+    if len(mask_pattern) != 3:
+        raise ValueError("mask_pattern must contain exactly three dimensions")
+    if not all(value in (True, False, "auto") for value in mask_pattern):
+        raise ValueError("mask_pattern entries must be True, False, or 'auto'")
+    return mask_pattern
 
 
 def _barrier(comm) -> None:

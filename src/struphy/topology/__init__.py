@@ -1,6 +1,7 @@
 from .domain_decomposition import (
     DomainDecompositionOptimization,
     DomainDecompositionTiming,
+    MaskPattern,
     candidate_masks,
     optimize_domain_decomposition,
 )
@@ -8,6 +9,7 @@ from .domain_decomposition import (
 __all__ = [
     "DomainDecompositionOptimization",
     "DomainDecompositionTiming",
+    "MaskPattern",
     "candidate_masks",
     "optimize_domain_decomposition",
 ]

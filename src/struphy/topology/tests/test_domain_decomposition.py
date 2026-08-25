@@ -18,6 +18,22 @@ def test_candidate_masks_are_valid_and_stable():
     )
 
 
+def test_candidate_masks_can_fix_one_direction_and_auto_tune_the_rest():
+    masks = candidate_masks((8, 8, 8), 4, mask_pattern=(True, "auto", "auto"))
+
+    assert masks == (
+        (True, False, False),
+        (True, False, True),
+        (True, True, False),
+        (True, True, True),
+    )
+
+
+def test_candidate_masks_reject_invalid_pattern():
+    with pytest.raises(ValueError, match="True, False, or 'auto'"):
+        candidate_masks((8, 8, 8), 4, mask_pattern=(True, "sometimes", "auto"))
+
+
 def test_optimizer_selects_fastest_candidate(monkeypatch):
     calls = []
     costs = {
