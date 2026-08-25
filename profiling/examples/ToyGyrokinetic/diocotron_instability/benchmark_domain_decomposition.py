@@ -10,10 +10,9 @@ Run from the repository root, for example::
 
     mpirun -n 8 python profiling/examples/ToyGyrokinetic/diocotron_instability/benchmark_domain_decomposition.py
 
-The benchmark times allocation plus one call to ``model.integrate``.  This
-keeps the example independent of the optional simulation profiling wrapper;
-the decomposition comparison itself is still performed by the public
-optimizer.
+The benchmark times one ``Simulation.run(one_time_step=True)`` call, including
+allocation, output setup, and profiling.  The decomposition comparison itself
+is performed by the public optimizer.
 """
 
 import argparse
@@ -42,9 +41,15 @@ from struphy.topology import optimize_domain_decomposition
 
 NUM_ELEMENTS = (512, 16, 1)
 DEFAULT_MASK = (True, True, True)
+WARMUPS = 1
+REPETITIONS = 2
 
 
-def run_one_step(mask: tuple[bool, bool, bool], output_dir: str) -> None:
+def run_one_step(
+    mask: tuple[bool, bool, bool],
+    output_dir: str,
+    num_elements: tuple[int, int, int],
+) -> None:
     """Build one candidate and perform one allocation/integration step."""
     model = ToyDrift(epsilon=1.0, alpha=1.0, base_units=BaseUnits(kBT=1.0))
     domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
@@ -55,7 +60,7 @@ def run_one_step(mask: tuple[bool, bool, bool], output_dir: str) -> None:
         weights_params=WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001),
         boundary_params=BoundaryParameters(),
         sorting_params=SortingParameters(
-            boxes_per_dim=NUM_ELEMENTS,
+            boxes_per_dim=num_elements,
             do_sort=True,
             sorting_frequency=1,
         ),
@@ -75,34 +80,30 @@ def run_one_step(mask: tuple[bool, bool, bool], output_dir: str) -> None:
         time_opts=Time(dt=0.01, Tend=0.01, split_algo="LieTrotter"),
         domain=domain,
         equil=equil,
-        grid=grids.TensorProductGrid(num_elements=NUM_ELEMENTS, mpi_dims_mask=mask),
+        grid=grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=mask),
         derham_opts=DerhamOptions(
             degree=(2, 2, 1),
             bcs=(("dirichlet", "dirichlet"), None, None),
         ),
     )
-    sim.allocate()
-    sim.model.integrate(sim.time_opts.dt, sim.time_opts.split_algo)
+    sim.run(one_time_step=True, profiling_activated=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--id", type=int, default=0, help="Unique profiling-run identifier.")
-    parser.add_argument("--warmups", type=int, default=1)
-    parser.add_argument("--repetitions", type=int, default=2)
-    parser.add_argument("--output", default=None)
     args, _ = parser.parse_known_args()
 
-    output = args.output or f"benchmark_domain_decomposition_{args.id:02d}"
+    output = f"sim_{args.id:02d}"
 
     logging.getLogger("struphy").setLevel(logging.ERROR)
     result = optimize_domain_decomposition(
         NUM_ELEMENTS,
-        lambda mask: run_one_step(mask, output),
+        lambda mask: run_one_step(mask, output, NUM_ELEMENTS),
         comm=MPI.COMM_WORLD,
         min_local_elements=(2, 2, 1),
-        warmups=args.warmups,
-        repetitions=args.repetitions,
+        warmups=WARMUPS,
+        repetitions=REPETITIONS,
     )
 
     if MPI.COMM_WORLD.Get_rank() == 0:
