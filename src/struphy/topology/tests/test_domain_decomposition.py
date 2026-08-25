@@ -102,3 +102,14 @@ def test_candidate_masks_reject_empty_short_direction():
         (True, True, False),
         (True, True, True),
     )
+
+
+def test_candidate_masks_can_enforce_feec_minimum_local_size():
+    masks = candidate_masks((128, 16, 1), 16, min_local_elements=(2, 2, 1))
+
+    assert masks == (
+        (True, False, False),
+        (True, False, True),
+        (True, True, False),
+        (True, True, True),
+    )

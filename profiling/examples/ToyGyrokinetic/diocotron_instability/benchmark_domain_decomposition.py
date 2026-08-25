@@ -1,9 +1,10 @@
 """Benchmark domain-decomposition masks for a cylindrical ToyDrift PIC case.
 
 This is an intentionally anisotropic case: the logical grid has many radial
-cells and fewer azimuthal cells, while particles are loaded and sorted in the
-cylindrical domain.  On the reference 8-rank run, the mask ``(True, False,
-False)`` was about 32% faster than the default ``(True, True, True)`` mask.
+cells (512) and fewer azimuthal cells (16), while particles are loaded and
+sorted in the cylindrical domain.  On the reference 8-rank run, automatic
+selection prefers radial-only decomposition and was about 30% faster than the
+default ``(True, True, True)`` mask.  The exact speedup is machine-dependent.
 
 Run from the repository root, for example::
 
@@ -39,7 +40,7 @@ from struphy.models import ToyDrift
 from struphy.topology import optimize_domain_decomposition
 
 
-NUM_ELEMENTS = (128, 16, 1)
+NUM_ELEMENTS = (512, 16, 1)
 DEFAULT_MASK = (True, True, True)
 
 
@@ -86,16 +87,20 @@ def run_one_step(mask: tuple[bool, bool, bool], output_dir: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--id", type=int, default=0, help="Unique profiling-run identifier.")
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--repetitions", type=int, default=2)
-    parser.add_argument("--output", default="benchmark_domain_decomposition")
-    args = parser.parse_args()
+    parser.add_argument("--output", default=None)
+    args, _ = parser.parse_known_args()
+
+    output = args.output or f"benchmark_domain_decomposition_{args.id:02d}"
 
     logging.getLogger("struphy").setLevel(logging.ERROR)
     result = optimize_domain_decomposition(
         NUM_ELEMENTS,
-        lambda mask: run_one_step(mask, args.output),
+        lambda mask: run_one_step(mask, output),
         comm=MPI.COMM_WORLD,
+        min_local_elements=(2, 2, 1),
         warmups=args.warmups,
         repetitions=args.repetitions,
     )

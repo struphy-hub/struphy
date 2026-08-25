@@ -15,6 +15,7 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.partition import compute_dims
 
 Mask = tuple[bool, bool, bool]
+LocalMinimum = int | tuple[int, int, int]
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,7 @@ def candidate_masks(
     num_elements: tuple[int, int, int],
     comm_size: int,
     *,
-    min_local_elements: int = 1,
+    min_local_elements: LocalMinimum = 1,
 ) -> tuple[Mask, ...]:
     """Return valid non-empty ``mpi_dims_mask`` candidates.
 
@@ -51,7 +52,13 @@ def candidate_masks(
         raise ValueError("num_elements must contain exactly three dimensions")
     if comm_size < 1:
         raise ValueError("comm_size must be positive")
-    if min_local_elements < 1:
+    if isinstance(min_local_elements, int):
+        local_minimum = (min_local_elements,) * 3
+    else:
+        if len(min_local_elements) != 3:
+            raise ValueError("min_local_elements must contain exactly three dimensions")
+        local_minimum = tuple(int(value) for value in min_local_elements)
+    if any(value < 1 for value in local_minimum):
         raise ValueError("min_local_elements must be positive")
     if any(int(n) <= 0 for n in num_elements):
         raise ValueError("num_elements must contain positive values")
@@ -66,12 +73,13 @@ def candidate_masks(
             nprocs, blocksizes = compute_dims(comm_size, list(num_elements), mpi_dims_mask=list(mask))
         except (AssertionError, ValueError):
             continue
-        # ``compute_dims`` accepts a process grid whose local block would have
-        # zero cells in a short direction.  FEEC discretization cannot use
-        # such a grid, so reject it here before invoking the user callback.
+        # ``compute_dims`` accepts a process grid whose local block is too
+        # small in a short direction.  FEEC discretization cannot use such a
+        # grid (the required minimum is normally the spline degree), so reject
+        # it here before invoking the user callback.
         if any(
-            p > n or block < min_local_elements
-            for p, n, block in zip(nprocs, num_elements, blocksizes)
+            p > n or block < minimum
+            for p, n, block, minimum in zip(nprocs, num_elements, blocksizes, local_minimum)
         ):
             continue
         masks.append(mask)
@@ -85,7 +93,7 @@ def optimize_domain_decomposition(
     *,
     comm=None,
     masks: Iterable[Mask] | None = None,
-    min_local_elements: int = 1,
+    min_local_elements: LocalMinimum = 1,
     warmups: int = 1,
     repetitions: int = 3,
 ) -> DomainDecompositionOptimization:
@@ -107,6 +115,10 @@ def optimize_domain_decomposition(
     warmups, repetitions
         Number of discarded and measured calls per candidate.  The reported
         time is the average of the communicator-wide maximum time per call.
+    min_local_elements
+        Minimum number of elements in every local block. This can be one
+        integer for all directions or a three-tuple for direction-specific
+        requirements. For FEEC grids, pass the spline degree tuple.
 
     Returns
     -------
