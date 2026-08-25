@@ -6,8 +6,6 @@ anything about the model: the caller supplies a function which performs one
 step for a given mask.
 """
 
-from __future__ import annotations
-
 import itertools
 import time
 from dataclasses import dataclass
@@ -38,6 +36,8 @@ class DomainDecompositionOptimization:
 def candidate_masks(
     num_elements: tuple[int, int, int],
     comm_size: int,
+    *,
+    min_local_elements: int = 1,
 ) -> tuple[Mask, ...]:
     """Return valid non-empty ``mpi_dims_mask`` candidates.
 
@@ -51,6 +51,8 @@ def candidate_masks(
         raise ValueError("num_elements must contain exactly three dimensions")
     if comm_size < 1:
         raise ValueError("comm_size must be positive")
+    if min_local_elements < 1:
+        raise ValueError("min_local_elements must be positive")
     if any(int(n) <= 0 for n in num_elements):
         raise ValueError("num_elements must contain positive values")
     if int(comm_size) > num_elements[0] * num_elements[1] * num_elements[2]:
@@ -67,7 +69,10 @@ def candidate_masks(
         # ``compute_dims`` accepts a process grid whose local block would have
         # zero cells in a short direction.  FEEC discretization cannot use
         # such a grid, so reject it here before invoking the user callback.
-        if any(p > n or block < 1 for p, n, block in zip(nprocs, num_elements, blocksizes)):
+        if any(
+            p > n or block < min_local_elements
+            for p, n, block in zip(nprocs, num_elements, blocksizes)
+        ):
             continue
         masks.append(mask)
 
@@ -80,6 +85,7 @@ def optimize_domain_decomposition(
     *,
     comm=None,
     masks: Iterable[Mask] | None = None,
+    min_local_elements: int = 1,
     warmups: int = 1,
     repetitions: int = 3,
 ) -> DomainDecompositionOptimization:
@@ -120,7 +126,13 @@ def optimize_domain_decomposition(
     if comm is None:
         comm = MPI.COMM_WORLD
     comm_size = comm.Get_size()
-    valid_masks = set(candidate_masks(num_elements, comm_size))
+    valid_masks = set(
+        candidate_masks(
+            num_elements,
+            comm_size,
+            min_local_elements=min_local_elements,
+        )
+    )
     selected_masks = tuple(valid_masks if masks is None else _validate_masks(masks, valid_masks))
     if not selected_masks:
         raise ValueError("no valid decomposition masks were supplied")

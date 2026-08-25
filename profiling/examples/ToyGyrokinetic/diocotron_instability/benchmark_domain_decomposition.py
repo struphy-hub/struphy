@@ -15,8 +15,6 @@ the decomposition comparison itself is still performed by the public
 optimizer.
 """
 
-from __future__ import annotations
-
 import argparse
 import logging
 
