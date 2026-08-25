@@ -1,16 +1,50 @@
 import pytest
 
 import struphy.topology.domain_decomposition as dd
+import struphy.topology.autotuning as tuning
 from struphy.topology.domain_decomposition import (
     candidate_clone_counts,
     candidate_masks,
     optimize_domain_decomposition,
     optimize_parallel_configuration,
 )
+from struphy.topology.autotuning import optimize_integer_parameter, search_integer_parameter
 
 
 def test_candidate_clone_counts_are_divisors():
     assert candidate_clone_counts(8) == (1, 2, 4, 8)
+
+
+def test_integer_parameter_optimizer_selects_fastest_value(monkeypatch):
+    clock = [0.0]
+    costs = {0: 0.03, 1: 0.01, 2: 0.02}
+    monkeypatch.setattr(tuning.time, "perf_counter", lambda: clock[0])
+
+    def step(value):
+        clock[0] += costs[value]
+
+    result = optimize_integer_parameter((0, 1, 2), step, warmups=0, repetitions=1)
+
+    assert result.best_value == 1
+
+
+def test_integer_parameter_search_refines_coarse_optimum(monkeypatch):
+    costs = {value: float((value - 5) ** 2) for value in range(11)}
+    clock = [0.0]
+    monkeypatch.setattr(tuning.time, "perf_counter", lambda: clock[0])
+
+    result = search_integer_parameter(
+        0,
+        10,
+        lambda value: clock.__setitem__(0, clock[0] + costs[value]),
+        coarse_step=5,
+        refinement_radius=2,
+        warmups=0,
+        repetitions=1,
+    )
+
+    assert result.best_value == 5
+    assert {timing.value for timing in result.timings} == {0, 3, 4, 5, 6, 7, 10}
 
 
 def test_candidate_masks_are_valid_and_stable():
