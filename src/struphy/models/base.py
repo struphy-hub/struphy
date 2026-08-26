@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from textwrap import indent
 
 import cunumpy as xp
+import numpy as np
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
 
@@ -382,7 +383,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             for propagator in self.prop_list:
                 prop_name = propagator.__class__.__name__
 
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt)
 
         # second order in time
@@ -391,17 +392,17 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
             for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
             propagator = self.prop_list[-1]
             prop_name = type(propagator).__name__
-            with ProfileManager.profile_region("prop: " + prop_name):
+            with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                 propagator(dt)
 
             for propagator in self.prop_list[:-1][::-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
         else:
@@ -424,13 +425,17 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 assert isinstance(obj, Particles)
 
             if var.n_to_save > 0:
+                # The selection runs on whichever backend the markers live
+                # on (device under CuPy); var.saved_markers is the host
+                # buffer that gets written to HDF5, so the selected rows are
+                # brought across explicitly here.
                 markers_on_proc = xp.logical_and(
                     obj.markers[:, -1] >= 0.0,
                     obj.markers[:, -1] < var.n_to_save,
                 )
-                n_markers_on_proc = xp.count_nonzero(markers_on_proc)
+                n_markers_on_proc = int(xp.count_nonzero(markers_on_proc))
                 var.saved_markers[:] = -1.0
-                var.saved_markers[:n_markers_on_proc] = obj.markers[markers_on_proc]
+                var.saved_markers[:n_markers_on_proc] = xp.to_numpy(obj.markers[markers_on_proc])
 
     @profile
     def update_distr_functions(self):
@@ -467,8 +472,13 @@ class StruphyModel(metaclass=StruphyModelMeta):
                         components, edges, output_quantity=binning_quantity, divide_by_jac=divide_by_jac
                     )
 
-                    bin_plot.f[:] = f_slice
-                    bin_plot.df[:] = df_slice
+                    # obj.binning() computes on host (markers are always
+                    # host-resident regardless of backend, see
+                    # ISSUE_cupy_particles_never_pushed.md), but bin_plot.f/df
+                    # follow the active backend -- xp.asarray is a no-op
+                    # under numpy and a safe host->device copy under cupy.
+                    bin_plot.f[:] = xp.asarray(f_slice)
+                    bin_plot.df[:] = xp.asarray(df_slice)
 
                 for kd_plot in species.saving_params.kernel_density_plots:
                     h1 = 1 / obj.boxes_per_dim[0]
@@ -661,6 +671,7 @@ set_logging_level(logging.WARNING)\n""")
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -725,6 +736,9 @@ set_logging_level(logging.WARNING)\n""")
         file.write("\n# Derham options\n")
         file.write(derham)
 
+        file.write("\n# Profiling options\n")
+        file.write("profiling_opts = ProfilingOptions()\n")
+
         file.write("\n# Simulation object\n")
         file.write("""sim = Simulation(
     model=model,
@@ -737,6 +751,7 @@ set_logging_level(logging.WARNING)\n""")
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=profiling_opts,
 )\n""")
 
         if has_pic or has_sph:

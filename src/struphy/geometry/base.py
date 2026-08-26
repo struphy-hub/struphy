@@ -24,10 +24,15 @@ logger = logging.getLogger("struphy")
 
 
 def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for passing to compiled kernels."""
-    if hasattr(value, "get"):  # CuPy array
-        return value.get()
-    return value
+    """Convert CuPy arrays to NumPy for passing to compiled kernels.
+
+    xp.is_gpu, not xp.to_numpy: some callers pass plain Python scalars that must
+    reach the compiled kernel unchanged, and xp.to_numpy would wrap those into
+    0-d NumPy arrays via np.asarray -- a type the kernel signature does not
+    expect. xp.is_gpu leaves anything that isn't actually a CuPy array
+    untouched, matching the original hasattr(value, "get") passthrough exactly.
+    """
+    return value.get() if xp.is_gpu(value) else value
 
 
 class DomainMeta(ABCMeta):
@@ -236,7 +241,7 @@ class Domain(metaclass=DomainMeta):
         """Build runtime mapping arguments used by compiled evaluation kernels."""
         return DomainArguments(
             self.kind_map,
-            self.params_numpy,
+            _to_numpy_for_kernel(self.params_numpy),
             _to_numpy_for_kernel(xp.array(self.degree)),
             _to_numpy_for_kernel(self.T[0]),
             _to_numpy_for_kernel(self.T[1]),

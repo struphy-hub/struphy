@@ -6,7 +6,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
-import cunumpy as xp
+import numpy as np
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
@@ -627,7 +627,7 @@ class PICVariable(Variable):
             f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
-            self._saved_markers = xp.zeros(
+            self._saved_markers = np.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -708,7 +708,7 @@ class PICVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> xp.ndarray:
+    def saved_markers(self) -> np.ndarray:
         return self._saved_markers
 
 
@@ -919,7 +919,7 @@ class SPHVariable(Variable):
             f"The number of markers for which data should be stored (={self._n_to_save}) must be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
-            self._saved_markers = xp.zeros(
+            self._saved_markers = np.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -996,5 +996,5 @@ class SPHVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> xp.ndarray:
+    def saved_markers(self) -> np.ndarray:
         return self._saved_markers

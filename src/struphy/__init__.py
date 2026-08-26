@@ -4,6 +4,33 @@ import logging
 import logging.config
 import os
 
+# HDF5's file locking relies on flock(), which is unreliable/unsupported on
+# parallel filesystems such as Lustre or GPFS (common on HPC clusters) and
+# causes spurious `BlockingIOError: Unable to synchronously open file` errors.
+# Disable it unless the user has explicitly configured it.
+os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
+
+# mpi4py defaults to requesting MPI_THREAD_MULTIPLE (thread level 3) from
+# MPI_Init_thread. On at least one cluster this repo runs on (Pitagora's Booster
+# partition, OpenMPI 4.1.6 + UCX 1.20), the UCX worker does not support that level,
+# which OpenMPI reports at every multi-rank run ("UCP worker does not support
+# MPI_THREAD_MULTIPLE" / "failed to init ucx" / hcoll init failure) and works
+# around by making hcoll (its GPU-aware collective component) fail to initialize,
+# silently falling back to a different, working collective implementation. Struphy
+# only ever calls MPI from the main Python thread (CuPy's internal CUDA driver
+# threads don't touch MPI), so requesting the weaker MPI_THREAD_FUNNELED guarantee
+# instead is sufficient and avoids the warnings -- but it ALSO lets hcoll
+# successfully initialize where it previously failed to, and hcoll's own
+# Alltoallv implementation on this cluster then segfaults
+# (hmca_bcol_ucx_p2p_alltoallv_pairwise_chunk_progress) the first time it's
+# actually used, something the failed init was silently protecting us from.
+# hcoll must therefore stay disabled explicitly alongside the thread-level
+# change, not just left to fail its own init. Both must be set before mpi4py.MPI
+# is imported anywhere (thread level can't change after MPI_Init), and only if
+# the user hasn't already configured them themselves.
+os.environ.setdefault("MPI4PY_RC_THREAD_LEVEL", "funneled")
+os.environ.setdefault("OMPI_MCA_coll_hcoll_enable", "0")
+
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.utils.mpi_launch import launched_under_mpi
@@ -150,6 +177,7 @@ from struphy.api.options import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Time,
 )
 from struphy.api.particles import (
@@ -174,6 +202,7 @@ __all__ = [
     "EnvironmentOptions",
     "BaseUnits",
     "Time",
+    "ProfilingOptions",
     "perturbations",
     "LoadingParameters",
     "WeightsParameters",

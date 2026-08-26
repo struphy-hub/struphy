@@ -2,6 +2,8 @@ import logging
 
 import pytest
 
+pytestmark = pytest.mark.mpi_pic
+
 logger = logging.getLogger("struphy")
 
 
@@ -46,7 +48,8 @@ logger = logging.getLogger("struphy")
 def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
-    import cunumpy as xp
+    import numpy as np
+    from cunumpy import to_numpy
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
@@ -99,7 +102,7 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     particles.initialize_weights()
     _w0 = particles.weights
     logger.info("Test weights:")
-    logger.info(f"rank {rank}: {_w0.shape} {xp.min(_w0)} {xp.max(_w0)}")
+    logger.info(f"rank {rank}: {_w0.shape} {np.min(_w0)} {np.max(_w0)}")
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process before sorting : ")
@@ -114,17 +117,21 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # are all markers in the correct domain?
-    conds = xp.logical_and(
-        particles.markers[:, :3] > derham.domain_array[rank, 0::3],
-        particles.markers[:, :3] < derham.domain_array[rank, 1::3],
+    # Markers follow the active backend; compare on the host so the rest of
+    # this test can use plain NumPy.
+    domain_array_host = to_numpy(derham.domain_array)
+    markers_host = to_numpy(particles.markers)
+    conds = np.logical_and(
+        markers_host[:, :3] > domain_array_host[rank, 0::3],
+        markers_host[:, :3] < domain_array_host[rank, 1::3],
     )
-    holes = particles.markers[:, 0] == -1.0
-    stay = xp.all(conds, axis=1)
+    holes = markers_host[:, 0] == -1.0
+    stay = np.all(conds, axis=1)
 
-    error_mks = particles.markers[xp.logical_and(~stay, ~holes)]
+    error_mks = particles.markers[np.logical_and(~stay, ~holes)]
 
     assert error_mks.size == 0, (
-        f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}"
+        f"rank {rank} | markers not on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}"
     )
 
 

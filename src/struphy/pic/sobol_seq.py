@@ -19,7 +19,17 @@ from __future__ import division
 
 import logging
 
-import cunumpy as xp
+# Deliberately plain NumPy, not cunumpy: this Sobol-sequence generator is a
+# direct port of a scalar Fortran/MATLAB algorithm (bit shifts, per-element
+# int()/bitwise_xor in Python loops, see i4_sobol below) with no vectorized
+# hot loop to move to the device -- forcing it onto the CuPy backend only adds
+# per-scalar host<->device sync overhead and, worse, breaks outright wherever
+# a plain Python int/float is threaded through (xp.transpose on a list,
+# xp.bitwise_xor expecting device arrays, etc.). The small (n, dim_num) array
+# it produces is consumed via boolean/fancy-index assignment into the marker
+# array (see Particles.phasespace_coords's setter in pic/base.py), which
+# accepts a NumPy source even when the destination is a CuPy array.
+import numpy as xp
 from scipy.stats import norm
 
 logger = logging.getLogger("struphy")

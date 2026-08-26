@@ -258,4 +258,4 @@ init = maxwellians.GyroMaxwellian2D(
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(profiling_activated=True)

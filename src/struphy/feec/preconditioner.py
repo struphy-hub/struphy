@@ -1,6 +1,7 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
 from feectools.ddm.mpi import MockComm
@@ -12,9 +13,7 @@ from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
 from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVectorSpace
 from line_profiler import profile
-from scipy import fft as scipy_fft
 from scipy import sparse
-from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
@@ -333,7 +332,7 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = xp.nonzero(M_arr)
+                row_indices, col_indices = np.nonzero(M_arr)  # M_arr is always a host array (StencilMatrix.toarray())
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -346,7 +345,7 @@ class MassMatrixPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])  # both sides are host arrays
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -698,7 +697,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = xp.nonzero(M_arr)
+                row_indices, col_indices = np.nonzero(M_arr)  # M_arr is always a host array (StencilMatrix.toarray())
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -711,7 +710,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])  # both sides are host arrays
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -1843,7 +1842,10 @@ class FFTSolver(BandedSolver):
     """
 
     def __init__(self, circmat):
-        assert isinstance(circmat, xp.ndarray)
+        # circmat comes from StencilMatrix.toarray(), which always returns a
+        # host (NumPy) array. Store it in the active backend so the cached FFT
+        # solve below also works with device-resident right-hand sides.
+        assert isinstance(circmat, np.ndarray)
         assert is_circulant(circmat)
 
         self._space = xp.ndarray
@@ -1864,7 +1866,7 @@ class FFTSolver(BandedSolver):
     def _build_inverse_spectrum(self):
         """Precompute the inverse real-FFT spectrum of the matrix."""
 
-        spectrum = scipy_fft.rfft(self._column)
+        spectrum = xp.fft.rfft(self._column)
 
         scale = max(
             float(xp.max(xp.abs(spectrum))),
@@ -1880,7 +1882,7 @@ class FFTSolver(BandedSolver):
             )
 
             self._column[0] *= 1.0 + eps
-            spectrum = scipy_fft.rfft(self._column)
+            spectrum = xp.fft.rfft(self._column)
 
             if xp.any(xp.abs(spectrum) <= threshold):
                 raise xp.linalg.LinAlgError(
@@ -1910,7 +1912,7 @@ class FFTSolver(BandedSolver):
 
         rhs_array = xp.asarray(rhs)
 
-        rhs_fourier = scipy_fft.rfft(
+        rhs_fourier = xp.fft.rfft(
             rhs_array,
             axis=-1,
         )
@@ -1920,7 +1922,7 @@ class FFTSolver(BandedSolver):
         else:
             rhs_fourier *= self._inverse_spectrum
 
-        result = scipy_fft.irfft(
+        result = xp.fft.irfft(
             rhs_fourier,
             n=self._column.size,
             axis=-1,
@@ -1945,13 +1947,15 @@ def is_circulant(mat):
         Whether the matrix is circulant (=True) or not (=False).
     """
 
-    assert isinstance(mat, xp.ndarray)
+    # mat is always a host (NumPy) array in practice: the only callers pass
+    # StencilMatrix.toarray() output, which feectools always returns on the host.
+    assert isinstance(mat, np.ndarray)
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
     if mat.shape[0] > 1:
         for i in range(mat.shape[0] - 1):
-            circulant = xp.allclose(mat[i, :], xp.roll(mat[i + 1, :], -1))
+            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
             if not circulant:
                 return circulant
     else:

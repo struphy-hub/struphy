@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Callable
 
 import cunumpy as xp
+import numpy as np
 from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import MockComm
@@ -3688,6 +3689,9 @@ class L2Projector:
         self._spans_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_spans
         self._bases_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases
 
+        # Pyccel-compiled kernel only understands NumPy arrays
+        self._kernel_3d_vec = PyccelKernel(mass_kernels.kernel_3d_vec, outputs=(-1,))
+
         # Preconditioner
         if precond_name is None:
             pc = None
@@ -3924,7 +3928,7 @@ class L2Projector:
             pads = fem_space.coeff_space.pads
 
             if isinstance(dofs, StencilVector):
-                mass_kernels.kernel_3d_vec(
+                self._kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3935,7 +3939,7 @@ class L2Projector:
                     dofs._data,
                 )
             elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(
+                self._kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3946,7 +3950,7 @@ class L2Projector:
                     dofs.tp._data,
                 )
             else:
-                mass_kernels.kernel_3d_vec(
+                self._kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3997,6 +4001,22 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
+
+
+def _einsum_out(subscripts, *operands, out):
+    """``xp.einsum(subscripts, *operands, out=out)``, working on both backends.
+
+    CuPy's ``einsum`` (unlike NumPy's) does not accept an ``out=`` keyword at all -- it
+    raises ``TypeError`` rather than silently ignoring it -- so under the CuPy backend
+    this falls back to an unfused call plus an explicit copy into ``out``. NumPy keeps
+    the single fused call, which avoids the extra allocation/copy that the CuPy fallback
+    cannot.
+    """
+    if xp.cupy_backend:
+        out[...] = xp.einsum(subscripts, *operands)
+    else:
+        xp.einsum(subscripts, *operands, out=out)
+    return out
 
 
 class AverageOperator(LinOpWithTransp):
@@ -4121,7 +4141,13 @@ class AverageOperator(LinOpWithTransp):
             i_begin += self.derham.degree[self._directions[0]]
             i_end += self.derham.degree[self._directions[0]]
         # General formula for any distribution of knots for the integral of a B-spline function, thus works with periodic and clamped boundary conditions :
-        self._weights[:] = (knots[i_begin + degree + 1 : i_end + degree + 1] - knots[i_begin:i_end]) / (degree + 1)
+        # `knots` (derham.args_derham's host knot vector) is always NumPy, while
+        # `self._weights` may be a CuPy array under the CuPy backend -- a full-slice
+        # assignment (unlike a boolean/fancy-indexed one) does not auto-convert a NumPy
+        # source, so it is wrapped explicitly.
+        self._weights[:] = xp.asarray(
+            (knots[i_begin + degree + 1 : i_end + degree + 1] - knots[i_begin:i_end]) / (degree + 1)
+        )
 
     @property
     def domain(self):
@@ -4146,13 +4172,52 @@ class AverageOperator(LinOpWithTransp):
         else:
             return self._nquads
 
-    @property
     def tosparse(self):
-        raise NotImplementedError()
+        """Convert to a sparse matrix, built directly from the closed-form averaging
+        formula rather than a basis-vector sweep.
 
-    @property
+        `dot()`'s math (see the class docstring) is
+        ``out[..., i_d0, ...] = sum_o weights[o] * x[..., o, ...]`` for every index along
+        the averaged axis `d0` (`self._directions[0]`) -- i.e. output row
+        `(i0, i1, i2)` (any value at index `d0`) depends only on the `n_d0` input columns
+        that share its other two indices, with coefficient `weights[o]`. That is fully
+        vectorizable with `numpy`, unlike a basis-vector sweep (one `dot()` call per
+        domain DOF, i.e. per grid point): that would mean thousands of individual CuPy
+        kernel launches with a device sync each under the CuPy backend. This builds
+        the sparse matrix entirely on the host regardless of backend (`self._weights`
+        is the only device array involved, and is tiny -- one value per grid point
+        along `d0`).
+
+        Serial (single MPI rank) only.
+        """
+        from scipy.sparse import coo_matrix
+
+        e = self.domain.zeros()
+        idx = tuple(slice(m * p, -m * p) if p != 0 else slice(0, None) for p, m in zip(e.pads, e.space.shifts))
+        shape = e._data[idx].shape
+        d0 = self._directions[0]
+        weights_np = xp.to_numpy(self._weights)
+        assert weights_np.shape[0] == shape[d0]
+
+        grids = np.meshgrid(*[np.arange(s) for s in shape], indexing="ij")
+        row = np.ravel_multi_index(grids, shape).reshape(-1)
+
+        rows, cols, data = [], [], []
+        for o in range(shape[d0]):
+            col_idx = [g.copy() for g in grids]
+            col_idx[d0] = np.full(shape, o)
+            rows.append(row)
+            cols.append(np.ravel_multi_index(col_idx, shape).reshape(-1))
+            data.append(np.full(row.shape, weights_np[o], dtype=self.dtype))
+
+        n = int(np.prod(shape))
+        return coo_matrix(
+            (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
+            shape=(n, n),
+        ).tocsr()
+
     def toarray(self):
-        raise NotImplementedError()
+        return self.tosparse().toarray()
 
     def dot(self, v, out=None):
 
@@ -4167,12 +4232,12 @@ class AverageOperator(LinOpWithTransp):
         x = v._data[self._slices[0]]
         y = out._data[self._slices[0]]
         if self._transposed:
-            xp.einsum(self._subscripts[0], x, out=self._tmp)
+            _einsum_out(self._subscripts[0], x, out=self._tmp)
             if not isinstance(self.derham.comm, (MockComm, type(None))):
                 self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
-            xp.einsum(self._subscripts[1], self._tmp, self._weights, out=y)
+            _einsum_out(self._subscripts[1], self._tmp, self._weights, out=y)
         else:
-            xp.einsum(self._subscripts[0], x, self._weights, out=self._tmp)
+            _einsum_out(self._subscripts[0], x, self._weights, out=self._tmp)
             if not isinstance(self.derham.comm, (MockComm, type(None))):
                 self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
             y[:] = self._tmp[self._slices[1]]

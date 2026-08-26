@@ -1993,7 +1993,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                         polar_shift,
                     )
 
-                _ptsG = [pts.flatten() for pts in _ptsG]
+                _ptsG = [xp.asarray(pts.flatten()) for pts in _ptsG]
 
                 _Vnbases = [int(space.nbasis) for space in V1d]
                 _Wnbases = [int(space.nbasis) for space in W1d]

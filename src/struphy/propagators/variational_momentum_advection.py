@@ -277,11 +277,9 @@ class VariationalMomentumAdvection(Propagator):
                 break
 
             # Newton step
-
             with ProfileManager.profile_region(self._solve_region):
                 # pc_diff = self._Mrho_inv.dot(diff, out=self._tmp__pc_diff)
                 pc_diff = self._momentum_pc.dot(diff, out=self._tmp__pc_diff)
-
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
                 logger.info(

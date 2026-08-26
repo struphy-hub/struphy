@@ -112,7 +112,7 @@ class Units:
             self._v = xp.sqrt(self.kBT * 1000 * con.e / (con.mH * A_bulk))
 
         # time (s)
-        self._t = self.x / self.v
+        self._t = float(self.x / self.v)
 
         # return if no bulk is present
         if A_bulk is None:
