@@ -108,6 +108,9 @@ class Scene:
 
         import cupy as cp
 
+        # Keep an explicit device copy for RawKernel calls.  ``markers`` stays
+        # NumPy because it is also the input to the Pyccel CPU reference.
+        self.markers_dev = cp.asarray(self._markers0)
         self.params_dev = cp.asarray(np.asarray(self.args_domain.params, dtype=float), dtype=cp.float64)
         self.tn1_dev = cp.asarray(np.asarray(self.args_derham.tn1, dtype=float), dtype=cp.float64)
         self.tn2_dev = cp.asarray(np.asarray(self.args_derham.tn2, dtype=float), dtype=cp.float64)
@@ -146,6 +149,14 @@ class Scene:
 
     def reset_markers(self):
         self.particles.markers[:] = self._markers0
+
+    def reset_markers_dev(self):
+        """Restore the device input and account for the H2D transfer."""
+        self.markers_dev.set(self._markers0)
+
+    def copy_markers_from_dev(self):
+        """Account for the D2H half of the benchmarked marker round-trip."""
+        self.markers_dev.get(out=self.particles.markers)
 
     def random_f0_values(self):
         return self._rng.uniform(0.1, 2.0, size=self.n_markers).astype(np.float64)
@@ -203,6 +214,7 @@ def make_cases(scene: Scene, dt: float):
     am, ad, ah = scene.args_markers, scene.args_domain, scene.args_derham
     a1, b1, c1 = _stage1_abc()
     n_cols = scene.particles.markers.shape[1]
+    markers_dev = scene.markers_dev
     pn, tn1, tn2, tn3, starts = scene.pn, scene.tn1_dev, scene.tn2_dev, scene.tn3_dev, scene.starts
     kind_map, params_dev = scene.kind_map, scene.params_dev
     boundary_cut = 0.1
@@ -216,7 +228,7 @@ def make_cases(scene: Scene, dt: float):
         "push_eta_stage",
         lambda: pusher_kernels.push_eta_stage(dt, 0, am, ad, a1, b1, c1),
         lambda: push_eta_stage_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             am.first_init_idx,
             am.first_free_idx,
@@ -235,7 +247,7 @@ def make_cases(scene: Scene, dt: float):
         "push_v_with_efield",
         lambda: pusher_kernels.push_v_with_efield(dt, 0, am, ad, ah, *e1, dt),
         lambda: push_v_with_efield_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             pn,
             tn1,
@@ -256,7 +268,7 @@ def make_cases(scene: Scene, dt: float):
         "push_vxb_analytic",
         lambda: pusher_kernels.push_vxb_analytic(dt, 0, am, ad, ah, *b2),
         lambda: push_vxb_analytic_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             am.first_init_idx,
             pn,
@@ -274,7 +286,7 @@ def make_cases(scene: Scene, dt: float):
         "push_vxb_implicit",
         lambda: pusher_kernels.push_vxb_implicit(dt, 0, am, ad, ah, *b2),
         lambda: push_vxb_implicit_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             am.first_init_idx,
             pn,
@@ -298,7 +310,7 @@ def make_cases(scene: Scene, dt: float):
         "push_bxu_Hdiv",
         lambda: pusher_kernels.push_bxu_Hdiv(dt, 0, am, ad, ah, *b2, *u2, boundary_cut),
         lambda: push_bxu_Hdiv_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             pn,
             tn1,
@@ -317,7 +329,7 @@ def make_cases(scene: Scene, dt: float):
         "push_bxu_Hcurl",
         lambda: pusher_kernels.push_bxu_Hcurl(dt, 0, am, ad, ah, *b2, *u1, boundary_cut),
         lambda: push_bxu_Hcurl_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             pn,
             tn1,
@@ -336,7 +348,7 @@ def make_cases(scene: Scene, dt: float):
         "push_bxu_H1vec",
         lambda: pusher_kernels.push_bxu_H1vec(dt, 0, am, ad, ah, *b2, *uv, boundary_cut),
         lambda: push_bxu_H1vec_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             pn,
             tn1,
@@ -369,7 +381,7 @@ def make_cases(scene: Scene, dt: float):
         "push_pc_GXu_full",
         lambda: pusher_kernels.push_pc_GXu_full(dt, 0, am, ad, ah, *g_full),
         lambda: push_pc_GXu_full_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             pn,
             tn1,
@@ -386,7 +398,7 @@ def make_cases(scene: Scene, dt: float):
         "push_pc_GXu",
         lambda: pusher_kernels.push_pc_GXu(dt, 0, am, ad, ah, *g_full),
         lambda: push_pc_GXu_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             pn,
             tn1,
@@ -405,7 +417,7 @@ def make_cases(scene: Scene, dt: float):
         "push_pc_eta_stage_Hcurl",
         lambda: pusher_kernels.push_pc_eta_stage_Hcurl(dt, 0, am, ad, ah, *u1, False, a1, b1, c1),
         lambda: push_pc_eta_stage_Hcurl_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             am.first_init_idx,
             am.first_free_idx,
@@ -427,7 +439,7 @@ def make_cases(scene: Scene, dt: float):
         "push_pc_eta_stage_Hdiv",
         lambda: pusher_kernels.push_pc_eta_stage_Hdiv(dt, 0, am, ad, ah, *u2, False, a1, b1, c1),
         lambda: push_pc_eta_stage_Hdiv_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             am.first_init_idx,
             am.first_free_idx,
@@ -449,7 +461,7 @@ def make_cases(scene: Scene, dt: float):
         "push_pc_eta_stage_H1vec",
         lambda: pusher_kernels.push_pc_eta_stage_H1vec(dt, 0, am, ad, ah, *uv, False, a1, b1, c1),
         lambda: push_pc_eta_stage_H1vec_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             am.first_init_idx,
             am.first_free_idx,
@@ -476,7 +488,7 @@ def make_cases(scene: Scene, dt: float):
         "push_weights_with_efield_lin_va",
         lambda: pusher_kernels.push_weights_with_efield_lin_va(dt, 0, am, ad, ah, *e1, f0_values, kappa, vth),
         lambda: push_weights_with_efield_lin_va_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             pn,
             tn1,
@@ -515,7 +527,7 @@ def make_cases(scene: Scene, dt: float):
             c1,
         ),
         lambda: push_deterministic_diffusion_stage_general_gpu(
-            scene.particles.markers,
+            markers_dev,
             n_cols,
             am.first_init_idx,
             am.first_free_idx,
@@ -540,7 +552,8 @@ def make_cases(scene: Scene, dt: float):
     add(
         "push_random_diffusion_stage",
         lambda: pusher_kernels.push_random_diffusion_stage(dt, 0, am, ad, noise, diffusion_coeff, a1, b1, c1),
-        lambda: push_random_diffusion_stage_gpu(scene.particles.markers, n_cols, noise, diffusion_coeff, dt),
+        # This wrapper deliberately stages its random noise input itself.
+        lambda: push_random_diffusion_stage_gpu(markers_dev, n_cols, noise, diffusion_coeff, dt),
     )
 
     # --- charge_density_0form (AccumulatorVector, H1) ---
@@ -554,7 +567,7 @@ def make_cases(scene: Scene, dt: float):
         lambda: (
             vec_gpu.fill(0.0),
             charge_density_0form_gpu(
-                scene.particles.markers,
+                markers_dev,
                 weight_idx,
                 pn,
                 tn1,
@@ -606,7 +619,7 @@ def make_cases(scene: Scene, dt: float):
         for v in vlva_vec_gpu:
             v.fill(0.0)
         linear_vlasov_ampere_gpu(
-            scene.particles.markers,
+            markers_dev,
             kind_map,
             params_dev,
             lva_f0_dev,
@@ -649,7 +662,7 @@ def make_cases(scene: Scene, dt: float):
         for v in vm_vec_gpu:
             v.fill(0.0)
         vlasov_maxwell_gpu(
-            scene.particles.markers,
+            markers_dev,
             kind_map,
             params_dev,
             pn,
@@ -697,7 +710,7 @@ def make_cases(scene: Scene, dt: float):
         for v in cc1_gpu.values():
             v.fill(0.0)
         cc_lin_mhd_6d_1_gpu(
-            scene.particles.markers,
+            markers_dev,
             kind_map,
             params_dev,
             pn,
@@ -759,7 +772,7 @@ def make_cases(scene: Scene, dt: float):
         for v in cc2_vec_gpu:
             v.fill(0.0)
         cc_lin_mhd_6d_2_gpu(
-            scene.particles.markers,
+            markers_dev,
             kind_map,
             params_dev,
             pn,
@@ -823,7 +836,7 @@ def make_cases(scene: Scene, dt: float):
         for v in pc_vec_gpu.values():
             v.fill(0.0)
         pc_lin_mhd_6d_full_gpu(
-            scene.particles.markers,
+            markers_dev,
             kind_map,
             params_dev,
             pn,
@@ -858,7 +871,7 @@ def make_cases(scene: Scene, dt: float):
         for v in pc_vec_gpu.values():
             v.fill(0.0)
         pc_lin_mhd_6d_gpu(
-            scene.particles.markers,
+            markers_dev,
             kind_map,
             params_dev,
             pn,
@@ -912,8 +925,12 @@ def main():
             cpu_fn()
 
         def gpu_run(gpu_fn=gpu_fn):
-            scene.reset_markers()
+            scene.reset_markers_dev()
             gpu_fn()
+            # RawKernel launches are asynchronous.  The D2H copy both makes
+            # the timing meaningful and includes the marker round-trip that
+            # a host-backed particle path would require.
+            scene.copy_markers_from_dev()
 
         cpu_t = timeit(cpu_run, args.repeats)
         gpu_t = timeit(gpu_run, args.repeats)
