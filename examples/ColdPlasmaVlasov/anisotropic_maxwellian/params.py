@@ -62,7 +62,7 @@ model.hot_elec.var.save_data = True
 # ----------------
 
 env = EnvironmentOptions(
-    sim_folder="thesis_fig4_9_validation_short",
+    sim_folder="thesis_fig4_9_validation",
     save_step=1,
 )
 
@@ -126,14 +126,30 @@ weights_params = WeightsParameters(
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
 
-binplot = BinningPlot(
+binplot_e3 = BinningPlot(
     slice="e3",
     n_bins=128,
     ranges=(0.0, 1.0),
 )
 
+binplot_v3 = BinningPlot(
+    slice="v3",
+    n_bins=128,
+    ranges=(-1.0, 1.0),
+)
+
+binplot_anisotropy = BinningPlot(
+    slice="v1_v3",
+    n_bins=(128, 128),
+    ranges=((-2.5, 2.5), (-1.0, 1.0)),
+)
+
 saving_params = SavingParameters(
-    binning_plots=(binplot,),
+    binning_plots=(
+        binplot_e3,
+        binplot_v3,
+        binplot_anisotropy,
+    ),
 )
 
 model.hot_elec.set_markers(
