@@ -60,6 +60,16 @@ model.em_fields.source.save_data = True
 # Unknown flags are ignored so the driver can forward other parameters as well.
 parser = argparse.ArgumentParser()
 parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+parser.add_argument(
+    "--num-elements",
+    type=int,
+    nargs=3,
+    default=None,
+    help=(
+        "Grid resolution (overrides the default, 256 256 256). The default is sized for "
+        "the multi-rank strong-scaling study this case exists for; one rank cannot hold it."
+    ),
+)
 args, _ = parser.parse_known_args()
 
 env = EnvironmentOptions(
@@ -80,7 +90,8 @@ domain = domains.Cuboid(r1=Lx, l2=-Ly / 2, r2=Ly / 2, r3=Lz)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(256, 256, 256), mpi_dims_mask=(True, True, True))
+num_elements = tuple(args.num_elements) if args.num_elements is not None else (256, 256, 256)
+grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
@@ -116,6 +127,7 @@ model.propagators.poisson.options = model.propagators.poisson.Options(
 # ------------------
 # Initial conditions
 # ------------------
+import cunumpy as xp
 import numpy as np
 
 from struphy.initial.base import GenericPerturbation
@@ -235,18 +247,26 @@ if __name__ == "__main__":
     if sim.comm.rank == 0:
         sim.load_plotting_data()
 
-        Tstart = sim.t_grid[0]
+        # float(): under CuPy `t_grid` is a device array, so `t_grid[0]` is a 0-d
+        # device array -- unhashable, while `data` is keyed by np.float64.
+        Tstart = float(sim.t_grid[0])
         rhs_data = sim.spline_values.em_fields.source_log
         print(rhs_data)
         rhs = rhs_data.data[Tstart][0]
 
-        Tend = sim.t_grid[-1]
+        Tend = float(sim.t_grid[-1])
         phi_data = sim.spline_values.em_fields.phi_log
         print(phi_data)
         phi = phi_data.data[Tend][0]
-        x = sim.grids_phy[0]
-        y = sim.grids_phy[1]
-        z = sim.grids_phy[2]
+
+        # Everything below is host-side: NumPy reductions, matplotlib, np.save.
+        # Under CuPy these are all device arrays, and matplotlib/np.max refuse
+        # the implicit conversion.
+        rhs = xp.to_numpy(rhs)
+        phi = xp.to_numpy(phi)
+        x = xp.to_numpy(sim.grids_phy[0])
+        y = xp.to_numpy(sim.grids_phy[1])
+        z = xp.to_numpy(sim.grids_phy[2])
 
         slice_pt_x = x.shape[0] // 2
         slice_pt_y = y.shape[1] // 2

@@ -20,6 +20,45 @@ from struphy.feec.mass import WeightedMassOperator
 
 logger = logging.getLogger("struphy")
 
+_diag_apply_kernel = None
+
+
+def _apply_squared_diagonal_gpu(diagonal, rhs, out, interior):
+    """Apply ``diagonal**2 * rhs`` in one CuPy elementwise kernel."""
+    global _diag_apply_kernel
+    if _diag_apply_kernel is None:
+        import cupy as cp
+
+        _diag_apply_kernel = cp.ElementwiseKernel(
+            "T d, T x",
+            "T y",
+            "y = d * d * x",
+            "struphy_apply_squared_diagonal",
+        )
+    _diag_apply_kernel(diagonal, rhs[interior], out[interior])
+
+
+def _apply_squared_diagonal_operator_gpu(diagonal, rhs, out):
+    """Apply a scalar or block diagonal operator with one kernel per block."""
+    if isinstance(diagonal, StencilDiagonalMatrix):
+        V = rhs.space
+        interior = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+        # Index through StencilVector so global starts/ends are translated to
+        # the local padded storage correctly.
+        _apply_squared_diagonal_gpu(diagonal._data, rhs, out, interior)
+        out.ghost_regions_in_sync = False
+        return
+
+    if isinstance(diagonal, BlockLinearOperator):
+        for component, (rhs_block, out_block) in enumerate(zip(rhs.blocks, out.blocks)):
+            _apply_squared_diagonal_operator_gpu(
+                diagonal[component, component], rhs_block, out_block
+            )
+        out.ghost_regions_in_sync = False
+        return
+
+    raise TypeError(f"Unsupported GPU diagonal operator {type(diagonal)}.")
+
 
 def _iter_diagonal_blocks(operator):
     """Yield StencilDiagonalMatrix blocks from a scalar or block diagonal."""
@@ -916,7 +955,15 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         assert isinstance(rhs, Vector)
         assert rhs.space == self._mass_operator.matrix.domain
 
-        # _M_invsrqt_diag represents D_M^{-1/2}.
+        # _M_invsrqt_diag represents D_M^{-1/2}.  On CuPy, combine the two
+        # diagonal applications into one elementwise kernel (D^-1 rhs).
+        first_data = rhs.blocks[0]._data if hasattr(rhs, "blocks") else rhs._data
+        if xp.is_gpu(first_data) and isinstance(
+            self._M_invsrqt_diag, (StencilDiagonalMatrix, BlockLinearOperator)
+        ):
+            _apply_squared_diagonal_operator_gpu(self._M_invsrqt_diag, rhs, out)
+            return out
+
         tmp = self._M_invsrqt_diag.dot(
             rhs,
             out=self._tmp_vector_no_bc[0],
@@ -1298,6 +1345,28 @@ class H1vecKineticMetricPreconditioner(
     def transpose(self, conjugate=False):
         """The preconditioner is symmetric."""
         return self
+
+    @profile
+    def solve(self, rhs, out=None):
+        """Apply the kinetic-metric preconditioner.
+
+        The logical Kronecker solve used by the inherited implementation is
+        efficient on the host, but on the current CuPy backend it launches a
+        long sequence of small device operations for every outer Krylov
+        iteration.  For device vectors use the already available diagonal
+        mass core instead; it is fully device-resident and preserves the same
+        extraction and boundary handling.  The CPU path retains the stronger
+        Kronecker preconditioner.
+        """
+        first_data = rhs.blocks[0]._data if hasattr(rhs, "blocks") else rhs._data
+        if xp.is_gpu(first_data):
+            return self._solve_with_core(
+                rhs,
+                out,
+                self._solve_diagonal_no_bc,
+            )
+
+        return super().solve(rhs, out=out)
 
 
 class H1vecKineticMetricWoodburyPreconditioner(

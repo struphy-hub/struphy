@@ -10,6 +10,7 @@ from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilMatrix
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import mass_kernels, preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -264,49 +265,49 @@ class BracketOperator(LinOpWithTransp):
 
         self.vf.vector = v
 
-        grad_1_v = self.gp1.dot(v, out=self.gp1v)
-        grad_2_v = self.gp2.dot(v, out=self.gp2v)
-        grad_3_v = self.gp3.dot(v, out=self.gp3v)
+        with ProfileManager.profile_region("momentum bracket: gradients"):
+            grad_1_v = self.gp1.dot(v, out=self.gp1v)
+            grad_2_v = self.gp2.dot(v, out=self.gp2v)
+            grad_3_v = self.gp3.dot(v, out=self.gp3v)
 
         # To avoid tmp we need to update the fields we created.
         self.gv1f.vector = grad_1_v
         self.gv2f.vector = grad_2_v
         self.gv3f.vector = grad_3_v
 
-        vf_values = self.vf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            [self.interpolation_grid_bn] * 3,
-            out=self._vf_values,
-        )
+        with ProfileManager.profile_region("momentum bracket: spline evaluation"):
+            vf_values = self.vf.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                [self.interpolation_grid_bn] * 3,
+                out=self._vf_values,
+            )
+            gvf1_values = self.gv1f.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                self.interpolation_grid_gradient,
+                out=self._gvf1_values,
+            )
+            gvf2_values = self.gv2f.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                self.interpolation_grid_gradient,
+                out=self._gvf2_values,
+            )
+            gvf3_values = self.gv3f.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                self.interpolation_grid_gradient,
+                out=self._gvf3_values,
+            )
 
-        gvf1_values = self.gv1f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf1_values,
-        )
+        with ProfileManager.profile_region("momentum bracket: projector weights"):
+            self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
+            self.PigvT_1.update_weights([[gvf1_values[0], gvf1_values[1], gvf1_values[2]]])
+            self.PigvT_2.update_weights([[gvf2_values[0], gvf2_values[1], gvf2_values[2]]])
+            self.PigvT_3.update_weights([[gvf3_values[0], gvf3_values[1], gvf3_values[2]]])
 
-        gvf2_values = self.gv2f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf2_values,
-        )
-
-        gvf3_values = self.gv3f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf3_values,
-        )
-
-        self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
-
-        self.PigvT_1.update_weights([[gvf1_values[0], gvf1_values[1], gvf1_values[2]]])
-        self.PigvT_2.update_weights([[gvf2_values[0], gvf2_values[1], gvf2_values[2]]])
-        self.PigvT_3.update_weights([[gvf3_values[0], gvf3_values[1], gvf3_values[2]]])
-
-        if out is not None:
-            self.mbrackvw.dot(self._u, out=out)
-        else:
-            out = self.mbrackvw.dot(self._u)
+        with ProfileManager.profile_region("momentum bracket: operator application"):
+            if out is not None:
+                self.mbrackvw.dot(self._u, out=out)
+            else:
+                out = self.mbrackvw.dot(self._u)
 
         return out
 
@@ -1449,8 +1450,34 @@ class H1vecKineticMetric(LinOpWithTransp):
         self._dtype = mass_rho.dtype
 
         self._tmp_div = self.codomain.zeros()
-        self._tmp_scaled_div = self.codomain.zeros()
         self._tmp_apply = self.codomain.zeros()
+
+    @staticmethod
+    def _accumulate_scaled_device(out, value, alpha):
+        """Apply ``out += alpha * value`` with one kernel per leaf vector."""
+        if hasattr(out, "blocks"):
+            for out_block, value_block in zip(out.blocks, value.blocks):
+                H1vecKineticMetric._accumulate_scaled_device(
+                    out_block,
+                    value_block,
+                    alpha,
+                )
+            out.ghost_regions_in_sync = False
+            return
+
+        import cupy as cp
+
+        kernel = getattr(H1vecKineticMetric, "_scaled_add_kernel", None)
+        if kernel is None:
+            kernel = cp.ElementwiseKernel(
+                "T x, T alpha",
+                "T y",
+                "y += alpha * x",
+                "struphy_h1_metric_scaled_add",
+            )
+            H1vecKineticMetric._scaled_add_kernel = kernel
+        kernel(value._data, alpha, out._data)
+        out.ghost_regions_in_sync = False
 
     @property
     def domain(self):
@@ -1529,12 +1556,12 @@ class H1vecKineticMetric(LinOpWithTransp):
                 v,
                 out=self._tmp_div,
             )
-
-            self._tmp_scaled_div *= 0.0
-            self._tmp_scaled_div += self._tmp_div
-            self._tmp_scaled_div *= self.alpha
-
-            out += self._tmp_scaled_div
+            first_data = out.blocks[0]._data if hasattr(out, "blocks") else out._data
+            if xp.is_gpu(first_data):
+                self._accumulate_scaled_device(out, self._tmp_div, self.alpha)
+            else:
+                self._tmp_div *= self.alpha
+                out += self._tmp_div
 
         return out
 
@@ -2110,22 +2137,40 @@ class H1vecWeakDivergenceMultiplicationOperator(LinOpWithTransp):
             trial_space = V.spaces[component_trial]
             mat = self._mat[0, component_trial]
 
-            self._assembly_kernel(
-                *self._test_spans,
-                *W.degree,
-                *trial_space.degree,
-                *starts,
-                *pads,
-                *self._test_weights,
-                *self._test_bases,
-                *self._trial_bases,
-                self._weight_values,
-                self._dlogj[0],
-                self._dlogj[1],
-                self._dlogj[2],
-                component_trial,
-                mat._data,
-            )
+            if xp.is_gpu(mat._data):
+                from struphy.feec.mass_kernels_cuda import weak_divergence_assemble_gpu
+
+                weak_divergence_assemble_gpu(
+                    self._test_spans,
+                    W.degree,
+                    trial_space.degree,
+                    starts,
+                    pads,
+                    self._test_weights,
+                    self._test_bases,
+                    self._trial_bases,
+                    self._weight_values,
+                    self._dlogj,
+                    component_trial,
+                    mat._data,
+                )
+            else:
+                self._assembly_kernel(
+                    *self._test_spans,
+                    *W.degree,
+                    *trial_space.degree,
+                    *starts,
+                    *pads,
+                    *self._test_weights,
+                    *self._test_bases,
+                    *self._trial_bases,
+                    self._weight_values,
+                    self._dlogj[0],
+                    self._dlogj[1],
+                    self._dlogj[2],
+                    component_trial,
+                    mat._data,
+                )
 
         self._mat.exchange_assembly_data()
 
@@ -2413,6 +2458,12 @@ class KineticEnergyEvaluator:
         )
         self._M_div_un.assemble(div_un)
 
+    def assemble_M_div_un_cached(self):
+        """Assemble from the divergence cached by ``get_div_u_product_grid``."""
+        if not self._with_regularization:
+            return
+        self._M_div_un.assemble(self._div_u_values)
+
     def assemble_M_div_un1(self, un1):
         if not self._with_regularization:
             return
@@ -2422,3 +2473,9 @@ class KineticEnergyEvaluator:
             out=self._div_u1_values,
         )
         self._M_div_un1_base.assemble(div_un1)
+
+    def assemble_M_div_un1_cached(self):
+        """Assemble from the divergence cached by ``get_div_u_product_grid``."""
+        if not self._with_regularization:
+            return
+        self._M_div_un1_base.assemble(self._div_u1_values)

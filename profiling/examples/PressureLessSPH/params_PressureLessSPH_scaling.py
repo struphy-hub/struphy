@@ -101,7 +101,6 @@ name = f"PressureLessSPH scaling ({args.backend})"
 # Environment options
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
-    profiling_activated=True,
     save_restart=False,
 )
 
@@ -174,4 +173,4 @@ background = equils.ConstantVelocity()
 model.cold_fluid.var.add_background(background)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(profiling_activated=True)

@@ -130,7 +130,6 @@ name = f"DriftKineticElectrostaticAdiabatic Cyclone ({args.backend})"
 # Environment options
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
-    profiling_activated=True,
     save_restart=False,
 )
 
@@ -292,7 +291,7 @@ init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), vth_para=(vth_init
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(profiling_activated=True)
     sim.pproc(parallel_pproc=True, physical=True)
 
     # Static, non-interactive figures for this profiling run -- adapted from

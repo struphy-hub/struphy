@@ -104,7 +104,6 @@ name = f"GuidingCenter ({args.backend})"
 # Environment options
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
-    profiling_activated=True,
     save_restart=False,
 )
 
@@ -182,4 +181,4 @@ init = maxwellian_1pt + maxwellian_2
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(profiling_activated=True)

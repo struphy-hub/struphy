@@ -342,11 +342,9 @@ class VariationalMomentumAdvection(Propagator):
             un12 = self._tmp_un12
 
             # Advection term.
-            self.brack.dot(
-                un12,
-                out=self._tmp_advection,
-            )
-            self._tmp_advection *= dt
+            with ProfileManager.profile_region("momentum: bracket operator"):
+                self.brack.dot(un12, out=self._tmp_advection)
+                self._tmp_advection *= dt
             advection = self._tmp_advection
 
             # Residual:
@@ -356,12 +354,10 @@ class VariationalMomentumAdvection(Propagator):
             self._tmp_diff -= mn
             self._tmp_diff += advection
 
-            err = float(
-                self._momentum_inv.dot_inner(
-                    self._tmp_diff,
-                    self._tmp_diff,
+            with ProfileManager.profile_region("momentum: nonlinear error"):
+                err = float(
+                    self._momentum_inv.dot_inner(self._tmp_diff, self._tmp_diff)
                 )
-            )
 
             if not bool(xp.isfinite(err)):
                 raise FloatingPointError(
@@ -416,10 +412,8 @@ class VariationalMomentumAdvection(Propagator):
             mn1 = self._tmp_mn1
 
             # Recover velocity from momentum.
-            self._momentum_inv.dot(
-                mn1,
-                out=self._tmp_un1,
-            )
+            with ProfileManager.profile_region("momentum: inverse metric"):
+                self._momentum_inv.dot(mn1, out=self._tmp_un1)
             un1 = self._tmp_un1
 
         iterations = it + 1

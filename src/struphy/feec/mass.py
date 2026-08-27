@@ -2080,6 +2080,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     mass_kernels,
                     "kernel_" + str(self._V.ldim) + "d_mat",
                 ),
+                outputs=(-1,),
             )
 
     @property
@@ -2515,18 +2516,34 @@ class WeightedMassOperator(LinOpWithTransp):
 
                         logger.debug(f"Assemble block {a, b}")
 
-                        self._assembly_kernel(
-                            *codomain_spans,
-                            *codomain_space.degree,
-                            *domain_space.degree,
-                            *codomain_starts,
-                            *codomain_pads,
-                            *wts,
-                            *codomain_basis,
-                            *domain_basis,
-                            mat_w,
-                            mat._data,
-                        )
+                        if xp.is_gpu(mat._data) and self._V.ldim == 3:
+                            from struphy.feec.mass_kernels_cuda import mass_3d_assemble_gpu
+
+                            mass_3d_assemble_gpu(
+                                codomain_spans,
+                                codomain_space.degree,
+                                domain_space.degree,
+                                codomain_starts,
+                                codomain_pads,
+                                wts,
+                                codomain_basis,
+                                domain_basis,
+                                mat_w,
+                                mat._data,
+                            )
+                        else:
+                            self._assembly_kernel(
+                                *codomain_spans,
+                                *codomain_space.degree,
+                                *domain_space.degree,
+                                *codomain_starts,
+                                *codomain_pads,
+                                *wts,
+                                *codomain_basis,
+                                *domain_basis,
+                                mat_w,
+                                mat._data,
+                            )
 
                     else:
                         if clear:
@@ -2886,14 +2903,17 @@ class H1vecDivDivOperator(LinOpWithTransp):
 
         self._assembly_kernel = PyccelKernel(
             mass_kernels.kernel_3d_h1vec_divdiv,
+            outputs=(-1,),
         )
 
         self._divergence_eval_kernel = PyccelKernel(
             mass_kernels.kernel_3d_h1vec_divergence_eval,
+            outputs=(-1,),
         )
 
         self._divergence_transpose_kernel = PyccelKernel(
             mass_kernels.kernel_3d_h1vec_divergence_transpose,
+            outputs=(-1,),
         )
 
         # Temporary vectors used to apply
@@ -3085,20 +3105,35 @@ class H1vecDivDivOperator(LinOpWithTransp):
                     component_trial,
                 ]
 
-                self._assembly_kernel(
-                    *self._quad_spans,
-                    *reference_space.degree,
-                    *starts,
-                    *pads,
-                    *self._quad_bases,
-                    self._weighted_rho_values,
-                    self._dlogj[0],
-                    self._dlogj[1],
-                    self._dlogj[2],
-                    component_test,
-                    component_trial,
-                    mat._data,
-                )
+                if xp.is_gpu(mat._data):
+                    from struphy.feec.mass_kernels_cuda import h1vec_divdiv_assemble_gpu
+
+                    h1vec_divdiv_assemble_gpu(
+                        self._quad_spans,
+                        reference_space.degree,
+                        starts,
+                        pads,
+                        self._quad_bases,
+                        self._weighted_rho_values,
+                        component_test,
+                        component_trial,
+                        mat._data,
+                    )
+                else:
+                    self._assembly_kernel(
+                        *self._quad_spans,
+                        *reference_space.degree,
+                        *starts,
+                        *pads,
+                        *self._quad_bases,
+                        self._weighted_rho_values,
+                        self._dlogj[0],
+                        self._dlogj[1],
+                        self._dlogj[2],
+                        component_test,
+                        component_trial,
+                        mat._data,
+                    )
 
         self._mat.exchange_assembly_data()
         self._mat.update_ghost_regions()
@@ -3157,19 +3192,34 @@ class H1vecDivDivOperator(LinOpWithTransp):
         pads = reference_space.coeff_space.pads
 
         for component in range(3):
-            self._divergence_eval_kernel(
-                *self._quad_spans,
-                *reference_space.degree,
-                *starts,
-                *pads,
-                *self._quad_bases,
-                self._dlogj[0],
-                self._dlogj[1],
-                self._dlogj[2],
-                component,
-                self._tmp_tensor[component]._data,
-                out,
-            )
+            if xp.is_gpu(out):
+                from struphy.feec.mass_kernels_cuda import h1vec_divergence_eval_gpu
+
+                h1vec_divergence_eval_gpu(
+                    self._quad_spans,
+                    reference_space.degree,
+                    starts,
+                    pads,
+                    self._quad_bases,
+                    self._dlogj,
+                    component,
+                    self._tmp_tensor[component]._data,
+                    out,
+                )
+            else:
+                self._divergence_eval_kernel(
+                    *self._quad_spans,
+                    *reference_space.degree,
+                    *starts,
+                    *pads,
+                    *self._quad_bases,
+                    self._dlogj[0],
+                    self._dlogj[1],
+                    self._dlogj[2],
+                    component,
+                    self._tmp_tensor[component]._data,
+                    out,
+                )
 
         return out
 
@@ -3204,19 +3254,34 @@ class H1vecDivDivOperator(LinOpWithTransp):
         pads = reference_space.coeff_space.pads
 
         for component in range(3):
-            self._divergence_transpose_kernel(
-                *self._quad_spans,
-                *reference_space.degree,
-                *starts,
-                *pads,
-                *self._quad_bases,
-                self._dlogj[0],
-                self._dlogj[1],
-                self._dlogj[2],
-                component,
-                values,
-                self._tmp_tensor[component]._data,
-            )
+            if xp.is_gpu(values):
+                from struphy.feec.mass_kernels_cuda import h1vec_divergence_transpose_gpu
+
+                h1vec_divergence_transpose_gpu(
+                    self._quad_spans,
+                    reference_space.degree,
+                    starts,
+                    pads,
+                    self._quad_bases,
+                    self._dlogj,
+                    component,
+                    values,
+                    self._tmp_tensor[component]._data,
+                )
+            else:
+                self._divergence_transpose_kernel(
+                    *self._quad_spans,
+                    *reference_space.degree,
+                    *starts,
+                    *pads,
+                    *self._quad_bases,
+                    self._dlogj[0],
+                    self._dlogj[1],
+                    self._dlogj[2],
+                    component,
+                    values,
+                    self._tmp_tensor[component]._data,
+                )
 
         # Accumulate shared basis coefficients.
         self._tmp_tensor.exchange_assembly_data()

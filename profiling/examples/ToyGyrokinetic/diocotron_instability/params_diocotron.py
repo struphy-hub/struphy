@@ -177,7 +177,10 @@ def n_init(etas, r_minus=r_minus, r_plus=r_plus):
 
 
 # Background for kinetic species
-background = maxwellians.GyroMaxwellian2D(n=(0.0, None), equil=equil)
+# `GyroMaxwellian2D` no longer takes the fluid equilibrium; it takes the
+# background field strength directly. `HomogenSlab()` above is B0z = 1.0,
+# so |B0| = 1.0 -- not the constructor default of 2.0.
+background = maxwellians.GyroMaxwellian2D(n=(0.0, None), B0=1.0)
 model.kinetic_ions.var.add_background(background)
 
 
@@ -188,7 +191,7 @@ eta_plus = (r_plus - domain.params["a1"]) / (domain.params["a2"] - domain.params
 
 # for non linear case amps = (0.5,)
 perturbation = perturbations.ModesCos(amps=(1e-6,), ms=(ms,), perb_domain=((eta_minus, eta_plus), None, None))
-init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), equil=equil)
+init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), B0=1.0)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

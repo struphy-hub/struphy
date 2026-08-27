@@ -6,6 +6,7 @@ translate directly to Fortran without requiring gFTL container modules.
 """
 
 import numpy as np
+from numpy import shape
 
 # ======================================================================
 # 1D

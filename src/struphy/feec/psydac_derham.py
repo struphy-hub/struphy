@@ -3531,14 +3531,23 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             )
         ]
 
-        # determine subinterval index (= 0 or 1):
-        subs = xp.zeros(x_grid[:-1].size, dtype=int)
-        for n, x_h in enumerate(x_grid[:-1]):
-            add = 1
-            for x_g in histopol_loc:
-                if abs(x_h - x_g) < 1e-14:
-                    add = 0
-            subs[n] += add
+        # determine subinterval index (= 0 or 1): 1 unless the left end of
+        # the cell coincides with a histopolation grid point.
+        #
+        # This used to be a Python double loop over the two grids. On the CuPy
+        # backend every `abs(x_h - x_g) < 1e-14` in it was a kernel launch
+        # whose result then had to come back to the host for the `if`, so the
+        # call cost grew as O(N^2) device round trips -- the second-largest
+        # entry in a 64^2 setup profile.
+        #
+        # The vectorized form runs on the host: these are two tiny 1-D grids,
+        # and they do not reliably live on the same backend (`x_grid` is
+        # rebuilt through a Python set above, `histopolation_grid` stays
+        # NumPy).
+        x_left_np = xp.to_numpy(x_grid[:-1])
+        histopol_loc_np = xp.to_numpy(histopol_loc)
+        matches = np.abs(x_left_np[:, None] - histopol_loc_np[None, :]) < 1e-14
+        subs = xp.array((~np.any(matches, axis=1)).astype(int))
 
         # Gauss - Legendre quadrature points and weights
         if n_quad is None:

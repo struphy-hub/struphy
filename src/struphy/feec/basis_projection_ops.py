@@ -2014,9 +2014,19 @@ class BasisProjectionOperator(LinOpWithTransp):
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
 
-                not_weight_zero = xp.array(
-                    int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
-                )
+                # A device reduction here synchronizes the whole CuPy stream
+                # once per matrix block.  Dynamic GPU weights are cheap to
+                # assemble even when zero, so avoid that host round-trip.
+                if (
+                    self._mpi_comm is None
+                    and isinstance(loc_weight, xp.ndarray)
+                    and xp.is_gpu(loc_weight)
+                ):
+                    not_weight_zero = True
+                else:
+                    not_weight_zero = xp.array(
+                        int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
+                    )
 
                 if self._mpi_comm is not None:
                     self._mpi_comm.Allreduce(
@@ -2042,31 +2052,43 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = PyccelKernel(
-                        getattr(
-                            basis_projection_kernels,
-                            "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
-                        ),
-                    )
-
                     logger.debug(f"Assemble block {i, j}")
-                    kernel(
-                        dofs_mat._data,
-                        _starts_in,
-                        _ends_in,
-                        _pads_in,
-                        _starts_out,
-                        _ends_out,
-                        _pads_out,
-                        mat_w,
-                        *_wtsG,
-                        *_spans,
-                        *_bases,
-                        *_subs,
-                        *_Vnbases,
-                        *_Wnbases,
-                        *_Wdegrees,
-                    )
+                    if V.ldim == 3 and xp.is_gpu(dofs_mat._data):
+                        from struphy.feec.basis_projection_kernels_cuda import (
+                            assemble_dofs_for_weighted_basisfuns_3d_gpu,
+                        )
+
+                        assemble_dofs_for_weighted_basisfuns_3d_gpu(
+                            dofs_mat._data,
+                            _starts_in, _ends_in, _pads_in,
+                            _starts_out, _ends_out, _pads_out,
+                            mat_w, _wtsG, _spans, _bases, _subs,
+                            _Vnbases, _Wnbases, _Wdegrees,
+                        )
+                    else:
+                        kernel = PyccelKernel(
+                            getattr(
+                                basis_projection_kernels,
+                                "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
+                            ),
+                        )
+                        kernel(
+                            dofs_mat._data,
+                            _starts_in,
+                            _ends_in,
+                            _pads_in,
+                            _starts_out,
+                            _ends_out,
+                            _pads_out,
+                            mat_w,
+                            *_wtsG,
+                            *_spans,
+                            *_bases,
+                            *_subs,
+                            *_Vnbases,
+                            *_Wnbases,
+                            *_Wdegrees,
+                        )
 
                     dofs_mat.set_backend(
                         backend=PSYDAC_BACKEND_GPYCCEL,

@@ -9,6 +9,7 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import (
@@ -403,12 +404,9 @@ class VariationalDensityEvolve(Propagator):
         else:
             rho = rhon
 
-        self._update_momentum_operator(rho, update_preconditioner=False)
-
-        self._momentum_operator.dot(
-            un,
-            out=self._tmp_mn,
-        )
+        with ProfileManager.profile_region("density: initial momentum operator"):
+            self._update_momentum_operator(rho, update_preconditioner=False)
+            self._momentum_operator.dot(un, out=self._tmp_mn)
         mn = self._tmp_mn
 
         # Entropy is only needed for the full model.
@@ -439,12 +437,9 @@ class VariationalDensityEvolve(Propagator):
         else:
             rho1 = rhon1
 
-        self._update_momentum_operator(rho1)
-
-        self._momentum_operator.dot(
-            un1,
-            out=self._tmp_mn1,
-        )
+        with ProfileManager.profile_region("density: initial iterate momentum"):
+            self._update_momentum_operator(rho1)
+            self._momentum_operator.dot(un1, out=self._tmp_mn1)
         mn1 = self._tmp_mn1
 
         # ---------------------------------------------------------------
@@ -487,27 +482,18 @@ class VariationalDensityEvolve(Propagator):
             un12 = self._tmp_un12
 
             # Update the discrete variational derivative.
-            self._update_linear_form_dl_drho(
-                rhon,
-                rhon1,
-                un,
-                un1,
-                s,
-            )
+            with ProfileManager.profile_region("density: linear form"):
+                self._update_linear_form_dl_drho(rhon, rhon1, un, un1, s)
 
             # Momentum advection contribution.
-            self.divPirhoT.dot(
-                self._linear_form_dl_drho,
-                out=self._tmp_advection,
-            )
-            self._tmp_advection *= dt
+            with ProfileManager.profile_region("density: momentum residual operator"):
+                self.divPirhoT.dot(self._linear_form_dl_drho, out=self._tmp_advection)
+                self._tmp_advection *= dt
 
             # Density advection contribution.
-            self.divPirho.dot(
-                un12,
-                out=self._tmp_rho_advection,
-            )
-            self._tmp_rho_advection *= dt
+            with ProfileManager.profile_region("density: density residual operator"):
+                self.divPirho.dot(un12, out=self._tmp_rho_advection)
+                self._tmp_rho_advection *= dt
 
             # Density-equation residual.
             rhon1.copy(out=self._tmp_rhon_diff)
@@ -522,12 +508,8 @@ class VariationalDensityEvolve(Propagator):
             mn_diff = self._tmp_mn_diff
 
             # Squared nonlinear residual norm.
-            err = float(
-                self._get_error_newton(
-                    mn_diff,
-                    rhon_diff,
-                )
-            )
+            with ProfileManager.profile_region("density: nonlinear error"):
+                err = float(self._get_error_newton(mn_diff, rhon_diff))
 
             if not bool(xp.isfinite(err)):
                 raise FloatingPointError(
@@ -585,22 +567,14 @@ class VariationalDensityEvolve(Propagator):
             # -----------------------------------------------------------
             # Newton correction
             # -----------------------------------------------------------
-            self._get_jacobian(
-                dt,
-                rhon,
-                rhon1,
-                un,
-                un1,
-                s,
-            )
+            with ProfileManager.profile_region("density: jacobian assembly"):
+                self._get_jacobian(dt, rhon, rhon1, un, un1, s)
 
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = rhon_diff
 
-            self._inv_Jacobian.dot(
-                self._tmp_f,
-                out=self._tmp_incr,
-            )
+            with ProfileManager.profile_region("density: schur solve"):
+                self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             incr = self._tmp_incr
             linear_info = self._inv_Jacobian._solver._info
             linear_niter = int(linear_info.get("niter", -1))
@@ -635,13 +609,10 @@ class VariationalDensityEvolve(Propagator):
             else:
                 rho1 = rhon1
 
-            self._update_momentum_operator(rho1)
-            metric_matches_rho1 = True
-
-            self._momentum_operator.dot(
-                un1,
-                out=self._tmp_mn1,
-            )
+            with ProfileManager.profile_region("density: iterate momentum update"):
+                self._update_momentum_operator(rho1)
+                metric_matches_rho1 = True
+                self._momentum_operator.dot(un1, out=self._tmp_mn1)
             mn1 = self._tmp_mn1
 
         # ---------------------------------------------------------------
@@ -890,17 +861,16 @@ class VariationalDensityEvolve(Propagator):
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""
 
-        self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
+        with ProfileManager.profile_region("density linear form: velocity product"):
+            self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
 
         if self._with_regularization:
-            self._kinetic_evaluator.get_div_u_product_grid(
-                un,
-                un1,
-                self._eval_div_dl_drho,
-            )
-
-            self._eval_div_dl_drho *= self._alpha_divdiv
-            self._eval_dl_drho += self._eval_div_dl_drho
+            with ProfileManager.profile_region("density linear form: divergence product"):
+                self._kinetic_evaluator.get_div_u_product_grid(
+                    un, un1, self._eval_div_dl_drho
+                )
+                self._eval_div_dl_drho *= self._alpha_divdiv
+                self._eval_dl_drho += self._eval_div_dl_drho
 
         self.rhof.vector = rhon
         self.rhof1.vector = rhon1
@@ -924,19 +894,19 @@ class VariationalDensityEvolve(Propagator):
             self._eval_dl_drho -= rhof1_values
 
         if self._model == "full":
-            self._energy_evaluator.evaluate_discrete_de_drho_grid(rhon, rhon1, sn, out=self._tmp_de_drho)
+            with ProfileManager.profile_region("density linear form: thermodynamics"):
+                self._energy_evaluator.evaluate_discrete_de_drho_grid(
+                    rhon, rhon1, sn, out=self._tmp_de_drho
+                )
+                self._tmp_int_grid *= 0
+                self._tmp_int_grid += self._tmp_de_drho
+                if self._linearize:
+                    self._tmp_int_grid -= self._init_dener_drho
+                self._tmp_int_grid *= self._proj_rho2_metric_term
+                self._eval_dl_drho -= self._tmp_int_grid
 
-            self._tmp_int_grid *= 0
-            self._tmp_int_grid += self._tmp_de_drho
-
-            if self._linearize:
-                self._tmp_int_grid -= self._init_dener_drho
-            self._tmp_int_grid *= self._proj_rho2_metric_term
-
-            # self._eval_dl_drho -= self._proj_rho2_metric_term * (self._energy_evaluator._DG_values + de_rhom_s)
-            self._eval_dl_drho -= self._tmp_int_grid
-
-        self._get_L2dofs_V3(self._eval_dl_drho, dofs=self._linear_form_dl_drho)
+        with ProfileManager.profile_region("density linear form: L2 projection"):
+            self._get_L2dofs_V3(self._eval_dl_drho, dofs=self._linear_form_dl_drho)
 
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:
@@ -956,21 +926,29 @@ class VariationalDensityEvolve(Propagator):
 
     @profile
     def _get_jacobian(self, dt, rhon, rhon1, un, un1, sn):
-        self._kinetic_evaluator.assemble_M_un(un)
-        self._kinetic_evaluator.assemble_M_un1(un1)
+        with ProfileManager.profile_region("density jacobian: M_un"):
+            self._kinetic_evaluator.assemble_M_un(un)
+        with ProfileManager.profile_region("density jacobian: M_un1"):
+            self._kinetic_evaluator.assemble_M_un1(un1)
 
         if self._with_regularization:
-            self._kinetic_evaluator.assemble_M_div_un(un)
-            self._kinetic_evaluator.assemble_M_div_un1(un1)
+            with ProfileManager.profile_region("density jacobian: M_div_un"):
+                self._kinetic_evaluator.assemble_M_div_un_cached()
+            with ProfileManager.profile_region("density jacobian: M_div_un1"):
+                self._kinetic_evaluator.assemble_M_div_un1_cached()
 
         if self._model == "barotropic":
             self._M_drho = -self.mass_ops.M3 / 2.0
 
         elif self._model == "full":
-            self._energy_evaluator.evaluate_discrete_d2e_drho2_grid(rhon, rhon1, sn, out=self._tmp_int_grid)
-            self._tmp_int_grid *= self._proj_drho_metric_term
+            with ProfileManager.profile_region("density jacobian: thermodynamic grid"):
+                self._energy_evaluator.evaluate_discrete_d2e_drho2_grid(
+                    rhon, rhon1, sn, out=self._tmp_int_grid
+                )
+                self._tmp_int_grid *= self._proj_drho_metric_term
 
-            self._M_drho.assemble([[self._tmp_int_grid]])
+            with ProfileManager.profile_region("density jacobian: M_drho"):
+                self._M_drho.assemble([[self._tmp_int_grid]])
 
         else:
             self._M_drho.assemble([[0.0 * self._tmp_int_grid]])

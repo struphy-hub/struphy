@@ -685,12 +685,20 @@ class Domain(metaclass=DomainMeta):
                 dtype=float,
             )
 
-            n_inside = evaluation_kernels.kernel_evaluate_hessian_pic(
-                markers,
-                self.args_domain,
-                out,
-                remove_outside,
-            )
+            if self.kind_map == 10:
+                # Cuboid mappings are affine, hence their Hessian vanishes
+                # exactly.  Keeping this on the active backend also avoids
+                # sending device-resident marker coordinates to the
+                # CPU/Pyccel Hessian kernel.
+                out.fill(0.0)
+                n_inside = markers.shape[0]
+            else:
+                n_inside = evaluation_kernels.kernel_evaluate_hessian_pic(
+                    markers,
+                    self.args_domain,
+                    out,
+                    remove_outside,
+                )
 
             out = out[:n_inside]
 
@@ -720,14 +728,18 @@ class Domain(metaclass=DomainMeta):
                 dtype=float,
             )
 
-            evaluation_kernels.kernel_evaluate_hessian(
-                E1,
-                E2,
-                E3,
-                self.args_domain,
-                out,
-                is_sparse_meshgrid,
-            )
+            if self.kind_map == 10:
+                # See the marker-evaluation branch above.
+                out.fill(0.0)
+            else:
+                evaluation_kernels.kernel_evaluate_hessian(
+                    E1,
+                    E2,
+                    E3,
+                    self.args_domain,
+                    out,
+                    is_sparse_meshgrid,
+                )
 
             if not change_out_order:
                 out = xp.transpose(

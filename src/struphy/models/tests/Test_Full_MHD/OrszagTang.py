@@ -351,7 +351,6 @@ def create_simulation() -> tuple[Simulation, EnvironmentOptions]:
     env = EnvironmentOptions(
         out_folders=str(MODEL_OUTPUT_FOLDER),
         sim_folder=SIMULATION_FOLDER_NAME,
-        profiling_activated=True,
     )
 
     domain = domains.Cuboid(
@@ -711,7 +710,7 @@ def extract_scalar_time_data(data: dict):
 
     values = np.stack(
         [
-            np.asarray(data[time][0])
+            xp.to_numpy(data[time][0])
             for time in times
         ],
         axis=0,
@@ -728,7 +727,7 @@ def extract_vector_time_data(data: dict):
         [
             np.stack(
                 [
-                    np.asarray(component)
+                    xp.to_numpy(component)
                     for component in data[time]
                 ],
                 axis=0,
@@ -1269,12 +1268,11 @@ def load_and_check_fields(
         "magnetic field",
     )
 
-    jacobian = np.asarray(
+    jacobian = xp.to_numpy(
         simulation.domain.jacobian_det(
             *simulation.grids_log
         ),
-        dtype=np.float64,
-    )
+    ).astype(np.float64, copy=False)
 
     if not np.all(np.isfinite(jacobian)):
         raise RuntimeError(
@@ -1434,12 +1432,8 @@ def plot_results(
     magnetic_energy = scalar_diagnostics["en_mag"]
     thermodynamic_energy = scalar_diagnostics["en_thermo"]
 
-    x = np.asarray(
-        simulation.grids_phy[0][:, :, 0]
-    )
-    y = np.asarray(
-        simulation.grids_phy[1][:, :, 0]
-    )
+    x = xp.to_numpy(simulation.grids_phy[0][:, :, 0])
+    y = xp.to_numpy(simulation.grids_phy[1][:, :, 0])
 
     final_pressure = pressure[-1, :, :, 0]
     final_log_pressure = log_pressure[-1, :, :, 0]
@@ -1594,7 +1588,7 @@ def run_new_simulation(
         print(f"dt          : {DT}")
         print(f"T_end       : {T_END}")
 
-    simulation.run()
+    simulation.run(profiling_activated=True)
 
     comm.Barrier()
 
