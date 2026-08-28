@@ -44,8 +44,6 @@ REPETITIONS = 1
 TIME_STEPS = 50
 DT = 0.05
 MAX_SORTING_FREQUENCY = 10
-SORTING_COARSE_STEP = 5
-SORTING_REFINEMENT_RADIUS = 2
 SORTING_REPETITIONS = 1
 
 
@@ -144,8 +142,6 @@ def main() -> None:
         MAX_SORTING_FREQUENCY,
         run_sorting_frequency,
         comm=MPI.COMM_WORLD,
-        coarse_step=SORTING_COARSE_STEP,
-        refinement_radius=SORTING_REFINEMENT_RADIUS,
         warmups=0,
         repetitions=SORTING_REPETITIONS,
     )

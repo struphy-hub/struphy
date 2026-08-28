@@ -91,43 +91,41 @@ def search_integer_parameter(
     upper: int,
     step: Callable[[int], object],
     *,
-    coarse_step: int = 4,
-    refinement_radius: int = 2,
     comm=None,
     warmups: int = 1,
     repetitions: int = 3,
 ) -> ParameterOptimization:
-    """Search an integer interval with a coarse pass and local refinement."""
+    """Search an approximately unimodal integer cost with ternary search."""
     if lower < 0 or upper < lower:
         raise ValueError("expected 0 <= lower <= upper")
-    if coarse_step < 1 or refinement_radius < 0:
-        raise ValueError("coarse_step must be positive and refinement_radius non-negative")
 
-    coarse_values = list(range(lower, upper + 1, coarse_step))
-    if coarse_values[-1] != upper:
-        coarse_values.append(upper)
-    coarse_result = optimize_integer_parameter(
-        coarse_values,
-        step,
-        comm=comm,
-        warmups=warmups,
-        repetitions=repetitions,
-    )
+    timings_by_value: dict[int, ParameterTiming] = {}
 
-    fine_lower = max(lower, coarse_result.best_value - refinement_radius)
-    fine_upper = min(upper, coarse_result.best_value + refinement_radius)
-    fine_values = range(fine_lower, fine_upper + 1)
-    fine_result = optimize_integer_parameter(
-        fine_values,
-        step,
-        comm=comm,
-        warmups=warmups,
-        repetitions=repetitions,
-    )
+    def measure(value: int) -> ParameterTiming:
+        if value not in timings_by_value:
+            result = optimize_integer_parameter(
+                (value,),
+                step,
+                comm=comm,
+                warmups=warmups,
+                repetitions=repetitions,
+            )
+            timings_by_value[value] = result.timings[0]
+        return timings_by_value[value]
 
-    timings = coarse_result.timings + tuple(
-        timing for timing in fine_result.timings if timing.value not in coarse_values
-    )
+    left, right = lower, upper
+    while right - left > 3:
+        first = left + (right - left) // 3
+        second = right - (right - left) // 3
+        if measure(first).seconds <= measure(second).seconds:
+            right = second - 1
+        else:
+            left = first + 1
+
+    for value in range(left, right + 1):
+        measure(value)
+
+    timings = tuple(timings_by_value.values())
     best = min(timings, key=lambda timing: timing.seconds)
     return ParameterOptimization(best_value=best.value, timings=timings)
 
@@ -137,8 +135,6 @@ def search_sorting_frequency(
     step: Callable[[int], object],
     *,
     lower: int = 0,
-    coarse_step: int = 4,
-    refinement_radius: int = 2,
     comm=None,
     warmups: int = 1,
     repetitions: int = 3,
@@ -148,8 +144,6 @@ def search_sorting_frequency(
         lower,
         upper,
         step,
-        coarse_step=coarse_step,
-        refinement_radius=refinement_radius,
         comm=comm,
         warmups=warmups,
         repetitions=repetitions,
