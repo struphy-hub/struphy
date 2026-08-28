@@ -69,6 +69,7 @@ __epyccel__/
 *__pyc*
 .DS_*
 *~
+*.swp
 *.hdf5
 *.h5py
 *.vts
@@ -96,6 +97,17 @@ params_*
 # profiling-data clone the results are packaged into.
 /_profiling_jobs/
 
+# Ad hoc runs of a profiling example's params_*.py directly (outside the
+# submit_*.py drivers, which write under /_profiling_jobs/ instead).
+profiling/examples/**/sim_*/
+profiling/examples/**/struphy.log*
+
+# Ad hoc Test_Full_MHD runs (e.g. manually running OrszagTang.py) and their
+# default output root.
+src/struphy/models/tests/**/verification_tests_full/
+sim_cupy/
+sim_numpy/
+
 # I/O
 src/struphy/io/out/
 src/struphy/state.yml
@@ -114,4 +126,5 @@ pyvenv.cfg
 *profile_output*.txt
 *kernels.txt
 struphy.log
+struphy.log.*
 

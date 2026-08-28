@@ -59,7 +59,7 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="orszag_tang_numpy_vs_cupy",
-        name="Orszag--Tang: NumPy vs CuPy",
+        name="Orszag-Tang: NumPy vs CuPy",
         description=(
             f"Matched {NUM_ELEMENTS}x{NUM_ELEMENTS}x1 Orszag--Tang run for "
             f"{NUM_STEPS} timesteps using one NumPy rank and one CuPy/GPU rank."

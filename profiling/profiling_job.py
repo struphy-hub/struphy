@@ -632,7 +632,7 @@ class ProfilingCase:
         self.package_case_metadata(case_info)
         print(f"Packaged case metadata for '{self.label}' into {self.destination_dir}")
         if self.upload:
-            print("Uploading case metadata to the profiling-data repo ...")
+            print(f"Uploading case metadata for '{self.label}' ({self.destination_dir.name}) to the profiling-data repo ...")
             _push_profiling_data(self.output_root, self.run_commit)
 
         # Then package and push each run's results as soon as its own job finishes,
@@ -651,7 +651,7 @@ class ProfilingCase:
             self.package_case_metadata(case_info)
             print(f"Packaged '{self.label}' {run} into {self.destination_dir}")
             if self.upload:
-                print(f"Uploading '{self.label}' {run} to the profiling-data repo ...")
+                print(f"Uploading '{self.label}' {run} ({self.destination_dir.name}) to the profiling-data repo ...")
                 _push_profiling_data(self.output_root, self.run_commit)
 
         if packaged_launch_ids:
