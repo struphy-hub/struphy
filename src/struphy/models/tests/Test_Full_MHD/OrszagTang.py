@@ -349,8 +349,8 @@ def create_simulation() -> tuple[Simulation, EnvironmentOptions]:
             )
 
     env = EnvironmentOptions(
-        out_folders=str(MODEL_OUTPUT_FOLDER),
-        sim_folder=SIMULATION_FOLDER_NAME,
+        out_folders=str(Path(OUTPUT_DIRECTORY).parent),
+        sim_folder=Path(OUTPUT_DIRECTORY).name,
     )
 
     domain = domains.Cuboid(

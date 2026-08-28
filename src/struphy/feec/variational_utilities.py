@@ -2465,6 +2465,8 @@ class KineticEnergyEvaluator:
                 coefficients1,
                 self._proj_u2_metric_term,
                 out,
+                self._uf_values,
+                self._uf1_values,
             )
 
         uf_values = self.uf.eval_tp_fixed_loc(
@@ -2500,7 +2502,7 @@ class KineticEnergyEvaluator:
         """Update the weights of the matrix M_un with the vector fields given by the coeficient un"""
         self.uf.vector = un
 
-        uf_values = self.uf.eval_tp_fixed_loc(
+        self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
             [
                 self.integration_grid_bn,
@@ -2509,12 +2511,16 @@ class KineticEnergyEvaluator:
             out=self._uf_values,
         )
 
+        self.assemble_M_un_cached()
+
+    def assemble_M_un_cached(self):
+        """Assemble ``M_un`` from velocity values cached by ``get_u2_grid``."""
         for i in range(3):
             self._Guf_values[i] *= 0.0
             for j in range(3):
                 self._tmp_int_grid *= 0.0
                 self._tmp_int_grid += self._mass_u_metric_term[i, j]
-                self._tmp_int_grid *= uf_values[j]
+                self._tmp_int_grid *= self._uf_values[j]
                 self._Guf_values[i] += self._tmp_int_grid
 
         self._M_un.assemble(
@@ -2525,7 +2531,7 @@ class KineticEnergyEvaluator:
         """Update the weights of the matrix M_un1 with the vector fields given by the coeficient un1"""
         self.uf1.vector = un1
 
-        uf1_values = self.uf1.eval_tp_fixed_loc(
+        self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
             [
                 self.integration_grid_bn,
@@ -2534,12 +2540,16 @@ class KineticEnergyEvaluator:
             out=self._uf1_values,
         )
 
+        self.assemble_M_un1_cached()
+
+    def assemble_M_un1_cached(self):
+        """Assemble ``M_un1`` from velocity values cached by ``get_u2_grid``."""
         for i in range(3):
             self._Guf_values[i] *= 0.0
             for j in range(3):
                 self._tmp_int_grid *= 0.0
                 self._tmp_int_grid += self._mass_u_metric_term[i, j]
-                self._tmp_int_grid *= uf1_values[j]
+                self._tmp_int_grid *= self._uf1_values[j]
                 self._Guf_values[i] += self._tmp_int_grid
 
         self._M_un1.assemble(

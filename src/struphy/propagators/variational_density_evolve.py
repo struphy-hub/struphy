@@ -1026,9 +1026,9 @@ class VariationalDensityEvolve(Propagator):
     @profile
     def _get_jacobian(self, dt, rhon, rhon1, un, un1, sn):
         with ProfileManager.profile_region("density jacobian: M_un"):
-            self._kinetic_evaluator.assemble_M_un(un)
+            self._kinetic_evaluator.assemble_M_un_cached()
         with ProfileManager.profile_region("density jacobian: M_un1"):
-            self._kinetic_evaluator.assemble_M_un1(un1)
+            self._kinetic_evaluator.assemble_M_un1_cached()
 
         if self._with_regularization:
             with ProfileManager.profile_region("density jacobian: M_div_un"):

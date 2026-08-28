@@ -13,7 +13,9 @@ void kinetic_energy_grid_cuda(
     const double* u0, const double* u1, const double* u2,
     const double* v0, const double* v1, const double* v2,
     const int nc1, const int nc2,
-    const double* metric, double* out)
+    const double* metric, double* out,
+    double* ug0, double* ug1, double* ug2,
+    double* vg0, double* vg1, double* vg2)
 {
     const long long tid = (long long)blockIdx.x * blockDim.x + threadIdx.x;
     const long long total = (long long)n0 * n1 * n2;
@@ -51,6 +53,8 @@ void kinetic_energy_grid_cuda(
         for (int j = 0; j < 3; ++j)
             value += us[i] * metric[((long long)i * 3 + j) * total + tid] * vs[j];
     out[tid] = 0.5 * value;
+    ug0[tid] = us[0]; ug1[tid] = us[1]; ug2[tid] = us[2];
+    vg0[tid] = vs[0]; vg1[tid] = vs[1]; vg2[tid] = vs[2];
 }
 '''
 
@@ -71,7 +75,10 @@ def prepare_kinetic_energy_kernel():
     return _KINETIC_ENERGY_KERNEL
 
 
-def kinetic_energy_grid_gpu(spans, bases, degree, starts, coefficients, coefficients1, metric, out):
+def kinetic_energy_grid_gpu(
+    spans, bases, degree, starts, coefficients, coefficients1, metric, out,
+    values, values1,
+):
     """Evaluate both H1-vector splines and their metric product in one launch."""
     import cupy as cp
     import numpy as np
@@ -99,6 +106,8 @@ def kinetic_energy_grid_gpu(spans, bases, degree, starts, coefficients, coeffici
             np.int32(coefficients[0].shape[2]),
             metric,
             out,
+            *values,
+            *values1,
         ),
     )
     return out
