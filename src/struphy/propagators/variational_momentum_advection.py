@@ -153,72 +153,76 @@ class VariationalMomentumAdvection(Propagator):
 
         self._Mrho = self.mass_ops.WMMnew
 
-        if self._with_regularization:
-            self.mass_ops.ensure_committed_h1vec_metric(
-                self.rho,
-            )
+        with ProfileManager.profile_region("momentum setup: momentum metric"):
+            if self._with_regularization:
+                self.mass_ops.ensure_committed_h1vec_metric(
+                    self.rho,
+                )
 
-            self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
-                self._metric_alpha,
-            )
+                self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
+                    self._metric_alpha,
+                )
 
-            self._Mrho = self._kinetic_metric.mass_operator
-            self._Kdivrho = self._kinetic_metric.divdiv_operator
-            self._momentum_operator = self._kinetic_metric
+                self._Mrho = self._kinetic_metric.mass_operator
+                self._Kdivrho = self._kinetic_metric.divdiv_operator
+                self._momentum_operator = self._kinetic_metric
 
-            self._momentum_pc = H1vecKineticMetricPreconditioner(
-                self._kinetic_metric,
-            )
+                self._momentum_pc = H1vecKineticMetricPreconditioner(
+                    self._kinetic_metric,
+                )
 
-        else:
-            self._Kdivrho = None
-            self._kinetic_metric = None
+            else:
+                self._Kdivrho = None
+                self._kinetic_metric = None
 
-            self._Mrho = self.mass_ops.update_committed_WMMnew(
-                self.rho,
-            )
-            self._momentum_operator = self._Mrho
+                self._Mrho = self.mass_ops.update_committed_WMMnew(
+                    self.rho,
+                )
+                self._momentum_operator = self._Mrho
 
-            self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                    self._momentum_operator,
+                )
+
+            self._momentum_inv = inverse(
                 self._momentum_operator,
+                "pcg",
+                pc=self._momentum_pc,
+                tol=self._lin_solver.tol,
+                maxiter=self._lin_solver.maxiter,
+                verbose=False,
+                recycle=False,
             )
 
-        self._momentum_inv = inverse(
-            self._momentum_operator,
-            "pcg",
-            pc=self._momentum_pc,
-            tol=self._lin_solver.tol,
-            maxiter=self._lin_solver.maxiter,
-            verbose=False,
-            recycle=False,
-        )
+        with ProfileManager.profile_region("momentum setup: inv_Mv"):
+            self._initialize_mass()
 
-        self._initialize_mass()
+        with ProfileManager.profile_region("momentum setup: temporaries"):
+            # bunch of temporaries to avoid allocating in the loop
+            u = self.variables.u.spline.vector
 
-        # bunch of temporaries to avoid allocating in the loop
-        u = self.variables.u.spline.vector
+            self._tmp_un1 = u.space.zeros()
+            self._tmp_un12 = u.space.zeros()
+            self._tmp_diff = u.space.zeros()
+            self._tmp__pc_diff = u.space.zeros()
+            self._tmp_update = u.space.zeros()
+            self._tmp_mn = u.space.zeros()
+            self._tmp_mn1 = u.space.zeros()
+            self._tmp_advection = u.space.zeros()
 
-        self._tmp_un1 = u.space.zeros()
-        self._tmp_un12 = u.space.zeros()
-        self._tmp_diff = u.space.zeros()
-        self._tmp__pc_diff = u.space.zeros()
-        self._tmp_update = u.space.zeros()
-        self._tmp_mn = u.space.zeros()
-        self._tmp_mn1 = u.space.zeros()
-        self._tmp_advection = u.space.zeros()
+        with ProfileManager.profile_region("momentum setup: bracket operator"):
+            self.brack = BracketOperator(self.derham, self._tmp_mn)
+            self._dt2_brack = 2.0 * self.brack
+            self.derivative = self._momentum_operator + self._dt2_brack
 
-        self.brack = BracketOperator(self.derham, self._tmp_mn)
-        self._dt2_brack = 2.0 * self.brack
-        self.derivative = self._momentum_operator + self._dt2_brack
-
-        self.inv_derivative = inverse(
-            self._momentum_inv @ self.derivative,
-            "gmres",
-            tol=self._lin_solver.tol,
-            maxiter=self._lin_solver.maxiter,
-            verbose=self._lin_solver.verbose,
-            recycle=False,
-        )
+            self.inv_derivative = inverse(
+                self._momentum_inv @ self.derivative,
+                "gmres",
+                tol=self._lin_solver.tol,
+                maxiter=self._lin_solver.maxiter,
+                verbose=self._lin_solver.verbose,
+                recycle=False,
+            )
 
     @profile
     def __call__(self, dt):

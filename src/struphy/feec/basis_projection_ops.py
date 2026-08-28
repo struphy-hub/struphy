@@ -10,6 +10,7 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
+from scope_profiler import ProfileManager
 
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -1739,7 +1740,8 @@ class BasisProjectionOperator(LinOpWithTransp):
                 P.space.coeff_space,
             )
 
-        self._dof_mat = self.assemble()
+        with ProfileManager.profile_region("basis projection weights: assemble"):
+            self._dof_mat = self.assemble()
         # ========================================================
 
         # build composed linear operator BP * P * DOF * EV^T * BV^T or transposed
@@ -1858,14 +1860,20 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         if self.transposed:
             # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-            self._P.solve(v, True, apply_bc=True, out=self._tmp_dom, x0=self._x0)
-            self._tmp_dom.copy(out=self._x0)
-            self.dof_operator.dot(self._tmp_dom, out=out)
+            with ProfileManager.profile_region("basis projection: interpolation solve"):
+                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom, x0=self._x0)
+            if self._P.is_polar:
+                self._tmp_dom.copy(out=self._x0)
+            with ProfileManager.profile_region("basis projection: dof operator"):
+                self.dof_operator.dot(self._tmp_dom, out=out)
         else:
             # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-            self.dof_operator.dot(v, out=self._tmp_codom)
-            self._P.solve(self._tmp_codom, False, apply_bc=True, out=out, x0=self._x0)
-            out.copy(out=self._x0)
+            with ProfileManager.profile_region("basis projection: dof operator"):
+                self.dof_operator.dot(v, out=self._tmp_codom)
+            with ProfileManager.profile_region("basis projection: interpolation solve"):
+                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out, x0=self._x0)
+            if self._P.is_polar:
+                out.copy(out=self._x0)
 
         return out
 
@@ -1898,12 +1906,14 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._weights = weights
 
         # assemble tensor-product dof matrix
-        self._dof_mat = self.assemble()
+        with ProfileManager.profile_region("basis projection weight update: assemble"):
+            self._dof_mat = self.assemble()
 
         # only need to update the transposed in case where it's needed
         # (no need to recreate a new ComposedOperator)
         if self._transposed:
-            self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
+            with ProfileManager.profile_region("basis projection weight update: transpose"):
+                self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
     def assemble(self, weights=None):
         """

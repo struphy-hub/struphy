@@ -8,6 +8,7 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import (
@@ -212,70 +213,74 @@ class VariationalMagFieldEvolve(Propagator):
         rho = self.rho.spline.vector
         self._Mrho = self.mass_ops.WMMnew
 
-        if self._with_regularization:
-            self.mass_ops.ensure_committed_h1vec_metric(
-                self.rho,
+        with ProfileManager.profile_region("magfield setup: momentum metric"):
+            if self._with_regularization:
+                self.mass_ops.ensure_committed_h1vec_metric(
+                    self.rho,
+                )
+
+                self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
+                    self._metric_alpha,
+                )
+
+                self._Mrho = self._kinetic_metric.mass_operator
+                self._Kdivrho = self._kinetic_metric.divdiv_operator
+                self._momentum_operator = self._kinetic_metric
+                pc = H1vecKineticMetricPreconditioner(
+                    self._kinetic_metric,
+                )
+            else:
+                self.mass_ops.update_committed_WMMnew(self.rho)
+
+                self._Kdivrho = None
+                self._kinetic_metric = None
+                self._momentum_operator = self._Mrho
+
+                pc = MassMatrixDiagonalPreconditioner(
+                    self._Mrho,
+                )
+
+            self._momentum_pc = pc
+            self._momentum_inv = inverse(
+                self._momentum_operator,
+                "pcg",
+                pc=self._momentum_pc,
+                tol=1.0e-10,  # or the original value
+                maxiter=500,
+                verbose=False,
+                recycle=True,
             )
 
-            self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
-                self._metric_alpha,
-            )
+        with ProfileManager.profile_region("magfield setup: projectors and mass"):
+            # Projector
+            self._initialize_projectors_and_mass()
 
-            self._Mrho = self._kinetic_metric.mass_operator
-            self._Kdivrho = self._kinetic_metric.divdiv_operator
-            self._momentum_operator = self._kinetic_metric
-            pc = H1vecKineticMetricPreconditioner(
-                self._kinetic_metric,
-            )
-        else:
-            self.mass_ops.update_committed_WMMnew(self.rho)
+        with ProfileManager.profile_region("magfield setup: temporaries"):
+            # bunch of temporaries to avoid allocating in the loop
+            u = self.variables.u.spline.vector
+            b = self.variables.b.spline.vector
 
-            self._Kdivrho = None
-            self._kinetic_metric = None
-            self._momentum_operator = self._Mrho
+            self._tmp_un1 = u.space.zeros()
+            self._tmp_un2 = u.space.zeros()
+            self._tmp_un12 = u.space.zeros()
+            self._tmp_bn1 = b.space.zeros()
+            self._tmp_bn12 = b.space.zeros()
+            self._tmp_un_diff = u.space.zeros()
+            self._tmp_bn_diff = b.space.zeros()
+            self._tmp_un_weak_diff = u.space.zeros()
+            self._tmp_bn_weak_diff = b.space.zeros()
 
-            pc = MassMatrixDiagonalPreconditioner(
-                self._Mrho,
-            )
-
-        self._momentum_pc = pc
-        self._momentum_inv = inverse(
-            self._momentum_operator,
-            "pcg",
-            pc=self._momentum_pc,
-            tol=1.0e-10,  # or the original value
-            maxiter=500,
-            verbose=False,
-            recycle=True,
-        )
-
-        # Projector
-        self._initialize_projectors_and_mass()
-
-        # bunch of temporaries to avoid allocating in the loop
-        u = self.variables.u.spline.vector
-        b = self.variables.b.spline.vector
-
-        self._tmp_un1 = u.space.zeros()
-        self._tmp_un2 = u.space.zeros()
-        self._tmp_un12 = u.space.zeros()
-        self._tmp_bn1 = b.space.zeros()
-        self._tmp_bn12 = b.space.zeros()
-        self._tmp_un_diff = u.space.zeros()
-        self._tmp_bn_diff = b.space.zeros()
-        self._tmp_un_weak_diff = u.space.zeros()
-        self._tmp_bn_weak_diff = b.space.zeros()
-
-        self._tmp_mn = u.space.zeros()
-        self._tmp_mn1 = u.space.zeros()
-        self._tmp_mn_diff = u.space.zeros()
-        self._tmp_advection = u.space.zeros()
-        self._tmp_advection2 = u.space.zeros()
-        self._tmp_b_advection = b.space.zeros()
-        self._linear_form_dl_db = b.space.zeros()
+            self._tmp_mn = u.space.zeros()
+            self._tmp_mn1 = u.space.zeros()
+            self._tmp_mn_diff = u.space.zeros()
+            self._tmp_advection = u.space.zeros()
+            self._tmp_advection2 = u.space.zeros()
+            self._tmp_b_advection = b.space.zeros()
+            self._linear_form_dl_db = b.space.zeros()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
+            with ProfileManager.profile_region("magfield setup: linearize extraction"):
+                self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
     @profile
     def __call__(self, dt):
@@ -556,63 +561,66 @@ class VariationalMagFieldEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        self.curlPib = Hdiv0_transport_operator(self.derham)
-        self.curlPibT = self.curlPib.T
+        with ProfileManager.profile_region("magfield setup: transport operator"):
+            self.curlPib = Hdiv0_transport_operator(self.derham)
+            self.curlPibT = self.curlPib.T
 
-        # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv,
-        )
-        self._inv_Mv = inverse(
-            self.mass_ops.Mv,
-            "pcg",
-            pc=self.pc_Mv,
-            tol=1e-10,
-            maxiter=1000,
-            verbose=False,
-        )
+        with ProfileManager.profile_region("magfield setup: inv_Mv"):
+            # Inverse mass matrix needed to compute the error
+            self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+                self.mass_ops.Mv,
+            )
+            self._inv_Mv = inverse(
+                self.mass_ops.Mv,
+                "pcg",
+                pc=self.pc_Mv,
+                tol=1e-10,
+                maxiter=1000,
+                verbose=False,
+            )
 
-        Jacs = BlockVectorSpace(
-            self.derham.Vvpol,
-            self.derham.V2pol,
-        )
+        with ProfileManager.profile_region("magfield setup: jacobian assembly"):
+            Jacs = BlockVectorSpace(
+                self.derham.Vvpol,
+                self.derham.V2pol,
+            )
 
-        self._tmp_f = Jacs.zeros()
-        self._tmp_incr = Jacs.zeros()
+            self._tmp_f = Jacs.zeros()
+            self._tmp_incr = Jacs.zeros()
 
-        self._Jacobian = BlockLinearOperator(Jacs, Jacs)
+            self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
-        self._I2 = IdentityOperator(self.derham.V2pol)
+            self._I2 = IdentityOperator(self.derham.V2pol)
 
-        if self._model == "linear":
-            # initialize the jacobian differently if linear model
-            self._create_Pib0()
+            if self._model == "linear":
+                # initialize the jacobian differently if linear model
+                self._create_Pib0()
 
-            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
+                self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
 
-            self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
-            self._dt2_curlPib = 2 * self.curlPib0
+                self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
+                self._dt2_curlPib = 2 * self.curlPib0
 
-        else:
-            self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT @ self.mass_ops.M2)
-            self._dt2_curlPib = 2 * self.curlPib
+            else:
+                self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT @ self.mass_ops.M2)
+                self._dt2_curlPib = 2 * self.curlPib
 
-        # local version to avoid creating new version of LinearOperator every time
+            # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._momentum_operator
-        self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
-        self._Jacobian[1, 0] = self._dt2_curlPib
-        self._Jacobian[1, 1] = self._I2
+            self._Jacobian[0, 0] = self._momentum_operator
+            self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
+            self._Jacobian[1, 0] = self._dt2_curlPib
+            self._Jacobian[1, 1] = self._I2
 
-        self._inv_Jacobian = SchurSolverFull(
-            self._Jacobian,
-            self.options.solver,
-            pc=self._momentum_inv,
-            tol=self._lin_solver.tol,
-            maxiter=self._lin_solver.maxiter,
-            verbose=self._lin_solver.verbose,
-            recycle=True,
-        )
+            self._inv_Jacobian = SchurSolverFull(
+                self._Jacobian,
+                self.options.solver,
+                pc=self._momentum_inv,
+                tol=self._lin_solver.tol,
+                maxiter=self._lin_solver.maxiter,
+                verbose=self._lin_solver.verbose,
+                recycle=True,
+            )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
         #                          'gmres',

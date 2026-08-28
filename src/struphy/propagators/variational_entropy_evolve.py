@@ -9,6 +9,7 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import (
@@ -217,74 +218,78 @@ class VariationalEntropyEvolve(Propagator):
         # This object is shared by the committed-density metrics.
         self._Mrho = self.mass_ops.WMMnew
 
-        if self._with_regularization:
-            self.mass_ops.ensure_committed_h1vec_metric(
-                self.rho,
-            )
+        with ProfileManager.profile_region("entropy setup: momentum metric"):
+            if self._with_regularization:
+                self.mass_ops.ensure_committed_h1vec_metric(
+                    self.rho,
+                )
 
-            self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
-                self._metric_alpha,
-            )
+                self._kinetic_metric = self.mass_ops.get_committed_h1vec_metric(
+                    self._metric_alpha,
+                )
 
-            self._Mrho = self._kinetic_metric.mass_operator
-            self._Kdivrho = self._kinetic_metric.divdiv_operator
-            self._momentum_operator = self._kinetic_metric
+                self._Mrho = self._kinetic_metric.mass_operator
+                self._Kdivrho = self._kinetic_metric.divdiv_operator
+                self._momentum_operator = self._kinetic_metric
 
-            self._momentum_pc = H1vecKineticMetricPreconditioner(
-                self._kinetic_metric,
-            )
+                self._momentum_pc = H1vecKineticMetricPreconditioner(
+                    self._kinetic_metric,
+                )
 
-        else:
-            self._Kdivrho = None
-            self._kinetic_metric = None
+            else:
+                self._Kdivrho = None
+                self._kinetic_metric = None
 
-            self.mass_ops.update_committed_WMMnew(self.rho)
+                self.mass_ops.update_committed_WMMnew(self.rho)
 
-            self._momentum_operator = self._Mrho
+                self._momentum_operator = self._Mrho
 
-            self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                    self._momentum_operator,
+                )
+
+            # Keep the original strong momentum inverse. Using the raw
+            # preconditioner directly in SchurSolverFull was substantially slower
+            # in your measurements.
+            self._momentum_inv = inverse(
                 self._momentum_operator,
+                "pcg",
+                pc=self._momentum_pc,
+                tol=1.0e-10,
+                maxiter=500,
+                verbose=False,
+                recycle=False,
             )
 
-        # Keep the original strong momentum inverse. Using the raw
-        # preconditioner directly in SchurSolverFull was substantially slower
-        # in your measurements.
-        self._momentum_inv = inverse(
-            self._momentum_operator,
-            "pcg",
-            pc=self._momentum_pc,
-            tol=1.0e-10,
-            maxiter=500,
-            verbose=False,
-            recycle=False,
-        )
+        with ProfileManager.profile_region("entropy setup: projectors and mass"):
+            # Projector
+            self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
+            self._initialize_projectors_and_mass()
 
-        # Projector
-        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
-        self._initialize_projectors_and_mass()
+        with ProfileManager.profile_region("entropy setup: temporaries"):
+            # bunch of temporaries to avoid allocating in the loop
+            s = self.variables.s.spline.vector
+            u = self.variables.u.spline.vector
 
-        # bunch of temporaries to avoid allocating in the loop
-        s = self.variables.s.spline.vector
-        u = self.variables.u.spline.vector
-
-        self._tmp_un1 = u.space.zeros()
-        self._tmp_un2 = u.space.zeros()
-        self._tmp_un12 = u.space.zeros()
-        self._tmp_sn1 = s.space.zeros()
-        self._tmp_sn12 = s.space.zeros()
-        self._tmp_un_diff = u.space.zeros()
-        self._tmp_sn_diff = s.space.zeros()
-        self._tmp_mn_diff = u.space.zeros()
-        self._tmp_un_weak_diff = u.space.zeros()
-        self._tmp_sn_weak_diff = s.space.zeros()
-        self._tmp_mn = u.space.zeros()
-        self._tmp_mn1 = u.space.zeros()
-        self._tmp_mn12 = u.space.zeros()
-        self._tmp_advection = u.space.zeros()
-        self._tmp_s_advection = s.space.zeros()
-        self._linear_form_dl_ds = s.space.zeros()
+            self._tmp_un1 = u.space.zeros()
+            self._tmp_un2 = u.space.zeros()
+            self._tmp_un12 = u.space.zeros()
+            self._tmp_sn1 = s.space.zeros()
+            self._tmp_sn12 = s.space.zeros()
+            self._tmp_un_diff = u.space.zeros()
+            self._tmp_sn_diff = s.space.zeros()
+            self._tmp_mn_diff = u.space.zeros()
+            self._tmp_un_weak_diff = u.space.zeros()
+            self._tmp_sn_weak_diff = s.space.zeros()
+            self._tmp_mn = u.space.zeros()
+            self._tmp_mn1 = u.space.zeros()
+            self._tmp_mn12 = u.space.zeros()
+            self._tmp_advection = u.space.zeros()
+            self._tmp_s_advection = s.space.zeros()
+            self._linear_form_dl_ds = s.space.zeros()
         if self._linearize:
-            self._compute_init_linear_form()
+            with ProfileManager.profile_region("entropy setup: initial linear form"):
+                self._compute_init_linear_form()
 
     @profile
     def __call__(self, dt):
@@ -463,58 +468,61 @@ class VariationalEntropyEvolve(Propagator):
         from struphy.feec.mass import L2Projector
         from struphy.feec.variational_utilities import L2_transport_operator
 
-        # Initialize the transport operator and transposed
-        self.divPis = L2_transport_operator(self.derham)
-        self.divPisT = self.divPis.T
+        with ProfileManager.profile_region("entropy setup: transport operator"):
+            # Initialize the transport operator and transposed
+            self.divPis = L2_transport_operator(self.derham)
+            self.divPisT = self.divPis.T
 
-        # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv,
-        )
-        self._inv_Mv = inverse(
-            self.mass_ops.Mv,
-            "pcg",
-            pc=self.pc_Mv,
-            tol=1e-10,
-            maxiter=1000,
-            verbose=False,
-        )
+        with ProfileManager.profile_region("entropy setup: inv_Mv"):
+            # Inverse mass matrix needed to compute the error
+            self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+                self.mass_ops.Mv,
+            )
+            self._inv_Mv = inverse(
+                self.mass_ops.Mv,
+                "pcg",
+                pc=self.pc_Mv,
+                tol=1e-10,
+                maxiter=1000,
+                verbose=False,
+            )
 
-        # For Newton solve
-        self._M_ds = self.mass_ops.create_weighted_mass("L2", "L2")
+        with ProfileManager.profile_region("entropy setup: jacobian assembly"):
+            # For Newton solve
+            self._M_ds = self.mass_ops.create_weighted_mass("L2", "L2")
 
-        Jacs = BlockVectorSpace(
-            self.derham.Vvpol,
-            self.derham.V3pol,
-        )
+            Jacs = BlockVectorSpace(
+                self.derham.Vvpol,
+                self.derham.V3pol,
+            )
 
-        self._tmp_f = Jacs.zeros()
-        self._tmp_incr = Jacs.zeros()
+            self._tmp_f = Jacs.zeros()
+            self._tmp_incr = Jacs.zeros()
 
-        self._Jacobian = BlockLinearOperator(Jacs, Jacs)
+            self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
-        self._I3 = IdentityOperator(self.derham.V3pol)
+            self._I3 = IdentityOperator(self.derham.V3pol)
 
-        # local version to avoid creating new version of LinearOperator every time
-        self._dt_pc_divPisT = 2 * (self.divPisT)
-        self._dt2_divPis = 2 * self.divPis
+            # local version to avoid creating new version of LinearOperator every time
+            self._dt_pc_divPisT = 2 * (self.divPisT)
+            self._dt2_divPis = 2 * self.divPis
 
-        self._Jacobian[0, 0] = self._momentum_operator
-        self._Jacobian[0, 1] = self._dt_pc_divPisT @ self._M_ds
-        self._Jacobian[1, 0] = self._dt2_divPis
-        self._Jacobian[1, 1] = self._I3
+            self._Jacobian[0, 0] = self._momentum_operator
+            self._Jacobian[0, 1] = self._dt_pc_divPisT @ self._M_ds
+            self._Jacobian[1, 0] = self._dt2_divPis
+            self._Jacobian[1, 1] = self._I3
 
-        from struphy.linear_algebra.schur_solver import SchurSolverFull
+            from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._inv_Jacobian = SchurSolverFull(
-            self._Jacobian,
-            self.options.solver,
-            pc=self._momentum_inv,
-            tol=self._lin_solver.tol,
-            maxiter=self._lin_solver.maxiter,
-            verbose=self._lin_solver.verbose,
-            recycle=True,
-        )
+            self._inv_Jacobian = SchurSolverFull(
+                self._Jacobian,
+                self.options.solver,
+                pc=self._momentum_inv,
+                tol=self._lin_solver.tol,
+                maxiter=self._lin_solver.maxiter,
+                verbose=self._lin_solver.verbose,
+                recycle=True,
+            )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
         #                          'gmres',
@@ -523,20 +531,21 @@ class VariationalEntropyEvolve(Propagator):
         #                          verbose=self._lin_solver.verbose,
         #                          recycle=True)
 
-        # prepare for integration of linear form
-        # L2-projector for V3
-        self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
+        with ProfileManager.profile_region("entropy setup: L2 projector and grid tmps"):
+            # prepare for integration of linear form
+            # L2-projector for V3
+            self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
+            integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
 
-        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
-            self.derham.prepare_eval_tp_fixed(
-                integration_grid,
+            self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
+                self.derham.prepare_eval_tp_fixed(
+                    integration_grid,
+                )
             )
-        )
 
-        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
+            grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+            self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         if self._model == "full":
             self._tmp_de_ds = xp.zeros(grid_shape, dtype=float)

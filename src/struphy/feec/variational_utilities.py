@@ -5,7 +5,7 @@ from typing import Callable
 import cunumpy as xp
 from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-from feectools.linalg.basic import IdentityOperator, Vector
+from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilMatrix
@@ -379,6 +379,7 @@ class L2_transport_operator(LinOpWithTransp):
             self._op = self.Proj @ self.div.T
         else:
             self._op = self.div @ self.Proj
+        self._dot_tmp = self._op.tmp_vectors[0]
 
         hist_grid = self._derham.V2splines.proj_grid_pts
 
@@ -429,7 +430,25 @@ class L2_transport_operator(LinOpWithTransp):
         return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
     def dot(self, v, out=None):
-        out = self._op.dot(v, out=out)
+        direction = "transpose" if self._transposed else "forward"
+        if self._transposed:
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: divergence"
+            ):
+                self.div.T.dot(v, out=self._dot_tmp)
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: projection"
+            ):
+                out = self.Proj.dot(self._dot_tmp, out=out)
+        else:
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: projection"
+            ):
+                self.Proj.dot(v, out=self._dot_tmp)
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: divergence"
+            ):
+                out = self.div.dot(self._dot_tmp, out=out)
         return out
 
     def update_coeffs(self, coeff):
@@ -909,6 +928,7 @@ class InternalEnergyEvaluator:
         self._de_values = xp.zeros(grid_shape, dtype=float)
         self._d2e_values = xp.zeros(grid_shape, dtype=float)
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
+
         self._tmp_int_grid2 = xp.zeros(grid_shape, dtype=float)
         self._DG_values = xp.zeros(grid_shape, dtype=float)
 
@@ -1452,6 +1472,51 @@ class H1vecKineticMetric(LinOpWithTransp):
         self._tmp_div = self.codomain.zeros()
         self._tmp_apply = self.codomain.zeros()
 
+        first_matrix_block = self.divdiv_operator.matrix[0, 0]
+        self._use_fused_device_metric = xp.is_gpu(first_matrix_block._data)
+        if self._use_fused_device_metric:
+            # Both terms use the same H1vec tensor space, extraction and
+            # boundary maps. Combine their assembled stencil coefficients so
+            # a device application traverses the input only once. Div-div has
+            # the full 3x3 block pattern whereas mass may be block diagonal,
+            # so use div-div as the structural template.
+            self._fused_matrix = self.divdiv_operator.matrix.copy()
+            divdiv_chain = self.divdiv_operator.M0
+            if isinstance(divdiv_chain, ComposedLinearOperator):
+                fused_chain = tuple(
+                    self._fused_matrix if op is self.divdiv_operator.matrix else op
+                    for op in divdiv_chain.multiplicants
+                )
+                self._fused_operator = ComposedLinearOperator(
+                    self.domain,
+                    self.codomain,
+                    *fused_chain,
+                )
+            else:
+                self._fused_operator = self._fused_matrix
+            self._refresh_fused_matrix()
+
+    def _refresh_fused_matrix(self):
+        """Refresh the assembled matrix ``M_rho + alpha K_rho`` in place."""
+        if not self._use_fused_device_metric:
+            return
+
+        mass_matrix = self.mass_operator.matrix
+        divdiv_matrix = self.divdiv_operator.matrix
+        for row in range(3):
+            for col in range(3):
+                fused = self._fused_matrix[row, col]
+                mass = mass_matrix[row, col]
+                divdiv = divdiv_matrix[row, col]
+                fused._data[:] = 0.0
+                if mass is not None:
+                    fused._data += mass._data
+                fused._data += self.alpha * divdiv._data
+                fused.ghost_regions_in_sync = (
+                    (mass is None or mass.ghost_regions_in_sync)
+                    and divdiv.ghost_regions_in_sync
+                )
+
     @staticmethod
     def _accumulate_scaled_device(out, value, alpha):
         """Apply ``out += alpha * value`` with one kernel per leaf vector."""
@@ -1527,6 +1592,8 @@ class H1vecKineticMetric(LinOpWithTransp):
         if update_divdiv:
             self.update_divdiv_weight(rho)
 
+        self._refresh_fused_matrix()
+
     def update_weight_if_needed(self, rho, generation):
         if getattr(self, "_rho_generation", None) == generation:
             return False
@@ -1548,6 +1615,11 @@ class H1vecKineticMetric(LinOpWithTransp):
         else:
             assert isinstance(out, Vector)
             assert out.space == self.codomain
+
+        first_data = v.blocks[0]._data if hasattr(v, "blocks") else v._data
+        if self._use_fused_device_metric and xp.is_gpu(first_data):
+            self._fused_operator.dot(v, out=out)
+            return out
 
         self.mass_operator.dot(v, out=out)
 
@@ -1678,21 +1750,9 @@ class H1vecDivergenceEvaluator:
         #
         #   (DNN, NDN, NND).
         self._hcurl_bases = (
-            (
-                self._bd[0],
-                self._bn[1],
-                self._bn[2],
-            ),
-            (
-                self._bn[0],
-                self._bd[1],
-                self._bn[2],
-            ),
-            (
-                self._bn[0],
-                self._bn[1],
-                self._bd[2],
-            ),
+            (self._bd[0], self._bn[1], self._bn[2]),
+            (self._bn[0], self._bd[1], self._bn[2]),
+            (self._bn[0], self._bn[1], self._bd[2]),
         )
 
         # H1vec field used to evaluate the logical vector proxy.
@@ -1714,9 +1774,7 @@ class H1vecDivergenceEvaluator:
         )
 
         self._gradient_operators = tuple(derham.grad_bcfree @ projector for projector in self._coordinate_projectors)
-
         self._gradient_vectors = tuple(derham.V1pol.zeros() for _ in range(3))
-
         self._gradient_fields = tuple(
             derham.create_spline_function(
                 f"h1vec_divergence_gradient_{component}",
@@ -1728,9 +1786,7 @@ class H1vecDivergenceEvaluator:
         # Logical velocity values at the evaluation points.
         self._velocity_values = [xp.zeros(self._grid_shape, dtype=float) for _ in range(3)]
 
-        # gradient_values[a][b] contains
-        #
-        #     partial_{eta_b} uhat_a.
+        # gradient_values[a][b] contains partial_{eta_b} uhat_a.
         self._gradient_values = [[xp.zeros(self._grid_shape, dtype=float) for _ in range(3)] for _ in range(3)]
 
         # Evaluate grad_eta(log(abs(det(DF)))) once, since the geometry
@@ -1849,9 +1905,7 @@ class H1vecDivergenceEvaluator:
                 coeffs,
                 out=self._gradient_vectors[component],
             )
-
             self._gradient_fields[component].vector = self._gradient_vectors[component]
-
             self._gradient_fields[component].eval_tp_fixed_loc(
                 self._spans,
                 self._hcurl_bases,
@@ -2227,11 +2281,13 @@ class KineticEnergyEvaluator:
         mass_ops,
         *,
         with_regularization: bool = False,
+        divergence_operator=None,
     ):
         self._derham = derham
         self._domain = domain
         self._mass_ops = mass_ops
         self._with_regularization = with_regularization
+        self._divergence_operator = divergence_operator
 
         integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
@@ -2250,6 +2306,11 @@ class KineticEnergyEvaluator:
         self._uf1_values = [xp.zeros(grid_shape, dtype=float) for _ in range(3)]
         self._Guf_values = [xp.zeros(grid_shape, dtype=float) for _ in range(3)]
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
+
+        if xp.cupy_backend:
+            from struphy.feec.variational_kernels_cuda import prepare_kinetic_energy_kernel
+
+            prepare_kinetic_energy_kernel()
 
         metric = domain.metric(*integration_grid) * domain.jacobian_det(*integration_grid)
         self._proj_u2_metric_term = deepcopy(metric)
@@ -2331,7 +2392,25 @@ class KineticEnergyEvaluator:
             return None
         return self._M_div_un1_base.T
 
-    def get_div_u_product_grid(self, un, un1, out):
+    def cache_div_u_grid(self, un):
+        """Evaluate and retain the beginning-of-step velocity divergence."""
+        if not self._with_regularization:
+            raise RuntimeError("The divergence evaluator was not allocated.")
+        return self._evaluate_divergence(un, out=self._div_u_values)
+
+    def _evaluate_divergence(self, coefficients, *, out):
+        """Evaluate physical divergence, using the exact CUDA Q operator."""
+        tensor_coefficients = coefficients.tp if hasattr(coefficients, "tp") else coefficients
+        first_data = (
+            tensor_coefficients.blocks[0]._data
+            if hasattr(tensor_coefficients, "blocks")
+            else tensor_coefficients._data
+        )
+        if self._divergence_operator is not None and xp.is_gpu(first_data):
+            return self._divergence_operator.apply_Q(coefficients, out=out)
+        return self._divergence_evaluator.evaluate(coefficients, out=out)
+
+    def get_div_u_product_grid(self, un, un1, out, *, div_un_is_cached=False):
         r"""
         Evaluate
 
@@ -2349,11 +2428,11 @@ class KineticEnergyEvaluator:
         if not self._with_regularization:
             raise RuntimeError("The divergence evaluator was not allocated.")
 
-        div_un = self._divergence_evaluator.evaluate(
-            un,
-            out=self._div_u_values,
-        )
-        div_un1 = self._divergence_evaluator.evaluate(
+        if div_un_is_cached:
+            div_un = self._div_u_values
+        else:
+            div_un = self.cache_div_u_grid(un)
+        div_un1 = self._evaluate_divergence(
             un1,
             out=self._div_u1_values,
         )
@@ -2368,6 +2447,25 @@ class KineticEnergyEvaluator:
         r"""Values of :math:`u_n \cdot u_{n+1}` represented by the coefficient un and un1, on the integration grid"""
         self.uf.vector = un
         self.uf1.vector = un1
+
+        tensor_u = self.uf.vector.tp if hasattr(self.uf.vector, "tp") else self.uf.vector
+        tensor_u1 = self.uf1.vector.tp if hasattr(self.uf1.vector, "tp") else self.uf1.vector
+        first_data = tensor_u.blocks[0]._data if hasattr(tensor_u, "blocks") else tensor_u._data
+        if xp.is_gpu(first_data):
+            from struphy.feec.variational_kernels_cuda import kinetic_energy_grid_gpu
+
+            coefficients = tuple(block._data for block in tensor_u.blocks)
+            coefficients1 = tuple(block._data for block in tensor_u1.blocks)
+            return kinetic_energy_grid_gpu(
+                self.integration_grid_spans,
+                self.integration_grid_bn,
+                self._derham.degree,
+                self.uf.starts[0],
+                coefficients,
+                coefficients1,
+                self._proj_u2_metric_term,
+                out,
+            )
 
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,

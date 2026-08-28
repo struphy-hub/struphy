@@ -5,7 +5,7 @@ from typing import Literal
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.basic import IdentityOperator, LinearOperator, ScaledLinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -30,6 +30,60 @@ from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
+
+
+class _FusedL2H1JacobianTerms(LinearOperator):
+    """Device matrix for ``M_un1 + scale * M_div_un1``."""
+
+    def __init__(self, mass_operator, scaled_divergence):
+        self._mass_operator = mass_operator
+        self._scaled_divergence = scaled_divergence
+        self._divergence_matrix = scaled_divergence.operator
+        self._matrix = self._divergence_matrix.copy()
+        self._domain = mass_operator.domain
+        self._codomain = mass_operator.codomain
+        self._dtype = mass_operator.dtype
+        self.refresh()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def refresh(self):
+        mass_matrix = self._mass_operator.matrix
+        scale = self._scaled_divergence.scalar
+        for row in range(3):
+            fused = self._matrix[row, 0]
+            mass = mass_matrix[row, 0]
+            divergence = self._divergence_matrix[row, 0]
+            fused._data[:] = 0.0
+            if mass is not None:
+                fused._data += mass._data
+            fused._data += scale * divergence._data
+            fused.ghost_regions_in_sync = (
+                (mass is None or mass.ghost_regions_in_sync)
+                and divergence.ghost_regions_in_sync
+            )
+
+    def dot(self, v, out=None):
+        return self._matrix.dot(v, out=out)
+
+    def transpose(self, conjugate=False):
+        return self._matrix.transpose(conjugate=conjugate)
+
+    def tosparse(self):
+        return self._matrix.tosparse()
+
+    def toarray(self):
+        return self._matrix.toarray()
 
 
 class VariationalDensityEvolve(Propagator):
@@ -249,78 +303,83 @@ class VariationalDensityEvolve(Propagator):
         else:
             rhotmp = rho
 
-        if self._with_regularization:
-            # WMMnew is shared with the committed metric cache. Density Newton
-            # is about to overwrite it with a private iterate, so invalidate the
-            # committed cache first.
-            self.mass_ops.invalidate_committed_h1vec_metric()
+        with ProfileManager.profile_region("density setup: momentum metric"):
+            if self._with_regularization:
+                # WMMnew is shared with the committed metric cache. Density Newton
+                # is about to overwrite it with a private iterate, so invalidate the
+                # committed cache first.
+                self.mass_ops.invalidate_committed_h1vec_metric()
 
-            self._Kdivrho = self.mass_ops.create_h1vec_div_div(
-                name="DensityNewtonH1vecDivDiv",
+                self._Kdivrho = self.mass_ops.create_h1vec_div_div(
+                    name="DensityNewtonH1vecDivDiv",
+                )
+
+                self._kinetic_metric = H1vecKineticMetric(
+                    self._Mrho,
+                    self._Kdivrho,
+                    alpha=self._metric_alpha,
+                )
+
+                # Assemble before constructing the preconditioner.
+                self._kinetic_metric.update_weight(rhotmp)
+
+                # The initial FEEC density has already been committed, and the private
+                # metric now corresponds to it.
+                self.mass_ops.publish_committed_h1vec_metric(
+                    self._Kdivrho,
+                    self.variables.rho,
+                )
+
+                self._momentum_operator = self._kinetic_metric
+                self._momentum_pc = H1vecKineticMetricPreconditioner(
+                    self._kinetic_metric,
+                )
+            else:
+                self._Mrho.spline_functions["l2_field"].vector = rhotmp
+                self._Mrho.assemble()
+
+                self._Kdivrho = None
+                self._kinetic_metric = None
+                self._momentum_operator = self._Mrho
+                self._momentum_pc = MassMatrixDiagonalPreconditioner(
+                    self._Mrho,
+                )
+            self._momentum_inv = inverse(
+                self._momentum_operator,
+                "pcg",
+                pc=self._momentum_pc,
+                tol=1.0e-10,
+                maxiter=500,
+                verbose=False,
+                recycle=True,
             )
 
-            self._kinetic_metric = H1vecKineticMetric(
-                self._Mrho,
-                self._Kdivrho,
-                alpha=self._metric_alpha,
+        with ProfileManager.profile_region("density setup: evaluators"):
+            # FEM fields used by the projector.
+            self.rhof = self.derham.create_spline_function(
+                "rhof",
+                "L2",
+            )
+            self.rhof1 = self.derham.create_spline_function(
+                "rhof1",
+                "L2",
             )
 
-            # Assemble before constructing the preconditioner.
-            self._kinetic_metric.update_weight(rhotmp)
-
-            # The initial FEEC density has already been committed, and the private
-            # metric now corresponds to it.
-            self.mass_ops.publish_committed_h1vec_metric(
-                self._Kdivrho,
-                self.variables.rho,
+            # Projectors/evaluators.
+            self._energy_evaluator = InternalEnergyEvaluator(
+                self.derham,
+                self._gamma,
+            )
+            self._kinetic_evaluator = KineticEnergyEvaluator(
+                self.derham,
+                self.domain,
+                self.mass_ops,
+                with_regularization=self._with_regularization,
+                divergence_operator=self._Kdivrho,
             )
 
-            self._momentum_operator = self._kinetic_metric
-            self._momentum_pc = H1vecKineticMetricPreconditioner(
-                self._kinetic_metric,
-            )
-        else:
-            self._Mrho.spline_functions["l2_field"].vector = rhotmp
-            self._Mrho.assemble()
-
-            self._Kdivrho = None
-            self._kinetic_metric = None
-            self._momentum_operator = self._Mrho
-            self._momentum_pc = MassMatrixDiagonalPreconditioner(
-                self._Mrho,
-            )
-        self._momentum_inv = inverse(
-            self._momentum_operator,
-            "pcg",
-            pc=self._momentum_pc,
-            tol=1.0e-10,
-            maxiter=500,
-            verbose=False,
-            recycle=True,
-        )
-
-        # FEM fields used by the projector.
-        self.rhof = self.derham.create_spline_function(
-            "rhof",
-            "L2",
-        )
-        self.rhof1 = self.derham.create_spline_function(
-            "rhof1",
-            "L2",
-        )
-
-        # Projectors/evaluators.
-        self._energy_evaluator = InternalEnergyEvaluator(
-            self.derham,
-            self._gamma,
-        )
-        self._kinetic_evaluator = KineticEnergyEvaluator(
-            self.derham,
-            self.domain,
-            self.mass_ops,
-            with_regularization=self._with_regularization,
-        )
-        self._initialize_projectors_and_mass()
+        with ProfileManager.profile_region("density setup: projectors and mass"):
+            self._initialize_projectors_and_mass()
 
         # if self._model in ["linear", "linear_q"]:
         #     rhotmp = self.projected_equil.n3
@@ -332,25 +391,27 @@ class VariationalDensityEvolve(Propagator):
         #     rhotmp = rho
         # self._update_weighted_MM(rhotmp)
 
-        # bunch of temporaries to avoid allocating in the loop
-        self._tmp_un1 = u.space.zeros()
-        self._tmp_un2 = u.space.zeros()
-        self._tmp_un12 = u.space.zeros()
-        self._tmp_rhon1 = rho.space.zeros()
-        self._tmp_un_diff = u.space.zeros()
-        self._tmp_rhon12 = rho.space.zeros()
-        self._tmp_rhon_diff = rho.space.zeros()
-        self._tmp_un_weak_diff = u.space.zeros()
-        self._tmp_mn_diff = u.space.zeros()
-        self._tmp_mn = u.space.zeros()
-        self._tmp_mn1 = u.space.zeros()
-        self._tmp_advection = u.space.zeros()
-        self._tmp_rho_advection = rho.space.zeros()
-        self._linear_form_dl_drho = rho.space.zeros()
+        with ProfileManager.profile_region("density setup: temporaries"):
+            # bunch of temporaries to avoid allocating in the loop
+            self._tmp_un1 = u.space.zeros()
+            self._tmp_un2 = u.space.zeros()
+            self._tmp_un12 = u.space.zeros()
+            self._tmp_rhon1 = rho.space.zeros()
+            self._tmp_un_diff = u.space.zeros()
+            self._tmp_rhon12 = rho.space.zeros()
+            self._tmp_rhon_diff = rho.space.zeros()
+            self._tmp_un_weak_diff = u.space.zeros()
+            self._tmp_mn_diff = u.space.zeros()
+            self._tmp_mn = u.space.zeros()
+            self._tmp_mn1 = u.space.zeros()
+            self._tmp_advection = u.space.zeros()
+            self._tmp_rho_advection = rho.space.zeros()
+            self._linear_form_dl_drho = rho.space.zeros()
 
         # Compute the initial force in case we want to 'linearize' around a given equilibrium
         if self._linearize:
-            self._compute_init_linear_form()
+            with ProfileManager.profile_region("density setup: initial linear form"):
+                self._compute_init_linear_form()
 
         if self._model in ["linear", "linear_q"]:
             self._update_Pirho(self.projected_equil.n3)
@@ -470,6 +531,13 @@ class VariationalDensityEvolve(Propagator):
         converged = False
         accepted_by_stagnation = False
         metric_matches_rho1 = True
+
+        # ``un`` is fixed throughout the Newton loop.  Its physical
+        # divergence is otherwise re-evaluated for every nonlinear iterate,
+        # despite only the ``un1`` factor changing.
+        if self._with_regularization:
+            with ProfileManager.profile_region("density: cache fixed divergence"):
+                self._kinetic_evaluator.cache_div_u_grid(un)
 
         # ---------------------------------------------------------------
         # Newton iteration
@@ -686,89 +754,116 @@ class VariationalDensityEvolve(Propagator):
         from struphy.feec.mass import L2Projector
         from struphy.feec.variational_utilities import L2_transport_operator
 
-        # Initialize the transport operator and transposed
-        self.divPirho = L2_transport_operator(self.derham)
-        self.divPirhoT = self.divPirho.T
+        with ProfileManager.profile_region("density setup: transport operator"):
+            # Initialize the transport operator and transposed
+            self.divPirho = L2_transport_operator(self.derham)
+            self.divPirhoT = self.divPirho.T
 
-        # Inverse mass matrix needed to compute the error
-        self.pc_Mv = MassMatrixPreconditioner(
-            self.mass_ops.Mv,
-        )
-        self._inv_Mv = inverse(
-            self.mass_ops.Mv,
-            "pcg",
-            pc=self.pc_Mv,
-            tol=1e-10,
-            maxiter=1000,
-            verbose=False,
-            recycle=True,
-        )
-
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V0splines.quad_grid_pts[0]]
-
-        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
-            self.derham.prepare_eval_tp_fixed(
-                integration_grid,
+        with ProfileManager.profile_region("density setup: inv_Mv"):
+            # Inverse mass matrix needed to compute the error
+            self.pc_Mv = MassMatrixPreconditioner(
+                self.mass_ops.Mv,
             )
-        )
-
-        # tmps
-        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-        self._rhof_values = xp.zeros(grid_shape, dtype=float)
-
-        # Other mass matrices for newton solve
-        self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
-
-        Jacs = BlockVectorSpace(
-            self.derham.Vvpol,
-            self.derham.V3pol,
-        )
-
-        self._tmp_f = Jacs.zeros()
-        self._tmp_incr = Jacs.zeros()
-
-        self._Jacobian = BlockLinearOperator(Jacs, Jacs)
-
-        # local version to avoid creating new version of LinearOperator every time
-        self._I3 = IdentityOperator(self.derham.V3pol)
-
-        self._dt_pc_divPirhoT = 2 * (self.divPirhoT)
-        self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
-        self._dt2_divPirho = 2 * self.divPirho
-
-        if self._with_regularization:
-            # dt * alpha_divdiv * divPirhoT @ B_div_un
-            self._dt_alpha_div_term = 2 * (self.divPirhoT @ self._kinetic_evaluator.M_div_un)
-
-            # 2 * alpha_divdiv * B_div_un1.T
-            self._alpha_div_rho_term = 2 * (self._kinetic_evaluator.M_div_un1)
-
-        if self._with_regularization:
-            self._Jacobian[0, 0] = (
-                self._kinetic_metric + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un + self._dt_alpha_div_term
+            self._inv_Mv = inverse(
+                self.mass_ops.Mv,
+                "pcg",
+                pc=self.pc_Mv,
+                tol=1e-10,
+                maxiter=1000,
+                verbose=False,
+                recycle=True,
             )
 
-            self._Jacobian[0, 1] = (
-                self._kinetic_evaluator.M_un1 + self._alpha_div_rho_term + self._dt_pc_divPirhoT @ self._M_drho
+        with ProfileManager.profile_region("density setup: integration grid"):
+            integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V0splines.quad_grid_pts[0]]
+
+            self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
+                self.derham.prepare_eval_tp_fixed(
+                    integration_grid,
+                )
             )
-        else:
-            self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
-            self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
 
-        self._Jacobian[1, 0] = self._dt2_divPirho
-        self._Jacobian[1, 1] = self._I3
+            # tmps
+            grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+            self._rhof_values = xp.zeros(grid_shape, dtype=float)
 
-        from struphy.linear_algebra.schur_solver import SchurSolverFull
+        with ProfileManager.profile_region("density setup: jacobian assembly"):
+            # Other mass matrices for newton solve
+            self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
 
-        self._inv_Jacobian = SchurSolverFull(
-            self._Jacobian,
-            "pbicgstab",
-            pc=self._momentum_inv,
-            tol=self._lin_solver.tol,
-            maxiter=self._lin_solver.maxiter,
-            verbose=self._lin_solver.verbose,
-            recycle=False,
-        )
+            Jacs = BlockVectorSpace(
+                self.derham.Vvpol,
+                self.derham.V3pol,
+            )
+
+            self._tmp_f = Jacs.zeros()
+            self._tmp_incr = Jacs.zeros()
+
+            self._Jacobian = BlockLinearOperator(Jacs, Jacs)
+
+            # local version to avoid creating new version of LinearOperator every time
+            self._I3 = IdentityOperator(self.derham.V3pol)
+
+            self._dt_pc_divPirhoT = 2 * (self.divPirhoT)
+            self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
+            self._dt2_divPirho = 2 * self.divPirho
+
+            if self._with_regularization:
+                # dt * alpha_divdiv * divPirhoT @ B_div_un
+                self._dt_alpha_div_term = 2 * (self.divPirhoT @ self._kinetic_evaluator.M_div_un)
+
+                # 2 * alpha_divdiv * B_div_un1.T
+                div_rho_term = self._kinetic_evaluator.M_div_un1
+                self._alpha_div_rho_term = ScaledLinearOperator(
+                    div_rho_term.domain,
+                    div_rho_term.codomain,
+                    2.0,
+                    div_rho_term,
+                )
+
+                first_data = self._kinetic_evaluator.M_un1.matrix[0, 0]._data
+                if (
+                    xp.is_gpu(first_data)
+                    and self._kinetic_evaluator.M_un1.M0
+                    is self._kinetic_evaluator.M_un1.matrix
+                    and isinstance(div_rho_term, BlockLinearOperator)
+                ):
+                    self._fused_B_regularization = _FusedL2H1JacobianTerms(
+                        self._kinetic_evaluator.M_un1,
+                        self._alpha_div_rho_term,
+                    )
+                else:
+                    self._fused_B_regularization = None
+
+            if self._with_regularization:
+                self._Jacobian[0, 0] = (
+                    self._kinetic_metric + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un + self._dt_alpha_div_term
+                )
+
+                B_regularization = (
+                    self._fused_B_regularization
+                    if self._fused_B_regularization is not None
+                    else self._kinetic_evaluator.M_un1 + self._alpha_div_rho_term
+                )
+                self._Jacobian[0, 1] = B_regularization + self._dt_pc_divPirhoT @ self._M_drho
+            else:
+                self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
+                self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
+
+            self._Jacobian[1, 0] = self._dt2_divPirho
+            self._Jacobian[1, 1] = self._I3
+
+            from struphy.linear_algebra.schur_solver import SchurSolverFull
+
+            self._inv_Jacobian = SchurSolverFull(
+                self._Jacobian,
+                "pbicgstab",
+                pc=self._momentum_inv,
+                tol=self._lin_solver.tol,
+                maxiter=self._lin_solver.maxiter,
+                verbose=self._lin_solver.verbose,
+                recycle=False,
+            )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
         #                          'gmres',
@@ -777,49 +872,50 @@ class VariationalDensityEvolve(Propagator):
         #                          verbose=self._lin_solver.verbose,
         #                          recycle=True)
 
-        # L2-projector for V3
-        self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
+        with ProfileManager.profile_region("density setup: L2 projector and grid tmps"):
+            # L2-projector for V3
+            self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
-        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+            grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        # tmps
-        self._eval_dl_drho = xp.zeros(grid_shape, dtype=float)
+            # tmps
+            self._eval_dl_drho = xp.zeros(grid_shape, dtype=float)
 
-        self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+            self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+            self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
 
-        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
-        self._tmp_int_grid2 = xp.zeros(grid_shape, dtype=float)
-        self._rhof_values = xp.zeros(grid_shape, dtype=float)
-        self._rhof1_values = xp.zeros(grid_shape, dtype=float)
+            self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
+            self._tmp_int_grid2 = xp.zeros(grid_shape, dtype=float)
+            self._rhof_values = xp.zeros(grid_shape, dtype=float)
+            self._rhof1_values = xp.zeros(grid_shape, dtype=float)
 
-        if self._model == "full":
-            self._tmp_de_drho = xp.zeros(grid_shape, dtype=float)
-            gam = self._gamma
-            metric = xp.power(
-                self.domain.jacobian_det(
-                    *integration_grid,
-                ),
-                2 - gam,
-            )
-            self._proj_rho2_metric_term = deepcopy(metric)
+            if self._model == "full":
+                self._tmp_de_drho = xp.zeros(grid_shape, dtype=float)
+                gam = self._gamma
+                metric = xp.power(
+                    self.domain.jacobian_det(
+                        *integration_grid,
+                    ),
+                    2 - gam,
+                )
+                self._proj_rho2_metric_term = deepcopy(metric)
 
-            metric = xp.power(
-                self.domain.jacobian_det(
-                    *integration_grid,
-                ),
-                1 - gam,
-            )
-            self._proj_drho_metric_term = deepcopy(metric)
+                metric = xp.power(
+                    self.domain.jacobian_det(
+                        *integration_grid,
+                    ),
+                    1 - gam,
+                )
+                self._proj_drho_metric_term = deepcopy(metric)
 
-            if self._linearize:
-                self._init_dener_drho = xp.zeros(grid_shape, dtype=float)
+                if self._linearize:
+                    self._init_dener_drho = xp.zeros(grid_shape, dtype=float)
 
-        if self._with_regularization:
-            self._eval_div_dl_drho = xp.zeros(
-                grid_shape,
-                dtype=float,
-            )
+            if self._with_regularization:
+                self._eval_div_dl_drho = xp.zeros(
+                    grid_shape,
+                    dtype=float,
+                )
 
     def _update_Pirho(self, rho):
         """Update the weights of the `BasisProjectionOperator` Pirho"""
@@ -867,7 +963,10 @@ class VariationalDensityEvolve(Propagator):
         if self._with_regularization:
             with ProfileManager.profile_region("density linear form: divergence product"):
                 self._kinetic_evaluator.get_div_u_product_grid(
-                    un, un1, self._eval_div_dl_drho
+                    un,
+                    un1,
+                    self._eval_div_dl_drho,
+                    div_un_is_cached=True,
                 )
                 self._eval_div_dl_drho *= self._alpha_divdiv
                 self._eval_dl_drho += self._eval_div_dl_drho
@@ -962,6 +1061,8 @@ class VariationalDensityEvolve(Propagator):
             self._dt_alpha_div_term._scalar = dt * self._alpha_divdiv
 
             self._alpha_div_rho_term._scalar = 2.0 * self._alpha_divdiv
+            if self._fused_B_regularization is not None:
+                self._fused_B_regularization.refresh()
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
