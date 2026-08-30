@@ -1,10 +1,21 @@
-"""Self-contained parameters for the Orszag--Tang NumPy-vs-CuPy profiling case.
+"""Self-contained parameters for the Orszag--Tang CuPy multi-GPU scaling case.
 
 Copied from struphy.models.tests.Test_Full_MHD.OrszagTang (the regularized
 ideal-MHD Orszag--Tang verification), trimmed to the run/validate path this
 profiling case actually uses (no plotting, no pytest entry point), so this
 file has no import dependency on that test module. Keep the two in sync if
 OrszagTang.py's simulation setup or diagnostics change.
+
+Identical to params_orszag_tang_numpy_vs_cupy.py apart from the grid size.
+That case fixes 96x96x1 to compare backends on one rank; this one is a
+strong-scaling study, and 96x96x1 is far too small to scale: measured on
+Pitagora Booster H100s, a run carries ~6.3 s of rank-independent fixed cost
+(setup, kernel compilation, per-step Python/launch overhead), which alone
+caps the 2->4 GPU speedup at ~1.5x there regardless of communication cost.
+At 288x288x1 that fixed cost is only a few percent of the runtime, so the
+measurement reflects the parallel efficiency of the solver rather than
+start-up overhead. 288 is also the largest size that still fits in the two
+GPUs of the smallest configuration -- 384x384x1 runs out of memory there.
 
 cunumpy picks numpy or cupy during import, based on the ARRAY_BACKEND
 environment variable. Everything that transitively imports cunumpy is
@@ -23,8 +34,8 @@ from pathlib import Path
 
 import numpy as np
 
-name = "Orszag--Tang: NumPy vs CuPy"
-description = "Fixed 96x96x1, five-step, one-rank backend comparison."
+name = "Orszag--Tang: CuPy GPU scaling"
+description = "Fixed 288x288x1, five-step, CuPy strong scaling across 2-8 GPUs."
 
 ALPHA_DIVDIV = 1.0e-2
 WITH_REGULARIZATION = True
@@ -35,7 +46,7 @@ DT = 1.0e-3
 NUM_STEPS = 5
 T_END = NUM_STEPS * DT
 
-NUM_ELEMENTS = (96, 96, 1)
+NUM_ELEMENTS = (288, 288, 1)
 SPLINE_DEGREE = (3, 3, 1)
 
 LENGTH_X = 2.0 * np.pi
@@ -623,6 +634,119 @@ def load_and_check_fields(simulation) -> dict:
     }
 
 
+def write_profiling_results(output_path, simulation, scalar_diagnostics: dict, field_data: dict) -> None:
+    """Write figures and summary arrays into the run's ``results`` folder.
+
+    `package_profiling_results` copies every .png/.npy under `<run>/results` into the
+    packaged `results-run<id>` folder next to the run's profiling .h5, so anything
+    written here is what gets uploaded alongside the timings (same mechanism as the
+    Poisson case). Rank 0 only, after validation.
+    """
+    import matplotlib
+
+    # No display on a compute node; must be selected before pyplot is imported.
+    matplotlib.use("Agg")
+    from matplotlib import pyplot as plt
+
+    results_dir = Path(output_path) / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # --- Conserved quantities over time. Five steps is too short for dynamics, so
+    # these are drift-from-initial-value curves: what this case can actually show is
+    # that the invariants stay put, and that they do so identically at every rank
+    # count.
+    time_history = scalar_diagnostics["time"]
+    invariants = [
+        ("total energy", "tab:blue"),
+        ("kinetic energy", "tab:orange"),
+        ("magnetic energy", "tab:green"),
+        ("thermodynamic energy", "tab:red"),
+        ("total mass", "tab:purple"),
+        ("total entropy", "tab:brown"),
+    ]
+
+    fig, (ax_abs, ax_drift) = plt.subplots(1, 2, figsize=(13, 5))
+    for label, color in invariants:
+        values = scalar_diagnostics[label]
+        ax_abs.plot(time_history, values, color=color, label=label)
+
+        reference = values[0]
+        scale = abs(reference) if abs(reference) > 0.0 else 1.0
+        ax_drift.plot(time_history, (values - reference) / scale, color=color, label=label)
+
+    ax_abs.set_xlabel("time")
+    ax_abs.set_ylabel("value")
+    ax_abs.set_title("Invariants")
+    ax_abs.legend(fontsize="small")
+
+    ax_drift.set_xlabel("time")
+    ax_drift.set_ylabel("relative drift from t=0")
+    ax_drift.set_title("Relative drift")
+    ax_drift.legend(fontsize="small")
+
+    fig.suptitle(f"Orszag-Tang invariants, {NUM_ELEMENTS[0]}x{NUM_ELEMENTS[1]}x{NUM_ELEMENTS[2]}, {NUM_STEPS} steps")
+    fig.tight_layout()
+    fig.savefig(results_dir / "invariants.png", dpi=120)
+    plt.close(fig)
+
+    # --- div(B) on its own axis: it is a constraint residual around zero, not a
+    # conserved value, so it does not share a scale with the invariants above.
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    ax.plot(time_history, np.abs(scalar_diagnostics["div(B)"]), color="tab:red")
+    ax.set_yscale("log")
+    ax.set_xlabel("time")
+    ax.set_ylabel("|div(B)|")
+    ax.set_title("Divergence constraint")
+    fig.tight_layout()
+    fig.savefig(results_dir / "div_b.png", dpi=120)
+    plt.close(fig)
+
+    # --- Final-state fields. The run is 2D in the x-y plane (one element in z), so
+    # take the first z index; density/pressure are (nt, nx, ny, nz) and velocity and
+    # the magnetic field are (nt, 3, nx, ny, nz), plotted as magnitudes.
+    density = field_data["density"][-1, :, :, 0]
+    pressure = np.exp(field_data["thermo_diagnostics"]["log_pressure"][-1, :, :, 0])
+    speed = np.linalg.norm(field_data["velocity"][-1, :, :, :, 0], axis=0)
+    b_magnitude = np.linalg.norm(field_data["magnetic"][-1, :, :, :, 0], axis=0)
+
+    x = xp.to_numpy(simulation.grids_phy[0])[:, 0, 0]
+    y = xp.to_numpy(simulation.grids_phy[1])[0, :, 0]
+    extent = (float(x[0]), float(x[-1]), float(y[0]), float(y[-1]))
+
+    panels = [
+        ("density", density, "viridis"),
+        ("pressure", pressure, "magma"),
+        ("|velocity|", speed, "plasma"),
+        ("|B|", b_magnitude, "cividis"),
+    ]
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 9))
+    for ax, (label, values, cmap) in zip(axes.ravel(), panels):
+        # imshow indexes (row, column) = (y, x), so transpose to put x on the x-axis.
+        image = ax.imshow(values.T, origin="lower", extent=extent, cmap=cmap, aspect="auto")
+        ax.set_title(label)
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        fig.colorbar(image, ax=ax)
+
+    fig.suptitle(f"Orszag-Tang fields at t={float(field_data['times'][-1]):.4g}")
+    fig.tight_layout()
+    fig.savefig(results_dir / "fields_final.png", dpi=120)
+    plt.close(fig)
+
+    # --- Machine-readable companions to the figures, so a consumer can compare runs
+    # across rank counts without re-reading the HDF5 output.
+    np.save(results_dir / "time.npy", time_history)
+    for label, _ in invariants:
+        np.save(results_dir / f"{label.replace(' ', '_')}.npy", scalar_diagnostics[label])
+    np.save(results_dir / "div_b.npy", scalar_diagnostics["div(B)"])
+    np.save(results_dir / "resolution.npy", np.asarray(NUM_ELEMENTS))
+    np.save(results_dir / "num_steps.npy", np.asarray(NUM_STEPS))
+    np.save(results_dir / "mpi_size.npy", np.asarray(MPI.COMM_WORLD.Get_size()))
+
+    print(f"Wrote profiling figures and arrays to:\n{results_dir}")
+
+
 def execute() -> tuple[dict, dict]:
     """Run a new case, then validate scalar diagnostics and reconstructed fields."""
     comm = MPI.COMM_WORLD
@@ -652,6 +776,13 @@ def execute() -> tuple[dict, dict]:
                 "The scalar invariants are well conserved, but the saved fields contain a "
                 "non-positive density, non-finite state, or unrepresentable pressure."
             )
+
+        write_profiling_results(
+            output_path=output_path,
+            simulation=simulation,
+            scalar_diagnostics=scalar_diagnostics,
+            field_data=field_data,
+        )
 
     comm.Barrier()
 
