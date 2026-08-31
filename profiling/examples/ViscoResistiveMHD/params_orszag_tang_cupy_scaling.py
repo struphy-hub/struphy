@@ -634,6 +634,94 @@ def load_and_check_fields(simulation) -> dict:
     }
 
 
+# Playback rate of the field animation. Deliberately slow: these runs save only a
+# handful of frames, so a cinematic frame rate would be over before it is seen.
+ANIMATION_FPS = 4
+
+# Every timestep is written to the output (Time has no save-frequency option), so a
+# long run would otherwise produce a frame per step and a GIF of tens of megabytes.
+# Beyond this count the saved times are strided, keeping the first and last.
+MAX_ANIMATION_FRAMES = 60
+
+
+def write_field_animation(results_dir, field_data: dict, extent) -> None:
+    """Animate the four field panels over the saved times into ``fields_evolution.gif``.
+
+    A GIF written through matplotlib's Pillow writer, not an mp4: the Booster nodes
+    have no ffmpeg, and matplotlib already depends on Pillow, so this needs nothing
+    that is not installed. `package_profiling_results` copies .gif alongside the .png
+    files, so the animation is uploaded with the rest of the results.
+
+    Note what the animation can and cannot show at the benchmark settings. This case
+    times NUM_STEPS steps of size DT (5 x 1e-3), so the frames span t=0..5e-3, three
+    orders of magnitude shorter than the timescale on which the Orszag--Tang vortex
+    actually evolves -- consecutive frames will look identical. It is a per-frame
+    correctness view at those settings; pass `--steps` a much larger value when the
+    point is to watch the dynamics rather than to time them.
+    """
+    from matplotlib import pyplot as plt
+    from matplotlib.animation import FuncAnimation, PillowWriter
+
+    times = [float(time_value) for time_value in field_data["times"]]
+
+    if len(times) < 2:
+        print("Skipping the field animation: fewer than two saved times.")
+        return
+
+    stride = max(1, -(-len(times) // MAX_ANIMATION_FRAMES))
+    # Striding from the end keeps the final state, which is the one the still figure
+    # and the invariants plot are anchored on.
+    selection = list(range(len(times) - 1, -1, -stride))[::-1]
+    times = [times[index] for index in selection]
+
+    # (nt, nx, ny) stacks in the z=0 plane, the same four quantities as the
+    # final-state figure. Velocity and the magnetic field carry their component axis
+    # at position 1, so the magnitude reduces over that axis.
+    series = [
+        ("density", field_data["density"][selection, :, :, 0], "viridis"),
+        ("pressure", np.exp(field_data["thermo_diagnostics"]["log_pressure"][selection, :, :, 0]), "magma"),
+        ("|velocity|", np.linalg.norm(field_data["velocity"][selection][:, :, :, :, 0], axis=1), "plasma"),
+        ("|B|", np.linalg.norm(field_data["magnetic"][selection][:, :, :, :, 0], axis=1), "cividis"),
+    ]
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 9))
+    frames = []
+
+    for ax, (label, values, cmap) in zip(axes.ravel(), series):
+        # Color limits are taken over the whole series, not per frame: rescaling each
+        # frame to its own range would make a field that barely changes look like it
+        # is churning, which is exactly the wrong impression for a five-step run.
+        image = ax.imshow(
+            values[0].T,
+            origin="lower",
+            extent=extent,
+            cmap=cmap,
+            aspect="auto",
+            vmin=float(np.nanmin(values)),
+            vmax=float(np.nanmax(values)),
+        )
+        ax.set_title(label)
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        fig.colorbar(image, ax=ax)
+        frames.append((image, values))
+
+    title = fig.suptitle("")
+    fig.tight_layout()
+
+    def draw(frame_index):
+        for image, values in frames:
+            image.set_data(values[frame_index].T)
+        title.set_text(f"Orszag-Tang fields at t={times[frame_index]:.4g}")
+        return [image for image, _ in frames] + [title]
+
+    animation = FuncAnimation(fig, draw, frames=len(times), blit=False)
+    animation.save(results_dir / "fields_evolution.gif", writer=PillowWriter(fps=ANIMATION_FPS), dpi=90)
+    plt.close(fig)
+
+    print(f"Wrote a {len(times)}-frame field animation to:\n{results_dir / 'fields_evolution.gif'}")
+
+
 def write_profiling_results(output_path, simulation, scalar_diagnostics: dict, field_data: dict) -> None:
     """Write figures and summary arrays into the run's ``results`` folder.
 
@@ -656,18 +744,19 @@ def write_profiling_results(output_path, simulation, scalar_diagnostics: dict, f
     # that the invariants stay put, and that they do so identically at every rank
     # count.
     time_history = scalar_diagnostics["time"]
+    # Keys as returned by check_mhd_scalar_diagnostics.
     invariants = [
-        ("total energy", "tab:blue"),
-        ("kinetic energy", "tab:orange"),
-        ("magnetic energy", "tab:green"),
-        ("thermodynamic energy", "tab:red"),
-        ("total mass", "tab:purple"),
-        ("total entropy", "tab:brown"),
+        ("en_tot", "total energy", "tab:blue"),
+        ("en_U", "kinetic energy", "tab:orange"),
+        ("en_mag", "magnetic energy", "tab:green"),
+        ("en_thermo", "thermodynamic energy", "tab:red"),
+        ("dens_tot", "total mass", "tab:purple"),
+        ("entr_tot", "total entropy", "tab:brown"),
     ]
 
     fig, (ax_abs, ax_drift) = plt.subplots(1, 2, figsize=(13, 5))
-    for label, color in invariants:
-        values = scalar_diagnostics[label]
+    for key, label, color in invariants:
+        values = scalar_diagnostics[key]
         ax_abs.plot(time_history, values, color=color, label=label)
 
         reference = values[0]
@@ -692,7 +781,7 @@ def write_profiling_results(output_path, simulation, scalar_diagnostics: dict, f
     # --- div(B) on its own axis: it is a constraint residual around zero, not a
     # conserved value, so it does not share a scale with the invariants above.
     fig, ax = plt.subplots(figsize=(6.5, 4.5))
-    ax.plot(time_history, np.abs(scalar_diagnostics["div(B)"]), color="tab:red")
+    ax.plot(time_history, np.abs(scalar_diagnostics["tot_div_B"]), color="tab:red")
     ax.set_yscale("log")
     ax.set_xlabel("time")
     ax.set_ylabel("|div(B)|")
@@ -734,12 +823,21 @@ def write_profiling_results(output_path, simulation, scalar_diagnostics: dict, f
     fig.savefig(results_dir / "fields_final.png", dpi=120)
     plt.close(fig)
 
+    # --- The same four panels over every saved time. Guarded: this is a diagnostic
+    # extra, and an exception here on rank 0 would leave the other ranks waiting in
+    # the barrier at the end of execute() until the job hits its wall-clock limit,
+    # which is an expensive way to lose a nicety.
+    try:
+        write_field_animation(results_dir, field_data, extent)
+    except Exception as error:
+        print(f"Skipping the field animation after an error: {error!r}")
+
     # --- Machine-readable companions to the figures, so a consumer can compare runs
     # across rank counts without re-reading the HDF5 output.
     np.save(results_dir / "time.npy", time_history)
-    for label, _ in invariants:
-        np.save(results_dir / f"{label.replace(' ', '_')}.npy", scalar_diagnostics[label])
-    np.save(results_dir / "div_b.npy", scalar_diagnostics["div(B)"])
+    for key, _, _ in invariants:
+        np.save(results_dir / f"{key}.npy", scalar_diagnostics[key])
+    np.save(results_dir / "div_b.npy", scalar_diagnostics["tot_div_B"])
     np.save(results_dir / "resolution.npy", np.asarray(NUM_ELEMENTS))
     np.save(results_dir / "num_steps.npy", np.asarray(NUM_STEPS))
     np.save(results_dir / "mpi_size.npy", np.asarray(MPI.COMM_WORLD.Get_size()))
@@ -793,6 +891,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--id", type=int, required=True)
     parser.add_argument("--backend", choices=("numpy", "cupy"), required=True)
+    # The benchmark runs at NUM_STEPS; this override exists for the animation, whose
+    # five default frames span far too little time to show any dynamics. Overriding it
+    # makes the run no longer comparable with the uploaded scaling results, so the
+    # submit script never passes it.
+    # Defaulted to None rather than NUM_STEPS: the module global is rebound below, and
+    # reading it here would be a use before that `global` declaration (a SyntaxError).
+    parser.add_argument("--steps", type=int, default=None)
     args = parser.parse_args()
 
     # cunumpy chooses its implementation during import, so it (and everything
@@ -801,7 +906,11 @@ def main() -> None:
 
     global xp, h5py, MPI, DerhamOptions, EnvironmentOptions, FieldsBackground, Simulation, Time
     global domains, grids, ViscoResistiveMHD, OrszagTangInitialState
-    global SIMULATION_FOLDER_NAME, OUTPUT_DIRECTORY
+    global SIMULATION_FOLDER_NAME, OUTPUT_DIRECTORY, NUM_STEPS, T_END
+
+    if args.steps is not None:
+        NUM_STEPS = args.steps
+        T_END = NUM_STEPS * DT
 
     import cunumpy as xp
 

@@ -15,7 +15,10 @@ RUN_METADATA_FILE = "run_metadata.json"
 # Written by the parameter file itself (see the Poisson example), one per `sim_<id>` run
 # directory: post-processing figures and small arrays, next to the profiling output.
 RESULTS_DIR_NAME = "results"
-RESULTS_FILE_SUFFIXES = (".png", ".npy")
+# .gif so animations written by a case (see the Orszag--Tang scaling params file)
+# are packaged with the figures. No .mp4: the clusters used here have no ffmpeg,
+# so cases write GIFs through matplotlib's Pillow writer instead.
+RESULTS_FILE_SUFFIXES = (".png", ".npy", ".gif")
 
 
 def _run_name(launch_id: int) -> str:
@@ -104,7 +107,7 @@ def _copy_run_results(sim_dir: Path, destination_dir: Path) -> list[str]:
     """Copy the figures and arrays a run wrote into `<sim_dir>/results`.
 
     The parameter file of a case may post-process its own output (see the Poisson
-    example), writing `.png`/`.npy` files into a `results` folder inside its run
+    example), writing `.png`/`.npy`/`.gif` files into a `results` folder inside its run
     directory. They are copied straight into `destination_dir`, the run's own packaged
     folder, next to its `.h5` and run metadata; any subfolder structure of `results` is
     kept.
