@@ -1,9 +1,10 @@
+from scope_profiler import ProfilingOptions
+
 from struphy.io.options import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
-    ProfilingOptions,
     Time,
 )
 

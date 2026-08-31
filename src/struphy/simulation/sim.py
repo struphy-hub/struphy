@@ -7,6 +7,7 @@ import shutil
 import sysconfig
 import time
 from collections.abc import Sequence
+from dataclasses import asdict
 
 import cunumpy as xp
 import h5py
@@ -628,11 +629,12 @@ class Simulation(SimulationBase):
         self._remove_existing_output_files()
 
         with ProfileManager.session(
-            **self.profiling_opts.session_kwargs(
-                deactivate_profiling=not profiling_activated,
-                file_path=self.profiling_filepath,
-                label=self.name,
-            )
+            options=self.profiling_opts,
+            deactivate_profiling=not profiling_activated,
+            file_path=self.profiling_opts.file_path or self.profiling_filepath,
+            label=self.name,
+            verbose=False,
+            return_results=True,
         ) as profiling_run:
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
@@ -1605,7 +1607,7 @@ class Simulation(SimulationBase):
             "equil": self.equil.to_dict() if self.equil is not None else None,
             "grid": self.grid.to_dict() if self.grid is not None else None,
             "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
-            "profiling_opts": self.profiling_opts.to_dict(),
+            "profiling_opts": asdict(self.profiling_opts),
         }
 
     def _collect_particle_metadata(self) -> dict:
@@ -1679,7 +1681,13 @@ class Simulation(SimulationBase):
             equil=FluidEquilibrium.from_dict(dct["equil"]),
             grid=grids.TensorProductGrid.from_dict(dct["grid"]),
             derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
-            profiling_opts=ProfilingOptions.from_dict(dct.get("profiling_opts", {})),
+            profiling_opts=ProfilingOptions(
+                **{
+                    key: value
+                    for key, value in dct.get("profiling_opts", {}).items()
+                    if key in ProfilingOptions.__dataclass_fields__
+                }
+            ),
         )
 
     @classmethod
@@ -1783,8 +1791,8 @@ from struphy.models import {self.model.__class__.__name__}
             if not self.derham_opts.is_default:
                 sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
                 sim_class_def += "derham_opts=derham_opts,"
-            if not self.profiling_opts.is_default:
-                sim_setup += f"profiling_opts = {self.profiling_opts.__repr_no_defaults__()}\n"
+            if self.profiling_opts != ProfilingOptions():
+                sim_setup += f"profiling_opts = ProfilingOptions(**{self.profiling_opts.to_kwargs()!r})\n"
                 sim_class_def += "profiling_opts=profiling_opts,"
 
         # This is a bit of a special case since the default is None,
