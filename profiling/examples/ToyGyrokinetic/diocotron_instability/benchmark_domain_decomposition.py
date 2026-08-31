@@ -38,7 +38,6 @@ from struphy import (
 from struphy.models import ToyDrift
 from struphy.topology import optimize_domain_decomposition
 
-
 NUM_ELEMENTS = (512, 16, 1)
 DEFAULT_MASK = (True, True, True)
 WARMUPS = 1
@@ -111,9 +110,7 @@ def main() -> None:
         for timing in result.timings:
             print(f"{timing.mask}: {timing.seconds:.6f} s")
 
-        default = next(
-            timing.seconds for timing in result.timings if timing.mask == DEFAULT_MASK
-        )
+        default = next(timing.seconds for timing in result.timings if timing.mask == DEFAULT_MASK)
         speedup = default / min(timing.seconds for timing in result.timings)
         print(f"speedup over default: {speedup:.2f}x ({(speedup - 1.0) * 100:.1f}%)")
 

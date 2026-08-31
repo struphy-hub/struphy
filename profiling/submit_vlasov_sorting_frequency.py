@@ -23,13 +23,7 @@ def main() -> None:
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
-    benchmark = (
-        script_dir
-        / "examples"
-        / "Vlasov"
-        / "clone_decomposition"
-        / "benchmark_vlasov_clones.py"
-    )
+    benchmark = script_dir / "examples" / "Vlasov" / "clone_decomposition" / "benchmark_vlasov_clones.py"
 
     profiling_case = ProfilingCase(
         label="vlasov_sorting_frequency",

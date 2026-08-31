@@ -22,11 +22,7 @@ def main() -> None:
 
     script_dir = Path(__file__).resolve().parent
     benchmark = (
-        script_dir
-        / "examples"
-        / "ToyGyrokinetic"
-        / "diocotron_instability"
-        / "benchmark_domain_decomposition.py"
+        script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability" / "benchmark_domain_decomposition.py"
     )
 
     profiling_case = ProfilingCase(

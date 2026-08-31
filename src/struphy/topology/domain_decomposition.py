@@ -61,11 +61,7 @@ def candidate_clone_counts(comm_size: int) -> tuple[int, ...]:
     """Return clone counts that evenly divide the MPI communicator size."""
     if comm_size < 1:
         raise ValueError("comm_size must be positive")
-    return tuple(
-        clones
-        for clones in range(1, comm_size + 1)
-        if comm_size % clones == 0
-    )
+    return tuple(clones for clones in range(1, comm_size + 1) if comm_size % clones == 0)
 
 
 def candidate_masks(
@@ -106,8 +102,7 @@ def candidate_masks(
         if not any(mask):
             continue
         if pattern is not None and any(
-            isinstance(expected, bool) and value != expected
-            for value, expected in zip(mask, pattern)
+            isinstance(expected, bool) and value != expected for value, expected in zip(mask, pattern)
         ):
             continue
         if pattern is not None and any(
@@ -126,14 +121,11 @@ def candidate_masks(
         # grid (the required minimum is normally the spline degree), so reject
         # it here before invoking the user callback.
         if any(
-            p > n or block < minimum
-            for p, n, block, minimum in zip(nprocs, num_elements, blocksizes, local_minimum)
+            p > n or block < minimum for p, n, block, minimum in zip(nprocs, num_elements, blocksizes, local_minimum)
         ):
             continue
         if pattern is not None and any(
-            isinstance(expected, int)
-            and not isinstance(expected, bool)
-            and nproc != expected
+            isinstance(expected, int) and not isinstance(expected, bool) and nproc != expected
             for nproc, expected in zip(nprocs, pattern)
         ):
             continue
@@ -323,8 +315,7 @@ def _normalize_mask_pattern(mask_pattern: MaskPattern | None) -> MaskPattern | N
     if len(mask_pattern) != 3:
         raise ValueError("mask_pattern must contain exactly three dimensions")
     if not all(
-        value == "auto" or isinstance(value, bool) or isinstance(value, int) and value >= 1
-        for value in mask_pattern
+        value == "auto" or isinstance(value, bool) or isinstance(value, int) and value >= 1 for value in mask_pattern
     ):
         raise ValueError("mask_pattern entries must be True, False, a positive integer, or 'auto'")
     return mask_pattern

@@ -35,7 +35,6 @@ from struphy import (
 from struphy.models import LinearMHDVlasovCC
 from struphy.topology import optimize_parallel_configuration, search_sorting_frequency
 
-
 NUM_ELEMENTS = (8, 4, 1)
 DEGREE = (2, 2, 1)
 PPC = 1000
@@ -53,9 +52,7 @@ def run_one_step(
     output_dir: str,
     sorting_frequency: int = 0,
 ) -> None:
-    build_simulation(num_clones, mask, output_dir, sorting_frequency).run(
-        profiling_activated=True
-    )
+    build_simulation(num_clones, mask, output_dir, sorting_frequency).run(profiling_activated=True)
 
 
 def build_simulation(
@@ -92,8 +89,7 @@ def build_simulation(
         env=EnvironmentOptions(
             out_folders=output_dir,
             sim_folder=(
-                f"clones_{num_clones}_mask_{''.join('1' if value else '0' for value in mask)}"
-                f"_sort_{sorting_frequency}"
+                f"clones_{num_clones}_mask_{''.join('1' if value else '0' for value in mask)}_sort_{sorting_frequency}"
             ),
             num_clones=num_clones,
             restart=False,
@@ -149,10 +145,7 @@ def main() -> None:
     if MPI.COMM_WORLD.Get_rank() == 0:
         print(f"best configuration: clones={result.best_num_clones}, mask={result.best_mask}")
         for timing in result.timings:
-            print(
-                f"clones={timing.num_clones}, mask={timing.mask}: "
-                f"{timing.seconds:.6f} s"
-            )
+            print(f"clones={timing.num_clones}, mask={timing.mask}: {timing.seconds:.6f} s")
 
         one_clone = [timing for timing in result.timings if timing.num_clones == 1]
         if one_clone:

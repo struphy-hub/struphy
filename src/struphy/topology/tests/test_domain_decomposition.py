@@ -1,14 +1,14 @@
 import pytest
 
-import struphy.topology.domain_decomposition as dd
 import struphy.topology.autotuning as tuning
+import struphy.topology.domain_decomposition as dd
+from struphy.topology.autotuning import optimize_integer_parameter, search_integer_parameter
 from struphy.topology.domain_decomposition import (
     candidate_clone_counts,
     candidate_masks,
     optimize_domain_decomposition,
     optimize_parallel_configuration,
 )
-from struphy.topology.autotuning import optimize_integer_parameter, search_integer_parameter
 
 
 def test_candidate_clone_counts_are_divisors():
