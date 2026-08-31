@@ -7,7 +7,6 @@ import shutil
 import sysconfig
 import time
 from collections.abc import Sequence
-from dataclasses import asdict
 
 import cunumpy as xp
 import h5py
@@ -1577,7 +1576,7 @@ class Simulation(SimulationBase):
             "equil": self.equil.to_dict() if self.equil is not None else None,
             "grid": self.grid.to_dict() if self.grid is not None else None,
             "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
-            "profiling_opts": asdict(self.profiling_opts),
+            "profiling_opts": vars(self.profiling_opts).copy(),
         }
 
     def _collect_particle_metadata(self) -> dict:

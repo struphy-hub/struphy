@@ -794,7 +794,6 @@ passed to the simulation:
         use_line_profiler=False,
         recursive_profile=False,
         capture_region_source=True,
-        verbose=False,
     )
 
     sim = Simulation(model=model, profiling_opts=profiling_opts)
@@ -816,11 +815,14 @@ Useful :class:`~struphy.ProfilingOptions` fields are:
    is set up for LIKWID.
 7. ``use_nvtx``, ``use_gpu_timing`` and ``gpu_timing_backend``: add NVIDIA
    Nsight ranges and/or CUDA-event timings for GPU-oriented runs.
-8. ``config_path``: TOML configuration file with a ``[profiling]`` table. Values
-   passed directly through ``ProfilingOptions`` take precedence.
-9. ``deactivate_file_output``: skip writing the HDF5 file when only in-memory
-   results are needed.
-10. ``native_traces``: native trace path(s) to merge during finalization.
+8. ``aggregation_mode``: store aggregate region statistics without the full
+   event timeline.
+9. ``output_mode``: select the MPI HDF5 writer (``"auto"``, ``"direct"`` or
+   ``"parallel"``).
+10. ``hdf5_compression``, ``hdf5_compression_level`` and ``hdf5_chunk_size``:
+    configure compression and chunking of profiling datasets.
+11. ``deactivate_file_output``: skip writing the HDF5 file when only in-memory
+    results are needed.
 
 The profiler is set up at the start of ``Simulation.run()`` and finalized when
 ``Simulation.run()`` finishes. The simulation code already wraps key work inside
@@ -926,7 +928,7 @@ it is post-processed with ``scope-profiler`` itself rather than with
 Post-processing with the ``scope-profiler`` CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``scope-profiler`` ships its own post-processing commands. In version 0.3.3,
+``scope-profiler`` ships its own post-processing commands. In version 0.4.0,
 plotting lives under ``scope-profiler plot``. For the full set of standard
 figures, use the ``all`` preset:
 
