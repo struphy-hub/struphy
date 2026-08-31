@@ -31,6 +31,7 @@ class OptionsBase:
     def __repr__(self):
         return __dataclass_repr_all_stacked__(self)
 
+
 @dataclass
 class LiteralOptions:
     """
