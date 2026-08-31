@@ -1862,6 +1862,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     mass_kernels,
                     "kernel_" + str(self._V.ldim) + "d_mat",
                 ),
+                outputs=(-1,),
             )
 
     @property
@@ -2289,18 +2290,34 @@ class WeightedMassOperator(LinOpWithTransp):
 
                         logger.debug(f"Assemble block {a, b}")
 
-                        self._assembly_kernel(
-                            *codomain_spans,
-                            *codomain_space.degree,
-                            *domain_space.degree,
-                            *codomain_starts,
-                            *codomain_pads,
-                            *wts,
-                            *codomain_basis,
-                            *domain_basis,
-                            mat_w,
-                            mat._data,
-                        )
+                        if xp.is_gpu(mat._data) and self._V.ldim == 3:
+                            from struphy.feec.mass_kernels_cuda import mass_3d_assemble_gpu
+
+                            mass_3d_assemble_gpu(
+                                codomain_spans,
+                                codomain_space.degree,
+                                domain_space.degree,
+                                codomain_starts,
+                                codomain_pads,
+                                wts,
+                                codomain_basis,
+                                domain_basis,
+                                mat_w,
+                                mat._data,
+                            )
+                        else:
+                            self._assembly_kernel(
+                                *codomain_spans,
+                                *codomain_space.degree,
+                                *domain_space.degree,
+                                *codomain_starts,
+                                *codomain_pads,
+                                *wts,
+                                *codomain_basis,
+                                *domain_basis,
+                                mat_w,
+                                mat._data,
+                            )
 
                     else:
                         if clear:

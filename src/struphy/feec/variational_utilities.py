@@ -6,6 +6,8 @@ from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 
+from scope_profiler import ProfileManager
+
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
@@ -257,49 +259,49 @@ class BracketOperator(LinOpWithTransp):
 
         self.vf.vector = v
 
-        grad_1_v = self.gp1.dot(v, out=self.gp1v)
-        grad_2_v = self.gp2.dot(v, out=self.gp2v)
-        grad_3_v = self.gp3.dot(v, out=self.gp3v)
+        with ProfileManager.profile_region("momentum bracket: gradients"):
+            grad_1_v = self.gp1.dot(v, out=self.gp1v)
+            grad_2_v = self.gp2.dot(v, out=self.gp2v)
+            grad_3_v = self.gp3.dot(v, out=self.gp3v)
 
         # To avoid tmp we need to update the fields we created.
         self.gv1f.vector = grad_1_v
         self.gv2f.vector = grad_2_v
         self.gv3f.vector = grad_3_v
 
-        vf_values = self.vf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            [self.interpolation_grid_bn] * 3,
-            out=self._vf_values,
-        )
+        with ProfileManager.profile_region("momentum bracket: spline evaluation"):
+            vf_values = self.vf.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                [self.interpolation_grid_bn] * 3,
+                out=self._vf_values,
+            )
+            gvf1_values = self.gv1f.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                self.interpolation_grid_gradient,
+                out=self._gvf1_values,
+            )
+            gvf2_values = self.gv2f.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                self.interpolation_grid_gradient,
+                out=self._gvf2_values,
+            )
+            gvf3_values = self.gv3f.eval_tp_fixed_loc(
+                self.interpolation_grid_spans,
+                self.interpolation_grid_gradient,
+                out=self._gvf3_values,
+            )
 
-        gvf1_values = self.gv1f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf1_values,
-        )
+        with ProfileManager.profile_region("momentum bracket: projector weights"):
+            self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
+            self.PigvT_1.update_weights([[gvf1_values[0], gvf1_values[1], gvf1_values[2]]])
+            self.PigvT_2.update_weights([[gvf2_values[0], gvf2_values[1], gvf2_values[2]]])
+            self.PigvT_3.update_weights([[gvf3_values[0], gvf3_values[1], gvf3_values[2]]])
 
-        gvf2_values = self.gv2f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf2_values,
-        )
-
-        gvf3_values = self.gv3f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf3_values,
-        )
-
-        self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
-
-        self.PigvT_1.update_weights([[gvf1_values[0], gvf1_values[1], gvf1_values[2]]])
-        self.PigvT_2.update_weights([[gvf2_values[0], gvf2_values[1], gvf2_values[2]]])
-        self.PigvT_3.update_weights([[gvf3_values[0], gvf3_values[1], gvf3_values[2]]])
-
-        if out is not None:
-            self.mbrackvw.dot(self._u, out=out)
-        else:
-            out = self.mbrackvw.dot(self._u)
+        with ProfileManager.profile_region("momentum bracket: operator application"):
+            if out is not None:
+                self.mbrackvw.dot(self._u, out=out)
+            else:
+                out = self.mbrackvw.dot(self._u)
 
         return out
 
@@ -371,6 +373,7 @@ class L2_transport_operator(LinOpWithTransp):
             self._op = self.Proj @ self.div.T
         else:
             self._op = self.div @ self.Proj
+        self._dot_tmp = self._op.tmp_vectors[0]
 
         hist_grid = self._derham.V2splines.proj_grid_pts
 
@@ -421,7 +424,25 @@ class L2_transport_operator(LinOpWithTransp):
         return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
     def dot(self, v, out=None):
-        out = self._op.dot(v, out=out)
+        direction = "transpose" if self._transposed else "forward"
+        if self._transposed:
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: divergence"
+            ):
+                self.div.T.dot(v, out=self._dot_tmp)
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: projection"
+            ):
+                out = self.Proj.dot(self._dot_tmp, out=out)
+        else:
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: projection"
+            ):
+                self.Proj.dot(v, out=self._dot_tmp)
+            with ProfileManager.profile_region(
+                f"L2 transport {direction}: divergence"
+            ):
+                out = self.div.dot(self._dot_tmp, out=out)
         return out
 
     def update_coeffs(self, coeff):
@@ -1489,6 +1510,27 @@ class KineticEnergyEvaluator:
         self.uf.vector = un
         self.uf1.vector = un1
 
+        tensor_u = self.uf.vector.tp if hasattr(self.uf.vector, "tp") else self.uf.vector
+        tensor_u1 = self.uf1.vector.tp if hasattr(self.uf1.vector, "tp") else self.uf1.vector
+        first_data = tensor_u.blocks[0]._data if hasattr(tensor_u, "blocks") else tensor_u._data
+        if xp.is_gpu(first_data):
+            from struphy.feec.variational_kernels_cuda import kinetic_energy_grid_gpu
+
+            coefficients = tuple(block._data for block in tensor_u.blocks)
+            coefficients1 = tuple(block._data for block in tensor_u1.blocks)
+            return kinetic_energy_grid_gpu(
+                self.integration_grid_spans,
+                self.integration_grid_bn,
+                self._derham.degree,
+                self.uf.starts[0],
+                coefficients,
+                coefficients1,
+                self._proj_u2_metric_term,
+                out,
+                self._uf_values,
+                self._uf1_values,
+            )
+
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
             [
@@ -1522,7 +1564,7 @@ class KineticEnergyEvaluator:
         """Update the weights of the matrix M_un with the vector fields given by the coeficient un"""
         self.uf.vector = un
 
-        uf_values = self.uf.eval_tp_fixed_loc(
+        self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
             [
                 self.integration_grid_bn,
@@ -1531,12 +1573,16 @@ class KineticEnergyEvaluator:
             out=self._uf_values,
         )
 
+        self.assemble_M_un_cached()
+
+    def assemble_M_un_cached(self):
+        """Assemble ``M_un`` from velocity values cached by ``get_u2_grid``."""
         for i in range(3):
             self._Guf_values[i] *= 0.0
             for j in range(3):
                 self._tmp_int_grid *= 0.0
                 self._tmp_int_grid += self._mass_u_metric_term[i, j]
-                self._tmp_int_grid *= uf_values[j]
+                self._tmp_int_grid *= self._uf_values[j]
                 self._Guf_values[i] += self._tmp_int_grid
 
         self._M_un.assemble(
@@ -1547,7 +1593,7 @@ class KineticEnergyEvaluator:
         """Update the weights of the matrix M_un1 with the vector fields given by the coeficient un1"""
         self.uf1.vector = un1
 
-        uf1_values = self.uf1.eval_tp_fixed_loc(
+        self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
             [
                 self.integration_grid_bn,
@@ -1556,12 +1602,16 @@ class KineticEnergyEvaluator:
             out=self._uf1_values,
         )
 
+        self.assemble_M_un1_cached()
+
+    def assemble_M_un1_cached(self):
+        """Assemble ``M_un1`` from velocity values cached by ``get_u2_grid``."""
         for i in range(3):
             self._Guf_values[i] *= 0.0
             for j in range(3):
                 self._tmp_int_grid *= 0.0
                 self._tmp_int_grid += self._mass_u_metric_term[i, j]
-                self._tmp_int_grid *= uf1_values[j]
+                self._tmp_int_grid *= self._uf1_values[j]
                 self._Guf_values[i] += self._tmp_int_grid
 
         self._M_un1.assemble(
