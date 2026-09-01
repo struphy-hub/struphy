@@ -76,7 +76,7 @@ dev = [
     "tomli-w",
     "kaleido",
     "pandas",
-    "scope-profiler[pproc] >= 0.5.0, <=0.5.0",
+    "scope-profiler[pproc]",
     "slurm-script-generator>=0.3.6",
 ]
 doc = [
@@ -96,7 +96,7 @@ doc = [
     "myst-parser",
     "docutils",
     "ipyparallel",
-    "scope-profiler[pproc] >= 0.4.2, <=0.4.2",
+    "scope-profiler[pproc]",
 ]
 likwid = [
     "struphy[dev]",
