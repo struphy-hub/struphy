@@ -3,6 +3,8 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
 
+from scope_profiler import ProfilingOptions
+
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
     __dataclass_repr_all_stacked__,
@@ -371,120 +373,4 @@ class EnvironmentOptions(OptionsBase):
         return all_class_params_are_default(self)
 
 
-@dataclass(repr=False)
-class ProfilingOptions(OptionsBase):
-    """Set options passed to :meth:`scope_profiler.ProfileManager.session`.
-
-    ``Simulation.run(profiling_activated=...)`` is the switch used by Struphy to
-    enable profiling for a run. These options configure how scope-profiler
-    collects and writes profiling data when that switch is active.
-
-    Parameters
-    ----------
-    deactivate_file_output : bool | None
-        Write no HDF5 profiling output if True.
-
-    use_likwid : bool | None
-        Enable LIKWID hardware counter collection.
-
-    use_line_profiler : bool | None
-        Enable line-by-line profiling via line_profiler.
-
-    use_nvtx : bool | None
-        Add NVTX ranges for NVIDIA Nsight tools.
-
-    use_gpu_timing : bool | None
-        Record CUDA-event elapsed device time for each profiled region.
-
-    gpu_timing_backend : str | object | None
-        CUDA-event backend for GPU timing. scope-profiler accepts ``"auto"``,
-        ``"torch"``, ``"cupy"``, or a backend object.
-
-    recursive_profile : bool | None
-        Enable recursive profiling for decorated functions by default.
-
-    buffer_limit : int | None
-        Initial number of profiling events preallocated per region.
-
-    file_path : str | os.PathLike | None
-        Path to the output profiling data file. If None, Struphy writes
-        ``profiling_data.h5`` in the simulation output folder.
-
-    capture_region_source : bool | None
-        Record source locations/text for profiling regions.
-
-    config_path : str | os.PathLike | None
-        TOML file containing a scope-profiler ``[profiling]`` table.
-
-    verbose : bool
-        Print scope-profiler finalization output.
-
-    return_results : bool
-        Return finalized results from the session context manager.
-
-    native_traces : str | os.PathLike | tuple[str | os.PathLike, ...] | None
-        Native trace path(s) to merge during scope-profiler finalization.
-    """
-
-    deactivate_file_output: bool | None = None
-    use_likwid: bool | None = None
-    use_line_profiler: bool | None = None
-    use_nvtx: bool | None = None
-    use_gpu_timing: bool | None = None
-    gpu_timing_backend: Any | None = None
-    recursive_profile: bool | None = None
-    buffer_limit: int | None = None
-    file_path: str | os.PathLike | None = None
-    capture_region_source: bool | None = None
-    config_path: str | os.PathLike | None = None
-    verbose: bool = False
-    return_results: bool = True
-    native_traces: Any | None = None
-
-    def __post_init__(self):
-        if self.buffer_limit is not None:
-            assert isinstance(self.buffer_limit, int) and self.buffer_limit > 0, (
-                "buffer_limit must be a positive integer."
-            )
-
-    def session_kwargs(
-        self,
-        *,
-        deactivate_profiling: bool,
-        file_path: str | os.PathLike,
-        label: str | None,
-    ) -> dict:
-        """Return keyword arguments for ``ProfileManager.session``."""
-        kwargs = {
-            "deactivate_profiling": deactivate_profiling,
-            "file_path": self.file_path if self.file_path is not None else file_path,
-            "label": label,
-            "verbose": self.verbose,
-            "return_results": self.return_results,
-        }
-        if self.native_traces is not None:
-            kwargs["native_traces"] = self.native_traces
-        optional_kwargs = {
-            "deactivate_file_output": self.deactivate_file_output,
-            "use_likwid": self.use_likwid,
-            "use_line_profiler": self.use_line_profiler,
-            "use_nvtx": self.use_nvtx,
-            "use_gpu_timing": self.use_gpu_timing,
-            "gpu_timing_backend": self.gpu_timing_backend,
-            "recursive_profile": self.recursive_profile,
-            "buffer_limit": self.buffer_limit,
-            "capture_region_source": self.capture_region_source,
-            "config_path": self.config_path,
-        }
-        kwargs.update({key: value for key, value in optional_kwargs.items() if value is not None})
-        return kwargs
-
-    def __repr_no_defaults__(self):
-        return __dataclass_repr_no_defaults__(self)
-
-    def __repr_all_stacked__(self):
-        return __dataclass_repr_all_stacked__(self)
-
-    @property
-    def is_default(self):
-        return all_class_params_are_default(self)
+"""Profiling options are provided directly by scope-profiler."""
