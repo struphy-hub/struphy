@@ -13,6 +13,20 @@ from pathlib import Path
 from typing import Any
 
 
+def _get_profiling_args() -> argparse.Namespace:
+    # Parse arguments, do not remove --upload
+    parser = argparse.ArgumentParser(
+        description=("Submit profiling jobs to a SLURM cluster and package the results for upload."),
+    )
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help="Upload the packaged profiling results to the profiling-data repo.",
+    )
+    args = parser.parse_args()
+
+    return args
+
 def _slug(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._-") or "unknown"
 

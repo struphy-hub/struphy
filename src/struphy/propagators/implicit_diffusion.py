@@ -1,17 +1,17 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import cunumpy as xp
 from feectools.linalg.basic import IdentityOperator
-from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
-from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.solver import SolverParameters, inverse
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
@@ -363,6 +363,18 @@ class ImplicitDiffusion(Propagator):
             maxiter=self.options.solver_params.maxiter,
             verbose=self.options.solver_params.verbose,
             recycle=self.options.solver_params.recycle,
+            pc_type=self.options.solver_params.pc_type,
+            # self._diffusion_op = grad.T @ diffusion_mat @ grad structurally has the constant
+            # function in its kernel on a periodic domain (grad(constant) = 0), regardless of
+            # diffusion_mat or how small/large sigma_1 (stab_eps) is -- and PETScSolver only
+            # supports this operator on periodic domains to begin with (see
+            # _directional_derivative_to_stencil_matrix), so this is always a valid hint where it
+            # applies at all. Ignored for solver != "petsc". Without it, PETSc+gamg was found to
+            # silently converge (small reported residual) to a solution that disagrees with
+            # feectools' own solver -- worse, and more MPI-rank-count-dependent, as rank count
+            # grows -- for exactly this near-singular regime; see PETScSolver's near_null_space
+            # docstring.
+            near_null_space="constant",
         )
 
         # allocate memory for solution
@@ -370,6 +382,11 @@ class ImplicitDiffusion(Propagator):
         self._rhs = phi.space.zeros()
         self._rhs2 = phi.space.zeros()
         self._tmp_src = phi.space.zeros()
+
+        # cache for the lhs operator (see __call__): avoids rebuilding (and re-assembling, for
+        # e.g. solver="petsc") a fresh operator every call when sig_1 (hence dt) is unchanged
+        self._lhs_op = None
+        self._lhs_op_sig_1 = None
 
     @property
     def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
@@ -458,8 +475,13 @@ class ImplicitDiffusion(Propagator):
             proj = L2Projector("H1", self.mass_ops)
             self.diagnostic.spline.vector = proj.solve(rhs)
 
-        # compute lhs
-        self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        # compute lhs (reuse the cached operator when sig_1 is unchanged, e.g. constant dt --
+        # this lets InverseLinearOperator subclasses that cache on `linop` identity, such as
+        # PETScSolver, avoid re-assembling the operator on every call)
+        if self._lhs_op is None or sig_1 != self._lhs_op_sig_1:
+            self._lhs_op = sig_1 * self._stab_mat + self._diffusion_op
+            self._lhs_op_sig_1 = sig_1
+        self._solver.linop = self._lhs_op
 
         # solve
         with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
