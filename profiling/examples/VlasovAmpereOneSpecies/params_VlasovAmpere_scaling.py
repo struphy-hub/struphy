@@ -104,7 +104,6 @@ name = f"VlasovAmpereOneSpecies scaling ({args.backend})"
 # Environment options
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
-    profiling_activated=True,
     save_restart=False,
 )
 
@@ -175,4 +174,4 @@ background = maxwellians.Maxwellian3D(n=(1.0, None))
 model.kinetic_ions.var.add_background(background)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(profiling_activated=True)
