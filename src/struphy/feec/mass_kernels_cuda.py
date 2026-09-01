@@ -292,9 +292,7 @@ def _get_h1vec_divdiv_assembly_kernel():
     if _h1vec_divdiv_assembly_kernel is None:
         import cupy as cp
 
-        _h1vec_divdiv_assembly_kernel = cp.RawKernel(
-            _H1VEC_DIVDIV_ASSEMBLY_SRC, "h1vec_divdiv_assemble_cuda"
-        )
+        _h1vec_divdiv_assembly_kernel = cp.RawKernel(_H1VEC_DIVDIV_ASSEMBLY_SRC, "h1vec_divdiv_assemble_cuda")
     return _h1vec_divdiv_assembly_kernel
 
 
@@ -311,9 +309,8 @@ def _get_weak_div_assembly_kernel():
     global _weak_div_assembly_kernel
     if _weak_div_assembly_kernel is None:
         import cupy as cp
-        _weak_div_assembly_kernel = cp.RawKernel(
-            _WEAK_DIV_ASSEMBLY_SRC, "weak_div_assemble_cuda"
-        )
+
+        _weak_div_assembly_kernel = cp.RawKernel(_WEAK_DIV_ASSEMBLY_SRC, "weak_div_assemble_cuda")
     return _weak_div_assembly_kernel
 
 
@@ -336,12 +333,21 @@ def _kernel_args(spans, degree, starts, pads, bases, dlogj, component):
     dlogj = tuple(cp.ascontiguousarray(cp.asarray(x, dtype=cp.float64)) for x in dlogj)
     return (
         *spans,
-        np.int32(spans[0].size), np.int32(spans[1].size), np.int32(spans[2].size),
+        np.int32(spans[0].size),
+        np.int32(spans[1].size),
+        np.int32(spans[2].size),
         *(np.int32(x) for x in degree),
-        *(np.int32(x) for x in starts), *(np.int32(x) for x in pads),
-        *bases, np.int32(bases[0].shape[2]), np.int32(bases[1].shape[2]), np.int32(bases[2].shape[2]),
-        np.int32(bases[0].shape[3]), np.int32(bases[1].shape[3]), np.int32(bases[2].shape[3]),
-        *dlogj, np.int32(component),
+        *(np.int32(x) for x in starts),
+        *(np.int32(x) for x in pads),
+        *bases,
+        np.int32(bases[0].shape[2]),
+        np.int32(bases[1].shape[2]),
+        np.int32(bases[2].shape[2]),
+        np.int32(bases[0].shape[3]),
+        np.int32(bases[1].shape[3]),
+        np.int32(bases[2].shape[3]),
+        *dlogj,
+        np.int32(component),
     )
 
 
@@ -353,7 +359,11 @@ def h1vec_divergence_eval_gpu(spans, degree, starts, pads, bases, dlogj, compone
     args = _kernel_args(spans, degree, starts, pads, bases, dlogj, component)
     nvalues = values.size
     threads = 256
-    kernel(((nvalues + threads - 1) // threads,), (threads,), (*args, coeffs, np.int32(coeffs.shape[1]), np.int32(coeffs.shape[2]), values))
+    kernel(
+        ((nvalues + threads - 1) // threads,),
+        (threads,),
+        (*args, coeffs, np.int32(coeffs.shape[1]), np.int32(coeffs.shape[2]), values),
+    )
 
 
 def h1vec_divergence_transpose_gpu(spans, degree, starts, pads, bases, dlogj, component, values, coeffs):
@@ -364,7 +374,11 @@ def h1vec_divergence_transpose_gpu(spans, degree, starts, pads, bases, dlogj, co
     args = _kernel_args(spans, degree, starts, pads, bases, dlogj, component)
     nvalues = values.size
     threads = 256
-    kernel(((nvalues + threads - 1) // threads,), (threads,), (*args, values, np.int32(coeffs.shape[1]), np.int32(coeffs.shape[2]), coeffs))
+    kernel(
+        ((nvalues + threads - 1) // threads,),
+        (threads,),
+        (*args, values, np.int32(coeffs.shape[1]), np.int32(coeffs.shape[2]), coeffs),
+    )
 
 
 def mass_3d_assemble_gpu(spans, degree_i, degree_j, starts, pads, weights, bases_i, bases_j, mat_fun, data):
@@ -377,7 +391,9 @@ def mass_3d_assemble_gpu(spans, degree_i, degree_j, starts, pads, weights, bases
     bases_i = tuple(cp.ascontiguousarray(cp.asarray(x, dtype=cp.float64)) for x in bases_i)
     bases_j = tuple(cp.ascontiguousarray(cp.asarray(x, dtype=cp.float64)) for x in bases_j)
     mat_fun = cp.ascontiguousarray(mat_fun)
-    total = int(np.prod([x.size for x in spans]) * np.prod([x + 1 for x in degree_i]) * np.prod([x + 1 for x in degree_j]))
+    total = int(
+        np.prod([x.size for x in spans]) * np.prod([x + 1 for x in degree_i]) * np.prod([x + 1 for x in degree_j])
+    )
     threads = 256
     _get_mass_assembly_kernel()(
         ((total + threads - 1) // threads,),
@@ -385,19 +401,36 @@ def mass_3d_assemble_gpu(spans, degree_i, degree_j, starts, pads, weights, bases
         (
             *spans,
             *(np.int32(x.size) for x in spans),
-            *(np.int32(x) for x in degree_i), *(np.int32(x) for x in degree_j),
-            *(np.int32(x) for x in starts), *(np.int32(x) for x in pads),
-            *weights, *(np.int32(x.shape[1]) for x in weights),
-            *bases_i, *bases_j,
-            *(np.int32(x.shape[2]) for x in bases_i), *(np.int32(x.shape[2]) for x in bases_j),
-            mat_fun, data, *(np.int32(x) for x in data.shape[1:]),
+            *(np.int32(x) for x in degree_i),
+            *(np.int32(x) for x in degree_j),
+            *(np.int32(x) for x in starts),
+            *(np.int32(x) for x in pads),
+            *weights,
+            *(np.int32(x.shape[1]) for x in weights),
+            *bases_i,
+            *bases_j,
+            *(np.int32(x.shape[2]) for x in bases_i),
+            *(np.int32(x.shape[2]) for x in bases_j),
+            mat_fun,
+            data,
+            *(np.int32(x) for x in data.shape[1:]),
         ),
     )
 
 
 def weak_divergence_assemble_gpu(
-    spans, degree_i, degree_j, starts, pads, weights,
-    bases_i, bases_j, mat_fun, dlogj, component, data,
+    spans,
+    degree_i,
+    degree_j,
+    starts,
+    pads,
+    weights,
+    bases_i,
+    bases_j,
+    mat_fun,
+    dlogj,
+    component,
+    data,
 ):
     """Assemble one L2-by-H1 weak-divergence block on the GPU."""
     import cupy as cp
@@ -410,22 +443,29 @@ def weak_divergence_assemble_gpu(
     dlogj = tuple(cp.ascontiguousarray(x) for x in dlogj)
     mat_fun = cp.ascontiguousarray(mat_fun)
     total = int(
-        np.prod([x.size for x in spans])
-        * np.prod([p + 1 for p in degree_i])
-        * np.prod([p + 1 for p in degree_j])
+        np.prod([x.size for x in spans]) * np.prod([p + 1 for p in degree_i]) * np.prod([p + 1 for p in degree_j])
     )
     threads = 256
     _get_weak_div_assembly_kernel()(
-        ((total + threads - 1) // threads,), (threads,),
+        ((total + threads - 1) // threads,),
+        (threads,),
         (
-            *spans, *(np.int32(x.size) for x in spans),
-            *(np.int32(x) for x in degree_i), *(np.int32(x) for x in degree_j),
-            *(np.int32(x) for x in starts), *(np.int32(x) for x in pads),
-            *weights, *(np.int32(x.shape[1]) for x in weights),
-            *bases_i, *bases_j,
+            *spans,
+            *(np.int32(x.size) for x in spans),
+            *(np.int32(x) for x in degree_i),
+            *(np.int32(x) for x in degree_j),
+            *(np.int32(x) for x in starts),
+            *(np.int32(x) for x in pads),
+            *weights,
+            *(np.int32(x.shape[1]) for x in weights),
+            *bases_i,
+            *bases_j,
             *(np.int32(x.shape[2]) for x in bases_i),
             *(np.int32(x.shape[2]) for x in bases_j),
-            mat_fun, *dlogj, np.int32(component), data,
+            mat_fun,
+            *dlogj,
+            np.int32(component),
+            data,
             *(np.int32(x) for x in data.shape[1:]),
         ),
     )
@@ -450,10 +490,18 @@ def h1vec_divdiv_assemble_gpu(spans, degree, starts, pads, bases, weighted_rho, 
         ((total + threads - 1) // threads,),
         (threads,),
         (
-            *spans, *(np.int32(x.size) for x in spans), *(np.int32(x) for x in degree),
-            *(np.int32(x) for x in starts), *(np.int32(x) for x in pads),
-            *bases, *(np.int32(x.shape[2]) for x in bases), *(np.int32(x.shape[3]) for x in bases),
-            weighted_rho, np.int32(component_test), np.int32(component_trial), data,
+            *spans,
+            *(np.int32(x.size) for x in spans),
+            *(np.int32(x) for x in degree),
+            *(np.int32(x) for x in starts),
+            *(np.int32(x) for x in pads),
+            *bases,
+            *(np.int32(x.shape[2]) for x in bases),
+            *(np.int32(x.shape[3]) for x in bases),
+            weighted_rho,
+            np.int32(component_test),
+            np.int32(component_trial),
+            data,
             *(np.int32(x) for x in data.shape[1:]),
         ),
     )

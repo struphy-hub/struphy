@@ -5,7 +5,6 @@ import cunumpy as xp
 from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
-
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
@@ -426,22 +425,14 @@ class L2_transport_operator(LinOpWithTransp):
     def dot(self, v, out=None):
         direction = "transpose" if self._transposed else "forward"
         if self._transposed:
-            with ProfileManager.profile_region(
-                f"L2 transport {direction}: divergence"
-            ):
+            with ProfileManager.profile_region(f"L2 transport {direction}: divergence"):
                 self.div.T.dot(v, out=self._dot_tmp)
-            with ProfileManager.profile_region(
-                f"L2 transport {direction}: projection"
-            ):
+            with ProfileManager.profile_region(f"L2 transport {direction}: projection"):
                 out = self.Proj.dot(self._dot_tmp, out=out)
         else:
-            with ProfileManager.profile_region(
-                f"L2 transport {direction}: projection"
-            ):
+            with ProfileManager.profile_region(f"L2 transport {direction}: projection"):
                 self.Proj.dot(v, out=self._dot_tmp)
-            with ProfileManager.profile_region(
-                f"L2 transport {direction}: divergence"
-            ):
+            with ProfileManager.profile_region(f"L2 transport {direction}: divergence"):
                 out = self.div.dot(self._dot_tmp, out=out)
         return out
 

@@ -2,7 +2,7 @@
 
 _KINETIC_ENERGY_KERNEL = None
 
-_KINETIC_ENERGY_SOURCE = r'''
+_KINETIC_ENERGY_SOURCE = r"""
 extern "C" __global__
 void kinetic_energy_grid_cuda(
     const long long* span0, const long long* span1, const long long* span2,
@@ -56,7 +56,7 @@ void kinetic_energy_grid_cuda(
     ug0[tid] = us[0]; ug1[tid] = us[1]; ug2[tid] = us[2];
     vg0[tid] = vs[0]; vg1[tid] = vs[1]; vg2[tid] = vs[2];
 }
-'''
+"""
 
 
 def prepare_kinetic_energy_kernel():
@@ -76,8 +76,16 @@ def prepare_kinetic_energy_kernel():
 
 
 def kinetic_energy_grid_gpu(
-    spans, bases, degree, starts, coefficients, coefficients1, metric, out,
-    values, values1,
+    spans,
+    bases,
+    degree,
+    starts,
+    coefficients,
+    coefficients1,
+    metric,
+    out,
+    values,
+    values1,
 ):
     """Evaluate both H1-vector splines and their metric product in one launch."""
     import cupy as cp

@@ -2027,11 +2027,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                 # A device reduction here synchronizes the whole CuPy stream
                 # once per matrix block.  Dynamic GPU weights are cheap to
                 # assemble even when zero, so avoid that host round-trip.
-                if (
-                    self._mpi_comm is None
-                    and isinstance(loc_weight, xp.ndarray)
-                    and xp.is_gpu(loc_weight)
-                ):
+                if self._mpi_comm is None and isinstance(loc_weight, xp.ndarray) and xp.is_gpu(loc_weight):
                     not_weight_zero = True
                 else:
                     not_weight_zero = xp.array(
@@ -2070,10 +2066,20 @@ class BasisProjectionOperator(LinOpWithTransp):
 
                         assemble_dofs_for_weighted_basisfuns_3d_gpu(
                             dofs_mat._data,
-                            _starts_in, _ends_in, _pads_in,
-                            _starts_out, _ends_out, _pads_out,
-                            mat_w, _wtsG, _spans, _bases, _subs,
-                            _Vnbases, _Wnbases, _Wdegrees,
+                            _starts_in,
+                            _ends_in,
+                            _pads_in,
+                            _starts_out,
+                            _ends_out,
+                            _pads_out,
+                            mat_w,
+                            _wtsG,
+                            _spans,
+                            _bases,
+                            _subs,
+                            _Vnbases,
+                            _Wnbases,
+                            _Wdegrees,
                         )
                     else:
                         kernel = PyccelKernel(
