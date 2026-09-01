@@ -68,4 +68,4 @@ jobs:
           cd /struphy_fortran_/tutorials
           ls
           jupyter nbconvert --show-config
-          jupyter nbconvert --execute --embed-images --to html --KernelManager.transport=ipc tutorial_*.ipynb
+          jupyter nbconvert --execute --embed-images --to html tutorial_*.ipynb
