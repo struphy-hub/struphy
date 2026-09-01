@@ -914,6 +914,20 @@ class Particles(metaclass=ABCMeta):
         return self._ghost_particles
 
     @property
+    def has_ghost_particles(self):
+        """Whether any row of the markers array may currently be a ghost particle.
+
+        Ghost particles only ever enter through :meth:`_communicate_boxes` (the SPH
+        ghost-box layer): that is the sole path that writes ``-2`` into the ID column,
+        both for the rows this rank marks and sends and for the rows it receives.
+        Every other model -- all the PIC ones -- never creates one, so this stays False
+        for the whole run and lets the hot marker-sorting path skip the full-array
+        passes that would only ever find nothing. See :meth:`_update_ghost_particles`
+        and :meth:`_remove_ghost_particles`.
+        """
+        return getattr(self, "_has_ghost_particles", False)
+
+    @property
     def markers_wo_holes(self):
         """Array holding the marker information, excluding holes. The i-th row holds the i-th marker info."""
         return self.markers[np.nonzero(~self.holes)[0]]
@@ -3400,15 +3414,26 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         as a ghost particle when its ID column (last column) equals -2, the marker set by
         :meth:`_prepare_ghost_particles`/:meth:`_sendrecv_markers_boxes` for SPH ghost-box
         particles received from a neighbouring process."""
-        self._ghost_particles[:] = self.markers[:, -1] == -2.0
+        # markers[:, -1] is a strided read over every row (~0.5 ms at Np_local=12.5M on
+        # an H100). When no ghost particle has been created since the last removal the
+        # answer is known to be all-False and the mask already holds it, so only the
+        # cheap valid_mks refresh is needed -- holes may still have changed.
+        if self.has_ghost_particles:
+            self._ghost_particles[:] = self.markers[:, -1] == -2.0
         self._update_valid_mks()
 
     def _remove_ghost_particles(self):
         """Discard all current ghost particles: turn their marker-array rows into new
         holes (so the space can be reused before the next SPH ghost-box update)."""
-        self._update_ghost_particles()
-        new_holes = np.nonzero(self.ghost_particles)
-        self._markers[new_holes] = -1.0
+        # Skip the ghost-specific work (a strided full-array compare plus a nonzero,
+        # which also forces a device sync) when no ghost exists to remove. update_holes
+        # still runs unconditionally: callers rely on it refreshing holes, which other
+        # operations do change.
+        if self.has_ghost_particles:
+            self._update_ghost_particles()
+            new_holes = np.nonzero(self.ghost_particles)
+            self._markers[new_holes] = -1.0
+            self._has_ghost_particles = False
         self.update_holes()
 
     def _prepare_ghost_particles(self):
@@ -4545,6 +4570,12 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         #     n_holes = xp.count_nonzero(self.holes)
         #     n_ghosts = xp.count_nonzero(self.ghost_particles)
         #     logger.info(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
+
+        # This is the one path that turns rows into ghost particles (it writes -2 into
+        # the ID column of the outgoing ghost markers, and receives rows already
+        # carrying it), so it is the one place that arms the flag. It must be set
+        # before the _update_ghost_particles call below, which is gated on it.
+        self._has_ghost_particles = True
 
         self._prepare_ghost_particles()
         self._get_destinations_box()

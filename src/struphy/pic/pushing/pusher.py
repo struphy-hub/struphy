@@ -671,7 +671,10 @@ class Pusher:
                     gravity,
                     kappa,
                 ) = args_kernel
-                self._gpu_sph_gravity = cp.asarray(np.asarray(gravity, dtype=float), dtype=cp.float64)
+                # `gravity` arrives in the propagator's kernel args and so already lives on
+                # the active backend: under CuPy np.asarray on it raises rather than
+                # transferring. cp.asarray takes host and device input alike.
+                self._gpu_sph_gravity = cp.asarray(gravity, dtype=cp.float64)
                 self._gpu_sph_kappa = float(kappa)
             self._gpu_sph_boxes = boxes
             self._gpu_sph_neighbours = neighbours

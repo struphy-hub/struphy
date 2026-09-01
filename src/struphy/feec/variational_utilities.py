@@ -1452,6 +1452,11 @@ class KineticEnergyEvaluator:
     """
 
     def __init__(self, derham, domain, mass_ops):
+        # Kept for get_u2_grid's GPU branch, which needs derham.degree. The NumPy
+        # branch never touches it, so a missing assignment here failed only under
+        # ARRAY_BACKEND=cupy -- and there for every model that builds this evaluator.
+        self._derham = derham
+
         integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(

@@ -3163,14 +3163,19 @@ def push_random_diffusion_stage_gpu(markers, n_cols, noise, diffusion_coeff: flo
     :func:`~struphy.pic.pushing.pusher_kernels.push_random_diffusion_stage`.
     Domain-independent (no geometry involved), so unlike the other
     ``*_general_gpu`` functions this one has no ``kind_map`` restriction.
-    ``noise`` is a plain host NumPy array (``struphy.propagators.push_random_diffusion.PushRandomDiffusion``
-    fills it via ``numpy.random``, not ``xp.random``), transferred fresh each call."""
+    ``noise`` may be a host or a device array:
+    :class:`~struphy.propagators.push_random_diffusion.PushRandomDiffusion` draws it
+    through ``xp.random``, so under CuPy it is already on the device and no transfer
+    happens here; a host array is accepted (and copied) so the signature stays
+    backend-agnostic."""
     import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
     dev = markers
-    noise_dev = cp.asarray(np.ascontiguousarray(noise), dtype=cp.float64)
+    # cp.asarray takes host or device input; np.ascontiguousarray would raise on a
+    # device array rather than transferring it.
+    noise_dev = cp.ascontiguousarray(cp.asarray(noise, dtype=cp.float64))
     scale = float(np.sqrt(2.0 * dt * diffusion_coeff))
     threads = 256
     blocks = (n_markers + threads - 1) // threads
