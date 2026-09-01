@@ -928,7 +928,7 @@ it is post-processed with ``scope-profiler`` itself rather than with
 Post-processing with the ``scope-profiler`` CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``scope-profiler`` ships its own post-processing commands. In version 0.4.0,
+``scope-profiler`` ships its own post-processing commands. In version 0.5.0,
 plotting lives under ``scope-profiler plot``. For the full set of standard
 figures, use the ``all`` preset:
 
