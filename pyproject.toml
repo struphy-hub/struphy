@@ -47,7 +47,7 @@ dependencies = [
     "pytest-testmon<=2.2.0",
     "ruff==0.15.0, <=0.16.0",
     "line_profiler<=5.0.2",
-    "scope-profiler[pproc] >= 0.3.3, <=0.3.3",
+    "scope-profiler >= 0.5.0, <=0.5.0",
 ]
 
 [project.license]
@@ -79,6 +79,7 @@ dev = [
     "tomli-w",
     "kaleido",
     "pandas",
+    "scope-profiler[pproc]",
     "slurm-script-generator>=0.3.6",
 ]
 doc = [
@@ -98,6 +99,7 @@ doc = [
     "myst-parser",
     "docutils",
     "ipyparallel",
+    "scope-profiler[pproc]",
 ]
 likwid = [
     "struphy[dev]",
