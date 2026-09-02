@@ -57,6 +57,21 @@ def detect_machine_name() -> str | None:
 
 
 SLURM_PRESETS: dict[str, dict] = {
+    "raven": {
+        "cpus_per_task": 1,
+        # Raven's submission filter requires total memory (not --mem-per-cpu)
+        # for shared jobs. ProfilingCase converts this per-rank value to --mem.
+        "mem_per_rank_gb": 3,
+        "max_mem_per_node_gb": 110,
+        "partition": "general",
+        "qos": "debug",
+        "account": "ipp_cpu",
+        "chdir": "./",
+        "output": "./%x.%j.out",
+        "error": "./%x.%j.err",
+        "mail_type": "none",
+        "time": "00:15:00",
+    },
     "pitagora_dcgp": {
         # "nodes": 1, # Should be set by ProfilingCase.launch()
         # "ntasks_per_node": 1,  # Should be set by ProfilingCase.launch()

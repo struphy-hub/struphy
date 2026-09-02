@@ -252,9 +252,20 @@ class ProfilingCase:
 
             # Pick the cluster preset for this run, either from the caller's override or the default.
             if slurm_presets is not None:
-                cluster_preset = slurm_presets[cluster_name]
+                cluster_preset = dict(slurm_presets[cluster_name])
             else:
-                cluster_preset = SLURM_PRESETS[cluster_name]
+                cluster_preset = dict(SLURM_PRESETS[cluster_name])
+
+            # Some schedulers (notably Raven's submission filter) reject
+            # --mem-per-cpu for shared jobs. Let their preset express the same
+            # scaling policy while emitting the required total --mem value.
+            mem_per_rank_gb = cluster_preset.pop("mem_per_rank_gb", None)
+            max_mem_per_node_gb = cluster_preset.pop("max_mem_per_node_gb", None)
+            if mem_per_rank_gb is not None:
+                memory_gb = mem_per_rank_gb * (num_tasks // num_nodes)
+                if max_mem_per_node_gb is not None:
+                    memory_gb = min(memory_gb, max_mem_per_node_gb)
+                cluster_preset["mem"] = f"{memory_gb}G"
 
             # Build the slurm script
             script = SlurmScript(

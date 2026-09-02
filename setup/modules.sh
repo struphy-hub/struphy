@@ -91,6 +91,13 @@ case "$ACTION" in
         echo "Loading modules for $MACHINE, MODULES=$MODULES"
         module purge
         module load $MODULES
+	# Raven's Open MPI module intentionally does not populate LD_LIBRARY_PATH.
+	# Python extension modules such as mpi4py still need libmpi to be visible
+	# when it is loaded dynamically rather than linked through mpicc.
+	if [[ "$MACHINE" == "raven" && "$COMPILER_FAMILY" == "gcc" ]]; then
+	    MPI_LIBDIR="$(mpicc --showme:libdirs)"
+	    export LD_LIBRARY_PATH="$MPI_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+	fi
 	module list 
         ;;
     display)
