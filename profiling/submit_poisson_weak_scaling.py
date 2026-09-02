@@ -24,7 +24,7 @@ def main() -> None:
         "--ranks",
         type=int,
         nargs="+",
-        default=(1, 2, 4),
+        default=(1, 2, 4, 8, 16, 32, 64, 128, 256),
         help="MPI rank counts to submit (default: 1 2 4).",
     )
     args = parser.parse_args()
