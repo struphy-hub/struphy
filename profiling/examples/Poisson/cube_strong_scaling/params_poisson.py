@@ -27,6 +27,7 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -97,6 +98,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=ProfilingOptions(label="Poisson-3D"),
 )
 
 # ------------------
