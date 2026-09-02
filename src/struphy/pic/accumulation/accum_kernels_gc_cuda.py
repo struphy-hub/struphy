@@ -171,7 +171,7 @@ def gc_mag_density_0form_gpu(
 # duplicating the CUDA source, reuse the already-validated kernel.
 # ---------------------------------------------------------------------------
 
-from struphy.pic.accumulation.accum_kernels_cuda import charge_density_0form_gpu as _charge_density_0form_gpu  # noqa: E402
+from struphy.pic.accumulation.accum_kernels_cuda import charge_density_0form_gpu as _charge_density_0form_gpu
 
 
 def gc_density_0form_gpu(markers, weight_idx, pn, tn1_dev, tn2_dev, tn3_dev, starts, vec_dev):
