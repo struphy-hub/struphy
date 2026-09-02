@@ -3,9 +3,9 @@
 import logging
 from dataclasses import dataclass
 
+import cunumpy as xp
 from cunumpy import PyccelKernel
 from line_profiler import profile
-import cunumpy as xp
 
 from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable
