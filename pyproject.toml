@@ -139,6 +139,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 ]
 struphy = [
     "compile_struphy.mk",
+    "**/*.cu",
 ]
 
 [tool.autopep8]
