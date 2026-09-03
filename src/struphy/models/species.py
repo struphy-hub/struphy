@@ -178,8 +178,15 @@ class Species(metaclass=ABCMeta):
 
             con = ConstantsOfNature()
 
-            # relevant frequencies
-            om_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            # relevant frequencies (scalar physics constants -- xp.sqrt
+            # returns a 0-d backend array under cupy, not a Python float;
+            # left as such it propagates into alpha/epsilon/kappa below and
+            # eventually into things like `sigma_3 * coeff * StencilVector`
+            # in ImplicitDiffusion, which numpy tolerates but cupy's
+            # stricter __array_ufunc__ protocol rejects with a "NotImplemented"
+            # TypeError. There's no vectorization to gain here, so force
+            # back to a plain float immediately.)
+            om_p = float(xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH)))
             om_c = Z * con.e * units.B / (A * con.mH)
 
             # compute equation parameters

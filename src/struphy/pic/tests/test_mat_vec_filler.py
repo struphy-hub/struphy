@@ -1,6 +1,7 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -47,12 +48,12 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         logger.info(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
 
     # DR attributes
-    pn = xp.array(DR.degree)
+    pn = np.array(DR.degree)
     tn1, tn2, tn3 = DR.V0fem.knots
 
     starts1 = {}
 
-    starts1["v0"] = xp.array(DR.V0.starts)
+    starts1["v0"] = np.array(DR.V0.starts)
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
@@ -69,59 +70,74 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
+    # StencilMatrix/StencilVector._data follows the active array backend (it
+    # is genuinely device-resident under CuPy, for the GPU linear-algebra
+    # path). This test calls the raw (non-marshalled) filler kernels below
+    # directly with a single particle's scalar coordinates, which is a
+    # host-only scenario, so _data is brought to the host right after
+    # construction.
+    def _host(a):
+        return xp.to_numpy(a)
+
     # _data of StencilMatrices/Vectors
     mat = {}
     vec = {}
 
-    mat["v0"] = StencilMatrix(DR.V0, DR.V0, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v0"] = StencilVector(DR.V0)._data
+    mat["v0"] = _host(StencilMatrix(DR.V0, DR.V0, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data)
+    vec["v0"] = _host(StencilVector(DR.V0)._data)
 
-    mat["v3"] = StencilMatrix(DR.V3, DR.V3, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
-    vec["v3"] = StencilVector(DR.V3)._data
+    mat["v3"] = _host(StencilMatrix(DR.V3, DR.V3, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data)
+    vec["v3"] = _host(StencilVector(DR.V3)._data)
 
     mat["v1"] = []
     for i in range(3):
         mat["v1"] += [[]]
         for j in range(3):
             mat["v1"][-1] += [
-                StencilMatrix(
-                    DR.V1.spaces[i],
-                    DR.V1.spaces[j],
-                    backend=PSYDAC_BACKEND_GPYCCEL,
-                    precompiled=True,
-                )._data,
+                _host(
+                    StencilMatrix(
+                        DR.V1.spaces[i],
+                        DR.V1.spaces[j],
+                        backend=PSYDAC_BACKEND_GPYCCEL,
+                        precompiled=True,
+                    )._data,
+                ),
             ]
 
     vec["v1"] = []
     for i in range(3):
-        vec["v1"] += [StencilVector(DR.V1.spaces[i])._data]
+        vec["v1"] += [_host(StencilVector(DR.V1.spaces[i])._data)]
 
     mat["v2"] = []
     for i in range(3):
         mat["v2"] += [[]]
         for j in range(3):
             mat["v2"][-1] += [
-                StencilMatrix(
-                    DR.V2.spaces[i],
-                    DR.V2.spaces[j],
-                    backend=PSYDAC_BACKEND_GPYCCEL,
-                    precompiled=True,
-                )._data,
+                _host(
+                    StencilMatrix(
+                        DR.V2.spaces[i],
+                        DR.V2.spaces[j],
+                        backend=PSYDAC_BACKEND_GPYCCEL,
+                        precompiled=True,
+                    )._data,
+                ),
             ]
 
     vec["v2"] = []
     for i in range(3):
-        vec["v2"] += [StencilVector(DR.V2.spaces[i])._data]
+        vec["v2"] += [_host(StencilVector(DR.V2.spaces[i])._data)]
 
     # Some filling for testing
-    fill_mat = xp.reshape(xp.arange(9, dtype=float), (3, 3)) + 1.0
-    fill_vec = xp.arange(3, dtype=float) + 1.0
+    fill_mat = np.reshape(np.arange(9, dtype=float), (3, 3)) + 1.0
+    fill_vec = np.arange(3, dtype=float) + 1.0
 
     # Random points in domain of process (VERY IMPORTANT to be in the right domain, otherwise NON-TRACKED errors occur in filler_kernels !!)
-    dom = DR.domain_array[rank]
-    eta1s = xp.random.rand(n_markers) * (dom[1] - dom[0]) + dom[0]
-    eta2s = xp.random.rand(n_markers) * (dom[4] - dom[3]) + dom[3]
-    eta3s = xp.random.rand(n_markers) * (dom[7] - dom[6]) + dom[6]
+    # DR.domain_array may be device-resident under CuPy; bring it to the host
+    # so eta1s/eta2s/eta3s (fed to raw Pyccel kernels below) stay NumPy.
+    dom = _host(DR.domain_array[rank])
+    eta1s = np.random.rand(n_markers) * (dom[1] - dom[0]) + dom[0]
+    eta2s = np.random.rand(n_markers) * (dom[4] - dom[3]) + dom[3]
+    eta3s = np.random.rand(n_markers) * (dom[7] - dom[6]) + dom[6]
 
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
@@ -138,13 +154,13 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         span3 = bsp.find_span(tn3, DR.degree[2], eta3)
 
         # non-zero spline values at eta
-        bn1 = xp.empty(DR.degree[0] + 1, dtype=float)
-        bn2 = xp.empty(DR.degree[1] + 1, dtype=float)
-        bn3 = xp.empty(DR.degree[2] + 1, dtype=float)
+        bn1 = np.empty(DR.degree[0] + 1, dtype=float)
+        bn2 = np.empty(DR.degree[1] + 1, dtype=float)
+        bn3 = np.empty(DR.degree[2] + 1, dtype=float)
 
-        bd1 = xp.empty(DR.degree[0], dtype=float)
-        bd2 = xp.empty(DR.degree[1], dtype=float)
-        bd3 = xp.empty(DR.degree[2], dtype=float)
+        bd1 = np.empty(DR.degree[0], dtype=float)
+        bd2 = np.empty(DR.degree[1], dtype=float)
+        bd3 = np.empty(DR.degree[2], dtype=float)
 
         bsp.b_d_splines_slim(tn1, DR.degree[0], eta1, span1, bn1, bd1)
         bsp.b_d_splines_slim(tn2, DR.degree[1], eta2, span2, bn2, bd2)
@@ -156,9 +172,9 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         ie3 = span3 - pn[2]
 
         # global indices of non-vanishing B- and D-splines (no modulo)
-        glob_n1 = xp.arange(ie1, ie1 + pn[0] + 1)
-        glob_n2 = xp.arange(ie2, ie2 + pn[1] + 1)
-        glob_n3 = xp.arange(ie3, ie3 + pn[2] + 1)
+        glob_n1 = np.arange(ie1, ie1 + pn[0] + 1)
+        glob_n2 = np.arange(ie2, ie2 + pn[1] + 1)
+        glob_n3 = np.arange(ie3, ie3 + pn[2] + 1)
 
         glob_d1 = glob_n1[:-1]
         glob_d2 = glob_n2[:-1]
@@ -184,10 +200,10 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         # local column indices in _data of non-vanishing B- and D-splines, as sets for comparison
         cols = [{}, {}, {}]
         for n in range(3):
-            cols[n]["NN"] = set(xp.arange(2 * pn[n] + 1))
-            cols[n]["ND"] = set(xp.arange(2 * pn[n]))
-            cols[n]["DN"] = set(xp.arange(1, 2 * pn[n] + 1))
-            cols[n]["DD"] = set(xp.arange(1, 2 * pn[n]))
+            cols[n]["NN"] = set(np.arange(2 * pn[n] + 1))
+            cols[n]["ND"] = set(np.arange(2 * pn[n]))
+            cols[n]["DN"] = set(np.arange(1, 2 * pn[n] + 1))
+            cols[n]["DD"] = set(np.arange(1, 2 * pn[n]))
 
         # testing vector-valued spaces
         spaces_vector = ["v1", "v2"]
@@ -364,22 +380,22 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank):
     """
     assert len(mat.shape) == 6
     # assert non NaN
-    assert ~xp.isnan(mat).any()
+    assert ~np.isnan(mat).any()
 
     atol = 1e-14
 
     logger.debug(f"\n({row_str}) ({col_str})")
-    logger.debug(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
-    logger.debug(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
-    logger.debug(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
-    logger.debug(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
-    logger.debug(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
-    logger.debug(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
+    logger.debug(f"rank {rank} | ind_row1: {set(np.where(mat > atol)[0])}")
+    logger.debug(f"rank {rank} | ind_row2: {set(np.where(mat > atol)[1])}")
+    logger.debug(f"rank {rank} | ind_row3: {set(np.where(mat > atol)[2])}")
+    logger.debug(f"rank {rank} | ind_col1: {set(np.where(mat > atol)[3])}")
+    logger.debug(f"rank {rank} | ind_col2: {set(np.where(mat > atol)[4])}")
+    logger.debug(f"rank {rank} | ind_col3: {set(np.where(mat > atol)[5])}")
 
     # check if correct indices are non-zero
     for n, (r, c) in enumerate(zip(row_str, col_str)):
-        assert set(xp.where(mat > atol)[n]) == rows[n][r]
-        assert set(xp.where(mat > atol)[n + 3]) == cols[n][r + c]
+        assert set(np.where(mat > atol)[n]) == rows[n][r]
+        assert set(np.where(mat > atol)[n + 3]) == cols[n][r + c]
 
     # Set matrix back to zero
     mat[:, :] = 0.0
@@ -407,18 +423,18 @@ def assert_vec(vec, rows, row_str, rank):
     """
     assert len(vec.shape) == 3
     # assert non Nan
-    assert ~xp.isnan(vec).any()
+    assert ~np.isnan(vec).any()
 
     atol = 1e-14
 
     logger.debug(f"\n({row_str})")
-    logger.debug(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
-    logger.debug(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
-    logger.debug(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
+    logger.debug(f"rank {rank} | ind_row1: {set(np.where(vec > atol)[0])}")
+    logger.debug(f"rank {rank} | ind_row2: {set(np.where(vec > atol)[1])}")
+    logger.debug(f"rank {rank} | ind_row3: {set(np.where(vec > atol)[2])}")
 
     # check if correct indices are non-zero
     for n, r in enumerate(row_str):
-        assert set(xp.where(vec > atol)[n]) == rows[n][r]
+        assert set(np.where(vec > atol)[n]) == rows[n][r]
 
     # Set vector back to zero
     vec[:] = 0.0

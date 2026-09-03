@@ -62,9 +62,17 @@ class ODEsolverFEEC:
 
     @ProfileManager.profile("solve: ODEsolverFEEC")
     def __call__(self, tn, h):
-        a = self.butcher.a
-        b = self.butcher.b
-        c = self.butcher.c
+        # These coefficients scale FEEC vectors (StencilVector/BlockVector), which do
+        # not implement __array_ufunc__. Under CuPy `a[i, j]` is a 0-d *device* array,
+        # so `h * a[i, j] * vec` dispatches to CuPy's __mul__ and fails with
+        # NotImplemented; under NumPy the same expression yields a np.float64 scalar
+        # and falls back to the vector's __rmul__, which is why this only ever broke on
+        # the GPU. The tableau itself must stay on the active backend -- the particle
+        # pushers hand `a_stage`/`b`/`c` straight to CUDA kernels -- so only the scalars
+        # used here are brought to the host, once per call and s^2 values at most.
+        a = xp.to_numpy(self.butcher.a)
+        b = xp.to_numpy(self.butcher.b)
+        c = xp.to_numpy(self.butcher.c)
 
         # keep initial condition
         for v, vn in zip(self.y, self.yn):

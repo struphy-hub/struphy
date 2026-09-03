@@ -3,9 +3,9 @@
 import logging
 from dataclasses import dataclass
 
+import cunumpy as xp
 from cunumpy import PyccelKernel
 from line_profiler import profile
-from numpy import array, random
 
 from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable
@@ -109,7 +109,9 @@ class PushRandomDiffusion(Propagator):
 
         particles = self.variables.var.particles
 
-        self._noise = array(particles.markers[:, :3])
+        # Allocated on the active backend: this buffer is handed to the pusher kernel
+        # alongside the marker array, so under CuPy it has to be a device array.
+        self._noise = xp.array(particles.markers[:, :3])
 
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
@@ -144,7 +146,10 @@ class PushRandomDiffusion(Propagator):
 
         particles = self.variables.var.particles
 
-        self._noise[:] = random.multivariate_normal(
+        # Drawn through the backend's own RNG, so the samples are generated where the
+        # buffer lives instead of being copied host->device every step. On NumPy this
+        # is numpy.random, i.e. unchanged behaviour.
+        self._noise[:] = xp.random.multivariate_normal(
             self._mean,
             self._cov,
             len(particles.markers),

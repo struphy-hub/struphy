@@ -10,6 +10,7 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
+from scope_profiler import ProfileManager
 
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -1739,7 +1740,8 @@ class BasisProjectionOperator(LinOpWithTransp):
                 P.space.coeff_space,
             )
 
-        self._dof_mat = self.assemble()
+        with ProfileManager.profile_region("basis projection weights: assemble"):
+            self._dof_mat = self.assemble()
         # ========================================================
 
         # build composed linear operator BP * P * DOF * EV^T * BV^T or transposed
@@ -1858,14 +1860,20 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         if self.transposed:
             # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-            self._P.solve(v, True, apply_bc=True, out=self._tmp_dom, x0=self._x0)
-            self._tmp_dom.copy(out=self._x0)
-            self.dof_operator.dot(self._tmp_dom, out=out)
+            with ProfileManager.profile_region("basis projection: interpolation solve"):
+                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom, x0=self._x0)
+            if self._P.is_polar:
+                self._tmp_dom.copy(out=self._x0)
+            with ProfileManager.profile_region("basis projection: dof operator"):
+                self.dof_operator.dot(self._tmp_dom, out=out)
         else:
             # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-            self.dof_operator.dot(v, out=self._tmp_codom)
-            self._P.solve(self._tmp_codom, False, apply_bc=True, out=out, x0=self._x0)
-            out.copy(out=self._x0)
+            with ProfileManager.profile_region("basis projection: dof operator"):
+                self.dof_operator.dot(v, out=self._tmp_codom)
+            with ProfileManager.profile_region("basis projection: interpolation solve"):
+                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out, x0=self._x0)
+            if self._P.is_polar:
+                out.copy(out=self._x0)
 
         return out
 
@@ -1898,12 +1906,14 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._weights = weights
 
         # assemble tensor-product dof matrix
-        self._dof_mat = self.assemble()
+        with ProfileManager.profile_region("basis projection weight update: assemble"):
+            self._dof_mat = self.assemble()
 
         # only need to update the transposed in case where it's needed
         # (no need to recreate a new ComposedOperator)
         if self._transposed:
-            self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
+            with ProfileManager.profile_region("basis projection weight update: transpose"):
+                self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
     def assemble(self, weights=None):
         """
@@ -1993,7 +2003,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                         polar_shift,
                     )
 
-                _ptsG = [pts.flatten() for pts in _ptsG]
+                _ptsG = [xp.asarray(pts.flatten()) for pts in _ptsG]
 
                 _Vnbases = [int(space.nbasis) for space in V1d]
                 _Wnbases = [int(space.nbasis) for space in W1d]
@@ -2014,9 +2024,15 @@ class BasisProjectionOperator(LinOpWithTransp):
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
 
-                not_weight_zero = xp.array(
-                    int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
-                )
+                # A device reduction here synchronizes the whole CuPy stream
+                # once per matrix block.  Dynamic GPU weights are cheap to
+                # assemble even when zero, so avoid that host round-trip.
+                if self._mpi_comm is None and isinstance(loc_weight, xp.ndarray) and xp.is_gpu(loc_weight):
+                    not_weight_zero = True
+                else:
+                    not_weight_zero = xp.array(
+                        int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
+                    )
 
                 if self._mpi_comm is not None:
                     self._mpi_comm.Allreduce(
@@ -2042,31 +2058,53 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = PyccelKernel(
-                        getattr(
-                            basis_projection_kernels,
-                            "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
-                        ),
-                    )
-
                     logger.debug(f"Assemble block {i, j}")
-                    kernel(
-                        dofs_mat._data,
-                        _starts_in,
-                        _ends_in,
-                        _pads_in,
-                        _starts_out,
-                        _ends_out,
-                        _pads_out,
-                        mat_w,
-                        *_wtsG,
-                        *_spans,
-                        *_bases,
-                        *_subs,
-                        *_Vnbases,
-                        *_Wnbases,
-                        *_Wdegrees,
-                    )
+                    if V.ldim == 3 and xp.is_gpu(dofs_mat._data):
+                        from struphy.feec.basis_projection_kernels_cuda import (
+                            assemble_dofs_for_weighted_basisfuns_3d_gpu,
+                        )
+
+                        assemble_dofs_for_weighted_basisfuns_3d_gpu(
+                            dofs_mat._data,
+                            _starts_in,
+                            _ends_in,
+                            _pads_in,
+                            _starts_out,
+                            _ends_out,
+                            _pads_out,
+                            mat_w,
+                            _wtsG,
+                            _spans,
+                            _bases,
+                            _subs,
+                            _Vnbases,
+                            _Wnbases,
+                            _Wdegrees,
+                        )
+                    else:
+                        kernel = PyccelKernel(
+                            getattr(
+                                basis_projection_kernels,
+                                "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
+                            ),
+                        )
+                        kernel(
+                            dofs_mat._data,
+                            _starts_in,
+                            _ends_in,
+                            _pads_in,
+                            _starts_out,
+                            _ends_out,
+                            _pads_out,
+                            mat_w,
+                            *_wtsG,
+                            *_spans,
+                            *_bases,
+                            *_subs,
+                            *_Vnbases,
+                            *_Wnbases,
+                            *_Wdegrees,
+                        )
 
                     dofs_mat.set_backend(
                         backend=PSYDAC_BACKEND_GPYCCEL,

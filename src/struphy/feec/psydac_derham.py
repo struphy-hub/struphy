@@ -5,6 +5,7 @@ import logging
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 import numpy as np
+from cunumpy import PyccelKernel
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -28,6 +29,19 @@ from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+
+# Pyccel kernels only understand NumPy arrays; wrap the ones called directly
+# in this module so they also work with CuPy arrays (see cunumpy.kernel).
+#
+# `outputs` names the arguments the kernel writes to. Without it every array
+# that was copied to the host is copied back to the device afterwards, which on
+# these kernels means shipping the spline coefficients and the knot vectors
+# back on every single call even though only the result array changed. The
+# indices refer to positional arguments, which is how they are called below.
+eval_3d.eval_spline_mpi_sparse_meshgrid = PyccelKernel(eval_3d.eval_spline_mpi_sparse_meshgrid)
+eval_3d.eval_spline_mpi_markers = PyccelKernel(eval_3d.eval_spline_mpi_markers)
+eval_3d.eval_spline_mpi_matrix = PyccelKernel(eval_3d.eval_spline_mpi_matrix, outputs=(10,))
+eval_spline_mpi_tensor_product_fixed = PyccelKernel(eval_spline_mpi_tensor_product_fixed)
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
@@ -58,11 +72,16 @@ logger = logging.getLogger("struphy")
 
 
 def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for compiled kernel calls."""
-    if hasattr(value, "get"):
-        # This is a CuPy array
-        return value.get()
-    return value
+    """Convert CuPy arrays to NumPy for compiled kernel calls.
+
+    xp.is_gpu, not xp.to_numpy: some callers pass plain Python scalars (e.g. a
+    degree or index) that must reach the compiled kernel unchanged, and
+    xp.to_numpy would wrap those into 0-d NumPy arrays via np.asarray -- a type
+    the kernel signature does not expect. xp.is_gpu leaves anything that isn't
+    actually a CuPy array untouched, matching the original hasattr(value, "get")
+    passthrough behaviour exactly.
+    """
+    return value.get() if xp.is_gpu(value) else value
 
 
 class DiscreteDerham:
@@ -1925,11 +1944,12 @@ class Derham:
         else:
             nproc = 1
 
-        # send buffer
-        dom_arr_loc = xp.zeros(9, dtype=float)
+        # send buffer (host-resident: passed directly to mpi4py's Allgather, and
+        # consumed by struphy.pic.base.Particles, which expects a host domain_array)
+        dom_arr_loc = np.zeros(9, dtype=float)
 
         # main array (receive buffers)
-        dom_arr = xp.zeros(nproc * 9, dtype=float)
+        dom_arr = np.zeros(nproc * 9, dtype=float)
 
         # Get global starts and ends of domain decomposition
         gl_s = self.domain_decomposition.starts
@@ -1972,11 +1992,14 @@ class Derham:
         else:
             nproc = 1
 
-        # send buffer
-        ind_arr_loc = xp.zeros(6, dtype=int)
+        # send/receive buffers for Allgather -- rank/topology bookkeeping
+        # (nproc * 6 ints), always host regardless of backend: mpi4py's
+        # uppercase buffer-protocol Allgather needs host-readable buffers,
+        # and there is no benefit to a device round trip for data this small.
+        ind_arr_loc = np.zeros(6, dtype=int)
 
         # main array (receive buffers)
-        ind_arr = xp.zeros(nproc * 6, dtype=int)
+        ind_arr = np.zeros(nproc * 6, dtype=int)
 
         # Get global starts and ends of cart OR domain decomposition
         gl_s = decomposition.starts
@@ -2025,7 +2048,9 @@ class Derham:
             neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index.
         """
 
-        neighs = xp.empty((3, 3, 3), dtype=int)
+        # rank/topology bookkeeping (27 neighbour ranks), always host, see
+        # _get_index_array.
+        neighs = np.empty((3, 3, 3), dtype=int)
 
         for i in range(3):
             for j in range(3):
@@ -2070,8 +2095,12 @@ class Derham:
         if comp == [1, 1, 1]:
             return neigh_id
 
-        comp = xp.array(comp)
-        kinds = xp.array(kinds)
+        # rank/index bookkeeping, always host: neigh_inds below holds a mix
+        # of ints and None (compared against None further down), which is a
+        # NumPy object-dtype array and has no CuPy equivalent -- see
+        # _get_index_array.
+        comp = np.array(comp)
+        kinds = np.array(kinds)
 
         # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
         if size == 1:
@@ -2106,15 +2135,15 @@ class Derham:
                         "Wrong value for component; must be 0 or 1 or 2 !",
                     )
 
-            neigh_inds = xp.array(neigh_inds)
+            neigh_inds = np.array(neigh_inds)
 
             # only use indices where information is present to find the neighbours rank
-            inds = xp.where(xp.not_equal(neigh_inds, None))
+            inds = np.where(np.not_equal(neigh_inds, None))
 
             # find ranks (row index of domain_array) which agree in start/end indices
-            index_temp = xp.squeeze(self.index_array[:, inds])
-            unique_ranks = xp.where(
-                xp.equal(index_temp, neigh_inds[inds]).all(1),
+            index_temp = np.squeeze(self.index_array[:, inds])
+            unique_ranks = np.where(
+                np.equal(index_temp, neigh_inds[inds]).all(1),
             )[0]
 
             # if any row satisfies condition, return its index (=rank of neighbour)
@@ -2155,21 +2184,26 @@ class Derham:
             2d array of pn values of D-splines indexed by (eta, spline value).
         """
 
+        from cunumpy.xp import to_cunumpy, to_numpy
+
         from struphy.bsplines import bsplines_kernels
 
-        # Extract knot vectors, degree and kind of basis
-        Tn = Nspace.knots
+        # bsplines_kernels.find_span/b_d_splines_slim are Pyccel-compiled and
+        # only understand NumPy; this is a per-point Python loop, so convert
+        # once up front rather than wrapping every individual kernel call.
+        Tn = to_numpy(Nspace.knots)
         pn = Nspace.degree
+        etas_np = to_numpy(etas)
 
-        spans = xp.zeros(etas.size, dtype=int)
-        bns = xp.zeros((etas.size, pn + 1), dtype=float)
-        bds = xp.zeros((etas.size, pn), dtype=float)
-        bn = xp.zeros(pn + 1, dtype=float)
-        bd = xp.zeros(pn, dtype=float)
+        spans = np.zeros(etas_np.size, dtype=int)
+        bns = np.zeros((etas_np.size, pn + 1), dtype=float)
+        bds = np.zeros((etas_np.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
 
-        for n in range(etas.size):
+        for n in range(etas_np.size):
             # avoid 1. --> 0. for clamped interpolation
-            eta = etas[n] % (1.0 + 1e-14)
+            eta = etas_np[n] % (1.0 + 1e-14)
             span = bsplines_kernels.find_span(Tn, pn, eta)
             bsplines_kernels.b_d_splines_slim(Tn, pn, eta, span, bn, bd)
             # correct span for mpi spline eval
@@ -2179,7 +2213,7 @@ class Derham:
             bns[n] = bn
             bds[n] = bd
 
-        return spans, bns, bds
+        return to_cunumpy(spans), to_cunumpy(bns), to_cunumpy(bds)
 
 
 class SplineFunction:
@@ -2633,11 +2667,18 @@ class SplineFunction:
         """
         TODO
         """
+        # h5py always returns plain host numpy arrays; under the cupy
+        # backend a bare `cupy_array[:] = numpy_array` full-slice
+        # assignment raises ("non-scalar numpy.ndarray cannot be used for
+        # fill" -- cupy's `[:] =` fast path doesn't do the host->device
+        # transfer implicitly), so route through xp.asarray first, which is
+        # a no-op under the numpy backend and a safe host->device copy
+        # under cupy.
         if isinstance(self.vector, StencilVector):
-            self.vector._data[:] = file[key][-1]
+            self.vector._data[:] = xp.asarray(file[key][-1])
         else:
             for n in range(3):
-                self.vector[n]._data[:] = file[key + "/" + str(n + 1)][-1]
+                self.vector[n]._data[:] = xp.asarray(file[key + "/" + str(n + 1)][-1])
 
         self._vector.update_ghost_regions()
 
@@ -3442,7 +3483,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
     # make sure that greville points used for interpolation are in [0, 1]
     # Use numpy for comparison since greville points are NumPy arrays
-    greville_loc_np = greville_loc.get() if hasattr(greville_loc, "get") else greville_loc
+    greville_loc_np = xp.to_numpy(greville_loc)
     assert np.all(np.logical_and(greville_loc_np >= 0.0, greville_loc_np <= 1.0))
 
     # interpolation
@@ -3490,14 +3531,23 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             )
         ]
 
-        # determine subinterval index (= 0 or 1):
-        subs = xp.zeros(x_grid[:-1].size, dtype=int)
-        for n, x_h in enumerate(x_grid[:-1]):
-            add = 1
-            for x_g in histopol_loc:
-                if abs(x_h - x_g) < 1e-14:
-                    add = 0
-            subs[n] += add
+        # determine subinterval index (= 0 or 1): 1 unless the left end of
+        # the cell coincides with a histopolation grid point.
+        #
+        # This used to be a Python double loop over the two grids. On the CuPy
+        # backend every `abs(x_h - x_g) < 1e-14` in it was a kernel launch
+        # whose result then had to come back to the host for the `if`, so the
+        # call cost grew as O(N^2) device round trips -- the second-largest
+        # entry in a 64^2 setup profile.
+        #
+        # The vectorized form runs on the host: these are two tiny 1-D grids,
+        # and they do not reliably live on the same backend (`x_grid` is
+        # rebuilt through a Python set above, `histopolation_grid` stays
+        # NumPy).
+        x_left_np = xp.to_numpy(x_grid[:-1])
+        histopol_loc_np = xp.to_numpy(histopol_loc)
+        matches = np.abs(x_left_np[:, None] - histopol_loc_np[None, :]) < 1e-14
+        subs = xp.array((~np.any(matches, axis=1)).astype(int))
 
         # Gauss - Legendre quadrature points and weights
         if n_quad is None:
@@ -3506,7 +3556,11 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
         pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
-        if "cupy" in xp.__name__:
+        # xp.cupy_backend, not "cupy" in xp.__name__: xp is `cunumpy` here, so
+        # xp.__name__ is always the literal string "cunumpy" -- which does not
+        # contain "cupy" as a substring -- so that check was dead code, never
+        # true even when the active backend actually is CuPy.
+        if xp.cupy_backend:
             import cupy as cp
 
             pts_loc = cp.array(pts_loc)
@@ -3596,7 +3650,10 @@ def get_pts_and_wts_quasi(
             n_quad = degree + 1
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+            # cupy has no polynomial.legendre; this is tiny host-scale math,
+            # and quadrature_grid below converts to the active backend via
+            # xp.asarray, which (unlike the reverse direction) is always safe.
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             pts = x % 1.0

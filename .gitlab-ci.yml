@@ -54,6 +54,35 @@ stages:
 .image_ubuntu_latest:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest
 
+.image_gitlab_mpcdf_nvhpc:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_24-openmpi_5_0:2025
+
+# --- GPU runners ---
+
+# Tag for an MPCDF Nvidia runner with compute capability 8.0 (A40 / A100), per
+# https://docs.mpcdf.mpg.de/doc/data/gitlab/gitlabrunners.html
+# Only the hardware tag is requested: GitLab ANDs tags together, so adding
+# `mpcdf-shared` here would make the job unschedulable if a GPU runner happens
+# not to carry it.
+.tags_gpu_nvidia:
+  tags: [gpu-nvidia-cc80]
+
+# The GPU image is a bare module image, not one of the struphy images, so there
+# is no prebuilt /struphy_${LANGUAGE}_${OMP} venv to source (as
+# .scripts.install_on_push does). These jobs therefore build their own venv and
+# install struphy from the checkout.
+.before_script_gpu:
+  before_script:
+    - module purge
+    - module load nvhpcsdk/24 openmpi/5.0 python-waterboa/2024.06 gcc/13
+    - module list
+    - nvidia-smi
+    - python3 -m venv env_gpu_${CI_PIPELINE_ID}
+    - source env_gpu_${CI_PIPELINE_ID}/bin/activate
+    - pip install -U pip
+    - pip install cupy-cuda12x cunumpy
+    - python3 -c "import cupy; cupy.zeros(1); print('cupy ok', cupy.cuda.runtime.runtimeGetVersion())"
+
 # --- job variables ---
 
 .variables_push:
@@ -528,19 +557,20 @@ inspect_repo:
 #         struphy params LinearVlasovAmpereOneSpecies --check-file $file
 #       done
 
+# Smoke test: does a GPU runner exist, and does cunumpy dispatch to it at all.
+# Deliberately does not install struphy, so it stays fast and still reports
+# something useful when the full GPU suite below is broken.
 test_cupy:
-  tags: [nvidia-cc80]
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_24-openmpi_5_0:2025
   stage: test
   extends:
     - .rules_startup
+    - .image_gitlab_mpcdf_nvhpc
+    - .tags_gpu_nvidia
   before_script:
-    - module avail
-    - module list
     - module purge
     - module load nvhpcsdk/24 openmpi/5.0 python-waterboa/2024.06 gcc/13
+    - module list
   script:
-    - ls
     - nvidia-smi
     # Install cupy
     - python3 -m pip install --user cupy-cuda12x
@@ -551,6 +581,44 @@ test_cupy:
     # Test cupy backend
     - export ARRAY_BACKEND=cupy
     - python3 src/struphy/utils/cupy_vs_numpy.py
+
+# The unit suite under ARRAY_BACKEND=cupy, i.e. the same tests as `unit_tests`
+# but with every array on the device.
+#
+# allow_failure: the CuPy backend is still being ported (several code paths
+# still fall back to the host), so this is here to report the state of that
+# port, not yet to gate merges. Remove `allow_failure` once the suite is green.
+unit_tests_gpu:
+  stage: test
+  timeout: 2h
+  allow_failure: true
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_nvhpc
+    - .tags_gpu_nvidia
+    - .before_script_gpu
+  variables:
+    ARRAY_BACKEND: cupy
+  script:
+    - pip install -e .[phys,mpi]
+    - !reference [.scripts, compile]
+    - !reference [.scripts, unit_tests]
+
+unit_tests_gpu_mpi:
+  stage: test
+  timeout: 2h
+  allow_failure: true
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_nvhpc
+    - .tags_gpu_nvidia
+    - .before_script_gpu
+  variables:
+    ARRAY_BACKEND: cupy
+  script:
+    - pip install -e .[phys,mpi]
+    - !reference [.scripts, compile]
+    - !reference [.scripts, unit_tests_mpi]
 
 install_tests:
   stage: test
