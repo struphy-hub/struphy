@@ -184,7 +184,12 @@ class ProfilingCase:
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
             # The run's log lives next to its output, so each run keeps its own record
-            # instead of sharing the driver's terminal or the SLURM log.
+            # instead of sharing the driver's terminal or the SLURM log. STRUPHY_LOG_FILE
+            # is needed on top of the shared cwd above: several rank-count runs of the same
+            # case share `output_root` as their cwd (often concurrently, as separate SLURM
+            # jobs), and struphy's default relative "struphy.log" would otherwise resolve to
+            # the same file for all of them, racing on log rotation across processes.
+            f'STRUPHY_LOG_FILE="{sim_dir / "struphy.log"}" '
             f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
