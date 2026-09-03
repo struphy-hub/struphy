@@ -1591,7 +1591,12 @@ class Domain(metaclass=DomainMeta):
         plotter.add_mesh(mesh, show_edges=True)
         plotter.show()
 
-    def export_geometry(self, filename: str):
+    def export_geometry(self,
+                        filename: str,
+                        nx: int = 32,
+                                ny: int = 32,
+                                nz: int = 32,
+                                ):
         """Save the geometry to a VTK file.
 
         Parameters
@@ -1601,7 +1606,7 @@ class Domain(metaclass=DomainMeta):
         """
         from vtk import vtkGeometryFilter, vtkXMLPolyDataWriter
 
-        mesh = self.create_geometry_mesh()
+        mesh = self.create_geometry_mesh(nx, ny, nz)
         if filename.endswith(".vts"):
             mesh.save(filename, binary=True)
         elif filename.endswith(".vtp"):
