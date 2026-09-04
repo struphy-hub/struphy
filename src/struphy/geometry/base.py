@@ -14,10 +14,22 @@ from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
+try:
+    from IPython.display import HTML, display
+except ImportError:
+
+    def HTML(data):
+        return data
+
+    def display(*objects, **kwargs):
+        return objects[0] if objects else None
+
+
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -303,6 +315,28 @@ class Domain(metaclass=DomainMeta):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
+
+    forced_heading_level = 5
+
+    @classmethod
+    def _doc_text(cls) -> str:
+        return cls.__doc__ if cls.__doc__ else "Description not available for this domain."
+
+    @classmethod
+    def doc_html(cls) -> str:
+        return rst_to_html(cls._doc_text(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def doc_markdown(cls) -> str:
+        return rst_to_markdown(cls._doc_text())
+
+    @classmethod
+    def doc_latex(cls) -> str:
+        return rst_to_latex(cls._doc_text())
+
+    @classmethod
+    def doc(cls):
+        return display(HTML(cls.doc_html()))
 
     @property
     def kind_map(self) -> int:
