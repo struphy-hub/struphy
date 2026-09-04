@@ -358,7 +358,6 @@ class Domain(metaclass=DomainMeta):
     @classmethod
     def mapping(cls):
         return display(HTML(cls.mapping_html()))
-
     @property
     def kind_map(self) -> int:
         """Integer defining the mapping:

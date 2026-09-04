@@ -137,7 +137,6 @@ class Perturbation(metaclass=ABCMeta):
     @classmethod
     def formula(cls):
         return display(HTML(cls.formula_html()))
-
     @property
     def given_in_basis(self) -> str:
         r"""In which basis the perturbation is represented, must be set in child class (use the setter below).
