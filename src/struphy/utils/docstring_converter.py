@@ -1113,6 +1113,165 @@ def rst_to_markdown(rst_text: str) -> str:
     return md
 
 
+def rst_to_latex(rst_text: str) -> str:
+    """
+    Convert RST docstring to LaTeX source.
+
+    This is a lightweight converter (no docutils dependency), covering the common
+    RST patterns used in Struphy docstrings: ``.. math::`` blocks, ``.. code-block::``
+    sections, inline ``:math:``, inline code, ``:class:``/``:meth:``/``:func:``/``:mod:``/
+    ``:attr:``/``:ref:`` roles, bold/italic emphasis, and bullet/numbered lists.
+    It does not escape LaTeX special characters (``%``, ``&``, ``#``, ``_``, ...) in
+    plain text, since docstrings already mix literal LaTeX (inside math blocks) with
+    prose.
+
+    Args:
+        rst_text: RST formatted text
+
+    Returns:
+        LaTeX formatted text
+    """
+    if not rst_text:
+        return ""
+
+    latex = rst_text
+
+    # Extract code-block sections first, restored as verbatim environments.
+    code_blocks = []
+
+    def save_code_block(match):
+        code_content = match.group(1)
+        code_lines = code_content.split("\n")
+        dedented_lines = []
+        for code_line in code_lines:
+            if code_line.startswith("    "):
+                dedented_lines.append(code_line[4:])
+            elif code_line.strip():
+                dedented_lines.append(code_line)
+            else:
+                dedented_lines.append("")
+        cleaned_code = "\n".join(dedented_lines).strip()
+        code_blocks.append(cleaned_code)
+        return f"<!--CODEBLOCK{len(code_blocks) - 1}-->"
+
+    latex = re.sub(r"\.\. code-block::[^\n]*\n(?:\n)?((?:(?:[ \t]+[^\n]*|[ \t]*)\n)*)", save_code_block, latex)
+
+    # Extract .. math:: blocks (already real LaTeX) into equation* environments.
+    math_blocks = []
+
+    def save_math_block(math_content: str):
+        cleaned_lines = [line.strip() for line in math_content.strip().split("\n") if line.strip()]
+        math_blocks.append("\n".join(cleaned_lines))
+        return f"<!--MATHBLOCK{len(math_blocks) - 1}-->"
+
+    latex = _extract_math_directives(latex, save_math_block)
+
+    # Inline :math:`...` -> $...$
+    latex = re.sub(r":math:`([^`]+)`", lambda m: f"${m.group(1)}$", latex)
+
+    # Inline code ``code`` -> \texttt{code}
+    latex = re.sub(r"``([^`]+)``", lambda m: rf"\texttt{{{m.group(1)}}}", latex)
+
+    # :class: references -> \texttt{}
+    latex = re.sub(r":class:`~?([^`]+)`", lambda m: rf"\texttt{{{m.group(1)}}}", latex)
+
+    # :meth:, :func:, :mod:, :attr: -> \texttt{}
+    latex = re.sub(r":(?:meth|func|mod|attr):`~?([^`]+)`", lambda m: rf"\texttt{{{m.group(1)}}}", latex)
+
+    # :ref: -> \textbf{}
+    latex = re.sub(r":ref:`([^`]+)`", lambda m: rf"\textbf{{{m.group(1)}}}", latex)
+
+    # Process line by line for headers and lists (mirrors the structural pass in rst_to_html).
+    lines = latex.split("\n")
+    result_lines = []
+    i = 0
+    list_env = None
+
+    while i < len(lines):
+        line = lines[i]
+
+        # Underlined section headers.
+        if i + 1 < len(lines) and line.strip():
+            next_line = lines[i + 1]
+            if next_line and all(c in '=-~^"#' for c in next_line.strip()) and len(next_line.strip()) > 0:
+                if list_env:
+                    result_lines.append(rf"\end{{{list_env}}}")
+                    list_env = None
+                result_lines.append(rf"\textbf{{{line.strip()}}}\\")
+                i += 2
+                continue
+
+        # Bold header alone on a line (**Text**).
+        bold_header_match = re.match(r"^\*\*([^*]+)\*\*\s*$", line.strip())
+        if bold_header_match:
+            if list_env:
+                result_lines.append(rf"\end{{{list_env}}}")
+                list_env = None
+            result_lines.append(rf"\textbf{{{bold_header_match.group(1)}}}\\")
+            i += 1
+            continue
+
+        # Bullet list items.
+        list_match = re.match(r"^\s*-\s+(.+)$", line)
+        if list_match:
+            if list_env == "enumerate":
+                result_lines.append(r"\end{enumerate}")
+                list_env = None
+            if not list_env:
+                result_lines.append(r"\begin{itemize}")
+                list_env = "itemize"
+            result_lines.append(rf"\item {list_match.group(1)}")
+            i += 1
+            continue
+
+        # Numbered list items.
+        numbered_list_match = re.match(r"^\s*\d+\.\s+(.+)$", line)
+        if numbered_list_match:
+            if list_env == "itemize":
+                result_lines.append(r"\end{itemize}")
+                list_env = None
+            if not list_env:
+                result_lines.append(r"\begin{enumerate}")
+                list_env = "enumerate"
+            result_lines.append(rf"\item {numbered_list_match.group(1)}")
+            i += 1
+            continue
+
+        if not line.strip():
+            if list_env:
+                result_lines.append(rf"\end{{{list_env}}}")
+                list_env = None
+            result_lines.append("")
+            i += 1
+            continue
+
+        if list_env:
+            result_lines.append(rf"\end{{{list_env}}}")
+            list_env = None
+
+        result_lines.append(line)
+        i += 1
+
+    if list_env:
+        result_lines.append(rf"\end{{{list_env}}}")
+
+    latex = "\n".join(result_lines)
+
+    # Remaining inline bold (**text**) and italic (*text*).
+    latex = re.sub(r"\*\*([^*]+)\*\*", lambda m: rf"\textbf{{{m.group(1)}}}", latex)
+    latex = re.sub(r"\*([^*]+)\*", lambda m: rf"\textit{{{m.group(1)}}}", latex)
+
+    # Restore math blocks as display equations.
+    for i, math in enumerate(math_blocks):
+        latex = latex.replace(f"<!--MATHBLOCK{i}-->", f"\\begin{{equation*}}\n{math}\n\\end{{equation*}}")
+
+    # Restore code blocks as verbatim environments.
+    for i, code in enumerate(code_blocks):
+        latex = latex.replace(f"<!--CODEBLOCK{i}-->", f"\\begin{{verbatim}}\n{code}\n\\end{{verbatim}}")
+
+    return latex
+
+
 def auto_convert_docstring(obj):
     """
     Decorator/hook to automatically convert RST docstrings to HTML.

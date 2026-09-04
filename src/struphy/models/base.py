@@ -33,7 +33,7 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
+from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -225,6 +225,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return rst_to_markdown(cls._info_doc())
 
     @classmethod
+    def info_latex(cls) -> str:
+        return rst_to_latex(cls._info_doc())
+
+    @classmethod
     def info(cls):
         return display(HTML(cls.info_html()))
 
@@ -240,6 +244,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @classmethod
     def pde_markdown(cls) -> str:
         return rst_to_markdown(cls._pde_doc())
+
+    @classmethod
+    def pde_latex(cls) -> str:
+        return rst_to_latex(cls._pde_doc())
 
     @classmethod
     def pde(cls):
@@ -265,6 +273,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return rst_to_markdown(cls._normalization_doc())
 
     @classmethod
+    def normalization_latex(cls) -> str:
+        return rst_to_latex(cls._normalization_doc())
+
+    @classmethod
     def normalization(cls):
         return display(HTML(cls.normalization_html()))
 
@@ -284,6 +296,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @classmethod
     def scalar_quantities_markdown(cls) -> str:
         return rst_to_markdown(cls._scalar_quantities_doc())
+
+    @classmethod
+    def scalar_quantities_latex(cls) -> str:
+        return rst_to_latex(cls._scalar_quantities_doc())
 
     @classmethod
     def scalar_quantities(cls):
@@ -309,6 +325,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return rst_to_markdown(cls._discretization_doc())
 
     @classmethod
+    def discretization_latex(cls) -> str:
+        return rst_to_latex(cls._discretization_doc())
+
+    @classmethod
     def discretization(cls):
         return display(HTML(cls.discretization_html()))
 
@@ -332,6 +352,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return rst_to_markdown(cls._long_description_doc())
 
     @classmethod
+    def long_description_latex(cls) -> str:
+        return rst_to_latex(cls._long_description_doc())
+
+    @classmethod
     def long_description(cls):
         return display(HTML(cls.long_description_html()))
 
@@ -351,6 +375,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return rst_to_markdown(cls._examples_doc())
 
     @classmethod
+    def examples_latex(cls) -> str:
+        return rst_to_latex(cls._examples_doc())
+
+    @classmethod
     def examples(cls):
         return display(HTML(cls.examples_html()))
 
@@ -368,6 +396,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @classmethod
     def use_cases_markdown(cls) -> str:
         return rst_to_markdown(cls._use_cases_doc())
+
+    @classmethod
+    def use_cases_latex(cls) -> str:
+        return rst_to_latex(cls._use_cases_doc())
 
     @classmethod
     def use_cases(cls):
@@ -391,6 +423,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @classmethod
     def cannot_be_used_for_markdown(cls) -> str:
         return rst_to_markdown(cls._cannot_be_used_for_doc())
+
+    @classmethod
+    def cannot_be_used_for_latex(cls) -> str:
+        return rst_to_latex(cls._cannot_be_used_for_doc())
 
     @classmethod
     def cannot_be_used_for(cls):
