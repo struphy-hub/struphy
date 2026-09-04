@@ -174,27 +174,6 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def formula(cls):
         return display(HTML(cls.formula_html()))
 
-    @classmethod
-    def _examples_doc(cls) -> str:
-        doc_examples = getattr(cls, "doc_examples", None)
-        return doc_examples.__doc__ if doc_examples else "Example not available for this equilibrium."
-
-    @classmethod
-    def examples_html(cls) -> str:
-        return rst_to_html(cls._examples_doc(), forced_heading_level=cls.forced_heading_level)
-
-    @classmethod
-    def examples_markdown(cls) -> str:
-        return rst_to_markdown(cls._examples_doc())
-
-    @classmethod
-    def examples_latex(cls) -> str:
-        return rst_to_latex(cls._examples_doc())
-
-    @classmethod
-    def examples(cls):
-        return display(HTML(cls.examples_html()))
-
     ###########################
     # Vector-valued callables #
     ###########################

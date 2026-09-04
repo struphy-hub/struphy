@@ -74,18 +74,6 @@ class HomogenSlab(CartesianMHDequilibrium):
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            HomogenSlab :
-                B0x  : 0. # magnetic field in x
-                B0y  : 0. # magnetic field in y
-                B0z  : 1. # magnetic field in z
-                beta : .1 # plasma beta = p*(2*mu_0)/B^2
-                n0   : 1. # number density
-        """
-
     def __init__(
         self,
         B0x: float = 0.0,
@@ -199,23 +187,6 @@ class ShearedSlab(CartesianMHDequilibrium):
             n(x) &= n_a + ( 1 - n_a ) \left( 1 - \left(\frac{x}{a}\right)^{n_1} \right)^{n_2} \,.
 
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            ShearedSlab :
-                a    : 1.   # minor radius (Lx=a, Ly=2*pi*a)
-                R0   : 3.   # major radius (Lz=2*pi*R0)
-                B0   : 1.   # magnetic field in z-direction
-                q0   : 1.05 # safety factor at x = 0
-                q1   : 1.80 # safety factor at x = a
-                n1   : 0.   # 1st shape factor for ion number density profile
-                n2   : 0.   # 2nd shape factor for ion number density profile
-                na   : 1.   # number density at r=a
-                beta : .1   # plasma beta = p*2/B^2
-                q_kind : 0. # kind of safety factor profile
         """
 
     def __init__(
@@ -438,26 +409,6 @@ class ShearFluid(CartesianMHDequilibrium):
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            ShearFluid :
-                a    : 1.   # dimension in x
-                b    : 1.   # dimension in y
-                c    : 2.   # dimension in z
-                z1   : 0.5  # first swap location
-                z2   : 1.5  # second swap location
-                delta: 0.06666666   # characteristic size of the swap
-                na   : 1.25 # exterior density
-                nb   : 0.75 # deviation from the average
-                pa   : 1.   # constant pressure
-                pb   : 0.   # deviation pressure
-                B0x  : 1. # magnetic field in x
-                B0y  : 0. # magnetic field in y
-                B0z  : 0. # magnetic field in z
-        """
-
     def __init__(
         self,
         a: float = 1.0,
@@ -643,23 +594,6 @@ class ScrewPinch(CartesianMHDequilibrium):
             n(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
 
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            ScrewPinch :
-                a    : 1.   # minor radius (radius of cylinder)
-                R0   : 3.   # major radius (length of pinch Lz=2*pi*R0)
-                B0   : 1.   # magnetic field in z-direction
-                q0   : 1.05 # safety factor at r=0
-                q1   : 1.80 # safety factor at r=a
-                n1   : 0.   # 1st shape factor for ion number density profile
-                n2   : 0.   # 2nd shape factor for ion number density profile
-                na   : 1.   # ion number density at r=a
-                p0   : 1.   # pressure offset
-                beta : 0.1  # plasma beta = p*2/B^2 for q0=q1=inf (pure axial field).
         """
 
     def __init__(
@@ -941,30 +875,6 @@ class AdhocTorus(AxisymmMHDequilibrium):
             n(r) = n_a + ( 1 - n_a ) \left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
 
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            AdhocTorus :
-                a       : 1.   # minor radius
-                R0      : 3.   # major radius
-                B0      : 2.   # on-axis toroidal magnetic field
-                q_kind  : 0    # which profile (0 : parabolic, 1 : other, 2 : parabolic with linear term, see documentation)
-                q0      : 1.05 # safety factor at r=0
-                q1      : 1.80 # safety factor at r=a
-                l       : 0.   # linear term factor for q profile if q_kind=2
-                n1      : .5   # 1st shape factor for number density profile
-                n2      : 1.   # 2nd shape factor for number density profile
-                na      : .2   # number density at r=a
-                p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-                p0      : 1.   # constant factor for ad hoc pressure profile
-                p1      : .1   # 1st shape factor for ad hoc pressure profile
-                p2      : .1   # 2nd shape factor for ad hoc pressure profile
-                beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
-                psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind=1)
-                psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
         """
 
     def __init__(
@@ -1453,27 +1363,6 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             n(\psi) &= n_a + ( 1 - n_a ) \left( 1 - \psi_{\textnormal{norm}}^{n_1} \right)^{n_2}\,.
 
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            AdhocTorusQPsi :
-                a       : 0.361925 # minor radius
-                R0      : 1.   # major radius
-                B0      : 1.   # on-axis toroidal magnetic field
-                q0      : 0.6  # safety factor at r=0
-                q1      : 2.5  # safety factor at r=a
-                q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
-                q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
-                n1      : .5   # shape factor for number density profile
-                n2      : 1.   # shape factor for number density profile
-                na      : .2   # number density at r=a
-                beta    : .1   # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
-                p1      : 0.25 # shape factor of pressure profile
-                psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function
-                psi_nel : 50   # number of cells to be used for interpolation of poloidal flux functionq_kind=1)
         """
 
     def __init__(
@@ -3083,19 +2972,6 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            HomogenSlabITG :
-                B0z  : 1.
-                Lx   : 1.
-                p0   : 1.
-                pmin : .1
-                n0   : 1.
-                eps  : .1
-        """
-
     def __init__(
         self,
         B0z: float = 1.0,
@@ -3200,17 +3076,6 @@ class CircularTokamak(AxisymmMHDequilibrium):
         The pressure profile and the number density profile are not specified.
 
         Units are those defined in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            CircularTokamak :
-                a       : 1.   # minor radius
-                R0      : 2.   # major radius
-                B0      : 10.  # on-axis toroidal magnetic field
-                Bp      : 12.5 # poloidal magnetic field
         """
 
     def __init__(
@@ -3359,15 +3224,6 @@ class CurrentSheet(CartesianMHDequilibrium):
             n &= n_0 = 1 \,.
 
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section ``fluid_background``::
-
-            CurrentSheet :
-                amp : 1.
-                delta : 0.1
         """
 
     def __init__(self, delta: float = 0.1, amp: float = 1.0):

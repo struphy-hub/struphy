@@ -67,25 +67,6 @@ class Tokamak(PoloidalSplineTorus):
         than a flux coordinate. The outer boundary is still controlled by psi_shifts[1].
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : Tokamak
-            Tokamak :
-                num_elements        : [8, 32]     # number of poloidal grid cells for spline mapping, >degree
-                degree          : [3, 3]      # poloidal spline degrees for spline mapping, >1
-                psi_power  : 0.7         # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
-                psi_shifts : [2., 2.]    # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
-                r_min : 0.0              # Inner radius of poloidal section. If >0.0, then r_0 = r_min.
-                xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
-                r0         : 0.3         # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
-                num_elements_pre    : [64, 256]   # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
-                p_pre      : [3, 3]      # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
-                tor_period : 1           # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-        """
-
     def __init__(
         self,
         equilibrium: AxisymmMHDequilibrium = None,
@@ -174,14 +155,6 @@ class GVECunit(Spline):
         GVEC MHD equilibrium object.
     """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : GVECunit
-        """
-
     def __init__(self, gvec_equil=None):
         import gvec
 
@@ -243,14 +216,6 @@ class DESCunit(Spline):
     desc_equil : struphy.fields_background.equils.DESCequilibrium
         DESC MHD equilibrium object.
     """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml file, use the following::
-
-        geometry :
-            type : DESCunit
-        """
 
     def __init__(self, desc_equil=None):
         from struphy.fields_background.equils import DESCequilibrium
@@ -317,19 +282,6 @@ class IGAPolarCylinder(PoloidalSplineStraight):
             \,\,z= &L_z\eta_3\,\,\end{bmatrix}
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : IGAPolarCylinder
-            IGAPolarCylinder :
-                num_elements : [8, 24] # number of poloidal grid cells, >degree
-                degree   : [3, 3] # poloidal spline degree, >1
-                Lz  : 6. # Length in third direction
-                a   : 1. # minor radius
-        """
-
     def __init__(
         self,
         num_elements: tuple[int] = (8, 24),
@@ -391,21 +343,6 @@ class IGAPolarTorus(PoloidalSplineTorus):
             \,\,z= &\sum_{ij} c^{Z}_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\sin(2\pi\theta(\eta_1, \eta_2))\,\,\end{bmatrix}
 
         The angular parametrization :math:`\theta(\eta_1, \eta_2)` can either be equal angle or straight field line (see parameters below).
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : IGAPolarTorus
-            IGAPolarTorus :
-                num_elements        : [8, 24] # number of poloidal grid cells, >degree
-                degree          : [3, 3] # poloidal spline degree, >1
-                a          : 1. # minor radius
-                R0         : 3. # major radius
-                tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-                sfl        : False # whether to use straight field line coordinates (particular theta parametrization)
         """
 
     def __init__(
@@ -537,19 +474,6 @@ class Orthogonal(Domain):
             \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : Orthogonal
-            Orthogonal :
-                Lx    : 2. # length in x-direction
-                Ly    : 2. # length in y-direction
-                alpha : .1 # x-distortion and y-distortion
-                Lz    : 1. # length in z-direction
-        """
-
     def __init__(
         self,
         Lx: float = 2.0,
@@ -598,19 +522,6 @@ class Colella(Domain):
             \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : Colella
-            Colella :
-                Lx    : 2. # length in x-direction
-                Ly    : 2. # length in y-direction
-                alpha : .1 # distortion factor
-                Lz    : 1. # length in third direction
-        """
-
     def __init__(
         self,
         Lx: float = 2.0,
@@ -657,19 +568,6 @@ class HollowCylinder(Domain):
             \,\,x= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2 / poc)\,\,\\
             \,\,y= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin(2\pi\,\eta_2 / poc)\,\,\\
             \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : HollowCylinder
-            HollowCylinder :
-                a1 : .2 # inner radius
-                a2 : 1. # outer radius
-                Lz : 4. # length of cylinder
-                poc: 2. # periodicity of theta used in the mapping
         """
 
     def __init__(
@@ -722,19 +620,6 @@ class PoweredEllipticCylinder(Domain):
             \,\,x= &r_x\,\eta_1^s\cos(2\pi\,\eta_2)\,\,\\
             \,\,y= &r_y\,\eta_1^s\sin(2\pi\,\eta_2)\,\,\\
             \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : PoweredEllipticCylinder
-            PoweredEllipticCylinder :
-                rx : 1. # axis length in x-direction
-                ry : 2. # axis length in y-direction
-                Lz : 4. # length in z-direction
-                s  : .5 # power of radial coordinate
         """
 
     def __init__(
@@ -800,21 +685,6 @@ class HollowTorus(Domain):
 
             &\qquad \textrm {with}\qquad \epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
             \end{aligned}\right.
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : HollowTorus
-            HollowTorus :
-                a1  : 0.2   # inner radius
-                a2  : 1.0   # minor radius
-                R0  : 3.0   # major radius
-                sfl : False # straight field line coordinates?
-                pol_period: 2. # periodicity of theta used in the mapping: theta = 2*pi * eta2 / pol_period (if not sfl)
-                tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
         """
 
     def __init__(
@@ -903,19 +773,6 @@ class ShafranovShiftCylinder(Domain):
             \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
         """
 
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : ShafranovShiftCylinder
-            ShafranovShiftCylinder :
-                rx    : 1. # axis length
-                ry    : 1. # axis length
-                Lz    : 4. # length in z-direction
-                delta : .2 # shift factor, should be in [0, 0.1]
-        """
-
     def __init__(
         self,
         rx: float = 1.0,
@@ -962,19 +819,6 @@ class ShafranovSqrtCylinder(Domain):
             \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\sqrt \eta_1)r_x\Delta\,\,\\
             \,\,y= &r_y\,\eta_1\sin(2\pi\,\eta_2)\,\,\\
             \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : ShafranovSqrtCylinder
-            ShafranovSqrtCylinder :
-                rx    : 1. # axis length
-                ry    : 1. # axis length
-                Lz    : 4. # length in third direction
-                delta : .2 # shift factor, should be in [0, 0.1]
         """
 
     def __init__(
@@ -1029,22 +873,6 @@ class ShafranovDshapedCylinder(Domain):
             \,\,x= &R_0\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \right]\,\,\\
             \,\,y= &R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\right]\,\,\\
             \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-        """
-
-    @classmethod
-    def doc_examples(cls):
-        """In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : ShafranovDshapedCylinder
-            ShafranovDshapedCylinder :
-                R0         : 2. # base radius
-                Lz         : 4. # length in third direction
-                delta_x    : .05 # Shafranov shift in x-direction
-                delta_y    : .025 # Shafranov shift in y-direction
-                delta_gs   : .05 # delta = sin(alpha): triangularity, shift of high point
-                epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
-                kappa_gs   : 2. # Kappa: ellipticity (elongation)
         """
 
     def __init__(
