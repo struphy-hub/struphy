@@ -193,7 +193,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
     forced_heading_level = 5
 
     @classmethod
-    def info(cls):
+    def _info_doc(cls) -> str:
         summary = (
             rst_to_html(cls.__doc__).split("Parameters")[0].split("<")[0]
             if cls.__doc__
@@ -202,7 +202,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         summary = " ".join(summary.split())
         doc = f"**{summary}**\n"
         doc += rf"""To see detailed information on the model, run the following methods:
-        
+
 .. code-block:: python
 
     {cls.name()}.pde()
@@ -214,16 +214,39 @@ class StruphyModel(metaclass=StruphyModelMeta):
     {cls.name()}.use_cases()
     {cls.name()}.cannot_be_used_for()
 """
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return doc
+
+    @classmethod
+    def info_html(cls) -> str:
+        return rst_to_html(cls._info_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def info_markdown(cls) -> str:
+        return rst_to_markdown(cls._info_doc())
+
+    @classmethod
+    def info(cls):
+        return display(HTML(cls.info_html()))
+
+    @classmethod
+    def _pde_doc(cls) -> str:
+        doc_pde = getattr(cls, "doc_pde", None)
+        return doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
+
+    @classmethod
+    def pde_html(cls) -> str:
+        return rst_to_html(cls._pde_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def pde_markdown(cls) -> str:
+        return rst_to_markdown(cls._pde_doc())
 
     @classmethod
     def pde(cls):
-        doc_pde = getattr(cls, "doc_pde", None)
-        doc = doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return display(HTML(cls.pde_html()))
 
     @classmethod
-    def normalization(cls):
+    def _normalization_doc(cls) -> str:
         doc_normalization = getattr(cls, "doc_normalization", None)
         doc = "**Normalization:**\n"
         doc += (
@@ -231,20 +254,43 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_normalization
             else """Description of normalization not available for this model."""
         )
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return doc
 
     @classmethod
-    def scalar_quantities(cls):
+    def normalization_html(cls) -> str:
+        return rst_to_html(cls._normalization_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def normalization_markdown(cls) -> str:
+        return rst_to_markdown(cls._normalization_doc())
+
+    @classmethod
+    def normalization(cls):
+        return display(HTML(cls.normalization_html()))
+
+    @classmethod
+    def _scalar_quantities_doc(cls) -> str:
         doc_scalar_quantities = getattr(cls, "doc_scalar_quantities", None)
-        doc = (
+        return (
             doc_scalar_quantities.__doc__
             if doc_scalar_quantities
             else """Description of scalar quantities not available for this model."""
         )
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
 
     @classmethod
-    def discretization(cls):
+    def scalar_quantities_html(cls) -> str:
+        return rst_to_html(cls._scalar_quantities_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def scalar_quantities_markdown(cls) -> str:
+        return rst_to_markdown(cls._scalar_quantities_doc())
+
+    @classmethod
+    def scalar_quantities(cls):
+        return display(HTML(cls.scalar_quantities_html()))
+
+    @classmethod
+    def _discretization_doc(cls) -> str:
         doc_discretization = getattr(cls, "doc_discretization", None)
         doc = "**Discretization (Propagators called in sequence):**\n"
         doc += (
@@ -252,10 +298,22 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_discretization
             else """Description of discretization not available for this model."""
         )
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return doc
 
     @classmethod
-    def long_description(cls):
+    def discretization_html(cls) -> str:
+        return rst_to_html(cls._discretization_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def discretization_markdown(cls) -> str:
+        return rst_to_markdown(cls._discretization_doc())
+
+    @classmethod
+    def discretization(cls):
+        return display(HTML(cls.discretization_html()))
+
+    @classmethod
+    def _long_description_doc(cls) -> str:
         doc_long_description = getattr(cls, "doc_long_description", None)
         doc = "**Long description:**\n"
         doc += (
@@ -263,24 +321,60 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_long_description
             else """Long description not available for this model."""
         )
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return doc
 
     @classmethod
-    def examples(cls):
+    def long_description_html(cls) -> str:
+        return rst_to_html(cls._long_description_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def long_description_markdown(cls) -> str:
+        return rst_to_markdown(cls._long_description_doc())
+
+    @classmethod
+    def long_description(cls):
+        return display(HTML(cls.long_description_html()))
+
+    @classmethod
+    def _examples_doc(cls) -> str:
         doc_examples = getattr(cls, "doc_examples", None)
         doc = "**Examples:**\n"
         doc += doc_examples.__doc__ if doc_examples else """Examples not available for this model."""
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return doc
 
     @classmethod
-    def use_cases(cls):
+    def examples_html(cls) -> str:
+        return rst_to_html(cls._examples_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def examples_markdown(cls) -> str:
+        return rst_to_markdown(cls._examples_doc())
+
+    @classmethod
+    def examples(cls):
+        return display(HTML(cls.examples_html()))
+
+    @classmethod
+    def _use_cases_doc(cls) -> str:
         doc_use_cases = getattr(cls, "doc_use_cases", None)
         doc = "**Use cases:**\n"
         doc += doc_use_cases.__doc__ if doc_use_cases else """Description of use cases not available for this model."""
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return doc
 
     @classmethod
-    def cannot_be_used_for(cls):
+    def use_cases_html(cls) -> str:
+        return rst_to_html(cls._use_cases_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def use_cases_markdown(cls) -> str:
+        return rst_to_markdown(cls._use_cases_doc())
+
+    @classmethod
+    def use_cases(cls):
+        return display(HTML(cls.use_cases_html()))
+
+    @classmethod
+    def _cannot_be_used_for_doc(cls) -> str:
         doc_cannot_be_used_for = getattr(cls, "doc_cannot_be_used_for", None)
         doc = "**Cannot be used for:**\n"
         doc += (
@@ -288,7 +382,19 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_cannot_be_used_for
             else """Information on scenarios for which the model is not suitable is not available."""
         )
-        return display(HTML(rst_to_html(doc, forced_heading_level=cls.forced_heading_level)))
+        return doc
+
+    @classmethod
+    def cannot_be_used_for_html(cls) -> str:
+        return rst_to_html(cls._cannot_be_used_for_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def cannot_be_used_for_markdown(cls) -> str:
+        return rst_to_markdown(cls._cannot_be_used_for_doc())
+
+    @classmethod
+    def cannot_be_used_for(cls):
+        return display(HTML(cls.cannot_be_used_for_html()))
 
     @classmethod
     def name(cls) -> str:
