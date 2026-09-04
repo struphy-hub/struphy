@@ -53,34 +53,38 @@ class Tokamak(PoloidalSplineTorus):
         Spline degrees in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [3, 3]).
     tor_period : int
         Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1 --> full torus).
-
-    Note
-    ----
-    Regarding r_min and psi_shifts:
-        If r_min is left at 0.0, psi_shifts defines both the inner and outer boundaries of the computational
-        domain in terms of the normalized flux coordinate \psi.
-        When r_min > 0.0, however, psi_shifts[0] is no longer used. Instead, the code computes the flux value
-        corresponding to the physical radius r_min (measured from the magnetic axis),
-        which then defines the inner boundary of the domain.
-        This allows the user to specify the inner boundary using a more intuitive physical radius rather
-        than a flux coordinate. The outer boundary is still controlled by psi_shifts[1].
-
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : Tokamak
-            Tokamak :
-                num_elements        : [8, 32]     # number of poloidal grid cells for spline mapping, >degree
-                degree          : [3, 3]      # poloidal spline degrees for spline mapping, >1
-                psi_power  : 0.7         # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
-                psi_shifts : [2., 2.]    # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
-                r_min : 0.0              # Inner radius of poloidal section. If >0.0, then r_0 = r_min.
-                xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
-                r0         : 0.3         # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
-                num_elements_pre    : [64, 256]   # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
-                p_pre      : [3, 3]      # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
-                tor_period : 1           # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""Regarding r_min and psi_shifts:
+            If r_min is left at 0.0, psi_shifts defines both the inner and outer boundaries of the computational
+            domain in terms of the normalized flux coordinate \psi.
+            When r_min > 0.0, however, psi_shifts[0] is no longer used. Instead, the code computes the flux value
+            corresponding to the physical radius r_min (measured from the magnetic axis),
+            which then defines the inner boundary of the domain.
+            This allows the user to specify the inner boundary using a more intuitive physical radius rather
+            than a flux coordinate. The outer boundary is still controlled by psi_shifts[1].
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : Tokamak
+                Tokamak :
+                    num_elements        : [8, 32]     # number of poloidal grid cells for spline mapping, >degree
+                    degree          : [3, 3]      # poloidal spline degrees for spline mapping, >1
+                    psi_power  : 0.7         # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
+                    psi_shifts : [2., 2.]    # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
+                    r_min : 0.0              # Inner radius of poloidal section. If >0.0, then r_0 = r_min.
+                    xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
+                    r0         : 0.3         # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
+                    num_elements_pre    : [64, 256]   # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
+                    p_pre      : [3, 3]      # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
+                    tor_period : 1           # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+        """
 
     def __init__(
         self,
@@ -168,14 +172,15 @@ class GVECunit(Spline):
     ----------
     gvec_equil : struphy.fields_background.equils.GVECequilibrium
         GVEC MHD equilibrium object.
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : GVECunit
     """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : GVECunit
+        """
 
     def __init__(self, gvec_equil=None):
         import gvec
@@ -237,14 +242,15 @@ class DESCunit(Spline):
     ----------
     desc_equil : struphy.fields_background.equils.DESCequilibrium
         DESC MHD equilibrium object.
-
-    Note
-    ----
-    In the parameter .yml file, use the following::
-
-        geometry :
-            type : DESCunit
     """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml file, use the following::
+
+            geometry :
+                type : DESCunit
+        """
 
     def __init__(self, desc_equil=None):
         from struphy.fields_background.equils import DESCequilibrium
@@ -286,13 +292,6 @@ class DESCunit(Spline):
 class IGAPolarCylinder(PoloidalSplineStraight):
     r"""A cylinder with the cross section approximated by a spline mapping.
 
-    .. math:: 
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &\sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\cos(2\pi\eta_2)\,\,\\
-        \,\,y= &\sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\sin(2\pi\eta_2)\,\,\\
-        \,\,z= &L_z\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/iga_cylinder.png
 
     Parameters
@@ -300,24 +299,36 @@ class IGAPolarCylinder(PoloidalSplineStraight):
     num_elements : list[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
     degree : list[int]
-        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
+        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).
     a : float
         Radius of cylinder (default: 1.).
     Lz : float
         Length of cylinder (default: 4.).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : IGAPolarCylinder
-            IGAPolarCylinder :
-                num_elements : [8, 24] # number of poloidal grid cells, >degree
-                degree   : [3, 3] # poloidal spline degree, >1
-                Lz  : 6. # Length in third direction
-                a   : 1. # minor radius
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &\sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\cos(2\pi\eta_2)\,\,\\
+            \,\,y= &\sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\sin(2\pi\eta_2)\,\,\\
+            \,\,z= &L_z\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : IGAPolarCylinder
+                IGAPolarCylinder :
+                    num_elements : [8, 24] # number of poloidal grid cells, >degree
+                    degree   : [3, 3] # poloidal spline degree, >1
+                    Lz  : 6. # Length in third direction
+                    a   : 1. # minor radius
+        """
 
     def __init__(
         self,
@@ -351,15 +362,6 @@ class IGAPolarCylinder(PoloidalSplineStraight):
 class IGAPolarTorus(PoloidalSplineTorus):
     r""" A torus with the poloidal cross-section approximated by a spline mapping.
 
-    .. math::
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &\sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(\phantom{-}2\pi\eta_3) \approx \left[a\,\eta_1\cos(2\pi\theta(\eta_1, \eta_2)) + R_0\right]\cos(\phantom{-}2\pi\eta_3)\,\,\\
-        \,\,y= &\sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(-2\pi\eta_3)\approx \left[a\,\eta_1\cos(2\pi\theta(\eta_1, \eta_2)) + R_0\right]\sin(-2\pi\eta_3)\,\,\\
-        \,\,z= &\sum_{ij} c^{Z}_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\sin(2\pi\theta(\eta_1, \eta_2))\,\,\end{bmatrix}
-
-    The angular parametrization :math:`\theta(\eta_1, \eta_2)` can either be equal angle or straight field line (see parameters below).
-
     .. image:: ../../pics/mappings/iga_torus.png
 
     Parameters
@@ -367,7 +369,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
     num_elements : tuple[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
     degree : tuple[int]
-        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
+        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).
     a : float
         Minor radius of torus (default: 1.).
     R0 : float
@@ -376,21 +378,35 @@ class IGAPolarTorus(PoloidalSplineTorus):
         Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 3 --> one third of a torus).
     sfl : bool
         Whether to use straight field line coordinates (default: False).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : IGAPolarTorus
-            IGAPolarTorus :
-                num_elements        : [8, 24] # number of poloidal grid cells, >degree
-                degree          : [3, 3] # poloidal spline degree, >1
-                a          : 1. # minor radius
-                R0         : 3. # major radius
-                tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-                sfl        : False # whether to use straight field line coordinates (particular theta parametrization) 
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &\sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(\phantom{-}2\pi\eta_3) \approx \left[a\,\eta_1\cos(2\pi\theta(\eta_1, \eta_2)) + R_0\right]\cos(\phantom{-}2\pi\eta_3)\,\,\\
+            \,\,y= &\sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(-2\pi\eta_3)\approx \left[a\,\eta_1\cos(2\pi\theta(\eta_1, \eta_2)) + R_0\right]\sin(-2\pi\eta_3)\,\,\\
+            \,\,z= &\sum_{ij} c^{Z}_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\sin(2\pi\theta(\eta_1, \eta_2))\,\,\end{bmatrix}
+
+        The angular parametrization :math:`\theta(\eta_1, \eta_2)` can either be equal angle or straight field line (see parameters below).
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : IGAPolarTorus
+                IGAPolarTorus :
+                    num_elements        : [8, 24] # number of poloidal grid cells, >degree
+                    degree          : [3, 3] # poloidal spline degree, >1
+                    a          : 1. # minor radius
+                    R0         : 3. # major radius
+                    tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+                    sfl        : False # whether to use straight field line coordinates (particular theta parametrization)
+        """
 
     def __init__(
         self,
@@ -442,13 +458,6 @@ class IGAPolarTorus(PoloidalSplineTorus):
 class Cuboid(Domain):
     r""" Slab geometry (Cartesian coordinates).
 
-    .. math::
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &l_1 + (r_1 - l_1)\,\eta_1\,\,\\
-        \,\,y= &l_2 + (r_2 - l_2)\,\eta_2\,\,\\
-        \,\,z= &l_3 + (r_3 - l_3)\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/cuboid.png
 
     Parameters
@@ -466,6 +475,17 @@ class Cuboid(Domain):
     r3 : float
         End of z-interval, r3>l3 (default: 1.).
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &l_1 + (r_1 - l_1)\,\eta_1\,\,\\
+            \,\,y= &l_2 + (r_2 - l_2)\,\eta_2\,\,\\
+            \,\,z= &l_3 + (r_3 - l_3)\,\eta_3\,\,\end{bmatrix}
+        """
 
     def __init__(
         self,
@@ -492,13 +512,6 @@ class Cuboid(Domain):
 class Orthogonal(Domain):
     r""" Slab geometry with orthogonal mesh distortion.
 
-    .. math:: 
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\right]\,\,\\
-        \,\,y= &L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\right]\,\,\\
-        \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/orthogonal.png
 
     Parameters
@@ -511,19 +524,31 @@ class Orthogonal(Domain):
         Distortion factor (default: 0.1).
     Lz : float
         Length of z-interval (default: 6.).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : Orthogonal
-            Orthogonal :
-                Lx    : 2. # length in x-direction
-                Ly    : 2. # length in y-direction
-                alpha : .1 # x-distortion and y-distortion
-                Lz    : 1. # length in z-direction
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\right]\,\,\\
+            \,\,y= &L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\right]\,\,\\
+            \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : Orthogonal
+                Orthogonal :
+                    Lx    : 2. # length in x-direction
+                    Ly    : 2. # length in y-direction
+                    alpha : .1 # x-distortion and y-distortion
+                    Lz    : 1. # length in z-direction
+        """
 
     def __init__(
         self,
@@ -548,13 +573,6 @@ class Orthogonal(Domain):
 class Colella(Domain):
     r""" Slab geometry with Colella mesh distortion.
 
-    .. math::
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\sin(2\pi\,\eta_2)\,\right]\,\,\\
-        \,\,y= &L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\sin(2\pi\,\eta_1)\,\right]\,\,\\
-        \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/colella.png
 
     Parameters
@@ -567,19 +585,31 @@ class Colella(Domain):
         Distortion factor (default: 0.1).
     Lz : float
         Length of z-interval (default: 6.).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : Colella
-            Colella :
-                Lx    : 2. # length in x-direction
-                Ly    : 2. # length in y-direction
-                alpha : .1 # distortion factor
-                Lz    : 1. # length in third direction
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\sin(2\pi\,\eta_2)\,\right]\,\,\\
+            \,\,y= &L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\sin(2\pi\,\eta_1)\,\right]\,\,\\
+            \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : Colella
+                Colella :
+                    Lx    : 2. # length in x-direction
+                    Ly    : 2. # length in y-direction
+                    alpha : .1 # distortion factor
+                    Lz    : 1. # length in third direction
+        """
 
     def __init__(
         self,
@@ -604,13 +634,6 @@ class Colella(Domain):
 class HollowCylinder(Domain):
     r""" Cylinder with possible hole around the axis.
 
-    .. math::
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2 / poc)\,\,\\
-        \,\,y= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin(2\pi\,\eta_2 / poc)\,\,\\
-        \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/hollow_cylinder.png
 
     Parameters
@@ -623,19 +646,31 @@ class HollowCylinder(Domain):
         Length of cylinder (default: 4.)
     poc: int
         Which periodicity used in the mapping, i.e. :math: `\theta = 2*\pi*\eta_2 / \mathrm{poc}` (piece of cake) (default: 1).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : HollowCylinder
-            HollowCylinder :
-                a1 : .2 # inner radius
-                a2 : 1. # outer radius
-                Lz : 4. # length of cylinder
-                poc: 2. # periodicity of theta used in the mapping
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2 / poc)\,\,\\
+            \,\,y= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin(2\pi\,\eta_2 / poc)\,\,\\
+            \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : HollowCylinder
+                HollowCylinder :
+                    a1 : .2 # inner radius
+                    a2 : 1. # outer radius
+                    Lz : 4. # length of cylinder
+                    poc: 2. # periodicity of theta used in the mapping
+        """
 
     def __init__(
         self,
@@ -664,13 +699,6 @@ class HollowCylinder(Domain):
 class PoweredEllipticCylinder(Domain):
     r""" Cylinder with elliptic cross section and radial power law.
 
-    .. math::
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &r_x\,\eta_1^s\cos(2\pi\,\eta_2)\,\,\\
-        \,\,y= &r_y\,\eta_1^s\sin(2\pi\,\eta_2)\,\,\\
-        \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/pow_elliptic_cyl.png
 
     Parameters
@@ -683,19 +711,31 @@ class PoweredEllipticCylinder(Domain):
         Length in z-direction (default: 6.0).
     s : float
         Power of radial coordinate (default: 0.5).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : PoweredEllipticCylinder
-            PoweredEllipticCylinder :
-                rx : 1. # axis length in x-direction
-                ry : 2. # axis length in y-direction
-                Lz : 4. # length in z-direction
-                s  : .5 # power of radial coordinate
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &r_x\,\eta_1^s\cos(2\pi\,\eta_2)\,\,\\
+            \,\,y= &r_y\,\eta_1^s\sin(2\pi\,\eta_2)\,\,\\
+            \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : PoweredEllipticCylinder
+                PoweredEllipticCylinder :
+                    rx : 1. # axis length in x-direction
+                    ry : 2. # axis length in y-direction
+                    Lz : 4. # length in z-direction
+                    s  : .5 # power of radial coordinate
+        """
 
     def __init__(
         self,
@@ -720,26 +760,6 @@ class PoweredEllipticCylinder(Domain):
 class HollowTorus(Domain):
     r""" Torus with possible hole around the magnetic axis (center of the smaller circle).
 
-    .. math::
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &\lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\cos(\phantom{-}2\pi\,\eta_3 / n)\,\,\\
-        \,\,y= &\lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\sin(-2\pi\,\eta_3 / n)\,\,\\
-        \,\,z= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin\left[\theta(\eta_1,\eta_2)\right]\,\,\end{bmatrix}
-
-    with the following possible poloidal angle parametrizations:
-
-    .. math::
-
-        &\theta(\eta_1,\eta_2) = \left\{\begin{aligned} 
-
-        & 2\pi\,\eta_2\,, \quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{False}\,,
-
-        &2\arctan\left[\sqrt{\frac{1 + \epsilon(\eta_1)}{1 - \epsilon(\eta_1)}}\,\tan\left(\pi\,\eta_2\right)\right]\quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{True}\,,
-
-        &\qquad \textrm {with}\qquad \epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
-        \end{aligned}\right.
-
     .. image:: ../../pics/mappings/hollow_torus.png
 
     Parameters
@@ -756,21 +776,46 @@ class HollowTorus(Domain):
         Which periodicity used in the mapping, i.e. :math: `\theta = 2*\pi*\eta_2 / \mathrm{pol_period}` (piece of cake) (default: 1, only for sfl=False).
     tor_period : int
         Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 3 --> one third of a torus).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : HollowTorus
-            HollowTorus :
-                a1  : 0.2   # inner radius
-                a2  : 1.0   # minor radius
-                R0  : 3.0   # major radius
-                sfl : False # straight field line coordinates?
-                pol_period: 2. # periodicity of theta used in the mapping: theta = 2*pi * eta2 / pol_period (if not sfl)
-                tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &\lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\cos(\phantom{-}2\pi\,\eta_3 / n)\,\,\\
+            \,\,y= &\lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\sin(-2\pi\,\eta_3 / n)\,\,\\
+            \,\,z= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin\left[\theta(\eta_1,\eta_2)\right]\,\,\end{bmatrix}
+
+        with the following possible poloidal angle parametrizations:
+
+        .. math::
+
+            &\theta(\eta_1,\eta_2) = \left\{\begin{aligned}
+
+            & 2\pi\,\eta_2\,, \quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{False}\,,
+
+            &2\arctan\left[\sqrt{\frac{1 + \epsilon(\eta_1)}{1 - \epsilon(\eta_1)}}\,\tan\left(\pi\,\eta_2\right)\right]\quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{True}\,,
+
+            &\qquad \textrm {with}\qquad \epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
+            \end{aligned}\right.
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : HollowTorus
+                HollowTorus :
+                    a1  : 0.2   # inner radius
+                    a2  : 1.0   # minor radius
+                    R0  : 3.0   # major radius
+                    sfl : False # straight field line coordinates?
+                    pol_period: 2. # periodicity of theta used in the mapping: theta = 2*pi * eta2 / pol_period (if not sfl)
+                    tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+        """
 
     def __init__(
         self,
@@ -833,13 +878,6 @@ class HollowTorus(Domain):
 class ShafranovShiftCylinder(Domain):
     r""" Cylinder with quadratic Shafranov shift.
 
-    .. math:: 
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\eta_1^2)\,r_x\Delta\,\,\\
-        \,\,y= &r_y\,\eta_1\sin(2\pi\,\eta_2)\,\,\\
-        \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/shafranov_shift.png
 
     Parameters
@@ -852,19 +890,31 @@ class ShafranovShiftCylinder(Domain):
         Length in z-direction (default: 4.0).
     delta : float
         Shift factor, should be in [0, 0.1] (default: 0.2).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : ShafranovShiftCylinder
-            ShafranovShiftCylinder :
-                rx    : 1. # axis length
-                ry    : 1. # axis length
-                Lz    : 4. # length in z-direction
-                delta : .2 # shift factor, should be in [0, 0.1]
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\eta_1^2)\,r_x\Delta\,\,\\
+            \,\,y= &r_y\,\eta_1\sin(2\pi\,\eta_2)\,\,\\
+            \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : ShafranovShiftCylinder
+                ShafranovShiftCylinder :
+                    rx    : 1. # axis length
+                    ry    : 1. # axis length
+                    Lz    : 4. # length in z-direction
+                    delta : .2 # shift factor, should be in [0, 0.1]
+        """
 
     def __init__(
         self,
@@ -889,13 +939,6 @@ class ShafranovShiftCylinder(Domain):
 class ShafranovSqrtCylinder(Domain):
     r""" Cylinder with square-root Shafranov shift.
 
-    .. math:: 
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\sqrt \eta_1)r_x\Delta\,\,\\
-        \,\,y= &r_y\,\eta_1\sin(2\pi\,\eta_2)\,\,\\
-        \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/shafranov_sqrt.png
 
     Parameters
@@ -908,19 +951,31 @@ class ShafranovSqrtCylinder(Domain):
         Length in z-direction (default: 4.0).
     delta : float
         Shift factor, should be in [0, 0.1] (default: 0.2).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : ShafranovSqrtCylinder
-            ShafranovSqrtCylinder :
-                rx    : 1. # axis length
-                ry    : 1. # axis length
-                Lz    : 4. # length in third direction
-                delta : .2 # shift factor, should be in [0, 0.1]
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\sqrt \eta_1)r_x\Delta\,\,\\
+            \,\,y= &r_y\,\eta_1\sin(2\pi\,\eta_2)\,\,\\
+            \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : ShafranovSqrtCylinder
+                ShafranovSqrtCylinder :
+                    rx    : 1. # axis length
+                    ry    : 1. # axis length
+                    Lz    : 4. # length in third direction
+                    delta : .2 # shift factor, should be in [0, 0.1]
+        """
 
     def __init__(
         self,
@@ -945,47 +1000,52 @@ class ShafranovSqrtCylinder(Domain):
 class ShafranovDshapedCylinder(Domain):
     r""" Cylinder with D-shaped cross section and quadratic Shafranov shift.
 
-    .. math:: 
-
-        F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &R_0\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \right]\,\,\\
-        \,\,y= &R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\right]\,\,\\
-        \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
-
     .. image:: ../../pics/mappings/shafranov_dshaped.png
 
     Parameters
     ----------
-    R0 : float 
+    R0 : float
         Base radius (default: 2.).
-    Lz : float 
+    Lz : float
         Length in z-direction (default: 4.).
-    delta_x : float 
+    delta_x : float
         Shafranov shift in x-direction (default: 0.05).
-    delta_y : float 
+    delta_y : float
         Shafranov shift in y-direction (default: 0.025).
-    delta_gs : float 
+    delta_gs : float
         Delta = sin(alpha): triangularity, shift of high point  (default: 0.05).
     epsilon_gs : float
         Epsilon: inverse aspect ratio a/r0 (default: 0.5).
-    kappa_gs : float 
+    kappa_gs : float
         Kappa: ellipticity (elongation) (default: 2.).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : ShafranovDshapedCylinder
-            ShafranovDshapedCylinder :
-                R0         : 2. # base radius
-                Lz         : 4. # length in third direction
-                delta_x    : .05 # Shafranov shift in x-direction
-                delta_y    : .025 # Shafranov shift in y-direction
-                delta_gs   : .05 # delta = sin(alpha): triangularity, shift of high point
-                epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
-                kappa_gs   : 2. # Kappa: ellipticity (elongation)
     """
+
+    @classmethod
+    def doc_mapping(cls):
+        r"""
+        .. math::
+
+            F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
+            \,\,x= &R_0\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \right]\,\,\\
+            \,\,y= &R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\right]\,\,\\
+            \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
+        """
+
+    @classmethod
+    def doc_examples(cls):
+        """In the parameter .yml, use the following in the section `geometry`::
+
+            geometry :
+                type : ShafranovDshapedCylinder
+                ShafranovDshapedCylinder :
+                    R0         : 2. # base radius
+                    Lz         : 4. # length in third direction
+                    delta_x    : .05 # Shafranov shift in x-direction
+                    delta_y    : .025 # Shafranov shift in y-direction
+                    delta_gs   : .05 # delta = sin(alpha): triangularity, shift of high point
+                    epsilon_gs : .5 # epsilon: inverse aspect ratio a/r0
+                    kappa_gs   : 2. # Kappa: ellipticity (elongation)
+        """
 
     def __init__(
         self,

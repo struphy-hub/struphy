@@ -338,6 +338,48 @@ class Domain(metaclass=DomainMeta):
     def doc(cls):
         return display(HTML(cls.doc_html()))
 
+    @classmethod
+    def _mapping_doc(cls) -> str:
+        doc_mapping = getattr(cls, "doc_mapping", None)
+        return doc_mapping.__doc__ if doc_mapping else "Mapping description not available for this domain."
+
+    @classmethod
+    def mapping_html(cls) -> str:
+        return rst_to_html(cls._mapping_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def mapping_markdown(cls) -> str:
+        return rst_to_markdown(cls._mapping_doc())
+
+    @classmethod
+    def mapping_latex(cls) -> str:
+        return rst_to_latex(cls._mapping_doc())
+
+    @classmethod
+    def mapping(cls):
+        return display(HTML(cls.mapping_html()))
+
+    @classmethod
+    def _examples_doc(cls) -> str:
+        doc_examples = getattr(cls, "doc_examples", None)
+        return doc_examples.__doc__ if doc_examples else "Example not available for this domain."
+
+    @classmethod
+    def examples_html(cls) -> str:
+        return rst_to_html(cls._examples_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def examples_markdown(cls) -> str:
+        return rst_to_markdown(cls._examples_doc())
+
+    @classmethod
+    def examples_latex(cls) -> str:
+        return rst_to_latex(cls._examples_doc())
+
+    @classmethod
+    def examples(cls):
+        return display(HTML(cls.examples_html()))
+
     @property
     def kind_map(self) -> int:
         """Integer defining the mapping:
