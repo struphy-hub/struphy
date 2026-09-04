@@ -338,6 +338,26 @@ class Domain(metaclass=DomainMeta):
     def doc(cls):
         return display(HTML(cls.doc_html()))
 
+    @classmethod
+    def _mapping_doc(cls) -> str:
+        doc_mapping = getattr(cls, "doc_mapping", None)
+        return doc_mapping.__doc__ if doc_mapping else "Mapping description not available for this domain."
+
+    @classmethod
+    def mapping_html(cls) -> str:
+        return rst_to_html(cls._mapping_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def mapping_markdown(cls) -> str:
+        return rst_to_markdown(cls._mapping_doc())
+
+    @classmethod
+    def mapping_latex(cls) -> str:
+        return rst_to_latex(cls._mapping_doc())
+
+    @classmethod
+    def mapping(cls):
+        return display(HTML(cls.mapping_html()))
     @property
     def kind_map(self) -> int:
         """Integer defining the mapping:
