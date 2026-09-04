@@ -85,6 +85,13 @@ class Units:
             raise AttributeError("Must call Units.derive_units() to get full set of units.")
         return self._j
 
+    @property
+    def nu(self):
+        """Unit of dynamic viscosity in kg/(m·s)."""
+        if not hasattr(self, "_nu"):
+            raise AttributeError("Must call Units.derive_units() to get full set of units.")
+        return self._nu
+
     def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None):
         """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
 
@@ -128,6 +135,9 @@ class Units:
 
             # current density (A/m^2)
             self._j = con.e * self.n * self.v
+
+            # dynamic viscosity (kg/(m·s))
+            self._nu = A_bulk * con.mH * self.n * self.x * self.v if A_bulk is not None else None
 
     def show_units(self):
         units_used = (

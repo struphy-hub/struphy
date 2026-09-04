@@ -23,10 +23,12 @@ from struphy import (
     grids,
     maxwellians,
     perturbations,
+    set_logging_level,
 )
 from struphy.models import VlasovAmpereOneSpecies
 
 logger = logging.getLogger("struphy")
+set_logging_level(logging.WARNING)
 
 
 def test_weak_Landau(do_plot: bool = False):
