@@ -117,6 +117,26 @@ class Perturbation(metaclass=ABCMeta):
     def doc(cls):
         return display(HTML(cls.doc_html()))
 
+    @classmethod
+    def _formula_doc(cls) -> str:
+        doc_formula = getattr(cls, "doc_formula", None)
+        return doc_formula.__doc__ if doc_formula else "Formula not available for this perturbation."
+
+    @classmethod
+    def formula_html(cls) -> str:
+        return rst_to_html(cls._formula_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def formula_markdown(cls) -> str:
+        return rst_to_markdown(cls._formula_doc())
+
+    @classmethod
+    def formula_latex(cls) -> str:
+        return rst_to_latex(cls._formula_doc())
+
+    @classmethod
+    def formula(cls):
+        return display(HTML(cls.formula_html()))
     @property
     def given_in_basis(self) -> str:
         r"""In which basis the perturbation is represented, must be set in child class (use the setter below).
