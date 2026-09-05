@@ -26,6 +26,12 @@ from struphy.models.base import StruphyModel
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
+from struphy.post_processing.arrays import (
+    StruphyArray,
+    wrap_binned_slice,
+    wrap_field_data,
+    wrap_orbits,
+)
 from struphy.post_processing.orbits import orbits_tools
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.progress import tqdm
@@ -39,7 +45,29 @@ logger = logging.getLogger("struphy")
 PUSH_KINDS = {"H1": "0", "Hcurl": "1", "Hdiv": "2", "L2": "3", "H1vec": "v"}
 
 
-class SplineValues:
+class Container:
+    """Mapping access over attributes set by the loader, so contents are discoverable."""
+
+    def keys(self):
+        return tuple(k for k in self.__dict__ if not k.startswith("_"))
+
+    def __getitem__(self, key):
+        try:
+            return self.__dict__[key]
+        except KeyError:
+            raise KeyError(f"{key!r} not found, available: {self.keys()}") from None
+
+    def __contains__(self, key):
+        return key in self.keys()
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __len__(self):
+        return len(self.keys())
+
+
+class SplineValues(Container):
     def __str__(self):
         out = ""
         for name, species in inspect.getmembers(self):
@@ -49,7 +77,7 @@ class SplineValues:
         return out
 
 
-class Orbits:
+class Orbits(Container):
     def __str__(self):
         out = ""
         for species, orbits in self.__dict__.items():
@@ -61,7 +89,7 @@ class Orbits:
         return out
 
 
-class DistributionFunction:
+class DistributionFunction(Container):
     def __str__(self):
         out = ""
         for name, species in inspect.getmembers(self):
@@ -71,7 +99,7 @@ class DistributionFunction:
         return out
 
 
-class DensitySPH:
+class DensitySPH(Container):
     def __str__(self):
         out = ""
         for name, species in inspect.getmembers(self):
@@ -81,7 +109,7 @@ class DensitySPH:
         return out
 
 
-class SpecHolder:
+class SpecHolder(Container):
     def __str__(self):
         out = ""
         for name, val in self.__dict__.items():
@@ -89,13 +117,39 @@ class SpecHolder:
         return out
 
 
-class Slice:
+class Slice(Container):
     pass
 
 
+class Scalars(Container):
+    """Time series recorded at every step, read straight from the raw HDF5 output.
+
+    Unlike the other containers this needs no prior call to :meth:`PostProcessor.process`.
+    """
+
+    def __str__(self):
+        out = ""
+        for name in self.keys():
+            out += f"    {name}\n"
+        return out
+
+
 class DataDict:
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, grids_log=None, name: str = ""):
         self.data = data
+        self.grids_log = grids_log
+        self.name = name
+        self._array = None
+
+    @property
+    def array(self) -> StruphyArray:
+        """The field as one labeled array with dims ``(t, comp, e1, e2, e3)``.
+
+        Built on first access; ``data`` remains the raw time-keyed dict.
+        """
+        if self._array is None:
+            self._array = wrap_field_data(self.data, self.grids_log, label=self.name)
+        return self._array
 
     def __str__(self):
         out = f"{type(self.data) = }\n"
@@ -285,13 +339,22 @@ class PostProcessor:
             self.rank = 0
             self.range_ranks = range(int(self.comm_size))
 
-        # create or remove output paths
+        # the directory is only cleared in process(), so that constructing a
+        # PostProcessor to inspect a run does not destroy its post-processed data
         if self.rank == 0:
-            try:
-                os.mkdir(self.path_pproc)
-            except:
+            os.makedirs(self.path_pproc, exist_ok=True)
+        self.comm.Barrier()
+
+    @property
+    def is_processed(self) -> bool:
+        """Whether ``path_pproc`` already holds post-processed output."""
+        return os.path.exists(self.path_pproc) and bool(os.listdir(self.path_pproc))
+
+    def _reset_pproc_dir(self):
+        if self.rank == 0:
+            if os.path.exists(self.path_pproc):
                 shutil.rmtree(self.path_pproc)
-                os.mkdir(self.path_pproc)
+            os.mkdir(self.path_pproc)
         self.comm.Barrier()
 
     def process(
@@ -302,6 +365,7 @@ class PostProcessor:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
+        force: bool = True,
     ):
         """Run post-processing for fields and particle data in ``self.path_out``.
 
@@ -321,7 +385,20 @@ class PostProcessor:
             If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        force : bool
+            Reprocess even when output already exists. Set False to reuse a previous
+            run's results, so a plotting script can be re-run cheaply.
+
+        Returns
+        -------
+        bool
+            Whether post-processing actually ran.
         """
+        if not force and self.is_processed:
+            logger.warning(f"\nReusing existing post-processing in {self.path_pproc}")
+            return False
+
+        self._reset_pproc_dir()
         logger.warning(f"\nPost-processing path {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
@@ -369,6 +446,8 @@ class PostProcessor:
             guiding_center=guiding_center,
             classify=classify,
         )
+
+        return True
 
     def process_fields(
         self,
@@ -1379,6 +1458,7 @@ class PlottingData:
         else:
             path_out = sim.env.path_out
 
+        self.path_out = path_out
         self.path_pproc = os.path.join(path_out, "post_processing")
         assert os.path.exists(self.path_pproc), f"Path {self.path_pproc} does not exist, run 'pproc' first?"
 
@@ -1387,9 +1467,62 @@ class PlottingData:
         self._f = DistributionFunction()
         self._spline_values = SplineValues()
         self._n_sph = DensitySPH()
+        self._scalars = Scalars()
+        self._params = None
+        self._units = None
         self.grids_log: list[xp.ndarray] = None
         self.grids_phy: list[xp.ndarray] = None
         self.t_grid: xp.ndarray = None
+
+    @property
+    def params(self) -> ParamsIn:
+        """Input parameters of the run, read from the output folder on first access.
+
+        Removes the need for a plotting script to import the simulation's ``params_*.py``.
+        """
+        if self._params is None:
+            self._params = ParamsIn(self.path_out)
+        return self._params
+
+    @property
+    def domain(self) -> Domain:
+        """Domain of the run, for mapping logical to physical coordinates."""
+        return self.params.domain
+
+    @property
+    def units(self):
+        """Fully derived :class:`~struphy.physics.physics.Units` of the run.
+
+        Replaces the ``Units(base_units)`` / ``derive_units(...)`` sequence that every
+        plotting script would otherwise repeat.
+        """
+        if self._units is None:
+            from struphy.physics.physics import Units
+
+            model = self.params.model
+            units = Units(model.base_units)
+            bulk = model.bulk_species
+            units.derive_units(
+                velocity_scale=model.velocity_scale,
+                A_bulk=None if bulk is None else bulk.mass_number,
+                Z_bulk=None if bulk is None else bulk.charge_number,
+            )
+            self._units = units
+        return self._units
+
+    @property
+    def scalars(self) -> Scalars:
+        """Scalar time series recorded every step, keyed by name.
+
+        Each entry is a :class:`~struphy.post_processing.arrays.StruphyArray` over ``t``,
+        with the time coordinate already converted to seconds.
+
+        Returns
+        -------
+        Scalars
+            Container supporting ``.keys()``, ``["name"]`` and attribute access.
+        """
+        return self._scalars
 
     @property
     def orbits(self) -> Orbits:
@@ -1443,6 +1576,39 @@ class PlottingData:
         """
         return self._n_sph
 
+    def load_scalars(self, *, physical_time: bool = True):
+        """Read the ``scalar`` group of the raw HDF5 output into :attr:`scalars`.
+
+        Post-processing is not required for these, so this may be called on its own.
+
+        Parameters
+        ----------
+        physical_time : bool
+            Scale the time coordinate to seconds using the run's units. Set False to
+            keep Struphy time units.
+        """
+        path_data = os.path.join(self.path_out, "data", "data_proc0.hdf5")
+        if not os.path.exists(path_data):
+            logger.warning(f"No raw data at {path_data}, skipping scalars.")
+            return self._scalars
+
+        unit_t = self.units.t if physical_time else 1.0
+        t_unit_label = "s" if physical_time else "a.u."
+
+        with h5py.File(path_data, "r") as f:
+            t = xp.asarray(f["time"]["value"][()]) * unit_t
+            for name in f["scalar"].keys():
+                arr = StruphyArray(
+                    xp.asarray(f["scalar"][name][()]),
+                    dims=("t",),
+                    coords={"t": t},
+                    label=name.replace("_", " "),
+                ).with_coord_units(t=t_unit_label)
+                setattr(self._scalars, name, arr)
+
+        logger.info(f"Loaded scalars: {self._scalars.keys()}")
+        return self._scalars
+
     def load(self):
         """Load all post-processed data from disk into memory.
 
@@ -1463,6 +1629,8 @@ class PlottingData:
 
         # load time grid
         self.t_grid = xp.load(os.path.join(self.path_pproc, "t_grid.npy"))
+
+        self.load_scalars()
 
         # data paths
         path_fields = os.path.join(self.path_pproc, "fields_data")
@@ -1491,7 +1659,7 @@ class PlottingData:
                         var = file.split(".")[0]
                         with open(os.path.join(path_spec, file), "rb") as f:
                             # try:
-                            data_dict = DataDict(pickle.load(f))
+                            data_dict = DataDict(pickle.load(f), self.grids_log, var)
                             setattr(spec_holder, var, data_dict)
                             # self.arrays[spec][var] = pickle.load(f)
 
@@ -1510,6 +1678,7 @@ class PlottingData:
                         files = next(sub_wlk)[2]
                         Nt = len(files) // 2
                         n = 0
+                        arr = None
                         for file in files:
                             # logger.info(f"{file = }")
                             if ".npy" in file:
@@ -1517,9 +1686,10 @@ class PlottingData:
                                 tmp = xp.load(os.path.join(path_dat, file))
                                 if n == 0:
                                     arr = xp.zeros((Nt, *tmp.shape), dtype=float)
-                                    setattr(self.orbits, spec, arr)
                                 arr[step] = tmp
                                 n += 1
+                        if arr is not None:
+                            setattr(self.orbits, spec, wrap_orbits(arr, self.t_grid[:Nt]))
 
                     elif "distribution_function" in folder:
                         spec_holder = SpecHolder()
@@ -1537,6 +1707,7 @@ class PlottingData:
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
                                 logger.info(f"{name = }")
                                 setattr(s, name, tmp)
+                            wrap_binned_slice(s, sli, self.t_grid)
 
                     elif "n_sph" in folder:
                         spec_holder = SpecHolder()
@@ -1554,6 +1725,7 @@ class PlottingData:
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
                                 # logger.info(f"{name = }")
                                 setattr(s, name, tmp)
+                            wrap_binned_slice(s, sli, self.t_grid)
 
                     else:
                         logger.info(f"{folder =}")
