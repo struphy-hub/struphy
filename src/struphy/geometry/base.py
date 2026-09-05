@@ -1633,6 +1633,41 @@ class Domain(metaclass=DomainMeta):
 
         return mesh
 
+    def outer_boundary_mesh(
+        self,
+        n2: int = 40,
+        n3: int = 80,
+        eta1: float = 1.0,
+    ):
+        """Sample the domain's boundary surface at a fixed radial coordinate.
+
+        Useful for showing the outer flux surface (or, for cube-like
+        mappings, any fixed-``eta1`` cross-section) as spatial context next
+        to other data -- e.g. particle trajectories or field quantities --
+        without the PyVista/VTK dependency of :meth:`create_geometry_mesh`
+        and :meth:`export_geometry`.
+
+        Parameters
+        ----------
+        n2 : int
+            Number of sample points in the second logical coordinate.
+        n3 : int
+            Number of sample points in the third logical coordinate.
+        eta1 : float
+            The (fixed) first logical coordinate to sample the surface at;
+            1.0 (default) gives the outer boundary, 0.0 the magnetic axis
+            (or inner boundary, for a hollow domain).
+
+        Returns
+        -------
+        x, y, z : numpy.ndarray
+            Physical coordinates of the sampled surface, each of shape
+            ``(n2, n3)``.
+        """
+        eta2 = xp.linspace(0.0, 1.0, n2)
+        eta3 = xp.linspace(0.0, 1.0, n3)
+        return self(eta1, eta2, eta3, squeeze_out=True)
+
     def show_3d(
         self,
         nx: int = 32,
