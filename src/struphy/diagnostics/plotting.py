@@ -271,34 +271,39 @@ class TimeSeriesPlot(StruphyPlot):
         self.fit = fit
         self.fit_window = fit_window or (None, None)
         self.fit_of_sqrt = fit_of_sqrt
-        self.fit_result = None
+        #: one ``(gamma, b, window)`` per series once drawn, for reporting the rates
+        self.fit_results = []
 
     def draw(self):
         fig, ax = self._make_axes()
 
+        self.fit_results = []
         for s in self.series:
-            ax.plot(s.coord("t"), xp.asarray(s), label=s.label or None)
+            line, = ax.plot(s.coord("t"), xp.asarray(s), label=s.label or None)
 
-        if self.fit:
-            target = self.series[0]
+            if not self.fit:
+                continue
+
             gamma, b, window = growth_rate(
-                target,
+                s,
                 t0=self.fit_window[0],
                 t1=self.fit_window[1],
                 of_sqrt=self.fit_of_sqrt,
             )
-            self.fit_result = (gamma, b, window)
-            if gamma is not None:
-                t_fit = xp.asarray(target.coord("t"))[window]
-                scale = 2.0 if self.fit_of_sqrt else 1.0
-                ax.plot(
-                    t_fit,
-                    xp.exp(scale * (gamma * t_fit + b)),
-                    "--",
-                    color="black",
-                    label=rf"fit: $\gamma$ = {gamma:.4e}",
-                )
-                ax.axvspan(t_fit[0], t_fit[-1], alpha=0.12, color="grey")
+            self.fit_results.append((gamma, b, window))
+            if gamma is None:
+                continue
+
+            t_fit = xp.asarray(s.coord("t"))[window]
+            scale = 2.0 if self.fit_of_sqrt else 1.0
+            ax.plot(
+                t_fit,
+                xp.exp(scale * (gamma * t_fit + b)),
+                "--",
+                color=line.get_color(),
+                label=rf"fit: $\gamma$ = {gamma:.4e}",
+            )
+            ax.axvspan(t_fit[0], t_fit[-1], alpha=0.12, color="grey")
 
         if self.logy:
             ax.set_yscale("log")
@@ -440,6 +445,10 @@ class SliderPlot(StruphyPlot):
         second slider.
     slice_dim : str, optional
         Which dimension the second slider steps through. Defaults to the last.
+    grids : tuple or callable, optional
+        Either fixed ``(xgrid, ygrid, xlabel, ylabel)``, or a function of the slice
+        index returning them. Pass a callable when the physical grid depends on where
+        the cut is taken, so that it follows the slider instead of going stale.
     """
 
     tight = False
@@ -460,6 +469,13 @@ class SliderPlot(StruphyPlot):
             frame = frame.isel(**{self.slice_dim: slice_index})
         return frame
 
+    def _grids_for(self, slice_index):
+        if callable(self.grids):
+            return self.grids(slice_index)
+        if self.grids is not None:
+            return self.grids
+        return logical_grids(self._frame(0, slice_index))
+
     def draw(self):
         nt = self.data.shape[self.data.axis("t")]
         t = self.data.coord("t")
@@ -468,8 +484,7 @@ class SliderPlot(StruphyPlot):
         slice_index = n_slice // 2 if n_slice else 0
 
         first = self._frame(0, slice_index)
-        grids = self.grids if self.grids is not None else logical_grids(first)
-        xgrid, ygrid, xlabel, ylabel = grids
+        xgrid, ygrid, xlabel, ylabel = self._grids_for(slice_index)
 
         fig, ax = self._make_axes()
         fig.subplots_adjust(bottom=0.24 if self.slice_dim else 0.18)
@@ -504,15 +519,35 @@ class SliderPlot(StruphyPlot):
             )
             self.sliders.append(s_slice)
 
+        state = {"mesh": pcm, "xgrid": xgrid, "slice": slice_index}
+
         def update(_):
             ti = int(s_time.val)
             si = int(s_slice.val) if s_slice is not None else 0
-            frame = match_to_grid(self._frame(ti, si), xgrid)
 
-            pcm.set_array(frame.ravel())
+            # a grid that depends on the cut has to be redrawn, not just refilled
+            if callable(self.grids) and si != state["slice"]:
+                xg, yg, _, _ = self._grids_for(si)
+                state["mesh"].remove()
+                state["mesh"] = ax.pcolormesh(
+                    xg,
+                    yg,
+                    match_to_grid(self._frame(ti, si), xg),
+                    shading="auto",
+                    vmin=self.vmin,
+                    vmax=self.vmax,
+                )
+                state["xgrid"] = xg
+                state["slice"] = si
+                cbar.update_normal(state["mesh"])
+
+            mesh, grid = state["mesh"], state["xgrid"]
+            frame = match_to_grid(self._frame(ti, si), grid)
+
+            mesh.set_array(frame.ravel())
             if self.vmin is None and self.vmax is None:
-                pcm.set_clim(float(xp.nanmin(frame)), float(xp.nanmax(frame)))
-                cbar.update_normal(pcm)
+                mesh.set_clim(float(xp.nanmin(frame)), float(xp.nanmax(frame)))
+                cbar.update_normal(mesh)
             ax.set_title(f"{self.title} at t = {float(t[ti]):.4e}")
             fig.canvas.draw_idle()
 
