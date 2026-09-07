@@ -1,7 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergySPH, Scalars
@@ -11,8 +9,6 @@ from struphy.models.species import (
 from struphy.models.variables import SPHVariable
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class PressureLessSPH(StruphyModel):

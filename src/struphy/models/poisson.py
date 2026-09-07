@@ -1,8 +1,6 @@
 import copy
 import logging
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -15,7 +13,6 @@ from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Poisson(StruphyModel):
@@ -90,8 +87,8 @@ class Poisson(StruphyModel):
         # # use setter to assign source
         # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
+        # Solve to get initial potential (before time stepping)
+        logger.info("\nSolving initial Poisson problem (before time stepping)...")
 
         self.propagators.poisson(1.0)
 

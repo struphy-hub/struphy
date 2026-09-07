@@ -1,6 +1,6 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
+from cunumpy import PyccelKernel
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -17,9 +17,6 @@ from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
-from struphy.utils.pyccel import Pyccelkernel
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 from struphy.propagators.base import Propagator
 
@@ -152,7 +149,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         ptg = ParticlesToGrid(
             self.fluid.density,
             "Hcurl",
-            Pyccelkernel(accum_kernels.div_u_weak_1form),
+            PyccelKernel(accum_kernels.div_u_weak_1form),
         )
         self.propagators = self.Propagators(
             ptg=ptg,

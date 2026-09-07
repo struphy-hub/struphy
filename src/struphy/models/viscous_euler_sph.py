@@ -1,7 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergySPH, Scalars
@@ -13,8 +11,6 @@ from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_sph_pressure import PushVinSPHpressure
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousEulerSPH(StruphyModel):

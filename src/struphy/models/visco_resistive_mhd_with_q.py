@@ -1,7 +1,6 @@
 import copy
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
@@ -20,8 +19,6 @@ from struphy.propagators.variational_momentum_advection import VariationalMoment
 from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscoResistiveMHD_with_q(StruphyModel):

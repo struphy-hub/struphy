@@ -1,15 +1,17 @@
 import logging
 
 import pytest
+from cunumpy import PyccelKernel
 
 from struphy import set_logging_level
-from struphy.utils.pyccel import Pyccelkernel
+
+pytestmark = pytest.mark.mpi_pic
 
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
 
 
-@pytest.mark.parametrize("num_elements", [[16, 1, 1]])
+@pytest.mark.parametrize("num_elements", [[24, 1, 1]])
 @pytest.mark.parametrize("degree", [[3, 1, 1]])
 @pytest.mark.parametrize(
     "bcs",
@@ -189,7 +191,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     acc = AccumulatorVector(
         particles,
         "H1",
-        Pyccelkernel(accum_kernels.charge_density_0form),
+        PyccelKernel(accum_kernels.charge_density_0form),
         mass_ops,
         domain.args_domain,
     )
@@ -318,7 +320,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
             plt.show()
 
 
-@pytest.mark.parametrize("num_elements", [[16, 1, 1]])
+@pytest.mark.parametrize("num_elements", [[24, 1, 1]])
 @pytest.mark.parametrize("degree", [[3, 1, 1]])
 @pytest.mark.parametrize(
     "bcs",
@@ -477,7 +479,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     acc = AccumulatorVector(
         particles,
         "Hcurl",
-        Pyccelkernel(accum_kernels.div_u_weak_1form),
+        PyccelKernel(accum_kernels.div_u_weak_1form),
         mass_ops,
         domain.args_domain,
     )

@@ -1,61 +1,134 @@
 import ast
 import json
 import os
-import re
 import shutil
 from pathlib import Path
 from typing import Any
 
 from clusters import detect_machine_name
-from utils import _run_command, _slug
+
+from utils import _run_command
 
 # Written by `Simulation.run()`, one per `sim_<id>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
 
+# Written by the parameter file itself (see the Poisson example), one per `sim_<id>` run
+# directory: post-processing figures and small arrays, next to the profiling output.
+RESULTS_DIR_NAME = "results"
+RESULTS_FILE_SUFFIXES = (".png", ".npy")
 
-def _extract_ranks(source_h5: Path) -> str:
-    """Rank count of the run that produced `source_h5`.
 
-    Read from the `run_metadata.json` Struphy writes next to it, since the run
-    directory is named after the run id alone and no longer carries the rank count.
-    Falls back to a rank count spelled out in the path, for older result trees.
+def _run_name(launch_id: int) -> str:
+    """How a run is named everywhere it is packaged: `run03`.
+
+    Runs are identified by their launch id alone. The rank count names nothing — it is
+    recorded in the run's metadata file — so two launches sharing a rank count stay
+    apart.
     """
-    metadata_path = source_h5.parent / RUN_METADATA_FILE
-    if metadata_path.exists():
-        mpi_ranks = json.loads(metadata_path.read_text(encoding="utf-8")).get("mpi_ranks")
-        if isinstance(mpi_ranks, int):
-            return str(mpi_ranks)
-
-    for part in source_h5.parts:
-        part_match = re.search(r"ranks(\d+)", part)
-        if part_match:
-            return part_match.group(1)
-    return "unknown"
+    return f"run{launch_id:02d}"
 
 
-def _build_output_name(testcase: str, language: str, ranks: str, index: int) -> str:
-    ranks_token = f"{int(ranks):04d}" if ranks.isdigit() else _slug(ranks)
-    base = f"{_slug(testcase)}-ranks{ranks_token}-{_slug(language)}"
+def _run_folder_name(launch_id: int) -> str:
+    """Name of a run's own folder inside the packaged case folder: `results-run03`.
+
+    Everything a run produced lives in there together: its `.h5` files, its metadata
+    file, and whatever the parameter file post-processed into `results`.
+    """
+    return f"{RESULTS_DIR_NAME}-{_run_name(launch_id)}"
+
+
+def _build_output_name(launch_id: int, index: int) -> str:
+    """Name of a packaged `.h5`: the run's name (`run03.h5`).
+
+    The test case is already the packaged folder's name, so repeating it in every file
+    inside only makes the names longer. `index` disambiguates a run that produced more
+    than one `.h5` file; the first keeps the plain name.
+    """
+    base = _run_name(launch_id)
     if index > 0:
         base = f"{base}-{index}"
     return f"{base}.h5"
 
 
-def _copy_run_metadata(source_h5: Path, destination_h5: Path) -> tuple[str | None, str | None]:
-    """Copy the `run_metadata.json` that Struphy wrote next to `source_h5`.
+def _write_run_metadata(
+    sim_dir: Path,
+    run_dir: Path,
+    job_info: dict[str, Any],
+    profiling_data: list[str],
+    results: list[str],
+) -> str:
+    """Write the run's metadata file, the one place run-specific data lives.
 
-    Each `sim_<id>` run directory holds its own `run_metadata.json`, so it is
-    packaged per run, named after the corresponding `.h5` file. Returns
-    ``(packaged file name, source path)``, both None if the run produced no metadata.
+    Starts from the `run_metadata.json` Struphy wrote in `sim_dir` (empty if the run
+    never got that far), and adds what only packaging knows: the script the run was
+    submitted as, and where its files ended up. The case metadata just references this
+    file, so nothing about a single run is spelled out twice.
+
+    `slurm_script` is `SlurmScript.to_dict()` as it stands — `pragmas`, `modules` and
+    `custom_commands`, everything the submitted script was built from — and nothing
+    else. It is None for a run that was not submitted to SLURM but run locally.
+    `slurm_script_str` is the script as it was written to disk and run, `str(script)`
+    under SLURM and the plain bash script of a local run.
+
+    Packaged paths are relative to the case folder (`run_dir.parent`), the same base the
+    case metadata uses.
+
+    Returns the path of the written file, relative to the case folder.
     """
-    source = source_h5.parent / RUN_METADATA_FILE
-    if not source.exists():
-        print(f"No {RUN_METADATA_FILE} next to {source_h5}; skipping.")
-        return None, None
+    source = sim_dir / RUN_METADATA_FILE
+    metadata: dict[str, Any] = {}
+    if source.exists():
+        metadata = json.loads(source.read_text(encoding="utf-8"))
+    else:
+        print(f"No {RUN_METADATA_FILE} in {sim_dir}; recording only what packaging knows about the run.")
 
-    output_name = f"{destination_h5.stem}-{RUN_METADATA_FILE}"
-    shutil.copy2(source, destination_h5.parent / output_name)
-    return output_name, str(source)
+    # Struphy records the rank count it actually ran with; fall back to the requested one
+    # for a run that wrote no metadata of its own.
+    metadata.setdefault("mpi_ranks", job_info.get("ranks"))
+    metadata["slurm_script"] = job_info.get("slurm_dict")
+    metadata["slurm_script_str"] = job_info.get("job_script")
+    metadata["packaged_files"] = {
+        "profiling_data": profiling_data[0] if profiling_data else None,
+        "additional_profiling_data": profiling_data[1:],
+        "results": results,
+        "run_directory": str(sim_dir),
+    }
+
+    output_name = f"{_run_name(job_info['launch_id'])}.json"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / output_name).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    return f"{run_dir.name}/{output_name}"
+
+
+def _copy_run_results(sim_dir: Path, destination_dir: Path) -> list[str]:
+    """Copy the figures and arrays a run wrote into `<sim_dir>/results`.
+
+    The parameter file of a case may post-process its own output (see the Poisson
+    example), writing `.png`/`.npy` files into a `results` folder inside its run
+    directory. They are copied straight into `destination_dir`, the run's own packaged
+    folder, next to its `.h5` and run metadata; any subfolder structure of `results` is
+    kept.
+
+    Returns the packaged files as paths relative to the case folder
+    (`destination_dir.parent`), so a consumer can open them without reconstructing any
+    names. Empty if the run wrote no such files.
+    """
+    source_dir = sim_dir / RESULTS_DIR_NAME
+    if not source_dir.is_dir():
+        return []
+
+    sources = sorted(
+        path for path in source_dir.rglob("*") if path.is_file() and path.suffix.lower() in RESULTS_FILE_SUFFIXES
+    )
+
+    relative_paths = []
+    for source in sources:
+        target = destination_dir / source.relative_to(source_dir)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        relative_paths.append(target.relative_to(destination_dir.parent).as_posix())
+
+    return relative_paths
 
 
 def _extract_string_node(node: ast.AST, constants: dict[str, str]) -> str | None:
@@ -196,30 +269,3 @@ def _collect_software_info(
             ["python", "-m", "pip", "freeze"],
         )["stdout"],
     }
-
-
-def _collect_job_info(case_info: dict[str, Any]) -> dict[str, Any]:
-    """Job description: one entry per rank count, each with its own script.
-
-    Covers both schedulers: a SLURM batch script with `pragmas`, or the plain bash
-    script of a local run (`scheduler: "local"`, no pragmas). Each rank count is
-    submitted (or run locally) as its own job/script, since the caller's loop over
-    rank counts builds and submits one script per rank count instead of looping over
-    rank counts inside a single script.
-    ``slurm_dict["custom_commands"]`` is dropped because those commands are already
-    part of ``script``, and the `SLURM_*` variables because scope-profiler stores them
-    in every `profiling_data.h5`.
-    """
-    return {
-        "scheduler": case_info.get("scheduler", "slurm"),
-        "jobs": [
-            {
-                "ranks": job.get("ranks"),
-                "script_path": job.get("job_script_path"),
-                "script": job.get("job_script"),
-                "pragmas": (job.get("slurm_dict") or {}).get("pragmas"),
-            }
-            for job in case_info.get("jobs", [])
-        ],
-    }
-

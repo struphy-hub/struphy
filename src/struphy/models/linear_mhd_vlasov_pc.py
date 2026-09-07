@@ -1,8 +1,6 @@
 import copy
 import logging
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -22,7 +20,6 @@ from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 
 logger = logging.getLogger("struphy")
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHDVlasovPC(StruphyModel):

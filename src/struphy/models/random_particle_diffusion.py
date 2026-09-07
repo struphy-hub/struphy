@@ -1,7 +1,5 @@
 import copy
 
-from feectools.ddm.mpi import mpi as MPI
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -10,8 +8,6 @@ from struphy.models.species import (
 )
 from struphy.models.variables import PICVariable
 from struphy.propagators.push_random_diffusion import PushRandomDiffusion
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class RandomParticleDiffusion(StruphyModel):

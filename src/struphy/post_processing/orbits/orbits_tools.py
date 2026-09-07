@@ -5,10 +5,10 @@ import shutil
 import cunumpy as xp
 import h5py
 import yaml
-from tqdm import tqdm
 
 from struphy.io.setup import import_parameters_py
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
+from struphy.utils.progress import tqdm
 
 logger = logging.getLogger("struphy")
 
@@ -158,7 +158,7 @@ def post_process_orbit_classification(path_kinetics_species, species):
         Name of the species for which the post processing should be performed.
 
     kind : str
-        Name of the kinetic kind (Particles6D, Particles5D or Particles3D).
+        Name of the kinetic kind (Particles6D, Particles5D, Particles5Dvperp or Particles3D).
     """
 
     # check whether there is guiding center orbits data or not. If there is not, do the 'post_process_orbit_guiding_center'.

@@ -3,6 +3,7 @@ from inspect import signature
 import cunumpy as xp
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+from scope_profiler import ProfileManager
 
 from struphy.ode.utils import ButcherTableau
 
@@ -59,6 +60,7 @@ class ODEsolverFEEC:
         self._yn = [v.copy() for v in self.y]
         self._ystar = [v.copy() for v in self.y]
 
+    @ProfileManager.profile("solve: ODEsolverFEEC")
     def __call__(self, tn, h):
         a = self.butcher.a
         b = self.butcher.b

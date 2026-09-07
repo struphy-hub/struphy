@@ -1,0 +1,152 @@
+{
+  "schema_version": 3,
+  "machines": [
+    {
+      "description": "Pitagora (CINECA) - modules.pitagora.sh",
+      "match": { "machine_name": "Pitagora (DCGP)" },
+      "profiles": {
+        "default": {
+          "modules_load": [
+            "gcc/12.3.0",
+            "openmpi/4.1.6--gcc--12.3.0",
+            "python/3.11.7"
+          ]
+        },
+        "gcc": {
+          "modules_load": [
+            "gcc/12.3.0",
+            "openmpi/4.1.6--gcc--12.3.0",
+            "python/3.11.7"
+          ]
+        },
+        "intel": {
+          "modules_load": [
+            "intel-oneapi-compilers-classic/2021.10.0",
+            "intel-oneapi-mkl/2024.0.0--intel-oneapi-mpi--2021.12.1",
+            "python/3.11.7"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Raven (MPCDF) - modules.raven.sh",
+      "match": { "machine_name": "Raven" },
+      "profiles": {
+        "default": {
+          "modules_load": [
+            "gcc/15",
+            "openmpi/5.0",
+            "python-waterboa/2025.06",
+            "pandoc/3.1"
+          ]
+        },
+        "gcc": {
+          "modules_load": [
+            "gcc/15",
+            "openmpi/5.0",
+            "python-waterboa/2025.06",
+            "pandoc/3.1"
+          ]
+        },
+        "intel": {
+          "modules_load": [
+            "intel/21.7.1",
+            "impi/2021.7",
+            "python-waterboa/2024.06",
+            "mkl/2025.3",
+            "hdf5-serial/1.14.1"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Viper CPU (MPCDF) - modules.viper.sh",
+      "match": { "machine_name": "Viper-CPU" },
+      "profiles": {
+        "default": {
+          "modules_load": [
+            "gcc/15",
+            "openmpi/5.0",
+            "python-waterboa/2025.06",
+            "pandoc/3.1"
+          ]
+        },
+        "gcc": {
+          "modules_load": [
+            "gcc/15",
+            "openmpi/5.0",
+            "python-waterboa/2025.06",
+            "pandoc/3.1"
+          ]
+        },
+        "intel": {
+          "modules_load": [
+            "intel/2024.0",
+            "impi/2021.11",
+            "python-waterboa/2025.06",
+            "pandoc/3.1",
+            "git/2.5.0"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Viper GPU (MPCDF) - modules.viper.sh",
+      "match": { "machine_name": "Viper-GPU" },
+      "profiles": {
+        "default": {
+          "modules_load": [
+            "gcc/15",
+            "openmpi/5.0",
+            "python-waterboa/2025.06",
+            "pandoc/3.1"
+          ]
+        },
+        "gcc": {
+          "modules_load": [
+            "gcc/15",
+            "openmpi/5.0",
+            "python-waterboa/2025.06",
+            "pandoc/3.1"
+          ]
+        },
+        "intel": {
+          "modules_load": [
+            "intel/2024.0",
+            "impi/2021.11",
+            "python-waterboa/2025.06",
+            "pandoc/3.1",
+            "git/2.5.0"
+          ]
+        }
+      }
+    },
+    {
+      "description": "TOK (IPP) - modules.tok.sh",
+      "match": { "machine_name": "TOK" },
+      "profiles": {
+        "default": {
+          "modules_load": [
+            "gcc/14",
+            "openmpi/5.0",
+            "python-waterboa/2025.06"
+          ]
+        },
+        "gcc": {
+          "modules_load": [
+            "gcc/14",
+            "openmpi/5.0",
+            "python-waterboa/2025.06"
+          ]
+        },
+        "intel": {
+          "modules_load": [
+            "intel/2025.1",
+            "impi/2021.15",
+            "python-waterboa/2025.06"
+          ]
+        }
+      }
+    }
+  ]
+}

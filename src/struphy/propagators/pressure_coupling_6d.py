@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
@@ -19,7 +20,6 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -189,11 +189,11 @@ class PressureCoupling6D(Propagator):
 
         # Call the accumulation and Pusher class
         if self.options.use_perp_model:
-            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d)
-            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu)
+            accum_ker = PyccelKernel(accum_kernels.pc_lin_mhd_6d)
+            pusher_ker = PyccelKernel(pusher_kernels.push_pc_GXu)
         else:
-            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d_full)
-            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu_full)
+            accum_ker = PyccelKernel(accum_kernels.pc_lin_mhd_6d_full)
+            pusher_ker = PyccelKernel(pusher_kernels.push_pc_GXu_full)
 
         # define Accumulator and arguments
         self._ACC = Accumulator(

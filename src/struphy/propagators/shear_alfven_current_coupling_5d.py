@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
@@ -22,7 +23,6 @@ from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -197,7 +197,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC = AccumulatorVector(
             self.energetic_ions.particles,
             "H1",
-            Pyccelkernel(accum_kernels_gc.gc_mag_density_0form),
+            PyccelKernel(accum_kernels_gc.gc_mag_density_0form),
             self.mass_ops,
             self.domain.args_domain,
             filter_params=self.options.filter_params,
@@ -316,6 +316,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         else:
             self._ode_solver(0.0, dt)
+
+        # update_weights
+        if self.energetic_ions.species.weights_params.control_variate:
+            self.energetic_ions.particles.update_weights()
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self.options.algo == "implicit":

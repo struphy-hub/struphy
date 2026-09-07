@@ -1,7 +1,6 @@
 import copy
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
@@ -20,8 +19,6 @@ from struphy.propagators.variational_density_evolve import VariationalDensityEvo
 from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 from struphy.propagators.variational_viscosity import VariationalViscosity
-
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class ViscousFluid(StruphyModel):
