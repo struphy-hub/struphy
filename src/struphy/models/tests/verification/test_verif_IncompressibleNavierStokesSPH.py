@@ -512,6 +512,6 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
 
 
 if __name__ == "__main__":
-    #test_chorin_projection_periodic_1d(nx=8, do_plot=True)
-    #test_chorin_projection_reflect_1d(nx=8, do_plot=True)
+    # test_chorin_projection_periodic_1d(nx=8, do_plot=True)
+    # test_chorin_projection_reflect_1d(nx=8, do_plot=True)
     test_channel_noslip_shear_relaxation(nx=8, do_plot=True)

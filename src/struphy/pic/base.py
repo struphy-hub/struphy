@@ -2648,10 +2648,9 @@ class Particles(metaclass=ABCMeta):
 
             def _u_init(*etas, flat_eval=False):
                 if len(etas) == 1:
-                    if _u1 is None:
-                        out = self.f0.uv(etas[0])
-                    else:
-                        out = self.f0.uv(etas[0]) + _u1(*etas[0].T)
+                    out = self.f0.uv(etas[0])
+                    if _u1 is not None:
+                        out[0] += _u1(*etas[0].T)
                 else:
                     assert len(etas) == 3
                     E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
