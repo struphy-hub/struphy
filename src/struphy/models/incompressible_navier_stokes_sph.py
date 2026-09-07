@@ -181,7 +181,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
 
     def allocate_helpers(self):
         # specific for Chorin projection
-        self.propagators.pressure_poisson._divide_by_dt = True 
+        self.propagators.pressure_poisson._divide_by_dt = True
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
