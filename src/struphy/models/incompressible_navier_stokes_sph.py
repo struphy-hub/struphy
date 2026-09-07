@@ -1,8 +1,9 @@
 import copy
+from dataclasses import dataclass
 
 from cunumpy import PyccelKernel
 
-from struphy.io.options import BaseUnits, LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions, OptionsBase
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
@@ -12,21 +13,17 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, SPHVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
+from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vin_efield import PushVinEfield
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 
-from struphy.propagators.base import Propagator
-
-
-from dataclasses import dataclass
-from struphy.io.options import OptionsBase
 
 class UpdateForce(Propagator):
     """Berechnet force = -epsilon * grad(pressure) und speichert in force.spline.vector."""
-    
+
     class Variables:
         def __init__(self):
             pass
@@ -56,8 +53,9 @@ class UpdateForce(Propagator):
     def __call__(self, dt):
         # force = -epsilon * grad(pressure)
         self.derham.grad.dot(self.pressure.spline.vector, out=self.force.spline.vector)
-        self.force.spline.vector *= -1.0   # korrekte Skalierung
+        self.force.spline.vector *= -1.0  # korrekte Skalierung
         self.force.spline.vector.update_ghost_regions()
+
 
 class IncompressibleNavierStokesSPH(StruphyModel):
     """Incompressible Navier-Stokes equations discretized with smoothed particle hydrodynamics (SPH).
@@ -90,9 +88,8 @@ class IncompressibleNavierStokesSPH(StruphyModel):
     class LagrangeMultiplier(FieldSpecies):
         def __init__(self):
             self.pressure = FEECVariable(space="H1")
-            self.force = FEECVariable(space="Hcurl")   # neu
+            self.force = FEECVariable(space="Hcurl")  # neu
             self.init_variables()
-
 
     ## propagators
 
@@ -101,8 +98,8 @@ class IncompressibleNavierStokesSPH(StruphyModel):
             self,
             ptg: ParticlesToGrid,
             pressure: FEECVariable,
-            force: FEECVariable,                 # Parameter vorhanden
-            epsilon: float, 
+            force: FEECVariable,  # Parameter vorhanden
+            epsilon: float,
             ptg_coeff: float = -1.0,
             with_B0: bool = True,
             with_viscosity: bool = True,
@@ -113,10 +110,10 @@ class IncompressibleNavierStokesSPH(StruphyModel):
             if with_viscosity:
                 self.push_viscous = PushVinViscousPotential()
             self.pressure_poisson = PoissonSolve(rho=ptg, rho_coeffs=ptg_coeff)
-            
+
             # NEU: Propagator, der force aus pressure berechnet
             self.update_force = UpdateForce(pressure, force)
-            
+
             # GEÄNDERT: Chorin-Projektion verwendet jetzt force (nicht phi)
             self.chorin_projection = PushVinEfield(e_field=force)
 
@@ -143,7 +140,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
-        self.fluid.equation_params.epsilon = 1.0 
+        self.fluid.equation_params.epsilon = 1.0
 
         # 3. instantiate all propagators
         ptg = ParticlesToGrid(

@@ -340,22 +340,22 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
         # Linker Plot: u1 (longitudinal)
-        ax1.plot(e2_grid, j1_binned[0], 'o-', label='Numerisch t=0', markersize=3)
-        ax1.plot(e2_grid, j1_binned[-1], 'o-', label=f'Numerisch t={time_opts.Tend}', markersize=3)
-        ax1.plot(e2_grid, u1_analytic, 'k--', linewidth=2, label='Analytisch t=0')
-        ax1.set_xlabel('y')
-        ax1.set_ylabel(r'$u_1$ (current_1)')
-        ax1.set_title('Longitudinale Geschwindigkeit')
+        ax1.plot(e2_grid, j1_binned[0], "o-", label="Numerisch t=0", markersize=3)
+        ax1.plot(e2_grid, j1_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3)
+        ax1.plot(e2_grid, u1_analytic, "k--", linewidth=2, label="Analytisch t=0")
+        ax1.set_xlabel("y")
+        ax1.set_ylabel(r"$u_1$ (current_1)")
+        ax1.set_title("Longitudinale Geschwindigkeit")
         ax1.legend()
         ax1.grid(True)
 
         # Rechter Plot: u2 (transversal)
-        ax2.plot(e2_grid, j2_binned[0], 'o-', label='Numerisch t=0', markersize=3, color='red')
-        ax2.plot(e2_grid, j2_binned[-1], 'o-', label=f'Numerisch t={time_opts.Tend}', markersize=3, color='orange')
-        ax2.plot(e2_grid, u2_analytic, 'k--', linewidth=2, label='Analytisch t=0 (sollte 0 sein)')
-        ax2.set_xlabel('y')
-        ax2.set_ylabel(r'$u_2$ (current_2)')
-        ax2.set_title('Transversale Geschwindigkeit (sollte 0 sein)')
+        ax2.plot(e2_grid, j2_binned[0], "o-", label="Numerisch t=0", markersize=3, color="red")
+        ax2.plot(e2_grid, j2_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3, color="orange")
+        ax2.plot(e2_grid, u2_analytic, "k--", linewidth=2, label="Analytisch t=0 (sollte 0 sein)")
+        ax2.set_xlabel("y")
+        ax2.set_ylabel(r"$u_2$ (current_2)")
+        ax2.set_title("Transversale Geschwindigkeit (sollte 0 sein)")
         ax2.legend()
         ax2.grid(True)
 
@@ -369,48 +369,40 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         # --- DEBUG: Check marker velocities ---
         markers = model.fluid.density.particles.markers
         # markers columns: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
-        print("Marker velocity v1: min =", markers[:, 3].min(), " max =", markers[:, 3].max(), " mean =", markers[:, 3].mean())
-        print("Marker velocity v2: min =", markers[:, 4].min(), " max =", markers[:, 4].max(), " mean =", markers[:, 4].mean())
-        print("Marker velocity v3: min =", markers[:, 5].min(), " max =", markers[:, 5].max(), " mean =", markers[:, 5].mean())
-        
+        print(
+            "Marker velocity v1: min =",
+            markers[:, 3].min(),
+            " max =",
+            markers[:, 3].max(),
+            " mean =",
+            markers[:, 3].mean(),
+        )
+        print(
+            "Marker velocity v2: min =",
+            markers[:, 4].min(),
+            " max =",
+            markers[:, 4].max(),
+            " mean =",
+            markers[:, 4].mean(),
+        )
+        print(
+            "Marker velocity v3: min =",
+            markers[:, 5].min(),
+            " max =",
+            markers[:, 5].max(),
+            " mean =",
+            markers[:, 5].mean(),
+        )
 
         max_j2_initial = np.max(np.abs(j2_binned[0]))
 
         max_j2_final = np.max(np.abs(j2_binned[-1]))
 
+        logger.info(f"current_2 initial max = {max_j2_initial:.6e}, final max = {max_j2_final:.6e}")
 
+        logger.info(f"initial transverse/longitudinal = {max_j2_initial / np.max(np.abs(j1_binned[0])):.6e}")
 
-        logger.info(
-
-            f"current_2 initial max = {max_j2_initial:.6e}, "
-
-            f"final max = {max_j2_final:.6e}"
-
-        )
-
-
-
-        logger.info(
-
-            f"initial transverse/longitudinal = "
-
-            f"{max_j2_initial / np.max(np.abs(j1_binned[0])):.6e}"
-
-        )
-
-
-
-        logger.info(
-
-            f"final transverse/longitudinal = "
-
-            f"{max_j2_final / np.max(np.abs(j1_binned[-1])):.6e}"
-
-        )
-
-
-
-
+        logger.info(f"final transverse/longitudinal = {max_j2_final / np.max(np.abs(j1_binned[-1])):.6e}")
 
         plt.figure()
 
@@ -423,9 +415,6 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         plt.legend()
 
         plt.show()
-
-                
-
 
         dt = time_opts.dt
         Nt = j1_binned.shape[0] - 1
@@ -489,23 +478,19 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         initial_ratio = max_j2_initial / max_j1_initial
         final_ratio = max_j2_final / max_j1_final
 
-        logger.info(
-            f"Initial |current_2|/|current_1| = {initial_ratio:.6e}"
-        )
-        logger.info(
-            f"Final   |current_2|/|current_1| = {final_ratio:.6e}"
-        )
+        logger.info(f"Initial |current_2|/|current_1| = {initial_ratio:.6e}")
+        logger.info(f"Final   |current_2|/|current_1| = {final_ratio:.6e}")
 
         assert final_ratio < 0.1
         # Chorin projection should not spuriously inject transverse velocity
         # into this already-divergence-free flow.
-        #max_j2 = np.max(np.abs(j2_binned))
+        # max_j2 = np.max(np.abs(j2_binned))
         ##max_j1 = np.max(np.abs(j1_binned))
-        #logger.info(f"Max |current_2| / max |current_1| = {max_j2 / max_j1:.4f}")
-        #assert max_j2 / max_j1 < 0.1, (
+        # logger.info(f"Max |current_2| / max |current_1| = {max_j2 / max_j1:.4f}")
+        # assert max_j2 / max_j1 < 0.1, (
         #    f"Chorin projection induced significant transverse velocity: "
         #    f"max|current_2|/max|current_1| = {max_j2 / max_j1:.4f} (expected <0.1)"
-        #)
+        # )
         logger.info("Transverse-velocity assertion passed.")
 
         shutil.rmtree(test_folder)
