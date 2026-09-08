@@ -336,31 +336,32 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         u1_analytic = U * np.sin(np.pi * e2_grid / H)
         u2_analytic = np.zeros_like(e2_grid)
 
-        # Zwei Subplots: u1 und u2
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        if do_plot:
+            # Zwei Subplots: u1 und u2
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
-        # Linker Plot: u1 (longitudinal)
-        ax1.plot(e2_grid, j1_binned[0], "o-", label="Numerisch t=0", markersize=3)
-        ax1.plot(e2_grid, j1_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3)
-        ax1.plot(e2_grid, u1_analytic, "k--", linewidth=2, label="Analytisch t=0")
-        ax1.set_xlabel("y")
-        ax1.set_ylabel(r"$u_1$ (current_1)")
-        ax1.set_title("Longitudinale Geschwindigkeit")
-        ax1.legend()
-        ax1.grid(True)
+            # Linker Plot: u1 (longitudinal)
+            ax1.plot(e2_grid, j1_binned[0], "o-", label="Numerisch t=0", markersize=3)
+            ax1.plot(e2_grid, j1_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3)
+            ax1.plot(e2_grid, u1_analytic, "k--", linewidth=2, label="Analytisch t=0")
+            ax1.set_xlabel("y")
+            ax1.set_ylabel(r"$u_1$ (current_1)")
+            ax1.set_title("Longitudinale Geschwindigkeit")
+            ax1.legend()
+            ax1.grid(True)
 
-        # Rechter Plot: u2 (transversal)
-        ax2.plot(e2_grid, j2_binned[0], "o-", label="Numerisch t=0", markersize=3, color="red")
-        ax2.plot(e2_grid, j2_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3, color="orange")
-        ax2.plot(e2_grid, u2_analytic, "k--", linewidth=2, label="Analytisch t=0 (sollte 0 sein)")
-        ax2.set_xlabel("y")
-        ax2.set_ylabel(r"$u_2$ (current_2)")
-        ax2.set_title("Transversale Geschwindigkeit (sollte 0 sein)")
-        ax2.legend()
-        ax2.grid(True)
+            # Rechter Plot: u2 (transversal)
+            ax2.plot(e2_grid, j2_binned[0], "o-", label="Numerisch t=0", markersize=3, color="red")
+            ax2.plot(e2_grid, j2_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3, color="orange")
+            ax2.plot(e2_grid, u2_analytic, "k--", linewidth=2, label="Analytisch t=0 (sollte 0 sein)")
+            ax2.set_xlabel("y")
+            ax2.set_ylabel(r"$u_2$ (current_2)")
+            ax2.set_title("Transversale Geschwindigkeit (sollte 0 sein)")
+            ax2.legend()
+            ax2.grid(True)
 
-        plt.tight_layout()
-        plt.show()
+            plt.tight_layout()
+            plt.show()
 
         e2_grid = np.asarray(sim.f.fluid.e2_current_1.grid_e2).flatten()
         j1_binned = np.asarray(sim.f.fluid.e2_current_1.f_binned)  # (Nt+1, n_bins)
@@ -404,17 +405,18 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
 
         logger.info(f"final transverse/longitudinal = {max_j2_final / np.max(np.abs(j1_binned[-1])):.6e}")
 
-        plt.figure()
+        if do_plot:
+            plt.figure()
 
-        plt.plot(e2_grid, j2_binned[0], label="j2 t=0")
+            plt.plot(e2_grid, j2_binned[0], label="j2 t=0")
 
-        plt.plot(e2_grid, j2_binned[-1], label="j2 final")
+            plt.plot(e2_grid, j2_binned[-1], label="j2 final")
 
-        plt.axhline(0.0, linestyle="--")
+            plt.axhline(0.0, linestyle="--")
 
-        plt.legend()
+            plt.legend()
 
-        plt.show()
+            plt.show()
 
         dt = time_opts.dt
         Nt = j1_binned.shape[0] - 1
