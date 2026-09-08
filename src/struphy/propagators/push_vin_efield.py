@@ -81,8 +81,7 @@ class PushVinEfield(Propagator):
             else:
                 assert isinstance(e_field, tuple) and all(callable(x) for x in e_field)
             phi = None
-        else:
-            assert phi is not None, "Either e_field or phi must be provided."
+        elif phi is not None:
             if isinstance(phi, FEECVariable):
                 assert phi.space == "H1"
             else:
@@ -121,7 +120,7 @@ class PushVinEfield(Propagator):
                 self.e_vector = self.e_field.spline.vector
             else:
                 self.e_vector = self.derham.P1(self.e_field)
-        else:
+        elif self.phi is not None:
             if isinstance(self.phi, FEECVariable):
                 self.phi_vector = self.phi.spline.vector
             else:
@@ -129,6 +128,8 @@ class PushVinEfield(Propagator):
             self.e_vector = self.derham.grad.dot(self.phi_vector)
             self.e_vector *= -1.0
             self.e_vector.update_ghost_regions()
+        else:
+            self.e_vector = self.derham.V1.zeros()
 
         # instantiate Pusher
         args_kernel = (
