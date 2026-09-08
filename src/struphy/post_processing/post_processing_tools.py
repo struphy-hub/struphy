@@ -1596,6 +1596,9 @@ class PlottingData:
         t_unit_label = "s" if physical_time else "a.u."
 
         with h5py.File(path_data, "r") as f:
+            if "scalar" not in f:
+                logger.warning(f"No scalar diagnostics saved in {path_data}, skipping scalars.")
+                return self._scalars
             t = xp.asarray(f["time"]["value"][()]) * unit_t
             for name in f["scalar"].keys():
                 arr = StruphyArray(
