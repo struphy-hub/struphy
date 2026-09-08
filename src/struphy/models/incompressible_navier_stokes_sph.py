@@ -21,42 +21,6 @@ from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotenti
 from struphy.propagators.push_vxb import PushVxB
 
 
-class UpdateForce(Propagator):
-    """Berechnet force = -epsilon * grad(pressure) und speichert in force.spline.vector."""
-
-    class Variables:
-        def __init__(self):
-            pass
-
-    @dataclass(repr=False)
-    class Options(OptionsBase):
-        pass
-
-    def __init__(self, pressure: FEECVariable, force: FEECVariable):
-        self.pressure = pressure
-        self.force = force
-        self._options = self.Options()
-        self.variables = self.Variables()
-
-    def allocate(self):
-        pass
-
-    @property
-    def options(self):
-        return self._options
-
-    @options.setter
-    def options(self, new):
-        assert isinstance(new, self.Options)
-        self._options = new
-
-    def __call__(self, dt):
-        # force = -epsilon * grad(pressure)
-        self.derham.grad.dot(self.pressure.spline.vector, out=self.force.spline.vector)
-        self.force.spline.vector *= -1.0  # korrekte Skalierung
-        self.force.spline.vector.update_ghost_regions()
-
-
 class IncompressibleNavierStokesSPH(StruphyModel):
     """Incompressible Navier-Stokes equations discretized with smoothed particle hydrodynamics (SPH).
 
@@ -81,14 +45,21 @@ class IncompressibleNavierStokesSPH(StruphyModel):
     ## species
 
     class Fluid(ParticleSpecies):
-        def __init__(self, charge_number: int = 1, mass_number: float = 1.0):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+        ):
             self.density = SPHVariable()
-            self.init_variables(charge_number=charge_number, mass_number=mass_number)
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=1.0,  # follows from the normalization (thermal velocity)
+            )
 
     class LagrangeMultiplier(FieldSpecies):
         def __init__(self):
             self.pressure = FEECVariable(space="H1")
-            self.force = FEECVariable(space="Hcurl")  # neu
             self.init_variables()
 
     ## propagators
@@ -98,8 +69,6 @@ class IncompressibleNavierStokesSPH(StruphyModel):
             self,
             ptg: ParticlesToGrid,
             pressure: FEECVariable,
-            force: FEECVariable,  # Parameter vorhanden
-            epsilon: float,
             ptg_coeff: float = -1.0,
             with_B0: bool = True,
             with_viscosity: bool = True,
@@ -110,12 +79,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
             if with_viscosity:
                 self.push_viscous = PushVinViscousPotential()
             self.pressure_poisson = PoissonSolve(rho=ptg, rho_coeffs=ptg_coeff)
-
-            # NEU: Propagator, der force aus pressure berechnet
-            self.update_force = UpdateForce(pressure, force)
-
-            # GEÄNDERT: Chorin-Projektion verwendet jetzt force (nicht phi)
-            self.chorin_projection = PushVinEfield(e_field=force)
+            self.chorin_projection = PushVinEfield(phi=pressure)
 
     ## abstract methods
 
@@ -135,12 +99,14 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
-        self.fluid = self.Fluid(charge_number=charge_number, mass_number=mass_number)
+        self.fluid = self.Fluid(
+            charge_number=charge_number,
+            mass_number=mass_number,
+        )
         self.lagrange_multiplier = self.LagrangeMultiplier()
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
-        self.fluid.equation_params.epsilon = 1.0
 
         # 3. instantiate all propagators
         ptg = ParticlesToGrid(
@@ -151,8 +117,6 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         self.propagators = self.Propagators(
             ptg=ptg,
             pressure=self.lagrange_multiplier.pressure,
-            force=self.lagrange_multiplier.force,
-            epsilon=self.fluid.equation_params.epsilon,
             with_B0=with_B0,
             with_viscosity=with_viscosity,
         )

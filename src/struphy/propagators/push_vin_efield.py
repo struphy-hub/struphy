@@ -23,7 +23,7 @@ class PushVinEfield(Propagator):
 
         \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}\mathbf{E}(\mathbf{x}_p) \,,
 
-    where :math:`\varepsilon \in \mathbb R` is a constant. In logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+    where :math:`\varepsilon \in \mathbb R` is a constant species parameter. In logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
     .. math::
 
@@ -57,31 +57,39 @@ class PushVinEfield(Propagator):
 
     def __init__(
         self,
-        phi: FEECVariable | Callable = None,
         e_field: FEECVariable | tuple[Callable] = None,
+        phi: FEECVariable | Callable = None,
     ):
         """
         Parameters
         ----------
+        e_field : FEECVariable or tuple of Callables, default=None
+            Electric field used directly in velocity pushing.
+            Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
+            callables to be projected. Ignored when ``phi`` is set.
         phi : FEECVariable or Callable, default=None
             Electrostatic potential from which the electric field is built as
             ``-grad(phi)``. If provided, it overrides ``e_field``.
             Accepted forms are an ``H1`` FEEC variable or a callable projected
             via ``L2Projector``.
-        e_field : FEECVariable or tuple of Callables, default=None
-            Electric field used directly in velocity pushing.
-            Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
-            callables to be projected. Ignored when ``phi`` is set.
         """
         self.variables = self.Variables()
 
-        if isinstance(phi, FEECVariable):
-            assert phi.space == "H1"
-        if isinstance(e_field, FEECVariable):
-            assert e_field.space == "Hcurl"
+        if e_field is not None:
+            if isinstance(e_field, FEECVariable):
+                assert e_field.space == "Hcurl"
+            else:
+                assert isinstance(e_field, tuple) and all(callable(x) for x in e_field)
+            phi = None
+        else:
+            assert phi is not None, "Either e_field or phi must be provided."
+            if isinstance(phi, FEECVariable):
+                assert phi.space == "H1"
+            else:
+                assert callable(phi)
 
-        self.phi = phi
         self.e_field = e_field
+        self.phi = phi
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -104,45 +112,44 @@ class PushVinEfield(Propagator):
 
     @profile
     def allocate(self):
-        # scaling factor
-        self._epsilon = self.variables.var.species.equation_params.epsilon
-
-        self._e_field = None
+        # scaling factor, retrieved from variable's species
+        self.epsilon = self.variables.var.species.equation_params.epsilon
 
         if self.e_field is not None:
-            if isinstance(self.e_field, tuple) and all(callable(x) for x in self.e_field):
-                # if isinstance(self.e_field, tuple[Callable]):
-                self._e_field = self.derham.P1(self.e_field)
+            self.phi_vector = None
+            if isinstance(self.e_field, FEECVariable):
+                self.e_vector = self.e_field.spline.vector
             else:
-                self._e_field = self.e_field.spline.vector
-
-        if self.phi is not None:
-            if isinstance(self.phi, Callable):
-                _phi = self.derham.P0(self.phi)
+                self.e_vector = self.derham.P1(self.e_field)
+        else:
+            if isinstance(self.phi, FEECVariable):
+                self.phi_vector = self.phi.spline.vector
             else:
-                _phi = self.phi.spline.vector
-            self._e_field = self.derham.grad.dot(_phi)
-            self._e_field.update_ghost_regions()  # very important, we will move it inside grad
-            self._e_field *= -1.0
+                self.phi_vector = self.derham.P0(self.phi)
+            self.e_vector = self.derham.grad.dot(self.phi_vector)
+            self.e_vector *= -1.0
+            self.e_vector.update_ghost_regions()
 
-        if self._e_field is not None:
-            # instantiate Pusher
-            args_kernel = (
-                self.derham.args_derham,
-                self._e_field[0]._data,
-                self._e_field[1]._data,
-                self._e_field[2]._data,
-                1.0 / self._epsilon,
-            )
+        # instantiate Pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self.e_vector[0]._data,
+            self.e_vector[1]._data,
+            self.e_vector[2]._data,
+            1.0 / self.epsilon,
+        )
 
-            self._pusher = Pusher(
-                self.variables.var.particles,
-                PyccelKernel(pusher_kernels.push_v_with_efield),
-                args_kernel,
-                self.domain.args_domain,
-                alpha_in_kernel=1.0,
-            )
+        self._pusher = Pusher(
+            self.variables.var.particles,
+            PyccelKernel(pusher_kernels.push_v_with_efield),
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
 
     def __call__(self, dt):
-        if self._e_field is not None:
-            self._pusher(dt)
+        if self.e_field is None:
+            self.derham.grad.dot(self.phi_vector, out=self.e_vector)
+            self.e_vector *= -1.0
+            self.e_vector.update_ghost_regions()
+        self._pusher(dt)
