@@ -149,8 +149,12 @@ class PushVinEfield(Propagator):
         )
 
     def __call__(self, dt):
-        if self.e_field is None:
+        if self.e_field is not None:
+            self._pusher(dt)
+        elif self.phi is not None:
             self.derham.grad.dot(self.phi_vector, out=self.e_vector)
             self.e_vector *= -1.0
             self.e_vector.update_ghost_regions()
-        self._pusher(dt)
+            self._pusher(dt)
+        else:
+            pass
