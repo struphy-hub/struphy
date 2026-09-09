@@ -173,6 +173,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
     @classmethod
     def formula(cls):
         return display(HTML(cls.formula_html()))
+
     ###########################
     # Vector-valued callables #
     ###########################

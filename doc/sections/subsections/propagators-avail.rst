@@ -146,7 +146,7 @@ Particle pushing
     :exclude-members: options, allocate
     :show-inheritance:
 
-.. automodule:: struphy.propagators.push_vin_efield
+.. automodule:: struphy.propagators.push_v_in_force_field
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -228,12 +228,12 @@ MHD-kinetic coupling
 SPH
 ^^^
 
-.. automodule:: struphy.propagators.push_vin_sph_pressure
+.. automodule:: struphy.propagators.push_v_in_sph_pressure
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
 
-.. automodule:: struphy.propagators.push_vin_viscous_potential
+.. automodule:: struphy.propagators.push_v_in_viscous_potential
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
