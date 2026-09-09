@@ -110,7 +110,7 @@ def naive_evaluation_kernel(
             r2 = distance(eta2, markers[p, 1], periodic2)
             r3 = distance(eta3, markers[p, 2], periodic3)
             out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
-    return out / Np
+    return out #/ Np
 
 
 def box_based_kernel(

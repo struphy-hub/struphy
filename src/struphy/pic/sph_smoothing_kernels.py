@@ -1,4 +1,5 @@
 from numpy import abs, cos, exp, pi, sin, sqrt
+erf3 = 0.9999779095030014
 
 
 ###########################################
@@ -30,12 +31,20 @@ def gaussian_uni(
     x: "float",
     h: "float",
 ) -> float:
-    """Uni-variate S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
-    if abs(x / h) <= 1.0:
-        return 1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
-    else:
-        return 0.0
-
+    """Uni-variate S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else.""" 
+    return 1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
+    #if abs(x / h) <= 1.0:
+        #return 1/(erf(3)*sqrt(pi) * h / 3)* exp(-(x**2) / (h / 3) ** 2)   
+    #else:
+    #    return 0.0
+    #if abs(x / h) <= 1.0:
+        # Normalization constant
+    #    factor = (sqrt(pi) / 3) * erf3 - 2 * exp(-9)
+    #    A = 1.0 / (h * factor)
+        # Evaluate shifted Gaussian
+    #    return A * (exp(-(x**2) / ((h / 3) ** 2)) - exp(-9))
+    #else:
+    #    return 0.0
 
 def grad_gaussian_uni(
     x: "float",
