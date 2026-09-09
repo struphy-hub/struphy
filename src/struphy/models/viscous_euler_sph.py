@@ -8,8 +8,8 @@ from struphy.models.species import (
 )
 from struphy.models.variables import SPHVariable
 from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vin_sph_pressure import PushVinSPHpressure
-from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
+from struphy.propagators.push_v_in_sph_pressure import PushVinSPHpressure
+from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 
 
@@ -195,8 +195,8 @@ class ViscousEulerSPH(StruphyModel):
 
         1. :class:`~struphy.propagators.push_eta.PushEta`
         2. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
-        3. :class:`~struphy.propagators.push_vin_sph_pressure.PushVinSPHpressure` (if :attr:`with_p` is True)
-        4. :class:`~struphy.propagators.push_vin_viscous_potential.PushVinViscousPotential` (if :attr:`with_viscosity` is True)
+        3. :class:`~struphy.propagators.push_v_in_sph_pressure.PushVinSPHpressure` (if :attr:`with_p` is True)
+        4. :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential` (if :attr:`with_viscosity` is True)
         """
         doc = rf"""**1. PushEta:**
 
