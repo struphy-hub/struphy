@@ -370,7 +370,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         # --- DEBUG: Check marker velocities ---
         markers = model.fluid.density.particles.markers
         # markers columns: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
-        print(
+        logger.debug(
             "Marker velocity v1: min =",
             markers[:, 3].min(),
             " max =",
@@ -378,7 +378,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
             " mean =",
             markers[:, 3].mean(),
         )
-        print(
+        logger.debug(
             "Marker velocity v2: min =",
             markers[:, 4].min(),
             " max =",
@@ -386,7 +386,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
             " mean =",
             markers[:, 4].mean(),
         )
-        print(
+        logger.debug(
             "Marker velocity v3: min =",
             markers[:, 5].min(),
             " max =",

@@ -68,7 +68,7 @@ class PushVinForceField(Propagator):
             Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
             callables to be projected. If provided, ``potential`` is ignored.
         potential : FEECVariable or Callable, default=None
-            Scalar potential from which the electric field is built as
+            Scalar potential from which the force field is built as
             ``-grad(potential)``. Accepted forms are an ``H1`` FEEC variable or a callable projected
             via ``L2Projector``.
         """
