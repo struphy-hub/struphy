@@ -66,11 +66,10 @@ class PushVinEfield(Propagator):
         e_field : FEECVariable or tuple of Callables, default=None
             Electric field used directly in velocity pushing.
             Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
-            callables to be projected. Ignored when ``phi`` is set.
+            callables to be projected. If provided, ``phi`` is ignored.
         phi : FEECVariable or Callable, default=None
             Electrostatic potential from which the electric field is built as
-            ``-grad(phi)``. If provided, it overrides ``e_field``.
-            Accepted forms are an ``H1`` FEEC variable or a callable projected
+            ``-grad(phi)``. Accepted forms are an ``H1`` FEEC variable or a callable projected
             via ``L2Projector``.
         """
         self.variables = self.Variables()
