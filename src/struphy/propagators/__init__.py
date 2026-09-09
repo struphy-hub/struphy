@@ -25,8 +25,8 @@ from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBx
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.propagators.push_random_diffusion import PushRandomDiffusion
 from struphy.propagators.push_v_in_force_field import PushVinForceField
-from struphy.propagators.push_vin_sph_pressure import PushVinSPHpressure
-from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
+from struphy.propagators.push_v_in_sph_pressure import PushVinSPHpressure
+from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
