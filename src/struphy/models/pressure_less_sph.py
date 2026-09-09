@@ -8,7 +8,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import SPHVariable
 from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vin_efield import PushVinForceField
+from struphy.propagators.push_v_in_force_field import PushVinForceField
 
 
 class PressureLessSPH(StruphyModel):
