@@ -255,3 +255,8 @@ Miscellaneous
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
+
+.. automodule:: struphy.propagators.two_fluid_quasi_neutral_compressible
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:

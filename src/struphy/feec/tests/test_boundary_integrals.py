@@ -58,10 +58,7 @@ def test_scalar_unit_cube_constant(num_elements, degree, bcs):
     mass_ops = WeightedMassOperators(derham, domain)
 
     face_value = 2.1
-    num_faces = sum(
-        (1 if ft[0] == "free" else 0) + (1 if ft[1] == "free" else 0)
-        for ft in bcs if ft is not None
-    )
+    num_faces = sum((1 if ft[0] == "free" else 0) + (1 if ft[1] == "free" else 0) for ft in bcs if ft is not None)
     exact = num_faces * face_value
 
     alpha_h = L2Projector("H1", mass_ops)(lambda e1, e2, e3: xp.ones_like(e1) * face_value)
@@ -134,6 +131,7 @@ def test_scalar_cuboid_nontrivial(num_elements, degree, bcs):
 def test_scalar_hollow_cylinder(num_elements, degree, bcs):
     """ScalarBoundaryMass: alpha = exp(eta3) on a HollowCylinder."""
     import math
+
     comm = MPI.COMM_WORLD
     derham = Derham(TensorProductGrid(num_elements=num_elements), DerhamOptions(degree=degree, bcs=bcs), comm=comm)
     a1, a2, Lz = 0.2, 1.0, 4.0
@@ -211,12 +209,11 @@ def test_tangential_cuboid_nontrivial(num_elements, degree, bcs, active_faces, u
     mass_ops = WeightedMassOperators(derham, domain)
 
     def make_pulled(idx):
-        phys_funs = [
-            lambda x, y, z, i=i: xp.ones_like(x) if i == idx else xp.zeros_like(x)
-            for i in range(3)
-        ]
+        phys_funs = [lambda x, y, z, i=i: xp.ones_like(x) if i == idx else xp.zeros_like(x) for i in range(3)]
+
         def pulled(*etas):
             return domain.pull(phys_funs, *etas, kind="1")
+
         return [lambda *etas, p=pulled, c=c: p(*etas)[c] for c in range(3)]
 
     P = L2Projector("Hcurl", mass_ops)
@@ -258,11 +255,13 @@ def test_normal_linear_unit_cube(num_elements, degree):
     mass_ops = WeightedMassOperators(derham, domain)
 
     P_vec = L2Projector("Hdiv", mass_ops)
-    u_h = P_vec([
-        lambda e1, e2, e3: -1.0 + 2.0 * e1,
-        lambda e1, e2, e3: xp.zeros_like(e1),
-        lambda e1, e2, e3: xp.zeros_like(e1),
-    ])
+    u_h = P_vec(
+        [
+            lambda e1, e2, e3: -1.0 + 2.0 * e1,
+            lambda e1, e2, e3: xp.zeros_like(e1),
+            lambda e1, e2, e3: xp.zeros_like(e1),
+        ]
+    )
 
     bnd_ops = BoundaryIntegralOperators(mass_ops)
     Su = bnd_ops.normal().dot(u_h)
@@ -279,21 +278,34 @@ def test_normal_linear_unit_cube(num_elements, degree):
 
 if __name__ == "__main__":
     from struphy import set_logging_level
+
     set_logging_level(logging.INFO)
 
     test_scalar_unit_cube_constant([8, 9, 10], [1, 2, 3], (("free", "free"), ("free", "free"), ("free", "free")))
-    test_scalar_unit_cube_nonconstant([8, 9, 10], [1, 2, 3], (("dirichlet", "free"), ("free", "free"), ("free", "free")))
+    test_scalar_unit_cube_nonconstant(
+        [8, 9, 10], [1, 2, 3], (("dirichlet", "free"), ("free", "free"), ("free", "free"))
+    )
     test_scalar_cuboid_nontrivial([8, 9, 10], [1, 2, 3], (("free", "free"), ("free", "free"), ("free", "free")))
     test_scalar_hollow_cylinder([8, 9, 10], [1, 2, 3], (("free", "free"), None, ("free", "free")))
 
     test_tangential_unit_cube_per_face(
-        [10, 10, 10], [2, 2, 2], (("free", "free"), ("free", "free"), ("free", "free")),
-        [True, False, False, False, False, False], 1, 2, 1.0,
+        [10, 10, 10],
+        [2, 2, 2],
+        (("free", "free"), ("free", "free"), ("free", "free")),
+        [True, False, False, False, False, False],
+        1,
+        2,
+        1.0,
     )
-    
+
     test_tangential_cuboid_nontrivial(
-        [10, 10, 10], [1, 2, 3], (("free", "free"), ("free", "free"), ("free", "free")),
-        [True, False, False, False, False, False], 1, 2, 12.0,
+        [10, 10, 10],
+        [1, 2, 3],
+        (("free", "free"), ("free", "free"), ("free", "free")),
+        [True, False, False, False, False, False],
+        1,
+        2,
+        12.0,
     )
 
     test_normal_linear_unit_cube([20, 20, 20], [2, 2, 2])

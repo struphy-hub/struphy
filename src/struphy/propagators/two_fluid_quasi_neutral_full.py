@@ -8,21 +8,22 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
-from struphy.feec.linear_operators import BoundaryOperator
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
+from struphy.feec.boundary_mass import BoundaryIntegralOperators
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import L2Projector, WeightedMassOperators
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
-from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.boundary_mass import BoundaryIntegralOperators
-from struphy.initial.base import Perturbation
 
 logger = logging.getLogger("struphy")
+
 
 class TwoFluidQuasiNeutralFull(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -348,7 +349,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._mass_pc_ue = MassMatrixPreconditioner(mass_operator=self._M1_ue)
         self._M1inv_ue = inverse(self._M1_ue, "pcg", pc=self._mass_pc_ue, tol=1e-10, maxiter=1000, recycle=True)
-    
+
         self._lapl_ue = (
             self._div_ue.T @ self._mass_ops_lift_ue.M3 @ self._div_ue
             + self._M2_ue @ self._curl_ue @ self._M1inv_ue @ self._curl_ue.T @ self._M2_ue
@@ -373,7 +374,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._mass_pc = MassMatrixPreconditioner(mass_operator=self._M1)
         self._M1inv = inverse(self._M1, "pcg", pc=self._mass_pc, tol=1e-10, maxiter=1000, recycle=True)
 
-        self._lapl_v0 = self._div.T @ self._M3 @ self._div + self._M2 @ self._curl @ self._M1inv @ self._curl.T @ self._M2
+        self._lapl_v0 = (
+            self._div.T @ self._M3 @ self._div + self._M2 @ self._curl @ self._M1inv @ self._curl.T @ self._M2
+        )
 
         bnd_ops_u = BoundaryIntegralOperators(self._mass_ops_lift_u, active_faces=[True] * 6)
         self._S1_u = bnd_ops_u.S1
@@ -448,19 +451,14 @@ class TwoFluidQuasiNeutralFull(Propagator):
         if dt != self._dt:
             self._dt = dt
             _A11 = self._A11 + self._M2 / dt
-            _A = BlockLinearOperator(
-                self._block_domain, self._block_domain,
-                blocks=[[_A11, None], [None, self._A22]]
-            )
+            _A = BlockLinearOperator(self._block_domain, self._block_domain, blocks=[[_A11, None], [None, self._A22]])
             _M = BlockLinearOperator(
-                self._block_domain_M, self._block_domain_M,
-                blocks=[[_A, self._B.T], [self._B, None]]
+                self._block_domain_M, self._block_domain_M, blocks=[[_A, self._B.T], [self._B, None]]
             )
             self._Minv.linop = _M
-            
+
             if self.options.solver in get_args(LiteralOptions.OptsSaddlePointSolver):
                 self._Minv.update_A11(_A11)
-
 
         # --- copy current homogeneous solution ---
         self._u_0.vector = self.variables.u.spline.vector
@@ -473,15 +471,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 - self._M2_u.dot(self._boundary_spline_u) / dt
             )
             + self._M2.dot(self._u_0.vector) / dt
-            + self.options.nu * self._M2.dot(self._curl.dot(self._M1inv.dot(self._hcurl_b_op_u.dot(self._S1_u.dot(self._natural_u.vector)))))
+            + self.options.nu
+            * self._M2.dot(
+                self._curl.dot(self._M1inv.dot(self._hcurl_b_op_u.dot(self._S1_u.dot(self._natural_u.vector))))
+            )
         )
 
-        self._rhs_vec_ue.vector = (
-            self._hdiv_b_op_ue.dot(
-                self._M2_ue.dot(self._src_ue.vector)
-                - self._A22_ue.dot(self._boundary_spline_ue)
-            )
-            + self.options.nu_e * self._M2.dot(self._curl.dot(self._M1inv.dot(self._hcurl_b_op_ue.dot(self._S1_ue.dot(self._natural_ue.vector)))))
+        self._rhs_vec_ue.vector = self._hdiv_b_op_ue.dot(
+            self._M2_ue.dot(self._src_ue.vector) - self._A22_ue.dot(self._boundary_spline_ue)
+        ) + self.options.nu_e * self._M2.dot(
+            self._curl.dot(self._M1inv.dot(self._hcurl_b_op_ue.dot(self._S1_ue.dot(self._natural_ue.vector))))
         )
 
         self._div_boundary_u.vector = self._div_u.dot(self._boundary_spline_u)

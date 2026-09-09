@@ -3,7 +3,6 @@ from typing import Literal
 
 import cunumpy as xp
 from cunumpy import PyccelKernel
-from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.linalg.block import BlockLinearOperator
 from feectools.linalg.stencil import StencilMatrix
@@ -82,9 +81,7 @@ class BoundaryIntegralOperators:
         """Scalar boundary mass: int_{dOmega} alpha * beta dS. Data: H1."""
         key = ("scalar", test_space)
         if key not in self._cache:
-            self._cache[key] = ScalarBoundaryMass(
-                self._mass_ops, self._active_faces, test_space=test_space
-            )
+            self._cache[key] = ScalarBoundaryMass(self._mass_ops, self._active_faces, test_space=test_space)
         return self._cache[key]
 
     def normal(
@@ -96,8 +93,10 @@ class BoundaryIntegralOperators:
         key = ("normal", data_space, test_space)
         if key not in self._cache:
             self._cache[key] = NormalBoundaryMass(
-                self._mass_ops, self._active_faces,
-                data_space=data_space, test_space=test_space,
+                self._mass_ops,
+                self._active_faces,
+                data_space=data_space,
+                test_space=test_space,
             )
         return self._cache[key]
 
@@ -110,8 +109,10 @@ class BoundaryIntegralOperators:
         key = ("tangential", data_space, test_space)
         if key not in self._cache:
             self._cache[key] = TangentialBoundaryMass(
-                self._mass_ops, self._active_faces,
-                data_space=data_space, test_space=test_space,
+                self._mass_ops,
+                self._active_faces,
+                data_space=data_space,
+                test_space=test_space,
             )
         return self._cache[key]
 
@@ -185,7 +186,6 @@ class BoundaryMassOperator(LinOpWithTransp):
         self._temp_WE = self._W_extraction_op.domain.zeros()
         self._temp_VB = self._V_boundary_op.domain.zeros()
         self._temp_mat = self._mat.domain.zeros()
-        
 
         self._setup_surface_data()
         self._assembly_kernel = PyccelKernel(mass_kernels.surface_kernel_3d_mat)
@@ -316,8 +316,10 @@ class ScalarBoundaryMass(BoundaryMassOperator):
             if not self._active_faces[face_idx]:
                 for lst in (
                     self._surface_geom_weights,
-                    self._surface_data_spans, self._surface_data_wts,
-                    self._surface_data_bases, self._surface_test_bases,
+                    self._surface_data_spans,
+                    self._surface_data_wts,
+                    self._surface_data_bases,
+                    self._surface_test_bases,
                 ):
                     lst.append(None)
                 continue
@@ -470,10 +472,14 @@ class NormalBoundaryMass(BoundaryMassOperator):
         for face_idx in range(6):
             if not self._active_faces[face_idx]:
                 for lst in (
-                    self._surface_sign, self._surface_normal_dir,
-                    self._surface_data_spans, self._surface_test_spans,
-                    self._surface_data_wts, self._surface_test_wts,
-                    self._surface_data_bases, self._surface_test_bases,
+                    self._surface_sign,
+                    self._surface_normal_dir,
+                    self._surface_data_spans,
+                    self._surface_test_spans,
+                    self._surface_data_wts,
+                    self._surface_test_wts,
+                    self._surface_data_bases,
+                    self._surface_test_bases,
                 ):
                     lst.append(None)
                 continue
@@ -521,26 +527,22 @@ class NormalBoundaryMass(BoundaryMassOperator):
         nq2 = self._surface_test_spans[face_idx][1].size * self._surface_test_wts[face_idx][1].shape[1]
         geom_weight = xp.full((nq1, nq2), sign)
 
-        logger.debug(
-            f"{normal_dir=}, {face_idx=}, {boundary_index_t=}, {starts_t=}, {ends_t=}, {pads_t=}"
-        )
-        logger.debug(
-            f"{normal_dir=}, {face_idx=}, {boundary_index_d=}, {starts_d=}, {ends_d=}"
-        )
+        logger.debug(f"{normal_dir=}, {face_idx=}, {boundary_index_t=}, {starts_t=}, {ends_t=}, {pads_t=}")
+        logger.debug(f"{normal_dir=}, {face_idx=}, {boundary_index_d=}, {starts_d=}, {ends_d=}")
 
         owns_row = starts_t[normal_dir] == boundary_index_t or ends_t[normal_dir] == boundary_index_t
         owns_col = starts_d[normal_dir] == boundary_index_d or ends_d[normal_dir] == boundary_index_d
 
         if owns_row and owns_col:
             self._assembly_kernel(
-                *self._surface_test_spans[face_idx],   # spans -> row (test)
-                *test_fem.degree,                      # pi    -> row (test)
-                *data_fem_mu.degree,                   # pj    -> col (data)
-                *starts_t,                             # starts of row space
-                *pads_t,                               # pads of row space
+                *self._surface_test_spans[face_idx],  # spans -> row (test)
+                *test_fem.degree,  # pi    -> row (test)
+                *data_fem_mu.degree,  # pj    -> col (data)
+                *starts_t,  # starts of row space
+                *pads_t,  # pads of row space
                 *self._surface_test_wts[face_idx],
-                *self._surface_test_bases[face_idx],   # bi    -> row (test)
-                *self._surface_data_bases[face_idx],   # bj    -> col (data)
+                *self._surface_test_bases[face_idx],  # bi    -> row (test)
+                *self._surface_data_bases[face_idx],  # bj    -> col (data)
                 boundary_index_t,
                 normal_dir,
                 geom_weight,
@@ -557,9 +559,8 @@ class NormalBoundaryMass(BoundaryMassOperator):
             self._mat.blocks[0][mu].update_ghost_regions()
 
     def transpose(self, conjugate=False):
-        raise NotImplementedError(
-            "Transpose of NormalBoundaryMass maps scalar -> vector; not implemented."
-        )
+        raise NotImplementedError("Transpose of NormalBoundaryMass maps scalar -> vector; not implemented.")
+
 
 # ---------------------------------------------------------------------------
 # TangentialBoundaryMass: int_{dOmega} (u x n) . v dS
@@ -635,8 +636,10 @@ class TangentialBoundaryMass(BoundaryMassOperator):
             if not self._active_faces[face_idx]:
                 for lst in (
                     self._surface_R_n,
-                    self._surface_data_spans, self._surface_data_wts,
-                    self._surface_data_bases, self._surface_test_bases,
+                    self._surface_data_spans,
+                    self._surface_data_wts,
+                    self._surface_data_bases,
+                    self._surface_test_bases,
                 ):
                     lst.append(None)
                 continue

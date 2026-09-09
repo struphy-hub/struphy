@@ -521,7 +521,6 @@ class BoundaryOperator(LinOpWithTransp):
                 out = v.copy()
             return out
 
-
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._codomain

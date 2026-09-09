@@ -8,7 +8,6 @@ from struphy.propagators.two_fluid_quasi_neutral_compressible import TwoFluidQua
 
 
 class TwoFluidQuasiNeutral(StruphyModel):
-
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Fluid"
@@ -46,7 +45,9 @@ class TwoFluidQuasiNeutral(StruphyModel):
 
         self.em_fields = self.EMfields()
         self.ions = self.Ions(charge_number=ion_charge_number, mass_number=ion_mass_number, epsilon=ion_epsilon)
-        self.electrons = self.Electrons(charge_number=electron_charge_number, mass_number=electron_mass_number, epsilon=electron_epsilon)
+        self.electrons = self.Electrons(
+            charge_number=electron_charge_number, mass_number=electron_mass_number, epsilon=electron_epsilon
+        )
 
         self.setup_equation_params(base_units=base_units)
 

@@ -7,19 +7,18 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
-from struphy.feec.linear_operators import BoundaryOperator
-
 
 from struphy.feec.boundary_mass import BoundaryIntegralOperators
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
-from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.initial.base import Perturbation
 
 logger = logging.getLogger("struphy")
 
@@ -264,7 +263,11 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
                 fun_vec = [lambda x, y, z, f=source, c=c: f(x, y, z)[c] for c in range(3)]
                 fun = [
                     TransformedPformComponent(
-                        fun_vec, "physical", "1", comp=comp, domain=self.domain,
+                        fun_vec,
+                        "physical",
+                        "1",
+                        comp=comp,
+                        domain=self.domain,
                     )
                     for comp in range(3)
                 ]
@@ -302,10 +305,7 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             + self._M1_ue @ self._grad_ue @ self._M0inv_ue @ self._grad_ue.T @ self._M1_ue
         )
 
-        self._A_i = (
-            - self._M1B_u / self.options.eps_norm
-            + self.options.nu * self._lapl_u
-        )
+        self._A_i = -self._M1B_u / self.options.eps_norm + self.options.nu * self._lapl_u
         self._A_e = (
             self._M1B_ue / (self.options.mu * self.options.eps_norm)
             + self.options.mu * self.options.nu_e * self._lapl_ue
@@ -322,14 +322,12 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._M0inv = inverse(self._M0, "pcg", pc=self._mass_pc, tol=1e-10, maxiter=1000, recycle=True)
 
         self._lapl_v0 = (
-            self._curl.T @ self.mass_ops.M2 @ self._curl
-            + self._M1 @ self._grad @ self._M0inv @ self._grad.T @ self._M1
+            self._curl.T @ self.mass_ops.M2 @ self._curl + self._M1 @ self._grad @ self._M0inv @ self._grad.T @ self._M1
         )
 
         self._A11 = -self._M1B / self.options.eps_norm + self.options.nu * self._lapl_v0
         self._A22 = (
-            self._M1B / (self.options.mu * self.options.eps_norm)
-            + self.options.mu * self.options.nu_e * self._lapl_v0
+            self._M1B / (self.options.mu * self.options.eps_norm) + self.options.mu * self.options.nu_e * self._lapl_v0
         )
 
         # ---- normal boundary mass: int_{dOmega} (g.n) * alpha dS ---
@@ -376,18 +374,21 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         self._block_codomain_B = self.derham.coeff_spaces["0"]
 
         self._B = BlockLinearOperator(
-            self._block_domain, self._block_codomain_B,
+            self._block_domain,
+            self._block_codomain_B,
             blocks=[[self._B, -self._B]],
         )
 
         self._block_domain_M = BlockVectorSpace(self._block_domain, self._block_codomain_B)
 
         _A_init = BlockLinearOperator(
-            self._block_domain, self._block_domain,
+            self._block_domain,
+            self._block_domain,
             blocks=[[self._A11, None], [None, self._A22]],
         )
         _M_init = BlockLinearOperator(
-            self._block_domain_M, self._block_domain_M,
+            self._block_domain_M,
+            self._block_domain_M,
             blocks=[[_A_init, self._B.T], [self._B, None]],
         )
 
@@ -433,19 +434,14 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
         if dt != self._dt:
             self._dt = dt
             _A11 = self._A11 + self._M1 / dt
-            _A = BlockLinearOperator(
-                self._block_domain, self._block_domain,
-                blocks=[[_A11, None], [None, self._A22]]
-            )
+            _A = BlockLinearOperator(self._block_domain, self._block_domain, blocks=[[_A11, None], [None, self._A22]])
             _M = BlockLinearOperator(
-                self._block_domain_M, self._block_domain_M,
-                blocks=[[_A, self._B.T], [self._B, None]]
+                self._block_domain_M, self._block_domain_M, blocks=[[_A, self._B.T], [self._B, None]]
             )
             self._Minv.linop = _M
-            
+
             if self.options.solver in get_args(LiteralOptions.OptsSaddlePointSolver):
                 self._Minv.update_A11(_A11)
-
 
         # --- copy current homogeneous solution ---
         self._u_0.vector = self.variables.u.spline.vector
@@ -465,20 +461,19 @@ class TwoFluidQuasiNeutralCompressible(Propagator):
             + self.options.nu * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_u.vector)))
         )
 
-
         # --- assemble RHS for electrons ---
-        self._rhs_vec_ue.vector = (
-            self._hcurl_b_op_ue.dot(
-                self._M1_ue.dot(self._src_ue.vector)
-                - self._A_e.dot(self._essential_spline_ue)
-            )
-            + self.options.mu * self.options.nu_e * self._M1.dot(self._grad.dot(self._M0inv.dot(self._boundary_normal_ue.vector)
-                )
-            )
+        self._rhs_vec_ue.vector = self._hcurl_b_op_ue.dot(
+            self._M1_ue.dot(self._src_ue.vector) - self._A_e.dot(self._essential_spline_ue)
+        ) + self.options.mu * self.options.nu_e * self._M1.dot(
+            self._grad.dot(self._M0inv.dot(self._boundary_normal_ue.vector))
         )
 
-        self._qn_boundary_u.vector = self._B0_normal_u.dot(self._natural_spline_u.vector, apply_bc=False) - self._grad_u.T.dot(self._M1_u.dot(self._essential_spline_u))
-        self._qn_boundary_ue.vector = self._B0_normal_ue.dot(self._natural_spline_ue.vector, apply_bc=False) - self._grad_ue.T.dot(self._M1_ue.dot(self._essential_spline_ue))
+        self._qn_boundary_u.vector = self._B0_normal_u.dot(
+            self._natural_spline_u.vector, apply_bc=False
+        ) - self._grad_u.T.dot(self._M1_u.dot(self._essential_spline_u))
+        self._qn_boundary_ue.vector = self._B0_normal_ue.dot(
+            self._natural_spline_ue.vector, apply_bc=False
+        ) - self._grad_ue.T.dot(self._M1_ue.dot(self._essential_spline_ue))
 
         # --- assemble RHS for quasineutrality ---
         self._rhs_vec_phi.vector = self._qn_boundary_u.vector - self._qn_boundary_ue.vector

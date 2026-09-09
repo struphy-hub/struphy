@@ -10,8 +10,8 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.memory import coeff_space_nbytes
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.memory import coeff_space_nbytes
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
