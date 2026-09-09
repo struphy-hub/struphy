@@ -27,6 +27,7 @@ from struphy import (
     EnvironmentOptions,
     PlottingData,
     PostProcessor,
+    ProfilingOptions,
     Time,
     domains,
     equils,
@@ -121,6 +122,8 @@ class Simulation(SimulationBase):
         Spatial grid used for FEEC variables.
     derham_opts : DerhamOptions
         Options for discrete differential operators.
+    profiling_opts : ProfilingOptions
+        Options passed to scope-profiler when profiling is active.
     comm: MPI.Intracomm, optional
         MPI communicator for parallel execution. If None, uses MPI.COMM_WORLD.
     logging_level : int, optional
@@ -139,40 +142,25 @@ class Simulation(SimulationBase):
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = grids.TensorProductGrid(),
         derham_opts: DerhamOptions = DerhamOptions(),
+        profiling_opts: ProfilingOptions = ProfilingOptions(),
         comm: MPI.Intracomm = None,
         logging_level: int | None = None,
     ):
         if logging_level is not None:
             set_logging_level(logging_level)
 
-        self._name = name
-        self._description = description
-        self._model = model
-        self._params_path = params_path
-        self.env = env
-        self._time_opts = time_opts
-        self._setup_domain_and_equil(domain, equil)
-        self._grid = grid
-        self._derham_opts = derham_opts
-
-        # mpi info
-        if isinstance(MPI, MockMPI):
-            self.comm = None
-            self.rank = 0
-            self.comm_size = 1
-            self.Barrier = lambda: None
-        else:
-            if comm is None:
-                self.comm = MPI.COMM_WORLD
-            else:
-                self.comm = comm
-            self.rank = self.comm.Get_rank()
-            self.comm_size = self.comm.Get_size()
-            self.Barrier = self.comm.Barrier
-
-        logger.info(f"\nMPI comm: {self.comm}")
-        logger.info(f"MPI size: {self.comm_size} processes")
-        logger.info(f"MPI rank: {self.rank}")
+        self.model = model
+        self.name = name
+        self.description = description
+        self.params_path = params_path
+        self.env = env  # Set name first since it's used as a label
+        self.time_opts = time_opts
+        self.domain = domain
+        self.equil = equil
+        self.grid = grid
+        self.derham_opts = derham_opts
+        self.profiling_opts = profiling_opts
+        self.comm = comm
 
         if logger.level <= logging.INFO and self.rank == 0:
             self.show_parameters()
@@ -183,65 +171,13 @@ class Simulation(SimulationBase):
         self.Barrier()
         self.start_time = time.time()
 
-        # check model
-        assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
-        self.model_name = model.__class__.__name__
-
-        # meta-data
-        path_out = env.path_out
-        num_clones = env.num_clones
-
-        # save parameter file
-        if self.rank == 0:
-            # save python param file
-            if self.params_path is not None:
-                assert self.params_path[-3:] == ".py"
-                try:
-                    shutil.copy2(
-                        self.params_path,
-                        os.path.join(path_out, "parameters.py"),
-                    )
-                except shutil.SameFileError:
-                    pass
-            # save simulation configuration as JSON
-            else:
-                self.export(os.path.join(path_out, "config.json"))
-
-        # config clones
-        if self.comm is None:
-            clone_config = None
-        else:
-            if num_clones == 1:
-                clone_config = None
-            else:
-                # Setup domain cloning communicators
-                # MPI.COMM_WORLD     : comm
-                # within a clone:    : sub_comm
-                # between the clones : inter_comm
-                clone_config = CloneConfig(comm=self.comm, params=None, num_clones=num_clones)
-                clone_config.print_clone_config()
-                if model.particle_species:
-                    clone_config.print_particle_config()
-
-        self.clone_config = model.clone_config = clone_config
+        self._save_config()
+        self.clone_config = self._create_clone_config()
         self.Barrier()
 
     # ----------------
     # Abstract methods
     # ----------------
-
-    def _setup_profiling(self):
-        # setup profiling agent
-        ProfileManager.setup(
-            profiling_activated=self.env.profiling_activated,
-            time_trace=self.env.profiling_trace,
-            use_likwid=False,
-            file_path=os.path.join(
-                self.env.out_folders,
-                self.env.sim_folder,
-                "profiling_data.h5",
-            ),
-        )
 
     def show_parameters(self):
         """Print the current simulation configuration to stdout.
@@ -295,17 +231,22 @@ class Simulation(SimulationBase):
 
         logger.debug("\nAllocating simulation data ...")
 
-        # feec
-        self._allocate_feec(self.grid, self.derham_opts)
+        with ProfileManager.profile_region("setup: allocate"):
+            # feec
+            with ProfileManager.profile_region("setup: feec", functions=[self._allocate_feec]):
+                self._allocate_feec(self.grid, self.derham_opts)
 
-        # allocate model variables
-        self._allocate_variables()
+            # allocate model variables
+            with ProfileManager.profile_region("setup: variables", functions=[self._allocate_variables]):
+                self._allocate_variables()
 
-        # pass info to propagators
-        self._allocate_propagators()
+            # pass info to propagators
+            with ProfileManager.profile_region("setup: propagators", functions=[self._allocate_propagators]):
+                self._allocate_propagators()
 
-        # allocate helper fields and perform initial solves if needed
-        self.model.allocate_helpers()
+            # allocate helper fields and perform initial solves if needed
+            with ProfileManager.profile_region("setup: helpers", functions=[self.model.allocate_helpers]):
+                self.model.allocate_helpers()
 
         logger.debug("... Done.")
 
@@ -658,7 +599,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, one_time_step: bool = False):
+    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None):
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -670,7 +611,13 @@ class Simulation(SimulationBase):
         ----------
         one_time_step : bool
             If True, only perform one time step (useful for testing).
+
+        profiling_activated : bool | None
+            If True, activate profiling with scope-profiler for this run. If
+            None, profiling is disabled.
         """
+        if profiling_activated is None:
+            profiling_activated = False
 
         logger.info(f"\nStarting run for model {self.model_name} on {self.comm_size} ranks ...")
         if self.name != "":
@@ -680,215 +627,250 @@ class Simulation(SimulationBase):
 
         self._remove_existing_output_files()
 
-        # equation paramters
-        self.allocate()
-        self._write_run_metadata(one_time_step=one_time_step)
+        with ProfileManager.session(
+            options=self.profiling_opts,
+            deactivate_profiling=not profiling_activated,
+            file_path=self.profiling_opts.file_path or self.profiling_filepath,
+        ):
+            with ProfileManager.profile_region("setup: total"):
+                # equation paramters
+                self.allocate()
+                with ProfileManager.profile_region("setup: run metadata", functions=[self._write_run_metadata]):
+                    self._write_run_metadata(
+                        one_time_step=one_time_step,
+                        profiling_activated=profiling_activated,
+                    )
 
-        # output
-        self.initialize_data_storage()
+                # output
+                with ProfileManager.profile_region("setup: data storage", functions=[self.initialize_data_storage]):
+                    self.initialize_data_storage()
 
-        # peek view into geometry
-        self.save_geometry_and_equil_vtk()
+                # peek view into geometry
+                with ProfileManager.profile_region("setup: geometry vtk", functions=[self.save_geometry_and_equil_vtk]):
+                    self.save_geometry_and_equil_vtk()
 
-        # plasma parameters
-        self.compute_plasma_params()
+                # plasma parameters
+                with ProfileManager.profile_region("setup: plasma params", functions=[self.compute_plasma_params]):
+                    self.compute_plasma_params()
 
-        # print info on mpi procs
-        if self.comm_size < 32:
-            if self.derham is not None:
-                logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
-            else:
-                for _, species in self.model.species.items():
-                    for _, variable in species.variables.items():
-                        if isinstance(variable, (PICVariable, SPHVariable)):
-                            logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
-                            break
+                # print info on mpi procs
+                if self.comm_size < 32:
+                    if self.derham is not None:
+                        logger.info(f"\nderham.domain_array:\n{self.derham.domain_array}")
+                    else:
+                        for _, species in self.model.species.items():
+                            for _, variable in species.variables.items():
+                                if isinstance(variable, (PICVariable, SPHVariable)):
+                                    logger.info(f"\nparticle domain_array:\n{variable.particles.domain_array}")
+                                    break
 
-        if self.rank < 32:
-            logger.debug("")
-            logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
+                if self.rank < 32:
+                    logger.debug("")
+                    logger.debug(f"Rank {self.rank}: executing run() for model {self.model_name} ...")
 
-        if self.comm_size > 32 and self.rank == 32:
-            logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
+                if self.comm_size > 32 and self.rank == 32:
+                    logger.debug(f"Ranks > 31: executing run() for model {self.model_name} ...")
 
-        # retrieve time parameters
-        dt = self.time_opts.dt
-        if one_time_step:
-            Tend = dt
-        else:
-            Tend = self.time_opts.Tend
-        split_algo = self.time_opts.split_algo
+                # retrieve time parameters
+                dt = self.time_opts.dt
+                if one_time_step:
+                    Tend = dt
+                else:
+                    Tend = self.time_opts.Tend
+                split_algo = self.time_opts.split_algo
 
-        # set initial conditions for all variables
-        if self.env.restart:
-            self._initialize_from_restart(self.data)
+                # set initial conditions for all variables
+                if self.env.restart:
+                    with ProfileManager.profile_region("setup: restart", functions=[self._initialize_from_restart]):
+                        self._initialize_from_restart(self.data)
 
-            with h5py.File(self.data.file_path, "a") as file:
-                self.time_state["value"][0] = file["restart/time/value"][-1]
-                self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
-                self.time_state["index"][0] = file["restart/time/index"][-1]
-                start_step = file["restart/time/index"][-1]
+                    with h5py.File(self.data.file_path, "a") as file:
+                        self.time_state["value"][0] = file["restart/time/value"][-1]
+                        self.time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+                        self.time_state["index"][0] = file["restart/time/index"][-1]
+                        start_step = file["restart/time/index"][-1]
 
-            total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
-            logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-RESTARTing from:
-self.time_state["value"][0]={float(self.time_state["value"][0])}
-self.time_state["value_sec"][0]={float(self.time_state["value_sec"][0])}
-self.time_state["index"][0]={int(self.time_state["index"][0])}
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-""")
-        else:
-            total_steps = int(round(Tend / dt))
-            start_step = 0
+                    total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
+                    logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    RESTARTing from:
+    self.time_state["value"][0]={float(self.time_state["value"][0])}
+    self.time_state["value_sec"][0]={float(self.time_state["value_sec"][0])}
+    self.time_state["index"][0]={int(self.time_state["index"][0])}
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    """)
+                else:
+                    total_steps = int(round(Tend / dt))
+                    start_step = 0
 
-        total_steps_str = str(total_steps)
+                total_steps_str = str(total_steps)
 
-        # compute initial scalars and kinetic data, pass time state to all propagators
-        self.model.update_scalar_quantities()
-        self.model.update_markers_to_be_saved()
-        self.model.update_distr_functions()
-        self._add_time_state(self.time_state["value"])
+                # compute initial scalars and kinetic data, pass time state to all propagators
+                initial_diagnostics_functions = [
+                    self.model.update_scalar_quantities,
+                    self.model.update_markers_to_be_saved,
+                    self.model.update_distr_functions,
+                    self._add_time_state,
+                ]
+                with ProfileManager.profile_region(
+                    "setup: initial diagnostics",
+                    functions=initial_diagnostics_functions,
+                ):
+                    self.model.update_scalar_quantities()
+                    self.model.update_markers_to_be_saved()
+                    self.model.update_distr_functions()
+                    self._add_time_state(self.time_state["value"])
 
-        # add all variables to be saved to data object
-        save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
+                # add all variables to be saved to data object
+                with ProfileManager.profile_region("setup: hdf5 datasets", functions=[self._initialize_hdf5_datasets]):
+                    save_keys_all, save_keys_end = self._initialize_hdf5_datasets(self.data, self.comm_size)
 
-        # ======================== main time loop ======================
-        self.model.update_scalar_quantities()
+                # ======================== main time loop ======================
+                self.model.update_scalar_quantities()
 
-        if logger.level <= logging.INFO and self.rank == 0:
-            print("\nINITIAL SCALAR QUANTITIES:")
-            self.model.print_scalar_quantities()
-            print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
+                if logger.level <= logging.INFO and self.rank == 0:
+                    print("\nINITIAL SCALAR QUANTITIES:")
+                    self.model.print_scalar_quantities()
+                    print(f"START TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
-        # time loop
-        run_time_now = 0.0
-        show_progress_bar = logger.getEffectiveLevel() <= logging.WARNING and self.rank == 0
-        pbar = tqdm(
-            total=total_steps,
-            disable=not show_progress_bar,
-            desc="Time stepping",
-            unit="step",
-        )
-        while True:
+            # time loop
+            run_time_now = 0.0
+            show_progress_bar = logger.getEffectiveLevel() <= logging.WARNING and self.rank == 0
+            pbar = tqdm(
+                total=total_steps,
+                disable=not show_progress_bar,
+                desc="Time stepping",
+                unit="step",
+            )
+            while True:
+                self.Barrier()
+
+                # stop time loop?
+                break_cond_1 = float(self.time_state["value"][0]) >= Tend
+                break_cond_2 = run_time_now > self.env.max_runtime
+
+                if break_cond_1 or break_cond_2:
+                    # save restart data (other data already saved below)
+                    with ProfileManager.profile_region("save data", functions=[self.data.save_data]):
+                        self.data.save_data(keys=save_keys_end)
+                    end_time = time.time()
+                    logger.info(f"\nTime steps done: {int(self.time_state['index'][0])}")
+                    logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
+                    logger.info("")
+                    break
+
+                if self.env.sort_step and int(self.time_state["index"][0]) % self.env.sort_step == 0:
+                    t0 = time.time()
+                    sort_functions = [val.do_sort for val in self.model.pointer.values() if isinstance(val, Particles)]
+                    with ProfileManager.profile_region("sort particles", functions=sort_functions):
+                        for key, val in self.model.pointer.items():
+                            if isinstance(val, Particles):
+                                val.do_sort()
+                    t1 = time.time()
+                    message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
+                        run_time_now * 60,
+                        t1 - t0,
+                    )
+                    logger.info(message)
+                    logger.info("")
+
+                # update time and index (round time to 10 decimals for a clean time grid!)
+                self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
+                self.time_state["value_sec"][0] = round(
+                    float(self.time_state["value_sec"][0]) + dt * self.model.units.t, 14
+                )
+                self.time_state["index"][0] += 1
+
+                # perform one time step dt
+                t0 = time.time()
+                with ProfileManager.profile_region("model.integrate", functions=[self.model.integrate]):
+                    self.model.integrate(dt, split_algo)
+                t1 = time.time()
+
+                run_time_now = (time.time() - self.start_time) / 60
+
+                # update diagnostics data and save data
+                if int(self.time_state["index"][0]) % self.env.save_step == 0:
+                    # compute scalars and kinetic data
+                    diagnostics_functions = [
+                        self.model.update_scalar_quantities,
+                        self.model.update_markers_to_be_saved,
+                        self.model.update_distr_functions,
+                    ]
+                    with ProfileManager.profile_region("diagnostics", functions=diagnostics_functions):
+                        self.model.update_scalar_quantities()
+                        self.model.update_markers_to_be_saved()
+                        self.model.update_distr_functions()
+
+                        # extract FEEC coefficients
+                        feec_species = (
+                            self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
+                        )
+                        for species, val in feec_species.items():
+                            assert isinstance(val, Species)
+                            for variable, subval in val.variables.items():
+                                assert isinstance(subval, FEECVariable)
+                                spline = subval.spline
+                                # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                                spline.extract_coeffs(update_ghost_regions=False)
+
+                    # save data (everything but restart data)
+                    with ProfileManager.profile_region("save data", functions=[self.data.save_data]):
+                        self.data.save_data(keys=save_keys_all)
+
+                    # print current time and scalar quantities to screen
+                    step = str(int(self.time_state["index"][0])).zfill(len(total_steps_str))
+
+                    message = "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
+                    message += (
+                        "\n"
+                        + "normalized time:".ljust(25)
+                        + "{0:4.2e} / {1:4.2e}".format(float(self.time_state["value"][0]), Tend).rjust(25)
+                    )
+                    message += (
+                        "\n"
+                        + "physical time [s]:".ljust(25)
+                        + "{0:4.2e} / {1:4.2e}".format(
+                            float(self.time_state["value_sec"][0]),
+                            Tend * self.model.units.t,
+                        ).rjust(25)
+                    )
+                    message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
+                    message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
+
+                    logger.info(message)
+                    if logger.level <= logging.INFO and self.rank == 0:
+                        self.model.print_scalar_quantities()
+
+                    if show_progress_bar:
+                        pbar.update(1)
+
+            pbar.close()
+
+            # ===================================================================
+
             self.Barrier()
 
-            # stop time loop?
-            break_cond_1 = float(self.time_state["value"][0]) >= Tend
-            break_cond_2 = run_time_now > self.env.max_runtime
+            if self.rank == 0:
+                # save meta-data
+                meta = {
+                    "platform": sysconfig.get_platform(),
+                    "python version": sysconfig.get_python_version(),
+                    "model name": self.model_name,
+                    "parameter file": self.params_path,
+                    "output folder": self.env.path_out,
+                    "MPI processes": self.comm_size,
+                    "use MPI.COMM_WORLD": self.comm is not None,
+                    "number of domain clones": self.env.num_clones,
+                    "restart": self.env.restart,
+                    "max wall-clock [min]": self.env.max_runtime,
+                    "save interval [steps]": self.env.save_step,
+                    "wall-clock time[min]": (end_time - self.start_time) / 60,
+                }
+                dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
+            logger.info("Struphy run finished.")
 
-            if break_cond_1 or break_cond_2:
-                # save restart data (other data already saved below)
-                self.data.save_data(keys=save_keys_end)
-                end_time = time.time()
-                logger.info(f"\nTime steps done: {int(self.time_state['index'][0])}")
-                logger.info(f"wall-clock time of simulation [sec]: {end_time - self.start_time}")
-                logger.info("")
-                break
-
-            if self.env.sort_step and int(self.time_state["index"][0]) % self.env.sort_step == 0:
-                t0 = time.time()
-                for key, val in self.model.pointer.items():
-                    if isinstance(val, Particles):
-                        val.do_sort()
-                t1 = time.time()
-                message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
-                )
-                logger.info(message)
-                logger.info("")
-
-            # update time and index (round time to 10 decimals for a clean time grid!)
-            self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
-            self.time_state["value_sec"][0] = round(
-                float(self.time_state["value_sec"][0]) + dt * self.model.units.t, 14
-            )
-            self.time_state["index"][0] += 1
-
-            # perform one time step dt
-            t0 = time.time()
-            with ProfileManager.profile_region("model.integrate"):
-                self.model.integrate(dt, split_algo)
-            t1 = time.time()
-
-            run_time_now = (time.time() - self.start_time) / 60
-
-            # update diagnostics data and save data
-            if int(self.time_state["index"][0]) % self.env.save_step == 0:
-                # compute scalars and kinetic data
-                self.model.update_scalar_quantities()
-                self.model.update_markers_to_be_saved()
-                self.model.update_distr_functions()
-
-                # extract FEEC coefficients
-                feec_species = self.model.field_species | self.model.fluid_species | self.model.diagnostic_species
-                for species, val in feec_species.items():
-                    assert isinstance(val, Species)
-                    for variable, subval in val.variables.items():
-                        assert isinstance(subval, FEECVariable)
-                        spline = subval.spline
-                        # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                        spline.extract_coeffs(update_ghost_regions=False)
-
-                # save data (everything but restart data)
-                self.data.save_data(keys=save_keys_all)
-
-                # print current time and scalar quantities to screen
-                step = str(int(self.time_state["index"][0])).zfill(len(total_steps_str))
-
-                message = "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
-                message += (
-                    "\n"
-                    + "normalized time:".ljust(25)
-                    + "{0:4.2e} / {1:4.2e}".format(float(self.time_state["value"][0]), Tend).rjust(25)
-                )
-                message += (
-                    "\n"
-                    + "physical time [s]:".ljust(25)
-                    + "{0:4.2e} / {1:4.2e}".format(
-                        float(self.time_state["value_sec"][0]),
-                        Tend * self.model.units.t,
-                    ).rjust(25)
-                )
-                message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
-                message += "\n" + "last step duration [s]:".ljust(25) + "{0:8.4f}".format(t1 - t0).rjust(25)
-
-                logger.info(message)
-                if logger.level <= logging.INFO and self.rank == 0:
-                    self.model.print_scalar_quantities()
-
-                if show_progress_bar:
-                    pbar.update(1)
-
-        pbar.close()
-
-        # ===================================================================
-
-        self.Barrier()
-
-        if self.rank == 0:
-            # save meta-data
-            meta = {
-                "platform": sysconfig.get_platform(),
-                "python version": sysconfig.get_python_version(),
-                "model name": self.model_name,
-                "parameter file": self.params_path,
-                "output folder": self.env.path_out,
-                "MPI processes": self.comm_size,
-                "use MPI.COMM_WORLD": self.comm is not None,
-                "number of domain clones": self.env.num_clones,
-                "restart": self.env.restart,
-                "max wall-clock [min]": self.env.max_runtime,
-                "save interval [steps]": self.env.save_step,
-                "wall-clock time[min]": (end_time - self.start_time) / 60,
-            }
-            dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
-        logger.info("Struphy run finished.")
-
-        if self.clone_config is not None:
-            self.clone_config.free()
-
-        ProfileManager.finalize()
+            if self.clone_config is not None:
+                self.clone_config.free()
 
     def pproc(
         self,
@@ -1062,6 +1044,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         equil: FluidEquilibrium = None,
         grid: grids.TensorProductGrid = None,
         derham_opts: DerhamOptions = None,
+        profiling_opts: ProfilingOptions = None,
     ):
         """Spawn a sister simulation with parameters that default to the current instance.
         This can be used to quickly generate multiple similar simulations."""
@@ -1081,6 +1064,8 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             grid = self.grid
         if derham_opts is None:
             derham_opts = self.derham_opts
+        if profiling_opts is None:
+            profiling_opts = self.profiling_opts
 
         sister = Simulation(
             model=model,
@@ -1091,6 +1076,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             equil=equil,
             grid=grid,
             derham_opts=derham_opts,
+            profiling_opts=profiling_opts,
         )
         return sister
 
@@ -1149,27 +1135,37 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                     if n < 10:  # print only ten statements in case of many processes
                         logger.info("Removed existing file " + file)
 
-    def _setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
-        """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
-        if equil is not None:
-            if isinstance(equil, NumericalMHDequilibrium):
-                self._domain = equil.domain
-            else:
-                self._domain = domain
-                equil.domain = domain
+    def _save_config(self):
+        """Save the parameter file (or, if there is none, the configuration as JSON) to the output folder."""
+        if self.rank != 0:
+            return
 
-            if hasattr(equil, "units"):
-                assert isinstance(equil.units, Units)
-                equil.units.derive_units(
-                    velocity_scale=self.model.velocity_scale,
-                    A_bulk=self.model.bulk_species.mass_number,
-                    Z_bulk=self.model.bulk_species.charge_number,
+        if self.params_path is not None:
+            try:
+                shutil.copy2(
+                    self.params_path,
+                    os.path.join(self.env.path_out, "parameters.py"),
                 )
-
+            except shutil.SameFileError:
+                pass
         else:
-            self._domain = domain
+            self.export(os.path.join(self.env.path_out, "config.json"))
 
-        self._equil = equil
+    def _create_clone_config(self) -> CloneConfig | None:
+        """Setup domain cloning communicators, None if there is only one clone (or no MPI).
+
+        MPI.COMM_WORLD     : comm
+        within a clone:    : sub_comm
+        between the clones : inter_comm
+        """
+        if self.comm is None or self.env.num_clones == 1:
+            return None
+
+        clone_config = CloneConfig(comm=self.comm, params=None, num_clones=self.env.num_clones)
+        clone_config.print_clone_config()
+        if self.model.particle_species:
+            clone_config.print_particle_config()
+        return clone_config
 
     @profile
     def _allocate_feec(self, grid: grids.TensorProductGrid, derham_opts: DerhamOptions):
@@ -1197,47 +1193,58 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             logger.debug(f"\n{grid=}, {derham_opts=}: no Derham object set up.")
             self._derham = None
         else:
-            self._derham = Derham(
-                grid,
-                derham_opts,
-                comm=derham_comm,
-                domain=self.domain,
-            )
+            with ProfileManager.profile_region("setup: derham", functions=[Derham.__init__]):
+                self._derham = Derham(
+                    grid,
+                    derham_opts,
+                    comm=derham_comm,
+                    domain=self.domain,
+                )
 
         # create weighted mass and basis operators
         if self.derham is None:
             self._mass_ops = None
             self._basis_ops = None
         else:
-            self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil)
+            with ProfileManager.profile_region("setup: mass ops", functions=[WeightedMassOperators.__init__]):
+                self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.equil)
 
-            self._basis_ops = BasisProjectionOperators(
-                self.derham,
-                self.domain,
-                eq_mhd=self.equil,
-            )
+            with ProfileManager.profile_region("setup: basis ops", functions=[BasisProjectionOperators.__init__]):
+                self._basis_ops = BasisProjectionOperators(
+                    self.derham,
+                    self.domain,
+                    eq_mhd=self.equil,
+                )
 
         # create projected equilibrium
         if self.derham is None:
             self._projected_equil = None
+        elif self.equil is None:
+            self._projected_equil = None
         else:
-            if isinstance(self.equil, MHDequilibrium):
-                self._projected_equil = ProjectedMHDequilibrium(
-                    self.equil,
-                    self.derham,
-                )
-            elif isinstance(self.equil, FluidEquilibriumWithB):
-                self._projected_equil = ProjectedFluidEquilibriumWithB(
-                    self.equil,
-                    self.derham,
-                )
-            elif isinstance(self.equil, FluidEquilibrium):
-                self._projected_equil = ProjectedFluidEquilibrium(
-                    self.equil,
-                    self.derham,
-                )
-            else:
-                self._projected_equil = None
+            projected_equil_functions = [
+                ProjectedMHDequilibrium.__init__,
+                ProjectedFluidEquilibriumWithB.__init__,
+                ProjectedFluidEquilibrium.__init__,
+            ]
+            with ProfileManager.profile_region("setup: projected equil", functions=projected_equil_functions):
+                if isinstance(self.equil, MHDequilibrium):
+                    self._projected_equil = ProjectedMHDequilibrium(
+                        self.equil,
+                        self.derham,
+                    )
+                elif isinstance(self.equil, FluidEquilibriumWithB):
+                    self._projected_equil = ProjectedFluidEquilibriumWithB(
+                        self.equil,
+                        self.derham,
+                    )
+                elif isinstance(self.equil, FluidEquilibrium):
+                    self._projected_equil = ProjectedFluidEquilibrium(
+                        self.equil,
+                        self.derham,
+                    )
+                else:
+                    self._projected_equil = None
 
     @profile
     def _allocate_variables(self):
@@ -1250,11 +1257,12 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, FieldSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                    )
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
 
         # allocate memory for FE coeffs of fluid variables
         if self.model.fluid_species:
@@ -1262,11 +1270,12 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, FluidSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                    )
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
 
         # allocate memory for marker arrays of kinetic variables
         if self.model.particle_species:
@@ -1274,20 +1283,22 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, ParticleSpecies)
                 for k, v in spec.variables.items():
                     if isinstance(v, PICVariable):
-                        v.allocate(
-                            clone_config=self.clone_config,
-                            derham=self.derham,
-                            domain=self.domain,
-                            equil=self.equil,
-                            projected_equil=self.projected_equil,
-                        )
+                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                            v.allocate(
+                                clone_config=self.clone_config,
+                                derham=self.derham,
+                                domain=self.domain,
+                                equil=self.equil,
+                                projected_equil=self.projected_equil,
+                            )
                     if isinstance(v, SPHVariable):
-                        v.allocate(
-                            derham=self.derham,
-                            domain=self.domain,
-                            equil=self.equil,
-                            projected_equil=self.projected_equil,
-                        )
+                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                            v.allocate(
+                                derham=self.derham,
+                                domain=self.domain,
+                                equil=self.equil,
+                                projected_equil=self.projected_equil,
+                            )
 
         # allocate memory for FE coeffs of fluid variables
         if self.model.diagnostic_species:
@@ -1295,11 +1306,12 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                 assert isinstance(spec, DiagnosticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                    )
+                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                        )
 
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
@@ -1337,7 +1349,8 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
         assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
-            prop.allocate()
+            with ProfileManager.profile_region("setup prop: " + prop.__class__.__name__, functions=[prop.allocate]):
+                prop.allocate()
             logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
@@ -1416,18 +1429,19 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                         file[key_field].attrs["pads"] = DataContainer._as_numpy_array(spline.pads)
 
                     # save numpy array to be updated only at the end of the simulation for restart.
-                    key_field_restart = os.path.join(species_path_restart, variable)
+                    if self.env.save_restart:
+                        key_field_restart = os.path.join(species_path_restart, variable)
 
-                    if isinstance(spline.vector_stencil, StencilVector):
-                        data.add_data(
-                            {key_field_restart: spline.vector_stencil._data},
-                        )
-                    else:
-                        for n in range(3):
-                            key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                        if isinstance(spline.vector_stencil, StencilVector):
                             data.add_data(
-                                {key_component_restart: spline.vector_stencil[n]._data},
+                                {key_field_restart: spline.vector_stencil._data},
                             )
+                        else:
+                            for n in range(3):
+                                key_component_restart = os.path.join(key_field_restart, str(n + 1))
+                                data.add_data(
+                                    {key_component_restart: spline.vector_stencil[n]._data},
+                                )
 
             # save kinetic data in group 'kinetic/'
             for name, species in self.model.particle_species.items():
@@ -1439,10 +1453,11 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
                     assert isinstance(obj, Particles)
 
                 key_spec = os.path.join("kinetic", name)
-                key_spec_restart = os.path.join("restart", name)
 
                 # restart data
-                data.add_data({key_spec_restart: obj.markers})
+                if self.env.save_restart:
+                    key_spec_restart = os.path.join("restart", name)
+                    data.add_data({key_spec_restart: obj.markers})
 
                 # marker data
                 key_mks = os.path.join(key_spec, "markers")
@@ -1493,7 +1508,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
 
         return save_keys_all, save_keys_end
 
-    def _write_run_metadata(self, one_time_step: bool = False):
+    def _write_run_metadata(self, one_time_step: bool = False, profiling_activated: bool = False):
         """Write run-specific JSON metadata for each sim.run() event, reusing to_run_metadata()."""
         if self.rank != 0:
             return
@@ -1502,6 +1517,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             file_path=os.path.join(self.env.path_out, "run_metadata.json"),
             started_at_epoch_s=self.start_time,
             one_time_step=one_time_step,
+            profiling_activated=profiling_activated,
         )
 
     def _add_time_state(self, time_state):
@@ -1560,6 +1576,7 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             "equil": self.equil.to_dict() if self.equil is not None else None,
             "grid": self.grid.to_dict() if self.grid is not None else None,
             "derham_opts": self.derham_opts.to_dict() if self.derham_opts is not None else None,
+            "profiling_opts": vars(self.profiling_opts).copy(),
         }
 
     def _collect_particle_metadata(self) -> dict:
@@ -1633,6 +1650,13 @@ self.time_state["index"][0]={int(self.time_state["index"][0])}
             equil=FluidEquilibrium.from_dict(dct["equil"]),
             grid=grids.TensorProductGrid.from_dict(dct["grid"]),
             derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
+            profiling_opts=ProfilingOptions(
+                **{
+                    key: value
+                    for key, value in dct.get("profiling_opts", {}).items()
+                    if key in ProfilingOptions.__dataclass_fields__
+                }
+            ),
         )
 
     @classmethod
@@ -1677,6 +1701,7 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -1710,6 +1735,9 @@ from struphy.models import {self.model.__class__.__name__}
 
             sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
             sim_class_def += "derham_opts=derham_opts,"
+
+            sim_setup += f"profiling_opts = {self.profiling_opts.__repr__()}\n"
+            sim_class_def += "profiling_opts=profiling_opts,"
         else:
             # Only include parameters that are not default to avoid
             # cluttering the script with unnecessary lines
@@ -1732,6 +1760,9 @@ from struphy.models import {self.model.__class__.__name__}
             if not self.derham_opts.is_default:
                 sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
                 sim_class_def += "derham_opts=derham_opts,"
+            if self.profiling_opts != ProfilingOptions():
+                sim_setup += f"profiling_opts = ProfilingOptions(**{self.profiling_opts.to_kwargs()!r})\n"
+                sim_class_def += "profiling_opts=profiling_opts,"
 
         # This is a bit of a special case since the default is None,
         if self.equil is not None:
@@ -1776,20 +1807,44 @@ if __name__ == "__main__":
         """StruphyModel object containing the PDE of the model."""
         return self._model
 
+    @model.setter
+    def model(self, value: StruphyModel):
+        assert isinstance(value, StruphyModel)
+        assert hasattr(value, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
+        self._model = value
+        self._model_name = value.__class__.__name__
+
     @property
     def name(self) -> str:
         """Name of the simulation."""
         return self._name
+
+    @name.setter
+    def name(self, value: str):
+        assert isinstance(value, str)
+        self._name = value
 
     @property
     def description(self) -> str:
         """Description of the simulation."""
         return self._description
 
+    @description.setter
+    def description(self, value: str):
+        assert isinstance(value, str)
+        self._description = value
+
     @property
     def params_path(self):
         """Path to parameter file used for the run. Can be None if Simulation is instantiated in a notebook environment (no parameter file in this case)."""
         return self._params_path
+
+    @params_path.setter
+    def params_path(self, value: str | None):
+        if value is not None:
+            assert isinstance(value, str)
+            assert value[-3:] == ".py", f"Parameter file must be a Python file, got {value}."
+        self._params_path = value
 
     @property
     def env(self) -> EnvironmentOptions:
@@ -1799,40 +1854,165 @@ if __name__ == "__main__":
     @env.setter
     def env(self, value: EnvironmentOptions):
         """Update the environment options for the simulation."""
+        assert isinstance(value, EnvironmentOptions)
         self._env = value
 
         # create output folders
         self._setup_folders()
-        self._setup_profiling()
+
+    @property
+    def profiling_filepath(self) -> str:
+        """Path to the profiling file, if profiling is enabled."""
+        return os.path.join(
+            self.env.out_folders,
+            self.env.sim_folder,
+            "profiling_data.h5",
+        )
 
     @property
     def time_opts(self):
         """Time object containing time stepping parameters."""
         return self._time_opts
 
+    @time_opts.setter
+    def time_opts(self, value: Time):
+        assert isinstance(value, Time)
+        self._time_opts = value
+
     @property
     def domain(self):
         """Domain object, see :ref:`avail_mappings`."""
         return self._domain
+
+    @domain.setter
+    def domain(self, value: Domain):
+        """Set the domain. If an equilibrium is already set, the domain is passed on to it
+        (unless the equilibrium is numerical, in which case it dictates the domain, see :attr:`equil`)."""
+        assert isinstance(value, Domain)
+        equil = getattr(self, "_equil", None)
+        if isinstance(equil, NumericalMHDequilibrium):
+            self._domain = equil.domain
+        else:
+            self._domain = value
+            if equil is not None:
+                equil.domain = value
 
     @property
     def equil(self):
         """Fluid equilibrium object, see :ref:`fluid_equil`."""
         return self._equil
 
+    @equil.setter
+    def equil(self, value: FluidEquilibrium | None):
+        """Set the fluid equilibrium and link it to the domain and the model units.
+        If a numerical equilibrium is used, the domain is taken from this equilibrium."""
+        assert value is None or isinstance(value, FluidEquilibrium)
+        self._equil = value
+
+        if value is None:
+            return
+
+        if isinstance(value, NumericalMHDequilibrium):
+            self._domain = value.domain
+        else:
+            value.domain = self.domain
+
+        if hasattr(value, "units"):
+            assert isinstance(value.units, Units)
+            value.units.derive_units(
+                velocity_scale=self.model.velocity_scale,
+                A_bulk=self.model.bulk_species.mass_number,
+                Z_bulk=self.model.bulk_species.charge_number,
+            )
+
     @property
     def grid(self):
         """Grid object, see :ref:`grids`."""
         return self._grid
+
+    @grid.setter
+    def grid(self, value: grids.TensorProductGrid | None):
+        assert value is None or isinstance(value, grids.TensorProductGrid)
+        self._grid = value
 
     @property
     def derham_opts(self):
         """DerhamOptions object containing options for the setup of the 3d Derham sequence."""
         return self._derham_opts
 
+    @derham_opts.setter
+    def derham_opts(self, value: DerhamOptions | None):
+        assert value is None or isinstance(value, DerhamOptions)
+        self._derham_opts = value
+
+    @property
+    def profiling_opts(self):
+        """Options passed to scope-profiler for profiling sessions."""
+        return self._profiling_opts
+
+    @profiling_opts.setter
+    def profiling_opts(self, value: ProfilingOptions):
+        assert isinstance(value, ProfilingOptions)
+        self._profiling_opts = value
+
+    @property
+    def comm(self):
+        """MPI communicator of the run, None if MPI is not available."""
+        return self._comm
+
+    @comm.setter
+    # NOTE: string annotation, MPI.Intracomm is a dummy function if mpi4py is not installed (MockMPI)
+    def comm(self, value: "MPI.Intracomm | None"):
+        """Set the MPI communicator; this also updates :attr:`rank`, :attr:`comm_size` and :attr:`Barrier`.
+        If None is passed, MPI.COMM_WORLD is used (unless MPI is not available)."""
+        if isinstance(MPI, MockMPI):
+            self._comm = None
+            self._rank = 0
+            self._comm_size = 1
+            self._barrier = lambda: None
+        else:
+            self._comm = MPI.COMM_WORLD if value is None else value
+            self._rank = self._comm.Get_rank()
+            self._comm_size = self._comm.Get_size()
+            self._barrier = self._comm.Barrier
+
+        logger.info(f"\nMPI comm: {self._comm}")
+        logger.info(f"MPI size: {self._comm_size} processes")
+        logger.info(f"MPI rank: {self._rank}")
+
+    @property
+    def start_time(self) -> float:
+        """Wall-clock time (epoch seconds) at which the simulation was set up."""
+        return self._start_time
+
+    @start_time.setter
+    def start_time(self, value: float):
+        assert isinstance(value, float)
+        self._start_time = value
+
     # -----------------------------------------------------------------
     # Common properties (derived from the above properties, no setters)
     # -----------------------------------------------------------------
+
+    @property
+    def rank(self) -> int:
+        """Rank of the current process in :attr:`comm`."""
+        return self._rank
+
+    @property
+    def comm_size(self) -> int:
+        """Number of processes in :attr:`comm`."""
+        return self._comm_size
+
+    @property
+    def Barrier(self):
+        """Barrier of :attr:`comm` (a no-op if MPI is not available)."""
+        return self._barrier
+
+    @property
+    def model_name(self) -> str:
+        """Class name of the model."""
+        return self._model_name
 
     @property
     def derham(self):
@@ -1871,5 +2051,7 @@ if __name__ == "__main__":
 
     @clone_config.setter
     def clone_config(self, new):
+        """Set the clone config, both here and on the model."""
         assert isinstance(new, CloneConfig) or new is None
         self._clone_config = new
+        self.model.clone_config = new

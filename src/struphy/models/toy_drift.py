@@ -149,7 +149,7 @@ class ToyDrift(StruphyModel):
 
         # Poisson right-hand side
         particles = self.kinetic_ions.var.particles
-        particles.weights = particles.weights_at_t0.copy()
+        particles.weights = particles.weights0.copy()
 
         if particles.control_variate:
             particles.update_weights()

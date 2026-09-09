@@ -38,6 +38,7 @@ mpi4py.rc.finalize = False
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import time
@@ -183,7 +184,12 @@ class ProfilingCase:
             f'echo "Running {self.label} with {ntasks} MPI ranks"',
             f'cd "{output_root}"',
             # The run's log lives next to its output, so each run keeps its own record
-            # instead of sharing the driver's terminal or the SLURM log.
+            # instead of sharing the driver's terminal or the SLURM log. STRUPHY_LOG_FILE
+            # is needed on top of the shared cwd above: several rank-count runs of the same
+            # case share `output_root` as their cwd (often concurrently, as separate SLURM
+            # jobs), and struphy's default relative "struphy.log" would otherwise resolve to
+            # the same file for all of them, racing on log rotation across processes.
+            f'STRUPHY_LOG_FILE="{sim_dir / "struphy.log"}" '
             f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
             "",
             'echo "----------------------------------------"',
@@ -526,8 +532,7 @@ class ProfilingCase:
         results_files = _copy_run_results(sim_dir, run_dir)
         if verbose and results_files:
             print(
-                f"Packaged {len(results_files)} results file(s) from "
-                f"{sim_dir / RESULTS_DIR_NAME} into {run_dir.name}/",
+                f"Packaged {len(results_files)} results file(s) from {sim_dir / RESULTS_DIR_NAME} into {run_dir.name}/",
             )
 
         if not profiling_data and not results_files:
@@ -661,7 +666,12 @@ class ProfilingCase:
                 print("Upload skipped; nothing was pushed to the profiling-data repo.")
                 print("Push this case later, exactly as packaged, without re-running it:")
                 print(f"    python {script_dir / 'upload.py'} {self.destination_dir}")
-                print("Or plot the results locally by opening the HTML files in the packaged directories, e.g.:")
-                print(f"    scope-profiler pproc {self.destination_dir / _run_folder_name(sorted(packaged_launch_ids)[0]) / '*.h5'} --rank 0")
+                first_run_glob = self.destination_dir / _run_folder_name(sorted(packaged_launch_ids)[0]) / "*.h5"
+                plot_dir = self.destination_dir / "figures"
+                print("Or plot the results locally from the packaged profiling_data.h5 files, e.g.:")
+                print(
+                    "    scope-profiler plot all "
+                    f"{shlex.quote(str(first_run_glob))} --ranks 0 -o {shlex.quote(str(plot_dir))}",
+                )
         else:
             print(f"No profiling output found for '{self.label}'; nothing to package.")

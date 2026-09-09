@@ -7,7 +7,19 @@ import cunumpy as xp
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
+try:
+    from IPython.display import HTML, display
+except ImportError:
+
+    def HTML(data):
+        return data
+
+    def display(*objects, **kwargs):
+        return objects[0] if objects else None
+
+
 from struphy.geometry.base import Domain
+from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
     __dataclass_repr_no_defaults__,
@@ -119,6 +131,48 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def is_default(self):
         return all_class_params_are_default(self)
 
+    forced_heading_level = 5
+
+    @classmethod
+    def _doc_text(cls) -> str:
+        return cls.__doc__ if cls.__doc__ else "Description not available for this equilibrium."
+
+    @classmethod
+    def doc_html(cls) -> str:
+        return rst_to_html(cls._doc_text(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def doc_markdown(cls) -> str:
+        return rst_to_markdown(cls._doc_text())
+
+    @classmethod
+    def doc_latex(cls) -> str:
+        return rst_to_latex(cls._doc_text())
+
+    @classmethod
+    def doc(cls):
+        return display(HTML(cls.doc_html()))
+
+    @classmethod
+    def _formula_doc(cls) -> str:
+        doc_formula = getattr(cls, "doc_formula", None)
+        return doc_formula.__doc__ if doc_formula else "Formula not available for this equilibrium."
+
+    @classmethod
+    def formula_html(cls) -> str:
+        return rst_to_html(cls._formula_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def formula_markdown(cls) -> str:
+        return rst_to_markdown(cls._formula_doc())
+
+    @classmethod
+    def formula_latex(cls) -> str:
+        return rst_to_latex(cls._formula_doc())
+
+    @classmethod
+    def formula(cls):
+        return display(HTML(cls.formula_html()))
     ###########################
     # Vector-valued callables #
     ###########################

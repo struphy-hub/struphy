@@ -158,7 +158,7 @@ def post_process_orbit_classification(path_kinetics_species, species):
         Name of the species for which the post processing should be performed.
 
     kind : str
-        Name of the kinetic kind (Particles6D, Particles5D or Particles3D).
+        Name of the kinetic kind (Particles6D, Particles5D, Particles5Dvperp or Particles3D).
     """
 
     # check whether there is guiding center orbits data or not. If there is not, do the 'post_process_orbit_guiding_center'.
