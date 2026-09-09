@@ -16,7 +16,7 @@ from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vin_efield import PushVinForceField
+from struphy.propagators.push_v_in_force_field import PushVinForceField
 from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 
@@ -219,7 +219,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         2. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
         3. :class:`~struphy.propagators.push_vin_viscous_potential.PushVinViscousPotential` (if :attr:`with_viscosity` is True)
         4. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
-        5. :class:`~struphy.propagators.push_vin_efield.PushVinForceField`
+        5. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField`
         """
         doc = rf"""**1. PushEta:**
 

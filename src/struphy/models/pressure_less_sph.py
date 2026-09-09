@@ -161,7 +161,7 @@ class PressureLessSPH(StruphyModel):
         """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.push_vin_efield.PushVinForceField`
+        2. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField`
         """
         doc = rf"""**1. PushEta:**
 

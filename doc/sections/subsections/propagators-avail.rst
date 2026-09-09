@@ -146,7 +146,7 @@ Particle pushing
     :exclude-members: options, allocate
     :show-inheritance:
 
-.. automodule:: struphy.propagators.push_vin_efield
+.. automodule:: struphy.propagators.push_v_in_force_field
     :members:
     :exclude-members: options, allocate
     :show-inheritance:

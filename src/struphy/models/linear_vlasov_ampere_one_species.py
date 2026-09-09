@@ -310,7 +310,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.push_vin_efield.PushVinForceField` (if :attr:`with_E0` is True)
+        2. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField` (if :attr:`with_E0` is True)
         3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
         4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
         """
@@ -318,7 +318,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     {PushEta.__doc__}
 
-    **2. push_vin_efield.PushVinForceField:**
+    **2. push_v_in_force_field.PushVinForceField:**
 
     {PushVinForceField.__doc__}
 
