@@ -8,7 +8,7 @@ from struphy.models.species import (
 )
 from struphy.models.variables import SPHVariable
 from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vin_efield import PushVinEfield
+from struphy.propagators.push_vin_efield import PushVinForceField
 
 
 class PressureLessSPH(StruphyModel):
@@ -51,7 +51,7 @@ class PressureLessSPH(StruphyModel):
     class Propagators:
         def __init__(self):
             self.push_eta = PushEta()
-            self.push_v = PushVinEfield()
+            self.push_v = PushVinForceField()
 
     ## abstract methods
 
@@ -161,15 +161,15 @@ class PressureLessSPH(StruphyModel):
         """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield`
+        2. :class:`~struphy.propagators.push_vin_efield.PushVinForceField`
         """
         doc = rf"""**1. PushEta:**
 
     {PushEta.__doc__}
 
-    **2. PushVinEfield:**
+    **2. PushVinForceField:**
 
-    {PushVinEfield.__doc__}
+    {PushVinForceField.__doc__}
 """
         return doc
 

@@ -37,7 +37,7 @@ set_logging_level(logging.INFO)
 
 @pytest.mark.parametrize("nx", [8])
 def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
-    """Verification test for the Chorin projection (PoissonSolve + PushVinEfield) in a
+    """Verification test for the Chorin projection (PoissonSolve + PushVinForceField) in a
     truly 1D periodic domain.
 
     Initial condition u_x(x) = U0 + A*sin(2*pi*x) has nonzero divergence everywhere.

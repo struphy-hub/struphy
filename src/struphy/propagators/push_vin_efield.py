@@ -16,25 +16,25 @@ from struphy.propagators.base import Propagator
 logger = logging.getLogger("struphy")
 
 
-class PushVinEfield(Propagator):
+class PushVinForceField(Propagator):
     r"""Push the velocities according to
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}\mathbf{E}(\mathbf{x}_p) \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}\mathbf{F}(\mathbf{x}_p) \,,
 
     where :math:`\varepsilon \in \mathbb R` is a constant species parameter. In logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}DF^{-\top}\hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}DF^{-\top}\hat{\mathbf F}^1(\boldsymbol \eta_p)  \,,
 
-    which is solved analytically. :math:`\mathbf E` can optionally be defined
-    through a potential, :math:`\mathbf E = - \nabla \phi`.
+    which is solved analytically. :math:`\mathbf F` can optionally be defined
+    through a potential, :math:`\mathbf F = - \nabla \phi`.
     """
 
     class Variables:
-        """Container for variables advanced by :class:`PushVinEfield`.
+        """Container for variables advanced by :class:`PushVinForceField`.
 
         Attributes
         ----------
@@ -57,41 +57,41 @@ class PushVinEfield(Propagator):
 
     def __init__(
         self,
-        e_field: FEECVariable | tuple[Callable] = None,
-        phi: FEECVariable | Callable = None,
+        force_field: FEECVariable | tuple[Callable] = None,
+        potential: FEECVariable | Callable = None,
     ):
         """
         Parameters
         ----------
-        e_field : FEECVariable or tuple of Callables, default=None
-            Electric field used directly in velocity pushing.
+        force_field : FEECVariable or tuple of Callables, default=None
+            Force field used directly in velocity pushing.
             Accepted forms are an ``Hcurl`` FEEC variable or a tuple of
-            callables to be projected. If provided, ``phi`` is ignored.
-        phi : FEECVariable or Callable, default=None
-            Electrostatic potential from which the electric field is built as
-            ``-grad(phi)``. Accepted forms are an ``H1`` FEEC variable or a callable projected
+            callables to be projected. If provided, ``potential`` is ignored.
+        potential : FEECVariable or Callable, default=None
+            Scalar potential from which the electric field is built as
+            ``-grad(potential)``. Accepted forms are an ``H1`` FEEC variable or a callable projected
             via ``L2Projector``.
         """
         self.variables = self.Variables()
 
-        if e_field is not None:
-            if isinstance(e_field, FEECVariable):
-                assert e_field.space == "Hcurl"
+        if force_field is not None:
+            if isinstance(force_field, FEECVariable):
+                assert force_field.space == "Hcurl"
             else:
-                assert isinstance(e_field, tuple) and all(callable(x) for x in e_field)
-            phi = None
-        elif phi is not None:
-            if isinstance(phi, FEECVariable):
-                assert phi.space == "H1"
+                assert isinstance(force_field, tuple) and all(callable(x) for x in force_field)
+            potential = None
+        elif potential is not None:
+            if isinstance(potential, FEECVariable):
+                assert potential.space == "H1"
             else:
-                assert callable(phi)
+                assert callable(potential)
 
-        self.e_field = e_field
-        self.phi = phi
+        self.force_field = force_field
+        self.potential = potential
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`PushVinEfield`."""
+        """Configuration options for :class:`PushVinForceField`."""
 
         def __post_init__(self):
             pass
@@ -113,29 +113,29 @@ class PushVinEfield(Propagator):
         # scaling factor, retrieved from variable's species
         self.epsilon = self.variables.var.species.equation_params.epsilon
 
-        if self.e_field is not None:
-            self.phi_vector = None
-            if isinstance(self.e_field, FEECVariable):
-                self.e_vector = self.e_field.spline.vector
+        if self.force_field is not None:
+            self.potential_vector = None
+            if isinstance(self.force_field, FEECVariable):
+                self.force_vector = self.force_field.spline.vector
             else:
-                self.e_vector = self.derham.P1(self.e_field)
-        elif self.phi is not None:
-            if isinstance(self.phi, FEECVariable):
-                self.phi_vector = self.phi.spline.vector
+                self.force_vector = self.derham.P1(self.force_field)
+        elif self.potential is not None:
+            if isinstance(self.potential, FEECVariable):
+                self.potential_vector = self.potential.spline.vector
             else:
-                self.phi_vector = self.derham.P0(self.phi)
-            self.e_vector = self.derham.grad.dot(self.phi_vector)
-            self.e_vector *= -1.0
-            self.e_vector.update_ghost_regions()
+                self.potential_vector = self.derham.P0(self.potential)
+            self.force_vector = self.derham.grad.dot(self.potential_vector)
+            self.force_vector *= -1.0
+            self.force_vector.update_ghost_regions()
         else:
-            self.e_vector = self.derham.V1.zeros()
+            self.force_vector = self.derham.V1.zeros()
 
         # instantiate Pusher
         args_kernel = (
             self.derham.args_derham,
-            self.e_vector[0]._data,
-            self.e_vector[1]._data,
-            self.e_vector[2]._data,
+            self.force_vector[0]._data,
+            self.force_vector[1]._data,
+            self.force_vector[2]._data,
             1.0 / self.epsilon,
         )
 
@@ -148,12 +148,12 @@ class PushVinEfield(Propagator):
         )
 
     def __call__(self, dt):
-        if self.e_field is not None:
+        if self.force_field is not None:
             self._pusher(dt)
-        elif self.phi is not None:
-            self.derham.grad.dot(self.phi_vector, out=self.e_vector)
-            self.e_vector *= -1.0
-            self.e_vector.update_ghost_regions()
+        elif self.potential is not None:
+            self.derham.grad.dot(self.potential_vector, out=self.force_vector)
+            self.force_vector *= -1.0
+            self.force_vector.update_ghost_regions()
             self._pusher(dt)
         else:
             pass
