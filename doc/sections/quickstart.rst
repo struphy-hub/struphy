@@ -43,7 +43,6 @@ Connect the ``source`` variable of species ``em_fields`` to the propagator and s
     stab_eps = 1e-8
 
     model.propagators.poisson.options = model.propagators.poisson.Options(
-        rho=model.em_fields.source,
         stab_eps=stab_eps,
     )
 
@@ -133,7 +132,6 @@ Full copy-paste script:
     stab_eps = 1e-8
     
     model.propagators.poisson.options = model.propagators.poisson.Options(
-        rho=model.em_fields.source,
         stab_eps=stab_eps,
     )
 
