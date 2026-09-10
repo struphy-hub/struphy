@@ -65,7 +65,7 @@ class RandomParticleDiffusion(StruphyModel):
     def velocity_scale(self):
         return None
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         pass
 
     @classmethod
