@@ -1,5 +1,6 @@
 import copy
 import logging
+from typing import Callable
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -7,10 +8,9 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators.base import Propagator
-from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.time_dependent_source import TimeDependentSource
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 
 logger = logging.getLogger("struphy")
 
@@ -22,6 +22,18 @@ class Poisson(StruphyModel):
     ----------
     base_units: BaseUnits
         Base units for normalization (default: BaseUnits())
+        
+    rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
+        Right-hand side source term(s) of the Poisson problem.
+        Accepted entries are:
+
+        - ``None``: the source term is set to the variable ``source`` of the species ``EMfields``.
+        - ``FEECVariable`` in ``H1``.
+        - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
+        - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
+            particle-to-grid (charge/current) deposition.
+        - a ``list`` containing any mix of the entries above.
+        
     with_t_dep_source: bool
         Whether the right-hand side source term is time-dependent (default: False)
     """
@@ -48,7 +60,10 @@ class Poisson(StruphyModel):
 
     ## abstract methods
 
-    def __init__(self, base_units: BaseUnits = BaseUnits(), with_t_dep_source=False):
+    def __init__(self, base_units: BaseUnits = BaseUnits(), 
+                 rho: FEECVariable | Callable | ParticlesToGrid | list = None,
+                 with_t_dep_source=False,
+                 ):
 
         self.with_t_dep_source = with_t_dep_source
 
@@ -62,7 +77,9 @@ class Poisson(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(rho=self.em_fields.source, with_t_dep_source=with_t_dep_source)
+        if rho is None:
+            rho = self.em_fields.source
+        self.propagators = self.Propagators(rho=rho, with_t_dep_source=with_t_dep_source)
 
         # 4. assign variables to propagators
         if with_t_dep_source:
