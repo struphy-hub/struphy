@@ -1,8 +1,9 @@
 import copy
+from dataclasses import dataclass
 
 from cunumpy import PyccelKernel
 
-from struphy.io.options import BaseUnits, LiteralOptions
+from struphy.io.options import BaseUnits, LiteralOptions, OptionsBase
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import KineticEnergySPH, Scalars
 from struphy.models.species import (
@@ -12,10 +13,11 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, SPHVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
+from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vin_efield import PushVinEfield
-from struphy.propagators.push_vin_viscous_potential import PushVinViscousPotential
+from struphy.propagators.push_v_in_force_field import PushVinForceField
+from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
 from struphy.propagators.push_vxb import PushVxB
 
 
@@ -43,9 +45,17 @@ class IncompressibleNavierStokesSPH(StruphyModel):
     ## species
 
     class Fluid(ParticleSpecies):
-        def __init__(self, charge_number: int = 1, mass_number: float = 1.0):
+        def __init__(
+            self,
+            charge_number: int = 1,
+            mass_number: float = 1.0,
+        ):
             self.density = SPHVariable()
-            self.init_variables(charge_number=charge_number, mass_number=mass_number)
+            self.init_variables(
+                charge_number=charge_number,
+                mass_number=mass_number,
+                epsilon=1.0,  # follows from the normalization (thermal velocity)
+            )
 
     class LagrangeMultiplier(FieldSpecies):
         def __init__(self):
@@ -59,7 +69,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
             self,
             ptg: ParticlesToGrid,
             pressure: FEECVariable,
-            ptg_coeff: float = 1.0,
+            ptg_coeff: float = -1.0,
             with_B0: bool = True,
             with_viscosity: bool = True,
         ):
@@ -69,7 +79,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
             if with_viscosity:
                 self.push_viscous = PushVinViscousPotential()
             self.pressure_poisson = PoissonSolve(rho=ptg, rho_coeffs=ptg_coeff)
-            self.chorin_projection = PushVinEfield(phi=pressure)
+            self.chorin_projection = PushVinForceField(potential=pressure)
 
     ## abstract methods
 
@@ -89,7 +99,10 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
-        self.fluid = self.Fluid(charge_number=charge_number, mass_number=mass_number)
+        self.fluid = self.Fluid(
+            charge_number=charge_number,
+            mass_number=mass_number,
+        )
         self.lagrange_multiplier = self.LagrangeMultiplier()
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
@@ -131,7 +144,8 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         return "thermal"
 
     def allocate_helpers(self):
-        pass
+        # specific for Chorin projection
+        self.propagators.pressure_poisson._divide_by_dt = True
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -203,9 +217,9 @@ class IncompressibleNavierStokesSPH(StruphyModel):
 
         1. :class:`~struphy.propagators.push_eta.PushEta`
         2. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
-        3. :class:`~struphy.propagators.push_vin_viscous_potential.PushVinViscousPotential` (if :attr:`with_viscosity` is True)
+        3. :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential` (if :attr:`with_viscosity` is True)
         4. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
-        5. :class:`~struphy.propagators.push_vin_efield.PushVinEfield`
+        5. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField`
         """
         doc = rf"""**1. PushEta:**
 
@@ -223,9 +237,9 @@ class IncompressibleNavierStokesSPH(StruphyModel):
     
     {PoissonSolve.__doc__}
     
-    **5. PushVinEfield:**
+    **5. PushVinForceField:**
     
-    {PushVinEfield.__doc__}
+    {PushVinForceField.__doc__}
 """
         return doc
 

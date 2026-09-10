@@ -442,6 +442,7 @@ class ImplicitDiffusion(Propagator):
                     valid_mks = src.particles.valid_mks
                     first_free_idx = src.particles.first_free_idx
                     density = src.particles.f0.n0(eta)
+
                     src.particles.markers[valid_mks, first_free_idx] = density
                     # 2. accumulate
                     src()
