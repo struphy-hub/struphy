@@ -1,28 +1,36 @@
 import logging
-from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import Simulation, set_logging_level
-from struphy.io.setup import import_parameters_py
+from struphy import (
+    BinningPlot,
+    BoundaryParameters,
+    DerhamOptions,
+    EnvironmentOptions,
+    LoadingParameters,
+    SavingParameters,
+    Simulation,
+    SortingParameters,
+    Time,
+    WeightsParameters,
+    domains,
+    grids,
+    maxwellians,
+    perturbations,
+    set_logging_level,
+)
+from struphy.models import VlasovAmpereOneSpecies
 
 set_logging_level(logging.WARNING)
 logger = logging.getLogger("struphy")
 
-PARAMS_PATH = (
-    Path(__file__).resolve().parents[4]
-    / "examples"
-    / "VlasovAmpereOneSpecies"
-    / "weak_Landau_damping"
-    / "params_weak_Landau_damping.py"
-)
-
 
 @pytest.mark.mpi(min_size=2)
-def test_pproc_mpi():
+def test_pproc_mpi(tmp_path):
 
     def do_plotting(sim: Simulation, from_parallel=False):
         sim.load_plotting_data()
@@ -81,9 +89,39 @@ def test_pproc_mpi():
             df_binned[n].T,
         )
 
-    params = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
+    # Keep the weak Landau setup local: examples are not installed with the package.
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model.em_fields.e_field.save_data = True
+    model.em_fields.phi.save_data = True
+    model.kinetic_ions.var.save_data = True
 
-    sim: Simulation = params.sim
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=1000),
+        weights_params=WeightsParameters(control_variate=True),
+        boundary_params=BoundaryParameters(),
+        sorting_params=SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True),
+        saving_params=SavingParameters(
+            binning_plots=(BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0))),),
+        ),
+        bufsize=0.4,
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+    model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    perturbation = perturbations.ModesCos(amps=(0.001,), ls=(1,))
+    model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, perturbation)))
+
+    # pytest creates a separate temporary directory on each rank; share rank 0's.
+    out_folders = MPI.COMM_WORLD.bcast(str(tmp_path), root=0)
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=out_folders, sim_folder="weak_Landau"),
+        time_opts=Time(dt=0.05, Tend=20.0, split_algo="LieTrotter"),
+        domain=domains.Cuboid(r1=12.56),
+        grid=grids.TensorProductGrid(num_elements=(32, 1, 1)),
+        derham_opts=DerhamOptions(degree=(3, 1, 1)),
+    )
 
     sim.run(one_time_step=True)
 
@@ -109,4 +147,5 @@ def test_pproc_mpi():
 
 
 if __name__ == "__main__":
-    test_pproc_mpi()
+    with TemporaryDirectory() as tmp_dir:
+        test_pproc_mpi(tmp_dir)
