@@ -65,7 +65,7 @@ def _struphy_is_compiled():
 # Notebooks are slow to run and many depend on compiled Struphy kernels,
 # so only execute them when Struphy has been compiled; otherwise reuse stored outputs.
 nbsphinx_execute = "auto" if _struphy_is_compiled() else "never"
-nbsphinx_kernel_name = 'local-env' # This is just for Stefan's local machine, where the system kernel does not work.
+# nbsphinx_kernel_name = 'local-env' # This is just for Stefan's local machine, where the system kernel does not work.
 
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
