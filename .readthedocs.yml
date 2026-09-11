@@ -35,7 +35,6 @@ build:
       - which python3
       - pip list
       - pip install .[dev,doc]
-      - struphy compile
 
 # Build documentation in the "doc/" directory with Sphinx
 sphinx:
