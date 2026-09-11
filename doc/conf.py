@@ -81,7 +81,7 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # mock imports
-autodoc_mock_imports = ["mpi4py"]
+# autodoc_mock_imports = ["mpi4py"]
 
 # -- Options for HTML output -------------------------------------------------
 
