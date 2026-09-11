@@ -2,6 +2,7 @@ import itertools
 from abc import abstractmethod
 
 import cunumpy as xp
+import numpy as np
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
@@ -446,13 +447,39 @@ class BoundaryOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
     def tosparse(self):
-        raise NotImplementedError()
+        """Convert to a sparse (diagonal) matrix.
 
-    @property
+        `dot()` is exactly a copy followed by an elementwise zero-mask
+        (`apply_essential_bc_to_array`), so the operator is diagonal with 0/1 entries --
+        applying it once to an all-ones vector directly gives that diagonal, far cheaper
+        than a generic basis-vector sweep (see AverageOperator.tosparse for that
+        approach, used where the operator isn't diagonal). Serial (single MPI rank)
+        only, meant for feectools.linalg.solvers.DirectSolver's factor-once use (see its
+        docstring).
+        """
+
+        def _stencil_diag_flat(v):
+            idx = tuple(slice(m * p, -m * p) if p != 0 else slice(0, None) for p, m in zip(v.pads, v.space.shifts))
+            return xp.to_numpy(v._data[idx]).reshape(-1)
+
+        ones = self.domain.zeros()
+        if isinstance(self._domain, StencilVectorSpace):
+            ones._data[:] = 1.0
+        else:
+            for block in ones.blocks:
+                block._data[:] = 1.0
+        diag_vec = self.dot(ones)
+
+        if isinstance(self._domain, StencilVectorSpace):
+            diag_flat = _stencil_diag_flat(diag_vec)
+        else:
+            diag_flat = np.concatenate([_stencil_diag_flat(block) for block in diag_vec.blocks])
+
+        return sparse.diags(diag_flat, format="csr")
+
     def toarray(self):
-        raise NotImplementedError()
+        return self.tosparse().toarray()
 
     @property
     def bc(self):
