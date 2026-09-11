@@ -1,4 +1,4 @@
-from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan, zeros
+from numpy import arcsin, arctan, cos, exp, pi, sin, sqrt, tan, zeros
 from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -651,6 +651,62 @@ def colella_df(eta1: float, eta2: float, lx: float, ly: float, alpha: float, lz:
 
 
 @pure
+def magnetotail_slab(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    lx: float,
+    ly: float,
+    lz: float,
+    pinch: float,
+    pinch_width: float,
+    x_center: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of an elongated slab with a smooth central pinch."""
+
+    x = lx * (eta1 - 0.5)
+    x_shift = x - x_center
+    profile = 1.0 - pinch * exp(-(x_shift / pinch_width) ** 2)
+
+    f_out[0] = x
+    f_out[1] = ly * profile * (eta2 - 0.5)
+    f_out[2] = lz * (eta3 - 0.5)
+
+
+@pure
+def magnetotail_slab_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    lx: float,
+    ly: float,
+    lz: float,
+    pinch: float,
+    pinch_width: float,
+    x_center: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.magnetotail_slab`."""
+
+    x = lx * (eta1 - 0.5)
+    x_shift = x - x_center
+    gauss = exp(-(x_shift / pinch_width) ** 2)
+    profile = 1.0 - pinch * gauss
+    dprofile_dx = 2.0 * pinch * x_shift * gauss / (pinch_width * pinch_width)
+
+    df_out[0, 0] = lx
+    df_out[0, 1] = 0.0
+    df_out[0, 2] = 0.0
+    df_out[1, 0] = ly * (eta2 - 0.5) * dprofile_dx * lx
+    df_out[1, 1] = ly * profile
+    df_out[1, 2] = 0.0
+    df_out[2, 0] = 0.0
+    df_out[2, 1] = 0.0
+    df_out[2, 2] = lz
+
+
+@pure
 def hollow_cyl(eta1: float, eta2: float, eta3: float, a1: float, a2: float, lz: float, poc: float, f_out: "float[:]"):
     r"""Point-wise evaluation of
 
@@ -932,6 +988,404 @@ def hollow_torus_df(
 
 
 @pure
+def geospace_flux_domain(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_iono: float,
+    r_mp_dayside: float,
+    r_mp_tail: float,
+    r_bs_dayside: float,
+    r_bs_tail: float,
+    mp_eta1: float,
+    sheet_flatten: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of the GeospaceFluxDomain mapping."""
+
+    theta = pi * eta2
+    phi = 2 * pi * eta3
+
+    tail = 0.5 * (1.0 - cos(theta))
+
+    r_mp = r_mp_dayside + (r_mp_tail - r_mp_dayside) * tail
+    r_bs = r_bs_dayside + (r_bs_tail - r_bs_dayside) * tail
+
+    if eta1 <= mp_eta1:
+        u = eta1 / mp_eta1
+        r = r_iono + (r_mp - r_iono) * u
+    else:
+        u = (eta1 - mp_eta1) / (1.0 - mp_eta1)
+        r = r_mp + (r_bs - r_mp) * u
+
+    scale_z = 1.0 - sheet_flatten * tail
+
+    x = r * cos(theta)
+    rho = r * sin(theta)
+
+    f_out[0] = x
+    f_out[1] = rho * cos(phi)
+    f_out[2] = rho * sin(phi) * scale_z
+
+
+@pure
+def geospace_flux_domain_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_iono: float,
+    r_mp_dayside: float,
+    r_mp_tail: float,
+    r_bs_dayside: float,
+    r_bs_tail: float,
+    mp_eta1: float,
+    sheet_flatten: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.geospace_flux_domain`."""
+
+    theta = pi * eta2
+    phi = 2 * pi * eta3
+
+    sin_theta = sin(theta)
+    cos_theta = cos(theta)
+    sin_phi = sin(phi)
+    cos_phi = cos(phi)
+
+    tail = 0.5 * (1.0 - cos_theta)
+    dtail_deta2 = 0.5 * pi * sin_theta
+
+    r_mp = r_mp_dayside + (r_mp_tail - r_mp_dayside) * tail
+    r_bs = r_bs_dayside + (r_bs_tail - r_bs_dayside) * tail
+    drmp_deta2 = (r_mp_tail - r_mp_dayside) * dtail_deta2
+    drbs_deta2 = (r_bs_tail - r_bs_dayside) * dtail_deta2
+
+    if eta1 <= mp_eta1:
+        u = eta1 / mp_eta1
+        r = r_iono + (r_mp - r_iono) * u
+        dr_deta1 = (r_mp - r_iono) / mp_eta1
+        dr_deta2 = drmp_deta2 * u
+    else:
+        u = (eta1 - mp_eta1) / (1.0 - mp_eta1)
+        r = r_mp + (r_bs - r_mp) * u
+        dr_deta1 = (r_bs - r_mp) / (1.0 - mp_eta1)
+        dr_deta2 = drmp_deta2 * (1.0 - u) + drbs_deta2 * u
+
+    scale_z = 1.0 - sheet_flatten * tail
+    dscale_deta2 = -sheet_flatten * dtail_deta2
+
+    # x = r*cos(theta)
+    df_out[0, 0] = dr_deta1 * cos_theta
+    df_out[0, 1] = dr_deta2 * cos_theta - r * sin_theta * pi
+    df_out[0, 2] = 0.0
+
+    # rho = r*sin(theta)
+    drho_deta1 = dr_deta1 * sin_theta
+    drho_deta2 = dr_deta2 * sin_theta + r * cos_theta * pi
+
+    # y = rho*cos(phi)
+    df_out[1, 0] = drho_deta1 * cos_phi
+    df_out[1, 1] = drho_deta2 * cos_phi
+    df_out[1, 2] = -rho * sin_phi * 2 * pi
+
+    # z = rho*sin(phi)*scale_z
+    df_out[2, 0] = drho_deta1 * sin_phi * scale_z
+    df_out[2, 1] = drho_deta2 * sin_phi * scale_z + rho * sin_phi * dscale_deta2
+    df_out[2, 2] = rho * cos_phi * 2 * pi * scale_z
+
+
+@pure
+def warped_accretion_disk(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    thickness: float,
+    warp_amp: float,
+    warp_power: float,
+    node_angle: float,
+    tor_period: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a warped accretion disk."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    s = (r - r_in) / dr
+    phi = 2 * pi * eta2 / tor_period
+    psi = phi - node_angle
+
+    z_local = thickness * (eta3 - 0.5)
+    w = warp_amp * r * (s**warp_power)
+
+    f_out[0] = r * cos(phi)
+    f_out[1] = r * sin(phi)
+    f_out[2] = z_local + w * sin(psi)
+
+
+@pure
+def warped_accretion_disk_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    thickness: float,
+    warp_amp: float,
+    warp_power: float,
+    node_angle: float,
+    tor_period: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.warped_accretion_disk`."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    s = (r - r_in) / dr
+    phi = 2 * pi * eta2 / tor_period
+    psi = phi - node_angle
+
+    dphi_deta2 = 2 * pi / tor_period
+
+    w = warp_amp * r * (s**warp_power)
+
+    if s == 0.0 and warp_power < 1.0:
+        dw_dr = 0.0
+    else:
+        dw_dr = warp_amp * (s**warp_power + r * warp_power * (s ** (warp_power - 1.0)) / dr)
+
+    dw_deta1 = dw_dr * dr
+
+    df_out[0, 0] = dr * cos(phi)
+    df_out[0, 1] = -r * sin(phi) * dphi_deta2
+    df_out[0, 2] = 0.0
+
+    df_out[1, 0] = dr * sin(phi)
+    df_out[1, 1] = r * cos(phi) * dphi_deta2
+    df_out[1, 2] = 0.0
+
+    df_out[2, 0] = dw_deta1 * sin(psi)
+    df_out[2, 1] = w * cos(psi) * dphi_deta2
+    df_out[2, 2] = thickness
+
+
+@pure
+def spheromak(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    a: float,
+    kappa: float,
+    tor_period: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a compact spherical-shell spheromak proxy."""
+
+    r = r0 + a * eta1
+    theta = pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sin_theta = sin(theta)
+    cos_theta = cos(theta)
+
+    f_out[0] = r * sin_theta * cos(phi)
+    f_out[1] = r * sin_theta * sin(phi)
+    f_out[2] = kappa * r * cos_theta
+
+
+@pure
+def spheromak_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    a: float,
+    kappa: float,
+    tor_period: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.spheromak`."""
+
+    r = r0 + a * eta1
+    theta = pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sin_theta = sin(theta)
+    cos_theta = cos(theta)
+    sin_phi = sin(phi)
+    cos_phi = cos(phi)
+
+    dtheta_deta2 = pi
+    dphi_deta3 = 2 * pi / tor_period
+
+    df_out[0, 0] = a * sin_theta * cos_phi
+    df_out[0, 1] = r * cos_theta * dtheta_deta2 * cos_phi
+    df_out[0, 2] = -r * sin_theta * sin_phi * dphi_deta3
+
+    df_out[1, 0] = a * sin_theta * sin_phi
+    df_out[1, 1] = r * cos_theta * dtheta_deta2 * sin_phi
+    df_out[1, 2] = r * sin_theta * cos_phi * dphi_deta3
+
+    df_out[2, 0] = kappa * a * cos_theta
+    df_out[2, 1] = -kappa * r * sin_theta * dtheta_deta2
+    df_out[2, 2] = 0.0
+
+
+@pure
+def hall_effect_thruster_channel(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    length: float,
+    pack_strength: float,
+    tor_period: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a coaxial Hall thruster channel."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    phi = 2 * pi * eta2 / tor_period
+
+    # Axial clustering near eta3=0 and eta3=1 (anode and exit)
+    z = length * (eta3 - pack_strength * sin(2 * pi * eta3) / (2 * pi))
+
+    f_out[0] = r * cos(phi)
+    f_out[1] = r * sin(phi)
+    f_out[2] = z
+
+
+@pure
+def hall_effect_thruster_channel_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r_in: float,
+    r_out: float,
+    length: float,
+    pack_strength: float,
+    tor_period: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.hall_effect_thruster_channel`."""
+
+    dr = r_out - r_in
+    r = r_in + dr * eta1
+    phi = 2 * pi * eta2 / tor_period
+
+    dphi_deta2 = 2 * pi / tor_period
+    dz_deta3 = length * (1.0 - pack_strength * cos(2 * pi * eta3))
+
+    df_out[0, 0] = dr * cos(phi)
+    df_out[0, 1] = -r * sin(phi) * dphi_deta2
+    df_out[0, 2] = 0.0
+
+    df_out[1, 0] = dr * sin(phi)
+    df_out[1, 1] = r * cos(phi) * dphi_deta2
+    df_out[1, 2] = 0.0
+
+    df_out[2, 0] = 0.0
+    df_out[2, 1] = 0.0
+    df_out[2, 2] = dz_deta3
+
+
+@pure
+def diagnostic_port_hole_torus(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    a1: float,
+    a2: float,
+    r0: float,
+    tor_period: float,
+    port_depth: float,
+    port_eta2_center: float,
+    port_eta3_center: float,
+    port_eta2_width: float,
+    port_eta3_width: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of a torus with a localized diagnostic port deformation."""
+
+    da = a2 - a1
+    theta = 2 * pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sigma2_sq = port_eta2_width * port_eta2_width
+    sigma3_sq = port_eta3_width * port_eta3_width
+
+    bump_theta = exp((cos(2 * pi * (eta2 - port_eta2_center)) - 1.0) / sigma2_sq)
+    bump_phi = exp((cos(2 * pi * (eta3 - port_eta3_center)) - 1.0) / sigma3_sq)
+    bump = bump_theta * bump_phi
+
+    r_minor = a1 + da * eta1 + port_depth * eta1 * eta1 * bump
+    r_major = r0 + r_minor * cos(theta)
+
+    f_out[0] = r_major * cos(phi)
+    f_out[1] = -r_major * sin(phi)
+    f_out[2] = r_minor * sin(theta)
+
+
+@pure
+def diagnostic_port_hole_torus_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    a1: float,
+    a2: float,
+    r0: float,
+    tor_period: float,
+    port_depth: float,
+    port_eta2_center: float,
+    port_eta3_center: float,
+    port_eta2_width: float,
+    port_eta3_width: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.diagnostic_port_hole_torus`."""
+
+    da = a2 - a1
+    theta = 2 * pi * eta2
+    phi = 2 * pi * eta3 / tor_period
+
+    sigma2_sq = port_eta2_width * port_eta2_width
+    sigma3_sq = port_eta3_width * port_eta3_width
+
+    bump_theta = exp((cos(2 * pi * (eta2 - port_eta2_center)) - 1.0) / sigma2_sq)
+    bump_phi = exp((cos(2 * pi * (eta3 - port_eta3_center)) - 1.0) / sigma3_sq)
+    bump = bump_theta * bump_phi
+
+    dbump_deta2 = bump * (-2 * pi * sin(2 * pi * (eta2 - port_eta2_center)) / sigma2_sq)
+    dbump_deta3 = bump * (-2 * pi * sin(2 * pi * (eta3 - port_eta3_center)) / sigma3_sq)
+
+    r_minor = a1 + da * eta1 + port_depth * eta1 * eta1 * bump
+    dr_deta1 = da + 2 * port_depth * eta1 * bump
+    dr_deta2 = port_depth * eta1 * eta1 * dbump_deta2
+    dr_deta3 = port_depth * eta1 * eta1 * dbump_deta3
+
+    r_major = r0 + r_minor * cos(theta)
+    d_rmajor_deta1 = dr_deta1 * cos(theta)
+    d_rmajor_deta2 = dr_deta2 * cos(theta) - 2 * pi * r_minor * sin(theta)
+    d_rmajor_deta3 = dr_deta3 * cos(theta)
+
+    df_out[0, 0] = d_rmajor_deta1 * cos(phi)
+    df_out[0, 1] = d_rmajor_deta2 * cos(phi)
+    df_out[0, 2] = d_rmajor_deta3 * cos(phi) - 2 * pi / tor_period * r_major * sin(phi)
+
+    df_out[1, 0] = -d_rmajor_deta1 * sin(phi)
+    df_out[1, 1] = -d_rmajor_deta2 * sin(phi)
+    df_out[1, 2] = -d_rmajor_deta3 * sin(phi) - 2 * pi / tor_period * r_major * cos(phi)
+
+    df_out[2, 0] = dr_deta1 * sin(theta)
+    df_out[2, 1] = dr_deta2 * sin(theta) + 2 * pi * r_minor * cos(theta)
+    df_out[2, 2] = dr_deta3 * sin(theta)
+
+
+@pure
 def shafranov_shift(
     eta1: float,
     eta2: float,
@@ -1164,3 +1618,70 @@ def shafranov_dshaped_df(
     df_out[2, 0] = 0.0
     df_out[2, 1] = 0.0
     df_out[2, 2] = lz
+
+
+@pure
+def moebius_strip(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    width: float,
+    thickness: float,
+    f_out: "float[:]",
+):
+    """Point-wise evaluation of the thickened Moebius strip mapping."""
+
+    w_hat = width * (eta1 - 0.5)
+    t_hat = thickness * (eta2 - 0.5)
+
+    alpha = pi * eta3
+    phi = 2 * pi * eta3
+
+    r_eff = r0 + w_hat * cos(alpha) - t_hat * sin(alpha)
+
+    f_out[0] = r_eff * cos(phi)
+    f_out[1] = r_eff * sin(phi)
+    f_out[2] = w_hat * sin(alpha) + t_hat * cos(alpha)
+
+
+@pure
+def moebius_strip_df(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    r0: float,
+    width: float,
+    thickness: float,
+    df_out: "float[:,:]",
+):
+    """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.moebius_strip`."""
+
+    w_hat = width * (eta1 - 0.5)
+    t_hat = thickness * (eta2 - 0.5)
+
+    alpha = pi * eta3
+    phi = 2 * pi * eta3
+
+    sin_alpha = sin(alpha)
+    cos_alpha = cos(alpha)
+    sin_phi = sin(phi)
+    cos_phi = cos(phi)
+
+    r_eff = r0 + w_hat * cos_alpha - t_hat * sin_alpha
+
+    dr_deta1 = width * cos_alpha
+    dr_deta2 = -thickness * sin_alpha
+    dr_deta3 = -(w_hat * sin_alpha + t_hat * cos_alpha) * pi
+
+    df_out[0, 0] = dr_deta1 * cos_phi
+    df_out[0, 1] = dr_deta2 * cos_phi
+    df_out[0, 2] = dr_deta3 * cos_phi - 2 * pi * r_eff * sin_phi
+
+    df_out[1, 0] = dr_deta1 * sin_phi
+    df_out[1, 1] = dr_deta2 * sin_phi
+    df_out[1, 2] = dr_deta3 * sin_phi + 2 * pi * r_eff * cos_phi
+
+    df_out[2, 0] = width * sin_alpha
+    df_out[2, 1] = thickness * cos_alpha
+    df_out[2, 2] = (w_hat * cos_alpha - t_hat * sin_alpha) * pi
