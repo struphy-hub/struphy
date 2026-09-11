@@ -1,6 +1,77 @@
 # Changelog
 
 
+## Struphy 3.3.0 - 2026-09-11
+
+* [PyPI](https://pypi.org/project/struphy/3.3.0)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.3.0)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.2.0...v3.3.0)
+
+
+### Headlines
+
+* **Enable automated scaling test workflow**: running a profiling case across multiple MPI ranks, emitting per-run JSON metadata, packaging results into a publishable folder structure, and optionally uploading them to the struphy-hub/profiling-data repository. https://github.com/struphy-hub/struphy/pull/266
+* **New tutorials and verification tests for SPH**: https://github.com/struphy-hub/struphy/pull/261
+    - tutorials/tutorial_viscous_euler_sph.ipynb
+    - tutorials/tutorial_velocity_diffusion_sph.ipynb
+    - tutorials/tutorial_hagen_poiseuille_sph.ipynb
+    - tutorials/tutorial_dam_break_sph.ipynb
+* **New guiding-center 5D phase-space conventions**: switching from `(v_\parallel, v_\perp)` to `(v_\parallel, \mu)` as the standard coordinates in `Particles5D`. Use consistent `mu_idx` handling across particle kernels and PIC utilities. Introduced new `CanonicalMaxwellian2D` with caching capabilities. https://github.com/struphy-hub/struphy/pull/275
+* **New surface (boundary) integral operators in the FEEC layer**: enable assembly/application of boundary mass operators needed for non-homogeneous derivative boundary conditions. https://github.com/struphy-hub/struphy/pull/303
+* **Enable parallel post processing on each rank**. The default is still serial post-processing, which means that `parallel_pproc=True` needs to be passed for parallel work. https://github.com/struphy-hub/struphy/pull/309
+* **Added memory estimates in struphy and feectools**: Adds per-rank memory footprint reporting for particles and key linear-operator types, including a dry_run construction mode for StencilMatrix to estimate allocation size without actually allocating. https://github.com/struphy-hub/struphy/pull/363
+
+
+### API changes
+
+* `Variables` have been entirely removed from `Propagator`'s `Options` classes. Such "Options"-variables were not updated by the `Propagator`, but nevertheless needed in the sub-step. From now on, such variables have to be passed to the  `Propagator` constructor, which is done internally in the model file. The user cannot pass these variables anymore in the launch file through `Options()`. https://github.com/struphy-hub/struphy/pull/262
+* Added a switch in `EnvironmentOptions` that lets you turn off writing of restart checkpoint data, this is convenient for benchmarking. https://github.com/struphy-hub/struphy/pull/345
+
+### Physics models
+
+* New propagator `PoissonAdiabaticGyrokinetic` for the electric potential in gyrokinetic simulations with adiabatic electrons. https://github.com/struphy-hub/struphy/pull/260
+* New examples for model `DriftKineticElectrostaticAdiabatic`: ITG in cylinderical geometry and cyclone base case (still issues due to noise). https://github.com/struphy-hub/struphy/pull/260
+* New model for TAE energetic particle simulations: The new API now supports TAE energetic particle simulations with the model `LinearMHDDriftkineticCC`. https://github.com/struphy-hub/struphy/pull/275
+* New model `IncompressibleNavierStokesSPH`: Incompressible Navier-Stokes equations solved using SPH with the Chorin projection scheme. The Poisson equation is solved on a grid with pressure in H1. This is a PIC scheme, not meshless anymore. https://github.com/struphy-hub/struphy/pull/284
+* Three new verification tests for ``IncompressibleNavierStokesSPH`` (Chorin projection). https://github.com/struphy-hub/struphy/pull/308
+* Added `Poisson` solver case to the profiling examples. https://github.com/struphy-hub/struphy/pull/302
+
+### Bug fixes
+
+* Fix bug in `mpi_sort_markers`: add missing `self.update_ghost_particles()` to get the correct number of valid_mks. https://github.com/struphy-hub/struphy/pull/261
+* Fix bug in matrix-matrix multiplication during weights assembling in `WeightedMassOperators.create_weighted_mass()`. https://github.com/struphy-hub/struphy/pull/267
+* Fix incorrect accumulation kernels for `basis_u == 1` and `basis_u == v` in drift-kinetic-MHD hybrid scheme. https://github.com/struphy-hub/struphy/pull/352 
+
+### User news and internals
+
+* For PIC, moved the factor `1/Np` into the definition of the weights. https://github.com/struphy-hub/struphy/pull/261
+* New files for sph kernels: `eval_kernels_sph.py` and `pusher_kernels_sph.py`. https://github.com/struphy-hub/struphy/pull/261
+* Added a new `Compiler` class wrapping the existing `struphy_compile` CLI logic for API use. https://github.com/struphy-hub/struphy/pull/281
+* Added a `to_json()` method to the Simulation class. https://github.com/struphy-hub/struphy/pull/282
+* Added workflow to build a docs preview for existing PRs. https://github.com/struphy-hub/struphy/pull/283
+* Added a new `to_json()` method to the `Simulation` class. https://github.com/struphy-hub/struphy/pull/282
+* Added a new workflow to build a docs preview for existing PRs. https://github.com/struphy-hub/struphy/pull/283
+* New accumulation kernel `div_u_weak_1form` for accumulating the divergence of the velocity field; new class `ParticlesToGrid` for passing the accumulation parameters to a propagator in the model init; and new logic in `ImplicitDiffusion` for passing accumulation and filter parameters, respectively. https://github.com/struphy-hub/struphy/pull/284
+* Renamed propagator `PushVinEfield` -> `PushVinForceField`. https://github.com/struphy-hub/struphy/pull/308
+* Use config.json instead of files in postprocessing. Instead of exporting all the classes as pickled binary objects, export the main information about the simulation as a json file called `config.json`. https://github.com/struphy-hub/struphy/pull/314
+* Nightly automatic check of dependency bounds. https://github.com/struphy-hub/struphy/pull/318 
+* Enforce that feectools submodule should be pointing to the last commit. https://github.com/struphy-hub/struphy/pull/320
+* Only allocate the full eval grid on rank 0. Grids are now rank local, `_create_eval_grids` returns global grids plus per-rank slices from `derham.domain_array`, so each rank holds only `grids_log_loc`. The physical grid is built on rank 0 only. https://github.com/struphy-hub/struphy/pull/322
+* Added `setup/modules.json` for loading modules on known HPC systems. https://github.com/struphy-hub/struphy/pull/326
+* Added setters to all properties of the `Simulation` class. https://github.com/struphy-hub/struphy/pull/336
+* Added more profiling regions. https://github.com/struphy-hub/struphy/pull/344
+* Fixed the `xp.all(axis=1)` bottleneck (10x speedup). https://github.com/struphy-hub/struphy/pull/347
+* Column major fix of apply markers bc. Added a pre-allocated `self._eta_bc_buf = xp.zeros((self.n_rows, 3))` buffer (1.3x speedup). https://github.com/struphy-hub/struphy/pull/348
+* `_sendrecv_get_destinations` now checks neighbor ranks first, and only falls back to checking the rest if some markers remain unmatched (up to 1.5x speedup). https://github.com/struphy-hub/struphy/pull/350 
+* Updated profiling setup (`scoper-profiler`set to 0.5.0). Big improvements for GPU profiling and also line-by-line profiling for the regions we already defined using the tool without having to use `line_profiler` directly. https://github.com/struphy-hub/struphy/pull/354 and https://github.com/struphy-hub/struphy/pull/357
+* Enable setting log file with environment variable. https://github.com/struphy-hub/struphy/pull/358
+* Improve docstring helpers. Added `_html`, `_markdown`, `_latex` methods to the model/domain/equilibria/perturbation baseclasses. The `info()`, `pde()`, ... methods remain the same, they just use the `_html` methods and display the code. https://github.com/struphy-hub/struphy/pull/361
+* Split up docstrings for the `Domain`, `Perturbation`, and `FluidEquilibria` classes, mirroring the pattern already used by `StruphyModel`. https://github.com/struphy-hub/struphy/pull/362
+
+
+
+
 ## Struphy 3.2.0 - 2026-06-09
 
 * [PyPI](https://pypi.org/project/struphy/3.2.0)
