@@ -546,6 +546,45 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M1B(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} G^{-1} \mathcal{R}(B) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal{R}(B)_{\alpha,\nu} := \epsilon_{\alpha\beta\nu} B^2_{\textnormal{eq},\beta},\qquad s.t. \qquad \mathcal{R}(B) \vec{v} = \vec{B}^2_{\textnormal{eq}} \times \vec{v},
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, "_M1B"):
+            assert self.eq_mhd is not None, (
+                "M1B requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
+            rot_B = LocalRotationMatrix(
+                self.eq_mhd.b2_1,
+                self.eq_mhd.b2_2,
+                self.eq_mhd.b2_3,
+            )
+
+            self._M1B = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=("Ginv", rot_B, "sqrt_g"),
+                name="M1B",
+                assemble=True,
+            )
+
+        return self._M1B
+
+    @auto_convert_docstring
+    @property
     def M2B_div0(self):
         r"""
         Mass matrix

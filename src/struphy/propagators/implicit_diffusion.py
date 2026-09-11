@@ -245,9 +245,9 @@ class ImplicitDiffusion(Propagator):
     @profile
     def allocate(self):
         # always stabilize
-        if xp.abs(self.options.sigma_1) < 1e-14:
-            self.options.sigma_1 = 1e-14
-            logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+        # if xp.abs(self.options.sigma_1) < 1e-14:
+        #     self.options.sigma_1 = 1e-14
+        #     logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
@@ -324,6 +324,17 @@ class ImplicitDiffusion(Propagator):
             assert len(self._coeffs) == len(self._sources)
         else:
             self._coeffs = [1.0 for src in self.sources]
+
+        # add term for inhomogeneous boundary conditions if needed
+        if self.variables.phi.lifting_function is not None:
+            grad_lift = self.variables.phi.derham_lift.grad
+            M1_lift = self.variables.phi.mass_ops_lift.M1
+            boundary_op_lift = self.variables.phi.boundary_op_lift
+
+            op = -boundary_op_lift @ grad_lift.T @ M1_lift @ grad_lift
+
+            self._sources += [op.dot(self.variables.phi.boundary_spline.vector)]
+            self._coeffs += [1.0]
 
         # initial guess and solver params
         self._x0 = self.options.x0

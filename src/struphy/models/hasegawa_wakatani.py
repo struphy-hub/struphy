@@ -168,7 +168,7 @@ class HasegawaWakatani(StruphyModel):
         1. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
         2. :class:`~struphy.propagators.hasegawa_wakatani_step.HasegawaWakataniStep`
         """
-        doc = rf"""**1. PoissonFieldSolve:**
+        doc = rf"""**1. PoissonSolve:**
 
 {PoissonSolve.__doc__}
 

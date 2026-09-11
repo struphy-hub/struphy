@@ -32,6 +32,7 @@ from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 from struphy.propagators.time_dependent_source import TimeDependentSource
+from struphy.propagators.two_fluid_quasi_neutral_compressible import TwoFluidQuasiNeutralCompressible
 from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
 from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
@@ -79,6 +80,7 @@ __all__ = [
     "ShearAlfvenPropagator",
     "TimeDependentSource",
     "TwoFluidQuasiNeutralFull",
+    "TwoFluidQuasiNeutralCompressible",
     "VariationalDensityEvolve",
     "VariationalEntropyEvolve",
     "VariationalMagFieldEvolve",
