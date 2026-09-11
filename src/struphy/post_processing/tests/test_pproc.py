@@ -13,11 +13,7 @@ set_logging_level(logging.WARNING)
 logger = logging.getLogger("struphy")
 
 PARAMS_PATH = (
-    Path(__file__).resolve().parents[4]
-    / "examples"
-    / "VlasovAmpereOneSpecies"
-    / "weak_Landau_damping"
-    / "params_weak_Landau_damping.py"
+    Path(__file__).resolve().parents[2] / "models" / "tests" / "verification" / "test_verif_VlasovAmpereOneSpecies.py"
 )
 
 
@@ -81,9 +77,9 @@ def test_pproc_mpi():
             df_binned[n].T,
         )
 
-    params = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
+    test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
 
-    sim: Simulation = params.sim
+    sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
 
     sim.run(one_time_step=True)
 

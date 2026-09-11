@@ -137,7 +137,7 @@ class ToyDrift(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         """Prepare initial particle weights for the Poisson right-hand side.
 
         :meta private:

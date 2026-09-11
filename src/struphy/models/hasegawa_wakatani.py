@@ -90,7 +90,7 @@ class HasegawaWakatani(StruphyModel):
         self._rho.update_ghost_regions()
         return self._rho
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         """Solve initial Poisson equation.
 
         :meta private:
