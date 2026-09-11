@@ -1211,7 +1211,15 @@ def confirm_formatting(python_files, linters, yes):
     )
     print("\n")
     if not yes:
-        ans = input("Format files (Y/n)?\n")
+        try:
+            ans = input("Format files (Y/n)?\n")
+        except EOFError:
+            # stdin isn't an interactive terminal (piped, scripted, non-tty
+            # shell, ...) -- input() can't prompt, so there's no way to get
+            # a real answer. Fail safe (don't format) instead of crashing
+            # with a raw traceback, and point at the flag that avoids this.
+            print("\nNo interactive terminal to confirm on. Exiting... (use --yes/-y to skip this prompt)")
+            sys.exit(1)
         if ans.lower() not in ("y", "yes", ""):
             print("Exiting...")
             sys.exit(1)

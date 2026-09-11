@@ -189,7 +189,7 @@ def test_convergence_1d(
             h = 1 / Nel
             h_vec.append(h)
 
-        m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
+        m, _ = xp.polyfit(xp.log(xp.array(Nels)), xp.log(xp.array(errors)), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
 
         if show_plot:
@@ -393,7 +393,7 @@ def test_convergence_2d(
             h = 1 / Nel
             h_vec.append(h)
 
-        m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
+        m, _ = xp.polyfit(xp.log(xp.array(Nels)), xp.log(xp.array(errors)), deg=1)
         logger.info(f"For {p =}, solution converges with rate {-m =} ")
 
         if show_plot:

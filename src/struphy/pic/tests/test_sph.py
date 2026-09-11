@@ -114,6 +114,9 @@ def test_sph_evaluation_1d(
         kernel_type=kernel,
         derivative=derivative,
     )
+    # eval_density() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    test_eval = xp.asarray(test_eval)
 
     if comm is None:
         all_eval = test_eval
@@ -238,6 +241,9 @@ def test_sph_evaluation_2d(
         kernel_type=kernel,
         derivative=derivative,
     )
+    # eval_density() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    test_eval = xp.asarray(test_eval)
 
     if comm is None:
         all_eval = test_eval
@@ -357,6 +363,9 @@ def test_sph_evaluation_3d(
         kernel_type=kernel,
         derivative=derivative,
     )
+    # eval_density() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    test_eval = xp.asarray(test_eval)
 
     if comm is None:
         all_eval = test_eval
@@ -481,6 +490,9 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+        # eval_density() is always host (NumPy); convert to the
+        # active backend to match this test's xp-based reference arrays.
+        test_eval = xp.asarray(test_eval)
 
         if comm is None:
             all_eval = test_eval
@@ -500,10 +512,10 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         logger.info(f"{Np =}, {ppb =}, {diff =}")
 
     if tesselation:
-        fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(ppbs)), xp.log(xp.array(err_vec)), 1)
         xvec = ppbs
     else:
-        fit = xp.polyfit(xp.log(Nps), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(Nps)), xp.log(xp.array(err_vec)), 1)
         xvec = Nps
 
     if show_plot and rank == 0:
@@ -598,6 +610,9 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+        # eval_density() is always host (NumPy); convert to the
+        # active backend to match this test's xp-based reference arrays.
+        test_eval = xp.asarray(test_eval)
 
         if comm is None:
             all_eval = test_eval
@@ -623,9 +638,9 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         err_vec += [diff]
 
     if tesselation:
-        fit = xp.polyfit(xp.log(h_vec[1:5]), xp.log(err_vec[1:5]), 1)
+        fit = xp.polyfit(xp.log(xp.array(h_vec[1:5])), xp.log(xp.array(err_vec[1:5])), 1)
     else:
-        fit = xp.polyfit(xp.log(h_vec[:-2]), xp.log(err_vec[:-2]), 1)
+        fit = xp.polyfit(xp.log(xp.array(h_vec[:-2])), xp.log(xp.array(err_vec[:-2])), 1)
 
     if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))
@@ -722,6 +737,9 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             h3 = 1 / boxes_per_dim[2]
 
             test_eval = particles.eval_density(ee1, ee2, ee3, h1=h, h2=h2, h3=h3)
+            # eval_density() is always host (NumPy); convert to the
+            # active backend to match this test's xp-based reference arrays.
+            test_eval = xp.asarray(test_eval)
 
             if comm is None:
                 all_eval = test_eval
@@ -882,6 +900,9 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type="gaussian_2d")
+        # eval_density() is always host (NumPy); convert to the
+        # active backend to match this test's xp-based reference arrays.
+        test_eval = xp.asarray(test_eval)
 
         if comm is None:
             all_eval = test_eval
@@ -908,10 +929,10 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
                 # fig.savefig(f"2d_sph_{Np}_{ppb}.png")
 
     if tesselation:
-        fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(ppbs)), xp.log(xp.array(err_vec)), 1)
         xvec = ppbs
     else:
-        fit = xp.polyfit(xp.log(Nps), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(Nps)), xp.log(xp.array(err_vec)), 1)
         xvec = Nps
 
     if show_plot and rank == 0:
@@ -1038,6 +1059,11 @@ def test_sph_velocity_evaluation(
         kernel_type=kernel,
         derivative=derivative,
     )
+    # eval_velocity() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    v1 = xp.asarray(v1)
+    v2 = xp.asarray(v2)
+    v3 = xp.asarray(v3)
 
     if derivative == 0:
         v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
@@ -1222,6 +1248,9 @@ def test_sph_velocity_evaluation_2d(
         kernel_type=kernel,
         derivative=derivative,
     )
+    # eval_velocity() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    v_log = xp.asarray(v_log)
     v1, v2, v3 = v_log
 
     if derivative == 0:
@@ -1472,6 +1501,9 @@ def test_sph_viscosity_evaluation_2d(
         kernel_type=kernel,
         derivative=0,
     )
+    # eval_density() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    density = xp.asarray(density)
     if rank == 0:
         logger.info(f"{density.shape = }")
         logger.info(f"{xp.min(density) = }, {xp.max(density) = }")
@@ -1500,6 +1532,11 @@ def test_sph_viscosity_evaluation_2d(
         kernel_type=kernel,
         derivative=0,
     )
+    # eval_velocity() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    vx = xp.asarray(vx)
+    vy = xp.asarray(vy)
+    vz = xp.asarray(vz)
     if rank == 0:
         logger.info(f"{vx.shape = }, {vy.shape = }")
         logger.info(f"{xp.min(vx) = }, {xp.max(vx) = }")
@@ -1542,6 +1579,9 @@ def test_sph_viscosity_evaluation_2d(
         mu=mu,
         kernel_type=kernel,
     )
+    # eval_div_viscosity() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    div_viscosity = xp.asarray(div_viscosity)
     gamma_x = div_viscosity[0]
     gamma_y = div_viscosity[1]
     gamma_z = div_viscosity[2]
@@ -1852,7 +1892,12 @@ def test_sph_no_slip_boundary_1d(
 
     particles.draw_markers(sort=False)
     if rank == 0:
-        ghost_inds = xp.where(particles.ghost_particles)[0]
+        # ghost_particles follows the active backend; this is a
+        # diagnostics-only log, so pull the indices to the host.
+        import numpy as np
+        from cunumpy import to_numpy
+
+        ghost_inds = np.where(to_numpy(particles.ghost_particles))[0]
         logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
         if len(ghost_inds) > 0:
             logger.info(f"First 10 ghost eta1: {particles.markers[ghost_inds[:10], 0]}")
@@ -1887,6 +1932,11 @@ def test_sph_no_slip_boundary_1d(
         kernel_type=kernel,
         derivative=0,
     )
+    # eval_velocity() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    v1 = xp.asarray(v1)
+    v2 = xp.asarray(v2)
+    v3 = xp.asarray(v3)
 
     # if rank == 0 and len(ghost_inds) > 0:
     #     logger.info("Ghost coefficients after eval:", particles.markers[ghost_inds[:10], particles.first_free_idx])
@@ -2060,6 +2110,11 @@ def test_sph_no_slip_boundary_2d(
         kernel_type=kernel,
         derivative=0,
     )
+    # eval_velocity() is always host (NumPy); convert to the
+    # active backend to match this test's xp-based reference arrays.
+    v1 = xp.asarray(v1)
+    v2 = xp.asarray(v2)
+    v3 = xp.asarray(v3)
 
     if comm is not None:
         all_v1 = xp.zeros_like(v1)

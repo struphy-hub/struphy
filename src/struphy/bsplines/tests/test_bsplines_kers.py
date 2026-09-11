@@ -2,7 +2,9 @@ import logging
 import time
 
 import cunumpy as xp
+import numpy as np
 import pytest
+from cunumpy.xp import to_numpy
 from feectools.ddm.mpi import mpi as MPI
 
 logger = logging.getLogger("struphy")
@@ -40,16 +42,16 @@ def test_bsplines_span_and_basis(num_elements, degree, bcs):
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=comm)
 
-    # knot vectors
-    tn1, tn2, tn3 = derham.V0fem.knots
-    td1, td2, td3 = derham.V3fem.knots
+    # knot vectors (bsplines_kernels/bsplines_kernels_p are Pyccel-compiled and only accept numpy.ndarray)
+    tn1, tn2, tn3 = (to_numpy(t) for t in derham.V0fem.knots)
+    td1, td2, td3 = (to_numpy(t) for t in derham.V3fem.knots)
 
     # Random points in domain of process
     n_pts = 100
     dom = derham.domain_array[rank]
-    eta1s = xp.random.rand(n_pts) * (dom[1] - dom[0]) + dom[0]
-    eta2s = xp.random.rand(n_pts) * (dom[4] - dom[3]) + dom[3]
-    eta3s = xp.random.rand(n_pts) * (dom[7] - dom[6]) + dom[6]
+    eta1s = to_numpy(xp.random.rand(n_pts) * (dom[1] - dom[0]) + dom[0])
+    eta2s = to_numpy(xp.random.rand(n_pts) * (dom[4] - dom[3]) + dom[3])
+    eta3s = to_numpy(xp.random.rand(n_pts) * (dom[7] - dom[6]) + dom[6])
 
     # struphy find_span
     t0 = time.time()
@@ -77,14 +79,14 @@ def test_bsplines_span_and_basis(num_elements, degree, bcs):
     assert xp.allclose(span2s, span2s_psy)
     assert xp.allclose(span3s, span3s_psy)
 
-    # allocate tmps
-    bn1 = xp.empty(derham.degree[0] + 1, dtype=float)
-    bn2 = xp.empty(derham.degree[1] + 1, dtype=float)
-    bn3 = xp.empty(derham.degree[2] + 1, dtype=float)
+    # allocate tmps (passed to raw Pyccel kernels below, which only accept numpy.ndarray)
+    bn1 = np.empty(derham.degree[0] + 1, dtype=float)
+    bn2 = np.empty(derham.degree[1] + 1, dtype=float)
+    bn3 = np.empty(derham.degree[2] + 1, dtype=float)
 
-    bd1 = xp.empty(derham.degree[0], dtype=float)
-    bd2 = xp.empty(derham.degree[1], dtype=float)
-    bd3 = xp.empty(derham.degree[2], dtype=float)
+    bd1 = np.empty(derham.degree[0], dtype=float)
+    bd2 = np.empty(derham.degree[1], dtype=float)
+    bd3 = np.empty(derham.degree[2], dtype=float)
 
     # struphy b_splines_slim
     val1s, val2s, val3s = [], [], []

@@ -244,7 +244,7 @@ def test_poisson_1d(
             h = 1 / (Neli)
             h_vec.append(h)
 
-        m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
+        m, _ = xp.polyfit(xp.log(xp.array(Nels)), xp.log(xp.array(errors)), deg=1)
         logger.info(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
         assert -m > (pi + 1 - 0.07)
 

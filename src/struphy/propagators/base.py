@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+import numpy as np
+from cunumpy import PyccelKernel
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 from scope_profiler import ProfileManager
@@ -269,17 +271,20 @@ class Propagator(metaclass=ABCMeta):
         args_init : tuple
             The arguments for the kernel function.
         """
+        # comps/alpha are marker-column indices/weights fed straight to compiled,
+        # host-only particle kernels alongside args_markers (no device particle
+        # kernel exists), so they are always NumPy, matching self.markers.
         if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
-            comps = xp.array(comps, dtype=int)
+            comps = np.array(comps, dtype=int)
 
         if not hasattr(self, "_init_kernels"):
             self._init_kernels = []
 
         self._init_kernels += [
             (
-                kernel,
+                kernel if isinstance(kernel, PyccelKernel) else PyccelKernel(kernel),
                 column_nr,
                 comps,
                 args_init,
@@ -321,19 +326,19 @@ class Propagator(metaclass=ABCMeta):
         """
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = [alpha] * 6
-        alpha = xp.array(alpha)
+        alpha = np.array(alpha)
 
         if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
-            comps = xp.array(comps, dtype=int)
+            comps = np.array(comps, dtype=int)
 
         if not hasattr(self, "_eval_kernels"):
             self._eval_kernels = []
 
         self._eval_kernels += [
             (
-                kernel,
+                kernel if isinstance(kernel, PyccelKernel) else PyccelKernel(kernel),
                 alpha,
                 column_nr,
                 comps,

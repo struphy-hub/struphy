@@ -9,6 +9,7 @@ from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -20,6 +21,14 @@ from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.pushing import pusher_kernels_gc
+from struphy.pic.pushing.pusher_kernels_cuda import SUPPORTED_GENERAL_KIND_MAPS
+from struphy.pic.pushing.pusher_kernels_gc_cuda import (
+    push_gc_cc_J2_dg_Hdiv_gpu,
+    push_gc_cc_J2_dg_init_Hdiv_gpu,
+    push_gc_cc_J2_stage_H1vec_gpu,
+    push_gc_cc_J2_stage_Hdiv_gpu,
+)
+from struphy.pic.utilities_kernels_cuda import eval_gradB_ediff_gpu
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -283,9 +292,9 @@ class CurrentCoupling5DGradB(Propagator):
 
             # define Pusher
             if self.options.u_space == "Hdiv":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+                self._pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv)
             elif self.options.u_space == "H1vec":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+                self._pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J2_stage_H1vec)
             else:
                 raise ValueError(
                     f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec.',
@@ -314,6 +323,47 @@ class CurrentCoupling5DGradB(Propagator):
                 self.options.butcher.c,
             )
 
+            # GPU replacement for push_gc_cc_J2_stage_{H1vec,Hdiv}: unlike
+            # CurrentCoupling5DCurlb this propagator interleaves accumulation
+            # and pushing per RK stage itself (see __call__), so it can't go
+            # through the generic Pusher dispatch -- self._pusher_kernel is
+            # called directly on args_markers below, which would force a
+            # host round trip (or crash outright) on device-resident markers
+            # under cupy. Dispatch to the CUDA kernel here instead, with the
+            # same SUPPORTED_GENERAL_KIND_MAPS restriction as the rest of the
+            # port.
+            self._gpu_j2_stage = xp.cupy_backend and self.domain.args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+            if self._gpu_j2_stage:
+                import cupy as cp
+                import numpy as np
+
+                self._gpu_j2_stage_fn = (
+                    push_gc_cc_J2_stage_H1vec_gpu if self.options.u_space == "H1vec" else push_gc_cc_J2_stage_Hdiv_gpu
+                )
+                self._gpu_j2_stage_kind_map = int(self.domain.args_domain.kind_map)
+                self._gpu_j2_stage_params = cp.asarray(
+                    np.asarray(self.domain.args_domain.params, dtype=float), dtype=cp.float64
+                )
+                self._gpu_j2_stage_epsilon = float(epsilon)
+                args_derham = self.derham.args_derham
+                self._gpu_j2_stage_pn = tuple(int(p) for p in args_derham.pn)
+                self._gpu_j2_stage_starts = tuple(int(s) for s in args_derham.starts)
+                self._gpu_j2_stage_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+                self._gpu_j2_stage_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+                self._gpu_j2_stage_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+                self._gpu_j2_stage_b2 = (self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data)
+                self._gpu_j2_stage_norm_b1 = (unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data)
+                self._gpu_j2_stage_curl_norm_b = (
+                    curl_unit_b2[0]._data,
+                    curl_unit_b2[1]._data,
+                    curl_unit_b2[2]._data,
+                )
+                self._gpu_j2_stage_u = (
+                    self._u_temp[0]._data,
+                    self._u_temp[1]._data,
+                    self._u_temp[2]._data,
+                )
+
         else:
             # temporary vectors to avoid memory allocation
             self._b_full = self._b2.space.zeros()
@@ -328,9 +378,9 @@ class CurrentCoupling5DGradB(Propagator):
             self._u_temp = self.variables.u.spline.vector.space.zeros()
 
             # Call the accumulation and Pusher class
-            accum_kernel_init = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg
-            self._accum_kernel_en_fB_mid = utilities_kernels.eval_gradB_ediff
+            accum_kernel_init = PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init)
+            accum_kernel = PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB_dg)
+            self._accum_kernel_en_fB_mid = PyccelKernel(utilities_kernels.eval_gradB_ediff)
 
             self._args_accum_kernel = (
                 epsilon,
@@ -424,8 +474,51 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[2]._data,
             )
 
-            self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
-            self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv
+            self._pusher_kernel_init = PyccelKernel(pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv)
+            self._pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv)
+
+            # GPU replacements for both pusher kernels above. Same reasoning
+            # as the explicit branch: this fixed-point loop calls
+            # self._pusher_kernel{,_init} directly on args_markers (no Pusher
+            # wrapper), which would force a host round trip (or crash) on
+            # device-resident markers under cupy.
+            self._gpu_j2_dg = xp.cupy_backend and self.domain.args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+            if self._gpu_j2_dg:
+                import cupy as cp
+                import numpy as np
+
+                self._gpu_j2_dg_kind_map = int(self.domain.args_domain.kind_map)
+                self._gpu_j2_dg_params = cp.asarray(
+                    np.asarray(self.domain.args_domain.params, dtype=float), dtype=cp.float64
+                )
+                self._gpu_j2_dg_epsilon = float(epsilon)
+                args_derham = self.derham.args_derham
+                self._gpu_j2_dg_pn = tuple(int(p) for p in args_derham.pn)
+                self._gpu_j2_dg_starts = tuple(int(s) for s in args_derham.starts)
+                self._gpu_j2_dg_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+                self._gpu_j2_dg_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+                self._gpu_j2_dg_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+                self._gpu_j2_dg_b2 = (self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data)
+                self._gpu_j2_dg_norm_b1 = (unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data)
+                self._gpu_j2_dg_curl_norm_b = (
+                    curl_unit_b2[0]._data,
+                    curl_unit_b2[1]._data,
+                    curl_unit_b2[2]._data,
+                )
+                self._gpu_j2_dg_u_init = (
+                    self.variables.u.spline.vector[0]._data,
+                    self.variables.u.spline.vector[1]._data,
+                    self.variables.u.spline.vector[2]._data,
+                )
+                self._gpu_j2_dg_u = (self._u_mid[0]._data, self._u_mid[1]._data, self._u_mid[2]._data)
+                self._gpu_j2_dg_ud = (self._u_temp[0]._data, self._u_temp[1]._data, self._u_temp[2]._data)
+                # for eval_gradB_ediff_gpu (reuses the same pn/tn1-3/starts)
+                self._gpu_j2_dg_gradB1 = (gradB1[0]._data, gradB1[1]._data, gradB1[2]._data)
+                self._gpu_j2_dg_grad_PB_b1 = (
+                    self._grad_PB_b[0]._data,
+                    self._grad_PB_b[1]._data,
+                    self._grad_PB_b[2]._data,
+                )
 
     def __call__(self, dt):
         # current FE coeffs
@@ -435,7 +528,11 @@ class CurrentCoupling5DGradB(Propagator):
         particles = self.variables.energetic_ions.particles
         holes = particles.holes
         args_markers = particles.args_markers
-        markers = args_markers.markers
+        # NOTE: args_markers.markers is the *host mirror* under cupy (see
+        # Particles.args_markers) -- only valid inside a host_markers()
+        # block. The xp-vectorised bookkeeping below (holes indexing, sums,
+        # ...) needs the real device array instead.
+        markers = particles.markers
         first_init_idx = args_markers.first_init_idx
         first_free_idx = args_markers.first_free_idx
 
@@ -467,12 +564,40 @@ class CurrentCoupling5DGradB(Propagator):
                 )
 
                 # push particles
-                self._pusher_kernel(
-                    dt,
-                    stage,
-                    args_markers,
-                    *self._args_pusher_kernel,
-                )
+                if self._gpu_j2_stage:
+                    last = 1.0 if stage == self.options.butcher.n_stages - 1 else 0.0
+                    with ProfileManager.profile_region("kernel: " + self._pusher_kernel.name + " [cuda]"):
+                        self._gpu_j2_stage_fn(
+                            markers,
+                            first_init_idx,
+                            first_free_idx,
+                            self._gpu_j2_stage_kind_map,
+                            self._gpu_j2_stage_params,
+                            self._gpu_j2_stage_epsilon,
+                            self._gpu_j2_stage_pn,
+                            self._gpu_j2_stage_tn1,
+                            self._gpu_j2_stage_tn2,
+                            self._gpu_j2_stage_tn3,
+                            self._gpu_j2_stage_starts,
+                            self._gpu_j2_stage_b2,
+                            self._gpu_j2_stage_norm_b1,
+                            self._gpu_j2_stage_curl_norm_b,
+                            self._gpu_j2_stage_u,
+                            dt * float(self.options.butcher.a_stage[stage]),
+                            dt * float(self.options.butcher.b[stage]),
+                            last,
+                        )
+                else:
+                    with (
+                        ProfileManager.profile_region("kernel: " + self._pusher_kernel.name),
+                        particles.host_markers(write=True) as args_markers_h,
+                    ):
+                        self._pusher_kernel(
+                            dt,
+                            stage,
+                            args_markers_h,
+                            *self._args_pusher_kernel,
+                        )
 
                 if particles.mpi_comm is not None:
                     particles.mpi_sort_markers()
@@ -556,7 +681,7 @@ class CurrentCoupling5DGradB(Propagator):
                     op=MPI.SUM,
                 )
 
-            en_fB_old = buffer_array[0]
+            en_fB_old = float(buffer_array[0])
             en_tot_old = en_U_old + en_fB_old
 
             # initial guess
@@ -572,11 +697,35 @@ class CurrentCoupling5DGradB(Propagator):
             en_U_new = u_new.inner(self._M2n_dot_u) / 2.0
 
             # push eta
-            self._pusher_kernel_init(
-                dt,
-                args_markers,
-                *self._args_pusher_kernel_init,
-            )
+            if self._gpu_j2_dg:
+                with ProfileManager.profile_region("kernel: " + self._pusher_kernel_init.name + " [cuda]"):
+                    push_gc_cc_J2_dg_init_Hdiv_gpu(
+                        markers,
+                        first_init_idx,
+                        self._gpu_j2_dg_kind_map,
+                        self._gpu_j2_dg_params,
+                        self._gpu_j2_dg_epsilon,
+                        self._gpu_j2_dg_pn,
+                        self._gpu_j2_dg_tn1,
+                        self._gpu_j2_dg_tn2,
+                        self._gpu_j2_dg_tn3,
+                        self._gpu_j2_dg_starts,
+                        self._gpu_j2_dg_b2,
+                        self._gpu_j2_dg_norm_b1,
+                        self._gpu_j2_dg_curl_norm_b,
+                        self._gpu_j2_dg_u_init,
+                        dt,
+                    )
+            else:
+                with (
+                    ProfileManager.profile_region("kernel: " + self._pusher_kernel_init.name),
+                    particles.host_markers(write=True) as args_markers_h,
+                ):
+                    self._pusher_kernel_init(
+                        dt,
+                        args_markers_h,
+                        *self._args_pusher_kernel_init,
+                    )
 
             if particles.mpi_comm is not None:
                 particles.mpi_sort_markers(apply_bc=False)
@@ -602,7 +751,7 @@ class CurrentCoupling5DGradB(Propagator):
                     op=MPI.SUM,
                 )
 
-            en_fB_new = buffer_array[0]
+            en_fB_new = float(buffer_array[0])
 
             # fixed-point iterations
             iter_num = 0
@@ -645,7 +794,7 @@ class CurrentCoupling5DGradB(Propagator):
                         op=MPI.SUM,
                     )
 
-                denominator = buffer_array[0]
+                denominator = float(buffer_array[0])
 
                 buffer_array = xp.array([sum_H_diff_loc])
 
@@ -663,17 +812,37 @@ class CurrentCoupling5DGradB(Propagator):
                         op=MPI.SUM,
                     )
 
-                denominator += buffer_array[0]
+                denominator += float(buffer_array[0])
 
                 # sorting markers at mid-point
                 if particles.mpi_comm is not None:
                     particles.mpi_sort_markers(apply_bc=False, alpha=0.5)
 
-                self._accum_kernel_en_fB_mid(
-                    args_markers,
-                    *self._args_accum_kernel_en_fB_mid,
-                    first_free_idx + 3,
-                )
+                if self._gpu_j2_dg:
+                    with ProfileManager.profile_region("kernel: " + self._accum_kernel_en_fB_mid.name + " [cuda]"):
+                        eval_gradB_ediff_gpu(
+                            markers,
+                            first_init_idx,
+                            particles.mu_idx,
+                            self._gpu_j2_dg_pn,
+                            self._gpu_j2_dg_tn1,
+                            self._gpu_j2_dg_tn2,
+                            self._gpu_j2_dg_tn3,
+                            self._gpu_j2_dg_starts,
+                            self._gpu_j2_dg_gradB1,
+                            self._gpu_j2_dg_grad_PB_b1,
+                            first_free_idx + 3,
+                        )
+                else:
+                    with (
+                        ProfileManager.profile_region("kernel: " + self._accum_kernel_en_fB_mid.name),
+                        particles.host_markers(write=True) as args_markers_h,
+                    ):
+                        self._accum_kernel_en_fB_mid(
+                            args_markers_h,
+                            *self._args_accum_kernel_en_fB_mid,
+                            first_free_idx + 3,
+                        )
                 en_fB_mid = xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
 
                 en_fB_mid /= n_mks_tot
@@ -694,7 +863,7 @@ class CurrentCoupling5DGradB(Propagator):
                         op=MPI.SUM,
                     )
 
-                en_fB_mid = buffer_array[0]
+                en_fB_mid = float(buffer_array[0])
 
                 if denominator == 0.0:
                     const = 0.0
@@ -718,13 +887,40 @@ class CurrentCoupling5DGradB(Propagator):
                 en_U_new = u_new.inner(self._M2n_dot_u) / 2.0
 
                 # update H^{n+1, k}
-                self._pusher_kernel(
-                    dt,
-                    args_markers,
-                    *self._args_pusher_kernel,
-                    const,
-                    alpha,
-                )
+                if self._gpu_j2_dg:
+                    with ProfileManager.profile_region("kernel: " + self._pusher_kernel.name + " [cuda]"):
+                        push_gc_cc_J2_dg_Hdiv_gpu(
+                            markers,
+                            first_init_idx,
+                            self._gpu_j2_dg_kind_map,
+                            self._gpu_j2_dg_params,
+                            self._gpu_j2_dg_epsilon,
+                            self._gpu_j2_dg_pn,
+                            self._gpu_j2_dg_tn1,
+                            self._gpu_j2_dg_tn2,
+                            self._gpu_j2_dg_tn3,
+                            self._gpu_j2_dg_starts,
+                            self._gpu_j2_dg_b2,
+                            self._gpu_j2_dg_norm_b1,
+                            self._gpu_j2_dg_curl_norm_b,
+                            self._gpu_j2_dg_u,
+                            self._gpu_j2_dg_ud,
+                            const,
+                            alpha,
+                            dt,
+                        )
+                else:
+                    with (
+                        ProfileManager.profile_region("kernel: " + self._pusher_kernel.name),
+                        particles.host_markers(write=True) as args_markers_h,
+                    ):
+                        self._pusher_kernel(
+                            dt,
+                            args_markers_h,
+                            *self._args_pusher_kernel,
+                            const,
+                            alpha,
+                        )
 
                 sum_H_diff_loc = xp.sum(
                     xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3]),
@@ -754,7 +950,7 @@ class CurrentCoupling5DGradB(Propagator):
                         op=MPI.SUM,
                     )
 
-                en_fB_new = buffer_array[0]
+                en_fB_new = float(buffer_array[0])
 
                 # calculate total energy difference
                 e_diff = xp.abs(en_U_new + en_fB_new - en_tot_old)
@@ -771,7 +967,7 @@ class CurrentCoupling5DGradB(Propagator):
                         op=MPI.SUM,
                     )
 
-                diff = buffer_array[0]
+                diff = float(buffer_array[0])
 
                 buffer_array = xp.array([sum_H_diff_loc])
 
@@ -789,7 +985,7 @@ class CurrentCoupling5DGradB(Propagator):
                         op=MPI.SUM,
                     )
 
-                diff += buffer_array[0]
+                diff += float(buffer_array[0])
 
                 # check convergence
                 if diff < self.options.dg_solver_params.tol:

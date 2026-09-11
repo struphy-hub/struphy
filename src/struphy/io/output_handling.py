@@ -2,6 +2,7 @@ import ctypes
 import logging
 import os
 
+import cunumpy as xp
 import h5py
 import numpy as np
 
@@ -79,14 +80,7 @@ class DataContainer:
     @staticmethod
     def _as_numpy_array(val):
         """Return a NumPy view/copy suitable for h5py writes."""
-        if isinstance(val, np.ndarray):
-            return val
-
-        get = getattr(val, "get", None)
-        if callable(get) and "cupy" in val.__class__.__module__:
-            return get()
-
-        return np.asarray(val)
+        return xp.to_numpy(val)
 
     def add_data(self, data_dict):
         """

@@ -1,4 +1,4 @@
-from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.basic import IdentityOperator, LinearOperator, MatrixFreeLinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -222,12 +222,34 @@ class SchurSolverFull:
         self._C = M[1, 0]
         assert isinstance(M[1, 1], IdentityOperator)
 
-        self._S = self._A - self._B @ self._C
+        # Avoid the generic composed/block operator for the Schur product.
+        # Its nested ``dot`` calls allocate intermediate vectors on every
+        # Krylov iteration.  Reuse two work vectors instead.
+        self._schur_tmp_y = self._C.codomain.zeros()
+        self._schur_tmp_a = self._A.codomain.zeros()
+        self._S = MatrixFreeLinearOperator(
+            domain=self._A.domain,
+            codomain=self._A.codomain,
+            dot=lambda v, *, out=None: self._dot_schur(v, out=out),
+        )
 
         self._solver = inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
+
+    def _dot_schur(self, v, out=None):
+        """Apply ``A - B C`` using preallocated work vectors."""
+        with ProfileManager.profile_region("density schur apply: C"):
+            self._C.dot(v, out=self._schur_tmp_y)
+        with ProfileManager.profile_region("density schur apply: B"):
+            self._B.dot(self._schur_tmp_y, out=out)
+        with ProfileManager.profile_region("density schur apply: A"):
+            self._A.dot(v, out=self._schur_tmp_a)
+        with ProfileManager.profile_region("density schur apply: combine"):
+            out *= -1.0
+            out += self._schur_tmp_a
+        return out
 
     @profile
     @ProfileManager.profile("solve: SchurSolverFull")
@@ -263,15 +285,18 @@ class SchurSolverFull:
         by = v[1]
 
         # right-hand side vector rhs bx - B by
-        rhs = self._B.dot(by, out=self._rhs)
-        rhs *= -1
-        rhs += bx
+        with ProfileManager.profile_region("density schur: rhs"):
+            rhs = self._B.dot(by, out=self._rhs)
+            rhs *= -1
+            rhs += bx
 
         # solve linear system (in-place if out is not None)
-        x = self._solver.dot(rhs, out=out[0])
-        y = self._C.dot(x, out=out[1])
-        y *= -1
-        y += by
+        with ProfileManager.profile_region("density schur: Krylov"):
+            x = self._solver.dot(rhs, out=out[0])
+        with ProfileManager.profile_region("density schur: back substitution"):
+            y = self._C.dot(x, out=out[1])
+            y *= -1
+            y += by
 
         return out
 

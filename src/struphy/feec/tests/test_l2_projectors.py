@@ -49,7 +49,7 @@ def test_l2_projectors_mappings(
     # evaluation points
     e1 = xp.linspace(0.0, 1.0, 30)
     e2 = xp.linspace(0.0, 1.0, 40)
-    e3 = 0.0
+    e3 = xp.array([0.0])
 
     ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
@@ -112,7 +112,9 @@ def test_l2_projectors_mappings(
                 err = xp.max(xp.abs(f_analytic(ee1, ee2, ee3) - field_vals))
                 f_plot = field_vals
             else:
-                err = [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
+                err = xp.array(
+                    [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
+                )
                 f_plot = field_vals[0]
 
             logger.info(f"{sp_id =}, {xp.max(err) =}")
@@ -235,7 +237,9 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
                 err = xp.max(xp.abs(f_analytic(e1, e2, e3) - field_vals))
                 f_plot = field_vals
             else:
-                err = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
+                err = xp.array(
+                    [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
+                )
                 f_plot = field_vals[0]
 
             errors[sp_id] += [xp.max(err)]
@@ -259,7 +263,7 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
         line_for_rate_p1 = [Ne ** (-rate_p1) * errors[sp_id][0] / Nels[0] ** (-rate_p1) for Ne in Nels]
         line_for_rate_p0 = [Ne ** (-rate_p0) * errors[sp_id][0] / Nels[0] ** (-rate_p0) for Ne in Nels]
 
-        m, _ = xp.polyfit(xp.log(Nels), xp.log(errors[sp_id]), deg=1)
+        m, _ = xp.polyfit(xp.log(xp.array(Nels)), xp.log(xp.array(errors[sp_id])), deg=1)
         logger.info(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
         if sp_id in ("H1", "H1vec"):
             assert -m > (pi + 1 - 0.05)
