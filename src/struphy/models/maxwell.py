@@ -73,7 +73,7 @@ class Maxwell(StruphyModel):
     def velocity_scale(self):
         return "light"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         pass
 
     ## abstract methods for documentation

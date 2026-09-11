@@ -245,8 +245,8 @@ class Simulation(SimulationBase):
                 self._allocate_propagators()
 
             # allocate helper fields and perform initial solves if needed
-            with ProfileManager.profile_region("setup: helpers", functions=[self.model.allocate_helpers]):
-                self.model.allocate_helpers()
+            with ProfileManager.profile_region("setup: helpers", functions=[self.model.post_allocate]):
+                self.model.post_allocate()
 
         logger.debug("... Done.")
 

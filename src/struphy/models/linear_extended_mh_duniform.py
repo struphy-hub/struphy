@@ -131,7 +131,7 @@ class LinearExtendedMHDuniform(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         self._b_eq = Propagator.projected_equil.b1
         self._a_eq = Propagator.projected_equil.a1
         self._p_eq = Propagator.projected_equil.p3
