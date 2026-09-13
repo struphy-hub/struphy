@@ -35,9 +35,9 @@ dependencies = [
     "tqdm<=4.70.0",
     "argcomplete<=3.7.0",
     "ipywidgets<=8.1.8",
-    "plotly<=6.9.0",
-    "pyvista<=0.48.0",
-    "trame<=3.13.0",
+    "plotly<=7.0.0",
+    "pyvista<=0.49.0",
+    "trame<=4.0.0",
     "trame-vtk<=2.11.8",
     "trame-vuetify<=3.2.2",
     "nest_asyncio2<=1.7.2",
@@ -47,7 +47,7 @@ dependencies = [
     "pytest-testmon<=2.2.0",
     "ruff==0.15.0, <=0.16.0",
     "line_profiler<=5.0.2",
-    "scope-profiler >= 0.5.0, <=0.5.0",
+    "scope-profiler>=0.5.0, <=0.6.1",
 ]
 
 [project.license]
