@@ -65,14 +65,14 @@ model.hot_elec.var.save_data = True
 # ----------------
 
 env = EnvironmentOptions(
-    sim_folder="thesis_run1_full",
+    sim_folder="thesis_run1_fig4_11",
     save_step=1,
 )
 
 time_opts = Time(
     dt=0.0125,
     Tend=200.0,
-    split_algo="LieTrotter",
+    split_algo="Strang",
 )
 
 # k = 2, hence Lz = 2*pi/k = pi.
