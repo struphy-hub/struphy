@@ -1,4 +1,5 @@
 /dist/
+/.release-dist-check/
 /site/vendor/
 /site/*.whl
 /site/wheel.json
