@@ -1,0 +1,45 @@
+name: Browser geometry
+on:
+  pull_request:
+    paths:
+      - 'browser/**'
+      - 'src/struphy/geometry/**'
+      - 'src/struphy/bsplines/**'
+      - 'src/struphy/linear_algebra/**'
+      - 'src/struphy/kernel_arguments/**'
+      - 'src/struphy/utils/**'
+      - 'pyproject.toml'
+      - '.github/workflows/test-browser-geometry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: browser/package-lock.json
+      - run: python browser/build.py
+      - run: python -m pip install browser/dist/*.whl pytest
+      - run: python -m pytest -q browser/tests
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+      - run: npm ci --prefix browser
+      - run: python browser/prepare.py
+      - run: npm exec --prefix browser -- playwright install --with-deps chromium
+      - run: npm test --prefix browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-geometry
+          path: |
+            browser/dist/*.whl
+            browser/test-results/

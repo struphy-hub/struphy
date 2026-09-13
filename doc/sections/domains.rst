@@ -7,6 +7,11 @@ Struphy models are implemented in curvilinear coordinates and can be run
 on a variaty of mapped domains. 
 Besides analytical mappings, there are discrete spline mappings available (IGA approach).
 
+A standalone ``struphy-geometry`` wheel and a static browser viewer are available
+for running domains, spline interpolation, and flux tracing entirely in Pyodide.
+See the `browser geometry guide <https://github.com/struphy-hub/struphy/tree/devel/browser>`_
+for building the package, loading EQDSK files, and exchanging portable geometry archives.
+
 The (physical) domain :math:`\Omega \subset \mathbb R^3` is an open subset of :math:`\mathbb R^3`,
 defined by a diffeomorphism 
 

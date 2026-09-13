@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Struphy Geometry</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header><span class="eyebrow">STRUPHY / GEOMETRY</span><h1>Explore mapped domains.</h1><p>Construct, inspect, and save geometry entirely in your browser.</p></header>
+  <main>
+    <form id="controls">
+      <label for="domain">Domain</label><select id="domain" disabled></select>
+      <label for="params">Mapping parameters · JSON</label><textarea id="params" rows="13" spellcheck="false" disabled></textarea>
+      <div id="flux-controls" hidden>
+        <label for="eqdsk">G-EQDSK flux file</label><input id="eqdsk" type="file" accept=".eqdsk,.geqdsk,.high,.gfile,.txt">
+        <p id="flux-note">Without a file, uses analytic circular flux surfaces (a geometry example).</p>
+        <button type="button" id="clear-flux">Use circular flux</button>
+      </div>
+      <label for="point">Probe at logical coordinates η₁, η₂, η₃</label><input id="point" value="0.37, 0.23, 0.41" disabled>
+      <label for="resolution">Surface resolution</label><input id="resolution" type="number" min="4" max="64" value="24" disabled>
+      <button id="construct" type="submit" disabled>Construct domain</button>
+      <div class="archive"><button id="save" type="button" disabled>Save geometry</button><label class="upload" for="archive">Open geometry<input id="archive" type="file" accept=".npz" disabled></label></div>
+      <p class="note">Files stay in this browser. Saved splines include their control points, so the original equilibrium is not needed to reopen them.</p>
+    </form>
+    <section class="result" aria-label="Geometry result">
+      <div class="viewer"><canvas id="view" aria-label="Interactive mapped surface"></canvas><span class="hint">Drag to rotate · scroll to zoom</span></div>
+      <p class="caption">Surface at η₁ = 1 · the outer radial surface for cylinders and tori</p>
+      <p id="status" role="status">Loading Python and numerical packages…</p>
+      <div id="diagnostics" hidden><h2>Mapping at the probe</h2><div id="coordinates"></div><div class="matrices"><div><h3>Jacobian DF</h3><pre id="jacobian"></pre></div><div><h3>Metric DFᵀDF</h3><pre id="metric"></pre></div></div><p id="determinant"></p></div>
+    </section>
+  </main>
+  <footer>Python / cuNumPy / SciPy / Pyodide · no computation server</footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

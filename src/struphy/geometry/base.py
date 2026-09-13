@@ -7,10 +7,8 @@ import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
-import h5py
 import numpy as np
 from cunumpy import PyccelKernel
-from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -30,7 +28,11 @@ from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
-from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
+from struphy.utils.class_helpers import (
+    __class_with_params_repr_no_defaults__,
+    all_class_params_are_default,
+    all_subclasses,
+)
 
 logger = logging.getLogger("struphy")
 
@@ -1706,6 +1708,8 @@ class Domain(metaclass=DomainMeta):
         pyvista.StructuredGrid
         """
 
+        from pyvista import StructuredGrid
+
         grids_log = [
             xp.linspace(1e-6, 1.0, nx),
             xp.linspace(0.0, 1.0, ny),
@@ -1727,6 +1731,8 @@ class Domain(metaclass=DomainMeta):
         nz: int = 32,
     ):
         """Show the 3D geometry using PyVista."""
+        from pyvista import Plotter
+
         mesh = self.create_geometry_mesh(nx, ny, nz)
         plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
@@ -2161,7 +2167,6 @@ class Domain(metaclass=DomainMeta):
 
     @classmethod
     def from_dict(cls, dct):
-        from struphy.fields_background.base import FluidEquilibrium
         from struphy.geometry.utilities import get_domain_by_name
 
         name = dct["type"]
@@ -2169,6 +2174,8 @@ class Domain(metaclass=DomainMeta):
         params = dict(dct["params"])
         for key, value in params.items():
             if isinstance(value, dict) and "type" in value and "params" in value:
+                from struphy.fields_background.base import FluidEquilibrium
+
                 params[key] = FluidEquilibrium.from_dict(value)
         return domain_cls(**params)
 

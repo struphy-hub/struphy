@@ -1,0 +1,10 @@
+/dist/
+/site/vendor/
+/site/*.whl
+/site/wheel.json
+/node_modules/
+/.test-env/
+
+/site/test_geometry.py
+/test-results/
+/playwright-report/
