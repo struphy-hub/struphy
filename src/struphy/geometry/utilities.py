@@ -2,7 +2,7 @@
 "Domain-related utility functions."
 
 import logging
-from typing import Callable
+from typing import Callable, Literal
 
 import cunumpy as xp
 import numpy as np
@@ -17,7 +17,6 @@ from struphy.bsplines import bsplines as bsp
 # if TYPE_CHECKING:
 from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
-from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
 logger = logging.getLogger("struphy")
@@ -386,7 +385,7 @@ class TransformedPformComponent:
     def __init__(
         self,
         fun: Callable | list,
-        given_in_basis: LiteralOptions.GivenInBasis,
+        given_in_basis: Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None],
         out_form: str,
         comp: int = 0,
         domain: Domain = None,

@@ -764,10 +764,10 @@ def powered_ellipse_df(
 ):
     """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.powered_ellipse`."""
 
-    df_out[0, 0] = (eta1 ** (s - 1)) * rx * cos(2 * pi * eta2)
+    df_out[0, 0] = s * (eta1 ** (s - 1)) * rx * cos(2 * pi * eta2)
     df_out[0, 1] = -2 * pi * (eta1**s) * rx * sin(2 * pi * eta2)
     df_out[0, 2] = 0.0
-    df_out[1, 0] = (eta1 ** (s - 1)) * ry * sin(2 * pi * eta2)
+    df_out[1, 0] = s * (eta1 ** (s - 1)) * ry * sin(2 * pi * eta2)
     df_out[1, 1] = 2 * pi * (eta1**s) * ry * cos(2 * pi * eta2)
     df_out[1, 2] = 0.0
     df_out[2, 0] = 0.0

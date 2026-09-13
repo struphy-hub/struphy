@@ -1,10 +1,7 @@
 name: Remove PR docs preview
 
 on:
-  pull_request:
-    branches:
-      - devel
-    types: [closed]
+  workflow_dispatch:
 
 defaults:
   run:

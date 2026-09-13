@@ -9,11 +9,10 @@ grid constructions and field-line tracing.
 """
 
 import copy
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 
-from struphy.fields_background.base import AxisymmMHDequilibrium
-from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.geometry.base import (
     Domain,
     PoloidalSplineStraight,
@@ -22,6 +21,9 @@ from struphy.geometry.base import (
     interp_mapping,
 )
 from struphy.geometry.utilities import field_line_tracing
+
+if TYPE_CHECKING:
+    from struphy.fields_background.base import AxisymmMHDequilibrium
 
 
 class Tokamak(PoloidalSplineTorus):
@@ -69,7 +71,7 @@ class Tokamak(PoloidalSplineTorus):
 
     def __init__(
         self,
-        equilibrium: AxisymmMHDequilibrium = None,
+        equilibrium: "AxisymmMHDequilibrium" = None,
         num_elements: tuple = (8, 32),
         degree: tuple = (2, 3),
         psi_power: float = 0.75,
@@ -84,9 +86,16 @@ class Tokamak(PoloidalSplineTorus):
         if r_min != 0.0:
             r0 = r_min
         if equilibrium is None:
+            from struphy.fields_background.equils import EQDSKequilibrium
+
             equilibrium = EQDSKequilibrium()
         else:
-            assert isinstance(equilibrium, AxisymmMHDequilibrium)
+            # Geometry only needs a flux function and its axis/boundary metadata.
+            # This also accepts lightweight flux providers without the MHD framework.
+            if not callable(getattr(equilibrium, "psi", None)) or not all(
+                hasattr(equilibrium, name) for name in ("psi_range", "psi_axis_RZ")
+            ):
+                raise TypeError("equilibrium must provide psi, psi_range, and psi_axis_RZ")
 
         # use the params setter
         self.params = copy.deepcopy(locals())

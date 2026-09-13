@@ -26,7 +26,8 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.10"
+        # browser/build.py uses tomllib and emits the pure-Python Pyodide wheel.
+        python-version: "3.11"
 
     - name: Install build tools
       run: |
@@ -35,6 +36,12 @@ jobs:
 
     - name: Build the package
       run: python -m build
+
+    - name: Build the Pyodide-compatible geometry package
+      run: python browser/build.py --output dist
+
+    - name: Show release distributions
+      run: ls -l dist/
 
     - name: Publish package distributions to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1

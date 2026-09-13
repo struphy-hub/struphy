@@ -1,9 +1,6 @@
 name: Submodule feectools
 
 on:
-  pull_request:
-    branches:
-      - devel
   workflow_dispatch:
 
 concurrency:
