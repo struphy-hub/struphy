@@ -15,7 +15,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  packages: read
 
 concurrency:
   group: "pages"
@@ -34,27 +33,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
-      - name: Install prerequisites (Ubuntu)
-        uses: ./.github/actions/install/ubuntu-latest
-        env:
-          FC: ${{ env.FC }}
-          CC: ${{ env.CC }}
-          CXX: ${{ env.CXX }}
-
-      - name: Install Struphy (dev-doc)
-        uses: ./.github/actions/install/install-struphy
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          optional-deps: 'dev,doc'
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: browser/package-lock.json
 
-      - name: Compile Struphy
-        uses: ./.github/actions/compile
-
-      - name: Build Sphinx docs
+      - name: Prepare browser application
         run: |
-          cd doc
-          make html
+          npm ci --prefix browser
+          python browser/prepare.py
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -62,7 +53,7 @@ jobs:
       - name: Upload built docs
         uses: actions/upload-pages-artifact@v3
         with:
-          path: doc/_build/html/
+          path: browser/site/
 
       - name: Deploy to GitHub Pages
         id: deployment

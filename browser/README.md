@@ -1,7 +1,7 @@
 # Struphy geometry in the browser
 
-`struphy-geometry` is a pure-Python wheel built from this repository's shared
-geometry sources. Import it as `struphy_geometry`. It can coexist with full
+`struphy-web` is a pure-Python wheel built from this repository's shared
+geometry sources. Import it as `struphy_web`. It can coexist with full
 Struphy and retains cuNumPy on its NumPy backend. No Pyccel compilation, MPI,
 FEEC installation, GPU, or computation server is required.
 
@@ -33,14 +33,14 @@ the static host; this is not a service-worker offline-installable application.
 ## Use the Python API
 
 Build just the wheel with `python3 browser/build.py`. Install the resulting
-`browser/dist/struphy_geometry-<version>-py3-none-any.whl` in Python, or install
+`browser/dist/struphy_web-<version>-py3-none-any.whl` in Python, or install
 its hosted URL with `await micropip.install(...)` in Pyodide. The runtime
 requires NumPy, SciPy, and cuNumPy; the viewer pins their tested distribution.
 
 ```python
 import cunumpy as xp
-from struphy_geometry import domains, CircularFlux, EQDSKFlux
-from struphy_geometry import save_geometry, load_geometry, sample_surface
+from struphy_web import domains, CircularFlux, EQDSKFlux
+from struphy_web import save_geometry, load_geometry, sample_surface
 
 xp.set_backend("numpy")
 domain = domains.IGAPolarTorus(a=0.7, R0=3.0, tor_period=1)
@@ -89,7 +89,7 @@ in mapping/input-file units; the browser package does not rescale EQDSK data.
 
 ## Deliberate differences from full Struphy
 
-- The import name is `struphy_geometry`, and the wheel does not depend on or
+- The import name is `struphy_web`, and the wheel does not depend on or
   initialize full Struphy. The full `struphy` distribution remains unchanged
   in scope and dependencies.
 - Browser `Tokamak()` requires an explicit flux provider. The viewer supplies

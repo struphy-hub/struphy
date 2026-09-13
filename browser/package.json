@@ -1,5 +1,5 @@
 {
-  "name": "struphy-geometry-browser",
+  "name": "struphy-web",
   "private": true,
   "type": "module",
   "scripts": {

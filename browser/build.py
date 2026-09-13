@@ -106,12 +106,12 @@ def browser_source(source):
         else:
             break
     text = "\n".join(header) + "\n" + ast.unparse(tree) + "\n"
-    return text.replace("struphy.", "struphy_geometry.")
+    return text.replace("struphy.", "struphy_web.")
 
 
 def build(output):
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-    package = "struphy_geometry"
+    package = "struphy_web"
     files = {}
     for path in SOURCES:
         files[f"{package}/{path}"] = browser_source((ROOT / "src/struphy" / path).read_text()).encode()
@@ -124,9 +124,9 @@ from .geometry.portable import sample_surface, save_geometry, load_geometry
 __version__ = {version!r}
 __all__ = ["domains", "Domain", "Spline", "PoloidalSplineStraight", "PoloidalSplineTorus", "interp_mapping", "spline_interpolation_nd", "CircularFlux", "EQDSKFlux", "sample_surface", "save_geometry", "load_geometry"]
 '''.encode()
-    info = f"struphy_geometry-{version}.dist-info"
+    info = f"struphy_web-{version}.dist-info"
     files[f"{info}/METADATA"] = f"""Metadata-Version: 2.1
-Name: struphy-geometry
+Name: struphy-web
 Version: {version}
 Summary: Portable Struphy domains, mappings, and flux geometry for Python and Pyodide
 Requires-Python: >=3.10
@@ -141,7 +141,7 @@ Built from the shared Struphy geometry sources. See browser/README.md in the Str
 """.encode()
     files[f"{info}/LICENSE"] = (ROOT / "LICENSE").read_bytes()
     files[f"{info}/WHEEL"] = (
-        b"Wheel-Version: 1.0\nGenerator: struphy-geometry-build\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
+        b"Wheel-Version: 1.0\nGenerator: struphy-web-build\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
     )
     record = io.StringIO(newline="")
     writer = csv.writer(record)
@@ -151,7 +151,7 @@ Built from the shared Struphy geometry sources. See browser/README.md in the Str
     writer.writerow([f"{info}/RECORD", "", ""])
     files[f"{info}/RECORD"] = record.getvalue().encode()
     output.mkdir(parents=True, exist_ok=True)
-    target = output / f"struphy_geometry-{version}-py3-none-any.whl"
+    target = output / f"struphy_web-{version}-py3-none-any.whl"
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as wheel:
         for path, data in sorted(files.items()):
             entry = zipfile.ZipInfo(path, date_time=(2020, 1, 1, 0, 0, 0))

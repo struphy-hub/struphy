@@ -44,7 +44,7 @@ def save_geometry(domain):
     GVEC/DESC/Tokamak-derived splines consequently needs no original solver or
     input file. The reconstructed object is a generic spline of the same kind.
     """
-    metadata = {"format": "struphy-geometry", "version": 1}
+    metadata = {"format": "struphy-web", "version": 1}
     arrays = {}
     if domain.kind_map in (0, 1, 2):
         metadata.update(
@@ -67,7 +67,7 @@ def load_geometry(data):
     """Load a mapping from NPZ bytes produced by ``save_geometry`` (no pickle)."""
     with np.load(io.BytesIO(data), allow_pickle=False) as archive:
         meta = json.loads(str(archive["metadata"]))
-        if meta.get("format") != "struphy-geometry" or meta.get("version") != 1:
+        if meta.get("format") not in {"struphy-web", "struphy-geometry"} or meta.get("version") != 1:
             raise ValueError("Unsupported geometry archive format/version")
         if "kind_map" not in meta:
             if meta.get("type") not in _ANALYTIC:

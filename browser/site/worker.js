@@ -15,7 +15,7 @@ const ready = (async () => {
   pyodide.runPython(`
 import base64, inspect, json, time
 import numpy as np
-from struphy_geometry import domains, CircularFlux, EQDSKFlux, sample_surface, save_geometry, load_geometry
+from struphy_web import domains, CircularFlux, EQDSKFlux, sample_surface, save_geometry, load_geometry
 current_domain = None
 
 def catalog():

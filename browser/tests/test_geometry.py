@@ -6,7 +6,7 @@ import sys
 
 import numpy as np
 import pytest
-from struphy_geometry import (
+from struphy_web import (
     CircularFlux,
     EQDSKFlux,
     Spline,
@@ -177,7 +177,7 @@ def test_invalid_inputs_and_excluded_adapters():
     assert not hasattr(domains, "GVECunit")
     assert not hasattr(domains, "DESCunit")
     stream = io.BytesIO()
-    np.savez(stream, metadata=json.dumps({"format": "struphy-geometry", "version": 99}))
+    np.savez(stream, metadata=json.dumps({"format": "struphy-web", "version": 99}))
     with pytest.raises(ValueError, match="version"):
         load_geometry(stream.getvalue())
 
