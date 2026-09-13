@@ -12,6 +12,9 @@ def main():
     pdata = PlottingData(sim=params.sim)
     pdata.load()
 
+    # every scalar at every time step: post_processing/scalars/{scalars.csv,*.png}
+    pdata.save_scalar_plots()
+
     # electric field growth against the analytical rate (0.2845 in units of m/c)
     energy = pdata.scalars["electric_energy"]
     t = energy.coord("t")

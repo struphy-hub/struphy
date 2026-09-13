@@ -5,11 +5,22 @@ derives its axis labels, coordinates and units from it, so a correct labeled fig
 needs no further arguments.
 """
 
+import logging
+import os
+
 import cunumpy as xp
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
 
-from struphy.post_processing.arrays import StruphyArray, orbit_columns
+from struphy.post_processing.arrays import (
+    SCALARS_EXCLUDE,
+    StruphyArray,
+    orbit_columns,
+    save_scalars,
+    scalar_names,
+)
+
+logger = logging.getLogger("struphy")
 
 #: rcParams applied by every plotter, so figures from different scripts match.
 STRUPHY_STYLE = {
@@ -60,6 +71,49 @@ def growth_rate(y: StruphyArray, *, t0: float = None, t1: float = None, of_sqrt:
     signal = xp.log(xp.sqrt(vals[window])) if of_sqrt else xp.log(vals[window])
     gamma, b = xp.polyfit(t[window], signal, 1)
     return float(gamma), float(b), window
+
+
+def drift(y: StruphyArray, *, ref: float = None) -> StruphyArray:
+    """Deviation ``y(t) - y_ref`` of a conserved quantity, with ``y_ref = y(0)`` by default."""
+    values = xp.asarray(y)
+    reference = float(values[0]) if ref is None else float(ref)
+    return StruphyArray(
+        values - reference,
+        dims=y.dims,
+        coords=y.coords,
+        unit=y.unit,
+        label=f"{y.label} drift" if y.label else "drift",
+    ).with_coord_units(**y.coord_units)
+
+
+def relative_error(y: StruphyArray, *, ref: float = None, skip_first: bool = True) -> StruphyArray:
+    """Relative deviation ``|y(t) - y_ref| / |y_ref|`` of a conserved quantity.
+
+    The standard energy-conservation diagnostic: a run that conserves energy exactly
+    stays at zero, so on a log axis this shows the scheme's error over time.
+
+    Parameters
+    ----------
+    y : StruphyArray
+        Signal with a ``t`` dimension.
+    ref : float, optional
+        Reference value. Defaults to the first sample.
+    skip_first : bool
+        Drop ``t = 0``, where the error is identically zero and so cannot be
+        drawn on a log axis.
+    """
+    values = xp.asarray(y)
+    reference = float(values[0]) if ref is None else float(ref)
+    if reference == 0.0:
+        raise ValueError("cannot take a relative error against a reference of zero")
+
+    out = StruphyArray(
+        xp.abs(values - reference) / abs(reference),
+        dims=y.dims,
+        coords=y.coords,
+        label=rf"$|\Delta$ {y.label}$| / |${y.label}$(0)|$" if y.label else "relative error",
+    ).with_coord_units(**y.coord_units)
+    return out.isel(t=slice(1, None)) if skip_first else out
 
 
 def match_to_grid(values, xgrid):
@@ -239,11 +293,103 @@ class StruphyPlot:
         plt.show()
         return self
 
-    def save(self, path, **kwargs):
+    def save(self, path, *, close: bool = False, **kwargs):
+        """Draw and write the figure to ``path``.
+
+        Parameters
+        ----------
+        close : bool
+            Close the figure afterwards. Pass this when saving many figures in a
+            loop, so that they do not all stay open.
+        """
         self.plot()
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
+        if close:
+            self.close()
         return self
+
+    def close(self):
+        """Close the figure, unless it was supplied by the caller."""
+        if self.fig is not None and self._ax is None:
+            plt.close(self.fig)
+            self.fig = None
+            self.ax = None
+        return self
+
+
+class FrameSequence:
+    """Frame-by-frame output for the plotters that sweep a 2D quantity over time.
+
+    A subclass says what a frame contains (:meth:`_frame_values`, :meth:`_frame_grids`,
+    :meth:`_frame_title`, :meth:`_clim`); this draws them into a single reused figure.
+    """
+
+    #: keep every ``step``-th time index
+    step = 1
+
+    @property
+    def frames(self):
+        """Time indices that will be drawn."""
+        return range(0, self.data.shape[self.data.axis("t")], self.step)
+
+    def _frame_grids(self):
+        return self.grids if self.grids is not None else logical_grids(self._frame_values(0))
+
+    def _frame_values(self, index):
+        return self.data.isel(t=index)
+
+    def _frame_title(self, index):
+        return f"{self.title} at t = {float(self.data.coord('t')[index]):.4e}"
+
+    def _clim(self):
+        return self.vmin, self.vmax
+
+    def _setup(self):
+        xgrid, ygrid, xlabel, ylabel = self._frame_grids()
+        vmin, vmax = self._clim()
+
+        fig, ax = self._make_axes()
+        pcm = ax.pcolormesh(
+            xgrid,
+            ygrid,
+            match_to_grid(self._frame_values(0), xgrid),
+            shading="auto",
+            vmin=vmin,
+            vmax=vmax,
+        )
+        fig.colorbar(pcm, ax=ax, label=self.data.value_label)
+        if self.equal_aspect:
+            ax.set_aspect("equal", adjustable="box")
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.grid(False)
+        return fig, ax, pcm, xgrid
+
+    def _update(self, ax, pcm, xgrid, index):
+        pcm.set_array(match_to_grid(self._frame_values(index), xgrid).ravel())
+        ax.set_title(self._frame_title(index))
+
+    def save_frames(self, directory, *, prefix="frame", dpi=110):
+        """Write one PNG per frame into ``directory``, creating it if needed.
+
+        Returns the list of paths written.
+        """
+        os.makedirs(directory, exist_ok=True)
+        paths = []
+
+        with plt.rc_context(STRUPHY_STYLE):
+            fig, ax, pcm, xgrid = self._setup()
+            for n, index in enumerate(self.frames):
+                self._update(ax, pcm, xgrid, index)
+                path = os.path.join(directory, f"{prefix}_{n:04d}.png")
+                fig.savefig(path, dpi=dpi, bbox_inches="tight")
+                paths.append(path)
+            plt.close(fig)
+            self.fig = None
+            self.ax = None
+
+        return paths
 
 
 class TimeSeriesPlot(StruphyPlot):
@@ -313,6 +459,116 @@ class TimeSeriesPlot(StruphyPlot):
         ax.set_title(self.title)
         if any(s.label for s in self.series) or self.fit:
             ax.legend()
+
+
+class ScalarsPlot(StruphyPlot):
+    """Every scalar recorded during a run on one axes, over an energy-error panel.
+
+    The overview figure of a run: all tracked scalars against time, plus the
+    relative error of the conserved quantity underneath.
+
+    Parameters
+    ----------
+    scalars : Scalars or dict
+        Maps a name to a :class:`~struphy.post_processing.arrays.StruphyArray` over
+        ``t``, as :attr:`~struphy.post_processing.post_processing_tools.PlottingData.scalars`
+        provides.
+    names : sequence of str, optional
+        Plot these, in this order. Defaults to all of them.
+    exclude : sequence of str
+        Names to leave out when ``names`` is not given.
+    logy : bool
+        Log-scale the ordinate of the main axes.
+    relative_to : str, optional
+        Divide every series by this one, e.g. ``"en_tot"``. Use it when the scalars
+        do not share a unit, so that the common ordinate means something.
+    error_panel : str or None
+        Scalar whose conservation error is drawn in a panel below, if it was
+        recorded. ``None`` suppresses the panel.
+
+    Attributes
+    ----------
+    error : StruphyArray or None
+        The relative error that was drawn, so a script can report its final value.
+    """
+
+    tight = False
+
+    def __init__(
+        self,
+        scalars,
+        *,
+        names=None,
+        exclude=SCALARS_EXCLUDE,
+        logy=False,
+        relative_to=None,
+        error_panel="en_tot",
+        **kwargs,
+    ):
+        self.names = scalar_names(scalars, names=names, exclude=exclude)
+        if not self.names:
+            raise ValueError(f"no scalars to plot, available: {tuple(scalars.keys())}")
+
+        kwargs.setdefault("title", "Scalars")
+        super().__init__(scalars[self.names[0]], **kwargs)
+
+        self.scalars = scalars
+        self.logy = logy
+        self.relative_to = relative_to
+        # a panel cannot be added to an axes the caller supplied
+        self.error_panel = error_panel if (error_panel in scalars and self._ax is None) else None
+        self.error = None
+        self.error_ax = None
+
+    def _series(self, name) -> StruphyArray:
+        values = xp.asarray(self.scalars[name])
+        if self.relative_to is None:
+            return values
+        return values / xp.asarray(self.scalars[self.relative_to])
+
+    def _ylabel(self) -> str:
+        if self.relative_to is not None:
+            return f"quantity / {self.relative_to}"
+        units = {self.scalars[n].unit for n in self.names}
+        return f"[{units.pop()}]" if len(units) == 1 else "[a.u.]"
+
+    def draw(self):
+        if self.error_panel is None:
+            fig, ax = self._make_axes()
+            ax_err = None
+        else:
+            fig, (ax, ax_err) = plt.subplots(
+                2,
+                1,
+                sharex=True,
+                figsize=(8.0, 6.5),
+                height_ratios=(2, 1),
+                layout="constrained",
+            )
+            self.fig, self.ax = fig, ax
+        self.error_ax = ax_err
+
+        for name in self.names:
+            ax.plot(self.scalars[name].coord("t"), self._series(name), label=name)
+
+        if self.logy:
+            ax.set_yscale("log")
+        ax.set_ylabel(self._ylabel())
+        ax.set_title(self.title)
+        ax.legend(fontsize="small", ncols=max(1, len(self.names) // 6))
+
+        if ax_err is None:
+            ax.set_xlabel(self.data.axis_label("t"))
+            return
+
+        self.error = relative_error(self.scalars[self.error_panel])
+        error_values = xp.asarray(self.error)
+        ax_err.plot(self.error.coord("t"), error_values)
+        # an exactly conserved quantity has nothing to show on a log axis
+        if xp.any(error_values > 0.0):
+            ax_err.set_yscale("log")
+        ax_err.set_xlabel(self.data.axis_label("t"))
+        ax_err.set_ylabel(rf"$|\Delta$ {self.error_panel}$|$ / {self.error_panel}$(0)$", fontsize="small")
 
 
 class Slice2DPlot(StruphyPlot):
@@ -432,7 +688,7 @@ class PanelGridPlot(StruphyPlot):
         fig.suptitle(" — ".join(filter(None, (self.title, self._run_label()))))
 
 
-class SliderPlot(StruphyPlot):
+class SliderPlot(FrameSequence, StruphyPlot):
     """A 2D quantity with a time slider, and a second slider for the free axis in 3D.
 
     The returned object keeps a reference to its sliders; discarding it stops the
@@ -445,6 +701,11 @@ class SliderPlot(StruphyPlot):
         second slider.
     slice_dim : str, optional
         Which dimension the second slider steps through. Defaults to the last.
+    slice_index : int, optional
+        Where the second slider starts, and which cut :meth:`save_frames` writes.
+        Defaults to the middle of ``slice_dim``.
+    step : int
+        Keep every ``step``-th time index when writing frames.
     grids : tuple or callable, optional
         Either fixed ``(xgrid, ygrid, xlabel, ylabel)``, or a function of the slice
         index returning them. Pass a callable when the physical grid depends on where
@@ -453,15 +714,37 @@ class SliderPlot(StruphyPlot):
 
     tight = False
 
-    def __init__(self, data, *, grids=None, slice_dim=None, vmin=None, vmax=None, equal_aspect=True, **kwargs):
+    def __init__(
+        self,
+        data,
+        *,
+        grids=None,
+        slice_dim=None,
+        slice_index=None,
+        step=1,
+        vmin=None,
+        vmax=None,
+        equal_aspect=True,
+        **kwargs,
+    ):
         super().__init__(data, **kwargs)
         self.grids = grids
+        self.step = step
         self.vmin = vmin
         self.vmax = vmax
         self.equal_aspect = equal_aspect
         spatial = [d for d in data.dims if d != "t"]
         self.slice_dim = slice_dim if slice_dim is not None else (spatial[-1] if len(spatial) > 2 else None)
+        n_slice = data.shape[data.axis(self.slice_dim)] if self.slice_dim else 0
+        self.slice_index = n_slice // 2 if slice_index is None else slice_index
         self.sliders = []
+
+    def _frame_values(self, index):
+        """The frame sequence holds the cut fixed and sweeps time, as the time slider does."""
+        return self._frame(index, self.slice_index)
+
+    def _frame_grids(self):
+        return self._grids_for(self.slice_index)
 
     def _frame(self, t_index, slice_index):
         frame = self.data.isel(t=t_index)
@@ -481,7 +764,7 @@ class SliderPlot(StruphyPlot):
         t = self.data.coord("t")
 
         n_slice = self.data.shape[self.data.axis(self.slice_dim)] if self.slice_dim else 0
-        slice_index = n_slice // 2 if n_slice else 0
+        slice_index = self.slice_index if n_slice else 0
 
         first = self._frame(0, slice_index)
         xgrid, ygrid, xlabel, ylabel = self._grids_for(slice_index)
@@ -524,6 +807,8 @@ class SliderPlot(StruphyPlot):
         def update(_):
             ti = int(s_time.val)
             si = int(s_slice.val) if s_slice is not None else 0
+            # so that a cut found with the slider is the one save_frames writes
+            self.slice_index = si
 
             # a grid that depends on the cut has to be redrawn, not just refilled
             if callable(self.grids) and si != state["slice"]:
@@ -557,7 +842,7 @@ class SliderPlot(StruphyPlot):
         self.mesh = pcm
 
 
-class AnimationPlot(StruphyPlot):
+class AnimationPlot(FrameSequence, StruphyPlot):
     """Sweep a 2D quantity over time, as a matplotlib animation or a frame sequence.
 
     Parameters
@@ -581,35 +866,11 @@ class AnimationPlot(StruphyPlot):
         self.shared_clim = shared_clim
         self.equal_aspect = equal_aspect
 
-    @property
-    def frames(self):
-        """Time indices that will be drawn."""
-        return range(0, self.data.shape[self.data.axis("t")], self.step)
-
-    def _setup(self):
-        first = self.data.isel(t=0)
-        grids = self.grids if self.grids is not None else logical_grids(first)
-        xgrid, ygrid, xlabel, ylabel = grids
-
-        vmin, vmax = self.vmin, self.vmax
-        if self.shared_clim and vmin is None and vmax is None:
+    def _clim(self):
+        if self.shared_clim and self.vmin is None and self.vmax is None:
             values = xp.asarray(self.data)
-            vmin, vmax = float(xp.nanmin(values)), float(xp.nanmax(values))
-
-        fig, ax = self._make_axes()
-        pcm = ax.pcolormesh(xgrid, ygrid, match_to_grid(first, xgrid), shading="auto", vmin=vmin, vmax=vmax)
-        fig.colorbar(pcm, ax=ax, label=self.data.value_label)
-        if self.equal_aspect:
-            ax.set_aspect("equal", adjustable="box")
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.grid(False)
-        return fig, ax, pcm, xgrid
-
-    def _update(self, ax, pcm, xgrid, index):
-        t = self.data.coord("t")
-        pcm.set_array(match_to_grid(self.data.isel(t=index), xgrid).ravel())
-        ax.set_title(f"{self.title} at t = {float(t[index]):.4e}")
+            return float(xp.nanmin(values)), float(xp.nanmax(values))
+        return self.vmin, self.vmax
 
     def draw(self):
         fig, ax, pcm, xgrid = self._setup()
@@ -631,27 +892,6 @@ class AnimationPlot(StruphyPlot):
             )
         self.fig = fig
         return anim
-
-    def save_frames(self, directory, *, prefix="frame", dpi=110):
-        """Write one PNG per frame into ``directory``, creating it if needed.
-
-        Returns the list of paths written.
-        """
-        import os
-
-        os.makedirs(directory, exist_ok=True)
-        paths = []
-
-        with plt.rc_context(STRUPHY_STYLE):
-            fig, ax, pcm, xgrid = self._setup()
-            for n, index in enumerate(self.frames):
-                self._update(ax, pcm, xgrid, index)
-                path = os.path.join(directory, f"{prefix}_{n:04d}.png")
-                fig.savefig(path, dpi=dpi, bbox_inches="tight")
-                paths.append(path)
-            plt.close(fig)
-
-        return paths
 
 
 class MarkerTrajectoryPlot(StruphyPlot):
@@ -718,10 +958,76 @@ class MarkerTrajectoryPlot(StruphyPlot):
         slider.on_changed(update)
 
 
+def save_all_scalars(
+    scalars,
+    directory,
+    *,
+    names=None,
+    exclude=SCALARS_EXCLUDE,
+    logy=False,
+    params=None,
+    table: str = "csv",
+    file_format: str = "png",
+    dpi: int = 110,
+) -> list[str]:
+    """Write the standard scalar output of a run: the table, an overview, one figure each.
+
+    Everything a finished run should leave behind for its scalars, in one call.
+
+    Parameters
+    ----------
+    scalars : Scalars or dict
+        Maps a name to a :class:`~struphy.post_processing.arrays.StruphyArray` over ``t``.
+    directory : str
+        Created if it does not exist.
+    names, exclude
+        See :func:`~struphy.post_processing.arrays.scalar_names`.
+    logy : bool
+        Log-scale the ordinate of every figure.
+    params : ParamsIn, optional
+        Run settings, added to each figure as a suptitle.
+    table : str or None
+        Format of the per-time-step table, ``"csv"`` or ``"npz"``; ``None`` to skip it.
+    file_format : str
+        Image format of the figures.
+
+    Returns
+    -------
+    list of str
+        The paths written, the table first.
+    """
+    selected = scalar_names(scalars, names=names, exclude=exclude)
+    if not selected:
+        logger.warning("No scalars to save.")
+        return []
+
+    os.makedirs(directory, exist_ok=True)
+    paths = []
+
+    if table is not None:
+        paths.append(save_scalars(scalars, os.path.join(directory, f"scalars.{table}"), names=selected, fmt=table))
+
+    overview = os.path.join(directory, f"scalars.{file_format}")
+    ScalarsPlot(scalars, names=selected, logy=logy, params=params).save(overview, dpi=dpi, close=True)
+    paths.append(overview)
+
+    for name in selected:
+        path = os.path.join(directory, f"{name}.{file_format}")
+        TimeSeriesPlot(
+            scalars[name],
+            logy=logy,
+            fit=False,
+            title=name,
+            params=params,
+        ).save(path, dpi=dpi, close=True)
+        paths.append(path)
+
+    logger.info(f"Wrote {len(paths)} scalar output files to {directory}")
+    return paths
+
+
 def plot_equilibrium_profile(path_out, *, ax=None):
     """Radial profiles of the equilibrium written to ``geometry.vts``."""
-    import os
-
     import pyvista as pv
 
     equil = pv.read(os.path.join(path_out, "geometry.vts"))

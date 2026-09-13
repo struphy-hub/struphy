@@ -1,8 +1,12 @@
 """Labeled arrays for post-processed Struphy output data."""
 
+import logging
+import os
 from dataclasses import dataclass, field, replace
 
 import cunumpy as xp
+
+logger = logging.getLogger("struphy")
 
 #: LaTeX display labels for the dimension names used across Struphy output.
 DIM_LABELS = {
@@ -44,6 +48,10 @@ DIM_UNITS = {
     "R": "x",
     "Z": "x",
 }
+
+
+#: Names in the ``scalar`` group that are not physics quantities.
+SCALARS_EXCLUDE = ("time",)
 
 
 @dataclass
@@ -200,6 +208,110 @@ class StruphyArray:
         dims = ", ".join(f"{d}: {n}" for d, n in zip(self.dims, self.shape))
         name = self.label or "StruphyArray"
         return f"<{name} ({dims}) [{self.unit or 'a.u.'}]>"
+
+
+def scalar_names(scalars, *, names=None, exclude=SCALARS_EXCLUDE) -> list[str]:
+    """Names of the scalar time series to work with, in a stable order.
+
+    Parameters
+    ----------
+    scalars : Scalars or dict
+        Anything with ``keys()`` and ``[]`` returning a :class:`StruphyArray` over ``t``.
+    names : sequence of str, optional
+        Restrict to these, in the given order. Unknown names raise.
+    exclude : sequence of str
+        Dropped when ``names`` is not given.
+    """
+    if names is not None:
+        missing = [n for n in names if n not in scalars]
+        if missing:
+            raise KeyError(f"no scalars {missing}, available: {tuple(scalars.keys())}")
+        return list(names)
+    return [n for n in scalars.keys() if n not in exclude]
+
+
+def scalars_table(scalars, *, names=None, exclude=SCALARS_EXCLUDE):
+    """Stack the scalar time series into one table, rows being time steps.
+
+    This is the per-step record of the run in the form it is usually wanted in:
+    one time column and one column per scalar.
+
+    Parameters
+    ----------
+    scalars : Scalars or dict
+        Maps a name to a :class:`StruphyArray` over ``t``.
+    names, exclude
+        See :func:`scalar_names`.
+
+    Returns
+    -------
+    t, names, values : xp.ndarray, list of str, xp.ndarray
+        ``values`` has shape ``(len(t), len(names))``. Series whose length does not
+        match the time coordinate are dropped, since they cannot share the table.
+    """
+    selected = scalar_names(scalars, names=names, exclude=exclude)
+    if not selected:
+        return xp.zeros(0), [], xp.zeros((0, 0))
+
+    t = xp.asarray(scalars[selected[0]].coord("t"))
+
+    kept, columns = [], []
+    for name in selected:
+        values = xp.asarray(scalars[name])
+        if values.shape != t.shape:
+            logger.warning(f"Scalar {name!r} has shape {values.shape}, expected {t.shape}; excluded from the table.")
+            continue
+        kept.append(name)
+        columns.append(values)
+
+    return t, kept, xp.stack(columns, axis=1)
+
+
+def save_scalars(scalars, path: str, *, names=None, exclude=SCALARS_EXCLUDE, fmt: str = None) -> str:
+    """Write every scalar time series, at every time step, to one file.
+
+    Parameters
+    ----------
+    scalars : Scalars or dict
+        Maps a name to a :class:`StruphyArray` over ``t``.
+    path : str
+        Destination. The format is taken from its suffix unless ``fmt`` is given.
+    names, exclude
+        See :func:`scalar_names`.
+    fmt : str
+        ``"csv"`` (a header row of ``t`` and the scalar names) or ``"npz"`` (one
+        array per name plus ``t``).
+
+    Returns
+    -------
+    str
+        The path written.
+    """
+    t, names_out, values = scalars_table(scalars, names=names, exclude=exclude)
+
+    if fmt is None:
+        fmt = os.path.splitext(path)[1].lstrip(".").lower() or "csv"
+    if fmt not in ("csv", "npz"):
+        raise ValueError(f"unknown format {fmt!r}, expected 'csv' or 'npz'")
+
+    # savez appends the suffix itself, so the returned path would otherwise be wrong
+    if fmt == "npz" and not path.endswith(".npz"):
+        path += ".npz"
+
+    directory = os.path.dirname(path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+    if fmt == "npz":
+        xp.savez(path, t=t, **{n: values[:, i] for i, n in enumerate(names_out)})
+    else:
+        with open(path, "w") as f:
+            f.write(",".join(["t", *names_out]) + "\n")
+            for row in range(len(t)):
+                f.write(",".join(f"{float(v):.17g}" for v in (t[row], *values[row])) + "\n")
+
+    logger.info(f"Wrote {len(names_out)} scalars over {len(t)} time steps to {path}")
+    return path
 
 
 def orbit_columns(n_columns: int) -> dict:

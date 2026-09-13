@@ -71,9 +71,66 @@ def pdata(tmp_path):
     return data
 
 
+def write_raw_scalars(root):
+    """Write the ``scalar`` group of a raw output file, as the simulation records it."""
+    import h5py
+
+    data_dir = os.path.join(root, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    t = np.linspace(0.0, 1.0, NT)
+
+    with h5py.File(os.path.join(data_dir, "data_proc0.hdf5"), "w") as f:
+        f.create_dataset("time/value", data=t)
+        f.create_dataset("scalar/en_tot", data=np.full(NT, 2.0))
+        f.create_dataset("scalar/en_e", data=np.linspace(1.0, 1.5, NT))
+    return t
+
+
+@pytest.fixture
+def pdata_scalars(tmp_path):
+    """A run whose raw scalars are readable without its parameter file."""
+    out = write_pproc_tree(str(tmp_path))
+    t = write_raw_scalars(out)
+    data = PlottingData(path_out=out)
+    # physical_time would need the run's units, and so its parameters
+    data.load_scalars(physical_time=False)
+    return data, t
+
+
 def test_load_without_raw_data_skips_scalars(pdata):
     """Scalars come from the raw HDF5, which a post-processing-only folder lacks."""
     assert pdata.scalars.keys() == ()
+
+
+def test_scalars_are_labeled_time_series(pdata_scalars):
+    data, t = pdata_scalars
+
+    assert set(data.scalars.keys()) == {"en_tot", "en_e"}
+    assert data.scalars["en_tot"].dims == ("t",)
+    np.testing.assert_allclose(data.scalars["en_tot"].coord("t"), t)
+
+
+def test_save_scalars_defaults_into_the_post_processing_folder(pdata_scalars):
+    data, t = pdata_scalars
+    path = data.save_scalars()
+
+    assert path == os.path.join(data.path_pproc, "scalars.csv")
+    lines = open(path).read().splitlines()
+    assert set(lines[0].split(",")) == {"t", "en_tot", "en_e"}
+    assert len(lines) == len(t) + 1
+
+
+def test_save_scalar_plots_writes_the_standard_set(pdata_scalars):
+    data, _ = pdata_scalars
+    paths = data.save_scalar_plots(params=None)
+
+    assert sorted(os.path.basename(p) for p in paths) == [
+        "en_e.png",
+        "en_tot.png",
+        "scalars.csv",
+        "scalars.png",
+    ]
+    assert all(p.startswith(os.path.join(data.path_pproc, "scalars")) for p in paths)
 
 
 def test_grids_are_loaded(pdata):

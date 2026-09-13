@@ -28,6 +28,7 @@ from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
 from struphy.post_processing.arrays import (
     StruphyArray,
+    save_scalars,
     wrap_binned_slice,
     wrap_field_data,
     wrap_orbits,
@@ -1611,6 +1612,44 @@ class PlottingData:
 
         logger.info(f"Loaded scalars: {self._scalars.keys()}")
         return self._scalars
+
+    def save_scalars(self, path: str = None, **kwargs) -> str:
+        """Write every scalar, at every time step, as one table.
+
+        Parameters
+        ----------
+        path : str, optional
+            Destination; the format follows its suffix. Defaults to
+            ``post_processing/scalars.csv`` in the output folder.
+        **kwargs
+            Passed to :func:`~struphy.post_processing.arrays.save_scalars`.
+        """
+        if not self._scalars.keys():
+            self.load_scalars()
+        if path is None:
+            path = os.path.join(self.path_pproc, "scalars.csv")
+        return save_scalars(self._scalars, path, **kwargs)
+
+    def save_scalar_plots(self, directory: str = None, **kwargs) -> list[str]:
+        """Write the table, an overview figure and one figure per scalar.
+
+        Parameters
+        ----------
+        directory : str, optional
+            Defaults to ``post_processing/scalars`` in the output folder.
+        **kwargs
+            Passed to :func:`~struphy.diagnostics.plotting.save_all_scalars`.
+        """
+        from struphy.diagnostics.plotting import save_all_scalars
+
+        if not self._scalars.keys():
+            self.load_scalars()
+        if directory is None:
+            directory = os.path.join(self.path_pproc, "scalars")
+        # not setdefault: reading the parameters must not be forced when they are given
+        if "params" not in kwargs:
+            kwargs["params"] = self.params
+        return save_all_scalars(self._scalars, directory, **kwargs)
 
     def load(self):
         """Load all post-processed data from disk into memory.

@@ -4,12 +4,17 @@ None of these need a simulation: they build small arrays by hand and check that 
 dimension bookkeeping, coordinate pairing and back-compatible indexing behave.
 """
 
+import os
+
 import numpy as np
 import pytest
 
 from struphy.post_processing.arrays import (
     StruphyArray,
     orbit_columns,
+    save_scalars,
+    scalar_names,
+    scalars_table,
     wrap_binned_slice,
     wrap_field_data,
     wrap_orbits,
@@ -228,3 +233,91 @@ def test_wrap_field_data_sorts_times():
 
 def test_wrap_field_data_of_empty_dict_is_none():
     assert wrap_field_data({}, None) is None
+
+
+# ---------------------------------------------------------------- scalar export
+
+NT_SCALARS = 5
+
+
+def make_scalars(**extra):
+    """The shape of ``PlottingData.scalars``: a name -> time series mapping."""
+    t = np.linspace(0.0, 2.0, NT_SCALARS)
+    scalars = {
+        "en_tot": StruphyArray(np.full(NT_SCALARS, 3.0), dims=("t",), coords={"t": t}, label="en tot"),
+        "en_e": StruphyArray(np.linspace(1.0, 2.0, NT_SCALARS), dims=("t",), coords={"t": t}, label="en e"),
+        "time": StruphyArray(t, dims=("t",), coords={"t": t}),
+    }
+    scalars.update(extra)
+    return scalars
+
+
+def test_scalar_names_drops_the_excluded_ones():
+    assert scalar_names(make_scalars()) == ["en_tot", "en_e"]
+
+
+def test_scalar_names_keeps_the_requested_order():
+    assert scalar_names(make_scalars(), names=["en_e", "time"]) == ["en_e", "time"]
+
+
+def test_scalar_names_rejects_an_unknown_name():
+    with pytest.raises(KeyError, match="no scalars"):
+        scalar_names(make_scalars(), names=["en_nope"])
+
+
+def test_scalars_table_is_one_column_per_scalar():
+    t, names, values = scalars_table(make_scalars())
+
+    assert names == ["en_tot", "en_e"]
+    assert values.shape == (NT_SCALARS, 2)
+    np.testing.assert_allclose(t, np.linspace(0.0, 2.0, NT_SCALARS))
+    np.testing.assert_allclose(values[:, 0], 3.0)
+    np.testing.assert_allclose(values[:, 1], np.linspace(1.0, 2.0, NT_SCALARS))
+
+
+def test_scalars_table_drops_a_series_of_the_wrong_length():
+    """A short series cannot share the time column, and must not corrupt the table."""
+    odd = StruphyArray(np.zeros(2), dims=("t",), coords={"t": np.zeros(2)})
+    t, names, values = scalars_table(make_scalars(odd_one=odd))
+
+    assert "odd_one" not in names
+    assert values.shape == (NT_SCALARS, 2)
+
+
+def test_scalars_table_of_nothing_is_empty():
+    t, names, values = scalars_table({})
+    assert names == [] and len(t) == 0
+
+
+def test_save_scalars_writes_a_csv_with_a_header(tmp_path):
+    path = save_scalars(make_scalars(), str(tmp_path / "scalars.csv"))
+    lines = open(path).read().splitlines()
+
+    assert lines[0] == "t,en_tot,en_e"
+    assert len(lines) == NT_SCALARS + 1
+    # every row is one time step: t, then one value per scalar
+    first = [float(v) for v in lines[1].split(",")]
+    assert first == pytest.approx([0.0, 3.0, 1.0])
+
+
+def test_save_scalars_round_trips_through_npz(tmp_path):
+    path = save_scalars(make_scalars(), str(tmp_path / "scalars.npz"))
+    loaded = np.load(path)
+
+    assert set(loaded.files) == {"t", "en_tot", "en_e"}
+    np.testing.assert_allclose(loaded["en_e"], np.linspace(1.0, 2.0, NT_SCALARS))
+
+
+def test_save_scalars_takes_the_format_from_the_suffix(tmp_path):
+    npz = save_scalars(make_scalars(), str(tmp_path / "table"), fmt="npz")
+    assert npz.endswith(".npz") and os.path.exists(npz)
+
+
+def test_save_scalars_rejects_an_unknown_format(tmp_path):
+    with pytest.raises(ValueError, match="unknown format"):
+        save_scalars(make_scalars(), str(tmp_path / "scalars.xlsx"))
+
+
+def test_save_scalars_creates_the_directory(tmp_path):
+    path = save_scalars(make_scalars(), str(tmp_path / "new" / "dir" / "scalars.csv"))
+    assert os.path.exists(path)
