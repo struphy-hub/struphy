@@ -126,18 +126,10 @@
       "match": { "machine_name": "TOK" },
       "profiles": {
         "default": {
-          "modules_load": [
-            "gcc/14",
-            "openmpi/5.0",
-            "python-waterboa/2025.06"
-          ]
+          "modules_load": ["gcc/14", "openmpi/5.0", "python-waterboa/2025.06"]
         },
         "gcc": {
-          "modules_load": [
-            "gcc/14",
-            "openmpi/5.0",
-            "python-waterboa/2025.06"
-          ]
+          "modules_load": ["gcc/14", "openmpi/5.0", "python-waterboa/2025.06"]
         },
         "intel": {
           "modules_load": [

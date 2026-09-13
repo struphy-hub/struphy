@@ -1,6 +1,6 @@
 name: "Install ubuntu prereqs"
 
-description: 
+description:
 
 runs:
   using: composite

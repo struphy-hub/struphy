@@ -10,7 +10,7 @@ on:
 # Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME_1: ${{ github.repository }}/ubuntu-with-reqs 
+  IMAGE_NAME_1: ${{ github.repository }}/ubuntu-with-reqs
   IMAGE_NAME_2: ${{ github.repository }}/ubuntu-with-struphy
 
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
@@ -52,7 +52,7 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_1 }}:latest
           labels: ${{ steps.meta.outputs.labels }}
-      
+
       # This step generates an artifact attestation for the image, which is an unforgeable statement about where and how it was built. It increases supply chain security for people who consume the image. For more information, see [Using artifact attestations to establish provenance for builds](/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds).
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v3
@@ -98,7 +98,7 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_2 }}:latest
           labels: ${{ steps.meta.outputs.labels }}
-      
+
       # This step generates an artifact attestation for the image, which is an unforgeable statement about where and how it was built. It increases supply chain security for people who consume the image. For more information, see [Using artifact attestations to establish provenance for builds](/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds).
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v3
@@ -106,4 +106,3 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_2}}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
-      

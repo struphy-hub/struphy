@@ -29,14 +29,13 @@ jobs:
         username: spossann
         password: ${{ secrets.GHCR_TOKEN }}
     steps:
-
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
 
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          submodules: true  # This is crucial!
+          submodules: true # This is crucial!
           fetch-depth: 5
 
       - name: fetch origin devel (for submodule-diff action)
@@ -47,7 +46,7 @@ jobs:
           git fetch --no-tags origin devel:refs/remotes/origin/devel
           git rev-parse --verify origin/devel
 
-      - name: Build Struphy 
+      - name: Build Struphy
         run: |
           ls 
           python3 -m venv struphy_env
@@ -81,6 +80,3 @@ jobs:
           source struphy_env/bin/activate
           struphy params Maxwell -y
           struphy params VlasovAmpereOneSpecies -y
-
-
-      

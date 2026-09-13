@@ -1,12 +1,11 @@
 .eqno {
-    float: right;
+  float: right;
 }
 
 .bd-main .bd-content .bd-article-container {
-    max-width: 100%;  /* default is 60em */
-  }
+  max-width: 100%; /* default is 60em */
+}
 
 .bd-page-width {
-max-width: 95%;  /* default is 88rem */
+  max-width: 95%; /* default is 88rem */
 }
-  

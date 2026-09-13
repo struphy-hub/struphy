@@ -9,5 +9,3 @@
 **Proposed solution:**
 
 ...
-
-

@@ -2,7 +2,7 @@ name: Release Struphy on Github
 
 on:
   push:
-    branches: 
+    branches:
       - main
 
 jobs:
@@ -21,14 +21,14 @@ jobs:
         uses: maybe-hello-world/pyproject-check-version@v4
         id: versioncheck
         with:
-          pyproject-path: "./pyproject.toml"    # default value
-      
+          pyproject-path: "./pyproject.toml" # default value
+
       - name: Check output
         shell: bash
         run: |
-            echo "Output: ${{ steps.versioncheck.outputs.local_version_is_higher }}"  # 'true' or 'false
-            echo "Local version: ${{ steps.versioncheck.outputs.local_version }}"     # e.g., 0.1.1
-            echo "Public version: ${{ steps.versioncheck.outputs.public_version }}"   # e.g., 0.1.0
+          echo "Output: ${{ steps.versioncheck.outputs.local_version_is_higher }}"  # 'true' or 'false
+          echo "Local version: ${{ steps.versioncheck.outputs.local_version }}"     # e.g., 0.1.1
+          echo "Public version: ${{ steps.versioncheck.outputs.public_version }}"   # e.g., 0.1.0
 
       - name: Release
         uses: softprops/action-gh-release@v2
@@ -38,5 +38,3 @@ jobs:
         with:
           tag_name: v${{ steps.versioncheck.outputs.local_version }}
           body_path: ${{ github.workspace }}/CHANGELOG.md
-              
-        
