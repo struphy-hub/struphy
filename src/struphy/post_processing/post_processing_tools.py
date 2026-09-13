@@ -123,7 +123,7 @@ class Slice(Container):
 
 
 class Scalars(Container):
-    """Time series recorded at every step, read straight from the raw HDF5 output.
+    """Time series recorded every ``save_step``-th step, read straight from the raw HDF5 output.
 
     Unlike the other containers this needs no prior call to :meth:`PostProcessor.process`.
     """
@@ -1513,7 +1513,7 @@ class PlottingData:
 
     @property
     def scalars(self) -> Scalars:
-        """Scalar time series recorded every step, keyed by name.
+        """Scalar time series recorded every ``save_step``-th step, keyed by name.
 
         Each entry is a :class:`~struphy.post_processing.arrays.StruphyArray` over ``t``,
         with the time coordinate already converted to seconds.
