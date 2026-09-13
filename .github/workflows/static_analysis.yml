@@ -1,9 +1,7 @@
 name: isort & ruff
 
 on:
-  pull_request:
-    branches:
-      - devel
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

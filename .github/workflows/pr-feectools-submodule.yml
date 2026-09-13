@@ -1,9 +1,6 @@
 name: PR - feectools submodule freshness
 
 on:
-  pull_request:
-    branches:
-      - devel
   workflow_dispatch:
 
 concurrency:
