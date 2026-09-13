@@ -1,7 +1,7 @@
 """Test the built wheel, not the full Struphy installation."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 if sys.platform != "emscripten":
     wheels = sorted((Path(__file__).resolve().parents[1] / "dist").glob("*.whl"))

@@ -10,9 +10,10 @@ import base64
 import csv
 import hashlib
 import io
-from pathlib import Path
-import tomllib
 import zipfile
+from pathlib import Path
+
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = (

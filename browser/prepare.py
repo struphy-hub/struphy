@@ -3,12 +3,12 @@
 First run npm ci --prefix browser, then python browser/prepare.py.
 """
 
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from urllib.request import urlopen
 
 from build import build

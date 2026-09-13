@@ -27,12 +27,12 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.class_helpers import (
     __class_with_params_repr_no_defaults__,
     all_class_params_are_default,
     all_subclasses,
 )
+from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 
 logger = logging.getLogger("struphy")
 

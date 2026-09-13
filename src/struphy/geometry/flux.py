@@ -1,7 +1,7 @@
 """Small axisymmetric flux providers for constructing geometry without an MHD solver."""
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 import numpy as np
 from scipy.interpolate import RectBivariateSpline

@@ -6,7 +6,6 @@ import sys
 
 import numpy as np
 import pytest
-
 from struphy_geometry import (
     CircularFlux,
     EQDSKFlux,
