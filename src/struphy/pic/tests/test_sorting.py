@@ -18,7 +18,7 @@ logger = logging.getLogger("struphy")
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening_1(nx, ny, nz, algo):
+def test_flattening_fortran(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -38,7 +38,7 @@ def test_flattening_1(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening_2(nx, ny, nz, algo):
+def test_flattening_c(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -58,7 +58,7 @@ def test_flattening_2(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening_3(nx, ny, nz, algo):
+def test_flattening_roundtrip(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -74,7 +74,7 @@ def test_flattening_3(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("num_elements", [[18, 19, 20]])
 @pytest.mark.parametrize("degree", [[2, 3, 4]])
 @pytest.mark.parametrize(
     "bcs",
@@ -102,6 +102,7 @@ def test_flattening_3(nx, ny, nz, algo):
     ],
 )
 @pytest.mark.parametrize("Np", [10000])
+@pytest.mark.mpi_pic
 def test_sorting(num_elements, degree, bcs, mapping, Np):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
@@ -124,7 +125,10 @@ def test_sorting(num_elements, degree, bcs, mapping, Np):
     domain_decomp = (domain_array, nprocs)
 
     loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
-    boxes_per_dim = (3, 3, 6)
+    # The marked MPI test runs with 1-4 ranks.
+    # Use box counts divisible by the process-grid dimensions selected
+    # for both 3 and 4 ranks.
+    boxes_per_dim = (6, 6, 6)
 
     sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
@@ -150,7 +154,7 @@ def test_sorting(num_elements, degree, bcs, mapping, Np):
 
 
 if __name__ == "__main__":
-    test_flattening_1(8, 8, 8, "c_orderwding")
+    test_flattening_roundtrip(8, 8, 8, "c_ordering")
     # test_sorting(
     #     [8, 9, 10],
     #     [2, 3, 4],

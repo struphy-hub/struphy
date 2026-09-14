@@ -10,8 +10,7 @@ struphy_path := $(shell $(PYTHON) -c "import struphy; print(struphy.__path__[0])
 # Arguments to this script are: 
 STRUPHY_SOURCES := $(sources)
 FLAGS := --libdir $(LIBDIR) $(flags) #--debug
-FLAGS_openmp_pic := $(flags_openmp_pic)
-FLAGS_openmp_mhd := $(flags_openmp_mhd)
+FLAGS_openmp := $(flags_openmp)
 
 #--------------------------------------
 # SOURCE FILES 
@@ -35,7 +34,7 @@ all: $(OUTPUTS)
 	@for dep in $^ ; do \
 		echo $$dep ; \
     done
-	pyccel compile -v $(FLAGS) $(FLAGS_openmp_pic) $(FLAGS_openmp_mhd) $<
+	pyccel compile -v $(FLAGS) $(FLAGS_openmp) $<
 	@echo ""
 
 #--------------------------------------

@@ -9,9 +9,9 @@ import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
-from tqdm import tqdm
 
 from struphy.dispersion_relations import analytic
+from struphy.utils.progress import tqdm
 
 logger = logging.getLogger("struphy")
 

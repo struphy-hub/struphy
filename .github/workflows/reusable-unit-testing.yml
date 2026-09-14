@@ -81,9 +81,9 @@ jobs:
         run: |
           {
             echo 'TESTMON_KEY=testmon-unit-mpi'
-            echo 'RUN_MAXWELL=mpirun -n 1 pytest -m single --testmon-forceselect -v --with-mpi --model-name Maxwell'
+            echo 'RUN_MAXWELL=mpirun --oversubscribe -n 1 pytest -m single --testmon-forceselect -v --with-mpi --model-name Maxwell'
             echo 'UNINSTALL_MPI='
-            echo 'PYTEST_CMD=mpirun -n ${{ inputs.n-procs }} pytest -v --testmon --with-mpi'
+            echo 'PYTEST_CMD=mpirun --oversubscribe -n ${{ inputs.n-procs }} pytest -v --testmon --with-mpi'
           } >> "$GITHUB_ENV"
 
       - name: Check .testmondata 1

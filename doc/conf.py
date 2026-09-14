@@ -53,7 +53,18 @@ extensions = [
     "sphinx_collections",
 ]
 
-nbsphinx_execute = "auto"
+def _struphy_is_compiled():
+    """Whether `struphy compile` has been run (state.yml exists in the installed package)."""
+    try:
+        from struphy.utils.utils import STRUPHY_LIBPATH
+    except ImportError:
+        return False
+    return os.path.isfile(os.path.join(STRUPHY_LIBPATH, "state.yml"))
+
+
+# Notebooks are slow to run and many depend on compiled Struphy kernels,
+# so only execute them when Struphy has been compiled; otherwise reuse stored outputs.
+nbsphinx_execute = "auto" if _struphy_is_compiled() else "never"
 # nbsphinx_kernel_name = 'local-env' # This is just for Stefan's local machine, where the system kernel does not work.
 
 napoleon_use_admonition_for_examples = True
@@ -79,6 +90,9 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+# mock imports
+# autodoc_mock_imports = ["mpi4py"]
 
 # -- Options for HTML output -------------------------------------------------
 

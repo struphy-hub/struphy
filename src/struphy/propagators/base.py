@@ -8,6 +8,7 @@ from typing import Literal
 import cunumpy as xp
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+from scope_profiler import ProfileManager
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
@@ -96,12 +97,20 @@ class Propagator(metaclass=ABCMeta):
             Time step size.
         """
 
+    @property
+    def _solve_region(self) -> str:
+        """Name of the profiling region for the linear solve(s) of this propagator."""
+        if not hasattr(self, "_solve_region_name"):
+            self._solve_region_name = "solve: " + self.__class__.__name__
+        return self._solve_region_name
+
     def show_options(self):
         """Print the options of the propagator."""
         logger.info(f"\nOptions for propagator '{self.__class__.__name__}':")
         for k, v in self.options.__dict__.items():
             logger.info(f"    {k + ':':<20}{v}")
 
+    @ProfileManager.profile("update_feec_variables")
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
         update feec coefficients and update ghost regions.

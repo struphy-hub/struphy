@@ -81,7 +81,7 @@ class VariationalBarotropicFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         pass
 
     # default parameters

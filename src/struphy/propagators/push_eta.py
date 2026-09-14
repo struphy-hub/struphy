@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import OptionsBase
@@ -11,7 +12,6 @@ from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
@@ -91,7 +91,7 @@ class PushEta(Propagator):
     @profile
     def allocate(self):
         # get kernel
-        kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
+        kernel = PyccelKernel(pusher_kernels.push_eta_stage)
 
         # define algorithm
         butcher = self.options.butcher
