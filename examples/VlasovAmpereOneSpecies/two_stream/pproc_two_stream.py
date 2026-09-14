@@ -24,7 +24,7 @@ def main():
     ).show()
 
     # phase space evolution
-    f = run.distributions["kinetic_ions/e1_v1_density/f_binned"]
+    f = run.distributions.kinetic_ions.e1_v1_density.f_binned
     view = View(x="e1", y="v1")
 
     plot_panels(f, view=view, nrows=3, ncols=4, shared_clim=True, run_label=run.label).show()

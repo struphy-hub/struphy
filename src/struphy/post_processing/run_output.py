@@ -69,21 +69,63 @@ class _ProductValue:
         return np.asarray(self.array, dtype=dtype)
 
 
-class _ProductNamespace:
+class ProductNamespace:
+    """Hierarchical, discoverable attribute view over product names.
+
+    A product named ``species/slice/value`` is exposed as
+    ``namespace.species.slice.value``. Product names are simulation-dependent, so
+    ``__dir__`` is populated from the on-disk catalog for interactive completion.
+    Use :attr:`catalog` when generic iteration over arbitrary products is needed.
+    """
+
     def __init__(self, mapping, prefix=""):
         self._mapping, self._prefix = mapping, prefix
 
     def __getattr__(self, name):
         key = f"{self._prefix}/{name}" if self._prefix else name
         if key in self._mapping:
-            return _ProductValue(self._mapping, key)
+            return self._mapping[key]
         prefix = key + "/"
         if any(product.startswith(prefix) for product in self._mapping):
-            return _ProductNamespace(self._mapping, key)
+            return type(self)(self._mapping, key)
         raise AttributeError(f"{name!r}; available products: {tuple(self._mapping)}")
 
     def __getitem__(self, key):
+        if "/" in key:
+            return self._mapping[key]
         return getattr(self, key)
+
+    def __iter__(self):
+        prefix = f"{self._prefix}/" if self._prefix else ""
+        children = {key[len(prefix):].split("/", 1)[0] for key in self._mapping if key.startswith(prefix)}
+        return iter(sorted(children))
+
+    def __len__(self):
+        return sum(1 for _ in self)
+
+    def __dir__(self):
+        return sorted(set(super().__dir__()) | set(self))
+
+    @property
+    def catalog(self):
+        """Flat lazy catalog for algorithms that do not know product names."""
+        return self._mapping
+
+
+class FieldProducts(ProductNamespace):
+    """Fields grouped as ``run.fields.<species>.<field>``."""
+
+
+class DistributionProducts(ProductNamespace):
+    """Binned products grouped as ``run.distributions.<species>.<slice>.<name>``."""
+
+
+class DensityProducts(ProductNamespace):
+    """SPH products grouped by species, slice and quantity."""
+
+
+class OrbitProducts(ProductNamespace):
+    """Marker trajectories grouped by species."""
 
 
 class PlotAccessor:
@@ -134,10 +176,14 @@ class RunOutput:
             raise FileNotFoundError(f"{self.path_pproc} does not exist; run post-processing first")
         self.time_units = time_units
         self._params = self._units = self._time = self._grids_log = self._grids_phy = self._scalars = None
-        self.fields = ProductMapping(self._discover_fields())
-        self.distributions = ProductMapping(self._discover_binned("distribution_function"))
-        self.densities = ProductMapping(self._discover_binned("n_sph"))
-        self.orbits = ProductMapping(self._discover_orbits())
+        self.field_catalog = ProductMapping(self._discover_fields())
+        self.distribution_catalog = ProductMapping(self._discover_binned("distribution_function"))
+        self.density_catalog = ProductMapping(self._discover_binned("n_sph"))
+        self.orbit_catalog = ProductMapping(self._discover_orbits())
+        self.fields: FieldProducts = FieldProducts(self.field_catalog)
+        self.distributions: DistributionProducts = DistributionProducts(self.distribution_catalog)
+        self.densities: DensityProducts = DensityProducts(self.density_catalog)
+        self.orbits: OrbitProducts = OrbitProducts(self.orbit_catalog)
         self.plot = PlotAccessor(self)
 
     @classmethod
@@ -158,15 +204,15 @@ class RunOutput:
 
     @property
     def f(self):
-        return _ProductNamespace(self.distributions)
+        return ProductNamespace(self.distribution_catalog)
 
     @property
     def spline_values(self):
-        return _ProductNamespace(self.fields)
+        return ProductNamespace(self.field_catalog)
 
     @property
     def n_sph(self):
-        return _ProductNamespace(self.densities)
+        return ProductNamespace(self.density_catalog)
 
     @property
     def params(self):

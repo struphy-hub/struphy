@@ -47,16 +47,16 @@ def main(path_out):
         plot_equilibrium_profile(path_out)
 
     for bin_name, quantity, plane in DENSITY_PLOTS:
-        data = run.distributions[f"kinetic_ions/{bin_name}/{quantity}"]
+        data = getattr(getattr(run.distributions.kinetic_ions, bin_name), quantity)
         InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
                                run_label=run.label).show()
 
     for species, field, component, plane in FIELD_PLOTS:
-        data = run.fields[f"{species}/{field}"].isel(component=component)
+        data = getattr(getattr(run.fields, species), field).isel(component=component)
         InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
                                run_label=run.label).show()
 
-    plot_marker_trajectories(run.orbits["kinetic_ions"], max_markers=1000).show()
+    plot_marker_trajectories(run.orbits.kinetic_ions, max_markers=1000).show()
 
 
 if __name__ == "__main__":

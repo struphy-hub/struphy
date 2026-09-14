@@ -50,10 +50,10 @@ def run(tmp_path):
 
 
 def test_products_are_discovered_without_loading_arrays(run):
-    assert tuple(run.fields) == ("em_fields/E",)
-    assert tuple(run.distributions) == ("kinetic_ions/e1_v1_density/f_binned",)
+    assert tuple(run.fields) == ("em_fields",)
+    assert tuple(run.distributions) == ("kinetic_ions",)
     assert tuple(run.orbits) == ("kinetic_ions",)
-    assert run.fields._cache == {}
+    assert run.field_catalog._cache == {}
 
 
 def test_field_has_named_and_curvilinear_coordinates(run):
@@ -61,7 +61,7 @@ def test_field_has_named_and_curvilinear_coordinates(run):
     assert field.dims == ("t", "component", "e1", "e2", "e3")
     assert field.X.dims == ("e1", "e2", "e3")
     np.testing.assert_allclose(field.isel(t=0, component=2), 2)
-    assert run.fields._cache["em_fields/E"] is field
+    assert run.field_catalog._cache["em_fields/E"] is field
 
 
 def test_binned_products_have_coordinates(run):
