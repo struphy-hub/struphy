@@ -766,14 +766,16 @@ class Simulation(SimulationBase):
                     for variable in species.variables.values()
                     if isinstance(variable, PICVariable | SPHVariable)
                 ]
-                for val in particle_objects:
-                    # An explicit EnvironmentOptions.sort_step overrides the
-                    # per-particle SortingParameters frequency. Otherwise,
-                    # honor the frequency configured for this particle species.
-                    frequency = self.env.sort_step or val.sorting_params.sorting_frequency
-                    if frequency and int(self.time_state["index"][0]) % frequency == 0:
-                        particles_to_sort.append(val)
-                        sort_functions.append(val.do_sort)
+                for particles in particle_objects:
+                    if not particles.sorting_params.do_sort:
+                        continue
+                    # EnvironmentOptions.sort_step > 0 forces a global sorting cadence;
+                    # otherwise, fall back to the per-species SortingParameters frequency.
+                    env_frequency = int(self.env.sort_step)
+                    frequency = env_frequency if env_frequency > 0 else particles.sorting_params.sorting_frequency
+                    if frequency > 0 and int(self.time_state["index"][0]) % frequency == 0:
+                        particles_to_sort.append(particles)
+                        sort_functions.append(particles.do_sort)
 
                 if particles_to_sort:
                     t0 = time.time()
