@@ -167,7 +167,8 @@ from struphy.api.particles import (
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
-from struphy.api.post_processing import PlottingData, PostProcessor, post_process
+from struphy.api.post_processing import PlottingData, PostProcessor, RunOutput
+from struphy.api.post_processing import post_process
 from struphy.api.simulation import Simulation
 
 __all__ = [
@@ -192,6 +193,7 @@ __all__ = [
     "FieldsBackground",
     "ButcherTableau",
     "PostProcessor",
+    "RunOutput",
     "PlottingData",
     "post_process",
     "Simulation",

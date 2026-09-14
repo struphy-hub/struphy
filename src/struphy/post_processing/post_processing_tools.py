@@ -1,4 +1,5 @@
 import inspect
+import hashlib
 import json
 import logging
 import os
@@ -27,9 +28,9 @@ from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
 from struphy.post_processing.arrays import (
-    StruphyArray,
+    data_array,
     save_scalars,
-    wrap_binned_slice,
+    wrap_binned_data,
     wrap_field_data,
     wrap_orbits,
 )
@@ -143,7 +144,7 @@ class DataDict:
         self._array = None
 
     @property
-    def array(self) -> StruphyArray:
+    def array(self):
         """The field as one labeled array with dims ``(t, comp, e1, e2, e3)``.
 
         Built on first access; ``data`` remains the raw time-keyed dict.
@@ -348,8 +349,57 @@ class PostProcessor:
 
     @property
     def is_processed(self) -> bool:
-        """Whether ``path_pproc`` already holds post-processed output."""
-        return os.path.exists(self.path_pproc) and bool(os.listdir(self.path_pproc))
+        """Whether a complete manifest matches the current raw run."""
+        path = os.path.join(self.path_pproc, "manifest.json")
+        if not os.path.exists(path):
+            return False
+        try:
+            with open(path) as stream:
+                manifest = json.load(stream)
+            return (manifest.get("schema_version") == 1
+                    and manifest.get("status") == "complete"
+                    and manifest.get("source_fingerprint") == self._source_fingerprint())
+        except (OSError, ValueError):
+            return False
+
+    def _source_fingerprint(self):
+        """Fingerprint inputs that determine post-processing products."""
+        digest = hashlib.sha256()
+        for name in ("config.json", "parameters.py", "meta.yml", "data/data_proc0.hdf5"):
+            path = os.path.join(self.path_out, name)
+            if not os.path.exists(path):
+                continue
+            stat = os.stat(path)
+            digest.update(name.encode())
+            digest.update(f"{stat.st_size}:{stat.st_mtime_ns}".encode())
+            if name != "data/data_proc0.hdf5":
+                with open(path, "rb") as stream:
+                    digest.update(stream.read())
+        return digest.hexdigest()
+
+    def _write_manifest(self, status, *, options=None, error=None):
+        if self.rank != 0:
+            return
+        manifest = {
+            "schema_version": 1,
+            "status": status,
+            "source_fingerprint": self._source_fingerprint(),
+            "options": options or {},
+        }
+        if error is not None:
+            manifest["error"] = str(error)
+        if status == "complete":
+            manifest["products"] = sorted(
+                os.path.relpath(os.path.join(root, name), self.path_pproc)
+                for root, _, files in os.walk(self.path_pproc)
+                for name in files if name != "manifest.json"
+            )
+        path = os.path.join(self.path_pproc, "manifest.json")
+        temporary = path + ".tmp"
+        with open(temporary, "w") as stream:
+            json.dump(manifest, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+        os.replace(temporary, path)
 
     def _reset_pproc_dir(self):
         if self.rank == 0:
@@ -366,7 +416,7 @@ class PostProcessor:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
-        force: bool = True,
+        force: bool = False,
     ):
         """Run post-processing for fields and particle data in ``self.path_out``.
 
@@ -400,6 +450,9 @@ class PostProcessor:
             return False
 
         self._reset_pproc_dir()
+        options = {"step": step, "celldivide": celldivide, "physical": physical,
+                   "guiding_center": guiding_center, "classify": classify, "create_vtk": create_vtk}
+        self._write_manifest("processing", options=options)
         logger.warning(f"\nPost-processing path {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
@@ -434,19 +487,14 @@ class PostProcessor:
                 self.exist_particles = None
 
         # feec variables
-        self.process_fields(
-            step=step,
-            celldivide=celldivide,
-            physical=physical,
-            create_vtk=create_vtk,
-        )
+        try:
+            self.process_fields(step=step, celldivide=celldivide, physical=physical, create_vtk=create_vtk)
+            self.process_particles(step=step, guiding_center=guiding_center, classify=classify)
+        except Exception as error:
+            self._write_manifest("failed", options=options, error=error)
+            raise
 
-        # particle variables
-        self.process_particles(
-            step=step,
-            guiding_center=guiding_center,
-            classify=classify,
-        )
+        self._write_manifest("complete", options=options)
 
         return True
 
@@ -1408,7 +1456,7 @@ class PostProcessor:
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
 
-class PlottingData:
+class LegacyPlottingData:
     """Container for loading and accessing post-processed Struphy simulation data.
 
     This class provides convenient access to field data (spline values), particle orbits,
@@ -1620,12 +1668,14 @@ class PlottingData:
                 return self._scalars
             t = xp.asarray(f["time"]["value"][()]) * unit_t
             for name in f["scalar"].keys():
-                arr = StruphyArray(
+                arr = data_array(
                     xp.asarray(f["scalar"][name][()]),
                     dims=("t",),
                     coords={"t": t},
+                    name=name,
                     label=name.replace("_", " "),
-                ).with_coord_units(t=t_unit_label)
+                    coord_units={"t": t_unit_label},
+                )
                 setattr(self._scalars, name, arr)
 
         logger.info(f"Loaded scalars: {self._scalars.keys()}")
@@ -1767,7 +1817,17 @@ class PlottingData:
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
                                 logger.info(f"{name = }")
                                 setattr(s, name, tmp)
-                            wrap_binned_slice(s, sli, self.t_grid)
+                            grids = {key.removeprefix("grid_"): getattr(s, key) for key in s.keys()
+                                     if key.startswith("grid_")}
+                            dims = tuple(part for part in sli.split("_") if part in grids)
+                            for name in tuple(s.keys()):
+                                values = getattr(s, name)
+                                if name.startswith("grid_") or not hasattr(values, "shape"):
+                                    continue
+                                expected = (len(self.t_grid), *(len(grids[dim]) for dim in dims))
+                                if values.shape == expected:
+                                    setattr(s, name, wrap_binned_data(values, dims,
+                                            {"t": self.t_grid, **{dim: grids[dim] for dim in dims}}, name=name))
 
                     elif "n_sph" in folder:
                         spec_holder = SpecHolder()
@@ -1785,7 +1845,17 @@ class PlottingData:
                                 tmp = xp.load(os.path.join(path_dat, sli, file))
                                 # logger.info(f"{name = }")
                                 setattr(s, name, tmp)
-                            wrap_binned_slice(s, sli, self.t_grid)
+                            grids = {key.removeprefix("grid_"): getattr(s, key) for key in s.keys()
+                                     if key.startswith("grid_")}
+                            dims = tuple(part for part in sli.split("_") if part in grids)
+                            for name in tuple(s.keys()):
+                                values = getattr(s, name)
+                                if name.startswith("grid_") or not hasattr(values, "shape"):
+                                    continue
+                                expected = (len(self.t_grid), *(len(grids[dim]) for dim in dims))
+                                if values.shape == expected:
+                                    setattr(s, name, wrap_binned_data(values, dims,
+                                            {"t": self.t_grid, **{dim: grids[dim] for dim in dims}}, name=name))
 
                     else:
                         logger.info(f"{folder =}")
@@ -1810,3 +1880,10 @@ class PlottingData:
         logger.warning(self.f)
         logger.warning("self.n_sph:")
         logger.warning(self.n_sph)
+
+
+# The old eager attribute tree remains in this module only to make old pickles and
+# out-of-tree imports fail gently. New code receives the lazy, xarray-backed API.
+from struphy.post_processing.run_output import RunOutput  # noqa: E402
+
+PlottingData = RunOutput

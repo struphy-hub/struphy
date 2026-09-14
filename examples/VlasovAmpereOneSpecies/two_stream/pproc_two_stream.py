@@ -1,43 +1,36 @@
-import cunumpy as xp
 import params_two_stream as params
 
-from struphy import PlottingData, PostProcessor
-from struphy.diagnostics.plotting import PanelGridPlot, SliderPlot, TimeSeriesPlot
-from struphy.post_processing.arrays import StruphyArray
+from struphy import PostProcessor, RunOutput
+from struphy.diagnostics.plotting import InteractiveSliceViewer, View, plot_panels, plot_timeseries
 
 
 def main():
     PostProcessor(sim=params.sim).process(force=False)
 
-    pdata = PlottingData(sim=params.sim)
-    pdata.load()
+    run = RunOutput.open(sim=params.sim)
 
     # every scalar at every time step: post_processing/scalars/{scalars.csv,*.png}
-    pdata.save_scalar_plots()
+    run.save_scalar_plots()
 
     # electric field growth against the analytical rate (0.2845 in units of m/c)
-    energy = pdata.scalars["electric_energy"]
-    t = energy.coord("t")
-    analytical = StruphyArray(
-        10 ** (0.2845 / pdata.units.t * t - 5.3),
-        dims=("t",),
-        coords={"t": t},
-        label="analytical",
-    ).with_coord_units(t="s")
+    energy = run.scalars["electric_energy"]
+    analytical = energy.copy(data=10 ** (0.2845 / run.units.t * energy.t - 5.3))
+    analytical.attrs["label"] = "analytical"
 
-    TimeSeriesPlot(
+    plot_timeseries(
         [energy, analytical],
-        params=pdata.params,
+        run_label=run.label,
         title="Electric energy",
     ).show()
 
     # phase space evolution
-    f = pdata.f.kinetic_ions["e1_v1_density"]["f_binned"]
+    f = run.distributions["kinetic_ions/e1_v1_density/f_binned"]
+    view = View(x="e1", y="v1")
 
-    PanelGridPlot(f, nrows=3, ncols=4, shared_clim=True, params=pdata.params).show()
+    plot_panels(f, view=view, nrows=3, ncols=4, shared_clim=True, run_label=run.label).show()
 
     # interactive alternative to dumping a frame sequence
-    SliderPlot(f, equal_aspect=False, params=pdata.params).show()
+    InteractiveSliceViewer(f, view=view, run_label=run.label).show()
 
 
 if __name__ == "__main__":

@@ -7,13 +7,13 @@ more than one folder only the growth-rate comparison is shown.
 import os
 import sys
 
-from struphy import PlottingData, PostProcessor
+from struphy import PostProcessor, RunOutput
 from struphy.diagnostics.plotting import (
-    MarkerTrajectoryPlot,
-    SliderPlot,
-    TimeSeriesPlot,
-    field_slice_grids,
-    physical_grids,
+    GrowthFit,
+    InteractiveSliceViewer,
+    View,
+    plot_marker_trajectories,
+    plot_timeseries,
     plot_equilibrium_profile,
 )
 
@@ -36,9 +36,7 @@ FIELD_PLOTS = [
 
 def load(path_out):
     PostProcessor(path_out=path_out).process(physical=True, force=False)
-    pdata = PlottingData(path_out=path_out)
-    pdata.load()
-    return pdata
+    return RunOutput.open(path_out)
 
 
 def main(paths):
@@ -46,53 +44,40 @@ def main(paths):
 
     # growth rate of the electrostatic energy, one curve per run
     series = []
-    for name, pdata in runs.items():
-        energy = pdata.scalars[FIT_QUANTITY]
-        energy.label = name if len(runs) > 1 else FIT_QUANTITY
+    for name, run in runs.items():
+        energy = run.scalars[FIT_QUANTITY].copy()
+        energy.attrs["label"] = name if len(runs) > 1 else FIT_QUANTITY
         series.append(energy)
 
-    plot = TimeSeriesPlot(
+    plot = plot_timeseries(
         series,
-        fit=True,
-        fit_window=FIT_WINDOW,
-        params=next(iter(runs.values())).params,
+        fit=GrowthFit(FIT_WINDOW),
+        run_label=next(iter(runs.values())).label,
         title=f"Evolution of {FIT_QUANTITY}",
     ).show()
 
-    for name, (gamma, _, _) in zip(runs, plot.fit_results):
-        print(f"{name}: growth rate = {gamma}")
+    for name, result in zip(runs, plot.fit_results):
+        print(f"{name}: growth rate = {None if result is None else result.rate}")
 
     if len(runs) > 1:
         return
 
-    path_out, pdata = paths[0], next(iter(runs.values()))
+    path_out, run = paths[0], next(iter(runs.values()))
 
     if SHOW_EQUIL_PROFILE:
         plot_equilibrium_profile(path_out)
 
     for bin_name, quantity, plane in DENSITY_PLOTS:
-        data = pdata.f.kinetic_ions[bin_name][quantity]
-        SliderPlot(
-            data,
-            grids=physical_grids(data.isel(t=0), pdata.domain, axes=plane),
-            params=pdata.params,
-            title=f"{quantity} ({plane})",
-        ).show()
+        data = run.distributions[f"kinetic_ions/{bin_name}/{quantity}"]
+        InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
+                               run_label=run.label).show()
 
     for species, field, component, plane in FIELD_PLOTS:
-        data = pdata.spline_values[species][field].array.isel(comp=component)
-        SliderPlot(
-            data,
-            # the cut plane moves with the slider, so the grids follow it
-            grids=lambda index, plane=plane: field_slice_grids(
-                pdata.grids_phy, fixed_dim="e3", index=index, plane=plane
-            ),
-            slice_dim="e3",
-            params=pdata.params,
-            title=f"{species}.{field} ({plane})",
-        ).show()
+        data = run.fields[f"{species}/{field}"].isel(component=component)
+        InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
+                               run_label=run.label).show()
 
-    MarkerTrajectoryPlot(pdata.orbits.kinetic_ions, max_markers=1000).show()
+    plot_marker_trajectories(run.orbits["kinetic_ions"], max_markers=1000).show()
 
 
 if __name__ == "__main__":

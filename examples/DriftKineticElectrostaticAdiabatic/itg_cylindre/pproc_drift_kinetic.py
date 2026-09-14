@@ -1,13 +1,13 @@
 import os
 import sys
 
-from struphy import PlottingData, PostProcessor
+from struphy import PostProcessor, RunOutput
 from struphy.diagnostics.plotting import (
-    MarkerTrajectoryPlot,
-    SliderPlot,
-    TimeSeriesPlot,
-    field_slice_grids,
-    physical_grids,
+    GrowthFit,
+    InteractiveSliceViewer,
+    View,
+    plot_marker_trajectories,
+    plot_timeseries,
     plot_equilibrium_profile,
 )
 
@@ -33,16 +33,13 @@ FIELD_PLOTS = [
 def main(path_out):
     PostProcessor(path_out=path_out).process(physical=True, force=False)
 
-    pdata = PlottingData(path_out=path_out)
-    pdata.load()
+    run = RunOutput.open(path_out)
 
     # growth rate of the electrostatic potential
-    TimeSeriesPlot(
-        pdata.scalars[FIT_QUANTITY],
-        fit=True,
-        fit_window=FIT_WINDOW,
-        fit_of_sqrt=True,
-        params=pdata.params,
+    plot_timeseries(
+        run.scalars[FIT_QUANTITY],
+        fit=GrowthFit(FIT_WINDOW, amplitude_from_quadratic=True),
+        run_label=run.label,
         title=f"Evolution of {FIT_QUANTITY}",
     ).show()
 
@@ -50,28 +47,16 @@ def main(path_out):
         plot_equilibrium_profile(path_out)
 
     for bin_name, quantity, plane in DENSITY_PLOTS:
-        data = pdata.f.kinetic_ions[bin_name][quantity]
-        SliderPlot(
-            data,
-            grids=physical_grids(data.isel(t=0), pdata.domain, axes=plane),
-            params=pdata.params,
-            title=f"{quantity} ({plane})",
-        ).show()
+        data = run.distributions[f"kinetic_ions/{bin_name}/{quantity}"]
+        InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
+                               run_label=run.label).show()
 
     for species, field, component, plane in FIELD_PLOTS:
-        data = pdata.spline_values[species][field].array.isel(comp=component)
-        SliderPlot(
-            data,
-            # the cut plane moves with the slider, so the grids follow it
-            grids=lambda index, plane=plane: field_slice_grids(
-                pdata.grids_phy, fixed_dim="e3", index=index, plane=plane
-            ),
-            slice_dim="e3",
-            params=pdata.params,
-            title=f"{species}.{field} ({plane})",
-        ).show()
+        data = run.fields[f"{species}/{field}"].isel(component=component)
+        InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
+                               run_label=run.label).show()
 
-    MarkerTrajectoryPlot(pdata.orbits.kinetic_ions, max_markers=1000).show()
+    plot_marker_trajectories(run.orbits["kinetic_ions"], max_markers=1000).show()
 
 
 if __name__ == "__main__":

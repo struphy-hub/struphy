@@ -1,1110 +1,483 @@
-"""Standardized plots for post-processed Struphy output.
+"""Small, composable plotting functions for labeled Struphy output."""
 
-Every plotter accepts a :class:`~struphy.post_processing.arrays.StruphyArray` and
-derives its axis labels, coordinates and units from it, so a correct labeled figure
-needs no further arguments.
-"""
+from __future__ import annotations
 
 import logging
-import os
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Literal
 
-import cunumpy as xp
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
 from matplotlib.widgets import Slider
 
 from struphy.post_processing.arrays import (
     SCALARS_EXCLUDE,
-    StruphyArray,
+    axis_label,
     orbit_columns,
     save_scalars,
     scalar_names,
+    validate_array,
+    value_label,
 )
 
 logger = logging.getLogger("struphy")
 
-#: rcParams applied by every plotter, so figures from different scripts match.
 STRUPHY_STYLE = {
-    "figure.figsize": (8.0, 5.0),
-    "figure.dpi": 110,
-    "axes.grid": True,
-    "grid.alpha": 0.3,
-    "axes.titlesize": "medium",
-    "legend.frameon": False,
+    "figure.figsize": (8.0, 5.0), "figure.dpi": 110, "axes.grid": True,
+    "grid.alpha": 0.3, "axes.titlesize": "medium", "legend.frameon": False,
     "image.cmap": "viridis",
 }
 
-
-def growth_rate(y: StruphyArray, *, t0: float = None, t1: float = None, of_sqrt: bool = False):
-    """Fit an exponential ``exp(gamma*t + b)`` over a time window.
-
-    Parameters
-    ----------
-    y : StruphyArray
-        Signal with a ``t`` dimension. Non-positive and non-finite samples are excluded.
-    t0, t1 : float, optional
-        Window bounds. Default to the full range.
-    of_sqrt : bool
-        Fit the growth rate of ``sqrt(y)`` rather than of ``y``. Use this for a
-        quadratic quantity such as an energy whose amplitude growth rate is wanted.
-
-    Returns
-    -------
-    gamma, b, window : float, float, slice
-        ``None`` in place of all three if fewer than two usable samples remain.
-    """
-    t = xp.asarray(y.coord("t"))
-    vals = xp.asarray(y)
-
-    lo = float(t[0]) if t0 is None else float(t0)
-    hi = float(t[-1]) if t1 is None else float(t1)
-    lo, hi = sorted((lo, hi))
-
-    mask = (t >= lo) & (t <= hi) & xp.isfinite(vals) & (vals > 0.0)
-    if xp.count_nonzero(mask) < 2:
-        mask = xp.isfinite(vals) & (vals > 0.0)
-    if xp.count_nonzero(mask) < 2:
-        return None, None, None
-
-    idx = xp.nonzero(mask)[0]
-    window = slice(int(idx[0]), int(idx[-1]) + 1)
-
-    signal = xp.log(xp.sqrt(vals[window])) if of_sqrt else xp.log(vals[window])
-    gamma, b = xp.polyfit(t[window], signal, 1)
-    return float(gamma), float(b), window
-
-
-def drift(y: StruphyArray, *, ref: float = None) -> StruphyArray:
-    """Deviation ``y(t) - y_ref`` of a conserved quantity, with ``y_ref = y(0)`` by default."""
-    values = xp.asarray(y)
-    reference = float(values[0]) if ref is None else float(ref)
-    return StruphyArray(
-        values - reference,
-        dims=y.dims,
-        coords=y.coords,
-        unit=y.unit,
-        label=f"{y.label} drift" if y.label else "drift",
-    ).with_coord_units(**y.coord_units)
-
-
-def relative_error(y: StruphyArray, *, ref: float = None, skip_first: bool = True) -> StruphyArray:
-    """Relative deviation ``|y(t) - y_ref| / |y_ref|`` of a conserved quantity.
-
-    The standard energy-conservation diagnostic: a run that conserves energy exactly
-    stays at zero, so on a log axis this shows the scheme's error over time.
-
-    Parameters
-    ----------
-    y : StruphyArray
-        Signal with a ``t`` dimension.
-    ref : float, optional
-        Reference value. Defaults to the first sample.
-    skip_first : bool
-        Drop ``t = 0``, where the error is identically zero and so cannot be
-        drawn on a log axis.
-    """
-    values = xp.asarray(y)
-    reference = float(values[0]) if ref is None else float(ref)
-    if reference == 0.0:
-        raise ValueError("cannot take a relative error against a reference of zero")
-
-    out = StruphyArray(
-        xp.abs(values - reference) / abs(reference),
-        dims=y.dims,
-        coords=y.coords,
-        label=rf"$|\Delta$ {y.label}$| / |${y.label}$(0)|$" if y.label else "relative error",
-    ).with_coord_units(**y.coord_units)
-    return out.isel(t=slice(1, None)) if skip_first else out
-
-
-def match_to_grid(values, xgrid):
-    """Return ``values`` oriented to match ``xgrid``, transposing if that is what fits."""
-    values = xp.asarray(values)
-    if values.shape == xgrid.shape:
-        return values
-    if values.T.shape == xgrid.shape:
-        return values.T
-    raise ValueError(f"cannot match data shape {values.shape} to grid shape {xgrid.shape}")
-
-
-def physical_grids(data: StruphyArray, domain, *, axes: str = "XY", fixed_eta=(0.5, 0.0, 0.0)):
-    """Map the two logical dimensions of ``data`` through ``domain`` to physical coordinates.
-
-    Parameters
-    ----------
-    data : StruphyArray
-        Must have exactly two ``e<i>`` dimensions.
-    domain : Domain
-        Struphy domain, called as ``domain(eta1, eta2, eta3, squeeze_out=True)``.
-    axes : str
-        Which physical plane to return: ``"XY"``, ``"RZ"``, ``"XZ"`` or ``"YZ"``.
-    fixed_eta : tuple
-        Logical position along the dimension that is not binned.
-
-    Returns
-    -------
-    xgrid, ygrid, xlabel, ylabel
-    """
-    logical = [d for d in data.dims if d.startswith("e") and d[1:].isdigit()]
-    if len(logical) != 2:
-        raise ValueError(f"expected two logical dims, got {logical} from dims {data.dims}")
-
-    nums = [int(d[1]) for d in logical]
-    etas = [data.coord(logical[nums.index(ax)]) if ax in nums else fixed_eta[ax - 1] for ax in (1, 2, 3)]
-
-    if axes not in PLANES:
-        raise ValueError(f"unknown axes {axes!r}, expected one of {sorted(PLANES)}")
-
-    x, y, z = domain(*etas, squeeze_out=True)
-    fx, fy, xlabel, ylabel = PLANES[axes]
-    return fx(x, y, z), fy(x, y, z), xlabel, ylabel
-
-
-def logical_grids(data: StruphyArray):
-    """Meshgrid of the two plotted dimensions of ``data``, for plotting without a domain map.
-
-    The plotted dimensions are whatever remains after ``t``, so this covers phase-space
-    slices such as ``(e1, v1)`` as well as purely spatial ones.
-    """
-    plotted = [d for d in data.dims if d != "t"]
-    if len(plotted) != 2:
-        raise ValueError(f"expected two non-time dims, got {plotted} from dims {data.dims}")
-    g0, g1 = (data.coord(d) for d in plotted)
-    xgrid, ygrid = xp.meshgrid(g0, g1, indexing="ij")
-    return xgrid, ygrid, data.axis_label(plotted[0]), data.axis_label(plotted[1])
-
-
-#: Physical coordinate planes, as a function of the (X, Y, Z) meshgrids.
 PLANES = {
-    "XY": (lambda x, y, z: x, lambda x, y, z: y, "X", "Y"),
-    "XZ": (lambda x, y, z: x, lambda x, y, z: z, "X", "Z"),
-    "YZ": (lambda x, y, z: y, lambda x, y, z: z, "Y", "Z"),
-    "RZ": (lambda x, y, z: xp.sqrt(x**2 + y**2), lambda x, y, z: z, "R", "Z"),
+    "XY": ("X", "Y", "X", "Y"),
+    "XZ": ("X", "Z", "X", "Z"),
+    "YZ": ("Y", "Z", "Y", "Z"),
+    "RZ": ("R", "Z", "R", "Z"),
 }
 
 
-def field_slice_grids(grids_phy, *, fixed_dim: str = "e3", index: int = 0, plane: str = "XY"):
-    """Physical grids for a 2D cut through the 3D evaluation grid.
+@dataclass(frozen=True)
+class GrowthFit:
+    """Configuration for an exponential growth-rate fit."""
 
-    Companion to ``StruphyArray.isel(**{fixed_dim: index})``: pass the same ``fixed_dim``
-    and ``index`` here to get grids matching the sliced field.
-
-    Parameters
-    ----------
-    grids_phy : list
-        The three 3D physical coordinate arrays from :attr:`PlottingData.grids_phy`.
-    fixed_dim : str
-        Logical dimension held constant, ``"e1"``, ``"e2"`` or ``"e3"``.
-    index : int
-        Index along ``fixed_dim``.
-    plane : str
-        Which physical plane to return, one of :data:`PLANES`.
-
-    Returns
-    -------
-    xgrid, ygrid, xlabel, ylabel
-    """
-    if plane not in PLANES:
-        raise ValueError(f"unknown plane {plane!r}, expected one of {sorted(PLANES)}")
-
-    axis = {"e1": 0, "e2": 1, "e3": 2}
-    if fixed_dim not in axis:
-        raise ValueError(f"fixed_dim must be one of {sorted(axis)}, got {fixed_dim!r}")
-
-    cut = [slice(None)] * 3
-    cut[axis[fixed_dim]] = index
-    x, y, z = (xp.asarray(g)[tuple(cut)] for g in grids_phy)
-
-    fx, fy, xlabel, ylabel = PLANES[plane]
-    return fx(x, y, z), fy(x, y, z), xlabel, ylabel
+    window: tuple[float | None, float | None] = (None, None)
+    amplitude_from_quadratic: bool = False
 
 
-class StruphyPlot:
-    """Base for the plotters: owns style, figure creation, titling and output.
+@dataclass(frozen=True)
+class FitResult:
+    rate: float
+    intercept: float
+    time: np.ndarray
+    fitted: np.ndarray
 
-    Parameters
-    ----------
-    data : StruphyArray
-        The quantity to draw.
-    ax : matplotlib Axes, optional
-        Draw into an existing axes instead of creating a figure.
-    title : str, optional
-        Defaults to the quantity's label.
-    params : ParamsIn, optional
-        When given, run settings are appended to the figure as a suptitle.
-    """
 
-    #: Slider-bearing subclasses position their axes manually.
-    tight = True
+@dataclass(frozen=True)
+class View:
+    """A reusable selection and rendering recipe for an N-dimensional product."""
 
-    def __init__(self, data: StruphyArray, *, ax=None, title: str = None, params=None, **kwargs):
-        self.data = data
-        self.title = title if title is not None else (data.label or "")
-        self.params = params
-        self.options = kwargs
-        self._ax = ax
-        self.fig = None
-        self.ax = None
+    x: str | None = None
+    y: str | None = None
+    sweep: str = "t"
+    select: dict[str, float] = field(default_factory=dict)
+    isel: dict[str, int] = field(default_factory=dict)
+    coordinates: Literal["logical", "physical"] = "logical"
+    plane: Literal["XY", "XZ", "YZ", "RZ"] = "XY"
 
-    def _make_axes(self, **subplot_kw):
-        if self._ax is not None:
-            self.ax = self._ax
-            self.fig = self._ax.get_figure()
-        else:
-            self.fig, self.ax = plt.subplots(**subplot_kw)
-        return self.fig, self.ax
 
-    def _run_label(self) -> str:
-        """One-line summary of the run settings, from the output folder's parameters."""
-        if self.params is None:
-            return ""
-        bits = []
-        for obj, attr, name in (
-            ("time_opts", "dt", "dt"),
-            ("time_opts", "split_algo", "algo"),
-            ("grid", "num_elements", "Nel"),
-            ("derham_opts", "degree", "p"),
-        ):
-            holder = getattr(self.params, obj, None)
-            value = getattr(holder, attr, None) if holder is not None else None
-            if value is not None:
-                bits.append(f"{name}={value}")
-        return ", ".join(bits)
+@dataclass
+class PlotResult:
+    """Already-rendered Matplotlib objects; saving never redraws them."""
 
-    def draw(self):
-        raise NotImplementedError
+    fig: object
+    ax: object
+    artists: list = field(default_factory=list)
+    fit_results: list[FitResult | None] = field(default_factory=list)
 
-    def _finish(self):
-        run = self._run_label()
-        if run and self.fig is not None and self._ax is None:
-            self.fig.suptitle(run, fontsize="small")
-        if self.tight and self.fig is not None and self._ax is None:
-            self.fig.tight_layout()
-        return self
-
-    def plot(self):
-        """Draw into the axes and return self."""
-        with plt.rc_context(STRUPHY_STYLE):
-            self.draw()
-            self._finish()
-        return self
-
-    def show(self):
-        self.plot()
-        plt.show()
-        return self
-
-    def save(self, path, *, close: bool = False, **kwargs):
-        """Draw and write the figure to ``path``.
-
-        Parameters
-        ----------
-        close : bool
-            Close the figure afterwards. Pass this when saving many figures in a
-            loop, so that they do not all stay open.
-        """
-        self.plot()
+    def save(self, path, *, close=False, **kwargs):
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
         if close:
-            self.close()
-        return self
-
-    def close(self):
-        """Close the figure, unless it was supplied by the caller."""
-        if self.fig is not None and self._ax is None:
             plt.close(self.fig)
-            self.fig = None
-            self.ax = None
+        return str(path)
+
+    def show(self):
+        plt.show()
         return self
 
 
-class FrameSequence:
-    """Frame-by-frame output for the plotters that sweep a 2D quantity over time.
-
-    A subclass says what a frame contains (:meth:`_frame_values`, :meth:`_frame_grids`,
-    :meth:`_frame_title`, :meth:`_clim`); this draws them into a single reused figure.
-    """
-
-    #: keep every ``step``-th time index
-    step = 1
-
-    @property
-    def frames(self):
-        """Time indices that will be drawn."""
-        return range(0, self.data.shape[self.data.axis("t")], self.step)
-
-    def _frame_grids(self):
-        return self.grids if self.grids is not None else logical_grids(self._frame_values(0))
-
-    def _frame_values(self, index):
-        return self.data.isel(t=index)
-
-    def _frame_title(self, index):
-        return f"{self.title} at t = {float(self.data.coord('t')[index]):.4e}"
-
-    def _clim(self):
-        return self.vmin, self.vmax
-
-    def _setup(self):
-        xgrid, ygrid, xlabel, ylabel = self._frame_grids()
-        vmin, vmax = self._clim()
-
-        fig, ax = self._make_axes()
-        pcm = ax.pcolormesh(
-            xgrid,
-            ygrid,
-            match_to_grid(self._frame_values(0), xgrid),
-            shading="auto",
-            vmin=vmin,
-            vmax=vmax,
-        )
-        fig.colorbar(pcm, ax=ax, label=self.data.value_label)
-        if self.equal_aspect:
-            ax.set_aspect("equal", adjustable="box")
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.grid(False)
-        return fig, ax, pcm, xgrid
-
-    def _update(self, ax, pcm, xgrid, index):
-        pcm.set_array(match_to_grid(self._frame_values(index), xgrid).ravel())
-        ax.set_title(self._frame_title(index))
-
-    def save_frames(self, directory, *, prefix="frame", dpi=110):
-        """Write one PNG per frame into ``directory``, creating it if needed.
-
-        Returns the list of paths written.
-        """
-        os.makedirs(directory, exist_ok=True)
-        paths = []
-
-        with plt.rc_context(STRUPHY_STYLE):
-            fig, ax, pcm, xgrid = self._setup()
-            for n, index in enumerate(self.frames):
-                self._update(ax, pcm, xgrid, index)
-                path = os.path.join(directory, f"{prefix}_{n:04d}.png")
-                fig.savefig(path, dpi=dpi, bbox_inches="tight")
-                paths.append(path)
-            plt.close(fig)
-            self.fig = None
-            self.ax = None
-
-        return paths
+def _label(data):
+    return data.attrs.get("label") or data.attrs.get("long_name") or data.name or ""
 
 
-class TimeSeriesPlot(StruphyPlot):
-    """Scalar quantities against time, optionally log-scaled with a growth-rate fit.
+def _finish(fig, *, run_label="", tight=True):
+    if run_label:
+        fig.suptitle(run_label, fontsize="small")
+    if tight:
+        fig.tight_layout()
 
-    Parameters
-    ----------
-    data : StruphyArray or sequence of StruphyArray
-        One or more signals sharing a ``t`` dimension.
-    logy : bool
-        Log-scale the ordinate.
-    fit : bool
-        Overlay an exponential fit and report the rate in the legend.
-    fit_window : tuple, optional
-        ``(t0, t1)`` bounds for the fit.
-    fit_of_sqrt : bool
-        Fit the growth rate of the amplitude rather than of the plotted quantity.
-    """
 
-    def __init__(self, data, *, logy=True, fit=False, fit_window=None, fit_of_sqrt=False, **kwargs):
-        series = [data] if isinstance(data, StruphyArray) else list(data)
-        super().__init__(series[0], **kwargs)
-        self.series = series
-        self.logy = logy
-        self.fit = fit
-        self.fit_window = fit_window or (None, None)
-        self.fit_of_sqrt = fit_of_sqrt
-        #: one ``(gamma, b, window)`` per series once drawn, for reporting the rates
-        self.fit_results = []
+def _select(data: xr.DataArray, view: View, *, keep_sweep=True):
+    validate_array(data)
+    overlap = set(view.select) & set(view.isel)
+    if overlap:
+        raise ValueError(f"dimensions cannot appear in both select and isel: {sorted(overlap)}")
+    selected = data
+    if view.select:
+        selected = selected.sel(view.select, method="nearest")
+    if view.isel:
+        selected = selected.isel(view.isel)
+    if not keep_sweep and view.sweep in selected.dims:
+        selected = selected.isel({view.sweep: 0})
+    return selected
 
-    def draw(self):
-        fig, ax = self._make_axes()
 
-        self.fit_results = []
-        for s in self.series:
-            (line,) = ax.plot(s.coord("t"), xp.asarray(s), label=s.label or None)
+def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult | None:
+    """Fit ``exp(rate*t + intercept)`` using only finite, positive samples."""
+    validate_array(data, required_dims=("t",))
+    if data.dims != ("t",):
+        raise ValueError(f"growth-rate input must have dims ('t',), got {data.dims}")
+    fit = fit or GrowthFit()
+    time, values = np.asarray(data.t), np.asarray(data)
+    lo = time[0] if fit.window[0] is None else fit.window[0]
+    hi = time[-1] if fit.window[1] is None else fit.window[1]
+    lo, hi = sorted((lo, hi))
+    valid = (time >= lo) & (time <= hi) & np.isfinite(values) & (values > 0)
+    if np.count_nonzero(valid) < 2:
+        return None
+    selected_time = time[valid]
+    signal = np.log(np.sqrt(values[valid])) if fit.amplitude_from_quadratic else np.log(values[valid])
+    rate, intercept = np.polyfit(selected_time, signal, 1)
+    scale = 2.0 if fit.amplitude_from_quadratic else 1.0
+    fitted = np.exp(scale * (rate * selected_time + intercept))
+    return FitResult(float(rate), float(intercept), selected_time, fitted)
 
-            if not self.fit:
-                continue
 
-            gamma, b, window = growth_rate(
-                s,
-                t0=self.fit_window[0],
-                t1=self.fit_window[1],
-                of_sqrt=self.fit_of_sqrt,
-            )
-            self.fit_results.append((gamma, b, window))
-            if gamma is None:
-                continue
+def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
+    """Signed deviation from an explicit reference or the first time sample."""
+    validate_array(data, required_dims=("t",))
+    reference = data.isel(t=0) if ref is None else ref
+    out = data - reference
+    out.attrs = dict(data.attrs)
+    out.attrs["label"] = f"{_label(data)} drift".strip()
+    return out
 
-            t_fit = xp.asarray(s.coord("t"))[window]
-            scale = 2.0 if self.fit_of_sqrt else 1.0
-            ax.plot(
-                t_fit,
-                xp.exp(scale * (gamma * t_fit + b)),
-                "--",
-                color=line.get_color(),
-                label=rf"fit: $\gamma$ = {gamma:.4e}",
-            )
-            ax.axvspan(t_fit[0], t_fit[-1], alpha=0.12, color="grey")
 
-        if self.logy:
+def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataArray:
+    """Absolute relative deviation from an explicit reference or first sample."""
+    validate_array(data, required_dims=("t",))
+    reference = data.isel(t=0) if ref is None else ref
+    if np.any(np.asarray(reference) == 0):
+        raise ValueError("cannot take a relative error against a reference of zero")
+    out = abs(data - reference) / abs(reference)
+    out.attrs = {"label": f"relative error of {_label(data)}".strip(), "units": ""}
+    return out.isel(t=slice(1, None)) if skip_first else out
+
+
+def logical_grids(data: xr.DataArray, *, x=None, y=None):
+    """Return 2-D logical coordinate grids and their labels."""
+    if x is None or y is None:
+        if data.ndim != 2:
+            raise ValueError(f"x and y are required unless data is two-dimensional; got {data.dims}")
+        x, y = data.dims
+    if set(data.dims) != {x, y}:
+        raise ValueError(f"selected data must contain exactly {x!r} and {y!r}; got {data.dims}")
+    xgrid, ygrid = np.meshgrid(np.asarray(data.coords[x]), np.asarray(data.coords[y]), indexing="ij")
+    return xgrid, ygrid, axis_label(data, x), axis_label(data, y)
+
+
+def physical_grids(data: xr.DataArray, *, plane="XY"):
+    """Return physical auxiliary coordinates already attached to a selected field."""
+    if plane not in PLANES:
+        raise ValueError(f"unknown plane {plane!r}; expected one of {tuple(PLANES)}")
+    xname, yname, xlabel, ylabel = PLANES[plane]
+    missing = [name for name in ("X", "Y", "Z") if name not in data.coords]
+    if missing:
+        raise ValueError(f"physical coordinates are not attached to {data.name!r}: missing {missing}")
+    xcoord = np.sqrt(data.X**2 + data.Y**2) if xname == "R" else data.coords[xname]
+    ycoord = data.coords[yname]
+    if xcoord.ndim != 2 or ycoord.ndim != 2:
+        raise ValueError("select all but two spatial dimensions before requesting a physical grid")
+    return np.asarray(xcoord), np.asarray(ycoord), xlabel, ylabel
+
+
+def _slice_data(data, view):
+    selected = _select(data, view)
+    if view.sweep in selected.dims:
+        raise ValueError(f"select one {view.sweep!r} value before drawing a static slice")
+    if view.x is None or view.y is None:
+        if selected.ndim != 2:
+            raise ValueError(f"view.x and view.y are required for remaining dims {selected.dims}")
+        x, y = selected.dims
+    else:
+        x, y = view.x, view.y
+    if set(selected.dims) != {x, y}:
+        raise ValueError(f"selection leaves dimensions {selected.dims}; expected only {x!r}, {y!r}")
+    selected = selected.transpose(x, y)
+    grids = physical_grids(selected, plane=view.plane) if view.coordinates == "physical" else logical_grids(selected, x=x, y=y)
+    return selected, grids
+
+
+def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, title=None, run_label=""):
+    """Plot one or more aligned time series."""
+    series = [data] if isinstance(data, xr.DataArray) else list(data)
+    if not series:
+        raise ValueError("at least one time series is required")
+    for item in series:
+        validate_array(item, required_dims=("t",))
+        if item.dims != ("t",):
+            raise ValueError(f"time series must have dims ('t',), got {item.dims}")
+    if len(series) > 1:
+        series = list(xr.align(*series, join="exact"))
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+        artists, fits = [], []
+        for item in series:
+            line, = ax.plot(item.t, item, label=_label(item) or None)
+            artists.append(line)
+            result = growth_rate(item, fit) if fit is not None else None
+            fits.append(result)
+            if result is not None:
+                fitted, = ax.plot(result.time, result.fitted, "--", color=line.get_color(),
+                                  label=rf"fit: $\gamma$ = {result.rate:.4e}")
+                ax.axvspan(result.time[0], result.time[-1], alpha=0.12, color="grey")
+                artists.append(fitted)
+        if logy:
             ax.set_yscale("log")
-
-        ax.set_xlabel(self.data.axis_label("t"))
-        ax.set_ylabel(self.data.value_label)
-        ax.set_title(self.title)
-        if any(s.label for s in self.series) or self.fit:
+        ax.set_xlabel(axis_label(series[0], "t"))
+        ax.set_ylabel(value_label(series[0]))
+        ax.set_title(title if title is not None else _label(series[0]))
+        if any(_label(item) for item in series) or fit is not None:
             ax.legend()
+        _finish(fig, run_label=run_label, tight=ax is not None)
+    return PlotResult(fig, ax, artists, fits)
 
 
-class ScalarsPlot(StruphyPlot):
-    """Every scalar recorded during a run on one axes, over an energy-error panel.
-
-    The overview figure of a run: all tracked scalars against time, plus the
-    relative error of the conserved quantity underneath.
-
-    Parameters
-    ----------
-    scalars : Scalars or dict
-        Maps a name to a :class:`~struphy.post_processing.arrays.StruphyArray` over
-        ``t``, as :attr:`~struphy.post_processing.post_processing_tools.PlottingData.scalars`
-        provides.
-    names : sequence of str, optional
-        Plot these, in this order. Defaults to all of them.
-    exclude : sequence of str
-        Names to leave out when ``names`` is not given.
-    logy : bool
-        Log-scale the ordinate of the main axes.
-    relative_to : str, optional
-        Divide every series by this one, e.g. ``"en_tot"``. Use it when the scalars
-        do not share a unit, so that the common ordinate means something.
-    error_panel : str or None
-        Scalar whose conservation error is drawn in a panel below, if it was
-        recorded. ``None`` suppresses the panel.
-
-    Attributes
-    ----------
-    error : StruphyArray or None
-        The relative error that was drawn, so a script can report its final value.
-    """
-
-    tight = False
-
-    def __init__(
-        self,
-        scalars,
-        *,
-        names=None,
-        exclude=SCALARS_EXCLUDE,
-        logy=False,
-        relative_to=None,
-        error_panel="en_tot",
-        **kwargs,
-    ):
-        self.names = scalar_names(scalars, names=names, exclude=exclude)
-        if not self.names:
-            raise ValueError(f"no scalars to plot, available: {tuple(scalars.keys())}")
-
-        kwargs.setdefault("title", "Scalars")
-        super().__init__(scalars[self.names[0]], **kwargs)
-
-        self.scalars = scalars
-        self.logy = logy
-        self.relative_to = relative_to
-        # a panel cannot be added to an axes the caller supplied
-        self.error_panel = error_panel if (error_panel in scalars and self._ax is None) else None
-        self.error = None
-        self.error_ax = None
-
-    def _series(self, name) -> StruphyArray:
-        values = xp.asarray(self.scalars[name])
-        if self.relative_to is None:
-            return values
-        return values / xp.asarray(self.scalars[self.relative_to])
-
-    def _ylabel(self) -> str:
-        if self.relative_to is not None:
-            return f"quantity / {self.relative_to}"
-        units = {self.scalars[n].unit for n in self.names}
-        return f"[{units.pop()}]" if len(units) == 1 else "[a.u.]"
-
-    def draw(self):
-        if self.error_panel is None:
-            fig, ax = self._make_axes()
-            ax_err = None
-        else:
-            fig, (ax, ax_err) = plt.subplots(
-                2,
-                1,
-                sharex=True,
-                figsize=(8.0, 6.5),
-                height_ratios=(2, 1),
-                layout="constrained",
-            )
-            self.fig, self.ax = fig, ax
-        self.error_ax = ax_err
-
-        for name in self.names:
-            ax.plot(self.scalars[name].coord("t"), self._series(name), label=name)
-
-        if self.logy:
-            ax.set_yscale("log")
-        ax.set_ylabel(self._ylabel())
-        ax.set_title(self.title)
-        ax.legend(fontsize="small", ncols=max(1, len(self.names) // 6))
-
-        if ax_err is None:
-            ax.set_xlabel(self.data.axis_label("t"))
-            return
-
-        self.error = relative_error(self.scalars[self.error_panel])
-        error_values = xp.asarray(self.error)
-        ax_err.plot(self.error.coord("t"), error_values)
-        # an exactly conserved quantity has nothing to show on a log axis
-        if xp.any(error_values > 0.0):
-            ax_err.set_yscale("log")
-        ax_err.set_xlabel(self.data.axis_label("t"))
-        ax_err.set_ylabel(rf"$|\Delta$ {self.error_panel}$|$ / {self.error_panel}$(0)$", fontsize="small")
-
-
-class Slice2DPlot(StruphyPlot):
-    """A 2D quantity as a pcolormesh, with the colorbar and orientation handled.
-
-    Parameters
-    ----------
-    data : StruphyArray
-        Two-dimensional, or higher with the extra dimensions already selected.
-    grids : tuple, optional
-        ``(xgrid, ygrid, xlabel, ylabel)`` from :func:`physical_grids` or
-        :func:`logical_grids`. Defaults to the logical grids of ``data``.
-    equal_aspect : bool
-        Force an equal aspect ratio, appropriate for physical coordinates.
-    """
-
-    def __init__(self, data, *, grids=None, vmin=None, vmax=None, equal_aspect=False, **kwargs):
-        super().__init__(data, **kwargs)
-        self.grids = grids if grids is not None else logical_grids(data)
-        self.vmin = vmin
-        self.vmax = vmax
-        self.equal_aspect = equal_aspect
-
-    def draw(self):
-        fig, ax = self._make_axes()
-        xgrid, ygrid, xlabel, ylabel = self.grids
-
-        values = match_to_grid(self.data, xgrid)
-        pcm = ax.pcolormesh(xgrid, ygrid, values, shading="auto", vmin=self.vmin, vmax=self.vmax)
-        fig.colorbar(pcm, ax=ax, label=self.data.value_label)
-
-        if self.equal_aspect:
+def plot_slice(data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None,
+               equal_aspect=None, title=None, run_label=""):
+    """Render one selected two-dimensional slice."""
+    view = view or View()
+    selected, (xgrid, ygrid, xlabel, ylabel) = _slice_data(data, view)
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+        mesh = ax.pcolormesh(xgrid, ygrid, np.asarray(selected), shading="auto", vmin=vmin, vmax=vmax)
+        fig.colorbar(mesh, ax=ax, label=value_label(data))
+        if equal_aspect if equal_aspect is not None else view.coordinates == "physical":
             ax.set_aspect("equal", adjustable="box")
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.set_title(self.title)
+        ax.set(xlabel=xlabel, ylabel=ylabel, title=title if title is not None else _label(data))
         ax.grid(False)
-        self.mesh = pcm
+        _finish(fig, run_label=run_label)
+    return PlotResult(fig, ax, [mesh])
 
 
-class PanelGridPlot(StruphyPlot):
-    """A grid of 2D snapshots at times spread evenly over the run.
-
-    Replaces the hand-rolled ``nrows``/``ncols``/``time_indices`` loop.
-
-    Parameters
-    ----------
-    data : StruphyArray
-        Must have a ``t`` dimension and two further dimensions.
-    nrows, ncols : int
-        Panel layout. ``nrows * ncols`` snapshots are shown.
-    shared_clim : bool
-        Use one colour range across all panels, so panels are comparable.
-    """
-
-    tight = False
-
-    def __init__(self, data, *, nrows=3, ncols=4, grids=None, shared_clim=False, equal_aspect=False, **kwargs):
-        super().__init__(data, **kwargs)
-        self.nrows = nrows
-        self.ncols = ncols
-        self.grids = grids
-        self.shared_clim = shared_clim
-        self.equal_aspect = equal_aspect
-
-    def draw(self):
-        n = self.nrows * self.ncols
-        nt = self.data.shape[self.data.axis("t")]
-        indices = [int(i / max(n - 1, 1) * (nt - 1)) for i in range(n)]
-
-        t = self.data.coord("t")
-        snapshots = [self.data.isel(t=i) for i in indices]
-        grids = self.grids if self.grids is not None else logical_grids(snapshots[0])
-        xgrid, ygrid, xlabel, ylabel = grids
-
-        vmin = vmax = None
-        if self.shared_clim:
-            vmin = float(min(xp.nanmin(xp.asarray(s)) for s in snapshots))
-            vmax = float(max(xp.nanmax(xp.asarray(s)) for s in snapshots))
-
-        fig, axs = plt.subplots(
-            nrows=self.nrows,
-            ncols=self.ncols,
-            figsize=(3.5 * self.ncols, 2.8 * self.nrows),
-            sharex=True,
-            sharey=True,
-            squeeze=False,
-            layout="constrained",
-        )
-        self.fig, self.ax = fig, axs
-
-        for panel, (idx, snap) in enumerate(zip(indices, snapshots)):
-            ax = axs[panel // self.ncols][panel % self.ncols]
-            pcm = ax.pcolormesh(
-                xgrid,
-                ygrid,
-                match_to_grid(snap, xgrid),
-                shading="auto",
-                vmin=vmin,
-                vmax=vmax,
-            )
-            ax.set_title(f"t = {float(t[idx]):.2e}")
+def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=True,
+                title=None, run_label=""):
+    """Plot snapshots spread across a sweep coordinate."""
+    view = view or View()
+    selected = _select(data, view)
+    validate_array(selected, required_dims=(view.sweep,))
+    count = nrows * ncols
+    indices = np.linspace(0, selected.sizes[view.sweep] - 1, count).astype(int)
+    snapshots = [selected.isel({view.sweep: int(index)}) for index in indices]
+    limits = (None, None)
+    if shared_clim:
+        limits = (min(float(item.min()) for item in snapshots), max(float(item.max()) for item in snapshots))
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, axes = plt.subplots(nrows, ncols, figsize=(3.5*ncols, 2.8*nrows), sharex=True,
+                                 sharey=True, squeeze=False, layout="constrained")
+        meshes = []
+        for ax, index, snapshot in zip(axes.ravel(), indices, snapshots):
+            local_view = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
+            values, (xg, yg, xlabel, ylabel) = _slice_data(snapshot, local_view)
+            mesh = ax.pcolormesh(xg, yg, values, shading="auto", vmin=limits[0], vmax=limits[1])
+            meshes.append(mesh)
+            ax.set_title(f"{view.sweep} = {float(selected[view.sweep][index]):.3e}")
             ax.grid(False)
-            if self.equal_aspect:
-                ax.set_aspect("equal", adjustable="box")
-            if not self.shared_clim:
-                fig.colorbar(pcm, ax=ax)
-
-        for ax in axs[-1]:
-            ax.set_xlabel(xlabel)
-        for row in axs:
-            row[0].set_ylabel(ylabel)
-
-        if self.shared_clim:
-            fig.colorbar(pcm, ax=list(axs.ravel()), label=self.data.value_label)
-
-        fig.suptitle(" — ".join(filter(None, (self.title, self._run_label()))))
+            if not shared_clim:
+                fig.colorbar(mesh, ax=ax)
+        for ax in axes[-1]: ax.set_xlabel(xlabel)
+        for row in axes: row[0].set_ylabel(ylabel)
+        if shared_clim: fig.colorbar(meshes[-1], ax=list(axes.ravel()), label=value_label(data))
+        heading = title if title is not None else _label(data)
+        fig.suptitle(" — ".join(filter(None, (heading, run_label))))
+    return PlotResult(fig, axes, meshes)
 
 
-class SliderPlot(FrameSequence, StruphyPlot):
-    """A 2D quantity with a time slider, and a second slider for the free axis in 3D.
+class InteractiveSliceViewer:
+    """Stateful viewer using one recipe for the sweep and all remaining dimensions."""
 
-    The returned object keeps a reference to its sliders; discarding it stops the
-    widgets from responding.
+    def __init__(self, data: xr.DataArray, *, view=None, vmin=None, vmax=None, run_label=""):
+        self.data = validate_array(data)
+        self.view = view or View()
+        self.vmin, self.vmax, self.run_label = vmin, vmax, run_label
+        self.result = None
+        self.sliders = {}
 
-    Parameters
-    ----------
-    data : StruphyArray
-        Dimensions ``(t, a, b)`` or ``(t, a, b, c)``; the fourth is swept by the
-        second slider.
-    slice_dim : str, optional
-        Which dimension the second slider steps through. Defaults to the last.
-    slice_index : int, optional
-        Where the second slider starts, and which cut :meth:`save_frames` writes.
-        Defaults to the middle of ``slice_dim``.
-    step : int
-        Keep every ``step``-th time index when writing frames.
-    grids : tuple or callable, optional
-        Either fixed ``(xgrid, ygrid, xlabel, ylabel)``, or a function of the slice
-        index returning them. Pass a callable when the physical grid depends on where
-        the cut is taken, so that it follows the slider instead of going stale.
-    """
-
-    tight = False
-
-    def __init__(
-        self,
-        data,
-        *,
-        grids=None,
-        slice_dim=None,
-        slice_index=None,
-        step=1,
-        vmin=None,
-        vmax=None,
-        equal_aspect=True,
-        **kwargs,
-    ):
-        super().__init__(data, **kwargs)
-        self.grids = grids
-        self.step = step
-        self.vmin = vmin
-        self.vmax = vmax
-        self.equal_aspect = equal_aspect
-        spatial = [d for d in data.dims if d != "t"]
-        self.slice_dim = slice_dim if slice_dim is not None else (spatial[-1] if len(spatial) > 2 else None)
-        n_slice = data.shape[data.axis(self.slice_dim)] if self.slice_dim else 0
-        self.slice_index = n_slice // 2 if slice_index is None else slice_index
-        self.sliders = []
-
-    def _frame_values(self, index):
-        """The frame sequence holds the cut fixed and sweeps time, as the time slider does."""
-        return self._frame(index, self.slice_index)
-
-    def _frame_grids(self):
-        return self._grids_for(self.slice_index)
-
-    def _frame(self, t_index, slice_index):
-        frame = self.data.isel(t=t_index)
-        if self.slice_dim is not None:
-            frame = frame.isel(**{self.slice_dim: slice_index})
-        return frame
-
-    def _grids_for(self, slice_index):
-        if callable(self.grids):
-            return self.grids(slice_index)
-        if self.grids is not None:
-            return self.grids
-        return logical_grids(self._frame(0, slice_index))
+    def show(self):
+        return self.draw().show()
 
     def draw(self):
-        nt = self.data.shape[self.data.axis("t")]
-        t = self.data.coord("t")
+        base = _select(self.data, self.view)
+        x, y = self.view.x, self.view.y
+        if x is None or y is None:
+            candidates = [dim for dim in base.dims if dim != self.view.sweep]
+            if len(candidates) < 2:
+                raise ValueError("viewer needs two display dimensions")
+            x, y = candidates[:2]
+        controls = [dim for dim in base.dims if dim not in {x, y}]
+        indices = {dim: 0 for dim in controls}
 
-        n_slice = self.data.shape[self.data.axis(self.slice_dim)] if self.slice_dim else 0
-        slice_index = self.slice_index if n_slice else 0
+        def frame():
+            return base.isel(indices), View(x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane)
 
-        first = self._frame(0, slice_index)
-        xgrid, ygrid, xlabel, ylabel = self._grids_for(slice_index)
-
-        fig, ax = self._make_axes()
-        fig.subplots_adjust(bottom=0.24 if self.slice_dim else 0.18)
-
-        pcm = ax.pcolormesh(
-            xgrid,
-            ygrid,
-            match_to_grid(first, xgrid),
-            shading="auto",
-            vmin=self.vmin,
-            vmax=self.vmax,
-        )
-        cbar = fig.colorbar(pcm, ax=ax, label=self.data.value_label)
-        if self.equal_aspect:
-            ax.set_aspect("equal", adjustable="box")
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.set_title(f"{self.title} at t = {float(t[0]):.4e}")
-        ax.grid(False)
-
-        s_time = Slider(fig.add_axes([0.20, 0.08, 0.60, 0.03]), "time", 0, nt - 1, valinit=0, valstep=1)
-        self.sliders = [s_time]
-        s_slice = None
-        if self.slice_dim:
-            s_slice = Slider(
-                fig.add_axes([0.20, 0.03, 0.60, 0.03]),
-                f"{self.slice_dim} index",
-                0,
-                n_slice - 1,
-                valinit=slice_index,
-                valstep=1,
-            )
-            self.sliders.append(s_slice)
-
-        state = {"mesh": pcm, "xgrid": xgrid, "slice": slice_index}
-
-        def update(_):
-            ti = int(s_time.val)
-            si = int(s_slice.val) if s_slice is not None else 0
-            # so that a cut found with the slider is the one save_frames writes
-            self.slice_index = si
-
-            # a grid that depends on the cut has to be redrawn, not just refilled
-            if callable(self.grids) and si != state["slice"]:
-                xg, yg, _, _ = self._grids_for(si)
-                state["mesh"].remove()
-                state["mesh"] = ax.pcolormesh(
-                    xg,
-                    yg,
-                    match_to_grid(self._frame(ti, si), xg),
-                    shading="auto",
-                    vmin=self.vmin,
-                    vmax=self.vmax,
-                )
-                state["xgrid"] = xg
-                state["slice"] = si
-                cbar.update_normal(state["mesh"])
-
-            mesh, grid = state["mesh"], state["xgrid"]
-            frame = match_to_grid(self._frame(ti, si), grid)
-
-            mesh.set_array(frame.ravel())
-            if self.vmin is None and self.vmax is None:
-                mesh.set_clim(float(xp.nanmin(frame)), float(xp.nanmax(frame)))
-                cbar.update_normal(mesh)
-            ax.set_title(f"{self.title} at t = {float(t[ti]):.4e}")
-            fig.canvas.draw_idle()
-
-        for s in self.sliders:
-            s.on_changed(update)
-
-        self.mesh = pcm
-
-
-class AnimationPlot(FrameSequence, StruphyPlot):
-    """Sweep a 2D quantity over time, as a matplotlib animation or a frame sequence.
-
-    Parameters
-    ----------
-    data : StruphyArray
-        Dimensions ``(t, a, b)``.
-    step : int
-        Keep every ``step``-th time index.
-    shared_clim : bool
-        Hold the colour range fixed across frames, so brightness changes are physical.
-    """
-
-    tight = False
-
-    def __init__(
-        self, data, *, grids=None, step=1, vmin=None, vmax=None, shared_clim=True, equal_aspect=False, **kwargs
-    ):
-        super().__init__(data, **kwargs)
-        self.grids = grids
-        self.step = step
-        self.vmin = vmin
-        self.vmax = vmax
-        self.shared_clim = shared_clim
-        self.equal_aspect = equal_aspect
-
-    def _clim(self):
-        if self.shared_clim and self.vmin is None and self.vmax is None:
-            values = xp.asarray(self.data)
-            return float(xp.nanmin(values)), float(xp.nanmax(values))
-        return self.vmin, self.vmax
-
-    def draw(self):
-        fig, ax, pcm, xgrid = self._setup()
-        self._update(ax, pcm, xgrid, 0)
-        self.mesh = pcm
-
-    def animate(self, *, interval=100):
-        """Return a :class:`matplotlib.animation.FuncAnimation` over the frames."""
-        from matplotlib.animation import FuncAnimation
-
+        selected, frame_view = frame()
+        selected, (xg, yg, xlabel, ylabel) = _slice_data(selected, frame_view)
         with plt.rc_context(STRUPHY_STYLE):
-            fig, ax, pcm, xgrid = self._setup()
-            anim = FuncAnimation(
-                fig,
-                lambda i: self._update(ax, pcm, xgrid, i),
-                frames=list(self.frames),
-                interval=interval,
-                blit=False,
-            )
-        self.fig = fig
-        return anim
+            fig, ax = plt.subplots()
+            fig.subplots_adjust(bottom=0.13 + 0.05*len(controls))
+            mesh = ax.pcolormesh(xg, yg, selected, shading="auto", vmin=self.vmin, vmax=self.vmax)
+            colorbar = fig.colorbar(mesh, ax=ax, label=value_label(self.data))
+            ax.set(xlabel=xlabel, ylabel=ylabel)
+            ax.grid(False)
+            if self.view.coordinates == "physical": ax.set_aspect("equal", adjustable="box")
+            state = {"mesh": mesh}
+
+            def update(_=None):
+                for dim, slider in self.sliders.items(): indices[dim] = int(slider.val)
+                item, item_view = frame()
+                item, grids = _slice_data(item, item_view)
+                state["mesh"].remove()
+                state["mesh"] = ax.pcolormesh(grids[0], grids[1], item, shading="auto",
+                                              vmin=self.vmin, vmax=self.vmax)
+                if self.vmin is None and self.vmax is None:
+                    state["mesh"].set_clim(float(item.min()), float(item.max()))
+                colorbar.update_normal(state["mesh"])
+                values = ", ".join(f"{dim}={float(base[dim][index]):.3e}" for dim, index in indices.items())
+                ax.set_title(" at ".join(filter(None, (_label(self.data), values))))
+                fig.canvas.draw_idle()
+
+            for row, dim in enumerate(controls):
+                slider_ax = fig.add_axes([0.20, 0.05 + 0.05*row, 0.60, 0.025])
+                slider = Slider(slider_ax, dim, 0, base.sizes[dim]-1, valstep=1)
+                slider.on_changed(update)
+                self.sliders[dim] = slider
+            update()
+            _finish(fig, run_label=self.run_label, tight=False)
+        self.result = PlotResult(fig, ax, [state["mesh"]])
+        return self.result
 
 
-class MarkerTrajectoryPlot(StruphyPlot):
-    """Marker positions in 3D over time, coloured by weight, with a time slider.
+def animate_slices(data: xr.DataArray, *, view=None, interval=100, step=1, vmin=None, vmax=None):
+    """Create an animation using the same :class:`View` as static slices."""
+    from matplotlib.animation import FuncAnimation
+    view = view or View()
+    selected = _select(data, view)
+    frames = range(0, selected.sizes[view.sweep], step)
+    first = selected.isel({view.sweep: 0})
+    local = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
+    values, grids = _slice_data(first, local)
+    fig, ax = plt.subplots()
+    mesh = ax.pcolormesh(grids[0], grids[1], values, shading="auto", vmin=vmin, vmax=vmax)
+    fig.colorbar(mesh, ax=ax, label=value_label(data))
+    ax.set(xlabel=grids[2], ylabel=grids[3])
 
-    Parameters
-    ----------
-    orbits : StruphyArray
-        Dimensions ``(t, marker, attribute)``; columns 0-2 are position, 6 is weight.
-    max_markers : int
-        Cap on the number of markers drawn.
-    show_paths : bool, optional
-        Trail each marker's history. Defaults to on for small marker counts.
-    """
-
-    tight = False
-
-    def __init__(self, orbits, *, max_markers=200, show_paths=None, **kwargs):
-        kwargs.setdefault("title", "Marker trajectories")
-        super().__init__(orbits, **kwargs)
-        self.max_markers = max_markers
-        self.show_paths = show_paths if show_paths is not None else max_markers <= 200
-        self.sliders = []
-
-    def draw(self):
-        orbs = xp.asarray(self.data)
-        n = min(orbs.shape[1], self.max_markers)
-        cols = getattr(self.data, "columns", None) or orbit_columns(orbs.shape[-1])
-
-        x, y, z = (orbs[:, :n, i] for i in range(cols["position"].start, cols["position"].stop))
-        w = orbs[:, :n, cols["weight"]] if "weight" in cols else None
-        nt = x.shape[0]
-
-        fig = plt.figure(figsize=(8, 7))
-        ax = fig.add_subplot(111, projection="3d")
-        self.fig, self.ax = fig, ax
-        fig.subplots_adjust(bottom=0.18)
-
-        colouring = {"c": w[0], "cmap": "viridis"} if w is not None else {}
-        scatter = ax.scatter(x[0], y[0], z[0], s=8, **colouring)
-        lines = (
-            [ax.plot(x[:1, j], y[:1, j], z[:1, j], lw=0.8, alpha=0.5)[0] for j in range(n)] if self.show_paths else []
-        )
-
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Z")
-        ax.set_title(f"{self.title} | step 0/{nt - 1}")
-        if w is not None:
-            fig.colorbar(scatter, ax=ax, label="marker weight")
-
-        slider = Slider(fig.add_axes([0.18, 0.06, 0.65, 0.03]), "time", 0, nt - 1, valinit=0, valstep=1)
-        self.sliders = [slider]
-
-        def update(_):
-            it = int(slider.val)
-            scatter._offsets3d = (x[it], y[it], z[it])
-            if w is not None:
-                scatter.set_array(w[it])
-            for j, line in enumerate(lines):
-                line.set_data(x[: it + 1, j], y[: it + 1, j])
-                line.set_3d_properties(z[: it + 1, j])
-            ax.set_title(f"{self.title} | step {it}/{nt - 1}")
-            fig.canvas.draw_idle()
-
-        slider.on_changed(update)
+    def update(index):
+        item = selected.isel({view.sweep: index})
+        item, item_grids = _slice_data(item, local)
+        mesh.set_array(np.asarray(item).ravel())
+        ax.set_title(f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}")
+        return mesh,
+    return FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
 
 
-class PlottingAccessor:
-    """High-level plotting methods bound to a loaded ``PlottingData`` instance.
-
-    The accessor supplies run metadata automatically and resolves scalar and orbit
-    names from their containers. Each method draws immediately and returns the
-    underlying :class:`StruphyPlot`, preserving access to its axes, fit results,
-    sliders and saving methods.
-    """
-
-    def __init__(self, plotting_data):
-        self.data = plotting_data
-
-    def _draw(self, plot_type, data, **kwargs):
-        kwargs.setdefault("params", self.data.params)
-        return plot_type(data, **kwargs).plot()
-
-    def _scalar_series(self, data):
-        if isinstance(data, str):
-            return self.data.scalars[data]
-        if isinstance(data, StruphyArray):
-            return data
-        return [self.data.scalars[item] if isinstance(item, str) else item for item in data]
-
-    def scalars(self, **kwargs) -> ScalarsPlot:
-        """Draw the overview of the run's scalar diagnostics."""
-        return self._draw(ScalarsPlot, self.data.scalars, **kwargs)
-
-    def time_series(self, data, **kwargs) -> TimeSeriesPlot:
-        """Draw one or more time series, accepting scalar names or arrays."""
-        return self._draw(TimeSeriesPlot, self._scalar_series(data), **kwargs)
-
-    def slice(self, data: StruphyArray, **kwargs) -> Slice2DPlot:
-        """Draw one two-dimensional array or selected snapshot."""
-        return self._draw(Slice2DPlot, data, **kwargs)
-
-    def panels(self, data: StruphyArray, **kwargs) -> PanelGridPlot:
-        """Draw evenly spaced snapshots of a time-dependent 2D array."""
-        return self._draw(PanelGridPlot, data, **kwargs)
-
-    def slider(self, data: StruphyArray, **kwargs) -> SliderPlot:
-        """Draw a 2D array with time and optional cut-plane sliders."""
-        return self._draw(SliderPlot, data, **kwargs)
-
-    def animation(self, data: StruphyArray, **kwargs) -> AnimationPlot:
-        """Draw the initial view of a time-dependent 2D animation."""
-        return self._draw(AnimationPlot, data, **kwargs)
-
-    def orbits(self, data, **kwargs) -> MarkerTrajectoryPlot:
-        """Draw marker trajectories, accepting either a species name or an array."""
-        if isinstance(data, str):
-            data = self.data.orbits[data]
-        return self._draw(MarkerTrajectoryPlot, data, **kwargs)
-
-
-def save_all_scalars(
-    scalars,
-    directory,
-    *,
-    names=None,
-    exclude=SCALARS_EXCLUDE,
-    logy=False,
-    params=None,
-    table: str = "csv",
-    file_format: str = "png",
-    dpi: int = 110,
-) -> list[str]:
-    """Write the standard scalar output of a run: the table, an overview, one figure each.
-
-    Everything a finished run should leave behind for its scalars, in one call.
-
-    Parameters
-    ----------
-    scalars : Scalars or dict
-        Maps a name to a :class:`~struphy.post_processing.arrays.StruphyArray` over ``t``.
-    directory : str
-        Created if it does not exist.
-    names, exclude
-        See :func:`~struphy.post_processing.arrays.scalar_names`.
-    logy : bool
-        Log-scale the ordinate of every figure.
-    params : ParamsIn, optional
-        Run settings, added to each figure as a suptitle.
-    table : str or None
-        Format of the per-time-step table, ``"csv"`` or ``"npz"``; ``None`` to skip it.
-    file_format : str
-        Image format of the figures.
-
-    Returns
-    -------
-    list of str
-        The paths written, the table first.
-    """
-    selected = scalar_names(scalars, names=names, exclude=exclude)
-    if not selected:
-        logger.warning("No scalars to save.")
-        return []
-
-    os.makedirs(directory, exist_ok=True)
+def save_frames(data: xr.DataArray, directory, *, view=None, step=1, prefix="frame", dpi=110):
+    """Write a sweep as PNG frames without retaining figures."""
+    view = view or View()
+    selected = _select(data, view)
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
     paths = []
-
-    if table is not None:
-        paths.append(save_scalars(scalars, os.path.join(directory, f"scalars.{table}"), names=selected, fmt=table))
-
-    overview = os.path.join(directory, f"scalars.{file_format}")
-    ScalarsPlot(scalars, names=selected, logy=logy, params=params).save(overview, dpi=dpi, close=True)
-    paths.append(overview)
-
-    for name in selected:
-        path = os.path.join(directory, f"{name}.{file_format}")
-        TimeSeriesPlot(
-            scalars[name],
-            logy=logy,
-            fit=False,
-            title=name,
-            params=params,
-        ).save(path, dpi=dpi, close=True)
-        paths.append(path)
-
-    logger.info(f"Wrote {len(paths)} scalar output files to {directory}")
+    for frame, index in enumerate(range(0, selected.sizes[view.sweep], step)):
+        item = selected.isel({view.sweep: index})
+        local = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
+        result = plot_slice(item, view=local,
+                            title=f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}")
+        path = directory / f"{prefix}_{frame:04d}.png"
+        result.save(path, dpi=dpi, close=True)
+        paths.append(str(path))
     return paths
 
 
+def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=None,
+                 error_panel="en_tot", logy=False, run_label=""):
+    """Plot a scalar overview and optional conservation-error panel."""
+    selected = scalar_names(scalars, names=names, exclude=exclude)
+    if not selected: raise ValueError("no scalars to plot")
+    has_error = error_panel is not None and error_panel in scalars
+    fig, axes = plt.subplots(2 if has_error else 1, 1, sharex=has_error,
+                             figsize=(8, 6.5) if has_error else None,
+                             height_ratios=(2, 1) if has_error else None,
+                             layout="constrained")
+    ax = axes[0] if has_error else axes
+    for name in selected:
+        values = scalars[name] / scalars[relative_to] if relative_to else scalars[name]
+        ax.plot(values.t, values, label=name)
+    if logy: ax.set_yscale("log")
+    units = {scalars[name].attrs.get("units", "") for name in selected}
+    ylabel = f"quantity / {relative_to}" if relative_to else (f"[{units.pop()}]" if len(units) == 1 else "[a.u.]")
+    ax.set(ylabel=ylabel, title="Scalars")
+    ax.legend(fontsize="small")
+    artists, error = list(ax.lines), None
+    if has_error:
+        error = relative_error(scalars[error_panel])
+        axes[1].plot(error.t, error)
+        if np.any(np.asarray(error) > 0): axes[1].set_yscale("log")
+        axes[1].set(xlabel=axis_label(error, "t"), ylabel=f"relative error of {error_panel}")
+        artists.extend(axes[1].lines)
+    else:
+        ax.set_xlabel(axis_label(scalars[selected[0]], "t"))
+    if run_label: fig.suptitle(run_label, fontsize="small")
+    return PlotResult(fig, axes, artists), error
+
+
+def save_all_scalars(scalars, directory, *, names=None, exclude=SCALARS_EXCLUDE, logy=False,
+                     run_label="", table="csv", file_format="png", dpi=110):
+    """Write a table, scalar overview and one figure per scalar."""
+    selected = scalar_names(scalars, names=names, exclude=exclude)
+    if not selected: return []
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    paths = []
+    if table:
+        paths.append(save_scalars(scalars, str(directory / f"scalars.{table}"), names=selected, fmt=table))
+    overview, _ = plot_scalars(scalars, names=selected, logy=logy, run_label=run_label)
+    path = directory / f"scalars.{file_format}"
+    overview.save(path, dpi=dpi, close=True)
+    paths.append(str(path))
+    for name in selected:
+        result = plot_timeseries(scalars[name], logy=logy, title=name, run_label=run_label)
+        path = directory / f"{name}.{file_format}"
+        result.save(path, dpi=dpi, close=True)
+        paths.append(str(path))
+    return paths
+
+
+def plot_marker_trajectories(orbits: xr.DataArray, *, ax=None, max_markers=200, show_paths=None):
+    """Plot a static 3-D trajectory overview; interactive marker UI is intentionally separate."""
+    validate_array(orbits, required_dims=("t", "marker", "attribute"))
+    columns = orbits.attrs.get("columns", orbit_columns(orbits.sizes["attribute"]))
+    count = min(orbits.sizes["marker"], max_markers)
+    values = np.asarray(orbits.isel(marker=slice(0, count)))
+    fig = plt.figure() if ax is None else ax.figure
+    ax = fig.add_subplot(111, projection="3d") if ax is None else ax
+    positions = values[..., columns["position"]]
+    show_paths = count <= 200 if show_paths is None else show_paths
+    artists = []
+    if show_paths:
+        for marker in range(count):
+            artists.extend(ax.plot(*positions[:, marker].T, lw=.8, alpha=.5))
+    artists.append(ax.scatter(*positions[-1].T, s=8))
+    ax.set(xlabel="X", ylabel="Y", zlabel="Z", title="Marker trajectories")
+    return PlotResult(fig, ax, artists)
+
+
 def plot_equilibrium_profile(path_out, *, ax=None):
-    """Radial profiles of the equilibrium written to ``geometry.vts``."""
+    """Plot radial equilibrium profiles from ``geometry.vts``."""
     import pyvista as pv
 
-    equil = pv.read(os.path.join(path_out, "geometry.vts"))
-    dims = equil.dimensions
-    grid = xp.reshape(equil.points, dims + (3,))
-    r = xp.sqrt(grid[:, :, :, 0] ** 2 + grid[:, :, :, 1] ** 2)
-    p0 = xp.reshape(equil.point_data["p0"], dims)
-
-    with plt.rc_context(STRUPHY_STYLE):
-        if ax is None:
-            fig, ax = plt.subplots()
-        ax.plot(r[0, 0, :], p0[0, 0, :], label=r"$p_0$")
-
-        if "n0" in equil.point_data:
-            n0 = xp.reshape(equil.point_data["n0"], dims)
-            ax.plot(r[0, 0, :], n0[0, 0, :], label=r"$n_0$")
-            ax.plot(r[0, 0, :], p0[0, 0, :] / n0[0, 0, :], label=r"$T_0$")
-
-        ax.set_xlabel(r"$R$")
-        ax.set_title("Radial equilibrium profiles")
-        ax.legend()
-    return ax
+    equilibrium = pv.read(str(Path(path_out) / "geometry.vts"))
+    shape = equilibrium.dimensions
+    grid = np.reshape(equilibrium.points, shape + (3,))
+    radius = np.sqrt(grid[..., 0]**2 + grid[..., 1]**2)
+    pressure = np.reshape(equilibrium.point_data["p0"], shape)
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    ax.plot(radius[0, 0], pressure[0, 0], label=r"$p_0$")
+    if "n0" in equilibrium.point_data:
+        density = np.reshape(equilibrium.point_data["n0"], shape)
+        ax.plot(radius[0, 0], density[0, 0], label=r"$n_0$")
+        ax.plot(radius[0, 0], pressure[0, 0]/density[0, 0], label=r"$T_0$")
+    ax.set(xlabel=r"$R$", title="Radial equilibrium profiles")
+    ax.legend()
+    return PlotResult(fig, ax, list(ax.lines))
