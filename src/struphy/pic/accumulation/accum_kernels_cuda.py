@@ -23,20 +23,10 @@ This one needs no domain-mapping Jacobian at all (the H^1 filling weight is
 just the marker weight), so it reuses only the B-spline evaluation device
 functions, not the geometry-mapping ones.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, CudaKernelSet, launch_1d, load_cuda_source
 
 _CHARGE_DENSITY_0FORM_SRC = load_cuda_source(__file__, "accum_kernels_cuda/_charge_density_0form_src.cu")
-
-_charge_density_0form_kernel = None
-
-
-def _get_charge_density_0form_kernel():
-    global _charge_density_0form_kernel
-    if _charge_density_0form_kernel is None:
-        import cupy as cp
-
-        _charge_density_0form_kernel = cp.RawKernel(_CHARGE_DENSITY_0FORM_SRC, "charge_density_0form_cuda")
-    return _charge_density_0form_kernel
+_charge_density_0form_kernel = CudaKernel(_CHARGE_DENSITY_0FORM_SRC, "charge_density_0form_cuda")
 
 
 def charge_density_0form_gpu(
@@ -61,16 +51,13 @@ def charge_density_0form_gpu(
     function only needs to add to it, not read markers back afterward: the
     caller reads ``vec_dev`` directly since it was written in place.
     """
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
     dev_markers = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    _get_charge_density_0form_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _charge_density_0form_kernel,
+        n_markers,
         (
             dev_markers,
             np.int32(markers.shape[1]),
@@ -139,16 +126,7 @@ def _vlasov_maxwell_source():
     return _GENERAL_GEOMETRY_SRC + _LINEAR_VLASOV_AMPERE_EXTRA_SRC + _VLASOV_MAXWELL_EXTRA_SRC
 
 
-_vlasov_maxwell_kernel = None
-
-
-def _get_vlasov_maxwell_kernel():
-    global _vlasov_maxwell_kernel
-    if _vlasov_maxwell_kernel is None:
-        import cupy as cp
-
-        _vlasov_maxwell_kernel = cp.RawKernel(_vlasov_maxwell_source(), "vlasov_maxwell_cuda")
-    return _vlasov_maxwell_kernel
+_vlasov_maxwell_kernels = CudaKernelSet(_vlasov_maxwell_source)
 
 
 def vlasov_maxwell_gpu(
@@ -175,13 +153,10 @@ def vlasov_maxwell_gpu(
     calling convention as :func:`linear_vlasov_ampere_gpu`, minus
     ``f0_values`` (this kernel doesn't need a background distribution).
     """
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
     dev_markers = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
         return (
@@ -192,9 +167,9 @@ def vlasov_maxwell_gpu(
             np.int32(a.shape[5]),
         )
 
-    _get_vlasov_maxwell_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _vlasov_maxwell_kernels["vlasov_maxwell_cuda"],
+        n_markers,
         (
             dev_markers,
             np.int32(markers.shape[1]),
@@ -238,16 +213,7 @@ def vlasov_maxwell_gpu(
     )
 
 
-_linear_vlasov_ampere_kernel = None
-
-
-def _get_linear_vlasov_ampere_kernel():
-    global _linear_vlasov_ampere_kernel
-    if _linear_vlasov_ampere_kernel is None:
-        import cupy as cp
-
-        _linear_vlasov_ampere_kernel = cp.RawKernel(_linear_vlasov_ampere_source(), "linear_vlasov_ampere_cuda")
-    return _linear_vlasov_ampere_kernel
+_linear_vlasov_ampere_kernels = CudaKernelSet(_linear_vlasov_ampere_source)
 
 
 def linear_vlasov_ampere_gpu(
@@ -287,8 +253,6 @@ def linear_vlasov_ampere_gpu(
     n_markers = markers.shape[0]
     dev_markers = markers
     f0_values_dev = cp.ascontiguousarray(f0_values_dev)
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
         return (
@@ -299,9 +263,9 @@ def linear_vlasov_ampere_gpu(
             np.int32(a.shape[5]),
         )
 
-    _get_linear_vlasov_ampere_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _linear_vlasov_ampere_kernels["linear_vlasov_ampere_cuda"],
+        n_markers,
         (
             dev_markers,
             np.int32(markers.shape[1]),
@@ -373,16 +337,7 @@ def _cc_lin_mhd_6d_1_source():
     return _GENERAL_GEOMETRY_SRC + _LINEAR_VLASOV_AMPERE_EXTRA_SRC + _CC_LIN_MHD_6D_1_SRC
 
 
-_cc_lin_mhd_6d_1_kernel = None
-
-
-def _get_cc_lin_mhd_6d_1_kernel():
-    global _cc_lin_mhd_6d_1_kernel
-    if _cc_lin_mhd_6d_1_kernel is None:
-        import cupy as cp
-
-        _cc_lin_mhd_6d_1_kernel = cp.RawKernel(_cc_lin_mhd_6d_1_source(), "cc_lin_mhd_6d_1_cuda")
-    return _cc_lin_mhd_6d_1_kernel
+_cc_lin_mhd_6d_1_kernels = CudaKernelSet(_cc_lin_mhd_6d_1_source)
 
 
 def cc_lin_mhd_6d_1_gpu(
@@ -417,8 +372,6 @@ def cc_lin_mhd_6d_1_gpu(
     b2_1_dev = cp.ascontiguousarray(b2_1_dev)
     b2_2_dev = cp.ascontiguousarray(b2_2_dev)
     b2_3_dev = cp.ascontiguousarray(b2_3_dev)
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
         return (
@@ -429,9 +382,9 @@ def cc_lin_mhd_6d_1_gpu(
             np.int32(a.shape[5]),
         )
 
-    _get_cc_lin_mhd_6d_1_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _cc_lin_mhd_6d_1_kernels["cc_lin_mhd_6d_1_cuda"],
+        n_markers,
         (
             dev_markers,
             np.int32(markers.shape[1]),
@@ -496,16 +449,7 @@ def _cc_lin_mhd_6d_2_source():
     return _GENERAL_GEOMETRY_SRC + _LINEAR_VLASOV_AMPERE_EXTRA_SRC + _CC_LIN_MHD_6D_2_SRC
 
 
-_cc_lin_mhd_6d_2_kernel = None
-
-
-def _get_cc_lin_mhd_6d_2_kernel():
-    global _cc_lin_mhd_6d_2_kernel
-    if _cc_lin_mhd_6d_2_kernel is None:
-        import cupy as cp
-
-        _cc_lin_mhd_6d_2_kernel = cp.RawKernel(_cc_lin_mhd_6d_2_source(), "cc_lin_mhd_6d_2_cuda")
-    return _cc_lin_mhd_6d_2_kernel
+_cc_lin_mhd_6d_2_kernels = CudaKernelSet(_cc_lin_mhd_6d_2_source)
 
 
 def cc_lin_mhd_6d_2_gpu(
@@ -547,8 +491,6 @@ def cc_lin_mhd_6d_2_gpu(
     b2_1_dev = cp.ascontiguousarray(b2_1_dev)
     b2_2_dev = cp.ascontiguousarray(b2_2_dev)
     b2_3_dev = cp.ascontiguousarray(b2_3_dev)
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
         return (
@@ -559,9 +501,9 @@ def cc_lin_mhd_6d_2_gpu(
             np.int32(a.shape[5]),
         )
 
-    _get_cc_lin_mhd_6d_2_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _cc_lin_mhd_6d_2_kernels["cc_lin_mhd_6d_2_cuda"],
+        n_markers,
         (
             dev_markers,
             np.int32(markers.shape[1]),
@@ -667,26 +609,8 @@ def _pc_lin_mhd_6d_source():
     return _GENERAL_GEOMETRY_SRC + _PC_PRESSURE_FILLERS_SRC + _PC_LIN_MHD_6D_SRC
 
 
-_pc_lin_mhd_6d_full_kernel = None
-_pc_lin_mhd_6d_kernel = None
-
-
-def _get_pc_lin_mhd_6d_full_kernel():
-    global _pc_lin_mhd_6d_full_kernel
-    if _pc_lin_mhd_6d_full_kernel is None:
-        import cupy as cp
-
-        _pc_lin_mhd_6d_full_kernel = cp.RawKernel(_pc_lin_mhd_6d_full_source(), "pc_lin_mhd_6d_full_cuda")
-    return _pc_lin_mhd_6d_full_kernel
-
-
-def _get_pc_lin_mhd_6d_kernel():
-    global _pc_lin_mhd_6d_kernel
-    if _pc_lin_mhd_6d_kernel is None:
-        import cupy as cp
-
-        _pc_lin_mhd_6d_kernel = cp.RawKernel(_pc_lin_mhd_6d_source(), "pc_lin_mhd_6d_cuda")
-    return _pc_lin_mhd_6d_kernel
+_pc_lin_mhd_6d_full_kernels = CudaKernelSet(_pc_lin_mhd_6d_full_source)
+_pc_lin_mhd_6d_kernels = CudaKernelSet(_pc_lin_mhd_6d_source)
 
 
 def _pc_lin_mhd_6d_launch(
@@ -711,13 +635,10 @@ def _pc_lin_mhd_6d_launch(
     subset named in ``vel_pairs``/``vec_is`` is actually passed to the
     kernel launch.
     """
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
     dev_markers = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def dims(a):
         return (
@@ -760,7 +681,7 @@ def _pc_lin_mhd_6d_launch(
         v = vec_args_45[f"vec{mu}_1"]
         args.extend((np.int32(v.shape[1]), np.int32(v.shape[2])))
 
-    kernel((blocks,), (threads,), tuple(args))
+    launch_1d(kernel, n_markers, args)
 
 
 def pc_lin_mhd_6d_full_gpu(
@@ -793,7 +714,7 @@ def pc_lin_mhd_6d_full_gpu(
         for k, (i, mu) in enumerate((i, mu) for i in ("1", "2", "3") for mu in ("1", "2", "3"))
     }
     _pc_lin_mhd_6d_launch(
-        _get_pc_lin_mhd_6d_full_kernel(),
+        _pc_lin_mhd_6d_full_kernels["pc_lin_mhd_6d_full_cuda"],
         markers,
         kind_map,
         params_dev,
@@ -840,7 +761,7 @@ def pc_lin_mhd_6d_gpu(
         for k, (i, mu) in enumerate((i, mu) for i in ("1", "2", "3") for mu in ("1", "2", "3"))
     }
     _pc_lin_mhd_6d_launch(
-        _get_pc_lin_mhd_6d_kernel(),
+        _pc_lin_mhd_6d_kernels["pc_lin_mhd_6d_cuda"],
         markers,
         kind_map,
         params_dev,

@@ -11,20 +11,10 @@ Same atomicAdd-scatter approach as
 just with a ``mu * weight * scale`` filling instead of a plain weight, and
 ``mu`` read from the marker's ``mu_idx`` column instead of a fixed offset.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, CudaKernelSet, launch_1d, load_cuda_source
 
 _GC_MAG_DENSITY_0FORM_SRC = load_cuda_source(__file__, "accum_kernels_gc_cuda/_gc_mag_density_0form_src.cu")
-
-_gc_mag_density_0form_kernel = None
-
-
-def _get_gc_mag_density_0form_kernel():
-    global _gc_mag_density_0form_kernel
-    if _gc_mag_density_0form_kernel is None:
-        import cupy as cp
-
-        _gc_mag_density_0form_kernel = cp.RawKernel(_GC_MAG_DENSITY_0FORM_SRC, "gc_mag_density_0form_cuda")
-    return _gc_mag_density_0form_kernel
+_gc_mag_density_0form_kernel = CudaKernel(_GC_MAG_DENSITY_0FORM_SRC, "gc_mag_density_0form_cuda")
 
 
 def gc_mag_density_0form_gpu(
@@ -42,16 +32,13 @@ def gc_mag_density_0form_gpu(
     :func:`~struphy.pic.accumulation.accum_kernels_gc.gc_mag_density_0form`.
     ``vec_dev`` is already device-resident and already zeroed by the caller.
     """
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
     dev_markers = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    _get_gc_mag_density_0form_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _gc_mag_density_0form_kernel,
+        n_markers,
         (
             dev_markers,
             np.int32(markers.shape[1]),
@@ -114,22 +101,15 @@ def gc_density_0form_gpu(markers, weight_idx, pn, tn1_dev, tn2_dev, tn3_dev, sta
 
 _CC_LIN_MHD_5D_D_SRC = load_cuda_source(__file__, "accum_kernels_gc_cuda/_cc_lin_mhd_5d_d_src.cu")
 
-_cc_lin_mhd_5d_D_kernel = None
+
+def _cc_lin_mhd_5d_D_source():
+    from struphy.pic.accumulation.accum_kernels_cuda import _LINEAR_VLASOV_AMPERE_EXTRA_SRC
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _LINEAR_VLASOV_AMPERE_EXTRA_SRC + _CC_LIN_MHD_5D_D_SRC
 
 
-def _get_cc_lin_mhd_5d_D_kernel():
-    global _cc_lin_mhd_5d_D_kernel
-    if _cc_lin_mhd_5d_D_kernel is None:
-        import cupy as cp
-
-        from struphy.pic.accumulation.accum_kernels_cuda import _LINEAR_VLASOV_AMPERE_EXTRA_SRC
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _cc_lin_mhd_5d_D_kernel = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC + _LINEAR_VLASOV_AMPERE_EXTRA_SRC + _CC_LIN_MHD_5D_D_SRC,
-            "cc_lin_mhd_5d_D_cuda",
-        )
-    return _cc_lin_mhd_5d_D_kernel
+_cc_lin_mhd_5d_D_kernels = CudaKernelSet(_cc_lin_mhd_5d_D_source)
 
 
 def cc_lin_mhd_5d_D_gpu(
@@ -161,8 +141,6 @@ def cc_lin_mhd_5d_D_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
@@ -177,9 +155,9 @@ def cc_lin_mhd_5d_D_gpu(
             np.int32(a.shape[5]),
         )
 
-    _get_cc_lin_mhd_5d_D_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _cc_lin_mhd_5d_D_kernels["cc_lin_mhd_5d_D_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -234,21 +212,13 @@ _FILL_VEC_SRC = load_cuda_source(__file__, "accum_kernels_gc_cuda/_fill_vec_src.
 
 _CC_LIN_MHD_5D_GRADB_SRC = load_cuda_source(__file__, "accum_kernels_gc_cuda/_cc_lin_mhd_5d_gradb_src.cu")
 
-_cc_gradB_kernel = None
+def _cc_lin_mhd_5d_gradB_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _FILL_VEC_SRC + _CC_LIN_MHD_5D_GRADB_SRC
 
 
-def _get_cc_lin_mhd_5d_gradB_kernel():
-    global _cc_gradB_kernel
-    if _cc_gradB_kernel is None:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _cc_gradB_kernel = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC + _FILL_VEC_SRC + _CC_LIN_MHD_5D_GRADB_SRC,
-            "cc_lin_mhd_5d_gradB_cuda",
-        )
-    return _cc_gradB_kernel
+_cc_gradB_kernels = CudaKernelSet(_cc_lin_mhd_5d_gradB_source)
 
 
 def cc_lin_mhd_5d_gradB_gpu(
@@ -280,16 +250,14 @@ def cc_lin_mhd_5d_gradB_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_cc_lin_mhd_5d_gradB_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _cc_gradB_kernels["cc_lin_mhd_5d_gradB_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -359,22 +327,14 @@ def cc_lin_mhd_5d_gradB_gpu(
 
 _CC_LIN_MHD_5D_CURLB_SRC = load_cuda_source(__file__, "accum_kernels_gc_cuda/_cc_lin_mhd_5d_curlb_src.cu")
 
-_cc_curlb_kernel = None
+def _cc_lin_mhd_5d_curlb_source():
+    from struphy.pic.accumulation.accum_kernels_cuda import _LINEAR_VLASOV_AMPERE_EXTRA_SRC
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _LINEAR_VLASOV_AMPERE_EXTRA_SRC + _CC_LIN_MHD_5D_CURLB_SRC
 
 
-def _get_cc_lin_mhd_5d_curlb_kernel():
-    global _cc_curlb_kernel
-    if _cc_curlb_kernel is None:
-        import cupy as cp
-
-        from struphy.pic.accumulation.accum_kernels_cuda import _LINEAR_VLASOV_AMPERE_EXTRA_SRC
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _cc_curlb_kernel = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC + _LINEAR_VLASOV_AMPERE_EXTRA_SRC + _CC_LIN_MHD_5D_CURLB_SRC,
-            "cc_lin_mhd_5d_curlb_cuda",
-        )
-    return _cc_curlb_kernel
+_cc_curlb_kernels = CudaKernelSet(_cc_lin_mhd_5d_curlb_source)
 
 
 def cc_lin_mhd_5d_curlb_gpu(
@@ -408,8 +368,6 @@ def cc_lin_mhd_5d_curlb_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
@@ -424,9 +382,9 @@ def cc_lin_mhd_5d_curlb_gpu(
             np.int32(a.shape[5]),
         )
 
-    _get_cc_lin_mhd_5d_curlb_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _cc_curlb_kernels["cc_lin_mhd_5d_curlb_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -503,21 +461,13 @@ def cc_lin_mhd_5d_curlb_gpu(
 
 _CC_LIN_MHD_5D_GRADB_DG_SRC = load_cuda_source(__file__, "accum_kernels_gc_cuda/_cc_lin_mhd_5d_gradb_dg_src.cu")
 
-_cc_gradB_dg_kernel = None
+def _cc_lin_mhd_5d_gradB_dg_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _FILL_VEC_SRC + _CC_LIN_MHD_5D_GRADB_DG_SRC
 
 
-def _get_cc_lin_mhd_5d_gradB_dg_kernel():
-    global _cc_gradB_dg_kernel
-    if _cc_gradB_dg_kernel is None:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _cc_gradB_dg_kernel = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC + _FILL_VEC_SRC + _CC_LIN_MHD_5D_GRADB_DG_SRC,
-            "cc_lin_mhd_5d_gradB_dg_cuda",
-        )
-    return _cc_gradB_dg_kernel
+_cc_gradB_dg_kernels = CudaKernelSet(_cc_lin_mhd_5d_gradB_dg_source)
 
 
 def cc_lin_mhd_5d_gradB_dg_gpu(
@@ -555,16 +505,14 @@ def cc_lin_mhd_5d_gradB_dg_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_cc_lin_mhd_5d_gradB_dg_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _cc_gradB_dg_kernels["cc_lin_mhd_5d_gradB_dg_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),

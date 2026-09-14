@@ -1,26 +1,23 @@
 """CUDA kernels for fused variational grid evaluations."""
 
-from struphy.cuda import load_cuda_source
-
-_KINETIC_ENERGY_KERNEL = None
+from struphy.cuda import CudaKernel, launch_1d, load_cuda_source
 
 _KINETIC_ENERGY_SOURCE = load_cuda_source(__file__, "variational_kernels_cuda/kinetic_energy_grid.cu")
 
+_kinetic_energy_kernel = CudaKernel(_KINETIC_ENERGY_SOURCE, "kinetic_energy_grid_cuda")
+
 
 def prepare_kinetic_energy_kernel():
-    """Compile and cache the fused kinetic-energy CUDA kernel."""
-    import cupy as cp
+    """Force the fused kinetic-energy CUDA kernel to compile now, during
+    model setup, rather than lazily on the first timed propagation step.
 
-    global _KINETIC_ENERGY_KERNEL
-    if _KINETIC_ENERGY_KERNEL is None:
-        _KINETIC_ENERGY_KERNEL = cp.RawKernel(
-            _KINETIC_ENERGY_SOURCE,
-            "kinetic_energy_grid_cuda",
-        )
-        # Force NVRTC compilation during model setup rather than the first
-        # timed propagation step.
-        _KINETIC_ENERGY_KERNEL.compile()
-    return _KINETIC_ENERGY_KERNEL
+    Idempotent (see :meth:`~struphy.cuda.CudaKernel.compile`): every actual
+    invocation still goes through the normal
+    ``launch_1d(_kinetic_energy_kernel, ...)`` call in
+    :func:`kinetic_energy_grid_gpu` below, which is a no-op past compilation
+    once this has run.
+    """
+    _kinetic_energy_kernel.compile()
 
 
 def kinetic_energy_grid_gpu(
@@ -39,17 +36,16 @@ def kinetic_energy_grid_gpu(
     import cupy as cp
     import numpy as np
 
-    kernel = prepare_kinetic_energy_kernel()
+    prepare_kinetic_energy_kernel()
     spans = tuple(cp.ascontiguousarray(cp.asarray(value, dtype=cp.int64)) for value in spans)
     bases = tuple(cp.ascontiguousarray(cp.asarray(value, dtype=cp.float64)) for value in bases)
     coefficients = tuple(cp.ascontiguousarray(value) for value in coefficients)
     coefficients1 = tuple(cp.ascontiguousarray(value) for value in coefficients1)
     metric = cp.ascontiguousarray(metric)
     total = out.size
-    threads = 256
-    kernel(
-        ((total + threads - 1) // threads,),
-        (threads,),
+    launch_1d(
+        _kinetic_energy_kernel,
+        total,
         (
             *spans,
             *bases,

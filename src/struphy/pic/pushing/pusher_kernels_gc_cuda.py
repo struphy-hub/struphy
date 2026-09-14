@@ -23,7 +23,7 @@ ported alongside these in
 :mod:`~struphy.pic.accumulation.accum_kernels_gc_cuda` (same
 ``atomicAdd``-scatter approach as ``charge_density_0form``).
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, CudaKernelSet, launch_1d, load_cuda_source
 
 _PUSH_GC_BXESTAR_SRC = load_cuda_source(__file__, "pusher_kernels_gc_cuda/_push_gc_bxestar_src.cu")
 
@@ -42,26 +42,8 @@ def _push_gc_Bstar_source():
     return _GENERAL_GEOMETRY_SRC + _PUSH_GC_BSTAR_SRC
 
 
-_push_gc_bxEstar_kernel = None
-_push_gc_Bstar_kernel = None
-
-
-def _get_push_gc_bxEstar_kernel():
-    global _push_gc_bxEstar_kernel
-    if _push_gc_bxEstar_kernel is None:
-        import cupy as cp
-
-        _push_gc_bxEstar_kernel = cp.RawKernel(_push_gc_bxEstar_source(), "push_gc_bxEstar_explicit_multistage_cuda")
-    return _push_gc_bxEstar_kernel
-
-
-def _get_push_gc_Bstar_kernel():
-    global _push_gc_Bstar_kernel
-    if _push_gc_Bstar_kernel is None:
-        import cupy as cp
-
-        _push_gc_Bstar_kernel = cp.RawKernel(_push_gc_Bstar_source(), "push_gc_Bstar_explicit_multistage_cuda")
-    return _push_gc_Bstar_kernel
+_push_gc_bxEstar_kernel = CudaKernel(_push_gc_bxEstar_source, "push_gc_bxEstar_explicit_multistage_cuda")
+_push_gc_Bstar_kernel = CudaKernel(_push_gc_Bstar_source, "push_gc_Bstar_explicit_multistage_cuda")
 
 
 def push_gc_bxEstar_explicit_multistage_general_gpu(
@@ -98,22 +80,18 @@ def push_gc_bxEstar_explicit_multistage_general_gpu(
     :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_explicit_multistage`,
     for any domain in :data:`~struphy.pic.pushing.pusher_kernels_cuda.SUPPORTED_GENERAL_KIND_MAPS`.
     """
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_push_gc_bxEstar_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_gc_bxEstar_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(first_init_idx),
@@ -190,22 +168,18 @@ def push_gc_Bstar_explicit_multistage_general_gpu(
     :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_explicit_multistage`,
     for any domain in :data:`~struphy.pic.pushing.pusher_kernels_cuda.SUPPORTED_GENERAL_KIND_MAPS`.
     """
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_push_gc_Bstar_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_gc_Bstar_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(first_init_idx),
@@ -265,17 +239,14 @@ def push_gc_Bstar_explicit_multistage_general_gpu(
 
 _DG_1ST_SRC = load_cuda_source(__file__, "pusher_kernels_gc_cuda/_dg_1st_src.cu")
 
-_dg_kernels = {}
+
+def _dg_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _DG_1ST_SRC
 
 
-def _get_dg_kernel(name):
-    if name not in _dg_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _dg_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _DG_1ST_SRC, name)
-    return _dg_kernels[name]
+_dg_kernels = CudaKernelSet(_dg_source)
 
 
 def _dg_launch(
@@ -302,16 +273,14 @@ def _dg_launch(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_dg_kernel(name)(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _dg_kernels[name],
+        n_markers,
         (
             markers,
             np.int32(n_cols),
@@ -371,17 +340,14 @@ def push_gc_Bstar_discrete_gradient_1st_order_gpu(*args, **kwargs):
 
 _PUSH_GC_CC_J1_SRC = load_cuda_source(__file__, "pusher_kernels_gc_cuda/_push_gc_cc_j1_src.cu")
 
-_j1_kernels = {}
+
+def _j1_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _PUSH_GC_CC_J1_SRC
 
 
-def _get_j1_kernel(name):
-    if name not in _j1_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _j1_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _PUSH_GC_CC_J1_SRC, name)
-    return _j1_kernels[name]
+_j1_kernels = CudaKernelSet(_j1_source)
 
 
 def _j1_launch(
@@ -405,16 +371,14 @@ def _j1_launch(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_j1_kernel(name)(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _j1_kernels[name],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -482,17 +446,14 @@ def push_gc_cc_J1_Hdiv_gpu(*args, **kwargs):
 
 _PUSH_GC_CC_J2_STAGE_SRC = load_cuda_source(__file__, "pusher_kernels_gc_cuda/_push_gc_cc_j2_stage_src.cu")
 
-_j2_stage_kernels = {}
+
+def _j2_stage_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _PUSH_GC_CC_J2_STAGE_SRC
 
 
-def _get_j2_stage_kernel(name):
-    if name not in _j2_stage_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _j2_stage_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _PUSH_GC_CC_J2_STAGE_SRC, name)
-    return _j2_stage_kernels[name]
+_j2_stage_kernels = CudaKernelSet(_j2_stage_source)
 
 
 def _j2_stage_launch(
@@ -520,16 +481,14 @@ def _j2_stage_launch(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_j2_stage_kernel(name)(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _j2_stage_kernels[name],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -598,17 +557,14 @@ def push_gc_cc_J2_stage_Hdiv_gpu(*args, **kwargs):
 
 _PUSH_GC_CC_J2_DG_SRC = load_cuda_source(__file__, "pusher_kernels_gc_cuda/_push_gc_cc_j2_dg_src.cu")
 
-_j2_dg_kernels = {}
+
+def _j2_dg_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _DG_1ST_SRC + _PUSH_GC_CC_J2_DG_SRC
 
 
-def _get_j2_dg_kernel(name):
-    if name not in _j2_dg_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _j2_dg_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _DG_1ST_SRC + _PUSH_GC_CC_J2_DG_SRC, name)
-    return _j2_dg_kernels[name]
+_j2_dg_kernels = CudaKernelSet(_j2_dg_source)
 
 
 def push_gc_cc_J2_dg_init_Hdiv_gpu(
@@ -634,16 +590,14 @@ def push_gc_cc_J2_dg_init_Hdiv_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_j2_dg_kernel("push_gc_cc_J2_dg_init_Hdiv_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _j2_dg_kernels["push_gc_cc_J2_dg_init_Hdiv_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -707,16 +661,14 @@ def push_gc_cc_J2_dg_Hdiv_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_j2_dg_kernel("push_gc_cc_J2_dg_Hdiv_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _j2_dg_kernels["push_gc_cc_J2_dg_Hdiv_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -776,17 +728,14 @@ def push_gc_cc_J2_dg_Hdiv_gpu(
 
 _DG_NEWTON_SRC = load_cuda_source(__file__, "pusher_kernels_gc_cuda/_dg_newton_src.cu")
 
-_dg_newton_kernels = {}
+
+def _dg_newton_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _DG_NEWTON_SRC
 
 
-def _get_dg_newton_kernel(name):
-    if name not in _dg_newton_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _dg_newton_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _DG_NEWTON_SRC, name)
-    return _dg_newton_kernels[name]
+_dg_newton_kernels = CudaKernelSet(_dg_newton_source)
 
 
 def _dg_newton_launch(
@@ -814,16 +763,14 @@ def _dg_newton_launch(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_dg_newton_kernel(name)(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _dg_newton_kernels[name],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -884,17 +831,14 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton_gpu(*args, **kwargs):
 
 _DG_2ND_ORDER_SRC = load_cuda_source(__file__, "pusher_kernels_gc_cuda/_dg_2nd_order_src.cu")
 
-_dg_2nd_order_kernels = {}
+
+def _dg_2nd_order_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _DG_2ND_ORDER_SRC
 
 
-def _get_dg_2nd_order_kernel(name):
-    if name not in _dg_2nd_order_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _dg_2nd_order_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _DG_2ND_ORDER_SRC, name)
-    return _dg_2nd_order_kernels[name]
+_dg_2nd_order_kernels = CudaKernelSet(_dg_2nd_order_source)
 
 
 def push_gc_bxEstar_discrete_gradient_2nd_order_gpu(
@@ -926,16 +870,14 @@ def push_gc_bxEstar_discrete_gradient_2nd_order_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_dg_2nd_order_kernel("push_gc_bxEstar_discrete_gradient_2nd_order_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _dg_2nd_order_kernels["push_gc_bxEstar_discrete_gradient_2nd_order_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -1007,16 +949,14 @@ def push_gc_Bstar_discrete_gradient_2nd_order_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_dg_2nd_order_kernel("push_gc_Bstar_discrete_gradient_2nd_order_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _dg_2nd_order_kernels["push_gc_Bstar_discrete_gradient_2nd_order_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),

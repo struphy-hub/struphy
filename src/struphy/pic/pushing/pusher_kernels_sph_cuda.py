@@ -22,12 +22,14 @@ Note on ``df_inv``: the CPU kernels call
 ``avoid_round_off=False``, which is exactly ``matrix_inv(df(eta))`` -- the
 manual zeroing of analytically-zero entries is skipped -- so
 ``matrix_inv_dev(df_dispatch_dev(...))`` reproduces it exactly.
+
+The three ``push_v_*_gpu`` entry points share one :class:`~struphy.cuda.CudaKernelSet`
+(``_kernels``, keyed by CUDA entry-point name) built from ``_SPH_PUSHER_SRC``
+plus the geometry/SPH device functions it reuses.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernelSet, load_cuda_source
 
 _SPH_PUSHER_SRC = load_cuda_source(__file__, "pusher_kernels_sph_cuda/_sph_pusher_src.cu")
-
-_kernels = {}
 
 
 def _source():
@@ -40,12 +42,7 @@ def _source():
     return _GENERAL_GEOMETRY_SRC + _SPH_EVAL_FLAT_SRC + _SPH_PUSHER_SRC
 
 
-def _get_kernel(name):
-    if name not in _kernels:
-        import cupy as cp
-
-        _kernels[name] = cp.RawKernel(_source(), name)
-    return _kernels[name]
+_kernels = CudaKernelSet(_source)
 
 
 def _launch(
@@ -112,7 +109,7 @@ def _launch(
         args.append(np.float64(kappa))
     args += [np.int32(kind_map), params_dev, np.float64(dt)]
 
-    _get_kernel(name)((blocks,), (threads,), tuple(args))
+    _kernels[name]((blocks,), (threads,), tuple(args))
 
 
 def push_v_sph_pressure_gpu(

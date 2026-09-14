@@ -1,10 +1,10 @@
 """CUDA kernels for dynamic weighted basis-projection matrices."""
 
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, launch_1d, load_cuda_source
 
 _ASSEMBLE_SRC = load_cuda_source(__file__, "basis_projection_kernels_cuda/_assemble_src.cu")
 
-_kernel = None
+_kernel = CudaKernel(_ASSEMBLE_SRC, "assemble_weighted_basis_3d_cuda")
 
 
 def assemble_dofs_for_weighted_basisfuns_3d_gpu(
@@ -27,9 +27,6 @@ def assemble_dofs_for_weighted_basisfuns_3d_gpu(
     import cupy as cp
     import numpy as np
 
-    global _kernel
-    if _kernel is None:
-        _kernel = cp.RawKernel(_ASSEMBLE_SRC, "assemble_weighted_basis_3d_cuda")
     spans = tuple(cp.ascontiguousarray(cp.asarray(x, dtype=cp.int64)) for x in spans)
     weights = tuple(cp.ascontiguousarray(cp.asarray(x, dtype=cp.float64)) for x in weights)
     bases = tuple(cp.ascontiguousarray(cp.asarray(x, dtype=cp.float64)) for x in bases)
@@ -40,10 +37,9 @@ def assemble_dofs_for_weighted_basisfuns_3d_gpu(
     nq = tuple(x.shape[1] for x in spans)
     degree = tuple(x.shape[2] - 1 for x in bases)
     total = int(np.prod(ni) * np.prod(nq) * np.prod([p + 1 for p in degree]))
-    threads = 256
-    _kernel(
-        ((total + threads - 1) // threads,),
-        (threads,),
+    launch_1d(
+        _kernel,
+        total,
         (
             *rows,
             *spans,

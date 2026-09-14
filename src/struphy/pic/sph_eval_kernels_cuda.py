@@ -26,30 +26,12 @@ in :mod:`~struphy.pic.pushing.pusher_kernels_cuda` -- ``_eval_sph`` is a
 diagnostics/reconstruction entry point, not a per-step hot loop, so there is
 no benefit to caching device buffers across calls the way the pushers do.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, launch_1d, load_cuda_source
 
 _SPH_EVAL_FLAT_SRC = load_cuda_source(__file__, "sph_eval_kernels_cuda/_sph_eval_flat_src.cu")
 
-_box_based_evaluation_flat_kernel = None
-_box_based_evaluation_meshgrid_kernel = None
-
-
-def _get_kernel():
-    global _box_based_evaluation_flat_kernel
-    if _box_based_evaluation_flat_kernel is None:
-        import cupy as cp
-
-        _box_based_evaluation_flat_kernel = cp.RawKernel(_SPH_EVAL_FLAT_SRC, "box_based_evaluation_flat_cuda")
-    return _box_based_evaluation_flat_kernel
-
-
-def _get_meshgrid_kernel():
-    global _box_based_evaluation_meshgrid_kernel
-    if _box_based_evaluation_meshgrid_kernel is None:
-        import cupy as cp
-
-        _box_based_evaluation_meshgrid_kernel = cp.RawKernel(_SPH_EVAL_FLAT_SRC, "box_based_evaluation_meshgrid_cuda")
-    return _box_based_evaluation_meshgrid_kernel
+_box_based_evaluation_flat_kernel = CudaKernel(_SPH_EVAL_FLAT_SRC, "box_based_evaluation_flat_cuda")
+_box_based_evaluation_meshgrid_kernel = CudaKernel(_SPH_EVAL_FLAT_SRC, "box_based_evaluation_meshgrid_cuda")
 
 
 def box_based_evaluation_flat_gpu(
@@ -86,7 +68,6 @@ def box_based_evaluation_flat_gpu(
     import cupy as cp
     import numpy as np
 
-    kernel = _get_kernel()
     n_cols = markers.shape[1]
     n_eval = eta1.shape[0]
     n_box_cols = boxes.shape[1]
@@ -105,11 +86,9 @@ def box_based_evaluation_flat_gpu(
     dev_holes = cp.asarray(holes, dtype=cp.int32)
     dev_out = cp.zeros(n_eval, dtype=cp.float64)
 
-    threads = 256
-    blocks = (n_eval + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _box_based_evaluation_flat_kernel,
+        n_eval,
         (
             dev_markers,
             np.int32(n_cols),
@@ -175,7 +154,6 @@ def box_based_evaluation_meshgrid_gpu(
     import cupy as cp
     import numpy as np
 
-    kernel = _get_meshgrid_kernel()
     n_cols = markers.shape[1]
     n1_eval, n2_eval, n3_eval = eta1.shape[0], eta2.shape[1], eta3.shape[2]
     n_box_cols = boxes.shape[1]
@@ -197,11 +175,9 @@ def box_based_evaluation_meshgrid_gpu(
     dev_out = cp.zeros((n1_eval, n2_eval, n3_eval), dtype=cp.float64)
 
     n_total = n1_eval * n2_eval * n3_eval
-    threads = 256
-    blocks = (n_total + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _box_based_evaluation_meshgrid_kernel,
+        n_total,
         (
             dev_markers,
             np.int32(n_cols),
@@ -250,30 +226,10 @@ def box_based_evaluation_meshgrid_gpu(
 
 _SPH_EVAL_NAIVE_SRC = load_cuda_source(__file__, "sph_eval_kernels_cuda/_sph_eval_naive_src.cu")
 
-_naive_evaluation_flat_kernel = None
-_naive_evaluation_meshgrid_kernel = None
-
-
-def _get_naive_flat_kernel():
-    global _naive_evaluation_flat_kernel
-    if _naive_evaluation_flat_kernel is None:
-        import cupy as cp
-
-        _naive_evaluation_flat_kernel = cp.RawKernel(
-            _SPH_EVAL_FLAT_SRC + _SPH_EVAL_NAIVE_SRC, "naive_evaluation_flat_cuda"
-        )
-    return _naive_evaluation_flat_kernel
-
-
-def _get_naive_meshgrid_kernel():
-    global _naive_evaluation_meshgrid_kernel
-    if _naive_evaluation_meshgrid_kernel is None:
-        import cupy as cp
-
-        _naive_evaluation_meshgrid_kernel = cp.RawKernel(
-            _SPH_EVAL_FLAT_SRC + _SPH_EVAL_NAIVE_SRC, "naive_evaluation_meshgrid_cuda"
-        )
-    return _naive_evaluation_meshgrid_kernel
+_naive_evaluation_flat_kernel = CudaKernel(_SPH_EVAL_FLAT_SRC + _SPH_EVAL_NAIVE_SRC, "naive_evaluation_flat_cuda")
+_naive_evaluation_meshgrid_kernel = CudaKernel(
+    _SPH_EVAL_FLAT_SRC + _SPH_EVAL_NAIVE_SRC, "naive_evaluation_meshgrid_cuda"
+)
 
 
 def naive_evaluation_flat_gpu(
@@ -298,7 +254,6 @@ def naive_evaluation_flat_gpu(
     import cupy as cp
     import numpy as np
 
-    kernel = _get_naive_flat_kernel()
     n_cols = markers.shape[1]
     n_markers = markers.shape[0]
     n_eval = eta1.shape[0]
@@ -310,11 +265,9 @@ def naive_evaluation_flat_gpu(
     dev_holes = cp.asarray(holes, dtype=cp.int32)
     dev_out = cp.zeros(n_eval, dtype=cp.float64)
 
-    threads = 256
-    blocks = (n_eval + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _naive_evaluation_flat_kernel,
+        n_eval,
         (
             dev_markers,
             np.int32(n_cols),
@@ -370,7 +323,6 @@ def naive_evaluation_meshgrid_gpu(
     import cupy as cp
     import numpy as np
 
-    kernel = _get_naive_meshgrid_kernel()
     n_cols = markers.shape[1]
     n_markers = markers.shape[0]
     n1_eval, n2_eval, n3_eval = eta1.shape[0], eta2.shape[1], eta3.shape[2]
@@ -382,12 +334,10 @@ def naive_evaluation_meshgrid_gpu(
     dev_holes = cp.asarray(holes, dtype=cp.int32)
     dev_out = cp.zeros((n1_eval, n2_eval, n3_eval), dtype=cp.float64)
 
-    threads = 256
     n_total = n1_eval * n2_eval * n3_eval
-    blocks = (n_total + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _naive_evaluation_meshgrid_kernel,
+        n_total,
         (
             dev_markers,
             np.int32(n_cols),

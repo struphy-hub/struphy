@@ -12,20 +12,17 @@ removes it.
 Both kernels here are plain per-marker 0-form spline evaluations, so they
 reuse the ``find_span_dev``/``b_splines_dev``/``eval_0form_dev`` device
 functions rather than defining their own.
+
+Every real GPU kernel this module launches is a :class:`~struphy.cuda.CudaKernel`
+(or a :class:`~struphy.cuda.CudaKernelSet` entry) declared at module scope; if
+a function here doesn't sit next to one, it does not touch the GPU.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, CudaKernelSet, launch_1d, load_cuda_source
+from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
 
 _UTILITIES_SRC = load_cuda_source(__file__, "utilities_kernels_cuda/_utilities_src.cu")
 
-_kernels = {}
-
-
-def _get_kernel(name):
-    if name not in _kernels:
-        import cupy as cp
-
-        _kernels[name] = cp.RawKernel(_UTILITIES_SRC, name)
-    return _kernels[name]
+_kernels = CudaKernelSet(_UTILITIES_SRC)
 
 
 def _launch_0form_diag(kernel_name, markers, args_derham, first_diagnostics_idx, mu_idx, coeffs):
@@ -34,17 +31,15 @@ def _launch_0form_diag(kernel_name, markers, args_derham, first_diagnostics_idx,
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
     coeffs = cp.ascontiguousarray(coeffs)
 
-    _get_kernel(kernel_name)(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _kernels[kernel_name],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -110,15 +105,13 @@ def eval_canonical_toroidal_moment_5d_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
     tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
     absB = cp.ascontiguousarray(absB)
-    _get_kernel("eval_canonical_toroidal_moment_5d_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _kernels["eval_canonical_toroidal_moment_5d_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -157,15 +150,13 @@ def eval_canonical_toroidal_moment_6d_gpu(markers, args_derham, first_diagnostic
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
     tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
     absB = cp.ascontiguousarray(absB)
-    _get_kernel("eval_canonical_toroidal_moment_6d_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _kernels["eval_canonical_toroidal_moment_6d_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -202,15 +193,13 @@ def eval_magnetic_moment_5d_gpu(markers, args_derham, first_diagnostics_idx, abs
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
     tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
     absB = cp.ascontiguousarray(absB)
-    _get_kernel("eval_magnetic_moment_5d_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _kernels["eval_magnetic_moment_5d_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -244,16 +233,14 @@ def eval_magnetic_energy_PBb_gpu(markers, args_derham, first_diagnostics_idx, mu
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
     tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
     abs_B0 = cp.ascontiguousarray(abs_B0)
     PBb = cp.ascontiguousarray(PBb)
-    _get_kernel("eval_magnetic_energy_PBb_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _kernels["eval_magnetic_energy_PBb_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -290,22 +277,7 @@ def eval_magnetic_energy_PBb_gpu(markers, args_derham, first_diagnostics_idx, mu
 # ---------------------------------------------------------------------------
 
 _GC_FROM_6D_SRC = load_cuda_source(__file__, "utilities_kernels_cuda/_gc_from_6d_src.cu")
-
-_gc6d_kernel = None
-
-
-def _get_gc_from_6d_kernel():
-    global _gc6d_kernel
-    if _gc6d_kernel is None:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _gc6d_kernel = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC + _GC_FROM_6D_SRC,
-            "eval_guiding_center_from_6d_cuda",
-        )
-    return _gc6d_kernel
+_gc6d_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC + _GC_FROM_6D_SRC, "eval_guiding_center_from_6d_cuda")
 
 
 def eval_guiding_center_from_6d_gpu(
@@ -320,8 +292,6 @@ def eval_guiding_center_from_6d_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
     tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
@@ -329,9 +299,9 @@ def eval_guiding_center_from_6d_gpu(
     b22 = cp.ascontiguousarray(b22)
     b23 = cp.ascontiguousarray(b23)
     absB = cp.ascontiguousarray(absB)
-    _get_gc_from_6d_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _gc6d_kernel,
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -379,19 +349,7 @@ def eval_guiding_center_from_6d_gpu(
 # ---------------------------------------------------------------------------
 
 _GRADB_EDIFF_SRC = load_cuda_source(__file__, "utilities_kernels_cuda/_gradb_ediff_src.cu")
-
-_gradb_ediff_kernel = None
-
-
-def _get_gradb_ediff_kernel():
-    global _gradb_ediff_kernel
-    if _gradb_ediff_kernel is None:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _gradb_ediff_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _GRADB_EDIFF_SRC, "eval_gradB_ediff_cuda")
-    return _gradb_ediff_kernel
+_gradb_ediff_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC + _GRADB_EDIFF_SRC, "eval_gradB_ediff_cuda")
 
 
 def eval_gradB_ediff_gpu(
@@ -419,16 +377,14 @@ def eval_gradB_ediff_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
         return (a, np.int32(a.shape[1]), np.int32(a.shape[2]))
 
-    _get_gradb_ediff_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _gradb_ediff_kernel,
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),

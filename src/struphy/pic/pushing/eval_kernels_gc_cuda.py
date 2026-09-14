@@ -12,20 +12,10 @@ per iteration -- by far the most frequent host crossing left in that model.
 It is a plain per-marker 0-form spline evaluation, so it reuses the shared
 ``find_span_dev``/``b_splines_dev``/``eval_0form_dev`` device functions.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, CudaKernelSet, launch_1d, load_cuda_source
 
 _DK_HAMILTONIAN_SRC = load_cuda_source(__file__, "eval_kernels_gc_cuda/_dk_hamiltonian_src.cu")
-
-_dk_kernel = None
-
-
-def _get_dk_kernel():
-    global _dk_kernel
-    if _dk_kernel is None:
-        import cupy as cp
-
-        _dk_kernel = cp.RawKernel(_DK_HAMILTONIAN_SRC, "driftkinetic_hamiltonian_cuda")
-    return _dk_kernel
+_dk_kernel = CudaKernel(_DK_HAMILTONIAN_SRC, "driftkinetic_hamiltonian_cuda")
 
 
 def driftkinetic_hamiltonian_gpu(
@@ -49,8 +39,6 @@ def driftkinetic_hamiltonian_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
@@ -59,9 +47,9 @@ def driftkinetic_hamiltonian_gpu(
     phi = cp.ascontiguousarray(phi_coeffs)
     a = [float(x) for x in (alpha[0], alpha[1], alpha[2], alpha[3])]
 
-    _get_dk_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _dk_kernel,
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -113,17 +101,14 @@ def driftkinetic_hamiltonian_gpu(
 
 _GC_MARKER_COLUMN_SRC = load_cuda_source(__file__, "eval_kernels_gc_cuda/_gc_marker_column_src.cu")
 
-_gc_marker_column_kernels = {}
+
+def _gc_marker_column_source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _GC_MARKER_COLUMN_SRC
 
 
-def _get_gc_marker_column_kernel(name):
-    if name not in _gc_marker_column_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _gc_marker_column_kernels[name] = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _GC_MARKER_COLUMN_SRC, name)
-    return _gc_marker_column_kernels[name]
+_gc_marker_column_kernels = CudaKernelSet(_gc_marker_column_source)
 
 
 def grad_driftkinetic_hamiltonian_gpu(
@@ -146,8 +131,6 @@ def grad_driftkinetic_hamiltonian_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
@@ -159,9 +142,9 @@ def grad_driftkinetic_hamiltonian_gpu(
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
 
-    _get_gc_marker_column_kernel("grad_driftkinetic_hamiltonian_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _gc_marker_column_kernels["grad_driftkinetic_hamiltonian_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -216,8 +199,6 @@ def bstar_parallel_3form_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
@@ -228,9 +209,9 @@ def bstar_parallel_3form_gpu(
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
 
-    _get_gc_marker_column_kernel("bstar_parallel_3form_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _gc_marker_column_kernels["bstar_parallel_3form_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -278,8 +259,6 @@ def bstar_2form_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
@@ -291,9 +270,9 @@ def bstar_2form_gpu(
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
 
-    _get_gc_marker_column_kernel("bstar_2form_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _gc_marker_column_kernels["bstar_2form_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),
@@ -343,8 +322,6 @@ def unit_b_1form_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     def d(a):
         a = cp.ascontiguousarray(a)
@@ -356,9 +333,9 @@ def unit_b_1form_gpu(
     tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
     tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
 
-    _get_gc_marker_column_kernel("unit_b_1form_cuda")(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _gc_marker_column_kernels["unit_b_1form_cuda"],
+        n_markers,
         (
             markers,
             np.int32(markers.shape[1]),

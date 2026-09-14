@@ -35,32 +35,14 @@ two lightweight per-particle operations (unlike
 :func:`~struphy.pic.sph_eval_kernels_cuda.box_based_evaluation_flat_gpu`,
 which genuinely needs every marker column for the density sum).
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, launch_1d, load_cuda_source
 
 import numpy as np
 
 _SORT_SRC = load_cuda_source(__file__, "sorting_kernels_cuda/_sort_src.cu")
 
-_assign_box_kernel = None
-_assign_particles_kernel = None
-
-
-def _get_assign_box_kernel():
-    global _assign_box_kernel
-    if _assign_box_kernel is None:
-        import cupy as cp
-
-        _assign_box_kernel = cp.RawKernel(_SORT_SRC, "assign_box_to_each_particle_cuda")
-    return _assign_box_kernel
-
-
-def _get_assign_particles_kernel():
-    global _assign_particles_kernel
-    if _assign_particles_kernel is None:
-        import cupy as cp
-
-        _assign_particles_kernel = cp.RawKernel(_SORT_SRC, "assign_particles_to_boxes_cuda")
-    return _assign_particles_kernel
+_assign_box_kernel = CudaKernel(_SORT_SRC, "assign_box_to_each_particle_cuda")
+_assign_particles_kernel = CudaKernel(_SORT_SRC, "assign_particles_to_boxes_cuda")
 
 
 def assign_box_to_each_particle_gpu(
@@ -95,11 +77,9 @@ def assign_box_to_each_particle_gpu(
     dev_domain = cp.asarray(domain_array, dtype=cp.float64)
     dev_box = cp.empty(n_mks, dtype=cp.float64)
 
-    threads = 256
-    blocks = (n_mks + threads - 1) // threads
-    _get_assign_box_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _assign_box_kernel,
+        n_mks,
         (
             dev_eta,
             dev_holes,
@@ -140,11 +120,9 @@ def assign_particles_to_boxes_gpu(
     dev_boxes = cp.full((n_box_rows, box_cols), -1, dtype=cp.int32)
     dev_next_index = cp.zeros(n_box_rows, dtype=cp.int32)
 
-    threads = 256
-    blocks = (n_mks + threads - 1) // threads
-    _get_assign_particles_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _assign_particles_kernel,
+        n_mks,
         (
             dev_box_id,
             dev_holes,

@@ -15,22 +15,20 @@ It reuses the geometry device functions (``df_dispatch_dev``,
 Only the markers listed in ``outside_inds`` are touched, so the kernel is
 launched over that index array rather than over all markers.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernelSet, launch_1d, load_cuda_source
 
 _REFLECT_SRC = load_cuda_source(__file__, "pusher_utilities_kernels_cuda/_reflect_src.cu")
 
-_reflect_kernel = None
+
+def _reflect_source():
+    # Deferred (not a module-level import): pulls in pusher_kernels_cuda only
+    # once a reflecting boundary is actually hit under CuPy, same as before.
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _REFLECT_SRC
 
 
-def _get_reflect_kernel():
-    global _reflect_kernel
-    if _reflect_kernel is None:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-
-        _reflect_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC + _REFLECT_SRC, "reflect_cuda")
-    return _reflect_kernel
+_reflect_kernels = CudaKernelSet(_reflect_source)
 
 
 def reflect_gpu(markers, kind_map, params_dev, outside_inds, axis):
@@ -50,11 +48,9 @@ def reflect_gpu(markers, kind_map, params_dev, outside_inds, axis):
         return
 
     inds = cp.ascontiguousarray(outside_inds, dtype=cp.int64)
-    threads = 256
-    blocks = (n_outside + threads - 1) // threads
-    _get_reflect_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _reflect_kernels["reflect_cuda"],
+        n_outside,
         (
             markers,
             np.int32(markers.shape[1]),

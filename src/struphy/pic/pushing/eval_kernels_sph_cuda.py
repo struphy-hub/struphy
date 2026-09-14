@@ -13,27 +13,24 @@ Rather than duplicating that device function, this module reuses
 ``matrix_inv_dev`` from :mod:`~struphy.pic.pushing.pusher_kernels_cuda`,
 though the two geometry helpers are unused here since none of these three
 kernels touch the domain Jacobian).
+
+The three ``*_gpu`` entry points share one :class:`~struphy.cuda.CudaKernelSet`
+(``_sph_marker_column_kernels``, keyed by CUDA entry-point name).
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernelSet, launch_1d, load_cuda_source
 
 _SPH_MARKER_COLUMN_SRC = load_cuda_source(__file__, "eval_kernels_sph_cuda/_sph_marker_column_src.cu")
 
-_sph_marker_column_kernels = {}
+
+def _source():
+    from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
+    from struphy.pic.pushing.pusher_kernels_sph_cuda import _SPH_PUSHER_SRC
+    from struphy.pic.sph_eval_kernels_cuda import _SPH_EVAL_FLAT_SRC
+
+    return _GENERAL_GEOMETRY_SRC + _SPH_EVAL_FLAT_SRC + _SPH_PUSHER_SRC + _SPH_MARKER_COLUMN_SRC
 
 
-def _get_sph_marker_column_kernel(name):
-    if name not in _sph_marker_column_kernels:
-        import cupy as cp
-
-        from struphy.pic.pushing.pusher_kernels_cuda import _GENERAL_GEOMETRY_SRC
-        from struphy.pic.pushing.pusher_kernels_sph_cuda import _SPH_PUSHER_SRC
-        from struphy.pic.sph_eval_kernels_cuda import _SPH_EVAL_FLAT_SRC
-
-        _sph_marker_column_kernels[name] = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC + _SPH_EVAL_FLAT_SRC + _SPH_PUSHER_SRC + _SPH_MARKER_COLUMN_SRC,
-            name,
-        )
-    return _sph_marker_column_kernels[name]
+_sph_marker_column_kernels = CudaKernelSet(_source)
 
 
 def _sph_marker_column_launch(
@@ -56,8 +53,6 @@ def _sph_marker_column_launch(
     import numpy as np
 
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     dev_valid = cp.ascontiguousarray(cp.asarray(valid_mks).astype(cp.int32, copy=False))
     dev_boxes = cp.ascontiguousarray(cp.asarray(boxes).astype(cp.int32, copy=False))
@@ -90,7 +85,7 @@ def _sph_marker_column_launch(
     if mu is not None:
         args.append(np.float64(mu))
 
-    _get_sph_marker_column_kernel(name)((blocks,), (threads,), tuple(args))
+    launch_1d(_sph_marker_column_kernels[name], n_markers, args)
 
 
 def sph_pressure_coeffs_gpu(

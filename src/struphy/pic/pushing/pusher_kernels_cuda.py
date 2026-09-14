@@ -48,21 +48,18 @@ backend these already live on the device (``StencilVector`` allocates via
 :meth:`~struphy.propagators.push_vin_efield.PushVinEfield.allocate` runs, so
 they are passed straight through with no transfer at all -- only the marker
 array round-trips through the device, exactly once per call.
+
+Every ``*_gpu`` function here is a thin wrapper around exactly one
+:class:`~struphy.cuda.CudaKernel` (declared at module level, right above the
+function that launches it): the kernel is compiled once, on first use, and
+the function itself only builds the argument tuple and calls
+:func:`~struphy.cuda.launch_1d`. If a function in this module does *not* sit
+next to a ``CudaKernel``, it does not touch the GPU.
 """
-from struphy.cuda import load_cuda_source
+from struphy.cuda import CudaKernel, launch_1d, load_cuda_source
 
 _PUSH_ETA_CUBOID_SRC = load_cuda_source(__file__, "pusher_kernels_cuda/_push_eta_cuboid_src.cu")
-
-_push_eta_cuboid_kernel = None
-
-
-def _get_kernel():
-    global _push_eta_cuboid_kernel
-    if _push_eta_cuboid_kernel is None:
-        import cupy as cp
-
-        _push_eta_cuboid_kernel = cp.RawKernel(_PUSH_ETA_CUBOID_SRC, "push_eta_stage_cuboid")
-    return _push_eta_cuboid_kernel
+_push_eta_cuboid_kernel = CudaKernel(_PUSH_ETA_CUBOID_SRC, "push_eta_stage_cuboid")
 
 
 def push_eta_stage_cuboid_gpu(
@@ -83,20 +80,14 @@ def push_eta_stage_cuboid_gpu(
     through the device in full, matching the pattern used by
     :meth:`~struphy.pic.pushing.pusher.Pusher._reset_marker_buffers_gpu`.
     """
-    import cupy as cp
     import numpy as np
 
-    kernel = _get_kernel()
     n_markers = markers.shape[0]
-
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_eta_cuboid_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(first_init_idx),
@@ -112,17 +103,7 @@ def push_eta_stage_cuboid_gpu(
 
 
 _PUSH_ETA_RK_PERIODIC_SRC = load_cuda_source(__file__, "pusher_kernels_cuda/_push_eta_rk_periodic_src.cu")
-
-_push_eta_rk_periodic_kernel = None
-
-
-def _get_periodic_kernel():
-    global _push_eta_rk_periodic_kernel
-    if _push_eta_rk_periodic_kernel is None:
-        import cupy as cp
-
-        _push_eta_rk_periodic_kernel = cp.RawKernel(_PUSH_ETA_RK_PERIODIC_SRC, "push_eta_rk_periodic")
-    return _push_eta_rk_periodic_kernel
+_push_eta_rk_periodic_kernel = CudaKernel(_PUSH_ETA_RK_PERIODIC_SRC, "push_eta_rk_periodic")
 
 
 def push_eta_rk_periodic_gpu(
@@ -151,13 +132,9 @@ def push_eta_rk_periodic_gpu(
     set to the -1.0 hole sentinel), so :meth:`~struphy.pic.base.Particles.update_holes`
     does not need to be called.
     """
-    import cupy as cp
     import numpy as np
 
-    kernel = _get_periodic_kernel()
     n_markers = markers.shape[0]
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
 
     dev = markers
 
@@ -168,9 +145,9 @@ def push_eta_rk_periodic_gpu(
 
     for stage in range(n_stages):
         last = 1.0 if stage == n_stages - 1 else 0.0
-        kernel(
-            (blocks,),
-            (threads,),
+        launch_1d(
+            _push_eta_rk_periodic_kernel,
+            n_markers,
             (
                 dev,
                 np.int32(n_cols),
@@ -189,17 +166,7 @@ def push_eta_rk_periodic_gpu(
 
 
 _PUSH_V_EFIELD_CUBOID_SRC = load_cuda_source(__file__, "pusher_kernels_cuda/_push_v_efield_cuboid_src.cu")
-
-_push_v_efield_cuboid_kernel = None
-
-
-def _get_v_efield_kernel():
-    global _push_v_efield_cuboid_kernel
-    if _push_v_efield_cuboid_kernel is None:
-        import cupy as cp
-
-        _push_v_efield_cuboid_kernel = cp.RawKernel(_PUSH_V_EFIELD_CUBOID_SRC, "push_v_with_efield_cuboid")
-    return _push_v_efield_cuboid_kernel
+_push_v_efield_cuboid_kernel = CudaKernel(_PUSH_V_EFIELD_CUBOID_SRC, "push_v_with_efield_cuboid")
 
 
 def push_v_with_efield_cuboid_gpu(
@@ -228,20 +195,14 @@ def push_v_with_efield_cuboid_gpu(
     them once rather than converting on every call, see
     :class:`~struphy.pic.pushing.pusher.Pusher`.
     """
-    import cupy as cp
     import numpy as np
 
-    kernel = _get_v_efield_kernel()
     n_markers = markers.shape[0]
-
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_v_efield_cuboid_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(pn[0]),
@@ -314,27 +275,8 @@ def push_v_with_efield_cuboid_gpu(
 
 _GENERAL_GEOMETRY_SRC = load_cuda_source(__file__, "pusher_kernels_cuda/_general_geometry_src.cu")
 
-_push_eta_general_kernel = None
-_push_v_efield_general_kernel = None
-
-
-def _get_eta_general_kernel():
-    global _push_eta_general_kernel
-    if _push_eta_general_kernel is None:
-        import cupy as cp
-
-        _push_eta_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_eta_stage_general")
-    return _push_eta_general_kernel
-
-
-def _get_v_efield_general_kernel():
-    global _push_v_efield_general_kernel
-    if _push_v_efield_general_kernel is None:
-        import cupy as cp
-
-        _push_v_efield_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_v_with_efield_general")
-    return _push_v_efield_general_kernel
-
+_push_eta_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_eta_stage_general")
+_push_v_efield_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_v_with_efield_general")
 
 #: kind_map values df_dispatch_dev supports (Cuboid, Colella). Callers should
 #: check membership before dispatching to the *_general_gpu functions below.
@@ -363,20 +305,14 @@ def push_eta_stage_general_gpu(
     (``args_domain.params``), expected to already be a small CuPy array
     (cheap to keep device-resident; callers should cache it once).
     """
-    import cupy as cp
     import numpy as np
 
-    kernel = _get_eta_general_kernel()
     n_markers = markers.shape[0]
-
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_eta_general_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(first_init_idx),
@@ -412,20 +348,14 @@ def push_v_with_efield_general_gpu(
     (``tn*_dev``/``e1_*_dev`` are expected to already be device-resident);
     ``params_dev`` follows :func:`push_eta_stage_general_gpu`.
     """
-    import cupy as cp
     import numpy as np
 
-    kernel = _get_v_efield_general_kernel()
     n_markers = markers.shape[0]
-
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_v_efield_general_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(pn[0]),
@@ -456,26 +386,8 @@ def push_v_with_efield_general_gpu(
     )
 
 
-_push_vxb_analytic_general_kernel = None
-_push_vxb_implicit_general_kernel = None
-
-
-def _get_vxb_analytic_general_kernel():
-    global _push_vxb_analytic_general_kernel
-    if _push_vxb_analytic_general_kernel is None:
-        import cupy as cp
-
-        _push_vxb_analytic_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_vxb_analytic_general")
-    return _push_vxb_analytic_general_kernel
-
-
-def _get_vxb_implicit_general_kernel():
-    global _push_vxb_implicit_general_kernel
-    if _push_vxb_implicit_general_kernel is None:
-        import cupy as cp
-
-        _push_vxb_implicit_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_vxb_implicit_general")
-    return _push_vxb_implicit_general_kernel
+_push_vxb_analytic_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_vxb_analytic_general")
+_push_vxb_implicit_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_vxb_implicit_general")
 
 
 def _launch_vxb_general(
@@ -495,18 +407,14 @@ def _launch_vxb_general(
     params_dev,
     dt,
 ):
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(first_init_idx),
@@ -561,7 +469,7 @@ def push_vxb_analytic_general_gpu(
     device-resident, ``params_dev`` the domain's mapping-parameter array).
     """
     _launch_vxb_general(
-        _get_vxb_analytic_general_kernel(),
+        _push_vxb_analytic_general_kernel,
         markers,
         n_cols,
         first_init_idx,
@@ -600,7 +508,7 @@ def push_vxb_implicit_general_gpu(
     Nicolson rotation), for any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`.
     See :func:`push_vxb_analytic_general_gpu` for argument conventions."""
     _launch_vxb_general(
-        _get_vxb_implicit_general_kernel(),
+        _push_vxb_implicit_general_kernel,
         markers,
         n_cols,
         first_init_idx,
@@ -618,36 +526,9 @@ def push_vxb_implicit_general_gpu(
     )
 
 
-_push_bxu_hdiv_general_kernel = None
-_push_bxu_hcurl_general_kernel = None
-_push_bxu_h1vec_general_kernel = None
-
-
-def _get_bxu_hdiv_general_kernel():
-    global _push_bxu_hdiv_general_kernel
-    if _push_bxu_hdiv_general_kernel is None:
-        import cupy as cp
-
-        _push_bxu_hdiv_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_bxu_Hdiv_general")
-    return _push_bxu_hdiv_general_kernel
-
-
-def _get_bxu_hcurl_general_kernel():
-    global _push_bxu_hcurl_general_kernel
-    if _push_bxu_hcurl_general_kernel is None:
-        import cupy as cp
-
-        _push_bxu_hcurl_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_bxu_Hcurl_general")
-    return _push_bxu_hcurl_general_kernel
-
-
-def _get_bxu_h1vec_general_kernel():
-    global _push_bxu_h1vec_general_kernel
-    if _push_bxu_h1vec_general_kernel is None:
-        import cupy as cp
-
-        _push_bxu_h1vec_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_bxu_H1vec_general")
-    return _push_bxu_h1vec_general_kernel
+_push_bxu_hdiv_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_bxu_Hdiv_general")
+_push_bxu_hcurl_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_bxu_Hcurl_general")
+_push_bxu_h1vec_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_bxu_H1vec_general")
 
 
 def _launch_bxu_general(
@@ -670,18 +551,14 @@ def _launch_bxu_general(
     boundary_cut,
     dt,
 ):
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(pn[0]),
@@ -746,7 +623,7 @@ def push_bxu_Hdiv_general_gpu(
     in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u2_*_dev`` is the U-field's
     2-form FE coefficients (same evaluation as ``b2_*_dev``)."""
     _launch_bxu_general(
-        _get_bxu_hdiv_general_kernel(),
+        _push_bxu_hdiv_general_kernel,
         markers,
         n_cols,
         pn,
@@ -791,7 +668,7 @@ def push_bxu_Hcurl_general_gpu(
     domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u1_*_dev`` is the
     U-field's 1-form FE coefficients."""
     _launch_bxu_general(
-        _get_bxu_hcurl_general_kernel(),
+        _push_bxu_hcurl_general_kernel,
         markers,
         n_cols,
         pn,
@@ -836,7 +713,7 @@ def push_bxu_H1vec_general_gpu(
     domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``uv_*_dev`` is the
     U-field's (H^1)^3 vector-field FE coefficients."""
     _launch_bxu_general(
-        _get_bxu_h1vec_general_kernel(),
+        _push_bxu_h1vec_general_kernel,
         markers,
         n_cols,
         pn,
@@ -857,26 +734,8 @@ def push_bxu_H1vec_general_gpu(
     )
 
 
-_push_pc_gxu_full_general_kernel = None
-_push_pc_gxu_general_kernel = None
-
-
-def _get_pc_gxu_full_general_kernel():
-    global _push_pc_gxu_full_general_kernel
-    if _push_pc_gxu_full_general_kernel is None:
-        import cupy as cp
-
-        _push_pc_gxu_full_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_pc_GXu_full_general")
-    return _push_pc_gxu_full_general_kernel
-
-
-def _get_pc_gxu_general_kernel():
-    global _push_pc_gxu_general_kernel
-    if _push_pc_gxu_general_kernel is None:
-        import cupy as cp
-
-        _push_pc_gxu_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_pc_GXu_general")
-    return _push_pc_gxu_general_kernel
+_push_pc_gxu_full_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_pc_GXu_full_general")
+_push_pc_gxu_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_pc_GXu_general")
 
 
 def push_pc_GXu_full_general_gpu(
@@ -906,19 +765,15 @@ def push_pc_GXu_full_general_gpu(
     coefficients of :math:`\\nabla_j(\\mathcal X \\cdot u)_i`, each row
     ``i`` a 1-form (same evaluation as ``push_v_with_efield_general_gpu``'s
     ``e1_*``)."""
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
     g = (g11_dev, g12_dev, g13_dev, g21_dev, g22_dev, g23_dev, g31_dev, g32_dev, g33_dev)
-    _get_pc_gxu_full_general_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_pc_gxu_full_general_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(pn[0]),
@@ -969,19 +824,15 @@ def push_pc_GXu_general_gpu(
     :func:`~struphy.pic.pushing.pusher_kernels.push_pc_GXu` (the 2-row
     variant of :func:`push_pc_GXu_full_general_gpu`), for any domain in
     :data:`SUPPORTED_GENERAL_KIND_MAPS`."""
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
     g = (g11_dev, g12_dev, g13_dev, g21_dev, g22_dev, g23_dev)
-    _get_pc_gxu_general_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_pc_gxu_general_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(pn[0]),
@@ -1010,36 +861,9 @@ def push_pc_GXu_general_gpu(
     )
 
 
-_push_pc_eta_hcurl_general_kernel = None
-_push_pc_eta_hdiv_general_kernel = None
-_push_pc_eta_h1vec_general_kernel = None
-
-
-def _get_pc_eta_hcurl_general_kernel():
-    global _push_pc_eta_hcurl_general_kernel
-    if _push_pc_eta_hcurl_general_kernel is None:
-        import cupy as cp
-
-        _push_pc_eta_hcurl_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_pc_eta_stage_Hcurl_general")
-    return _push_pc_eta_hcurl_general_kernel
-
-
-def _get_pc_eta_hdiv_general_kernel():
-    global _push_pc_eta_hdiv_general_kernel
-    if _push_pc_eta_hdiv_general_kernel is None:
-        import cupy as cp
-
-        _push_pc_eta_hdiv_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_pc_eta_stage_Hdiv_general")
-    return _push_pc_eta_hdiv_general_kernel
-
-
-def _get_pc_eta_h1vec_general_kernel():
-    global _push_pc_eta_h1vec_general_kernel
-    if _push_pc_eta_h1vec_general_kernel is None:
-        import cupy as cp
-
-        _push_pc_eta_h1vec_general_kernel = cp.RawKernel(_GENERAL_GEOMETRY_SRC, "push_pc_eta_stage_H1vec_general")
-    return _push_pc_eta_h1vec_general_kernel
+_push_pc_eta_hcurl_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_pc_eta_stage_Hcurl_general")
+_push_pc_eta_hdiv_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_pc_eta_stage_Hdiv_general")
+_push_pc_eta_h1vec_general_kernel = CudaKernel(_GENERAL_GEOMETRY_SRC, "push_pc_eta_stage_H1vec_general")
 
 
 def _launch_pc_eta_general(
@@ -1063,18 +887,14 @@ def _launch_pc_eta_general(
     dt_b,
     last,
 ):
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    kernel(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(first_init_idx),
@@ -1135,7 +955,7 @@ def push_pc_eta_stage_Hcurl_general_gpu(
     any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u_*_dev`` is the
     U-field's 1-form FE coefficients."""
     _launch_pc_eta_general(
-        _get_pc_eta_hcurl_general_kernel(),
+        _push_pc_eta_hcurl_general_kernel,
         markers,
         n_cols,
         first_init_idx,
@@ -1182,7 +1002,7 @@ def push_pc_eta_stage_Hdiv_general_gpu(
     any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u_*_dev`` is the
     U-field's 2-form FE coefficients."""
     _launch_pc_eta_general(
-        _get_pc_eta_hdiv_general_kernel(),
+        _push_pc_eta_hdiv_general_kernel,
         markers,
         n_cols,
         first_init_idx,
@@ -1229,7 +1049,7 @@ def push_pc_eta_stage_H1vec_general_gpu(
     any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``u_*_dev`` is the
     U-field's (H^1)^3 vector-field FE coefficients."""
     _launch_pc_eta_general(
-        _get_pc_eta_h1vec_general_kernel(),
+        _push_pc_eta_h1vec_general_kernel,
         markers,
         n_cols,
         first_init_idx,
@@ -1251,18 +1071,9 @@ def push_pc_eta_stage_H1vec_general_gpu(
     )
 
 
-_push_weights_efield_lin_va_general_kernel = None
-
-
-def _get_weights_efield_lin_va_general_kernel():
-    global _push_weights_efield_lin_va_general_kernel
-    if _push_weights_efield_lin_va_general_kernel is None:
-        import cupy as cp
-
-        _push_weights_efield_lin_va_general_kernel = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC, "push_weights_with_efield_lin_va_general"
-        )
-    return _push_weights_efield_lin_va_general_kernel
+_push_weights_efield_lin_va_general_kernel = CudaKernel(
+    _GENERAL_GEOMETRY_SRC, "push_weights_with_efield_lin_va_general"
+)
 
 
 def push_weights_with_efield_lin_va_general_gpu(
@@ -1293,15 +1104,12 @@ def push_weights_with_efield_lin_va_general_gpu(
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
     f0_dev = cp.ascontiguousarray(f0_values)
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    _get_weights_efield_lin_va_general_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_weights_efield_lin_va_general_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(pn[0]),
@@ -1335,18 +1143,9 @@ def push_weights_with_efield_lin_va_general_gpu(
     )
 
 
-_push_deterministic_diffusion_general_kernel = None
-
-
-def _get_deterministic_diffusion_general_kernel():
-    global _push_deterministic_diffusion_general_kernel
-    if _push_deterministic_diffusion_general_kernel is None:
-        import cupy as cp
-
-        _push_deterministic_diffusion_general_kernel = cp.RawKernel(
-            _GENERAL_GEOMETRY_SRC, "push_deterministic_diffusion_stage_general"
-        )
-    return _push_deterministic_diffusion_general_kernel
+_push_deterministic_diffusion_general_kernel = CudaKernel(
+    _GENERAL_GEOMETRY_SRC, "push_deterministic_diffusion_stage_general"
+)
 
 
 def push_deterministic_diffusion_stage_general_gpu(
@@ -1375,18 +1174,14 @@ def push_deterministic_diffusion_stage_general_gpu(
     for any domain in :data:`SUPPORTED_GENERAL_KIND_MAPS`. ``pi_u_dev`` is
     the 0-form FE coefficients of the (fixed-in-time) density, ``pi_grad_u{1,2,3}_dev``
     its gradient as a 1-form."""
-    import cupy as cp
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    _get_deterministic_diffusion_general_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_deterministic_diffusion_general_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             np.int32(first_init_idx),
@@ -1431,17 +1226,7 @@ def push_deterministic_diffusion_stage_general_gpu(
 # _GENERAL_GEOMETRY_SRC -- it applies to every domain, not just
 # SUPPORTED_GENERAL_KIND_MAPS.
 _RANDOM_DIFFUSION_SRC = load_cuda_source(__file__, "pusher_kernels_cuda/_random_diffusion_src.cu")
-
-_push_random_diffusion_kernel = None
-
-
-def _get_random_diffusion_kernel():
-    global _push_random_diffusion_kernel
-    if _push_random_diffusion_kernel is None:
-        import cupy as cp
-
-        _push_random_diffusion_kernel = cp.RawKernel(_RANDOM_DIFFUSION_SRC, "push_random_diffusion_stage")
-    return _push_random_diffusion_kernel
+_push_random_diffusion_kernel = CudaKernel(_RANDOM_DIFFUSION_SRC, "push_random_diffusion_stage")
 
 
 def push_random_diffusion_stage_gpu(markers, n_cols, noise, diffusion_coeff: float, dt: float):
@@ -1458,18 +1243,15 @@ def push_random_diffusion_stage_gpu(markers, n_cols, noise, diffusion_coeff: flo
     import numpy as np
 
     n_markers = markers.shape[0]
-    dev = markers
     # cp.asarray takes host or device input; np.ascontiguousarray would raise on a
     # device array rather than transferring it.
     noise_dev = cp.ascontiguousarray(cp.asarray(noise, dtype=cp.float64))
     scale = float(np.sqrt(2.0 * dt * diffusion_coeff))
-    threads = 256
-    blocks = (n_markers + threads - 1) // threads
-    _get_random_diffusion_kernel()(
-        (blocks,),
-        (threads,),
+    launch_1d(
+        _push_random_diffusion_kernel,
+        n_markers,
         (
-            dev,
+            markers,
             np.int32(n_cols),
             np.int32(n_markers),
             noise_dev,
