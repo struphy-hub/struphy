@@ -164,8 +164,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self):
-        """Solve initial Poisson equation.
+    def post_allocate(self):
+        """Solve initial Poisson equation and allocate helper arrays.
 
         :meta private:
         """

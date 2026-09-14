@@ -133,4 +133,4 @@ def test_poisson_1d(do_plot=False):
 
 
 if __name__ == "__main__":
-    test_poisson_1d(do_plot=False)
+    test_poisson_1d(do_plot=True)

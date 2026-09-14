@@ -79,7 +79,7 @@ class Poisson(StruphyModel):
     def velocity_scale(self):
         return None
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         """Solve initial Poisson equation.
 
         :meta private:
