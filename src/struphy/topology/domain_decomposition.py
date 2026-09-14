@@ -173,10 +173,6 @@ def optimize_domain_decomposition(
         process-grid extent, and ``"auto"`` lets the optimizer vary it. For
         example, ``(1, "auto", "auto")`` requires one process in the first
         direction.
-    mask_pattern
-        Optional per-direction constraint. Use ``True`` or ``False`` to fix a
-        direction and ``"auto"`` to let the optimizer vary it, e.g.
-        ``(True, "auto", "auto")``.
 
     Returns
     -------
