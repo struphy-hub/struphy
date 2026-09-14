@@ -1577,6 +1577,24 @@ class PlottingData:
         """
         return self._n_sph
 
+    @property
+    def plot(self):
+        """Plotting methods bound to this run's data and metadata.
+
+        Examples
+        --------
+        >>> pdata.plot.scalars()
+        >>> pdata.plot.time_series("electric_energy", fit=True)
+        >>> pdata.plot.slider(pdata.f.kinetic_ions["e1_v1_density"]["f_binned"])
+        """
+        if not hasattr(self, "_plot_accessor"):
+            # Keep matplotlib and the plotting implementation out of the data-loading
+            # import path until a plot is actually requested.
+            from struphy.diagnostics.plotting import PlottingAccessor
+
+            self._plot_accessor = PlottingAccessor(self)
+        return self._plot_accessor
+
     def load_scalars(self, *, physical_time: bool = True):
         """Read the ``scalar`` group of the raw HDF5 output into :attr:`scalars`.
 

@@ -146,6 +146,14 @@ def test_containers_are_discoverable(pdata):
     assert "e1_v1_density" in pdata.f["kinetic_ions"]
 
 
+def test_plot_accessor_is_created_lazily_and_cached(pdata):
+    from struphy.diagnostics.plotting import PlottingAccessor
+
+    assert not hasattr(pdata, "_plot_accessor")
+    assert isinstance(pdata.plot, PlottingAccessor)
+    assert pdata.plot is pdata.plot
+
+
 def test_field_becomes_one_labeled_array(pdata):
     """The chain the migrated plotting scripts use."""
     field = pdata.spline_values["em_fields"]["e_field_log"].array

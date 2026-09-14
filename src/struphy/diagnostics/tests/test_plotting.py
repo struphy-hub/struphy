@@ -5,6 +5,7 @@ plotters derive from the data rather than the appearance of the result.
 """
 
 import os
+from types import SimpleNamespace
 
 import matplotlib
 import numpy as np
@@ -19,6 +20,7 @@ from struphy.diagnostics.plotting import (  # noqa: E402
     AnimationPlot,
     MarkerTrajectoryPlot,
     PanelGridPlot,
+    PlottingAccessor,
     ScalarsPlot,
     Slice2DPlot,
     SliderPlot,
@@ -267,6 +269,51 @@ def test_marker_trajectory_handles_a_species_without_weights():
 
     without_weight = wrap_orbits(np.random.default_rng(2).random((5, 20, 5)), np.arange(5.0))
     assert MarkerTrajectoryPlot(without_weight, max_markers=4).plot().fig is not None
+
+
+# ---------------------------------------------------------------- PlottingData accessor
+
+
+@pytest.fixture
+def plot_accessor():
+    data = SimpleNamespace(
+        params=object(),
+        scalars=scalars(),
+        orbits={"ions": wrap_orbits(np.random.default_rng(2).random((5, 20, 8)), np.arange(5.0))},
+    )
+    return PlottingAccessor(data)
+
+
+def test_plot_accessor_draws_scalars_with_run_context(plot_accessor):
+    plot = plot_accessor.scalars(error_panel="en_tot")
+
+    assert isinstance(plot, ScalarsPlot)
+    assert plot.fig is not None
+    assert plot.params is plot_accessor.data.params
+
+
+def test_plot_accessor_resolves_scalar_names(plot_accessor):
+    plot = plot_accessor.time_series(["en_e", "en_b"], logy=False)
+
+    assert isinstance(plot, TimeSeriesPlot)
+    assert [series.label for series in plot.series] == ["en e", "en b"]
+    assert len(plot.ax.get_lines()) == 2
+
+
+def test_plot_accessor_draws_2d_views(plot_accessor):
+    data = phase_space()
+
+    assert isinstance(plot_accessor.slice(data.isel(t=0)), Slice2DPlot)
+    assert isinstance(plot_accessor.panels(data, nrows=1, ncols=2), PanelGridPlot)
+    assert isinstance(plot_accessor.slider(data), SliderPlot)
+    assert isinstance(plot_accessor.animation(data), AnimationPlot)
+
+
+def test_plot_accessor_resolves_orbit_species(plot_accessor):
+    plot = plot_accessor.orbits("ions", max_markers=4)
+
+    assert isinstance(plot, MarkerTrajectoryPlot)
+    assert plot.data is plot_accessor.data.orbits["ions"]
 
 
 def test_animation_writes_one_frame_per_step(tmp_path):

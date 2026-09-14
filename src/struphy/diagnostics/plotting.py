@@ -962,6 +962,60 @@ class MarkerTrajectoryPlot(StruphyPlot):
         slider.on_changed(update)
 
 
+class PlottingAccessor:
+    """High-level plotting methods bound to a loaded ``PlottingData`` instance.
+
+    The accessor supplies run metadata automatically and resolves scalar and orbit
+    names from their containers. Each method draws immediately and returns the
+    underlying :class:`StruphyPlot`, preserving access to its axes, fit results,
+    sliders and saving methods.
+    """
+
+    def __init__(self, plotting_data):
+        self.data = plotting_data
+
+    def _draw(self, plot_type, data, **kwargs):
+        kwargs.setdefault("params", self.data.params)
+        return plot_type(data, **kwargs).plot()
+
+    def _scalar_series(self, data):
+        if isinstance(data, str):
+            return self.data.scalars[data]
+        if isinstance(data, StruphyArray):
+            return data
+        return [self.data.scalars[item] if isinstance(item, str) else item for item in data]
+
+    def scalars(self, **kwargs) -> ScalarsPlot:
+        """Draw the overview of the run's scalar diagnostics."""
+        return self._draw(ScalarsPlot, self.data.scalars, **kwargs)
+
+    def time_series(self, data, **kwargs) -> TimeSeriesPlot:
+        """Draw one or more time series, accepting scalar names or arrays."""
+        return self._draw(TimeSeriesPlot, self._scalar_series(data), **kwargs)
+
+    def slice(self, data: StruphyArray, **kwargs) -> Slice2DPlot:
+        """Draw one two-dimensional array or selected snapshot."""
+        return self._draw(Slice2DPlot, data, **kwargs)
+
+    def panels(self, data: StruphyArray, **kwargs) -> PanelGridPlot:
+        """Draw evenly spaced snapshots of a time-dependent 2D array."""
+        return self._draw(PanelGridPlot, data, **kwargs)
+
+    def slider(self, data: StruphyArray, **kwargs) -> SliderPlot:
+        """Draw a 2D array with time and optional cut-plane sliders."""
+        return self._draw(SliderPlot, data, **kwargs)
+
+    def animation(self, data: StruphyArray, **kwargs) -> AnimationPlot:
+        """Draw the initial view of a time-dependent 2D animation."""
+        return self._draw(AnimationPlot, data, **kwargs)
+
+    def orbits(self, data, **kwargs) -> MarkerTrajectoryPlot:
+        """Draw marker trajectories, accepting either a species name or an array."""
+        if isinstance(data, str):
+            data = self.data.orbits[data]
+        return self._draw(MarkerTrajectoryPlot, data, **kwargs)
+
+
 def save_all_scalars(
     scalars,
     directory,
