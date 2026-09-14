@@ -5,6 +5,7 @@ from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.solver import inverse as struphy_inverse
 
 
 class SchurSolver:
@@ -70,9 +71,30 @@ class SchurSolver:
         # linear operators
         self._A = A
         self._BC = BC
+        # Set by the A/BC property setters whenever a caller reassigns either (e.g.
+        # VlasovAmpereCoupling/EfieldWeightsCoupling rebuild `.BC` from a fresh, particle-dependent
+        # operator every call); only consulted for petsc, see below.
+        self._schur_dirty = True
 
-        # Allocate memory for matrices used in solving the Schur system
-        self._schur = A.copy()
+        self._is_petsc = solver_name == "petsc"
+
+        if self._is_petsc:
+            # PETScSolver caches its assembled PETSc.Mat by the *object identity* of `linop`
+            # (see PETScSolver._get_ksp), rebuilding only when that identity changes -- exactly
+            # the mechanism ImplicitDiffusion relies on (see its lhs-operator caching). The
+            # in-place-mutated `self._schur` buffer below defeats that: it is the same Python
+            # object on every call, so PETScSolver would keep the *first* call's matrix forever,
+            # silently going stale if `dt`, `A` or `BC` ever change. So for petsc, `self._schur`
+            # is instead a fresh composite operator, rebuilt only when `dt` changes or `.A`/`.BC`
+            # were reassigned (`self._schur_dirty`) -- see __call__. Callers that mutate an
+            # operator obtained via the `A`/`BC` getters in place, without reassigning it through
+            # the setter, would not be detected -- no current caller does this.
+            self._schur = None
+            self._schur_dt = None
+        else:
+            # Allocate memory for matrices used in solving the Schur system
+            self._schur = A.copy()
+
         self._rhs_m = A.copy()
 
         # initialize solver with dummy matrix A
@@ -83,7 +105,19 @@ class SchurSolver:
         if precond is not None:
             kwargs["pc"] = precond
 
-        self._solver = inverse(A, solver_name, **kwargs)
+        if self._is_petsc:
+            # struphy's inverse() dispatches "petsc" to PETScSolver and forwards pc_type; the
+            # dummy operator here is just to build the solver object -- __call__ always assigns
+            # the real one via `self._solver.linop` before solving.
+            self._solver = struphy_inverse(A, solver_name, **kwargs)
+        else:
+            # pc_type is petsc-only (see struphy.linear_algebra.solver.SolverParameters); this
+            # branch goes straight to feectools' own `inverse` (imported directly above, not
+            # struphy's petsc-aware wrapper, which would otherwise strip it), whose
+            # InverseLinearOperator subclasses forward unknown kwargs straight to their
+            # constructor and would raise on it.
+            kwargs.pop("pc_type", None)
+            self._solver = inverse(A, solver_name, **kwargs)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = A.codomain.zeros()
@@ -102,11 +136,17 @@ class SchurSolver:
     def A(self, a):
         """Upper left block from [[A B], [C Id]]."""
         self._A = a
+        # e.g. VlasovAmpereCoupling/EfieldWeightsCoupling reassign `.A`/`.BC` to a fresh
+        # (possibly particle-dependent) operator every call; `x.A *= y`-style augmented
+        # assignment also lands here (Python always re-invokes the setter). See the petsc
+        # cache-invalidation note in __init__/__call__.
+        self._schur_dirty = True
 
     @BC.setter
     def BC(self, bc):
         """Product from [[A B], [C Id]]."""
         self._BC = bc
+        self._schur_dirty = True
 
     @profile
     @ProfileManager.profile("solve: SchurSolver")
@@ -141,12 +181,19 @@ class SchurSolver:
         assert xn.space == self._A.domain
         assert Byn.space == self._A.codomain
 
-        # left- and right-hand side operators
-        self._schur *= 0.0
-        self._schur += self._BC
-        self._schur *= -(dt**2)
-        self._schur += self._A
+        # left-hand side operator
+        if self._is_petsc:
+            if self._schur is None or dt != self._schur_dt or self._schur_dirty:
+                self._schur = self._A - (dt**2) * self._BC
+                self._schur_dt = dt
+                self._schur_dirty = False
+        else:
+            self._schur *= 0.0
+            self._schur += self._BC
+            self._schur *= -(dt**2)
+            self._schur += self._A
 
+        # right-hand side operator
         self._rhs_m *= 0.0
         self._rhs_m += self._BC
         self._rhs_m *= dt**2
@@ -224,7 +271,12 @@ class SchurSolverFull:
 
         self._S = self._A - self._B @ self._C
 
-        self._solver = inverse(self._S, solver_name, **solver_params)
+        # struphy_inverse dispatches solver_name="petsc" to PETScSolver and safely strips
+        # petsc-only kwargs (e.g. pc_type) for every other solver -- see SchurSolver, which needs
+        # this same dispatch but (unlike this class) also has to handle a stale-cache hazard from
+        # in-place operator mutation; no such hazard here since callers rebuild this whole object
+        # fresh each call rather than mutating `self._S` in place.
+        self._solver = struphy_inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
@@ -342,7 +394,8 @@ class SchurSolverFull3:
 
         self._S = self._A - self._B @ self._C - self._D @ self._E
 
-        self._solver = inverse(self._S, solver_name, **solver_params)
+        # see SchurSolverFull.__init__'s note on struphy_inverse
+        self._solver = struphy_inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
