@@ -106,6 +106,19 @@ def f(
             args.params[3],
             f_out,
         )
+    elif args.kind_map == 13:
+        mappings_kernels.magnetotail_slab(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            f_out,
+        )
     elif args.kind_map == 20:
         mappings_kernels.hollow_cyl(
             eta1,
@@ -139,6 +152,73 @@ def f(
             args.params[3],
             args.params[4],
             args.params[5],
+            f_out,
+        )
+    elif args.kind_map == 23:
+        mappings_kernels.diagnostic_port_hole_torus(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            args.params[7],
+            args.params[8],
+            f_out,
+        )
+    elif args.kind_map == 24:
+        mappings_kernels.geospace_flux_domain(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            f_out,
+        )
+    elif args.kind_map == 25:
+        mappings_kernels.warped_accretion_disk(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            f_out,
+        )
+    elif args.kind_map == 26:
+        mappings_kernels.spheromak(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            f_out,
+        )
+    elif args.kind_map == 27:
+        mappings_kernels.hall_effect_thruster_channel(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
             f_out,
         )
     elif args.kind_map == 30:
@@ -175,6 +255,16 @@ def f(
             args.params[4],
             args.params[5],
             args.params[6],
+            f_out,
+        )
+    elif args.kind_map == 50:
+        mappings_kernels.moebius_strip(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
             f_out,
         )
 
@@ -265,6 +355,19 @@ def df(
             args.params[3],
             df_out,
         )
+    elif args.kind_map == 13:
+        mappings_kernels.magnetotail_slab_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            df_out,
+        )
     elif args.kind_map == 20:
         mappings_kernels.hollow_cyl_df(
             eta1,
@@ -297,6 +400,73 @@ def df(
             args.params[3],
             args.params[4],
             args.params[5],
+            df_out,
+        )
+    elif args.kind_map == 23:
+        mappings_kernels.diagnostic_port_hole_torus_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            args.params[7],
+            args.params[8],
+            df_out,
+        )
+    elif args.kind_map == 24:
+        mappings_kernels.geospace_flux_domain_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            df_out,
+        )
+    elif args.kind_map == 25:
+        mappings_kernels.warped_accretion_disk_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            args.params[5],
+            args.params[6],
+            df_out,
+        )
+    elif args.kind_map == 26:
+        mappings_kernels.spheromak_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            df_out,
+        )
+    elif args.kind_map == 27:
+        mappings_kernels.hall_effect_thruster_channel_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
             df_out,
         )
     elif args.kind_map == 30:
@@ -333,6 +503,16 @@ def df(
             args.params[4],
             args.params[5],
             args.params[6],
+            df_out,
+        )
+    elif args.kind_map == 50:
+        mappings_kernels.moebius_strip_df(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
             df_out,
         )
 
@@ -435,7 +615,18 @@ def df_inv(
             dfinv_out[1, 2] = 0.0
             dfinv_out[2, 0] = 0.0
             dfinv_out[2, 1] = 0.0
+        elif args.kind_map == 13:
+            dfinv_out[0, 1] = 0.0
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
         elif args.kind_map == 20:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args.kind_map == 27:
             dfinv_out[0, 2] = 0.0
             dfinv_out[1, 2] = 0.0
             dfinv_out[2, 0] = 0.0
@@ -534,7 +725,19 @@ def g(
             g_out[1, 2] = 0.0
             g_out[2, 0] = 0.0
             g_out[2, 1] = 0.0
+        elif args.kind_map == 13:
+            g_out[0, 2] = 0.0
+            g_out[1, 2] = 0.0
+            g_out[2, 0] = 0.0
+            g_out[2, 1] = 0.0
         elif args.kind_map == 20:
+            g_out[0, 1] = 0.0
+            g_out[0, 2] = 0.0
+            g_out[1, 0] = 0.0
+            g_out[1, 2] = 0.0
+            g_out[2, 0] = 0.0
+            g_out[2, 1] = 0.0
+        elif args.kind_map == 27:
             g_out[0, 1] = 0.0
             g_out[0, 2] = 0.0
             g_out[1, 0] = 0.0
@@ -653,7 +856,19 @@ def g_inv(
             ginv_out[1, 2] = 0.0
             ginv_out[2, 0] = 0.0
             ginv_out[2, 1] = 0.0
+        elif args.kind_map == 13:
+            ginv_out[0, 2] = 0.0
+            ginv_out[1, 2] = 0.0
+            ginv_out[2, 0] = 0.0
+            ginv_out[2, 1] = 0.0
         elif args.kind_map == 20:
+            ginv_out[0, 1] = 0.0
+            ginv_out[0, 2] = 0.0
+            ginv_out[1, 0] = 0.0
+            ginv_out[1, 2] = 0.0
+            ginv_out[2, 0] = 0.0
+            ginv_out[2, 1] = 0.0
+        elif args.kind_map == 27:
             ginv_out[0, 1] = 0.0
             ginv_out[0, 2] = 0.0
             ginv_out[1, 0] = 0.0
