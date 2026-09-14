@@ -110,7 +110,7 @@ class GuidingCenter(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         pass
 
     def _compute_en_fB(self):

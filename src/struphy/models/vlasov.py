@@ -90,7 +90,7 @@ class Vlasov(StruphyModel):
     def velocity_scale(self):
         return "cyclotron"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         pass
 
     @classmethod
