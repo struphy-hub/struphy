@@ -244,7 +244,8 @@ def plot_slice(data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None,
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         mesh = ax.pcolormesh(xgrid, ygrid, np.asarray(selected), shading="auto", vmin=vmin, vmax=vmax)
         fig.colorbar(mesh, ax=ax, label=value_label(data))
-        if equal_aspect if equal_aspect is not None else view.coordinates == "physical":
+        use_equal_aspect = view.coordinates == "physical" if equal_aspect is None else equal_aspect
+        if use_equal_aspect:
             ax.set_aspect("equal", adjustable="box")
         ax.set(xlabel=xlabel, ylabel=ylabel, title=title if title is not None else _label(data))
         ax.grid(False)

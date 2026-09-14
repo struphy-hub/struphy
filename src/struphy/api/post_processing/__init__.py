@@ -18,17 +18,18 @@ def post_process(
 ) -> RunOutput:
     """Process a completed run and return its lazy :class:`RunOutput`."""
     if sim is not None:
-        sim.pproc(step=step, celldivide=celldivide, physical=physical,
-                  guiding_center=guiding_center, classify=classify,
-                  create_vtk=create_vtk, force=force, load=True)
-        return RunOutput(sim=sim)
+        return sim.pproc(step=step, celldivide=celldivide, physical=physical,
+                         guiding_center=guiding_center, classify=classify,
+                         create_vtk=create_vtk, force=force, load=True)
     if path_out is None:
         raise ValueError("path_out or sim is required")
-    processor = PostProcessor(path_out=path_out)
+    processor = PostProcessor(sim=None, path_out=path_out)
     processor.process(step=step, celldivide=celldivide, physical=physical,
                       guiding_center=guiding_center, classify=classify,
                       create_vtk=create_vtk, force=force)
-    return RunOutput(path_out=path_out)
+    data = PlottingData(sim=None, path_out=path_out)
+    data.load()
+    return data
 
 
 __all__ = ["PostProcessor", "RunOutput", "PlottingData", "post_process"]

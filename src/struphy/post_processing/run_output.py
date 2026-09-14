@@ -41,6 +41,51 @@ class ProductMapping(Mapping[str, xr.DataArray]):
         self._cache.clear()
 
 
+class _ProductValue:
+    """Attribute view used only by legacy examples during the transition."""
+
+    def __init__(self, mapping, key):
+        self._mapping, self._key = mapping, key
+
+    @property
+    def array(self):
+        return self._mapping[self._key]
+
+    def __getattr__(self, name):
+        data = self.array
+        if name.startswith("grid_"):
+            return data.coords[name.removeprefix("grid_")].values
+        if name in data.attrs:
+            return data.attrs[name]
+        return getattr(data, name)
+
+    def __getitem__(self, key):
+        return self.array[key]
+
+    def __len__(self):
+        return self.array.sizes[self.array.dims[0]]
+
+    def __array__(self, dtype=None):
+        return np.asarray(self.array, dtype=dtype)
+
+
+class _ProductNamespace:
+    def __init__(self, mapping, prefix=""):
+        self._mapping, self._prefix = mapping, prefix
+
+    def __getattr__(self, name):
+        key = f"{self._prefix}/{name}" if self._prefix else name
+        if key in self._mapping:
+            return _ProductValue(self._mapping, key)
+        prefix = key + "/"
+        if any(product.startswith(prefix) for product in self._mapping):
+            return _ProductNamespace(self._mapping, key)
+        raise AttributeError(f"{name!r}; available products: {tuple(self._mapping)}")
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+
 class PlotAccessor:
     """Convenient plotting entry points bound to a run."""
 
@@ -102,6 +147,26 @@ class RunOutput:
         if path_out is None:
             raise ValueError("path_out or sim is required")
         return cls(path_out, time_units=time_units)
+
+    def load(self):
+        """Materialize no arrays; retained as an explicit migration no-op."""
+        return self
+
+    @property
+    def t_grid(self):
+        return self.time
+
+    @property
+    def f(self):
+        return _ProductNamespace(self.distributions)
+
+    @property
+    def spline_values(self):
+        return _ProductNamespace(self.fields)
+
+    @property
+    def n_sph(self):
+        return _ProductNamespace(self.densities)
 
     @property
     def params(self):
