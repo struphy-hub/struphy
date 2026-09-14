@@ -18,7 +18,7 @@ PARAMS_PATH = (
 
 
 @pytest.mark.mpi(min_size=2)
-def test_pproc_mpi():
+def test_pproc_mpi(show_plot=False):
 
     def do_plotting(sim: Simulation, from_parallel=False):
         sim.load_plotting_data()
@@ -43,32 +43,33 @@ def test_pproc_mpi():
 
         n = 0  # time index
 
-        plt.figure(figsize=(12, 12))
-        plt.subplot(2, 2, 1)
-        plt.plot(eta1, e_field.data[t_grid[n]][0][:, 0, 0], label="Ex")
-        plt.title(f"Ex at t={t_grid[n]} on rank 0{extra}")
-        plt.xlabel("$\\eta1$")
-        plt.ylabel("Ex")
-        plt.legend()
+        if show_plot:
+            plt.figure(figsize=(12, 12))
+            plt.subplot(2, 2, 1)
+            plt.plot(eta1, e_field.data[t_grid[n]][0][:, 0, 0], label="Ex")
+            plt.title(f"Ex at t={t_grid[n]} on rank 0{extra}")
+            plt.xlabel("$\\eta1$")
+            plt.ylabel("Ex")
+            plt.legend()
 
-        plt.subplot(2, 2, 2)
-        plt.plot(eta1, phi.data[t_grid[n]][0][:, 0, 0], label="phi")
-        plt.title(f"phi at t={t_grid[n]} on rank 0{extra}")
-        plt.xlabel("$\\eta1$")
-        plt.ylabel("phi")
-        plt.legend()
+            plt.subplot(2, 2, 2)
+            plt.plot(eta1, phi.data[t_grid[n]][0][:, 0, 0], label="phi")
+            plt.title(f"phi at t={t_grid[n]} on rank 0{extra}")
+            plt.xlabel("$\\eta1$")
+            plt.ylabel("phi")
+            plt.legend()
 
-        plt.subplot(2, 2, 3)
-        plt.pcolor(bins_e1, bins_v1, f_binned[n].T, shading="auto")
-        plt.title(f"full f at t={t_grid[n]} on rank 0{extra}")
-        plt.xlabel("$\\eta1$")
-        plt.ylabel("$v_x$")
+            plt.subplot(2, 2, 3)
+            plt.pcolor(bins_e1, bins_v1, f_binned[n].T, shading="auto")
+            plt.title(f"full f at t={t_grid[n]} on rank 0{extra}")
+            plt.xlabel("$\\eta1$")
+            plt.ylabel("$v_x$")
 
-        plt.subplot(2, 2, 4)
-        plt.pcolor(bins_e1, bins_v1, df_binned[n].T, shading="auto")
-        plt.title(f"delta f at t={t_grid[n]} on rank 0{extra}")
-        plt.xlabel("$\\eta1$")
-        plt.ylabel("$v_x$")
+            plt.subplot(2, 2, 4)
+            plt.pcolor(bins_e1, bins_v1, df_binned[n].T, shading="auto")
+            plt.title(f"delta f at t={t_grid[n]} on rank 0{extra}")
+            plt.xlabel("$\\eta1$")
+            plt.ylabel("$v_x$")
 
         return (
             e_field.data[t_grid[n]][0][:, 0, 0],
@@ -95,7 +96,8 @@ def test_pproc_mpi():
     # plot and compare results from serial and parallel pproc
     if MPI.COMM_WORLD.Get_rank() == 0:
         r1_mpi, r2_mpi, r3_mpi, r4_mpi = do_plotting(sim, from_parallel=True)
-        plt.show()
+        if show_plot:
+            plt.show()
 
         assert np.allclose(r1, r1_mpi)
         assert np.allclose(r2, r2_mpi)
@@ -105,4 +107,4 @@ def test_pproc_mpi():
 
 
 if __name__ == "__main__":
-    test_pproc_mpi()
+    test_pproc_mpi(show_plot=True)
