@@ -1,3 +1,5 @@
+
+
 # Read the Docs configuration file
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
 
@@ -36,11 +38,13 @@ build:
 
 # Build documentation in the "doc/" directory with Sphinx
 sphinx:
-  configuration: doc/conf.py
+   configuration: doc/conf.py
 
 # Optionally, but recommended,
 # declare the Python requirements required to build your documentation
 # See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
 python:
-  install:
-    - requirements: doc/requirements.txt
+   install:
+   - requirements: doc/requirements.txt
+        
+
