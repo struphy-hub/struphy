@@ -1,6 +1,6 @@
 name: "Install MacOS prereqs"
 
-description:
+description: 
 
 runs:
   using: composite
@@ -32,3 +32,4 @@ runs:
         echo "FC=$(which gfortran)" >> $GITHUB_ENV # for gvec
         echo "CC=$(which gcc)" >> $GITHUB_ENV # for gvec
         echo "CXX=$(which g++)" >> $GITHUB_ENV # for gvec
+        

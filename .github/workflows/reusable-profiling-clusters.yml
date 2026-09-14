@@ -42,7 +42,7 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/max-models/whereami/main/install.sh | bash
           export PATH="${HOME}/.local/bin:${PATH}"
           whereami
-
+      
       - name: Create a virtual environment for Fortran
         shell: bash
         run: |
@@ -62,7 +62,7 @@ jobs:
           fi
           source "$VENV_NAME/bin/activate"
           echo "Activated virtual environment"
-
+      
       - name: Install dependencies
         shell: bash
         run: |
@@ -80,7 +80,7 @@ jobs:
           source .venv-fortran/bin/activate
           # python -c "import struphy; print(struphy.__version__)"
           struphy --help
-
+      
       - name: Verify MPI installation
         shell: bash
         run: |

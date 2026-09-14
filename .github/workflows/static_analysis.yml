@@ -33,7 +33,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          submodules: true # This is crucial!
+          submodules: true  # This is crucial!
           fetch-depth: 5
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -117,7 +117,7 @@ jobs:
         run: |
           pip install ruff==0.15.0
           ruff check
-
+      
       # - name: ruff format --check
       #   run: |
       #     ruff format --check

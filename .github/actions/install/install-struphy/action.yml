@@ -1,12 +1,12 @@
 name: "Install struphy (in virtual environment)"
 
-description:
+description: 
 
 inputs:
-  env-name:
+  env-name: 
     default: ""
   optional-deps:
-    default: "dev"
+    default: 'dev'
 
 runs:
   using: composite

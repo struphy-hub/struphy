@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: "PR number to build/publish a preview for"
+        description: 'PR number to build/publish a preview for'
         required: true
 
 concurrency:
@@ -94,7 +94,7 @@ jobs:
       - name: Install Struphy (dev-doc)
         uses: ./.github/actions/install/install-struphy
         with:
-          optional-deps: "dev,doc"
+          optional-deps: 'dev,doc'
 
       - name: Compile Struphy
         uses: ./.github/actions/compile

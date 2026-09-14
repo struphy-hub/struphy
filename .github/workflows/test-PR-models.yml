@@ -37,7 +37,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          submodules: true # This is crucial!
+          submodules: true  # This is crucial!
           fetch-depth: 5
 
       - name: Check .testmondata 1
@@ -94,7 +94,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          pytest -x -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/default_params/
+          pytest -x -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/default_params/ 
 
       - name: Verification tests
         shell: bash

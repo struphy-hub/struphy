@@ -1,10 +1,11 @@
 name: "Clone and install struphy"
 
-description:
+description: 
 
 runs:
   using: composite
   steps:
+
     - name: Install struphy
       shell: bash
       run: |
