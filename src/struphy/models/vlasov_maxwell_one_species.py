@@ -167,7 +167,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         """Solve initial Poisson equation.
 
         :meta private:

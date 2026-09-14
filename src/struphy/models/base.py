@@ -80,8 +80,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must specify the dominant plasma species.
     velocity_scale : property
         Must return velocity scale: "alfvén", "cyclotron", "light", or "thermal".
-    allocate_helpers : method
-        Must allocate helper arrays and perform initial solves.
+    post_allocate : method
+        Must perform operations after main allocation and before time stepping.
     Propagators : class
         Must define the propagators used for time integration.
     __init__ : method
@@ -118,8 +118,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
             def velocity_scale(self):
                 return "thermal"
 
-            def allocate_helpers(self):
-                # Initialize helper arrays
+            def post_allocate(self):
+                # Perform operations after main allocation and before time stepping
                 pass
 
             class Propagators:
@@ -157,8 +157,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
 
     @abstractmethod
-    def allocate_helpers(self):
-        """Allocate helper arrays and perform initial solves if needed."""
+    def post_allocate(self):
+        """Perform operations after main allocation and before time stepping."""
 
     # --------------
     # Common methods

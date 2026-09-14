@@ -29,7 +29,7 @@ from struphy.models import VlasovAmpereOneSpecies
 logger = logging.getLogger("struphy")
 
 
-def test_weak_Landau(do_plot: bool = False):
+def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.
     """
@@ -100,6 +100,10 @@ def test_weak_Landau(do_plot: bool = False):
     )
 
     # run
+    if exit_before_run:
+        logger.info("Exiting before running simulation.")
+        return sim
+
     sim.run()
 
     # post processing not needed for scalar data

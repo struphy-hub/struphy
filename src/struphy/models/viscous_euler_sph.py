@@ -105,7 +105,7 @@ class ViscousEulerSPH(StruphyModel):
     def velocity_scale(self):
         return "thermal"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         pass
 
     ## default parameters
