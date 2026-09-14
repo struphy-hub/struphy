@@ -12,14 +12,6 @@ Homogeneous Dirichlet boundary conditions are set in direction x.
 """
 
 import logging
-import os
-
-# This is a CPU-only scaling test: pin the backend before the first `struphy` import,
-# since `cunumpy` (imported transitively as soon as `struphy` is) reads ARRAY_BACKEND
-# once at import time. Without this, an ARRAY_BACKEND=cupy left set in the submitting
-# shell/job environment silently leaks in and the run fails or hangs instead of using
-# the intended NumPy path.
-os.environ["ARRAY_BACKEND"] = "numpy"
 
 from struphy import set_logging_level
 
@@ -35,7 +27,6 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
-    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -89,12 +80,7 @@ domain = domains.Cuboid(r1=Lx, l2=-Ly/2, r2=Ly/2, r3=Lz)
 equil = None
 
 # Grid
-# 256**3 elements never finished the 1-rank end of this strong scaling sweep within the
-# dcgp_fua_dbg queue's 15-minute limit (a single-core PCG solve on that many DOFs takes far
-# longer). 96**3 finishes 1 rank in ~75s locally while keeping the RHS/Phi convergence
-# checks below well below their asserted thresholds (32**3/64**3 undershoot the manufactured
-# solution's resolution needs and fail or nearly fail those asserts further down).
-grid = grids.TensorProductGrid(num_elements=(96, 96, 96), mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=(256, 256, 256), mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
@@ -111,7 +97,6 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
-    profiling_opts=ProfilingOptions(label="Poisson-3D"),
 )
 
 # ------------------

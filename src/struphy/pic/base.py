@@ -52,16 +52,11 @@ from struphy.particles.parameters import (
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import eval_kernels_sph
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
-from struphy.pic.pushing.pusher_utilities_kernels_cuda import reflect_gpu
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
     assign_particles_to_boxes,
     sort_boxed_particles,
-)
-from struphy.pic.sorting_kernels_cuda import (
-    assign_box_to_each_particle_gpu,
-    assign_particles_to_boxes_gpu,
 )
 from struphy.pic.sph_eval_kernels import (
     box_based_evaluation_flat,
@@ -69,12 +64,6 @@ from struphy.pic.sph_eval_kernels import (
     distance,
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
-)
-from struphy.pic.sph_eval_kernels_cuda import (
-    box_based_evaluation_flat_gpu,
-    box_based_evaluation_meshgrid_gpu,
-    naive_evaluation_flat_gpu,
-    naive_evaluation_meshgrid_gpu,
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
@@ -814,15 +803,6 @@ class Particles(metaclass=ABCMeta):
             * domain_array[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
         """
         return self._domain_array
-
-    @property
-    def _reflect_params_dev(self):
-        """Domain mapping parameters on the device, cached for :func:`reflect_gpu`."""
-        if getattr(self, "_reflect_params_dev_cache", None) is None:
-            self._reflect_params_dev_cache = xp.asarray(
-                np.asarray(self.domain.args_domain.params, dtype=float),
-            )
-        return self._reflect_params_dev_cache
 
     @property
     def domain_array_dev(self):
@@ -2104,27 +2084,15 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
-            # flip velocity
-            from struphy.pic.pushing.pusher_kernels_cuda import SUPPORTED_GENERAL_KIND_MAPS
-
-            if xp.cupy_backend and self.domain.args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS:
-                reflect_gpu(
-                    self.markers,
-                    int(self.domain.args_domain.kind_map),
-                    self._reflect_params_dev,
-                    outside_inds_per_axis[axis],
+            # flip velocity via the compiled host-only kernel, through the
+            # marker host mirror.
+            with self.host_markers(write=True) as args_markers:
+                reflect(
+                    args_markers.markers,
+                    self.domain.args_domain,
+                    _to_numpy_for_kernel(outside_inds_per_axis[axis]),
                     axis,
                 )
-            else:
-                # no CUDA port for this domain kind_map: fall back to the
-                # compiled host-only kernel via the marker host mirror.
-                with self.host_markers(write=True) as args_markers:
-                    reflect(
-                        args_markers.markers,
-                        self.domain.args_domain,
-                        _to_numpy_for_kernel(outside_inds_per_axis[axis]),
-                        axis,
-                    )
 
     def update_holes(self, update_valid_mks: bool = True):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
@@ -2169,24 +2137,14 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbouring processes are also communicated (as ghost particles)."""
         self._remove_ghost_particles()
 
-        if xp.cupy_backend:
-            assign_box_to_each_particle_gpu(
-                self.markers,
-                self.holes,
-                self._sorting_boxes.nx,
-                self._sorting_boxes.ny,
-                self._sorting_boxes.nz,
-                self.domain_array[self.mpi_rank],
-            )
-        else:
-            assign_box_to_each_particle(
-                self.markers,
-                self.holes,
-                self._sorting_boxes.nx,
-                self._sorting_boxes.ny,
-                self._sorting_boxes.nz,
-                self.domain_array[self.mpi_rank],
-            )
+        assign_box_to_each_particle(
+            self.markers,
+            self.holes,
+            self._sorting_boxes.nx,
+            self._sorting_boxes.ny,
+            self._sorting_boxes.nz,
+            self.domain_array[self.mpi_rank],
+        )
 
         self._check_and_assign_particles_to_boxes()
 
@@ -3394,20 +3352,12 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
             )
             self.mpi_comm.Abort()
 
-        if xp.cupy_backend:
-            assign_particles_to_boxes_gpu(
-                self.markers,
-                self.holes,
-                self._sorting_boxes._boxes,
-                self._sorting_boxes._next_index,
-            )
-        else:
-            assign_particles_to_boxes(
-                self.markers,
-                self.holes,
-                self._sorting_boxes._boxes,
-                self._sorting_boxes._next_index,
-            )
+        assign_particles_to_boxes(
+            self.markers,
+            self.holes,
+            self._sorting_boxes._boxes,
+            self._sorting_boxes._next_index,
+        )
 
     def _update_ghost_particles(self):
         """Refresh :attr:`~struphy.pic.base.Particles.ghost_particles`: a marker is flagged
@@ -4675,40 +4625,6 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.put_particles_in_boxes()
 
         if fast:
-            if xp.cupy_backend and len(_shp) in (1, 3):
-                # CUDA replacement for box_based_evaluation_flat/_meshgrid:
-                # one thread per evaluation point, see sph_eval_kernels_cuda.
-                if len(_shp) == 3:
-                    if _shp[0] > 1:
-                        assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
-                    if _shp[1] > 1:
-                        assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
-                    if _shp[2] > 1:
-                        assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                gpu_func = box_based_evaluation_flat_gpu if len(_shp) == 1 else box_based_evaluation_meshgrid_gpu
-                gpu_func(
-                    self.markers,
-                    eta1,
-                    eta2,
-                    eta3,
-                    self.sorting_boxes.nx,
-                    self.sorting_boxes.ny,
-                    self.sorting_boxes.nz,
-                    self.domain_array[self.mpi_rank],
-                    self.sorting_boxes.boxes,
-                    self.sorting_boxes.neighbours,
-                    self.holes,
-                    periodic1,
-                    periodic2,
-                    periodic3,
-                    index,
-                    ker_id,
-                    h1,
-                    h2,
-                    h3,
-                    out,
-                )
-                return out
             if len(_shp) == 1:
                 func = PyccelKernel(box_based_evaluation_flat)
             elif len(_shp) == 3:
@@ -4731,27 +4647,6 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 self.domain_array[self.mpi_rank],
                 self.sorting_boxes.boxes,
                 self.sorting_boxes.neighbours,
-                self.holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                index,
-                ker_id,
-                h1,
-                h2,
-                h3,
-                out,
-            )
-        elif xp.cupy_backend and len(_shp) in (1, 3):
-            # CUDA replacement for naive_evaluation_flat/_meshgrid: one
-            # thread per evaluation point, see sph_eval_kernels_cuda.
-            gpu_func = naive_evaluation_flat_gpu if len(_shp) == 1 else naive_evaluation_meshgrid_gpu
-            gpu_func(
-                self.markers,
-                float(self.Np),
-                eta1,
-                eta2,
-                eta3,
                 self.holes,
                 periodic1,
                 periodic2,

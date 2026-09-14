@@ -3,7 +3,6 @@
 import copy
 import importlib.util
 import logging
-import math
 import os
 import sys
 import warnings
@@ -11,7 +10,6 @@ from time import time
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-import numpy as np
 from line_profiler import profile
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
@@ -980,20 +978,12 @@ class AdhocTorus(AxisymmMHDequilibrium):
             self._p_i = None
 
         elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
-            # Built entirely with plain NumPy/math, never xp: this is a ~200-point,
-            # one-off host-side interpolation setup feeding scipy.integrate.quad and
-            # scipy.interpolate.UnivariateSpline, both host-only. Under the CuPy backend
-            # xp.sqrt() on a plain Python float returns a 0-d CuPy array rather than a
-            # float (see the comment in psi_r()), which quad's integrand cannot return
-            # and UnivariateSpline cannot accept -- using np/math here instead of xp
-            # sidesteps that entirely, at no cost since this never runs on the device
-            # regardless of backend.
-            r_i = np.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
+            r_i = xp.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
 
             def dpsi_dr(r):
-                return self.params["B0"] * r / (self.q_r(r) * math.sqrt(1 - r**2 / self.params["R0"] ** 2))
+                return self.params["B0"] * r / (self.q_r(r) * xp.sqrt(1 - r**2 / self.params["R0"] ** 2))
 
-            psis = np.zeros_like(r_i)
+            psis = xp.zeros_like(r_i)
 
             for i, rr in enumerate(r_i):
                 psis[i] = quad(dpsi_dr, 0.0, rr)[0]
@@ -1016,7 +1006,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
                     * (2 * self.q_r(r) - r * self.q_r(r, der=1))
                 )
 
-            ps = np.zeros_like(r_i)
+            ps = xp.zeros_like(r_i)
 
             for i, rr in enumerate(r_i):
                 ps[i] = quad(dp_dr, 0.0, rr)[0]
@@ -1093,21 +1083,12 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         # alternative profile (interpolated)
         elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
-            # UnivariateSpline is a host-only scipy object: a plain float still works
-            # directly, but under the CuPy backend even a "scalar" r may already be a
-            # 0-d CuPy array (e.g. from xp.sqrt() on a Python float in psi()), and a
-            # genuine array r may live on the device -- both need an explicit host copy
-            # first (scipy raises on an implicit CuPy->NumPy conversion), converted back
-            # afterwards so device callers still get a device array back.
-            was_gpu = xp.is_gpu(r)
-            r_np = r if isinstance(r, (int, float)) else xp.to_numpy(r)
-            out = self._psi_i(r_np, nu=der)
+            out = self._psi_i(r, nu=der)
 
             # remove all "dimensions" for point-wise evaluation
-            if isinstance(r, (int, float)) or (hasattr(r, "ndim") and r.ndim == 0):
+            if isinstance(r, (int, float)):
+                assert out.ndim == 0
                 out = out.item()
-            elif was_gpu:
-                out = xp.asarray(out)
 
         return out
 
@@ -1231,16 +1212,12 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
             # alternative profile
             elif self.params["q_kind"] == 1:
-                # see the matching comment in psi_r() for why r needs a host copy here.
-                was_gpu = xp.is_gpu(r)
-                r_np = r if isinstance(r, (int, float)) else xp.to_numpy(r)
-                pout = self._p_i(r_np)
+                pout = self._p_i(r)
 
                 # remove all "dimensions" for point-wise evaluation
-                if isinstance(r, (int, float)) or (hasattr(r, "ndim") and r.ndim == 0):
+                if isinstance(r, (int, float)):
+                    assert pout.ndim == 0
                     pout = pout.item()
-                elif was_gpu:
-                    pout = xp.asarray(pout)
 
         # ad-hoc profile
         elif self.params["p_kind"] == 1:

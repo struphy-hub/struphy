@@ -86,9 +86,6 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         [False, False, False, True, False, False],
         [v1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     v1_plot = v1_bins[:-1] + dv / 2
 
@@ -136,9 +133,6 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -203,9 +197,6 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -346,9 +337,6 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -413,9 +401,6 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -566,9 +551,6 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         [False, False, False, True, False, False],
         [v1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     # Reduce all threads to get complete result
     if comm is None:
@@ -625,9 +607,6 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     # Reduce all threads to get complete result
     if comm is None:
@@ -729,9 +708,6 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     # Reduce all threads to get complete result
     if comm is None:
@@ -901,9 +877,6 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     # Reduce all threads to get complete result
     if comm is None:
@@ -1007,9 +980,6 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         [True, False, False, False, False, False],
         [e1_bins],
     )
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     # Reduce all threads to get complete result
     if comm is None:
@@ -1181,9 +1151,6 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
             [e_bins],
             f"current_{current_axis}",
         )
-        # particles.binning() is always host (NumPy); convert to the
-        # active backend to match the rest of this test's xp-based arrays.
-        binned_res = xp.asarray(binned_res)
 
         e_plot = e_bins[:-1] + de / 2
 
@@ -1241,9 +1208,6 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
     components = [True, False, False, False, False, False]
 
     binned_res, r2 = particles.binning(components, [e_bins], "current_2")
-    # particles.binning() is always host (NumPy); convert to the
-    # active backend to match the rest of this test's xp-based arrays.
-    binned_res = xp.asarray(binned_res)
 
     e_plot = e_bins[:-1] + de / 2
 
@@ -1338,9 +1302,6 @@ def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
 
     for i in [11, 22, 33, 12, 13, 23]:
         binned_res, r2 = particles.binning(components, [e_bins], f"energy_tensor_{i}")
-        # particles.binning() is always host (NumPy); convert to the
-        # active backend to match the rest of this test's xp-based arrays.
-        binned_res = xp.asarray(binned_res)
 
         ana_res = ana_func(e_plot)
 
@@ -1434,9 +1395,6 @@ def test_binning_heat_flux_6D_full_f(mapping, show_plot=False):
 
     for i in range(1, 4):
         binned_res, r2 = particles.binning(components, [e_bins], f"heat_flux_{i}")
-        # particles.binning() is always host (NumPy); convert to the
-        # active backend to match the rest of this test's xp-based arrays.
-        binned_res = xp.asarray(binned_res)
 
         ana_res = ana_func(e_plot)
         binned_res += 1

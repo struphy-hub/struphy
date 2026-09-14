@@ -253,11 +253,14 @@ class EfieldWeightsCoupling(Propagator):
         en = self.variables.e.spline.vector
         particles = self.variables.ions.particles
 
-        # evaluate f0 and accumulate. particles.markers is always
-        # host-resident (see ISSUE_cupy_particles_never_pushed.md), but
-        # self._f0 follows the active backend.
+        # evaluate f0 and accumulate
         self._f0_values[:] = self._f0(
-            *(xp.to_cunumpy(particles.markers[:, i]) for i in range(6)),
+            particles.markers[:, 0],
+            particles.markers[:, 1],
+            particles.markers[:, 2],
+            particles.markers[:, 3],
+            particles.markers[:, 4],
+            particles.markers[:, 5],
         )
 
         self._accum(self._f0_values)
