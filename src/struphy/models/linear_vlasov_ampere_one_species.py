@@ -204,19 +204,30 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             )
             assert isinstance(self._f0, Maxwellian3D)
 
-        self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords.T)
+        # particles.phasespace_coords is always host-resident (see
+        # ISSUE_cupy_particles_never_pushed.md), but self._f0 follows the
+        # active backend, so its coordinate args need converting first.
+        coords = tuple(xp.to_cunumpy(c) for c in particles.phasespace_coords.T)
+        self._f0_values[particles.valid_mks] = self._f0(*coords)
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
         alpha = self.kinetic_ions.equation_params.alpha
         vth = self._f0.params["vth1"][0]
+
+        # particles.weights/sampling_density_values are host-resident too
+        # (same reason as phasespace_coords above); self._f0_values follows
+        # the active backend, so this division/dot needs both sides on the
+        # same backend.
+        weights = xp.to_cunumpy(particles.weights)
+        sampling_density_values = xp.to_cunumpy(particles.sampling_density_values)
 
         self._tmp[0] = (
             alpha**2
             * vth**2
             / (2 * particles.Np)
             * xp.dot(
-                particles.weights**2,  # w_p^2
-                particles.sampling_density_values / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
+                weights**2,  # w_p^2
+                sampling_density_values / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}
             )
         )
         return self._tmp[0]

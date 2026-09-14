@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import cunumpy as xp
+import numpy as np
 from scipy.fft import irfft, rfft
 
 from struphy.feec.psydac_derham import Derham
@@ -149,24 +150,33 @@ class AccumFilter:
             Mode numbers which are not filtered out.
         """
 
+        # Host-only throughout: this is a per-(i,j)-line loop over scipy.fft calls (no
+        # batched-2D API used here), never vectorized even under NumPy, so `modes`/`pn`/
+        # `ir` are plain NumPy/Python (used only as Python loop bounds and fancy-index
+        # arrays -- under the CuPy backend `xp.empty(...)` would make `ir` a CuPy array,
+        # and `range(ir[0])` on a device scalar raises TypeError).
         tor_num_elements = self.derham.num_elements[2]
-        modes = xp.asarray(modes, dtype=int)
+        modes = np.asarray(modes, dtype=int)
 
-        assert tor_num_elements >= 2 * int(xp.max(modes)), "num_elements[2] must be at least 2*max(modes)"
+        assert tor_num_elements >= 2 * int(modes.max()), "num_elements[2] must be at least 2*max(modes)"
         assert self.derham.domain_decomposition.nprocs[2] == 1, "No domain decomposition along toroidal direction"
 
-        pn = xp.asarray(self.derham.degree, dtype=int)
-        ir = xp.empty(3, dtype=int)
+        pn = np.asarray(self.derham.degree, dtype=int)
 
         # rfft output length
         if (tor_num_elements % 2) == 0:
-            vec_temp = xp.zeros(int(tor_num_elements / 2) + 1, dtype=complex)
+            vec_temp = np.zeros(int(tor_num_elements / 2) + 1, dtype=complex)
         else:
-            vec_temp = xp.zeros(int((tor_num_elements - 1) / 2) + 1, dtype=complex)
+            vec_temp = np.zeros(int((tor_num_elements - 1) / 2) + 1, dtype=complex)
 
         for _, comp, starts, ends in self._yield_dir_components(vec):
-            for i in range(3):
-                ir[i] = int(ends[i] + 1 - starts[i])
+            ir = [int(ends[i] + 1 - starts[i]) for i in range(3)]
+
+            # Under the CuPy backend, comp._data lives on the device; pulled to host once
+            # per component and pushed back once, rather than paying a device round-trip
+            # on every one of the ir[0]*ir[1] lines below (also correct on the NumPy
+            # backend, where to_numpy/asarray are no-ops).
+            data = xp.to_numpy(comp._data)
 
             # filter along toroidal index (k direction)
             for i in range(ir[0]):
@@ -175,11 +185,13 @@ class AccumFilter:
                     jj = pn[1] + j
 
                     # forward FFT along toroidal line
-                    line = rfft(comp._data[ii, jj, pn[2] : pn[2] + ir[2]])
+                    line = rfft(data[ii, jj, pn[2] : pn[2] + ir[2]])
                     vec_temp[:] = 0
                     vec_temp[modes] = line[modes]  # keep selected modes only
 
                     # inverse FFT back to real space, write in-place
-                    comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_num_elements)
+                    data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_num_elements)
+
+            comp._data[...] = xp.asarray(data)
 
             comp.update_ghost_regions()
