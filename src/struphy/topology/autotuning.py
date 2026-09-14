@@ -125,7 +125,7 @@ def search_integer_parameter(
     for value in range(left, right + 1):
         measure(value)
 
-    timings = tuple(timings_by_value.values())
+    timings = tuple(timings_by_value[value] for value in sorted(timings_by_value))
     best = min(timings, key=lambda timing: timing.seconds)
     return ParameterOptimization(best_value=best.value, timings=timings)
 
