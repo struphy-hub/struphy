@@ -129,6 +129,12 @@ class Propagator(metaclass=ABCMeta):
             old = old_var.spline.vector
             assert new.space == old.space
 
+            # update full solution spline (lifting + zero-BC part) if present
+            # if old_var.spline_full is not None:
+            #     new.copy(out=old_var.spline_full.vector)
+            #     if old_var.boundary_spline is not None:
+            #         old_var.spline_full.vector += old_var.boundary_spline.vector
+
             # calculate maximum of difference abs(new - old)
             diffs[var] = xp.max(xp.abs(new.toarray() - old.toarray()))
 
