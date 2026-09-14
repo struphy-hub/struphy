@@ -881,11 +881,17 @@ class Simulation(SimulationBase):
         classify: bool = False,
         create_vtk: bool = True,
         parallel_pproc: bool = False,
-    ):
+        force: bool = True,
+        load: bool = False,
+    ) -> PlottingData | None:
         """Run post-processing on saved simulation data.
 
-        Uses `PostProcessor` to generate plots, process guiding-center or
-        physical field views, and optionally produce VTK outputs.
+        Uses `PostProcessor` to process guiding-center or physical field views
+        and optionally produce VTK outputs. With ``load=True``, load the results
+        on rank 0 and return them as `PlottingData`; non-root ranks return ``None``.
+
+        Loading is opt-in because processed field and particle arrays can be
+        large. ``force=False`` reuses an existing post-processing directory.
         """
 
         # setup post processor and plotting
@@ -899,6 +905,7 @@ class Simulation(SimulationBase):
                 guiding_center=guiding_center,
                 classify=classify,
                 create_vtk=create_vtk,
+                force=force,
             )
         else:
             if self.rank == 0:
@@ -911,17 +918,25 @@ class Simulation(SimulationBase):
                     guiding_center=guiding_center,
                     classify=classify,
                     create_vtk=create_vtk,
+                    force=force,
                 )
 
-    def load_plotting_data(self):
+        if load and self.rank == 0:
+            return self.load_plotting_data()
+        return None
+
+    def load_plotting_data(self) -> PlottingData | None:
         """Load plotting datasets produced by post-processing.
 
-        Creates a `PlottingData` instance on rank 0 (if needed), loads the
-        data and exposes convenient attributes such as `orbits`, `f`, and
-        grid information for downstream plotting or analysis.
+        On rank 0, creates a `PlottingData` instance if needed, loads the data,
+        exposes convenient attributes such as `orbits`, `f`, and grid information
+        for downstream plotting or analysis, and returns the instance. Non-root
+        ranks return ``None``.
         """
 
-        if not hasattr(self, "_plotting_data") and self.rank == 0:
+        if self.rank != 0:
+            return None
+        if not hasattr(self, "_plotting_data"):
             self._plotting_data = PlottingData(sim=self)
         self.plotting_data.load()
 
@@ -933,6 +948,7 @@ class Simulation(SimulationBase):
         self.grids_log = self.plotting_data.grids_log
         self.grids_phy = self.plotting_data.grids_phy
         self.t_grid = self.plotting_data.t_grid
+        return self.plotting_data
 
     # ---------------------
     # Code specific methods

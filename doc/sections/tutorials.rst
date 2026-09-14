@@ -11,6 +11,13 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
 
 .. toctree::
    :maxdepth: 1
+   :caption: Post-processing:
+
+   ../_collections/tutorials/tutorial_post_processing
+
+
+.. toctree::
+   :maxdepth: 1
    :caption: Pure FEEC models:
 
    ../_collections/tutorials/tutorial_poisson
