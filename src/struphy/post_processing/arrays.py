@@ -378,7 +378,9 @@ def wrap_field_data(data: dict, grids_log=None, *, label: str = "") -> StruphyAr
     scalar = not isinstance(first, (list, tuple)) or len(first) == 1
 
     if scalar:
-        stacked = xp.stack([xp.asarray(data[t] if not isinstance(data[t], (list, tuple)) else data[t][0]) for t in times])
+        stacked = xp.stack(
+            [xp.asarray(data[t] if not isinstance(data[t], (list, tuple)) else data[t][0]) for t in times]
+        )
         dims = ("t", "e1", "e2", "e3")
     else:
         stacked = xp.stack([xp.stack([xp.asarray(c) for c in data[t]]) for t in times])

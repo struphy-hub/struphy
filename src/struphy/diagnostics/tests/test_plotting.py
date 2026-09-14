@@ -33,7 +33,6 @@ from struphy.diagnostics.plotting import (  # noqa: E402
 )
 from struphy.post_processing.arrays import StruphyArray, wrap_orbits  # noqa: E402
 
-
 # FuncAnimation warns when it is collected without having been rendered, which is
 # exactly what happens to the animations these tests build and discard.
 pytestmark = pytest.mark.filterwarnings("ignore:Animation was deleted")
@@ -191,10 +190,7 @@ def test_time_series_labels_axes_from_the_data():
 def test_time_series_fits_every_series():
     """Comparing runs means each curve gets its own rate, not just the first."""
     t = np.linspace(0, 10, 60)
-    series = [
-        StruphyArray(np.exp(rate * t), dims=("t",), coords={"t": t}, label=f"run {rate}")
-        for rate in (0.2, 0.4)
-    ]
+    series = [StruphyArray(np.exp(rate * t), dims=("t",), coords={"t": t}, label=f"run {rate}") for rate in (0.2, 0.4)]
     plot = TimeSeriesPlot(series, fit=True).plot()
     assert [f[0] for f in plot.fit_results] == pytest.approx([0.2, 0.4])
 

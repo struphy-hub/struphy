@@ -425,7 +425,7 @@ class TimeSeriesPlot(StruphyPlot):
 
         self.fit_results = []
         for s in self.series:
-            line, = ax.plot(s.coord("t"), xp.asarray(s), label=s.label or None)
+            (line,) = ax.plot(s.coord("t"), xp.asarray(s), label=s.label or None)
 
             if not self.fit:
                 continue
@@ -857,7 +857,9 @@ class AnimationPlot(FrameSequence, StruphyPlot):
 
     tight = False
 
-    def __init__(self, data, *, grids=None, step=1, vmin=None, vmax=None, shared_clim=True, equal_aspect=False, **kwargs):
+    def __init__(
+        self, data, *, grids=None, step=1, vmin=None, vmax=None, shared_clim=True, equal_aspect=False, **kwargs
+    ):
         super().__init__(data, **kwargs)
         self.grids = grids
         self.step = step
@@ -932,7 +934,9 @@ class MarkerTrajectoryPlot(StruphyPlot):
 
         colouring = {"c": w[0], "cmap": "viridis"} if w is not None else {}
         scatter = ax.scatter(x[0], y[0], z[0], s=8, **colouring)
-        lines = [ax.plot(x[:1, j], y[:1, j], z[:1, j], lw=0.8, alpha=0.5)[0] for j in range(n)] if self.show_paths else []
+        lines = (
+            [ax.plot(x[:1, j], y[:1, j], z[:1, j], lw=0.8, alpha=0.5)[0] for j in range(n)] if self.show_paths else []
+        )
 
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
