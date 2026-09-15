@@ -516,8 +516,10 @@ Arrays are read from disk only when accessed.
 
 In a separate process, for example a plotting script on a laptop after a cluster
 run, open the output folder instead. Nothing is allocated and no MPI is needed;
-``run.sim`` is restored from the ``parameters.py`` (or ``config.json``) stored in the
-folder:
+``run.sim`` is restored from the ``parameters.py`` stored in the folder. A simulation
+that was not created from a parameter file is restored from ``config.json``, which holds
+the options and the model arguments (and thus the units), but not configuration applied
+to the model afterwards, such as backgrounds or perturbations:
 
 .. code-block:: python
 
@@ -556,6 +558,36 @@ serial processing runs on rank 0 while the other ranks wait, and
 ``parallel=True`` uses the allocated simulation on all ranks.
 
 
+Standard plots and analysis: ``run.plot`` and ``run.analysis``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The common diagnostics are methods of the run, so no further imports are needed. They
+accept a product name, ``run["<name>"]``, or any array (sliced, derived, or from another
+run), and figures are titled with the run's numerical parameters:
+
+.. code-block:: python
+
+    run.plot.scalars()                                   # overview + energy conservation error
+    run.plot.timeseries("en_phi", fit=(0.0, 40.0))       # exponential fit in a time window
+    run.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", isel={"t": -1})
+    run.plot.panels("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", nrows=3, ncols=4)
+    run.plot.viewer("em_fields/phi_phy", x="e1", y="e2", coords="physical").show()
+    run.plot.orbits("kinetic_ions")
+    run.save_report()                                    # table + figures in post_processing/report/
+
+    run.analysis.growth_rate("en_phi", window=(0.0, 40.0)).rate
+    run.analysis.dispersion("em_fields/e_field_log", slice_at=(0, 0, None), fit_branches=1)
+
+Plots return a ``PlotResult`` with ``.show()`` and ``.save(path)``. Time series of
+several runs are labeled by run:
+
+.. code-block:: python
+
+    run_a.plot.timeseries(run_a["en_phi"], run_b["en_phi"], fit=(0.0, 40.0))
+
+The sections below access the arrays directly for custom Matplotlib plots.
+
+
 Plotting field data
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -587,10 +619,8 @@ Binned particle data is grouped by species and the slice defined in
 
 .. code-block:: python
 
-    from struphy.diagnostics.plotting import View, plot_slice
-
     f = run.distributions.kinetic_ions.e1_v1_density.f_binned   # dims (t, e1, v1)
-    plot_slice(f.isel(t=-1), view=View(x="e1", y="v1")).show()
+    run.plot.slice(f.isel(t=-1), x="e1", y="v1").show()
 
 
 Plotting particle orbits

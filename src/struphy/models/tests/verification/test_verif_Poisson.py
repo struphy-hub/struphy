@@ -76,22 +76,16 @@ def test_poisson_1d(do_plot=False):
     )
 
     # run
-    sim.run()
+    run = sim.run().with_time_units("normalized")
 
     # post processing
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
+    run.process()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.load_plotting_data()
-
-        phi = sim.spline_values.em_fields.phi_log.data
-        source = sim.spline_values.em_fields.source_log.data
-        x = sim.grids_phy[0][:, 0, 0]
-        y = sim.grids_phy[1][0, :, 0]
-        z = sim.grids_phy[2][0, 0, :]
-        time = sim.t_grid
+        phi = run.fields.em_fields.phi_log.isel(e2=0, e3=0)
+        source = run.fields.em_fields.source_log.isel(e2=0, e3=0)
+        x = phi.X.values
 
         interval = 2
         c = 0
@@ -99,8 +93,8 @@ def test_poisson_1d(do_plot=False):
             fig = plt.figure(figsize=(12, 40))
 
         err = 0.0
-        for i, t in enumerate(phi):
-            phi_h = phi[t][0][:, 0, 0]
+        for i, t in enumerate(phi.t.values):
+            phi_h = phi.isel(t=i).values
             phi_e = phi_exact(x, 0, 0, t)
             new_err = xp.abs(xp.max(phi_h - phi_e)) / (amp / (l * 2 * xp.pi / Lx) ** 2)
             if new_err > err:
@@ -115,7 +109,7 @@ def test_poisson_1d(do_plot=False):
                 plt.legend()
 
                 plt.subplot(5, 2, 2 * c + 2)
-                plt.plot(x, source[t][0][:, 0, 0], label="rhs")
+                plt.plot(x, source.isel(t=i).values, label="rhs")
                 plt.plot(x, rhs_exact(x, 0, 0, t), "r--", label="exact")
                 plt.title(f"source at {t =}")
                 plt.ylim(-amp, amp)

@@ -2,14 +2,6 @@ import os
 import sys
 
 from struphy import open_run
-from struphy.diagnostics.plotting import (
-    GrowthFit,
-    InteractiveSliceViewer,
-    View,
-    plot_marker_trajectories,
-    plot_timeseries,
-    plot_equilibrium_profile,
-)
 
 # quantity whose exponential growth rate is fitted
 FIT_QUANTITY = "phi_integral"
@@ -17,16 +9,12 @@ FIT_WINDOW = (0.0, None)
 
 SHOW_EQUIL_PROFILE = False
 
-# binned densities to sweep, as (bin name, quantity, physical plane)
-DENSITY_PLOTS = [
-    ("e1_e2_density", "delta_f_binned", "RZ"),
-]
-
-# fields to sweep, as (species, field, component, physical plane)
-FIELD_PLOTS = [
-    ("em_fields", "phi_phy", 0, "RZ"),
-    ("diagnostics", "rho_phy", 0, "RZ"),
-    ("diagnostics", "rho_phy", 0, "XY"),
+# products to sweep interactively, as (name, displayed component or None, physical plane)
+SWEEPS = [
+    ("kinetic_ions/e1_e2_density/delta_f_binned", None, "RZ"),
+    ("em_fields/phi_phy", None, "RZ"),
+    ("diagnostics/rho_phy", None, "RZ"),
+    ("diagnostics/rho_phy", None, "XY"),
 ]
 
 
@@ -34,27 +22,21 @@ def main(path_out):
     run = open_run(path_out).process(physical=True)
 
     # growth rate of the electrostatic potential
-    plot_timeseries(
-        run.scalars[FIT_QUANTITY],
-        fit=GrowthFit(FIT_WINDOW, amplitude_from_quadratic=True),
-        run_label=run.label,
+    run.plot.timeseries(
+        FIT_QUANTITY,
+        fit=FIT_WINDOW,
+        fit_amplitude=True,
         title=f"Evolution of {FIT_QUANTITY}",
     ).show()
 
     if SHOW_EQUIL_PROFILE:
-        plot_equilibrium_profile(path_out)
+        run.plot.equilibrium()
 
-    for bin_name, quantity, plane in DENSITY_PLOTS:
-        data = getattr(getattr(run.distributions.kinetic_ions, bin_name), quantity)
-        InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
-                               run_label=run.label).show()
+    for name, component, plane in SWEEPS:
+        isel = None if component is None else {"component": component}
+        run.plot.viewer(name, x="e1", y="e2", isel=isel, coords="physical", plane=plane).show()
 
-    for species, field, component, plane in FIELD_PLOTS:
-        data = getattr(getattr(run.fields, species), field).isel(component=component)
-        InteractiveSliceViewer(data, view=View(x="e1", y="e2", coordinates="physical", plane=plane),
-                               run_label=run.label).show()
-
-    plot_marker_trajectories(run.orbits.kinetic_ions, max_markers=1000).show()
+    run.plot.orbits("kinetic_ions", max_markers=1000).show()
 
 
 if __name__ == "__main__":

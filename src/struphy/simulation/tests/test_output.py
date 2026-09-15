@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from struphy import EnvironmentOptions, Run, Simulation, open_run
-from struphy.models import Maxwell
+from struphy import BaseUnits, EnvironmentOptions, Run, Simulation, open_run
+from struphy.models import Maxwell, VlasovAmpereOneSpecies
 
 
 def make_sim(tmp_path, **kwargs):
@@ -32,7 +32,8 @@ def test_output_is_the_run_of_the_current_output_folder(tmp_path):
 
 
 def test_from_output_restores_config_json_and_follows_a_moved_folder(tmp_path):
-    sim = make_sim(tmp_path)
+    model = VlasovAmpereOneSpecies(base_units=BaseUnits(x=2.0, B=3.0, n=4.0), mass_number=4.0, with_B0=False)
+    sim = Simulation(model=model, env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"))
     os.makedirs(os.path.join(sim.env.path_out, "data"))
     sim._save_config()
 
@@ -40,7 +41,9 @@ def test_from_output_restores_config_json_and_follows_a_moved_folder(tmp_path):
     os.rename(sim.env.path_out, moved)
     restored = open_run(moved).sim
 
-    assert restored.to_dict()["model"] == sim.to_dict()["model"]
+    assert restored.model.to_dict() == model.to_dict()
+    assert restored.model.params["mass_number"] == 4.0
+    assert float(restored.model.units.t) == float(model.units.t)
     assert restored.domain == sim.domain
     assert restored.env.path_out == str(moved)
     assert restored.derham is None

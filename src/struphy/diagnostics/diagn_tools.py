@@ -7,6 +7,7 @@ import subprocess
 import cunumpy as xp
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+import xarray as xr
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
 
@@ -17,12 +18,10 @@ logger = logging.getLogger("struphy")
 
 
 def power_spectrum_2d(
-    values: dict,
-    name: str,
-    grids: tuple,
-    grids_mapped: tuple = None,
+    field: xr.DataArray,
     component: int = 0,
     slice_at: tuple = (None, 0, 0),
+    physical: bool = False,
     do_plot: bool = False,
     disp_name: str = None,
     disp_params: dict = {},
@@ -39,26 +38,22 @@ def power_spectrum_2d(
 
     Parameters
     ----------
-    values : dict
-        Dictionary holding values of a B-spline FemField on the grid as 3d xp.arrays:
-        values[n] contains the values at time step n, where n = 0:Nt-1:step with 0<step.
-
-    name : str
-        Name of the FemField.
-
-    grids : 3-tuple
-        1d logical grids in each eta-direction with num_elements[i]*npts_per_cell[i] + 1 entries in each direction.
-
-    grids_mapped : 3-tuple
-        Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.
+    field : xarray.DataArray
+        An evaluated FEEC field of a :class:`~struphy.Run`, with dims ``(t, [component,] e1, e2, e3)``,
+        e.g. ``run.fields.em_fields.e_field_log``. Its time coordinate must be uniform; use
+        ``run.with_time_units("normalized")`` to compare with normalized dispersion relations.
 
     component : int
-        Which component of a FemField to consider; is 0 for 0-and 3-forms, is in {0, 1, 2} for 1- and 2-forms.
+        Which component of the field to consider; ignored for fields without a component dimension.
 
     slice_at : 3-tuple
         At which indices i, j the 1d slice data (t, eta)_(i, j) should be obtained.
         One entry must be "None"; this is the direction of the fft.
         Default: [None, 0, 0] performs the eta1-fft at (eta2[0], eta3[0]).
+
+    physical : boolean
+        Perform the fft on the physical coordinate (X, Y or Z) along the fft direction instead of
+        on the logical one. The field must carry physical coordinates.
 
     do_plot : boolean
         Plot result if True, otherwise return things.
@@ -106,43 +101,27 @@ def power_spectrum_2d(
     coeffs : list[list]
         List of fitting coefficients (lenght is fit_branches).
     """
+    assert list(slice_at).count(None) == 1, 'Exactly one entry of slice_at must be "None".'
+    name = str(field.name)
+    if "component" in field.dims:
+        field = field.isel(component=component)
 
-    keys = list(values.keys())
+    # extract 2d data (t, eta) for fft
+    axis = list(slice_at).index(None)
+    along = ("e1", "e2", "e3")[axis]
+    fixed = {dim: index for dim, index in zip(("e1", "e2", "e3"), slice_at) if index is not None}
+    sliced = field.isel(fixed).transpose("t", along)
+    data = xp.asarray(sliced)
 
     # check uniform grid in time
-    dt = keys[1] - keys[0]
-    assert xp.all([xp.abs(y - x - dt) < 1e-12 for x, y in zip(keys[:-1], keys[1:])])
+    time = xp.asarray(sliced.t)
+    dt = time[1] - time[0]
+    assert xp.allclose(time[1:] - time[:-1], dt, rtol=0.0, atol=1e-12 * max(1.0, abs(dt))), "time grid is not uniform"
 
-    # create 4d xp.array with shape (time, eta1, eta2, eta3)
-    dim_t = len(keys)
-    dim_eta = values[keys[0]][component].shape
-
-    temp = xp.zeros((dim_t, *dim_eta))
-
-    for n, (time, snapshot) in enumerate(values.items()):
-        temp[n, :, :, :] = snapshot[component]
-
-    # Extract 2d data (t, eta) for fft
-    if slice_at[0] is None:
-        data = temp[:, :, slice_at[1], slice_at[2]]
-        grid = grids[0]
-        if grids_mapped is not None:
-            grid = grids_mapped[0][:, slice_at[1], slice_at[2]]
-
-    elif slice_at[1] is None:
-        data = temp[:, slice_at[0], :, slice_at[2]]
-        grid = grids[1]
-        if grids_mapped is not None:
-            grid = grids_mapped[1][slice_at[0], :, slice_at[2]]
-
-    elif slice_at[2] is None:
-        data = temp[:, slice_at[0], slice_at[1], :]
-        grid = grids[2].flatten()
-        if grids_mapped is not None:
-            grid = grids_mapped[2][slice_at[0], slice_at[1], :]
-
+    if physical:
+        grid = xp.asarray(sliced[("X", "Y", "Z")[axis]])
     else:
-        AssertionError('One entry of slice_at must be "None".')
+        grid = xp.asarray(sliced[along])
 
     # extract uniform grid in space
     Nt = data.shape[0]

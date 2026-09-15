@@ -1,4 +1,8 @@
-"""Small, composable plotting functions for labeled Struphy output."""
+"""Small, composable plotting functions for labeled Struphy output.
+
+Users reach these through ``run.plot`` (see :class:`struphy.post_processing.run_accessors.RunPlots`);
+they remain importable for plotting arbitrary labeled arrays.
+"""
 
 from __future__ import annotations
 
@@ -75,6 +79,7 @@ class PlotResult:
     ax: object
     artists: list = field(default_factory=list)
     fit_results: list[FitResult | None] = field(default_factory=list)
+    data: dict = field(default_factory=dict)
 
     def save(self, path, *, close=False, **kwargs):
         kwargs.setdefault("bbox_inches", "tight")
@@ -90,6 +95,23 @@ class PlotResult:
 
 def _label(data):
     return data.attrs.get("label") or data.attrs.get("long_name") or data.name or ""
+
+
+def _items(data):
+    return [data] if isinstance(data, (xr.DataArray, xr.Dataset)) else list(data)
+
+
+def shared_run_label(data, default="") -> str:
+    """The run description shared by all arrays (``attrs["run"]``), or ``default``.
+
+    Arrays loaded from a :class:`~struphy.Run` carry it; arrays from different runs share none.
+    """
+    runs = {item.attrs.get("run") for item in _items(data)}
+    if len(runs - {None, ""}) > 1:
+        return ""
+    runs.discard(None)
+    runs.discard("")
+    return runs.pop() if runs else default
 
 
 def _finish(fig, *, run_label="", tight=True):
@@ -200,9 +222,9 @@ def _slice_data(data, view):
     return selected, grids
 
 
-def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, title=None, run_label=""):
-    """Plot one or more aligned time series."""
-    series = [data] if isinstance(data, xr.DataArray) else list(data)
+def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, title=None, run_label=None):
+    """Plot one or more aligned time series; series of different runs are labeled by run."""
+    series = _items(data)
     if not series:
         raise ValueError("at least one time series is required")
     for item in series:
@@ -211,11 +233,17 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
             raise ValueError(f"time series must have dims ('t',), got {item.dims}")
     if len(series) > 1:
         series = list(xr.align(*series, join="exact"))
+    label_of = _label
+    if len({item.attrs.get("run_name") for item in series}) > 1:
+        def label_of(item):
+            return " ".join(filter(None, (_label(item), f"({item.attrs['run_name']})" if item.attrs.get("run_name") else "")))
+    run_label = shared_run_label(series) if run_label is None else run_label
+    own_figure = ax is None
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         artists, fits = [], []
         for item in series:
-            line, = ax.plot(item.t, item, label=_label(item) or None)
+            line, = ax.plot(item.t, item, label=label_of(item) or None)
             artists.append(line)
             result = growth_rate(item, fit) if fit is not None else None
             fits.append(result)
@@ -229,17 +257,19 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
         ax.set_xlabel(axis_label(series[0], "t"))
         ax.set_ylabel(value_label(series[0]))
         ax.set_title(title if title is not None else _label(series[0]))
-        if any(_label(item) for item in series) or fit is not None:
+        if any(label_of(item) for item in series) or fit is not None:
             ax.legend()
-        _finish(fig, run_label=run_label, tight=ax is not None)
+        _finish(fig, run_label=run_label if own_figure else "", tight=own_figure)
     return PlotResult(fig, ax, artists, fits)
 
 
 def plot_slice(data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None,
-               equal_aspect=None, title=None, run_label=""):
+               equal_aspect=None, title=None, run_label=None):
     """Render one selected two-dimensional slice."""
     view = view or View()
+    run_label = shared_run_label(data) if run_label is None else run_label
     selected, (xgrid, ygrid, xlabel, ylabel) = _slice_data(data, view)
+    own_figure = ax is None
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         mesh = ax.pcolormesh(xgrid, ygrid, np.asarray(selected), shading="auto", vmin=vmin, vmax=vmax)
@@ -249,14 +279,15 @@ def plot_slice(data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None,
             ax.set_aspect("equal", adjustable="box")
         ax.set(xlabel=xlabel, ylabel=ylabel, title=title if title is not None else _label(data))
         ax.grid(False)
-        _finish(fig, run_label=run_label)
+        _finish(fig, run_label=run_label if own_figure else "", tight=own_figure)
     return PlotResult(fig, ax, [mesh])
 
 
 def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=True,
-                title=None, run_label=""):
+                title=None, run_label=None):
     """Plot snapshots spread across a sweep coordinate."""
     view = view or View()
+    run_label = shared_run_label(data) if run_label is None else run_label
     selected = _select(data, view)
     validate_array(selected, required_dims=(view.sweep,))
     count = nrows * ncols
@@ -289,10 +320,11 @@ def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=
 class InteractiveSliceViewer:
     """Stateful viewer using one recipe for the sweep and all remaining dimensions."""
 
-    def __init__(self, data: xr.DataArray, *, view=None, vmin=None, vmax=None, run_label=""):
+    def __init__(self, data: xr.DataArray, *, view=None, vmin=None, vmax=None, run_label=None):
         self.data = validate_array(data)
         self.view = view or View()
-        self.vmin, self.vmax, self.run_label = vmin, vmax, run_label
+        self.vmin, self.vmax = vmin, vmax
+        self.run_label = shared_run_label(data) if run_label is None else run_label
         self.result = None
         self.sliders = {}
 
@@ -392,10 +424,14 @@ def save_frames(data: xr.DataArray, directory, *, view=None, step=1, prefix="fra
 
 
 def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=None,
-                 error_panel="en_tot", logy=False, run_label=""):
-    """Plot a scalar overview and optional conservation-error panel."""
+                 error_panel="en_tot", logy=False, run_label=None):
+    """Plot a scalar overview and optional conservation-error panel.
+
+    The relative error of ``error_panel`` is returned in ``result.data["relative_error"]``.
+    """
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected: raise ValueError("no scalars to plot")
+    run_label = shared_run_label([scalars[name] for name in selected]) if run_label is None else run_label
     has_error = error_panel is not None and error_panel in scalars
     fig, axes = plt.subplots(2 if has_error else 1, 1, sharex=has_error,
                              figsize=(8, 6.5) if has_error else None,
@@ -420,11 +456,11 @@ def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=No
     else:
         ax.set_xlabel(axis_label(scalars[selected[0]], "t"))
     if run_label: fig.suptitle(run_label, fontsize="small")
-    return PlotResult(fig, axes, artists), error
+    return PlotResult(fig, axes, artists, data={"relative_error": error})
 
 
 def save_all_scalars(scalars, directory, *, names=None, exclude=SCALARS_EXCLUDE, logy=False,
-                     run_label="", table="csv", file_format="png", dpi=110):
+                     run_label=None, table="csv", file_format="png", dpi=110):
     """Write a table, scalar overview and one figure per scalar."""
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected: return []
@@ -433,7 +469,7 @@ def save_all_scalars(scalars, directory, *, names=None, exclude=SCALARS_EXCLUDE,
     paths = []
     if table:
         paths.append(save_scalars(scalars, str(directory / f"scalars.{table}"), names=selected, fmt=table))
-    overview, _ = plot_scalars(scalars, names=selected, logy=logy, run_label=run_label)
+    overview = plot_scalars(scalars, names=selected, logy=logy, run_label=run_label)
     path = directory / f"scalars.{file_format}"
     overview.save(path, dpi=dpi, close=True)
     paths.append(str(path))

@@ -12,6 +12,7 @@ import numpy as np
 import xarray as xr
 
 from struphy.post_processing.arrays import data_array, save_scalars, wrap_binned_data, wrap_field_data, wrap_orbits
+from struphy.post_processing.run_accessors import RunAnalysis, RunPlots
 
 logger = logging.getLogger("struphy")
 
@@ -100,28 +101,6 @@ class OrbitProducts(ProductNamespace):
     """Marker trajectories grouped by species."""
 
 
-class PlotAccessor:
-    """Convenient plotting entry points bound to a run."""
-
-    def __init__(self, run: "Run"):
-        self._run = run
-
-    def timeseries(self, data, **kwargs):
-        from struphy.diagnostics.plotting import plot_timeseries
-        return plot_timeseries(data, run_label=self._run.label, **kwargs)
-
-    def scalar(self, name: str, **kwargs):
-        return self.timeseries(self._run.scalars[name], **kwargs)
-
-    def slice(self, data, **kwargs):
-        from struphy.diagnostics.plotting import plot_slice
-        return plot_slice(data, run_label=self._run.label, **kwargs)
-
-    def viewer(self, data, **kwargs):
-        from struphy.diagnostics.plotting import InteractiveSliceViewer
-        return InteractiveSliceViewer(data, run_label=self._run.label, **kwargs)
-
-
 class Run:
     """The output of one Struphy simulation, loaded lazily from its output folder.
 
@@ -134,6 +113,9 @@ class Run:
       default options; call :meth:`process` beforehand to choose options.
     * :attr:`sim` is the :class:`~struphy.Simulation` that produced the output: the live
       object for ``sim.output``, otherwise restored from disk without allocating anything.
+    * :attr:`plot` and :attr:`analysis` draw and evaluate standard diagnostics, e.g.
+      ``run.plot.timeseries("en_phi", fit=(0, 40))``; ``run["en_phi"]`` looks up any product.
+    * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
     Parameters
     ----------
@@ -157,8 +139,29 @@ class Run:
     def __repr__(self):
         return f"{type(self).__name__}({str(self.path_out)!r}, processed={self.is_processed})"
 
+    def with_time_units(self, time_units: str) -> "Run":
+        """The same output with time coordinates in ``"physical"`` or ``"normalized"`` units."""
+        return type(self)(self.path_out, sim=self._sim, time_units=time_units)
+
     def _reset(self):
-        self._time = self._grids_log = self._grids_phy = self._scalars = self._products = None
+        self._time = self._grids_log = self._grids_phy = self._scalars = self._products = self._label = None
+
+    def __getitem__(self, name: str) -> xr.DataArray:
+        """Any product by name: a scalar (``"en_tot"``), a field (``"em_fields/phi_log"``), a binned
+        distribution or SPH density (``"kinetic_ions/e1_v1_density/f_binned"``) or orbits (``"kinetic_ions"``).
+        """
+        if name in self.scalars.data_vars:
+            return self.scalars[name]
+        for catalog in (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog):
+            if name in catalog:
+                return catalog[name]
+        available = (*self.scalars.data_vars, *self.field_catalog, *self.distribution_catalog,
+                     *self.density_catalog, *self.orbit_catalog)
+        raise KeyError(f"{name!r} not found; available products: {available}")
+
+    def _stamp(self, array: xr.DataArray) -> xr.DataArray:
+        array.attrs.update(run=self.label, run_name=self.path_out.name)
+        return array
 
     @property
     def path_pproc(self) -> Path:
@@ -247,11 +250,15 @@ class Run:
     def _product_mappings(self) -> dict[str, ProductMapping]:
         if self._products is None:
             self._ensure_processed()
+            discovered = {
+                "fields": self._discover_fields(),
+                "distributions": self._discover_binned("distribution_function"),
+                "densities": self._discover_binned("n_sph"),
+                "orbits": self._discover_orbits(),
+            }
             self._products = {
-                "fields": ProductMapping(self._discover_fields()),
-                "distributions": ProductMapping(self._discover_binned("distribution_function")),
-                "densities": ProductMapping(self._discover_binned("n_sph")),
-                "orbits": ProductMapping(self._discover_orbits()),
+                kind: ProductMapping({key: (lambda load=load: self._stamp(load())) for key, load in loaders.items()})
+                for kind, loaders in discovered.items()
             }
         return self._products
 
@@ -292,8 +299,14 @@ class Run:
         return self._product_mappings()["orbits"]
 
     @property
-    def plot(self) -> PlotAccessor:
-        return PlotAccessor(self)
+    def plot(self) -> RunPlots:
+        """Standard plots, e.g. ``run.plot.scalars()`` or ``run.plot.panels(name, x="e1", y="v1")``."""
+        return RunPlots(self)
+
+    @property
+    def analysis(self) -> RunAnalysis:
+        """Quantitative diagnostics, e.g. ``run.analysis.growth_rate("en_phi", window=(0, 40))``."""
+        return RunAnalysis(self)
 
     @property
     def time_scale(self) -> float:
@@ -342,32 +355,45 @@ class Run:
                 time = np.asarray(file["time/value"]) * self.time_scale
                 variables = {}
                 for name, dataset in file["scalar"].items():
-                    variables[name] = data_array(np.asarray(dataset), ("t",), {"t": time}, name=name,
-                                                 label=name.replace("_", " "), coord_units={"t": self.time_unit})
+                    variables[name] = self._stamp(data_array(np.asarray(dataset), ("t",), {"t": time}, name=name,
+                                                             label=name.replace("_", " "),
+                                                             coord_units={"t": self.time_unit}))
                 self._scalars = xr.Dataset(variables)
         return self._scalars
 
     @property
     def label(self) -> str:
         """Short description of the numerical parameters, for figure titles."""
-        sim = self.sim
-        values = []
-        for holder, attr, name in ((sim.time_opts, "dt", "dt"),
-                                   (sim.time_opts, "split_algo", "algo"),
-                                   (sim.grid, "num_elements", "Nel"),
-                                   (sim.derham_opts, "degree", "p")):
-            value = getattr(holder, attr, None) if holder is not None else None
-            if value is not None:
-                values.append(f"{name}={value}")
-        return ", ".join(values) or self.path_out.name
+        if self._label is None:
+            try:
+                sim = self.sim
+            except FileNotFoundError:  # an output folder without its configuration
+                self._label = self.path_out.name
+                return self._label
+            values = []
+            for holder, attr, name in ((sim.time_opts, "dt", "dt"),
+                                       (sim.time_opts, "split_algo", "algo"),
+                                       (sim.grid, "num_elements", "Nel"),
+                                       (sim.derham_opts, "degree", "p")):
+                value = getattr(holder, attr, None) if holder is not None else None
+                if value is not None:
+                    values.append(f"{name}={value}")
+            self._label = ", ".join(values) or self.path_out.name
+        return self._label
 
     def save_scalars(self, path=None, **kwargs) -> str:
+        """Write the scalar time series as CSV (or NPZ); ``post_processing/scalars.csv`` by default."""
         path = Path(path) if path else self.path_pproc / "scalars.csv"
         return save_scalars(self.scalars, str(path), **kwargs)
 
-    def save_scalar_plots(self, directory=None, **kwargs):
+    def save_report(self, directory=None, **kwargs) -> list[str]:
+        """Write the standard report: a scalar table, the scalar overview and one figure per scalar.
+
+        Files go to ``post_processing/report/`` by default; returns their paths.
+        """
         from struphy.diagnostics.plotting import save_all_scalars
-        directory = Path(directory) if directory else self.path_pproc / "scalars"
+
+        directory = Path(directory) if directory else self.path_pproc / "report"
         return save_all_scalars(self.scalars, directory, run_label=self.label, **kwargs)
 
     def _discover_fields(self):
@@ -403,23 +429,28 @@ class Run:
     def _load_binned(self, path: Path, slice_name: str):
         grid_paths = sorted(path.parent.glob("grid_*.npy"))
         grids = {p.stem.removeprefix("grid_"): np.load(p, mmap_mode="r") for p in grid_paths}
-        dims = tuple(part for part in slice_name.split("_") if part in grids)
+        # binned slices are named after their dimensions (e1_v1_density); SPH views (view_0) are not
+        dims = tuple(part for part in slice_name.split("_") if part in grids) or tuple(sorted(grids))
         values = np.load(path, mmap_mode="r")
         expected = (len(self.time), *(len(grids[dim]) for dim in dims))
         if values.shape != expected:
             raise ValueError(f"{path} has shape {values.shape}; expected {expected} from its coordinates")
         coords = {"t": self.time, **{dim: grids[dim] for dim in dims}}
         logical_dims = tuple(dim for dim in dims if dim in {"e1", "e2", "e3"})
-        if len(logical_dims) == 2:
-            mesh = np.meshgrid(*(np.asarray(grids[dim]) for dim in logical_dims), indexing="ij")
-            arguments = {"e1": 0.5, "e2": 0.0, "e3": 0.0}
-            arguments.update(dict(zip(logical_dims, mesh)))
-            try:
+        try:
+            if len(logical_dims) == 2:
+                mesh = np.meshgrid(*(np.asarray(grids[dim]) for dim in logical_dims), indexing="ij")
+                arguments = {"e1": 0.5, "e2": 0.0, "e3": 0.0}
+                arguments.update(dict(zip(logical_dims, mesh)))
                 physical = self.sim.domain(arguments["e1"], arguments["e2"], arguments["e3"], squeeze_out=True)
-                for coordinate, grid in zip(("X", "Y", "Z"), physical):
-                    coords[coordinate] = (logical_dims, np.asarray(grid))
-            except (FileNotFoundError, TypeError, ValueError):
-                logger.debug("Could not attach physical coordinates to %s", path, exc_info=True)
+            elif len(logical_dims) == 3:
+                physical = self.sim.domain(*(np.asarray(grids[dim]) for dim in ("e1", "e2", "e3")))
+            else:
+                physical = ()
+            for coordinate, grid in zip(("X", "Y", "Z"), physical):
+                coords[coordinate] = (logical_dims, np.asarray(grid))
+        except (FileNotFoundError, TypeError, ValueError):
+            logger.debug("Could not attach physical coordinates to %s", path, exc_info=True)
         return wrap_binned_data(values, dims, coords, name=path.stem, time_unit=self.time_unit)
 
     def _discover_orbits(self):
@@ -433,7 +464,8 @@ class Run:
         paths = sorted(directory.glob("*.npy"), key=lambda p: int(p.stem.rsplit("_", 1)[-1]))
         if not paths:
             raise FileNotFoundError(f"no orbit arrays in {directory}")
-        values = np.stack([np.load(path, mmap_mode="r") for path in paths])
+        # one small file per saved step: read them instead of keeping thousands of memory maps open
+        values = np.stack([np.load(path) for path in paths])
         return wrap_orbits(values, self.time[:len(paths)], time_unit=self.time_unit)
 
 

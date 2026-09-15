@@ -1656,6 +1656,9 @@ class Simulation(SimulationBase):
 
         The configuration is read from the ``parameters.py`` copied there by :meth:`run`, or
         from ``config.json`` when the simulation was not created from a parameter file.
+        ``config.json`` holds the options objects and the arguments of the model (and thus its
+        units), but not configuration applied to the model after construction, such as
+        markers, backgrounds, perturbations and propagator options.
         Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
         """
         path_out = os.path.abspath(path_out)

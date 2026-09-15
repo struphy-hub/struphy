@@ -141,7 +141,10 @@ run.orbits.<species>                                   # dims (t, marker, attrib
 run.sim.model.units                                    # the Simulation, restored without allocating
 ```
 
-Plotting helpers for these arrays live in `src/struphy/diagnostics/plotting.py`; see
+Plots and analysis need no imports: `run.plot.scalars()`, `run.plot.timeseries("<name>", fit=(t0, t1))`,
+`run.plot.panels("<species>/<binning_name>/f_binned", x="e1", y="v1")`, `run.plot.viewer(...)`,
+`run.plot.orbits("<species>")`, `run.save_report()`, `run.analysis.growth_rate(...)`,
+`run.analysis.dispersion(...)`. Names are looked up with `run["<name>"]`. See
 `examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py` for a complete script.
 
 ## Common pitfalls

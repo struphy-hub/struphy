@@ -1073,6 +1073,12 @@ class PostProcessor:
                         assert isinstance(var, PICVariable | SPHVariable)
                         f_bckgr: KineticBackground = var.backgrounds
                         break
+                    if f_bckgr is None:
+                        raise ValueError(
+                            f"The background of {species} is needed to post-process its delta-f distribution "
+                            "function, but it is not configured. A simulation restored from config.json only "
+                            "knows the model arguments; run from a parameter file to keep the background."
+                        )
 
                     # load all grids of the variables of f
                     grid_tot = []
@@ -1170,24 +1176,11 @@ class PostProcessor:
                     os.mkdir(path_view)
                 self.comm.Barrier()
 
-                # build meshgrid and save
-                eta1 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
-                eta2 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
-                eta3 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
-
-                ee1, ee2, ee3 = xp.meshgrid(
-                    eta1,
-                    eta2,
-                    eta3,
-                    indexing="ij",
-                )
-
+                # save the 1d evaluation points, one file per logical direction
+                attrs = file_0["kinetic/" + species + "/n_sph/" + view].attrs
                 if self.rank == 0:
-                    grid_path = os.path.join(
-                        path_view,
-                        "grid_n_sph.npy",
-                    )
-                    xp.save(grid_path, (ee1, ee2, ee3))
+                    for direction in ("1", "2", "3"):
+                        xp.save(os.path.join(path_view, f"grid_e{direction}.npy"), attrs["eta" + direction][:])
 
         # compute sph density
         for view in tqdm(views):

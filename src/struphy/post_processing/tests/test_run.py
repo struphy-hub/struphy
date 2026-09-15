@@ -35,6 +35,11 @@ def write_tree(root):
     np.save(os.path.join(slice_dir, "grid_e1.npy"), np.linspace(0, 1, N1))
     np.save(os.path.join(slice_dir, "grid_v1.npy"), np.linspace(-3, 3, NV))
     np.save(os.path.join(slice_dir, "f_binned.npy"), np.ones((NT, N1, NV)))
+    view_dir = os.path.join(kinetic, "kinetic_ions", "n_sph", "view_0")
+    os.makedirs(view_dir)
+    for direction, n in zip("123", (N1, N2, 1)):
+        np.save(os.path.join(view_dir, f"grid_e{direction}.npy"), np.linspace(0, 1, n))
+    np.save(os.path.join(view_dir, "n_sph.npy"), np.ones((NT, N1, N2, 1)))
     orbit_dir = os.path.join(kinetic, "kinetic_ions", "orbits")
     for step in range(NT):
         np.save(os.path.join(orbit_dir, f"kinetic_ions_{step}.npy"), np.full((N_MARKERS, 8), step))
@@ -61,7 +66,7 @@ def write_manifest(root, **options):
 class FakeSim:
     """Just enough of a Simulation for Run: no configuration, a single rank."""
 
-    time_opts = grid = derham_opts = None
+    time_opts = grid = derham_opts = domain = None
     rank, comm_size = 0, 1
 
     def __init__(self):
@@ -96,6 +101,13 @@ def test_binned_products_have_coordinates(run):
     data = run.distributions["kinetic_ions/e1_v1_density/f_binned"]
     assert data.dims == ("t", "e1", "v1")
     np.testing.assert_allclose(data.v1, np.linspace(-3, 3, NV))
+
+
+def test_sph_density_views_take_dimensions_from_their_grids(run):
+    data = run.densities.kinetic_ions.view_0.n_sph
+    assert data.dims == ("t", "e1", "e2", "e3")
+    assert data.shape == (NT, N1, N2, 1)
+    np.testing.assert_allclose(data.e2, np.linspace(0, 1, N2))
 
 
 def test_orbit_product_keeps_column_semantics(run):
