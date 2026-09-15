@@ -54,7 +54,7 @@ def main():
             for dependency in lock[name]["depends"]:
                 include(dependency)
 
-    for name in ("numpy", "scipy", "micropip", "pytest"):
+    for name in ("numpy", "scipy", "micropip"):
         include(name)
     downloads = []
     for name in sorted(needed):
@@ -74,10 +74,9 @@ def main():
         list(pool.map(lambda item: download(*item), downloads))
     wheel = build(HERE / "dist")
     shutil.copy2(wheel, SITE / wheel.name)
-    shutil.copy2(HERE / "tests/test_geometry.py", SITE / "test_geometry.py")
     (SITE / "wheel.json").write_text(json.dumps({"wheel": wheel.name, "dependencies": extras, "pyodide": version}))
     size = sum(p.stat().st_size for p in SITE.rglob("*") if p.is_file())
-    print(f"Static site ready: {SITE} ({size / 1024**2:.1f} MiB, including test dependencies)")
+    print(f"Static site ready: {SITE} ({size / 1024**2:.1f} MiB)")
     print("Serve: python -m http.server 8765 --directory browser/site")
 
 

@@ -84,8 +84,7 @@ in mapping/input-file units; the browser package does not rescale EQDSK data.
   interpolated magnetic axis for either flux sign and performs no smoothing.
   It does not implement the pressure/current profiles of `EQDSKequilibrium`.
 - Portable archives of analytic definitions and spline control points.
-- Existing Matplotlib `show()` can be used if Matplotlib is installed and
-  an appropriate display backend is configured; the viewer uses canvas.
+- Visualization in the browser uses the built-in canvas renderer.
 
 ## Deliberate differences from full Struphy
 

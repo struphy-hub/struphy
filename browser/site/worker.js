@@ -78,21 +78,10 @@ let queue = ready;
 self.onmessage = ({ data }) => {
   queue = queue.catch(() => {}).then(async () => {
     try {
-      if (data.action === "tests") {
-        await ready;
-        await pyodide.loadPackage("pytest");
-        pyodide.FS.writeFile("/test_geometry.py", await (await fetch("./test_geometry.py")).text());
-        const output = [];
-        pyodide.setStdout({ batched: line => output.push(line) });
-        pyodide.setStderr({ batched: line => output.push(line) });
-        const code = pyodide.runPython(`import os, pytest\nos.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] = '1'\nint(pytest.main(['-q', '/test_geometry.py', '-p', 'no:cacheprovider']))`);
-        postMessage({ id: data.id, result: { code, output: output.join("\n") } });
-      } else {
-        await ready;
-        pyodide.globals.set("request_json", JSON.stringify(data));
-        const result = JSON.parse(pyodide.runPython("json.dumps(handle(json.loads(request_json)), allow_nan=False)"));
-        postMessage({ id: data.id, result });
-      }
+      await ready;
+      pyodide.globals.set("request_json", JSON.stringify(data));
+      const result = JSON.parse(pyodide.runPython("json.dumps(handle(json.loads(request_json)), allow_nan=False)"));
+      postMessage({ id: data.id, result });
     } catch (error) { postMessage({ id: data.id, error: String(error) }); }
   });
 };

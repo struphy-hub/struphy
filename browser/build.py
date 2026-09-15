@@ -133,8 +133,6 @@ Requires-Python: >=3.10
 Requires-Dist: numpy
 Requires-Dist: scipy
 Requires-Dist: cunumpy>=0.1.4,<=0.1.5
-Provides-Extra: plot
-Requires-Dist: matplotlib; extra == "plot"
 License-File: LICENSE
 
 Built from the shared Struphy geometry sources. See browser/README.md in the Struphy repository.
