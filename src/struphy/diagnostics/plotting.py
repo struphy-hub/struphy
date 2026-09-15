@@ -73,13 +73,18 @@ class View:
 
 @dataclass
 class PlotResult:
-    """Already-rendered Matplotlib objects; saving never redraws them."""
+    """Already-rendered Matplotlib objects; saving never redraws them.
+
+    As the last expression of a notebook cell it displays its figure once; there is no need
+    to write ``.fig``.
+    """
 
     fig: object
     ax: object
     artists: list = field(default_factory=list)
     fit_results: list[FitResult | None] = field(default_factory=list)
     data: dict = field(default_factory=dict)
+    _shown: bool = field(default=False, init=False, repr=False, compare=False)
 
     def save(self, path, *, close=False, **kwargs):
         kwargs.setdefault("bbox_inches", "tight")
@@ -90,7 +95,32 @@ class PlotResult:
 
     def show(self):
         plt.show()
+        self._shown = True
         return self
+
+    def __repr__(self):
+        return f"{type(self).__name__}(fig={self.fig!r})"
+
+    def _ipython_display_(self):
+        if not self._shown:
+            _display_figure(self.fig)
+
+
+def _display_figure(fig):
+    """Display a figure as a notebook cell result, exactly once.
+
+    The inline backend shows every open figure again at the end of the cell, so the displayed
+    figure is closed. Interactive backends (e.g. ipympl) already show the figure when it is
+    created, so nothing is displayed twice there either.
+    """
+    import matplotlib
+
+    if "inline" not in matplotlib.get_backend():
+        return
+    from IPython.display import display
+
+    display(fig)
+    plt.close(fig)
 
 
 def _label(data):
@@ -330,6 +360,9 @@ class InteractiveSliceViewer:
 
     def show(self):
         return self.draw().show()
+
+    def _ipython_display_(self):
+        (self.result or self.draw())._ipython_display_()
 
     def draw(self):
         base = _select(self.data, self.view)

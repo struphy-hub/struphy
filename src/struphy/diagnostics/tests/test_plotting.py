@@ -152,3 +152,19 @@ def test_scalar_overview_and_export(tmp_path):
         "en_e.png", "en_tot.png", "scalars.csv", "scalars.png"
     ]
     assert plt.get_fignums() == [result.fig.number]
+
+
+@pytest.mark.parametrize("shown", [False, True])
+def test_notebook_display_shows_the_figure_once(monkeypatch, shown):
+    import IPython.display
+
+    displayed = []
+    monkeypatch.setattr(matplotlib, "get_backend", lambda: "module://matplotlib_inline.backend_inline")
+    monkeypatch.setattr(IPython.display, "display", displayed.append)
+    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+    result = plot_timeseries(scalar_dataset().en_tot, logy=False)
+    if shown:
+        result.show()
+    result._ipython_display_()
+    assert displayed == ([] if shown else [result.fig])
+    assert (result.fig.number in plt.get_fignums()) == shown, "the inline backend must not show it again"
