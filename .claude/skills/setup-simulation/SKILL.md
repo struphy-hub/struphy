@@ -7,7 +7,7 @@ description: Use when creating or editing a Struphy simulation parameter file (p
 
 Struphy simulations are configured as plain Python scripts (`params_<name>.py`) that
 build a `Simulation` object from the Struphy API, then call `sim.run()`. There is no
-YAML/JSON config — the params file *is* the config, so it can use real Python
+YAML/JSON config — the params file _is_ the config, so it can use real Python
 (loops, conditionals, computed values) to derive parameters.
 
 ## Workflow
@@ -116,15 +116,15 @@ if __name__ == "__main__":
 
 Key building blocks and where to look them up:
 
-| Piece | Source |
-|---|---|
-| Domains (`Cuboid`, `HollowTorus`, `Tokamak`, ...) | `src/struphy/geometry/domains.py` |
-| Grid | `src/struphy/topology/grids.py` (`TensorProductGrid`) |
-| Fluid equilibria | `src/struphy/fields_background/equils.py` |
-| Perturbations | `src/struphy/initial/perturbations.py` |
-| Kinetic backgrounds | `src/struphy/kinetic_background/maxwellians.py` |
+| Piece                                                                                                | Source                                                         |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Domains (`Cuboid`, `HollowTorus`, `Tokamak`, ...)                                                    | `src/struphy/geometry/domains.py`                              |
+| Grid                                                                                                 | `src/struphy/topology/grids.py` (`TensorProductGrid`)          |
+| Fluid equilibria                                                                                     | `src/struphy/fields_background/equils.py`                      |
+| Perturbations                                                                                        | `src/struphy/initial/perturbations.py`                         |
+| Kinetic backgrounds                                                                                  | `src/struphy/kinetic_background/maxwellians.py`                |
 | Options dataclasses (`Time`, `BaseUnits`, `DerhamOptions`, `EnvironmentOptions`, `FieldsBackground`) | `src/struphy/io/options.py` (full docstrings with every field) |
-| Models and their propagators/species | `src/struphy/models/<model>.py` |
+| Models and their propagators/species                                                                 | `src/struphy/models/<model>.py`                                |
 
 ## Post-processing pattern
 

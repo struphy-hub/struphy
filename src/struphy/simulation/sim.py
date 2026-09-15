@@ -25,7 +25,7 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    PlottingData,
+    RunOutput,
     PostProcessor,
     ProfilingOptions,
     Time,
@@ -881,11 +881,17 @@ class Simulation(SimulationBase):
         classify: bool = False,
         create_vtk: bool = True,
         parallel_pproc: bool = False,
-    ):
+        force: bool = True,
+        load: bool = False,
+    ) -> RunOutput | None:
         """Run post-processing on saved simulation data.
 
-        Uses `PostProcessor` to generate plots, process guiding-center or
-        physical field views, and optionally produce VTK outputs.
+        Uses `PostProcessor` to process guiding-center or physical field views
+        and optionally produce VTK outputs. With ``load=True``, load the results
+        on rank 0 and return them as `PlottingData`; non-root ranks return ``None``.
+
+        Loading is opt-in because processed field and particle arrays can be
+        large. ``force=False`` reuses an existing post-processing directory.
         """
 
         # setup post processor and plotting
@@ -899,6 +905,7 @@ class Simulation(SimulationBase):
                 guiding_center=guiding_center,
                 classify=classify,
                 create_vtk=create_vtk,
+                force=force,
             )
         else:
             if self.rank == 0:
@@ -911,28 +918,35 @@ class Simulation(SimulationBase):
                     guiding_center=guiding_center,
                     classify=classify,
                     create_vtk=create_vtk,
+                    force=force,
                 )
 
-    def load_plotting_data(self):
+        if load and self.rank == 0:
+            return self.load_plotting_data()
+        return None
+
+    def load_plotting_data(self) -> RunOutput | None:
         """Load plotting datasets produced by post-processing.
 
-        Creates a `PlottingData` instance on rank 0 (if needed), loads the
-        data and exposes convenient attributes such as `orbits`, `f`, and
-        grid information for downstream plotting or analysis.
+        Creates a lazy :class:`RunOutput` instance on rank 0 and exposes its
+        product mappings for downstream analysis. Non-root ranks return ``None``.
         """
 
-        if not hasattr(self, "_plotting_data") and self.rank == 0:
-            self._plotting_data = PlottingData(sim=self)
+        if self.rank != 0:
+            return None
+        if not hasattr(self, "_plotting_data"):
+            self._plotting_data = RunOutput(sim=self)
         self.plotting_data.load()
 
         # expose attributes
         self.orbits = self.plotting_data.orbits
-        self.f = self.plotting_data.f
-        self.spline_values = self.plotting_data.spline_values
-        self.n_sph = self.plotting_data.n_sph
+        self.f = self.plotting_data.distributions
+        self.spline_values = self.plotting_data.fields
+        self.n_sph = self.plotting_data.densities
         self.grids_log = self.plotting_data.grids_log
         self.grids_phy = self.plotting_data.grids_phy
-        self.t_grid = self.plotting_data.t_grid
+        self.t_grid = self.plotting_data.time
+        return self.plotting_data
 
     # ---------------------
     # Code specific methods
