@@ -167,8 +167,7 @@ from struphy.api.particles import (
     WeightsParameters,
 )
 from struphy.api.perturbations import perturbations
-from struphy.api.post_processing import PlottingData, PostProcessor, RunOutput
-from struphy.api.post_processing import post_process
+from struphy.api.post_processing import Run, open_run
 from struphy.api.simulation import Simulation
 
 __all__ = [
@@ -192,9 +191,7 @@ __all__ = [
     "DerhamOptions",
     "FieldsBackground",
     "ButcherTableau",
-    "PostProcessor",
-    "RunOutput",
-    "PlottingData",
-    "post_process",
+    "Run",
+    "open_run",
     "Simulation",
 ]

@@ -7,7 +7,7 @@ more than one folder only the growth-rate comparison is shown.
 import os
 import sys
 
-from struphy import PostProcessor, RunOutput
+from struphy import open_run
 from struphy.diagnostics.plotting import (
     GrowthFit,
     InteractiveSliceViewer,
@@ -34,13 +34,8 @@ FIELD_PLOTS = [
 ]
 
 
-def load(path_out):
-    PostProcessor(path_out=path_out).process(physical=True, force=False)
-    return RunOutput.open(path_out)
-
-
 def main(paths):
-    runs = {os.path.basename(p): load(p) for p in paths}
+    runs = {os.path.basename(p): open_run(p).process(physical=True) for p in paths}
 
     # growth rate of the electrostatic energy, one curve per run
     series = []

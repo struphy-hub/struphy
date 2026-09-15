@@ -130,19 +130,19 @@ Key building blocks and where to look them up:
 
 ```python
 import params_<name> as params   # importing does NOT re-run the sim (guarded above)
-from struphy import PostProcessor, PlottingData
 
-pp = PostProcessor(sim=params.sim)
-pp.process()
+run = params.sim.output          # or, from anywhere: struphy.open_run(<env.path_out>)
+run.process(physical=True)       # optional; products are otherwise processed with defaults on first access
 
-pdata = PlottingData(sim=params.sim)
-pdata.load()
-# pdata.f.<species>.<binning_name>.f_binned / grid_e1 / grid_v1, etc.
+run.scalars.<name>                                     # xarray time series, no post-processing needed
+run.fields.<species>.<variable>_log                    # dims (t, [component,] e1, e2, e3)
+run.distributions.<species>.<binning_name>.f_binned    # dims (t, <slice dims>)
+run.orbits.<species>                                   # dims (t, marker, attribute)
+run.sim.model.units                                    # the Simulation, restored without allocating
 ```
 
-For scalar diagnostics (energies, ...) saved every step, read directly from
-`<env.path_out>/data/data_proc0.hdf5` (`scalar/<name>`, `time/value`) — no
-post-processing needed, as shown in `examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py`.
+Plotting helpers for these arrays live in `src/struphy/diagnostics/plotting.py`; see
+`examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py` for a complete script.
 
 ## Common pitfalls
 

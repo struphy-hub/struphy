@@ -32,14 +32,10 @@ class SimulationBase(metaclass=ABCMeta):
         """Run the simulation."""
         pass
 
+    @property
     @abstractmethod
-    def pproc(self):
-        """Post-process the simulation results."""
-        pass
-
-    @abstractmethod
-    def load_plotting_data(self):
-        """Load post-processed data for visualization."""
+    def output(self):
+        """The output of the simulation."""
         pass
 
     @abstractmethod

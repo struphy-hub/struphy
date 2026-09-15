@@ -1,7 +1,7 @@
 import os
 import sys
 
-from struphy import PostProcessor, RunOutput
+from struphy import open_run
 from struphy.diagnostics.plotting import (
     GrowthFit,
     InteractiveSliceViewer,
@@ -31,9 +31,7 @@ FIELD_PLOTS = [
 
 
 def main(path_out):
-    PostProcessor(path_out=path_out).process(physical=True, force=False)
-
-    run = RunOutput.open(path_out)
+    run = open_run(path_out).process(physical=True)
 
     # growth rate of the electrostatic potential
     plot_timeseries(

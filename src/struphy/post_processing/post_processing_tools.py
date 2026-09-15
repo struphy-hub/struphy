@@ -1,4 +1,3 @@
-import inspect
 import hashlib
 import json
 import logging
@@ -17,25 +16,11 @@ from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.fields_background.base import FluidEquilibrium
-from struphy.geometry.base import Domain
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy.io.setup import import_parameters_py
-from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import KineticBackground
-from struphy.models.base import StruphyModel
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
-from struphy.post_processing.arrays import (
-    data_array,
-    save_scalars,
-    wrap_binned_data,
-    wrap_field_data,
-    wrap_orbits,
-)
 from struphy.post_processing.orbits import orbits_tools
-from struphy.topology.grids import TensorProductGrid
 from struphy.utils.progress import tqdm
 
 if TYPE_CHECKING:
@@ -47,221 +32,67 @@ logger = logging.getLogger("struphy")
 PUSH_KINDS = {"H1": "0", "Hcurl": "1", "Hdiv": "2", "L2": "3", "H1vec": "v"}
 
 
-class Container:
-    """Mapping access over attributes set by the loader, so contents are discoverable."""
-
-    def keys(self):
-        return tuple(k for k in self.__dict__ if not k.startswith("_"))
-
-    def __getitem__(self, key):
-        try:
-            return self.__dict__[key]
-        except KeyError:
-            raise KeyError(f"{key!r} not found, available: {self.keys()}") from None
-
-    def __contains__(self, key):
-        return key in self.keys()
-
-    def __iter__(self):
-        return iter(self.keys())
-
-    def __len__(self):
-        return len(self.keys())
+MANIFEST_SCHEMA_VERSION = 1
 
 
-class SplineValues(Container):
-    def __str__(self):
-        out = ""
-        for name, species in inspect.getmembers(self):
-            if isinstance(species, SpecHolder):
-                out += f"    {name}\n"
-                out += f"{species}"
-        return out
+def source_fingerprint(path_out: str) -> str:
+    """Fingerprint the raw run files that determine post-processing products."""
+    digest = hashlib.sha256()
+    for name in ("config.json", "parameters.py", "meta.yml", "data/data_proc0.hdf5"):
+        path = os.path.join(path_out, name)
+        if not os.path.exists(path):
+            continue
+        stat = os.stat(path)
+        digest.update(name.encode())
+        digest.update(f"{stat.st_size}:{stat.st_mtime_ns}".encode())
+        if name != "data/data_proc0.hdf5":
+            with open(path, "rb") as stream:
+                digest.update(stream.read())
+    return digest.hexdigest()
 
 
-class Orbits(Container):
-    def __str__(self):
-        out = ""
-        for species, orbits in self.__dict__.items():
-            shp = orbits.shape
-            out += f"    {species}, shape = {shp}\n"
-            out += f"        Number of time points: {shp[0]}\n"
-            out += f"        Number of particles:   {shp[1]}\n"
-            out += f"        Number of attributes:  {shp[2]}\n"
-        return out
+def normalize_options(**options) -> dict:
+    """JSON-comparable processing options, as stored in the manifest."""
+    celldivide = options.get("celldivide")
+    if celldivide is not None:
+        options["celldivide"] = [int(celldivide)] * 3 if isinstance(celldivide, int) else [int(c) for c in celldivide]
+    return options
 
 
-class DistributionFunction(Container):
-    def __str__(self):
-        out = ""
-        for name, species in inspect.getmembers(self):
-            if isinstance(species, SpecHolder):
-                out += f"    {name}\n"
-                out += f"{species}"
-        return out
+def is_processed(path_out: str, options: dict | None = None) -> bool:
+    """Whether ``path_out`` holds complete post-processing of its current raw output.
 
-
-class DensitySPH(Container):
-    def __str__(self):
-        out = ""
-        for name, species in inspect.getmembers(self):
-            if isinstance(species, SpecHolder):
-                out += f"    {name}\n"
-                out += f"{species}"
-        return out
-
-
-class SpecHolder(Container):
-    def __str__(self):
-        out = ""
-        for name, val in self.__dict__.items():
-            out += f"        {name}\n"
-        return out
-
-
-class Slice(Container):
-    pass
-
-
-class Scalars(Container):
-    """Time series recorded every ``save_step``-th step, read straight from the raw HDF5 output.
-
-    Unlike the other containers this needs no prior call to :meth:`PostProcessor.process`.
+    With ``options``, the stored processing options must match as well, so a request for
+    different products (e.g. ``physical=True``) is never answered with stale ones.
     """
-
-    def __str__(self):
-        out = ""
-        for name in self.keys():
-            out += f"    {name}\n"
-        return out
-
-
-class DataDict:
-    def __init__(self, data: dict, grids_log=None, name: str = ""):
-        self.data = data
-        self.grids_log = grids_log
-        self.name = name
-        self._array = None
-
-    @property
-    def array(self):
-        """The field as one labeled array with dims ``(t, comp, e1, e2, e3)``.
-
-        Built on first access; ``data`` remains the raw time-keyed dict.
-        """
-        if self._array is None:
-            self._array = wrap_field_data(self.data, self.grids_log, label=self.name)
-        return self._array
-
-    def __str__(self):
-        out = f"{type(self.data) = }\n"
-        out += f"{len(self.data) = }\n"
-        for key, d in self.data.items():
-            if isinstance(d, list):
-                shp = [comp.shape for comp in d]
-            else:
-                shp = d.shape
-            out += f"{key = }".ljust(25)
-            out += f"shape = {shp}\n"
-        return out
-
-
-class ParamsIn:
-    """Holds the input parameters of a Struphy simulation as attributes.
-
-    Parameters
-    ----------
-    path : str
-        Absolute path of simulation output folder.
-    """
-
-    def __init__(
-        self,
-        path: str,
-    ):
-        logger.info(f"\nReading in parameters from {path} ... ")
-
-        params_path = os.path.join(path, "parameters.py")
-        json_path = os.path.join(path, "config.json")
-
-        if os.path.exists(params_path):
-            params_in = import_parameters_py(params_path)
-            env = params_in.env
-            time_opts = params_in.time_opts
-            domain = params_in.domain
-            equil = params_in.equil
-            grid = params_in.grid
-            derham_opts = params_in.derham_opts
-            model = params_in.model
-            sim = params_in.sim
-
-        elif os.path.exists(json_path):
-            with open(json_path, "r") as f:
-                dct = json.load(f)
-            env = EnvironmentOptions.from_dict(dct["env"])
-            time_opts = Time.from_dict(dct["time_opts"])
-            domain: Domain = Domain.from_dict(dct["domain"])
-            equil = FluidEquilibrium.from_dict(dct.get("equil"))
-
-            grid_dct = dct.get("grid")
-            if grid_dct is not None:
-                grid_dct = dict(grid_dct)
-                if "num_elements" in grid_dct and grid_dct["num_elements"] is not None:
-                    grid_dct["num_elements"] = tuple(grid_dct["num_elements"])
-                if "mpi_dims_mask" in grid_dct and grid_dct["mpi_dims_mask"] is not None:
-                    grid_dct["mpi_dims_mask"] = tuple(grid_dct["mpi_dims_mask"])
-                grid = TensorProductGrid.from_dict(grid_dct)
-            else:
-                grid = None
-
-            derham_dct = dct.get("derham_opts")
-            if derham_dct is not None:
-                derham_dct = dict(derham_dct)
-                if "degree" in derham_dct and derham_dct["degree"] is not None:
-                    derham_dct["degree"] = tuple(derham_dct["degree"])
-                if "bcs" in derham_dct and derham_dct["bcs"] is not None:
-                    derham_dct["bcs"] = tuple(None if bc is None else tuple(bc) for bc in derham_dct["bcs"])
-                if "nquads" in derham_dct and derham_dct["nquads"] is not None:
-                    derham_dct["nquads"] = tuple(derham_dct["nquads"])
-                if "nquads_proj" in derham_dct and derham_dct["nquads_proj"] is not None:
-                    derham_dct["nquads_proj"] = tuple(derham_dct["nquads_proj"])
-                derham_opts = DerhamOptions.from_dict(derham_dct)
-            else:
-                derham_opts = None
-
-            model: StruphyModel = StruphyModel.from_dict(dct["model"])
-            sim = None
-
-        else:
-            raise FileNotFoundError(f"Neither of the paths {params_path} or {json_path} exists.")
-
-        logger.info("... Done.")
-
-        self.env = env
-        self.time_opts = time_opts
-        self.domain = domain
-        self.equil = equil
-        self.grid = grid
-        self.derham_opts = derham_opts
-        self.model = model
-        self.sim = sim
+    path = os.path.join(path_out, "post_processing", "manifest.json")
+    try:
+        with open(path) as stream:
+            manifest = json.load(stream)
+    except (OSError, ValueError):
+        return False
+    return (
+        manifest.get("schema_version") == MANIFEST_SCHEMA_VERSION
+        and manifest.get("status") == "complete"
+        and manifest.get("source_fingerprint") == source_fingerprint(path_out)
+        and (options is None or manifest.get("options") == normalize_options(**options))
+    )
 
 
 class PostProcessor:
-    """Post-process results from a finished Struphy simulation.
+    """Post-process the raw output of a finished Struphy simulation.
 
-    This class collects and processes output data produced by a completed Struphy run. It can be
-    constructed either from a finished :class:`Simulation` object or from a path to an output
-    directory produced by a previous run.
+    Users do not call this directly; use :meth:`struphy.Run.process`, which also decides
+    on which MPI ranks processing runs.
 
     Parameters
     ----------
-    sim : Simulation, optional
-        Simulation object of a finished run. If provided, its metadata and output paths are used.
-    path_out : str, optional
-        Path to the Struphy output folder. Required if ``sim`` is not given.
+    sim : Simulation
+        Simulation of the run, either the one that ran or one restored with
+        :meth:`Simulation.from_output`. Its ``env.path_out`` locates the output.
     parallel_pproc : bool, optional
-        Whether to run post-processing in parallel using MPI. Default is False (serial post-processing).
+        Whether to run post-processing in parallel using MPI. This requires an allocated
+        ``sim`` and a call on every rank. Default is False (serial post-processing).
 
     Attributes
     ----------
@@ -279,63 +110,30 @@ class PostProcessor:
         Number of MPI ranks used to produce the output.
     """
 
-    def __init__(
-        self,
-        sim: "Simulation" = None,
-        path_out: str = None,
-        parallel_pproc: bool = False,
-    ):
-
-        # import simulation parameters from sim object or from path_out
-        if sim is None:
-            assert path_out is not None, (
-                "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
-            )
-            params_in = ParamsIn(path=path_out)
-            grid = params_in.grid
-            derham_opts = params_in.derham_opts
-            domain = params_in.domain
-            model = params_in.model
-            imported_sim = params_in.sim
-        else:
-            path_out = sim.env.path_out
-            grid = sim.grid
-            derham_opts = sim.derham_opts
-            domain = sim.domain
-            model = sim.model
-            imported_sim = sim
-
-        # create post-processing folder
-        self.path_out = path_out
-        self.path_pproc = os.path.join(path_out, "post_processing")
-
-        # parallel post-processing (default: False)
+    def __init__(self, sim: "Simulation", parallel_pproc: bool = False):
+        self.path_out = sim.env.path_out
+        self.path_pproc = os.path.join(self.path_out, "post_processing")
         self.parallel_pproc = parallel_pproc
 
         # struphy objects needed for post-processing
-        self.domain = domain
-        self.model = model
+        self.domain = sim.domain
+        self.model = sim.model
 
         if self.parallel_pproc:
-            assert imported_sim is not None, "Parallel post-processing only supported when the sim object is provided."
-            self.derham = imported_sim.derham
+            assert sim.derham is not None, "Parallel post-processing needs an allocated simulation."
+            self.derham = sim.derham
             self.comm = self.derham.comm
             self.comm_size = self.comm.Get_size()
             self.rank = self.comm.Get_rank()
             self.range_ranks = range(self.rank, self.rank + 1)
         else:
-            if grid is None or derham_opts is None:
+            if sim.grid is None or sim.derham_opts is None:
                 self.derham = None
             else:
-                self.derham = Derham(
-                    grid,
-                    derham_opts,
-                    comm=None,
-                    domain=domain,
-                )
+                self.derham = Derham(sim.grid, sim.derham_opts, comm=None, domain=sim.domain)
             self.comm = MockComm()
             # get number of MPI ranks used in the simulation from meta.yml
-            with open(os.path.join(path_out, "meta.yml"), "r") as f:
+            with open(os.path.join(self.path_out, "meta.yml"), "r") as f:
                 meta = yaml.load(f, Loader=yaml.FullLoader)
             self.comm_size = meta["MPI processes"]
             self.rank = 0
@@ -347,43 +145,13 @@ class PostProcessor:
             os.makedirs(self.path_pproc, exist_ok=True)
         self.comm.Barrier()
 
-    @property
-    def is_processed(self) -> bool:
-        """Whether a complete manifest matches the current raw run."""
-        path = os.path.join(self.path_pproc, "manifest.json")
-        if not os.path.exists(path):
-            return False
-        try:
-            with open(path) as stream:
-                manifest = json.load(stream)
-            return (manifest.get("schema_version") == 1
-                    and manifest.get("status") == "complete"
-                    and manifest.get("source_fingerprint") == self._source_fingerprint())
-        except (OSError, ValueError):
-            return False
-
-    def _source_fingerprint(self):
-        """Fingerprint inputs that determine post-processing products."""
-        digest = hashlib.sha256()
-        for name in ("config.json", "parameters.py", "meta.yml", "data/data_proc0.hdf5"):
-            path = os.path.join(self.path_out, name)
-            if not os.path.exists(path):
-                continue
-            stat = os.stat(path)
-            digest.update(name.encode())
-            digest.update(f"{stat.st_size}:{stat.st_mtime_ns}".encode())
-            if name != "data/data_proc0.hdf5":
-                with open(path, "rb") as stream:
-                    digest.update(stream.read())
-        return digest.hexdigest()
-
     def _write_manifest(self, status, *, options=None, error=None):
         if self.rank != 0:
             return
         manifest = {
-            "schema_version": 1,
+            "schema_version": MANIFEST_SCHEMA_VERSION,
             "status": status,
-            "source_fingerprint": self._source_fingerprint(),
+            "source_fingerprint": source_fingerprint(self.path_out),
             "options": options or {},
         }
         if error is not None:
@@ -445,13 +213,13 @@ class PostProcessor:
         bool
             Whether post-processing actually ran.
         """
-        if not force and self.is_processed:
+        options = normalize_options(step=step, celldivide=celldivide, physical=physical,
+                                    guiding_center=guiding_center, classify=classify, create_vtk=create_vtk)
+        if not force and is_processed(self.path_out, options):
             logger.warning(f"\nReusing existing post-processing in {self.path_pproc}")
             return False
 
         self._reset_pproc_dir()
-        options = {"step": step, "celldivide": celldivide, "physical": physical,
-                   "guiding_center": guiding_center, "classify": classify, "create_vtk": create_vtk}
         self._write_manifest("processing", options=options)
         logger.warning(f"\nPost-processing path {self.path_out}")
 
@@ -1454,436 +1222,3 @@ class PostProcessor:
             if self.rank == 0:
                 # save sph density
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
-
-
-class LegacyPlottingData:
-    """Container for loading and accessing post-processed Struphy simulation data.
-
-    This class provides convenient access to field data (spline values), particle orbits,
-    distribution functions, and SPH density fields that were generated by
-    :class:`PostProcessor`. Data is organized hierarchically by species and variable/view
-    and is exposed via read-only properties.
-
-    Parameters
-    ----------
-    sim : Simulation, optional
-        Simulation object of a completed run. If provided, its output path is used.
-    path_out : str, optional
-        Path to the Struphy output folder. Required if ``sim`` is not given.
-
-    Raises
-    ------
-    AssertionError
-        If neither ``sim`` nor ``path_out`` is provided, or if the post-processing
-        directory does not exist (call :meth:`PostProcessor.process` first).
-
-    Attributes
-    ----------
-    path_pproc : str
-        Path to the post-processing directory.
-    t_grid : xp.ndarray or None
-        Time grid (loaded after calling :meth:`load`).
-    grids_log : list of xp.ndarray or None
-        Logical coordinate grids (loaded after calling :meth:`load`).
-    grids_phy : list of xp.ndarray or None
-        Physical coordinate grids (loaded after calling :meth:`load`).
-
-    Examples
-    --------
-    >>> pdata = PlottingData(path_out=\"/path/to/sim/output\")
-    >>> pdata.load()
-    >>> # Access particle orbits for species 'electrons'
-    >>> orbits_e = pdata.orbits.electrons  # shape: (time, particles, attributes)
-    >>> # Access field values
-    >>> E_log = pdata.spline_values.electrons.E_log  # logical components
-    """
-
-    def __init__(self, sim: "Simulation" = None, path_out: str = None):
-
-        if sim is None:
-            assert path_out is not None, (
-                "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
-            )
-        else:
-            path_out = sim.env.path_out
-
-        self.path_out = path_out
-        self.path_pproc = os.path.join(path_out, "post_processing")
-        assert os.path.exists(self.path_pproc), f"Path {self.path_pproc} does not exist, run 'pproc' first?"
-
-        # dictionaries to hold data
-        self._orbits = Orbits()
-        self._f = DistributionFunction()
-        self._spline_values = SplineValues()
-        self._n_sph = DensitySPH()
-        self._scalars = Scalars()
-        self._params = None
-        self._units = None
-        self.grids_log: list[xp.ndarray] = None
-        self.grids_phy: list[xp.ndarray] = None
-        self.t_grid: xp.ndarray = None
-
-    @property
-    def params(self) -> ParamsIn:
-        """Input parameters of the run, read from the output folder on first access.
-
-        Removes the need for a plotting script to import the simulation's ``params_*.py``.
-        """
-        if self._params is None:
-            self._params = ParamsIn(self.path_out)
-        return self._params
-
-    @property
-    def domain(self) -> Domain:
-        """Domain of the run, for mapping logical to physical coordinates."""
-        return self.params.domain
-
-    @property
-    def units(self):
-        """Fully derived :class:`~struphy.physics.physics.Units` of the run.
-
-        Replaces the ``Units(base_units)`` / ``derive_units(...)`` sequence that every
-        plotting script would otherwise repeat.
-        """
-        if self._units is None:
-            from struphy.physics.physics import Units
-
-            model = self.params.model
-            units = Units(model.base_units)
-            bulk = model.bulk_species
-            units.derive_units(
-                velocity_scale=model.velocity_scale,
-                A_bulk=None if bulk is None else bulk.mass_number,
-                Z_bulk=None if bulk is None else bulk.charge_number,
-            )
-            self._units = units
-        return self._units
-
-    @property
-    def scalars(self) -> Scalars:
-        """Scalar time series recorded every ``save_step``-th step, keyed by name.
-
-        Each entry is a :class:`~struphy.post_processing.arrays.StruphyArray` over ``t``,
-        with the time coordinate already converted to seconds.
-
-        Returns
-        -------
-        Scalars
-            Container supporting ``.keys()``, ``["name"]`` and attribute access.
-        """
-        return self._scalars
-
-    @property
-    def orbits(self) -> Orbits:
-        """Particle orbit data by species.
-
-        Returns
-        -------
-        Orbits
-            Container where attributes are species names. Each species attribute holds
-            a 3D array indexed by (t, p, a): t = time step, p = particle index,
-            a = attribute index (id, position_xyz, velocities, weight, etc.).
-        """
-        return self._orbits
-
-    @property
-    def f(self) -> DistributionFunction:
-        """Distribution function data by species.
-
-        Returns
-        -------
-        DistributionFunction
-            Container where attributes are species names. Each species holds a dict-like
-            object mapping slice names (e.g., 'e1_v1', 'e2_v2') to slice containers,
-            which store arrays like 'f_binned', 'delta_f_binned' for plotting.
-        """
-        return self._f
-
-    @property
-    def spline_values(self) -> SplineValues:
-        """Field (spline) values by species.
-
-        Returns
-        -------
-        SplineValues
-            Container where attributes are species names. Each species holds a dict-like
-            object mapping variable names (e.g., 'E_log', 'B_phy') to ``DataDict``
-            objects containing evaluated field arrays on the grid.
-        """
-        return self._spline_values
-
-    @property
-    def n_sph(self) -> DensitySPH:
-        """SPH density fields by species.
-
-        Returns
-        -------
-        DensitySPH
-            Container where attributes are species names. Each species holds a dict-like
-            object mapping view names (e.g., 'view_0', 'view_1') to slice containers,
-            which store arrays like 'n_sph' and associated grids for plotting.
-        """
-        return self._n_sph
-
-    @property
-    def plot(self):
-        """Plotting methods bound to this run's data and metadata.
-
-        Examples
-        --------
-        >>> pdata.plot.scalars()
-        >>> pdata.plot.time_series("electric_energy", fit=True)
-        >>> pdata.plot.slider(pdata.f.kinetic_ions["e1_v1_density"]["f_binned"])
-        """
-        if not hasattr(self, "_plot_accessor"):
-            # Keep matplotlib and the plotting implementation out of the data-loading
-            # import path until a plot is actually requested.
-            from struphy.diagnostics.plotting import PlottingAccessor
-
-            self._plot_accessor = PlottingAccessor(self)
-        return self._plot_accessor
-
-    def load_scalars(self, *, physical_time: bool = True):
-        """Read the ``scalar`` group of the raw HDF5 output into :attr:`scalars`.
-
-        Post-processing is not required for these, so this may be called on its own.
-
-        Parameters
-        ----------
-        physical_time : bool
-            Scale the time coordinate to seconds using the run's units. Set False to
-            keep Struphy time units.
-        """
-        path_data = os.path.join(self.path_out, "data", "data_proc0.hdf5")
-        if not os.path.exists(path_data):
-            logger.warning(f"No raw data at {path_data}, skipping scalars.")
-            return self._scalars
-
-        unit_t = self.units.t if physical_time else 1.0
-        t_unit_label = "s" if physical_time else "a.u."
-
-        with h5py.File(path_data, "r") as f:
-            if "scalar" not in f:
-                logger.warning(f"No scalar diagnostics saved in {path_data}, skipping scalars.")
-                return self._scalars
-            t = xp.asarray(f["time"]["value"][()]) * unit_t
-            for name in f["scalar"].keys():
-                arr = data_array(
-                    xp.asarray(f["scalar"][name][()]),
-                    dims=("t",),
-                    coords={"t": t},
-                    name=name,
-                    label=name.replace("_", " "),
-                    coord_units={"t": t_unit_label},
-                )
-                setattr(self._scalars, name, arr)
-
-        logger.info(f"Loaded scalars: {self._scalars.keys()}")
-        return self._scalars
-
-    def save_scalars(self, path: str = None, **kwargs) -> str:
-        """Write every scalar, at every time step, as one table.
-
-        Parameters
-        ----------
-        path : str, optional
-            Destination; the format follows its suffix. Defaults to
-            ``post_processing/scalars.csv`` in the output folder.
-        **kwargs
-            Passed to :func:`~struphy.post_processing.arrays.save_scalars`.
-        """
-        if not self._scalars.keys():
-            self.load_scalars()
-        if path is None:
-            path = os.path.join(self.path_pproc, "scalars.csv")
-        return save_scalars(self._scalars, path, **kwargs)
-
-    def save_scalar_plots(self, directory: str = None, **kwargs) -> list[str]:
-        """Write the table, an overview figure and one figure per scalar.
-
-        Parameters
-        ----------
-        directory : str, optional
-            Defaults to ``post_processing/scalars`` in the output folder.
-        **kwargs
-            Passed to :func:`~struphy.diagnostics.plotting.save_all_scalars`.
-        """
-        from struphy.diagnostics.plotting import save_all_scalars
-
-        if not self._scalars.keys():
-            self.load_scalars()
-        if directory is None:
-            directory = os.path.join(self.path_pproc, "scalars")
-        # not setdefault: reading the parameters must not be forced when they are given
-        if "params" not in kwargs:
-            kwargs["params"] = self.params
-        return save_all_scalars(self._scalars, directory, **kwargs)
-
-    def load(self):
-        """Load all post-processed data from disk into memory.
-
-        Reads binary pickle files (``.bin``) and NumPy archives (``.npy``) from the
-        post-processing directory. Populates ``self.t_grid``, ``self.grids_log``,
-        ``self.grids_phy``, and all species-dependent data properties (orbits, f,
-        spline_values, n_sph).
-
-        Raises
-        ------
-        FileNotFoundError
-            If expected post-processing files are missing.
-        NotImplementedError
-            If an unexpected data folder structure is encountered.
-        """
-        logger.warning("\nLoading post-processed plotting data:")
-        logger.warning(f"Data path: {self.path_pproc}")
-
-        # load time grid
-        self.t_grid = xp.load(os.path.join(self.path_pproc, "t_grid.npy"))
-
-        self.load_scalars()
-
-        # data paths
-        path_fields = os.path.join(self.path_pproc, "fields_data")
-        path_kinetic = os.path.join(self.path_pproc, "kinetic_data")
-
-        # load point data
-        if os.path.exists(path_fields):
-            # grids
-            with open(os.path.join(path_fields, "grids_log.bin"), "rb") as f:
-                self.grids_log = pickle.load(f)
-            with open(os.path.join(path_fields, "grids_phy.bin"), "rb") as f:
-                self.grids_phy = pickle.load(f)
-
-            # species folders
-            species = next(os.walk(path_fields))[1]
-            for spec in species:
-                spec_holder = SpecHolder()
-                setattr(self.spline_values, spec, spec_holder)
-                # self.arrays[spec] = {}
-                path_spec = os.path.join(path_fields, spec)
-                wlk = os.walk(path_spec)
-                files = next(wlk)[2]
-                logger.info(f"\nFiles in {path_spec}: {files}")
-                for file in files:
-                    if ".bin" in file:
-                        var = file.split(".")[0]
-                        with open(os.path.join(path_spec, file), "rb") as f:
-                            # try:
-                            data_dict = DataDict(pickle.load(f), self.grids_log, var)
-                            setattr(spec_holder, var, data_dict)
-                            # self.arrays[spec][var] = pickle.load(f)
-
-        if os.path.exists(path_kinetic):
-            # species folders
-            species = next(os.walk(path_kinetic))[1]
-            for spec in species:
-                path_spec = os.path.join(path_kinetic, spec)
-                wlk = os.walk(path_spec)
-                sub_folders = next(wlk)[1]
-                for folder in sub_folders:
-                    path_dat = os.path.join(path_spec, folder)
-                    sub_wlk = os.walk(path_dat)
-
-                    if "orbits" in folder:
-                        files = next(sub_wlk)[2]
-                        Nt = len(files) // 2
-                        n = 0
-                        arr = None
-                        for file in files:
-                            # logger.info(f"{file = }")
-                            if ".npy" in file:
-                                step = int(file.split(".")[0].split("_")[-1])
-                                tmp = xp.load(os.path.join(path_dat, file))
-                                if n == 0:
-                                    arr = xp.zeros((Nt, *tmp.shape), dtype=float)
-                                arr[step] = tmp
-                                n += 1
-                        if arr is not None:
-                            setattr(self.orbits, spec, wrap_orbits(arr, self.t_grid[:Nt]))
-
-                    elif "distribution_function" in folder:
-                        spec_holder = SpecHolder()
-                        setattr(self.f, spec, spec_holder)
-                        slices = next(sub_wlk)[1]
-                        # logger.info(f"{slices = }")
-                        for sli in slices:
-                            s = Slice()
-                            setattr(spec_holder, sli, s)
-                            # logger.info(f"{sli = }")
-                            files = next(sub_wlk)[2]
-                            # logger.info(f"{files = }")
-                            for file in files:
-                                name = file.split(".")[0]
-                                tmp = xp.load(os.path.join(path_dat, sli, file))
-                                logger.info(f"{name = }")
-                                setattr(s, name, tmp)
-                            grids = {key.removeprefix("grid_"): getattr(s, key) for key in s.keys()
-                                     if key.startswith("grid_")}
-                            dims = tuple(part for part in sli.split("_") if part in grids)
-                            for name in tuple(s.keys()):
-                                values = getattr(s, name)
-                                if name.startswith("grid_") or not hasattr(values, "shape"):
-                                    continue
-                                expected = (len(self.t_grid), *(len(grids[dim]) for dim in dims))
-                                if values.shape == expected:
-                                    setattr(s, name, wrap_binned_data(values, dims,
-                                            {"t": self.t_grid, **{dim: grids[dim] for dim in dims}}, name=name))
-
-                    elif "n_sph" in folder:
-                        spec_holder = SpecHolder()
-                        setattr(self.n_sph, spec, spec_holder)
-                        slices = next(sub_wlk)[1]
-                        # logger.info(f"{slices = }")
-                        for sli in slices:
-                            s = Slice()
-                            setattr(spec_holder, sli, s)
-                            # logger.info(f"{sli = }")
-                            files = next(sub_wlk)[2]
-                            # logger.info(f"{files = }")
-                            for file in files:
-                                name = file.split(".")[0]
-                                tmp = xp.load(os.path.join(path_dat, sli, file))
-                                # logger.info(f"{name = }")
-                                setattr(s, name, tmp)
-                            grids = {key.removeprefix("grid_"): getattr(s, key) for key in s.keys()
-                                     if key.startswith("grid_")}
-                            dims = tuple(part for part in sli.split("_") if part in grids)
-                            for name in tuple(s.keys()):
-                                values = getattr(s, name)
-                                if name.startswith("grid_") or not hasattr(values, "shape"):
-                                    continue
-                                expected = (len(self.t_grid), *(len(grids[dim]) for dim in dims))
-                                if values.shape == expected:
-                                    setattr(s, name, wrap_binned_data(values, dims,
-                                            {"t": self.t_grid, **{dim: grids[dim] for dim in dims}}, name=name))
-
-                    else:
-                        logger.info(f"{folder =}")
-                        raise NotImplementedError
-
-        logger.warning("\nThe following data has been loaded:")
-        logger.warning("\ngrids:")
-        logger.warning(f"{self.t_grid.shape =}")
-        if self.grids_log is not None:
-            logger.warning(f"{self.grids_log[0].shape =}")
-            logger.warning(f"{self.grids_log[1].shape =}")
-            logger.warning(f"{self.grids_log[2].shape =}")
-        if self.grids_phy is not None:
-            logger.warning(f"{self.grids_phy[0].shape =}")
-            logger.warning(f"{self.grids_phy[1].shape =}")
-            logger.warning(f"{self.grids_phy[2].shape =}")
-        logger.warning("\nself.spline_values:")
-        logger.warning(self.spline_values)
-        logger.warning("self.orbits:")
-        logger.warning(self.orbits)
-        logger.warning("self.f:")
-        logger.warning(self.f)
-        logger.warning("self.n_sph:")
-        logger.warning(self.n_sph)
-
-
-# The old eager attribute tree remains in this module only to make old pickles and
-# out-of-tree imports fail gently. New code receives the lazy, xarray-backed API.
-from struphy.post_processing.run_output import RunOutput  # noqa: E402
-
-PlottingData = RunOutput

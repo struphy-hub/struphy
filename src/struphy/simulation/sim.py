@@ -1,12 +1,14 @@
 # third party imports
+import dataclasses
 import glob
+import hashlib
 import json
 import logging
 import os
 import shutil
 import sysconfig
 import time
-from collections.abc import Sequence
+from pathlib import Path
 
 import cunumpy as xp
 import h5py
@@ -25,8 +27,6 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    RunOutput,
-    PostProcessor,
     ProfilingOptions,
     Time,
     domains,
@@ -53,6 +53,7 @@ from struphy.fields_background.projected_equils import (
 )
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
+from struphy.io.setup import import_parameters_py
 from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -65,6 +66,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
+from struphy.post_processing.run import Run
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
@@ -171,8 +173,8 @@ class Simulation(SimulationBase):
         self.Barrier()
         self.start_time = time.time()
 
-        self._save_config()
         self.clone_config = self._create_clone_config()
+        self._output = None
         self.Barrier()
 
     # ----------------
@@ -599,7 +601,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None):
+    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None) -> Run:
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -615,6 +617,11 @@ class Simulation(SimulationBase):
         profiling_activated : bool | None
             If True, activate profiling with scope-profiler for this run. If
             None, profiling is disabled.
+
+        Returns
+        -------
+        Run
+            The output of this run, see :attr:`output`.
         """
         if profiling_activated is None:
             profiling_activated = False
@@ -626,6 +633,10 @@ class Simulation(SimulationBase):
             logger.info(f"Description: {self.description}")
 
         self._remove_existing_output_files()
+        self._setup_folders()
+        self._save_config()
+        self.Barrier()
+        self._output = None
 
         with ProfileManager.session(
             options=self.profiling_opts,
@@ -872,81 +883,18 @@ class Simulation(SimulationBase):
             if self.clone_config is not None:
                 self.clone_config.free()
 
-    def pproc(
-        self,
-        step: int = 1,
-        celldivide: int | Sequence[int] = 1,
-        physical: bool = False,
-        guiding_center: bool = False,
-        classify: bool = False,
-        create_vtk: bool = True,
-        parallel_pproc: bool = False,
-        force: bool = True,
-        load: bool = False,
-    ) -> RunOutput | None:
-        """Run post-processing on saved simulation data.
+        return self.output
 
-        Uses `PostProcessor` to process guiding-center or physical field views
-        and optionally produce VTK outputs. With ``load=True``, load the results
-        on rank 0 and return them as `PlottingData`; non-root ranks return ``None``.
+    @property
+    def output(self) -> Run:
+        """The output of this simulation in ``env.path_out``, see :class:`~struphy.Run`.
 
-        Loading is opt-in because processed field and particle arrays can be
-        large. ``force=False`` reuses an existing post-processing directory.
+        Scalars are available as soon as data is written; fields and particle products are
+        post-processed on first access, or explicitly with ``sim.output.process(...)``.
         """
-
-        # setup post processor and plotting
-        if parallel_pproc:
-            self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
-
-            self.post_processor.process(
-                step=step,
-                celldivide=celldivide,
-                physical=physical,
-                guiding_center=guiding_center,
-                classify=classify,
-                create_vtk=create_vtk,
-                force=force,
-            )
-        else:
-            if self.rank == 0:
-                self._post_processor = PostProcessor(sim=self, parallel_pproc=False)
-
-                self.post_processor.process(
-                    step=step,
-                    celldivide=celldivide,
-                    physical=physical,
-                    guiding_center=guiding_center,
-                    classify=classify,
-                    create_vtk=create_vtk,
-                    force=force,
-                )
-
-        if load and self.rank == 0:
-            return self.load_plotting_data()
-        return None
-
-    def load_plotting_data(self) -> RunOutput | None:
-        """Load plotting datasets produced by post-processing.
-
-        Creates a lazy :class:`RunOutput` instance on rank 0 and exposes its
-        product mappings for downstream analysis. Non-root ranks return ``None``.
-        """
-
-        if self.rank != 0:
-            return None
-        if not hasattr(self, "_plotting_data"):
-            self._plotting_data = RunOutput(sim=self)
-        self.plotting_data.load()
-
-        # expose attributes
-        self.orbits = self.plotting_data.orbits
-        self.f = self.plotting_data.distributions
-        self.spline_values = self.plotting_data.fields
-        self.n_sph = self.plotting_data.densities
-        self.grids_log = self.plotting_data.grids_log
-        self.grids_phy = self.plotting_data.grids_phy
-        self.t_grid = self.plotting_data.time
-        return self.plotting_data
+        if self._output is None or self._output.path_out != Path(self.env.path_out).resolve():
+            self._output = Run(self.env.path_out, sim=self)
+        return self._output
 
     # ---------------------
     # Code specific methods
@@ -1702,6 +1650,31 @@ class Simulation(SimulationBase):
         dct = convert_lists_to_tuples(dct)
         return cls.from_dict(dct)
 
+    @classmethod
+    def from_output(cls, path_out: str) -> "Simulation":
+        """Restore the simulation that wrote the output folder ``path_out``.
+
+        The configuration is read from the ``parameters.py`` copied there by :meth:`run`, or
+        from ``config.json`` when the simulation was not created from a parameter file.
+        Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
+        """
+        path_out = os.path.abspath(path_out)
+        params_path = os.path.join(path_out, "parameters.py")
+        config_path = os.path.join(path_out, "config.json")
+        if os.path.exists(params_path):
+            module_name = "struphy_run_" + hashlib.sha1(path_out.encode()).hexdigest()[:12]
+            sim = getattr(import_parameters_py(params_path, name=module_name), "sim", None)
+            if not isinstance(sim, Simulation):
+                raise ValueError(f"{params_path} does not define a Simulation named 'sim'")
+        elif os.path.exists(config_path):
+            sim = cls.from_file(config_path)
+        else:
+            raise FileNotFoundError(f"Neither {params_path} nor {config_path} exists; is {path_out} a Struphy output folder?")
+        sim.env = dataclasses.replace(
+            sim.env, out_folders=os.path.dirname(path_out), sim_folder=os.path.basename(path_out)
+        )
+        return sim
+
     def generate_script(
         self,
         include_main_guard: bool = False,
@@ -1871,9 +1844,6 @@ if __name__ == "__main__":
         assert isinstance(value, EnvironmentOptions)
         self._env = value
 
-        # create output folders
-        self._setup_folders()
-
     @property
     def profiling_filepath(self) -> str:
         """Path to the profiling file, if profiling is enabled."""
@@ -2030,33 +2000,23 @@ if __name__ == "__main__":
 
     @property
     def derham(self):
-        """3d Derham sequence, see :ref:`derham`."""
-        return self._derham
+        """3d Derham sequence, see :ref:`derham`; None before :meth:`allocate`."""
+        return getattr(self, "_derham", None)
 
     @property
     def mass_ops(self):
         """WeighteMassOperators object, see :ref:`mass_ops`."""
-        return self._mass_ops
+        return getattr(self, "_mass_ops", None)
 
     @property
     def basis_ops(self):
         """Basis projection operators."""
-        return self._basis_ops
+        return getattr(self, "_basis_ops", None)
 
     @property
     def projected_equil(self):
         """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_equil
-
-    @property
-    def post_processor(self):
-        """PostProcessor object for post-processing finished Struphy runs."""
-        return self._post_processor
-
-    @property
-    def plotting_data(self):
-        """PlottingData object for loading and storing data generated during post-processing."""
-        return self._plotting_data
+        return getattr(self, "_projected_equil", None)
 
     @property
     def clone_config(self):

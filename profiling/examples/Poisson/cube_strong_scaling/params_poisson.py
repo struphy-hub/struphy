@@ -129,8 +129,8 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 
 if __name__ == "__main__":
-    sim.run(profiling_activated=True, one_time_step=True)
-    sim.pproc(parallel_pproc=True)
+    run = sim.run(profiling_activated=True, one_time_step=True)
+    run.process(create_vtk=True, parallel=True)
     
     def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
         from matplotlib import pyplot as plt
@@ -203,20 +203,14 @@ if __name__ == "__main__":
         return fig
 
     if sim.comm.rank == 0:
-        sim.load_plotting_data()
-        
-        Tstart = sim.t_grid[0]
-        rhs_data = sim.spline_values.em_fields.source_log
+        rhs_data = run.fields.em_fields.source_log
         print(rhs_data)
-        rhs = rhs_data.data[Tstart][0]
-        
-        Tend = sim.t_grid[-1]
-        phi_data = sim.spline_values.em_fields.phi_log
+        rhs = rhs_data.isel(t=0).values
+
+        phi_data = run.fields.em_fields.phi_log
         print(phi_data)
-        phi = phi_data.data[Tend][0]
-        x = sim.grids_phy[0]
-        y = sim.grids_phy[1]
-        z = sim.grids_phy[2]
+        phi = phi_data.isel(t=-1).values
+        x, y, z = run.grids_phy
         
         slice_pt_x = x.shape[0] // 2
         slice_pt_y = y.shape[1] // 2

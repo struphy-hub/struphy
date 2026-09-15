@@ -41,34 +41,6 @@ class ProductMapping(Mapping[str, xr.DataArray]):
         self._cache.clear()
 
 
-class _ProductValue:
-    """Attribute view used only by legacy examples during the transition."""
-
-    def __init__(self, mapping, key):
-        self._mapping, self._key = mapping, key
-
-    @property
-    def array(self):
-        return self._mapping[self._key]
-
-    def __getattr__(self, name):
-        data = self.array
-        if name.startswith("grid_"):
-            return data.coords[name.removeprefix("grid_")].values
-        if name in data.attrs:
-            return data.attrs[name]
-        return getattr(data, name)
-
-    def __getitem__(self, key):
-        return self.array[key]
-
-    def __len__(self):
-        return self.array.sizes[self.array.dims[0]]
-
-    def __array__(self, dtype=None):
-        return np.asarray(self.array, dtype=dtype)
-
-
 class ProductNamespace:
     """Hierarchical, discoverable attribute view over product names.
 
@@ -131,7 +103,7 @@ class OrbitProducts(ProductNamespace):
 class PlotAccessor:
     """Convenient plotting entry points bound to a run."""
 
-    def __init__(self, run: "RunOutput"):
+    def __init__(self, run: "Run"):
         self._run = run
 
     def timeseries(self, data, **kwargs):
@@ -150,97 +122,182 @@ class PlotAccessor:
         return InteractiveSliceViewer(data, run_label=self._run.label, **kwargs)
 
 
-class RunOutput:
-    """The self-describing, lazily loaded output of a completed simulation.
+class Run:
+    """The output of one Struphy simulation, loaded lazily from its output folder.
 
-    Use :meth:`open` rather than constructing this class directly. Product names are
-    discovered immediately, while their arrays are loaded only when indexed.
+    Obtain it from :attr:`Simulation.output` (or the return value of :meth:`Simulation.run`)
+    or, in a separate process, from :func:`open_run`. Nothing is read at construction.
+
+    * :attr:`scalars` are read directly from the raw HDF5 output.
+    * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` need
+      post-processed data. When there is none, the first access processes the run with
+      default options; call :meth:`process` beforehand to choose options.
+    * :attr:`sim` is the :class:`~struphy.Simulation` that produced the output: the live
+      object for ``sim.output``, otherwise restored from disk without allocating anything.
 
     Parameters
     ----------
+    path_out:
+        The simulation output folder, ``sim.env.path_out``.
+    sim:
+        The simulation that wrote ``path_out``, if it is at hand.
     time_units:
         ``"physical"`` converts every time coordinate to seconds. ``"normalized"``
         consistently leaves every product in Struphy time units.
     """
 
-    def __init__(self, path_out=None, *, sim=None, time_units: str = "physical"):
-        if sim is not None:
-            path_out = sim.env.path_out
-        if path_out is None:
-            raise ValueError("path_out or sim is required")
+    def __init__(self, path_out, *, sim=None, time_units: str = "physical"):
         if time_units not in {"physical", "normalized"}:
             raise ValueError("time_units must be 'physical' or 'normalized'")
         self.path_out = Path(path_out).resolve()
-        self.path_pproc = self.path_out / "post_processing"
-        if not self.path_pproc.is_dir():
-            raise FileNotFoundError(f"{self.path_pproc} does not exist; run post-processing first")
         self.time_units = time_units
-        self._params = self._units = self._time = self._grids_log = self._grids_phy = self._scalars = None
-        self.field_catalog = ProductMapping(self._discover_fields())
-        self.distribution_catalog = ProductMapping(self._discover_binned("distribution_function"))
-        self.density_catalog = ProductMapping(self._discover_binned("n_sph"))
-        self.orbit_catalog = ProductMapping(self._discover_orbits())
-        self.fields: FieldProducts = FieldProducts(self.field_catalog)
-        self.distributions: DistributionProducts = DistributionProducts(self.distribution_catalog)
-        self.densities: DensityProducts = DensityProducts(self.density_catalog)
-        self.orbits: OrbitProducts = OrbitProducts(self.orbit_catalog)
-        self.plot = PlotAccessor(self)
+        self._sim = sim
+        self._reset()
 
-    @classmethod
-    def open(cls, path_out=None, *, sim=None, time_units="physical") -> "RunOutput":
-        if sim is not None:
-            path_out = sim.env.path_out
-        if path_out is None:
-            raise ValueError("path_out or sim is required")
-        return cls(path_out, time_units=time_units)
+    def __repr__(self):
+        return f"{type(self).__name__}({str(self.path_out)!r}, processed={self.is_processed})"
 
-    def load(self):
-        """Materialize no arrays; retained as an explicit migration no-op."""
+    def _reset(self):
+        self._time = self._grids_log = self._grids_phy = self._scalars = self._products = None
+
+    @property
+    def path_pproc(self) -> Path:
+        return self.path_out / "post_processing"
+
+    @property
+    def sim(self):
+        """The simulation that produced this output; restored from disk when not given."""
+        if self._sim is None:
+            from struphy.simulation.sim import Simulation
+
+            self._sim = Simulation.from_output(self.path_out)
+        return self._sim
+
+    @property
+    def is_processed(self) -> bool:
+        """Whether complete post-processing of the current raw output exists."""
+        from struphy.post_processing.post_processing_tools import is_processed
+
+        return is_processed(str(self.path_out))
+
+    def process(
+        self,
+        *,
+        step: int = 1,
+        celldivide: int | tuple[int, int, int] = 1,
+        physical: bool = False,
+        guiding_center: bool = False,
+        classify: bool = False,
+        create_vtk: bool = False,
+        parallel: bool = False,
+        force: bool = False,
+    ) -> "Run":
+        """Post-process the raw output; reuses existing products made with the same options.
+
+        Call this on every MPI rank. Serial processing (the default) runs on rank 0 while
+        the other ranks wait; ``parallel=True`` needs the allocated simulation that ran.
+
+        Parameters
+        ----------
+        step:
+            Interval of saved time steps to post-process (1 = every step, 2 = every second step, ...).
+        celldivide:
+            Evaluation points per cell of FEEC fields, per logical direction or for all three.
+        physical:
+            Also compute push-forwarded Cartesian components of fields (``*_phy`` products).
+        guiding_center:
+            Compute guiding-center coordinates for particle orbits (Particles6D only).
+        classify:
+            Classify orbits (passing, trapped, lost); requires ``guiding_center``.
+        create_vtk:
+            Also write VTK files of the fields.
+        parallel:
+            Evaluate fields on all MPI ranks of the simulation's communicator.
+        force:
+            Reprocess even when matching products exist.
+
+        Returns
+        -------
+        Run
+            This run, so that ``run = open_run(path).process(physical=True)`` reads naturally.
+        """
+        from struphy.post_processing.post_processing_tools import PostProcessor
+
+        options = dict(step=step, celldivide=celldivide, physical=physical, guiding_center=guiding_center,
+                       classify=classify, create_vtk=create_vtk, force=force)
+        sim = self.sim
+        if parallel:
+            PostProcessor(sim, parallel_pproc=True).process(**options)
+        else:
+            if sim.rank == 0:
+                PostProcessor(sim).process(**options)
+            sim.Barrier()
+        self._reset()
         return self
 
-    @property
-    def t_grid(self):
-        return self.time
+    def _ensure_processed(self):
+        if self.is_processed:
+            return
+        if self.sim.comm_size > 1:
+            raise RuntimeError(f"{self.path_out} has no post-processed data; call run.process() on all ranks first")
+        logger.warning("\nNo post-processed data in %s, processing with default options "
+                       "(call run.process(...) to choose them)", self.path_out)
+        self.process()
+
+    def _product_mappings(self) -> dict[str, ProductMapping]:
+        if self._products is None:
+            self._ensure_processed()
+            self._products = {
+                "fields": ProductMapping(self._discover_fields()),
+                "distributions": ProductMapping(self._discover_binned("distribution_function")),
+                "densities": ProductMapping(self._discover_binned("n_sph")),
+                "orbits": ProductMapping(self._discover_orbits()),
+            }
+        return self._products
 
     @property
-    def f(self):
-        return ProductNamespace(self.distribution_catalog)
+    def fields(self) -> FieldProducts:
+        """FEEC fields as ``run.fields.<species>.<field>``."""
+        return FieldProducts(self.field_catalog)
 
     @property
-    def spline_values(self):
-        return ProductNamespace(self.field_catalog)
+    def distributions(self) -> DistributionProducts:
+        """Binned distribution functions as ``run.distributions.<species>.<slice>.<name>``."""
+        return DistributionProducts(self.distribution_catalog)
 
     @property
-    def n_sph(self):
-        return ProductNamespace(self.density_catalog)
+    def densities(self) -> DensityProducts:
+        """SPH densities as ``run.densities.<species>.<slice>.<name>``."""
+        return DensityProducts(self.density_catalog)
 
     @property
-    def params(self):
-        if self._params is None:
-            from struphy.post_processing.post_processing_tools import ParamsIn
-            self._params = ParamsIn(str(self.path_out))
-        return self._params
+    def orbits(self) -> OrbitProducts:
+        """Marker trajectories as ``run.orbits.<species>``."""
+        return OrbitProducts(self.orbit_catalog)
 
     @property
-    def domain(self):
-        return self.params.domain
+    def field_catalog(self) -> ProductMapping:
+        return self._product_mappings()["fields"]
 
     @property
-    def units(self):
-        if self._units is None:
-            from struphy.physics.physics import Units
-            model = self.params.model
-            units = Units(model.base_units)
-            bulk = model.bulk_species
-            units.derive_units(velocity_scale=model.velocity_scale,
-                               A_bulk=None if bulk is None else bulk.mass_number,
-                               Z_bulk=None if bulk is None else bulk.charge_number)
-            self._units = units
-        return self._units
+    def distribution_catalog(self) -> ProductMapping:
+        return self._product_mappings()["distributions"]
+
+    @property
+    def density_catalog(self) -> ProductMapping:
+        return self._product_mappings()["densities"]
+
+    @property
+    def orbit_catalog(self) -> ProductMapping:
+        return self._product_mappings()["orbits"]
+
+    @property
+    def plot(self) -> PlotAccessor:
+        return PlotAccessor(self)
 
     @property
     def time_scale(self) -> float:
-        return float(self.units.t) if self.time_units == "physical" else 1.0
+        return float(self.sim.model.units.t) if self.time_units == "physical" else 1.0
 
     @property
     def time_unit(self) -> str:
@@ -248,14 +305,16 @@ class RunOutput:
 
     @property
     def time(self):
+        """Time grid of the post-processed products."""
         if self._time is None:
-            path = self.path_pproc / "t_grid.npy"
-            self._time = np.load(path, mmap_mode="r") * self.time_scale
+            self._ensure_processed()
+            self._time = np.load(self.path_pproc / "t_grid.npy", mmap_mode="r") * self.time_scale
         return self._time
 
     @property
     def grids_log(self):
         if self._grids_log is None:
+            self._ensure_processed()
             with (self.path_pproc / "fields_data" / "grids_log.bin").open("rb") as stream:
                 self._grids_log = pickle.load(stream)
         return self._grids_log
@@ -263,12 +322,14 @@ class RunOutput:
     @property
     def grids_phy(self):
         if self._grids_phy is None:
+            self._ensure_processed()
             with (self.path_pproc / "fields_data" / "grids_phy.bin").open("rb") as stream:
                 self._grids_phy = pickle.load(stream)
         return self._grids_phy
 
     @property
     def scalars(self) -> xr.Dataset:
+        """Scalar time series, read from the raw output; needs no post-processing."""
         if self._scalars is None:
             path = self.path_out / "data" / "data_proc0.hdf5"
             if not path.exists():
@@ -288,18 +349,17 @@ class RunOutput:
 
     @property
     def label(self) -> str:
-        try:
-            values = []
-            for holder, attr, name in ((self.params.time_opts, "dt", "dt"),
-                                       (self.params.time_opts, "split_algo", "algo"),
-                                       (self.params.grid, "num_elements", "Nel"),
-                                       (self.params.derham_opts, "degree", "p")):
-                value = getattr(holder, attr, None) if holder is not None else None
-                if value is not None:
-                    values.append(f"{name}={value}")
-            return ", ".join(values)
-        except FileNotFoundError:
-            return self.path_out.name
+        """Short description of the numerical parameters, for figure titles."""
+        sim = self.sim
+        values = []
+        for holder, attr, name in ((sim.time_opts, "dt", "dt"),
+                                   (sim.time_opts, "split_algo", "algo"),
+                                   (sim.grid, "num_elements", "Nel"),
+                                   (sim.derham_opts, "degree", "p")):
+            value = getattr(holder, attr, None) if holder is not None else None
+            if value is not None:
+                values.append(f"{name}={value}")
+        return ", ".join(values) or self.path_out.name
 
     def save_scalars(self, path=None, **kwargs) -> str:
         path = Path(path) if path else self.path_pproc / "scalars.csv"
@@ -355,7 +415,7 @@ class RunOutput:
             arguments = {"e1": 0.5, "e2": 0.0, "e3": 0.0}
             arguments.update(dict(zip(logical_dims, mesh)))
             try:
-                physical = self.domain(arguments["e1"], arguments["e2"], arguments["e3"], squeeze_out=True)
+                physical = self.sim.domain(arguments["e1"], arguments["e2"], arguments["e3"], squeeze_out=True)
                 for coordinate, grid in zip(("X", "Y", "Z"), physical):
                     coords[coordinate] = (logical_dims, np.asarray(grid))
             except (FileNotFoundError, TypeError, ValueError):
@@ -375,3 +435,21 @@ class RunOutput:
             raise FileNotFoundError(f"no orbit arrays in {directory}")
         values = np.stack([np.load(path, mmap_mode="r") for path in paths])
         return wrap_orbits(values, self.time[:len(paths)], time_unit=self.time_unit)
+
+
+def open_run(path_out, *, time_units: str = "physical") -> Run:
+    """Open the output folder of a finished simulation.
+
+    Nothing is allocated and no MPI is needed; products are read on first access.
+
+    Parameters
+    ----------
+    path_out:
+        The simulation output folder (``sim.env.path_out`` of the run).
+    time_units:
+        ``"physical"`` (seconds) or ``"normalized"`` time coordinates.
+    """
+    path = Path(path_out)
+    if not (path / "data").is_dir():
+        raise FileNotFoundError(f"{path.resolve()} is not a Struphy output folder (it has no data/ directory)")
+    return Run(path, time_units=time_units)

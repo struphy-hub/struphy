@@ -1,20 +1,17 @@
 import params_two_stream as params
 
-from struphy import PostProcessor, RunOutput
 from struphy.diagnostics.plotting import InteractiveSliceViewer, View, plot_panels, plot_timeseries
 
 
 def main():
-    PostProcessor(sim=params.sim).process(force=False)
-
-    run = RunOutput.open(sim=params.sim)
+    run = params.sim.output
 
     # every scalar at every time step: post_processing/scalars/{scalars.csv,*.png}
     run.save_scalar_plots()
 
     # electric field growth against the analytical rate (0.2845 in units of m/c)
     energy = run.scalars["electric_energy"]
-    analytical = energy.copy(data=10 ** (0.2845 / run.units.t * energy.t - 5.3))
+    analytical = energy.copy(data=10 ** (0.2845 / run.sim.model.units.t * energy.t - 5.3))
     analytical.attrs["label"] = "analytical"
 
     plot_timeseries(

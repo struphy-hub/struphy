@@ -78,14 +78,14 @@ For periodic boundary conditions we will stabilize via ``options``.
 
 .. code-block:: python
 
-    sim.run(one_time_step=True)
+    run = sim.run(one_time_step=True)
 
-7. Post-process and load plotting data.
+7. Get the output. Fields are post-processed when first accessed and come as labeled
+   :class:`xarray.DataArray` objects.
 
 .. code-block:: python
 
-    sim.pproc()
-    sim.load_plotting_data()
+    phi = run.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
 
 8. Compare to the exact solution, and save the figure.
 
@@ -93,9 +93,8 @@ For periodic boundary conditions we will stabilize via ``options``.
 
     import matplotlib.pyplot as plt
 
-    x = sim.grids_phy[0][:, 0, 0]
-    t_last = max(sim.spline_values.em_fields.phi_log.data)
-    phi_num = sim.spline_values.em_fields.phi_log.data[t_last][0][:, 0, 0]
+    x = phi.X.values
+    phi_num = phi.values
     phi_exact = np.cos(k * x)
     err_max = np.max(np.abs(phi_num - phi_exact))
 
@@ -148,14 +147,11 @@ Full copy-paste script:
     grid = grids.TensorProductGrid(num_elements=(64, 1, 1))
 
     sim = Simulation(model=model, domain=domain, grid=grid)
-    sim.run(one_time_step=True)
+    run = sim.run(one_time_step=True)
 
-    sim.pproc()
-    sim.load_plotting_data()
-
-    x = sim.grids_phy[0][:, 0, 0]
-    t_last = max(sim.spline_values.em_fields.phi_log.data)
-    phi_num = sim.spline_values.em_fields.phi_log.data[t_last][0][:, 0, 0]
+    phi = run.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
+    x = phi.X.values
+    phi_num = phi.values
     phi_exact = np.cos(k * x)
 
     import matplotlib.pyplot as plt
