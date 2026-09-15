@@ -523,6 +523,7 @@ class Particles(metaclass=ABCMeta):
         # CuPy). The actual mpi4py Alltoall/Isend/Irecv calls further below
         # take host buffers and convert explicitly at that point.
         self._sorting_etas = xp.zeros((self.markers.shape[0], 3), dtype=float)
+        self._is_on_proc_domain = xp.zeros((self.markers.shape[0], 3), dtype=bool)
         self._can_stay = xp.zeros(self.markers.shape[0], dtype=bool)
         self._reqs = [None] * self.mpi_size
         self._recvbufs = [None] * self.mpi_size
@@ -668,6 +669,7 @@ class Particles(metaclass=ABCMeta):
         nbytes = 0
         nbytes += n_rows * n_cols * float_size  # markers
         nbytes += n_rows * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
+        nbytes += n_rows * 3 * bool_size  # is_on_proc_domain
         nbytes += n_rows * bool_size  # can_stay
         # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
         nbytes += n_rows * bool_size * 6
