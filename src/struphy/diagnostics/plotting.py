@@ -457,39 +457,22 @@ def save_frames(data: xr.DataArray, directory, *, view=None, step=1, prefix="fra
 
 
 def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=None,
-                 error_panel="en_tot", logy=False, run_label=None):
-    """Plot a scalar overview and optional conservation-error panel.
-
-    The relative error of ``error_panel`` is returned in ``result.data["relative_error"]``.
-    """
+                 logy=False, run_label=None):
+    """Plot every scalar time series in one axes."""
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected: raise ValueError("no scalars to plot")
     run_label = shared_run_label([scalars[name] for name in selected]) if run_label is None else run_label
-    has_error = error_panel is not None and error_panel in scalars
-    fig, axes = plt.subplots(2 if has_error else 1, 1, sharex=has_error,
-                             figsize=(8, 6.5) if has_error else None,
-                             height_ratios=(2, 1) if has_error else None,
-                             layout="constrained")
-    ax = axes[0] if has_error else axes
+    fig, ax = plt.subplots(layout="constrained")
     for name in selected:
         values = scalars[name] / scalars[relative_to] if relative_to else scalars[name]
         ax.plot(values.t, values, label=name)
     if logy: ax.set_yscale("log")
     units = {scalars[name].attrs.get("units", "") for name in selected}
     ylabel = f"quantity / {relative_to}" if relative_to else (f"[{units.pop()}]" if len(units) == 1 else "[a.u.]")
-    ax.set(ylabel=ylabel, title="Scalars")
+    ax.set(xlabel=axis_label(scalars[selected[0]], "t"), ylabel=ylabel, title="Scalars")
     ax.legend(fontsize="small")
-    artists, error = list(ax.lines), None
-    if has_error:
-        error = relative_error(scalars[error_panel])
-        axes[1].plot(error.t, error)
-        if np.any(np.asarray(error) > 0): axes[1].set_yscale("log")
-        axes[1].set(xlabel=axis_label(error, "t"), ylabel=f"relative error of {error_panel}")
-        artists.extend(axes[1].lines)
-    else:
-        ax.set_xlabel(axis_label(scalars[selected[0]], "t"))
     if run_label: fig.suptitle(run_label, fontsize="small")
-    return PlotResult(fig, axes, artists, data={"relative_error": error})
+    return PlotResult(fig, ax, list(ax.lines))
 
 
 def save_all_scalars(scalars, directory, *, names=None, exclude=SCALARS_EXCLUDE, logy=False,

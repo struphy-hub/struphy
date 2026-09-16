@@ -567,7 +567,7 @@ run), and figures are titled with the run's numerical parameters:
 
 .. code-block:: python
 
-    out.plot.scalars()                                   # overview + energy conservation error
+    out.plot.scalars()                                   # every scalar time series
     out.plot.timeseries("en_phi", fit=(0.0, 40.0))       # exponential fit in a time window
     out.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", isel={"t": -1})
     out.plot.panels("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", nrows=3, ncols=4)

@@ -12,7 +12,7 @@ import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
 from struphy.post_processing.output import Output  # noqa: E402
-from struphy.post_processing.tests.test_output import NT, FakeSim, write_manifest, write_tree  # noqa: E402
+from struphy.post_processing.tests.test_output import FakeSim, write_manifest, write_tree  # noqa: E402
 
 RATE = 2.0
 
@@ -76,10 +76,10 @@ def test_timeseries_into_given_axes_keeps_the_figure_layout(run):
     assert fig._suptitle.get_text() == "mine"
 
 
-def test_scalar_overview_picks_the_total_energy(run):
+def test_scalar_overview_draws_every_scalar_in_one_axes(run):
     result = run.plot.scalars()
-    assert result.data["relative_error"].sizes["t"] == NT - 1
-    assert run.plot.scalars(conservation=None).data["relative_error"] is None
+    assert sorted(line.get_label() for line in result.artists) == ["en_phi", "en_tot"]
+    assert result.fig.axes == [result.ax]
 
 
 def test_slices_panels_and_viewer_take_keyword_views(run):

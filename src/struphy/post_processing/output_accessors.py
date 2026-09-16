@@ -45,18 +45,13 @@ class OutputPlots:
         return View(x=x, y=y, sweep=sweep, select=dict(select or {}), isel=dict(isel or {}),
                     coordinates=coords, plane=plane)
 
-    def scalars(self, names=None, *, conservation: str | None = "auto", relative_to: str | None = None,
-                logy: bool = False):
-        """Overview of the scalar time series with a conservation-error panel.
+    def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
+        """Overview of the scalar time series in one axes.
 
         Parameters
         ----------
         names:
             Scalars to show; all by default.
-        conservation:
-            Scalar whose relative error is shown below, e.g. ``"en_tot"``; ``"auto"`` picks the
-            total energy if it was saved, ``None`` shows no panel. The error is returned in
-            ``result.data["relative_error"]``.
         relative_to:
             Show every scalar divided by this one.
         logy:
@@ -64,10 +59,7 @@ class OutputPlots:
         """
         from struphy.diagnostics.plotting import plot_scalars
 
-        scalars = self._output.scalars
-        if conservation == "auto":
-            conservation = next((name for name in ("en_tot", "total_energy") if name in scalars), None)
-        return plot_scalars(scalars, names=names, relative_to=relative_to, error_panel=conservation, logy=logy,
+        return plot_scalars(self._output.scalars, names=names, relative_to=relative_to, logy=logy,
                             run_label=self._output.label)
 
     def timeseries(self, *data, logy: bool = True, fit: tuple[float | None, float | None] | bool | None = None,

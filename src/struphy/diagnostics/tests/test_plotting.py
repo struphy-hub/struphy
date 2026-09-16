@@ -144,8 +144,7 @@ def test_animation_and_frames_share_the_view(tmp_path):
 
 def test_scalar_overview_and_export(tmp_path):
     result = plot_scalars(scalar_dataset(), run_label="run")
-    error = result.data["relative_error"]
-    assert error is not None
+    assert sorted(line.get_label() for line in result.artists) == ["en_e", "en_tot"]
     assert result.fig._suptitle.get_text() == "run"
     paths = save_all_scalars(scalar_dataset(), tmp_path)
     assert sorted(__import__("os").path.basename(path) for path in paths) == [
