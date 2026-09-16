@@ -8,8 +8,8 @@ import h5py
 import numpy as np
 import pytest
 
-from struphy.post_processing.post_processing_tools import is_processed, normalize_options, source_fingerprint
 from struphy.post_processing.output import Output, open_output
+from struphy.post_processing.post_processing_tools import is_processed, normalize_options, source_fingerprint
 
 NT, N1, N2, N3, NV, N_MARKERS = 3, 4, 5, 6, 7, 10
 
@@ -210,8 +210,12 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
     assert run.process(physical=True) is run
     expected = [
         ("construct", False),
-        ("process", dict(step=1, celldivide=1, physical=True, guiding_center=False, classify=False,
-                         create_vtk=False, force=False)),
+        (
+            "process",
+            dict(
+                step=1, celldivide=1, physical=True, guiding_center=False, classify=False, create_vtk=False, force=False
+            ),
+        ),
     ]
     assert calls == (expected if rank == 0 else [])
 

@@ -56,9 +56,11 @@ class DataContainer:
 
             with h5py.File(self.file_path, "a") as file:
                 file.visit(
-                    lambda key: dataset_keys.append(key)
-                    if isinstance(file[key], h5py.Dataset) and file[key].chunks is not None
-                    else None,
+                    lambda key: (
+                        dataset_keys.append(key)
+                        if isinstance(file[key], h5py.Dataset) and file[key].chunks is not None
+                        else None
+                    ),
                 )
 
             for key in dataset_keys:

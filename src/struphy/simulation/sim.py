@@ -1389,7 +1389,8 @@ class Simulation(SimulationBase):
         binned are integrated out like the binned data (exact for Maxwellians).
         """
         centers = {
-            dim: edges[:-1] + (edges[1] - edges[0]) / 2 for dim, edges in zip(bin_plot.slice.split("_"), bin_plot.bin_edges)
+            dim: edges[:-1] + (edges[1] - edges[0]) / 2
+            for dim, edges in zip(bin_plot.slice.split("_"), bin_plot.bin_edges)
         }
         grids = [centers.get(dim, xp.zeros(1)) for dim in ("e1", "e2", "e3")]
         factor = 1.0

@@ -81,7 +81,6 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-
         # first fft
         Bsquare = B0x**2 + B0y**2 + B0z**2
         p0 = beta * Bsquare / 2

@@ -160,7 +160,8 @@ class PostProcessor:
             manifest["products"] = sorted(
                 os.path.relpath(os.path.join(root, name), self.path_pproc)
                 for root, _, files in os.walk(self.path_pproc)
-                for name in files if name != "manifest.json"
+                for name in files
+                if name != "manifest.json"
             )
         path = os.path.join(self.path_pproc, "manifest.json")
         temporary = path + ".tmp"
@@ -213,8 +214,14 @@ class PostProcessor:
         bool
             Whether post-processing actually ran.
         """
-        options = normalize_options(step=step, celldivide=celldivide, physical=physical,
-                                    guiding_center=guiding_center, classify=classify, create_vtk=create_vtk)
+        options = normalize_options(
+            step=step,
+            celldivide=celldivide,
+            physical=physical,
+            guiding_center=guiding_center,
+            classify=classify,
+            create_vtk=create_vtk,
+        )
         if not force and is_processed(self.path_out, options):
             logger.warning(f"\nReusing existing post-processing in {self.path_pproc}")
             return False
@@ -424,7 +431,9 @@ class PostProcessor:
 
                 if guiding_center:
                     assert self.kinetic_kinds[n] == "Particles6D"
-                    orbits_tools.post_process_orbit_guiding_center(self.domain, self.equil, path_kinetics_species, species)
+                    orbits_tools.post_process_orbit_guiding_center(
+                        self.domain, self.equil, path_kinetics_species, species
+                    )
 
                 if classify:
                     orbits_tools.post_process_orbit_classification(path_kinetics_species, species)

@@ -82,8 +82,16 @@ def test_deprecated_pproc_delegates_to_the_output(tmp_path, monkeypatch):
     with pytest.deprecated_call():
         assert sim.pproc(physical=True) is None
     assert calls == [
-        dict(step=1, celldivide=1, physical=True, guiding_center=False, classify=False,
-             create_vtk=True, parallel=False, force=True)
+        dict(
+            step=1,
+            celldivide=1,
+            physical=True,
+            guiding_center=False,
+            classify=False,
+            create_vtk=True,
+            parallel=False,
+            force=True,
+        )
     ]
     with pytest.deprecated_call():
         assert sim.pproc(load=True) == "loaded"
@@ -92,8 +100,15 @@ def test_deprecated_pproc_delegates_to_the_output(tmp_path, monkeypatch):
 def test_deprecated_load_plotting_data_attaches_the_products(tmp_path, monkeypatch):
     sim = make_sim(tmp_path)
     output = sim.output
-    for name, value in (("orbits", "o"), ("distributions", "f"), ("fields", "s"), ("densities", "n"),
-                        ("grids_log", "gl"), ("grids_phy", "gp"), ("time", "t")):
+    for name, value in (
+        ("orbits", "o"),
+        ("distributions", "f"),
+        ("fields", "s"),
+        ("densities", "n"),
+        ("grids_log", "gl"),
+        ("grids_phy", "gp"),
+        ("time", "t"),
+    ):
         monkeypatch.setattr(type(output), name, property(lambda self, value=value: value))
 
     with pytest.deprecated_call():

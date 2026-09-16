@@ -37,9 +37,14 @@ def close_figures():
 
 
 def phase_space(nt=6):
-    return data_array(np.arange(nt*4*5).reshape(nt, 4, 5), ("t", "e1", "v1"),
-                      {"t": np.linspace(0, 1, nt), "e1": np.linspace(0, 1, 4),
-                       "v1": np.linspace(-2, 2, 5)}, name="f", label="$f$", coord_units={"t": "s"})
+    return data_array(
+        np.arange(nt * 4 * 5).reshape(nt, 4, 5),
+        ("t", "e1", "v1"),
+        {"t": np.linspace(0, 1, nt), "e1": np.linspace(0, 1, 4), "v1": np.linspace(-2, 2, 5)},
+        name="f",
+        label="$f$",
+        coord_units={"t": "s"},
+    )
 
 
 def physical_field():
@@ -51,7 +56,7 @@ def physical_field():
 
 def scalar_dataset():
     t = np.linspace(0, 1, 6)
-    return xr.Dataset({"en_tot": ("t", 2 + .02*t), "en_e": ("t", 1 + .1*t)}, coords={"t": t})
+    return xr.Dataset({"en_tot": ("t", 2 + 0.02 * t), "en_e": ("t", 1 + 0.1 * t)}, coords={"t": t})
 
 
 def test_growth_rate_uses_only_valid_samples_inside_window():
@@ -68,15 +73,14 @@ def test_growth_rate_does_not_fall_back_outside_requested_window():
 
 def test_growth_rate_of_quadratic_reports_amplitude_rate():
     t = np.linspace(0, 4, 20)
-    result = growth_rate(data_array(np.exp(.6*t), ("t",), {"t": t}),
-                         GrowthFit(amplitude_from_quadratic=True))
-    assert result.rate == pytest.approx(.3)
+    result = growth_rate(data_array(np.exp(0.6 * t), ("t",), {"t": t}), GrowthFit(amplitude_from_quadratic=True))
+    assert result.rate == pytest.approx(0.3)
 
 
 def test_diagnostics_preserve_time_coordinates():
     data = data_array([2, 2.2, 1.8], ("t",), {"t": [0, 1, 2]}, label="E")
-    np.testing.assert_allclose(drift(data), [0, .2, -.2])
-    np.testing.assert_allclose(relative_error(data), [.1, .1])
+    np.testing.assert_allclose(drift(data), [0, 0.2, -0.2])
+    np.testing.assert_allclose(relative_error(data), [0.1, 0.1])
     np.testing.assert_array_equal(relative_error(data).t, [1, 2])
 
 
@@ -89,8 +93,7 @@ def test_logical_and_physical_grids_follow_selected_dimensions():
 
 
 def test_plot_timeseries_renders_once_and_save_does_not_redraw(tmp_path):
-    data = data_array(np.exp(np.arange(4)), ("t",), {"t": range(4)}, label="energy",
-                      coord_units={"t": "s"})
+    data = data_array(np.exp(np.arange(4)), ("t",), {"t": range(4)}, label="energy", coord_units={"t": "s"})
     result = plot_timeseries(data, fit=GrowthFit(), run_label="dt=.1")
     lines = len(result.ax.lines)
     result.save(tmp_path / "energy.png")
@@ -100,14 +103,15 @@ def test_plot_timeseries_renders_once_and_save_does_not_redraw(tmp_path):
 
 
 def test_plot_slice_accepts_named_value_and_index_selection():
-    result = plot_slice(phase_space(), view=View(x="e1", y="v1", select={"t": .52}))
+    result = plot_slice(phase_space(), view=View(x="e1", y="v1", select={"t": 0.52}))
     assert result.ax.get_xlabel() == r"$\eta_1$"
     assert len(result.artists) == 1
 
 
 def test_plot_slice_physical_coordinates_are_intrinsic():
-    result = plot_slice(physical_field(), view=View(x="e1", y="e2", isel={"t": 0, "e3": 2},
-                                                    coordinates="physical", plane="XY"))
+    result = plot_slice(
+        physical_field(), view=View(x="e1", y="e2", isel={"t": 0, "e3": 2}, coordinates="physical", plane="XY")
+    )
     assert result.ax.get_xlabel() == "X"
     assert result.ax.get_aspect() == 1.0
 
@@ -118,8 +122,9 @@ def test_plot_slice_rejects_underspecified_selection():
 
 
 def test_panels_use_one_recipe_and_keep_full_title():
-    result = plot_panels(phase_space(), view=View(x="e1", y="v1"), nrows=1, ncols=2,
-                         title="Distribution", run_label="dt=.1")
+    result = plot_panels(
+        phase_space(), view=View(x="e1", y="v1"), nrows=1, ncols=2, title="Distribution", run_label="dt=.1"
+    )
     assert result.fig._suptitle.get_text() == "Distribution — dt=.1"
     assert len(result.artists) == 2
 
@@ -148,7 +153,10 @@ def test_scalar_overview_and_export(tmp_path):
     assert result.fig._suptitle.get_text() == "run"
     paths = save_all_scalars(scalar_dataset(), tmp_path)
     assert sorted(__import__("os").path.basename(path) for path in paths) == [
-        "en_e.png", "en_tot.png", "scalars.csv", "scalars.png"
+        "en_e.png",
+        "en_tot.png",
+        "scalars.csv",
+        "scalars.png",
     ]
     assert plt.get_fignums() == [result.fig.number]
 

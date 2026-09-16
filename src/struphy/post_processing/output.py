@@ -71,7 +71,7 @@ class ProductNamespace:
 
     def __iter__(self):
         prefix = f"{self._prefix}/" if self._prefix else ""
-        children = {key[len(prefix):].split("/", 1)[0] for key in self._mapping if key.startswith(prefix)}
+        children = {key[len(prefix) :].split("/", 1)[0] for key in self._mapping if key.startswith(prefix)}
         return iter(sorted(children))
 
     def __len__(self):
@@ -156,8 +156,13 @@ class Output:
         for catalog in (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog):
             if name in catalog:
                 return catalog[name]
-        available = (*self.scalars.data_vars, *self.field_catalog, *self.distribution_catalog,
-                     *self.density_catalog, *self.orbit_catalog)
+        available = (
+            *self.scalars.data_vars,
+            *self.field_catalog,
+            *self.distribution_catalog,
+            *self.density_catalog,
+            *self.orbit_catalog,
+        )
         raise KeyError(f"{name!r} not found; available products: {available}")
 
     def _stamp(self, array: xr.DataArray) -> xr.DataArray:
@@ -227,8 +232,15 @@ class Output:
         """
         from struphy.post_processing.post_processing_tools import PostProcessor
 
-        options = dict(step=step, celldivide=celldivide, physical=physical, guiding_center=guiding_center,
-                       classify=classify, create_vtk=create_vtk, force=force)
+        options = dict(
+            step=step,
+            celldivide=celldivide,
+            physical=physical,
+            guiding_center=guiding_center,
+            classify=classify,
+            create_vtk=create_vtk,
+            force=force,
+        )
         sim = self.sim
         if parallel:
             PostProcessor(sim, parallel_pproc=True).process(**options)
@@ -244,8 +256,10 @@ class Output:
             return
         if self.sim.comm_size > 1:
             raise RuntimeError(f"{self.path_out} has no post-processed data; call out.process() on all ranks first")
-        logger.warning("\nNo post-processed data in %s, processing with default options "
-                       "(call out.process(...) to choose them)", self.path_out)
+        logger.warning(
+            "\nNo post-processed data in %s, processing with default options (call out.process(...) to choose them)",
+            self.path_out,
+        )
         self.process()
 
     def _product_mappings(self) -> dict[str, ProductMapping]:
@@ -386,9 +400,16 @@ class Output:
                 time = np.asarray(file["time/value"]) * self.time_scale
                 variables = {}
                 for name, dataset in file["scalar"].items():
-                    variables[name] = self._stamp(data_array(np.asarray(dataset), ("t",), {"t": time}, name=name,
-                                                             label=name.replace("_", " "),
-                                                             coord_units={"t": self.time_unit}))
+                    variables[name] = self._stamp(
+                        data_array(
+                            np.asarray(dataset),
+                            ("t",),
+                            {"t": time},
+                            name=name,
+                            label=name.replace("_", " "),
+                            coord_units={"t": self.time_unit},
+                        )
+                    )
                 self._scalars = xr.Dataset(variables)
         return self._scalars
 
@@ -402,10 +423,12 @@ class Output:
                 self._label = self.path_out.name
                 return self._label
             values = []
-            for holder, attr, name in ((sim.time_opts, "dt", "dt"),
-                                       (sim.time_opts, "split_algo", "algo"),
-                                       (sim.grid, "num_elements", "Nel"),
-                                       (sim.derham_opts, "degree", "p")):
+            for holder, attr, name in (
+                (sim.time_opts, "dt", "dt"),
+                (sim.time_opts, "split_algo", "algo"),
+                (sim.grid, "num_elements", "Nel"),
+                (sim.derham_opts, "degree", "p"),
+            ):
                 value = getattr(holder, attr, None) if holder is not None else None
                 if value is not None:
                     values.append(f"{name}={value}")
@@ -442,8 +465,14 @@ class Output:
             physical = self.grids_phy
         except FileNotFoundError:
             physical = None
-        return wrap_field_data(raw, self.grids_log, grids_phy=physical, name=key.split("/")[-1],
-                               time_scale=self.time_scale, time_unit=self.time_unit)
+        return wrap_field_data(
+            raw,
+            self.grids_log,
+            grids_phy=physical,
+            name=key.split("/")[-1],
+            time_scale=self.time_scale,
+            time_unit=self.time_unit,
+        )
 
     def _discover_binned(self, category: str):
         loaders = {}
@@ -497,7 +526,7 @@ class Output:
             raise FileNotFoundError(f"no orbit arrays in {directory}")
         # one small file per saved step: read them instead of keeping thousands of memory maps open
         values = np.stack([np.load(path) for path in paths])
-        return wrap_orbits(values, self.time[:len(paths)], time_unit=self.time_unit)
+        return wrap_orbits(values, self.time[: len(paths)], time_unit=self.time_unit)
 
 
 def open_output(path_out, *, time_units: str = "physical") -> Output:

@@ -42,8 +42,9 @@ class OutputPlots:
     def _view(x, y, sweep, coords, plane, select, isel):
         from struphy.diagnostics.plotting import View
 
-        return View(x=x, y=y, sweep=sweep, select=dict(select or {}), isel=dict(isel or {}),
-                    coordinates=coords, plane=plane)
+        return View(
+            x=x, y=y, sweep=sweep, select=dict(select or {}), isel=dict(isel or {}), coordinates=coords, plane=plane
+        )
 
     def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
         """Overview of the scalar time series in one axes.
@@ -59,11 +60,19 @@ class OutputPlots:
         """
         from struphy.diagnostics.plotting import plot_scalars
 
-        return plot_scalars(self._output.scalars, names=names, relative_to=relative_to, logy=logy,
-                            run_label=self._output.label)
+        return plot_scalars(
+            self._output.scalars, names=names, relative_to=relative_to, logy=logy, run_label=self._output.label
+        )
 
-    def timeseries(self, *data, logy: bool = True, fit: tuple[float | None, float | None] | bool | None = None,
-                   fit_amplitude: bool = False, title: str | None = None, ax=None):
+    def timeseries(
+        self,
+        *data,
+        logy: bool = True,
+        fit: tuple[float | None, float | None] | bool | None = None,
+        fit_amplitude: bool = False,
+        title: str | None = None,
+        ax=None,
+    ):
         """One or more time series, optionally with an exponential growth-rate fit.
 
         Parameters
@@ -93,9 +102,22 @@ class OutputPlots:
             growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
         return plot_timeseries(series, ax=ax, logy=logy, fit=growth, title=title, run_label=self._label(series))
 
-    def slice(self, data, *, x: str | None = None, y: str | None = None, coords: Coordinates = "logical",
-              plane: Plane = "XY", select: dict | None = None, isel: dict | None = None, vmin=None, vmax=None,
-              equal_aspect: bool | None = None, title: str | None = None, ax=None):
+    def slice(
+        self,
+        data,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        select: dict | None = None,
+        isel: dict | None = None,
+        vmin=None,
+        vmax=None,
+        equal_aspect: bool | None = None,
+        title: str | None = None,
+        ax=None,
+    ):
         """A two-dimensional color plot of one slice.
 
         Parameters
@@ -112,23 +134,61 @@ class OutputPlots:
         from struphy.diagnostics.plotting import plot_slice
 
         array = self._array(data)
-        return plot_slice(array, view=self._view(x, y, "t", coords, plane, select, isel), ax=ax, vmin=vmin,
-                          vmax=vmax, equal_aspect=equal_aspect, title=title, run_label=self._label([array]))
+        return plot_slice(
+            array,
+            view=self._view(x, y, "t", coords, plane, select, isel),
+            ax=ax,
+            vmin=vmin,
+            vmax=vmax,
+            equal_aspect=equal_aspect,
+            title=title,
+            run_label=self._label([array]),
+        )
 
-    def panels(self, data, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-               coords: Coordinates = "logical", plane: Plane = "XY", select: dict | None = None,
-               isel: dict | None = None, nrows: int = 3, ncols: int = 4, shared_clim: bool = True,
-               title: str | None = None):
+    def panels(
+        self,
+        data,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        select: dict | None = None,
+        isel: dict | None = None,
+        nrows: int = 3,
+        ncols: int = 4,
+        shared_clim: bool = True,
+        title: str | None = None,
+    ):
         """Snapshots evenly spread along ``sweep`` (time by default), one panel each."""
         from struphy.diagnostics.plotting import plot_panels
 
         array = self._array(data)
-        return plot_panels(array, view=self._view(x, y, sweep, coords, plane, select, isel), nrows=nrows,
-                           ncols=ncols, shared_clim=shared_clim, title=title, run_label=self._label([array]))
+        return plot_panels(
+            array,
+            view=self._view(x, y, sweep, coords, plane, select, isel),
+            nrows=nrows,
+            ncols=ncols,
+            shared_clim=shared_clim,
+            title=title,
+            run_label=self._label([array]),
+        )
 
-    def viewer(self, data, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-               coords: Coordinates = "logical", plane: Plane = "XY", select: dict | None = None,
-               isel: dict | None = None, vmin=None, vmax=None):
+    def viewer(
+        self,
+        data,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        select: dict | None = None,
+        isel: dict | None = None,
+        vmin=None,
+        vmax=None,
+    ):
         """An interactive slice viewer with one slider per non-displayed dimension.
 
         Call ``.show()`` on the result; keep it alive so that the sliders stay connected.
@@ -136,26 +196,69 @@ class OutputPlots:
         from struphy.diagnostics.plotting import InteractiveSliceViewer
 
         array = self._array(data)
-        return InteractiveSliceViewer(array, view=self._view(x, y, sweep, coords, plane, select, isel), vmin=vmin,
-                                      vmax=vmax, run_label=self._label([array]))
+        return InteractiveSliceViewer(
+            array,
+            view=self._view(x, y, sweep, coords, plane, select, isel),
+            vmin=vmin,
+            vmax=vmax,
+            run_label=self._label([array]),
+        )
 
-    def animation(self, data, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-                  coords: Coordinates = "logical", plane: Plane = "XY", select: dict | None = None,
-                  isel: dict | None = None, interval: int = 100, step: int = 1, vmin=None, vmax=None):
+    def animation(
+        self,
+        data,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        select: dict | None = None,
+        isel: dict | None = None,
+        interval: int = 100,
+        step: int = 1,
+        vmin=None,
+        vmax=None,
+    ):
         """A Matplotlib animation along ``sweep``."""
         from struphy.diagnostics.plotting import animate_slices
 
-        return animate_slices(self._array(data), view=self._view(x, y, sweep, coords, plane, select, isel),
-                              interval=interval, step=step, vmin=vmin, vmax=vmax)
+        return animate_slices(
+            self._array(data),
+            view=self._view(x, y, sweep, coords, plane, select, isel),
+            interval=interval,
+            step=step,
+            vmin=vmin,
+            vmax=vmax,
+        )
 
-    def frames(self, data, directory, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-               coords: Coordinates = "logical", plane: Plane = "XY", select: dict | None = None,
-               isel: dict | None = None, step: int = 1, prefix: str = "frame", dpi: int = 110) -> list[str]:
+    def frames(
+        self,
+        data,
+        directory,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        select: dict | None = None,
+        isel: dict | None = None,
+        step: int = 1,
+        prefix: str = "frame",
+        dpi: int = 110,
+    ) -> list[str]:
         """Write the slices along ``sweep`` as numbered PNG files; returns their paths."""
         from struphy.diagnostics.plotting import save_frames
 
-        return save_frames(self._array(data), directory, view=self._view(x, y, sweep, coords, plane, select, isel),
-                           step=step, prefix=prefix, dpi=dpi)
+        return save_frames(
+            self._array(data),
+            directory,
+            view=self._view(x, y, sweep, coords, plane, select, isel),
+            step=step,
+            prefix=prefix,
+            dpi=dpi,
+        )
 
     def orbits(self, species: str | None = None, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
         """Three-dimensional trajectories of the saved markers of ``species``."""
@@ -166,8 +269,9 @@ class OutputPlots:
             if len(available) != 1:
                 raise ValueError(f"choose a species from {available}")
             species = available[0]
-        return plot_marker_trajectories(self._output.orbits[species], ax=ax, max_markers=max_markers,
-                                        show_paths=show_paths)
+        return plot_marker_trajectories(
+            self._output.orbits[species], ax=ax, max_markers=max_markers, show_paths=show_paths
+        )
 
     def equilibrium(self, ax=None):
         """Radial equilibrium profiles, from the geometry written at the start of the run."""
@@ -208,8 +312,9 @@ class OutputAnalysis:
 
         return relative_error(self._array(data), ref=ref, skip_first=skip_first)
 
-    def dispersion(self, field, *, component: int = 0, slice_at: tuple = (None, 0, 0), physical: bool = False,
-                   **kwargs):
+    def dispersion(
+        self, field, *, component: int = 0, slice_at: tuple = (None, 0, 0), physical: bool = False, **kwargs
+    ):
         """Space-time power spectrum of a field and fitted dispersion branches.
 
         The spectrum is computed in normalized time. See
@@ -219,7 +324,9 @@ class OutputAnalysis:
         from struphy.diagnostics.diagn_tools import power_spectrum_2d
 
         if isinstance(field, str):
-            run = self._output if self._output.time_units == "normalized" else self._output.with_time_units("normalized")
+            run = (
+                self._output if self._output.time_units == "normalized" else self._output.with_time_units("normalized")
+            )
             field = run[field]
         elif field.t.attrs.get("units") == "s":
             raise ValueError("pass the field by name, or take it from out.with_time_units('normalized')")

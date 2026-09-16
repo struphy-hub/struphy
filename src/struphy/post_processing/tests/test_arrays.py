@@ -18,8 +18,15 @@ from struphy.post_processing.arrays import (
 
 
 def test_data_array_carries_names_coordinates_and_units():
-    data = data_array(np.ones((3, 4)), ("t", "e1"), {"t": [0, 1, 2], "e1": np.arange(4)},
-                      name="density", label="$n$", unit="m^-3", coord_units={"t": "s"})
+    data = data_array(
+        np.ones((3, 4)),
+        ("t", "e1"),
+        {"t": [0, 1, 2], "e1": np.arange(4)},
+        name="density",
+        label="$n$",
+        unit="m^-3",
+        coord_units={"t": "s"},
+    )
     assert isinstance(data, xr.DataArray)
     assert data.sel(t=1).dims == ("e1",)
     assert axis_label(data, "t") == "$t$ [s]"
@@ -62,8 +69,7 @@ def test_vector_field_has_named_component_dimension():
 
 def test_binned_wrapper_keeps_memory_mappable_values():
     values = np.ones((2, 3, 4))
-    data = wrap_binned_data(values, ("e1", "v1"), {"t": [0, 1], "e1": range(3), "v1": range(4)},
-                            name="f_binned")
+    data = wrap_binned_data(values, ("e1", "v1"), {"t": [0, 1], "e1": range(3), "v1": range(4)}, name="f_binned")
     assert data.dims == ("t", "e1", "v1")
     assert data.attrs["label"] == "$f$"
 

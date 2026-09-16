@@ -29,8 +29,12 @@ from struphy.post_processing.arrays import (
 logger = logging.getLogger("struphy")
 
 STRUPHY_STYLE = {
-    "figure.figsize": (8.0, 5.0), "figure.dpi": 110, "axes.grid": True,
-    "grid.alpha": 0.3, "axes.titlesize": "medium", "legend.frameon": False,
+    "figure.figsize": (8.0, 5.0),
+    "figure.dpi": 110,
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "axes.titlesize": "medium",
+    "legend.frameon": False,
     "image.cmap": "viridis",
 }
 
@@ -248,7 +252,11 @@ def _slice_data(data, view):
     if set(selected.dims) != {x, y}:
         raise ValueError(f"selection leaves dimensions {selected.dims}; expected only {x!r}, {y!r}")
     selected = selected.transpose(x, y)
-    grids = physical_grids(selected, plane=view.plane) if view.coordinates == "physical" else logical_grids(selected, x=x, y=y)
+    grids = (
+        physical_grids(selected, plane=view.plane)
+        if view.coordinates == "physical"
+        else logical_grids(selected, x=x, y=y)
+    )
     return selected, grids
 
 
@@ -265,21 +273,30 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
         series = list(xr.align(*series, join="exact"))
     label_of = _label
     if len({item.attrs.get("run_name") for item in series}) > 1:
+
         def label_of(item):
-            return " ".join(filter(None, (_label(item), f"({item.attrs['run_name']})" if item.attrs.get("run_name") else "")))
+            return " ".join(
+                filter(None, (_label(item), f"({item.attrs['run_name']})" if item.attrs.get("run_name") else ""))
+            )
+
     run_label = shared_run_label(series) if run_label is None else run_label
     own_figure = ax is None
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         artists, fits = [], []
         for item in series:
-            line, = ax.plot(item.t, item, label=label_of(item) or None)
+            (line,) = ax.plot(item.t, item, label=label_of(item) or None)
             artists.append(line)
             result = growth_rate(item, fit) if fit is not None else None
             fits.append(result)
             if result is not None:
-                fitted, = ax.plot(result.time, result.fitted, "--", color=line.get_color(),
-                                  label=rf"fit: $\gamma$ = {result.rate:.4e}")
+                (fitted,) = ax.plot(
+                    result.time,
+                    result.fitted,
+                    "--",
+                    color=line.get_color(),
+                    label=rf"fit: $\gamma$ = {result.rate:.4e}",
+                )
                 ax.axvspan(result.time[0], result.time[-1], alpha=0.12, color="grey")
                 artists.append(fitted)
         if logy:
@@ -293,8 +310,9 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
     return PlotResult(fig, ax, artists, fits)
 
 
-def plot_slice(data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None,
-               equal_aspect=None, title=None, run_label=None):
+def plot_slice(
+    data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None, equal_aspect=None, title=None, run_label=None
+):
     """Render one selected two-dimensional slice."""
     view = view or View()
     run_label = shared_run_label(data) if run_label is None else run_label
@@ -313,8 +331,7 @@ def plot_slice(data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None,
     return PlotResult(fig, ax, [mesh])
 
 
-def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=True,
-                title=None, run_label=None):
+def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=True, title=None, run_label=None):
     """Plot snapshots spread across a sweep coordinate."""
     view = view or View()
     run_label = shared_run_label(data) if run_label is None else run_label
@@ -327,8 +344,15 @@ def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=
     if shared_clim:
         limits = (min(float(item.min()) for item in snapshots), max(float(item.max()) for item in snapshots))
     with plt.rc_context(STRUPHY_STYLE):
-        fig, axes = plt.subplots(nrows, ncols, figsize=(3.5*ncols, 2.8*nrows), sharex=True,
-                                 sharey=True, squeeze=False, layout="constrained")
+        fig, axes = plt.subplots(
+            nrows,
+            ncols,
+            figsize=(3.5 * ncols, 2.8 * nrows),
+            sharex=True,
+            sharey=True,
+            squeeze=False,
+            layout="constrained",
+        )
         meshes = []
         for ax, index, snapshot in zip(axes.ravel(), indices, snapshots):
             local_view = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
@@ -339,9 +363,12 @@ def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=
             ax.grid(False)
             if not shared_clim:
                 fig.colorbar(mesh, ax=ax)
-        for ax in axes[-1]: ax.set_xlabel(xlabel)
-        for row in axes: row[0].set_ylabel(ylabel)
-        if shared_clim: fig.colorbar(meshes[-1], ax=list(axes.ravel()), label=value_label(data))
+        for ax in axes[-1]:
+            ax.set_xlabel(xlabel)
+        for row in axes:
+            row[0].set_ylabel(ylabel)
+        if shared_clim:
+            fig.colorbar(meshes[-1], ax=list(axes.ravel()), label=value_label(data))
         heading = title if title is not None else _label(data)
         fig.suptitle(" — ".join(filter(None, (heading, run_label))))
     return PlotResult(fig, axes, meshes)
@@ -382,21 +409,22 @@ class InteractiveSliceViewer:
         selected, (xg, yg, xlabel, ylabel) = _slice_data(selected, frame_view)
         with plt.rc_context(STRUPHY_STYLE):
             fig, ax = plt.subplots()
-            fig.subplots_adjust(bottom=0.13 + 0.05*len(controls))
+            fig.subplots_adjust(bottom=0.13 + 0.05 * len(controls))
             mesh = ax.pcolormesh(xg, yg, selected, shading="auto", vmin=self.vmin, vmax=self.vmax)
             colorbar = fig.colorbar(mesh, ax=ax, label=value_label(self.data))
             ax.set(xlabel=xlabel, ylabel=ylabel)
             ax.grid(False)
-            if self.view.coordinates == "physical": ax.set_aspect("equal", adjustable="box")
+            if self.view.coordinates == "physical":
+                ax.set_aspect("equal", adjustable="box")
             state = {"mesh": mesh}
 
             def update(_=None):
-                for dim, slider in self.sliders.items(): indices[dim] = int(slider.val)
+                for dim, slider in self.sliders.items():
+                    indices[dim] = int(slider.val)
                 item, item_view = frame()
                 item, grids = _slice_data(item, item_view)
                 state["mesh"].remove()
-                state["mesh"] = ax.pcolormesh(grids[0], grids[1], item, shading="auto",
-                                              vmin=self.vmin, vmax=self.vmax)
+                state["mesh"] = ax.pcolormesh(grids[0], grids[1], item, shading="auto", vmin=self.vmin, vmax=self.vmax)
                 if self.vmin is None and self.vmax is None:
                     state["mesh"].set_clim(float(item.min()), float(item.max()))
                 colorbar.update_normal(state["mesh"])
@@ -405,8 +433,8 @@ class InteractiveSliceViewer:
                 fig.canvas.draw_idle()
 
             for row, dim in enumerate(controls):
-                slider_ax = fig.add_axes([0.20, 0.05 + 0.05*row, 0.60, 0.025])
-                slider = Slider(slider_ax, dim, 0, base.sizes[dim]-1, valstep=1)
+                slider_ax = fig.add_axes([0.20, 0.05 + 0.05 * row, 0.60, 0.025])
+                slider = Slider(slider_ax, dim, 0, base.sizes[dim] - 1, valstep=1)
                 slider.on_changed(update)
                 self.sliders[dim] = slider
             update()
@@ -418,6 +446,7 @@ class InteractiveSliceViewer:
 def animate_slices(data: xr.DataArray, *, view=None, interval=100, step=1, vmin=None, vmax=None):
     """Create an animation using the same :class:`View` as static slices."""
     from matplotlib.animation import FuncAnimation
+
     view = view or View()
     selected = _select(data, view)
     frames = range(0, selected.sizes[view.sweep], step)
@@ -434,7 +463,8 @@ def animate_slices(data: xr.DataArray, *, view=None, interval=100, step=1, vmin=
         item, item_grids = _slice_data(item, local)
         mesh.set_array(np.asarray(item).ravel())
         ax.set_title(f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}")
-        return mesh,
+        return (mesh,)
+
     return FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
 
 
@@ -448,38 +478,52 @@ def save_frames(data: xr.DataArray, directory, *, view=None, step=1, prefix="fra
     for frame, index in enumerate(range(0, selected.sizes[view.sweep], step)):
         item = selected.isel({view.sweep: index})
         local = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
-        result = plot_slice(item, view=local,
-                            title=f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}")
+        result = plot_slice(
+            item, view=local, title=f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}"
+        )
         path = directory / f"{prefix}_{frame:04d}.png"
         result.save(path, dpi=dpi, close=True)
         paths.append(str(path))
     return paths
 
 
-def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=None,
-                 logy=False, run_label=None):
+def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=None, logy=False, run_label=None):
     """Plot every scalar time series in one axes."""
     selected = scalar_names(scalars, names=names, exclude=exclude)
-    if not selected: raise ValueError("no scalars to plot")
+    if not selected:
+        raise ValueError("no scalars to plot")
     run_label = shared_run_label([scalars[name] for name in selected]) if run_label is None else run_label
     fig, ax = plt.subplots(layout="constrained")
     for name in selected:
         values = scalars[name] / scalars[relative_to] if relative_to else scalars[name]
         ax.plot(values.t, values, label=name)
-    if logy: ax.set_yscale("log")
+    if logy:
+        ax.set_yscale("log")
     units = {scalars[name].attrs.get("units", "") for name in selected}
     ylabel = f"quantity / {relative_to}" if relative_to else (f"[{units.pop()}]" if len(units) == 1 else "[a.u.]")
     ax.set(xlabel=axis_label(scalars[selected[0]], "t"), ylabel=ylabel, title="Scalars")
     ax.legend(fontsize="small")
-    if run_label: fig.suptitle(run_label, fontsize="small")
+    if run_label:
+        fig.suptitle(run_label, fontsize="small")
     return PlotResult(fig, ax, list(ax.lines))
 
 
-def save_all_scalars(scalars, directory, *, names=None, exclude=SCALARS_EXCLUDE, logy=False,
-                     run_label=None, table="csv", file_format="png", dpi=110):
+def save_all_scalars(
+    scalars,
+    directory,
+    *,
+    names=None,
+    exclude=SCALARS_EXCLUDE,
+    logy=False,
+    run_label=None,
+    table="csv",
+    file_format="png",
+    dpi=110,
+):
     """Write a table, scalar overview and one figure per scalar."""
     selected = scalar_names(scalars, names=names, exclude=exclude)
-    if not selected: return []
+    if not selected:
+        return []
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     paths = []
@@ -510,7 +554,7 @@ def plot_marker_trajectories(orbits: xr.DataArray, *, ax=None, max_markers=200, 
     artists = []
     if show_paths:
         for marker in range(count):
-            artists.extend(ax.plot(*positions[:, marker].T, lw=.8, alpha=.5))
+            artists.extend(ax.plot(*positions[:, marker].T, lw=0.8, alpha=0.5))
     artists.append(ax.scatter(*positions[-1].T, s=8))
     ax.set(xlabel="X", ylabel="Y", zlabel="Z", title="Marker trajectories")
     return PlotResult(fig, ax, artists)
@@ -523,14 +567,14 @@ def plot_equilibrium_profile(path_out, *, ax=None):
     equilibrium = pv.read(str(Path(path_out) / "geometry.vts"))
     shape = equilibrium.dimensions
     grid = np.reshape(equilibrium.points, shape + (3,))
-    radius = np.sqrt(grid[..., 0]**2 + grid[..., 1]**2)
+    radius = np.sqrt(grid[..., 0] ** 2 + grid[..., 1] ** 2)
     pressure = np.reshape(equilibrium.point_data["p0"], shape)
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     ax.plot(radius[0, 0], pressure[0, 0], label=r"$p_0$")
     if "n0" in equilibrium.point_data:
         density = np.reshape(equilibrium.point_data["n0"], shape)
         ax.plot(radius[0, 0], density[0, 0], label=r"$n_0$")
-        ax.plot(radius[0, 0], pressure[0, 0]/density[0, 0], label=r"$T_0$")
+        ax.plot(radius[0, 0], pressure[0, 0] / density[0, 0], label=r"$T_0$")
     ax.set(xlabel=r"$R$", title="Radial equilibrium profiles")
     ax.legend()
     return PlotResult(fig, ax, list(ax.lines))

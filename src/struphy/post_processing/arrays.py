@@ -12,18 +12,37 @@ import xarray as xr
 logger = logging.getLogger("struphy")
 
 DIM_LABELS = {
-    "t": r"$t$", "e1": r"$\eta_1$", "e2": r"$\eta_2$", "e3": r"$\eta_3$",
-    "v1": r"$v_1$", "v2": r"$v_2$", "v3": r"$v_3$",
-    "x": r"$x$", "y": r"$y$", "z": r"$z$", "R": r"$R$", "Z": r"$Z$",
-    "component": "component", "marker": "marker", "attribute": "attribute",
+    "t": r"$t$",
+    "e1": r"$\eta_1$",
+    "e2": r"$\eta_2$",
+    "e3": r"$\eta_3$",
+    "v1": r"$v_1$",
+    "v2": r"$v_2$",
+    "v3": r"$v_3$",
+    "x": r"$x$",
+    "y": r"$y$",
+    "z": r"$z$",
+    "R": r"$R$",
+    "Z": r"$Z$",
+    "component": "component",
+    "marker": "marker",
+    "attribute": "attribute",
 }
 BINNED_LABELS = {"f_binned": "$f$", "delta_f_binned": r"$\delta f$", "n_sph": "$n$"}
 SCALARS_EXCLUDE = ("time",)
 
 
-def data_array(values, dims: Sequence[str], coords: Mapping | None = None, *, name: str | None = None,
-               label: str = "", unit: str = "", coord_units: Mapping[str, str] | None = None,
-               attrs: Mapping | None = None) -> xr.DataArray:
+def data_array(
+    values,
+    dims: Sequence[str],
+    coords: Mapping | None = None,
+    *,
+    name: str | None = None,
+    label: str = "",
+    unit: str = "",
+    coord_units: Mapping[str, str] | None = None,
+    attrs: Mapping | None = None,
+) -> xr.DataArray:
     """Construct a consistently annotated :class:`xarray.DataArray`."""
     metadata = dict(attrs or {})
     metadata.update(label=label, units=unit)
@@ -105,8 +124,7 @@ def save_scalars(scalars: xr.Dataset | Mapping, path: str, *, names=None, exclud
     if fmt == "npz":
         np.savez(path, t=time, **{name: values[:, i] for i, name in enumerate(selected)})
     else:
-        np.savetxt(path, np.column_stack((time, values)), delimiter=",",
-                   header=",".join(("t", *selected)), comments="")
+        np.savetxt(path, np.column_stack((time, values)), delimiter=",", header=",".join(("t", *selected)), comments="")
     logger.info("Wrote %d scalars over %d time steps to %s", len(selected), len(time), path)
     return path
 
@@ -125,15 +143,26 @@ def orbit_columns(n_columns: int) -> dict:
 def wrap_orbits(values, time, *, time_unit="") -> xr.DataArray:
     """Label marker orbits with time, marker and attribute dimensions."""
     values = np.asarray(values)
-    return data_array(values, ("t", "marker", "attribute"),
-                      {"t": time, "marker": np.arange(values.shape[1]),
-                       "attribute": np.arange(values.shape[2])},
-                      name="orbits", label="marker orbits", coord_units={"t": time_unit},
-                      attrs={"columns": orbit_columns(values.shape[-1])})
+    return data_array(
+        values,
+        ("t", "marker", "attribute"),
+        {"t": time, "marker": np.arange(values.shape[1]), "attribute": np.arange(values.shape[2])},
+        name="orbits",
+        label="marker orbits",
+        coord_units={"t": time_unit},
+        attrs={"columns": orbit_columns(values.shape[-1])},
+    )
 
 
-def wrap_field_data(values_by_time: Mapping, grids_log=None, *, grids_phy=None, name: str = "",
-                    time_scale: float = 1.0, time_unit: str = "") -> xr.DataArray | None:
+def wrap_field_data(
+    values_by_time: Mapping,
+    grids_log=None,
+    *,
+    grids_phy=None,
+    name: str = "",
+    time_scale: float = 1.0,
+    time_unit: str = "",
+) -> xr.DataArray | None:
     """Stack one field product and attach logical and physical coordinates."""
     times = sorted(values_by_time)
     if not times:
@@ -141,8 +170,14 @@ def wrap_field_data(values_by_time: Mapping, grids_log=None, *, grids_phy=None, 
     first = values_by_time[times[0]]
     scalar = not isinstance(first, (list, tuple)) or len(first) == 1
     if scalar:
-        values = np.stack([np.asarray(values_by_time[t] if not isinstance(values_by_time[t], (list, tuple))
-                                      else values_by_time[t][0]) for t in times])
+        values = np.stack(
+            [
+                np.asarray(
+                    values_by_time[t] if not isinstance(values_by_time[t], (list, tuple)) else values_by_time[t][0]
+                )
+                for t in times
+            ]
+        )
         dims = ("t", "e1", "e2", "e3")
     else:
         values = np.stack([np.stack([np.asarray(c) for c in values_by_time[t]]) for t in times])
@@ -162,9 +197,13 @@ def wrap_field_data(values_by_time: Mapping, grids_log=None, *, grids_phy=None, 
     return data_array(values, dims, coords, name=name or None, label=name, coord_units={"t": time_unit})
 
 
-def wrap_binned_data(values, dims: Sequence[str], coords: Mapping, *, name: str,
-                     time_unit: str = "") -> xr.DataArray:
+def wrap_binned_data(values, dims: Sequence[str], coords: Mapping, *, name: str, time_unit: str = "") -> xr.DataArray:
     """Label a memory-mapped binned distribution or density product."""
-    return data_array(values, ("t", *dims), coords, name=name,
-                      label=BINNED_LABELS.get(name, name.replace("_", " ")),
-                      coord_units={"t": time_unit})
+    return data_array(
+        values,
+        ("t", *dims),
+        coords,
+        name=name,
+        label=BINNED_LABELS.get(name, name.replace("_", " ")),
+        coord_units={"t": time_unit},
+    )
