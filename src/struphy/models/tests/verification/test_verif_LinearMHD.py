@@ -88,7 +88,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         disp_params = {"B0x": B0x, "B0y": B0y, "B0z": B0z, "p0": p0, "n0": n0, "gamma": 5 / 3}
 
         _1, _2, _3, coeffs = run.analysis.dispersion(
-            "mhd/velocity_log",
+            "mhd/velocity",
             physical=True,
             component=0,
             slice_at=[0, 0, None],
@@ -109,7 +109,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
 
         # second fft
         _1, _2, _3, coeffs = run.analysis.dispersion(
-            "mhd/pressure_log",
+            "mhd/pressure",
             physical=True,
             component=0,
             slice_at=[0, 0, None],

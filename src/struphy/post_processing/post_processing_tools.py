@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import os
-import pickle
 import shutil
 from collections.abc import Sequence
 from contextlib import ExitStack
@@ -10,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
+import xarray as xr
 import yaml
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -19,6 +19,8 @@ from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
+from struphy.post_processing import store
+from struphy.post_processing.arrays import wrap_binned_data, wrap_field_data, wrap_orbits
 from struphy.post_processing.orbits import orbits_tools
 from struphy.utils.progress import tqdm
 
@@ -227,6 +229,9 @@ class PostProcessor:
             return False
 
         self._reset_pproc_dir()
+        if self.rank == 0:
+            store.create(store.store_path(self.path_pproc), options=json.dumps(options))
+        self.comm.Barrier()
         self._write_manifest("processing", options=options)
         logger.warning(f"\nPost-processing path {self.path_out}")
 
@@ -235,6 +240,7 @@ class PostProcessor:
             if self.rank == 0:
                 # save time grid at which post-processing data is created
                 xp.save(os.path.join(self.path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+            self.t_grid = xp.asarray(file["time/value"][::step])
 
             if "feec" in file.keys():
                 self.exist_fields = True
@@ -348,40 +354,27 @@ class PostProcessor:
                             point_data[species][name][t] = val
                             point_data_phy[species][name][t] = vals_phy[species][name]
 
-        # directory for field data
+        # directory for the vtk files
         path_fields = os.path.join(self.path_pproc, "fields_data")
 
         if self.rank == 0:
-            try:
-                os.mkdir(path_fields)
-            except:
-                shutil.rmtree(path_fields)
-                os.mkdir(path_fields)
-
-            # save data dicts for each field
+            # one group per species in the product store, with the mapped grids as coordinates
             for species, vars in point_data.items():
+                variables = {}
                 for name, val in vars.items():
-                    try:
-                        os.mkdir(os.path.join(path_fields, species))
-                    except:
-                        pass
-
-                    with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
-                        pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+                    variables[name] = wrap_field_data(val, grids_log, grids_phy=grids_phy, name=name)
                     if physical:
-                        with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
-                            pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                        variables[name + "_xyz"] = wrap_field_data(
+                            point_data_phy[species][name], grids_log, grids_phy=grids_phy, name=name + "_xyz"
+                        )
+                store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset(variables))
 
-            # save grids
-            with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
-                pickle.dump(grids_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            with open(os.path.join(path_fields, "grids_phy.bin"), "wb") as handle:
-                pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            # create vtk files
             if create_vtk:
+                try:
+                    os.mkdir(path_fields)
+                except FileExistsError:
+                    shutil.rmtree(path_fields)
+                    os.mkdir(path_fields)
                 self._create_vtk(path_fields, t_grid, grids_phy, point_data)
                 if physical:
                     self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
@@ -873,8 +866,9 @@ class PostProcessor:
                 os.mkdir(path_orbits)
         self.comm.Barrier()
 
-        # temporary array
+        # temporary array, plus every step of it for the product store
         temp = xp.empty((n_markers, len(save_index)), order="C")
+        orbits = []
         lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
         logger.warning(f"Evaluation of {n_markers} marker orbits for {species}")
@@ -927,12 +921,17 @@ class PostProcessor:
             temp[~lost_particles_mask, :3] = pos_phys
 
             if self.rank == 0:
+                orbits.append(temp.copy())
                 # save numpy
                 xp.save(file_npy, temp)
                 # move ids to first column and save txt
                 temp = xp.roll(temp, 1, axis=1)
                 xp.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
             self.comm.Barrier()
+
+        if self.rank == 0:
+            values = wrap_orbits(xp.stack(orbits), self.t_grid[: len(orbits)])
+            store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset({"orbits": values}))
 
     def _post_process_f(
         self,
@@ -960,51 +959,21 @@ class PostProcessor:
 
         species = path_kinetic_species.split("/")[-1]
 
-        # directory for .npy files
-        path_distr = os.path.join(path_kinetic_species, "distribution_function")
-
-        if self.rank == 0:
-            try:
-                os.mkdir(path_distr)
-            except:
-                shutil.rmtree(path_distr)
-                os.mkdir(path_distr)
-        self.comm.Barrier()
-
         logger.warning("Evaluation of distribution functions for " + str(species))
 
-        # Create grids
+        # the bin centers of every slice, as saved by the simulation
+        slice_grids = {}
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
-            slice_names = []
             for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
-                slice_names += [slice_name]
-                # create a new folder for each slice
-                path_slice = os.path.join(path_distr, slice_name)
-                if self.rank == 0:
-                    os.mkdir(path_slice)
-                self.comm.Barrier()
-
-                # Find out all names of slices
-                slice_splits = slice_name.split("_")
-
-                # save grid
-                for n_gr, (_, grid) in enumerate(file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()):
-                    grid_path = os.path.join(
-                        path_slice,
-                        "grid_" + slice_splits[n_gr] + ".npy",
-                    )
-                    if self.rank == 0:
-                        xp.save(grid_path, grid[:])
-                    self.comm.Barrier()
+                dims = [part for part in slice_name.split("_")]
+                centers = [grid[:] for _, grid in file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()]
+                slice_grids[slice_name] = dict(zip(dims, centers))
+        slice_names = list(slice_grids)
 
         # compute distribution function
         for slice_name in tqdm(slice_names):
             logger.info(f"Processing slice {slice_name} for species {species}")
-            # path to folder of slice
-            path_slice = os.path.join(path_distr, slice_name)
-
-            # Find out all names of slices
-            slice_splits = slice_name.split("_")
+            grids = slice_grids[slice_name]
 
             for rank in self.range_ranks:
                 print(f"{rank = } ----------------------------")
@@ -1054,10 +1023,7 @@ class PostProcessor:
 
             print(f"{self.rank =} done.")
             if self.rank == 0:
-                # save distribution functions
-                xp.save(os.path.join(path_slice, "f_binned.npy"), data)
-                xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
-
+                full_f = data
                 if compute_bckgr:
                     # the background of a delta-f species is stored by the simulation on the bin centers
                     key_background = f"kinetic/{species}/f_background/{slice_name}"
@@ -1070,7 +1036,38 @@ class PostProcessor:
                         data_bckgr = file[key_background][()]
 
                     # add extra axis for data_bckgr since data_df has axis for time series
-                    xp.save(os.path.join(path_slice, "f_binned.npy"), data_df + data_bckgr[None])
+                    full_f = data_df + data_bckgr[None]
+
+                store.write_group(
+                    store.store_path(self.path_pproc),
+                    f"/{species}/{slice_name}",
+                    self._binned_dataset(grids, {"f": full_f, "delta_f": data_df}),
+                )
+
+    def _binned_dataset(self, grids: dict, variables: dict) -> xr.Dataset:
+        """One binned product per variable, with time, bin centers and mapped coordinates."""
+        dims = tuple(dim for dim in grids)
+        coords = {"t": self.t_grid, **grids}
+        coords.update(self._mapped_coords(grids))
+        return xr.Dataset({name: wrap_binned_data(values, dims, coords, name=name) for name, values in variables.items()})
+
+    def _mapped_coords(self, grids: dict) -> dict:
+        """``X``, ``Y``, ``Z`` on the logical directions of ``grids``, when there are two or three."""
+        logical = tuple(dim for dim in grids if dim in ("e1", "e2", "e3"))
+        if len(logical) not in (2, 3) or self.domain is None:
+            return {}
+        try:
+            if len(logical) == 2:
+                mesh = xp.meshgrid(*(xp.asarray(grids[dim]) for dim in logical), indexing="ij")
+                arguments = {"e1": 0.5, "e2": 0.0, "e3": 0.0}
+                arguments.update(dict(zip(logical, mesh)))
+                mapped = self.domain(arguments["e1"], arguments["e2"], arguments["e3"], squeeze_out=True)
+            else:
+                mapped = self.domain(*(xp.asarray(grids[dim]) for dim in logical))
+        except (TypeError, ValueError):
+            logger.debug("Could not map the coordinates of %s", logical, exc_info=True)
+            return {}
+        return {name: (logical, xp.asarray(grid)) for name, grid in zip(("X", "Y", "Z"), mapped)}
 
     def _post_process_n_sph(
         self,
@@ -1088,40 +1085,18 @@ class PostProcessor:
         """
         species = path_kinetic_species.split("/")[-1]
 
-        # directory for .npy files
-        path_n_sph = os.path.join(path_kinetic_species, "n_sph")
-
-        if self.rank == 0:
-            try:
-                os.mkdir(path_n_sph)
-            except:
-                shutil.rmtree(path_n_sph)
-                os.mkdir(path_n_sph)
-        self.comm.Barrier()
-
         logger.warning("Evaluation of sph density for " + str(species))
 
+        # the evaluation points of every view, as saved by the simulation
+        view_grids = {}
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
-            views = list(file_0["kinetic/" + species + "/n_sph"])
-
-            # Create grids
-            for view in views:
-                # create a new folder for each view
-                path_view = os.path.join(path_n_sph, view)
-                if self.rank == 0:
-                    os.mkdir(path_view)
-                self.comm.Barrier()
-
-                # save the 1d evaluation points, one file per logical direction
+            for view in file_0["kinetic/" + species + "/n_sph"]:
                 attrs = file_0["kinetic/" + species + "/n_sph/" + view].attrs
-                if self.rank == 0:
-                    for direction in ("1", "2", "3"):
-                        xp.save(os.path.join(path_view, f"grid_e{direction}.npy"), attrs["eta" + direction][:])
+                view_grids[view] = {f"e{direction}": attrs["eta" + direction][:] for direction in ("1", "2", "3")}
+        views = list(view_grids)
 
         # compute sph density
         for view in tqdm(views):
-            path_view = os.path.join(path_n_sph, view)
-
             for rank in self.range_ranks:
                 with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                     if self.parallel_pproc:
@@ -1149,5 +1124,8 @@ class PostProcessor:
                     )
 
             if self.rank == 0:
-                # save sph density
-                xp.save(os.path.join(path_view, "n_sph.npy"), data)
+                store.write_group(
+                    store.store_path(self.path_pproc),
+                    f"/{species}/{view}",
+                    self._binned_dataset(view_grids[view], {"n": data}),
+                )

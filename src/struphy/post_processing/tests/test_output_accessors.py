@@ -42,9 +42,9 @@ def close_figures():
 def test_products_are_found_by_name(run):
     assert run["en_tot"].dims == ("t",)
     assert run["em_fields/E"].dims[:2] == ("t", "component")
-    assert run["kinetic_ions/e1_v1_density/f_binned"].dims == ("t", "e1", "v1")
-    assert run["kinetic_ions/view_0/n_sph"].dims == ("t", "e1", "e2", "e3")
-    assert run["kinetic_ions"].dims == ("t", "marker", "attribute")
+    assert run["kinetic_ions/e1_v1_density/f"].dims == ("t", "e1", "v1")
+    assert run["kinetic_ions/view_0/n"].dims == ("t", "e1", "e2", "e3")
+    assert run["kinetic_ions"].dims == ("t", "marker", "quantity")
     with pytest.raises(KeyError, match="available products"):
         run["t"]
 
@@ -83,7 +83,7 @@ def test_scalar_overview_draws_every_scalar_in_one_axes(run):
 
 
 def test_slices_panels_and_viewer_take_keyword_views(run):
-    name = "kinetic_ions/e1_v1_density/f_binned"
+    name = "kinetic_ions/e1_v1_density/f"
     assert run[name].struphy.plot.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
     assert len(run[name].struphy.plot.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
     viewer = run["em_fields/E"].struphy.plot.viewer(x="e1", y="e2", component=0)
@@ -116,7 +116,7 @@ def test_dispersion_rejects_fields_in_seconds(run):
 
 
 def test_selection_keywords_take_positions_values_and_ends(run):
-    name = "kinetic_ions/e1_v1_density/f_binned"
+    name = "kinetic_ions/e1_v1_density/f"
     times = run[name].t.values
 
     by_position = run[name].struphy.plot.slice(x="e1", y="v1", t=-1)
@@ -132,9 +132,9 @@ def test_selection_keywords_take_positions_values_and_ends(run):
 
 
 def test_products_of_one_species_sit_on_the_output(run):
-    assert run.kinetic_ions.e1_v1_density.f_binned.dims == ("t", "e1", "v1")
-    assert run.kinetic_ions.view_0.n_sph.dims == ("t", "e1", "e2", "e3")
-    assert run.kinetic_ions.orbits.dims == ("t", "marker", "attribute")
+    assert run.kinetic_ions.e1_v1_density.f.dims == ("t", "e1", "v1")
+    assert run.kinetic_ions.view_0.n.dims == ("t", "e1", "e2", "e3")
+    assert run.kinetic_ions.orbits.dims == ("t", "marker", "quantity")
     assert run.em_fields.E.dims[:2] == ("t", "component")
     assert {"kinetic_ions", "em_fields"} <= set(dir(run))
     with pytest.raises(AttributeError, match="available species"):
@@ -142,7 +142,7 @@ def test_products_of_one_species_sit_on_the_output(run):
 
 
 def test_arrays_plot_themselves(run):
-    phase_space = run.kinetic_ions.e1_v1_density.f_binned
+    phase_space = run.kinetic_ions.e1_v1_density.f
     assert phase_space.struphy.plot.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
     assert len(phase_space.struphy.plot.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
     assert set(phase_space.struphy.plot.viewer(x="e1", y="v1").sliders) == set()
@@ -157,12 +157,12 @@ def test_the_accessor_works_on_derived_arrays(run):
 
 
 def test_products_by_name_and_by_attribute_agree(run):
-    by_output = run["kinetic_ions/e1_v1_density/f_binned"].struphy.plot.slice(x="e1", y="v1", t="last")
-    by_attribute = run.kinetic_ions.e1_v1_density.f_binned.struphy.plot.slice(x="e1", y="v1", t="last")
+    by_output = run["kinetic_ions/e1_v1_density/f"].struphy.plot.slice(x="e1", y="v1", t="last")
+    by_attribute = run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="e1", y="v1", t="last")
     np.testing.assert_allclose(by_output.artists[0].get_array(), by_attribute.artists[0].get_array())
     assert by_output.fig._suptitle.get_text() == by_attribute.fig._suptitle.get_text() == run.label
 
 
 def test_selection_rejects_unknown_dimensions(run):
     with pytest.raises(TypeError, match="not a dimension"):
-        run.kinetic_ions.e1_v1_density.f_binned.struphy.plot.slice(x="e1", y="v1", time=-1)
+        run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="e1", y="v1", time=-1)

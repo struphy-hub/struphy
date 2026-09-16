@@ -26,7 +26,7 @@ DIM_LABELS = {
     "Z": r"$Z$",
     "component": "component",
     "marker": "marker",
-    "attribute": "attribute",
+    "quantity": "quantity",
 }
 BINNED_LABELS = {"f_binned": "$f$", "delta_f_binned": r"$\delta f$", "n_sph": "$n$"}
 SCALARS_EXCLUDE = ("time",)
@@ -151,17 +151,32 @@ def orbit_columns(n_columns: int) -> dict:
     return columns
 
 
+def orbit_quantities(n_columns: int) -> list[str]:
+    """Name every saved marker column, so that orbits are self-describing."""
+    columns = orbit_columns(n_columns)
+    names = [""] * n_columns
+    for axis, name in enumerate(("x", "y", "z")):
+        names[axis] = name
+    velocity = columns["velocity"]
+    indices = range(*velocity.indices(n_columns)) if isinstance(velocity, slice) else [velocity]
+    for number, index in enumerate(indices, 1):
+        names[index] = f"v{number}"
+    if "weight" in columns:
+        names[columns["weight"]] = "weight"
+    names[columns["id"]] = "id"
+    return [name or f"column_{index}" for index, name in enumerate(names)]
+
+
 def wrap_orbits(values, time, *, time_unit="") -> xr.DataArray:
-    """Label marker orbits with time, marker and attribute dimensions."""
+    """Label marker orbits with time, marker and named quantity dimensions."""
     values = np.asarray(values)
     return data_array(
         values,
-        ("t", "marker", "attribute"),
-        {"t": time, "marker": np.arange(values.shape[1]), "attribute": np.arange(values.shape[2])},
+        ("t", "marker", "quantity"),
+        {"t": time, "marker": np.arange(values.shape[1]), "quantity": orbit_quantities(values.shape[2])},
         name="orbits",
         label="marker orbits",
         coord_units={"t": time_unit},
-        attrs={"columns": orbit_columns(values.shape[-1])},
     )
 
 

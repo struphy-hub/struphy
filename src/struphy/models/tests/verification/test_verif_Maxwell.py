@@ -73,7 +73,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     if MPI.COMM_WORLD.Get_rank() == 0:
         # fft
         _1, _2, _3, coeffs = run.analysis.dispersion(
-            "em_fields/e_field_log",
+            "em_fields/e_field",
             physical=True,
             component=0,
             slice_at=[0, 0, None],
@@ -157,13 +157,13 @@ def test_coaxial(do_plot: bool = False):
         modes = m
 
         # load data at the final time in the plane eta3 = 0
-        e_field_phy = run.fields.em_fields.e_field_phy.isel(t=-1, e3=0)
-        b_field_phy = run.fields.em_fields.b_field_phy.isel(t=-1, e3=0)
-        t_end = float(e_field_phy.t)
+        e_field_xyz = run.fields.em_fields.e_field_xyz.isel(t=-1, e3=0)
+        b_field_xyz = run.fields.em_fields.b_field_xyz.isel(t=-1, e3=0)
+        t_end = float(e_field_xyz.t)
 
-        X = e_field_phy.X.values
-        Y = e_field_phy.Y.values
-        Z = e_field_phy.Z.values
+        X = e_field_xyz.X.values
+        Y = e_field_xyz.Y.values
+        Z = e_field_xyz.Z.values
 
         # define analytic solution
         def B_z(X, Y, Z, m, t):
@@ -213,7 +213,7 @@ def test_coaxial(do_plot: bool = False):
             ax2.contourf(
                 X,
                 Y,
-                to_E_theta(X, Y, e_field_phy.isel(component=0).values, e_field_phy.isel(component=1).values),
+                to_E_theta(X, Y, e_field_xyz.isel(component=0).values, e_field_xyz.isel(component=1).values),
                 cmap="plasma",
                 levels=100,
                 vmin=vmin,
@@ -226,11 +226,11 @@ def test_coaxial(do_plot: bool = False):
             plt.show()
 
         # assert
-        Ex_tend = e_field_phy.isel(component=0).values
-        Ey_tend = e_field_phy.isel(component=1).values
+        Ex_tend = e_field_xyz.isel(component=0).values
+        Ey_tend = e_field_xyz.isel(component=1).values
         Er_exact = E_r(X, Y, Z, modes, t_end)
         Etheta_exact = E_theta(X, Y, Z, modes, t_end)
-        Bz_tend = b_field_phy.isel(component=2).values
+        Bz_tend = b_field_xyz.isel(component=2).values
         Bz_exact = B_z(X, Y, Z, modes, t_end)
 
         error_Er = xp.max(xp.abs((to_E_r(X, Y, Ex_tend, Ey_tend) - Er_exact)))

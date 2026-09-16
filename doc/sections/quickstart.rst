@@ -85,7 +85,7 @@ For periodic boundary conditions we will stabilize via ``options``.
 
 .. code-block:: python
 
-    phi = out.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
+    phi = out.fields.em_fields.phi.isel(t=-1, e2=0, e3=0)
 
 8. Compare to the exact solution, and save the figure.
 
@@ -149,7 +149,7 @@ Full copy-paste script:
     sim = Simulation(model=model, domain=domain, grid=grid)
     out = sim.run(one_time_step=True)
 
-    phi = out.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
+    phi = out.fields.em_fields.phi.isel(t=-1, e2=0, e3=0)
     x = phi.X.values
     phi_num = phi.values
     phi_exact = np.cos(k * x)

@@ -103,8 +103,8 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
     run.process()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        e1_grid = run.distributions.fluid.e1_current_1.f_binned.e1.values.flatten()
-        j1_binned = run.distributions.fluid.e1_current_1.f_binned.values  # (Nt+1, n_bins)
+        e1_grid = run.distributions.fluid.e1_current_1.f.e1.values.flatten()
+        j1_binned = run.distributions.fluid.e1_current_1.f.values  # (Nt+1, n_bins)
 
         amp_initial = 0.5 * (np.max(j1_binned[0]) - np.min(j1_binned[0]))
         amp_final = 0.5 * (np.max(j1_binned[-1]) - np.min(j1_binned[-1]))
@@ -209,8 +209,8 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
     run.process()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        e1_grid = run.distributions.fluid.e1_current_1.f_binned.e1.values.flatten()
-        j1_binned = run.distributions.fluid.e1_current_1.f_binned.values  # (Nt+1, n_bins)
+        e1_grid = run.distributions.fluid.e1_current_1.f.e1.values.flatten()
+        j1_binned = run.distributions.fluid.e1_current_1.f.values  # (Nt+1, n_bins)
 
         amp_initial = np.max(np.abs(j1_binned[0]))
         amp_final = np.max(np.abs(j1_binned[-1]))
@@ -320,9 +320,9 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
     run.process()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        e2_grid = run.distributions.fluid.e2_current_1.f_binned.e2.values.flatten()
-        j1_binned = run.distributions.fluid.e2_current_1.f_binned.values  # (Nt+1, n_bins)
-        j2_binned = run.distributions.fluid.e2_current_2.f_binned.values  # (Nt+1, n_bins)
+        e2_grid = run.distributions.fluid.e2_current_1.f.e2.values.flatten()
+        j1_binned = run.distributions.fluid.e2_current_1.f.values  # (Nt+1, n_bins)
+        j2_binned = run.distributions.fluid.e2_current_2.f.values  # (Nt+1, n_bins)
 
         # Analytische Profile
         U = 0.5
@@ -357,9 +357,9 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
             plt.tight_layout()
             plt.show()
 
-        e2_grid = run.distributions.fluid.e2_current_1.f_binned.e2.values.flatten()
-        j1_binned = run.distributions.fluid.e2_current_1.f_binned.values  # (Nt+1, n_bins)
-        j2_binned = run.distributions.fluid.e2_current_2.f_binned.values  # (Nt+1, n_bins)
+        e2_grid = run.distributions.fluid.e2_current_1.f.e2.values.flatten()
+        j1_binned = run.distributions.fluid.e2_current_1.f.values  # (Nt+1, n_bins)
+        j2_binned = run.distributions.fluid.e2_current_2.f.values  # (Nt+1, n_bins)
 
         # --- DEBUG: Check marker velocities ---
         markers = model.fluid.density.particles.markers

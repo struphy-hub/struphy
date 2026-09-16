@@ -11,10 +11,10 @@ SHOW_EQUIL_PROFILE = False
 
 # products to sweep interactively, as (name, displayed component or None, physical plane)
 SWEEPS = [
-    ("kinetic_ions/e1_e2_density/delta_f_binned", None, "RZ"),
-    ("em_fields/phi_phy", None, "RZ"),
-    ("diagnostics/rho_phy", None, "RZ"),
-    ("diagnostics/rho_phy", None, "XY"),
+    ("kinetic_ions/e1_e2_density/delta_f", None, "RZ"),
+    ("em_fields/phi_xyz", None, "RZ"),
+    ("diagnostics/rho_xyz", None, "RZ"),
+    ("diagnostics/rho_xyz", None, "XY"),
 ]
 
 

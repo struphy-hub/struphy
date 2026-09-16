@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import pickle
 import warnings
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
@@ -12,7 +11,8 @@ import h5py
 import numpy as np
 import xarray as xr
 
-from struphy.post_processing.arrays import data_array, save_scalars, wrap_binned_data, wrap_field_data, wrap_orbits
+from struphy.post_processing import store
+from struphy.post_processing.arrays import data_array, save_scalars
 from struphy.post_processing.output_accessors import OutputPlots
 
 logger = logging.getLogger("struphy")
@@ -146,7 +146,10 @@ class Output:
         return type(self)(self.path_out, sim=self._sim, time_units=time_units)
 
     def _reset(self):
+        if getattr(self, "_tree", None) is not None:
+            self._tree.close()  # an open store would block the next process() from writing it
         self._time = self._grids_log = self._grids_phy = self._scalars = self._products = self._label = None
+        self._tree = None
         self._species = None
         self._seconds = None
 
@@ -282,12 +285,7 @@ class Output:
     def _product_mappings(self) -> dict[str, ProductMapping]:
         if self._products is None:
             self._ensure_processed()
-            discovered = {
-                "fields": self._discover_fields(),
-                "distributions": self._discover_binned("distribution_function"),
-                "densities": self._discover_binned("n_sph"),
-                "orbits": self._discover_orbits(),
-            }
+            discovered = {kind: self._discover(kind) for kind in ("fields", "distributions", "densities", "orbits")}
             self._products = {
                 kind: ProductMapping({key: (lambda load=load: self._stamp(load())) for key, load in loaders.items()})
                 for kind, loaders in discovered.items()
@@ -437,6 +435,13 @@ class Output:
             self._time = np.load(self.path_pproc / "t_grid.npy", mmap_mode="r") * self.time_scale
         return self._time
 
+    def _first_field(self) -> xr.Dataset | None:
+        """The dataset of a field species, which carries the evaluation grids."""
+        for group, dataset in self._groups().items():
+            if "/" not in group and any("e1" in dataset[name].dims for name in dataset.data_vars):
+                return dataset
+        return None
+
     @property
     def grids_log(self):
         """Logical evaluation grids of the fields; None for a run without FEEC fields."""
@@ -452,12 +457,14 @@ class Output:
         return self._grids_phy
 
     def _load_grids(self, name):
-        self._ensure_processed()
-        path = self.path_pproc / "fields_data" / f"{name}.bin"
-        if not path.exists():
+        dataset = self._first_field()
+        if dataset is None:
             return None
-        with path.open("rb") as stream:
-            return pickle.load(stream)
+        if name == "grids_log":
+            return [np.asarray(dataset[dim]) for dim in ("e1", "e2", "e3")]
+        if not all(coordinate in dataset.coords for coordinate in ("X", "Y", "Z")):
+            return None
+        return [np.asarray(dataset[coordinate]) for coordinate in ("X", "Y", "Z")]
 
     @property
     def scalars(self) -> xr.Dataset:
@@ -551,84 +558,44 @@ class Output:
         directory = Path(directory) if directory else self.path_pproc / "report"
         return save_all_scalars(self.scalars, directory, run_label=self.label, **kwargs)
 
-    def _discover_fields(self):
+    @property
+    def tree(self) -> xr.DataTree:
+        """The product store as an :class:`xarray.DataTree`, read lazily."""
+        if self._tree is None:
+            self._ensure_processed()
+            self._tree = store.open_tree(store.store_path(self.path_pproc))
+        return self._tree
+
+    def _groups(self) -> dict[str, xr.Dataset]:
+        """Every group of the store that holds products, by path without the leading slash."""
+        return {path.lstrip("/"): node.ds for path, node in self.tree.subtree_with_keys if node.ds.data_vars}
+
+    def _discover(self, kind: str) -> dict:
+        """Loaders for one kind of product, keyed as ``<species>[/<slice>]/<variable>``."""
         loaders = {}
-        root = self.path_pproc / "fields_data"
-        for path in sorted(root.glob("*/*.bin")) if root.exists() else ():
-            key = f"{path.parent.name}/{path.stem}"
-            loaders[key] = lambda path=path, key=key: self._load_field(path, key)
+        for group, dataset in self._groups().items():
+            for name in dataset.data_vars:
+                if self._kind(group, name) != kind:
+                    continue
+                key = group if name == "orbits" else f"{group}/{name}"
+                loaders[key] = lambda group=group, name=name: self._load(group, name)
         return loaders
 
-    def _load_field(self, path: Path, key: str):
-        with path.open("rb") as stream:
-            raw = pickle.load(stream)
-        try:
-            physical = self.grids_phy
-        except FileNotFoundError:
-            physical = None
-        return wrap_field_data(
-            raw,
-            self.grids_log,
-            grids_phy=physical,
-            name=key.split("/")[-1],
-            time_scale=self.time_scale,
-            time_unit=self.time_unit,
-        )
+    @staticmethod
+    def _kind(group: str, name: str) -> str:
+        """Which catalog a variable belongs to; the store keeps them apart by shape and name."""
+        if name == "orbits":
+            return "orbits"
+        if "/" not in group:
+            return "fields"
+        return "densities" if name == "n" else "distributions"
 
-    def _discover_binned(self, category: str):
-        loaders = {}
-        root = self.path_pproc / "kinetic_data"
-        pattern = f"*/{category}/*/*.npy"
-        for path in sorted(root.glob(pattern)) if root.exists() else ():
-            if path.stem.startswith("grid_"):
-                continue
-            species, slice_name = path.parents[2].name, path.parent.name
-            key = f"{species}/{slice_name}/{path.stem}"
-            loaders[key] = lambda path=path, slice_name=slice_name: self._load_binned(path, slice_name)
-        return loaders
-
-    def _load_binned(self, path: Path, slice_name: str):
-        grid_paths = sorted(path.parent.glob("grid_*.npy"))
-        grids = {p.stem.removeprefix("grid_"): np.load(p, mmap_mode="r") for p in grid_paths}
-        # binned slices are named after their dimensions (e1_v1_density); SPH views (view_0) are not
-        dims = tuple(part for part in slice_name.split("_") if part in grids) or tuple(sorted(grids))
-        values = np.load(path, mmap_mode="r")
-        expected = (len(self.time), *(len(grids[dim]) for dim in dims))
-        if values.shape != expected:
-            raise ValueError(f"{path} has shape {values.shape}; expected {expected} from its coordinates")
-        coords = {"t": self.time, **{dim: grids[dim] for dim in dims}}
-        logical_dims = tuple(dim for dim in dims if dim in {"e1", "e2", "e3"})
-        try:
-            if len(logical_dims) == 2:
-                mesh = np.meshgrid(*(np.asarray(grids[dim]) for dim in logical_dims), indexing="ij")
-                arguments = {"e1": 0.5, "e2": 0.0, "e3": 0.0}
-                arguments.update(dict(zip(logical_dims, mesh)))
-                physical = self.sim.domain(arguments["e1"], arguments["e2"], arguments["e3"], squeeze_out=True)
-            elif len(logical_dims) == 3:
-                physical = self.sim.domain(*(np.asarray(grids[dim]) for dim in ("e1", "e2", "e3")))
-            else:
-                physical = ()
-            for coordinate, grid in zip(("X", "Y", "Z"), physical):
-                coords[coordinate] = (logical_dims, np.asarray(grid))
-        except (FileNotFoundError, TypeError, ValueError):
-            logger.debug("Could not attach physical coordinates to %s", path, exc_info=True)
-        return wrap_binned_data(values, dims, coords, name=path.stem, time_unit=self.time_unit)
-
-    def _discover_orbits(self):
-        loaders = {}
-        root = self.path_pproc / "kinetic_data"
-        for directory in sorted(root.glob("*/orbits")) if root.exists() else ():
-            loaders[directory.parent.name] = lambda directory=directory: self._load_orbits(directory)
-        return loaders
-
-    def _load_orbits(self, directory: Path):
-        paths = sorted(directory.glob("*.npy"), key=lambda p: int(p.stem.rsplit("_", 1)[-1]))
-        if not paths:
-            raise FileNotFoundError(f"no orbit arrays in {directory}")
-        # one small file per saved step: read them instead of keeping thousands of memory maps open
-        values = np.stack([np.load(path) for path in paths])
-        return wrap_orbits(values, self.time[: len(paths)], time_unit=self.time_unit)
-
+    def _load(self, group: str, name: str) -> xr.DataArray:
+        array = self.tree[group].ds[name]
+        if self.time_units == "physical" and "t" in array.dims:
+            array = array.assign_coords(t=array.t * self.time_scale)
+            array.coords["t"].attrs["units"] = "s"
+        return array
 
 def open_output(path_out, *, time_units: str = "normalized") -> Output:
     """Open the output folder of a finished simulation.
