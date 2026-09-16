@@ -141,6 +141,19 @@ def test_products_of_one_species_sit_on_the_output(run):
         run.electrons
 
 
+def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
+    products = run.kinetic_ions
+    assert tuple(products.catalog) == ("e1_v1_density/f_binned", "orbits", "view_0/n_sph")
+    assert "e1_v1_density/f_binned" in products.catalog
+    assert "em_fields/E" not in products.catalog
+    assert "e1_v1_density/f_binned" in repr(products)
+    assert run.distribution_catalog._cache == {}
+    assert products["e1_v1_density/f_binned"].dims == ("t", "e1", "v1")
+    assert run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f_binned"] is products.catalog[
+        "e1_v1_density/f_binned"
+    ]
+
+
 def test_arrays_plot_themselves(run):
     phase_space = run.kinetic_ions.e1_v1_density.f
     assert phase_space.struphy.plot.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
