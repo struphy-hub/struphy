@@ -499,16 +499,16 @@ After initial conditions are set, launch the run:
 11. Post-processing and visualization
 -------------------------------------
 
-The output of a simulation is a :class:`~struphy.Run`. ``sim.run()`` returns it,
+The output of a simulation is a :class:`~struphy.Output`. ``sim.run()`` returns it,
 and it stays available as ``sim.output``:
 
 .. code-block:: python
 
-    run = sim.run()
+    out = sim.run()
 
-    run.scalars.total_energy        # scalar time series, straight from the raw output
-    run.fields.em_fields.e_field_log  # evaluated FEEC field (post-processed on first access)
-    run.sim                          # the Simulation that produced the output
+    out.scalars.total_energy        # scalar time series, straight from the raw output
+    out.fields.em_fields.e_field_log  # evaluated FEEC field (post-processed on first access)
+    out.sim                          # the Simulation that produced the output
 
 Every product is an :class:`xarray.DataArray` with named dimensions
 (``t``, ``component``, ``e1``, ``e2``, ``e3``, ``v1``, ...), coordinates and units.
@@ -516,7 +516,7 @@ Arrays are read from disk only when accessed.
 
 In a separate process, for example a plotting script on a laptop after a cluster
 run, open the output folder instead. Nothing is allocated and no MPI is needed;
-``run.sim`` is restored from the ``config.json`` that ``sim.run()`` writes to the folder; a
+``out.sim`` is restored from the ``config.json`` that ``sim.run()`` writes to the folder; a
 copied parameter file is never executed. ``config.json`` holds the options and the model
 arguments (and thus the units), which is all that post-processing and plotting need, but
 not configuration applied to the model afterwards, such as backgrounds or perturbations:
@@ -525,11 +525,11 @@ not configuration applied to the model afterwards, such as backgrounds or pertur
 
     import struphy
 
-    run = struphy.open_run("./runs/vm1s_scan_A/sim_1")
-    run.sim.domain, run.sim.model.units
+    out = struphy.open_output("./runs/vm1s_scan_A/sim_1")
+    out.sim.domain, out.sim.model.units
 
 
-Choosing post-processing options: ``run.process()``
+Choosing post-processing options: ``out.process()``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Scalars need no post-processing. Fields, binned distribution functions, SPH
@@ -540,7 +540,7 @@ choose the options, call ``process`` first:
 
 .. code-block:: python
 
-    run.process(
+    out.process(
         step=1,                # evaluate every N-th saved time step
         celldivide=1,          # sub-divide each grid cell for smoother output
         physical=False,        # also evaluate fields in physical coordinates (*_phy)
@@ -558,32 +558,32 @@ serial processing runs on rank 0 while the other ranks wait, and
 ``parallel=True`` uses the allocated simulation on all ranks.
 
 
-Standard plots and analysis: ``run.plot`` and ``run.analysis``
+Standard plots and analysis: ``out.plot`` and ``out.analysis``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The common diagnostics are methods of the run, so no further imports are needed. They
-accept a product name, ``run["<name>"]``, or any array (sliced, derived, or from another
+accept a product name, ``out["<name>"]``, or any array (sliced, derived, or from another
 run), and figures are titled with the run's numerical parameters:
 
 .. code-block:: python
 
-    run.plot.scalars()                                   # overview + energy conservation error
-    run.plot.timeseries("en_phi", fit=(0.0, 40.0))       # exponential fit in a time window
-    run.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", isel={"t": -1})
-    run.plot.panels("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", nrows=3, ncols=4)
-    run.plot.viewer("em_fields/phi_phy", x="e1", y="e2", coords="physical").show()
-    run.plot.orbits("kinetic_ions")
-    run.save_report()                                    # table + figures in post_processing/report/
+    out.plot.scalars()                                   # overview + energy conservation error
+    out.plot.timeseries("en_phi", fit=(0.0, 40.0))       # exponential fit in a time window
+    out.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", isel={"t": -1})
+    out.plot.panels("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", nrows=3, ncols=4)
+    out.plot.viewer("em_fields/phi_phy", x="e1", y="e2", coords="physical").show()
+    out.plot.orbits("kinetic_ions")
+    out.save_report()                                    # table + figures in post_processing/report/
 
-    run.analysis.growth_rate("en_phi", window=(0.0, 40.0)).rate
-    run.analysis.dispersion("em_fields/e_field_log", slice_at=(0, 0, None), fit_branches=1)
+    out.analysis.growth_rate("en_phi", window=(0.0, 40.0)).rate
+    out.analysis.dispersion("em_fields/e_field_log", slice_at=(0, 0, None), fit_branches=1)
 
 Plots return a ``PlotResult`` with ``.show()`` and ``.save(path)``. Time series of
 several runs are labeled by run:
 
 .. code-block:: python
 
-    run_a.plot.timeseries(run_a["en_phi"], run_b["en_phi"], fit=(0.0, 40.0))
+    out_a.plot.timeseries(out_a["en_phi"], out_b["en_phi"], fit=(0.0, 40.0))
 
 The sections below access the arrays directly for custom Matplotlib plots.
 
@@ -599,7 +599,7 @@ components) or ``<variable_name>_phy`` (physical components, with
 
     import matplotlib.pyplot as plt
 
-    e_field = run.fields.em_fields.e_field_log      # dims (t, component, e1, e2, e3)
+    e_field = out.fields.em_fields.e_field_log      # dims (t, component, e1, e2, e3)
     snapshot = e_field.isel(t=-1, component=0, e2=0, e3=0)
 
     plt.figure()
@@ -619,8 +619,8 @@ Binned particle data is grouped by species and the slice defined in
 
 .. code-block:: python
 
-    f = run.distributions.kinetic_ions.e1_v1_density.f_binned   # dims (t, e1, v1)
-    run.plot.slice(f.isel(t=-1), x="e1", y="v1").show()
+    f = out.distributions.kinetic_ions.e1_v1_density.f_binned   # dims (t, e1, v1)
+    out.plot.slice(f.isel(t=-1), x="e1", y="v1").show()
 
 
 Plotting particle orbits
@@ -628,13 +628,13 @@ Plotting particle orbits
 
 If ``n_markers > 0`` was set in
 :class:`~struphy.particles.parameters.SavingParameters`, individual marker
-trajectories are available under ``run.orbits``:
+trajectories are available under ``out.orbits``:
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
 
-    orbits = run.orbits.kinetic_ions               # dims (t, marker, attribute)
+    orbits = out.orbits.kinetic_ions               # dims (t, marker, attribute)
     marker = orbits.isel(marker=0)
 
     plt.figure()
@@ -648,7 +648,7 @@ trajectories are available under ``run.orbits``:
 VTK output for ParaView and PyVista
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you call ``run.process(create_vtk=True)``, Struphy writes structured-grid VTK
+If you call ``out.process(create_vtk=True)``, Struphy writes structured-grid VTK
 files (``.vts``) inside the post-processing folder, grouped by species.
 Typical locations are:
 
@@ -912,7 +912,7 @@ Gantt charts and flame graphs.
 
 Note that ``profiling_data.h5`` is a plain ``scope-profiler`` output file, so
 it is post-processed with ``scope-profiler`` itself rather than with
-``run.process()`` — the two are independent post-processing paths.
+``out.process()`` — the two are independent post-processing paths.
 
 
 Post-processing with the ``scope-profiler`` CLI

@@ -11,8 +11,8 @@ import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
-from struphy.post_processing.run import Run  # noqa: E402
-from struphy.post_processing.tests.test_run import NT, FakeSim, write_manifest, write_tree  # noqa: E402
+from struphy.post_processing.output import Output  # noqa: E402
+from struphy.post_processing.tests.test_output import NT, FakeSim, write_manifest, write_tree  # noqa: E402
 
 RATE = 2.0
 
@@ -25,7 +25,7 @@ def make_run(root, name="sim_1"):
         time = np.asarray(file["time/value"])
         file.create_dataset("scalar/en_phi", data=np.exp(RATE * time))
     write_manifest(path)
-    return Run(path, sim=FakeSim(), time_units="normalized")
+    return Output(path, sim=FakeSim(), time_units="normalized")
 
 
 @pytest.fixture

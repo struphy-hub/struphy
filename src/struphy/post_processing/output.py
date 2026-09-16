@@ -12,7 +12,7 @@ import numpy as np
 import xarray as xr
 
 from struphy.post_processing.arrays import data_array, save_scalars, wrap_binned_data, wrap_field_data, wrap_orbits
-from struphy.post_processing.run_accessors import RunAnalysis, RunPlots
+from struphy.post_processing.output_accessors import OutputAnalysis, OutputPlots
 
 logger = logging.getLogger("struphy")
 
@@ -86,11 +86,11 @@ class ProductNamespace:
 
 
 class FieldProducts(ProductNamespace):
-    """Fields grouped as ``run.fields.<species>.<field>``."""
+    """Fields grouped as ``out.fields.<species>.<field>``."""
 
 
 class DistributionProducts(ProductNamespace):
-    """Binned products grouped as ``run.distributions.<species>.<slice>.<name>``."""
+    """Binned products grouped as ``out.distributions.<species>.<slice>.<name>``."""
 
 
 class DensityProducts(ProductNamespace):
@@ -101,11 +101,11 @@ class OrbitProducts(ProductNamespace):
     """Marker trajectories grouped by species."""
 
 
-class Run:
+class Output:
     """The output of one Struphy simulation, loaded lazily from its output folder.
 
     Obtain it from :attr:`Simulation.output` (or the return value of :meth:`Simulation.run`)
-    or, in a separate process, from :func:`open_run`. Nothing is read at construction.
+    or, in a separate process, from :func:`open_output`. Nothing is read at construction.
 
     * :attr:`scalars` are read directly from the raw HDF5 output.
     * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` need
@@ -114,7 +114,7 @@ class Run:
     * :attr:`sim` is the :class:`~struphy.Simulation` that produced the output: the live
       object for ``sim.output``, otherwise restored from disk without allocating anything.
     * :attr:`plot` and :attr:`analysis` draw and evaluate standard diagnostics, e.g.
-      ``run.plot.timeseries("en_phi", fit=(0, 40))``; ``run["en_phi"]`` looks up any product.
+      ``out.plot.timeseries("en_phi", fit=(0, 40))``; ``out["en_phi"]`` looks up any product.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
     Parameters
@@ -139,7 +139,7 @@ class Run:
     def __repr__(self):
         return f"{type(self).__name__}({str(self.path_out)!r}, processed={self.is_processed})"
 
-    def with_time_units(self, time_units: str) -> "Run":
+    def with_time_units(self, time_units: str) -> "Output":
         """The same output with time coordinates in ``"physical"`` or ``"normalized"`` units."""
         return type(self)(self.path_out, sim=self._sim, time_units=time_units)
 
@@ -194,7 +194,7 @@ class Run:
         create_vtk: bool = False,
         parallel: bool = False,
         force: bool = False,
-    ) -> "Run":
+    ) -> "Output":
         """Post-process the raw output; reuses existing products made with the same options.
 
         Call this on every MPI rank. Serial processing (the default) runs on rank 0 while
@@ -221,8 +221,8 @@ class Run:
 
         Returns
         -------
-        Run
-            This run, so that ``run = open_run(path).process(physical=True)`` reads naturally.
+        Output
+            This run, so that ``run = open_output(path).process(physical=True)`` reads naturally.
         """
         from struphy.post_processing.post_processing_tools import PostProcessor
 
@@ -242,9 +242,9 @@ class Run:
         if self.is_processed:
             return
         if self.sim.comm_size > 1:
-            raise RuntimeError(f"{self.path_out} has no post-processed data; call run.process() on all ranks first")
+            raise RuntimeError(f"{self.path_out} has no post-processed data; call out.process() on all ranks first")
         logger.warning("\nNo post-processed data in %s, processing with default options "
-                       "(call run.process(...) to choose them)", self.path_out)
+                       "(call out.process(...) to choose them)", self.path_out)
         self.process()
 
     def _product_mappings(self) -> dict[str, ProductMapping]:
@@ -264,22 +264,22 @@ class Run:
 
     @property
     def fields(self) -> FieldProducts:
-        """FEEC fields as ``run.fields.<species>.<field>``."""
+        """FEEC fields as ``out.fields.<species>.<field>``."""
         return FieldProducts(self.field_catalog)
 
     @property
     def distributions(self) -> DistributionProducts:
-        """Binned distribution functions as ``run.distributions.<species>.<slice>.<name>``."""
+        """Binned distribution functions as ``out.distributions.<species>.<slice>.<name>``."""
         return DistributionProducts(self.distribution_catalog)
 
     @property
     def densities(self) -> DensityProducts:
-        """SPH densities as ``run.densities.<species>.<slice>.<name>``."""
+        """SPH densities as ``out.densities.<species>.<slice>.<name>``."""
         return DensityProducts(self.density_catalog)
 
     @property
     def orbits(self) -> OrbitProducts:
-        """Marker trajectories as ``run.orbits.<species>``."""
+        """Marker trajectories as ``out.orbits.<species>``."""
         return OrbitProducts(self.orbit_catalog)
 
     @property
@@ -299,14 +299,14 @@ class Run:
         return self._product_mappings()["orbits"]
 
     @property
-    def plot(self) -> RunPlots:
-        """Standard plots, e.g. ``run.plot.scalars()`` or ``run.plot.panels(name, x="e1", y="v1")``."""
-        return RunPlots(self)
+    def plot(self) -> OutputPlots:
+        """Standard plots, e.g. ``out.plot.scalars()`` or ``out.plot.panels(name, x="e1", y="v1")``."""
+        return OutputPlots(self)
 
     @property
-    def analysis(self) -> RunAnalysis:
-        """Quantitative diagnostics, e.g. ``run.analysis.growth_rate("en_phi", window=(0, 40))``."""
-        return RunAnalysis(self)
+    def analysis(self) -> OutputAnalysis:
+        """Quantitative diagnostics, e.g. ``out.analysis.growth_rate("en_phi", window=(0, 40))``."""
+        return OutputAnalysis(self)
 
     @property
     def time_scale(self) -> float:
@@ -469,7 +469,7 @@ class Run:
         return wrap_orbits(values, self.time[:len(paths)], time_unit=self.time_unit)
 
 
-def open_run(path_out, *, time_units: str = "physical") -> Run:
+def open_output(path_out, *, time_units: str = "physical") -> Output:
     """Open the output folder of a finished simulation.
 
     Nothing is allocated and no MPI is needed; products are read on first access.
@@ -484,4 +484,4 @@ def open_run(path_out, *, time_units: str = "physical") -> Run:
     path = Path(path_out)
     if not (path / "data").is_dir():
         raise FileNotFoundError(f"{path.resolve()} is not a Struphy output folder (it has no data/ directory)")
-    return Run(path, time_units=time_units)
+    return Output(path, time_units=time_units)

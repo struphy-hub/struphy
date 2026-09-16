@@ -10,7 +10,7 @@ LENGTH, SPEED = 20.0, 1.0
 
 
 def standing_waves(dt=0.05, tend=2 * LENGTH, nx=128):
-    """Standing waves of all resolved wavenumbers with phase speed SPEED along eta3, as a field of a Run.
+    """Standing waves of all resolved wavenumbers with phase speed SPEED along eta3, as a field of a Output.
 
     The time window holds whole periods of every wave, so the spectrum has no leakage.
     """

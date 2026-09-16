@@ -6,7 +6,7 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import Run, Simulation, set_logging_level
+from struphy import Output, Simulation, set_logging_level
 from struphy.io.setup import import_parameters_py
 
 set_logging_level(logging.WARNING)
@@ -20,7 +20,7 @@ PARAMS_PATH = (
 @pytest.mark.mpi(min_size=2)
 def test_pproc_mpi(show_plot=False):
 
-    def do_plotting(run: Run, from_parallel=False):
+    def do_plotting(run: Output, from_parallel=False):
         e_field = run.fields.em_fields.e_field_log.isel(t=0, component=0, e2=0, e3=0)
         phi = run.fields.em_fields.phi_log.isel(t=0, e2=0, e3=0)
         f = run.distributions.kinetic_ions.e1_v1_density

@@ -1,7 +1,7 @@
 import os
 import sys
 
-from struphy import open_run
+from struphy import open_output
 
 # quantity whose exponential growth rate is fitted
 FIT_QUANTITY = "phi_integral"
@@ -19,7 +19,7 @@ SWEEPS = [
 
 
 def main(path_out):
-    run = open_run(path_out).process(physical=True)
+    run = open_output(path_out).process(physical=True)
 
     # growth rate of the electrostatic potential
     run.plot.timeseries(

@@ -64,7 +64,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
-from struphy.post_processing.run import Run
+from struphy.post_processing.output import Output
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
@@ -599,7 +599,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None) -> Run:
+    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None) -> Output:
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -618,7 +618,7 @@ class Simulation(SimulationBase):
 
         Returns
         -------
-        Run
+        Output
             The output of this run, see :attr:`output`.
         """
         if profiling_activated is None:
@@ -884,14 +884,14 @@ class Simulation(SimulationBase):
         return self.output
 
     @property
-    def output(self) -> Run:
-        """The output of this simulation in ``env.path_out``, see :class:`~struphy.Run`.
+    def output(self) -> Output:
+        """The output of this simulation in ``env.path_out``, see :class:`~struphy.Output`.
 
         Scalars are available as soon as data is written; fields and particle products are
         post-processed on first access, or explicitly with ``sim.output.process(...)``.
         """
         if self._output is None or self._output.path_out != Path(self.env.path_out).resolve():
-            self._output = Run(self.env.path_out, sim=self)
+            self._output = Output(self.env.path_out, sim=self)
         return self._output
 
     # ---------------------

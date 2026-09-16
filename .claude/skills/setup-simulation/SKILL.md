@@ -131,20 +131,20 @@ Key building blocks and where to look them up:
 ```python
 import params_<name> as params   # importing does NOT re-run the sim (guarded above)
 
-run = params.sim.output          # or, from anywhere: struphy.open_run(<env.path_out>)
-run.process(physical=True)       # optional; products are otherwise processed with defaults on first access
+out = params.sim.output          # or, from anywhere: struphy.open_output(<env.path_out>)
+out.process(physical=True)       # optional; products are otherwise processed with defaults on first access
 
-run.scalars.<name>                                     # xarray time series, no post-processing needed
-run.fields.<species>.<variable>_log                    # dims (t, [component,] e1, e2, e3)
-run.distributions.<species>.<binning_name>.f_binned    # dims (t, <slice dims>)
-run.orbits.<species>                                   # dims (t, marker, attribute)
-run.sim.model.units                                    # the Simulation, restored without allocating
+out.scalars.<name>                                     # xarray time series, no post-processing needed
+out.fields.<species>.<variable>_log                    # dims (t, [component,] e1, e2, e3)
+out.distributions.<species>.<binning_name>.f_binned    # dims (t, <slice dims>)
+out.orbits.<species>                                   # dims (t, marker, attribute)
+out.sim.model.units                                    # the Simulation, restored without allocating
 ```
 
-Plots and analysis need no imports: `run.plot.scalars()`, `run.plot.timeseries("<name>", fit=(t0, t1))`,
-`run.plot.panels("<species>/<binning_name>/f_binned", x="e1", y="v1")`, `run.plot.viewer(...)`,
-`run.plot.orbits("<species>")`, `run.save_report()`, `run.analysis.growth_rate(...)`,
-`run.analysis.dispersion(...)`. Names are looked up with `run["<name>"]`. See
+Plots and analysis need no imports: `out.plot.scalars()`, `out.plot.timeseries("<name>", fit=(t0, t1))`,
+`out.plot.panels("<species>/<binning_name>/f_binned", x="e1", y="v1")`, `out.plot.viewer(...)`,
+`out.plot.orbits("<species>")`, `out.save_report()`, `out.analysis.growth_rate(...)`,
+`out.analysis.dispersion(...)`. Names are looked up with `out["<name>"]`. See
 `examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py` for a complete script.
 
 ## Common pitfalls

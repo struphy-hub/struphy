@@ -1,3 +1,3 @@
-from struphy.post_processing.run import Run, open_run
+from struphy.post_processing.output import Output, open_output
 
-__all__ = ["Run", "open_run"]
+__all__ = ["Output", "open_output"]

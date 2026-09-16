@@ -39,7 +39,7 @@ def power_spectrum_2d(
     Parameters
     ----------
     field : xarray.DataArray
-        An evaluated FEEC field of a :class:`~struphy.Run`, with dims ``(t, [component,] e1, e2, e3)``,
+        An evaluated FEEC field of a :class:`~struphy.Output`, with dims ``(t, [component,] e1, e2, e3)``,
         e.g. ``run.fields.em_fields.e_field_log``. Its time coordinate must be uniform; use
         ``run.with_time_units("normalized")`` to compare with normalized dispersion relations.
 

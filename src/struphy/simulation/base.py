@@ -29,7 +29,7 @@ class SimulationBase(metaclass=ABCMeta):
 
     @abstractmethod
     def run(self):
-        """Run the simulation."""
+        """Output the simulation."""
         pass
 
     @property

@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from struphy import BaseUnits, EnvironmentOptions, Run, Simulation, Time, open_run
+from struphy import BaseUnits, EnvironmentOptions, Output, Simulation, Time, open_output
 from struphy.models import Maxwell, VlasovAmpereOneSpecies
 
 
@@ -22,7 +22,7 @@ def test_constructing_a_simulation_writes_nothing(tmp_path):
 def test_output_is_the_run_of_the_current_output_folder(tmp_path):
     sim = make_sim(tmp_path)
     run = sim.output
-    assert isinstance(run, Run)
+    assert isinstance(run, Output)
     assert run.sim is sim
     assert sim.output is run
 
@@ -39,7 +39,7 @@ def test_from_output_restores_config_json_and_follows_a_moved_folder(tmp_path):
 
     moved = tmp_path / "moved"
     os.rename(sim.env.path_out, moved)
-    restored = open_run(moved).sim
+    restored = open_output(moved).sim
 
     assert restored.model.to_dict() == model.to_dict()
     assert restored.model.params["mass_number"] == 4.0

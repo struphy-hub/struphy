@@ -1,6 +1,6 @@
 """Small, composable plotting functions for labeled Struphy output.
 
-Users reach these through ``run.plot`` (see :class:`struphy.post_processing.run_accessors.RunPlots`);
+Users reach these through ``run.plot`` (see :class:`struphy.post_processing.output_accessors.OutputPlots`);
 they remain importable for plotting arbitrary labeled arrays.
 """
 
@@ -134,7 +134,7 @@ def _items(data):
 def shared_run_label(data, default="") -> str:
     """The run description shared by all arrays (``attrs["run"]``), or ``default``.
 
-    Arrays loaded from a :class:`~struphy.Run` carry it; arrays from different runs share none.
+    Arrays loaded from a :class:`~struphy.Output` carry it; arrays from different runs share none.
     """
     runs = {item.attrs.get("run") for item in _items(data)}
     if len(runs - {None, ""}) > 1:

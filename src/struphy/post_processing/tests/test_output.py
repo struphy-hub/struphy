@@ -1,4 +1,4 @@
-"""Tests for the lazy Run output API."""
+"""Tests for the lazy Output output API."""
 
 import json
 import os
@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from struphy.post_processing.post_processing_tools import is_processed, normalize_options, source_fingerprint
-from struphy.post_processing.run import Run, open_run
+from struphy.post_processing.output import Output, open_output
 
 NT, N1, N2, N3, NV, N_MARKERS = 3, 4, 5, 6, 7, 10
 
@@ -64,7 +64,7 @@ def write_manifest(root, **options):
 
 
 class FakeSim:
-    """Just enough of a Simulation for Run: no configuration, a single rank."""
+    """Just enough of a Simulation for Output: no configuration, a single rank."""
 
     time_opts = grid = derham_opts = domain = None
     rank, comm_size = 0, 1
@@ -78,7 +78,7 @@ class FakeSim:
 
 @pytest.fixture
 def run(tmp_path):
-    return Run(write_tree(str(tmp_path)), sim=FakeSim(), time_units="normalized")
+    return Output(write_tree(str(tmp_path)), sim=FakeSim(), time_units="normalized")
 
 
 def test_products_are_discovered_without_loading_arrays(run):
@@ -128,10 +128,10 @@ def test_saving_scalars_and_bound_plot_accessor(run, tmp_path):
     assert result.ax.get_xlabel() == "$t$"
 
 
-def test_open_run_needs_an_output_folder(tmp_path):
+def test_open_output_needs_an_output_folder(tmp_path):
     with pytest.raises(FileNotFoundError, match="not a Struphy output folder"):
-        open_run(tmp_path)
-    run = open_run(write_tree(str(tmp_path)))
+        open_output(tmp_path)
+    run = open_output(write_tree(str(tmp_path)))
     assert run.path_out == tmp_path.resolve()
 
 
@@ -141,7 +141,7 @@ def test_sim_is_restored_from_disk_only_on_access(tmp_path, monkeypatch):
     restored = FakeSim()
     calls = []
     monkeypatch.setattr(Simulation, "from_output", classmethod(lambda cls, path: calls.append(path) or restored))
-    run = open_run(write_tree(str(tmp_path)))
+    run = open_output(write_tree(str(tmp_path)))
     assert calls == []
     assert run.sim is restored and run.sim is restored
     assert calls == [tmp_path.resolve()]
@@ -150,7 +150,7 @@ def test_sim_is_restored_from_disk_only_on_access(tmp_path, monkeypatch):
 def test_products_trigger_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    run = Run(root, sim=FakeSim(), time_units="normalized")
+    run = Output(root, sim=FakeSim(), time_units="normalized")
     calls = []
 
     def fake_process(self, **options):
@@ -159,7 +159,7 @@ def test_products_trigger_default_processing_when_missing(tmp_path, monkeypatch)
         self._reset()
         return self
 
-    monkeypatch.setattr(Run, "process", fake_process)
+    monkeypatch.setattr(Output, "process", fake_process)
     assert set(run.scalars.data_vars) == {"en_tot"}
     assert calls == [], "scalars come from the raw output"
     assert tuple(run.fields) == ("em_fields",)
@@ -172,7 +172,7 @@ def test_products_refuse_implicit_processing_on_many_ranks(tmp_path):
     sim = FakeSim()
     sim.comm_size = 2
     with pytest.raises(RuntimeError, match="on all ranks"):
-        Run(root, sim=sim).fields
+        Output(root, sim=sim).fields
 
 
 def test_processing_options_are_part_of_the_manifest(tmp_path):
@@ -206,7 +206,7 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
     monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
     sim = FakeSim()
     sim.rank = rank
-    run = Run(write_tree(str(tmp_path)), sim=sim)
+    run = Output(write_tree(str(tmp_path)), sim=sim)
     assert run.process(physical=True) is run
     expected = [
         ("construct", False),
@@ -231,5 +231,5 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
     monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
     sim = FakeSim()
     sim.rank = 3
-    Run(write_tree(str(tmp_path)), sim=sim).process(parallel=True)
+    Output(write_tree(str(tmp_path)), sim=sim).process(parallel=True)
     assert calls == [True]

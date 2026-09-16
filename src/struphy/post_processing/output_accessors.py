@@ -1,7 +1,7 @@
-"""``run.plot`` and ``run.analysis``: plotting and analysis without extra imports.
+"""``out.plot`` and ``out.analysis``: plotting and analysis without extra imports.
 
 Every method accepts a product name (``"en_phi"``, ``"em_fields/phi_log"``,
-``"kinetic_ions/e1_v1_density/f_binned"``; see :meth:`Run.__getitem__`) or any labeled
+``"kinetic_ions/e1_v1_density/f_binned"``; see :meth:`Output.__getitem__`) or any labeled
 array, including arrays derived from or belonging to another run.
 """
 
@@ -12,31 +12,31 @@ from typing import TYPE_CHECKING, Literal
 import xarray as xr
 
 if TYPE_CHECKING:
-    from struphy.post_processing.run import Run
+    from struphy.post_processing.output import Output
 
 Coordinates = Literal["logical", "physical"]
 Plane = Literal["XY", "XZ", "YZ", "RZ"]
 
 
-class RunPlots:
-    """Standard plots of a run, as ``run.plot.<kind>(...)``.
+class OutputPlots:
+    """Standard plots of a run, as ``out.plot.<kind>(...)``.
 
     Plots return a rendered :class:`~struphy.diagnostics.plotting.PlotResult` with
     ``.show()`` and ``.save(path)``. Figures are titled with the run's numerical parameters;
     time series of different runs are labeled by run.
     """
 
-    def __init__(self, run: "Run"):
-        self._run = run
+    def __init__(self, output: "Output"):
+        self._output = output
 
     def _array(self, data) -> xr.DataArray:
-        return self._run[data] if isinstance(data, str) else data
+        return self._output[data] if isinstance(data, str) else data
 
-    def _run_label(self, arrays) -> str:
+    def _label(self, arrays) -> str:
         from struphy.diagnostics.plotting import shared_run_label
 
         runs = {array.attrs.get("run") for array in arrays} - {None, ""}
-        return shared_run_label(arrays) if runs else self._run.label
+        return shared_run_label(arrays) if runs else self._output.label
 
     @staticmethod
     def _view(x, y, sweep, coords, plane, select, isel):
@@ -64,11 +64,11 @@ class RunPlots:
         """
         from struphy.diagnostics.plotting import plot_scalars
 
-        scalars = self._run.scalars
+        scalars = self._output.scalars
         if conservation == "auto":
             conservation = next((name for name in ("en_tot", "total_energy") if name in scalars), None)
         return plot_scalars(scalars, names=names, relative_to=relative_to, error_panel=conservation, logy=logy,
-                            run_label=self._run.label)
+                            run_label=self._output.label)
 
     def timeseries(self, *data, logy: bool = True, fit: tuple[float | None, float | None] | bool | None = None,
                    fit_amplitude: bool = False, title: str | None = None, ax=None):
@@ -99,7 +99,7 @@ class RunPlots:
         if fit is not None and fit is not False:
             window = (None, None) if fit is True else tuple(fit)
             growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
-        return plot_timeseries(series, ax=ax, logy=logy, fit=growth, title=title, run_label=self._run_label(series))
+        return plot_timeseries(series, ax=ax, logy=logy, fit=growth, title=title, run_label=self._label(series))
 
     def slice(self, data, *, x: str | None = None, y: str | None = None, coords: Coordinates = "logical",
               plane: Plane = "XY", select: dict | None = None, isel: dict | None = None, vmin=None, vmax=None,
@@ -121,7 +121,7 @@ class RunPlots:
 
         array = self._array(data)
         return plot_slice(array, view=self._view(x, y, "t", coords, plane, select, isel), ax=ax, vmin=vmin,
-                          vmax=vmax, equal_aspect=equal_aspect, title=title, run_label=self._run_label([array]))
+                          vmax=vmax, equal_aspect=equal_aspect, title=title, run_label=self._label([array]))
 
     def panels(self, data, *, x: str | None = None, y: str | None = None, sweep: str = "t",
                coords: Coordinates = "logical", plane: Plane = "XY", select: dict | None = None,
@@ -132,7 +132,7 @@ class RunPlots:
 
         array = self._array(data)
         return plot_panels(array, view=self._view(x, y, sweep, coords, plane, select, isel), nrows=nrows,
-                           ncols=ncols, shared_clim=shared_clim, title=title, run_label=self._run_label([array]))
+                           ncols=ncols, shared_clim=shared_clim, title=title, run_label=self._label([array]))
 
     def viewer(self, data, *, x: str | None = None, y: str | None = None, sweep: str = "t",
                coords: Coordinates = "logical", plane: Plane = "XY", select: dict | None = None,
@@ -145,7 +145,7 @@ class RunPlots:
 
         array = self._array(data)
         return InteractiveSliceViewer(array, view=self._view(x, y, sweep, coords, plane, select, isel), vmin=vmin,
-                                      vmax=vmax, run_label=self._run_label([array]))
+                                      vmax=vmax, run_label=self._label([array]))
 
     def animation(self, data, *, x: str | None = None, y: str | None = None, sweep: str = "t",
                   coords: Coordinates = "logical", plane: Plane = "XY", select: dict | None = None,
@@ -169,29 +169,29 @@ class RunPlots:
         """Three-dimensional trajectories of the saved markers of ``species``."""
         from struphy.diagnostics.plotting import plot_marker_trajectories
 
-        available = tuple(self._run.orbits)
+        available = tuple(self._output.orbits)
         if species is None:
             if len(available) != 1:
                 raise ValueError(f"choose a species from {available}")
             species = available[0]
-        return plot_marker_trajectories(self._run.orbits[species], ax=ax, max_markers=max_markers,
+        return plot_marker_trajectories(self._output.orbits[species], ax=ax, max_markers=max_markers,
                                         show_paths=show_paths)
 
     def equilibrium(self, ax=None):
         """Radial equilibrium profiles, from the geometry written at the start of the run."""
         from struphy.diagnostics.plotting import plot_equilibrium_profile
 
-        return plot_equilibrium_profile(self._run.path_out, ax=ax)
+        return plot_equilibrium_profile(self._output.path_out, ax=ax)
 
 
-class RunAnalysis:
-    """Quantitative diagnostics of a run, as ``run.analysis.<quantity>(...)``."""
+class OutputAnalysis:
+    """Quantitative diagnostics of a run, as ``out.analysis.<quantity>(...)``."""
 
-    def __init__(self, run: "Run"):
-        self._run = run
+    def __init__(self, output: "Output"):
+        self._output = output
 
     def _array(self, data) -> xr.DataArray:
-        return self._run[data] if isinstance(data, str) else data
+        return self._output[data] if isinstance(data, str) else data
 
     def growth_rate(self, data, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
         """Fit ``exp(rate * t + intercept)`` to a time series within ``window``.
@@ -227,8 +227,8 @@ class RunAnalysis:
         from struphy.diagnostics.diagn_tools import power_spectrum_2d
 
         if isinstance(field, str):
-            run = self._run if self._run.time_units == "normalized" else self._run.with_time_units("normalized")
+            run = self._output if self._output.time_units == "normalized" else self._output.with_time_units("normalized")
             field = run[field]
         elif field.t.attrs.get("units") == "s":
-            raise ValueError("pass the field by name, or take it from run.with_time_units('normalized')")
+            raise ValueError("pass the field by name, or take it from out.with_time_units('normalized')")
         return power_spectrum_2d(field, component=component, slice_at=slice_at, physical=physical, **kwargs)

@@ -81,7 +81,7 @@ def is_processed(path_out: str, options: dict | None = None) -> bool:
 class PostProcessor:
     """Post-process the raw output of a finished Struphy simulation.
 
-    Users do not call this directly; use :meth:`struphy.Run.process`, which also decides
+    Users do not call this directly; use :meth:`struphy.Output.process`, which also decides
     on which MPI ranks processing runs.
 
     Parameters
@@ -186,7 +186,7 @@ class PostProcessor:
         create_vtk: bool = True,
         force: bool = False,
     ):
-        """Run post-processing for fields and particle data in ``self.path_out``.
+        """Output post-processing for fields and particle data in ``self.path_out``.
 
         Parameters
         ----------

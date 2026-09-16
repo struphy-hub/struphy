@@ -78,14 +78,14 @@ For periodic boundary conditions we will stabilize via ``options``.
 
 .. code-block:: python
 
-    run = sim.run(one_time_step=True)
+    out = sim.run(one_time_step=True)
 
 7. Get the output. Fields are post-processed when first accessed and come as labeled
    :class:`xarray.DataArray` objects.
 
 .. code-block:: python
 
-    phi = run.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
+    phi = out.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
 
 8. Compare to the exact solution, and save the figure.
 
@@ -147,9 +147,9 @@ Full copy-paste script:
     grid = grids.TensorProductGrid(num_elements=(64, 1, 1))
 
     sim = Simulation(model=model, domain=domain, grid=grid)
-    run = sim.run(one_time_step=True)
+    out = sim.run(one_time_step=True)
 
-    phi = run.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
+    phi = out.fields.em_fields.phi_log.isel(t=-1, e2=0, e3=0)
     x = phi.X.values
     phi_num = phi.values
     phi_exact = np.cos(k * x)

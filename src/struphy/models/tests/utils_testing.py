@@ -99,7 +99,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
         )
         assert sim == spec.sim, "Simulation in generated script is not the same as the original simulation"
 
-        # Run the simulation from the generated script
+        # Output the simulation from the generated script
 
     # Export to json and import again
     with tempfile.NamedTemporaryFile(suffix=".json", mode="w+") as tmp:
