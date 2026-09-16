@@ -19,7 +19,6 @@ from matplotlib.widgets import Slider
 from struphy.post_processing.arrays import (
     SCALARS_EXCLUDE,
     axis_label,
-    orbit_columns,
     save_scalars,
     scalar_names,
     validate_array,
@@ -552,13 +551,11 @@ def save_all_scalars(
 
 def plot_marker_trajectories(orbits: xr.DataArray, *, ax=None, max_markers=200, show_paths=None):
     """Plot a static 3-D trajectory overview; interactive marker UI is intentionally separate."""
-    validate_array(orbits, required_dims=("t", "marker", "attribute"))
-    columns = orbits.attrs.get("columns", orbit_columns(orbits.sizes["attribute"]))
+    validate_array(orbits, required_dims=("t", "marker", "quantity"))
     count = min(orbits.sizes["marker"], max_markers)
-    values = np.asarray(orbits.isel(marker=slice(0, count)))
+    positions = np.asarray(orbits.isel(marker=slice(0, count)).sel(quantity=["x", "y", "z"]))
     fig = plt.figure() if ax is None else ax.figure
     ax = fig.add_subplot(111, projection="3d") if ax is None else ax
-    positions = values[..., columns["position"]]
     show_paths = count <= 200 if show_paths is None else show_paths
     artists = []
     if show_paths:

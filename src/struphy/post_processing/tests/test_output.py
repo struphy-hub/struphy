@@ -2,47 +2,51 @@
 
 import json
 import os
-import pickle
 
 import h5py
 import numpy as np
 import pytest
+import xarray as xr
 
 from struphy.post_processing.output import Output, open_output
+from struphy.post_processing import store
+from struphy.post_processing.arrays import orbit_quantities
 from struphy.post_processing.post_processing_tools import is_processed, normalize_options, source_fingerprint
 
 NT, N1, N2, N3, NV, N_MARKERS = 3, 4, 5, 6, 7, 10
 
 
 def write_tree(root):
+    """A small but complete output folder: raw HDF5 plus the product store."""
     pproc = os.path.join(root, "post_processing")
-    fields = os.path.join(pproc, "fields_data")
-    kinetic = os.path.join(pproc, "kinetic_data")
-    os.makedirs(os.path.join(fields, "em_fields"))
-    os.makedirs(os.path.join(kinetic, "kinetic_ions", "distribution_function", "e1_v1_density"))
-    os.makedirs(os.path.join(kinetic, "kinetic_ions", "orbits"))
+    os.makedirs(pproc)
     t = np.linspace(0, 1, NT)
     np.save(os.path.join(pproc, "t_grid.npy"), t)
-    logical = [np.linspace(0, 1, n) for n in (N1, N2, N3)]
-    physical = np.meshgrid(*logical, indexing="ij")
-    for name, value in (("grids_log", logical), ("grids_phy", physical)):
-        with open(os.path.join(fields, f"{name}.bin"), "wb") as stream:
-            pickle.dump(value, stream)
-    values = {time: [np.full((N1, N2, N3), i + time) for i in range(3)] for time in t}
-    with open(os.path.join(fields, "em_fields", "E.bin"), "wb") as stream:
-        pickle.dump(values, stream)
-    slice_dir = os.path.join(kinetic, "kinetic_ions", "distribution_function", "e1_v1_density")
-    np.save(os.path.join(slice_dir, "grid_e1.npy"), np.linspace(0, 1, N1))
-    np.save(os.path.join(slice_dir, "grid_v1.npy"), np.linspace(-3, 3, NV))
-    np.save(os.path.join(slice_dir, "f_binned.npy"), np.ones((NT, N1, NV)))
-    view_dir = os.path.join(kinetic, "kinetic_ions", "n_sph", "view_0")
-    os.makedirs(view_dir)
-    for direction, n in zip("123", (N1, N2, 1)):
-        np.save(os.path.join(view_dir, f"grid_e{direction}.npy"), np.linspace(0, 1, n))
-    np.save(os.path.join(view_dir, "n_sph.npy"), np.ones((NT, N1, N2, 1)))
-    orbit_dir = os.path.join(kinetic, "kinetic_ions", "orbits")
-    for step in range(NT):
-        np.save(os.path.join(orbit_dir, f"kinetic_ions_{step}.npy"), np.full((N_MARKERS, 8), step))
+
+    logical = {f"e{axis + 1}": np.linspace(0, 1, n) for axis, n in enumerate((N1, N2, N3))}
+    mapped = np.meshgrid(*logical.values(), indexing="ij")
+    path = store.store_path(pproc)
+    store.create(path)
+    store.write_group(path, "/em_fields", xr.Dataset(
+        {"E": (("t", "component", "e1", "e2", "e3"),
+               np.stack([np.stack([np.full((N1, N2, N3), i + time) for i in range(3)]) for time in t]))},
+        coords={"t": t, "component": [0, 1, 2], **logical,
+                **{name: (("e1", "e2", "e3"), grid) for name, grid in zip(("X", "Y", "Z"), mapped)}},
+    ))
+    store.write_group(path, "/kinetic_ions/e1_v1_density", xr.Dataset(
+        {"f": (("t", "e1", "v1"), np.ones((NT, N1, NV))), "delta_f": (("t", "e1", "v1"), np.zeros((NT, N1, NV)))},
+        coords={"t": t, "e1": logical["e1"], "v1": np.linspace(-3, 3, NV)},
+    ))
+    store.write_group(path, "/kinetic_ions/view_0", xr.Dataset(
+        {"n": (("t", "e1", "e2", "e3"), np.ones((NT, N1, N2, 1)))},
+        coords={"t": t, "e1": logical["e1"], "e2": logical["e2"], "e3": np.zeros(1)},
+    ))
+    store.write_group(path, "/kinetic_ions", xr.Dataset(
+        {"orbits": (("t", "marker", "quantity"),
+                    np.stack([np.full((N_MARKERS, 8), step) for step in range(NT)]))},
+        coords={"t": t, "marker": np.arange(N_MARKERS), "quantity": orbit_quantities(8)},
+    ))
+
     data_dir = os.path.join(root, "data")
     os.makedirs(data_dir)
     with h5py.File(os.path.join(data_dir, "data_proc0.hdf5"), "w") as file:
@@ -109,13 +113,13 @@ def test_field_has_named_and_curvilinear_coordinates(run):
 
 
 def test_binned_products_have_coordinates(run):
-    data = run.distributions["kinetic_ions/e1_v1_density/f_binned"]
+    data = run.distributions["kinetic_ions/e1_v1_density/f"]
     assert data.dims == ("t", "e1", "v1")
     np.testing.assert_allclose(data.v1, np.linspace(-3, 3, NV))
 
 
 def test_sph_density_views_take_dimensions_from_their_grids(run):
-    data = run.densities.kinetic_ions.view_0.n_sph
+    data = run.densities.kinetic_ions.view_0.n
     assert data.dims == ("t", "e1", "e2", "e3")
     assert data.shape == (NT, N1, N2, 1)
     np.testing.assert_allclose(data.e2, np.linspace(0, 1, N2))
@@ -123,8 +127,8 @@ def test_sph_density_views_take_dimensions_from_their_grids(run):
 
 def test_orbit_product_keeps_column_semantics(run):
     data = run.orbits["kinetic_ions"]
-    assert data.dims == ("t", "marker", "attribute")
-    assert data.attrs["columns"]["weight"] == 6
+    assert data.dims == ("t", "marker", "quantity")
+    assert list(data.quantity.values) == ["x", "y", "z", "v1", "v2", "v3", "weight", "id"]
 
 
 def test_scalar_time_uses_the_same_policy_as_postprocessed_products(run):
@@ -267,7 +271,7 @@ def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
 def test_info_lists_products_without_loading(run):
     text = run.info()
     assert "out.scalars.en_tot" in text
-    assert "out.kinetic_ions.e1_v1_density.f_binned" in text
+    assert "out.kinetic_ions.e1_v1_density.f" in text
     assert "out.kinetic_ions.orbits" in text
     assert "out.em_fields.E" in text
     assert run.field_catalog._cache == {}, "listing must not load arrays"

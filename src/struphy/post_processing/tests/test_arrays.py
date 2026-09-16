@@ -74,10 +74,11 @@ def test_binned_wrapper_keeps_memory_mappable_values():
     assert data.attrs["label"] == "$f$"
 
 
-def test_orbits_store_column_semantics_as_metadata():
+def test_orbits_name_their_columns():
     data = wrap_orbits(np.zeros((2, 5, 8)), [0, 1])
-    assert data.attrs["columns"]["weight"] == 6
-    assert data.sel(marker=2).dims == ("t", "attribute")
+    assert list(data.quantity.values) == ["x", "y", "z", "v1", "v2", "v3", "weight", "id"]
+    assert data.sel(marker=2).dims == ("t", "quantity")
+    assert data.sel(quantity="weight").dims == ("t", "marker")
 
 
 def test_scalar_alignment_is_exact():

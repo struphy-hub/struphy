@@ -23,7 +23,7 @@ def main():
     energy.struphy.plot.timeseries(analytical, title="Electric energy").show()
 
     # full f and delta f in the e1-v1 plane at four times
-    for quantity, title in (("f_binned", "full-$f$"), ("delta_f_binned", r"$\delta f$")):
+    for quantity, title in (("f", "full-$f$"), ("delta_f", r"$\delta f$")):
         getattr(run.kinetic_ions.e1_v1_density, quantity).struphy.plot.panels(
             x="e1", y="v1", nrows=1, ncols=4, title=title
         ).show()

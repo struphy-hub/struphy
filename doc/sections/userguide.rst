@@ -507,7 +507,7 @@ and it stays available as ``sim.output``:
     out = sim.run()
 
     out.scalars.total_energy        # scalar time series, straight from the raw output
-    out.fields.em_fields.e_field_log  # evaluated FEEC field (post-processed on first access)
+    out.fields.em_fields.e_field  # evaluated FEEC field (post-processed on first access)
     out.sim                          # the Simulation that produced the output
 
 Every product is an :class:`xarray.DataArray` with named dimensions
@@ -547,7 +547,7 @@ choose the options, call ``process`` first:
     out.process(
         step=1,                # evaluate every N-th saved time step
         celldivide=1,          # sub-divide each grid cell for smoother output
-        physical=False,        # also evaluate fields in physical coordinates (*_phy)
+        physical=False,        # also evaluate fields in physical coordinates (*_xyz)
         guiding_center=False,  # compute guiding-center coordinates for markers
         classify=False,        # classify particles by trapping/passing etc.
         create_vtk=False,      # write VTK files for 3D visualization
@@ -572,11 +572,11 @@ everything completes as you type:
 .. code-block:: python
 
     # products plot themselves
-    f = out.kinetic_ions.e1_v1_density.f_binned
+    f = out.kinetic_ions.e1_v1_density.f
     f.struphy.plot.slice(x="e1", y="v1", t="last")
     f.struphy.plot.panels(x="e1", y="v1", nrows=3, ncols=4)
     f.struphy.plot.viewer(x="e1", y="v1").show()
-    out.em_fields.phi_phy.struphy.plot.slice(x="e1", y="e2", t="last", coords="physical")
+    out.em_fields.phi_xyz.struphy.plot.slice(x="e1", y="e2", t="last", coords="physical")
     out.kinetic_ions.orbits.struphy.plot.trajectories()
     out.scalars.en_phi.struphy.plot.timeseries(fit=(0.0, 40.0))        # exponential fit in a window
     out.scalars.en_phi.struphy.analysis.growth_rate(window=(0.0, 40.0)).rate
@@ -586,8 +586,8 @@ everything completes as you type:
     out.save_report()                                    # table + figures in post_processing/report/
 
     # the same products by name, which suits scripts and loops
-    out["kinetic_ions/e1_v1_density/f_binned"].struphy.plot.slice(x="e1", y="v1", t="last")
-    out["em_fields/e_field_log"].struphy.analysis.dispersion(slice_at=(0, 0, None), fit_branches=1)
+    out["kinetic_ions/e1_v1_density/f"].struphy.plot.slice(x="e1", y="v1", t="last")
+    out["em_fields/e_field"].struphy.analysis.dispersion(slice_at=(0, 0, None), fit_branches=1)
 
 Plots return a ``PlotResult`` with ``.show()`` and ``.save(path)``. Time series of
 several runs are labeled by run:
@@ -602,15 +602,15 @@ The sections below access the arrays directly for custom Matplotlib plots.
 Plotting field data
 ^^^^^^^^^^^^^^^^^^^^
 
-Fields are grouped by species and named ``<variable_name>_log`` (logical
-components) or ``<variable_name>_phy`` (physical components, with
+Fields are grouped by species and named ``<variable_name>`` (logical
+components) or ``<variable_name>_xyz`` (physical components, with
 ``physical=True``):
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
 
-    e_field = out.fields.em_fields.e_field_log      # dims (t, component, e1, e2, e3)
+    e_field = out.fields.em_fields.e_field      # dims (t, component, e1, e2, e3)
     snapshot = e_field.isel(t=-1, component=0, e2=0, e3=0)
 
     plt.figure()
@@ -625,12 +625,12 @@ Plotting distribution function slices
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Binned particle data is grouped by species and the slice defined in
-``BinningPlot(slice=...)``. ``f_binned`` is the full distribution function,
-``delta_f_binned`` the perturbation with respect to the background:
+``BinningPlot(slice=...)``. ``f`` is the full distribution function, ``delta_f`` the
+perturbation with respect to the background:
 
 .. code-block:: python
 
-    f = out.distributions.kinetic_ions.e1_v1_density.f_binned   # dims (t, e1, v1)
+    f = out.distributions.kinetic_ions.e1_v1_density.f   # dims (t, e1, v1)
     f.struphy.plot.slice(x="e1", y="v1", t="last").show()
 
 

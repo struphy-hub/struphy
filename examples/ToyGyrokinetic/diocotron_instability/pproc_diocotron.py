@@ -16,9 +16,9 @@ SHOW_EQUIL_PROFILE = True
 
 # products to sweep interactively in the physical XY plane
 SWEEPS = [
-    "kinetic_ions/e1_e2_density/f_binned",
-    "kinetic_ions/e1_e2_density/delta_f_binned",
-    "em_fields/phi_phy",
+    "kinetic_ions/e1_e2_density/f",
+    "kinetic_ions/e1_e2_density/delta_f",
+    "em_fields/phi_xyz",
 ]
 
 

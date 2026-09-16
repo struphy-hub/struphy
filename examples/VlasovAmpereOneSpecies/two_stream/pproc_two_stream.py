@@ -14,7 +14,7 @@ def main():
     energy.struphy.plot.timeseries(analytical, title="Electric energy").show()
 
     # phase space evolution
-    f = run.kinetic_ions.e1_v1_density.f_binned
+    f = run.kinetic_ions.e1_v1_density.f
     f.struphy.plot.panels(x="e1", y="v1", nrows=3, ncols=4).show()
 
     # interactive alternative to dumping a frame sequence

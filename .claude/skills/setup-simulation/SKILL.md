@@ -135,8 +135,8 @@ out = params.sim.output          # or, from anywhere: struphy.open_output(<env.p
 out.process(physical=True)       # optional; products are otherwise processed with defaults on first access
 
 out.scalars.<name>                                     # xarray time series, no post-processing needed
-out.fields.<species>.<variable>_log                    # dims (t, [component,] e1, e2, e3)
-out.distributions.<species>.<binning_name>.f_binned    # dims (t, <slice dims>)
+out.fields.<species>.<variable>                    # dims (t, [component,] e1, e2, e3)
+out.distributions.<species>.<binning_name>.f    # dims (t, <slice dims>)
 out.orbits.<species>                                   # dims (t, marker, attribute)
 out.sim.model.units                                    # the Simulation, restored without allocating
 ```
@@ -144,7 +144,7 @@ out.sim.model.units                                    # the Simulation, restore
 Products sit under their species and plot themselves, no imports needed:
 
 ```python
-out.<species>.<binning_name>.f_binned.struphy.plot.slice(x="e1", y="v1", t="last")   # also .panels/.viewer/.animation/.frames
+out.<species>.<binning_name>.f.struphy.plot.slice(x="e1", y="v1", t="last")   # also .panels/.viewer/.animation/.frames
 out.<species>.orbits.struphy.plot.trajectories()
 out.scalars.<name>.struphy.plot.timeseries(fit=(t0, t1))                             # also .growth_rate/.drift/.relative_error
 out.plot.scalars(), out.plot.equilibrium(), out.save_report()                   # whole-run plots
