@@ -59,7 +59,9 @@ class SimulationBase(metaclass=ABCMeta):
         if file_path.endswith(".yaml") or file_path.endswith(".yml"):
             dict_to_yaml(dct, file_path)
         elif file_path.endswith(".json"):
+            from struphy.simulation.sim import CuPyJSONEncoder
+
             with open(file_path, "w") as f:
-                json.dump(dct, f, indent=4)
+                json.dump(dct, f, indent=4, cls=CuPyJSONEncoder)
         else:
             raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")

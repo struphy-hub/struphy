@@ -1,7 +1,6 @@
 # third party imports
 import dataclasses
 import glob
-import hashlib
 import json
 import logging
 import os
@@ -53,7 +52,6 @@ from struphy.fields_background.projected_equils import (
 )
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
-from struphy.io.setup import import_parameters_py
 from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -1098,10 +1096,12 @@ class Simulation(SimulationBase):
                         logger.info("Removed existing file " + file)
 
     def _save_config(self):
-        """Save the parameter file (or, if there is none, the configuration as JSON) to the output folder."""
+        """Save the configuration as ``config.json`` to the output folder, which is what
+        :meth:`from_output` reads. A parameter file is copied alongside for reference."""
         if self.rank != 0:
             return
 
+        self.export(os.path.join(self.env.path_out, "config.json"))
         if self.params_path is not None:
             try:
                 shutil.copy2(
@@ -1110,8 +1110,6 @@ class Simulation(SimulationBase):
                 )
             except shutil.SameFileError:
                 pass
-        else:
-            self.export(os.path.join(self.env.path_out, "config.json"))
 
     def _create_clone_config(self) -> CloneConfig | None:
         """Setup domain cloning communicators, None if there is only one clone (or no MPI).
@@ -1316,6 +1314,27 @@ class Simulation(SimulationBase):
             logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
+    @staticmethod
+    def _binned_background(background, bin_plot) -> xp.ndarray:
+        """Evaluate a kinetic background on the bin centers of ``bin_plot``.
+
+        Directions that are not binned are evaluated at zero; velocity directions that are not
+        binned are integrated out like the binned data (exact for Maxwellians).
+        """
+        centers = {
+            dim: edges[:-1] + (edges[1] - edges[0]) / 2 for dim, edges in zip(bin_plot.slice.split("_"), bin_plot.bin_edges)
+        }
+        grids = [centers.get(dim, xp.zeros(1)) for dim in ("e1", "e2", "e3")]
+        factor = 1.0
+        for component in range(1, background.vdim + 1):
+            dim = f"v{component}"
+            if dim in centers:
+                grids.append(centers[dim])
+            else:
+                grids.append(xp.zeros(1))
+                factor *= xp.sqrt(2 * xp.pi)
+        return background(*xp.meshgrid(*grids, indexing="ij")).squeeze() * factor
+
     def _initialize_hdf5_datasets(self, data: DataContainer, size: int):
         """
         Create datasets in hdf5 files according to model unknowns and diagnostics data.
@@ -1440,6 +1459,17 @@ class Simulation(SimulationBase):
                     for dim, be in enumerate(bin_plot.bin_edges):
                         file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = DataContainer._as_numpy_array(
                             be[:-1] + (be[1] - be[0]) / 2
+                        )
+
+                    # the static background of a delta-f species, so that post-processing can
+                    # reconstruct the full f without the simulation's configuration
+                    if var.space == "DeltaFParticles6D":
+                        key_background = os.path.join(key_spec, "f_background", slice)
+                        if key_background in file:
+                            del file[key_background]
+                        file.create_dataset(
+                            key_background,
+                            data=DataContainer._as_numpy_array(self._binned_background(var.backgrounds, bin_plot)),
                         )
 
                 for i, kd_plot in enumerate(species.saving_params.kernel_density_plots):
@@ -1654,25 +1684,21 @@ class Simulation(SimulationBase):
     def from_output(cls, path_out: str) -> "Simulation":
         """Restore the simulation that wrote the output folder ``path_out``.
 
-        The configuration is read from the ``parameters.py`` copied there by :meth:`run`, or
-        from ``config.json`` when the simulation was not created from a parameter file.
-        ``config.json`` holds the options objects and the arguments of the model (and thus its
-        units), but not configuration applied to the model after construction, such as
+        The configuration is read from the ``config.json`` written by :meth:`run`; a copied
+        parameter file is never executed. ``config.json`` holds the options objects and the
+        arguments of the model (and thus its units), which is all that post-processing and
+        plotting need, but not configuration applied to the model after construction, such as
         markers, backgrounds, perturbations and propagator options.
         Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
         """
         path_out = os.path.abspath(path_out)
-        params_path = os.path.join(path_out, "parameters.py")
         config_path = os.path.join(path_out, "config.json")
-        if os.path.exists(params_path):
-            module_name = "struphy_run_" + hashlib.sha1(path_out.encode()).hexdigest()[:12]
-            sim = getattr(import_parameters_py(params_path, name=module_name), "sim", None)
-            if not isinstance(sim, Simulation):
-                raise ValueError(f"{params_path} does not define a Simulation named 'sim'")
-        elif os.path.exists(config_path):
-            sim = cls.from_file(config_path)
-        else:
-            raise FileNotFoundError(f"Neither {params_path} nor {config_path} exists; is {path_out} a Struphy output folder?")
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(
+                f"{config_path} does not exist; is {path_out} a Struphy output folder? Outputs of older "
+                "versions can get one with sim.export(os.path.join(path_out, 'config.json')) from their parameter file."
+            )
+        sim = cls.from_file(config_path)
         sim.env = dataclasses.replace(
             sim.env, out_folders=os.path.dirname(path_out), sim_folder=os.path.basename(path_out)
         )

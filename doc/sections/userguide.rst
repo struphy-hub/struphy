@@ -516,10 +516,10 @@ Arrays are read from disk only when accessed.
 
 In a separate process, for example a plotting script on a laptop after a cluster
 run, open the output folder instead. Nothing is allocated and no MPI is needed;
-``run.sim`` is restored from the ``parameters.py`` stored in the folder. A simulation
-that was not created from a parameter file is restored from ``config.json``, which holds
-the options and the model arguments (and thus the units), but not configuration applied
-to the model afterwards, such as backgrounds or perturbations:
+``run.sim`` is restored from the ``config.json`` that ``sim.run()`` writes to the folder; a
+copied parameter file is never executed. ``config.json`` holds the options and the model
+arguments (and thus the units), which is all that post-processing and plotting need, but
+not configuration applied to the model afterwards, such as backgrounds or perturbations:
 
 .. code-block:: python
 

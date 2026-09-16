@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from struphy import BaseUnits, EnvironmentOptions, Run, Simulation, open_run
+from struphy import BaseUnits, EnvironmentOptions, Run, Simulation, Time, open_run
 from struphy.models import Maxwell, VlasovAmpereOneSpecies
 
 
@@ -50,20 +50,24 @@ def test_from_output_restores_config_json_and_follows_a_moved_folder(tmp_path):
     assert sorted(os.listdir(tmp_path)) == ["moved"]
 
 
-def test_from_output_prefers_the_parameter_file(tmp_path):
-    path_out = tmp_path / "sim_1"
-    os.makedirs(path_out / "data")
-    (path_out / "parameters.py").write_text(
-        "from struphy import EnvironmentOptions, Simulation, Time\n"
-        "from struphy.models import Maxwell\n"
-        "sim = Simulation(model=Maxwell(), env=EnvironmentOptions(sim_folder='elsewhere'), time_opts=Time(dt=0.123))\n"
-    )
-    restored = Simulation.from_output(path_out)
-    assert restored.time_opts.dt == 0.123
-    assert restored.env.path_out == str(path_out)
-    assert not os.path.exists(os.path.join(os.getcwd(), "elsewhere"))
+def test_run_writes_config_json_and_copies_the_parameter_file(tmp_path):
+    params = tmp_path / "params_maxwell.py"
+    params.write_text("# a parameter file\n")
+    sim = make_sim(tmp_path, params_path=str(params))
+    os.makedirs(sim.env.path_out)
+    sim._save_config()
+    assert sorted(os.listdir(sim.env.path_out)) == ["config.json", "parameters.py"]
+
+
+def test_from_output_never_executes_the_parameter_file(tmp_path):
+    sim = make_sim(tmp_path, time_opts=Time(dt=0.123))
+    os.makedirs(os.path.join(sim.env.path_out, "data"))
+    sim._save_config()
+    with open(os.path.join(sim.env.path_out, "parameters.py"), "w") as stream:
+        stream.write("raise RuntimeError('the parameter file was executed')\n")
+    assert Simulation.from_output(sim.env.path_out).time_opts.dt == 0.123
 
 
 def test_from_output_requires_a_configuration(tmp_path):
-    with pytest.raises(FileNotFoundError, match="parameters.py"):
+    with pytest.raises(FileNotFoundError, match="config.json"):
         Simulation.from_output(tmp_path)

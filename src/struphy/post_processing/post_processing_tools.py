@@ -16,7 +16,6 @@ from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.kinetic_background.base import KineticBackground
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
@@ -38,7 +37,7 @@ MANIFEST_SCHEMA_VERSION = 1
 def source_fingerprint(path_out: str) -> str:
     """Fingerprint the raw run files that determine post-processing products."""
     digest = hashlib.sha256()
-    for name in ("config.json", "parameters.py", "meta.yml", "data/data_proc0.hdf5"):
+    for name in ("config.json", "meta.yml", "data/data_proc0.hdf5"):
         path = os.path.join(path_out, name)
         if not os.path.exists(path):
             continue
@@ -117,6 +116,7 @@ class PostProcessor:
 
         # struphy objects needed for post-processing
         self.domain = sim.domain
+        self.equil = sim.equil
         self.model = sim.model
 
         if self.parallel_pproc:
@@ -424,7 +424,7 @@ class PostProcessor:
 
                 if guiding_center:
                     assert self.kinetic_kinds[n] == "Particles6D"
-                    orbits_tools.post_process_orbit_guiding_center(self.path_out, path_kinetics_species, species)
+                    orbits_tools.post_process_orbit_guiding_center(self.domain, self.equil, path_kinetics_species, species)
 
                 if classify:
                     orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
@@ -945,12 +945,11 @@ class PostProcessor:
         step : int, optional
             Time-step stride to process (default 1).
         compute_bckgr : bool, optional
-            If True, compute and add background contribution to the saved binned data.
+            If True, add the background stored by the simulation to the binned delta f.
         """
         print(f"{self.rank} starting post-processing of distribution functions for {path_kinetic_species} ...")
 
         species = path_kinetic_species.split("/")[-1]
-        species_obj: ParticleSpecies = self.model.particle_species[species]
 
         # directory for .npy files
         path_distr = os.path.join(path_kinetic_species, "distribution_function")
@@ -1051,90 +1050,18 @@ class PostProcessor:
                 xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
 
                 if compute_bckgr:
-                    # bckgr_params = params["kinetic"][species]["background"]
+                    # the background of a delta-f species is stored by the simulation on the bin centers
+                    key_background = f"kinetic/{species}/f_background/{slice_name}"
+                    with h5py.File(os.path.join(self.path_out, "data", "data_proc0.hdf5"), "r") as file:
+                        if key_background not in file:
+                            raise ValueError(
+                                f"{key_background} is missing from the raw output; outputs of older versions "
+                                "do not store the background of delta-f species."
+                            )
+                        data_bckgr = file[key_background][()]
 
-                    # f_bckgr = None
-                    # for fi, maxw_params in bckgr_params.items():
-                    #     if fi[-2] == "_":
-                    #         fi_type = fi[:-2]
-                    #     else:
-                    #         fi_type = fi
-
-                    #     if f_bckgr is None:
-                    #         f_bckgr = getattr(maxwellians, fi_type)(
-                    #             maxw_params=maxw_params,
-                    #         )
-                    #     else:
-                    #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
-                    #             maxw_params=maxw_params,
-                    #         )
-
-                    for _, var in species_obj.variables.items():
-                        assert isinstance(var, PICVariable | SPHVariable)
-                        f_bckgr: KineticBackground = var.backgrounds
-                        break
-                    if f_bckgr is None:
-                        raise ValueError(
-                            f"The background of {species} is needed to post-process its delta-f distribution "
-                            "function, but it is not configured. A simulation restored from config.json only "
-                            "knows the model arguments; run from a parameter file to keep the background."
-                        )
-
-                    # load all grids of the variables of f
-                    grid_tot = []
-                    factor = 1.0
-
-                    # eta-grid
-                    for comp in range(1, 4):
-                        current_slice = "e" + str(comp)
-                        filename = os.path.join(
-                            path_slice,
-                            "grid_" + current_slice + ".npy",
-                        )
-
-                        # check if file exists and is in slice_name
-                        if os.path.exists(filename) and current_slice in slice_splits:
-                            grid_tot += [xp.load(filename)]
-
-                        # otherwise evaluate at zero
-                        else:
-                            grid_tot += [xp.zeros(1)]
-
-                    # v-grid
-                    for comp in range(1, f_bckgr.vdim + 1):
-                        current_slice = "v" + str(comp)
-                        filename = os.path.join(
-                            path_slice,
-                            "grid_" + current_slice + ".npy",
-                        )
-
-                        # check if file exists and is in slice_name
-                        if os.path.exists(filename) and current_slice in slice_splits:
-                            grid_tot += [xp.load(filename)]
-
-                        # otherwise evaluate at zero
-                        else:
-                            grid_tot += [xp.zeros(1)]
-                            # correct integrating out in v-direction, TODO: check for 5D Maxwellians
-                            factor *= xp.sqrt(2 * xp.pi)
-
-                    grid_eval = xp.meshgrid(*grid_tot, indexing="ij")
-
-                    data_bckgr = f_bckgr(*grid_eval).squeeze()
-
-                    # correct integrating out in v-direction
-                    data_bckgr *= factor
-
-                    # Now all data is just the data for delta_f
-                    data_delta_f = data_df
-
-                    # save distribution function
-                    xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
-                    # add extra axis for data_bckgr since data_delta_f has axis for time series
-                    xp.save(
-                        os.path.join(path_slice, "f_binned.npy"),
-                        data_delta_f + data_bckgr[tuple([None])],
-                    )
+                    # add extra axis for data_bckgr since data_df has axis for time series
+                    xp.save(os.path.join(path_slice, "f_binned.npy"), data_df + data_bckgr[None])
 
     def _post_process_n_sph(
         self,
