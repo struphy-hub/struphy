@@ -249,8 +249,8 @@ def physical_grids(data: xr.DataArray, *, plane="XY"):
 
 def _slice_data(data, view):
     selected = _select(data, view)
-    if view.sweep in selected.dims:
-        raise ValueError(f"select one {view.sweep!r} value before drawing a static slice")
+    if view.sweep in selected.dims and view.sweep not in (view.x, view.y):
+        raise ValueError(f"select one {view.sweep!r} value before drawing a static slice, or display it as x or y")
     if view.x is None or view.y is None:
         if selected.ndim != 2:
             raise ValueError(f"view.x and view.y are required for remaining dims {selected.dims}")

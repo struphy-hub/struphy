@@ -175,3 +175,11 @@ def test_notebook_display_shows_the_figure_once(monkeypatch, shown):
     result._ipython_display_()
     assert displayed == ([] if shown else [result.fig])
     assert (result.fig.number in plt.get_fignums()) == shown, "the inline backend must not show it again"
+
+
+def test_slice_can_display_the_sweep_dimension():
+    data = phase_space()
+    result = plot_slice(data.isel(v1=slice(None)), view=View(x="t", y="e1", isel={"v1": 0}))
+    assert result.ax.get_xlabel() == "$t$ [s]"
+    with pytest.raises(ValueError, match="display it as x or y"):
+        plot_slice(data, view=View(x="e1", y="v1"))
