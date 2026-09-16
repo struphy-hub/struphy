@@ -561,21 +561,28 @@ serial processing runs on rank 0 while the other ranks wait, and
 Standard plots and analysis: ``out.plot`` and ``out.analysis``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The common diagnostics are methods of the run, so no further imports are needed. They
-accept a product name, ``out["<name>"]``, or any array (sliced, derived, or from another
-run), and figures are titled with the run's numerical parameters:
+Products sit under the species that produced them and plot themselves through their
+``.struphy`` accessor, so no imports are needed and everything completes as you type. The same
+methods are on ``out.plot`` and ``out.analysis``, which also take a product name:
 
 .. code-block:: python
 
+    # products plot themselves
+    f = out.kinetic_ions.e1_v1_density.f_binned
+    f.struphy.slice(x="e1", y="v1", t="last")
+    f.struphy.panels(x="e1", y="v1", nrows=3, ncols=4)
+    f.struphy.viewer(x="e1", y="v1").show()
+    out.em_fields.phi_phy.struphy.slice(x="e1", y="e2", t="last", coords="physical")
+    out.kinetic_ions.orbits.struphy.trajectories()
+    out.scalars.en_phi.struphy.timeseries(fit=(0.0, 40.0))        # exponential fit in a window
+    out.scalars.en_phi.struphy.growth_rate(window=(0.0, 40.0)).rate
+
+    # plots of the whole run
     out.plot.scalars()                                   # every scalar time series
-    out.plot.timeseries("en_phi", fit=(0.0, 40.0))       # exponential fit in a time window
-    out.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", t="last")
-    out.plot.panels("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", nrows=3, ncols=4)
-    out.plot.viewer("em_fields/phi_phy", x="e1", y="e2", coords="physical").show()
-    out.plot.orbits("kinetic_ions")
     out.save_report()                                    # table + figures in post_processing/report/
 
-    out.analysis.growth_rate("en_phi", window=(0.0, 40.0)).rate
+    # every method is also on out.plot / out.analysis, which take a product name
+    out.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", t="last")
     out.analysis.dispersion("em_fields/e_field_log", slice_at=(0, 0, None), fit_branches=1)
 
 Plots return a ``PlotResult`` with ``.show()`` and ``.save(path)``. Time series of
@@ -583,7 +590,7 @@ several runs are labeled by run:
 
 .. code-block:: python
 
-    out_a.plot.timeseries(out_a["en_phi"], out_b["en_phi"], fit=(0.0, 40.0))
+    out_a.scalars.en_phi.struphy.timeseries(out_b.scalars.en_phi, fit=(0.0, 40.0))
 
 The sections below access the arrays directly for custom Matplotlib plots.
 
@@ -620,7 +627,7 @@ Binned particle data is grouped by species and the slice defined in
 .. code-block:: python
 
     f = out.distributions.kinetic_ions.e1_v1_density.f_binned   # dims (t, e1, v1)
-    out.plot.slice(f, x="e1", y="v1", t="last").show()
+    f.struphy.slice(x="e1", y="v1", t="last").show()
 
 
 Plotting particle orbits

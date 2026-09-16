@@ -129,3 +129,35 @@ def test_selection_keywords_take_positions_values_and_ends(run):
         run.plot.slice(name, x="e1", y="v1", time=-1)
     with pytest.raises(TypeError, match='use a number'):
         run.plot.slice(name, x="e1", y="v1", t="final")
+
+
+def test_products_of_one_species_sit_on_the_output(run):
+    assert run.kinetic_ions.e1_v1_density.f_binned.dims == ("t", "e1", "v1")
+    assert run.kinetic_ions.view_0.n_sph.dims == ("t", "e1", "e2", "e3")
+    assert run.kinetic_ions.orbits.dims == ("t", "marker", "attribute")
+    assert run.em_fields.E.dims[:2] == ("t", "component")
+    assert {"kinetic_ions", "em_fields"} <= set(dir(run))
+    with pytest.raises(AttributeError, match="available species"):
+        run.electrons
+
+
+def test_arrays_plot_themselves(run):
+    phase_space = run.kinetic_ions.e1_v1_density.f_binned
+    assert phase_space.struphy.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
+    assert len(phase_space.struphy.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
+    assert set(phase_space.struphy.viewer(x="e1", y="v1").sliders) == set()
+    assert run.kinetic_ions.orbits.struphy.trajectories(max_markers=2).ax.name == "3d"
+
+
+def test_the_accessor_works_on_derived_arrays(run):
+    energy = run.scalars.en_phi
+    assert energy.isel(t=slice(1, None)).struphy.growth_rate().rate == pytest.approx(RATE)
+    error = energy.struphy.relative_error()
+    assert error.struphy.timeseries(logy=False).fig._suptitle.get_text() == run.label
+
+
+def test_plot_accessor_and_array_accessor_agree(run):
+    by_output = run.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", t="last")
+    by_array = run.kinetic_ions.e1_v1_density.f_binned.struphy.slice(x="e1", y="v1", t="last")
+    np.testing.assert_allclose(by_output.artists[0].get_array(), by_array.artists[0].get_array())
+    assert by_output.fig._suptitle.get_text() == by_array.fig._suptitle.get_text() == run.label

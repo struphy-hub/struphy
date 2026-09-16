@@ -1,62 +1,42 @@
-"""``out.plot`` and ``out.analysis``: plotting and analysis without extra imports.
+"""``out.plot`` and ``out.analysis``: diagnostics of a whole run.
 
-Every method accepts a product name (``"en_phi"``, ``"em_fields/phi_log"``,
-``"kinetic_ions/e1_v1_density/f_binned"``; see :meth:`Output.__getitem__`) or any labeled
-array, including arrays derived from or belonging to another run.
+Plots and diagnostics of a single array live on the array itself, see
+:class:`~struphy.post_processing.xarray_accessors.StruphyAccessor`. The methods here take a
+product name as well (``"en_phi"``, ``"em_fields/phi_log"``; see :meth:`Output.__getitem__`),
+and label arrays that carry no run with this run.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
-import numpy as np
 import xarray as xr
+
+import struphy.post_processing.xarray_accessors  # noqa: F401  (registers array.struphy)
 
 if TYPE_CHECKING:
     from struphy.post_processing.output import Output
-
-Coordinates = Literal["logical", "physical"]
-Plane = Literal["XY", "XZ", "YZ", "RZ"]
 
 
 class OutputPlots:
     """Standard plots of a run, as ``out.plot.<kind>(...)``.
 
-    Plots return a rendered :class:`~struphy.diagnostics.plotting.PlotResult` with
-    ``.show()`` and ``.save(path)``. Figures are titled with the run's numerical parameters;
-    time series of different runs are labeled by run.
+    Plots return a rendered :class:`~struphy.diagnostics.plotting.PlotResult` with ``.show()``
+    and ``.save(path)``, titled with the run's numerical parameters. The array-level methods are
+    the accessor methods of that array: ``out.plot.slice("em_fields/phi_log", ...)`` is
+    ``out.em_fields.phi_log.struphy.slice(...)``.
     """
 
     def __init__(self, output: "Output"):
         self._output = output
 
     def _array(self, data) -> xr.DataArray:
-        return self._output[data] if isinstance(data, str) else data
-
-    def _label(self, arrays) -> str:
-        from struphy.diagnostics.plotting import shared_run_label
-
-        runs = {array.attrs.get("run") for array in arrays} - {None, ""}
-        return shared_run_label(arrays) if runs else self._output.label
-
-    def _view(self, array, x, y, sweep, coords, plane, selection):
-        from struphy.diagnostics.plotting import View
-
-        select, index = {}, {}
-        for dim, value in selection.items():
-            if dim not in array.dims:
-                raise TypeError(f"{dim!r} is not a dimension of {array.name!r}; its dimensions are {array.dims}")
-            if value == "first":
-                index[dim] = 0
-            elif value == "last":
-                index[dim] = -1
-            elif isinstance(value, (bool, str)):
-                raise TypeError(f"cannot select {dim}={value!r}; use a number, or \"first\"/\"last\"")
-            elif isinstance(value, (int, np.integer)):
-                index[dim] = int(value)
-            else:
-                select[dim] = float(value)
-        return View(x=x, y=y, sweep=sweep, select=select, isel=index, coordinates=coords, plane=plane)
+        array = self._output[data] if isinstance(data, str) else data
+        if not array.attrs.get("run"):
+            array = array.copy()
+            array.attrs["run"] = self._output.label
+            array.attrs["run_name"] = self._output.path_out.name
+        return array
 
     def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
         """Overview of the scalar time series in one axes.
@@ -72,218 +52,44 @@ class OutputPlots:
         """
         from struphy.diagnostics.plotting import plot_scalars
 
-        return plot_scalars(
-            self._output.scalars, names=names, relative_to=relative_to, logy=logy, run_label=self._output.label
-        )
+        return plot_scalars(self._output.scalars, names=names, relative_to=relative_to, logy=logy,
+                            run_label=self._output.label)
 
-    def timeseries(
-        self,
-        *data,
-        logy: bool = True,
-        fit: tuple[float | None, float | None] | bool | None = None,
-        fit_amplitude: bool = False,
-        title: str | None = None,
-        ax=None,
-    ):
-        """One or more time series, optionally with an exponential growth-rate fit.
-
-        Parameters
-        ----------
-        *data:
-            Names or arrays with the single dimension ``t``, e.g. ``"en_phi"``.
-        logy:
-            Logarithmic value axis.
-        fit:
-            Time window ``(t0, t1)`` of an exponential fit per series (``None`` for an open
-            end), or ``True`` for the whole series. Rates are in ``result.fit_results``.
-        fit_amplitude:
-            The series is quadratic in an amplitude (e.g. an energy); fit the amplitude's rate.
-        title:
-            Axes title; the first series' label by default.
-        ax:
-            Draw into these axes instead of a new figure.
-        """
-        from struphy.diagnostics.plotting import GrowthFit, plot_timeseries
-
+    def timeseries(self, *data, **kwargs):
+        """One or more time series; see the ``timeseries`` accessor method of an array."""
         if not data:
             raise TypeError("timeseries() needs at least one name or array")
-        series = [self._array(item) for item in data]
-        growth = None
-        if fit is not None and fit is not False:
-            window = (None, None) if fit is True else tuple(fit)
-            growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
-        return plot_timeseries(series, ax=ax, logy=logy, fit=growth, title=title, run_label=self._label(series))
+        first, *others = (self._array(item) for item in data)
+        return first.struphy.timeseries(*others, **kwargs)
 
-    def slice(
-        self,
-        data,
-        *,
-        x: str | None = None,
-        y: str | None = None,
-        coords: Coordinates = "logical",
-        plane: Plane = "XY",
-        vmin=None,
-        vmax=None,
-        equal_aspect: bool | None = None,
-        title: str | None = None,
-        ax=None,
-        **selection,
-    ):
-        """A two-dimensional color plot of one slice.
+    def slice(self, data, **kwargs):
+        """A two-dimensional slice; see the ``slice`` accessor method of an array."""
+        return self._array(data).struphy.slice(**kwargs)
 
-        Parameters
-        ----------
-        data:
-            Name or array; select all but two dimensions, here or with ``select``/``isel``.
-        x, y:
-            Displayed dimensions, e.g. ``x="e1", y="v1"``; inferred for two-dimensional data.
-        coords:
-            ``"physical"`` draws on the mapped coordinates of ``plane`` instead of logical ones.
-        select, isel:
-            Selections by nearest coordinate value or by index, e.g. ``isel={"t": -1}``.
-        """
-        from struphy.diagnostics.plotting import plot_slice
+    def panels(self, data, **kwargs):
+        """Snapshots along a sweep; see the ``panels`` accessor method of an array."""
+        return self._array(data).struphy.panels(**kwargs)
 
-        array = self._array(data)
-        return plot_slice(
-            array,
-            view=self._view(array, x, y, "t", coords, plane, selection),
-            ax=ax,
-            vmin=vmin,
-            vmax=vmax,
-            equal_aspect=equal_aspect,
-            title=title,
-            run_label=self._label([array]),
-        )
+    def viewer(self, data, **kwargs):
+        """An interactive viewer; see the ``viewer`` accessor method of an array."""
+        return self._array(data).struphy.viewer(**kwargs)
 
-    def panels(
-        self,
-        data,
-        *,
-        x: str | None = None,
-        y: str | None = None,
-        sweep: str = "t",
-        coords: Coordinates = "logical",
-        plane: Plane = "XY",
-        nrows: int = 3,
-        ncols: int = 4,
-        shared_clim: bool = True,
-        title: str | None = None,
-        **selection,
-    ):
-        """Snapshots evenly spread along ``sweep`` (time by default), one panel each."""
-        from struphy.diagnostics.plotting import plot_panels
+    def animation(self, data, **kwargs):
+        """An animation; see the ``animation`` accessor method of an array."""
+        return self._array(data).struphy.animation(**kwargs)
 
-        array = self._array(data)
-        return plot_panels(
-            array,
-            view=self._view(array, x, y, sweep, coords, plane, selection),
-            nrows=nrows,
-            ncols=ncols,
-            shared_clim=shared_clim,
-            title=title,
-            run_label=self._label([array]),
-        )
+    def frames(self, data, directory, **kwargs):
+        """PNG files of a sweep; see the ``frames`` accessor method of an array."""
+        return self._array(data).struphy.frames(directory, **kwargs)
 
-    def viewer(
-        self,
-        data,
-        *,
-        x: str | None = None,
-        y: str | None = None,
-        sweep: str = "t",
-        coords: Coordinates = "logical",
-        plane: Plane = "XY",
-        vmin=None,
-        vmax=None,
-        **selection,
-    ):
-        """An interactive slice viewer with one slider per non-displayed dimension.
-
-        Call ``.show()`` on the result; keep it alive so that the sliders stay connected.
-        """
-        from struphy.diagnostics.plotting import InteractiveSliceViewer
-
-        array = self._array(data)
-        return InteractiveSliceViewer(
-            array,
-            view=self._view(array, x, y, sweep, coords, plane, selection),
-            vmin=vmin,
-            vmax=vmax,
-            run_label=self._label([array]),
-        )
-
-    def animation(
-        self,
-        data,
-        *,
-        x: str | None = None,
-        y: str | None = None,
-        sweep: str = "t",
-        coords: Coordinates = "logical",
-        plane: Plane = "XY",
-        interval: int = 100,
-        step: int = 1,
-        vmin=None,
-        vmax=None,
-        **selection,
-    ):
-        """A Matplotlib animation along ``sweep``, taking the same arguments as :meth:`slice`."""
-        from struphy.diagnostics.plotting import animate_slices
-
-        array = self._array(data)
-        return animate_slices(
-            array,
-            view=self._view(array, x, y, sweep, coords, plane, selection),
-            interval=interval,
-            step=step,
-            vmin=vmin,
-            vmax=vmax,
-        )
-
-    def frames(
-        self,
-        data,
-        directory,
-        *,
-        x: str | None = None,
-        y: str | None = None,
-        sweep: str = "t",
-        coords: Coordinates = "logical",
-        plane: Plane = "XY",
-        step: int = 1,
-        prefix: str = "frame",
-        dpi: int = 110,
-        **selection,
-    ) -> list[str]:
-        """Write the slices along ``sweep`` as numbered PNG files; returns their paths.
-
-        Takes the same arguments as :meth:`slice`.
-        """
-        from struphy.diagnostics.plotting import save_frames
-
-        array = self._array(data)
-        return save_frames(
-            array,
-            directory,
-            view=self._view(array, x, y, sweep, coords, plane, selection),
-            step=step,
-            prefix=prefix,
-            dpi=dpi,
-        )
-
-    def orbits(self, species: str | None = None, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
-        """Three-dimensional trajectories of the saved markers of ``species``."""
-        from struphy.diagnostics.plotting import plot_marker_trajectories
-
+    def orbits(self, species: str | None = None, **kwargs):
+        """Marker trajectories of ``species``, the only species with saved markers by default."""
         available = tuple(self._output.orbits)
         if species is None:
             if len(available) != 1:
                 raise ValueError(f"choose a species from {available}")
             species = available[0]
-        return plot_marker_trajectories(
-            self._output.orbits[species], ax=ax, max_markers=max_markers, show_paths=show_paths
-        )
+        return self._array(self._output.orbits[species]).struphy.trajectories(**kwargs)
 
     def equilibrium(self, ax=None):
         """Radial equilibrium profiles, from the geometry written at the start of the run."""
@@ -293,7 +99,11 @@ class OutputPlots:
 
 
 class OutputAnalysis:
-    """Quantitative diagnostics of a run, as ``out.analysis.<quantity>(...)``."""
+    """Quantitative diagnostics of a run, as ``out.analysis.<quantity>(...)``.
+
+    Each method takes a product name or any array, and is the corresponding accessor method of
+    that array: ``out.analysis.growth_rate("en_phi")`` is ``out["en_phi"].struphy.growth_rate()``.
+    """
 
     def __init__(self, output: "Output"):
         self._output = output
@@ -301,45 +111,26 @@ class OutputAnalysis:
     def _array(self, data) -> xr.DataArray:
         return self._output[data] if isinstance(data, str) else data
 
-    def growth_rate(self, data, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
-        """Fit ``exp(rate * t + intercept)`` to a time series within ``window``.
+    def growth_rate(self, data, **kwargs):
+        """Exponential growth rate; see the ``growth_rate`` accessor method of an array."""
+        return self._array(data).struphy.growth_rate(**kwargs)
 
-        With ``amplitude=True`` the series is quadratic in an amplitude (e.g. an energy) and the
-        amplitude's rate is returned. Returns a ``FitResult`` (``.rate``, ``.intercept``,
-        ``.time``, ``.fitted``), or ``None`` with fewer than two valid samples.
+    def drift(self, data, **kwargs) -> xr.DataArray:
+        """Deviation from the first sample; see the ``drift`` accessor method of an array."""
+        return self._array(data).struphy.drift(**kwargs)
+
+    def relative_error(self, data, **kwargs) -> xr.DataArray:
+        """Relative deviation; see the ``relative_error`` accessor method of an array."""
+        return self._array(data).struphy.relative_error(**kwargs)
+
+    def dispersion(self, field, **kwargs):
+        """Space-time spectrum; see the ``dispersion`` accessor method of an array.
+
+        A field given by name is taken in normalized time, whatever this run's time units are.
         """
-        from struphy.diagnostics.plotting import GrowthFit, growth_rate
-
-        return growth_rate(self._array(data), GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
-
-    def drift(self, data, *, ref=None) -> xr.DataArray:
-        """Signed deviation of a time series from ``ref`` or from its first sample."""
-        from struphy.diagnostics.plotting import drift
-
-        return drift(self._array(data), ref=ref)
-
-    def relative_error(self, data, *, ref=None, skip_first: bool = True) -> xr.DataArray:
-        """Absolute relative deviation of a time series from ``ref`` or from its first sample."""
-        from struphy.diagnostics.plotting import relative_error
-
-        return relative_error(self._array(data), ref=ref, skip_first=skip_first)
-
-    def dispersion(
-        self, field, *, component: int = 0, slice_at: tuple = (None, 0, 0), physical: bool = False, **kwargs
-    ):
-        """Space-time power spectrum of a field and fitted dispersion branches.
-
-        The spectrum is computed in normalized time. See
-        :func:`struphy.diagnostics.diagn_tools.power_spectrum_2d` for ``slice_at``, the fit options
-        and ``do_plot``. Returns ``(omega, kvec, spectrum, coeffs)``.
-        """
-        from struphy.diagnostics.diagn_tools import power_spectrum_2d
-
         if isinstance(field, str):
-            run = (
-                self._output if self._output.time_units == "normalized" else self._output.with_time_units("normalized")
-            )
-            field = run[field]
-        elif field.t.attrs.get("units") == "s":
-            raise ValueError("pass the field by name, or take it from out.with_time_units('normalized')")
-        return power_spectrum_2d(field, component=component, slice_at=slice_at, physical=physical, **kwargs)
+            output = self._output
+            if output.time_units != "normalized":
+                output = output.with_time_units("normalized")
+            field = output[field]
+        return field.struphy.dispersion(**kwargs)

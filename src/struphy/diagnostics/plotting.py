@@ -216,7 +216,8 @@ def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataA
     if np.any(np.asarray(reference) == 0):
         raise ValueError("cannot take a relative error against a reference of zero")
     out = abs(data - reference) / abs(reference)
-    out.attrs = {"label": f"relative error of {_label(data)}".strip(), "units": ""}
+    out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
+    out.attrs.update(label=f"relative error of {_label(data)}".strip(), units="")
     return out.isel(t=slice(1, None)) if skip_first else out
 
 

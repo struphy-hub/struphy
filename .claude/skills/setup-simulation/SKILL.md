@@ -141,11 +141,17 @@ out.orbits.<species>                                   # dims (t, marker, attrib
 out.sim.model.units                                    # the Simulation, restored without allocating
 ```
 
-Plots and analysis need no imports: `out.plot.scalars()`, `out.plot.timeseries("<name>", fit=(t0, t1))`,
-`out.plot.panels("<species>/<binning_name>/f_binned", x="e1", y="v1")` (name any other dimension to select it, e.g. `t="last"`, `component=0`), `out.plot.viewer(...)`,
-`out.plot.orbits("<species>")`, `out.save_report()`, `out.analysis.growth_rate(...)`,
-`out.analysis.dispersion(...)`. Names are looked up with `out["<name>"]`. See
-`examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py` for a complete script.
+Products sit under their species and plot themselves, no imports needed:
+
+```python
+out.<species>.<binning_name>.f_binned.struphy.slice(x="e1", y="v1", t="last")   # also .panels/.viewer/.animation/.frames
+out.<species>.orbits.struphy.trajectories()
+out.scalars.<name>.struphy.timeseries(fit=(t0, t1))                             # also .growth_rate/.drift/.relative_error
+out.plot.scalars(), out.plot.equilibrium(), out.save_report()                   # plots of the whole run
+```
+
+Name any dimension to select it: `t="last"`, `t=-1` (position), `t=0.35` (nearest value), `component=0`.
+See `examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py` for a complete script.
 
 ## Common pitfalls
 

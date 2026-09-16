@@ -275,7 +275,39 @@ class Output:
                 kind: ProductMapping({key: (lambda load=load: self._stamp(load())) for key, load in loaders.items()})
                 for kind, loaders in discovered.items()
             }
+            shadowed = {key.split("/")[0] for loaders in discovered.values() for key in loaders} & set(dir(type(self)))
+            if shadowed:
+                logger.warning("species %s shadow attributes of Output; reach them as out.fields, "
+                               "out.distributions, out.densities or out.orbits", sorted(shadowed))
         return self._products
+
+    @property
+    def species_catalog(self) -> ProductMapping:
+        """Every product of every species, keyed ``<species>/<product>``; see :meth:`__getattr__`."""
+        catalogs = (self.field_catalog, self.distribution_catalog, self.density_catalog)
+        loaders = {key: (lambda catalog=catalog, key=key: catalog[key])
+                   for catalog in catalogs for key in catalog}
+        loaders.update({f"{species}/orbits": (lambda species=species: self.orbit_catalog[species])
+                        for species in self.orbit_catalog})
+        return ProductMapping(loaders)
+
+    def __getattr__(self, name: str) -> ProductNamespace:
+        """Products of one species or field group, as ``out.<species>.<product>``.
+
+        ``out.kinetic_ions.e1_v1_density.f_binned`` and ``out.kinetic_ions.orbits`` are the
+        products of that species, whatever kind they are; the grouped views :attr:`fields`,
+        :attr:`distributions`, :attr:`densities` and :attr:`orbits` show them by kind.
+        """
+        if name.startswith("_"):
+            raise AttributeError(name)
+        catalog = self.species_catalog
+        if any(key.startswith(name + "/") for key in catalog):
+            return ProductNamespace(catalog, name)
+        raise AttributeError(f"{name!r}; available species: {tuple(sorted({key.split('/')[0] for key in catalog}))}")
+
+    def __dir__(self):
+        catalog = self.species_catalog if self.is_processed else ()
+        return sorted(set(super().__dir__()) | {key.split("/")[0] for key in catalog})
 
     @property
     def fields(self) -> FieldProducts:
