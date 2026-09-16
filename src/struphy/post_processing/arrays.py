@@ -43,13 +43,24 @@ def data_array(
     coord_units: Mapping[str, str] | None = None,
     attrs: Mapping | None = None,
 ) -> xr.DataArray:
-    """Construct a consistently annotated :class:`xarray.DataArray`."""
+    """Construct a consistently annotated :class:`xarray.DataArray`.
+
+    ``label`` is also stored as the CF attribute ``long_name``, so that xarray's own plots
+    (``array.plot()``) label their axes the same way Struphy's do.
+    """
     metadata = dict(attrs or {})
-    metadata.update(label=label, units=unit)
+    metadata["label"] = label
+    if unit:  # an empty unit would render as "[]" in xarray's own plots
+        metadata["units"] = unit
+    if label:
+        metadata.setdefault("long_name", label)
     out = xr.DataArray(values, dims=tuple(dims), coords=coords, name=name, attrs=metadata)
     for dim, value in (coord_units or {}).items():
-        if dim in out.coords:
+        if dim in out.coords and value:
             out.coords[dim].attrs["units"] = value
+    for dim in out.dims:
+        if dim in out.coords and "long_name" not in out.coords[dim].attrs and dim in DIM_LABELS:
+            out.coords[dim].attrs["long_name"] = DIM_LABELS[dim]
     return validate_array(out)
 
 

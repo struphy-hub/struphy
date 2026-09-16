@@ -1,8 +1,8 @@
 """``array.struphy.<kind>(...)``: plots and diagnostics of a single labeled array.
 
 Every product of an :class:`~struphy.Output` carries this accessor, and so does every array
-derived from one, e.g. ``out.ions.eta1_v1.f.isel(v1=0).struphy.timeseries()``. Plots that need
-the whole run (the scalar overview, the equilibrium profiles, the report) live on ``out.plot``.
+derived from one, e.g. ``out.ions.eta1_v1.f.isel(v1=0).struphy.plot.timeseries()``. Plots that
+need the whole run (the scalar overview, the equilibrium profiles) live on ``out.plot``.
 
 Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
 position (``t=-1``), ``"first"`` and ``"last"`` are the ends, and a float is the nearest
@@ -22,10 +22,34 @@ Plane = Literal["XY", "XZ", "YZ", "RZ"]
 
 @xr.register_dataarray_accessor("struphy")
 class StruphyAccessor:
-    """Struphy plots and diagnostics of one array, as ``array.struphy.<kind>(...)``."""
+    """Struphy diagnostics of one array: ``array.struphy.plot`` and ``array.struphy.analysis``."""
 
     def __init__(self, array: xr.DataArray):
         self._array = array
+
+    @property
+    def plot(self) -> "ArrayPlots":
+        """Plots of this array, e.g. ``array.struphy.plot.slice(x="e1", y="v1", t="last")``."""
+        return ArrayPlots(self._array)
+
+    @property
+    def analysis(self) -> "ArrayAnalysis":
+        """Diagnostics of this array, e.g. ``array.struphy.analysis.growth_rate()``."""
+        return ArrayAnalysis(self._array)
+
+
+class _ArrayAccessor:
+    def __init__(self, array: xr.DataArray):
+        self._array = array
+
+
+class ArrayPlots(_ArrayAccessor):
+    """Plots of one array, as ``array.struphy.plot.<kind>(...)``.
+
+    Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
+    position (``t=-1``), ``"first"`` and ``"last"`` are the ends, and a float is the nearest
+    coordinate value (``t=0.35``).
+    """
 
     def _view(self, x, y, sweep, coords, plane, selection):
         from struphy.diagnostics.plotting import View
@@ -47,10 +71,6 @@ class StruphyAccessor:
             else:
                 select[dim] = float(value)
         return View(x=x, y=y, sweep=sweep, select=select, isel=index, coordinates=coords, plane=plane)
-
-    # ----------
-    # Plots
-    # ----------
 
     def timeseries(
         self, *others, logy: bool = True, fit=None, fit_amplitude: bool = False, title: str | None = None, ax=None
@@ -106,8 +126,8 @@ class StruphyAccessor:
 
         Examples
         --------
-        >>> out.ions.eta1_v1.f.struphy.slice(x="e1", y="v1", t="last")
-        >>> out.em_fields.b_field_phy.struphy.slice(x="e1", y="e2", component=2, e3=0, coords="physical")
+        >>> out.ions.eta1_v1.f.struphy.plot.slice(x="e1", y="v1", t="last")
+        >>> out.em_fields.b_field_phy.struphy.plot.slice(x="e1", y="e2", component=2, e3=0, coords="physical")
         """
         from struphy.diagnostics.plotting import plot_slice
 
@@ -234,9 +254,10 @@ class StruphyAccessor:
 
         return plot_marker_trajectories(self._array, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
-    # -----------
-    # Diagnostics
-    # -----------
+
+class ArrayAnalysis(_ArrayAccessor):
+    """Quantitative diagnostics of one array, as ``array.struphy.analysis.<quantity>(...)``."""
+
 
     def growth_rate(self, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
         """Fit ``exp(rate * t + intercept)`` to this time series within ``window``.

@@ -57,14 +57,14 @@ def test_every_array_carries_its_run(run):
 
 
 def test_timeseries_by_name_with_growth_fit(run):
-    result = run.plot.timeseries("en_phi", fit=True)
+    result = run["en_phi"].struphy.plot.timeseries(fit=True)
     assert result.fit_results[0].rate == pytest.approx(RATE)
     assert result.fig._suptitle.get_text() == run.label
 
 
 def test_timeseries_of_several_runs_are_labeled_by_run(tmp_path):
     first, second = make_run(str(tmp_path), "sim_1"), make_run(str(tmp_path), "sim_2")
-    result = first.plot.timeseries(first.scalars.en_phi, second.scalars.en_phi)
+    result = first.scalars.en_phi.struphy.plot.timeseries(second.scalars.en_phi)
     labels = [text.get_text() for text in result.ax.get_legend().get_texts()]
     assert labels == ["en phi (sim_1)", "en phi (sim_2)"]
 
@@ -72,7 +72,7 @@ def test_timeseries_of_several_runs_are_labeled_by_run(tmp_path):
 def test_timeseries_into_given_axes_keeps_the_figure_layout(run):
     fig, ax = plt.subplots()
     fig.suptitle("mine")
-    run.plot.timeseries("en_tot", ax=ax, logy=False)
+    run["en_tot"].struphy.plot.timeseries(ax=ax, logy=False)
     assert fig._suptitle.get_text() == "mine"
 
 
@@ -84,15 +84,15 @@ def test_scalar_overview_draws_every_scalar_in_one_axes(run):
 
 def test_slices_panels_and_viewer_take_keyword_views(run):
     name = "kinetic_ions/e1_v1_density/f_binned"
-    assert run.plot.slice(name, x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
-    assert len(run.plot.panels(name, x="e1", y="v1", nrows=1, ncols=2).artists) == 2
-    viewer = run.plot.viewer("em_fields/E", x="e1", y="e2", component=0)
+    assert run[name].struphy.plot.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
+    assert len(run[name].struphy.plot.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
+    viewer = run["em_fields/E"].struphy.plot.viewer(x="e1", y="e2", component=0)
     viewer.draw()
     assert set(viewer.sliders) == {"t", "e3"}
 
 
-def test_orbits_default_to_the_only_species(run):
-    assert run.plot.orbits().ax.name == "3d"
+def test_orbits_plot_their_trajectories(run):
+    assert run.kinetic_ions.orbits.struphy.plot.trajectories().ax.name == "3d"
 
 
 def test_report_is_written_below_post_processing(run):
@@ -102,33 +102,33 @@ def test_report_is_written_below_post_processing(run):
 
 
 def test_analysis_by_name(run):
-    assert run.analysis.growth_rate("en_phi", window=(0.0, None)).rate == pytest.approx(RATE)
-    assert run.analysis.growth_rate("en_phi", amplitude=True).rate == pytest.approx(RATE / 2)
-    np.testing.assert_allclose(run.analysis.relative_error("en_tot"), 0.0)
-    np.testing.assert_allclose(run.analysis.drift("en_phi").isel(t=0), 0.0)
+    assert run["en_phi"].struphy.analysis.growth_rate(window=(0.0, None)).rate == pytest.approx(RATE)
+    assert run["en_phi"].struphy.analysis.growth_rate(amplitude=True).rate == pytest.approx(RATE / 2)
+    np.testing.assert_allclose(run["en_tot"].struphy.analysis.relative_error(), 0.0)
+    np.testing.assert_allclose(run["en_phi"].struphy.analysis.drift().isel(t=0), 0.0)
 
 
 def test_dispersion_rejects_fields_in_seconds(run):
     physical = run.with_time_units("physical")
     physical._sim.model = type("Model", (), {"units": type("Units", (), {"t": 2.0})()})()
     with pytest.raises(ValueError, match="normalized"):
-        physical.analysis.dispersion(physical.fields.em_fields.E)
+        physical.fields.em_fields.E.struphy.analysis.dispersion()
 
 
 def test_selection_keywords_take_positions_values_and_ends(run):
     name = "kinetic_ions/e1_v1_density/f_binned"
     times = run[name].t.values
 
-    by_position = run.plot.slice(name, x="e1", y="v1", t=-1)
-    by_value = run.plot.slice(name, x="e1", y="v1", t=float(times[-1]))
-    by_end = run.plot.slice(name, x="e1", y="v1", t="last")
+    by_position = run[name].struphy.plot.slice(x="e1", y="v1", t=-1)
+    by_value = run[name].struphy.plot.slice(x="e1", y="v1", t=float(times[-1]))
+    by_end = run[name].struphy.plot.slice(x="e1", y="v1", t="last")
     for result in (by_value, by_end):
         np.testing.assert_allclose(result.artists[0].get_array(), by_position.artists[0].get_array())
 
     with pytest.raises(TypeError, match="not a dimension"):
-        run.plot.slice(name, x="e1", y="v1", time=-1)
+        run[name].struphy.plot.slice(x="e1", y="v1", time=-1)
     with pytest.raises(TypeError, match="use a number"):
-        run.plot.slice(name, x="e1", y="v1", t="final")
+        run[name].struphy.plot.slice(x="e1", y="v1", t="final")
 
 
 def test_products_of_one_species_sit_on_the_output(run):
@@ -143,21 +143,26 @@ def test_products_of_one_species_sit_on_the_output(run):
 
 def test_arrays_plot_themselves(run):
     phase_space = run.kinetic_ions.e1_v1_density.f_binned
-    assert phase_space.struphy.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
-    assert len(phase_space.struphy.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
-    assert set(phase_space.struphy.viewer(x="e1", y="v1").sliders) == set()
-    assert run.kinetic_ions.orbits.struphy.trajectories(max_markers=2).ax.name == "3d"
+    assert phase_space.struphy.plot.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
+    assert len(phase_space.struphy.plot.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
+    assert set(phase_space.struphy.plot.viewer(x="e1", y="v1").sliders) == set()
+    assert run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=2).ax.name == "3d"
 
 
 def test_the_accessor_works_on_derived_arrays(run):
     energy = run.scalars.en_phi
-    assert energy.isel(t=slice(1, None)).struphy.growth_rate().rate == pytest.approx(RATE)
-    error = energy.struphy.relative_error()
-    assert error.struphy.timeseries(logy=False).fig._suptitle.get_text() == run.label
+    assert energy.isel(t=slice(1, None)).struphy.analysis.growth_rate().rate == pytest.approx(RATE)
+    error = energy.struphy.analysis.relative_error()
+    assert error.struphy.plot.timeseries(logy=False).fig._suptitle.get_text() == run.label
 
 
-def test_plot_accessor_and_array_accessor_agree(run):
-    by_output = run.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", t="last")
-    by_array = run.kinetic_ions.e1_v1_density.f_binned.struphy.slice(x="e1", y="v1", t="last")
-    np.testing.assert_allclose(by_output.artists[0].get_array(), by_array.artists[0].get_array())
-    assert by_output.fig._suptitle.get_text() == by_array.fig._suptitle.get_text() == run.label
+def test_products_by_name_and_by_attribute_agree(run):
+    by_output = run["kinetic_ions/e1_v1_density/f_binned"].struphy.plot.slice(x="e1", y="v1", t="last")
+    by_attribute = run.kinetic_ions.e1_v1_density.f_binned.struphy.plot.slice(x="e1", y="v1", t="last")
+    np.testing.assert_allclose(by_output.artists[0].get_array(), by_attribute.artists[0].get_array())
+    assert by_output.fig._suptitle.get_text() == by_attribute.fig._suptitle.get_text() == run.label
+
+
+def test_selection_rejects_unknown_dimensions(run):
+    with pytest.raises(TypeError, match="not a dimension"):
+        run.kinetic_ions.e1_v1_density.f_binned.struphy.plot.slice(x="e1", y="v1", time=-1)

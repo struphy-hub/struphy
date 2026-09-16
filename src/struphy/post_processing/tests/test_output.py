@@ -47,6 +47,8 @@ def write_tree(root):
     os.makedirs(data_dir)
     with h5py.File(os.path.join(data_dir, "data_proc0.hdf5"), "w") as file:
         file.create_dataset("time/value", data=t)
+        file.create_group("feec/em_fields")          # the raw output names the species,
+        file.create_group("kinetic/kinetic_ions")    # as a real run does
         file.create_dataset("scalar/en_tot", data=np.full(NT, 2.0))
     write_manifest(root)
     return root
@@ -121,10 +123,10 @@ def test_scalar_time_uses_the_same_policy_as_postprocessed_products(run):
     np.testing.assert_allclose(run.scalars.en_tot.t, run.time)
 
 
-def test_saving_scalars_and_bound_plot_accessor(run, tmp_path):
+def test_saving_scalars_and_plotting_a_product(run, tmp_path):
     path = run.save_scalars(tmp_path / "scalars.csv")
     assert os.path.exists(path)
-    result = run.plot.timeseries(run.scalars.en_tot, logy=False)
+    result = run.scalars.en_tot.struphy.plot.timeseries(logy=False)
     assert result.ax.get_xlabel() == "$t$"
 
 
@@ -237,3 +239,26 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
     sim.rank = 3
     Output(write_tree(str(tmp_path)), sim=sim).process(parallel=True)
     assert calls == [True]
+
+
+def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
+    root = write_tree(str(tmp_path))
+    os.remove(os.path.join(root, "post_processing", "manifest.json"))
+    run = Output(root, sim=FakeSim(), time_units="normalized")
+    calls = []
+    monkeypatch.setattr(Output, "process", lambda self, **options: calls.append(options))
+
+    with pytest.raises(AttributeError, match="available species"):
+        run.typo_here
+    assert not hasattr(run, "anything")
+    assert calls == [], "a typo must not post-process the run"
+    assert {"em_fields", "kinetic_ions"} <= set(dir(run)), "species are known before processing"
+
+
+def test_info_lists_products_without_loading(run):
+    text = run.info()
+    assert "out.scalars.en_tot" in text
+    assert "out.kinetic_ions.e1_v1_density.f_binned" in text
+    assert "out.kinetic_ions.orbits" in text
+    assert "out.em_fields.E" in text
+    assert run.field_catalog._cache == {}, "listing must not load arrays"

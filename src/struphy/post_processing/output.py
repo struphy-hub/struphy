@@ -13,7 +13,7 @@ import numpy as np
 import xarray as xr
 
 from struphy.post_processing.arrays import data_array, save_scalars, wrap_binned_data, wrap_field_data, wrap_orbits
-from struphy.post_processing.output_accessors import OutputAnalysis, OutputPlots
+from struphy.post_processing.output_accessors import OutputPlots
 
 logger = logging.getLogger("struphy")
 
@@ -114,8 +114,8 @@ class Output:
       default options; call :meth:`process` beforehand to choose options.
     * :attr:`sim` is the :class:`~struphy.Simulation` that produced the output: the live
       object for ``sim.output``, otherwise restored from disk without allocating anything.
-    * :attr:`plot` and :attr:`analysis` draw and evaluate standard diagnostics, e.g.
-      ``out.plot.timeseries("en_phi", fit=(0, 40))``; ``out["en_phi"]`` looks up any product.
+    * Products plot themselves, e.g. ``out["en_phi"].struphy.plot.timeseries(fit=(0, 40))``;
+      :attr:`plot` holds the plots that need the whole run.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
     Parameters
@@ -146,6 +146,7 @@ class Output:
 
     def _reset(self):
         self._time = self._grids_log = self._grids_phy = self._scalars = self._products = self._label = None
+        self._species = None
 
     def __getitem__(self, name: str) -> xr.DataArray:
         """Any product by name: a scalar (``"en_tot"``), a field (``"em_fields/phi_log"``), a binned
@@ -306,14 +307,31 @@ class Output:
         """
         if name.startswith("_"):
             raise AttributeError(name)
-        catalog = self.species_catalog
-        if any(key.startswith(name + "/") for key in catalog):
-            return ProductNamespace(catalog, name)
-        raise AttributeError(f"{name!r}; available species: {tuple(sorted({key.split('/')[0] for key in catalog}))}")
+        # the raw output names the species, so an unknown name never starts post-processing
+        if name not in self._raw_species():
+            raise AttributeError(f"{name!r}; available species: {tuple(sorted(self._raw_species()))}")
+        return ProductNamespace(self.species_catalog, name)
 
     def __dir__(self):
-        catalog = self.species_catalog if self.is_processed else ()
-        return sorted(set(super().__dir__()) | {key.split("/")[0] for key in catalog})
+        return sorted(set(super().__dir__()) | self._raw_species())
+
+    def _raw_species(self) -> set[str]:
+        """Species and field groups of this run; cheap, and never starts post-processing.
+
+        They are named in the raw output, and in the products of a run that is already processed.
+        """
+        if self._species is None:
+            names = set()
+            path = self.path_out / "data" / "data_proc0.hdf5"
+            if path.exists():
+                with h5py.File(path) as file:
+                    for group in ("feec", "kinetic"):
+                        if group in file:
+                            names.update(file[group])
+            if self.is_processed:
+                names.update(key.split("/")[0] for key in self.species_catalog)
+            self._species = names
+        return self._species
 
     @property
     def fields(self) -> FieldProducts:
@@ -353,13 +371,11 @@ class Output:
 
     @property
     def plot(self) -> OutputPlots:
-        """Standard plots, e.g. ``out.plot.scalars()`` or ``out.plot.panels(name, x="e1", y="v1")``."""
-        return OutputPlots(self)
+        """Plots of the whole run: ``out.plot.scalars()`` and ``out.plot.equilibrium()``.
 
-    @property
-    def analysis(self) -> OutputAnalysis:
-        """Quantitative diagnostics, e.g. ``out.analysis.growth_rate("en_phi", window=(0, 40))``."""
-        return OutputAnalysis(self)
+        A single product plots itself, e.g. ``out.em_fields.phi_log.struphy.plot.slice(...)``.
+        """
+        return OutputPlots(self)
 
     @property
     def f(self) -> DistributionProducts:
@@ -472,6 +488,33 @@ class Output:
                     values.append(f"{name}={value}")
             self._label = ", ".join(values) or self.path_out.name
         return self._label
+
+    def info(self) -> str:
+        """A table of everything this output holds, printed by ``print(out.info())``.
+
+        Names are listed as they are reached, e.g. ``out.kinetic_ions.e1_v1_density.f_binned``
+        and ``out["kinetic_ions/e1_v1_density/f_binned"]``. Nothing is loaded.
+        """
+        lines = [f"Output of {self.path_out}", f"  {self.label}", ""]
+        scalars = tuple(self.scalars.data_vars)
+        lines += ["scalars (no post-processing needed)"]
+        lines += [f"  out.scalars.{name}" for name in scalars] or ["  (none)"]
+        if not self.is_processed:
+            lines += ["", "products (not post-processed yet; run out.process(...) to choose options)"]
+            lines += [f"  out.{name}.*" for name in sorted(self._raw_species())]
+            return "\n".join(lines)
+        for kind, catalog in (
+            ("fields", self.field_catalog),
+            ("distributions", self.distribution_catalog),
+            ("densities", self.density_catalog),
+            ("orbits", self.orbit_catalog),
+        ):
+            lines += ["", kind]
+            entries = [f"  out.{key.replace('/', '.')}" for key in catalog]
+            if kind == "orbits":
+                entries = [f"  out.{key}.orbits" for key in catalog]
+            lines += entries or ["  (none)"]
+        return "\n".join(lines)
 
     def save_scalars(self, path=None, **kwargs) -> str:
         """Write the scalar time series as CSV (or NPZ); ``post_processing/scalars.csv`` by default."""
