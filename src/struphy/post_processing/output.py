@@ -277,18 +277,24 @@ class Output:
             }
             shadowed = {key.split("/")[0] for loaders in discovered.values() for key in loaders} & set(dir(type(self)))
             if shadowed:
-                logger.warning("species %s shadow attributes of Output; reach them as out.fields, "
-                               "out.distributions, out.densities or out.orbits", sorted(shadowed))
+                logger.warning(
+                    "species %s shadow attributes of Output; reach them as out.fields, "
+                    "out.distributions, out.densities or out.orbits",
+                    sorted(shadowed),
+                )
         return self._products
 
     @property
     def species_catalog(self) -> ProductMapping:
         """Every product of every species, keyed ``<species>/<product>``; see :meth:`__getattr__`."""
         catalogs = (self.field_catalog, self.distribution_catalog, self.density_catalog)
-        loaders = {key: (lambda catalog=catalog, key=key: catalog[key])
-                   for catalog in catalogs for key in catalog}
-        loaders.update({f"{species}/orbits": (lambda species=species: self.orbit_catalog[species])
-                        for species in self.orbit_catalog})
+        loaders = {key: (lambda catalog=catalog, key=key: catalog[key]) for catalog in catalogs for key in catalog}
+        loaders.update(
+            {
+                f"{species}/orbits": (lambda species=species: self.orbit_catalog[species])
+                for species in self.orbit_catalog
+            }
+        )
         return ProductMapping(loaders)
 
     def __getattr__(self, name: str) -> ProductNamespace:

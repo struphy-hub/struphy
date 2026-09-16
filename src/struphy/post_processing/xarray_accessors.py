@@ -52,8 +52,9 @@ class StruphyAccessor:
     # Plots
     # ----------
 
-    def timeseries(self, *others, logy: bool = True, fit=None, fit_amplitude: bool = False,
-                   title: str | None = None, ax=None):
+    def timeseries(
+        self, *others, logy: bool = True, fit=None, fit_amplitude: bool = False, title: str | None = None, ax=None
+    ):
         """This time series, and any others given, in one axes.
 
         Parameters
@@ -77,9 +78,20 @@ class StruphyAccessor:
             growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
         return plot_timeseries([self._array, *others], ax=ax, logy=logy, fit=growth, title=title)
 
-    def slice(self, *, x: str | None = None, y: str | None = None, coords: Coordinates = "logical",
-              plane: Plane = "XY", vmin=None, vmax=None, equal_aspect: bool | None = None,
-              title: str | None = None, ax=None, **selection):
+    def slice(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        vmin=None,
+        vmax=None,
+        equal_aspect: bool | None = None,
+        title: str | None = None,
+        ax=None,
+        **selection,
+    ):
         """A two-dimensional color plot of one slice.
 
         Parameters
@@ -99,23 +111,57 @@ class StruphyAccessor:
         """
         from struphy.diagnostics.plotting import plot_slice
 
-        return plot_slice(self._array, view=self._view(x, y, "t", coords, plane, selection), ax=ax, vmin=vmin,
-                          vmax=vmax, equal_aspect=equal_aspect, title=title)
+        return plot_slice(
+            self._array,
+            view=self._view(x, y, "t", coords, plane, selection),
+            ax=ax,
+            vmin=vmin,
+            vmax=vmax,
+            equal_aspect=equal_aspect,
+            title=title,
+        )
 
-    def panels(self, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-               coords: Coordinates = "logical", plane: Plane = "XY", nrows: int = 3, ncols: int = 4,
-               shared_clim: bool = True, title: str | None = None, **selection):
+    def panels(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        nrows: int = 3,
+        ncols: int = 4,
+        shared_clim: bool = True,
+        title: str | None = None,
+        **selection,
+    ):
         """Snapshots evenly spread along ``sweep`` (time by default), one panel each.
 
         Takes the same arguments as :meth:`slice`, except that ``sweep`` is not selected.
         """
         from struphy.diagnostics.plotting import plot_panels
 
-        return plot_panels(self._array, view=self._view(x, y, sweep, coords, plane, selection), nrows=nrows,
-                           ncols=ncols, shared_clim=shared_clim, title=title)
+        return plot_panels(
+            self._array,
+            view=self._view(x, y, sweep, coords, plane, selection),
+            nrows=nrows,
+            ncols=ncols,
+            shared_clim=shared_clim,
+            title=title,
+        )
 
-    def viewer(self, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-               coords: Coordinates = "logical", plane: Plane = "XY", vmin=None, vmax=None, **selection):
+    def viewer(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        vmin=None,
+        vmax=None,
+        **selection,
+    ):
         """An interactive viewer with one slider per dimension that is neither displayed nor selected.
 
         Takes the same arguments as :meth:`slice`. Call ``.show()`` on the result, and keep it
@@ -123,29 +169,64 @@ class StruphyAccessor:
         """
         from struphy.diagnostics.plotting import InteractiveSliceViewer
 
-        return InteractiveSliceViewer(self._array, view=self._view(x, y, sweep, coords, plane, selection),
-                                      vmin=vmin, vmax=vmax)
+        return InteractiveSliceViewer(
+            self._array, view=self._view(x, y, sweep, coords, plane, selection), vmin=vmin, vmax=vmax
+        )
 
-    def animation(self, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-                  coords: Coordinates = "logical", plane: Plane = "XY", interval: int = 100, step: int = 1,
-                  vmin=None, vmax=None, **selection):
+    def animation(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        interval: int = 100,
+        step: int = 1,
+        vmin=None,
+        vmax=None,
+        **selection,
+    ):
         """A Matplotlib animation along ``sweep``, taking the same arguments as :meth:`slice`."""
         from struphy.diagnostics.plotting import animate_slices
 
-        return animate_slices(self._array, view=self._view(x, y, sweep, coords, plane, selection),
-                              interval=interval, step=step, vmin=vmin, vmax=vmax)
+        return animate_slices(
+            self._array,
+            view=self._view(x, y, sweep, coords, plane, selection),
+            interval=interval,
+            step=step,
+            vmin=vmin,
+            vmax=vmax,
+        )
 
-    def frames(self, directory, *, x: str | None = None, y: str | None = None, sweep: str = "t",
-               coords: Coordinates = "logical", plane: Plane = "XY", step: int = 1, prefix: str = "frame",
-               dpi: int = 110, **selection) -> list[str]:
+    def frames(
+        self,
+        directory,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        step: int = 1,
+        prefix: str = "frame",
+        dpi: int = 110,
+        **selection,
+    ) -> list[str]:
         """Write the slices along ``sweep`` as numbered PNG files; returns their paths.
 
         Takes the same arguments as :meth:`slice`.
         """
         from struphy.diagnostics.plotting import save_frames
 
-        return save_frames(self._array, directory, view=self._view(x, y, sweep, coords, plane, selection),
-                           step=step, prefix=prefix, dpi=dpi)
+        return save_frames(
+            self._array,
+            directory,
+            view=self._view(x, y, sweep, coords, plane, selection),
+            step=step,
+            prefix=prefix,
+            dpi=dpi,
+        )
 
     def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
         """Three-dimensional paths of saved markers; for an orbit product."""

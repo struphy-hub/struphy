@@ -52,8 +52,9 @@ class OutputPlots:
         """
         from struphy.diagnostics.plotting import plot_scalars
 
-        return plot_scalars(self._output.scalars, names=names, relative_to=relative_to, logy=logy,
-                            run_label=self._output.label)
+        return plot_scalars(
+            self._output.scalars, names=names, relative_to=relative_to, logy=logy, run_label=self._output.label
+        )
 
     def timeseries(self, *data, **kwargs):
         """One or more time series; see the ``timeseries`` accessor method of an array."""

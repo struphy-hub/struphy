@@ -127,7 +127,7 @@ def test_selection_keywords_take_positions_values_and_ends(run):
 
     with pytest.raises(TypeError, match="not a dimension"):
         run.plot.slice(name, x="e1", y="v1", time=-1)
-    with pytest.raises(TypeError, match='use a number'):
+    with pytest.raises(TypeError, match="use a number"):
         run.plot.slice(name, x="e1", y="v1", t="final")
 
 
