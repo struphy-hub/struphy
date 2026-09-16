@@ -569,7 +569,7 @@ run), and figures are titled with the run's numerical parameters:
 
     out.plot.scalars()                                   # every scalar time series
     out.plot.timeseries("en_phi", fit=(0.0, 40.0))       # exponential fit in a time window
-    out.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", isel={"t": -1})
+    out.plot.slice("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", t="last")
     out.plot.panels("kinetic_ions/e1_v1_density/f_binned", x="e1", y="v1", nrows=3, ncols=4)
     out.plot.viewer("em_fields/phi_phy", x="e1", y="e2", coords="physical").show()
     out.plot.orbits("kinetic_ions")
@@ -620,7 +620,7 @@ Binned particle data is grouped by species and the slice defined in
 .. code-block:: python
 
     f = out.distributions.kinetic_ions.e1_v1_density.f_binned   # dims (t, e1, v1)
-    out.plot.slice(f.isel(t=-1), x="e1", y="v1").show()
+    out.plot.slice(f, x="e1", y="v1", t="last").show()
 
 
 Plotting particle orbits

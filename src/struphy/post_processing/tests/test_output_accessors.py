@@ -84,9 +84,9 @@ def test_scalar_overview_draws_every_scalar_in_one_axes(run):
 
 def test_slices_panels_and_viewer_take_keyword_views(run):
     name = "kinetic_ions/e1_v1_density/f_binned"
-    assert run.plot.slice(name, x="e1", y="v1", isel={"t": -1}).ax.get_xlabel() == r"$\eta_1$"
+    assert run.plot.slice(name, x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
     assert len(run.plot.panels(name, x="e1", y="v1", nrows=1, ncols=2).artists) == 2
-    viewer = run.plot.viewer("em_fields/E", x="e1", y="e2", isel={"component": 0})
+    viewer = run.plot.viewer("em_fields/E", x="e1", y="e2", component=0)
     viewer.draw()
     assert set(viewer.sliders) == {"t", "e3"}
 
@@ -113,3 +113,19 @@ def test_dispersion_rejects_fields_in_seconds(run):
     physical._sim.model = type("Model", (), {"units": type("Units", (), {"t": 2.0})()})()
     with pytest.raises(ValueError, match="normalized"):
         physical.analysis.dispersion(physical.fields.em_fields.E)
+
+
+def test_selection_keywords_take_positions_values_and_ends(run):
+    name = "kinetic_ions/e1_v1_density/f_binned"
+    times = run[name].t.values
+
+    by_position = run.plot.slice(name, x="e1", y="v1", t=-1)
+    by_value = run.plot.slice(name, x="e1", y="v1", t=float(times[-1]))
+    by_end = run.plot.slice(name, x="e1", y="v1", t="last")
+    for result in (by_value, by_end):
+        np.testing.assert_allclose(result.artists[0].get_array(), by_position.artists[0].get_array())
+
+    with pytest.raises(TypeError, match="not a dimension"):
+        run.plot.slice(name, x="e1", y="v1", time=-1)
+    with pytest.raises(TypeError, match='use a number'):
+        run.plot.slice(name, x="e1", y="v1", t="final")

@@ -142,7 +142,7 @@ out.sim.model.units                                    # the Simulation, restore
 ```
 
 Plots and analysis need no imports: `out.plot.scalars()`, `out.plot.timeseries("<name>", fit=(t0, t1))`,
-`out.plot.panels("<species>/<binning_name>/f_binned", x="e1", y="v1")`, `out.plot.viewer(...)`,
+`out.plot.panels("<species>/<binning_name>/f_binned", x="e1", y="v1")` (name any other dimension to select it, e.g. `t="last"`, `component=0`), `out.plot.viewer(...)`,
 `out.plot.orbits("<species>")`, `out.save_report()`, `out.analysis.growth_rate(...)`,
 `out.analysis.dispersion(...)`. Names are looked up with `out["<name>"]`. See
 `examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py` for a complete script.

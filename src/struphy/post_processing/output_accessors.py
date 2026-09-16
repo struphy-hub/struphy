@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+import numpy as np
 import xarray as xr
 
 if TYPE_CHECKING:
@@ -38,13 +39,24 @@ class OutputPlots:
         runs = {array.attrs.get("run") for array in arrays} - {None, ""}
         return shared_run_label(arrays) if runs else self._output.label
 
-    @staticmethod
-    def _view(x, y, sweep, coords, plane, select, isel):
+    def _view(self, array, x, y, sweep, coords, plane, selection):
         from struphy.diagnostics.plotting import View
 
-        return View(
-            x=x, y=y, sweep=sweep, select=dict(select or {}), isel=dict(isel or {}), coordinates=coords, plane=plane
-        )
+        select, index = {}, {}
+        for dim, value in selection.items():
+            if dim not in array.dims:
+                raise TypeError(f"{dim!r} is not a dimension of {array.name!r}; its dimensions are {array.dims}")
+            if value == "first":
+                index[dim] = 0
+            elif value == "last":
+                index[dim] = -1
+            elif isinstance(value, (bool, str)):
+                raise TypeError(f"cannot select {dim}={value!r}; use a number, or \"first\"/\"last\"")
+            elif isinstance(value, (int, np.integer)):
+                index[dim] = int(value)
+            else:
+                select[dim] = float(value)
+        return View(x=x, y=y, sweep=sweep, select=select, isel=index, coordinates=coords, plane=plane)
 
     def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
         """Overview of the scalar time series in one axes.
@@ -110,13 +122,12 @@ class OutputPlots:
         y: str | None = None,
         coords: Coordinates = "logical",
         plane: Plane = "XY",
-        select: dict | None = None,
-        isel: dict | None = None,
         vmin=None,
         vmax=None,
         equal_aspect: bool | None = None,
         title: str | None = None,
         ax=None,
+        **selection,
     ):
         """A two-dimensional color plot of one slice.
 
@@ -136,7 +147,7 @@ class OutputPlots:
         array = self._array(data)
         return plot_slice(
             array,
-            view=self._view(x, y, "t", coords, plane, select, isel),
+            view=self._view(array, x, y, "t", coords, plane, selection),
             ax=ax,
             vmin=vmin,
             vmax=vmax,
@@ -154,12 +165,11 @@ class OutputPlots:
         sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
-        select: dict | None = None,
-        isel: dict | None = None,
         nrows: int = 3,
         ncols: int = 4,
         shared_clim: bool = True,
         title: str | None = None,
+        **selection,
     ):
         """Snapshots evenly spread along ``sweep`` (time by default), one panel each."""
         from struphy.diagnostics.plotting import plot_panels
@@ -167,7 +177,7 @@ class OutputPlots:
         array = self._array(data)
         return plot_panels(
             array,
-            view=self._view(x, y, sweep, coords, plane, select, isel),
+            view=self._view(array, x, y, sweep, coords, plane, selection),
             nrows=nrows,
             ncols=ncols,
             shared_clim=shared_clim,
@@ -184,10 +194,9 @@ class OutputPlots:
         sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
-        select: dict | None = None,
-        isel: dict | None = None,
         vmin=None,
         vmax=None,
+        **selection,
     ):
         """An interactive slice viewer with one slider per non-displayed dimension.
 
@@ -198,7 +207,7 @@ class OutputPlots:
         array = self._array(data)
         return InteractiveSliceViewer(
             array,
-            view=self._view(x, y, sweep, coords, plane, select, isel),
+            view=self._view(array, x, y, sweep, coords, plane, selection),
             vmin=vmin,
             vmax=vmax,
             run_label=self._label([array]),
@@ -213,19 +222,19 @@ class OutputPlots:
         sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
-        select: dict | None = None,
-        isel: dict | None = None,
         interval: int = 100,
         step: int = 1,
         vmin=None,
         vmax=None,
+        **selection,
     ):
-        """A Matplotlib animation along ``sweep``."""
+        """A Matplotlib animation along ``sweep``, taking the same arguments as :meth:`slice`."""
         from struphy.diagnostics.plotting import animate_slices
 
+        array = self._array(data)
         return animate_slices(
-            self._array(data),
-            view=self._view(x, y, sweep, coords, plane, select, isel),
+            array,
+            view=self._view(array, x, y, sweep, coords, plane, selection),
             interval=interval,
             step=step,
             vmin=vmin,
@@ -242,19 +251,22 @@ class OutputPlots:
         sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
-        select: dict | None = None,
-        isel: dict | None = None,
         step: int = 1,
         prefix: str = "frame",
         dpi: int = 110,
+        **selection,
     ) -> list[str]:
-        """Write the slices along ``sweep`` as numbered PNG files; returns their paths."""
+        """Write the slices along ``sweep`` as numbered PNG files; returns their paths.
+
+        Takes the same arguments as :meth:`slice`.
+        """
         from struphy.diagnostics.plotting import save_frames
 
+        array = self._array(data)
         return save_frames(
-            self._array(data),
+            array,
             directory,
-            view=self._view(x, y, sweep, coords, plane, select, isel),
+            view=self._view(array, x, y, sweep, coords, plane, selection),
             step=step,
             prefix=prefix,
             dpi=dpi,
