@@ -180,11 +180,10 @@ class Pusher:
             self._box_comm = False
 
         # hand-written CUDA replacement for push_v_with_efield's per-marker
-        # math on a Cuboid domain. Unlike the whole-push fast path below, this
-        # is unconditional on MPI/bc/maxiter -- it only swaps out the inner
-        # kernel call (see the "push markers" branch in _push()), so it stays
-        # correct alongside unmodified apply_kinetic_bc/mpi_sort_markers/
-        # update_holes for multi-rank runs.
+        # math on a Cuboid domain. It only swaps out the inner kernel call
+        # (see the "push markers" branch in _push()), so it stays correct
+        # alongside unmodified apply_kinetic_bc/mpi_sort_markers/update_holes
+        # for multi-rank runs.
         self._gpu_v_efield_cuboid = (
             cunumpy.cupy_backend and kernel.name == "push_v_with_efield" and args_domain.kind_map == 10
         )
@@ -240,23 +239,6 @@ class Pusher:
             self._gpu_v_efield_general_e1_2 = e1_2
             self._gpu_v_efield_general_e1_3 = e1_3
 
-        # whole-push GPU-resident fast path: on top of _gpu_v_efield_cuboid,
-        # additionally bypasses the per-call reset/apply_kinetic_bc/
-        # update_holes machinery entirely (this kernel never touches position
-        # or holes/ghost columns, so that machinery is a no-op for it -- but
-        # only provably so with no MPI, since mpi_sort_markers does real
-        # host-side communication we can't just skip).
-        self._gpu_v_efield_cuboid_wholepush = (
-            self._gpu_v_efield_cuboid
-            and all(b == "periodic" for b in self.particles.bc)
-            and not init_kernels
-            and not eval_kernels
-            and self.particles.mpi_comm is None
-            and maxiter == 1
-            and not self._newton
-            and n_stages == 1
-        )
-
     @profile
     def __call__(self, dt: float):
         """
@@ -264,36 +246,7 @@ class Pusher:
         applies kinetic boundary conditions and performs MPI sorting.
         """
         with ProfileManager.profile_region(self._region_name):
-            if self._gpu_v_efield_cuboid_wholepush:
-                self._push_v_efield_cuboid_gpu(dt)
-            else:
-                self._push(dt)
-
-    def _push_v_efield_cuboid_gpu(self, dt: float):
-        """Whole-push GPU-resident fast path, see
-        :func:`~struphy.pic.pushing.pusher_kernels_cuda.push_v_with_efield_cuboid_gpu`.
-
-        Only the velocity columns are touched (positions and holes/ghost
-        status are untouched), so unlike :meth:`_push`, there is no marker
-        buffer reset and no ``apply_kinetic_bc``/``update_holes`` call to
-        replicate here: both would be no-ops given this kernel never moves a
-        marker.
-        """
-        particles = self.particles
-        push_v_with_efield_cuboid_gpu(
-            particles.markers,
-            particles.n_cols,
-            self._gpu_v_efield_pn,
-            self._gpu_v_efield_tn1,
-            self._gpu_v_efield_tn2,
-            self._gpu_v_efield_tn3,
-            self._gpu_v_efield_starts,
-            self._gpu_v_efield_e1_1,
-            self._gpu_v_efield_e1_2,
-            self._gpu_v_efield_e1_3,
-            self._gpu_v_efield_scale,
-            dt * self._gpu_v_efield_const,
-        )
+            self._push(dt)
 
     def _kernel_region(self, kernel) -> str:
         """Cached name of the profiling region of an init/eval kernel."""

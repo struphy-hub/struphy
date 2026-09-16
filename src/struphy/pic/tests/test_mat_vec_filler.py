@@ -1,6 +1,7 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -47,12 +48,14 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         logger.info(f"\nnum_elements={num_elements}, degree={degree}, bcs={bcs}\n")
 
     # DR attributes
-    pn = xp.array(DR.degree)
+    # plain int metadata (polynomial degrees) -- kept host-side so downstream
+    # index/span arithmetic doesn't leak CuPy scalars into arange() etc.
+    pn = np.array(DR.degree)
     tn1, tn2, tn3 = DR.V0fem.knots
 
     starts1 = {}
 
-    starts1["v0"] = xp.array(DR.V0.starts)
+    starts1["v0"] = np.array(DR.V0.starts)
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
@@ -124,6 +127,9 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     eta3s = xp.random.rand(n_markers) * (dom[7] - dom[6]) + dom[6]
 
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
+        # the compiled bsplines_kernels functions below require native
+        # Python floats; eta1s/eta2s/eta3s may be CuPy-resident.
+        eta1, eta2, eta3 = float(eta1), float(eta2), float(eta3)
         comm.Barrier()
         sleep(0.02 * (rank + 1))
         logger.info(f"rank {rank} | eta1 = {eta1}")
@@ -137,14 +143,15 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         span2 = bsp.find_span(tn2, DR.degree[1], eta2)
         span3 = bsp.find_span(tn3, DR.degree[2], eta3)
 
-        # non-zero spline values at eta
-        bn1 = xp.empty(DR.degree[0] + 1, dtype=float)
-        bn2 = xp.empty(DR.degree[1] + 1, dtype=float)
-        bn3 = xp.empty(DR.degree[2] + 1, dtype=float)
+        # non-zero spline values at eta -- output buffers for the compiled
+        # bsplines_kernels functions, which require host numpy arrays.
+        bn1 = np.empty(DR.degree[0] + 1, dtype=float)
+        bn2 = np.empty(DR.degree[1] + 1, dtype=float)
+        bn3 = np.empty(DR.degree[2] + 1, dtype=float)
 
-        bd1 = xp.empty(DR.degree[0], dtype=float)
-        bd2 = xp.empty(DR.degree[1], dtype=float)
-        bd3 = xp.empty(DR.degree[2], dtype=float)
+        bd1 = np.empty(DR.degree[0], dtype=float)
+        bd2 = np.empty(DR.degree[1], dtype=float)
+        bd3 = np.empty(DR.degree[2], dtype=float)
 
         bsp.b_d_splines_slim(tn1, DR.degree[0], eta1, span1, bn1, bd1)
         bsp.b_d_splines_slim(tn2, DR.degree[1], eta2, span2, bn2, bd2)
@@ -155,10 +162,11 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         ie2 = span2 - pn[1]
         ie3 = span3 - pn[2]
 
-        # global indices of non-vanishing B- and D-splines (no modulo)
-        glob_n1 = xp.arange(ie1, ie1 + pn[0] + 1)
-        glob_n2 = xp.arange(ie2, ie2 + pn[1] + 1)
-        glob_n3 = xp.arange(ie3, ie3 + pn[2] + 1)
+        # global indices of non-vanishing B- and D-splines (no modulo) -- pure
+        # host-side index bookkeeping used below for Python set comparisons.
+        glob_n1 = np.arange(ie1, ie1 + pn[0] + 1)
+        glob_n2 = np.arange(ie2, ie2 + pn[1] + 1)
+        glob_n3 = np.arange(ie3, ie3 + pn[2] + 1)
 
         glob_d1 = glob_n1[:-1]
         glob_d2 = glob_n2[:-1]
@@ -184,10 +192,10 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         # local column indices in _data of non-vanishing B- and D-splines, as sets for comparison
         cols = [{}, {}, {}]
         for n in range(3):
-            cols[n]["NN"] = set(xp.arange(2 * pn[n] + 1))
-            cols[n]["ND"] = set(xp.arange(2 * pn[n]))
-            cols[n]["DN"] = set(xp.arange(1, 2 * pn[n] + 1))
-            cols[n]["DD"] = set(xp.arange(1, 2 * pn[n]))
+            cols[n]["NN"] = set(np.arange(2 * pn[n] + 1))
+            cols[n]["ND"] = set(np.arange(2 * pn[n]))
+            cols[n]["DN"] = set(np.arange(1, 2 * pn[n] + 1))
+            cols[n]["DD"] = set(np.arange(1, 2 * pn[n]))
 
         # testing vector-valued spaces
         spaces_vector = ["v1", "v2"]

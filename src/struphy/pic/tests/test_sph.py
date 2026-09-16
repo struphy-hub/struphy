@@ -500,10 +500,10 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         logger.info(f"{Np =}, {ppb =}, {diff =}")
 
     if tesselation:
-        fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(ppbs)), xp.log(xp.array(err_vec)), 1)
         xvec = ppbs
     else:
-        fit = xp.polyfit(xp.log(Nps), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(Nps)), xp.log(xp.array(err_vec)), 1)
         xvec = Nps
 
     if show_plot and rank == 0:
@@ -623,9 +623,9 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         err_vec += [diff]
 
     if tesselation:
-        fit = xp.polyfit(xp.log(h_vec[1:5]), xp.log(err_vec[1:5]), 1)
+        fit = xp.polyfit(xp.log(xp.array(h_vec[1:5])), xp.log(xp.array(err_vec[1:5])), 1)
     else:
-        fit = xp.polyfit(xp.log(h_vec[:-2]), xp.log(err_vec[:-2]), 1)
+        fit = xp.polyfit(xp.log(xp.array(h_vec[:-2])), xp.log(xp.array(err_vec[:-2])), 1)
 
     if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))
@@ -908,10 +908,10 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
                 # fig.savefig(f"2d_sph_{Np}_{ppb}.png")
 
     if tesselation:
-        fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(ppbs)), xp.log(xp.array(err_vec)), 1)
         xvec = ppbs
     else:
-        fit = xp.polyfit(xp.log(Nps), xp.log(err_vec), 1)
+        fit = xp.polyfit(xp.log(xp.array(Nps)), xp.log(xp.array(err_vec)), 1)
         xvec = Nps
 
     if show_plot and rank == 0:

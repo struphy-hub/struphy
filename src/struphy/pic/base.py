@@ -402,7 +402,7 @@ class Particles(metaclass=ABCMeta):
         if domain_decomp is None:
             self._domain_array, self._nprocs = self._get_domain_decomp(self.sorting_params.dims_mask)
         else:
-            self._domain_array = domain_decomp[0]
+            self._domain_array = xp.to_numpy(domain_decomp[0])
             self._nprocs = domain_decomp[1]
 
         # total number of cells (equal to mpi_size if no grid)
@@ -1809,7 +1809,10 @@ class Particles(metaclass=ABCMeta):
         f_slice /= self.Np * bin_vol
         df_slice /= self.Np * bin_vol
 
-        return f_slice, df_slice
+        # np.histogramdd forces f_slice/df_slice to be host arrays regardless
+        # of the active backend; convert back so callers get results on the
+        # same backend as everything else this class returns.
+        return xp.asarray(f_slice), xp.asarray(df_slice)
 
     def show_distribution_function(self, components, bin_edges):
         """
@@ -2139,14 +2142,17 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbouring processes are also communicated (as ghost particles)."""
         self._remove_ghost_particles()
 
-        assign_box_to_each_particle(
-            self.markers,
-            self.holes,
-            self._sorting_boxes.nx,
-            self._sorting_boxes.ny,
-            self._sorting_boxes.nz,
-            self.domain_array[self.mpi_rank],
-        )
+        # compiled host-only kernel; writes the box index into markers[:, -2]
+        # in place, through the marker host mirror.
+        with self.host_markers(write=True) as args_markers:
+            assign_box_to_each_particle(
+                args_markers.markers,
+                _to_numpy_for_kernel(self.holes),
+                self._sorting_boxes.nx,
+                self._sorting_boxes.ny,
+                self._sorting_boxes.nz,
+                self.domain_array[self.mpi_rank],
+            )
 
         self._check_and_assign_particles_to_boxes()
 
@@ -3337,11 +3343,9 @@ class Particles(metaclass=ABCMeta):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assign the particles to boxes."""
 
-        # self.markers (and therefore markers_wo_holes) is always host-resident
-        # regardless of backend (see ISSUE_cupy_particles_never_pushed.md), so
-        # this is plain numpy unconditionally -- the previous backend branch
-        # predates that fix and fed a host array into cp.bincount, which
-        # (unlike xp.bincount on an actual CuPy array) does not accept one.
+        # markers may be CuPy-resident under the active backend, but np.bincount
+        # dispatches to cupy's implementation via the array API protocol, so
+        # this works unconditionally without an explicit host round-trip.
         bcount = np.bincount(self.markers_wo_holes[:, -2].astype(np.int64))
 
         max_in_box = np.max(bcount)
@@ -3354,12 +3358,20 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
             )
             self.mpi_comm.Abort()
 
-        assign_particles_to_boxes(
-            self.markers,
-            self.holes,
-            self._sorting_boxes._boxes,
-            self._sorting_boxes._next_index,
-        )
+        # compiled host-only kernel; markers are read-only here, but boxes/
+        # next_index are fully overwritten, so round-trip them through host
+        # buffers and write the results back onto the active backend.
+        boxes = _to_numpy_for_kernel(self._sorting_boxes._boxes).copy()
+        next_index = _to_numpy_for_kernel(self._sorting_boxes._next_index).copy()
+        with self.host_markers(write=False) as args_markers:
+            assign_particles_to_boxes(
+                args_markers.markers,
+                _to_numpy_for_kernel(self.holes),
+                boxes,
+                next_index,
+            )
+        self._sorting_boxes._boxes[:, :] = xp.asarray(boxes)
+        self._sorting_boxes._next_index[:] = xp.asarray(next_index)
 
     def _update_ghost_particles(self):
         """Refresh :attr:`~struphy.pic.base.Particles.ghost_particles`: a marker is flagged
@@ -3829,7 +3841,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         """
         indices = []
         for i in list_boxes:
-            indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i] != -1])
+            box_row = _to_numpy_for_kernel(self._sorting_boxes._boxes[i])
+            indices += list(box_row[box_row != -1])
 
         # Box membership is host bookkeeping; the gathered rows are handed to
         # the mpi4py box-communication path below, which needs host buffers.

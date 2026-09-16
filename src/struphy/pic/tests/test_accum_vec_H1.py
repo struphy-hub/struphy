@@ -1,4 +1,5 @@
 import logging
+import math
 
 import pytest
 from cunumpy import PyccelKernel
@@ -115,7 +116,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
 
     params = {
         "grid": {"num_elements": num_elements},
-        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(num_elements)}}},
+        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / math.prod(num_elements)}}},
     }
 
     grid = TensorProductGrid(num_elements=num_elements)

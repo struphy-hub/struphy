@@ -1,4 +1,5 @@
 import logging
+import math
 
 try:
     from mpi4py.MPI import Intracomm
@@ -9,8 +10,14 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 
 from struphy.pic.sorting_kernels import flatten_index, initialize_neighbours
+
+# initialize_neighbours writes into an array that may be CuPy-resident under
+# the active backend; flatten_index only ever takes plain ints, so it does
+# not need wrapping.
+initialize_neighbours = PyccelKernel(initialize_neighbours)
 
 logger = logging.getLogger("struphy")
 
@@ -230,7 +237,7 @@ class SortingBoxes:
         n_particles = self._markers_shape[0]
         n_mkr = int(n_particles / n_box_in) + 1
         n_cols = round(
-            n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
+            n_mkr * (1 + 1 / math.sqrt(n_mkr) + self._box_bufsize),
         )
 
         # cartesian boxes (extra last row stores holes/outside particles)

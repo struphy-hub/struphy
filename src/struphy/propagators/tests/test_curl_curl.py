@@ -57,9 +57,11 @@ def test_convergence_1d(
     # Test over spline degree and grid resolution
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
 
-    e1 = 0.0
-    e2 = 0.0
-    e3 = 0.0
+    # xp.meshgrid (unlike numpy's) requires actual arrays, not plain floats,
+    # for whichever of e1/e2/e3 isn't replaced by e below.
+    e1 = xp.array([0.0])
+    e2 = xp.array([0.0])
+    e3 = xp.array([0.0])
     e = xp.linspace(0.0, 1.0, 64)
 
     bcs = (None, None, None)
@@ -309,7 +311,9 @@ def test_convergence_2d(
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
 
     e = xp.linspace(0.0, 1.0, 64)
-    egrid = [0.0, 0.0, 0.0]
+    # xp.meshgrid (unlike numpy's) requires actual arrays, not plain floats,
+    # for whichever entries aren't replaced by e below.
+    egrid = [xp.array([0.0]), xp.array([0.0]), xp.array([0.0])]
     for idx in space["coords"]:
         egrid[idx] = e
     e1, e2, e3 = egrid
