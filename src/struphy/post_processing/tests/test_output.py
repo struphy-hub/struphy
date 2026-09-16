@@ -65,10 +65,19 @@ def write_manifest(root, **options):
         json.dump(manifest, stream)
 
 
+class FakeUnits:
+    t = 2.0
+
+
+class FakeModel:
+    units = FakeUnits()
+
+
 class FakeSim:
     """Just enough of a Simulation for Output: no configuration, a single rank."""
 
     time_opts = grid = derham_opts = domain = None
+    model = FakeModel()
     rank, comm_size = 0, 1
 
     def __init__(self):
@@ -262,3 +271,20 @@ def test_info_lists_products_without_loading(run):
     assert "out.kinetic_ions.orbits" in text
     assert "out.em_fields.E" in text
     assert run.field_catalog._cache == {}, "listing must not load arrays"
+
+
+def test_normalized_time_carries_seconds_as_a_coordinate(run):
+    energy = run.scalars.en_tot
+    assert "units" not in energy.t.attrs, "normalized time has no unit"
+    np.testing.assert_allclose(energy.t_seconds, energy.t * FakeUnits.t)
+    assert energy.t_seconds.attrs["units"] == "s"
+
+    seconds = Output(run.path_out, sim=FakeSim(), time_units="physical").scalars.en_tot
+    np.testing.assert_allclose(seconds.t, energy.t * FakeUnits.t)
+    assert "t_seconds" not in seconds.coords
+
+
+def test_a_failing_property_reports_its_own_error(tmp_path):
+    run = Output(write_tree(str(tmp_path)))  # no sim, no config.json
+    with pytest.raises(FileNotFoundError, match="config.json"):
+        run.sim

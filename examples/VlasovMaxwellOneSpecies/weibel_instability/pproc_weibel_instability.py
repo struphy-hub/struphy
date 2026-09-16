@@ -93,7 +93,7 @@ def main():
     distributions = run.distributions.kinetic_ions
     for bin_name, x, y in (("e1_v1_density", "e1", "v1"), ("v1_v2_density", "v1", "v2")):
         for quantity in ("f_binned", "delta_f_binned"):
-            run.plot.panels(f"kinetic_ions/{bin_name}/{quantity}", x=x, y=y, nrows=5, ncols=4).show()
+            getattr(getattr(distributions, bin_name), quantity).struphy.plot.panels(x=x, y=y, nrows=5, ncols=4).show()
 
     # ------------------
     # EM field at selected times

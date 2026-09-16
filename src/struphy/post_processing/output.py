@@ -125,11 +125,12 @@ class Output:
     sim:
         The simulation that wrote ``path_out``, if it is at hand.
     time_units:
-        ``"physical"`` converts every time coordinate to seconds. ``"normalized"``
-        consistently leaves every product in Struphy time units.
+        ``"normalized"`` (the default) keeps Struphy time units, in which the analytic
+        results of the models are expressed; every product then also carries seconds as the
+        coordinate ``t_seconds``. ``"physical"`` makes ``t`` itself seconds.
     """
 
-    def __init__(self, path_out, *, sim=None, time_units: str = "physical"):
+    def __init__(self, path_out, *, sim=None, time_units: str = "normalized"):
         if time_units not in {"physical", "normalized"}:
             raise ValueError("time_units must be 'physical' or 'normalized'")
         self.path_out = Path(path_out).resolve()
@@ -147,6 +148,7 @@ class Output:
     def _reset(self):
         self._time = self._grids_log = self._grids_phy = self._scalars = self._products = self._label = None
         self._species = None
+        self._seconds = None
 
     def __getitem__(self, name: str) -> xr.DataArray:
         """Any product by name: a scalar (``"en_tot"``), a field (``"em_fields/phi_log"``), a binned
@@ -168,7 +170,21 @@ class Output:
 
     def _stamp(self, array: xr.DataArray) -> xr.DataArray:
         array.attrs.update(run=self.label, run_name=self.path_out.name)
+        if self.time_units == "normalized" and "t" in array.dims and self.seconds_per_time is not None:
+            seconds = np.asarray(array.coords["t"]) * self.seconds_per_time
+            array = array.assign_coords(t_seconds=("t", seconds))
+            array.coords["t_seconds"].attrs.update(long_name="$t$", units="s")
         return array
+
+    @property
+    def seconds_per_time(self) -> float | None:
+        """One Struphy time unit in seconds; None when the configuration is missing."""
+        if self._seconds is None:
+            try:
+                self._seconds = float(self.sim.model.units.t)
+            except FileNotFoundError:
+                self._seconds = False
+        return self._seconds or None
 
     @property
     def path_pproc(self) -> Path:
@@ -307,6 +323,9 @@ class Output:
         """
         if name.startswith("_"):
             raise AttributeError(name)
+        attribute = getattr(type(self), name, None)
+        if isinstance(attribute, property):
+            attribute.fget(self)  # the property raised AttributeError itself; show its own error
         # the raw output names the species, so an unknown name never starts post-processing
         if name not in self._raw_species():
             raise AttributeError(f"{name!r}; available species: {tuple(sorted(self._raw_species()))}")
@@ -403,6 +422,7 @@ class Output:
 
     @property
     def time_scale(self) -> float:
+        """Factor from Struphy time units to :attr:`time_units`."""
         return float(self.sim.model.units.t) if self.time_units == "physical" else 1.0
 
     @property
@@ -610,7 +630,7 @@ class Output:
         return wrap_orbits(values, self.time[: len(paths)], time_unit=self.time_unit)
 
 
-def open_output(path_out, *, time_units: str = "physical") -> Output:
+def open_output(path_out, *, time_units: str = "normalized") -> Output:
     """Open the output folder of a finished simulation.
 
     Nothing is allocated and no MPI is needed; products are read on first access.
@@ -619,8 +639,7 @@ def open_output(path_out, *, time_units: str = "physical") -> Output:
     ----------
     path_out:
         The simulation output folder (``sim.env.path_out`` of the run).
-    time_units:
-        ``"physical"`` (seconds) or ``"normalized"`` time coordinates.
+        ``"normalized"`` (the default) or ``"physical"`` (seconds) time coordinates.
     """
     path = Path(path_out)
     if not (path / "data").is_dir():

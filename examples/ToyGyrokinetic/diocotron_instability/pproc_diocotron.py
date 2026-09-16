@@ -27,8 +27,9 @@ def main(paths):
     run = runs[0]
 
     # growth rate of the electrostatic energy, one curve per run
-    plot = run.plot.timeseries(
-        *(each[FIT_QUANTITY] for each in runs),
+    first, *rest = (each[FIT_QUANTITY] for each in runs)
+    plot = first.struphy.plot.timeseries(
+        *rest,
         fit=FIT_WINDOW,
         title=f"Evolution of {FIT_QUANTITY}",
     ).show()
@@ -43,9 +44,9 @@ def main(paths):
         run.plot.equilibrium()
 
     for name in SWEEPS:
-        run.plot.viewer(name, x="e1", y="e2", coords="physical", plane="XY").show()
+        run[name].struphy.plot.viewer(x="e1", y="e2", coords="physical", plane="XY").show()
 
-    run.plot.orbits("kinetic_ions", max_markers=1000).show()
+    run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=1000).show()
 
 
 if __name__ == "__main__":

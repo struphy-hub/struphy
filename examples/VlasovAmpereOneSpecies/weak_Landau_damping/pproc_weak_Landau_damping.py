@@ -18,13 +18,15 @@ def main():
     # electric field energy against the analytical damping
     energy = run.scalars.electric_energy.copy()
     energy.attrs["label"] = "numerical"
-    analytical = energy.copy(data=E_exact(energy.t.values / run.sim.model.units.t))
+    analytical = energy.copy(data=E_exact(energy.t.values))  # t is in Struphy units
     analytical.attrs["label"] = "analytical"
-    run.plot.timeseries(energy, analytical, title="Electric energy").show()
+    energy.struphy.plot.timeseries(analytical, title="Electric energy").show()
 
     # full f and delta f in the e1-v1 plane at four times
     for quantity, title in (("f_binned", "full-$f$"), ("delta_f_binned", r"$\delta f$")):
-        run.plot.panels(f"kinetic_ions/e1_v1_density/{quantity}", x="e1", y="v1", nrows=1, ncols=4, title=title).show()
+        getattr(run.kinetic_ions.e1_v1_density, quantity).struphy.plot.panels(
+            x="e1", y="v1", nrows=1, ncols=4, title=title
+        ).show()
 
 
 if __name__ == "__main__":
