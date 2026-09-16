@@ -7,6 +7,7 @@ import os
 import shutil
 import sysconfig
 import time
+import warnings
 from pathlib import Path
 
 import cunumpy as xp
@@ -893,6 +894,72 @@ class Simulation(SimulationBase):
         if self._output is None or self._output.path_out != Path(self.env.path_out).resolve():
             self._output = Output(self.env.path_out, sim=self)
         return self._output
+
+    # ------------------------------------------------------------------
+    # Deprecated post-processing entry points, superseded by self.output
+    # ------------------------------------------------------------------
+
+    def pproc(
+        self,
+        step: int = 1,
+        celldivide: int | tuple[int, int, int] = 1,
+        physical: bool = False,
+        guiding_center: bool = False,
+        classify: bool = False,
+        create_vtk: bool = True,
+        parallel_pproc: bool = False,
+        force: bool = True,
+        load: bool = False,
+    ) -> Output | None:
+        """Deprecated, use ``sim.output.process(...)``, see :meth:`struphy.Output.process`."""
+        warnings.warn(
+            "Simulation.pproc() is deprecated; use sim.output.process(...) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.output.process(
+            step=step,
+            celldivide=celldivide,
+            physical=physical,
+            guiding_center=guiding_center,
+            classify=classify,
+            create_vtk=create_vtk,
+            parallel=parallel_pproc,
+            force=force,
+        )
+        return self.load_plotting_data() if load else None
+
+    def load_plotting_data(self) -> Output | None:
+        """Deprecated, use :attr:`output`; attaches its products as attributes of the simulation.
+
+        Returns the :class:`struphy.Output` on rank 0 and ``None`` on the other ranks.
+        """
+        warnings.warn(
+            "Simulation.load_plotting_data() is deprecated; use sim.output (a struphy.Output) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if self.rank != 0:
+            return None
+        output = self.output
+        self.orbits = output.orbits
+        self.f = output.distributions
+        self.spline_values = output.fields
+        self.n_sph = output.densities
+        self.grids_log = output.grids_log
+        self.grids_phy = output.grids_phy
+        self.t_grid = output.time
+        return output
+
+    @property
+    def plotting_data(self) -> Output:
+        """Deprecated alias of :attr:`output`."""
+        warnings.warn(
+            "Simulation.plotting_data is deprecated; use sim.output instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.output
 
     # ---------------------
     # Code specific methods

@@ -71,3 +71,34 @@ def test_from_output_never_executes_the_parameter_file(tmp_path):
 def test_from_output_requires_a_configuration(tmp_path):
     with pytest.raises(FileNotFoundError, match="config.json"):
         Simulation.from_output(tmp_path)
+
+
+def test_deprecated_pproc_delegates_to_the_output(tmp_path, monkeypatch):
+    sim = make_sim(tmp_path)
+    calls = []
+    monkeypatch.setattr(type(sim.output), "process", lambda self, **options: calls.append(options))
+    monkeypatch.setattr(type(sim), "load_plotting_data", lambda self: "loaded")
+
+    with pytest.deprecated_call():
+        assert sim.pproc(physical=True) is None
+    assert calls == [
+        dict(step=1, celldivide=1, physical=True, guiding_center=False, classify=False,
+             create_vtk=True, parallel=False, force=True)
+    ]
+    with pytest.deprecated_call():
+        assert sim.pproc(load=True) == "loaded"
+
+
+def test_deprecated_load_plotting_data_attaches_the_products(tmp_path, monkeypatch):
+    sim = make_sim(tmp_path)
+    output = sim.output
+    for name, value in (("orbits", "o"), ("distributions", "f"), ("fields", "s"), ("densities", "n"),
+                        ("grids_log", "gl"), ("grids_phy", "gp"), ("time", "t")):
+        monkeypatch.setattr(type(output), name, property(lambda self, value=value: value))
+
+    with pytest.deprecated_call():
+        assert sim.load_plotting_data() is output
+    assert (sim.orbits, sim.f, sim.spline_values, sim.n_sph) == ("o", "f", "s", "n")
+    assert (sim.grids_log, sim.grids_phy, sim.t_grid) == ("gl", "gp", "t")
+    with pytest.deprecated_call():
+        assert sim.plotting_data is output

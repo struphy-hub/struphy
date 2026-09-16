@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import pickle
+import warnings
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 
@@ -309,6 +310,30 @@ class Output:
         return OutputAnalysis(self)
 
     @property
+    def f(self) -> DistributionProducts:
+        """Deprecated alias of :attr:`distributions`."""
+        warnings.warn("Output.f is deprecated; use out.distributions instead.", DeprecationWarning, stacklevel=2)
+        return self.distributions
+
+    @property
+    def spline_values(self) -> FieldProducts:
+        """Deprecated alias of :attr:`fields`."""
+        warnings.warn("Output.spline_values is deprecated; use out.fields instead.", DeprecationWarning, stacklevel=2)
+        return self.fields
+
+    @property
+    def n_sph(self) -> DensityProducts:
+        """Deprecated alias of :attr:`densities`."""
+        warnings.warn("Output.n_sph is deprecated; use out.densities instead.", DeprecationWarning, stacklevel=2)
+        return self.densities
+
+    @property
+    def t_grid(self):
+        """Deprecated alias of :attr:`time`."""
+        warnings.warn("Output.t_grid is deprecated; use out.time instead.", DeprecationWarning, stacklevel=2)
+        return self.time
+
+    @property
     def time_scale(self) -> float:
         return float(self.sim.model.units.t) if self.time_units == "physical" else 1.0
 
@@ -326,19 +351,25 @@ class Output:
 
     @property
     def grids_log(self):
+        """Logical evaluation grids of the fields; None for a run without FEEC fields."""
         if self._grids_log is None:
-            self._ensure_processed()
-            with (self.path_pproc / "fields_data" / "grids_log.bin").open("rb") as stream:
-                self._grids_log = pickle.load(stream)
+            self._grids_log = self._load_grids("grids_log")
         return self._grids_log
 
     @property
     def grids_phy(self):
+        """Mapped evaluation grids of the fields; None for a run without FEEC fields."""
         if self._grids_phy is None:
-            self._ensure_processed()
-            with (self.path_pproc / "fields_data" / "grids_phy.bin").open("rb") as stream:
-                self._grids_phy = pickle.load(stream)
+            self._grids_phy = self._load_grids("grids_phy")
         return self._grids_phy
+
+    def _load_grids(self, name):
+        self._ensure_processed()
+        path = self.path_pproc / "fields_data" / f"{name}.bin"
+        if not path.exists():
+            return None
+        with path.open("rb") as stream:
+            return pickle.load(stream)
 
     @property
     def scalars(self) -> xr.Dataset:
