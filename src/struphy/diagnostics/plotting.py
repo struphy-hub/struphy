@@ -110,6 +110,14 @@ class PlotResult:
             _display_figure(self.fig)
 
 
+def _detach_figure(fig):
+    """Take a figure out of pyplot under the inline backend, which would show it as a still image."""
+    import matplotlib
+
+    if "inline" in matplotlib.get_backend():
+        plt.close(fig)
+
+
 def _display_figure(fig):
     """Display a figure as a notebook cell result, exactly once.
 
@@ -261,7 +269,7 @@ def _slice_data(data, view):
 
 
 def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, title=None, run_label=None):
-    """Plot one or more aligned time series; series of different runs are labeled by run."""
+    """Plot one or more time series, each on its own time grid; series of different runs are labeled by run."""
     series = _items(data)
     if not series:
         raise ValueError("at least one time series is required")
@@ -269,8 +277,6 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
         validate_array(item, required_dims=("t",))
         if item.dims != ("t",):
             raise ValueError(f"time series must have dims ('t',), got {item.dims}")
-    if len(series) > 1:
-        series = list(xr.align(*series, join="exact"))
     label_of = _label
     if len({item.attrs.get("run_name") for item in series}) > 1:
 
@@ -465,7 +471,9 @@ def animate_slices(data: xr.DataArray, *, view=None, interval=100, step=1, vmin=
         ax.set_title(f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}")
         return (mesh,)
 
-    return FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _detach_figure(fig)
+    return animation
 
 
 def save_frames(data: xr.DataArray, directory, *, view=None, step=1, prefix="frame", dpi=110):

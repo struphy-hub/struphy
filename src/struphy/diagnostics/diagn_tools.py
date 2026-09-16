@@ -59,7 +59,8 @@ def power_spectrum_2d(
         Plot result if True, otherwise return things.
 
     disp_name : str
-        The name of the dispersion relation class in struphy.dispersion_relations.analytic to be used for analytic comparison.
+        The name of the dispersion relation class in struphy.dispersion_relations.analytic to be used for analytic
+        comparison. If None, only the computed spectrum is drawn.
 
     disp_params : dict
         Parameters needed for analytical dispersion relation, see struphy.dispersion_relations.analytic.
@@ -202,24 +203,19 @@ def power_spectrum_2d(
 
                 ax.plot(kvec, fun(kvec), "r:", label=f"fit_{n + 1}")
 
-        # analytic solution:
-        disp_class = getattr(analytic, disp_name)
-        disp = disp_class(**disp_params)
+        # analytic solution, when a dispersion relation is given
+        set_min = set_max = 0.0
+        if disp_name is not None:
+            disp = getattr(analytic, disp_name)(**disp_params)
 
-        kpara = kvec
-
-        branches = disp(kpara)
-        set_min = 0.0
-        set_max = 0.0
-        for key, branch in branches.items():
-            vals = xp.real(branch)
-            ax.plot(kvec, vals, "--", label=key)
-            tmp = xp.min(vals)
-            if tmp < set_min:
-                set_min = tmp
-            tmp = xp.max(vals)
-            if tmp > set_max:
-                set_max = tmp
+            branches = disp(kvec)
+            for key, branch in branches.items():
+                vals = xp.real(branch)
+                ax.plot(kvec, vals, "--", label=key)
+                set_min = min(set_min, xp.min(vals))
+                set_max = max(set_max, xp.max(vals))
+        else:
+            set_min, set_max = 0.0, omega[-1]
 
         ax.legend()
         ax.set_xlim(0, kvec[-1])
