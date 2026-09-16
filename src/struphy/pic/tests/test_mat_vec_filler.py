@@ -17,6 +17,7 @@ logger = logging.getLogger("struphy")
         (None, ("free", "free"), ("free", "free")),
     ],
 )
+@pytest.mark.needs_host_kernels
 def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     """This test assumes a single particle and verifies
         a) if the correct indices are non-zero in _data
