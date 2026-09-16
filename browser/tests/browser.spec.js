@@ -9,19 +9,20 @@ test.beforeEach(async ({ context }) => {
   });
 });
 
-test("numerical suite in real browser Pyodide", async ({ page }) => {
+test("create and plot a simple domain", async ({ page }) => {
   await page.goto("/");
-  const result = await page.evaluate(() => new Promise((resolve, reject) => {
-    const worker = new Worker("./worker.js", { type: "module" });
-    worker.onerror = error => { worker.terminate(); reject(new Error(error.message)); };
-    worker.onmessage = ({ data }) => {
-      if (data.type === "fatal" || data.error) { worker.terminate(); reject(new Error(data.error)); }
-      else if (data.type === "ready") worker.postMessage({ id: 1, action: "tests" });
-      else if (data.id === 1) { worker.terminate(); resolve(data.result); }
-    };
-  }));
-  console.log(result.output);
-  expect(result.code, result.output).toBe(0);
+  await expect(page.getByRole("status")).toContainText("IGAPolarTorus ·", { timeout: 120000 });
+  await page.locator("#domain").selectOption("Cuboid");
+  await page.getByRole("button", { name: "Construct domain" }).click();
+  await expect(page.getByRole("status")).toContainText("Cuboid ·");
+  await expect(page.locator("#diagnostics")).toBeVisible();
+  const paintedPixels = await page.locator("#view").evaluate(canvas => {
+    const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+    let painted = 0;
+    for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 0) painted++;
+    return painted;
+  });
+  expect(paintedPixels).toBeGreaterThan(0);
 });
 
 test("construct, change parameters, report errors, save and reopen", async ({ page }) => {
