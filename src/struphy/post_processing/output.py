@@ -38,9 +38,41 @@ class ProductMapping(Mapping[str, xr.DataArray]):
     def __len__(self) -> int:
         return len(self._loaders)
 
+    def __contains__(self, key: object) -> bool:
+        """Check the catalog without loading a product."""
+        return key in self._loaders
+
     def clear_cache(self):
         """Drop loaded arrays while keeping product discovery information."""
         self._cache.clear()
+
+
+class ProductCatalog(Mapping[str, xr.DataArray]):
+    """A relative, lazy view of a :class:`ProductMapping` subtree."""
+
+    def __init__(self, mapping: ProductMapping, prefix: str = ""):
+        self._mapping, self._prefix = mapping, prefix
+
+    def _full_key(self, key: str) -> str:
+        return f"{self._prefix}/{key}" if self._prefix else key
+
+    def __getitem__(self, key: str) -> xr.DataArray:
+        return self._mapping[self._full_key(key)]
+
+    def __iter__(self) -> Iterator[str]:
+        prefix = f"{self._prefix}/" if self._prefix else ""
+        return iter(sorted(key[len(prefix) :] for key in self._mapping if key.startswith(prefix)))
+
+    def __len__(self) -> int:
+        prefix = f"{self._prefix}/" if self._prefix else ""
+        return sum(key.startswith(prefix) for key in self._mapping)
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and self._full_key(key) in self._mapping
+
+    def clear_cache(self):
+        """Drop cached arrays in the underlying catalog."""
+        self._mapping.clear_cache()
 
 
 class ProductNamespace:
@@ -55,6 +87,11 @@ class ProductNamespace:
     def __init__(self, mapping, prefix=""):
         self._mapping, self._prefix = mapping, prefix
 
+    def __repr__(self):
+        location = self._prefix or "products"
+        products = tuple(self.catalog)
+        return f"{type(self).__name__}({location!r}, products={products!r})"
+
     def __getattr__(self, name):
         key = f"{self._prefix}/{name}" if self._prefix else name
         if key in self._mapping:
@@ -62,10 +99,12 @@ class ProductNamespace:
         prefix = key + "/"
         if any(product.startswith(prefix) for product in self._mapping):
             return type(self)(self._mapping, key)
-        raise AttributeError(f"{name!r}; available products: {tuple(self._mapping)}")
+        location = self._prefix or "products"
+        raise AttributeError(f"{name!r}; available names under {location!r}: {tuple(self)}")
 
     def __getitem__(self, key):
         if "/" in key:
+            key = f"{self._prefix}/{key}" if self._prefix else key
             return self._mapping[key]
         return getattr(self, key)
 
@@ -82,8 +121,8 @@ class ProductNamespace:
 
     @property
     def catalog(self):
-        """Flat lazy catalog for algorithms that do not know product names."""
-        return self._mapping
+        """Flat lazy catalog below this namespace, with names relative to it."""
+        return ProductCatalog(self._mapping, self._prefix)
 
 
 class FieldProducts(ProductNamespace):
