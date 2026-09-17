@@ -13,6 +13,10 @@ Solve Poisson In A Few Steps
 ----------------------------
 
 Make sure that Struphy is installed and compiled (see :ref:`install_modes`).
+Save the code below as ``params_poisson.py``. Output is written beside that script,
+regardless of the directory from which you launch it. In a notebook, replace
+``Path(__file__).resolve().parent`` with an explicit directory such as ``Path.cwd()``
+and omit ``params_path=__file__`` from the simulation constructor.
 
 We search for a potential :math:`\phi(x)` satisfying the Poisson equation
 
@@ -26,7 +30,9 @@ for given source term :math:`\rho(x)` on a periodic 1D domain.
 
 .. code-block:: python
 
-    from struphy import Simulation, domains, grids, perturbations
+    from pathlib import Path
+
+    from struphy import EnvironmentOptions, Output, Simulation, domains, grids, perturbations
     from struphy.models import Poisson
 
 2. Create the :class:`~struphy.models.poisson.Poisson` model.
@@ -61,15 +67,21 @@ For periodic boundary conditions we will stabilize via ``options``.
 
     model.em_fields.source.add_perturbation(fun)
 
-5. Build domain and grid, then instantiate a simulation.
+5. Set the output folder, build domain and grid, then instantiate a simulation.
 
 .. code-block:: python
+
+    script_dir = Path(__file__).resolve().parent
+    path_out = script_dir / "sim_data"
+    env = EnvironmentOptions(out_folders=str(script_dir), sim_folder=path_out.name)
 
     domain = domains.Cuboid(l1=0.0, r1=Lx)
     grid = grids.TensorProductGrid(num_elements=(64, 1, 1))
 
     sim = Simulation(
         model=model,
+        params_path=__file__,
+        env=env,
         domain=domain,
         grid=grid,
     )
@@ -78,16 +90,22 @@ For periodic boundary conditions we will stabilize via ``options``.
 
 .. code-block:: python
 
-    out = sim.run(one_time_step=True)
+    sim.run(one_time_step=True)
 
-7. Get the output. Fields are post-processed when first accessed and come as labeled
-   :class:`xarray.DataArray` objects.
+7. Open the output folder directly. Fields are post-processed when first accessed
+   and come as labeled :class:`xarray.DataArray` objects.
 
 .. code-block:: python
 
+    out = Output(path_out)
     phi = out.fields.em_fields.phi.isel(t=-1, e2=0, e3=0)
 
-8. Compare to the exact solution, and save the figure.
+``Output`` reconstructs the model, domain and numerical options lazily from
+``run_metadata.json``, using their ``from_dict()`` methods. Access them as
+``out.model``, ``out.domain`` or ``out.time_opts``; there is no ``out.sim``. A separate
+post-processing script can use the same path without importing the parameter file.
+
+8. Compare to the exact solution, and save the figure in the output folder.
 
 .. code-block:: python
 
@@ -107,7 +125,7 @@ For periodic boundary conditions we will stabilize via ``options``.
     plt.legend()
     plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig("quickstart_poisson_phi.png", dpi=150)
+    plt.savefig(path_out / "quickstart_poisson_phi.png", dpi=150)
     plt.show()
 
     print(f"max error = {err_max:.3e}")
@@ -116,14 +134,16 @@ For periodic boundary conditions we will stabilize via ``options``.
     :figwidth: 85%
     :alt: Poisson quickstart comparison of exact and numerical solution
 
-    Exact (dashed) and Struphy (markers) solutions from Step 6.
+    Exact (dashed) and Struphy (markers) solutions from Step 8.
 
-Full copy-paste script:
+Full script (save as ``params_poisson.py`` and run with ``python params_poisson.py``):
 
 .. code-block:: python
 
+    from pathlib import Path
+
     import numpy as np
-    from struphy import Simulation, domains, grids, perturbations
+    from struphy import EnvironmentOptions, Output, Simulation, domains, grids, perturbations
     from struphy.models import Poisson
 
     model = Poisson()
@@ -143,30 +163,39 @@ Full copy-paste script:
 
     model.em_fields.source.add_perturbation(fun)
 
+    script_dir = Path(__file__).resolve().parent
+    path_out = script_dir / "sim_data"
+    env = EnvironmentOptions(out_folders=str(script_dir), sim_folder=path_out.name)
+
     domain = domains.Cuboid(l1=0.0, r1=Lx)
     grid = grids.TensorProductGrid(num_elements=(64, 1, 1))
 
-    sim = Simulation(model=model, domain=domain, grid=grid)
-    out = sim.run(one_time_step=True)
+    sim = Simulation(model=model, params_path=__file__, env=env, domain=domain, grid=grid)
+    if __name__ == "__main__":
+        sim.run(one_time_step=True)
 
-    phi = out.fields.em_fields.phi.isel(t=-1, e2=0, e3=0)
-    x = phi.X.values
-    phi_num = phi.values
-    phi_exact = np.cos(k * x)
+        out = Output(path_out)
+        phi = out.fields.em_fields.phi.isel(t=-1, e2=0, e3=0)
+        x = phi.X.values
+        phi_num = phi.values
+        phi_exact = np.cos(k * x)
+        err_max = np.max(np.abs(phi_num - phi_exact))
 
-    import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
 
-    plt.figure(figsize=(7, 3.8))
-    plt.plot(x, phi_exact, "k--", lw=1.8, label="exact")
-    plt.plot(x, phi_num, "o", ms=3.5, label="Struphy")
-    plt.xlabel("x")
-    plt.ylabel("phi")
-    plt.title("Struphy quickstart: Poisson solution")
-    plt.legend()
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
-    plt.savefig("quickstart_poisson_phi.png", dpi=150)
-    plt.show()
+        plt.figure(figsize=(7, 3.8))
+        plt.plot(x, phi_exact, "k--", lw=1.8, label="exact")
+        plt.plot(x, phi_num, "o", ms=3.5, label="Struphy")
+        plt.xlabel("x")
+        plt.ylabel("phi")
+        plt.title("Struphy quickstart: Poisson solution")
+        plt.legend()
+        plt.grid(alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(path_out / "quickstart_poisson_phi.png", dpi=150)
+        plt.show()
+        print(f"max error = {err_max:.3e}")
+
 
 Same Workflow For All Models
 ----------------------------
@@ -175,7 +204,9 @@ The same Simulation API is reused across models. For example, replace :class:`~s
 
 .. code-block:: python
 
-    from struphy import Simulation, perturbations
+    from pathlib import Path
+
+    from struphy import EnvironmentOptions, Simulation, perturbations
     from struphy.models import Maxwell
 
     model = Maxwell()
@@ -183,8 +214,12 @@ The same Simulation API is reused across models. For example, replace :class:`~s
         perturbations.ModesCos(ls=(1,), amps=(1e-2,), comp=1)
     )
 
-    sim = Simulation(model=model)
-    sim.run()
+    env = EnvironmentOptions(
+        out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data"
+    )
+    sim = Simulation(model=model, env=env, params_path=__file__)
+    if __name__ == "__main__":
+        sim.run()
 
 Check :ref:`models` for more models and their specific options.
 
