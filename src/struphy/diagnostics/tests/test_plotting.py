@@ -183,3 +183,101 @@ def test_slice_can_display_the_sweep_dimension():
     assert result.ax.get_xlabel() == "$t$ [s]"
     with pytest.raises(ValueError, match="display it as x or y"):
         plot_slice(data, view=View(x="e1", y="v1"))
+
+
+def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeypatch):
+    import struphy.post_processing.xarray_accessors  # noqa: F401
+    from matplotlib.figure import Figure
+
+    data = phase_space(nt=3).astype(float)
+    data[1] = data[1] * 100  # extrema in a frame omitted by panels and export
+    view = data.struphy.plot.view(x="e1", y="v1", cmap="plasma", equal_aspect=True)
+    limits = (float(data.min()), float(data.max()))
+    assert plt.get_fignums() == []
+    snapshot = view.slice(t="last")
+    panels = view.panels(nrows=1, ncols=2)
+    viewer = view.viewer()
+    result = viewer.draw()
+    viewer.sliders["t"].set_val(2)
+    animation = view.animation(step=2)
+    mesh = animation._func(2)[0]
+    for artist in [snapshot.artists[0], *panels.artists, result.artists[0], mesh]:
+        assert artist.get_clim() == limits
+        assert artist.get_cmap().name == "plasma"
+        assert artist.axes.get_aspect() == 1.0
+    captured = []
+    original = Figure.savefig
+
+    def capture(fig, *args, **kwargs):
+        captured.append(fig.axes[0].collections[0].get_clim())
+        return original(fig, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "savefig", capture)
+    before = plt.get_fignums()
+    assert len(view.save_frames(tmp_path, step=2)) == 2
+    assert captured == [limits, limits]
+    assert plt.get_fignums() == before
+
+
+@pytest.mark.parametrize("shared_clim", [True, False])
+def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, shared_clim):
+    import struphy.post_processing.xarray_accessors  # noqa: F401
+    from matplotlib.figure import Figure
+
+    data = phase_space(nt=2)
+    options = dict(x="e1", y="v1", vmin=-5, vmax=100, shared_clim=shared_clim, cmap="coolwarm")
+    panels = data.struphy.plot.panels(nrows=1, ncols=2, **options)
+    animation = data.struphy.plot.animation(**options)
+    viewer = data.struphy.plot.viewer(**options)
+    viewer.draw()
+    viewer.sliders["t"].set_val(1)
+    for mesh in [*panels.artists, animation._func(1)[0], viewer.result.artists[0]]:
+        assert mesh.get_clim() == (-5, 100)
+        assert mesh.get_cmap().name == "coolwarm"
+    captured = []
+    monkeypatch.setattr(
+        Figure, "savefig", lambda fig, *args, **kwargs: captured.append(fig.axes[0].collections[0].get_clim())
+    )
+    data.struphy.plot.frames(tmp_path, **options)
+    assert captured == [(-5, 100), (-5, 100)]
+
+
+def test_per_frame_scaling_is_explicit_and_supports_a_fixed_lower_limit():
+    import struphy.post_processing.xarray_accessors  # noqa: F401
+
+    data = phase_space(nt=2)
+    view = data.struphy.plot.view(x="e1", y="v1", shared_clim=False, vmin=-1)
+    panels = view.panels(nrows=1, ncols=2)
+    animation = view.animation()
+    for index in range(2):
+        limits = (-1, float(data.isel(t=index).max()))
+        assert panels.artists[index].get_clim() == limits
+        assert animation._func(index)[0].get_clim() == limits
+
+
+def test_viewer_show_retains_controls_and_does_not_redraw(monkeypatch):
+    viewer = InteractiveSliceViewer(phase_space(), view=View(x="e1", y="v1"))
+    result = viewer.draw()
+    monkeypatch.setattr(plt, "show", lambda: None)
+    assert viewer.show() is viewer
+    assert viewer.draw() is result
+    assert len(plt.get_fignums()) == 1
+    viewer.sliders["t"].set_val(2)
+    assert result.artists[0] is result.ax.collections[0]
+
+
+@pytest.mark.parametrize("step", [0, -1])
+def test_sweep_rejects_invalid_step(tmp_path, step):
+    with pytest.raises(ValueError, match="positive integer"):
+        animate_slices(phase_space(), view=View(x="e1", y="v1"), step=step)
+    with pytest.raises(ValueError, match="positive integer"):
+        save_frames(phase_space(), tmp_path, view=View(x="e1", y="v1"), step=step)
+
+
+def test_legacy_scalar_plot_warns_and_still_renders(monkeypatch):
+    from struphy.diagnostics import diagn_tools
+
+    monkeypatch.setattr(plt, "show", lambda: None)
+    with pytest.deprecated_call(match="out.plot.scalars"):
+        diagn_tools.plot_scalars(np.arange(3), {"en_tot": np.array([1.0, 2.0, 3.0])})
+    assert plt.get_fignums()

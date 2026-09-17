@@ -98,48 +98,80 @@ class ArrayPlots(_ArrayAccessor):
             growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
         return plot_timeseries([self._array, *others], ax=ax, logy=logy, fit=growth, title=title)
 
+    def view(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        vmin=None,
+        vmax=None,
+        shared_clim: bool = True,
+        cmap: str | None = None,
+        equal_aspect: bool | None = None,
+        title: str | None = None,
+        **selection,
+    ) -> "SliceView":
+        """Configure a reusable slice view without rendering a figure.
+
+        Use xarray's ``.sel()``/``.isel()`` for general selection, or pass remaining
+        dimensions here (integers are positions, floats nearest coordinates,
+        ``"first"``/``"last"`` select an end).
+
+        ``shared_clim=True`` fixes color limits over all selected data, including
+        frames omitted by a panel layout or export step. False rescales each frame.
+        Explicit ``vmin``/``vmax`` override either limit in both modes. ``cmap``,
+        ``equal_aspect`` and ``title`` apply to every presentation of this view.
+
+        Examples
+        --------
+        >>> view = f.struphy.plot.view(x="e1", y="v1", cmap="RdBu_r")
+        >>> view.slice(t="last")
+        >>> view.panels(nrows=2, ncols=3)
+        >>> view.save_frames("frames")
+        """
+        self._view(x, y, sweep, coords, plane, selection)  # validate selections now
+        return SliceView(
+            self._array,
+            dict(x=x, y=y, sweep=sweep, coords=coords, plane=plane),
+            selection,
+            dict(vmin=vmin, vmax=vmax, shared_clim=shared_clim, cmap=cmap, equal_aspect=equal_aspect, title=title),
+        )
+
     def slice(
         self,
         *,
         x: str | None = None,
         y: str | None = None,
+        sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
         vmin=None,
         vmax=None,
+        shared_clim: bool = True,
+        cmap: str | None = None,
         equal_aspect: bool | None = None,
         title: str | None = None,
         ax=None,
         **selection,
     ):
-        """A two-dimensional color plot of one slice.
-
-        Parameters
-        ----------
-        x, y:
-            Displayed dimensions, e.g. ``x="e1", y="v1"``; inferred for two-dimensional data.
-            The sweep dimension ``t`` may be displayed, which gives a space-time map.
-        coords:
-            ``"physical"`` draws on the mapped coordinates of ``plane`` instead of logical ones.
-        **selection:
-            One value per remaining dimension, e.g. ``t="last", component=2, e3=0``.
-
-        Examples
-        --------
-        >>> out.ions.eta1_v1.f.struphy.plot.slice(x="e1", y="v1", t="last")
-        >>> out.em_fields.b_field_phy.struphy.plot.slice(x="e1", y="e2", component=2, e3=0, coords="physical")
-        """
-        from struphy.diagnostics.plotting import plot_slice
-
-        return plot_slice(
-            self._array,
-            view=self._view(x, y, "t", coords, plane, selection),
-            ax=ax,
+        """Render one 2-D slice; see :meth:`view` for shared options."""
+        return self.view(
+            x=x,
+            y=y,
+            sweep=sweep,
+            coords=coords,
+            plane=plane,
             vmin=vmin,
             vmax=vmax,
+            shared_clim=shared_clim,
+            cmap=cmap,
             equal_aspect=equal_aspect,
             title=title,
-        )
+            **selection,
+        ).slice(ax=ax)
 
     def panels(
         self,
@@ -149,26 +181,31 @@ class ArrayPlots(_ArrayAccessor):
         sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
+        vmin=None,
+        vmax=None,
+        shared_clim: bool = True,
+        cmap: str | None = None,
+        equal_aspect: bool | None = None,
+        title: str | None = None,
         nrows: int = 3,
         ncols: int = 4,
-        shared_clim: bool = True,
-        title: str | None = None,
         **selection,
     ):
-        """Snapshots evenly spread along ``sweep`` (time by default), one panel each.
-
-        Takes the same arguments as :meth:`slice`, except that ``sweep`` is not selected.
-        """
-        from struphy.diagnostics.plotting import plot_panels
-
-        return plot_panels(
-            self._array,
-            view=self._view(x, y, sweep, coords, plane, selection),
-            nrows=nrows,
-            ncols=ncols,
+        """Render evenly spaced snapshots; see :meth:`view` for shared options."""
+        return self.view(
+            x=x,
+            y=y,
+            sweep=sweep,
+            coords=coords,
+            plane=plane,
+            vmin=vmin,
+            vmax=vmax,
             shared_clim=shared_clim,
+            cmap=cmap,
+            equal_aspect=equal_aspect,
             title=title,
-        )
+            **selection,
+        ).panels(nrows=nrows, ncols=ncols)
 
     def viewer(
         self,
@@ -180,18 +217,27 @@ class ArrayPlots(_ArrayAccessor):
         plane: Plane = "XY",
         vmin=None,
         vmax=None,
+        shared_clim: bool = True,
+        cmap: str | None = None,
+        equal_aspect: bool | None = None,
+        title: str | None = None,
         **selection,
     ):
-        """An interactive viewer with one slider per dimension that is neither displayed nor selected.
-
-        Takes the same arguments as :meth:`slice`. Call ``.show()`` on the result, and keep it
-        alive so that the sliders stay connected.
-        """
-        from struphy.diagnostics.plotting import InteractiveSliceViewer
-
-        return InteractiveSliceViewer(
-            self._array, view=self._view(x, y, sweep, coords, plane, selection), vmin=vmin, vmax=vmax
-        )
+        """Create an interactive slider view; retain the returned viewer."""
+        return self.view(
+            x=x,
+            y=y,
+            sweep=sweep,
+            coords=coords,
+            plane=plane,
+            vmin=vmin,
+            vmax=vmax,
+            shared_clim=shared_clim,
+            cmap=cmap,
+            equal_aspect=equal_aspect,
+            title=title,
+            **selection,
+        ).viewer()
 
     def animation(
         self,
@@ -201,23 +247,31 @@ class ArrayPlots(_ArrayAccessor):
         sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
-        interval: int = 100,
-        step: int = 1,
         vmin=None,
         vmax=None,
+        shared_clim: bool = True,
+        cmap: str | None = None,
+        equal_aspect: bool | None = None,
+        title: str | None = None,
+        interval: int = 100,
+        step: int = 1,
         **selection,
     ):
-        """A Matplotlib animation along ``sweep``, taking the same arguments as :meth:`slice`."""
-        from struphy.diagnostics.plotting import animate_slices
-
-        return animate_slices(
-            self._array,
-            view=self._view(x, y, sweep, coords, plane, selection),
-            interval=interval,
-            step=step,
+        """Animate the sweep; retain the returned Matplotlib animation."""
+        return self.view(
+            x=x,
+            y=y,
+            sweep=sweep,
+            coords=coords,
+            plane=plane,
             vmin=vmin,
             vmax=vmax,
-        )
+            shared_clim=shared_clim,
+            cmap=cmap,
+            equal_aspect=equal_aspect,
+            title=title,
+            **selection,
+        ).animation(interval=interval, step=step)
 
     def frames(
         self,
@@ -228,25 +282,32 @@ class ArrayPlots(_ArrayAccessor):
         sweep: str = "t",
         coords: Coordinates = "logical",
         plane: Plane = "XY",
+        vmin=None,
+        vmax=None,
+        shared_clim: bool = True,
+        cmap: str | None = None,
+        equal_aspect: bool | None = None,
+        title: str | None = None,
         step: int = 1,
         prefix: str = "frame",
         dpi: int = 110,
         **selection,
-    ) -> list[str]:
-        """Write the slices along ``sweep`` as numbered PNG files; returns their paths.
-
-        Takes the same arguments as :meth:`slice`.
-        """
-        from struphy.diagnostics.plotting import save_frames
-
-        return save_frames(
-            self._array,
-            directory,
-            view=self._view(x, y, sweep, coords, plane, selection),
-            step=step,
-            prefix=prefix,
-            dpi=dpi,
-        )
+    ):
+        """Export PNGs; equivalent to ``plot.view(...).save_frames(directory)``."""
+        return self.view(
+            x=x,
+            y=y,
+            sweep=sweep,
+            coords=coords,
+            plane=plane,
+            vmin=vmin,
+            vmax=vmax,
+            shared_clim=shared_clim,
+            cmap=cmap,
+            equal_aspect=equal_aspect,
+            title=title,
+            **selection,
+        ).save_frames(directory, step=step, prefix=prefix, dpi=dpi)
 
     def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
         """Three-dimensional paths of saved markers; for an orbit product."""
@@ -255,9 +316,65 @@ class ArrayPlots(_ArrayAccessor):
         return plot_marker_trajectories(self._array, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
 
+class SliceView:
+    """A configured array view, shared by static, interactive and exported plots.
+
+    Construct with ``array.struphy.plot.view(...)``. Configuration does not create
+    figures or copy the underlying array.
+    """
+
+    def __init__(self, array, coordinates, selection, options):
+        self._array = array
+        self._coordinates = dict(coordinates)
+        self._selection = dict(selection)
+        self._options = dict(options)
+
+    def _view(self, **selection):
+        return ArrayPlots(self._array)._view(**self._coordinates, selection={**self._selection, **selection})
+
+    def slice(self, *, ax=None, **selection):
+        """Draw a snapshot, e.g. ``view.slice(t="last")``; return a PlotResult."""
+        from struphy.diagnostics.plotting import plot_slice
+
+        # Resolve shared limits before selecting a single snapshot, so it uses
+        # the same scale as panels, animation and export of this configured view.
+        from struphy.diagnostics.plotting import _SliceRenderer
+
+        options = dict(self._options)
+        if options["shared_clim"]:
+            renderer = _SliceRenderer(self._array, self._view(), **options)
+            options.update(zip(("vmin", "vmax"), renderer.limits))
+        return plot_slice(self._array, view=self._view(**selection), ax=ax, **options)
+
+    def panels(self, *, nrows=3, ncols=4):
+        """Draw snapshots spread along the sweep; return a PlotResult."""
+        from struphy.diagnostics.plotting import plot_panels
+
+        return plot_panels(self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options)
+
+    def viewer(self):
+        """Create a viewer with sliders for unselected dimensions."""
+        from struphy.diagnostics.plotting import InteractiveSliceViewer
+
+        return InteractiveSliceViewer(self._array, view=self._view(), **self._options)
+
+    def animation(self, *, interval=100, step=1):
+        """Create a Matplotlib animation using this view's rendering options."""
+        from struphy.diagnostics.plotting import animate_slices
+
+        return animate_slices(self._array, view=self._view(), interval=interval, step=step, **self._options)
+
+    def save_frames(self, directory, *, step=1, prefix="frame", dpi=110):
+        """Export PNG frames using this view's rendering options; return paths."""
+        from struphy.diagnostics.plotting import save_frames
+
+        return save_frames(
+            self._array, directory, view=self._view(), step=step, prefix=prefix, dpi=dpi, **self._options
+        )
+
+
 class ArrayAnalysis(_ArrayAccessor):
     """Quantitative diagnostics of one array, as ``array.struphy.analysis.<quantity>(...)``."""
-
 
     def growth_rate(self, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
         """Fit ``exp(rate * t + intercept)`` to this time series within ``window``.
@@ -266,19 +383,19 @@ class ArrayAnalysis(_ArrayAccessor):
         amplitude's rate is returned. Returns a ``FitResult`` (``.rate``, ``.intercept``,
         ``.time``, ``.fitted``), or ``None`` with fewer than two valid samples.
         """
-        from struphy.diagnostics.plotting import GrowthFit, growth_rate
+        from struphy.diagnostics.analysis import GrowthFit, growth_rate
 
         return growth_rate(self._array, GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
 
     def drift(self, *, ref=None) -> xr.DataArray:
         """Signed deviation of this time series from ``ref`` or from its first sample."""
-        from struphy.diagnostics.plotting import drift
+        from struphy.diagnostics.analysis import drift
 
         return drift(self._array, ref=ref)
 
     def relative_error(self, *, ref=None, skip_first: bool = True) -> xr.DataArray:
         """Absolute relative deviation from ``ref`` or from this series' first sample."""
-        from struphy.diagnostics.plotting import relative_error
+        from struphy.diagnostics.analysis import relative_error
 
         return relative_error(self._array, ref=ref, skip_first=skip_first)
 

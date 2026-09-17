@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
+"""Spectral diagnostics and deprecated plotting helpers for legacy output.
+
+Use ``Output(path)`` and array ``.struphy.plot`` accessors for new plotting code.
+The legacy distribution/video helpers read the old NPY layout, not output.nc.
+``power_spectrum_2d`` remains supported by the analysis accessor.
+"""
+
 import logging
+import warnings
+from functools import wraps
 import os
 import shutil
 import subprocess
@@ -15,6 +24,23 @@ from struphy.dispersion_relations import analytic
 from struphy.utils.progress import tqdm
 
 logger = logging.getLogger("struphy")
+
+
+def _legacy_plot(replacement):
+    def decorate(function):
+        @wraps(function)
+        def wrapped(*args, **kwargs):
+            warnings.warn(
+                f"diagn_tools.{function.__name__} is deprecated; use {replacement}. "
+                "Open new output with Output(path); legacy file-based helpers require the old NPY layout.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return function(*args, **kwargs)
+
+        return wrapped
+
+    return decorate
 
 
 def power_spectrum_2d(
@@ -230,6 +256,7 @@ def power_spectrum_2d(
     return omega, kvec, dispersion, coeffs
 
 
+@_legacy_plot("out.plot.scalars() or scalar.struphy.plot.timeseries()")
 def plot_scalars(
     time,
     scalar_quantities,
@@ -425,6 +452,7 @@ def plot_scalars(
         plt.show()
 
 
+@_legacy_plot("array.struphy.plot.slice()")
 def plot_distr_fun(
     path,
     time_idx,
@@ -559,6 +587,7 @@ def plot_distr_fun(
         del delta_f
 
 
+@_legacy_plot("array.struphy.plot.view(...).animation() or .panels()")
 def plots_videos_2d(
     t_grid,
     grid_slices,
@@ -718,6 +747,7 @@ def plots_videos_2d(
             raise NotImplementedError(f"{output=} is not implemented!")
 
 
+@_legacy_plot("array.struphy.plot.view(...).animation().save(path)")
 def video_2d(slc, diagn_path, images_path):
     """Create a video of all 2D slices of the distribution function over time.
 
@@ -792,6 +822,7 @@ def video_2d(slc, diagn_path, images_path):
     video.release()
 
 
+@_legacy_plot("array.struphy.plot.view(...).animation()")
 def plots_2d_video(
     t_grid,
     grid_1_mesh,
@@ -873,6 +904,7 @@ def plots_2d_video(
     plt.close("all")
 
 
+@_legacy_plot("array.struphy.plot.panels()")
 def plots_2d_overview(
     t_grid,
     grid_1_mesh,

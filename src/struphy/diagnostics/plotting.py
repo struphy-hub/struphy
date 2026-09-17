@@ -16,6 +16,14 @@ import numpy as np
 import xarray as xr
 from matplotlib.widgets import Slider
 
+from struphy.diagnostics.analysis import (
+    FitResult,
+    GrowthFit,
+    drift,
+    growth_rate,
+    relative_error,
+)  # noqa: F401 (backward-compatible imports)
+
 from struphy.post_processing.arrays import (
     SCALARS_EXCLUDE,
     axis_label,
@@ -43,22 +51,6 @@ PLANES = {
     "YZ": ("Y", "Z", "Y", "Z"),
     "RZ": ("R", "Z", "R", "Z"),
 }
-
-
-@dataclass(frozen=True)
-class GrowthFit:
-    """Configuration for an exponential growth-rate fit."""
-
-    window: tuple[float | None, float | None] = (None, None)
-    amplitude_from_quadratic: bool = False
-
-
-@dataclass(frozen=True)
-class FitResult:
-    rate: float
-    intercept: float
-    time: np.ndarray
-    fitted: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -177,49 +169,6 @@ def _select(data: xr.DataArray, view: View, *, keep_sweep=True):
     return selected
 
 
-def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult | None:
-    """Fit ``exp(rate*t + intercept)`` using only finite, positive samples."""
-    validate_array(data, required_dims=("t",))
-    if data.dims != ("t",):
-        raise ValueError(f"growth-rate input must have dims ('t',), got {data.dims}")
-    fit = fit or GrowthFit()
-    time, values = np.asarray(data.t), np.asarray(data)
-    lo = time[0] if fit.window[0] is None else fit.window[0]
-    hi = time[-1] if fit.window[1] is None else fit.window[1]
-    lo, hi = sorted((lo, hi))
-    valid = (time >= lo) & (time <= hi) & np.isfinite(values) & (values > 0)
-    if np.count_nonzero(valid) < 2:
-        return None
-    selected_time = time[valid]
-    signal = np.log(np.sqrt(values[valid])) if fit.amplitude_from_quadratic else np.log(values[valid])
-    rate, intercept = np.polyfit(selected_time, signal, 1)
-    scale = 2.0 if fit.amplitude_from_quadratic else 1.0
-    fitted = np.exp(scale * (rate * selected_time + intercept))
-    return FitResult(float(rate), float(intercept), selected_time, fitted)
-
-
-def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
-    """Signed deviation from an explicit reference or the first time sample."""
-    validate_array(data, required_dims=("t",))
-    reference = data.isel(t=0) if ref is None else ref
-    out = data - reference
-    out.attrs = dict(data.attrs)
-    out.attrs["label"] = f"{_label(data)} drift".strip()
-    return out
-
-
-def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataArray:
-    """Absolute relative deviation from an explicit reference or first sample."""
-    validate_array(data, required_dims=("t",))
-    reference = data.isel(t=0) if ref is None else ref
-    if np.any(np.asarray(reference) == 0):
-        raise ValueError("cannot take a relative error against a reference of zero")
-    out = abs(data - reference) / abs(reference)
-    out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
-    out.attrs.update(label=f"relative error of {_label(data)}".strip(), units="")
-    return out.isel(t=slice(1, None)) if skip_first else out
-
-
 def logical_grids(data: xr.DataArray, *, x=None, y=None):
     """Return 2-D logical coordinate grids and their labels."""
     if x is None or y is None:
@@ -316,39 +265,117 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
     return PlotResult(fig, ax, artists, fits)
 
 
+class _SliceRenderer:
+    """Shared selection, color limits and mesh rendering for every slice presentation."""
+
+    def __init__(self, data, view, *, vmin=None, vmax=None, shared_clim=True, cmap=None, equal_aspect=None, title=None):
+        self.data = _select(data, view)
+        self.view = View(x=view.x, y=view.y, sweep=view.sweep, coordinates=view.coordinates, plane=view.plane)
+        self.vmin, self.vmax = vmin, vmax
+        self.shared_clim = shared_clim
+        self.cmap = cmap or STRUPHY_STYLE["image.cmap"]
+        self.equal_aspect = view.coordinates == "physical" if equal_aspect is None else equal_aspect
+        self.title = _label(data) if title is None else title
+        self.limits = self._limits(self.data) if shared_clim else None
+
+    def _limits(self, data):
+        if self.vmin is not None and self.vmax is not None:
+            return self.vmin, self.vmax
+        values = np.asarray(data)
+        finite = values[np.isfinite(values)]
+        if not finite.size:
+            raise ValueError("cannot determine color limits from data without finite values; provide vmin and vmax")
+        return (
+            float(finite.min()) if self.vmin is None else self.vmin,
+            float(finite.max()) if self.vmax is None else self.vmax,
+        )
+
+    def draw(self, ax, data):
+        values, (xg, yg, xlabel, ylabel) = _slice_data(data, self.view)
+        lo, hi = self.limits if self.shared_clim else self._limits(values)
+        mesh = ax.pcolormesh(xg, yg, values, shading="auto", vmin=lo, vmax=hi, cmap=self.cmap)
+        ax.set(xlabel=xlabel, ylabel=ylabel, aspect="equal" if self.equal_aspect else "auto")
+        ax.grid(False)
+        return mesh
+
+    def frame_title(self, index):
+        return f"{self.title} at {self.view.sweep} = {float(self.data[self.view.sweep][index]):.3e}"
+
+    def indices(self, step):
+        if not isinstance(step, (int, np.integer)) or step < 1:
+            raise ValueError("step must be a positive integer")
+        validate_array(self.data, required_dims=(self.view.sweep,))
+        if not self.data.sizes[self.view.sweep]:
+            raise ValueError("cannot render an empty sweep")
+        return range(0, self.data.sizes[self.view.sweep], step)
+
+
 def plot_slice(
-    data: xr.DataArray, *, view=None, ax=None, vmin=None, vmax=None, equal_aspect=None, title=None, run_label=None
+    data: xr.DataArray,
+    *,
+    view=None,
+    ax=None,
+    vmin=None,
+    vmax=None,
+    equal_aspect=None,
+    title=None,
+    run_label=None,
+    cmap=None,
+    shared_clim=True,
 ):
     """Render one selected two-dimensional slice."""
-    view = view or View()
+    renderer = _SliceRenderer(
+        data,
+        view or View(),
+        vmin=vmin,
+        vmax=vmax,
+        cmap=cmap,
+        equal_aspect=equal_aspect,
+        title=title,
+        shared_clim=shared_clim,
+    )
     run_label = shared_run_label(data) if run_label is None else run_label
-    selected, (xgrid, ygrid, xlabel, ylabel) = _slice_data(data, view)
     own_figure = ax is None
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
-        mesh = ax.pcolormesh(xgrid, ygrid, np.asarray(selected), shading="auto", vmin=vmin, vmax=vmax)
+        mesh = renderer.draw(ax, renderer.data)
         fig.colorbar(mesh, ax=ax, label=value_label(data))
-        use_equal_aspect = view.coordinates == "physical" if equal_aspect is None else equal_aspect
-        if use_equal_aspect:
-            ax.set_aspect("equal", adjustable="box")
-        ax.set(xlabel=xlabel, ylabel=ylabel, title=title if title is not None else _label(data))
-        ax.grid(False)
+        ax.set_title(renderer.title)
         _finish(fig, run_label=run_label if own_figure else "", tight=own_figure)
     return PlotResult(fig, ax, [mesh])
 
 
-def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=True, title=None, run_label=None):
-    """Plot snapshots spread across a sweep coordinate."""
-    view = view or View()
+def plot_panels(
+    data: xr.DataArray,
+    *,
+    view=None,
+    nrows=3,
+    ncols=4,
+    shared_clim=True,
+    title=None,
+    run_label=None,
+    vmin=None,
+    vmax=None,
+    cmap=None,
+    equal_aspect=None,
+):
+    """Plot snapshots with common color limits over the entire selected sweep by default."""
+    renderer = _SliceRenderer(
+        data,
+        view or View(),
+        vmin=vmin,
+        vmax=vmax,
+        shared_clim=shared_clim,
+        cmap=cmap,
+        equal_aspect=equal_aspect,
+        title=title,
+    )
+    renderer.indices(1)
+    if nrows < 1 or ncols < 1:
+        raise ValueError("nrows and ncols must be positive")
+    sweep = renderer.view.sweep
+    indices = np.linspace(0, renderer.data.sizes[sweep] - 1, nrows * ncols).astype(int)
     run_label = shared_run_label(data) if run_label is None else run_label
-    selected = _select(data, view)
-    validate_array(selected, required_dims=(view.sweep,))
-    count = nrows * ncols
-    indices = np.linspace(0, selected.sizes[view.sweep] - 1, count).astype(int)
-    snapshots = [selected.isel({view.sweep: int(index)}) for index in indices]
-    limits = (None, None)
-    if shared_clim:
-        limits = (min(float(item.min()) for item in snapshots), max(float(item.max()) for item in snapshots))
     with plt.rc_context(STRUPHY_STYLE):
         fig, axes = plt.subplots(
             nrows,
@@ -360,115 +387,136 @@ def plot_panels(data: xr.DataArray, *, view=None, nrows=3, ncols=4, shared_clim=
             layout="constrained",
         )
         meshes = []
-        for ax, index, snapshot in zip(axes.ravel(), indices, snapshots):
-            local_view = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
-            values, (xg, yg, xlabel, ylabel) = _slice_data(snapshot, local_view)
-            mesh = ax.pcolormesh(xg, yg, values, shading="auto", vmin=limits[0], vmax=limits[1])
+        for ax, index in zip(axes.ravel(), indices):
+            mesh = renderer.draw(ax, renderer.data.isel({sweep: int(index)}))
             meshes.append(mesh)
-            ax.set_title(f"{view.sweep} = {float(selected[view.sweep][index]):.3e}")
-            ax.grid(False)
+            ax.set_title(f"{sweep} = {float(renderer.data[sweep][index]):.3e}")
             if not shared_clim:
-                fig.colorbar(mesh, ax=ax)
-        for ax in axes[-1]:
-            ax.set_xlabel(xlabel)
-        for row in axes:
-            row[0].set_ylabel(ylabel)
+                fig.colorbar(mesh, ax=ax, label=value_label(data))
         if shared_clim:
             fig.colorbar(meshes[-1], ax=list(axes.ravel()), label=value_label(data))
-        heading = title if title is not None else _label(data)
-        fig.suptitle(" — ".join(filter(None, (heading, run_label))))
+        fig.suptitle(" — ".join(filter(None, (renderer.title, run_label))))
     return PlotResult(fig, axes, meshes)
 
 
 class InteractiveSliceViewer:
-    """Stateful viewer using one recipe for the sweep and all remaining dimensions."""
+    """Slider view with the same rendering options as static and exported slices."""
 
-    def __init__(self, data: xr.DataArray, *, view=None, vmin=None, vmax=None, run_label=None):
+    def __init__(
+        self,
+        data: xr.DataArray,
+        *,
+        view=None,
+        vmin=None,
+        vmax=None,
+        run_label=None,
+        shared_clim=True,
+        cmap=None,
+        equal_aspect=None,
+        title=None,
+    ):
         self.data = validate_array(data)
         self.view = view or View()
-        self.vmin, self.vmax = vmin, vmax
+        self.options = dict(
+            vmin=vmin, vmax=vmax, shared_clim=shared_clim, cmap=cmap, equal_aspect=equal_aspect, title=title
+        )
         self.run_label = shared_run_label(data) if run_label is None else run_label
         self.result = None
         self.sliders = {}
 
     def show(self):
-        return self.draw().show()
+        (self.result or self.draw()).show()
+        return self
 
     def _ipython_display_(self):
         (self.result or self.draw())._ipython_display_()
 
     def draw(self):
-        base = _select(self.data, self.view)
+        if self.result is not None:
+            return self.result
+        renderer = _SliceRenderer(self.data, self.view, **self.options)
+        base = renderer.data
         x, y = self.view.x, self.view.y
         if x is None or y is None:
             candidates = [dim for dim in base.dims if dim != self.view.sweep]
             if len(candidates) < 2:
                 raise ValueError("viewer needs two display dimensions")
             x, y = candidates[:2]
+        renderer.view = View(x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane)
         controls = [dim for dim in base.dims if dim not in {x, y}]
         indices = {dim: 0 for dim in controls}
-
-        def frame():
-            return base.isel(indices), View(x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane)
-
-        selected, frame_view = frame()
-        selected, (xg, yg, xlabel, ylabel) = _slice_data(selected, frame_view)
         with plt.rc_context(STRUPHY_STYLE):
             fig, ax = plt.subplots()
             fig.subplots_adjust(bottom=0.13 + 0.05 * len(controls))
-            mesh = ax.pcolormesh(xg, yg, selected, shading="auto", vmin=self.vmin, vmax=self.vmax)
+            mesh = renderer.draw(ax, base.isel(indices))
             colorbar = fig.colorbar(mesh, ax=ax, label=value_label(self.data))
-            ax.set(xlabel=xlabel, ylabel=ylabel)
-            ax.grid(False)
-            if self.view.coordinates == "physical":
-                ax.set_aspect("equal", adjustable="box")
-            state = {"mesh": mesh}
+            self.result = PlotResult(fig, ax, [mesh])
 
             def update(_=None):
                 for dim, slider in self.sliders.items():
                     indices[dim] = int(slider.val)
-                item, item_view = frame()
-                item, grids = _slice_data(item, item_view)
-                state["mesh"].remove()
-                state["mesh"] = ax.pcolormesh(grids[0], grids[1], item, shading="auto", vmin=self.vmin, vmax=self.vmax)
-                if self.vmin is None and self.vmax is None:
-                    state["mesh"].set_clim(float(item.min()), float(item.max()))
-                colorbar.update_normal(state["mesh"])
+                self.result.artists[0].remove()
+                mesh = renderer.draw(ax, base.isel(indices))
+                self.result.artists[:] = [mesh]
+                colorbar.update_normal(mesh)
                 values = ", ".join(f"{dim}={float(base[dim][index]):.3e}" for dim, index in indices.items())
-                ax.set_title(" at ".join(filter(None, (_label(self.data), values))))
+                ax.set_title(" at ".join(filter(None, (renderer.title, values))))
                 fig.canvas.draw_idle()
 
             for row, dim in enumerate(controls):
+                if base.sizes[dim] == 1:
+                    continue
                 slider_ax = fig.add_axes([0.20, 0.05 + 0.05 * row, 0.60, 0.025])
                 slider = Slider(slider_ax, dim, 0, base.sizes[dim] - 1, valstep=1)
                 slider.on_changed(update)
                 self.sliders[dim] = slider
             update()
             _finish(fig, run_label=self.run_label, tight=False)
-        self.result = PlotResult(fig, ax, [state["mesh"]])
+            # Keep widget callbacks alive even if only the PlotResult is retained.
+            self.result.data["viewer"] = self
         return self.result
 
 
-def animate_slices(data: xr.DataArray, *, view=None, interval=100, step=1, vmin=None, vmax=None):
-    """Create an animation using the same :class:`View` as static slices."""
+def animate_slices(
+    data: xr.DataArray,
+    *,
+    view=None,
+    interval=100,
+    step=1,
+    vmin=None,
+    vmax=None,
+    shared_clim=True,
+    cmap=None,
+    equal_aspect=None,
+    title=None,
+):
+    """Animate slices with fixed color limits over the selected sweep by default."""
     from matplotlib.animation import FuncAnimation
 
-    view = view or View()
-    selected = _select(data, view)
-    frames = range(0, selected.sizes[view.sweep], step)
-    first = selected.isel({view.sweep: 0})
-    local = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
-    values, grids = _slice_data(first, local)
-    fig, ax = plt.subplots()
-    mesh = ax.pcolormesh(grids[0], grids[1], values, shading="auto", vmin=vmin, vmax=vmax)
-    fig.colorbar(mesh, ax=ax, label=value_label(data))
-    ax.set(xlabel=grids[2], ylabel=grids[3])
+    renderer = _SliceRenderer(
+        data,
+        view or View(),
+        vmin=vmin,
+        vmax=vmax,
+        shared_clim=shared_clim,
+        cmap=cmap,
+        equal_aspect=equal_aspect,
+        title=title,
+    )
+    frames = renderer.indices(step)
+    sweep = renderer.view.sweep
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, ax = plt.subplots()
+        mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
+        colorbar = fig.colorbar(mesh, ax=ax, label=value_label(data))
+        _finish(fig, run_label=shared_run_label(data))
 
     def update(index):
-        item = selected.isel({view.sweep: index})
-        item, item_grids = _slice_data(item, local)
-        mesh.set_array(np.asarray(item).ravel())
-        ax.set_title(f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}")
+        nonlocal mesh
+        mesh.remove()
+        mesh = renderer.draw(ax, renderer.data.isel({sweep: index}))
+        colorbar.update_normal(mesh)
+        ax.set_title(renderer.frame_title(index))
         return (mesh,)
 
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
@@ -476,22 +524,53 @@ def animate_slices(data: xr.DataArray, *, view=None, interval=100, step=1, vmin=
     return animation
 
 
-def save_frames(data: xr.DataArray, directory, *, view=None, step=1, prefix="frame", dpi=110):
-    """Write a sweep as PNG frames without retaining figures."""
-    view = view or View()
-    selected = _select(data, view)
+def save_frames(
+    data: xr.DataArray,
+    directory,
+    *,
+    view=None,
+    step=1,
+    prefix="frame",
+    dpi=110,
+    vmin=None,
+    vmax=None,
+    shared_clim=True,
+    cmap=None,
+    equal_aspect=None,
+    title=None,
+):
+    """Export the configured sweep as PNGs, sharing color limits by default."""
+    renderer = _SliceRenderer(
+        data,
+        view or View(),
+        vmin=vmin,
+        vmax=vmax,
+        shared_clim=shared_clim,
+        cmap=cmap,
+        equal_aspect=equal_aspect,
+        title=title,
+    )
+    frames = renderer.indices(step)
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     paths = []
-    for frame, index in enumerate(range(0, selected.sizes[view.sweep], step)):
-        item = selected.isel({view.sweep: index})
-        local = View(x=view.x, y=view.y, coordinates=view.coordinates, plane=view.plane)
-        result = plot_slice(
-            item, view=local, title=f"{_label(data)} at {view.sweep} = {float(selected[view.sweep][index]):.3e}"
-        )
-        path = directory / f"{prefix}_{frame:04d}.png"
-        result.save(path, dpi=dpi, close=True)
-        paths.append(str(path))
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, ax = plt.subplots()
+        try:
+            sweep = renderer.view.sweep
+            mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
+            colorbar = fig.colorbar(mesh, ax=ax, label=value_label(data))
+            _finish(fig, run_label=shared_run_label(data))
+            for frame, index in enumerate(frames):
+                mesh.remove()
+                mesh = renderer.draw(ax, renderer.data.isel({sweep: index}))
+                colorbar.update_normal(mesh)
+                ax.set_title(renderer.frame_title(index))
+                path = directory / f"{prefix}_{frame:04d}.png"
+                fig.savefig(path, dpi=dpi, bbox_inches="tight")
+                paths.append(str(path))
+        finally:
+            plt.close(fig)
     return paths
 
 
