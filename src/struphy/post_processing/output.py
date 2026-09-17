@@ -15,7 +15,7 @@ import xarray as xr
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.post_processing import store
-from struphy.post_processing.arrays import data_array, save_scalars
+from struphy.post_processing.arrays import BINNED_LABELS, data_array, save_scalars
 from struphy.post_processing.output_accessors import OutputPlots
 
 logger = logging.getLogger("struphy")
@@ -197,7 +197,7 @@ class Output:
 
     def __getitem__(self, name: str) -> xr.DataArray:
         """Any product by name: a scalar (``"en_tot"``), a field (``"em_fields/phi_log"``), a binned
-        distribution or SPH density (``"kinetic_ions/e1_v1_density/f_binned"``) or orbits (``"kinetic_ions"``).
+        distribution or SPH density (``"kinetic_ions/e1_v1_density/f"``) or orbits (``"kinetic_ions"``).
         """
         if name in self.scalars.data_vars:
             return self.scalars[name]
@@ -422,7 +422,7 @@ class Output:
     def __getattr__(self, name: str) -> ProductNamespace:
         """Products of one species or field group, as ``out.<species>.<product>``.
 
-        ``out.kinetic_ions.e1_v1_density.f_binned`` and ``out.kinetic_ions.orbits`` are the
+        ``out.kinetic_ions.e1_v1_density.f`` and ``out.kinetic_ions.orbits`` are the
         products of that species, whatever kind they are; the grouped views :attr:`fields`,
         :attr:`distributions`, :attr:`densities` and :attr:`orbits` show them by kind.
         """
@@ -628,8 +628,9 @@ class Output:
     def info(self) -> str:
         """A table of everything this output holds, printed by ``print(out.info())``.
 
-        Names are listed as they are reached, e.g. ``out.kinetic_ions.e1_v1_density.f_binned``
-        and ``out["kinetic_ions/e1_v1_density/f_binned"]``. Nothing is loaded.
+        Names are listed as they are reached, e.g. ``out.kinetic_ions.e1_v1_density.f``
+        and ``out["kinetic_ions/e1_v1_density/f"]``. Distribution and density products carry
+        their symbol, e.g. ``f`` ($f$) vs. ``delta_f`` ($\\delta f$). Nothing is loaded.
         """
         lines = [f"Output of {self.path_out}", f"  {self.label}", ""]
         scalars = tuple(self.scalars.data_vars)
@@ -646,11 +647,17 @@ class Output:
             ("orbits", self.orbit_catalog),
         ):
             lines += ["", kind]
-            entries = [f"  out.{key.replace('/', '.')}" for key in catalog]
+            entries = [f"  out.{key.replace('/', '.')}{self._quantity_hint(key)}" for key in catalog]
             if kind == "orbits":
                 entries = [f"  out.{key}.orbits" for key in catalog]
             lines += entries or ["  (none)"]
         return "\n".join(lines)
+
+    @staticmethod
+    def _quantity_hint(key: str) -> str:
+        """Static label for a catalog key, e.g. distinguishing ``f`` from ``delta_f``."""
+        label = BINNED_LABELS.get(key.rsplit("/", 1)[-1])
+        return f"  ({label})" if label else ""
 
     def save_scalars(self, path=None, **kwargs) -> str:
         """Write the scalar time series as CSV (or NPZ); ``post_processing/scalars.csv`` by default."""

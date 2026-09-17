@@ -287,6 +287,14 @@ def test_info_lists_products_without_loading(run):
     assert run.field_catalog._cache == {}, "listing must not load arrays"
 
 
+def test_info_hints_distribution_and_density_symbols(run):
+    text = run.info()
+    assert "out.kinetic_ions.e1_v1_density.f  ($f$)" in text
+    assert "out.kinetic_ions.e1_v1_density.delta_f  ($\\delta f$)" in text
+    assert "out.kinetic_ions.view_0.n  ($n$)" in text
+    assert "out.em_fields.E" in text and "($" not in text.split("out.em_fields.E")[1].split("\n")[0]
+
+
 def test_normalized_time_carries_seconds_as_a_coordinate(run):
     energy = run.scalars.en_tot
     assert "units" not in energy.t.attrs, "normalized time has no unit"

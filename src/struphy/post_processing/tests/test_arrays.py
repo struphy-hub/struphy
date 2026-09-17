@@ -69,7 +69,7 @@ def test_vector_field_has_named_component_dimension():
 
 def test_binned_wrapper_keeps_memory_mappable_values():
     values = np.ones((2, 3, 4))
-    data = wrap_binned_data(values, ("e1", "v1"), {"t": [0, 1], "e1": range(3), "v1": range(4)}, name="f_binned")
+    data = wrap_binned_data(values, ("e1", "v1"), {"t": [0, 1], "e1": range(3), "v1": range(4)}, name="f")
     assert data.dims == ("t", "e1", "v1")
     assert data.attrs["label"] == "$f$"
 

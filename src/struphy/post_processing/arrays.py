@@ -28,7 +28,7 @@ DIM_LABELS = {
     "marker": "marker",
     "quantity": "quantity",
 }
-BINNED_LABELS = {"f_binned": "$f$", "delta_f_binned": r"$\delta f$", "n_sph": "$n$"}
+BINNED_LABELS = {"f": "$f$", "delta_f": r"$\delta f$", "n": "$n$"}
 SCALARS_EXCLUDE = ("time",)
 
 
