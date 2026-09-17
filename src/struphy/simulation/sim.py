@@ -758,13 +758,30 @@ class Simulation(SimulationBase):
                     logger.info("")
                     break
 
-                if self.env.sort_step and int(self.time_state["index"][0]) % self.env.sort_step == 0:
+                sort_functions = []
+                particles_to_sort = []
+                particle_objects = [
+                    variable.particles
+                    for species in self.model.particle_species.values()
+                    for variable in species.variables.values()
+                    if isinstance(variable, PICVariable | SPHVariable)
+                ]
+                for particles in particle_objects:
+                    if not particles.sorting_params.do_sort:
+                        continue
+                    # EnvironmentOptions.sort_step > 0 forces a global sorting cadence;
+                    # otherwise, fall back to the per-species SortingParameters frequency.
+                    env_frequency = int(self.env.sort_step)
+                    frequency = env_frequency if env_frequency > 0 else particles.sorting_params.sorting_frequency
+                    if frequency > 0 and int(self.time_state["index"][0]) % frequency == 0:
+                        particles_to_sort.append(particles)
+                        sort_functions.append(particles.do_sort)
+
+                if particles_to_sort:
                     t0 = time.time()
-                    sort_functions = [val.do_sort for val in self.model.pointer.values() if isinstance(val, Particles)]
                     with ProfileManager.profile_region("sort particles", functions=sort_functions):
-                        for key, val in self.model.pointer.items():
-                            if isinstance(val, Particles):
-                                val.do_sort()
+                        for val in particles_to_sort:
+                            val.do_sort()
                     t1 = time.time()
                     message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
                         run_time_now * 60,
