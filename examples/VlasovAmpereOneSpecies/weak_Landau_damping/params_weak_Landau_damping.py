@@ -16,6 +16,8 @@ Vlasov-Ampère system and the accuracy of particle-in-cell methods.
 # Import Struphy API
 # ------------------
 
+from pathlib import Path
+
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -63,7 +65,7 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_data")
+env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data")
 
 # Time stepping
 time_opts = Time(dt = 0.05, Tend = 20.0, split_algo = "LieTrotter")

@@ -4,10 +4,12 @@ Run as ``python pproc_diocotron.py [sim_1 sim_2 ...]`` to compare several runs; 
 more than one folder only the growth-rate comparison is shown.
 """
 
-import os
 import sys
+from pathlib import Path
 
 from struphy import Output
+
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
 
 FIT_QUANTITY = "en_phi"
 FIT_WINDOW = (0.0, 42.0)
@@ -22,7 +24,7 @@ SWEEPS = [
 ]
 
 
-def main(paths):
+def main(paths=(DEFAULT_OUTPUT,)):
     runs = [Output(path).process(physical=True) for path in paths]
     run = runs[0]
 
@@ -50,5 +52,4 @@ def main(paths):
 
 
 if __name__ == "__main__":
-    sim_names = sys.argv[1:] or ["sim_1"]
-    main([os.path.join(os.getcwd(), name) for name in sim_names])
+    main(sys.argv[1:] or [DEFAULT_OUTPUT])

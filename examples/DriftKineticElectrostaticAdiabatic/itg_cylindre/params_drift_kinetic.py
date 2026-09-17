@@ -26,6 +26,8 @@ import cunumpy as xp
 
 from struphy.propagators import implicit_diffusion
 
+from pathlib import Path
+
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -78,7 +80,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", restart=False)
+env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_1", restart=False)
 
 # Time stepping
 time_opts = Time(dt=5.0, Tend=500.0, split_algo="LieTrotter")

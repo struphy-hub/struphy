@@ -1,8 +1,11 @@
 import argparse
+from pathlib import Path
 
 import cunumpy as xp
 
 from struphy import Output
+
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_data"
 
 
 def E_exact(t, eps=0.001):
@@ -14,7 +17,7 @@ def E_exact(t, eps=0.001):
     return (4 * eps * r * xp.exp(omega_i * t) * xp.cos(omega_r * t - phi)) ** 2 * xp.pi
 
 
-def main(path_out="sim_data", amplitude=0.001):
+def main(path_out=DEFAULT_OUTPUT, amplitude=0.001):
     run = Output(path_out)
 
     # electric field energy against the analytical damping
@@ -33,7 +36,7 @@ def main(path_out="sim_data", amplitude=0.001):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
-    parser.add_argument("path_out", nargs="?", default="sim_data", help="Simulation output folder")
+    parser.add_argument("path_out", nargs="?", default=DEFAULT_OUTPUT, help="Simulation output folder (default: sim_data beside this script)")
     parser.add_argument("--amplitude", type=float, default=0.001, help="Initial perturbation amplitude for the analytical curve")
     args = parser.parse_args()
     main(args.path_out, amplitude=args.amplitude)

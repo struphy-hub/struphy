@@ -1,7 +1,9 @@
-import os
 import sys
+from pathlib import Path
 
 from struphy import Output
+
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
 
 # quantity whose exponential growth rate is fitted
 FIT_QUANTITY = "phi_integral"
@@ -18,7 +20,7 @@ SWEEPS = [
 ]
 
 
-def main(path_out):
+def main(path_out=DEFAULT_OUTPUT):
     run = Output(path_out).process(physical=True)
 
     # growth rate of the electrostatic potential
@@ -39,5 +41,4 @@ def main(path_out):
 
 
 if __name__ == "__main__":
-    sim_name = sys.argv[1] if len(sys.argv) > 1 else "sim_1"
-    main(os.path.join(os.getcwd(), sim_name))
+    main(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_OUTPUT)

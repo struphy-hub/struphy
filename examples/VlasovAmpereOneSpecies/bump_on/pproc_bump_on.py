@@ -1,11 +1,14 @@
 import argparse
+from pathlib import Path
 
 from matplotlib import pyplot as plt
 
 from struphy import Output
 
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_data"
 
-def main(path_out="sim_data"):
+
+def main(path_out=DEFAULT_OUTPUT):
     run = Output(path_out)
 
     # initial velocity distribution
@@ -23,6 +26,6 @@ def main(path_out="sim_data"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
-    parser.add_argument("path_out", nargs="?", default="sim_data", help="Simulation output folder")
+    parser.add_argument("path_out", nargs="?", default=DEFAULT_OUTPUT, help="Simulation output folder (default: sim_data beside this script)")
     args = parser.parse_args()
     main(args.path_out)

@@ -26,6 +26,8 @@ import logging
 from struphy import set_logging_level
 set_logging_level(logging.INFO)
 
+from pathlib import Path
+
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -76,7 +78,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", restart=False)
+env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_1", restart=False)
 
 # Time stepping
 time_opts = Time(dt=0.001, Tend=0.01, split_algo="LieTrotter")

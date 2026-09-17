@@ -17,6 +17,8 @@ and validates the long-term stability and accuracy of the Vlasov-Ampère discret
 # Import Struphy API
 # ------------------
 
+from pathlib import Path
+
 from struphy import (
     BaseUnits,
     DerhamOptions,
@@ -64,7 +66,7 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_data")
+env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data")
 
 # Time stepping
 time_opts = Time(dt = 0.05, Tend = 75.0, split_algo = "LieTrotter")

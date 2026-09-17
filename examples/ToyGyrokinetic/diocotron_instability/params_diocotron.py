@@ -32,6 +32,8 @@ set_logging_level(logging.INFO)
 import cunumpy as xp
 
 # For particles:
+from pathlib import Path
+
 from struphy import (
     BaseUnits,
     BinningPlot,
@@ -74,7 +76,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", restart=False)
+env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_1", restart=False)
 
 # Time stepping
 time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
