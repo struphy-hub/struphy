@@ -2,10 +2,12 @@
 
 import os
 
+import h5py
 import pytest
 
 from struphy import BaseUnits, EnvironmentOptions, Output, Simulation, Time, open_output
 from struphy.models import Maxwell, VlasovAmpereOneSpecies
+from struphy.post_processing.post_processing_tools import PostProcessor, is_processed
 
 
 def make_sim(tmp_path, **kwargs):
@@ -71,6 +73,47 @@ def test_from_output_never_executes_the_parameter_file(tmp_path):
 def test_from_output_requires_a_configuration(tmp_path):
     with pytest.raises(FileNotFoundError, match="config.json"):
         Simulation.from_output(tmp_path)
+
+
+@pytest.mark.parametrize("metadata_only", [False, True])
+def test_processor_from_moved_output(tmp_path, metadata_only):
+    sim = make_sim(tmp_path, grid=None, derham_opts=None, time_opts=Time(dt=0.123))
+    os.makedirs(os.path.join(sim.env.path_out, "data"))
+    if metadata_only:
+        sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"), mpi_ranks=3)
+    else:
+        sim._save_config()
+        with open(os.path.join(sim.env.path_out, "meta.yml"), "w") as stream:
+            stream.write("MPI processes: 3\n")
+    with h5py.File(os.path.join(sim.env.path_out, "data", "data_proc0.hdf5"), "w") as data:
+        data.create_dataset("time/value", data=[0.0, 0.123])
+    moved = tmp_path / "moved"
+    os.rename(sim.env.path_out, moved)
+    products = moved / "post_processing"
+    products.mkdir()
+    sentinel = products / "existing.txt"
+    sentinel.write_text("keep until processing")
+
+    processor = PostProcessor.from_output(moved)
+
+    assert processor.path_out == str(moved)
+    assert processor.model.to_dict() == sim.model.to_dict()
+    assert processor.domain == sim.domain
+    assert processor.comm_size == 3
+    assert list(processor.range_ranks) == [0, 1, 2]
+    assert sentinel.read_text() == "keep until processing"
+    assert open_output(moved).sim.time_opts.dt == 0.123
+    assert processor.process(create_vtk=False)
+    assert is_processed(moved)
+
+
+def test_from_output_prefers_config_over_metadata(tmp_path):
+    sim = make_sim(tmp_path, time_opts=Time(dt=0.123))
+    os.makedirs(sim.env.path_out)
+    sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"))
+    sim.time_opts = Time(dt=0.456)
+    sim._save_config()
+    assert Simulation.from_output(sim.env.path_out).time_opts.dt == 0.456
 
 
 def test_deprecated_pproc_delegates_to_the_output(tmp_path, monkeypatch):

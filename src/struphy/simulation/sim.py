@@ -1661,8 +1661,8 @@ class Simulation(SimulationBase):
         non-reconstructible facts (MPI layout, live particle counts, caller-supplied
         timestamps, ...), serialized to a JSON string.
 
-        This is metadata for humans/logging, not a serialization meant to be fed back
-        into :meth:`from_dict` — use :meth:`to_dict`/:meth:`export` for that.
+        The configuration snapshot can also be restored by :meth:`from_output`;
+        run-specific facts do not restore live simulation state.
 
         Parameters
         ----------
@@ -1708,8 +1708,8 @@ class Simulation(SimulationBase):
             time_opts=Time.from_dict(dct["time_opts"]),
             domain=domains.Cuboid.from_dict(dct["domain"]),
             equil=FluidEquilibrium.from_dict(dct["equil"]),
-            grid=grids.TensorProductGrid.from_dict(dct["grid"]),
-            derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
+            grid=grids.TensorProductGrid.from_dict(dct["grid"]) if dct["grid"] is not None else None,
+            derham_opts=DerhamOptions.from_dict(dct["derham_opts"]) if dct["derham_opts"] is not None else None,
             profiling_opts=ProfilingOptions(
                 **{
                     key: value
@@ -1752,7 +1752,8 @@ class Simulation(SimulationBase):
     def from_output(cls, path_out: str) -> "Simulation":
         """Restore the simulation that wrote the output folder ``path_out``.
 
-        The configuration is read from the ``config.json`` written by :meth:`run`; a copied
+        The configuration is read from the ``config.json`` written by :meth:`run`,
+        falling back to ``run_metadata.json`` if absent; a copied
         parameter file is never executed. ``config.json`` holds the options objects and the
         arguments of the model (and thus its units), which is all that post-processing and
         plotting need, but not configuration applied to the model after construction, such as
@@ -1762,8 +1763,10 @@ class Simulation(SimulationBase):
         path_out = os.path.abspath(path_out)
         config_path = os.path.join(path_out, "config.json")
         if not os.path.exists(config_path):
+            config_path = os.path.join(path_out, "run_metadata.json")
+        if not os.path.exists(config_path):
             raise FileNotFoundError(
-                f"{config_path} does not exist; is {path_out} a Struphy output folder? Outputs of older "
+                f"Neither config.json nor run_metadata.json exists in {path_out}; is it a Struphy output folder? Outputs of older "
                 "versions can get one with sim.export(os.path.join(path_out, 'config.json')) from their parameter file."
             )
         sim = cls.from_file(config_path)

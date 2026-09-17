@@ -499,6 +499,21 @@ After initial conditions are set, launch the run:
 11. Post-processing and visualization
 -------------------------------------
 
+A serial postprocessor can be reconstructed from a saved output folder, including
+one moved to another location:
+
+.. code-block:: python
+
+    from struphy.post_processing.post_processing_tools import PostProcessor
+
+    processor = PostProcessor.from_output("./runs/my_run")
+    processor.process(physical=True)
+
+This reads ``config.json``, falling back to ``run_metadata.json`` when needed.
+The original MPI rank count comes from ``run_metadata.json`` or legacy ``meta.yml``.
+Under MPI, call this factory on one rank only; use ``Output.process`` for automatic
+rank handling.
+
 The output of a simulation is a :class:`~struphy.Output`. ``sim.run()`` returns it,
 and it stays available as ``sim.output``:
 

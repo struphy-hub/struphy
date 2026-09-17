@@ -39,7 +39,7 @@ MANIFEST_SCHEMA_VERSION = 1
 def source_fingerprint(path_out: str) -> str:
     """Fingerprint the raw run files that determine post-processing products."""
     digest = hashlib.sha256()
-    for name in ("config.json", "meta.yml", "data/data_proc0.hdf5"):
+    for name in ("config.json", "run_metadata.json", "meta.yml", "data/data_proc0.hdf5"):
         path = os.path.join(path_out, name)
         if not os.path.exists(path):
             continue
@@ -83,8 +83,8 @@ def is_processed(path_out: str, options: dict | None = None) -> bool:
 class PostProcessor:
     """Post-process the raw output of a finished Struphy simulation.
 
-    Users do not call this directly; use :meth:`struphy.Output.process`, which also decides
-    on which MPI ranks processing runs.
+    Use :meth:`from_output` to reconstruct a serial processor from a saved run.
+    For automatic MPI rank handling, use :meth:`struphy.Output.process`.
 
     Parameters
     ----------
@@ -134,10 +134,14 @@ class PostProcessor:
             else:
                 self.derham = Derham(sim.grid, sim.derham_opts, comm=None, domain=sim.domain)
             self.comm = MockComm()
-            # get number of MPI ranks used in the simulation from meta.yml
-            with open(os.path.join(self.path_out, "meta.yml"), "r") as f:
-                meta = yaml.load(f, Loader=yaml.FullLoader)
-            self.comm_size = meta["MPI processes"]
+            # The saved rank count describes the raw files, not the current communicator.
+            metadata_path = os.path.join(self.path_out, "run_metadata.json")
+            if os.path.isfile(metadata_path):
+                with open(metadata_path) as f:
+                    self.comm_size = json.load(f)["mpi_ranks"]
+            else:
+                with open(os.path.join(self.path_out, "meta.yml")) as f:
+                    self.comm_size = yaml.safe_load(f)["MPI processes"]
             self.rank = 0
             self.range_ranks = range(int(self.comm_size))
 
@@ -146,6 +150,19 @@ class PostProcessor:
         if self.rank == 0:
             os.makedirs(self.path_pproc, exist_ok=True)
         self.comm.Barrier()
+
+    @classmethod
+    def from_output(cls, path_out: str | os.PathLike) -> "PostProcessor":
+        """Create a serial processor from a saved output folder.
+
+        Reads ``config.json`` (or ``run_metadata.json`` when absent), without
+        executing the parameter file or allocating a simulation. The folder may
+        have been moved. Existing post-processing products are preserved until
+        :meth:`process` is called. Under MPI, call this on one rank only.
+        """
+        from struphy.simulation.sim import Simulation
+
+        return cls(Simulation.from_output(path_out))
 
     def _write_manifest(self, status, *, options=None, error=None):
         if self.rank != 0:
