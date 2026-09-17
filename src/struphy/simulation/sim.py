@@ -633,7 +633,7 @@ class Simulation(SimulationBase):
 
         self._remove_existing_output_files()
         self._setup_folders()
-        self._save_config()
+        self._copy_parameter_file()
         self.Barrier()
         self._output = None
 
@@ -1162,13 +1162,11 @@ class Simulation(SimulationBase):
                     if n < 10:  # print only ten statements in case of many processes
                         logger.info("Removed existing file " + file)
 
-    def _save_config(self):
-        """Save the configuration as ``config.json`` to the output folder, which is what
-        :meth:`from_output` reads. A parameter file is copied alongside for reference."""
+    def _copy_parameter_file(self):
+        """Copy the parameter file to the output folder for reference."""
         if self.rank != 0:
             return
 
-        self.export(os.path.join(self.env.path_out, "config.json"))
         if self.params_path is not None:
             try:
                 shutil.copy2(
@@ -1752,22 +1750,22 @@ class Simulation(SimulationBase):
     def from_output(cls, path_out: str) -> "Simulation":
         """Restore the simulation that wrote the output folder ``path_out``.
 
-        The configuration is read from the ``config.json`` written by :meth:`run`,
-        falling back to ``run_metadata.json`` if absent; a copied
-        parameter file is never executed. ``config.json`` holds the options objects and the
+        The configuration is read from the ``run_metadata.json`` written by :meth:`run`,
+        falling back to legacy ``config.json`` if absent; a copied
+        parameter file is never executed. The metadata holds the options objects and the
         arguments of the model (and thus its units), which is all that post-processing and
         plotting need, but not configuration applied to the model after construction, such as
         markers, backgrounds, perturbations and propagator options.
         Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
         """
         path_out = os.path.abspath(path_out)
-        config_path = os.path.join(path_out, "config.json")
+        config_path = os.path.join(path_out, "run_metadata.json")
         if not os.path.exists(config_path):
-            config_path = os.path.join(path_out, "run_metadata.json")
+            config_path = os.path.join(path_out, "config.json")
         if not os.path.exists(config_path):
             raise FileNotFoundError(
                 f"Neither config.json nor run_metadata.json exists in {path_out}; is it a Struphy output folder? Outputs of older "
-                "versions can get one with sim.export(os.path.join(path_out, 'config.json')) from their parameter file."
+                "versions can get one with sim.to_run_metadata(os.path.join(path_out, 'run_metadata.json')) from their parameter file."
             )
         sim = cls.from_file(config_path)
         sim.env = dataclasses.replace(

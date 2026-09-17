@@ -155,7 +155,7 @@ class PostProcessor:
     def from_output(cls, path_out: str | os.PathLike) -> "PostProcessor":
         """Create a serial processor from a saved output folder.
 
-        Reads ``config.json`` (or ``run_metadata.json`` when absent), without
+        Reads ``run_metadata.json`` (or legacy ``config.json`` when absent), without
         executing the parameter file or allocating a simulation. The folder may
         have been moved. Existing post-processing products are preserved until
         :meth:`process` is called. Under MPI, call this on one rank only.

@@ -1,5 +1,6 @@
 """Tests for the link between a Simulation and its output."""
 
+import json
 import os
 
 import h5py
@@ -33,11 +34,11 @@ def test_output_is_the_run_of_the_current_output_folder(tmp_path):
     assert sim.output.path_out.name == "sim_2"
 
 
-def test_from_output_restores_config_json_and_follows_a_moved_folder(tmp_path):
+def test_from_output_restores_metadata_and_follows_a_moved_folder(tmp_path):
     model = VlasovAmpereOneSpecies(base_units=BaseUnits(x=2.0, B=3.0, n=4.0), mass_number=4.0, with_B0=False)
     sim = Simulation(model=model, env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"))
     os.makedirs(os.path.join(sim.env.path_out, "data"))
-    sim._save_config()
+    sim._write_run_metadata()
 
     moved = tmp_path / "moved"
     os.rename(sim.env.path_out, moved)
@@ -52,19 +53,24 @@ def test_from_output_restores_config_json_and_follows_a_moved_folder(tmp_path):
     assert sorted(os.listdir(tmp_path)) == ["moved"]
 
 
-def test_run_writes_config_json_and_copies_the_parameter_file(tmp_path):
+def test_run_writes_only_metadata_and_copies_the_parameter_file(tmp_path):
     params = tmp_path / "params_maxwell.py"
     params.write_text("# a parameter file\n")
     sim = make_sim(tmp_path, params_path=str(params))
     os.makedirs(sim.env.path_out)
-    sim._save_config()
-    assert sorted(os.listdir(sim.env.path_out)) == ["config.json", "parameters.py"]
+    sim._write_run_metadata()
+    sim._copy_parameter_file()
+    assert sorted(os.listdir(sim.env.path_out)) == ["parameters.py", "run_metadata.json"]
+    metadata = json.loads((tmp_path / "sim_1" / "run_metadata.json").read_text())
+    assert metadata["model"] == sim.model.to_dict()
+    assert metadata["mpi_ranks"] == sim.comm_size
+    assert metadata["started_at_epoch_s"] == sim.start_time
 
 
 def test_from_output_never_executes_the_parameter_file(tmp_path):
     sim = make_sim(tmp_path, time_opts=Time(dt=0.123))
     os.makedirs(os.path.join(sim.env.path_out, "data"))
-    sim._save_config()
+    sim._write_run_metadata()
     with open(os.path.join(sim.env.path_out, "parameters.py"), "w") as stream:
         stream.write("raise RuntimeError('the parameter file was executed')\n")
     assert Simulation.from_output(sim.env.path_out).time_opts.dt == 0.123
@@ -82,7 +88,7 @@ def test_processor_from_moved_output(tmp_path, metadata_only):
     if metadata_only:
         sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"), mpi_ranks=3)
     else:
-        sim._save_config()
+        sim.export(os.path.join(sim.env.path_out, "config.json"))
         with open(os.path.join(sim.env.path_out, "meta.yml"), "w") as stream:
             stream.write("MPI processes: 3\n")
     with h5py.File(os.path.join(sim.env.path_out, "data", "data_proc0.hdf5"), "w") as data:
@@ -107,12 +113,12 @@ def test_processor_from_moved_output(tmp_path, metadata_only):
     assert is_processed(moved)
 
 
-def test_from_output_prefers_config_over_metadata(tmp_path):
+def test_from_output_prefers_metadata_over_legacy_config(tmp_path):
     sim = make_sim(tmp_path, time_opts=Time(dt=0.123))
     os.makedirs(sim.env.path_out)
-    sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"))
+    sim.export(os.path.join(sim.env.path_out, "config.json"))
     sim.time_opts = Time(dt=0.456)
-    sim._save_config()
+    sim._write_run_metadata()
     assert Simulation.from_output(sim.env.path_out).time_opts.dt == 0.456
 
 

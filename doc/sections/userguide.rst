@@ -509,7 +509,7 @@ one moved to another location:
     processor = PostProcessor.from_output("./runs/my_run")
     processor.process(physical=True)
 
-This reads ``config.json``, falling back to ``run_metadata.json`` when needed.
+This reads ``run_metadata.json``, falling back to legacy ``config.json`` when needed.
 The original MPI rank count comes from ``run_metadata.json`` or legacy ``meta.yml``.
 Under MPI, call this factory on one rank only; use ``Output.process`` for automatic
 rank handling.
@@ -535,8 +535,8 @@ along as the coordinate ``t_seconds``. Pass ``time_units="physical"`` to
 
 In a separate process, for example a plotting script on a laptop after a cluster
 run, open the output folder instead. Nothing is allocated and no MPI is needed;
-``out.sim`` is restored from the ``config.json`` that ``sim.run()`` writes to the folder; a
-copied parameter file is never executed. ``config.json`` holds the options and the model
+``out.sim`` is restored from the ``run_metadata.json`` that ``sim.run()`` writes to the folder; a
+copied parameter file is never executed. The metadata holds the options and the model
 arguments (and thus the units), which is all that post-processing and plotting need, but
 not configuration applied to the model afterwards, such as backgrounds or perturbations:
 
