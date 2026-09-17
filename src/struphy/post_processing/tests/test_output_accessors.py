@@ -143,14 +143,16 @@ def test_products_of_one_species_sit_on_the_output(run):
 
 def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
     products = run.kinetic_ions
-    assert tuple(products.catalog) == ("e1_v1_density/f_binned", "orbits", "view_0/n_sph")
-    assert "e1_v1_density/f_binned" in products.catalog
+    assert tuple(sorted(products.catalog)) == (
+        "e1_v1_density/delta_f", "e1_v1_density/f", "orbits", "view_0/n"
+    )
+    assert "e1_v1_density/f" in products.catalog
     assert "em_fields/E" not in products.catalog
-    assert "e1_v1_density/f_binned" in repr(products)
+    assert "e1_v1_density/f" in repr(products)
     assert run.distribution_catalog._cache == {}
-    assert products["e1_v1_density/f_binned"].dims == ("t", "e1", "v1")
-    assert run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f_binned"] is products.catalog[
-        "e1_v1_density/f_binned"
+    assert products["e1_v1_density/f"].dims == ("t", "e1", "v1")
+    assert run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f"] is products.catalog[
+        "e1_v1_density/f"
     ]
 
 
