@@ -35,7 +35,9 @@ def main(path_out=DEFAULT_OUTPUT):
 
     for name, component, plane in SWEEPS:
         selection = {} if component is None else {"component": component}
-        run[name].struphy.plot.viewer(x="e1", y="e2", coords="physical", plane=plane, **selection).show()
+        run[name].struphy.plot.viewer(
+            x="e1", y="e2", coords="physical", plane=plane, **selection
+        ).show()
 
     run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=1000).show()
 

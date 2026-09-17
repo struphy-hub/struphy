@@ -23,45 +23,44 @@ DOI: 10.1140/epjd/e2014-50180-9
 
 
 import logging
+
 from struphy import set_logging_level
+
 set_logging_level(logging.INFO)
 
 from pathlib import Path
 
-from struphy import (
-    BaseUnits,
-    DerhamOptions,
-    EnvironmentOptions,
-    FieldsBackground,
-    Simulation,
-    Time,
-    domains,
-    equils,
-    grids,
-    perturbations,
-)
+import cunumpy as xp
 
 # For particles:
 from struphy import (
+    BaseUnits,
     BinningPlot,
     BoundaryParameters,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
     KernelDensityPlot,
     LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
     SavingParameters,
+    Simulation,
+    SortingParameters,
+    Time,
+    WeightsParameters,
+    domains,
+    equils,
+    grids,
     maxwellians,
+    perturbations,
 )
-
-import cunumpy as xp
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models import DriftKineticElectrostaticAdiabatic
+from struphy.pic.accumulation.filter import FilterParameters
 
 # ---------------------
 # Instance of the model
 # ---------------------
 
-from struphy.linear_algebra.solver import SolverParameters
-from struphy.models import DriftKineticElectrostaticAdiabatic
-from struphy.pic.accumulation.filter import FilterParameters
 
 base_units = BaseUnits(kBT=0.1916) # provides the correct value for epsilon = 1.4142e-3 = 0.36/(180*sqrt(2)) from the paper
 model = DriftKineticElectrostaticAdiabatic(
@@ -231,6 +230,7 @@ model.kinetic_ions.var.add_background(background)
 #background.plot_density_profile("e1", "v2", domain=domain, use_mu=True, equil=equil)
 
 from struphy.initial.base import GenericPerturbation
+
 perturbation = GenericPerturbation(pert_func, given_in_basis="0")
 init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation), vth_para=(vth_init, None), vth_perp=(vth_init, None),)# B0=equil.absB0)
 model.kinetic_ions.var.add_initial_condition(init)

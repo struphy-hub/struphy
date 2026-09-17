@@ -42,7 +42,9 @@ def main(path_out=DEFAULT_OUTPUT):
 
     def field_energy(field):
         """Energy of each component over space, as array of shape (component, t)."""
-        return (field**2).sum(spatial).transpose("component", "t").values * unit_volume / 2
+        return (
+            (field**2).sum(spatial).transpose("component", "t").values * unit_volume / 2
+        )
 
     electric_energy = field_energy(e_field)
     magnetic_energy = field_energy(b_field)
@@ -95,9 +97,14 @@ def main(path_out=DEFAULT_OUTPUT):
     # Binning distribution evolution
     # ------------------
     distributions = run.distributions.kinetic_ions
-    for bin_name, x, y in (("e1_v1_density", "e1", "v1"), ("v1_v2_density", "v1", "v2")):
+    for bin_name, x, y in (
+        ("e1_v1_density", "e1", "v1"),
+        ("v1_v2_density", "v1", "v2"),
+    ):
         for quantity in ("f", "delta_f"):
-            getattr(getattr(distributions, bin_name), quantity).struphy.plot.panels(x=x, y=y, nrows=5, ncols=4).show()
+            getattr(getattr(distributions, bin_name), quantity).struphy.plot.panels(
+                x=x, y=y, nrows=5, ncols=4
+            ).show()
 
     # ------------------
     # EM field at selected times
@@ -106,7 +113,9 @@ def main(path_out=DEFAULT_OUTPUT):
         electric_field = e_field.sel(t=time_step, method="nearest").isel(e2=0, e3=0)
         magnetic_field = b_field.sel(t=time_step, method="nearest").isel(e2=0, e3=0)
 
-        fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(8, 6), sharex=True, sharey=True)
+        fig, axs = plt.subplots(
+            nrows=2, ncols=3, figsize=(8, 6), sharex=True, sharey=True
+        )
         for i in range(n_dim):
             axs[0, i].plot(electric_field.e1, electric_field.isel(component=i))
             axs[0, i].set_title(rf"$E_{i + 1}$")
@@ -131,7 +140,9 @@ def main(path_out=DEFAULT_OUTPUT):
     # Current density evolution
     # ------------------
     def current_1D(time_step: float):
-        fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(9, 9), sharey=True, sharex=True)
+        fig, ax = plt.subplots(
+            nrows=3, ncols=3, figsize=(9, 9), sharey=True, sharex=True
+        )
         for i in range(3):
             for j in range(3):
                 current = getattr(distributions, f"e{i + 1}_current_{j + 1}").f
@@ -155,6 +166,11 @@ def main(path_out=DEFAULT_OUTPUT):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
-    parser.add_argument("path_out", nargs="?", default=DEFAULT_OUTPUT, help="Simulation output folder (default: sim_data beside this script)")
+    parser.add_argument(
+        "path_out",
+        nargs="?",
+        default=DEFAULT_OUTPUT,
+        help="Simulation output folder (default: sim_data beside this script)",
+    )
     args = parser.parse_args()
     main(args.path_out)

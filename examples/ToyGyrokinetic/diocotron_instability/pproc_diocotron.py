@@ -37,7 +37,9 @@ def main(paths=(DEFAULT_OUTPUT,)):
     ).show()
 
     for each, result in zip(runs, plot.fit_results):
-        print(f"{each.path_out.name}: growth rate = {None if result is None else result.rate}")
+        print(
+            f"{each.path_out.name}: growth rate = {None if result is None else result.rate}"
+        )
 
     if len(runs) > 1:
         return
@@ -46,7 +48,9 @@ def main(paths=(DEFAULT_OUTPUT,)):
         run.plot.equilibrium()
 
     for name in SWEEPS:
-        run[name].struphy.plot.viewer(x="e1", y="e2", coords="physical", plane="XY").show()
+        run[name].struphy.plot.viewer(
+            x="e1", y="e2", coords="physical", plane="XY"
+        ).show()
 
     run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=1000).show()
 

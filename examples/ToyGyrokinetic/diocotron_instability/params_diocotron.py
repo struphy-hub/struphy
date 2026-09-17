@@ -29,10 +29,10 @@ from struphy import set_logging_level
 
 set_logging_level(logging.INFO)
 
-import cunumpy as xp
-
 # For particles:
 from pathlib import Path
+
+import cunumpy as xp
 
 from struphy import (
     BaseUnits,

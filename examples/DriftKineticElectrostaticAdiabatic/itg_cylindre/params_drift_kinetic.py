@@ -15,49 +15,51 @@ Users can modify this file to set up their own simulations with different parame
 """
 
 import logging
+
 from struphy import set_logging_level
+
 set_logging_level(logging.INFO)
 
+from pathlib import Path
+
 import cunumpy as xp
+
+# For particles:
+from struphy import (
+    BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
+    KernelDensityPlot,
+    LoadingParameters,
+    SavingParameters,
+    Simulation,
+    SortingParameters,
+    Time,
+    WeightsParameters,
+    domains,
+    equils,
+    grids,
+    maxwellians,
+    perturbations,
+)
+from struphy.models import DriftKineticElectrostaticAdiabatic
+from struphy.propagators import implicit_diffusion
 
 # ------------------
 # Import Struphy API
 # ------------------
 
-from struphy.propagators import implicit_diffusion
 
-from pathlib import Path
 
-from struphy import (
-    BaseUnits,
-    DerhamOptions,
-    EnvironmentOptions,
-    FieldsBackground,
-    Simulation,
-    Time,
-    domains,
-    equils,
-    grids,
-    perturbations,
-)
 
-# For particles:
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    WeightsParameters,
-    maxwellians,
-    SortingParameters,
-    SavingParameters,
-)
 
 # ---------------------
 # Instance of the model
 # ---------------------
 
-from struphy.models import DriftKineticElectrostaticAdiabatic
 
 restart = False
 
@@ -102,6 +104,7 @@ derham_opts = DerhamOptions(degree=(3,3,3), bcs=(("dirichlet", "dirichlet"), Non
 
 # Simulation object
 from feectools.ddm.mpi import mpi as MPI
+
 rank = MPI.COMM_WORLD.Get_rank()
 sim = Simulation(
     model=model,
@@ -183,6 +186,7 @@ C_n0 = (a2-a1) / xp.sum(xp.exp(-kappa_n0*delta_r_n0*xp.tanh((xp.linspace(a1,a2,N
 def n0(r):
     return C_n0 * xp.exp(-kappa_n0*delta_r_n0*xp.tanh((r-rp)/delta_r_n0))
 from struphy.initial.base import GenericPerturbation
+
 
 def n_init(*etas):
     if len(etas)==1:

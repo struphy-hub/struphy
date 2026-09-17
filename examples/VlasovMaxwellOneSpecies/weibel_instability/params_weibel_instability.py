@@ -18,35 +18,32 @@ and create growth in electric field.
 # Import Struphy API
 # ------------------
 
+import logging
 from pathlib import Path
-
-from struphy import (
-    BaseUnits,
-    DerhamOptions,
-    EnvironmentOptions,
-    FieldsBackground,
-    Simulation,
-    Time,
-    domains,
-    equils,
-    grids,
-    perturbations,
-)
 
 # For particles:
 from struphy import (
+    BaseUnits,
     BinningPlot,
     BoundaryParameters,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
     KernelDensityPlot,
     LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
     SavingParameters,
+    Simulation,
+    SortingParameters,
+    Time,
+    WeightsParameters,
+    domains,
+    equils,
+    grids,
     maxwellians,
+    perturbations,
+    set_logging_level,
 )
 
-import logging
-from struphy import set_logging_level
 set_logging_level(logging.WARNING)
 
 # ---------------------
@@ -69,6 +66,7 @@ model = VlasovMaxwellOneSpecies(base_units=base_units,
 # ---------------------
 
 import cunumpy as xp
+
 k = 1.25
 B_pert_amp = -1e-4
 
