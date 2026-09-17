@@ -1,10 +1,12 @@
+import argparse
+
 import cunumpy as xp
-import params_weak_Landau_damping as params
+
+from struphy import open_output
 
 
-def E_exact(t):
+def E_exact(t, eps=0.001):
     """Analytical electric energy of weak Landau damping, t in normalized units."""
-    eps = params.perturbation.amps[0]
     r = 0.3677
     omega_r = 1.4156
     omega_i = -0.1533
@@ -12,13 +14,13 @@ def E_exact(t):
     return (4 * eps * r * xp.exp(omega_i * t) * xp.cos(omega_r * t - phi)) ** 2 * xp.pi
 
 
-def main():
-    run = params.sim.output
+def main(path_out="sim_data", amplitude=0.001):
+    run = open_output(path_out)
 
     # electric field energy against the analytical damping
     energy = run.scalars.electric_energy.copy()
     energy.attrs["label"] = "numerical"
-    analytical = energy.copy(data=E_exact(energy.t.values))  # t is in Struphy units
+    analytical = energy.copy(data=E_exact(energy.t.values, eps=amplitude))  # t is in Struphy units
     analytical.attrs["label"] = "analytical"
     energy.struphy.plot.timeseries(analytical, title="Electric energy").show()
 
@@ -30,4 +32,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
+    parser.add_argument("path_out", nargs="?", default="sim_data", help="Simulation output folder")
+    parser.add_argument("--amplitude", type=float, default=0.001, help="Initial perturbation amplitude for the analytical curve")
+    args = parser.parse_args()
+    main(args.path_out, amplitude=args.amplitude)

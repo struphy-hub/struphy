@@ -1,8 +1,11 @@
-import params_two_stream as params
+import argparse
 
 
-def main():
-    run = params.sim.output
+from struphy import open_output
+
+
+def main(path_out="sim_data"):
+    run = open_output(path_out)
 
     # table and figures of every scalar: post_processing/report/
     run.save_report()
@@ -22,4 +25,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
+    parser.add_argument("path_out", nargs="?", default="sim_data", help="Simulation output folder")
+    args = parser.parse_args()
+    main(args.path_out)

@@ -1,8 +1,11 @@
-import params_strong_Landau_damping as params
+import argparse
 
 
-def main():
-    run = params.sim.output
+from struphy import open_output
+
+
+def main(path_out="sim_data"):
+    run = open_output(path_out)
 
     # electric field energy
     run.scalars.electric_energy.struphy.plot.timeseries(title="Electric energy").show()
@@ -12,4 +15,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
+    parser.add_argument("path_out", nargs="?", default="sim_data", help="Simulation output folder")
+    args = parser.parse_args()
+    main(args.path_out)

@@ -1,20 +1,21 @@
+import argparse
+
 import cunumpy as xp
-import params_weibel_instability as params
 from matplotlib import pyplot as plt
 
+from struphy import open_output
 
-def main():
-    run = params.sim.output.with_time_units("normalized")
+
+def main(path_out="sim_data"):
+    run = open_output(path_out, time_units="normalized")
     time = run.time
-    Tend = params.time_opts.Tend
-    algo = params.time_opts.split_algo
-    ppc = params.loading_params.ppc
-    control_variate = params.weights_params.control_variate
+    Tend = run.sim.time_opts.Tend
+    algo = run.sim.time_opts.split_algo
 
     # ------------------
     # Gauss law violation
     # ------------------
-    if params.model.measure_gauss_law:
+    if run.sim.model.measure_gauss_law:
         gauss_error = run.scalars.gauss_error
 
         fig, ax = plt.subplots(1, figsize=(10, 6))
@@ -83,7 +84,7 @@ def main():
     ax.set_yscale("log")
     ax.minorticks_on()
 
-    fig.suptitle(f"VlasovMaxwellOneSpecies simulation:\n {control_variate=}, {ppc=}, {algo=}")
+    fig.suptitle(f"VlasovMaxwellOneSpecies simulation:\n {algo=}")
     plt.tight_layout()
     plt.show()
 
@@ -116,7 +117,7 @@ def main():
         axs[0, 0].set_ylim(-5e-3, 5e-3)
         axs[1, 0].set_ylim(-5e-3, 5e-3)
 
-        fig.suptitle(f"EM-field at time step: {float(electric_field.t):.2f}, {ppc=},{control_variate=}")
+        fig.suptitle(f"EM-field at time step: {float(electric_field.t):.2f}")
         plt.show()
         plt.close()
 
@@ -150,4 +151,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
+    parser.add_argument("path_out", nargs="?", default="sim_data", help="Simulation output folder")
+    args = parser.parse_args()
+    main(args.path_out)

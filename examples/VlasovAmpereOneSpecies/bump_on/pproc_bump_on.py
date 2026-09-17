@@ -1,9 +1,12 @@
-import params_bump_on as params
+import argparse
+
 from matplotlib import pyplot as plt
 
+from struphy import open_output
 
-def main():
-    run = params.sim.output
+
+def main(path_out="sim_data"):
+    run = open_output(path_out)
 
     # initial velocity distribution
     initial = run["kinetic_ions/v1_density/f"].isel(t=0)
@@ -19,4 +22,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
+    parser.add_argument("path_out", nargs="?", default="sim_data", help="Simulation output folder")
+    args = parser.parse_args()
+    main(args.path_out)
