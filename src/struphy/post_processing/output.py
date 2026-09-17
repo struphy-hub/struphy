@@ -8,6 +8,7 @@ import warnings
 from collections.abc import Callable, Iterator, Mapping
 from functools import cached_property
 from pathlib import Path
+from typing import Any
 
 import h5py
 import numpy as np
@@ -87,7 +88,7 @@ class ProductNamespace:
     Use :attr:`catalog` when generic iteration over arbitrary products is needed.
     """
 
-    def __init__(self, mapping, prefix=""):
+    def __init__(self, mapping: "ProductMapping | ProductCatalog", prefix: str = ""):
         self._mapping, self._prefix = mapping, prefix
 
     def __repr__(self):
@@ -95,7 +96,10 @@ class ProductNamespace:
         products = tuple(self.catalog)
         return f"{type(self).__name__}({location!r}, products={products!r})"
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
+        """A leaf product (``xr.DataArray``) or a nested :class:`ProductNamespace`; only known at
+        run time, so callers get ``Any`` here rather than a static type a type checker cannot verify.
+        """
         key = f"{self._prefix}/{name}" if self._prefix else name
         if key in self._mapping:
             return self._mapping[key]
@@ -105,7 +109,8 @@ class ProductNamespace:
         location = self._prefix or "products"
         raise AttributeError(f"{name!r}; available names under {location!r}: {tuple(self)}")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
+        """A leaf product or a nested namespace, see :meth:`__getattr__`."""
         if "/" in key:
             key = f"{self._prefix}/{key}" if self._prefix else key
             return self._mapping[key]
