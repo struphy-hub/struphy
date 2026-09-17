@@ -8,6 +8,9 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from struphy import BaseUnits, Time, domains
+from struphy.models import Maxwell
+
 from struphy.post_processing.output import Output, open_output
 from struphy.post_processing import store
 from struphy.post_processing.arrays import orbit_quantities
@@ -54,6 +57,14 @@ def write_tree(root):
         file.create_group("feec/em_fields")          # the raw output names the species,
         file.create_group("kinetic/kinetic_ions")    # as a real run does
         file.create_dataset("scalar/en_tot", data=np.full(NT, 2.0))
+    metadata = {
+        "model": Maxwell(base_units=BaseUnits(x=2.0)).to_dict(),
+        "domain": domains.Cuboid().to_dict(),
+        "equil": None, "grid": None, "derham_opts": None,
+        "time_opts": Time().to_dict(), "mpi_ranks": 1,
+    }
+    with open(os.path.join(root, "run_metadata.json"), "w") as stream:
+        json.dump(metadata, stream)
     write_manifest(root)
     return root
 
@@ -69,31 +80,24 @@ def write_manifest(root, **options):
         json.dump(manifest, stream)
 
 
-class FakeUnits:
-    t = 2.0
+class FakeComm:
+    def __init__(self, rank=0, size=1):
+        self.rank, self.size = rank, size
+        self.barriers = 0
 
+    def Get_rank(self):
+        return self.rank
 
-class FakeModel:
-    units = FakeUnits()
-
-
-class FakeSim:
-    """Just enough of a Simulation for Output: no configuration, a single rank."""
-
-    time_opts = grid = derham_opts = domain = None
-    model = FakeModel()
-    rank, comm_size = 0, 1
-
-    def __init__(self):
-        self.processed = []
+    def Get_size(self):
+        return self.size
 
     def Barrier(self):
-        pass
+        self.barriers += 1
 
 
 @pytest.fixture
 def run(tmp_path):
-    return Output(write_tree(str(tmp_path)), sim=FakeSim(), time_units="normalized")
+    return Output(write_tree(str(tmp_path)), time_units="normalized")
 
 
 def test_products_are_discovered_without_loading_arrays(run):
@@ -150,22 +154,31 @@ def test_open_output_needs_an_output_folder(tmp_path):
     assert run.path_out == tmp_path.resolve()
 
 
-def test_sim_is_restored_from_disk_only_on_access(tmp_path, monkeypatch):
-    from struphy.simulation.sim import Simulation
+def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeypatch):
+    from struphy import Simulation
 
-    restored = FakeSim()
-    calls = []
-    monkeypatch.setattr(Simulation, "from_output", classmethod(lambda cls, path: calls.append(path) or restored))
-    run = open_output(write_tree(str(tmp_path)))
-    assert calls == []
-    assert run.sim is restored and run.sim is restored
-    assert calls == [tmp_path.resolve()]
+    root = write_tree(str(tmp_path))
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Output must not construct a Simulation")
+    monkeypatch.setattr(Simulation, "__init__", forbidden)
+    run = Output(root)
+    assert "metadata" not in vars(run)
+    assert "model" not in vars(run)
+    assert not hasattr(run, "sim")
+    assert "_sim" not in vars(run)
+    assert run.domain == domains.Cuboid()
+    assert run.model.to_dict() == run.metadata["model"]
+    assert run.model is run.model
+    assert run.time_opts == Time()
+    assert run.grid is run.derham_opts is run.equil is None
+    assert run.mpi_ranks == 1
+    assert run.with_time_units("physical").model.to_dict() == run.model.to_dict()
 
 
 def test_products_trigger_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    run = Output(root, sim=FakeSim(), time_units="normalized")
+    run = Output(root, time_units="normalized")
     calls = []
 
     def fake_process(self, **options):
@@ -184,10 +197,9 @@ def test_products_trigger_default_processing_when_missing(tmp_path, monkeypatch)
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    sim = FakeSim()
-    sim.comm_size = 2
+    comm = FakeComm(size=2)
     with pytest.raises(RuntimeError, match="on all ranks"):
-        Output(root, sim=sim).fields
+        Output(root, comm=comm).fields
 
 
 def test_processing_options_are_part_of_the_manifest(tmp_path):
@@ -212,16 +224,15 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
     calls = []
 
     class FakePostProcessor:
-        def __init__(self, sim, parallel_pproc=False):
+        def __init__(self, output, parallel_pproc=False):
             calls.append(("construct", parallel_pproc))
 
         def process(self, **options):
             calls.append(("process", options))
 
     monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
-    sim = FakeSim()
-    sim.rank = rank
-    run = Output(write_tree(str(tmp_path)), sim=sim)
+    comm = FakeComm(rank=rank, size=2)
+    run = Output(write_tree(str(tmp_path)), comm=comm)
     assert run.process(physical=True) is run
     expected = [
         ("construct", False),
@@ -233,6 +244,7 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
         ),
     ]
     assert calls == (expected if rank == 0 else [])
+    assert comm.barriers == 1
 
 
 def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
@@ -241,23 +253,21 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
     calls = []
 
     class FakePostProcessor:
-        def __init__(self, sim, parallel_pproc=False):
+        def __init__(self, output, parallel_pproc=False):
             calls.append(parallel_pproc)
 
         def process(self, **options):
             pass
 
     monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
-    sim = FakeSim()
-    sim.rank = 3
-    Output(write_tree(str(tmp_path)), sim=sim).process(parallel=True)
+    Output(write_tree(str(tmp_path)), comm=FakeComm(rank=3, size=4)).process(parallel=True)
     assert calls == [True]
 
 
 def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    run = Output(root, sim=FakeSim(), time_units="normalized")
+    run = Output(root, time_units="normalized")
     calls = []
     monkeypatch.setattr(Output, "process", lambda self, **options: calls.append(options))
 
@@ -280,15 +290,33 @@ def test_info_lists_products_without_loading(run):
 def test_normalized_time_carries_seconds_as_a_coordinate(run):
     energy = run.scalars.en_tot
     assert "units" not in energy.t.attrs, "normalized time has no unit"
-    np.testing.assert_allclose(energy.t_seconds, energy.t * FakeUnits.t)
+    np.testing.assert_allclose(energy.t_seconds, energy.t * float(run.model.units.t))
     assert energy.t_seconds.attrs["units"] == "s"
 
-    seconds = Output(run.path_out, sim=FakeSim(), time_units="physical").scalars.en_tot
-    np.testing.assert_allclose(seconds.t, energy.t * FakeUnits.t)
+    seconds = Output(run.path_out, time_units="physical").scalars.en_tot
+    np.testing.assert_allclose(seconds.t, energy.t * float(run.model.units.t))
     assert "t_seconds" not in seconds.coords
 
 
 def test_a_failing_property_reports_its_own_error(tmp_path):
-    run = Output(write_tree(str(tmp_path)))  # no sim, no config.json
-    with pytest.raises(FileNotFoundError, match="config.json"):
-        run.sim
+    run = Output(write_tree(str(tmp_path)))
+    (run.path_out / "run_metadata.json").unlink()
+    with pytest.raises(FileNotFoundError, match="run_metadata.json"):
+        run.domain
+
+
+def test_parallel_processing_rejects_a_different_rank_count(tmp_path):
+    run = Output(write_tree(str(tmp_path)), comm=FakeComm(size=2))
+    with pytest.raises(ValueError, match="same number of MPI ranks"):
+        run.process(parallel=True)
+
+
+def test_saved_rank_count_does_not_block_serial_implicit_processing(tmp_path, monkeypatch):
+    root = write_tree(str(tmp_path))
+    run = Output(root, comm=FakeComm())
+    run.metadata["mpi_ranks"] = 8
+    (run.path_pproc / "manifest.json").unlink()
+    calls = []
+    monkeypatch.setattr(Output, "process", lambda self: calls.append(self.path_out))
+    run._ensure_processed()
+    assert calls == [run.path_out]

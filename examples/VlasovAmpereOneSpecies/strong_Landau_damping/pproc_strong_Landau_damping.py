@@ -1,11 +1,11 @@
 import argparse
 
 
-from struphy import open_output
+from struphy import Output
 
 
 def main(path_out="sim_data"):
-    run = open_output(path_out)
+    run = Output(path_out)
 
     # electric field energy
     run.scalars.electric_energy.struphy.plot.timeseries(title="Electric energy").show()

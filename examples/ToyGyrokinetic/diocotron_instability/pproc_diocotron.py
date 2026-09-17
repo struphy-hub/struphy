@@ -7,7 +7,7 @@ more than one folder only the growth-rate comparison is shown.
 import os
 import sys
 
-from struphy import open_output
+from struphy import Output
 
 FIT_QUANTITY = "en_phi"
 FIT_WINDOW = (0.0, 42.0)
@@ -23,7 +23,7 @@ SWEEPS = [
 
 
 def main(paths):
-    runs = [open_output(path).process(physical=True) for path in paths]
+    runs = [Output(path).process(physical=True) for path in paths]
     run = runs[0]
 
     # growth rate of the electrostatic energy, one curve per run

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import warnings
 from collections.abc import Callable, Iterator, Mapping
+from functools import cached_property
 from pathlib import Path
 
 import h5py
 import numpy as np
 import xarray as xr
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.post_processing import store
 from struphy.post_processing.arrays import data_array, save_scalars
@@ -145,14 +148,14 @@ class Output:
     """The output of one Struphy simulation, loaded lazily from its output folder.
 
     Obtain it from :attr:`Simulation.output` (or the return value of :meth:`Simulation.run`)
-    or, in a separate process, from :func:`open_output`. Nothing is read at construction.
+    or construct ``Output(path_out)`` in a separate process. Nothing is read at construction.
 
     * :attr:`scalars` are read directly from the raw HDF5 output.
     * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` need
       post-processed data. When there is none, the first access processes the run with
       default options; call :meth:`process` beforehand to choose options.
-    * :attr:`sim` is the :class:`~struphy.Simulation` that produced the output: the live
-      object for ``sim.output``, otherwise restored from disk without allocating anything.
+    * :attr:`model`, :attr:`domain` and numerical options are reconstructed lazily
+      from saved metadata. No simulation object is created or retained.
     * Products plot themselves, e.g. ``out["en_phi"].struphy.plot.timeseries(fit=(0, 40))``;
       :attr:`plot` holds the plots that need the whole run.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
@@ -161,20 +164,20 @@ class Output:
     ----------
     path_out:
         The simulation output folder, ``sim.env.path_out``.
-    sim:
-        The simulation that wrote ``path_out``, if it is at hand.
+    comm:
+        Communicator for post-processing; defaults to MPI.COMM_WORLD.
     time_units:
         ``"normalized"`` (the default) keeps Struphy time units, in which the analytic
         results of the models are expressed; every product then also carries seconds as the
         coordinate ``t_seconds``. ``"physical"`` makes ``t`` itself seconds.
     """
 
-    def __init__(self, path_out, *, sim=None, time_units: str = "normalized"):
+    def __init__(self, path_out, *, time_units: str = "normalized", comm=None):
         if time_units not in {"physical", "normalized"}:
             raise ValueError("time_units must be 'physical' or 'normalized'")
         self.path_out = Path(path_out).resolve()
         self.time_units = time_units
-        self._sim = sim
+        self.comm = MPI.COMM_WORLD if comm is None else comm
         self._reset()
 
     def __repr__(self):
@@ -182,7 +185,7 @@ class Output:
 
     def with_time_units(self, time_units: str) -> "Output":
         """The same output with time coordinates in ``"physical"`` or ``"normalized"`` units."""
-        return type(self)(self.path_out, sim=self._sim, time_units=time_units)
+        return type(self)(self.path_out, time_units=time_units, comm=self.comm)
 
     def _reset(self):
         if getattr(self, "_tree", None) is not None:
@@ -223,7 +226,7 @@ class Output:
         """One Struphy time unit in seconds; None when the configuration is missing."""
         if self._seconds is None:
             try:
-                self._seconds = float(self.sim.model.units.t)
+                self._seconds = float(self.model.units.t)
             except FileNotFoundError:
                 self._seconds = False
         return self._seconds or None
@@ -232,14 +235,79 @@ class Output:
     def path_pproc(self) -> Path:
         return self.path_out / "post_processing"
 
-    @property
-    def sim(self):
-        """The simulation that produced this output; restored from disk when not given."""
-        if self._sim is None:
-            from struphy.simulation.sim import Simulation
+    @cached_property
+    def metadata(self) -> dict:
+        """Saved run metadata, with legacy ``config.json`` supported as a fallback."""
+        for name in ("run_metadata.json", "config.json"):
+            path = self.path_out / name
+            if path.is_file():
+                with path.open() as stream:
+                    return json.load(stream)
+        raise FileNotFoundError(f"Neither run_metadata.json nor config.json exists in {self.path_out}")
 
-            self._sim = Simulation.from_output(self.path_out)
-        return self._sim
+    def _restore(self, key, cls):
+        # Constructors expect tuples where JSON encodes sequences as lists.
+        def tuples(value):
+            if isinstance(value, dict):
+                return {name: tuples(item) for name, item in value.items()}
+            if isinstance(value, list):
+                return tuple(tuples(item) for item in value)
+            return value
+
+        value = self.metadata[key]
+        return cls.from_dict(tuples(value)) if value is not None else None
+
+    @cached_property
+    def model(self):
+        """Model reconstructed from its saved constructor arguments."""
+        from struphy.models.base import StruphyModel
+
+        return self._restore("model", StruphyModel)
+
+    @cached_property
+    def domain(self):
+        """Computational domain of the saved run."""
+        from struphy.geometry.base import Domain
+
+        return self._restore("domain", Domain)
+
+    @cached_property
+    def equil(self):
+        """Saved equilibrium, if present."""
+        from struphy.fields_background.base import FluidEquilibrium
+
+        return self._restore("equil", FluidEquilibrium)
+
+    @cached_property
+    def grid(self):
+        """Saved spatial grid, if present."""
+        from struphy.topology.grids import TensorProductGrid
+
+        return self._restore("grid", TensorProductGrid)
+
+    @cached_property
+    def derham_opts(self):
+        """Saved finite element options, if present."""
+        from struphy.io.options import DerhamOptions
+
+        return self._restore("derham_opts", DerhamOptions)
+
+    @cached_property
+    def time_opts(self):
+        """Time-stepping options of the saved run."""
+        from struphy.io.options import Time
+
+        return self._restore("time_opts", Time)
+
+    @cached_property
+    def mpi_ranks(self) -> int:
+        """Number of ranks that wrote the raw output (not the current communicator)."""
+        if "mpi_ranks" in self.metadata:
+            return int(self.metadata["mpi_ranks"])
+        import yaml
+
+        with (self.path_out / "meta.yml").open() as stream:
+            return int(yaml.safe_load(stream)["MPI processes"])
 
     @property
     def is_processed(self) -> bool:
@@ -263,7 +331,8 @@ class Output:
         """Post-process the raw output; reuses existing products made with the same options.
 
         Call this on every MPI rank. Serial processing (the default) runs on rank 0 while
-        the other ranks wait; ``parallel=True`` needs the allocated simulation that ran.
+        the other ranks wait. Parallel processing reconstructs the field decomposition
+        and requires the same number of ranks as the saved run.
 
         Parameters
         ----------
@@ -280,14 +349,14 @@ class Output:
         create_vtk:
             Also write VTK files of the fields.
         parallel:
-            Evaluate fields on all MPI ranks of the simulation's communicator.
+            Evaluate fields on all ranks of this output's communicator.
         force:
             Reprocess even when matching products exist.
 
         Returns
         -------
         Output
-            This run, so that ``run = open_output(path).process(physical=True)`` reads naturally.
+            This run, so that ``run = Output(path).process(physical=True)`` reads naturally.
         """
         from struphy.post_processing.post_processing_tools import PostProcessor
 
@@ -300,20 +369,19 @@ class Output:
             create_vtk=create_vtk,
             force=force,
         )
-        sim = self.sim
         if parallel:
-            PostProcessor(sim, parallel_pproc=True).process(**options)
+            PostProcessor(self, parallel_pproc=True).process(**options)
         else:
-            if sim.rank == 0:
-                PostProcessor(sim).process(**options)
-            sim.Barrier()
+            if self.comm.Get_rank() == 0:
+                PostProcessor(self).process(**options)
+            self.comm.Barrier()
         self._reset()
         return self
 
     def _ensure_processed(self):
         if self.is_processed:
             return
-        if self.sim.comm_size > 1:
+        if self.comm.Get_size() > 1:
             raise RuntimeError(f"{self.path_out} has no post-processed data; call out.process() on all ranks first")
         logger.warning(
             "\nNo post-processed data in %s, processing with default options (call out.process(...) to choose them)",
@@ -358,9 +426,11 @@ class Output:
         products of that species, whatever kind they are; the grouped views :attr:`fields`,
         :attr:`distributions`, :attr:`densities` and :attr:`orbits` show them by kind.
         """
-        if name.startswith("_"):
+        if name.startswith("_") or name == "sim":
             raise AttributeError(name)
         attribute = getattr(type(self), name, None)
+        if isinstance(attribute, cached_property):
+            attribute.func(self)
         if isinstance(attribute, property):
             attribute.fget(self)  # the property raised AttributeError itself; show its own error
         # the raw output names the species, so an unknown name never starts post-processing
@@ -460,7 +530,7 @@ class Output:
     @property
     def time_scale(self) -> float:
         """Factor from Struphy time units to :attr:`time_units`."""
-        return float(self.sim.model.units.t) if self.time_units == "physical" else 1.0
+        return float(self.model.units.t) if self.time_units == "physical" else 1.0
 
     @property
     def time_unit(self) -> str:
@@ -538,16 +608,16 @@ class Output:
         """Short description of the numerical parameters, for figure titles."""
         if self._label is None:
             try:
-                sim = self.sim
+                self.metadata
             except FileNotFoundError:  # an output folder without its configuration
                 self._label = self.path_out.name
                 return self._label
             values = []
             for holder, attr, name in (
-                (sim.time_opts, "dt", "dt"),
-                (sim.time_opts, "split_algo", "algo"),
-                (sim.grid, "num_elements", "Nel"),
-                (sim.derham_opts, "degree", "p"),
+                (self.time_opts, "dt", "dt"),
+                (self.time_opts, "split_algo", "algo"),
+                (self.grid, "num_elements", "Nel"),
+                (self.derham_opts, "degree", "p"),
             ):
                 value = getattr(holder, attr, None) if holder is not None else None
                 if value is not None:

@@ -2,11 +2,12 @@
 
 import json
 import os
+from pathlib import Path
 
 import h5py
 import pytest
 
-from struphy import BaseUnits, EnvironmentOptions, Output, Simulation, Time, open_output
+from struphy import BaseUnits, EnvironmentOptions, Output, Simulation, Time
 from struphy.models import Maxwell, VlasovAmpereOneSpecies
 from struphy.post_processing.post_processing_tools import PostProcessor, is_processed
 
@@ -26,7 +27,9 @@ def test_output_is_the_run_of_the_current_output_folder(tmp_path):
     sim = make_sim(tmp_path)
     run = sim.output
     assert isinstance(run, Output)
-    assert run.sim is sim
+    assert run.path_out == Path(sim.env.path_out).resolve()
+    assert not hasattr(run, "sim")
+    assert "_sim" not in vars(run)
     assert sim.output is run
 
     sim.env = EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_2")
@@ -42,14 +45,15 @@ def test_from_output_restores_metadata_and_follows_a_moved_folder(tmp_path):
 
     moved = tmp_path / "moved"
     os.rename(sim.env.path_out, moved)
-    restored = open_output(moved).sim
+    restored = Output(moved)
 
     assert restored.model.to_dict() == model.to_dict()
     assert restored.model.params["mass_number"] == 4.0
     assert float(restored.model.units.t) == float(model.units.t)
     assert restored.domain == sim.domain
-    assert restored.env.path_out == str(moved)
-    assert restored.derham is None
+    assert restored.path_out == moved.resolve()
+    assert restored.grid == sim.grid
+    assert restored.derham_opts == sim.derham_opts
     assert sorted(os.listdir(tmp_path)) == ["moved"]
 
 
@@ -108,7 +112,7 @@ def test_processor_from_moved_output(tmp_path, metadata_only):
     assert processor.comm_size == 3
     assert list(processor.range_ranks) == [0, 1, 2]
     assert sentinel.read_text() == "keep until processing"
-    assert open_output(moved).sim.time_opts.dt == 0.123
+    assert Output(moved).time_opts.dt == 0.123
     assert processor.process(create_vtk=False)
     assert is_processed(moved)
 

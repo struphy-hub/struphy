@@ -12,7 +12,7 @@ import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
 from struphy.post_processing.output import Output  # noqa: E402
-from struphy.post_processing.tests.test_output import FakeSim, write_manifest, write_tree  # noqa: E402
+from struphy.post_processing.tests.test_output import write_manifest, write_tree  # noqa: E402
 
 RATE = 2.0
 
@@ -25,7 +25,7 @@ def make_run(root, name="sim_1"):
         time = np.asarray(file["time/value"])
         file.create_dataset("scalar/en_phi", data=np.exp(RATE * time))
     write_manifest(path)
-    return Output(path, sim=FakeSim(), time_units="normalized")
+    return Output(path, time_units="normalized")
 
 
 @pytest.fixture
@@ -110,7 +110,6 @@ def test_analysis_by_name(run):
 
 def test_dispersion_rejects_fields_in_seconds(run):
     physical = run.with_time_units("physical")
-    physical._sim.model = type("Model", (), {"units": type("Units", (), {"t": 2.0})()})()
     with pytest.raises(ValueError, match="normalized"):
         physical.fields.em_fields.E.struphy.analysis.dispersion()
 

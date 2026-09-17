@@ -523,7 +523,7 @@ and it stays available as ``sim.output``:
 
     out.scalars.total_energy        # scalar time series, straight from the raw output
     out.fields.em_fields.e_field  # evaluated FEEC field (post-processed on first access)
-    out.sim                          # the Simulation that produced the output
+    out.domain, out.model.units      # reconstructed from saved metadata
 
 Every product is an :class:`xarray.DataArray` with named dimensions
 (``t``, ``component``, ``e1``, ``e2``, ``e3``, ``v1``, ...), coordinates and units.
@@ -531,11 +531,12 @@ Arrays are read from disk only when accessed.
 
 Time is in Struphy units, in which the models' analytic results are written; seconds come
 along as the coordinate ``t_seconds``. Pass ``time_units="physical"`` to
-:func:`~struphy.open_output` to make ``t`` itself seconds.
+:class:`~struphy.Output` to make ``t`` itself seconds.
 
 In a separate process, for example a plotting script on a laptop after a cluster
-run, open the output folder instead. Nothing is allocated and no MPI is needed;
-``out.sim`` is restored from the ``run_metadata.json`` that ``sim.run()`` writes to the folder; a
+run, open the output folder instead. Nothing is allocated and no MPI is needed.
+The domain, model and numerical options are restored directly from the
+``run_metadata.json`` that ``sim.run()`` writes to the folder; a
 copied parameter file is never executed. The metadata holds the options and the model
 arguments (and thus the units), which is all that post-processing and plotting need, but
 not configuration applied to the model afterwards, such as backgrounds or perturbations:
@@ -544,8 +545,8 @@ not configuration applied to the model afterwards, such as backgrounds or pertur
 
     import struphy
 
-    out = struphy.open_output("./runs/vm1s_scan_A/sim_1")
-    out.sim.domain, out.sim.model.units
+    out = struphy.Output("./runs/vm1s_scan_A/sim_1")
+    out.domain, out.model.units
 
 
 Choosing post-processing options: ``out.process()``

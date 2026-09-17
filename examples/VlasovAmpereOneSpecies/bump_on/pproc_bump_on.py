@@ -2,11 +2,11 @@ import argparse
 
 from matplotlib import pyplot as plt
 
-from struphy import open_output
+from struphy import Output
 
 
 def main(path_out="sim_data"):
-    run = open_output(path_out)
+    run = Output(path_out)
 
     # initial velocity distribution
     initial = run["kinetic_ions/v1_density/f"].isel(t=0)

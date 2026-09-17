@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import xarray as xr
-import yaml
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
@@ -25,7 +24,7 @@ from struphy.post_processing.orbits import orbits_tools
 from struphy.utils.progress import tqdm
 
 if TYPE_CHECKING:
-    from struphy.simulation.sim import Simulation
+    from struphy.post_processing.output import Output
 
 logger = logging.getLogger("struphy")
 
@@ -88,12 +87,11 @@ class PostProcessor:
 
     Parameters
     ----------
-    sim : Simulation
-        Simulation of the run, either the one that ran or one restored with
-        :meth:`Simulation.from_output`. Its ``env.path_out`` locates the output.
+    output : Output
+        Output folder and lazily reconstructed configuration of the saved run.
     parallel_pproc : bool, optional
-        Whether to run post-processing in parallel using MPI. This requires an allocated
-        ``sim`` and a call on every rank. Default is False (serial post-processing).
+        Whether to run post-processing in parallel using MPI. This requires the same
+        number of ranks as the saved run and a call on every rank. Default is False (serial post-processing).
 
     Attributes
     ----------
@@ -111,39 +109,25 @@ class PostProcessor:
         Number of MPI ranks used to produce the output.
     """
 
-    def __init__(self, sim: "Simulation", parallel_pproc: bool = False):
-        self.path_out = sim.env.path_out
+    def __init__(self, output: "Output", parallel_pproc: bool = False):
+        self.path_out = str(output.path_out)
         self.path_pproc = os.path.join(self.path_out, "post_processing")
         self.parallel_pproc = parallel_pproc
-
-        # struphy objects needed for post-processing
-        self.domain = sim.domain
-        self.equil = sim.equil
-        self.model = sim.model
-
-        if self.parallel_pproc:
-            assert sim.derham is not None, "Parallel post-processing needs an allocated simulation."
-            self.derham = sim.derham
-            self.comm = self.derham.comm
-            self.comm_size = self.comm.Get_size()
-            self.rank = self.comm.Get_rank()
-            self.range_ranks = range(self.rank, self.rank + 1)
-        else:
-            if sim.grid is None or sim.derham_opts is None:
-                self.derham = None
-            else:
-                self.derham = Derham(sim.grid, sim.derham_opts, comm=None, domain=sim.domain)
-            self.comm = MockComm()
-            # The saved rank count describes the raw files, not the current communicator.
-            metadata_path = os.path.join(self.path_out, "run_metadata.json")
-            if os.path.isfile(metadata_path):
-                with open(metadata_path) as f:
-                    self.comm_size = json.load(f)["mpi_ranks"]
-            else:
-                with open(os.path.join(self.path_out, "meta.yml")) as f:
-                    self.comm_size = yaml.safe_load(f)["MPI processes"]
-            self.rank = 0
-            self.range_ranks = range(int(self.comm_size))
+        self.domain = output.domain
+        self.equil = output.equil
+        self.model = output.model
+        self.comm_size = output.mpi_ranks
+        self.comm = output.comm if parallel_pproc else MockComm()
+        self.rank = self.comm.Get_rank()
+        if parallel_pproc and self.comm.Get_size() != self.comm_size:
+            raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
+        self.range_ranks = range(self.rank, self.rank + 1) if parallel_pproc else range(self.comm_size)
+        self.derham = None
+        if output.grid is not None and output.derham_opts is not None:
+            self.derham = Derham(
+                output.grid, output.derham_opts,
+                comm=self.comm if parallel_pproc else None, domain=self.domain,
+            )
 
         # the directory is only cleared in process(), so that constructing a
         # PostProcessor to inspect a run does not destroy its post-processed data
@@ -160,9 +144,9 @@ class PostProcessor:
         have been moved. Existing post-processing products are preserved until
         :meth:`process` is called. Under MPI, call this on one rank only.
         """
-        from struphy.simulation.sim import Simulation
+        from struphy.post_processing.output import Output
 
-        return cls(Simulation.from_output(path_out))
+        return cls(Output(path_out))
 
     def _write_manifest(self, status, *, options=None, error=None):
         if self.rank != 0:
@@ -792,11 +776,9 @@ class PostProcessor:
         """
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
-            try:
-                os.mkdir(species_path)
-            except:
+            if os.path.exists(species_path):
                 shutil.rmtree(species_path)
-                os.mkdir(species_path)
+            os.makedirs(species_path)
 
         # time loop
         nt = len(t_grid) - 1

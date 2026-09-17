@@ -3,19 +3,19 @@ import argparse
 import cunumpy as xp
 from matplotlib import pyplot as plt
 
-from struphy import open_output
+from struphy import Output
 
 
 def main(path_out="sim_data"):
-    run = open_output(path_out, time_units="normalized")
+    run = Output(path_out, time_units="normalized")
     time = run.time
-    Tend = run.sim.time_opts.Tend
-    algo = run.sim.time_opts.split_algo
+    Tend = run.time_opts.Tend
+    algo = run.time_opts.split_algo
 
     # ------------------
     # Gauss law violation
     # ------------------
-    if run.sim.model.measure_gauss_law:
+    if run.model.measure_gauss_law:
         gauss_error = run.scalars.gauss_error
 
         fig, ax = plt.subplots(1, figsize=(10, 6))

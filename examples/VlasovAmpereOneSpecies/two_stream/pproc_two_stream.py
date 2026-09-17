@@ -1,11 +1,11 @@
 import argparse
 
 
-from struphy import open_output
+from struphy import Output
 
 
 def main(path_out="sim_data"):
-    run = open_output(path_out)
+    run = Output(path_out)
 
     # table and figures of every scalar: post_processing/report/
     run.save_report()

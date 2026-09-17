@@ -892,7 +892,7 @@ class Simulation(SimulationBase):
         post-processed on first access, or explicitly with ``sim.output.process(...)``.
         """
         if self._output is None or self._output.path_out != Path(self.env.path_out).resolve():
-            self._output = Output(self.env.path_out, sim=self)
+            self._output = Output(self.env.path_out, comm=self.comm)
         return self._output
 
     # ------------------------------------------------------------------

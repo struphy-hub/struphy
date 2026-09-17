@@ -21,11 +21,11 @@ PARAMS_PATH = (
 def test_pproc_mpi(show_plot=False):
 
     def do_plotting(run: Output, from_parallel=False):
-        e_field = run.fields.em_fields.e_field_log.isel(t=0, component=0, e2=0, e3=0)
-        phi = run.fields.em_fields.phi_log.isel(t=0, e2=0, e3=0)
+        e_field = run.fields.em_fields.e_field.isel(t=0, component=0, e2=0, e3=0)
+        phi = run.fields.em_fields.phi.isel(t=0, e2=0, e3=0)
         f = run.distributions.kinetic_ions.e1_v1_density
-        f_binned = f.f_binned.isel(t=0)
-        df_binned = f.delta_f_binned.isel(t=0)
+        f_binned = f.f.isel(t=0)
+        df_binned = f.delta_f.isel(t=0)
 
         if show_plot:
             extra = " (from parallel pproc)" if from_parallel else ""
@@ -46,7 +46,8 @@ def test_pproc_mpi(show_plot=False):
 
     sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
 
-    run = sim.run(one_time_step=True)
+    sim.run(one_time_step=True)
+    run = Output(sim.env.path_out)
 
     # serial pproc
     run.process(create_vtk=True)

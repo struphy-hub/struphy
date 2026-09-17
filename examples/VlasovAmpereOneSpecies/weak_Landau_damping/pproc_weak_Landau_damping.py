@@ -2,7 +2,7 @@ import argparse
 
 import cunumpy as xp
 
-from struphy import open_output
+from struphy import Output
 
 
 def E_exact(t, eps=0.001):
@@ -15,7 +15,7 @@ def E_exact(t, eps=0.001):
 
 
 def main(path_out="sim_data", amplitude=0.001):
-    run = open_output(path_out)
+    run = Output(path_out)
 
     # electric field energy against the analytical damping
     energy = run.scalars.electric_energy.copy()
