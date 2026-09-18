@@ -62,7 +62,6 @@ from struphy import (
 from struphy.fields_background.base import CartesianFluidEquilibriumWithB
 from struphy.models import ViscoResistiveMHD
 
-
 # ---------------------------------------------------------------------------
 # Global configuration
 # ---------------------------------------------------------------------------
@@ -173,20 +172,9 @@ class OrszagTangInitialState(CartesianFluidEquilibriumWithB):
             1.0,
         )
 
-        grad_x = (
-            amplitude
-            * 2.0
-            * sin_2x
-            * xp.cos(2.0 * x)
-            / safe_denominator
-        )
+        grad_x = amplitude * 2.0 * sin_2x * xp.cos(2.0 * x) / safe_denominator
 
-        grad_y = (
-            amplitude
-            * sin_y
-            * xp.cos(y)
-            / safe_denominator
-        )
+        grad_y = amplitude * sin_y * xp.cos(y) / safe_denominator
 
         grad_x = xp.where(
             denominator > 1.0e-14,
@@ -236,11 +224,7 @@ def create_simulation() -> tuple[Simulation, EnvironmentOptions]:
     entropy_density0 = rho0 * specific_entropy0
 
     reference_entropy_density0 = GAMMA**2 * np.log(
-        GAMMA
-        / (
-            (GAMMA - 1.0)
-            * GAMMA ** (2.0 * GAMMA)
-        ),
+        GAMMA / ((GAMMA - 1.0) * GAMMA ** (2.0 * GAMMA)),
     )
 
     if not np.isclose(
@@ -255,8 +239,8 @@ def create_simulation() -> tuple[Simulation, EnvironmentOptions]:
         )
 
     model = ViscoResistiveMHD(
-        with_viscosity=False,
-        with_resistivity=False,
+        with_viscosity=True,
+        with_resistivity=True,
         with_regularization=WITH_REGULARIZATION,
         divdiv_alpha=ALPHA_DIVDIV,
     )
@@ -292,37 +276,32 @@ def create_simulation() -> tuple[Simulation, EnvironmentOptions]:
 
     # Replacing an Options object resets omitted values to their defaults.
     # Therefore all regularization options are supplied explicitly.
-    model.propagators.variat_dens.options = (
-        model.propagators.variat_dens.Options(
-            model="full",
-            gamma=GAMMA,
-            with_regularization=WITH_REGULARIZATION,
-            alpha_divdiv=ALPHA_DIVDIV,
-        )
+    model.propagators.variat_dens.options = model.propagators.variat_dens.Options(
+        model="full",
+        gamma=GAMMA,
+        with_regularization=WITH_REGULARIZATION,
+        alpha_divdiv=ALPHA_DIVDIV,
     )
 
-    model.propagators.variat_mom.options = (
-        model.propagators.variat_mom.Options(
-            with_regularization=WITH_REGULARIZATION,
-            alpha_divdiv=ALPHA_DIVDIV,
-        )
+    model.propagators.variat_mom.options = model.propagators.variat_mom.Options(
+        with_regularization=WITH_REGULARIZATION,
+        alpha_divdiv=ALPHA_DIVDIV,
     )
 
-    model.propagators.variat_ent.options = (
-        model.propagators.variat_ent.Options(
-            model="full",
-            gamma=GAMMA,
-            with_regularization=WITH_REGULARIZATION,
-            alpha_divdiv=ALPHA_DIVDIV,
-        )
+    model.propagators.variat_ent.options = model.propagators.variat_ent.Options(
+        model="full",
+        gamma=GAMMA,
+        with_regularization=WITH_REGULARIZATION,
+        alpha_divdiv=ALPHA_DIVDIV,
     )
 
-    model.propagators.variat_mag.options = (
-        model.propagators.variat_mag.Options(
-            model="full",
-            with_regularization=WITH_REGULARIZATION,
-            alpha_divdiv=ALPHA_DIVDIV,
-        )
+    model.propagators.variat_mag.options = model.propagators.variat_mag.Options(
+        model="full",
+        with_regularization=WITH_REGULARIZATION,
+        alpha_divdiv=ALPHA_DIVDIV,
+    )
+    model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(
+        model="full", mu_a=1e-3, with_regularization=True, alpha_divdiv=ALPHA_DIVDIV
     )
 
     # Fail early if one of the options was accidentally reset.
@@ -335,18 +314,13 @@ def create_simulation() -> tuple[Simulation, EnvironmentOptions]:
 
     for options in regularized_options:
         if not options.with_regularization:
-            raise RuntimeError(
-                "A propagator has regularization disabled."
-            )
+            raise RuntimeError("A propagator has regularization disabled.")
 
         if not np.isclose(
             options.alpha_divdiv,
             ALPHA_DIVDIV,
         ):
-            raise RuntimeError(
-                "A propagator has the wrong div-div coefficient: "
-                f"{options.alpha_divdiv!r}"
-            )
+            raise RuntimeError(f"A propagator has the wrong div-div coefficient: {options.alpha_divdiv!r}")
 
     env = EnvironmentOptions(
         out_folders=str(MODEL_OUTPUT_FOLDER),
@@ -396,27 +370,17 @@ def find_scalar_hdf5(output_path: str | Path) -> str:
     """Find the HDF5 file containing scalar diagnostics."""
     data_directory = Path(output_path) / "data"
 
-    candidates = sorted(
-        glob.glob(str(data_directory / "*.hdf5"))
-    )
+    candidates = sorted(glob.glob(str(data_directory / "*.hdf5")))
 
     if not candidates:
-        raise FileNotFoundError(
-            f"No HDF5 files found in {data_directory!s}."
-        )
+        raise FileNotFoundError(f"No HDF5 files found in {data_directory!s}.")
 
     for candidate in candidates:
         with h5py.File(candidate, "r") as file:
-            if (
-                "time/value" in file
-                and "scalar/en_tot" in file
-            ):
+            if "time/value" in file and "scalar/en_tot" in file:
                 return candidate
 
-    raise FileNotFoundError(
-        "No HDF5 file containing both time and scalar "
-        "diagnostics was found."
-    )
+    raise FileNotFoundError("No HDF5 file containing both time and scalar diagnostics was found.")
 
 
 def check_mhd_scalar_diagnostics(
@@ -429,37 +393,21 @@ def check_mhd_scalar_diagnostics(
     print(f"Reading scalar diagnostics from:\n{hdf5_path}")
 
     with h5py.File(hdf5_path, "r") as file:
-        time_history = np.asarray(
-            file["time/value"]
-        ).reshape(-1)
+        time_history = np.asarray(file["time/value"]).reshape(-1)
 
-        total_energy = np.asarray(
-            file["scalar/en_tot"]
-        ).reshape(-1)
+        total_energy = np.asarray(file["scalar/en_tot"]).reshape(-1)
 
-        kinetic_energy = np.asarray(
-            file["scalar/en_U"]
-        ).reshape(-1)
+        kinetic_energy = np.asarray(file["scalar/en_U"]).reshape(-1)
 
-        magnetic_energy = np.asarray(
-            file["scalar/en_mag"]
-        ).reshape(-1)
+        magnetic_energy = np.asarray(file["scalar/en_mag"]).reshape(-1)
 
-        thermodynamic_energy = np.asarray(
-            file["scalar/en_thermo"]
-        ).reshape(-1)
+        thermodynamic_energy = np.asarray(file["scalar/en_thermo"]).reshape(-1)
 
-        total_mass = np.asarray(
-            file["scalar/dens_tot"]
-        ).reshape(-1)
+        total_mass = np.asarray(file["scalar/dens_tot"]).reshape(-1)
 
-        total_entropy = np.asarray(
-            file["scalar/entr_tot"]
-        ).reshape(-1)
+        total_entropy = np.asarray(file["scalar/entr_tot"]).reshape(-1)
 
-        div_b = np.asarray(
-            file["scalar/tot_div_B"]
-        ).reshape(-1)
+        div_b = np.asarray(file["scalar/tot_div_B"]).reshape(-1)
 
     histories = {
         "time": time_history,
@@ -476,10 +424,7 @@ def check_mhd_scalar_diagnostics(
 
     for name, values in histories.items():
         if values.size != expected_size:
-            raise RuntimeError(
-                f"{name} has {values.size} entries, but the time "
-                f"history has {expected_size} entries."
-            )
+            raise RuntimeError(f"{name} has {values.size} entries, but the time history has {expected_size} entries.")
 
         if not np.all(np.isfinite(values)):
             bad_indices = np.flatnonzero(~np.isfinite(values))
@@ -493,31 +438,21 @@ def check_mhd_scalar_diagnostics(
             )
 
     if not np.isclose(time_history[0], 0.0):
-        raise RuntimeError(
-            f"The first saved time is {time_history[0]}, not zero."
-        )
+        raise RuntimeError(f"The first saved time is {time_history[0]}, not zero.")
 
     # Check the total-energy definition.
-    energy_sum = (
-        kinetic_energy
-        + magnetic_energy
-        + thermodynamic_energy
-    )
+    energy_sum = kinetic_energy + magnetic_energy + thermodynamic_energy
 
     component_sum_difference = total_energy - energy_sum
 
-    maximum_component_sum_error = float(
-        np.max(np.abs(component_sum_difference))
-    )
+    maximum_component_sum_error = float(np.max(np.abs(component_sum_difference)))
 
     component_sum_scale = max(
         abs(total_energy[0]),
         1.0,
     )
 
-    relative_component_sum_error = (
-        maximum_component_sum_error / component_sum_scale
-    )
+    relative_component_sum_error = maximum_component_sum_error / component_sum_scale
 
     if not np.allclose(
         total_energy,
@@ -536,9 +471,7 @@ def check_mhd_scalar_diagnostics(
 
     def relative_drift(values):
         scale = max(abs(values[0]), 1.0e-30)
-        return float(
-            np.max(np.abs(values - values[0])) / scale
-        )
+        return float(np.max(np.abs(values - values[0])) / scale)
 
     def final_relative_change(values):
         scale = max(abs(values[0]), 1.0e-30)
@@ -546,9 +479,7 @@ def check_mhd_scalar_diagnostics(
 
     def relative_variation(values):
         scale = max(abs(values[0]), 1.0e-30)
-        return float(
-            (np.max(values) - np.min(values)) / scale
-        )
+        return float((np.max(values) - np.min(values)) / scale)
 
     energy_drift = relative_drift(total_energy)
     mass_drift = relative_drift(total_mass)
@@ -562,118 +493,48 @@ def check_mhd_scalar_diagnostics(
 
     kinetic_variation = relative_variation(kinetic_energy)
     magnetic_variation = relative_variation(magnetic_energy)
-    thermodynamic_variation = relative_variation(
-        thermodynamic_energy
-    )
+    thermodynamic_variation = relative_variation(thermodynamic_energy)
 
     print("\nREGULARIZED IDEAL-MHD SCALAR DIAGNOSTICS")
     print("========================================")
-    print(
-        f"Div-div alpha                  : "
-        f"{ALPHA_DIVDIV:.12e}"
-    )
-    print(
-        f"Saved states                  : {expected_size}"
-    )
-    print(
-        f"First saved time              : "
-        f"{time_history[0]:.12e}"
-    )
-    print(
-        f"Last saved time               : "
-        f"{time_history[-1]:.12e}"
-    )
+    print(f"Div-div alpha                  : {ALPHA_DIVDIV:.12e}")
+    print(f"Saved states                  : {expected_size}")
+    print(f"First saved time              : {time_history[0]:.12e}")
+    print(f"Last saved time               : {time_history[-1]:.12e}")
 
     print("\nDiscrete regularized energy:")
-    print(
-        f"Initial total energy          : "
-        f"{total_energy[0]:.16e}"
-    )
-    print(
-        f"Final total energy            : "
-        f"{total_energy[-1]:.16e}"
-    )
-    print(
-        f"Maximum relative energy drift : "
-        f"{energy_drift:.12e}"
-    )
-    print(
-        f"Signed final energy change    : "
-        f"{final_energy_change:.12e}"
-    )
+    print(f"Initial total energy          : {total_energy[0]:.16e}")
+    print(f"Final total energy            : {total_energy[-1]:.16e}")
+    print(f"Maximum relative energy drift : {energy_drift:.12e}")
+    print(f"Signed final energy change    : {final_energy_change:.12e}")
 
     print("\nEnergy-definition consistency:")
-    print(
-        f"Maximum component-sum error   : "
-        f"{maximum_component_sum_error:.12e}"
-    )
-    print(
-        f"Relative component-sum error  : "
-        f"{relative_component_sum_error:.12e}"
-    )
+    print(f"Maximum component-sum error   : {maximum_component_sum_error:.12e}")
+    print(f"Relative component-sum error  : {relative_component_sum_error:.12e}")
 
     print("\nConserved quantities:")
-    print(
-        f"Maximum relative mass drift   : "
-        f"{mass_drift:.12e}"
-    )
-    print(
-        f"Signed final mass change      : "
-        f"{final_mass_change:.12e}"
-    )
-    print(
-        f"Maximum relative entropy drift: "
-        f"{entropy_drift:.12e}"
-    )
-    print(
-        f"Signed final entropy change   : "
-        f"{final_entropy_change:.12e}"
-    )
-    print(
-        f"Maximum div(B) diagnostic     : "
-        f"{maximum_div_b:.12e}"
-    )
+    print(f"Maximum relative mass drift   : {mass_drift:.12e}")
+    print(f"Signed final mass change      : {final_mass_change:.12e}")
+    print(f"Maximum relative entropy drift: {entropy_drift:.12e}")
+    print(f"Signed final entropy change   : {final_entropy_change:.12e}")
+    print(f"Maximum div(B) diagnostic     : {maximum_div_b:.12e}")
 
     print("\nEnergy exchange:")
-    print(
-        f"Relative kinetic variation    : "
-        f"{kinetic_variation:.12e}"
-    )
-    print(
-        f"Relative magnetic variation   : "
-        f"{magnetic_variation:.12e}"
-    )
-    print(
-        f"Thermodynamic variation       : "
-        f"{thermodynamic_variation:.12e}"
-    )
+    print(f"Relative kinetic variation    : {kinetic_variation:.12e}")
+    print(f"Relative magnetic variation   : {magnetic_variation:.12e}")
+    print(f"Thermodynamic variation       : {thermodynamic_variation:.12e}")
 
     if mass_drift >= 1.0e-10:
-        raise RuntimeError(
-            f"Relative mass drift is too large: "
-            f"{mass_drift:.12e}"
-        )
+        raise RuntimeError(f"Relative mass drift is too large: {mass_drift:.12e}")
 
     if entropy_drift >= 1.0e-10:
-        raise RuntimeError(
-            f"Relative total-entropy drift is too large: "
-            f"{entropy_drift:.12e}"
-        )
+        raise RuntimeError(f"Relative total-entropy drift is too large: {entropy_drift:.12e}")
 
     if maximum_div_b >= 1.0e-10:
-        raise RuntimeError(
-            "The magnetic-divergence diagnostic is too large: "
-            f"{maximum_div_b:.12e}"
-        )
+        raise RuntimeError(f"The magnetic-divergence diagnostic is too large: {maximum_div_b:.12e}")
 
-    if (
-        energy_tolerance is not None
-        and energy_drift >= energy_tolerance
-    ):
-        raise RuntimeError(
-            f"Relative energy drift {energy_drift:.6e} exceeds "
-            f"the tolerance {energy_tolerance:.6e}."
-        )
+    if energy_tolerance is not None and energy_drift >= energy_tolerance:
+        raise RuntimeError(f"Relative energy drift {energy_drift:.6e} exceeds the tolerance {energy_tolerance:.6e}.")
 
     return {
         "hdf5_path": hdf5_path,
@@ -691,9 +552,7 @@ def check_mhd_scalar_diagnostics(
         "entropy_drift": entropy_drift,
         "maximum_div_b": maximum_div_b,
         "component_sum_error": maximum_component_sum_error,
-        "relative_component_sum_error": (
-            relative_component_sum_error
-        ),
+        "relative_component_sum_error": (relative_component_sum_error),
         "kinetic_variation": kinetic_variation,
         "magnetic_variation": magnetic_variation,
         "thermodynamic_variation": thermodynamic_variation,
@@ -710,10 +569,7 @@ def extract_scalar_time_data(data: dict):
     times = sorted(data, key=float)
 
     values = np.stack(
-        [
-            np.asarray(data[time][0])
-            for time in times
-        ],
+        [np.asarray(data[time][0]) for time in times],
         axis=0,
     )
 
@@ -727,10 +583,7 @@ def extract_vector_time_data(data: dict):
     values = np.stack(
         [
             np.stack(
-                [
-                    np.asarray(component)
-                    for component in data[time]
-                ],
+                [np.asarray(component) for component in data[time]],
                 axis=0,
             )
             for time in times
@@ -749,18 +602,12 @@ def check_matching_times(
     """Check that two plotting histories use the same saved times."""
     if len(reference_times) != len(other_times):
         raise RuntimeError(
-            f"Time-history length mismatch for {variable_name}: "
-            f"{len(reference_times)} != {len(other_times)}"
+            f"Time-history length mismatch for {variable_name}: {len(reference_times)} != {len(other_times)}"
         )
 
-    for index, (reference, other) in enumerate(
-        zip(reference_times, other_times)
-    ):
+    for index, (reference, other) in enumerate(zip(reference_times, other_times)):
         if not np.isclose(float(reference), float(other)):
-            raise RuntimeError(
-                f"Time mismatch for {variable_name} at index "
-                f"{index}: {reference!r} != {other!r}"
-            )
+            raise RuntimeError(f"Time mismatch for {variable_name} at index {index}: {reference!r} != {other!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -804,15 +651,8 @@ def print_field_location(
     print(f"Density          : {rho_value!r}")
     print(f"Entropy density  : {entropy_value!r}")
 
-    if (
-        np.isfinite(rho_value)
-        and rho_value != 0.0
-        and np.isfinite(entropy_value)
-    ):
-        print(
-            f"Entropy / density: "
-            f"{entropy_value / rho_value!r}"
-        )
+    if np.isfinite(rho_value) and rho_value != 0.0 and np.isfinite(entropy_value):
+        print(f"Entropy / density: {entropy_value / rho_value!r}")
 
     print(f"log(pressure)    : {log_pressure_value!r}")
 
@@ -847,20 +687,13 @@ def diagnose_thermodynamic_fields(
     entropy = np.asarray(entropy, dtype=np.float64)
 
     if density.shape != entropy.shape:
-        raise RuntimeError(
-            "Density and entropy have different shapes: "
-            f"{density.shape} != {entropy.shape}"
-        )
+        raise RuntimeError(f"Density and entropy have different shapes: {density.shape} != {entropy.shape}")
 
     finite_density = np.isfinite(density)
     finite_entropy = np.isfinite(entropy)
     positive_density = density > 0.0
 
-    valid_input = (
-        finite_density
-        & finite_entropy
-        & positive_density
-    )
+    valid_input = finite_density & finite_entropy & positive_density
 
     nonfinite_density = ~finite_density
     nonfinite_entropy = ~finite_entropy
@@ -880,18 +713,12 @@ def diagnose_thermodynamic_fields(
         under="ignore",
     ):
         log_pressure[valid_input] = (
-            np.log(gamma - 1.0)
-            + gamma * np.log(density[valid_input])
-            + entropy[valid_input] / density[valid_input]
+            np.log(gamma - 1.0) + gamma * np.log(density[valid_input]) + entropy[valid_input] / density[valid_input]
         )
 
-    nonfinite_log_pressure = (
-        valid_input & ~np.isfinite(log_pressure)
-    )
+    nonfinite_log_pressure = valid_input & ~np.isfinite(log_pressure)
 
-    float64_log_max = float(
-        np.log(np.finfo(np.float64).max)
-    )
+    float64_log_max = float(np.log(np.finfo(np.float64).max))
 
     # exp(x) starts returning zero near this range. Using nextafter gives
     # the smallest positive subnormal representable float.
@@ -901,21 +728,11 @@ def diagnose_thermodynamic_fields(
     )
     float64_log_min = float(np.log(smallest_positive))
 
-    pressure_overflow = (
-        np.isfinite(log_pressure)
-        & (log_pressure > float64_log_max)
-    )
+    pressure_overflow = np.isfinite(log_pressure) & (log_pressure > float64_log_max)
 
-    pressure_underflow = (
-        np.isfinite(log_pressure)
-        & (log_pressure < float64_log_min)
-    )
+    pressure_underflow = np.isfinite(log_pressure) & (log_pressure < float64_log_min)
 
-    safe_pressure = (
-        np.isfinite(log_pressure)
-        & ~pressure_overflow
-        & ~pressure_underflow
-    )
+    safe_pressure = np.isfinite(log_pressure) & ~pressure_overflow & ~pressure_underflow
 
     pressure = np.full(
         density.shape,
@@ -928,115 +745,44 @@ def diagnose_thermodynamic_fields(
         under="ignore",
         invalid="ignore",
     ):
-        pressure[safe_pressure] = np.exp(
-            log_pressure[safe_pressure]
-        )
+        pressure[safe_pressure] = np.exp(log_pressure[safe_pressure])
 
     finite_logp = np.isfinite(log_pressure)
 
-    minimum_density = (
-        float(np.min(density[finite_density]))
-        if np.any(finite_density)
-        else np.nan
-    )
+    minimum_density = float(np.min(density[finite_density])) if np.any(finite_density) else np.nan
 
-    maximum_density = (
-        float(np.max(density[finite_density]))
-        if np.any(finite_density)
-        else np.nan
-    )
+    maximum_density = float(np.max(density[finite_density])) if np.any(finite_density) else np.nan
 
-    minimum_entropy = (
-        float(np.min(entropy[finite_entropy]))
-        if np.any(finite_entropy)
-        else np.nan
-    )
+    minimum_entropy = float(np.min(entropy[finite_entropy])) if np.any(finite_entropy) else np.nan
 
-    maximum_entropy = (
-        float(np.max(entropy[finite_entropy]))
-        if np.any(finite_entropy)
-        else np.nan
-    )
+    maximum_entropy = float(np.max(entropy[finite_entropy])) if np.any(finite_entropy) else np.nan
 
-    minimum_log_pressure = (
-        float(np.min(log_pressure[finite_logp]))
-        if np.any(finite_logp)
-        else np.nan
-    )
+    minimum_log_pressure = float(np.min(log_pressure[finite_logp])) if np.any(finite_logp) else np.nan
 
-    maximum_log_pressure = (
-        float(np.max(log_pressure[finite_logp]))
-        if np.any(finite_logp)
-        else np.nan
-    )
+    maximum_log_pressure = float(np.max(log_pressure[finite_logp])) if np.any(finite_logp) else np.nan
 
     finite_pressure = np.isfinite(pressure)
 
-    minimum_pressure = (
-        float(np.min(pressure[finite_pressure]))
-        if np.any(finite_pressure)
-        else np.nan
-    )
+    minimum_pressure = float(np.min(pressure[finite_pressure])) if np.any(finite_pressure) else np.nan
 
-    maximum_pressure = (
-        float(np.max(pressure[finite_pressure]))
-        if np.any(finite_pressure)
-        else np.nan
-    )
+    maximum_pressure = float(np.max(pressure[finite_pressure])) if np.any(finite_pressure) else np.nan
 
     print("\nREGULARIZED ORSZAG--TANG FIELD DIAGNOSTICS")
     print("==========================================")
-    print(
-        f"Density range              : "
-        f"[{minimum_density:.12e}, {maximum_density:.12e}]"
-    )
-    print(
-        f"Entropy-density range       : "
-        f"[{minimum_entropy:.12e}, {maximum_entropy:.12e}]"
-    )
-    print(
-        f"Finite log-pressure range   : "
-        f"[{minimum_log_pressure:.12e}, "
-        f"{maximum_log_pressure:.12e}]"
-    )
-    print(
-        f"Safe finite pressure range  : "
-        f"[{minimum_pressure:.12e}, {maximum_pressure:.12e}]"
-    )
-    print(
-        f"float64 maximum log-pressure: "
-        f"{float64_log_max:.12e}"
-    )
-    print(
-        f"float64 minimum log-pressure: "
-        f"{float64_log_min:.12e}"
-    )
+    print(f"Density range              : [{minimum_density:.12e}, {maximum_density:.12e}]")
+    print(f"Entropy-density range       : [{minimum_entropy:.12e}, {maximum_entropy:.12e}]")
+    print(f"Finite log-pressure range   : [{minimum_log_pressure:.12e}, {maximum_log_pressure:.12e}]")
+    print(f"Safe finite pressure range  : [{minimum_pressure:.12e}, {maximum_pressure:.12e}]")
+    print(f"float64 maximum log-pressure: {float64_log_max:.12e}")
+    print(f"float64 minimum log-pressure: {float64_log_min:.12e}")
 
     print("\nProblem counts:")
-    print(
-        f"Non-finite density points   : "
-        f"{np.count_nonzero(nonfinite_density)}"
-    )
-    print(
-        f"Non-positive density points : "
-        f"{np.count_nonzero(nonpositive_density)}"
-    )
-    print(
-        f"Non-finite entropy points   : "
-        f"{np.count_nonzero(nonfinite_entropy)}"
-    )
-    print(
-        f"Non-finite log-pressure     : "
-        f"{np.count_nonzero(nonfinite_log_pressure)}"
-    )
-    print(
-        f"Pressure-overflow points    : "
-        f"{np.count_nonzero(pressure_overflow)}"
-    )
-    print(
-        f"Pressure-underflow points   : "
-        f"{np.count_nonzero(pressure_underflow)}"
-    )
+    print(f"Non-finite density points   : {np.count_nonzero(nonfinite_density)}")
+    print(f"Non-positive density points : {np.count_nonzero(nonpositive_density)}")
+    print(f"Non-finite entropy points   : {np.count_nonzero(nonfinite_entropy)}")
+    print(f"Non-finite log-pressure     : {np.count_nonzero(nonfinite_log_pressure)}")
+    print(f"Pressure-overflow points    : {np.count_nonzero(pressure_overflow)}")
+    print(f"Pressure-underflow points   : {np.count_nonzero(pressure_underflow)}")
 
     print_field_location(
         "FIRST NON-FINITE DENSITY",
@@ -1112,41 +858,20 @@ def diagnose_thermodynamic_fields(
         ~np.isfinite(minimum_density_by_time)
         | (minimum_density_by_time <= 0.0)
         | ~np.isfinite(maximum_log_pressure_by_time)
-        | (
-            maximum_log_pressure_by_time
-            > float64_log_max
-        )
+        | (maximum_log_pressure_by_time > float64_log_max)
     )
 
-    first_bad_time_index = (
-        int(np.flatnonzero(bad_time_mask)[0])
-        if np.any(bad_time_mask)
-        else None
-    )
+    first_bad_time_index = int(np.flatnonzero(bad_time_mask)[0]) if np.any(bad_time_mask) else None
 
     if first_bad_time_index is None:
-        print(
-            "\nNo non-positive density or float64 pressure "
-            "overflow was found in the saved plotting data."
-        )
+        print("\nNo non-positive density or float64 pressure overflow was found in the saved plotting data.")
     else:
         print("\nFIRST PROBLEMATIC SAVED TIME")
         print("----------------------------")
-        print(
-            f"Index                : {first_bad_time_index}"
-        )
-        print(
-            f"Time                 : "
-            f"{float(times[first_bad_time_index]):.16e}"
-        )
-        print(
-            f"Minimum density      : "
-            f"{minimum_density_by_time[first_bad_time_index]:.16e}"
-        )
-        print(
-            f"Maximum log-pressure : "
-            f"{maximum_log_pressure_by_time[first_bad_time_index]:.16e}"
-        )
+        print(f"Index                : {first_bad_time_index}")
+        print(f"Time                 : {float(times[first_bad_time_index]):.16e}")
+        print(f"Minimum density      : {minimum_density_by_time[first_bad_time_index]:.16e}")
+        print(f"Maximum log-pressure : {maximum_log_pressure_by_time[first_bad_time_index]:.16e}")
 
     physically_admissible = (
         not np.any(nonfinite_density)
@@ -1157,19 +882,10 @@ def diagnose_thermodynamic_fields(
     )
 
     if physically_admissible:
-        print(
-            "\nFIELD STATUS: no saved-grid admissibility failure "
-            "was detected."
-        )
+        print("\nFIELD STATUS: no saved-grid admissibility failure was detected.")
     else:
-        print(
-            "\nFIELD STATUS: the global invariants are not sufficient "
-            "to validate this solution."
-        )
-        print(
-            "At least one saved-grid density/entropy/pressure "
-            "admissibility problem was detected."
-        )
+        print("\nFIELD STATUS: the global invariants are not sufficient to validate this solution.")
+        print("At least one saved-grid density/entropy/pressure admissibility problem was detected.")
 
     return {
         "density": density,
@@ -1203,53 +919,21 @@ def load_and_check_fields(
     """Load plotting data and diagnose reconstructed MHD fields."""
     simulation.load_plotting_data()
 
-    density_data = (
-        simulation
-        .spline_values
-        .mhd
-        .density_log
-        .data
-    )
+    density_data = simulation.spline_values.mhd.density_log.data
 
-    entropy_data = (
-        simulation
-        .spline_values
-        .mhd
-        .entropy_log
-        .data
-    )
+    entropy_data = simulation.spline_values.mhd.entropy_log.data
 
-    velocity_data = (
-        simulation
-        .spline_values
-        .mhd
-        .velocity_log
-        .data
-    )
+    velocity_data = simulation.spline_values.mhd.velocity_log.data
 
-    magnetic_data = (
-        simulation
-        .spline_values
-        .em_fields
-        .b_field_log
-        .data
-    )
+    magnetic_data = simulation.spline_values.em_fields.b_field_log.data
 
-    times, density_3form = extract_scalar_time_data(
-        density_data
-    )
+    times, density_3form = extract_scalar_time_data(density_data)
 
-    entropy_times, entropy_3form = extract_scalar_time_data(
-        entropy_data
-    )
+    entropy_times, entropy_3form = extract_scalar_time_data(entropy_data)
 
-    velocity_times, velocity = extract_vector_time_data(
-        velocity_data
-    )
+    velocity_times, velocity = extract_vector_time_data(velocity_data)
 
-    magnetic_times, magnetic = extract_vector_time_data(
-        magnetic_data
-    )
+    magnetic_times, magnetic = extract_vector_time_data(magnetic_data)
 
     check_matching_times(
         times,
@@ -1270,49 +954,27 @@ def load_and_check_fields(
     )
 
     jacobian = np.asarray(
-        simulation.domain.jacobian_det(
-            *simulation.grids_log
-        ),
+        simulation.domain.jacobian_det(*simulation.grids_log),
         dtype=np.float64,
     )
 
     if not np.all(np.isfinite(jacobian)):
-        raise RuntimeError(
-            "The geometry Jacobian contains non-finite values."
-        )
+        raise RuntimeError("The geometry Jacobian contains non-finite values.")
 
     if np.any(jacobian <= 0.0):
-        raise RuntimeError(
-            "The geometry Jacobian is not strictly positive."
-        )
+        raise RuntimeError("The geometry Jacobian is not strictly positive.")
 
     # L2 variables are stored as logical 3-forms.
     density = density_3form / jacobian[None, ...]
     entropy = entropy_3form / jacobian[None, ...]
 
     if not np.all(np.isfinite(velocity)):
-        index = tuple(
-            int(value)
-            for value in np.argwhere(
-                ~np.isfinite(velocity)
-            )[0]
-        )
-        raise RuntimeError(
-            "Velocity contains non-finite values.\n"
-            f"First bad index: {index}"
-        )
+        index = tuple(int(value) for value in np.argwhere(~np.isfinite(velocity))[0])
+        raise RuntimeError(f"Velocity contains non-finite values.\nFirst bad index: {index}")
 
     if not np.all(np.isfinite(magnetic)):
-        index = tuple(
-            int(value)
-            for value in np.argwhere(
-                ~np.isfinite(magnetic)
-            )[0]
-        )
-        raise RuntimeError(
-            "Magnetic field contains non-finite values.\n"
-            f"First bad index: {index}"
-        )
+        index = tuple(int(value) for value in np.argwhere(~np.isfinite(magnetic))[0])
+        raise RuntimeError(f"Magnetic field contains non-finite values.\nFirst bad index: {index}")
 
     thermo = diagnose_thermodynamic_fields(
         times=times,
@@ -1331,6 +993,7 @@ def load_and_check_fields(
         "pressure": thermo["pressure"],
         "thermo_diagnostics": thermo,
     }
+
 
 def prepare_output_directory(
     *,
@@ -1369,10 +1032,7 @@ def prepare_output_directory(
             )
 
         if rank == 0 and output_exists:
-            print(
-                "Removing existing output because --overwrite "
-                "was supplied:"
-            )
+            print("Removing existing output because --overwrite was supplied:")
             print(output_path)
 
             shutil.rmtree(output_path)
@@ -1407,12 +1067,11 @@ def prepare_output_directory(
         )
 
         if not data_exists:
-            raise FileNotFoundError(
-                "The raw simulation data directory was not found:\n"
-                f"{data_path}"
-            )
+            raise FileNotFoundError(f"The raw simulation data directory was not found:\n{data_path}")
 
     comm.Barrier()
+
+
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
@@ -1434,20 +1093,14 @@ def plot_results(
     magnetic_energy = scalar_diagnostics["en_mag"]
     thermodynamic_energy = scalar_diagnostics["en_thermo"]
 
-    x = np.asarray(
-        simulation.grids_phy[0][:, :, 0]
-    )
-    y = np.asarray(
-        simulation.grids_phy[1][:, :, 0]
-    )
+    x = np.asarray(simulation.grids_phy[0][:, :, 0])
+    y = np.asarray(simulation.grids_phy[1][:, :, 0])
 
     final_pressure = pressure[-1, :, :, 0]
     final_log_pressure = log_pressure[-1, :, :, 0]
 
     # If pressure overflowed, plot log-pressure instead.
-    plot_log_pressure = not np.all(
-        np.isfinite(final_pressure)
-    )
+    plot_log_pressure = not np.all(np.isfinite(final_pressure))
 
     fig, axes = plt.subplots(
         2,
@@ -1479,10 +1132,7 @@ def plot_results(
             cmap="plasma",
         )
 
-        axes[0, 1].set_title(
-            "Final log-pressure\n"
-            "(pressure was not finite everywhere)"
-        )
+        axes[0, 1].set_title("Final log-pressure\n(pressure was not finite everywhere)")
     else:
         pressure_plot = axes[0, 1].contourf(
             x,
@@ -1522,10 +1172,7 @@ def plot_results(
     axes[1, 0].set_title("Energy exchange")
     axes[1, 0].legend()
 
-    relative_energy_change = (
-        (total_energy - total_energy[0])
-        / total_energy[0]
-    )
+    relative_energy_change = (total_energy - total_energy[0]) / total_energy[0]
 
     axes[1, 1].plot(
         time_history,
@@ -1533,12 +1180,8 @@ def plot_results(
     )
 
     axes[1, 1].set_xlabel("time")
-    axes[1, 1].set_ylabel(
-        r"$(E(t)-E(0))/E(0)$"
-    )
-    axes[1, 1].set_title(
-        "Relative regularized-energy change"
-    )
+    axes[1, 1].set_ylabel(r"$(E(t)-E(0))/E(0)$")
+    axes[1, 1].set_title("Relative regularized-energy change")
 
     for axis in axes[0, :]:
         axis.set_xlabel("x")
@@ -1559,6 +1202,7 @@ def plot_results(
 # ---------------------------------------------------------------------------
 # Run/load control
 # ---------------------------------------------------------------------------
+
 
 def run_new_simulation(
     simulation: Simulation,
@@ -1605,6 +1249,7 @@ def run_new_simulation(
 
     comm.Barrier()
 
+
 def ensure_existing_output(
     output_path: str | Path,
 ):
@@ -1622,9 +1267,7 @@ def ensure_existing_output(
     data_path = output_path / "data"
 
     if not data_path.is_dir():
-        raise FileNotFoundError(
-            f"The raw data directory does not exist:\n{data_path}"
-        )
+        raise FileNotFoundError(f"The raw data directory does not exist:\n{data_path}")
 
 
 def ensure_post_processing(
@@ -1649,18 +1292,15 @@ def ensure_post_processing(
             "to generate post-processing data from the existing run."
         )
 
-    print(
-        "\nPost-processing data are missing. Generating them "
-        "from the existing raw output."
-    )
+    print("\nPost-processing data are missing. Generating them from the existing raw output.")
 
     simulation.pproc(create_vtk=False)
 
     if not post_processing_path.is_dir():
         raise RuntimeError(
-            "Post-processing completed without creating the expected "
-            f"directory:\n{post_processing_path}"
+            f"Post-processing completed without creating the expected directory:\n{post_processing_path}"
         )
+
 
 def execute(
     *,
@@ -1726,6 +1366,8 @@ def execute(
     comm.Barrier()
 
     return scalar_diagnostics, field_data
+
+
 # ---------------------------------------------------------------------------
 # Pytest entry point
 # ---------------------------------------------------------------------------
@@ -1749,9 +1391,7 @@ def test_regularized_orszag_tang_existing_output():
 
         # This assertion deliberately checks local admissibility in
         # addition to global conservation.
-        assert field_data[
-            "thermo_diagnostics"
-        ]["physically_admissible"], (
+        assert field_data["thermo_diagnostics"]["physically_admissible"], (
             "The scalar invariants are well conserved, but the saved "
             "fields contain a non-positive density, non-finite state, "
             "or unrepresentable pressure."
@@ -1764,29 +1404,18 @@ def test_regularized_orszag_tang_existing_output():
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Load or run the regularized ideal-MHD "
-            "Orszag--Tang verification."
-        )
-    )
+    parser = argparse.ArgumentParser(description=("Load or run the regularized ideal-MHD Orszag--Tang verification."))
 
     parser.add_argument(
         "--run",
         action="store_true",
-        help=(
-            "Run a new simulation. Without this option, the existing "
-            "simulation is loaded without rerunning it."
-        ),
+        help=("Run a new simulation. Without this option, the existing simulation is loaded without rerunning it."),
     )
 
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help=(
-            "Allow --run to delete and replace an existing output "
-            "directory. Ignored in load mode."
-        ),
+        help=("Allow --run to delete and replace an existing output directory. Ignored in load mode."),
     )
 
     parser.add_argument(
@@ -1812,9 +1441,7 @@ if __name__ == "__main__":
 
     if arguments.overwrite and not arguments.run:
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print(
-                "Warning: --overwrite has no effect without --run."
-            )
+            print("Warning: --overwrite has no effect without --run.")
 
     execute(
         run=arguments.run,
