@@ -223,6 +223,7 @@ class FEECVariable(Variable):
     def __init__(self, space: LiteralOptions.OptsFEECSpace = "H1"):
         check_option(space, LiteralOptions.OptsFEECSpace)
         self._space = space
+        self._generation = 0
 
     @property
     def space(self) -> str:
@@ -281,6 +282,15 @@ class FEECVariable(Variable):
         if not hasattr(self, "_derham_lift"):
             self._derham_lift = None
         return self._derham_lift
+
+    @property
+    def generation(self) -> int:
+        """Number of committed updates of this FEEC variable."""
+        return self._generation
+
+    def mark_updated(self):
+        """Mark that the committed coefficients of this variable changed."""
+        self._generation += 1
 
     @property
     def species(self) -> FieldSpecies | FluidSpecies:

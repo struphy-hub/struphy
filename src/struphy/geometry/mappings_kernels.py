@@ -233,6 +233,109 @@ def spline_3d_df(
     )
 
 
+@stack_array(
+    "b1",
+    "b2",
+    "b3",
+    "d1",
+    "d2",
+    "d3",
+    "dd1",
+    "dd2",
+    "dd3",
+    "tmp1",
+    "tmp2",
+    "tmp3",
+)
+def spline_3d_d2f(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    degree: "int[:]",
+    ind1: "int[:, :]",
+    ind2: "int[:, :]",
+    ind3: "int[:, :]",
+    args: "DomainArguments",
+    d2f_out: "float[:,:,:]",
+):
+    """
+    Exact Hessian of the 3D tensor-product spline mapping.
+
+    ``d2f_out[i,j,k]`` contains
+
+        d²F_i / (d eta_j d eta_k).
+    """
+    # Stack-array shapes must be expressed directly in terms of formal
+    # arguments. Pyccel does not infer them through local aliases p1/p2/p3.
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
+    b3 = zeros(int(degree[2]) + 1, dtype=float)
+
+    d1 = zeros(int(degree[0]) + 1, dtype=float)
+    d2 = zeros(int(degree[1]) + 1, dtype=float)
+    d3 = zeros(int(degree[2]) + 1, dtype=float)
+
+    dd1 = zeros(int(degree[0]) + 1, dtype=float)
+    dd2 = zeros(int(degree[1]) + 1, dtype=float)
+    dd3 = zeros(int(degree[2]) + 1, dtype=float)
+
+    # Local aliases may be introduced after the stack-array allocations.
+    p1 = int(degree[0])
+    p2 = int(degree[1])
+    p3 = int(degree[2])
+
+    span1 = bsplines_kernels.find_span(args.t1, p1, eta1)
+    span2 = bsplines_kernels.find_span(args.t2, p2, eta2)
+    span3 = bsplines_kernels.find_span(args.t3, p3, eta3)
+
+    bsplines_kernels.b_2der_splines_slim(args.t1, p1, eta1, span1, b1, d1, dd1)
+    bsplines_kernels.b_2der_splines_slim(args.t2, p2, eta2, span2, b2, d2, dd2)
+    bsplines_kernels.b_2der_splines_slim(args.t3, p3, eta3, span3, b3, d3, dd3)
+
+    tmp1 = ind1[span1 - p1, :]
+    tmp2 = ind2[span2 - p2, :]
+    tmp3 = ind3[span3 - p3, :]
+
+    d2f_out[:, :, :] = 0.0
+
+    # Evaluate one physical component at a time. Pyccel does not make
+    # selecting args.cx/args.cy/args.cz dynamically convenient, so the
+    # calls are written explicitly.
+
+    # F_x
+    d2f_out[0, 0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, dd1, b2, b3, tmp1, tmp2, tmp3, args.cx)
+    d2f_out[0, 1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, dd2, b3, tmp1, tmp2, tmp3, args.cx)
+    d2f_out[0, 2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, b2, dd3, tmp1, tmp2, tmp3, args.cx)
+    d2f_out[0, 0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, d1, d2, b3, tmp1, tmp2, tmp3, args.cx)
+    d2f_out[0, 1, 0] = d2f_out[0, 0, 1]
+    d2f_out[0, 0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, d1, b2, d3, tmp1, tmp2, tmp3, args.cx)
+    d2f_out[0, 2, 0] = d2f_out[0, 0, 2]
+    d2f_out[0, 1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, d2, d3, tmp1, tmp2, tmp3, args.cx)
+    d2f_out[0, 2, 1] = d2f_out[0, 1, 2]
+
+    # F_y
+    d2f_out[1, 0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, dd1, b2, b3, tmp1, tmp2, tmp3, args.cy)
+    d2f_out[1, 1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, dd2, b3, tmp1, tmp2, tmp3, args.cy)
+    d2f_out[1, 2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, b2, dd3, tmp1, tmp2, tmp3, args.cy)
+    d2f_out[1, 0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, d1, d2, b3, tmp1, tmp2, tmp3, args.cy)
+    d2f_out[1, 1, 0] = d2f_out[1, 0, 1]
+    d2f_out[1, 0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, d1, b2, d3, tmp1, tmp2, tmp3, args.cy)
+    d2f_out[1, 2, 0] = d2f_out[1, 0, 2]
+    d2f_out[1, 1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, d2, d3, tmp1, tmp2, tmp3, args.cy)
+    d2f_out[1, 2, 1] = d2f_out[1, 1, 2]
+
+    # F_z
+    d2f_out[2, 0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, dd1, b2, b3, tmp1, tmp2, tmp3, args.cz)
+    d2f_out[2, 1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, dd2, b3, tmp1, tmp2, tmp3, args.cz)
+    d2f_out[2, 2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, b2, dd3, tmp1, tmp2, tmp3, args.cz)
+    d2f_out[2, 0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, d1, d2, b3, tmp1, tmp2, tmp3, args.cz)
+    d2f_out[2, 1, 0] = d2f_out[2, 0, 1]
+    d2f_out[2, 0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, d1, b2, d3, tmp1, tmp2, tmp3, args.cz)
+    d2f_out[2, 2, 0] = d2f_out[2, 0, 2]
+    d2f_out[2, 1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(p1, p2, p3, b1, d2, d3, tmp1, tmp2, tmp3, args.cz)
+    d2f_out[2, 2, 1] = d2f_out[2, 1, 2]
+
+
 @stack_array("b1", "b2", "tmp1", "tmp2")
 def spline_2d_straight(
     eta1: float,
@@ -336,6 +439,169 @@ def spline_2d_straight_df(
 
     if eta1 == 0.0 and cy[0, 0] == cy[0, 1]:
         df_out[1, 1] = 0.0
+
+
+@stack_array(
+    "b1",
+    "b2",
+    "d1",
+    "d2",
+    "dd1",
+    "dd2",
+    "tmp1",
+    "tmp2",
+)
+def spline_2d_straight_d2f(
+    eta1: float,
+    eta2: float,
+    degree: "int[:]",
+    ind1: "int[:, :]",
+    ind2: "int[:, :]",
+    args: "DomainArguments",
+    d2f_out: "float[:,:,:]",
+):
+    r"""
+    Exact mapping Hessian for the straight 2D spline mapping
+
+    .. math::
+
+        F(\eta_1,\eta_2,\eta_3)
+        =
+        \left(
+            X(\eta_1,\eta_2),
+            Y(\eta_1,\eta_2),
+            L_z\eta_3
+        \right).
+
+    The output convention is
+
+    .. math::
+
+        \mathtt{d2f\_out[i,j,k]}
+        =
+        \frac{\partial^2 F_i}
+        {\partial\eta_j\partial\eta_k}.
+    """
+    cx = args.cx[:, :, 0]
+    cy = args.cy[:, :, 0]
+
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
+
+    d1 = zeros(int(degree[0]) + 1, dtype=float)
+    d2 = zeros(int(degree[1]) + 1, dtype=float)
+
+    dd1 = zeros(int(degree[0]) + 1, dtype=float)
+    dd2 = zeros(int(degree[1]) + 1, dtype=float)
+
+    p1 = int(degree[0])
+    p2 = int(degree[1])
+
+    span1 = bsplines_kernels.find_span(args.t1, p1, eta1)
+    span2 = bsplines_kernels.find_span(args.t2, p2, eta2)
+
+    bsplines_kernels.b_2der_splines_slim(
+        args.t1,
+        p1,
+        eta1,
+        span1,
+        b1,
+        d1,
+        dd1,
+    )
+    bsplines_kernels.b_2der_splines_slim(
+        args.t2,
+        p2,
+        eta2,
+        span2,
+        b2,
+        d2,
+        dd2,
+    )
+
+    tmp1 = ind1[span1 - p1, :]
+    tmp2 = ind2[span2 - p2, :]
+
+    d2f_out[:, :, :] = 0.0
+
+    # ----------------------------------------------------------
+    # F_0 = X(eta1, eta2)
+    # ----------------------------------------------------------
+    d2f_out[0, 0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        dd1,
+        b2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    d2f_out[0, 0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        d1,
+        d2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+    d2f_out[0, 1, 0] = d2f_out[0, 0, 1]
+
+    d2f_out[0, 1, 1] = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        b1,
+        dd2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    # ----------------------------------------------------------
+    # F_1 = Y(eta1, eta2)
+    # ----------------------------------------------------------
+    d2f_out[1, 0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        dd1,
+        b2,
+        tmp1,
+        tmp2,
+        cy,
+    )
+
+    d2f_out[1, 0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        d1,
+        d2,
+        tmp1,
+        tmp2,
+        cy,
+    )
+    d2f_out[1, 1, 0] = d2f_out[1, 0, 1]
+
+    d2f_out[1, 1, 1] = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        b1,
+        dd2,
+        tmp1,
+        tmp2,
+        cy,
+    )
+
+    # F_2 = Lz * eta3 is affine, so all its second derivatives
+    # are zero. All derivatives involving eta3 are also zero.
+
+    # Match the exact polar-axis convention already used by
+    # spline_2d_straight and spline_2d_straight_df.
+    if eta1 == 0.0 and cx[0, 0] == cx[0, 1]:
+        d2f_out[0, 1, 1] = 0.0
+
+    if eta1 == 0.0 and cy[0, 0] == cy[0, 1]:
+        d2f_out[1, 1, 1] = 0.0
 
 
 @stack_array("b1", "b2", "tmp1", "tmp2")
@@ -482,6 +748,244 @@ def spline_2d_torus_df(
         df_out[2, 1] = 0.0
 
 
+@stack_array(
+    "b1",
+    "b2",
+    "d1",
+    "d2",
+    "dd1",
+    "dd2",
+    "tmp1",
+    "tmp2",
+)
+def spline_2d_torus_d2f(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    degree: "int[:]",
+    ind1: "int[:, :]",
+    ind2: "int[:, :]",
+    args: "DomainArguments",
+    tor_period: float,
+    d2f_out: "float[:,:,:]",
+):
+    r"""
+    Exact Hessian of
+
+        F_0 = R(eta1, eta2) cos(phi),
+        F_1 = -R(eta1, eta2) sin(phi),
+        F_2 = Z(eta1, eta2),
+
+    where
+
+        phi = 2*pi*eta3/tor_period.
+
+    Output convention:
+
+        d2f_out[i,j,k] = d²F_i/(d eta_j d eta_k).
+    """
+    cx = args.cx[:, :, 0]
+    cy = args.cy[:, :, 0]
+
+    # Pyccel may require array sizes to use the degree expressions
+    # directly rather than local aliases p1 and p2.
+    b1 = zeros(int(degree[0]) + 1, dtype=float)
+    b2 = zeros(int(degree[1]) + 1, dtype=float)
+
+    d1 = zeros(int(degree[0]) + 1, dtype=float)
+    d2 = zeros(int(degree[1]) + 1, dtype=float)
+
+    dd1 = zeros(int(degree[0]) + 1, dtype=float)
+    dd2 = zeros(int(degree[1]) + 1, dtype=float)
+
+    p1 = int(degree[0])
+    p2 = int(degree[1])
+
+    span1 = bsplines_kernels.find_span(
+        args.t1,
+        p1,
+        eta1,
+    )
+    span2 = bsplines_kernels.find_span(
+        args.t2,
+        p2,
+        eta2,
+    )
+
+    # Compute the B-spline values and their exact first and second
+    # derivatives. Without these calls all arrays remain zero.
+    bsplines_kernels.b_2der_splines_slim(
+        args.t1,
+        p1,
+        eta1,
+        span1,
+        b1,
+        d1,
+        dd1,
+    )
+
+    bsplines_kernels.b_2der_splines_slim(
+        args.t2,
+        p2,
+        eta2,
+        span2,
+        b2,
+        d2,
+        dd2,
+    )
+
+    tmp1 = ind1[span1 - p1, :]
+    tmp2 = ind2[span2 - p2, :]
+
+    # R and derivatives.
+    radius = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        b1,
+        b2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    radius_1 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        d1,
+        b2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    radius_2 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        b1,
+        d2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    radius_11 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        dd1,
+        b2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    radius_12 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        d1,
+        d2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    radius_22 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        b1,
+        dd2,
+        tmp1,
+        tmp2,
+        cx,
+    )
+
+    # Z derivatives.
+    height_11 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        dd1,
+        b2,
+        tmp1,
+        tmp2,
+        cy,
+    )
+
+    height_12 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        d1,
+        d2,
+        tmp1,
+        tmp2,
+        cy,
+    )
+
+    height_22 = evaluation_kernels_2d.evaluation_kernel_2d(
+        p1,
+        p2,
+        b1,
+        dd2,
+        tmp1,
+        tmp2,
+        cy,
+    )
+
+    # Use exactly the same toroidal-angle convention as
+    # spline_2d_torus() and spline_2d_torus_df().
+    wave_number = 2.0 * pi / tor_period
+    angle = wave_number * eta3
+
+    cosine = cos(angle)
+    sine = sin(angle)
+
+    d2f_out[:, :, :] = 0.0
+
+    # ----------------------------------------------------------
+    # F_0 = R cos(phi)
+    # ----------------------------------------------------------
+    d2f_out[0, 0, 0] = radius_11 * cosine
+
+    d2f_out[0, 0, 1] = radius_12 * cosine
+    d2f_out[0, 1, 0] = radius_12 * cosine
+
+    d2f_out[0, 1, 1] = radius_22 * cosine
+
+    d2f_out[0, 0, 2] = -wave_number * radius_1 * sine
+    d2f_out[0, 2, 0] = -wave_number * radius_1 * sine
+
+    d2f_out[0, 1, 2] = -wave_number * radius_2 * sine
+    d2f_out[0, 2, 1] = -wave_number * radius_2 * sine
+
+    d2f_out[0, 2, 2] = -wave_number * wave_number * radius * cosine
+
+    # ----------------------------------------------------------
+    # F_1 = -R sin(phi)
+    # ----------------------------------------------------------
+    d2f_out[1, 0, 0] = -radius_11 * sine
+
+    d2f_out[1, 0, 1] = -radius_12 * sine
+    d2f_out[1, 1, 0] = -radius_12 * sine
+
+    d2f_out[1, 1, 1] = -radius_22 * sine
+
+    d2f_out[1, 0, 2] = -wave_number * radius_1 * cosine
+    d2f_out[1, 2, 0] = -wave_number * radius_1 * cosine
+
+    d2f_out[1, 1, 2] = -wave_number * radius_2 * cosine
+    d2f_out[1, 2, 1] = -wave_number * radius_2 * cosine
+
+    d2f_out[1, 2, 2] = wave_number * wave_number * radius * sine
+
+    # ----------------------------------------------------------
+    # F_2 = Z
+    # ----------------------------------------------------------
+    d2f_out[2, 0, 0] = height_11
+
+    d2f_out[2, 0, 1] = height_12
+    d2f_out[2, 1, 0] = height_12
+
+    d2f_out[2, 1, 1] = height_22
+
+
 @pure
 def cuboid(
     eta1: float,
@@ -540,6 +1044,14 @@ def cuboid_df(l1: float, r1: float, l2: float, r2: float, l3: float, r3: float, 
     df_out[2, 0] = 0.0
     df_out[2, 1] = 0.0
     df_out[2, 2] = r3 - l3
+
+
+@pure
+def cuboid_d2f(
+    d2f_out: "float[:,:,:]",
+):
+    """Exact Hessian of the affine Cuboid mapping."""
+    d2f_out[:, :, :] = 0.0
 
 
 @pure

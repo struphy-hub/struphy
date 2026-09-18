@@ -229,8 +229,9 @@ class SchurSolverFull:
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
 
+    # @profile
+    # @ProfileManager.profile("solve: SchurSolverFull")
     @profile
-    @ProfileManager.profile("solve: SchurSolverFull")
     def dot(self, v, out=None):
         """Solves the 2x2 block matrix linear system.
 

@@ -4,11 +4,12 @@ import cunumpy as xp
 
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
+    H1vecKineticMetric,
     InternalEnergyEvaluator,
 )
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, WeightedBilinearEnergyFEEC
 from struphy.models.species import (
     FluidSpecies,
 )
@@ -17,6 +18,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
 from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
 class VariationalCompressibleFluid(StruphyModel):
@@ -28,6 +30,9 @@ class VariationalCompressibleFluid(StruphyModel):
         Base units for normalization (default: BaseUnits())
     mass_number: float
         Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_viscosity: bool
+        Whether to include viscous dissipation, including artificial viscosity
+        configured through ``VariationalViscosity.Options`` (default: False)
     """
 
     @classmethod
@@ -50,14 +55,32 @@ class VariationalCompressibleFluid(StruphyModel):
             self,
             s: FEECVariable = None,
             rho: FEECVariable = None,
+            with_viscosity: bool = False,
         ):
             self.variat_dens = VariationalDensityEvolve(s=s)
-            self.variat_mom = VariationalMomentumAdvection()
+            self.variat_mom = VariationalMomentumAdvection(rho=rho)
             self.variat_ent = VariationalEntropyEvolve(rho=rho)
+            if with_viscosity:
+                self.variat_viscous = VariationalViscosity(rho=rho)
 
     ## abstract methods
 
-    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        mass_number: float = 1.0,
+        with_viscosity: bool = False,
+        with_regularization: bool = False,
+        divdiv_alpha: float = 0.0,
+    ):
+
+        if not isinstance(with_regularization, bool):
+            raise TypeError(f"with_regularization must be a bool, got {type(with_regularization)}.")
+        if not isinstance(with_viscosity, bool):
+            raise TypeError(f"with_viscosity must be a bool, got {type(with_viscosity)}.")
+
+        if divdiv_alpha < 0.0:
+            raise ValueError(f"divdiv_alpha must be non-negative, got {divdiv_alpha}.")
 
         # 0. store input parameters
         self.params = copy.deepcopy(locals())
@@ -69,7 +92,24 @@ class VariationalCompressibleFluid(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(s=self.fluid.entropy, rho=self.fluid.density)
+        self.propagators = self.Propagators(s=self.fluid.entropy, rho=self.fluid.density, with_viscosity=with_viscosity)
+
+        self.propagators.variat_dens.options = self.propagators.variat_dens.Options(
+            model="full",
+            with_regularization=with_regularization,
+            alpha_divdiv=divdiv_alpha,
+        )
+
+        self.propagators.variat_mom.options = self.propagators.variat_mom.Options(
+            with_regularization=with_regularization,
+            alpha_divdiv=divdiv_alpha,
+        )
+
+        self.propagators.variat_ent.options = self.propagators.variat_ent.Options(
+            model="full",
+            with_regularization=with_regularization,
+            alpha_divdiv=divdiv_alpha,
+        )
 
         # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.fluid.density
@@ -77,9 +117,23 @@ class VariationalCompressibleFluid(StruphyModel):
         self.propagators.variat_mom.variables.u = self.fluid.velocity
         self.propagators.variat_ent.variables.s = self.fluid.entropy
         self.propagators.variat_ent.variables.u = self.fluid.velocity
+        if with_viscosity:
+            self.propagators.variat_viscous.variables.s = self.fluid.entropy
+            self.propagators.variat_viscous.variables.u = self.fluid.velocity
 
         # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMMnew")
+        if with_regularization:
+            kinetic_energy = WeightedBilinearEnergyFEEC(
+                left_variable=self.fluid.velocity,
+                weight_variable=self.fluid.density,
+                bilinear_form_getter=lambda: self.propagators.variat_dens._kinetic_metric,
+            )
+        else:
+            kinetic_energy = BilinearEnergyFEEC(
+                self.fluid.velocity,
+                bilinear_form_name="WMMnew",
+            )
+
         thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + thermo_energy
         self.scalars = Scalars(
@@ -96,6 +150,26 @@ class VariationalCompressibleFluid(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @property
+    def kinetic_metric(self):
+        """Density-dependent H1vec kinetic metric."""
+        prop = self.propagators.variat_dens
+
+        if not prop.options.with_regularization:
+            return None
+
+        return getattr(prop, "_kinetic_metric", None)
+
+    @property
+    def divdiv_operator(self):
+        """Density-weighted H1vec div-div contribution."""
+        prop = self.propagators.variat_dens
+
+        if not prop.options.with_regularization:
+            return None
+
+        return getattr(prop, "_Kdivrho", None)
+
     def post_allocate(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
@@ -105,7 +179,10 @@ class VariationalCompressibleFluid(StruphyModel):
         f = xp.vectorize(f)
         self._integrator = projV3(f)
 
-        self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
+        self._energy_evaluator = InternalEnergyEvaluator(
+            Propagator.derham,
+            self.propagators.variat_ent.options.gamma,
+        )
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
