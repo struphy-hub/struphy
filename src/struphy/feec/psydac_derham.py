@@ -1925,11 +1925,12 @@ class Derham:
         else:
             nproc = 1
 
-        # send buffer
-        dom_arr_loc = xp.zeros(9, dtype=float)
+        # send buffer -- host-resident: mpi4py's Allgather needs a real
+        # buffer-protocol array, not a CuPy array, regardless of backend.
+        dom_arr_loc = np.zeros(9, dtype=float)
 
         # main array (receive buffers)
-        dom_arr = xp.zeros(nproc * 9, dtype=float)
+        dom_arr = np.zeros(nproc * 9, dtype=float)
 
         # Get global starts and ends of domain decomposition
         gl_s = self.domain_decomposition.starts

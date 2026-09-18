@@ -1,6 +1,7 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
 from feectools.ddm.mpi import MockComm
@@ -260,7 +261,7 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = xp.nonzero(M_arr)
+                row_indices, col_indices = np.nonzero(M_arr)
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -273,7 +274,7 @@ class MassMatrixPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -625,7 +626,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = xp.nonzero(M_arr)
+                row_indices, col_indices = np.nonzero(M_arr)
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -638,7 +639,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -911,10 +912,12 @@ class FFTSolver(BandedSolver):
     """
 
     def __init__(self, circmat):
-        assert isinstance(circmat, xp.ndarray)
+        # circmat comes from StencilMatrix.toarray(), always host numpy; the
+        # underlying solve() also calls scipy's solve_circulant, host-only.
+        assert isinstance(circmat, np.ndarray)
         assert is_circulant(circmat)
 
-        self._space = xp.ndarray
+        self._space = np.ndarray
         self._column = circmat[:, 0]
 
     # --------------------------------------
@@ -979,13 +982,15 @@ def is_circulant(mat):
         Whether the matrix is circulant (=True) or not (=False).
     """
 
-    assert isinstance(mat, xp.ndarray)
+    # mat comes from StencilMatrix.toarray(), which always densifies to a
+    # host numpy.ndarray regardless of the active backend.
+    assert isinstance(mat, np.ndarray)
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
     if mat.shape[0] > 1:
         for i in range(mat.shape[0] - 1):
-            circulant = xp.allclose(mat[i, :], xp.roll(mat[i + 1, :], -1))
+            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
             if not circulant:
                 return circulant
     else:
