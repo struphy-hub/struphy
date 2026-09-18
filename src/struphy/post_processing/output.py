@@ -905,11 +905,12 @@ class Output:
         directory = Path(directory) if directory else self.path_pproc / "report"
         return save_all_scalars(self.scalars, directory, run_label=self.label, **kwargs)
 
-    def report(self, directory=None, *, products=(), format: str = "markdown") -> str:
+    def report(self, directory=None, *, products=(), format: str = "markdown", max_scalar_rows: int = 200) -> str:
         """Write a compact, reproducible data report and return its path.
 
         The report records run metadata, the full product catalog, and dimensions/units of any
-        explicitly requested products. ``format`` is ``"markdown"`` or ``"html"``.
+        explicitly requested products. ``format`` is ``"markdown"`` or ``"html"``. The full
+        scalar history is written as ``scalars.csv``; HTML embeds up to ``max_scalar_rows`` rows.
         """
         if format not in {"markdown", "html"}:
             raise ValueError("format must be 'markdown' or 'html'")
@@ -917,22 +918,44 @@ class Output:
         requested = [self.evaluate(key) for key in products]
         directory = Path(directory) if directory else self.path_pproc / "report"
         directory.mkdir(parents=True, exist_ok=True)
+        csv_path = save_scalars(self.scalars, str(directory / "scalars.csv"))
         rows = [
             (str(key), str(kind), str(description))
             for key, kind, description in zip(catalog.product.values, catalog.kind.values, catalog.description.values)
         ]
+        scalar_names = tuple(self.scalars.data_vars)
+        scalar_time = np.asarray(self.scalars.coords["t"]) if "t" in self.scalars.coords else np.empty(0)
+        scalar_values = np.column_stack([np.asarray(self.scalars[name]) for name in scalar_names]) if scalar_names else np.empty((len(scalar_time), 0))
+        scalar_rows = len(scalar_time)
+        indices = np.linspace(0, scalar_rows - 1, min(scalar_rows, max_scalar_rows), dtype=int) if scalar_rows else []
+        summaries = []
+        for name, values in zip(scalar_names, scalar_values.T):
+            finite = values[np.isfinite(values)]
+            summaries.append((name, float(finite[0]) if finite.size else np.nan, float(finite[-1]) if finite.size else np.nan, float(finite.min()) if finite.size else np.nan, float(finite.max()) if finite.size else np.nan))
+        requested_summary = []
+        for array in requested:
+            values = np.asarray(array)
+            finite = values[np.isfinite(values)]
+            requested_summary.append((array.name, ", ".join(array.dims), str(array.attrs.get("units", "")), int(values.size), float(finite.min()) if finite.size else np.nan, float(finite.max()) if finite.size else np.nan))
         if format == "markdown":
             lines = [f"# Struphy output report", "", f"- Path: `{self.path_out}`", f"- Run: {self.label}", "", "## Products", "", "| Key | Kind | Description |", "| --- | --- | --- |"]
             lines += [f"| `{key}` | {kind} | {description} |" for key, kind, description in rows]
+            lines += ["", "## Scalar summary", "", "| Scalar | Initial | Final | Min | Max |", "| --- | ---: | ---: | ---: | ---: |"]
+            lines += [f"| `{name}` | {initial:.6g} | {final:.6g} | {minimum:.6g} | {maximum:.6g} |" for name, initial, final, minimum, maximum in summaries]
+            lines += ["", f"Full scalar values: `{Path(csv_path).name}`"]
             if requested:
-                lines += ["", "## Requested data", "", "| Key | Dimensions | Units |", "| --- | --- | --- |"]
-                lines += [f"| `{array.name}` | {', '.join(array.dims)} | {array.attrs.get('units', '')} |" for array in requested]
+                lines += ["", "## Requested data", "", "| Key | Dimensions | Units | Values | Min | Max |", "| --- | --- | --- | ---: | ---: | ---: |"]
+                lines += [f"| `{name}` | {dims} | {units} | {size} | {minimum:.6g} | {maximum:.6g} |" for name, dims, units, size, minimum, maximum in requested_summary]
             path = directory / "report.md"
             path.write_text("\n".join(lines) + "\n")
         else:
-            body = "".join(f"<tr><td><code>{escape(key)}</code></td><td>{escape(kind)}</td><td>{escape(description)}</td></tr>" for key, kind, description in rows)
+            product_body = "".join(f"<tr><td><code>{escape(key)}</code></td><td>{escape(kind)}</td><td>{escape(description)}</td></tr>" for key, kind, description in rows)
+            summary_body = "".join(f"<tr><td><code>{escape(name)}</code></td><td>{initial:.6g}</td><td>{final:.6g}</td><td>{minimum:.6g}</td><td>{maximum:.6g}</td></tr>" for name, initial, final, minimum, maximum in summaries)
+            values_body = "".join(f"<tr><td>{float(scalar_time[index]):.6g}</td>" + "".join(f"<td>{value:.6g}</td>" for value in scalar_values[index]) + "</tr>" for index in indices)
+            requested_body = "".join(f"<tr><td><code>{escape(str(name))}</code></td><td>{escape(dims)}</td><td>{escape(units)}</td><td>{size}</td><td>{minimum:.6g}</td><td>{maximum:.6g}</td></tr>" for name, dims, units, size, minimum, maximum in requested_summary)
             path = directory / "report.html"
-            path.write_text(f"<h1>Struphy output report</h1><p>{escape(str(self.path_out))}<br>{escape(self.label)}</p><table><tr><th>Key</th><th>Kind</th><th>Description</th></tr>{body}</table>")
+            style = "body{max-width:1200px;margin:2rem auto;padding:0 1rem;background:#f7f8fa;color:#1f2937;font:15px system-ui,sans-serif}h1,h2{color:#123b5d}.cards{display:flex;gap:1rem;flex-wrap:wrap}.card{background:white;padding:1rem;border-radius:8px;box-shadow:0 1px 3px #0002;min-width:220px}table{border-collapse:collapse;width:100%;background:white;margin:1rem 0}th{background:#123b5d;color:white;text-align:left}th,td{padding:.55rem;border-bottom:1px solid #dbe1e8}tr:nth-child(even){background:#f3f6f9}code{color:#8a2558}.scroll{overflow:auto}.muted{color:#52606d}a{color:#075985}"
+            path.write_text(f"<!doctype html><meta charset=utf-8><title>Struphy output report</title><style>{style}</style><h1>Struphy output report</h1><div class=cards><div class=card><b>Run</b><br>{escape(self.label)}</div><div class=card><b>Output directory</b><br><code>{escape(str(self.path_out))}</code></div><div class=card><b>Products</b><br>{len(rows)}</div><div class=card><b>Scalar samples</b><br>{scalar_rows}</div></div><h2>Scalar summary</h2><div class=scroll><table><tr><th>Scalar</th><th>Initial</th><th>Final</th><th>Min</th><th>Max</th></tr>{summary_body}</table></div><p class=muted>Showing {len(indices)} of {scalar_rows} rows. <a href='{Path(csv_path).name}'>Download all scalar values (CSV)</a>.</p><div class=scroll><table><tr><th>t</th>{''.join(f'<th>{escape(name)}</th>' for name in scalar_names)}</tr>{values_body}</table></div><h2>Products</h2><div class=scroll><table><tr><th>Key</th><th>Kind</th><th>Description</th></tr>{product_body}</table></div>{'<h2>Requested data</h2><div class=scroll><table><tr><th>Key</th><th>Dimensions</th><th>Units</th><th>Values</th><th>Min</th><th>Max</th></tr>'+requested_body+'</table></div>' if requested_body else ''}")
         return str(path)
 
     @property
