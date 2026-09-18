@@ -150,19 +150,21 @@ class OrbitProducts(ProductNamespace):
 
 
 class Output:
-    """The output of one Struphy simulation, loaded lazily from its output folder.
+    """A lightweight, lazy handle to the output of one Struphy simulation.
 
     Obtain it from :attr:`Simulation.output` (or the return value of :meth:`Simulation.run`)
-    or construct ``Output(path_out)`` in a separate process. Nothing is read at construction.
+    or construct ``Output(path_out)`` in a separate process. Construction reads saved metadata
+    when it is available, but does not load field or particle data.
+
+    Call :meth:`evaluate` to obtain one product as an :class:`xarray.DataArray`. It materializes
+    post-processing products on demand; call :meth:`pproc` explicitly to choose its options.
+    The :attr:`xarray` property exposes the complete post-processed product tree.
 
     * :attr:`scalars` are read directly from the raw HDF5 output.
-    * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` need
-      post-processed data. When there is none, the first access processes the run with
-      default options; call :meth:`process` beforehand to choose options.
+    * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` are retained
+      as compatibility views over the post-processed products.
     * :attr:`model`, :attr:`domain` and numerical options are reconstructed lazily
       from saved metadata. No simulation object is created or retained.
-    * Products plot themselves, e.g. ``out["en_phi"].struphy.plot.timeseries(fit=(0, 40))``;
-      :attr:`plot` holds the plots that need the whole run.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
     Parameters
@@ -184,6 +186,12 @@ class Output:
         self.time_units = time_units
         self.comm = MPI.COMM_WORLD if comm is None else comm
         self._reset()
+        # A Simulation can expose its Output before it has written metadata. In that case,
+        # keep the handle usable and let metadata raise its normal error when requested.
+        try:
+            self.metadata
+        except FileNotFoundError:
+            pass
 
     def __repr__(self):
         return f"{type(self).__name__}({str(self.path_out)!r}, processed={self.is_processed})"
@@ -201,9 +209,7 @@ class Output:
         self._seconds = None
 
     def __getitem__(self, name: str) -> xr.DataArray:
-        """Any product by name: a scalar (``"en_tot"``), a field (``"em_fields/phi_log"``), a binned
-        distribution or SPH density (``"kinetic_ions/e1_v1_density/f"``) or orbits (``"kinetic_ions"``).
-        """
+        """Compatibility shorthand for :meth:`evaluate`."""
         if name in self.scalars.data_vars:
             return self.scalars[name]
         for catalog in (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog):
@@ -217,6 +223,16 @@ class Output:
             *self.orbit_catalog,
         )
         raise KeyError(f"{name!r} not found; available products: {available}")
+
+    def evaluate(self, name: str) -> xr.DataArray:
+        """Return a named simulation product as an :class:`xarray.DataArray`.
+
+        Scalars are read directly from raw output. Other products are materialized with
+        :meth:`pproc` on first use when no complete post-processing output exists. The returned
+        array is an ordinary xarray object, so use xarray for selection, arithmetic and further
+        analysis.
+        """
+        return self[name]
 
     def _stamp(self, array: xr.DataArray) -> xr.DataArray:
         array.attrs.update(run=self.label, run_name=self.path_out.name)
@@ -321,7 +337,7 @@ class Output:
 
         return is_processed(str(self.path_out))
 
-    def process(
+    def pproc(
         self,
         *,
         step: int = 1,
@@ -333,7 +349,7 @@ class Output:
         parallel: bool = False,
         force: bool = False,
     ) -> "Output":
-        """Post-process the raw output; reuses existing products made with the same options.
+        """Materialize post-processed products; reuse matching existing products.
 
         Call this on every MPI rank. Serial processing (the default) runs on rank 0 while
         the other ranks wait. Parallel processing reconstructs the field decomposition
@@ -361,7 +377,7 @@ class Output:
         Returns
         -------
         Output
-            This run, so that ``run = Output(path).process(physical=True)`` reads naturally.
+            This run, so that ``run = Output(path).pproc(physical=True)`` reads naturally.
         """
         from struphy.post_processing.post_processing_tools import PostProcessor
 
@@ -383,16 +399,20 @@ class Output:
         self._reset()
         return self
 
+    def process(self, **options) -> "Output":
+        """Compatibility alias for :meth:`pproc`."""
+        return self.pproc(**options)
+
     def _ensure_processed(self):
         if self.is_processed:
             return
         if self.comm.Get_size() > 1:
-            raise RuntimeError(f"{self.path_out} has no post-processed data; call out.process() on all ranks first")
+            raise RuntimeError(f"{self.path_out} has no post-processed data; call out.pproc() on all ranks first")
         logger.warning(
-            "\nNo post-processed data in %s, processing with default options (call out.process(...) to choose them)",
+            "\nNo post-processed data in %s, processing with default options (call out.pproc(...) to choose them)",
             self.path_out,
         )
-        self.process()
+        self.pproc()
 
     def _product_mappings(self) -> dict[str, ProductMapping]:
         if self._products is None:
@@ -642,7 +662,7 @@ class Output:
         lines += ["scalars (no post-processing needed)"]
         lines += [f"  out.scalars.{name}" for name in scalars] or ["  (none)"]
         if not self.is_processed:
-            lines += ["", "products (not post-processed yet; run out.process(...) to choose options)"]
+            lines += ["", "products (not post-processed yet; run out.pproc(...) to choose options)"]
             lines += [f"  out.{name}.*" for name in sorted(self._raw_species())]
             return "\n".join(lines)
         for kind, catalog in (
@@ -687,6 +707,16 @@ class Output:
             self._tree = store.open_tree(store.store_path(self.path_pproc))
         return self._tree
 
+    @property
+    def xarray(self) -> xr.DataTree:
+        """The complete post-processed product tree as an xarray :class:`DataTree`.
+
+        Prefer :meth:`evaluate` when requesting one named product. Accessing this property
+        materializes post-processing output if it does not exist, but preserves xarray's lazy
+        backing arrays.
+        """
+        return self.tree
+
     def _groups(self) -> dict[str, xr.Dataset]:
         """Every group of the store that holds products, by path without the leading slash."""
         return {path.lstrip("/"): node.ds for path, node in self.tree.subtree_with_keys if node.ds.data_vars}
@@ -721,7 +751,7 @@ class Output:
 def open_output(path_out, *, time_units: str = "normalized") -> Output:
     """Open the output folder of a finished simulation.
 
-    Nothing is allocated and no MPI is needed; products are read on first access.
+    Saved metadata is read immediately; products are materialized and opened on demand.
 
     Parameters
     ----------

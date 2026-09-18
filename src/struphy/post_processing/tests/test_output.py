@@ -162,7 +162,7 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
         raise AssertionError("Output must not construct a Simulation")
     monkeypatch.setattr(Simulation, "__init__", forbidden)
     run = Output(root)
-    assert "metadata" not in vars(run)
+    assert run.metadata["model"] == Maxwell(base_units=BaseUnits(x=2.0)).to_dict()
     assert "model" not in vars(run)
     assert not hasattr(run, "sim")
     assert "_sim" not in vars(run)
@@ -175,23 +175,30 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
     assert run.with_time_units("physical").model.to_dict() == run.model.to_dict()
 
 
-def test_products_trigger_default_processing_when_missing(tmp_path, monkeypatch):
+def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
     run = Output(root, time_units="normalized")
     calls = []
 
-    def fake_process(self, **options):
+    def fake_pproc(self, **options):
         calls.append(options)
         write_manifest(root)
         self._reset()
         return self
 
-    monkeypatch.setattr(Output, "process", fake_process)
+    monkeypatch.setattr(Output, "pproc", fake_pproc)
     assert set(run.scalars.data_vars) == {"en_tot"}
     assert calls == [], "scalars come from the raw output"
-    assert tuple(run.fields) == ("em_fields",)
+    assert run.evaluate("em_fields/E").name == "E"
     assert calls == [{}]
+
+
+def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
+    field = run.evaluate("em_fields/E")
+    assert isinstance(field, xr.DataArray)
+    assert field is run["em_fields/E"]
+    assert run.xarray is run.tree
 
 
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path):
@@ -307,8 +314,9 @@ def test_normalized_time_carries_seconds_as_a_coordinate(run):
 
 
 def test_a_failing_property_reports_its_own_error(tmp_path):
-    run = Output(write_tree(str(tmp_path)))
-    (run.path_out / "run_metadata.json").unlink()
+    root = write_tree(str(tmp_path))
+    (tmp_path / "run_metadata.json").unlink()
+    run = Output(root)
     with pytest.raises(FileNotFoundError, match="run_metadata.json"):
         run.domain
 
@@ -325,6 +333,6 @@ def test_saved_rank_count_does_not_block_serial_implicit_processing(tmp_path, mo
     run.metadata["mpi_ranks"] = 8
     (run.path_pproc / "manifest.json").unlink()
     calls = []
-    monkeypatch.setattr(Output, "process", lambda self: calls.append(self.path_out))
+    monkeypatch.setattr(Output, "pproc", lambda self: calls.append(self.path_out))
     run._ensure_processed()
     assert calls == [run.path_out]

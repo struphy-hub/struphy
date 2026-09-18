@@ -889,7 +889,7 @@ class Simulation(SimulationBase):
         """The output of this simulation in ``env.path_out``, see :class:`~struphy.Output`.
 
         Scalars are available as soon as data is written; fields and particle products are
-        post-processed on first access, or explicitly with ``sim.output.process(...)``.
+        post-processed on first access, or explicitly with ``sim.output.pproc(...)``.
         """
         if self._output is None or self._output.path_out != Path(self.env.path_out).resolve():
             self._output = Output(self.env.path_out, comm=self.comm)
@@ -911,13 +911,13 @@ class Simulation(SimulationBase):
         force: bool = True,
         load: bool = False,
     ) -> Output | None:
-        """Deprecated, use ``sim.output.process(...)``, see :meth:`struphy.Output.process`."""
+        """Deprecated, use ``sim.output.pproc(...)``, see :meth:`struphy.Output.pproc`."""
         warnings.warn(
-            "Simulation.pproc() is deprecated; use sim.output.process(...) instead.",
+            "Simulation.pproc() is deprecated; use sim.output.pproc(...) instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        self.output.process(
+        self.output.pproc(
             step=step,
             celldivide=celldivide,
             physical=physical,
