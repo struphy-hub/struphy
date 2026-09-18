@@ -884,7 +884,7 @@ class PostProcessor:
                 os.mkdir(species_path)
 
         # time loop
-        nt = len(t_grid) - 1
+        nt = max(len(t_grid) - 1, 1)
         log_nt = int(xp.log10(nt)) + 1
 
         logger.warning(f"\nCreating vtk in {path} ...")
