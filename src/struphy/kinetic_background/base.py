@@ -245,7 +245,8 @@ class KineticBackground(metaclass=ABCMeta):
         n_axes_plot = 1 + (dim_2 is not None)
         n_v_to_plot = ("v" in dim_1) + ("v" in dim_2 if dim_2 is not None else 0)
 
-        if isinstance(v_lim, float):
+        if isinstance(v_lim, (int, float)):
+            v_lim = float(v_lim)
             v_lim = (v_lim, v_lim)
         else:
             assert isinstance(v_lim, tuple)

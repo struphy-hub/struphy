@@ -1619,22 +1619,55 @@ class Particles(metaclass=ABCMeta):
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:
-            plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned")
+            plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
             i = int(indices[0])
             resol = 100
             integrate_resol = [.5, .5, .5] + [100]*self.vdim
             integrate_resol[i] = None
-            f_init, pts, _, _ = self.f_init.reduced_eval(dim_1=i, resol=resol, integrate_resol=integrate_resol)
+            if i < 3:
+                v_lim = 5
+            else:
+                v_lim = bin_edges[0][-1]
+            f_init, pts, _, _ = self.f_init.reduced_eval(dim_1=i, v_lim=v_lim, resol=resol, integrate_resol=integrate_resol)
             plt.plot(pts, f_init, "r--", label="analytic initial condition")
             plt.xlabel(self.coordinate_labels[i])
             plt.ylabel("f")
             plt.legend()
         else:
-            plt.contourf(bin_centers[0], bin_centers[1], df_slice.T, levels=20)
+            i = int(indices[0])
+            j = int(indices[1])
+            
+            plt.subplot(1, 2, 1)
+            plt.contourf(bin_centers[0], bin_centers[1], f_slice.T, levels=20)
             plt.colorbar()
-            # plt.axis('square')
-            plt.xlabel(self.coordinate_labels[indices[0]])
-            plt.ylabel(self.coordinate_labels[indices[1]])
+            plt.xlabel(self.coordinate_labels[i])
+            plt.ylabel(self.coordinate_labels[j])
+            plt.title("Binned f")
+
+            resol = 50
+            integrate_resol = [.5, .5, .5] + [100]*self.vdim
+            integrate_resol[i] = None
+            integrate_resol[j] = None
+            
+            v_lim = [5, 5]
+            if i > 2:
+                v_lim[0] = bin_edges[0][-1]
+            if j > 2:
+                v_lim[1] = bin_edges[1][-1]
+            v_lim = tuple(v_lim)
+            
+            f_init, pts1, pts2, _ = self.f_init.reduced_eval(dim_1=i,
+                                                         dim_2=j,
+                                                         v_lim=v_lim,
+                                                         resol=resol, 
+                                                         integrate_resol=integrate_resol,
+                                                         )
+            plt.subplot(1, 2, 2)
+            plt.contourf(pts1, pts2, f_init.T, levels=20)
+            plt.colorbar()
+            plt.xlabel(self.coordinate_labels[i])
+            plt.ylabel(self.coordinate_labels[j])
+            plt.title("Analytic initial condition")
 
         plt.show()
 
