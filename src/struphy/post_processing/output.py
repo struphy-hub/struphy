@@ -9,6 +9,7 @@ from collections.abc import Callable, Iterator, Mapping
 from functools import cached_property
 from pathlib import Path
 from typing import Any
+from html import escape
 
 import h5py
 import numpy as np
@@ -237,6 +238,7 @@ class Output:
         method: str | None = None,
         drop: bool = False,
         as_numpy: bool = False,
+        physical: Mapping[str, float] | None = None,
     ) -> xr.DataArray | np.ndarray:
         """Return a named simulation product as an :class:`xarray.DataArray`.
 
@@ -249,13 +251,25 @@ class Output:
         usual ``.sel``/``.isel`` meanings. Set ``as_numpy=True`` to return only the selected
         values as a :class:`numpy.ndarray`.
 
-        Physical auxiliary coordinates such as ``X``, ``Y`` and ``Z`` describe the evaluated
-        logical grid; selecting an arbitrary physical point requires a separate interpolation or
-        inverse-coordinate operation.
+        ``physical={"X": x, "Y": y, "Z": z}`` evaluates a field at a physical point when
+        its domain supplies an analytical ``inverse_map``. It converts the point to logical
+        coordinates and uses xarray interpolation.
         """
+        physical_sel = None
+        if physical:
+            required = {"X", "Y", "Z"}
+            if set(physical) != required:
+                raise ValueError("physical selection requires exactly X, Y and Z")
+            inverse = getattr(self.domain, "inverse_map", None)
+            if inverse is None:
+                raise NotImplementedError(f"{type(self.domain).__name__} has no inverse_map for physical evaluation")
+            eta = inverse(*(float(physical[axis]) for axis in ("X", "Y", "Z")))
+            physical_sel = dict(zip(("e1", "e2", "e3"), map(float, eta)))
         array = self[name]
         if isel:
             array = array.isel(isel, drop=drop)
+        if physical_sel:
+            array = array.interp(physical_sel, method=method or "linear")
         if sel:
             options = {"drop": drop}
             if method is not None:
@@ -265,6 +279,24 @@ class Output:
             raise ValueError("method requires a coordinate selection through sel")
         return array.to_numpy() if as_numpy else array
 
+    def growth_rate(self, product: str | xr.DataArray, *, window=(None, None), amplitude: bool = False):
+        """Fit exponential growth of a scalar product and return a ``FitResult``."""
+        from struphy.diagnostics.analysis import GrowthFit, growth_rate
+
+        return growth_rate(self._array(product), GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
+
+    def drift(self, product: str | xr.DataArray, *, ref=None) -> xr.DataArray:
+        """Return the deviation of a time series from a reference or its initial value."""
+        from struphy.diagnostics.analysis import drift
+
+        return drift(self._array(product), ref=ref)
+
+    def relative_error(self, product: str | xr.DataArray, *, ref=None, skip_first: bool = True) -> xr.DataArray:
+        """Return the absolute relative deviation of a time series."""
+        from struphy.diagnostics.analysis import relative_error
+
+        return relative_error(self._array(product), ref=ref, skip_first=skip_first)
+
     def keys(self) -> tuple[str, ...]:
         """Return the names accepted by :meth:`evaluate`, without loading their arrays.
 
@@ -273,6 +305,23 @@ class Output:
         """
         catalogs = (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog)
         return tuple(sorted((*self.scalars.data_vars, *(key for catalog in catalogs for key in catalog))))
+
+    def catalog(self, *, details: bool = False) -> xr.Dataset:
+        """Return a structured catalog of evaluable products.
+
+        Set ``details=True`` to include dimensions and units; this opens each product but leaves
+        its numerical values lazily backed by the product store.
+        """
+        keys = self.keys()
+        data = {
+            "kind": ("product", [self._product_kind(key) for key in keys]),
+            "description": ("product", [self._product_description(key) for key in keys]),
+        }
+        if details:
+            arrays = [self.evaluate(key) for key in keys]
+            data["dimensions"] = ("product", [", ".join(array.dims) for array in arrays])
+            data["units"] = ("product", [str(array.attrs.get("units", "")) for array in arrays])
+        return xr.Dataset(data, coords={"product": list(keys)})
 
     def _array(self, product: str | xr.DataArray) -> xr.DataArray:
         """Resolve a saved product name or accept an already-derived xarray array."""
@@ -790,6 +839,17 @@ class Output:
             return f"SPH density ({label})"
         return "marker trajectories"
 
+    def _product_kind(self, key: str) -> str:
+        if key in self.scalars.data_vars:
+            return "scalar"
+        if key in self.field_catalog:
+            return "field"
+        if key in self.distribution_catalog:
+            return "distribution"
+        if key in self.density_catalog:
+            return "density"
+        return "orbits"
+
     @staticmethod
     def _quantity_hint(key: str) -> str:
         """Static label for a catalog key, e.g. distinguishing ``f`` from ``delta_f``."""
@@ -810,6 +870,36 @@ class Output:
 
         directory = Path(directory) if directory else self.path_pproc / "report"
         return save_all_scalars(self.scalars, directory, run_label=self.label, **kwargs)
+
+    def report(self, directory=None, *, products=(), format: str = "markdown") -> str:
+        """Write a compact, reproducible data report and return its path.
+
+        The report records run metadata, the full product catalog, and dimensions/units of any
+        explicitly requested products. ``format`` is ``"markdown"`` or ``"html"``.
+        """
+        if format not in {"markdown", "html"}:
+            raise ValueError("format must be 'markdown' or 'html'")
+        directory = Path(directory) if directory else self.path_pproc / "report"
+        directory.mkdir(parents=True, exist_ok=True)
+        catalog = self.catalog(details=False)
+        requested = [self.evaluate(key) for key in products]
+        rows = [
+            (str(key), str(kind), str(description))
+            for key, kind, description in zip(catalog.product.values, catalog.kind.values, catalog.description.values)
+        ]
+        if format == "markdown":
+            lines = [f"# Struphy output report", "", f"- Path: `{self.path_out}`", f"- Run: {self.label}", "", "## Products", "", "| Key | Kind | Description |", "| --- | --- | --- |"]
+            lines += [f"| `{key}` | {kind} | {description} |" for key, kind, description in rows]
+            if requested:
+                lines += ["", "## Requested data", "", "| Key | Dimensions | Units |", "| --- | --- | --- |"]
+                lines += [f"| `{array.name}` | {', '.join(array.dims)} | {array.attrs.get('units', '')} |" for array in requested]
+            path = directory / "report.md"
+            path.write_text("\n".join(lines) + "\n")
+        else:
+            body = "".join(f"<tr><td><code>{escape(key)}</code></td><td>{escape(kind)}</td><td>{escape(description)}</td></tr>" for key, kind, description in rows)
+            path = directory / "report.html"
+            path.write_text(f"<h1>Struphy output report</h1><p>{escape(str(self.path_out))}<br>{escape(self.label)}</p><table><tr><th>Key</th><th>Kind</th><th>Description</th></tr>{body}</table>")
+        return str(path)
 
     @property
     def tree(self) -> xr.DataTree:

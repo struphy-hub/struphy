@@ -25,6 +25,9 @@ print(out.info())
 
 for key in out.keys():
     print(key)
+
+# Machine-readable product metadata
+catalog = out.catalog(details=True)
 ```
 
 `keys()` and `info()` do not load product arrays. If post-processed products do not exist yet,
@@ -78,6 +81,33 @@ To return only values, without xarray coordinates and attributes, use `as_numpy=
 
 ```python
 rho_values = out.evaluate("diagnostics/rho_xyz", isel={"t": -1}, as_numpy=True)
+```
+
+For domains with an analytical inverse map, evaluate a field at a physical point directly:
+
+```python
+value = out.evaluate(
+    "em_fields/phi_xyz",
+    physical={"X": 1.0, "Y": 0.0, "Z": 0.2},
+)
+```
+
+## Analyze and report data
+
+Numerical helpers stay on `Output` and return values or xarray arrays rather than figures.
+
+```python
+fit = out.growth_rate("phi_integral", window=(20.0, 60.0), amplitude=True)
+energy_error = out.relative_error("en_tot")
+energy_drift = out.drift("en_tot")
+```
+
+Write a compact data report with metadata and the product catalog. Add selected products to
+record their dimensions and units.
+
+```python
+report = out.report("report", products=["en_tot", "diagnostics/rho_xyz"])
+html_report = out.report("report", format="html")
 ```
 
 `out.xarray` provides the complete lazy xarray `DataTree` when access to the grouped product

@@ -2,6 +2,7 @@
 
 import json
 import os
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -125,6 +126,18 @@ def test_keys_list_every_evaluable_product_without_loading_arrays(run):
     )
     assert run.field_catalog._cache == {}
     assert run.distribution_catalog._cache == {}
+
+
+def test_catalog_is_structured_and_report_is_written(run, tmp_path):
+    catalog = run.catalog()
+    assert list(catalog.product.values) == list(run.keys())
+    assert set(catalog.data_vars) == {"kind", "description"}
+    assert "dimensions" in run.catalog(details=True)
+
+    report = run.report(tmp_path / "report", products=["en_tot"])
+    text = Path(report).read_text()
+    assert "Struphy output report" in text
+    assert "en_tot" in text
 
 
 def test_field_has_named_and_curvilinear_coordinates(run):
