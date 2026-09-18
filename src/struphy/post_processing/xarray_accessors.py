@@ -387,6 +387,24 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return growth_rate(self._array, GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
 
+    def damping_rate(self, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
+        """Fit exponential decay to the envelope of this oscillating time series; see ``growth_rate``."""
+        from struphy.diagnostics.analysis import GrowthFit, damping_rate
+
+        return damping_rate(self._array, GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
+
+    def envelope(self) -> xr.DataArray:
+        """Local maxima of this time series."""
+        from struphy.diagnostics.analysis import envelope
+
+        return envelope(self._array)
+
+    def norm(self, *, dims=None, squared: bool = False) -> xr.DataArray:
+        """L2 norm over ``dims`` (default: every dimension except ``t``)."""
+        from struphy.diagnostics.analysis import norm
+
+        return norm(self._array, dims=dims, squared=squared)
+
     def drift(self, *, ref=None) -> xr.DataArray:
         """Signed deviation of this time series from ``ref`` or from its first sample."""
         from struphy.diagnostics.analysis import drift

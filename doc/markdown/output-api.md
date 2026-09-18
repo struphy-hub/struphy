@@ -102,6 +102,25 @@ energy_error = out.relative_error("en_tot")
 energy_drift = out.drift("en_tot")
 ```
 
+For oscillating signals such as the field energy in Landau damping, `damping_rate` fits the
+exponential to the local maxima (`envelope`) instead of the raw series. `norm` reduces a field
+to a time series (by default over every dimension except `t`), which can then be fitted.
+
+```python
+damping = out.damping_rate("electric_energy", window=(0.0, 8.0), amplitude=True)
+peaks = out.envelope("electric_energy")
+
+growth = out.growth_rate(out.norm("diagnostics/rho", squared=True), amplitude=True)
+```
+
+Fields carry mapped `X`, `Y`, `Z` coordinates; binned products (such as `e1_e2_density`) do not.
+`with_physical_coords` attaches them by evaluating the run's domain on the array's logical grid.
+
+```python
+density = out.with_physical_coords("kinetic_ions/e1_e2_density/f").isel(t=-1)
+radius = np.hypot(density.X, density.Y)
+```
+
 Write a compact data report with metadata and the product catalog. Add selected products to
 record their dimensions and units.
 

@@ -307,6 +307,49 @@ class Output:
 
         return growth_rate(self._array(product), GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
 
+    def damping_rate(self, product: str | xr.DataArray, *, window=(None, None), amplitude: bool = False):
+        """Fit exponential decay to the envelope of an oscillating scalar; returns a ``FitResult``."""
+        from struphy.diagnostics.analysis import GrowthFit, damping_rate
+
+        return damping_rate(self._array(product), GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
+
+    def envelope(self, product: str | xr.DataArray) -> xr.DataArray:
+        """Return the local maxima of a time series, e.g. to overlay on the signal."""
+        from struphy.diagnostics.analysis import envelope
+
+        return envelope(self._array(product))
+
+    def norm(self, product: str | xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArray:
+        """Return the L2 norm over ``dims`` (default: all but ``t``), as a function of time."""
+        from struphy.diagnostics.analysis import norm
+
+        return norm(self._array(product), dims=dims, squared=squared)
+
+    def with_physical_coords(self, product: str | xr.DataArray) -> xr.DataArray:
+        """Attach mapped ``X``, ``Y``, ``Z`` coordinates to a product on a logical grid.
+
+        Fields already carry them; this is for products that do not, such as binned densities.
+        The coordinates are evaluated with the run's domain on the array's ``e1``, ``e2``, ``e3``
+        grid; a missing logical dimension is evaluated at ``0.5``.
+        """
+        array = self._array(product)
+        if all(name in array.coords for name in ("X", "Y", "Z")):
+            return array
+        dims = tuple(dim for dim in ("e1", "e2", "e3") if dim in array.dims)
+        if not dims:
+            raise ValueError(f"{array.name!r} has no logical dimensions e1, e2, e3; its dimensions are {array.dims}")
+        missing = [dim for dim in dims if dim not in array.coords]
+        if missing:
+            raise ValueError(f"{array.name!r} has no coordinate values for {missing}")
+        grids = [np.asarray(array.coords[dim]) if dim in dims else np.array([0.5]) for dim in ("e1", "e2", "e3")]
+        mapped = self.domain(*grids)
+        shape = tuple(len(grid) for grid in grids)
+        for name, values in zip(("X", "Y", "Z"), mapped):
+            values = np.asarray(values).reshape(shape)
+            keep = tuple(slice(None) if dim in dims else 0 for dim in ("e1", "e2", "e3"))
+            array = array.assign_coords({name: (dims, values[keep])})
+        return array
+
     def drift(self, product: str | xr.DataArray, *, ref=None) -> xr.DataArray:
         """Return the deviation of a time series from a reference or its initial value."""
         from struphy.diagnostics.analysis import drift

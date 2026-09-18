@@ -195,3 +195,57 @@ def test_products_by_name_and_by_attribute_agree(run):
 def test_selection_rejects_unknown_dimensions(run):
     with pytest.raises(TypeError, match="not a dimension"):
         run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="e1", y="v1", time=-1)
+
+
+def oscillating_energy(rate=-0.3, omega=3.0):
+    import xarray as xr
+
+    time = np.linspace(0.0, 20.0, 4001)
+    values = np.exp(2 * rate * time) * np.cos(omega * time) ** 2 + 1e-12
+    return xr.DataArray(values, dims="t", coords={"t": time}, name="energy")
+
+
+def test_damping_rate_fits_the_envelope_not_the_oscillation(run):
+    energy = oscillating_energy(rate=-0.3)
+    fit = run.damping_rate(energy, amplitude=True)
+    assert fit.rate == pytest.approx(-0.3, rel=1e-2)
+    assert energy.struphy.analysis.damping_rate(window=(2.0, 10.0), amplitude=True).rate == pytest.approx(-0.3, rel=1e-2)
+
+    peaks = run.envelope(energy)
+    assert 0 < peaks.sizes["t"] < energy.sizes["t"] // 10
+    assert np.all(peaks > 1e-3 * np.exp(-0.6 * peaks.t))
+
+
+def test_damping_rate_without_peaks_is_none(run):
+    assert run.damping_rate(run["en_phi"]) is None
+
+
+def test_norm_reduces_all_but_time(run):
+    e_field = run.evaluate("em_fields/E")
+    squared = run.norm(e_field, squared=True)
+    assert squared.dims == ("t",)
+    np.testing.assert_allclose(squared, (np.asarray(e_field) ** 2).sum(axis=(1, 2, 3, 4)))
+    np.testing.assert_allclose(run.norm("em_fields/E") ** 2, squared)
+    assert e_field.struphy.analysis.norm(dims=["e1"]).dims == ("t", "component", "e2", "e3")
+    assert run.growth_rate(run.norm("em_fields/E", squared=True), amplitude=True) is not None
+
+
+def test_physical_coords_are_attached_to_products_without_them(run):
+    density = run.evaluate("kinetic_ions/view_0/n")
+    assert "X" not in density.coords
+    mapped = run.with_physical_coords(density)
+    expected = run.domain(*(np.asarray(density[dim]) for dim in ("e1", "e2", "e3")))
+    for name, values in zip(("X", "Y", "Z"), expected):
+        assert mapped[name].dims == ("e1", "e2", "e3")
+        np.testing.assert_allclose(mapped[name], values)
+
+    plane = run.with_physical_coords(density.isel(e3=0, drop=True))
+    assert plane.X.dims == ("e1", "e2")
+
+    phase_space = run.with_physical_coords("kinetic_ions/e1_v1_density/f")
+    assert phase_space.X.dims == ("e1",)
+
+    field = run.evaluate("em_fields/E")
+    assert run.with_physical_coords(field) is field
+    with pytest.raises(ValueError, match="no logical dimensions"):
+        run.with_physical_coords("en_tot")

@@ -35,6 +35,8 @@ def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult |
         raise ValueError(f"growth-rate input must have dims ('t',), got {data.dims}")
     fit = fit or GrowthFit()
     time, values = np.asarray(data.t), np.asarray(data)
+    if len(time) < 2:
+        return None
     lo = time[0] if fit.window[0] is None else fit.window[0]
     hi = time[-1] if fit.window[1] is None else fit.window[1]
     lo, hi = sorted((lo, hi))
@@ -47,6 +49,39 @@ def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult |
     scale = 2.0 if fit.amplitude_from_quadratic else 1.0
     fitted = np.exp(scale * (rate * selected_time + intercept))
     return FitResult(float(rate), float(intercept), selected_time, fitted)
+
+
+def envelope(data: xr.DataArray) -> xr.DataArray:
+    """Local maxima of a time series: the interior samples not smaller than their neighbours."""
+    validate_array(data, required_dims=("t",))
+    if data.dims != ("t",):
+        raise ValueError(f"envelope input must have dims ('t',), got {data.dims}")
+    values = np.asarray(data)
+    peak = np.zeros(len(values), dtype=bool)
+    peak[1:-1] = (values[1:-1] > values[:-2]) & (values[1:-1] >= values[2:])
+    return data.isel(t=np.flatnonzero(peak))
+
+
+def damping_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult | None:
+    """Fit ``exp(rate*t + intercept)`` to the envelope of an oscillating time series.
+
+    Use this for signals such as the field energy in Landau damping, where :func:`growth_rate` on
+    the raw series would fit the oscillation. ``fit.window`` restricts the peaks that are used.
+    The rate is negative for damping.
+    """
+    return growth_rate(envelope(data), fit)
+
+
+def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArray:
+    """L2 norm over ``dims`` (default: every dimension except ``t``), as a function of the rest."""
+    validate_array(data)
+    dims = [dim for dim in data.dims if dim != "t"] if dims is None else list(dims)
+    total = (data**2).sum(dims)
+    out = total if squared else np.sqrt(total)
+    out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
+    label = _label(data)
+    out.attrs["label"] = f"squared norm of {label}".strip() if squared else f"norm of {label}".strip()
+    return out
 
 
 def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
