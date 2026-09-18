@@ -91,7 +91,7 @@ class PoissonSolve(ImplicitDiffusion):
         OptsStabMat = Literal["M0", "M0ad", "Id"]
         OptsDiffusionMat = Literal["M1", "M1perp", "M1para", "M1gyro"]
         # propagator options
-        stab_eps: float = 0.0
+        stab_eps: float = 1e-14
         stab_mat: OptsStabMat = "Id"
         diffusion_mat: OptsDiffusionMat = "M1"
         x0: StencilVector = None
