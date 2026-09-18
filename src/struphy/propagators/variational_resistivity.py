@@ -605,8 +605,6 @@ class VariationalResistivity(Propagator):
         D = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
         self.M1_cb = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=(D, "sqrt_g"))
 
-        
-
         self.curl = self.derham.curl
         self.Tcurl = inv_M1 @ self.curl.T @ M2
 
@@ -755,39 +753,37 @@ class VariationalResistivity(Propagator):
         # Assemble the initial thermodynamic Jacobian before creating
         # its diagonal preconditioner.
         # ------------------------------------------------------------
-        
+
         rho_values = None
-        
+
         if self._model == "full":
             if self.rho is None:
-                raise ValueError(
-                    "The full resistivity model requires a density variable."
-                )
-        
+                raise ValueError("The full resistivity model requires a density variable.")
+
             self.rhof.vector = self.rho.spline.vector
-        
+
             rho_values = self.rhof.eval_tp_fixed_loc(
                 self.integration_grid_spans,
                 self.integration_grid_bd,
                 out=self._rhof_values,
             )
-        
+
         if self._model in ("linear_q", "deltaf_q"):
             scalar_values = self._q0_values
         else:
             self.sf1.vector = self.variables.s.spline.vector
-        
+
             scalar_values = self.sf1.eval_tp_fixed_loc(
                 self.integration_grid_spans,
                 self.integration_grid_bd,
                 out=self._sf1_values,
             )
-        
+
         self._assemble_thermodynamic_jacobian(
             rho_values,
             scalar_values,
         )
-        
+
         # Only now is it safe to extract and invert the diagonal.
         if self.options.precond is None:
             self.pc_jac = None
@@ -797,7 +793,7 @@ class VariationalResistivity(Propagator):
                 self.options.precond,
             )
             self.pc_jac = pc_class(self.M_de_ds)
-        
+
         self.inv_jac = inverse(
             self.M_de_ds,
             "pcg",
@@ -815,56 +811,52 @@ class VariationalResistivity(Propagator):
     def _assemble_thermodynamic_jacobian(self, rho_values, scalar_values):
         """
         Assemble the scalar thermodynamic Jacobian M_de_ds.
-    
+
         Parameters
         ----------
         rho_values : xp.ndarray or None
             Density evaluated on the integration grid. Required by the
             ``full`` model.
-    
+
         scalar_values : xp.ndarray
             Current entropy-, pressure- or q-like scalar values evaluated on
             the integration grid.
         """
         deds = self._de_s1_values
         deds[:] = 0.0
-    
+
         if self._model == "full":
             if rho_values is None:
-                raise ValueError(
-                    "Density values are required by the full resistivity model."
-                )
-    
+                raise ValueError("Density values are required by the full resistivity model.")
+
             self._energy_evaluator.dener_ds(
                 rho_values,
                 scalar_values,
                 out=deds,
             )
-    
+
         elif self._model in (
             "full_p",
             "linear_p",
         ):
             deds[:] = 1.0 / (self._gamma - 1.0)
-    
+
         elif self._model == "full_q":
             deds[:] = scalar_values
             deds *= 2.0 / (self._gamma - 1.0)
-    
+
         elif self._model in (
             "linear_q",
             "deltaf_q",
         ):
             deds[:] = self._q0_values
             deds *= 2.0 / (self._gamma - 1.0)
-    
+
         else:
-            raise ValueError(
-                f"Unsupported resistivity model {self._model!r}."
-            )
-    
+            raise ValueError(f"Unsupported resistivity model {self._model!r}.")
+
         deds *= self._mass_metric_term
-    
+
         self.M_de_ds.assemble([[deds]])
 
     def _update_artificial_resistivity(self, bn, dt):

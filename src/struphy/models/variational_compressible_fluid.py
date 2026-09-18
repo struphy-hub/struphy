@@ -18,6 +18,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
 from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
 class VariationalCompressibleFluid(StruphyModel):
@@ -29,6 +30,9 @@ class VariationalCompressibleFluid(StruphyModel):
         Base units for normalization (default: BaseUnits())
     mass_number: float
         Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    with_viscosity: bool
+        Whether to include viscous dissipation, including artificial viscosity
+        configured through ``VariationalViscosity.Options`` (default: False)
     """
 
     @classmethod
@@ -51,10 +55,13 @@ class VariationalCompressibleFluid(StruphyModel):
             self,
             s: FEECVariable = None,
             rho: FEECVariable = None,
+            with_viscosity: bool = False,
         ):
             self.variat_dens = VariationalDensityEvolve(s=s)
             self.variat_mom = VariationalMomentumAdvection(rho=rho)
             self.variat_ent = VariationalEntropyEvolve(rho=rho)
+            if with_viscosity:
+                self.variat_viscous = VariationalViscosity(rho=rho)
 
     ## abstract methods
 
@@ -62,12 +69,15 @@ class VariationalCompressibleFluid(StruphyModel):
         self,
         base_units: BaseUnits = BaseUnits(),
         mass_number: float = 1.0,
+        with_viscosity: bool = False,
         with_regularization: bool = False,
         divdiv_alpha: float = 0.0,
     ):
 
         if not isinstance(with_regularization, bool):
             raise TypeError(f"with_regularization must be a bool, got {type(with_regularization)}.")
+        if not isinstance(with_viscosity, bool):
+            raise TypeError(f"with_viscosity must be a bool, got {type(with_viscosity)}.")
 
         if divdiv_alpha < 0.0:
             raise ValueError(f"divdiv_alpha must be non-negative, got {divdiv_alpha}.")
@@ -82,7 +92,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(s=self.fluid.entropy, rho=self.fluid.density)
+        self.propagators = self.Propagators(s=self.fluid.entropy, rho=self.fluid.density, with_viscosity=with_viscosity)
 
         self.propagators.variat_dens.options = self.propagators.variat_dens.Options(
             model="full",
@@ -107,6 +117,9 @@ class VariationalCompressibleFluid(StruphyModel):
         self.propagators.variat_mom.variables.u = self.fluid.velocity
         self.propagators.variat_ent.variables.s = self.fluid.entropy
         self.propagators.variat_ent.variables.u = self.fluid.velocity
+        if with_viscosity:
+            self.propagators.variat_viscous.variables.s = self.fluid.entropy
+            self.propagators.variat_viscous.variables.u = self.fluid.velocity
 
         # 5. define scalars to be tracked during simulation
         if with_regularization:
