@@ -12,6 +12,7 @@ from struphy import BaseUnits, Time, domains
 from struphy.models import Maxwell
 
 from struphy.post_processing.output import Output, open_output
+from struphy.post_processing import output as output_module
 from struphy.post_processing import store
 from struphy.post_processing.arrays import orbit_quantities
 from struphy.post_processing.post_processing_tools import is_processed, normalize_options, source_fingerprint
@@ -95,6 +96,11 @@ class FakeComm:
         self.barriers += 1
 
 
+def output_with_comm(monkeypatch, path, comm, **kwargs):
+    monkeypatch.setattr(output_module, "mpi_comm_world", lambda: comm)
+    return Output(path, **kwargs)
+
+
 @pytest.fixture
 def run(tmp_path):
     return Output(write_tree(str(tmp_path)), time_units="normalized")
@@ -106,6 +112,19 @@ def test_products_are_discovered_without_loading_arrays(run):
     assert tuple(run.orbits) == ("kinetic_ions",)
     assert run.field_catalog._cache == {}
     assert run.is_processed
+
+
+def test_keys_list_every_evaluable_product_without_loading_arrays(run):
+    assert run.keys() == (
+        "em_fields/E",
+        "en_tot",
+        "kinetic_ions",
+        "kinetic_ions/e1_v1_density/delta_f",
+        "kinetic_ions/e1_v1_density/f",
+        "kinetic_ions/view_0/n",
+    )
+    assert run.field_catalog._cache == {}
+    assert run.distribution_catalog._cache == {}
 
 
 def test_field_has_named_and_curvilinear_coordinates(run):
@@ -222,12 +241,12 @@ def test_evaluate_selects_positions_coordinates_and_slices(run):
     np.testing.assert_allclose(values, 2.0)
 
 
-def test_products_refuse_implicit_processing_on_many_ranks(tmp_path):
+def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
     comm = FakeComm(size=2)
     with pytest.raises(RuntimeError, match="on all ranks"):
-        Output(root, comm=comm).fields
+        output_with_comm(monkeypatch, root, comm).fields
 
 
 def test_processing_options_are_part_of_the_manifest(tmp_path):
@@ -260,7 +279,7 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
 
     monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
     comm = FakeComm(rank=rank, size=2)
-    run = Output(write_tree(str(tmp_path)), comm=comm)
+    run = output_with_comm(monkeypatch, write_tree(str(tmp_path)), comm)
     assert run.process(physical=True) is run
     expected = [
         ("construct", False),
@@ -288,7 +307,7 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
             pass
 
     monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
-    Output(write_tree(str(tmp_path)), comm=FakeComm(rank=3, size=4)).process(parallel=True)
+    output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(rank=3, size=4)).process(parallel=True)
     assert calls == [True]
 
 
@@ -306,21 +325,21 @@ def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
     assert {"em_fields", "kinetic_ions"} <= set(dir(run)), "species are known before processing"
 
 
-def test_info_lists_products_without_loading(run):
+def test_info_lists_evaluable_products_with_descriptions(run):
     text = run.info()
-    assert "out.scalars.en_tot" in text
-    assert "out.kinetic_ions.e1_v1_density.f" in text
-    assert "out.kinetic_ions.orbits" in text
-    assert "out.em_fields.E" in text
+    assert "Key" in text and "Description" in text
+    assert "en_tot" in text and "scalar time series" in text
+    assert "kinetic_ions/e1_v1_density/f" in text and "particle distribution" in text
+    assert "kinetic_ions" in text and "marker trajectories" in text
+    assert "em_fields/E" in text and "field" in text
     assert run.field_catalog._cache == {}, "listing must not load arrays"
 
 
-def test_info_hints_distribution_and_density_symbols(run):
+def test_info_labels_distribution_and_density_symbols(run):
     text = run.info()
-    assert "out.kinetic_ions.e1_v1_density.f  ($f$)" in text
-    assert "out.kinetic_ions.e1_v1_density.delta_f  ($\\delta f$)" in text
-    assert "out.kinetic_ions.view_0.n  ($n$)" in text
-    assert "out.em_fields.E" in text and "($" not in text.split("out.em_fields.E")[1].split("\n")[0]
+    assert "particle distribution ($f$)" in text
+    assert "particle distribution ($\\delta f$)" in text
+    assert "SPH density ($n$)" in text
 
 
 def test_normalized_time_carries_seconds_as_a_coordinate(run):
@@ -342,15 +361,15 @@ def test_a_failing_property_reports_its_own_error(tmp_path):
         run.domain
 
 
-def test_parallel_processing_rejects_a_different_rank_count(tmp_path):
-    run = Output(write_tree(str(tmp_path)), comm=FakeComm(size=2))
+def test_parallel_processing_rejects_a_different_rank_count(tmp_path, monkeypatch):
+    run = output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(size=2))
     with pytest.raises(ValueError, match="same number of MPI ranks"):
         run.process(parallel=True)
 
 
 def test_saved_rank_count_does_not_block_serial_implicit_processing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
-    run = Output(root, comm=FakeComm())
+    run = output_with_comm(monkeypatch, root, FakeComm())
     run.metadata["mpi_ranks"] = 8
     (run.path_pproc / "manifest.json").unlink()
     calls = []

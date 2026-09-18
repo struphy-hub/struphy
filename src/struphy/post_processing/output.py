@@ -22,6 +22,11 @@ from struphy.post_processing.output_accessors import OutputPlots
 logger = logging.getLogger("struphy")
 
 
+def mpi_comm_world():
+    """The communicator used by output post-processing."""
+    return MPI.COMM_WORLD
+
+
 class ProductMapping(Mapping[str, xr.DataArray]):
     """A discoverable mapping whose products are loaded on first access."""
 
@@ -172,20 +177,18 @@ class Output:
     ----------
     path_out:
         The simulation output folder, ``sim.env.path_out``.
-    comm:
-        Communicator for post-processing; defaults to MPI.COMM_WORLD.
     time_units:
         ``"normalized"`` (the default) keeps Struphy time units, in which the analytic
         results of the models are expressed; every product then also carries seconds as the
         coordinate ``t_seconds``. ``"physical"`` makes ``t`` itself seconds.
     """
 
-    def __init__(self, path_out, *, time_units: str = "normalized", comm=None):
+    def __init__(self, path_out, *, time_units: str = "normalized"):
         if time_units not in {"physical", "normalized"}:
             raise ValueError("time_units must be 'physical' or 'normalized'")
         self.path_out = Path(path_out).resolve()
         self.time_units = time_units
-        self.comm = MPI.COMM_WORLD if comm is None else comm
+        self.comm = mpi_comm_world()
         self._reset()
         # A Simulation can expose its Output before it has written metadata. In that case,
         # keep the handle usable and let metadata raise its normal error when requested.
@@ -199,7 +202,7 @@ class Output:
 
     def with_time_units(self, time_units: str) -> "Output":
         """The same output with time coordinates in ``"physical"`` or ``"normalized"`` units."""
-        return type(self)(self.path_out, time_units=time_units, comm=self.comm)
+        return type(self)(self.path_out, time_units=time_units)
 
     def _reset(self):
         if getattr(self, "_tree", None) is not None:
@@ -262,6 +265,15 @@ class Output:
             raise ValueError("method requires a coordinate selection through sel")
         return array.to_numpy() if as_numpy else array
 
+    def keys(self) -> tuple[str, ...]:
+        """Return the names accepted by :meth:`evaluate`, without loading their arrays.
+
+        As with evaluating a non-scalar product, this materializes default post-processing when
+        needed. Call :meth:`pproc` first when its options should be chosen explicitly.
+        """
+        catalogs = (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog)
+        return tuple(sorted((*self.scalars.data_vars, *(key for catalog in catalogs for key in catalog))))
+
     def _array(self, product: str | xr.DataArray) -> xr.DataArray:
         """Resolve a saved product name or accept an already-derived xarray array."""
         if isinstance(product, str):
@@ -274,7 +286,8 @@ class Output:
         """Plot one or more scalar products; see :meth:`ArrayPlots.timeseries`."""
         from struphy.post_processing.xarray_accessors import ArrayPlots
 
-        return ArrayPlots(self._array(product)).timeseries(*(self._array(other) for other in others), **kwargs)
+        result = ArrayPlots(self._array(product)).timeseries(*(self._array(other) for other in others), **kwargs)
+        return result.fig, result.ax
 
     def view(self, product: str | xr.DataArray, **kwargs):
         """Configure a reusable slice view of one product; see :meth:`ArrayPlots.view`."""
@@ -284,25 +297,32 @@ class Output:
 
     def slice(self, product: str | xr.DataArray, *, ax=None, **kwargs):
         """Render one two-dimensional slice; see :meth:`ArrayPlots.slice`."""
-        return self.view(product, **kwargs).slice(ax=ax)
+        result = self.view(product, **kwargs).slice(ax=ax)
+        return result.fig, result.ax
 
     def panels(self, product: str | xr.DataArray, **kwargs):
         """Render evenly spaced snapshots; see :meth:`ArrayPlots.panels`."""
         from struphy.post_processing.xarray_accessors import ArrayPlots
 
-        return ArrayPlots(self._array(product)).panels(**kwargs)
+        result = ArrayPlots(self._array(product)).panels(**kwargs)
+        return result.fig, result.ax
 
     def viewer(self, product: str | xr.DataArray, **kwargs):
         """Create an interactive slice viewer; see :meth:`ArrayPlots.viewer`."""
         from struphy.post_processing.xarray_accessors import ArrayPlots
 
-        return ArrayPlots(self._array(product)).viewer(**kwargs)
+        viewer = ArrayPlots(self._array(product)).viewer(**kwargs)
+        result = viewer.draw()
+        result.fig._struphy_viewer = viewer
+        return result.fig, result.ax
 
     def animation(self, product: str | xr.DataArray, **kwargs):
         """Create a slice animation; see :meth:`ArrayPlots.animation`."""
         from struphy.post_processing.xarray_accessors import ArrayPlots
 
-        return ArrayPlots(self._array(product)).animation(**kwargs)
+        animation = ArrayPlots(self._array(product)).animation(**kwargs)
+        animation._fig._struphy_animation = animation
+        return animation._fig, animation._fig.axes[0]
 
     def frames(self, product: str | xr.DataArray, directory, **kwargs):
         """Export slice frames; see :meth:`ArrayPlots.frames`."""
@@ -314,15 +334,18 @@ class Output:
         """Plot saved marker trajectories; see :meth:`ArrayPlots.trajectories`."""
         from struphy.post_processing.xarray_accessors import ArrayPlots
 
-        return ArrayPlots(self._array(product)).trajectories(**kwargs)
+        result = ArrayPlots(self._array(product)).trajectories(**kwargs)
+        return result.fig, result.ax
 
     def plot_scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
         """Plot an overview of the scalar time series of this run."""
-        return OutputPlots(self).scalars(names=names, relative_to=relative_to, logy=logy)
+        result = OutputPlots(self).scalars(names=names, relative_to=relative_to, logy=logy)
+        return result.fig, result.ax
 
     def equilibrium(self, ax=None):
         """Plot the radial equilibrium profiles saved with this run."""
-        return OutputPlots(self).equilibrium(ax=ax)
+        result = OutputPlots(self).equilibrium(ax=ax)
+        return result.fig, result.ax
 
     def _stamp(self, array: xr.DataArray) -> xr.DataArray:
         array.attrs.update(run=self.label, run_name=self.path_out.name)
@@ -742,32 +765,30 @@ class Output:
         return self._label
 
     def info(self) -> str:
-        """A table of everything this output holds, printed by ``print(out.info())``.
+        """A table of every key accepted by :meth:`evaluate`, with a short description.
 
-        Names are listed as they are reached, e.g. ``out.kinetic_ions.e1_v1_density.f``
-        and ``out["kinetic_ions/e1_v1_density/f"]``. Distribution and density products carry
-        their symbol, e.g. ``f`` ($f$) vs. ``delta_f`` ($\\delta f$). Nothing is loaded.
+        Use ``print(out.info())`` interactively. As with :meth:`keys`, this materializes default
+        post-processing when needed; call :meth:`pproc` first to choose its options.
         """
-        lines = [f"Output of {self.path_out}", f"  {self.label}", ""]
-        scalars = tuple(self.scalars.data_vars)
-        lines += ["scalars (no post-processing needed)"]
-        lines += [f"  out.scalars.{name}" for name in scalars] or ["  (none)"]
-        if not self.is_processed:
-            lines += ["", "products (not post-processed yet; run out.pproc(...) to choose options)"]
-            lines += [f"  out.{name}.*" for name in sorted(self._raw_species())]
-            return "\n".join(lines)
-        for kind, catalog in (
-            ("fields", self.field_catalog),
-            ("distributions", self.distribution_catalog),
-            ("densities", self.density_catalog),
-            ("orbits", self.orbit_catalog),
-        ):
-            lines += ["", kind]
-            entries = [f"  out.{key.replace('/', '.')}{self._quantity_hint(key)}" for key in catalog]
-            if kind == "orbits":
-                entries = [f"  out.{key}.orbits" for key in catalog]
-            lines += entries or ["  (none)"]
+        rows = [(key, self._product_description(key)) for key in self.keys()]
+        key_width = max((len(key) for key, _ in rows), default=3)
+        lines = [f"Output: {self.path_out}", self.label, "", f"{'Key':<{key_width}}  Description", f"{'-' * key_width}  -----------"]
+        lines.extend(f"{key:<{key_width}}  {description}" for key, description in rows)
         return "\n".join(lines)
+
+    def _product_description(self, key: str) -> str:
+        """A stable description for a key, without loading its data array."""
+        if key in self.scalars.data_vars:
+            return f"scalar time series ({key.replace('_', ' ')})"
+        if key in self.field_catalog:
+            return f"field ({key.rsplit('/', 1)[-1]})"
+        if key in self.distribution_catalog:
+            label = BINNED_LABELS.get(key.rsplit("/", 1)[-1], key.rsplit("/", 1)[-1])
+            return f"particle distribution ({label})"
+        if key in self.density_catalog:
+            label = BINNED_LABELS.get(key.rsplit("/", 1)[-1], key.rsplit("/", 1)[-1])
+            return f"SPH density ({label})"
+        return "marker trajectories"
 
     @staticmethod
     def _quantity_hint(key: str) -> str:

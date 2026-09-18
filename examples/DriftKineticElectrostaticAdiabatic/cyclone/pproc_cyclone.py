@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+from matplotlib import pyplot as plt
+
 from struphy import Output
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
@@ -29,7 +31,7 @@ def main(path_out=DEFAULT_OUTPUT):
         fit=FIT_WINDOW,
         fit_amplitude=True,
         title=f"Evolution of {FIT_QUANTITY}",
-    ).show()
+    )
 
     if SHOW_EQUIL_PROFILE:
         run.plot.equilibrium()
@@ -39,9 +41,10 @@ def main(path_out=DEFAULT_OUTPUT):
         run.viewer(
             name,
             x="e1", y="e2", coords="physical", plane=plane, **selection
-        ).show()
+        )
 
-    run.trajectories("kinetic_ions", max_markers=1000).show()
+    run.trajectories("kinetic_ions", max_markers=1000)
+    plt.show()
 
 
 if __name__ == "__main__":
