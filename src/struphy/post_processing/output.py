@@ -205,6 +205,28 @@ class Output:
         """The same output with time coordinates in ``"physical"`` or ``"normalized"`` units."""
         return type(self)(self.path_out, time_units=time_units)
 
+    def clear_cache(self):
+        """Close lazy product files and discard loaded arrays while retaining metadata."""
+        self._reset()
+
+    close = clear_cache
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+    @staticmethod
+    def compare(first: "Output", second: "Output", product: str, *, method: str = "linear") -> xr.Dataset:
+        """Align one product from two runs and return both values, their difference and ratio."""
+        left = first.evaluate(product)
+        right = second.evaluate(product)
+        right = right.interp_like(left, method=method)
+        difference = left - right
+        ratio = xr.where(right != 0, left / right, np.nan)
+        return xr.Dataset({"first": left, "second": right, "difference": difference, "ratio": ratio})
+
     def _reset(self):
         if getattr(self, "_tree", None) is not None:
             self._tree.close()  # an open store would block the next process() from writing it
@@ -322,6 +344,18 @@ class Output:
             data["dimensions"] = ("product", [", ".join(array.dims) for array in arrays])
             data["units"] = ("product", [str(array.attrs.get("units", "")) for array in arrays])
         return xr.Dataset(data, coords={"product": list(keys)})
+
+    def provenance(self, product: str | None = None) -> dict:
+        """Return stored post-processing provenance and current raw-output freshness."""
+        from struphy.post_processing.post_processing_tools import source_fingerprint
+
+        path = self.path_pproc / "manifest.json"
+        manifest = json.loads(path.read_text()) if path.exists() else {}
+        manifest["current"] = manifest.get("source_fingerprint") == source_fingerprint(str(self.path_out))
+        if product is not None:
+            manifest["product"] = product
+            manifest["available"] = product in self.keys()
+        return manifest
 
     def _array(self, product: str | xr.DataArray) -> xr.DataArray:
         """Resolve a saved product name or accept an already-derived xarray array."""
