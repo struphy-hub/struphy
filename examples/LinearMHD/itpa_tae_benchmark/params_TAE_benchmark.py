@@ -16,7 +16,7 @@ Users can modify this file to set up their own simulations with different parame
 
 import logging
 from struphy import set_logging_level
-set_logging_level(logging.WARNING)
+set_logging_level(logging.INFO)
 
 # ------------------
 # Import Struphy API
@@ -27,6 +27,7 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -60,13 +61,13 @@ model.mhd.pressure.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
-    save_step=4,
+    save_step=5,
     out_folders="/u/shrusi/git_repos/struphy/examples/LinearMHD/itpa_tae_benchmark/",
-    sim_folder="sim1_lowerResolution",
-    max_runtime=10)
+    sim_folder="sim1_higherResolution",
+    max_runtime=110)
 
 # Time stepping
-time_opts = Time(dt=0.5, Tend=1.5)
+time_opts = Time(dt=0.5, Tend=200.)
 
 # Geometry
 domain = domains.HollowTorus(
@@ -88,13 +89,19 @@ equil = equils.AdhocTorus(
     )
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(16,88,8))
+grid = grids.TensorProductGrid(num_elements=(24,96,16))
 
 # Derham options
 derham_opts = DerhamOptions(
     degree=(3, 3, 3),
     bcs=(("dirichlet", "dirichlet"), None, None)
 )
+
+# Profiling options
+profiling_opts = ProfilingOptions(
+    use_line_profiler=True
+)
+
 # Simulation object
 sim = Simulation(
     model=model,
@@ -107,6 +114,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=profiling_opts
 )
 
 # ------------------
@@ -130,7 +138,7 @@ perturbation_radial = perturbations.TorusModesSin(
     ns              = (-1, -1),
     amps            = (1e-3, 1e-3),
     pfuns           = ("exp", "exp"),
-    pfun_params     = ([0.5,0.1],),
+    pfun_params     = ([0.5,0.1], [0.5,0.1]),
     comp            = 0,
     given_in_basis="2"
 )
@@ -139,12 +147,14 @@ perturbation_poloidal = perturbations.TorusModesCos(
     ns              = (-1, -1),
     amps            = (1e-3 * 1 / (2*np.pi * ms_radial_1), 1e-3 * 1 / (2*np.pi * ms_radial_2)),
     pfuns           = ("d_exp", "d_exp"),
-    pfun_params     = ([0.5,0.1],),
+    pfun_params     = ([0.5,0.1], [0.5,0.1]),
     comp            = 1,
     given_in_basis="2"
 )
 model.mhd.velocity.add_perturbation(perturbation=perturbation_radial)
+model.mhd.velocity.add_perturbation(perturbation=perturbation_poloidal)
+
 
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(profiling_activated=True)
