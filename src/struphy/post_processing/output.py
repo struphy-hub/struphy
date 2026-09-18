@@ -159,6 +159,7 @@ class Output:
     Call :meth:`evaluate` to obtain one product as an :class:`xarray.DataArray`. It materializes
     post-processing products on demand; call :meth:`pproc` explicitly to choose its options.
     The :attr:`xarray` property exposes the complete post-processed product tree.
+    Render products through this object too, e.g. ``out.viewer("em_fields/E", x="e1", y="e2")``.
 
     * :attr:`scalars` are read directly from the raw HDF5 output.
     * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` are retained
@@ -233,6 +234,68 @@ class Output:
         analysis.
         """
         return self[name]
+
+    def _array(self, product: str | xr.DataArray) -> xr.DataArray:
+        """Resolve a saved product name or accept an already-derived xarray array."""
+        if isinstance(product, str):
+            return self.evaluate(product)
+        if isinstance(product, xr.DataArray):
+            return product
+        raise TypeError(f"product must be a product name or xarray.DataArray, got {type(product).__name__}")
+
+    def timeseries(self, product: str | xr.DataArray, *others: str | xr.DataArray, **kwargs):
+        """Plot one or more scalar products; see :meth:`ArrayPlots.timeseries`."""
+        from struphy.post_processing.xarray_accessors import ArrayPlots
+
+        return ArrayPlots(self._array(product)).timeseries(*(self._array(other) for other in others), **kwargs)
+
+    def view(self, product: str | xr.DataArray, **kwargs):
+        """Configure a reusable slice view of one product; see :meth:`ArrayPlots.view`."""
+        from struphy.post_processing.xarray_accessors import ArrayPlots
+
+        return ArrayPlots(self._array(product)).view(**kwargs)
+
+    def slice(self, product: str | xr.DataArray, *, ax=None, **kwargs):
+        """Render one two-dimensional slice; see :meth:`ArrayPlots.slice`."""
+        return self.view(product, **kwargs).slice(ax=ax)
+
+    def panels(self, product: str | xr.DataArray, **kwargs):
+        """Render evenly spaced snapshots; see :meth:`ArrayPlots.panels`."""
+        from struphy.post_processing.xarray_accessors import ArrayPlots
+
+        return ArrayPlots(self._array(product)).panels(**kwargs)
+
+    def viewer(self, product: str | xr.DataArray, **kwargs):
+        """Create an interactive slice viewer; see :meth:`ArrayPlots.viewer`."""
+        from struphy.post_processing.xarray_accessors import ArrayPlots
+
+        return ArrayPlots(self._array(product)).viewer(**kwargs)
+
+    def animation(self, product: str | xr.DataArray, **kwargs):
+        """Create a slice animation; see :meth:`ArrayPlots.animation`."""
+        from struphy.post_processing.xarray_accessors import ArrayPlots
+
+        return ArrayPlots(self._array(product)).animation(**kwargs)
+
+    def frames(self, product: str | xr.DataArray, directory, **kwargs):
+        """Export slice frames; see :meth:`ArrayPlots.frames`."""
+        from struphy.post_processing.xarray_accessors import ArrayPlots
+
+        return ArrayPlots(self._array(product)).frames(directory, **kwargs)
+
+    def trajectories(self, product: str | xr.DataArray, **kwargs):
+        """Plot saved marker trajectories; see :meth:`ArrayPlots.trajectories`."""
+        from struphy.post_processing.xarray_accessors import ArrayPlots
+
+        return ArrayPlots(self._array(product)).trajectories(**kwargs)
+
+    def plot_scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
+        """Plot an overview of the scalar time series of this run."""
+        return OutputPlots(self).scalars(names=names, relative_to=relative_to, logy=logy)
+
+    def equilibrium(self, ax=None):
+        """Plot the radial equilibrium profiles saved with this run."""
+        return OutputPlots(self).equilibrium(ax=ax)
 
     def _stamp(self, array: xr.DataArray) -> xr.DataArray:
         array.attrs.update(run=self.label, run_name=self.path_out.name)
@@ -522,9 +585,10 @@ class Output:
 
     @property
     def plot(self) -> OutputPlots:
-        """Plots of the whole run: ``out.plot.scalars()`` and ``out.plot.equilibrium()``.
+        """Compatibility namespace for whole-run plots.
 
-        A single product plots itself, e.g. ``out.em_fields.phi_log.struphy.plot.slice(...)``.
+        Prefer :meth:`plot_scalars` and :meth:`equilibrium`; product plots are direct methods
+        of :class:`Output`, such as :meth:`viewer` and :meth:`timeseries`.
         """
         return OutputPlots(self)
 

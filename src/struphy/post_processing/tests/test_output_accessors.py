@@ -62,6 +62,20 @@ def test_timeseries_by_name_with_growth_fit(run):
     assert result.fig._suptitle.get_text() == run.label
 
 
+def test_output_owns_product_plotting(run):
+    result = run.timeseries("en_phi", fit=True)
+    assert result.fit_results[0].rate == pytest.approx(RATE)
+
+    phase_space = run.evaluate("kinetic_ions/e1_v1_density/f").isel(t=-1)
+    assert run.slice(phase_space, x="e1", y="v1").ax.get_xlabel() == r"$\eta_1$"
+
+    viewer = run.viewer("em_fields/E", x="e1", y="e2", component=0)
+    viewer.draw()
+    assert set(viewer.sliders) == {"t", "e3"}
+
+    assert run.trajectories("kinetic_ions", max_markers=2).ax.name == "3d"
+
+
 def test_timeseries_of_several_runs_are_labeled_by_run(tmp_path):
     first, second = make_run(str(tmp_path), "sim_1"), make_run(str(tmp_path), "sim_2")
     result = first.scalars.en_phi.struphy.plot.timeseries(second.scalars.en_phi)
@@ -77,7 +91,7 @@ def test_timeseries_into_given_axes_keeps_the_figure_layout(run):
 
 
 def test_scalar_overview_draws_every_scalar_in_one_axes(run):
-    result = run.plot.scalars()
+    result = run.plot_scalars()
     assert sorted(line.get_label() for line in result.artists) == ["en_phi", "en_tot"]
     assert result.fig.axes == [result.ax]
 

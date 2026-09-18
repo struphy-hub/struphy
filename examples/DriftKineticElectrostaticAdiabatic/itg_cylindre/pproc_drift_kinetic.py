@@ -24,7 +24,8 @@ def main(path_out=DEFAULT_OUTPUT):
     run = Output(path_out).pproc(physical=True)
 
     # growth rate of the electrostatic potential
-    run.evaluate(FIT_QUANTITY).struphy.plot.timeseries(
+    run.timeseries(
+        FIT_QUANTITY,
         fit=FIT_WINDOW,
         fit_amplitude=True,
         title=f"Evolution of {FIT_QUANTITY}",
@@ -35,11 +36,12 @@ def main(path_out=DEFAULT_OUTPUT):
 
     for name, component, plane in SWEEPS:
         selection = {} if component is None else {"component": component}
-        run.evaluate(name).struphy.plot.viewer(
+        run.viewer(
+            name,
             x="e1", y="e2", coords="physical", plane=plane, **selection
         ).show()
 
-    run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=1000).show()
+    run.trajectories("kinetic_ions", max_markers=1000).show()
 
 
 if __name__ == "__main__":

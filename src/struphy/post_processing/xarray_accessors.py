@@ -1,8 +1,8 @@
-"""``array.struphy.<kind>(...)``: plots and diagnostics of a single labeled array.
+"""Compatibility accessors for plots and diagnostics of a single labeled array.
 
 Every product of an :class:`~struphy.Output` carries this accessor, and so does every array
-derived from one, e.g. ``out.ions.eta1_v1.f.isel(v1=0).struphy.plot.timeseries()``. Plots that
-need the whole run (the scalar overview, the equilibrium profiles) live on ``out.plot``.
+derived from one. New code should use the direct methods of ``Output`` instead, for example
+``out.timeseries("en_phi")`` or ``out.slice(array, x="e1", y="v1")``.
 
 Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
 position (``t=-1``), ``"first"`` and ``"last"`` are the ends, and a float is the nearest
