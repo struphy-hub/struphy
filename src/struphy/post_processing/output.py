@@ -913,10 +913,10 @@ class Output:
         """
         if format not in {"markdown", "html"}:
             raise ValueError("format must be 'markdown' or 'html'")
-        directory = Path(directory) if directory else self.path_pproc / "report"
-        directory.mkdir(parents=True, exist_ok=True)
         catalog = self.catalog(details=False)
         requested = [self.evaluate(key) for key in products]
+        directory = Path(directory) if directory else self.path_pproc / "report"
+        directory.mkdir(parents=True, exist_ok=True)
         rows = [
             (str(key), str(kind), str(description))
             for key, kind, description in zip(catalog.product.values, catalog.kind.values, catalog.description.values)
