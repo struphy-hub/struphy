@@ -327,18 +327,14 @@ class VariationalMomentumAdvection(Propagator):
         converged = False
         accepted_by_stagnation = False
 
-            # Update : m^{n+1,r+1} = m^n-advection
-            mn1 = mn.copy(out=self._tmp_mn1)
-            mn1 -= advection
+        # # Update : m^{n+1,r+1} = m^n-advection
+        # mn1 = mn.copy(out=self._tmp_mn1)
+        # mn1 -= advection
+        # # Inverse the mass matrix to get the velocity
+        # with ProfileManager.profile_region(self._solve_region, functions=[self._Mrho_inv.dot]):
+        #     un1 = self._Mrho_inv.dot(mn1, out=self._tmp_un1)
 
-            # Inverse the mass matrix to get the velocity
-            with ProfileManager.profile_region(self._solve_region, functions=[self._Mrho_inv.dot]):
-                un1 = self._Mrho_inv.dot(mn1, out=self._tmp_un1)
-
-        if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                "Picard iteration in VariationalMomentumAdvection",
-            )
+        
 
         for it in range(self._nonlin_solver.maxiter):
             # Midpoint velocity.
@@ -422,11 +418,12 @@ class VariationalMomentumAdvection(Propagator):
             mn1 = self._tmp_mn1
 
             # Recover velocity from momentum.
-            self._momentum_inv.dot(
-                mn1,
-                out=self._tmp_un1,
-            )
-            un1 = self._tmp_un1
+            with ProfileManager.profile_region(self._solve_region, functions=[self._momentum_inv.dot]):
+                self._momentum_inv.dot(
+                    mn1,
+                    out=self._tmp_un1,
+                )
+                un1 = self._tmp_un1
 
         iterations = it + 1
 
