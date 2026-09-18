@@ -201,6 +201,27 @@ def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
     assert run.xarray is run.tree
 
 
+def test_evaluate_selects_positions_coordinates_and_slices(run):
+    field = run.evaluate("em_fields/E", isel={"t": -1, "component": 2})
+    assert field.dims == ("e1", "e2", "e3")
+    np.testing.assert_allclose(field, 3.0)
+
+    phase_space = run.evaluate(
+        "kinetic_ions/e1_v1_density/f",
+        sel={"e1": 0.49},
+        method="nearest",
+        drop=True,
+    )
+    assert phase_space.dims == ("t", "v1")
+
+    history = run.evaluate("en_tot", isel={"t": slice(1, None)})
+    assert history.sizes["t"] == NT - 1
+
+    values = run.evaluate("en_tot", isel={"t": -1}, as_numpy=True)
+    assert isinstance(values, np.ndarray)
+    np.testing.assert_allclose(values, 2.0)
+
+
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))

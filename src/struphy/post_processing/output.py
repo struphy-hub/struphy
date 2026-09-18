@@ -225,15 +225,42 @@ class Output:
         )
         raise KeyError(f"{name!r} not found; available products: {available}")
 
-    def evaluate(self, name: str) -> xr.DataArray:
+    def evaluate(
+        self,
+        name: str,
+        *,
+        sel: Mapping[str, Any] | None = None,
+        isel: Mapping[str, Any] | None = None,
+        method: str | None = None,
+        drop: bool = False,
+        as_numpy: bool = False,
+    ) -> xr.DataArray | np.ndarray:
         """Return a named simulation product as an :class:`xarray.DataArray`.
 
         Scalars are read directly from raw output. Other products are materialized with
         :meth:`pproc` on first use when no complete post-processing output exists. The returned
         array is an ordinary xarray object, so use xarray for selection, arithmetic and further
-        analysis.
+        analysis. ``isel`` selects positions (for example ``{"t": -1}``) and ``sel`` selects
+        dimension-coordinate values (for example ``{"e3": 0.5}``). Positional selection is
+        applied first, followed by coordinate selection. ``method`` and ``drop`` have xarray's
+        usual ``.sel``/``.isel`` meanings. Set ``as_numpy=True`` to return only the selected
+        values as a :class:`numpy.ndarray`.
+
+        Physical auxiliary coordinates such as ``X``, ``Y`` and ``Z`` describe the evaluated
+        logical grid; selecting an arbitrary physical point requires a separate interpolation or
+        inverse-coordinate operation.
         """
-        return self[name]
+        array = self[name]
+        if isel:
+            array = array.isel(isel, drop=drop)
+        if sel:
+            options = {"drop": drop}
+            if method is not None:
+                options["method"] = method
+            array = array.sel(sel, **options)
+        elif method is not None:
+            raise ValueError("method requires a coordinate selection through sel")
+        return array.to_numpy() if as_numpy else array
 
     def _array(self, product: str | xr.DataArray) -> xr.DataArray:
         """Resolve a saved product name or accept an already-derived xarray array."""
