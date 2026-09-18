@@ -42,6 +42,7 @@ from struphy import (
     FieldsBackground,
     KernelDensityPlot,
     LoadingParameters,
+    ProfilingOptions,
     SavingParameters,
     Simulation,
     SortingParameters,
@@ -118,6 +119,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=ProfilingOptions(label="Diocotron-2D"),
 )
 
 # -------------------

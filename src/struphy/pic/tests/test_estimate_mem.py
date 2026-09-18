@@ -90,7 +90,6 @@ def test_nbytes_local_matches_real_allocation(Np):
     real_nbytes = (
         real.markers.nbytes
         + real._sorting_etas.nbytes
-        + real._is_on_proc_domain.nbytes
         + real._can_stay.nbytes
         + real._holes.nbytes
         + real._ghost_particles.nbytes

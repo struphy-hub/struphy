@@ -1,6 +1,8 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
+from cunumpy.xp import to_cunumpy, to_numpy
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
 from feectools.ddm.mpi import MockComm
@@ -260,7 +262,7 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = xp.nonzero(M_arr)
+                row_indices, col_indices = np.nonzero(M_arr)  # M_arr is always a host array (StencilMatrix.toarray())
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -273,7 +275,7 @@ class MassMatrixPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])  # both sides are host arrays
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -625,7 +627,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = xp.nonzero(M_arr)
+                row_indices, col_indices = np.nonzero(M_arr)  # M_arr is always a host array (StencilMatrix.toarray())
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -638,7 +640,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])  # both sides are host arrays
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -911,7 +913,10 @@ class FFTSolver(BandedSolver):
     """
 
     def __init__(self, circmat):
-        assert isinstance(circmat, xp.ndarray)
+        # circmat comes from StencilMatrix.toarray(), which always returns a
+        # host (NumPy) array; scipy.linalg.solve_circulant (used in solve())
+        # is CPU-only regardless of the active cunumpy backend.
+        assert isinstance(circmat, np.ndarray)
         assert is_circulant(circmat)
 
         self._space = xp.ndarray
@@ -946,20 +951,30 @@ class FFTSolver(BandedSolver):
 
         assert rhs.T.shape[0] == self._column.size
 
+        # scipy.linalg.solve_circulant only understands NumPy; rhs may be a
+        # CuPy array (e.g. a view into a device-resident StencilVector), so
+        # convert at this CPU-solver boundary and copy the result back.
+        rhs_np = to_numpy(rhs)
+
         if out is None:
-            out = solve_circulant(self._column, rhs.T).T
+            out = to_cunumpy(solve_circulant(self._column, rhs_np.T).T)
 
         else:
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
             try:
-                out[:] = solve_circulant(self._column, rhs.T).T
-            except xp.linalg.LinAlgError:
+                result_np = solve_circulant(self._column, rhs_np.T).T
+            except np.linalg.LinAlgError:
                 eps = 1e-4
                 logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
                 self._column[0] *= 1.0 + eps
-                out[:] = solve_circulant(self._column, rhs.T).T
+                result_np = solve_circulant(self._column, rhs_np.T).T
+            # cupy's __setitem__ can mishandle a NumPy RHS against a strided
+            # view (raises "non-scalar numpy.ndarray cannot be used for
+            # fill"); converting explicitly to the active backend first
+            # sidesteps that.
+            out[:] = to_cunumpy(result_np)
 
         return out
 
@@ -979,13 +994,15 @@ def is_circulant(mat):
         Whether the matrix is circulant (=True) or not (=False).
     """
 
-    assert isinstance(mat, xp.ndarray)
+    # mat is always a host (NumPy) array in practice: the only callers pass
+    # StencilMatrix.toarray() output, which feectools always returns on the host.
+    assert isinstance(mat, np.ndarray)
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
     if mat.shape[0] > 1:
         for i in range(mat.shape[0] - 1):
-            circulant = xp.allclose(mat[i, :], xp.roll(mat[i + 1, :], -1))
+            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
             if not circulant:
                 return circulant
     else:
