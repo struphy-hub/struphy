@@ -24,6 +24,10 @@ build:
     - zlib1g-dev
     - libnetcdf-dev
     - libnetcdff-dev
+    - libopenmpi-dev 
+    - openmpi-bin
+    - libomp-dev 
+    - libomp5
   jobs:
     pre_build:
       - ls

@@ -442,6 +442,7 @@ class ImplicitDiffusion(Propagator):
                     valid_mks = src.particles.valid_mks
                     first_free_idx = src.particles.first_free_idx
                     density = src.particles.f0.n0(eta)
+
                     src.particles.markers[valid_mks, first_free_idx] = density
                     # 2. accumulate
                     src()
@@ -462,7 +463,7 @@ class ImplicitDiffusion(Propagator):
         self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
 
         # solve
-        with ProfileManager.profile_region(self._solve_region):
+        with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
             out = self._solver.solve(rhs, out=self._tmp)
         info = self._solver._info
 

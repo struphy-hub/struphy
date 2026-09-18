@@ -287,7 +287,7 @@ class CurrentCoupling6DDensity(Propagator):
         rhs = rhs.dot(un, out=self._rhs_v)
         self._solver.linop = lhs
 
-        with ProfileManager.profile_region(self._solve_region):
+        with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
             un1 = self._solver.solve(rhs, out=self._u_new)
         info = self._solver._info
 

@@ -54,7 +54,6 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
     env = EnvironmentOptions(
         out_folders=test_folder,
         sim_folder=f"{model_name}",
-        profiling_activated=test_profiling,
     )
 
     # read parameters
@@ -118,14 +117,14 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
 
     sim.show_parameters()
 
-    sim.run()
+    sim.run(profiling_activated=test_profiling)
 
     # test restart
     env.restart = True
     time_opts.Tend += time_opts.dt
     sim.show_parameters()
 
-    sim.run()
+    sim.run(profiling_activated=test_profiling)
 
     if comm is not None:
         comm.Barrier()

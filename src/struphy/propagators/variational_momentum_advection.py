@@ -277,11 +277,8 @@ class VariationalMomentumAdvection(Propagator):
                 break
 
             # Newton step
-
-            with ProfileManager.profile_region(self._solve_region):
-                # pc_diff = self._Mrho_inv.dot(diff, out=self._tmp__pc_diff)
+            with ProfileManager.profile_region(self._solve_region, functions=[self._Mrho_inv.dot]):
                 pc_diff = self._momentum_pc.dot(diff, out=self._tmp__pc_diff)
-
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
                 logger.info(
@@ -330,8 +327,15 @@ class VariationalMomentumAdvection(Propagator):
         converged = False
         accepted_by_stagnation = False
 
-        if self._info:
-            logger.info("")
+            # Update : m^{n+1,r+1} = m^n-advection
+            mn1 = mn.copy(out=self._tmp_mn1)
+            mn1 -= advection
+
+            # Inverse the mass matrix to get the velocity
+            with ProfileManager.profile_region(self._solve_region, functions=[self._Mrho_inv.dot]):
+                un1 = self._Mrho_inv.dot(mn1, out=self._tmp_un1)
+
+        if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 "Picard iteration in VariationalMomentumAdvection",
             )

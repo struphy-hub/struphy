@@ -3,6 +3,8 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
 
+from scope_profiler import ProfilingOptions
+
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
     __dataclass_repr_all_stacked__,
@@ -340,8 +342,6 @@ class EnvironmentOptions(OptionsBase):
     num_clones: int, optional
         Number of domain clones (default=1)
 
-    profiling_activated: bool, optional
-        Activate profiling with scope-profiler (default=False)
     """
 
     out_folders: str = os.getcwd()
@@ -353,7 +353,6 @@ class EnvironmentOptions(OptionsBase):
     save_restart: bool = True
     sort_step: int = 0
     num_clones: int = 1
-    profiling_activated: bool = False
 
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
@@ -372,3 +371,6 @@ class EnvironmentOptions(OptionsBase):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
+
+
+"""Profiling options are provided directly by scope-profiler."""

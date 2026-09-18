@@ -36,14 +36,13 @@ for given source term :math:`\rho(x)` on a periodic 1D domain.
     model = Poisson()
 
 3. This model features the Propagator :class:`~struphy.propagators.poisson_solve.PoissonSolve` under ``propagators.poisson``. 
-Connect the ``source`` variable of species ``em_fields`` to the propagator and stabilize via ``options``.
+For periodic boundary conditions we will stabilize via ``options``.
 
 .. code-block:: python
 
     stab_eps = 1e-8
 
     model.propagators.poisson.options = model.propagators.poisson.Options(
-        rho=model.em_fields.source,
         stab_eps=stab_eps,
     )
 
@@ -133,7 +132,6 @@ Full copy-paste script:
     stab_eps = 1e-8
     
     model.propagators.poisson.options = model.propagators.poisson.Options(
-        rho=model.em_fields.source,
         stab_eps=stab_eps,
     )
 

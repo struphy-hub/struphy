@@ -57,7 +57,11 @@ config = {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "DEBUG",
             "formatter": "detailed",
-            "filename": "struphy.log",
+            # Overridable via STRUPHY_LOG_FILE so processes sharing a cwd (e.g. several
+            # profiling jobs launched from the same case directory) don't rotate the
+            # same file concurrently -- RotatingFileHandler's rollover isn't safe across
+            # separate OS processes and races with FileNotFoundError when they collide.
+            "filename": os.environ.get("STRUPHY_LOG_FILE", "struphy.log"),
             "maxBytes": 10000,
             "backupCount": 3,
         },
@@ -150,6 +154,7 @@ from struphy.api.options import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Time,
 )
 from struphy.api.particles import (
@@ -174,6 +179,7 @@ __all__ = [
     "EnvironmentOptions",
     "BaseUnits",
     "Time",
+    "ProfilingOptions",
     "perturbations",
     "LoadingParameters",
     "WeightsParameters",

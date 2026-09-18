@@ -14,10 +14,22 @@ from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
+try:
+    from IPython.display import HTML, display
+except ImportError:
+
+    def HTML(data):
+        return data
+
+    def display(*objects, **kwargs):
+        return objects[0] if objects else None
+
+
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -304,6 +316,49 @@ class Domain(metaclass=DomainMeta):
     @property
     def is_default(self):
         return all_class_params_are_default(self)
+
+    forced_heading_level = 5
+
+    @classmethod
+    def _doc_text(cls) -> str:
+        return cls.__doc__ if cls.__doc__ else "Description not available for this domain."
+
+    @classmethod
+    def doc_html(cls) -> str:
+        return rst_to_html(cls._doc_text(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def doc_markdown(cls) -> str:
+        return rst_to_markdown(cls._doc_text())
+
+    @classmethod
+    def doc_latex(cls) -> str:
+        return rst_to_latex(cls._doc_text())
+
+    @classmethod
+    def doc(cls):
+        return display(HTML(cls.doc_html()))
+
+    @classmethod
+    def _mapping_doc(cls) -> str:
+        doc_mapping = getattr(cls, "doc_mapping", None)
+        return doc_mapping.__doc__ if doc_mapping else "Mapping description not available for this domain."
+
+    @classmethod
+    def mapping_html(cls) -> str:
+        return rst_to_html(cls._mapping_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def mapping_markdown(cls) -> str:
+        return rst_to_markdown(cls._mapping_doc())
+
+    @classmethod
+    def mapping_latex(cls) -> str:
+        return rst_to_latex(cls._mapping_doc())
+
+    @classmethod
+    def mapping(cls):
+        return display(HTML(cls.mapping_html()))
 
     @property
     def kind_map(self) -> int:
@@ -945,6 +1000,27 @@ class Domain(metaclass=DomainMeta):
         -------
         out : ndarray | float
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
+            The shape depends on ``kind``, on whether markers or tensor-product points were passed, and on
+            ``change_out_order``/``squeeze_out``:
+
+            - ``kind in ('0', '3')`` (scalar p-form): no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for scalar kinds.
+
+            - ``kind in ('1', '2', 'v')`` (vector-valued p-form, 3 components): a leading/trailing axis of
+              size 3 holds the components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
         """
 
         return self._pull_push_transform(
@@ -1006,6 +1082,27 @@ class Domain(metaclass=DomainMeta):
         -------
         out : ndarray | float
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
+            The shape depends on ``kind``, on whether markers or tensor-product points were passed, and on
+            ``change_out_order``/``squeeze_out``:
+
+            - ``kind in ('0', '3')`` (scalar field): no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for scalar kinds.
+
+            - ``kind in ('1', '2', 'v')`` (vector field, 3 components): a leading/trailing axis of size 3
+              holds the Cartesian components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
         """
 
         return self._pull_push_transform(
@@ -1065,7 +1162,29 @@ class Domain(metaclass=DomainMeta):
         Returns
         -------
         out : ndarray | float
-            Transformed p-form evaluated at given logical coordinates.
+            Transformed p-form/vector field evaluated at given logical coordinates. The shape depends on
+            ``kind``, on whether markers or tensor-product points were passed, and on
+            ``change_out_order``/``squeeze_out``:
+
+            - ``kind in ('0_to_3', '3_to_0')`` (scalar-to-scalar): no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for these kinds.
+
+            - All other ``kind`` values (e.g. ``'1_to_2'``, ``'2_to_1'``, ``'norm_to_v'``, ``'v_to_1'``, ...)
+              produce a vector-valued result with 3 components: a leading/trailing axis of size 3 holds the
+              components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
 
         Notes
         -----
@@ -1212,7 +1331,8 @@ class Domain(metaclass=DomainMeta):
 
     # ================================
     def _pull_push_transform(self, which, a, kind_fun, *etas, flat_eval=False, **kwargs):
-        """Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
+        """Shared implementation behind :meth:`pull`, :meth:`push` and :meth:`transform`.
+        Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
 
         Parameters
         ----------
@@ -1240,8 +1360,29 @@ class Domain(metaclass=DomainMeta):
         Returns
         -------
         out : ndarray | float
-            4D or 2D (for flat eval) array holding the metric coefficient (first index),
-            evaluated at the given logical coordinates (last three indices).
+            Transformed/pulled/pushed field evaluated at the given logical coordinates. The shape depends on
+            ``kind_int = self.dict_transformations[which][kind_fun]``, on whether markers or tensor-product
+            points were passed, and on ``change_out_order``/``squeeze_out`` (see ``kwargs``):
+
+            - ``kind_int < 10`` (scalar-valued result, e.g. kinds ``'0'``, ``'3'``, ``'0_to_3'``, ``'3_to_0'``):
+              no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for these kinds.
+
+            - ``kind_int >= 10`` (vector-valued result, 3 components, e.g. kinds ``'1'``, ``'2'``, ``'v'``,
+              ``'1_to_2'``, ``'norm_to_v'``, ...): a leading/trailing axis of size 3 holds the components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
         """
 
         # set default values

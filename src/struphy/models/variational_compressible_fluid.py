@@ -170,8 +170,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
         return getattr(prop, "_Kdivrho", None)
 
-    def allocate_helpers(self):
-
+    def post_allocate(self):
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
