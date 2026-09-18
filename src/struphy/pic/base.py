@@ -22,6 +22,7 @@ from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
 from sympy.ntheory import factorint
+import numpy as np
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
@@ -419,6 +420,13 @@ class Particles(metaclass=ABCMeta):
     @abstractmethod
     def vdim(self):
         """Dimension of the velocity space."""
+        pass
+    
+    @property
+    @abstractmethod
+    def coordinate_labels(self) -> tuple[str]:
+        """Labels for the coordinates in the phase space. 
+        Length must be 3 + vdim, where the first 3 are the spatial coordinates and the last vdim are the velocity coordinates."""
         pass
 
     @property
@@ -1581,7 +1589,7 @@ class Particles(metaclass=ABCMeta):
 
         return f_slice, df_slice
 
-    def show_distribution_function(self, components, bin_edges):
+    def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray]):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -1589,13 +1597,16 @@ class Particles(metaclass=ABCMeta):
         Parameters
         ----------
         components : list[bool]
-            List of length 6 giving the directions in phase space in which to bin.
+            List of length 3+vdim giving the directions in phase space in which to bin.
+            Up to two entries can be True, the rest must be False. The True entries correspond to the axes of the binning.
 
-        bin_edges : list[array]
+        bin_edges : list[np.ndarray]
             List of bin edges (resolution) having the length of True entries in components.
         """
 
         import matplotlib.pyplot as plt
+
+        assert len(components) == 3 + self.vdim, f"components must be of length {3 + self.vdim}, is {len(components)}."
 
         n_dim = xp.count_nonzero(components)
 
@@ -1604,26 +1615,26 @@ class Particles(metaclass=ABCMeta):
         f_slice, df_slice = self.binning(components, bin_edges)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
-
-        labels = {
-            0: r"$\eta_1$",
-            1: r"$\eta_2$",
-            2: r"$\eta_3$",
-            3: "$v_1$",
-            4: "$v_2$",
-            5: "$v_3$",
-        }
-        indices = xp.nonzero(components)[0]
+        
+        indices = np.nonzero(components)[0]
 
         if n_dim == 1:
-            plt.plot(bin_centers[0], f_slice)
-            plt.xlabel(labels[indices[0]])
+            plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned")
+            i = int(indices[0])
+            resol = 100
+            integrate_resol = [.5, .5, .5] + [100]*self.vdim
+            integrate_resol[i] = None
+            f_init, pts, _, _ = self.f_init.reduced_eval(dim_1=i, resol=resol, integrate_resol=integrate_resol)
+            plt.plot(pts, f_init, "r--", label="analytic initial condition")
+            plt.xlabel(self.coordinate_labels[i])
+            plt.ylabel("f")
+            plt.legend()
         else:
             plt.contourf(bin_centers[0], bin_centers[1], df_slice.T, levels=20)
             plt.colorbar()
             # plt.axis('square')
-            plt.xlabel(labels[indices[0]])
-            plt.ylabel(labels[indices[1]])
+            plt.xlabel(self.coordinate_labels[indices[0]])
+            plt.ylabel(self.coordinate_labels[indices[1]])
 
         plt.show()
 
