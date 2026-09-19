@@ -2519,3 +2519,54 @@ class TokamakManufacturedSolutionVelocity_2(Perturbation):
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class PiecewiseLinearPotential(Perturbation):
+    r"""Potential that is piecewise linear in one physical coordinate.
+
+    Intended for electrode boundary traces: flat pieces are electrodes at fixed
+    voltages and sloped pieces model the potential across the gaps between them.
+
+    Parameters
+    ----------
+    nodes : tuple[float]
+        Strictly increasing node positions along the chosen coordinate.
+
+    values : tuple[float]
+        Potential at the nodes; it is constant beyond the first and last node.
+
+    coordinate : int
+        Physical coordinate (0, 1 or 2 for x, y or z) along which the potential varies.
+    """
+
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \phi(\mathbf x) = \operatorname{interp}(x_c;\, \text{nodes},\, \text{values})\,.
+        """
+
+    def __init__(self, nodes: tuple = (0.0, 1.0), values: tuple = (0.0, 1.0), coordinate: int = 0):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        nodes = xp.asarray(nodes, dtype=float)
+        values = xp.asarray(values, dtype=float)
+        if nodes.ndim != 1 or nodes.shape != values.shape or nodes.size < 1:
+            raise ValueError("nodes and values must be 1D sequences of equal, non-zero length.")
+        if xp.any(xp.diff(nodes) <= 0.0):
+            raise ValueError("nodes must be strictly increasing.")
+        if coordinate not in (0, 1, 2):
+            raise ValueError("coordinate must be 0, 1 or 2.")
+
+        self._nodes = nodes
+        self._values = values
+        self._coordinate = coordinate
+
+        self.given_in_basis = "physical"
+        self.comp = 0
+
+    def __call__(self, x, y, z):
+        coord = (x, y, z)[self._coordinate]
+        return xp.interp(coord, self._nodes, self._values) + 0.0 * (x + y + z)
