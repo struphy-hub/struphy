@@ -156,9 +156,17 @@ class Scalars:
     def update(self):
         for scalar in self.dct.values():
             scalar.update()
-        # reset status to False for next update
+        # reset status to False for next update, including the summands of sums: `a + b + c` nests
+        # SumOfScalars(SumOfScalars(a, b), c), and an inner sum left up to date would keep its first value
         for scalar in self.dct.values():
-            scalar.uptodate = False
+            _mark_outdated(scalar)
+
+
+def _mark_outdated(scalar: Scalar):
+    scalar.uptodate = False
+    for variable in scalar.variables:
+        if isinstance(variable, Scalar):
+            _mark_outdated(variable)
 
 
 @auto_convert_docstring
