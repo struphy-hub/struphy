@@ -22,7 +22,7 @@ from struphy.diagnostics.analysis import (
     drift,
     growth_rate,
     relative_error,
-)  # noqa: F401 (backward-compatible imports)
+)
 from struphy.post_processing.arrays import (
     SCALARS_EXCLUDE,
     axis_label,
