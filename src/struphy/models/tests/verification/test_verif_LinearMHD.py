@@ -18,7 +18,6 @@ from struphy import (
     perturbations,
     set_logging_level,
 )
-from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import LinearMHD
 
 set_logging_level()
@@ -75,29 +74,21 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run().with_time_units("normalized")
 
     # post processing
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
+    run.process()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.load_plotting_data()
-
         # first fft
-        u_of_t = sim.spline_values.mhd.velocity_log.data
-
         Bsquare = B0x**2 + B0y**2 + B0z**2
         p0 = beta * Bsquare / 2
 
         disp_params = {"B0x": B0x, "B0y": B0y, "B0z": B0z, "p0": p0, "n0": n0, "gamma": 5 / 3}
 
-        _1, _2, _3, coeffs = power_spectrum_2d(
-            u_of_t,
-            "velocity_log",
-            grids=sim.grids_log,
-            grids_mapped=sim.grids_phy,
+        _1, _2, _3, coeffs = run["mhd/velocity"].struphy.analysis.dispersion(
+            physical=True,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,
@@ -116,13 +107,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
-        p_of_t = sim.spline_values.mhd.pressure_log.data
-
-        _1, _2, _3, coeffs = power_spectrum_2d(
-            p_of_t,
-            "pressure_log",
-            grids=sim.grids_log,
-            grids_mapped=sim.grids_phy,
+        _1, _2, _3, coeffs = run["mhd/pressure"].struphy.analysis.dispersion(
+            physical=True,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,

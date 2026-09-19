@@ -49,13 +49,18 @@ class DataContainer:
         # dictionary with pairs (dataset key : object ID)
         self._dset_dict = {}
 
-        # get dataset keys if file already exists and set None object IDs
+        # get dataset keys if file already exists and set None object IDs; time series are
+        # chunked (see add_data), static datasets such as kinetic backgrounds are not
         if file_exists:
             dataset_keys = []
 
             with h5py.File(self.file_path, "a") as file:
                 file.visit(
-                    lambda key: dataset_keys.append(key) if isinstance(file[key], h5py.Dataset) else None,
+                    lambda key: (
+                        dataset_keys.append(key)
+                        if isinstance(file[key], h5py.Dataset) and file[key].chunks is not None
+                        else None
+                    ),
                 )
 
             for key in dataset_keys:

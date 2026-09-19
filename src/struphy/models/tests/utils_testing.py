@@ -99,7 +99,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
         )
         assert sim == spec.sim, "Simulation in generated script is not the same as the original simulation"
 
-        # Run the simulation from the generated script
+        # Output the simulation from the generated script
 
     # Export to json and import again
     with tempfile.NamedTemporaryFile(suffix=".json", mode="w+") as tmp:
@@ -124,13 +124,15 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
     time_opts.Tend += time_opts.dt
     sim.show_parameters()
 
-    sim.run(profiling_activated=test_profiling)
+    run = sim.run(profiling_activated=test_profiling)
 
     if comm is not None:
         comm.Barrier()
+    run.process(create_vtk=True)
     if rank == 0:
-        sim.pproc()
-        sim.load_plotting_data()
+        # discover (but do not load) every product
+        for catalog in (run.field_catalog, run.distribution_catalog, run.density_catalog, run.orbit_catalog):
+            tuple(catalog)
         shutil.rmtree(test_folder)
     if comm is not None:
         comm.Barrier()

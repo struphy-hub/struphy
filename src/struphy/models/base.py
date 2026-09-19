@@ -927,15 +927,31 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         return path
 
     def to_dict(self) -> dict:
-        """Serialize the model configuration to a dictionary."""
-        dct = {"model": self.__class__.__name__}
-        return dct
+        """Serialize the model class and the arguments passed to its ``__init__``.
+
+        Configuration applied after construction (markers, backgrounds, perturbations,
+        propagator options) is not part of this dictionary.
+        """
+        params = {}
+        for key, value in self.params.items():
+            if isinstance(value, BaseUnits):
+                value = {"BaseUnits": value.to_dict()}
+            elif not isinstance(value, (bool, int, float, str, tuple, list, type(None))):
+                raise TypeError(f"cannot serialize argument {key}={value!r} of {self.__class__.__name__}")
+            params[key] = value
+        return {"model": self.__class__.__name__, "params": params}
 
     @classmethod
     def from_dict(cls, dct) -> "StruphyModel":
-        """Deserialize a model configuration from a dictionary."""
-        model_name = dct["model"]
-        return cls.from_name(model_name)
+        """Deserialize a model from :meth:`to_dict`."""
+        from struphy.models.utils import get_model_by_name
+
+        params = {}
+        for key, value in dct.get("params", {}).items():
+            if isinstance(value, dict) and set(value) == {"BaseUnits"}:
+                value = BaseUnits.from_dict(value["BaseUnits"])
+            params[key] = value
+        return get_model_by_name(dct["model"])(**params)
 
     @classmethod
     def from_name(cls, name: str) -> "StruphyModel":

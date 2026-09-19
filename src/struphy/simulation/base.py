@@ -29,17 +29,13 @@ class SimulationBase(metaclass=ABCMeta):
 
     @abstractmethod
     def run(self):
-        """Run the simulation."""
+        """Output the simulation."""
         pass
 
+    @property
     @abstractmethod
-    def pproc(self):
-        """Post-process the simulation results."""
-        pass
-
-    @abstractmethod
-    def load_plotting_data(self):
-        """Load post-processed data for visualization."""
+    def output(self):
+        """The output of the simulation."""
         pass
 
     @abstractmethod
@@ -63,7 +59,9 @@ class SimulationBase(metaclass=ABCMeta):
         if file_path.endswith(".yaml") or file_path.endswith(".yml"):
             dict_to_yaml(dct, file_path)
         elif file_path.endswith(".json"):
+            from struphy.simulation.sim import CuPyJSONEncoder
+
             with open(file_path, "w") as f:
-                json.dump(dct, f, indent=4)
+                json.dump(dct, f, indent=4, cls=CuPyJSONEncoder)
         else:
             raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")

@@ -1,8 +1,7 @@
-import inspect
+import hashlib
 import json
 import logging
 import os
-import pickle
 import shutil
 from collections.abc import Sequence
 from contextlib import ExitStack
@@ -10,28 +9,22 @@ from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
-import yaml
+import xarray as xr
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.fields_background.base import FluidEquilibrium
-from struphy.geometry.base import Domain
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy.io.setup import import_parameters_py
-from struphy.kinetic_background import maxwellians
-from struphy.kinetic_background.base import KineticBackground
-from struphy.models.base import StruphyModel
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
+from struphy.post_processing import store
+from struphy.post_processing.arrays import wrap_binned_data, wrap_field_data, wrap_orbits
 from struphy.post_processing.orbits import orbits_tools
-from struphy.topology.grids import TensorProductGrid
 from struphy.utils.progress import tqdm
 
 if TYPE_CHECKING:
-    from struphy.simulation.sim import Simulation
+    from struphy.post_processing.output import Output
 
 logger = logging.getLogger("struphy")
 
@@ -39,173 +32,66 @@ logger = logging.getLogger("struphy")
 PUSH_KINDS = {"H1": "0", "Hcurl": "1", "Hdiv": "2", "L2": "3", "H1vec": "v"}
 
 
-class SplineValues:
-    def __str__(self):
-        out = ""
-        for name, species in inspect.getmembers(self):
-            if isinstance(species, SpecHolder):
-                out += f"    {name}\n"
-                out += f"{species}"
-        return out
+MANIFEST_SCHEMA_VERSION = 1
 
 
-class Orbits:
-    def __str__(self):
-        out = ""
-        for species, orbits in self.__dict__.items():
-            shp = orbits.shape
-            out += f"    {species}, shape = {shp}\n"
-            out += f"        Number of time points: {shp[0]}\n"
-            out += f"        Number of particles:   {shp[1]}\n"
-            out += f"        Number of attributes:  {shp[2]}\n"
-        return out
+def source_fingerprint(path_out: str) -> str:
+    """Fingerprint the raw run files that determine post-processing products."""
+    digest = hashlib.sha256()
+    for name in ("config.json", "run_metadata.json", "meta.yml", "data/data_proc0.hdf5"):
+        path = os.path.join(path_out, name)
+        if not os.path.exists(path):
+            continue
+        stat = os.stat(path)
+        digest.update(name.encode())
+        digest.update(f"{stat.st_size}:{stat.st_mtime_ns}".encode())
+        if name != "data/data_proc0.hdf5":
+            with open(path, "rb") as stream:
+                digest.update(stream.read())
+    return digest.hexdigest()
 
 
-class DistributionFunction:
-    def __str__(self):
-        out = ""
-        for name, species in inspect.getmembers(self):
-            if isinstance(species, SpecHolder):
-                out += f"    {name}\n"
-                out += f"{species}"
-        return out
+def normalize_options(**options) -> dict:
+    """JSON-comparable processing options, as stored in the manifest."""
+    celldivide = options.get("celldivide")
+    if celldivide is not None:
+        options["celldivide"] = [int(celldivide)] * 3 if isinstance(celldivide, int) else [int(c) for c in celldivide]
+    return options
 
 
-class DensitySPH:
-    def __str__(self):
-        out = ""
-        for name, species in inspect.getmembers(self):
-            if isinstance(species, SpecHolder):
-                out += f"    {name}\n"
-                out += f"{species}"
-        return out
+def is_processed(path_out: str, options: dict | None = None) -> bool:
+    """Whether ``path_out`` holds complete post-processing of its current raw output.
 
-
-class SpecHolder:
-    def __str__(self):
-        out = ""
-        for name, val in self.__dict__.items():
-            out += f"        {name}\n"
-        return out
-
-
-class Slice:
-    pass
-
-
-class DataDict:
-    def __init__(self, data: dict):
-        self.data = data
-
-    def __str__(self):
-        out = f"{type(self.data) = }\n"
-        out += f"{len(self.data) = }\n"
-        for key, d in self.data.items():
-            if isinstance(d, list):
-                shp = [comp.shape for comp in d]
-            else:
-                shp = d.shape
-            out += f"{key = }".ljust(25)
-            out += f"shape = {shp}\n"
-        return out
-
-
-class ParamsIn:
-    """Holds the input parameters of a Struphy simulation as attributes.
-
-    Parameters
-    ----------
-    path : str
-        Absolute path of simulation output folder.
+    With ``options``, the stored processing options must match as well, so a request for
+    different products (e.g. ``physical=True``) is never answered with stale ones.
     """
-
-    def __init__(
-        self,
-        path: str,
-    ):
-        logger.info(f"\nReading in parameters from {path} ... ")
-
-        params_path = os.path.join(path, "parameters.py")
-        json_path = os.path.join(path, "config.json")
-
-        if os.path.exists(params_path):
-            params_in = import_parameters_py(params_path)
-            env = params_in.env
-            time_opts = params_in.time_opts
-            domain = params_in.domain
-            equil = params_in.equil
-            grid = params_in.grid
-            derham_opts = params_in.derham_opts
-            model = params_in.model
-            sim = params_in.sim
-
-        elif os.path.exists(json_path):
-            with open(json_path, "r") as f:
-                dct = json.load(f)
-            env = EnvironmentOptions.from_dict(dct["env"])
-            time_opts = Time.from_dict(dct["time_opts"])
-            domain: Domain = Domain.from_dict(dct["domain"])
-            equil = FluidEquilibrium.from_dict(dct.get("equil"))
-
-            grid_dct = dct.get("grid")
-            if grid_dct is not None:
-                grid_dct = dict(grid_dct)
-                if "num_elements" in grid_dct and grid_dct["num_elements"] is not None:
-                    grid_dct["num_elements"] = tuple(grid_dct["num_elements"])
-                if "mpi_dims_mask" in grid_dct and grid_dct["mpi_dims_mask"] is not None:
-                    grid_dct["mpi_dims_mask"] = tuple(grid_dct["mpi_dims_mask"])
-                grid = TensorProductGrid.from_dict(grid_dct)
-            else:
-                grid = None
-
-            derham_dct = dct.get("derham_opts")
-            if derham_dct is not None:
-                derham_dct = dict(derham_dct)
-                if "degree" in derham_dct and derham_dct["degree"] is not None:
-                    derham_dct["degree"] = tuple(derham_dct["degree"])
-                if "bcs" in derham_dct and derham_dct["bcs"] is not None:
-                    derham_dct["bcs"] = tuple(None if bc is None else tuple(bc) for bc in derham_dct["bcs"])
-                if "nquads" in derham_dct and derham_dct["nquads"] is not None:
-                    derham_dct["nquads"] = tuple(derham_dct["nquads"])
-                if "nquads_proj" in derham_dct and derham_dct["nquads_proj"] is not None:
-                    derham_dct["nquads_proj"] = tuple(derham_dct["nquads_proj"])
-                derham_opts = DerhamOptions.from_dict(derham_dct)
-            else:
-                derham_opts = None
-
-            model: StruphyModel = StruphyModel.from_dict(dct["model"])
-            sim = None
-
-        else:
-            raise FileNotFoundError(f"Neither of the paths {params_path} or {json_path} exists.")
-
-        logger.info("... Done.")
-
-        self.env = env
-        self.time_opts = time_opts
-        self.domain = domain
-        self.equil = equil
-        self.grid = grid
-        self.derham_opts = derham_opts
-        self.model = model
-        self.sim = sim
+    path = os.path.join(path_out, "post_processing", "manifest.json")
+    try:
+        with open(path) as stream:
+            manifest = json.load(stream)
+    except (OSError, ValueError):
+        return False
+    return (
+        manifest.get("schema_version") == MANIFEST_SCHEMA_VERSION
+        and manifest.get("status") == "complete"
+        and manifest.get("source_fingerprint") == source_fingerprint(path_out)
+        and (options is None or manifest.get("options") == normalize_options(**options))
+    )
 
 
 class PostProcessor:
-    """Post-process results from a finished Struphy simulation.
+    """Post-process the raw output of a finished Struphy simulation.
 
-    This class collects and processes output data produced by a completed Struphy run. It can be
-    constructed either from a finished :class:`Simulation` object or from a path to an output
-    directory produced by a previous run.
+    Use :meth:`from_output` to reconstruct a serial processor from a saved run.
+    For automatic MPI rank handling, use :meth:`struphy.Output.process`.
 
     Parameters
     ----------
-    sim : Simulation, optional
-        Simulation object of a finished run. If provided, its metadata and output paths are used.
-    path_out : str, optional
-        Path to the Struphy output folder. Required if ``sim`` is not given.
+    output : Output
+        Output folder and lazily reconstructed configuration of the saved run.
     parallel_pproc : bool, optional
-        Whether to run post-processing in parallel using MPI. Default is False (serial post-processing).
+        Whether to run post-processing in parallel using MPI. This requires the same
+        number of ranks as the saved run and a call on every rank. Default is False (serial post-processing).
 
     Attributes
     ----------
@@ -223,75 +109,77 @@ class PostProcessor:
         Number of MPI ranks used to produce the output.
     """
 
-    def __init__(
-        self,
-        sim: "Simulation" = None,
-        path_out: str = None,
-        parallel_pproc: bool = False,
-    ):
-
-        # import simulation parameters from sim object or from path_out
-        if sim is None:
-            assert path_out is not None, (
-                "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
-            )
-            params_in = ParamsIn(path=path_out)
-            grid = params_in.grid
-            derham_opts = params_in.derham_opts
-            domain = params_in.domain
-            model = params_in.model
-            imported_sim = params_in.sim
-        else:
-            path_out = sim.env.path_out
-            grid = sim.grid
-            derham_opts = sim.derham_opts
-            domain = sim.domain
-            model = sim.model
-            imported_sim = sim
-
-        # create post-processing folder
-        self.path_out = path_out
-        self.path_pproc = os.path.join(path_out, "post_processing")
-
-        # parallel post-processing (default: False)
+    def __init__(self, output: "Output", parallel_pproc: bool = False):
+        self.path_out = str(output.path_out)
+        self.path_pproc = os.path.join(self.path_out, "post_processing")
         self.parallel_pproc = parallel_pproc
+        self.domain = output.domain
+        self.equil = output.equil
+        self.model = output.model
+        self.comm_size = output.mpi_ranks
+        self.comm = output.comm if parallel_pproc else MockComm()
+        self.rank = self.comm.Get_rank()
+        if parallel_pproc and self.comm.Get_size() != self.comm_size:
+            raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
+        self.range_ranks = range(self.rank, self.rank + 1) if parallel_pproc else range(self.comm_size)
+        self.derham = None
+        if output.grid is not None and output.derham_opts is not None:
+            self.derham = Derham(
+                output.grid,
+                output.derham_opts,
+                comm=self.comm if parallel_pproc else None,
+                domain=self.domain,
+            )
 
-        # struphy objects needed for post-processing
-        self.domain = domain
-        self.model = model
-
-        if self.parallel_pproc:
-            assert imported_sim is not None, "Parallel post-processing only supported when the sim object is provided."
-            self.derham = imported_sim.derham
-            self.comm = self.derham.comm
-            self.comm_size = self.comm.Get_size()
-            self.rank = self.comm.Get_rank()
-            self.range_ranks = range(self.rank, self.rank + 1)
-        else:
-            if grid is None or derham_opts is None:
-                self.derham = None
-            else:
-                self.derham = Derham(
-                    grid,
-                    derham_opts,
-                    comm=None,
-                    domain=domain,
-                )
-            self.comm = MockComm()
-            # get number of MPI ranks used in the simulation from meta.yml
-            with open(os.path.join(path_out, "meta.yml"), "r") as f:
-                meta = yaml.load(f, Loader=yaml.FullLoader)
-            self.comm_size = meta["MPI processes"]
-            self.rank = 0
-            self.range_ranks = range(int(self.comm_size))
-
-        # create or remove output paths
+        # the directory is only cleared in process(), so that constructing a
+        # PostProcessor to inspect a run does not destroy its post-processed data
         if self.rank == 0:
-            try:
-                os.mkdir(self.path_pproc)
-            except:
+            os.makedirs(self.path_pproc, exist_ok=True)
+        self.comm.Barrier()
+
+    @classmethod
+    def from_output(cls, path_out: str | os.PathLike) -> "PostProcessor":
+        """Create a serial processor from a saved output folder.
+
+        Reads ``run_metadata.json`` (or legacy ``config.json`` when absent), without
+        executing the parameter file or allocating a simulation. The folder may
+        have been moved. Existing post-processing products are preserved until
+        :meth:`process` is called. Under MPI, call this on one rank only.
+        """
+        from struphy.post_processing.output import Output
+
+        return cls(Output(path_out))
+
+    def _write_manifest(self, status, *, options=None, error=None):
+        if self.rank != 0:
+            return
+        manifest = {
+            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "status": status,
+            "source_fingerprint": source_fingerprint(self.path_out),
+            "options": options or {},
+        }
+        if error is not None:
+            manifest["error"] = str(error)
+        if status == "complete":
+            manifest["products"] = sorted(
+                os.path.relpath(os.path.join(root, name), self.path_pproc)
+                for root, _, files in os.walk(self.path_pproc)
+                for name in files
+                if name != "manifest.json"
+            )
+        path = os.path.join(self.path_pproc, "manifest.json")
+        temporary = path + ".tmp"
+        with open(temporary, "w") as stream:
+            json.dump(manifest, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+        os.replace(temporary, path)
+
+    def _reset_pproc_dir(self):
+        if self.rank == 0:
+            if os.path.exists(self.path_pproc):
                 shutil.rmtree(self.path_pproc)
-                os.mkdir(self.path_pproc)
+            os.mkdir(self.path_pproc)
         self.comm.Barrier()
 
     def process(
@@ -302,8 +190,9 @@ class PostProcessor:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
+        force: bool = False,
     ):
-        """Run post-processing for fields and particle data in ``self.path_out``.
+        """Output post-processing for fields and particle data in ``self.path_out``.
 
         Parameters
         ----------
@@ -321,7 +210,32 @@ class PostProcessor:
             If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        force : bool
+            Reprocess even when output already exists. Set False to reuse a previous
+            run's results, so a plotting script can be re-run cheaply.
+
+        Returns
+        -------
+        bool
+            Whether post-processing actually ran.
         """
+        options = normalize_options(
+            step=step,
+            celldivide=celldivide,
+            physical=physical,
+            guiding_center=guiding_center,
+            classify=classify,
+            create_vtk=create_vtk,
+        )
+        if not force and is_processed(self.path_out, options):
+            logger.warning(f"\nReusing existing post-processing in {self.path_pproc}")
+            return False
+
+        self._reset_pproc_dir()
+        if self.rank == 0:
+            store.create(store.store_path(self.path_pproc), options=json.dumps(options))
+        self.comm.Barrier()
+        self._write_manifest("processing", options=options)
         logger.warning(f"\nPost-processing path {self.path_out}")
 
         # check for fields and kinetic data in hdf5 file that need post processing
@@ -329,6 +243,7 @@ class PostProcessor:
             if self.rank == 0:
                 # save time grid at which post-processing data is created
                 xp.save(os.path.join(self.path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+            self.t_grid = xp.asarray(file["time/value"][::step])
 
             if "feec" in file.keys():
                 self.exist_fields = True
@@ -356,19 +271,16 @@ class PostProcessor:
                 self.exist_particles = None
 
         # feec variables
-        self.process_fields(
-            step=step,
-            celldivide=celldivide,
-            physical=physical,
-            create_vtk=create_vtk,
-        )
+        try:
+            self.process_fields(step=step, celldivide=celldivide, physical=physical, create_vtk=create_vtk)
+            self.process_particles(step=step, guiding_center=guiding_center, classify=classify)
+        except Exception as error:
+            self._write_manifest("failed", options=options, error=error)
+            raise
 
-        # particle variables
-        self.process_particles(
-            step=step,
-            guiding_center=guiding_center,
-            classify=classify,
-        )
+        self._write_manifest("complete", options=options)
+
+        return True
 
     def process_fields(
         self,
@@ -445,40 +357,27 @@ class PostProcessor:
                             point_data[species][name][t] = val
                             point_data_phy[species][name][t] = vals_phy[species][name]
 
-        # directory for field data
+        # directory for the vtk files
         path_fields = os.path.join(self.path_pproc, "fields_data")
 
         if self.rank == 0:
-            try:
-                os.mkdir(path_fields)
-            except:
-                shutil.rmtree(path_fields)
-                os.mkdir(path_fields)
-
-            # save data dicts for each field
+            # one group per species in the product store, with the mapped grids as coordinates
             for species, vars in point_data.items():
+                variables = {}
                 for name, val in vars.items():
-                    try:
-                        os.mkdir(os.path.join(path_fields, species))
-                    except:
-                        pass
-
-                    with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
-                        pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+                    variables[name] = wrap_field_data(val, grids_log, grids_phy=grids_phy, name=name)
                     if physical:
-                        with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
-                            pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                        variables[name + "_xyz"] = wrap_field_data(
+                            point_data_phy[species][name], grids_log, grids_phy=grids_phy, name=name + "_xyz"
+                        )
+                store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset(variables))
 
-            # save grids
-            with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
-                pickle.dump(grids_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            with open(os.path.join(path_fields, "grids_phy.bin"), "wb") as handle:
-                pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            # create vtk files
             if create_vtk:
+                try:
+                    os.mkdir(path_fields)
+                except FileExistsError:
+                    shutil.rmtree(path_fields)
+                    os.mkdir(path_fields)
                 self._create_vtk(path_fields, t_grid, grids_phy, point_data)
                 if physical:
                     self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
@@ -528,7 +427,9 @@ class PostProcessor:
 
                 if guiding_center:
                     assert self.kinetic_kinds[n] == "Particles6D"
-                    orbits_tools.post_process_orbit_guiding_center(self.path_out, path_kinetics_species, species)
+                    orbits_tools.post_process_orbit_guiding_center(
+                        self.domain, self.equil, path_kinetics_species, species
+                    )
 
                 if classify:
                     orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
@@ -877,11 +778,9 @@ class PostProcessor:
         """
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
-            try:
-                os.mkdir(species_path)
-            except:
+            if os.path.exists(species_path):
                 shutil.rmtree(species_path)
-                os.mkdir(species_path)
+            os.makedirs(species_path)
 
         # time loop
         nt = max(len(t_grid) - 1, 1)
@@ -968,8 +867,9 @@ class PostProcessor:
                 os.mkdir(path_orbits)
         self.comm.Barrier()
 
-        # temporary array
+        # temporary array, plus every step of it for the product store
         temp = xp.empty((n_markers, len(save_index)), order="C")
+        orbits = []
         lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
         logger.warning(f"Evaluation of {n_markers} marker orbits for {species}")
@@ -1022,12 +922,17 @@ class PostProcessor:
             temp[~lost_particles_mask, :3] = pos_phys
 
             if self.rank == 0:
+                orbits.append(temp.copy())
                 # save numpy
                 xp.save(file_npy, temp)
                 # move ids to first column and save txt
                 temp = xp.roll(temp, 1, axis=1)
                 xp.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
             self.comm.Barrier()
+
+        if self.rank == 0:
+            values = wrap_orbits(xp.stack(orbits), self.t_grid[: len(orbits)])
+            store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset({"orbits": values}))
 
     def _post_process_f(
         self,
@@ -1049,58 +954,27 @@ class PostProcessor:
         step : int, optional
             Time-step stride to process (default 1).
         compute_bckgr : bool, optional
-            If True, compute and add background contribution to the saved binned data.
+            If True, add the background stored by the simulation to the binned delta f.
         """
         print(f"{self.rank} starting post-processing of distribution functions for {path_kinetic_species} ...")
 
         species = path_kinetic_species.split("/")[-1]
-        species_obj: ParticleSpecies = self.model.particle_species[species]
-
-        # directory for .npy files
-        path_distr = os.path.join(path_kinetic_species, "distribution_function")
-
-        if self.rank == 0:
-            try:
-                os.mkdir(path_distr)
-            except:
-                shutil.rmtree(path_distr)
-                os.mkdir(path_distr)
-        self.comm.Barrier()
 
         logger.warning("Evaluation of distribution functions for " + str(species))
 
-        # Create grids
+        # the bin centers of every slice, as saved by the simulation
+        slice_grids = {}
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
-            slice_names = []
             for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
-                slice_names += [slice_name]
-                # create a new folder for each slice
-                path_slice = os.path.join(path_distr, slice_name)
-                if self.rank == 0:
-                    os.mkdir(path_slice)
-                self.comm.Barrier()
-
-                # Find out all names of slices
-                slice_splits = slice_name.split("_")
-
-                # save grid
-                for n_gr, (_, grid) in enumerate(file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()):
-                    grid_path = os.path.join(
-                        path_slice,
-                        "grid_" + slice_splits[n_gr] + ".npy",
-                    )
-                    if self.rank == 0:
-                        xp.save(grid_path, grid[:])
-                    self.comm.Barrier()
+                dims = [part for part in slice_name.split("_")]
+                centers = [grid[:] for _, grid in file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()]
+                slice_grids[slice_name] = dict(zip(dims, centers))
+        slice_names = list(slice_grids)
 
         # compute distribution function
         for slice_name in tqdm(slice_names):
             logger.info(f"Processing slice {slice_name} for species {species}")
-            # path to folder of slice
-            path_slice = os.path.join(path_distr, slice_name)
-
-            # Find out all names of slices
-            slice_splits = slice_name.split("_")
+            grids = slice_grids[slice_name]
 
             for rank in self.range_ranks:
                 print(f"{rank = } ----------------------------")
@@ -1150,89 +1024,53 @@ class PostProcessor:
 
             print(f"{self.rank =} done.")
             if self.rank == 0:
-                # save distribution functions
-                xp.save(os.path.join(path_slice, "f_binned.npy"), data)
-                xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
-
+                full_f = data
                 if compute_bckgr:
-                    # bckgr_params = params["kinetic"][species]["background"]
+                    # the background of a delta-f species is stored by the simulation on the bin centers
+                    key_background = f"kinetic/{species}/f_background/{slice_name}"
+                    with h5py.File(os.path.join(self.path_out, "data", "data_proc0.hdf5"), "r") as file:
+                        if key_background not in file:
+                            raise ValueError(
+                                f"{key_background} is missing from the raw output; outputs of older versions "
+                                "do not store the background of delta-f species."
+                            )
+                        data_bckgr = file[key_background][()]
 
-                    # f_bckgr = None
-                    # for fi, maxw_params in bckgr_params.items():
-                    #     if fi[-2] == "_":
-                    #         fi_type = fi[:-2]
-                    #     else:
-                    #         fi_type = fi
+                    # add extra axis for data_bckgr since data_df has axis for time series
+                    full_f = data_df + data_bckgr[None]
 
-                    #     if f_bckgr is None:
-                    #         f_bckgr = getattr(maxwellians, fi_type)(
-                    #             maxw_params=maxw_params,
-                    #         )
-                    #     else:
-                    #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
-                    #             maxw_params=maxw_params,
-                    #         )
+                store.write_group(
+                    store.store_path(self.path_pproc),
+                    f"/{species}/{slice_name}",
+                    self._binned_dataset(grids, {"f": full_f, "delta_f": data_df}),
+                )
 
-                    for _, var in species_obj.variables.items():
-                        assert isinstance(var, PICVariable | SPHVariable)
-                        f_bckgr: KineticBackground = var.backgrounds
-                        break
+    def _binned_dataset(self, grids: dict, variables: dict) -> xr.Dataset:
+        """One binned product per variable, with time, bin centers and mapped coordinates."""
+        dims = tuple(dim for dim in grids)
+        coords = {"t": self.t_grid, **grids}
+        coords.update(self._mapped_coords(grids))
+        return xr.Dataset(
+            {name: wrap_binned_data(values, dims, coords, name=name) for name, values in variables.items()}
+        )
 
-                    # load all grids of the variables of f
-                    grid_tot = []
-                    factor = 1.0
-
-                    # eta-grid
-                    for comp in range(1, 4):
-                        current_slice = "e" + str(comp)
-                        filename = os.path.join(
-                            path_slice,
-                            "grid_" + current_slice + ".npy",
-                        )
-
-                        # check if file exists and is in slice_name
-                        if os.path.exists(filename) and current_slice in slice_splits:
-                            grid_tot += [xp.load(filename)]
-
-                        # otherwise evaluate at zero
-                        else:
-                            grid_tot += [xp.zeros(1)]
-
-                    # v-grid
-                    for comp in range(1, f_bckgr.vdim + 1):
-                        current_slice = "v" + str(comp)
-                        filename = os.path.join(
-                            path_slice,
-                            "grid_" + current_slice + ".npy",
-                        )
-
-                        # check if file exists and is in slice_name
-                        if os.path.exists(filename) and current_slice in slice_splits:
-                            grid_tot += [xp.load(filename)]
-
-                        # otherwise evaluate at zero
-                        else:
-                            grid_tot += [xp.zeros(1)]
-                            # correct integrating out in v-direction, TODO: check for 5D Maxwellians
-                            factor *= xp.sqrt(2 * xp.pi)
-
-                    grid_eval = xp.meshgrid(*grid_tot, indexing="ij")
-
-                    data_bckgr = f_bckgr(*grid_eval).squeeze()
-
-                    # correct integrating out in v-direction
-                    data_bckgr *= factor
-
-                    # Now all data is just the data for delta_f
-                    data_delta_f = data_df
-
-                    # save distribution function
-                    xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
-                    # add extra axis for data_bckgr since data_delta_f has axis for time series
-                    xp.save(
-                        os.path.join(path_slice, "f_binned.npy"),
-                        data_delta_f + data_bckgr[tuple([None])],
-                    )
+    def _mapped_coords(self, grids: dict) -> dict:
+        """``X``, ``Y``, ``Z`` on the logical directions of ``grids``, when there are two or three."""
+        logical = tuple(dim for dim in grids if dim in ("e1", "e2", "e3"))
+        if len(logical) not in (2, 3) or self.domain is None:
+            return {}
+        try:
+            if len(logical) == 2:
+                mesh = xp.meshgrid(*(xp.asarray(grids[dim]) for dim in logical), indexing="ij")
+                arguments = {"e1": 0.5, "e2": 0.0, "e3": 0.0}
+                arguments.update(dict(zip(logical, mesh)))
+                mapped = self.domain(arguments["e1"], arguments["e2"], arguments["e3"], squeeze_out=True)
+            else:
+                mapped = self.domain(*(xp.asarray(grids[dim]) for dim in logical))
+        except (TypeError, ValueError):
+            logger.debug("Could not map the coordinates of %s", logical, exc_info=True)
+            return {}
+        return {name: (logical, xp.asarray(grid)) for name, grid in zip(("X", "Y", "Z"), mapped)}
 
     def _post_process_n_sph(
         self,
@@ -1250,53 +1088,18 @@ class PostProcessor:
         """
         species = path_kinetic_species.split("/")[-1]
 
-        # directory for .npy files
-        path_n_sph = os.path.join(path_kinetic_species, "n_sph")
-
-        if self.rank == 0:
-            try:
-                os.mkdir(path_n_sph)
-            except:
-                shutil.rmtree(path_n_sph)
-                os.mkdir(path_n_sph)
-        self.comm.Barrier()
-
         logger.warning("Evaluation of sph density for " + str(species))
 
+        # the evaluation points of every view, as saved by the simulation
+        view_grids = {}
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
-            views = list(file_0["kinetic/" + species + "/n_sph"])
-
-            # Create grids
-            for view in views:
-                # create a new folder for each view
-                path_view = os.path.join(path_n_sph, view)
-                if self.rank == 0:
-                    os.mkdir(path_view)
-                self.comm.Barrier()
-
-                # build meshgrid and save
-                eta1 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
-                eta2 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
-                eta3 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
-
-                ee1, ee2, ee3 = xp.meshgrid(
-                    eta1,
-                    eta2,
-                    eta3,
-                    indexing="ij",
-                )
-
-                if self.rank == 0:
-                    grid_path = os.path.join(
-                        path_view,
-                        "grid_n_sph.npy",
-                    )
-                    xp.save(grid_path, (ee1, ee2, ee3))
+            for view in file_0["kinetic/" + species + "/n_sph"]:
+                attrs = file_0["kinetic/" + species + "/n_sph/" + view].attrs
+                view_grids[view] = {f"e{direction}": attrs["eta" + direction][:] for direction in ("1", "2", "3")}
+        views = list(view_grids)
 
         # compute sph density
         for view in tqdm(views):
-            path_view = os.path.join(path_n_sph, view)
-
             for rank in self.range_ranks:
                 with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                     if self.parallel_pproc:
@@ -1324,257 +1127,8 @@ class PostProcessor:
                     )
 
             if self.rank == 0:
-                # save sph density
-                xp.save(os.path.join(path_view, "n_sph.npy"), data)
-
-
-class PlottingData:
-    """Container for loading and accessing post-processed Struphy simulation data.
-
-    This class provides convenient access to field data (spline values), particle orbits,
-    distribution functions, and SPH density fields that were generated by
-    :class:`PostProcessor`. Data is organized hierarchically by species and variable/view
-    and is exposed via read-only properties.
-
-    Parameters
-    ----------
-    sim : Simulation, optional
-        Simulation object of a completed run. If provided, its output path is used.
-    path_out : str, optional
-        Path to the Struphy output folder. Required if ``sim`` is not given.
-
-    Raises
-    ------
-    AssertionError
-        If neither ``sim`` nor ``path_out`` is provided, or if the post-processing
-        directory does not exist (call :meth:`PostProcessor.process` first).
-
-    Attributes
-    ----------
-    path_pproc : str
-        Path to the post-processing directory.
-    t_grid : xp.ndarray or None
-        Time grid (loaded after calling :meth:`load`).
-    grids_log : list of xp.ndarray or None
-        Logical coordinate grids (loaded after calling :meth:`load`).
-    grids_phy : list of xp.ndarray or None
-        Physical coordinate grids (loaded after calling :meth:`load`).
-
-    Examples
-    --------
-    >>> pdata = PlottingData(path_out=\"/path/to/sim/output\")
-    >>> pdata.load()
-    >>> # Access particle orbits for species 'electrons'
-    >>> orbits_e = pdata.orbits.electrons  # shape: (time, particles, attributes)
-    >>> # Access field values
-    >>> E_log = pdata.spline_values.electrons.E_log  # logical components
-    """
-
-    def __init__(self, sim: "Simulation" = None, path_out: str = None):
-
-        if sim is None:
-            assert path_out is not None, (
-                "If no sim object is provided, a path_out must be given to retrieve the parameters of the run to post-process."
-            )
-        else:
-            path_out = sim.env.path_out
-
-        self.path_pproc = os.path.join(path_out, "post_processing")
-        assert os.path.exists(self.path_pproc), f"Path {self.path_pproc} does not exist, run 'pproc' first?"
-
-        # dictionaries to hold data
-        self._orbits = Orbits()
-        self._f = DistributionFunction()
-        self._spline_values = SplineValues()
-        self._n_sph = DensitySPH()
-        self.grids_log: list[xp.ndarray] = None
-        self.grids_phy: list[xp.ndarray] = None
-        self.t_grid: xp.ndarray = None
-
-    @property
-    def orbits(self) -> Orbits:
-        """Particle orbit data by species.
-
-        Returns
-        -------
-        Orbits
-            Container where attributes are species names. Each species attribute holds
-            a 3D array indexed by (t, p, a): t = time step, p = particle index,
-            a = attribute index (id, position_xyz, velocities, weight, etc.).
-        """
-        return self._orbits
-
-    @property
-    def f(self) -> DistributionFunction:
-        """Distribution function data by species.
-
-        Returns
-        -------
-        DistributionFunction
-            Container where attributes are species names. Each species holds a dict-like
-            object mapping slice names (e.g., 'e1_v1', 'e2_v2') to slice containers,
-            which store arrays like 'f_binned', 'delta_f_binned' for plotting.
-        """
-        return self._f
-
-    @property
-    def spline_values(self) -> SplineValues:
-        """Field (spline) values by species.
-
-        Returns
-        -------
-        SplineValues
-            Container where attributes are species names. Each species holds a dict-like
-            object mapping variable names (e.g., 'E_log', 'B_phy') to ``DataDict``
-            objects containing evaluated field arrays on the grid.
-        """
-        return self._spline_values
-
-    @property
-    def n_sph(self) -> DensitySPH:
-        """SPH density fields by species.
-
-        Returns
-        -------
-        DensitySPH
-            Container where attributes are species names. Each species holds a dict-like
-            object mapping view names (e.g., 'view_0', 'view_1') to slice containers,
-            which store arrays like 'n_sph' and associated grids for plotting.
-        """
-        return self._n_sph
-
-    def load(self):
-        """Load all post-processed data from disk into memory.
-
-        Reads binary pickle files (``.bin``) and NumPy archives (``.npy``) from the
-        post-processing directory. Populates ``self.t_grid``, ``self.grids_log``,
-        ``self.grids_phy``, and all species-dependent data properties (orbits, f,
-        spline_values, n_sph).
-
-        Raises
-        ------
-        FileNotFoundError
-            If expected post-processing files are missing.
-        NotImplementedError
-            If an unexpected data folder structure is encountered.
-        """
-        logger.warning("\nLoading post-processed plotting data:")
-        logger.warning(f"Data path: {self.path_pproc}")
-
-        # load time grid
-        self.t_grid = xp.load(os.path.join(self.path_pproc, "t_grid.npy"))
-
-        # data paths
-        path_fields = os.path.join(self.path_pproc, "fields_data")
-        path_kinetic = os.path.join(self.path_pproc, "kinetic_data")
-
-        # load point data
-        if os.path.exists(path_fields):
-            # grids
-            with open(os.path.join(path_fields, "grids_log.bin"), "rb") as f:
-                self.grids_log = pickle.load(f)
-            with open(os.path.join(path_fields, "grids_phy.bin"), "rb") as f:
-                self.grids_phy = pickle.load(f)
-
-            # species folders
-            species = next(os.walk(path_fields))[1]
-            for spec in species:
-                spec_holder = SpecHolder()
-                setattr(self.spline_values, spec, spec_holder)
-                # self.arrays[spec] = {}
-                path_spec = os.path.join(path_fields, spec)
-                wlk = os.walk(path_spec)
-                files = next(wlk)[2]
-                logger.info(f"\nFiles in {path_spec}: {files}")
-                for file in files:
-                    if ".bin" in file:
-                        var = file.split(".")[0]
-                        with open(os.path.join(path_spec, file), "rb") as f:
-                            # try:
-                            data_dict = DataDict(pickle.load(f))
-                            setattr(spec_holder, var, data_dict)
-                            # self.arrays[spec][var] = pickle.load(f)
-
-        if os.path.exists(path_kinetic):
-            # species folders
-            species = next(os.walk(path_kinetic))[1]
-            for spec in species:
-                path_spec = os.path.join(path_kinetic, spec)
-                wlk = os.walk(path_spec)
-                sub_folders = next(wlk)[1]
-                for folder in sub_folders:
-                    path_dat = os.path.join(path_spec, folder)
-                    sub_wlk = os.walk(path_dat)
-
-                    if "orbits" in folder:
-                        files = next(sub_wlk)[2]
-                        Nt = len(files) // 2
-                        n = 0
-                        for file in files:
-                            # logger.info(f"{file = }")
-                            if ".npy" in file:
-                                step = int(file.split(".")[0].split("_")[-1])
-                                tmp = xp.load(os.path.join(path_dat, file))
-                                if n == 0:
-                                    arr = xp.zeros((Nt, *tmp.shape), dtype=float)
-                                    setattr(self.orbits, spec, arr)
-                                arr[step] = tmp
-                                n += 1
-
-                    elif "distribution_function" in folder:
-                        spec_holder = SpecHolder()
-                        setattr(self.f, spec, spec_holder)
-                        slices = next(sub_wlk)[1]
-                        # logger.info(f"{slices = }")
-                        for sli in slices:
-                            s = Slice()
-                            setattr(spec_holder, sli, s)
-                            # logger.info(f"{sli = }")
-                            files = next(sub_wlk)[2]
-                            # logger.info(f"{files = }")
-                            for file in files:
-                                name = file.split(".")[0]
-                                tmp = xp.load(os.path.join(path_dat, sli, file))
-                                logger.info(f"{name = }")
-                                setattr(s, name, tmp)
-
-                    elif "n_sph" in folder:
-                        spec_holder = SpecHolder()
-                        setattr(self.n_sph, spec, spec_holder)
-                        slices = next(sub_wlk)[1]
-                        # logger.info(f"{slices = }")
-                        for sli in slices:
-                            s = Slice()
-                            setattr(spec_holder, sli, s)
-                            # logger.info(f"{sli = }")
-                            files = next(sub_wlk)[2]
-                            # logger.info(f"{files = }")
-                            for file in files:
-                                name = file.split(".")[0]
-                                tmp = xp.load(os.path.join(path_dat, sli, file))
-                                # logger.info(f"{name = }")
-                                setattr(s, name, tmp)
-
-                    else:
-                        logger.info(f"{folder =}")
-                        raise NotImplementedError
-
-        logger.warning("\nThe following data has been loaded:")
-        logger.warning("\ngrids:")
-        logger.warning(f"{self.t_grid.shape =}")
-        if self.grids_log is not None:
-            logger.warning(f"{self.grids_log[0].shape =}")
-            logger.warning(f"{self.grids_log[1].shape =}")
-            logger.warning(f"{self.grids_log[2].shape =}")
-        if self.grids_phy is not None:
-            logger.warning(f"{self.grids_phy[0].shape =}")
-            logger.warning(f"{self.grids_phy[1].shape =}")
-            logger.warning(f"{self.grids_phy[2].shape =}")
-        logger.warning("\nself.spline_values:")
-        logger.warning(self.spline_values)
-        logger.warning("self.orbits:")
-        logger.warning(self.orbits)
-        logger.warning("self.f:")
-        logger.warning(self.f)
-        logger.warning("self.n_sph:")
-        logger.warning(self.n_sph)
+                store.write_group(
+                    store.store_path(self.path_pproc),
+                    f"/{species}/{view}",
+                    self._binned_dataset(view_grids[view], {"n": data}),
+                )

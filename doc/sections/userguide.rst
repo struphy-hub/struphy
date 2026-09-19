@@ -499,119 +499,155 @@ After initial conditions are set, launch the run:
 11. Post-processing and visualization
 -------------------------------------
 
-After ``sim.run()`` finishes, two methods give access to simulation results:
-
-1. ``sim.pproc()`` — reads raw HDF5 data written during the run, evaluates
-   spline fields on a grid, and writes processed arrays to disk into a
-   ``post_processing/`` sub-folder inside the output directory.
-2. ``sim.load_plotting_data()`` — reads those processed files back into
-   memory and attaches the data as attributes on ``sim``.
-
-The typical post-processing workflow is:
+A serial postprocessor can be reconstructed from a saved output folder, including
+one moved to another location:
 
 .. code-block:: python
 
-    sim.run()
-    sim.pproc()
-    sim.load_plotting_data()
+    from struphy.post_processing.post_processing_tools import PostProcessor
 
+    processor = PostProcessor.from_output("./runs/my_run")
+    processor.process(physical=True)
 
-``sim.pproc()``
-^^^^^^^^^^^^^^^
+This reads ``run_metadata.json``, falling back to legacy ``config.json`` when needed.
+The original MPI rank count comes from ``run_metadata.json`` or legacy ``meta.yml``.
+Under MPI, call this factory on one rank only; use ``Output.process`` for automatic
+rank handling.
 
-``pproc`` accepts several keyword arguments that control what is evaluated
-and how:
+The output of a simulation is a :class:`~struphy.Output`. ``sim.run()`` returns it,
+and it stays available as ``sim.output``:
 
 .. code-block:: python
 
-    sim.pproc(
-        step=1,              # evaluate every N-th saved time step
-        celldivide=1,        # sub-divide each grid cell for smoother output
-        physical=False,      # also evaluate fields in physical coordinates
+    out = sim.run()
+
+    out.scalars.total_energy        # scalar time series, straight from the raw output
+    out.fields.em_fields.e_field  # evaluated FEEC field (post-processed on first access)
+    out.domain, out.model.units      # reconstructed from saved metadata
+
+Every product is an :class:`xarray.DataArray` with named dimensions
+(``t``, ``component``, ``e1``, ``e2``, ``e3``, ``v1``, ...), coordinates and units.
+Arrays are read from disk only when accessed.
+
+Time is in Struphy units, in which the models' analytic results are written; seconds come
+along as the coordinate ``t_seconds``. Pass ``time_units="physical"`` to
+:class:`~struphy.Output` to make ``t`` itself seconds.
+
+In a separate process, for example a plotting script on a laptop after a cluster
+run, open the output folder instead. Nothing is allocated and no MPI is needed.
+The domain, model and numerical options are restored directly from the
+``run_metadata.json`` that ``sim.run()`` writes to the folder; a
+copied parameter file is never executed. The metadata holds the options and the model
+arguments (and thus the units), which is all that post-processing and plotting need, but
+not configuration applied to the model afterwards, such as backgrounds or perturbations:
+
+.. code-block:: python
+
+    import struphy
+
+    out = struphy.Output("./runs/vm1s_scan_A/sim_1")
+    out.domain, out.model.units
+
+
+Choosing post-processing options: ``out.process()``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Scalars need no post-processing. Fields, binned distribution functions, SPH
+densities and orbits are evaluated from the raw HDF5 data and written to a
+``post_processing/`` sub-folder of the output directory. Without an explicit call
+this happens with default options the first time such a product is accessed. To
+choose the options, call ``process`` first:
+
+.. code-block:: python
+
+    out.process(
+        step=1,                # evaluate every N-th saved time step
+        celldivide=1,          # sub-divide each grid cell for smoother output
+        physical=False,        # also evaluate fields in physical coordinates (*_xyz)
         guiding_center=False,  # compute guiding-center coordinates for markers
-        classify=False,      # classify particles by trapping/passing etc.
-        create_vtk=True,     # write VTK files for 3D visualization
+        classify=False,        # classify particles by trapping/passing etc.
+        create_vtk=False,      # write VTK files for 3D visualization
+        parallel=False,        # evaluate fields on all MPI ranks
+        force=False,           # reprocess even if matching products exist
     )
 
-All arguments are optional and default to the values shown above.
-Use ``step > 1`` to skip snapshots and speed up post-processing on large runs.
-Use ``physical=True`` to get field components in physical Cartesian coordinates
-in addition to the default logical-coordinate evaluation.
+All arguments are optional and default to the values shown above. Products that
+were already made from the same raw output with the same options are reused, so a
+plotting script can be re-run cheaply. Under MPI, call ``process`` on every rank:
+serial processing runs on rank 0 while the other ranks wait, and
+``parallel=True`` uses the allocated simulation on all ranks.
 
 
-``sim.load_plotting_data()``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Standard plots and analysis
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After calling ``pproc``, ``load_plotting_data`` populates the following
-attributes on the ``sim`` object:
+Products sit under the species that produced them and plot themselves through their
+``.struphy`` accessor, which holds ``.plot`` and ``.analysis``. No imports are needed and
+everything completes as you type:
 
-1. ``sim.t_grid`` — 1D array of saved simulation times.
-2. ``sim.grids_log`` — list of 3D arrays with logical-coordinate grid points,
-   one per direction.
-3. ``sim.grids_phy`` — list of 3D arrays with physical-coordinate grid points,
-   one per direction.
-4. ``sim.spline_values`` — evaluated FEEC field data, organized by species
-   and variable name.
-5. ``sim.orbits`` — particle-orbit arrays, shape ``(time, particles, attributes)``.
-6. ``sim.f`` — binned distribution-function snapshots, organized by species and
-   phase-space slice.
-7. ``sim.n_sph`` — SPH-reconstructed density fields (for SPH-type runs).
+.. code-block:: python
+
+    # products plot themselves
+    f = out.kinetic_ions.e1_v1_density.f
+    f.struphy.plot.slice(x="e1", y="v1", t="last")
+    f.struphy.plot.panels(x="e1", y="v1", nrows=3, ncols=4)
+    f.struphy.plot.viewer(x="e1", y="v1").show()
+    out.em_fields.phi_xyz.struphy.plot.slice(x="e1", y="e2", t="last", coords="physical")
+    out.kinetic_ions.orbits.struphy.plot.trajectories()
+    out.scalars.en_phi.struphy.plot.timeseries(fit=(0.0, 40.0))        # exponential fit in a window
+    out.scalars.en_phi.struphy.analysis.growth_rate(window=(0.0, 40.0)).rate
+
+    # plots of the whole run
+    out.plot.scalars()                                   # every scalar time series
+    out.save_report()                                    # table + figures in post_processing/report/
+
+    # the same products by name, which suits scripts and loops
+    out["kinetic_ions/e1_v1_density/f"].struphy.plot.slice(x="e1", y="v1", t="last")
+    out["em_fields/e_field"].struphy.analysis.dispersion(slice_at=(0, 0, None), fit_branches=1)
+
+Plots return a ``PlotResult`` with ``.show()`` and ``.save(path)``. Time series of
+several runs are labeled by run:
+
+.. code-block:: python
+
+    out_a.scalars.en_phi.struphy.plot.timeseries(out_b.scalars.en_phi, fit=(0.0, 40.0))
+
+The sections below access the arrays directly for custom Matplotlib plots.
 
 
 Plotting field data
 ^^^^^^^^^^^^^^^^^^^^
 
-FEEC field data is stored under ``sim.spline_values`` indexed by species and
-variable name. The inner container for each variable is a dict-like object
-mapping a simulation time (float key) to the evaluated array:
+Fields are grouped by species and named ``<variable_name>`` (logical
+components) or ``<variable_name>_xyz`` (physical components, with
+``physical=True``):
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
 
-    # Access the electric field log for the em_fields species
-    e_log = sim.spline_values.em_fields.e_field_log
-
-    # Plot the first component along the first direction at the last saved time
-    t_last = max(e_log.data)
-    e1_snapshot = e_log.data[t_last][0][:, 0, 0]  # component 0, slice along eta1
-    x = sim.grids_phy[0][:, 0, 0]                 # physical x-coordinates
+    e_field = out.fields.em_fields.e_field      # dims (t, component, e1, e2, e3)
+    snapshot = e_field.isel(t=-1, component=0, e2=0, e3=0)
 
     plt.figure()
-    plt.plot(x, e1_snapshot)
+    plt.plot(snapshot.X, snapshot)                  # physical x-coordinate along eta1
     plt.xlabel("x")
     plt.ylabel("E_1")
-    plt.title(f"Electric field at t = {t_last:.3f}")
+    plt.title(f"Electric field at t = {float(snapshot.t):.3e}")
     plt.show()
-
-For a field saved with ``save_data = True``, the variable name in
-``spline_values`` follows the pattern ``<variable_name>_log``.
 
 
 Plotting distribution function slices
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Binned particle data is stored under ``sim.f`` after ``load_plotting_data()``:
+Binned particle data is grouped by species and the slice defined in
+``BinningPlot(slice=...)``. ``f`` is the full distribution function, ``delta_f`` the
+perturbation with respect to the background:
 
 .. code-block:: python
 
-    import matplotlib.pyplot as plt
-
-    # Retrieve the phase-space slice defined in BinningPlot(slice='e1_v1', ...)
-    slice_data = sim.f.kinetic_ions.e1_v1
-
-    # f_binned contains the full-f distribution for each saved time step
-    # delta_f_binned is the perturbation w.r.t. the background
-    t_last = max(slice_data.f_binned)
-    f2d = slice_data.f_binned[t_last]
-
-    plt.figure()
-    plt.imshow(f2d.T, origin="lower", aspect="auto")
-    plt.xlabel("eta1 bin")
-    plt.ylabel("v1 bin")
-    plt.colorbar(label="f")
-    plt.title(f"Phase-space distribution at t = {t_last:.3f}")
-    plt.show()
+    f = out.distributions.kinetic_ions.e1_v1_density.f   # dims (t, e1, v1)
+    f.struphy.plot.slice(x="e1", y="v1", t="last").show()
 
 
 Plotting particle orbits
@@ -619,52 +655,33 @@ Plotting particle orbits
 
 If ``n_markers > 0`` was set in
 :class:`~struphy.particles.parameters.SavingParameters`, individual marker
-trajectories are available under ``sim.orbits``:
+trajectories are available under ``out.orbits``:
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
 
-    # Shape: (n_timesteps, n_saved_markers, n_attributes)
-    # Column layout: [id, eta1, eta2, eta3, v1, v2, v3, weight]
-    orb = sim.orbits.kinetic_ions
+    orbits = out.orbits.kinetic_ions               # dims (t, marker, attribute)
+    marker = orbits.isel(marker=0)
 
     plt.figure()
-    plt.plot(orb[:, 0, 1], orb[:, 0, 3])  # eta1 vs eta3 for marker 0
-    plt.xlabel("eta1")
-    plt.ylabel("eta3")
+    plt.plot(marker.isel(attribute=0), marker.isel(attribute=2))  # position x vs z
+    plt.xlabel("x")
+    plt.ylabel("z")
     plt.title("Marker orbit (particle 0)")
     plt.show()
-
-
-Loading data without a ``sim`` object
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Post-processed data can also be loaded directly from an output folder path,
-without needing to reconstruct the ``Simulation`` object:
-
-.. code-block:: python
-
-    from struphy.post_processing.post_processing_tools import PlottingData
-
-    pdata = PlottingData(path_out="./runs/vm1s_scan_A/sim_1")
-    pdata.load()
-
-    # All the same attributes are available directly on pdata:
-    x = pdata.grids_phy[0][:, 0, 0]
-    e_log = pdata.spline_values.em_fields.e_field_log
 
 
 VTK output for ParaView and PyVista
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you call ``sim.pproc(create_vtk=True)``, Struphy writes structured-grid VTK
+If you call ``out.process(create_vtk=True)``, Struphy writes structured-grid VTK
 files (``.vts``) inside the post-processing folder, grouped by species.
 Typical locations are:
 
 1. ``<path_out>/post_processing/fields_data/<species>/vtk/*.vts``
 2. ``<path_out>/post_processing/fields_data/<species>/vtk_phy/*.vts``
-   (if ``physical=True`` was requested in ``pproc``)
+   (if ``physical=True`` was requested)
 
 You can discover all generated VTK files with:
 
@@ -708,7 +725,7 @@ Open in PyVista (Python workflow):
     pl.show()
 
 This VTK path is usually the fastest way to inspect full 3D structure in large
-runs, while ``sim.load_plotting_data()`` is often more convenient for custom
+runs, while ``Run`` is often more convenient for custom
 Matplotlib analysis scripts.
 
 
@@ -922,7 +939,7 @@ Gantt charts and flame graphs.
 
 Note that ``profiling_data.h5`` is a plain ``scope-profiler`` output file, so
 it is post-processed with ``scope-profiler`` itself rather than with
-``sim.pproc()`` — the two are independent post-processing paths.
+``out.process()`` — the two are independent post-processing paths.
 
 
 Post-processing with the ``scope-profiler`` CLI
