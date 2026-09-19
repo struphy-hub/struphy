@@ -2208,7 +2208,9 @@ class WeightedMassOperator(LinOpWithTransp):
                         PTS = xp.meshgrid(*pts, indexing="ij")
                         mat_w = loc_weight(*PTS).copy()
                     elif isinstance(loc_weight, xp.ndarray):
-                        mat_w = loc_weight
+                        # Spline factors below must not modify the stored geometric
+                        # weight: assembly can be repeated as density changes.
+                        mat_w = loc_weight.copy()
                     elif loc_weight is not None:
                         raise TypeError(
                             "weights must be callable or xp.ndarray or None but is {}".format(
