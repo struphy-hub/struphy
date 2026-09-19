@@ -1054,7 +1054,7 @@ class Output:
             )
         if format == "markdown":
             lines = [
-                f"# Struphy output report",
+                "# Struphy output report",
                 "",
                 f"- Path: `{self.path_out}`",
                 f"- Run: {self.label}",
