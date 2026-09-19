@@ -3,8 +3,7 @@ import atexit
 import logging
 import logging.config
 import os
-
-from feectools.ddm.mpi import mpi as MPI
+from typing import TYPE_CHECKING
 
 from struphy.utils.mpi_launch import launched_under_mpi
 
@@ -114,6 +113,9 @@ def setup_logging(logging_level: int = logging.WARNING):
     if not launched_under_mpi():
         rank = 0
     else:
+        # deferred: importing feectools (and thereby mpi4py) is expensive
+        from feectools.ddm.mpi import mpi as MPI
+
         rank = MPI.COMM_WORLD.Get_rank()
     rank_filter = RankZeroFilter(rank)
 
@@ -142,33 +144,65 @@ logger = logging.getLogger("struphy")
 setup_logging(logging_level=logging.WARNING)
 logger.info(f"Logging setup complete, log-file at {config['handlers']['file']['filename']}")
 
-# Import API components
-from struphy.api.compiler import Compiler
-from struphy.api.domains import domains
-from struphy.api.equils import equils
-from struphy.api.grids import grids
-from struphy.api.maxwellians import maxwellians
-from struphy.api.ode import ButcherTableau
-from struphy.api.options import (
-    BaseUnits,
-    DerhamOptions,
-    EnvironmentOptions,
-    FieldsBackground,
-    ProfilingOptions,
-    Time,
-)
-from struphy.api.particles import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    SavingParameters,
-    SortingParameters,
-    WeightsParameters,
-)
-from struphy.api.perturbations import perturbations
-from struphy.api.post_processing import PlottingData, PostProcessor
-from struphy.api.simulation import Simulation
+# Public API components.
+#
+# They are resolved lazily (PEP 562): ``import struphy`` stays cheap, and
+# ``from struphy import X`` only imports the module that actually provides ``X``.
+# Importing everything eagerly pulled in the whole package (geometry, models,
+# post-processing, feectools, ...), costing several seconds.
+_LAZY_API = {
+    "Compiler": "struphy.api.compiler",
+    "domains": "struphy.api.domains",
+    "equils": "struphy.api.equils",
+    "grids": "struphy.api.grids",
+    "maxwellians": "struphy.api.maxwellians",
+    "ButcherTableau": "struphy.api.ode",
+    "BaseUnits": "struphy.api.options",
+    "DerhamOptions": "struphy.api.options",
+    "EnvironmentOptions": "struphy.api.options",
+    "FieldsBackground": "struphy.api.options",
+    "ProfilingOptions": "struphy.api.options",
+    "Time": "struphy.api.options",
+    "BinningPlot": "struphy.api.particles",
+    "BoundaryParameters": "struphy.api.particles",
+    "KernelDensityPlot": "struphy.api.particles",
+    "LoadingParameters": "struphy.api.particles",
+    "SavingParameters": "struphy.api.particles",
+    "SortingParameters": "struphy.api.particles",
+    "WeightsParameters": "struphy.api.particles",
+    "perturbations": "struphy.api.perturbations",
+    "PlottingData": "struphy.api.post_processing",
+    "PostProcessor": "struphy.api.post_processing",
+    "Simulation": "struphy.api.simulation",
+}
+
+if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
+    from struphy.api.compiler import Compiler
+    from struphy.api.domains import domains
+    from struphy.api.equils import equils
+    from struphy.api.grids import grids
+    from struphy.api.maxwellians import maxwellians
+    from struphy.api.ode import ButcherTableau
+    from struphy.api.options import (
+        BaseUnits,
+        DerhamOptions,
+        EnvironmentOptions,
+        FieldsBackground,
+        ProfilingOptions,
+        Time,
+    )
+    from struphy.api.particles import (
+        BinningPlot,
+        BoundaryParameters,
+        KernelDensityPlot,
+        LoadingParameters,
+        SavingParameters,
+        SortingParameters,
+        WeightsParameters,
+    )
+    from struphy.api.perturbations import perturbations
+    from struphy.api.post_processing import PlottingData, PostProcessor
+    from struphy.api.simulation import Simulation
 
 __all__ = [
     "Compiler",
@@ -195,3 +229,18 @@ __all__ = [
     "PlottingData",
     "Simulation",
 ]
+
+
+def __getattr__(name: str):
+    module_name = _LAZY_API.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    import importlib
+
+    value = getattr(importlib.import_module(module_name), name)
+    globals()[name] = value  # cache: later lookups bypass __getattr__
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_LAZY_API))

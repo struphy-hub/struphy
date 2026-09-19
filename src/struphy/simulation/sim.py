@@ -7,10 +7,10 @@ import shutil
 import sysconfig
 import time
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
-import pyvista as pv
 import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
@@ -19,6 +19,9 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
+
+if TYPE_CHECKING:
+    import pyvista as pv
 
 # api imports
 from struphy import (
@@ -507,6 +510,8 @@ class Simulation(SimulationBase):
         ]
 
         # Create PyVista structured grid
+        import pyvista as pv
+
         mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         # Add point data
@@ -530,8 +535,10 @@ class Simulation(SimulationBase):
         nz: int = 32,
         window_size: tuple | None = None,
         zoom_factor: int = 1.0,
-    ) -> pv.Plotter:
+    ) -> "pv.Plotter":
         """Visualize the geometry and (projected) equilibrium fields using PyVista."""
+        import pyvista as pv
+
         if self.rank == 0:
             mesh = self.create_geometry_mesh(nx=nx, ny=ny, nz=nz)
 

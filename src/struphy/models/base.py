@@ -6,21 +6,6 @@ from textwrap import indent
 import cunumpy as xp
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
-
-try:
-    from IPython.display import HTML, Markdown, display
-except ImportError:
-
-    def HTML(data):
-        return data
-
-    def Markdown(data):
-        return data
-
-    def display(*objects, **kwargs):
-        return objects[0] if objects else None
-
-
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
@@ -34,6 +19,7 @@ from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.ipython_compat import HTML, Markdown, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
