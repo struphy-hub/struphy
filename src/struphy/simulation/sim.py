@@ -28,8 +28,6 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    PlottingData,
-    PostProcessor,
     ProfilingOptions,
     Time,
     domains,
@@ -894,6 +892,9 @@ class Simulation(SimulationBase):
         physical field views, and optionally produce VTK outputs.
         """
 
+        # imported here: the post-processing machinery is only needed after a run and is slow to import
+        from struphy import PostProcessor
+
         # setup post processor and plotting
         if parallel_pproc:
             self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
@@ -926,6 +927,8 @@ class Simulation(SimulationBase):
         data and exposes convenient attributes such as `orbits`, `f`, and
         grid information for downstream plotting or analysis.
         """
+
+        from struphy import PlottingData
 
         if not hasattr(self, "_plotting_data") and self.rank == 0:
             self._plotting_data = PlottingData(sim=self)

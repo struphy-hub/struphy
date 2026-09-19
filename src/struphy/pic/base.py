@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
-import scipy.special as sp
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -1118,6 +1117,9 @@ class Particles(metaclass=ABCMeta):
         sort : Bool
             Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
         """
+
+        import scipy.special as sp
+
         from struphy.pic.particles import Particles5D, Particles5Dvperp, Particles6D, ParticlesSPH
 
         # number of markers on the local process at loading stage
