@@ -112,6 +112,13 @@ def setup_logging(logging_level: int = logging.WARNING):
     # variables that are typically set by MPI launchers (like mpirun or mpiexec).
     if not launched_under_mpi():
         rank = 0
+        # Serial run: tell feectools not to import mpi4py (which initializes MPI and takes
+        # ~1 s) and use its MockMPI instead. This is an in-process flag, deliberately not an
+        # environment variable, so that it is not inherited by ``mpirun`` subprocesses.
+        # It only has an effect if feectools.ddm.mpi has not been imported yet.
+        import feectools
+
+        feectools.use_mpi = False
     else:
         # deferred: importing feectools (and thereby mpi4py) is expensive
         from feectools.ddm.mpi import mpi as MPI

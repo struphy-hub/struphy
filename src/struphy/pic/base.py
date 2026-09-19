@@ -3,25 +3,17 @@ import logging
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
-
-import h5py
-import scipy.special as sp
-
-try:
-    from mpi4py.MPI import Intracomm
-except ModuleNotFoundError:
-
-    class Intracomm:
-        x = None
-
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
+import h5py
+import scipy.special as sp
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
+from feectools.ddm.partition import factorint
 from line_profiler import profile
 from scope_profiler import ProfileManager
-from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
@@ -65,6 +57,9 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
+
+if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
+    from mpi4py.MPI import Intracomm
 
 logger = logging.getLogger("struphy")
 
@@ -192,7 +187,7 @@ class Particles(metaclass=ABCMeta):
 
     def __init__(
         self,
-        comm_world: Intracomm = None,
+        comm_world: "Intracomm" = None,
         clone_config: CloneConfig = None,
         domain_decomp: tuple = None,
         # mpi_dims_mask: tuple | list = None,
@@ -4539,7 +4534,7 @@ class Tesselation:
         self,
         tiles_pb: int | float,
         *,
-        comm: Intracomm = None,
+        comm: "Intracomm" = None,
         domain_array: xp.ndarray = None,
         sorting_boxes: SortingBoxes = None,
     ):

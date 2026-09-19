@@ -27,6 +27,11 @@ logger = logging.getLogger("struphy")
 
 class StruphyModelMeta(ABCMeta):
     def __iter__(cls):
+        # struphy.models imports its models lazily: load them all so that every subclass is registered
+        import struphy.models
+
+        for name in struphy.models.__all__:
+            getattr(struphy.models, name)
         return iter(all_subclasses(cls))
 
 

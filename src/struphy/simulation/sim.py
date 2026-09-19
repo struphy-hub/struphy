@@ -56,7 +56,6 @@ from struphy.fields_background.projected_equils import (
 )
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
-from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
