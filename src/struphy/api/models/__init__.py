@@ -7,6 +7,7 @@ from struphy.models.drift_kinetic_electrostatic_adiabatic import (
     DriftKineticElectrostaticAdiabatic,
 )
 from struphy.models.guiding_center import GuidingCenter
+from struphy.models.ion_optics_electrostatic import IonOpticsElectrostatic
 from struphy.models.hasegawa_wakatani import HasegawaWakatani
 from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
 from struphy.models.linear_mhd import LinearMHD
@@ -49,6 +50,7 @@ __all__ = [
     "DeterministicParticleDiffusion",
     "DriftKineticElectrostaticAdiabatic",
     "GuidingCenter",
+    "IonOpticsElectrostatic",
     "HasegawaWakatani",
     "LinearExtendedMHDuniform",
     "LinearMHD",
