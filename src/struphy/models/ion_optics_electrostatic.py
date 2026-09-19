@@ -8,6 +8,11 @@ this first milestone.
 
 import copy
 
+from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.solvers import inverse
+
+from struphy.feec.linear_operators import BoundaryOperator
+
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -76,8 +81,17 @@ class IonOpticsElectrostatic(StruphyModel):
         mass_number: float = 1.0,
         alpha: float = None,
         epsilon: float = None,
+        electrode_faces: tuple = None,
     ):
         self.params = copy.deepcopy(locals())
+        if electrode_faces is not None:
+            if len(electrode_faces) != 3 or any(len(pair) != 2 for pair in electrode_faces):
+                raise ValueError("electrode_faces must contain three (lower, upper) boolean pairs.")
+            if not all(type(value) is bool for pair in electrode_faces for value in pair):
+                raise ValueError("electrode_faces entries must be booleans.")
+            if not any(value for pair in electrode_faces for value in pair):
+                raise ValueError("At least one electrode face is required to fix the potential gauge.")
+        self.electrode_faces = electrode_faces
         self.em_fields = self.EMFields()
         self.ions = self.Ions(
             charge_number=charge_number,
@@ -102,10 +116,42 @@ class IonOpticsElectrostatic(StruphyModel):
         return "cyclotron"
 
     def post_allocate(self):
+        if self.electrode_faces is not None:
+            self.solve_vacuum_potential()
         Propagator.derham.grad.dot(
             -self.em_fields.phi.spline.vector,
             out=self.em_fields.e_field.spline.vector,
         )
+
+    def solve_vacuum_potential(self):
+        """Solve Laplace with boundary traces taken from the initialized phi.
+
+        Use unconstrained FEEC spaces: electrode constraints apply only to the
+        scalar solve, not to the electric field or particle interpolation.
+        Unselected faces have the natural zero-normal-field condition.
+        The initialized interior coefficients are discarded.
+        """
+        derham = Propagator.derham
+        if any(any(pair) for pair in derham.dirichlet_bc):
+            raise ValueError("Use free FEEC boundaries; select potential constraints with electrode_faces.")
+        for axis, pair in enumerate(self.electrode_faces):
+            if any(pair) and derham.bcs[axis] is None:
+                raise ValueError("An electrode face cannot lie in a periodic direction.")
+        phi = self.em_fields.phi.spline.vector
+        interior = BoundaryOperator(phi.space, "H1", self.electrode_faces)
+        boundary = IdentityOperator(phi.space) - interior
+        lift = boundary.dot(phi)
+        grad = derham.grad
+        stiffness = grad.T @ Propagator.mass_ops.M1 @ grad
+        lhs = interior @ stiffness @ interior + boundary
+        rhs = -interior.dot(stiffness.dot(lift))
+        solver = inverse(lhs, "cg", tol=1e-12, maxiter=10000)
+        correction = solver.solve(rhs)
+        self.vacuum_solver_info = dict(solver._info)
+        if not self.vacuum_solver_info["success"]:
+            raise RuntimeError(f"Vacuum Laplace solve failed: {self.vacuum_solver_info}")
+        self.em_fields.phi.spline.vector = lift + interior.dot(correction)
+        self.em_fields.phi.spline.vector.update_ghost_regions()
 
     @classmethod
     def doc_pde(cls):
@@ -139,4 +185,4 @@ class IonOpticsElectrostatic(StruphyModel):
 
     @classmethod
     def doc_cannot_be_used_for(cls):
-        return """Self-consistent space charge, electrode solves and particle–wall interactions are not yet included."""
+        return """Self-consistent space charge and internal electrode surfaces are not yet included."""
