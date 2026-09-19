@@ -9,6 +9,7 @@ grid constructions and field-line tracing.
 """
 
 import copy
+from dataclasses import dataclass
 
 import cunumpy as xp
 
@@ -22,6 +23,137 @@ from struphy.geometry.base import (
     interp_mapping,
 )
 from struphy.geometry.utilities import field_line_tracing
+
+
+@dataclass(frozen=True)
+class ElectrodeSegment:
+    """One longitudinal electrode on a channel wall.
+
+    ``side`` is ``"lower"`` or ``"upper"``; ``x0`` and ``x1`` are physical
+    longitudinal coordinates.  The segment metadata deliberately does not
+    prescribe a boundary-condition implementation: it can be consumed by a
+    segmented Dirichlet lifting or by diagnostics without changing the mesh
+    mapping.
+    """
+
+    side: str
+    x0: float
+    x1: float
+    voltage: float
+    name: str = ""
+
+    def __post_init__(self):
+        if self.side not in ("lower", "upper"):
+            raise ValueError("side must be 'lower' or 'upper'.")
+        if not self.x1 > self.x0:
+            raise ValueError("An electrode segment requires x1 > x0.")
+
+
+class SegmentedElectrodeChannel(PoloidalSplineStraight):
+    r"""Spline-mapped straight channel bounded by shaped electrode walls.
+
+    The mapping is
+
+    .. math::
+
+        x=L\eta_1,\qquad
+        y=y_-(x)+\eta_2[y_+(x)-y_-(x)],\qquad
+        z=W\eta_3.
+
+    It represents the vacuum between upper and lower, longitudinally
+    segmented electrode surfaces on one tensor-product patch.  Electrode
+    segments are metadata, not embedded solids: their voltages must be applied
+    by a segmented boundary-trace implementation.
+
+    Parameters
+    ----------
+    length, width:
+        Physical channel length and invariant/extruded width.
+    lower_profile, upper_profile:
+        Pairs ``(x_nodes, y_nodes)`` describing the wall profiles. Nodes may
+        be sparse; they are linearly interpolated before the spline map is
+        built. Both profiles must cover ``[0, length]`` and leave a positive
+        gap everywhere.
+    segments:
+        Iterable of :class:`ElectrodeSegment` instances. Segments must be
+        contained in the channel and may not overlap on a given wall.
+    """
+
+    def __init__(
+        self,
+        length: float,
+        width: float,
+        lower_profile: tuple,
+        upper_profile: tuple,
+        segments: tuple[ElectrodeSegment, ...] = (),
+        num_elements: tuple[int, int] = (16, 8),
+        degree: tuple[int, int] = (3, 3),
+    ):
+        if length <= 0.0 or width <= 0.0:
+            raise ValueError("length and width must be positive.")
+        if len(num_elements) != 2 or len(degree) != 2:
+            raise ValueError("num_elements and degree must each contain (nx, ny).")
+        if any(n < 1 for n in num_elements) or any(p < 1 for p in degree):
+            raise ValueError("num_elements and degree entries must be positive.")
+
+        x_lower, y_lower = self._profile(lower_profile, length, "lower_profile")
+        x_upper, y_upper = self._profile(upper_profile, length, "upper_profile")
+        probe = xp.linspace(0.0, length, max(17, 4 * num_elements[0] + 1))
+        if xp.any(xp.interp(probe, x_upper, y_upper) <= xp.interp(probe, x_lower, y_lower)):
+            raise ValueError("upper_profile must remain strictly above lower_profile.")
+
+        segments = tuple(segments)
+        self._validate_segments(segments, length)
+        self.segments = segments
+        self.length = float(length)
+        self.width = float(width)
+        self.lower_profile = (x_lower, y_lower)
+        self.upper_profile = (x_upper, y_upper)
+        self.params = copy.deepcopy(locals())
+
+        def X(eta1, eta2):
+            return length * eta1 + 0.0 * eta2
+
+        def Y(eta1, eta2):
+            x = length * eta1
+            lower = xp.interp(x, x_lower, y_lower)
+            upper = xp.interp(x, x_upper, y_upper)
+            return lower + eta2 * (upper - lower)
+
+        cx, cy = interp_mapping(num_elements, degree, (False, False), X, Y)
+        super().__init__(
+            num_elements=num_elements,
+            degree=degree,
+            spl_kind=(False, False),
+            cx=cx,
+            cy=cy,
+            Lz=width,
+        )
+
+    @staticmethod
+    def _profile(profile, length, name):
+        if not isinstance(profile, tuple) or len(profile) != 2:
+            raise ValueError(f"{name} must be a pair (x_nodes, y_nodes).")
+        x, y = (xp.asarray(values, dtype=float) for values in profile)
+        if x.ndim != 1 or y.ndim != 1 or x.size < 2 or x.shape != y.shape:
+            raise ValueError(f"{name} nodes must be equally sized 1D arrays with at least two entries.")
+        if xp.any(xp.diff(x) <= 0.0) or not xp.isclose(x[0], 0.0) or not xp.isclose(x[-1], length):
+            raise ValueError(f"{name} x nodes must be strictly increasing and span [0, length].")
+        return x, y
+
+    @staticmethod
+    def _validate_segments(segments, length):
+        by_side = {"lower": [], "upper": []}
+        for segment in segments:
+            if not isinstance(segment, ElectrodeSegment):
+                raise TypeError("segments must contain ElectrodeSegment instances.")
+            if segment.x0 < 0.0 or segment.x1 > length:
+                raise ValueError("Electrode segments must lie inside [0, length].")
+            by_side[segment.side].append(segment)
+        for side_segments in by_side.values():
+            side_segments.sort(key=lambda segment: segment.x0)
+            if any(right.x0 < left.x1 for left, right in zip(side_segments, side_segments[1:])):
+                raise ValueError("Electrode segments on the same wall may not overlap.")
 
 
 class Tokamak(PoloidalSplineTorus):
