@@ -132,6 +132,80 @@ html_report = out.report("report", format="html")
 `out.xarray` provides the complete lazy xarray `DataTree` when access to the grouped product
 store is useful. Prefer `evaluate(key)` for normal single-product work.
 
+## Reduce a distribution function
+
+A binned distribution usually has more dimensions than a question needs. `spatial_average`
+averages over the logical space dimensions `e1`, `e2` and `e3` (or the ones passed as `dims`),
+so an `e1_v1` product becomes f(v1, t). The mean is uniform in the logical coordinates, which is
+the volume average on a Cartesian domain; on a mapped domain it is not weighted by the Jacobian.
+
+`velocity_moments` integrates over the velocity dimensions instead and returns a dataset with the
+`density`, and the mean `mean_v1` and variance `variance_v1` along every velocity direction, as
+functions of the remaining dimensions. In normalized units the variance is the temperature divided
+by the mass. Mean and variance are NaN where the density is not positive, and a `delta_f` product
+has only the density (its perturbation).
+
+```python
+f = "kinetic_ions/e1_v1_density/f"
+
+f_of_v = out.spatial_average(f)              # dimensions (t, v1)
+moments = out.velocity_moments(f)            # density, mean_v1, variance_v1 over (t, e1)
+temperature_over_mass = out.spatial_average(moments.variance_v1)
+```
+
+Both are also available on any product as `array.struphy.analysis.spatial_average()` and
+`array.struphy.analysis.velocity_moments()`.
+
+## Convert to SI units
+
+Products are in the normalization of the model, whose units are `out.units`. `to_si` converts
+the coordinates of a product whenever they are present: time `t` to seconds, the mapped `X`, `Y`,
+`Z` to meters and the velocities `v1`, `v2`, `v3` to m/s. Values are converted only when `unit`
+names the unit that the variable was normalized with, because a product does not record it:
+`"x"`, `"B"`, `"n"`, `"v"`, `"t"`, `"p"`, `"rho"`, `"j"` or `"kBT"`. For a composite unit, pass a
+number and its `label`. The original product is not modified, and converting coordinates twice
+changes nothing.
+
+```python
+print(out.units.x, out.units.v, out.units.t)   # meters, m/s and seconds per unit
+
+f_si = out.to_si("kinetic_ions/e1_v1_density/f")       # coordinates only: v1 in m/s, t in s
+
+# values, for a variable that the model normalizes with the unit B
+b_si = out.to_si("em_fields/b_field", "B")             # in tesla
+
+# values, for a quantity normalized with a product of units
+flux_si = out.to_si(flux, out.units.n * out.units.v, label="m^-2 s^-1")
+```
+
+## Profile a run
+
+A run started with `sim.run(profiling_activated=True)` writes `profiling_data.h5`, and
+`out.profile` reads it. Regions are the setup steps, every propagator (`prop: ...`), pusher,
+accumulation, compiled kernel (`kernel: ...`) and linear solve. Regions nest, so the time of a
+region includes the regions it calls; times of different regions must not be added up.
+
+`summary()` returns an xarray dataset along `region` with `calls` and `total_time` (per rank),
+`mean_time`, `min_time` and `max_time` (per call, in seconds) and `fraction`, the share of the run.
+It is sorted by `total_time` by default. `table()` prints the same as text.
+
+```python
+print(out.profile.table(top=10))
+
+kernels = out.profile.summary(prefix="kernel:", sort_by="total_time")
+kernels.total_time.to_series()
+```
+
+`compare()` puts one statistic of several runs side by side, with NaN for a region that a run
+does not have. It accepts `Output` objects or `Profile` objects.
+
+```python
+times = out.profile.compare(other_out, metric="total_time", prefix="prop:")
+ratio = times.isel(run=1) / times.isel(run=0)
+```
+
+For anything not covered here, `out.profile.results` is the full `scope_profiler` result.
+
 ## Plot data
 
 Struphy-aware plotting is performed by `Output`, not by modifying xarray arrays. Rendering

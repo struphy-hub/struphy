@@ -417,6 +417,25 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return relative_error(self._array, ref=ref, skip_first=skip_first)
 
+    def spatial_average(self, *, dims=None) -> xr.DataArray:
+        """Mean over the logical space dimensions ``e1``, ``e2``, ``e3`` (or ``dims``).
+
+        For a binned ``e1_v1`` distribution this is f(v1, t) averaged over space; see
+        :func:`struphy.diagnostics.analysis.spatial_average`.
+        """
+        from struphy.diagnostics.analysis import spatial_average
+
+        return spatial_average(self._array, dims=dims)
+
+    def velocity_moments(self, *, dims=None) -> xr.Dataset:
+        """Density, mean velocity and variance of a binned distribution over its velocity dimensions.
+
+        See :func:`struphy.diagnostics.analysis.velocity_moments` for the definitions.
+        """
+        from struphy.diagnostics.analysis import velocity_moments
+
+        return velocity_moments(self._array, dims=dims)
+
     def dispersion(self, *, component: int = 0, slice_at: tuple = (None, 0, 0), physical: bool = False, **kwargs):
         """Space-time power spectrum of this field and fitted dispersion branches.
 

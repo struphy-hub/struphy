@@ -94,6 +94,93 @@ def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
     return out
 
 
+SPATIAL_DIMS = ("e1", "e2", "e3")
+VELOCITY_DIMS = ("v1", "v2", "v3")
+
+
+def _provenance(data: xr.DataArray) -> dict:
+    return {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
+
+
+def _select_dims(data: xr.DataArray, dims, default) -> list[str]:
+    if dims is None:
+        selected = [dim for dim in default if dim in data.dims]
+        if not selected:
+            raise ValueError(f"{data.name!r} has none of the dimensions {default}; its dimensions are {data.dims}")
+        return selected
+    selected = [dims] if isinstance(dims, str) else list(dims)
+    missing = [dim for dim in selected if dim not in data.dims]
+    if missing:
+        raise ValueError(f"{data.name!r} has no dimensions {missing}; its dimensions are {data.dims}")
+    return selected
+
+
+def spatial_average(data: xr.DataArray, *, dims=None) -> xr.DataArray:
+    """Mean over the logical space dimensions, e.g. a binned f(t, e1, v1) becomes f(t, v1).
+
+    ``dims`` defaults to every one of ``e1``, ``e2``, ``e3`` that ``data`` has. The mean is
+    uniform in the logical coordinates, which is the volume average on a Cartesian domain; on a
+    mapped domain it is not weighted by the Jacobian. Physical ``X``, ``Y``, ``Z`` coordinates
+    that depend on the averaged dimensions are dropped.
+    """
+    validate_array(data)
+    averaged = _select_dims(data, dims, SPATIAL_DIMS)
+    out = data.mean(averaged, keep_attrs=True)
+    out.attrs["label"] = f"average of {_label(data)}".strip()
+    out.attrs.pop("long_name", None)
+    return out
+
+
+def _bin_widths(data: xr.DataArray, dim: str) -> xr.DataArray:
+    coordinate = np.asarray(data.coords[dim]) if dim in data.coords else None
+    if coordinate is None or len(coordinate) < 2:
+        raise ValueError(f"dimension {dim!r} needs a coordinate with at least two bins")
+    return xr.DataArray(np.gradient(coordinate), dims=(dim,), coords={dim: data.coords[dim]})
+
+
+def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
+    """Moments of a binned distribution function over its velocity dimensions.
+
+    ``dims`` defaults to every one of ``v1``, ``v2``, ``v3`` that ``f`` has; the moments are
+    functions of the remaining dimensions, for example ``(t, e1)`` for an ``e1_v1`` product.
+    The integrals are sums over the bins, weighted by the bin widths.
+
+    Returns a Dataset with
+
+    * ``density``: the zeroth moment, :math:`\\int f\\,\\mathrm{d}v`.
+    * ``mean_<dim>``: the mean velocity :math:`u = \\int v f\\,\\mathrm{d}v / n` along each dimension.
+    * ``variance_<dim>``: :math:`\\int (v-u)^2 f\\,\\mathrm{d}v / n`. In normalized units this is the
+      temperature over the particle mass along that direction, :math:`T/m`.
+
+    Where the density is not positive, the mean and variance are NaN. A ``delta_f`` product has
+    only the density, which is then the density perturbation, because its mean and variance are
+    not defined. The values keep the normalization of the run; see ``Output.to_si``.
+    """
+    validate_array(f)
+    integrated = _select_dims(f, dims, VELOCITY_DIMS)
+    volume = 1.0
+    for dim in integrated:
+        volume = volume * _bin_widths(f, dim)
+    density = (f * volume).sum(integrated)
+
+    label = _label(f)
+    variables = {"density": (density, f"density of {label}")}
+    if f.name != "delta_f":
+        weight = density.where(density > 0)
+        for dim in integrated:
+            mean = (f * f[dim] * volume).sum(integrated) / weight
+            variance = (f * (f[dim] - mean) ** 2 * volume).sum(integrated) / weight
+            variables[f"mean_{dim}"] = (mean, f"mean {dim}")
+            variables[f"variance_{dim}"] = (variance, f"variance of {dim}")
+
+    provenance = _provenance(f)
+    out = {}
+    for name, (values, description) in variables.items():
+        values.attrs = {**provenance, "label": description.strip()}
+        out[name] = values.rename(name)
+    return xr.Dataset(out, attrs=provenance)
+
+
 def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataArray:
     """Absolute relative deviation from an explicit reference or first sample."""
     validate_array(data, required_dims=("t",))

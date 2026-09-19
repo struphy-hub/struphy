@@ -19,6 +19,8 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.post_processing import store
 from struphy.post_processing.arrays import BINNED_LABELS, data_array, save_scalars
 from struphy.post_processing.output_accessors import OutputPlots
+from struphy.post_processing.profiling import Profile
+from struphy.post_processing.si import to_si
 
 logger = logging.getLogger("struphy")
 
@@ -231,6 +233,7 @@ class Output:
         if getattr(self, "_tree", None) is not None:
             self._tree.close()  # an open store would block the next process() from writing it
         self._time = self._grids_log = self._grids_phy = self._scalars = self._products = self._label = None
+        self._profile = None
         self._tree = None
         self._species = None
         self._seconds = None
@@ -324,6 +327,21 @@ class Output:
         from struphy.diagnostics.analysis import norm
 
         return norm(self._array(product), dims=dims, squared=squared)
+
+    def spatial_average(self, product: str | xr.DataArray, *, dims=None) -> xr.DataArray:
+        """Mean of a product over ``e1``, ``e2``, ``e3`` (or ``dims``), e.g. f(t, v1) from f(t, e1, v1)."""
+        from struphy.diagnostics.analysis import spatial_average
+
+        return spatial_average(self._array(product), dims=dims)
+
+    def velocity_moments(self, product: str | xr.DataArray, *, dims=None) -> xr.Dataset:
+        """Density, mean velocity and variance of a binned distribution, as functions of the other dimensions.
+
+        See :func:`struphy.diagnostics.analysis.velocity_moments`.
+        """
+        from struphy.diagnostics.analysis import velocity_moments
+
+        return velocity_moments(self._array(product), dims=dims)
 
     def with_physical_coords(self, product: str | xr.DataArray) -> xr.DataArray:
         """Attach mapped ``X``, ``Y``, ``Z`` coordinates to a product on a logical grid.
@@ -472,6 +490,29 @@ class Output:
         """Plot the radial equilibrium profiles saved with this run."""
         result = OutputPlots(self).equilibrium(ax=ax)
         return result.fig, result.ax
+
+    @property
+    def units(self):
+        """The units of the run's normalization, in SI; see :class:`struphy.physics.physics.Units`."""
+        return self.model.units
+
+    def to_si(self, product: str | xr.DataArray, unit: str | float | None = None, *, label: str | None = None) -> xr.DataArray:
+        """A product in SI units: coordinates always, values when ``unit`` names their normalization.
+
+        ``unit`` is one of ``x``, ``B``, ``n``, ``v``, ``t``, ``p``, ``rho``, ``j``, ``kBT``, or a
+        number for a composite unit, described by ``label``. See :func:`struphy.post_processing.si.to_si`.
+        """
+        return to_si(self._array(product), self.units, unit, label=label)
+
+    @property
+    def profile(self) -> Profile:
+        """The timing regions of this run; needs ``sim.run(profiling_activated=True)``."""
+        if self._profile is None:
+            path = self.path_out / "profiling_data.h5"
+            if not path.is_file():
+                raise FileNotFoundError(f"no profiling data in {self.path_out}; run with sim.run(profiling_activated=True)")
+            self._profile = Profile(path, label=self.label)
+        return self._profile
 
     def _stamp(self, array: xr.DataArray) -> xr.DataArray:
         array.attrs.update(run=self.label, run_name=self.path_out.name)
