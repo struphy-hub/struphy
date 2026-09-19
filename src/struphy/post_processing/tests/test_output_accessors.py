@@ -157,17 +157,13 @@ def test_products_of_one_species_sit_on_the_output(run):
 
 def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
     products = run.kinetic_ions
-    assert tuple(sorted(products.catalog)) == (
-        "e1_v1_density/delta_f", "e1_v1_density/f", "orbits", "view_0/n"
-    )
+    assert tuple(sorted(products.catalog)) == ("e1_v1_density/delta_f", "e1_v1_density/f", "orbits", "view_0/n")
     assert "e1_v1_density/f" in products.catalog
     assert "em_fields/E" not in products.catalog
     assert "e1_v1_density/f" in repr(products)
     assert run.distribution_catalog._cache == {}
     assert products["e1_v1_density/f"].dims == ("t", "e1", "v1")
-    assert run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f"] is products.catalog[
-        "e1_v1_density/f"
-    ]
+    assert run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f"] is products.catalog["e1_v1_density/f"]
 
 
 def test_arrays_plot_themselves(run):
@@ -209,7 +205,9 @@ def test_damping_rate_fits_the_envelope_not_the_oscillation(run):
     energy = oscillating_energy(rate=-0.3)
     fit = run.damping_rate(energy, amplitude=True)
     assert fit.rate == pytest.approx(-0.3, rel=1e-2)
-    assert energy.struphy.analysis.damping_rate(window=(2.0, 10.0), amplitude=True).rate == pytest.approx(-0.3, rel=1e-2)
+    assert energy.struphy.analysis.damping_rate(window=(2.0, 10.0), amplitude=True).rate == pytest.approx(
+        -0.3, rel=1e-2
+    )
 
     peaks = run.envelope(energy)
     assert 0 < peaks.sizes["t"] < energy.sizes["t"] // 10

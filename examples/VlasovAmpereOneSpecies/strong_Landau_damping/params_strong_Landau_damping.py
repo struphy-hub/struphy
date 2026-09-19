@@ -1,7 +1,7 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 description = """
@@ -66,10 +66,10 @@ model.kinetic_ions.var.save_data = True
 env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data")
 
 # Time stepping
-time_opts = Time(dt = 0.05, Tend = 75.0, split_algo = "LieTrotter")
+time_opts = Time(dt=0.05, Tend=75.0, split_algo="LieTrotter")
 
 # Geometry
-domain = domains.Cuboid(r1 = 12.56)
+domain = domains.Cuboid(r1=12.56)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = None
@@ -96,26 +96,28 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc = 1000)
+loading_params = LoadingParameters(ppc=1000)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
 
-binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
+binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
 saving_params = SavingParameters(binning_plots=(binplot,))
 
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               sorting_params=sorting_params,
-                               saving_params=saving_params,
-                               bufsize = 0.4,)
+model.kinetic_ions.set_markers(
+    loading_params=loading_params,
+    weights_params=weights_params,
+    boundary_params=boundary_params,
+    sorting_params=sorting_params,
+    saving_params=saving_params,
+    bufsize=0.4,
+)
 
 # ------------------
 # Propagator options
 # ------------------
 
-model.propagators.push_eta.options = model.propagators.push_eta.Options() 
+model.propagators.push_eta.options = model.propagators.push_eta.Options()
 if model.with_B0:
     model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
@@ -136,8 +138,8 @@ background = maxwellians.Maxwellian3D(n=(1.0, None))
 model.kinetic_ions.var.add_background(background)
 
 # Perturbations for (some) kinetic species
-perturbation = perturbations.ModesCos(amps = (0.5,), ls = (1,))
-init = maxwellians.Maxwellian3D(n = (1.0, perturbation))
+perturbation = perturbations.ModesCos(amps=(0.5,), ls=(1,))
+init = maxwellians.Maxwellian3D(n=(1.0, perturbation))
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

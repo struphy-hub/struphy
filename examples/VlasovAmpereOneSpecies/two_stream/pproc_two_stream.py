@@ -14,9 +14,7 @@ def main(path_out=DEFAULT_OUTPUT):
 
     # electric field growth against the analytical rate (0.2845 in units of m/c)
     energy = run.scalars.electric_energy
-    analytical = energy.copy(
-        data=10 ** (0.2845 * energy.t - 5.3)
-    )  # t is in Struphy units
+    analytical = energy.copy(data=10 ** (0.2845 * energy.t - 5.3))  # t is in Struphy units
     analytical.attrs["label"] = "analytical"
     energy.struphy.plot.timeseries(analytical, title="Electric energy").show()
 

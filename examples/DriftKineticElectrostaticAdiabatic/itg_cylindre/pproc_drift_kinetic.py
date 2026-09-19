@@ -38,10 +38,7 @@ def main(path_out=DEFAULT_OUTPUT):
 
     for name, component, plane in SWEEPS:
         selection = {} if component is None else {"component": component}
-        run.viewer(
-            name,
-            x="e1", y="e2", coords="physical", plane=plane, **selection
-        )
+        run.viewer(name, x="e1", y="e2", coords="physical", plane=plane, **selection)
 
     run.trajectories("kinetic_ions", max_markers=1000)
     plt.show()

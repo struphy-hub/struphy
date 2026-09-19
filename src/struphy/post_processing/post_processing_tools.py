@@ -125,8 +125,10 @@ class PostProcessor:
         self.derham = None
         if output.grid is not None and output.derham_opts is not None:
             self.derham = Derham(
-                output.grid, output.derham_opts,
-                comm=self.comm if parallel_pproc else None, domain=self.domain,
+                output.grid,
+                output.derham_opts,
+                comm=self.comm if parallel_pproc else None,
+                domain=self.domain,
             )
 
         # the directory is only cleared in process(), so that constructing a
@@ -1048,7 +1050,9 @@ class PostProcessor:
         dims = tuple(dim for dim in grids)
         coords = {"t": self.t_grid, **grids}
         coords.update(self._mapped_coords(grids))
-        return xr.Dataset({name: wrap_binned_data(values, dims, coords, name=name) for name, values in variables.items()})
+        return xr.Dataset(
+            {name: wrap_binned_data(values, dims, coords, name=name) for name, values in variables.items()}
+        )
 
     def _mapped_coords(self, grids: dict) -> dict:
         """``X``, ``Y``, ``Z`` on the logical directions of ``grids``, when there are two or three."""

@@ -334,11 +334,9 @@ class SliceView:
 
     def slice(self, *, ax=None, **selection):
         """Draw a snapshot, e.g. ``view.slice(t="last")``; return a PlotResult."""
-        from struphy.diagnostics.plotting import plot_slice
-
         # Resolve shared limits before selecting a single snapshot, so it uses
         # the same scale as panels, animation and export of this configured view.
-        from struphy.diagnostics.plotting import _SliceRenderer
+        from struphy.diagnostics.plotting import _SliceRenderer, plot_slice
 
         options = dict(self._options)
         if options["shared_clim"]:

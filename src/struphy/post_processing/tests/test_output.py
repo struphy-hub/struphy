@@ -11,11 +11,10 @@ import xarray as xr
 
 from struphy import BaseUnits, Time, domains
 from struphy.models import Maxwell
-
-from struphy.post_processing.output import Output, open_output
 from struphy.post_processing import output as output_module
 from struphy.post_processing import store
 from struphy.post_processing.arrays import orbit_quantities
+from struphy.post_processing.output import Output, open_output
 from struphy.post_processing.post_processing_tools import is_processed, normalize_options, source_fingerprint
 
 NT, N1, N2, N3, NV, N_MARKERS = 3, 4, 5, 6, 7, 10
@@ -32,38 +31,64 @@ def write_tree(root):
     mapped = np.meshgrid(*logical.values(), indexing="ij")
     path = store.store_path(pproc)
     store.create(path)
-    store.write_group(path, "/em_fields", xr.Dataset(
-        {"E": (("t", "component", "e1", "e2", "e3"),
-               np.stack([np.stack([np.full((N1, N2, N3), i + time) for i in range(3)]) for time in t]))},
-        coords={"t": t, "component": [0, 1, 2], **logical,
-                **{name: (("e1", "e2", "e3"), grid) for name, grid in zip(("X", "Y", "Z"), mapped)}},
-    ))
-    store.write_group(path, "/kinetic_ions/e1_v1_density", xr.Dataset(
-        {"f": (("t", "e1", "v1"), np.ones((NT, N1, NV))), "delta_f": (("t", "e1", "v1"), np.zeros((NT, N1, NV)))},
-        coords={"t": t, "e1": logical["e1"], "v1": np.linspace(-3, 3, NV)},
-    ))
-    store.write_group(path, "/kinetic_ions/view_0", xr.Dataset(
-        {"n": (("t", "e1", "e2", "e3"), np.ones((NT, N1, N2, 1)))},
-        coords={"t": t, "e1": logical["e1"], "e2": logical["e2"], "e3": np.zeros(1)},
-    ))
-    store.write_group(path, "/kinetic_ions", xr.Dataset(
-        {"orbits": (("t", "marker", "quantity"),
-                    np.stack([np.full((N_MARKERS, 8), step) for step in range(NT)]))},
-        coords={"t": t, "marker": np.arange(N_MARKERS), "quantity": orbit_quantities(8)},
-    ))
+    store.write_group(
+        path,
+        "/em_fields",
+        xr.Dataset(
+            {
+                "E": (
+                    ("t", "component", "e1", "e2", "e3"),
+                    np.stack([np.stack([np.full((N1, N2, N3), i + time) for i in range(3)]) for time in t]),
+                )
+            },
+            coords={
+                "t": t,
+                "component": [0, 1, 2],
+                **logical,
+                **{name: (("e1", "e2", "e3"), grid) for name, grid in zip(("X", "Y", "Z"), mapped)},
+            },
+        ),
+    )
+    store.write_group(
+        path,
+        "/kinetic_ions/e1_v1_density",
+        xr.Dataset(
+            {"f": (("t", "e1", "v1"), np.ones((NT, N1, NV))), "delta_f": (("t", "e1", "v1"), np.zeros((NT, N1, NV)))},
+            coords={"t": t, "e1": logical["e1"], "v1": np.linspace(-3, 3, NV)},
+        ),
+    )
+    store.write_group(
+        path,
+        "/kinetic_ions/view_0",
+        xr.Dataset(
+            {"n": (("t", "e1", "e2", "e3"), np.ones((NT, N1, N2, 1)))},
+            coords={"t": t, "e1": logical["e1"], "e2": logical["e2"], "e3": np.zeros(1)},
+        ),
+    )
+    store.write_group(
+        path,
+        "/kinetic_ions",
+        xr.Dataset(
+            {"orbits": (("t", "marker", "quantity"), np.stack([np.full((N_MARKERS, 8), step) for step in range(NT)]))},
+            coords={"t": t, "marker": np.arange(N_MARKERS), "quantity": orbit_quantities(8)},
+        ),
+    )
 
     data_dir = os.path.join(root, "data")
     os.makedirs(data_dir)
     with h5py.File(os.path.join(data_dir, "data_proc0.hdf5"), "w") as file:
         file.create_dataset("time/value", data=t)
-        file.create_group("feec/em_fields")          # the raw output names the species,
-        file.create_group("kinetic/kinetic_ions")    # as a real run does
+        file.create_group("feec/em_fields")  # the raw output names the species,
+        file.create_group("kinetic/kinetic_ions")  # as a real run does
         file.create_dataset("scalar/en_tot", data=np.full(NT, 2.0))
     metadata = {
         "model": Maxwell(base_units=BaseUnits(x=2.0)).to_dict(),
         "domain": domains.Cuboid().to_dict(),
-        "equil": None, "grid": None, "derham_opts": None,
-        "time_opts": Time().to_dict(), "mpi_ranks": 1,
+        "equil": None,
+        "grid": None,
+        "derham_opts": None,
+        "time_opts": Time().to_dict(),
+        "mpi_ranks": 1,
     }
     with open(os.path.join(root, "run_metadata.json"), "w") as stream:
         json.dump(metadata, stream)
@@ -190,8 +215,10 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
     from struphy import Simulation
 
     root = write_tree(str(tmp_path))
+
     def forbidden(*args, **kwargs):
         raise AssertionError("Output must not construct a Simulation")
+
     monkeypatch.setattr(Simulation, "__init__", forbidden)
     run = Output(root)
     assert run.metadata["model"] == Maxwell(base_units=BaseUnits(x=2.0)).to_dict()

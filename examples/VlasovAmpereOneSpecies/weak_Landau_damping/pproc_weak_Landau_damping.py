@@ -23,9 +23,7 @@ def main(path_out=DEFAULT_OUTPUT, amplitude=0.001):
     # electric field energy against the analytical damping
     energy = run.scalars.electric_energy.copy()
     energy.attrs["label"] = "numerical"
-    analytical = energy.copy(
-        data=E_exact(energy.t.values, eps=amplitude)
-    )  # t is in Struphy units
+    analytical = energy.copy(data=E_exact(energy.t.values, eps=amplitude))  # t is in Struphy units
     analytical.attrs["label"] = "analytical"
     energy.struphy.plot.timeseries(analytical, title="Electric energy").show()
 

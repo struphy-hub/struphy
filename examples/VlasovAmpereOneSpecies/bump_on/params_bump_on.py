@@ -1,7 +1,7 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 description = """
@@ -51,7 +51,7 @@ from struphy.models import VlasovAmpereOneSpecies
 base_units = BaseUnits()
 
 # Model instance
-model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0 = False)
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -66,10 +66,10 @@ model.kinetic_ions.var.save_data = True
 env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data")
 
 # Time stepping
-time_opts = Time(dt = 0.1, Tend = 60.0, split_algo = "LieTrotter")
+time_opts = Time(dt=0.1, Tend=60.0, split_algo="LieTrotter")
 
 # Geometry
-domain = domains.Cuboid(r1 = 62.83)
+domain = domains.Cuboid(r1=62.83)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = None
@@ -101,23 +101,28 @@ weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
 
-binplot_1 = BinningPlot(slice="e1_v1", n_bins= (128, 128), ranges= ((0.,1.), (-10.0,10.0))) #for initial velocity distribution
-binplot_2 = BinningPlot(slice = "v1", n_bins = 128, ranges = (-10.0,10.0)) # for progression of velocity and space distribution
+binplot_1 = BinningPlot(
+    slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-10.0, 10.0))
+)  # for initial velocity distribution
+binplot_2 = BinningPlot(
+    slice="v1", n_bins=128, ranges=(-10.0, 10.0)
+)  # for progression of velocity and space distribution
 saving_params = SavingParameters(binning_plots=(binplot_1, binplot_2))
 
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               sorting_params=sorting_params,
-                               saving_params=saving_params,
-                               bufsize = 0.4,
-                               )
+model.kinetic_ions.set_markers(
+    loading_params=loading_params,
+    weights_params=weights_params,
+    boundary_params=boundary_params,
+    sorting_params=sorting_params,
+    saving_params=saving_params,
+    bufsize=0.4,
+)
 
 # ------------------
 # Propagator options
 # ------------------
 
-model.propagators.push_eta.options = model.propagators.push_eta.Options() 
+model.propagators.push_eta.options = model.propagators.push_eta.Options()
 if model.with_B0:
     model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
@@ -134,15 +139,15 @@ model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 # For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
 
 # Background for kinetic species
-maxwellian_1 = maxwellians.Maxwellian3D(n=(9/10, None), u1 = (3.0, None))
-maxwellian_2 = maxwellians.Maxwellian3D(n=(1/10, None), u1 = (-4.5, None), vth1 = (0.5, None)) 
+maxwellian_1 = maxwellians.Maxwellian3D(n=(9 / 10, None), u1=(3.0, None))
+maxwellian_2 = maxwellians.Maxwellian3D(n=(1 / 10, None), u1=(-4.5, None), vth1=(0.5, None))
 background = maxwellian_1 + maxwellian_2
 model.kinetic_ions.var.add_background(background)
 
 # Perturbations for (some) kinetic species
-perturbation = perturbations.ModesCos(amps = (0.05,), ls = (1,))
-init1 = maxwellians.Maxwellian3D(n=(9/10, None), u1 = (3.0, None))
-init2 = maxwellians.Maxwellian3D(n = (1/10, perturbation), u1 = (-4.5, None), vth1 = (0.5, None))
+perturbation = perturbations.ModesCos(amps=(0.05,), ls=(1,))
+init1 = maxwellians.Maxwellian3D(n=(9 / 10, None), u1=(3.0, None))
+init2 = maxwellians.Maxwellian3D(n=(1 / 10, perturbation), u1=(-4.5, None), vth1=(0.5, None))
 init = init1 + init2
 model.kinetic_ions.var.add_initial_condition(init)
 

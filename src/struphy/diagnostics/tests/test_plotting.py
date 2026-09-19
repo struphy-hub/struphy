@@ -186,8 +186,9 @@ def test_slice_can_display_the_sweep_dimension():
 
 
 def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeypatch):
-    import struphy.post_processing.xarray_accessors  # noqa: F401
     from matplotlib.figure import Figure
+
+    import struphy.post_processing.xarray_accessors  # noqa: F401
 
     data = phase_space(nt=3).astype(float)
     data[1] = data[1] * 100  # extrema in a frame omitted by panels and export
@@ -221,8 +222,9 @@ def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeyp
 
 @pytest.mark.parametrize("shared_clim", [True, False])
 def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, shared_clim):
-    import struphy.post_processing.xarray_accessors  # noqa: F401
     from matplotlib.figure import Figure
+
+    import struphy.post_processing.xarray_accessors  # noqa: F401
 
     data = phase_space(nt=2)
     options = dict(x="e1", y="v1", vmin=-5, vmax=100, shared_clim=shared_clim, cmap="coolwarm")

@@ -7,11 +7,11 @@ The legacy distribution/video helpers read the old NPY layout, not output.nc.
 """
 
 import logging
-import warnings
-from functools import wraps
 import os
 import shutil
 import subprocess
+import warnings
+from functools import wraps
 
 import cunumpy as xp
 import matplotlib.colors as colors
