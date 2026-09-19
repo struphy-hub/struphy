@@ -914,7 +914,11 @@ class Simulation(SimulationBase):
     ) -> Output | None:
         """Deprecated, use ``sim.output.pproc(...)``, see :meth:`struphy.Output.pproc`."""
         warnings.warn(
-            "Simulation.pproc() is deprecated; use sim.output.pproc(...) instead.",
+            "Simulation.pproc() is deprecated; use sim.output.pproc(...) instead.\n"
+            "How to update your script: replace 'sim.pproc(physical=True)' by 'out = sim.output' and "
+            "'out.pproc(physical=True)' (same options). Post-processing also runs on first access of a product, "
+            "so the call can be dropped if the default options suffice; drop 'sim.load_plotting_data()' as well "
+            "and read the products from 'out', see the warning of load_plotting_data().",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -938,7 +942,16 @@ class Simulation(SimulationBase):
         Returns the :class:`struphy.Output` on rank 0 and ``None`` on the other ranks.
         """
         warnings.warn(
-            "Simulation.load_plotting_data() is deprecated; use sim.output (a struphy.Output) instead.",
+            "Simulation.load_plotting_data() is deprecated; use sim.output (a struphy.Output) instead.\n"
+            "How to update your script, with out = sim.output:\n"
+            "  sim.orbits.<species>                        ->  out.orbits.<species>\n"
+            "  sim.f.<species>.<slice>.f_binned            ->  out.distributions.<species>.<slice>.f\n"
+            "  sim.f.<species>.<slice>.grid_e1             ->  out.distributions.<species>.<slice>.e1\n"
+            "  sim.spline_values.<species>.<name>_log.data ->  out.fields.<species>.<name>\n"
+            "  sim.spline_values.<species>.<name>_phy.data ->  out.fields.<species>.<name>_xyz\n"
+            "  sim.n_sph.<species>.<view>.n_sph            ->  out.densities.<species>.<view>.n\n"
+            "  sim.grids_log / sim.grids_phy / sim.t_grid  ->  out.grids_log / out.grids_phy / out.time\n"
+            "The products are xarray.DataArrays with named dimensions and coordinates (e.g. arr.t, arr.e1).",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -959,7 +972,8 @@ class Simulation(SimulationBase):
     def plotting_data(self) -> Output:
         """Deprecated alias of :attr:`output`."""
         warnings.warn(
-            "Simulation.plotting_data is deprecated; use sim.output instead.",
+            "Simulation.plotting_data is deprecated; use sim.output instead "
+            "(e.g. 'sim.plotting_data.orbits' -> 'sim.output.orbits').",
             DeprecationWarning,
             stacklevel=2,
         )

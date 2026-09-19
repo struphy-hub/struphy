@@ -66,8 +66,12 @@ def _accept_legacy_values(function):
         if not isinstance(field, dict):
             return function(field, *args, **kwargs)
         warnings.warn(
-            f"diagn_tools.{function.__name__}(values, name, grids, ...) is deprecated; "
-            "pass a field of an Output, e.g. run.fields.em_fields.e_field_log.",
+            f"diagn_tools.{function.__name__}(values, name, grids, ...) is deprecated; pass a field of an Output.\n"
+            "How to update your script, with out = sim.output:\n"
+            "  power_spectrum_2d(E_of_t, 'e_field_log', grids=sim.grids_log, grids_mapped=sim.grids_phy, ...)\n"
+            "  ->  out.fields.em_fields.e_field_log.struphy.analysis.dispersion(physical=True, ...)\n"
+            "'physical=True' replaces 'grids_mapped'; 'grids' and 'name' are read from the field itself. "
+            "Take the field from out.with_time_units('normalized') if you compare with normalized dispersion relations.",
             DeprecationWarning,
             stacklevel=2,
         )
