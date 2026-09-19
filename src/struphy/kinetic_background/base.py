@@ -6,9 +6,6 @@ from abc import ABCMeta, abstractmethod
 from typing import Callable
 
 import cunumpy as xp
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.colors import Normalize
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.geometry.base import Domain
@@ -475,6 +472,10 @@ class KineticBackground(metaclass=ABCMeta):
         plot_3D : bool = False
             Also plot the density as a colored surface in 3D physical space. Requires domain to be given.
         """
+
+        import matplotlib.pyplot as plt
+        from matplotlib import cm
+        from matplotlib.colors import Normalize
 
         if plot_3D:
             assert domain is not None, "To perform a 3D plot you must provide a domain."

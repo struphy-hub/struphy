@@ -4,19 +4,9 @@ from typing import Callable
 
 import cunumpy as xp
 
-try:
-    from IPython.display import HTML, display
-except ImportError:
-
-    def HTML(data):
-        return data
-
-    def display(*objects, **kwargs):
-        return objects[0] if objects else None
-
-
 from struphy.io.options import LiteralOptions
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, check_option
 
 logger = logging.getLogger("struphy")

@@ -1,16 +1,12 @@
 import logging
-
-try:
-    from mpi4py.MPI import Intracomm
-except ModuleNotFoundError:
-
-    class Intracomm:
-        x = None
-
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 
 from struphy.pic.sorting_kernels import flatten_index, initialize_neighbours
+
+if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
+    from mpi4py.MPI import Intracomm
 
 logger = logging.getLogger("struphy")
 
@@ -79,7 +75,7 @@ class SortingBoxes:
         nz: int = 1,
         bc_sph: list = None,
         is_domain_boundary: dict = None,
-        comm: Intracomm = None,
+        comm: "Intracomm" = None,
         box_index: "int" = -2,
         box_bufsize: "float" = 2.0,
     ):

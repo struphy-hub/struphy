@@ -13,7 +13,6 @@ from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
 from line_profiler import profile
 from scipy import sparse
-from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
@@ -943,6 +942,8 @@ class FFTSolver(BandedSolver):
         transposed : bool
             If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
+
+        from scipy.linalg import solve_circulant
 
         assert rhs.T.shape[0] == self._column.size
 
