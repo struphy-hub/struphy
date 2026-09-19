@@ -43,6 +43,40 @@ def _legacy_plot(replacement):
     return decorate
 
 
+def _accept_legacy_values(function):
+    """Also accept the call ``function(values, name, grids, grids_mapped=None, ...)`` of earlier versions.
+
+    ``values`` maps time to the list of components of a field, as ``sim.spline_values.<species>.<name>.data``
+    of :meth:`Simulation.load_plotting_data`. It is converted to a field with a logical and, if
+    ``grids_mapped`` is given, a physical fft coordinate.
+    """
+
+    def from_legacy_values(values, name, grids, grids_mapped=None, **kwargs):
+        times = sorted(values)
+        data = xp.stack([xp.stack([xp.asarray(comp) for comp in values[t]]) for t in times])
+        coords = {"t": times, "component": xp.arange(data.shape[1])}
+        coords.update({f"e{n}": xp.asarray(grid) for n, grid in enumerate(grids, 1)})
+        if grids_mapped is not None:
+            coords.update({X: (("e1", "e2", "e3"), xp.asarray(grid)) for X, grid in zip("XYZ", grids_mapped)})
+        field = xr.DataArray(data, dims=("t", "component", "e1", "e2", "e3"), coords=coords, name=name)
+        return function(field, physical=grids_mapped is not None, **kwargs)
+
+    @wraps(function)
+    def wrapped(field, *args, **kwargs):
+        if not isinstance(field, dict):
+            return function(field, *args, **kwargs)
+        warnings.warn(
+            f"diagn_tools.{function.__name__}(values, name, grids, ...) is deprecated; "
+            "pass a field of an Output, e.g. run.fields.em_fields.e_field_log.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return from_legacy_values(field, *args, **kwargs)
+
+    return wrapped
+
+
+@_accept_legacy_values
 def power_spectrum_2d(
     field: xr.DataArray,
     component: int = 0,

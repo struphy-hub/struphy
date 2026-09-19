@@ -3,8 +3,10 @@
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import h5py
+import numpy as np
 import pytest
 
 from struphy import BaseUnits, EnvironmentOptions, Output, Simulation, Time
@@ -153,20 +155,15 @@ def test_deprecated_pproc_delegates_to_the_output(tmp_path, monkeypatch):
 def test_deprecated_load_plotting_data_attaches_the_products(tmp_path, monkeypatch):
     sim = make_sim(tmp_path)
     output = sim.output
-    for name, value in (
-        ("orbits", "o"),
-        ("distributions", "f"),
-        ("fields", "s"),
-        ("densities", "n"),
-        ("grids_log", "gl"),
-        ("grids_phy", "gp"),
-        ("time", "t"),
-    ):
+    views = SimpleNamespace(orbits="o", f="f", spline_values="s", n_sph="n")
+    monkeypatch.setattr("struphy.simulation.sim.legacy_views", lambda out: views if out is output else None)
+    for name, value in (("grids_log", "gl"), ("grids_phy", "gp"), ("time", np.array([0.0, 0.5]))):
         monkeypatch.setattr(type(output), name, property(lambda self, value=value: value))
 
     with pytest.deprecated_call():
         assert sim.load_plotting_data() is output
     assert (sim.orbits, sim.f, sim.spline_values, sim.n_sph) == ("o", "f", "s", "n")
-    assert (sim.grids_log, sim.grids_phy, sim.t_grid) == ("gl", "gp", "t")
+    assert (sim.grids_log, sim.grids_phy) == ("gl", "gp")
+    assert sim.t_grid.tolist() == [0.0, 0.5]
     with pytest.deprecated_call():
         assert sim.plotting_data is output

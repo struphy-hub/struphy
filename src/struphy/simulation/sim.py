@@ -65,6 +65,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
+from struphy.post_processing.legacy import legacy_views
 from struphy.post_processing.output import Output
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
@@ -932,6 +933,8 @@ class Simulation(SimulationBase):
     def load_plotting_data(self) -> Output | None:
         """Deprecated, use :attr:`output`; attaches its products as attributes of the simulation.
 
+        They have the shapes of earlier versions, see :func:`struphy.post_processing.legacy.legacy_views`.
+
         Returns the :class:`struphy.Output` on rank 0 and ``None`` on the other ranks.
         """
         warnings.warn(
@@ -942,13 +945,14 @@ class Simulation(SimulationBase):
         if self.rank != 0:
             return None
         output = self.output
-        self.orbits = output.orbits
-        self.f = output.distributions
-        self.spline_values = output.fields
-        self.n_sph = output.densities
+        views = legacy_views(output)
+        self.orbits = views.orbits
+        self.f = views.f
+        self.spline_values = views.spline_values
+        self.n_sph = views.n_sph
         self.grids_log = output.grids_log
         self.grids_phy = output.grids_phy
-        self.t_grid = output.time
+        self.t_grid = xp.array(output.time)
         return output
 
     @property
