@@ -86,7 +86,14 @@ class LinearMHD(StruphyModel):
 
         # 5. define scalars to be tracked during simulation
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        # The volume integral is retained as a diagnostic of the mean pressure
+        # perturbation.  It is linear and is not part of the linearized energy.
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
+        thermal_energy = BilinearEnergyFEEC(
+            self.mhd.pressure,
+            bilinear_form_name="M3p_inv",
+            normalization=1.0 / (5 / 3),
+        )
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         background_pressure = FunctionScalarFEEC(self._compute_en_p_eq)
         background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
@@ -94,11 +101,12 @@ class LinearMHD(StruphyModel):
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,
+            en_thermal=thermal_energy,
             en_B=magnetic_energy,
             en_p_eq=background_pressure,
             en_B_eq=background_magnetic,
             en_B_tot=total_magnetic,
-            en_tot=kinetic_energy + pressure_energy + magnetic_energy,
+            en_tot=kinetic_energy + thermal_energy + magnetic_energy,
         )
 
     @property
@@ -180,8 +188,9 @@ class LinearMHD(StruphyModel):
 
         - Kinetic energy (perturbation): :math:`E_U = \frac{1}{2} \int \rho_0 |\tilde{\mathbf{U}}|^2 \, \mathrm{d}V`
         - Magnetic energy (perturbation): :math:`E_B = \frac{1}{2} \int \frac{|\tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`
-        - Internal energy (perturbation): :math:`E_p = \int \frac{\tilde{p}}{\gamma - 1} \, \mathrm{d}V` with :math:`\gamma = 5/3`
-        - Total perturbed energy: :math:`E_{\mathrm{tot}} = E_U + E_B + E_p`
+        - Mean pressure perturbation: :math:`E_p = \int \frac{\tilde{p}}{\gamma - 1} \, \mathrm{d}V` (``en_p``). This is a linear diagnostic, not an energy.
+        - Thermal perturbation energy: :math:`E_{\mathrm{thermal}} = \frac{1}{2}\int \frac{\tilde{p}^2}{\gamma p_0} \, \mathrm{d}V` (``en_thermal``), with :math:`\gamma = 5/3`
+        - Total perturbed energy: :math:`E_{\mathrm{tot}} = E_U + E_B + E_{\mathrm{thermal}}` (``en_tot``)
         - Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
         - Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
         - Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`"""
