@@ -286,10 +286,12 @@ class KineticEnergyPIC(PICScalar):
 
     :math:
 
-        \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
+        \mathcal E = \frac{\alpha}{2} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
 
-    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
-    and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
+    where :math:`\alpha` is a normalization constant and :math:`w_i` and :math:`v_i` are the weight and
+    velocity of particle :math:`i`. The marker weights already carry the :math:`1/N_p` of the Monte-Carlo
+    estimate (:meth:`~struphy.pic.base.Particles.initialize_weights` sets
+    :math:`w_i = f_i / (s_i N_p)`), so the sum must not be divided by :math:`N_p` again.
     """
 
     def _local_update(self):
@@ -300,7 +302,7 @@ class KineticEnergyPIC(PICScalar):
         velocities = particles.velocities
         weights = particles.weights
 
-        energy = self.normalization * 0.5 / particles.Np * xp.sum(weights * xp.sum(velocities**2, axis=1))
+        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 
@@ -332,10 +334,12 @@ class KineticEnergySPH(SPHScalar):
 
     :math:
 
-        \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
+        \mathcal E = \frac{\alpha}{2} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
 
-    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
-    and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
+    where :math:`\alpha` is a normalization constant and :math:`w_i` and :math:`v_i` are the weight and
+    velocity of particle :math:`i`. The marker weights already carry the :math:`1/N_p` of the Monte-Carlo
+    estimate (:meth:`~struphy.pic.base.Particles.initialize_weights` sets
+    :math:`w_i = f_i / (s_i N_p)`), so the sum must not be divided by :math:`N_p` again.
     """
 
     def _local_update(self):
@@ -344,7 +348,7 @@ class KineticEnergySPH(SPHScalar):
         velocities = particles.velocities
         weights = particles.weights
 
-        energy = self.normalization * 0.5 / particles.Np * xp.sum(weights * xp.sum(velocities**2, axis=1))
+        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 
