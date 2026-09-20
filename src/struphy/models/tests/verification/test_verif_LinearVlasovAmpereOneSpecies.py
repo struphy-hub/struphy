@@ -115,7 +115,7 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
     energy_exact = amplitude**2 * r1 / (4.0 * k**2)
 
     if comm.Get_rank() == 0:
-        energy = float(xp.asarray(sim.output.evaluate("en_E"))[0])
+        energy = float(model.scalars.dct["en_E"].value[0])
         rel_error = abs(energy - energy_exact) / energy_exact
         assert rel_error < 0.05, (
             f"Assertion for the initial delta-f field energy failed: {energy =} vs. {energy_exact =}."
