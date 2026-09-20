@@ -293,14 +293,14 @@ class KineticEnergyPIC(PICScalar):
     """
 
     def _local_update(self):
-        if not hasattr(self, "velocities"):
-            self.velocities = self.variables[
-                0
-            ].particles.velocities  # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
-            self.weights = self.variables[0].particles.weights
-            self.Np = self.variables[0].particles.Np
+        # `particles.velocities` and `.weights` are fancy-indexed copies of the marker array, not views,
+        # so they must be read at every update: a cached copy keeps the state of the first call forever.
+        # TODO: velocities need to be redefined for Particles5d? Put magnetic moment as COM.
+        particles = self.variables[0].particles
+        velocities = particles.velocities
+        weights = particles.weights
 
-        energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
+        energy = self.normalization * 0.5 / particles.Np * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 
@@ -339,12 +339,12 @@ class KineticEnergySPH(SPHScalar):
     """
 
     def _local_update(self):
-        if not hasattr(self, "velocities"):
-            self.velocities = self.variables[0].particles.velocities
-            self.weights = self.variables[0].particles.weights
-            self.Np = self.variables[0].particles.Np
+        # As in KineticEnergyPIC: the marker arrays are copies, so they are read at every update.
+        particles = self.variables[0].particles
+        velocities = particles.velocities
+        weights = particles.weights
 
-        energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
+        energy = self.normalization * 0.5 / particles.Np * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 
