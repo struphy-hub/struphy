@@ -831,7 +831,7 @@ class Simulation(SimulationBase):
                     # print current time and scalar quantities to screen
                     step = str(int(self.time_state["index"][0])).zfill(len(total_steps_str))
 
-                    message = "\n" + "-" * 80
+                    message = "\n" + "-" * 80 + "\n"
                     message += "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
                     message += (
                         "\n"
