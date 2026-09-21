@@ -1,39 +1,14 @@
 import logging
 
-import cunumpy as xp
-import pytest
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
-from matplotlib import pyplot as plt
-
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    LoadingParameters,
-    SortingParameters,
-    WeightsParameters,
-    domains,
-    equils,
-    perturbations,
-)
-from struphy.fields_background.equils import ConstantVelocity
-from struphy.geometry.base import Domain
-from struphy.pic.particles import ParticlesSPH
 from struphy import set_logging_level
 set_logging_level(logging.WARNING)
 
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
-@pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
-@pytest.mark.parametrize("derivative", [0, 1])
-@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
-@pytest.mark.parametrize("eval_pts", [11, 16])
-@pytest.mark.parametrize("tesselation", [False, True])
 def test_gyro_maxwellian_2d(do_plot=False):
 
-    from struphy import Simulation
+    from struphy import Simulation, equils
     from struphy import LoadingParameters, maxwellians
     from struphy.models import LinearMHDDriftkineticCC
 
