@@ -106,7 +106,13 @@ class LinearExtendedMHDuniform(StruphyModel):
 
         # 5. define scalars to be tracked during simulation
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
+        # Keep the linear pressure integral as a mean-pressure diagnostic.
         pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5.0 / 3.0 - 1.0))
+        thermal_energy = BilinearEnergyFEEC(
+            self.mhd.pressure,
+            bilinear_form_name="M3p_inv",
+            normalization=1.0 / (5.0 / 3.0),
+        )
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         background_pressure = FunctionScalarFEEC(self._compute_en_p_eq)
         background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
@@ -115,11 +121,12 @@ class LinearExtendedMHDuniform(StruphyModel):
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,
+            en_thermal=thermal_energy,
             en_B=magnetic_energy,
             en_p_eq=background_pressure,
             en_B_eq=background_magnetic,
             en_B_tot=total_magnetic,
-            en_tot=kinetic_energy + pressure_energy + magnetic_energy,
+            en_tot=kinetic_energy + thermal_energy + magnetic_energy,
             helicity=helicity,
         )
 
@@ -232,12 +239,13 @@ class LinearExtendedMHDuniform(StruphyModel):
         r"""**The following scalars are tracked during simulation:**
 
         - Flow kinetic energy: ``en_U``
-        - Thermal pressure energy: ``en_p``
+        - Mean pressure perturbation (linear diagnostic): ``en_p``
+        - Thermal perturbation energy: ``en_thermal``
         - Magnetic perturbation energy: ``en_B``
         - Background pressure energy: ``en_p_eq``
         - Background magnetic energy: ``en_B_eq``
         - Total magnetic energy: ``en_B_tot``
-        - Total perturbation energy: ``en_tot``
+        - Total perturbation energy (kinetic + magnetic + thermal): ``en_tot``
         - Magnetic helicity-like invariant: ``helicity``"""
 
     @classmethod
