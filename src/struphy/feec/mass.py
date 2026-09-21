@@ -270,6 +270,36 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M3p_inv(self):
+        r"""
+        Pressure-weighted mass matrix for 3-forms:
+
+        .. math::
+
+            \mathbb M^{3,p^{-1}}_{ijk,mno} =
+            \int \Lambda^3_{ijk}\,\Lambda^3_{mno}
+            \frac{1}{p_0\sqrt{g}}\,\mathrm d\boldsymbol\eta.
+
+        Here :math:`p_0` is the equilibrium pressure.  This operator is used
+        for the quadratic pressure energy of linear MHD perturbations.
+        """
+        if not hasattr(self, "_M3p_inv"):
+            assert self.eq_mhd is not None, "M3p_inv requires an MHD equilibrium with positive pressure."
+
+            def inv_p0(e1, e2, e3):
+                return 1.0 / self.eq_mhd.p0(e1, e2, e3)
+
+            self._M3p_inv = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=(inv_p0, "1/sqrt_g"),
+                name="M3p_inv",
+                assemble=True,
+            )
+        return self._M3p_inv
+
+    @auto_convert_docstring
+    @property
     def Mv(self):
         r"""
         Standard mass matrix for vector 0-forms (H1vec space) as 3x3 block matrix indexed by :math:`(\mu, \nu)`:
