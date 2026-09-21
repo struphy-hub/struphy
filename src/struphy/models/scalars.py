@@ -285,14 +285,12 @@ class KineticEnergyPIC(PICScalar):
     """
 
     def _local_update(self):
-        if not hasattr(self, "velocities"):
-            self.velocities = self.variables[
-                0
-            ].particles.velocities  # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
-            self.weights = self.variables[0].particles.weights
-            self.Np = self.variables[0].particles.Np
+        # The copies of old velocities and weights has been used, but they must be re-evaluated at every call and cannot be cached (a cached copy would keep the initial values)
+        particles = self.variables[0].particles
+        velocities = particles.velocities  # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
+        weights = particles.weights
 
-        energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
+        energy = self.normalization * 0.5 / particles.Np * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 

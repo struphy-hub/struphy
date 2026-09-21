@@ -3,6 +3,7 @@ import logging
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 
+from struphy.feec.projectors import CommutingProjector
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
@@ -11,6 +12,19 @@ from struphy.fields_background.base import (
 )
 
 logger = logging.getLogger("struphy")
+
+
+class ProjectorNoBC:
+    """Wraps a commuting projector such that essential (Dirichlet) boundary conditions are NOT applied.
+    """
+
+    def __init__(self, projector):
+        self._projector = projector
+
+    def __call__(self, fun, *args, **kwargs):
+        if isinstance(self._projector, CommutingProjector):
+            kwargs.setdefault("apply_bc", False)
+        return self._projector(fun, *args, **kwargs)
 
 
 class ProjectedFluidEquilibrium:
@@ -25,12 +39,11 @@ class ProjectedFluidEquilibrium:
         logger.debug(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
         logger.debug(f"{self.derham = }")
 
-        # commuting projectors
-        self._P0 = derham.P0
-        self._P1 = derham.P1
-        self._P2 = derham.P2
-        self._P3 = derham.P3
-        self._Pv = derham.Pv
+        self._P0 = ProjectorNoBC(derham.P0)
+        self._P1 = ProjectorNoBC(derham.P1)
+        self._P2 = ProjectorNoBC(derham.P2)
+        self._P3 = ProjectorNoBC(derham.P3)
+        self._Pv = ProjectorNoBC(derham.Pv)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E0T = derham.extraction_ops["0"].transpose()

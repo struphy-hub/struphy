@@ -352,9 +352,13 @@ def eval_magnetic_energy_PBb(
     mu_idx: int,
     abs_B0: "float[:,:,:]",
     PBb: "float[:,:,:]",
+    periodic: "bool[:]",
 ):
     r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
+
+    Marker positions outside of the domain [0, 1] are wrapped in periodic directions (``periodic[i]`` is True) and folded (mirrored) into [0, 1] in non-periodic directions.
+
     The result is stored at markers[:, first_diagnostics_idx].
     """
     eta = empty(3, dtype=float)
@@ -369,7 +373,15 @@ def eval_magnetic_energy_PBb(
         if markers[ip, 0] == -1.0:
             continue
 
-        eta[:] = mod(markers[ip, 0:3], 1.0)
+        eta[:] = markers[ip, 0:3]
+
+        for i in range(3):
+            if periodic[i]:
+                eta[i] = mod(eta[i], 1.0)
+            else:
+                eta[i] = mod(eta[i], 2.0)
+                if eta[i] > 1.0:
+                    eta[i] = 2.0 - eta[i]
 
         weight = markers[ip, 7]
         dweight = markers[ip, 5]
@@ -531,6 +543,7 @@ def eval_gradB_ediff(
     grad_PB_b2: "float[:,:,:]",
     grad_PB_b3: "float[:,:,:]",
     idx: int,
+    periodic: "bool[:]",
 ):
     r"""TODO"""
 
@@ -561,7 +574,14 @@ def eval_gradB_ediff(
 
         # marker positions, mid point
         eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
+
+        for i in range(3):
+            if periodic[i]:
+                eta_mid[i] = mod(eta_mid[i], 1.0)
+            else:
+                eta_mid[i] = mod(eta_mid[i], 2.0)
+                if eta_mid[i] > 1.0:
+                    eta_mid[i] = 2.0 - eta_mid[i]
 
         eta_diff = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
 

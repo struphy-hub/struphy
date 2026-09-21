@@ -1086,6 +1086,7 @@ def cc_lin_mhd_5d_gradB_dg(
     grad_PBeq3: "float[:,:,:]",
     basis_u: "int",
     const: "float",
+    periodic: "bool[:]",
 ):
     r"""TODO"""
 
@@ -1129,7 +1130,14 @@ def cc_lin_mhd_5d_gradB_dg(
 
         # marker positions, mid point
         eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
+
+        for i in range(3):
+            if periodic[i]:
+                eta_mid[i] = mod(eta_mid[i], 1.0)
+            else:
+                eta_mid[i] = mod(eta_mid[i], 2.0)
+                if eta_mid[i] > 1.0:
+                    eta_mid[i] = 2.0 - eta_mid[i]
 
         eta_diff[:] = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
 

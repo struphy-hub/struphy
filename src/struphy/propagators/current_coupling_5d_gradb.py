@@ -327,9 +327,11 @@ class CurrentCoupling5DGradB(Propagator):
             self._ku = self.variables.u.spline.vector.space.zeros()
             self._u_temp = self.variables.u.spline.vector.space.zeros()
 
+            self._periodic = xp.array(self.derham.spl_kind, dtype=bool)
+
             # Call the accumulation and Pusher class
-            accum_kernel_init = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg
+            accum_kernel_init = PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init)
+            accum_kernel = PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB_dg)
             self._accum_kernel_en_fB_mid = utilities_kernels.eval_gradB_ediff
 
             self._args_accum_kernel = (
@@ -517,6 +519,7 @@ class CurrentCoupling5DGradB(Propagator):
         else:
             # total number of markers
             n_mks_tot = particles.Np
+            n_mks_tot = 1.
 
             # relaxation factor
             alpha = self.options.dg_solver_params.relaxation_factor
@@ -610,7 +613,7 @@ class CurrentCoupling5DGradB(Propagator):
             while True:
                 iter_num += 1
 
-                if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                     logger.info(f"# of iteration: {iter_num}")
 
                 # calculate discrete gradient
@@ -673,6 +676,7 @@ class CurrentCoupling5DGradB(Propagator):
                     args_markers,
                     *self._args_accum_kernel_en_fB_mid,
                     first_free_idx + 3,
+                    self._periodic,
                 )
                 en_fB_mid = xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
 
@@ -702,7 +706,7 @@ class CurrentCoupling5DGradB(Propagator):
                     const = (en_fB_new - en_fB_old - en_fB_mid) / denominator
 
                 # update u^{n+1, k}
-                self._ACC(*self._args_accum_kernel, const)
+                self._ACC(*self._args_accum_kernel, const, self._periodic)
 
                 ku = self._A_inv.dot(self._ACC.vectors[0], out=self._ku)
 
@@ -724,6 +728,7 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_pusher_kernel,
                     const,
                     alpha,
+                    self._periodic,
                 )
 
                 sum_H_diff_loc = xp.sum(
@@ -793,7 +798,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # check convergence
                 if diff < self.options.dg_solver_params.tol:
-                    if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                    if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                         logger.info(f"converged diff: {diff}")
                         logger.info(f"converged e_diff: {e_diff}")
 
@@ -802,7 +807,7 @@ class CurrentCoupling5DGradB(Propagator):
                     break
 
                 else:
-                    if self.options.dg_solver_params.verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                    if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                         logger.info(f"not converged diff: {diff}")
                         logger.info(f"not converged e_diff: {e_diff}")
 

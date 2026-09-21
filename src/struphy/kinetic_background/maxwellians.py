@@ -505,6 +505,15 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         """Epsilon parameter in the canonical toroidal momentum."""
         return self._epsilon
 
+    def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, mu):
+        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, mu)`, is :math:`B_0`.
+        """
+        assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        assert v_para.ndim == mu.ndim == 1
+
+        etas = xp.stack((eta1, eta2, eta3), axis=1)
+        return self.equil.absB0(etas)
+
     def _evaluate_moment(
         self,
         eta1,

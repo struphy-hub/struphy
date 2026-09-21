@@ -469,6 +469,7 @@ class Particles5D(Particles):
             self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
+            xp.array(self.derham.spl_kind, dtype=bool),
         )
 
     def save_magnetic_background_energy(self):
@@ -744,6 +745,7 @@ class Particles5Dvperp(Particles):
             self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
+            xp.array(self.derham.spl_kind, dtype=bool),
         )
 
     def save_magnetic_background_energy(self):
