@@ -1589,7 +1589,7 @@ class Particles(metaclass=ABCMeta):
 
         return f_slice, df_slice
 
-    def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray]):
+    def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray], do_plot=False):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -1602,6 +1602,14 @@ class Particles(metaclass=ABCMeta):
 
         bin_edges : list[np.ndarray]
             List of bin edges (resolution) having the length of True entries in components.
+            
+        do_plot : bool
+            Whether to show the plot (default: False). 
+            
+        Returns
+        -------
+        err : float
+            Maximum relative error between the binned distribution function and the analytic initial condition.
         """
 
         import matplotlib.pyplot as plt
@@ -1621,7 +1629,7 @@ class Particles(metaclass=ABCMeta):
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
             i = int(indices[0])
-            resol = 100
+            resol = bin_centers[0]
             integrate_resol = [.5, .5, .5] + [100]*self.vdim
             integrate_resol[i] = None
             if i < 3:
@@ -1629,22 +1637,25 @@ class Particles(metaclass=ABCMeta):
             else:
                 v_lim = bin_edges[0][-1]
             f_init, pts, _, _ = self.f_init.reduced_eval(dim_1=i, v_lim=v_lim, resol=resol, integrate_resol=integrate_resol)
-            plt.plot(pts, f_init, "r--", label="analytic initial condition")
-            plt.xlabel(self.coordinate_labels[i])
-            plt.ylabel("f")
-            plt.legend()
+            
+            if do_plot:
+                plt.plot(pts, f_init, "r--", label="analytic initial condition")
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel("f")
+                plt.legend()
         else:
             i = int(indices[0])
             j = int(indices[1])
             
-            plt.subplot(1, 2, 1)
-            plt.contourf(bin_centers[0], bin_centers[1], f_slice.T, levels=20)
-            plt.colorbar()
-            plt.xlabel(self.coordinate_labels[i])
-            plt.ylabel(self.coordinate_labels[j])
-            plt.title("Binned f")
+            if do_plot:
+                plt.subplot(1, 2, 1)
+                plt.contourf(bin_centers[0], bin_centers[1], f_slice.T, levels=20)
+                plt.colorbar()
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel(self.coordinate_labels[j])
+                plt.title("Binned f")
 
-            resol = 50
+            resol = tuple(bin_centers)
             integrate_resol = [.5, .5, .5] + [100]*self.vdim
             integrate_resol[i] = None
             integrate_resol[j] = None
@@ -1662,14 +1673,21 @@ class Particles(metaclass=ABCMeta):
                                                          resol=resol, 
                                                          integrate_resol=integrate_resol,
                                                          )
-            plt.subplot(1, 2, 2)
-            plt.contourf(pts1, pts2, f_init.T, levels=20)
-            plt.colorbar()
-            plt.xlabel(self.coordinate_labels[i])
-            plt.ylabel(self.coordinate_labels[j])
-            plt.title("Analytic initial condition")
+            
+            if do_plot:
+                plt.subplot(1, 2, 2)
+                plt.contourf(pts1, pts2, f_init.T, levels=20)
+                plt.colorbar()
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel(self.coordinate_labels[j])
+                plt.title("Analytic initial condition")
 
-        plt.show()
+        if do_plot:
+            plt.show()
+
+        err = np.max(np.abs(f_init - f_slice)) / np.max(f_init)
+            
+        return err
 
     @profile
     @ProfileManager.profile("mpi_sort_markers")
