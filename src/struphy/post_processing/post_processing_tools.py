@@ -361,6 +361,7 @@ class PostProcessor:
             celldivide=celldivide,
             physical=physical,
             create_vtk=create_vtk,
+            perform_time_fft=False
         )
 
         # particle variables
@@ -376,6 +377,7 @@ class PostProcessor:
         celldivide: int | Sequence[int] = (1, 1, 1),
         physical: bool = False,
         create_vtk: bool = True,
+        perform_time_fft: bool = False
     ):
         """Evaluate the FEEC fields of all saved time steps and write them to disk.
 
@@ -430,7 +432,8 @@ class PostProcessor:
 
             for n, t in enumerate(tqdm(t_grid)):
                 self._load_femfields(fields, files, n, step=step)
-
+                if perform_time_fft:
+                    self._time_fft(fields=fields)
                 vals, vals_phy = self._eval_femfields(
                     fields,
                     grids_log_loc,
@@ -1327,6 +1330,8 @@ class PostProcessor:
                 # save sph density
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
+    def _time_fft(self, fields):
+        pass
 
 class PlottingData:
     """Container for loading and accessing post-processed Struphy simulation data.
