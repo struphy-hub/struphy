@@ -174,10 +174,11 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-
+        # No control variate here: the markers of a DeltaFParticles6D species already carry
+        # delta_f alone (w = delta_f / s0 / Np, set by initialize_weights), so subtracting the
+        # background f0 a second time -- which is what update_weights does -- would leave every
+        # weight offset by the constant -f0 / s0 / Np. That constant is a net charge, and it makes
+        # the periodic Poisson problem below singular.
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
