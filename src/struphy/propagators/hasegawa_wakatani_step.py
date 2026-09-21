@@ -113,6 +113,9 @@ class HasegawaWakataniStep(Propagator):
         c_fun : {"const"}, default="const"
             Choice of coupling profile :math:`C(x,y)` used in the model.
 
+        coupling : float, default=1.0
+            Constant value of :math:`C` when ``c_fun="const"``.
+
         kappa : float, default=1.0
             Constant multiplying the background-gradient drift term.
 
@@ -138,6 +141,7 @@ class HasegawaWakataniStep(Propagator):
         OptsCfun = Literal["const"]
         # propagator options
         c_fun: OptsCfun = "const"
+        coupling: float = 1.0
         kappa: float = 1.0
         nu: float = 0.01
         butcher: ButcherTableau = None
@@ -181,7 +185,7 @@ class HasegawaWakataniStep(Propagator):
 
         # default c-function
         if self.options.c_fun == "const":
-            c_fun = lambda e1, e2, e3: 0.0 + 0.0 * e1
+            c_fun = lambda e1, e2, e3: self.options.coupling + 0.0 * e1
         else:
             raise NotImplementedError(f"{self.options.c_fun =} is not available.")
 
