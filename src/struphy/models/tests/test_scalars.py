@@ -75,5 +75,7 @@ def test_kinetic_energy_follows_the_markers():
         scalar._local_update()
         after = float(scalar.local_value[0])
 
-        assert before > 0.0
+        # Four markers of weight 1 and |v|^2 = 3: the energy is 0.5 * sum(w |v|^2) = 6. The weights already
+        # carry the 1/Np of the Monte-Carlo estimate, so the sum must not be divided by Np a second time.
+        assert before == 6.0, f"{scalar_class.__name__} is normalized wrongly: {before} instead of 6.0"
         assert after == 4.0 * before, f"{scalar_class.__name__} did not follow the markers: {before} -> {after}"
