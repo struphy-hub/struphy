@@ -41,6 +41,9 @@ class Compiler:
     yes : bool
         Automatically answer yes to the prompt when changing the compilation language (default=False).
 
+    jobs : int
+        Number of kernels to compile in parallel (default=1).
+
     Examples
     --------
     >>> from struphy import Compiler
@@ -59,6 +62,7 @@ class Compiler:
         verbose: bool = False,
         time_execution: bool = False,
         yes: bool = False,
+        jobs: int = 1,
     ):
         self.language = language.lower()
         self.compiler = compiler
@@ -67,6 +71,7 @@ class Compiler:
         self.verbose = verbose
         self.time_execution = time_execution
         self.yes = yes
+        self.jobs = jobs
 
     def compile(
         self,
@@ -77,6 +82,7 @@ class Compiler:
         verbose: Optional[bool] = None,
         time_execution: Optional[bool] = None,
         yes: Optional[bool] = None,
+        jobs: Optional[int] = None,
     ) -> None:
         """Compile Struphy kernels. All files containing "kernels" are auto-detected and saved to state.yml.
 
@@ -106,6 +112,9 @@ class Compiler:
 
         yes : bool
             Automatically answer yes to the prompt when changing the compilation language (default=False).
+
+        jobs : int
+            Number of kernels to compile in parallel (default=1).
         """
         if language is not None:
             self.language = language.lower()
@@ -121,6 +130,8 @@ class Compiler:
             self.time_execution = time_execution
         if yes is not None:
             self.yes = yes
+        if jobs is not None:
+            self.jobs = jobs
 
         struphy_compile(
             language=self.language,
@@ -133,6 +144,7 @@ class Compiler:
             dependencies=False,
             time_execution=self.time_execution,
             yes=self.yes,
+            jobs=self.jobs,
         )
 
     def status(self) -> None:

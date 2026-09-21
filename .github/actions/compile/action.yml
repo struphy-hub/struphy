@@ -9,6 +9,10 @@ inputs:
   env-name:
     required: false
     default: ""
+  jobs:
+    description: "Number of kernels to compile in parallel (default: number of CPU cores, at most 8)"
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -24,4 +28,11 @@ runs:
           echo "No env specified, installing outside of any env"
         fi
         pyccel --version
-        struphy compile -y --language ${{ inputs.language }}
+        JOBS="${{ inputs.jobs }}"
+        if [ -z "$JOBS" ]; then
+          # getconf works on Linux and macOS (nproc does not exist on macOS)
+          JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+          if [ "$JOBS" -gt 8 ]; then JOBS=8; fi
+        fi
+        echo "Compiling with $JOBS parallel jobs"
+        struphy compile -y --language ${{ inputs.language }} -j "$JOBS"

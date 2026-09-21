@@ -265,6 +265,15 @@ def add_parser_compile(
     )
 
     parser_compile.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        metavar="N",
+        help="number of kernels to compile in parallel (default=1)",
+        default=1,
+    )
+
+    parser_compile.add_argument(
         "-y",
         "--yes",
         help="say yes to prompt when changing the language",
