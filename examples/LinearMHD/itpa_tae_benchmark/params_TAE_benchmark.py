@@ -61,13 +61,14 @@ model.mhd.pressure.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
-    save_step=5,
+    save_step=1,
     out_folders="/u/shrusi/git_repos/struphy/examples/LinearMHD/itpa_tae_benchmark/",
-    sim_folder="sim1_higherResolution",
-    max_runtime=110)
+    sim_folder="sim4_higherResolution",
+    max_runtime=60
+    )
 
 # Time stepping
-time_opts = Time(dt=0.5, Tend=200.)
+time_opts = Time(dt=0.1, Tend=10.)
 
 # Geometry
 domain = domains.HollowTorus(
@@ -87,7 +88,6 @@ equil = equils.AdhocTorus(
     p2=0.05,
     beta=0.0018 
     )
-
 # Grid
 grid = grids.TensorProductGrid(num_elements=(24,96,16))
 
