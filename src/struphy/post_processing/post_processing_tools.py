@@ -376,6 +376,7 @@ class PostProcessor:
         celldivide: int | Sequence[int] = (1, 1, 1),
         physical: bool = False,
         create_vtk: bool = True,
+        perform_time_fft: bool = False
     ):
         """Evaluate the FEEC fields of all saved time steps and write them to disk.
 
@@ -430,7 +431,8 @@ class PostProcessor:
 
             for n, t in enumerate(tqdm(t_grid)):
                 self._load_femfields(fields, files, n, step=step)
-
+                if perform_time_fft:
+                    self._time_fft(fields)
                 vals, vals_phy = self._eval_femfields(
                     fields,
                     grids_log_loc,
@@ -483,7 +485,8 @@ class PostProcessor:
                 if physical:
                     self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
         self.comm.Barrier()
-
+    def _time_fft(self, fields):
+        return 
     def process_particles(
         self,
         step: int = 1,
