@@ -328,9 +328,18 @@ class Particles(metaclass=ABCMeta):
         if bc is None:
             bc = ["periodic", "periodic", "periodic"]
 
+        # an entry may also be a (left, right) pair of "remove"/"reflect", e.g. ("reflect", "remove")
+        bc_sides = []
         for bci in bc:
-            assert bci in ("remove", "reflect", "periodic", "refill")
-            if bci == "reflect":
+            if isinstance(bci, str):
+                assert bci in ("remove", "reflect", "periodic", "refill")
+                bc_sides.append((bci, bci))
+            else:
+                assert len(bci) == 2 and all(side in ("remove", "reflect") for side in bci), (
+                    f"Per-side boundary conditions must be pairs of 'remove'/'reflect', got {bci}."
+                )
+                bc_sides.append(tuple(bci))
+            if "reflect" in bc_sides[-1]:
                 assert domain is not None, "Reflecting boundary conditions require a domain."
 
         if bc_refill is not None:
@@ -338,9 +347,10 @@ class Particles(metaclass=ABCMeta):
                 assert bc_refilli in ("outer", "inner")
 
         self._bc = bc
+        self._bc_sides = bc_sides
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
-        self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
-        self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
+        self._reflect_axes = [axis for axis, sides in enumerate(bc_sides) if "reflect" in sides]
+        self._remove_axes = [axis for axis, sides in enumerate(bc_sides) if "remove" in sides]
 
         bc_sph = boundary_params.bc_sph
         if bc_sph is None:
@@ -546,7 +556,7 @@ class Particles(metaclass=ABCMeta):
         nbytes += n_rows * bool_size  # can_stay
         # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
         nbytes += n_rows * bool_size * 6
-        nbytes += int(n_rows * 0.5) * 10 * float_size  # lost_markers
+        nbytes += int(n_rows * 0.5) * self.n_cols_lost * float_size  # lost_markers
         return int(nbytes)
 
     @property
@@ -767,13 +777,57 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def lost_markers(self):
-        """Array containing the last infos of removed markers"""
-        return self._lost_markers
+        """Records of removed markers not yet taken with :meth:`pop_lost_markers`.
+
+        One row per removed marker (see :attr:`lost_index` for the columns): logical position
+        and velocity after the step that took it outside, weight, s0, w0, marker ID, and the
+        logical axis and side (0 = left, 1 = right) through which it left."""
+        return self._lost_markers[: self._n_lost_records]
 
     @property
     def n_lost_markers(self):
         """Number of removed particles."""
         return self._n_lost_markers
+
+    @property
+    def n_cols_lost(self):
+        """Number of columns of :attr:`lost_markers`."""
+        return self.first_diagnostics_idx + 3
+
+    @property
+    def lost_index(self):
+        """Dict holding the column indices of :attr:`lost_markers`."""
+        out = {key: self.index[key] for key in ("pos", "vel", "coords", "weights", "s0", "w0")}
+        out["ids"] = self.first_diagnostics_idx
+        out["axis"] = self.first_diagnostics_idx + 1
+        out["side"] = self.first_diagnostics_idx + 2
+        return out
+
+    def pop_lost_markers(self):
+        """Return the records of markers removed since the last call and clear the record buffer.
+
+        The cumulative count :attr:`n_lost_markers` is not reset."""
+        records = self._lost_markers[: self._n_lost_records].copy()
+        self._n_lost_records = 0
+        return records
+
+    def _record_lost_markers(self, axis):
+        """Append the markers flagged in ``_is_outside`` to the lost-marker records."""
+        inds = xp.nonzero(self._is_outside)[0]
+        n_new = len(inds)
+        if n_new == 0:
+            return
+        start = self._n_lost_records
+        if start + n_new > self._lost_markers.shape[0]:
+            grown = xp.zeros((max(2 * self._lost_markers.shape[0], start + n_new), self.n_cols_lost), dtype=float)
+            grown[:start] = self._lost_markers[:start]
+            self._lost_markers = grown
+        rows = self._lost_markers[start : start + n_new]
+        rows[:, : self.first_diagnostics_idx] = self.markers[inds, : self.first_diagnostics_idx]
+        rows[:, self.first_diagnostics_idx] = self.markers[inds, -1]
+        rows[:, self.first_diagnostics_idx + 1] = axis
+        rows[:, self.first_diagnostics_idx + 2] = self._is_outside_right[inds]
+        self._n_lost_records += n_new
 
     @property
     def valid_mks(self):
@@ -1738,6 +1792,10 @@ class Particles(metaclass=ABCMeta):
             if self.bc_refill is not None:
                 self._particle_refilling()
 
+            self._restrict_outside_to_sides(axis, "remove")
+            # markers already removed through a previous axis are holes now
+            self._is_outside &= self.markers[:, 0] != -1.0
+            self._record_lost_markers(axis)
             self._markers[self._is_outside, :-1] = -1.0
             self._n_lost_markers += len(xp.nonzero(self._is_outside)[0])
 
@@ -1784,7 +1842,14 @@ class Particles(metaclass=ABCMeta):
             self._eta_bc_buf[:] = self.markers[:, :3]
 
         for axis in self._reflect_axes:
-            outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
+            self._find_outside_particles(axis, eta=self._eta_bc_buf)
+            self._restrict_outside_to_sides(axis, "reflect")
+            # markers removed in this call are not holes yet but carry eta = -1
+            removed = self.markers[:, 0] == -1.0
+            self._is_outside_left &= ~removed
+            self._is_outside_right &= ~removed
+            self._is_outside &= ~removed
+            outside_inds = xp.nonzero(self._is_outside)[0]
 
             self.markers[self._is_outside_left, axis] *= -1.0
             self.markers[self._is_outside_right, axis] *= -1.0
@@ -1804,6 +1869,15 @@ class Particles(metaclass=ABCMeta):
                 outside_inds_per_axis[axis],
                 axis,
             )
+
+    def _restrict_outside_to_sides(self, axis, kind):
+        """Keep only the outside flags of the sides of ``axis`` whose boundary condition is ``kind``."""
+        left, right = self._bc_sides[axis]
+        if left != kind:
+            self._is_outside_left[:] = False
+        if right != kind:
+            self._is_outside_right[:] = False
+        self._is_outside[:] = xp.logical_or(self._is_outside_left, self._is_outside_right)
 
     def update_holes(self):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
@@ -2429,9 +2503,10 @@ class Particles(metaclass=ABCMeta):
         # (n_rows, n_cols) row-major marker array once per axis.
         self._eta_bc_buf = xp.zeros((self.n_rows, 3), dtype=float)
 
-        # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
+        # records of removed markers (3 x positions, vdim x velocities, weight, s0, w0, ID, axis, side)
         self._n_lost_markers = 0
-        self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
+        self._n_lost_records = 0
+        self._lost_markers = xp.zeros((int(self.n_rows * 0.5), self.n_cols_lost), dtype=float)
 
         # arguments for kernels
         self._args_markers = MarkerArguments(

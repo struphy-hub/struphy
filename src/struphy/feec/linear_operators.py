@@ -6,7 +6,7 @@ from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
 from feectools.linalg.block import BlockVectorSpace
-from feectools.linalg.stencil import StencilVectorSpace
+from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
@@ -508,3 +508,112 @@ class BoundaryOperator(LinOpWithTransp):
         Returns the transposed operator.
         """
         return BoundaryOperator(self._domain, self._space_id, self.bc)
+
+
+class SegmentedChannelBoundaryOperator(LinOpWithTransp):
+    r"""Homogeneous boundary projector for segments on channel walls.
+
+    This is the single-patch counterpart to :class:`BoundaryOperator` for an
+    ion-optics channel.  It constrains selected portions of the logical
+    ``eta2=0`` (``"lower"``) and ``eta2=1`` (``"upper"``) faces. Segment
+    endpoints are specified in the physical longitudinal coordinate and are
+    converted to the corresponding clamped H1 boundary degrees of freedom.
+
+    The operator intentionally supports H1 only. It is used to form a lifting
+    for the electrostatic potential; H(curl) remains unconstrained so that the
+    electric field can be obtained as ``-grad(phi)``.
+    """
+
+    def __init__(self, vector_space, segments, length):
+        assert isinstance(vector_space, VectorSpace)
+        if length <= 0.0:
+            raise ValueError("length must be positive.")
+        self._domain = vector_space
+        self._codomain = vector_space
+        self._dtype = vector_space.dtype
+        self._length = float(length)
+        self._segments = tuple(segments)
+        if not self._segments:
+            raise ValueError("At least one electrode segment is required.")
+        for segment in self._segments:
+            if not hasattr(segment, "side") or not hasattr(segment, "x0") or not hasattr(segment, "x1"):
+                raise TypeError("segments must provide side, x0, and x1 attributes.")
+            if segment.side not in ("lower", "upper") or segment.x0 < 0.0 or segment.x1 > length or segment.x1 <= segment.x0:
+                raise ValueError("Invalid channel electrode segment.")
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+
+    def dot(self, v, out=None):
+        assert isinstance(v, Vector)
+        assert v.space == self._domain
+        if out is None:
+            out = v.copy()
+        else:
+            assert out.space == self._codomain
+            v.copy(out=out)
+
+        # H1 is a StencilVector.  The global spline indices on a clamped face
+        # are addressable directly; each MPI rank edits only its owned slice.
+        if not isinstance(out, StencilVector):
+            raise TypeError("SegmentedChannelBoundaryOperator supports an H1 StencilVector only.")
+        n_x, n_y, n_z = out.space.npts
+        for segment in self._segments:
+            # A boundary B-spline is selected when its uniformly ordered
+            # boundary control point lies in the electrode interval.  Endpoint
+            # inclusion guarantees an electrode is never left floating.
+            i0 = int(xp.ceil(segment.x0 / self._length * (n_x - 1)))
+            i1 = int(xp.floor(segment.x1 / self._length * (n_x - 1)))
+            i0, i1 = max(0, i0), min(n_x - 1, i1)
+            self._set_segment(out, segment, i0, i1, 0.0)
+        out.update_ghost_regions()
+        return out
+
+    def lifting(self):
+        """Return the inhomogeneous potential trace encoded by the segments.
+
+        Segment voltages are in the potential normalization of the owning
+        model. For SI ion-optics input, convert volts through
+        :class:`struphy.physics.ion_optics_units.IonOpticsUnits` before
+        constructing the segments.
+        """
+        out = self._domain.zeros()
+        n_x = out.space.npts[0]
+        for segment in self._segments:
+            i0 = int(xp.ceil(segment.x0 / self._length * (n_x - 1)))
+            i1 = int(xp.floor(segment.x1 / self._length * (n_x - 1)))
+            self._set_segment(out, segment, max(0, i0), min(n_x - 1, i1), segment.voltage)
+        out.update_ghost_regions()
+        return out
+
+    @staticmethod
+    def _set_segment(out, segment, i0, i1, value):
+        if i1 < i0:
+            return
+        n_y = out.space.npts[1]
+        j = 0 if segment.side == "lower" else n_y - 1
+        if not (out.starts[1] <= j <= out.ends[1]):
+            return
+        for i in range(max(i0, out.starts[0]), min(i1, out.ends[0]) + 1):
+            for k in range(out.starts[2], out.ends[2] + 1):
+                out[i, j, k] = value
+
+    def transpose(self, conjugate=False):
+        return SegmentedChannelBoundaryOperator(self._domain, self._segments, self._length)

@@ -1,0 +1,220 @@
+{
+    "name": "",
+    "description": "",
+    "model": {
+        "model": "IonOpticsElectrostatic"
+    },
+    "params_path": null,
+    "env": {
+        "out_folders": "/Users/max/git_repos/struphy/examples/IonOpticsElectrostatic/segmented_electrode_channel/output",
+        "sim_folder": "double_aperture_accelerator",
+        "sim_label": null,
+        "restart": false,
+        "max_runtime": 300,
+        "save_step": 1,
+        "save_restart": true,
+        "sort_step": 0,
+        "num_clones": 1
+    },
+    "time_opts": {
+        "dt": 0.015,
+        "Tend": 26.0,
+        "split_algo": "Strang"
+    },
+    "domain": {
+        "type": "SegmentedElectrodeChannel",
+        "params": {
+            "length": 80.0,
+            "width": 2.0,
+            "lower_profile": [
+                [
+                    0.0,
+                    18.0,
+                    22.0,
+                    23.0,
+                    27.0,
+                    48.0,
+                    52.0,
+                    68.0,
+                    72.0,
+                    80.0
+                ],
+                [
+                    -5.0,
+                    -5.0,
+                    -2.25,
+                    -2.25,
+                    -5.0,
+                    -5.0,
+                    -2.25,
+                    -2.25,
+                    -5.0,
+                    -5.0
+                ]
+            ],
+            "upper_profile": [
+                [
+                    0.0,
+                    18.0,
+                    22.0,
+                    23.0,
+                    27.0,
+                    48.0,
+                    52.0,
+                    68.0,
+                    72.0,
+                    80.0
+                ],
+                [
+                    5.0,
+                    5.0,
+                    2.25,
+                    2.25,
+                    5.0,
+                    5.0,
+                    2.25,
+                    2.25,
+                    5.0,
+                    5.0
+                ]
+            ],
+            "segments": [
+                {
+                    "side": "lower",
+                    "x0": 0.0,
+                    "x1": 18.0,
+                    "voltage": 0.0,
+                    "name": "source"
+                },
+                {
+                    "side": "lower",
+                    "x0": 20.0,
+                    "x1": 25.0,
+                    "voltage": -5.0,
+                    "name": "aperture_1"
+                },
+                {
+                    "side": "lower",
+                    "x0": 27.0,
+                    "x1": 48.0,
+                    "voltage": -5.0,
+                    "name": "interstage"
+                },
+                {
+                    "side": "lower",
+                    "x0": 50.0,
+                    "x1": 70.0,
+                    "voltage": -50.0,
+                    "name": "aperture_2"
+                },
+                {
+                    "side": "lower",
+                    "x0": 72.0,
+                    "x1": 80.0,
+                    "voltage": -50.0,
+                    "name": "exit"
+                },
+                {
+                    "side": "upper",
+                    "x0": 0.0,
+                    "x1": 18.0,
+                    "voltage": 0.0,
+                    "name": "source"
+                },
+                {
+                    "side": "upper",
+                    "x0": 20.0,
+                    "x1": 25.0,
+                    "voltage": -5.0,
+                    "name": "aperture_1"
+                },
+                {
+                    "side": "upper",
+                    "x0": 27.0,
+                    "x1": 48.0,
+                    "voltage": -5.0,
+                    "name": "interstage"
+                },
+                {
+                    "side": "upper",
+                    "x0": 50.0,
+                    "x1": 70.0,
+                    "voltage": -50.0,
+                    "name": "aperture_2"
+                },
+                {
+                    "side": "upper",
+                    "x0": 72.0,
+                    "x1": 80.0,
+                    "voltage": -50.0,
+                    "name": "exit"
+                }
+            ],
+            "num_elements": [
+                96,
+                20
+            ],
+            "degree": [
+                3,
+                3
+            ]
+        }
+    },
+    "equil": null,
+    "grid": {
+        "num_elements": [
+            96,
+            20,
+            1
+        ],
+        "mpi_dims_mask": [
+            true,
+            true,
+            true
+        ]
+    },
+    "derham_opts": {
+        "degree": [
+            3,
+            3,
+            1
+        ],
+        "bcs": [
+            [
+                "free",
+                "free"
+            ],
+            [
+                "free",
+                "free"
+            ],
+            [
+                "free",
+                "free"
+            ]
+        ],
+        "nquads": null,
+        "nquads_proj": null,
+        "polar_splines": false,
+        "local_projectors": false
+    },
+    "profiling_opts": {
+        "file_path": null,
+        "label": null,
+        "use_likwid": null,
+        "use_line_profiler": null,
+        "deactivate_profiling": null,
+        "use_nvtx": null,
+        "use_gpu_timing": null,
+        "gpu_timing_backend": null,
+        "deactivate_file_output": null,
+        "recursive_profile": null,
+        "aggregation_mode": null,
+        "capture_region_source": null,
+        "buffer_limit": null,
+        "output_mode": null,
+        "hdf5_compression": null,
+        "hdf5_compression_level": null,
+        "hdf5_chunk_size": null
+    }
+}

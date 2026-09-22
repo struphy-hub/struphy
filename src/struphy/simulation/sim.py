@@ -616,6 +616,17 @@ class Simulation(SimulationBase):
             If True, activate profiling with scope-profiler for this run. If
             None, profiling is disabled.
         """
+        if getattr(self.model, "steady_state", None) is not None and callable(
+            getattr(self.model, "run_steady_state", None)
+        ):
+            if one_time_step:
+                raise ValueError("one_time_step is not available for a steady-state ion-optics solve.")
+            if self.env.restart:
+                raise NotImplementedError("Restart is not available for a steady-state ion-optics solve.")
+            logger.info(f"\nStarting steady-state run for model {self.model_name} on {self.comm_size} ranks ...")
+            self._remove_existing_output_files()
+            return self.model.run_steady_state(self)
+
         if profiling_activated is None:
             profiling_activated = False
 

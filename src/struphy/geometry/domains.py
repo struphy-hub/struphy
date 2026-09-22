@@ -9,7 +9,7 @@ grid constructions and field-line tracing.
 """
 
 import copy
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import cunumpy as xp
 
@@ -102,7 +102,7 @@ class SegmentedElectrodeChannel(PoloidalSplineStraight):
         if xp.any(xp.interp(probe, x_upper, y_upper) <= xp.interp(probe, x_lower, y_lower)):
             raise ValueError("upper_profile must remain strictly above lower_profile.")
 
-        segments = tuple(segments)
+        segments = tuple(ElectrodeSegment(**segment) if isinstance(segment, dict) else segment for segment in segments)
         self._validate_segments(segments, length)
         self.segments = segments
         self.length = float(length)
@@ -129,6 +129,25 @@ class SegmentedElectrodeChannel(PoloidalSplineStraight):
             cy=cy,
             Lz=width,
         )
+        # ``PoloidalSpline`` detects a polar axis from coincident first-index
+        # control points. Here x=0 along the inlet can share an x coordinate
+        # while y remains distinct, so this rectangular channel has no pole.
+        self.pole = False
+
+    def to_dict(self) -> dict:
+        """Serialize profile data and electrode metadata without spline arrays."""
+        return {
+            "type": self.__class__.__name__,
+            "params": {
+                "length": self.length,
+                "width": self.width,
+                "lower_profile": [self.lower_profile[0].tolist(), self.lower_profile[1].tolist()],
+                "upper_profile": [self.upper_profile[0].tolist(), self.upper_profile[1].tolist()],
+                "segments": [asdict(segment) for segment in self.segments],
+                "num_elements": list(self.num_elements[:2]),
+                "degree": list(self.degree[:2]),
+            },
+        }
 
     @staticmethod
     def _profile(profile, length, name):

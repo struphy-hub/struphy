@@ -135,7 +135,8 @@ class BoundaryParameters:
     bc : tuple[LiteralOptions.OptsMarkerBC], default=("periodic", "periodic", "periodic")
         Particle boundary conditions for each spatial direction (3D). Options per direction:
         'remove' (delete particles), 'reflect' (specular reflection), 'periodic' (wrap around),
-        or 'refill' (reload particles).
+        or 'refill' (reload particles). A direction may also take a ``(left, right)`` pair of
+        'remove'/'reflect', e.g. ``("reflect", "remove")``.
 
     bc_refill : tuple[LiteralOptions.OptsRefillBC], optional
         Refill strategy when 'refill' boundary condition is active. Either 'inner' or 'outer'.
@@ -155,7 +156,14 @@ class BoundaryParameters:
     mean_velocity_index: int | None = None
 
     def __post_init__(self):
-        check_option(self.bc, LiteralOptions.OptsMarkerBC)
+        # an entry may also be a (left, right) pair of "remove"/"reflect", e.g. ("reflect", "remove")
+        for bci in self.bc:
+            if isinstance(bci, str):
+                check_option(bci, LiteralOptions.OptsMarkerBC)
+            else:
+                assert len(bci) == 2 and all(side in ("remove", "reflect") for side in bci), (
+                    f"Per-side boundary conditions must be pairs of 'remove'/'reflect', got {bci}."
+                )
         check_option(self.bc_sph, LiteralOptions.OptsRecontructBC)
 
     def __repr_no_defaults__(self):

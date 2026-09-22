@@ -1,0 +1,7 @@
+{platform: macosx-10.13-universal2, python version: '3.13', model name: IonOpticsElectrostatic,
+
+    parameter file: null, output folder: /Users/max/git_repos/struphy/examples/IonOpticsElectrostatic/segmented_electrode_channel/output/double_aperture_accelerator,
+
+    MPI processes: 1, use MPI.COMM_WORLD: true, number of domain clones: 1, restart: false,
+
+    'max wall-clock [min]': 300, 'save interval [steps]': 1, 'wall-clock time[min]': 0.11208590269088745}

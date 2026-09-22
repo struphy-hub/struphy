@@ -7,6 +7,44 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
+def test_segmented_electrode_channel_maps_shaped_walls_and_keeps_segments():
+    import cunumpy as xp
+
+    from struphy.geometry.domains import ElectrodeSegment, SegmentedElectrodeChannel
+
+    segments = (
+        ElectrodeSegment("lower", 0.0, 0.03, 0.0, "source"),
+        ElectrodeSegment("lower", 0.032, 0.08, -5.0, "lens"),
+        ElectrodeSegment("upper", 0.0, 0.08, 0.0, "ground"),
+    )
+    channel = SegmentedElectrodeChannel(
+        length=0.08,
+        width=0.001,
+        lower_profile=((0.0, 0.04, 0.08), (-0.005, -0.004, -0.005)),
+        upper_profile=((0.0, 0.04, 0.08), (0.005, 0.006, 0.005)),
+        segments=segments,
+        num_elements=(12, 6),
+    )
+
+    lower = channel(0.5, 0.0, 0.5, squeeze_out=True)
+    upper = channel(0.5, 1.0, 0.5, squeeze_out=True)
+    assert lower[0] == pytest.approx(0.04)
+    assert lower[2] == pytest.approx(0.0005)
+    assert lower[1] == pytest.approx(-0.004)
+    assert upper[1] == pytest.approx(0.006)
+    assert channel.jacobian_det(0.5, 0.5, 0.5, squeeze_out=True) > 0.0
+    assert channel.segments == segments
+
+    with pytest.raises(ValueError, match="overlap"):
+        SegmentedElectrodeChannel(
+            length=0.08,
+            width=0.001,
+            lower_profile=((0.0, 0.08), (-0.005, -0.005)),
+            upper_profile=((0.0, 0.08), (0.005, 0.005)),
+            segments=(ElectrodeSegment("lower", 0.0, 0.04, 0.0), ElectrodeSegment("lower", 0.03, 0.08, 1.0)),
+        )
+
+
 @pytest.mark.parametrize("mapping", ["Cuboid", "IGAPolarCylinder"])
 def test_domain_deepcopy(mapping):
     """Deepcopy of a domain should preserve behavior and rebuild runtime kernel arguments."""

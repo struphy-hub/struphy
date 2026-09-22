@@ -1,0 +1,634 @@
+{
+ "steady": [
+  {
+   "current": 0.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    80,
+    10
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2795222973200673,
+   "exit_size": 1.2655557916366633,
+   "waist_x": 54.5,
+   "waist_size": 0.06629797810074484,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2750704914758173,
+   "exit_size": 1.2564060225335252,
+   "waist_x": 54.5,
+   "waist_size": 0.06663363913610465,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    320,
+    40
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2722163932116968,
+   "exit_size": 1.254056933955152,
+   "waist_x": 54.5,
+   "waist_size": 0.06673186391603858,
+   "transmission": 1.0
+  },
+  {
+   "current": 0.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    640,
+    80
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2714872161059287,
+   "exit_size": 1.2534721414309755,
+   "waist_x": 54.5,
+   "waist_size": 0.06675839255741595,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "degree",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 2,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.269430207860956,
+   "exit_size": 1.2516677830508063,
+   "waist_x": 54.5,
+   "waist_size": 0.06684089056724996,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "degree",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2750704914758173,
+   "exit_size": 1.2564060225335252,
+   "waist_x": 54.5,
+   "waist_size": 0.06663363913610465,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "degree",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 4,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.269505719896225,
+   "exit_size": 1.2516880904379197,
+   "waist_x": 54.5,
+   "waist_size": 0.06684411459999084,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 500,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.282794647037646,
+   "exit_size": 1.2558003138239127,
+   "waist_x": 54.5,
+   "waist_size": 0.06684688128251626,
+   "transmission": 1.0
+  },
+  {
+   "current": 0.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 1000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.266706832636829,
+   "exit_size": 1.2572688900877753,
+   "waist_x": 54.5,
+   "waist_size": 0.06640789117834307,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2750704914758173,
+   "exit_size": 1.2564060225335252,
+   "waist_x": 54.5,
+   "waist_size": 0.06663363913610465,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 4000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2700050686526927,
+   "exit_size": 1.2563472121791448,
+   "waist_x": 54.5,
+   "waist_size": 0.06652465787224078,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 8000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2716018998158285,
+   "exit_size": 1.2563109996655373,
+   "waist_x": 54.5,
+   "waist_size": 0.06654576565313652,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.08,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.279752940503687,
+   "exit_size": 1.2597369117425872,
+   "waist_x": 54.5,
+   "waist_size": 0.06661322839583286,
+   "transmission": 1.0
+  },
+  {
+   "current": 0.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2750704914758173,
+   "exit_size": 1.2564060225335252,
+   "waist_x": 54.5,
+   "waist_size": 0.06663363913610465,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.02,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2745069270836757,
+   "exit_size": 1.2549239039348392,
+   "waist_x": 54.5,
+   "waist_size": 0.06663890840243467,
+   "transmission": 1.0000000000000002
+  },
+  {
+   "current": 0.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.01,
+   "rounds": 7,
+   "converged": true,
+   "exit_emittance": 3.2746837039375207,
+   "exit_size": 1.2541881371748225,
+   "waist_x": 54.5,
+   "waist_size": 0.0666402359622304,
+   "transmission": 1.0
+  },
+  {
+   "current": 300.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    80,
+    10
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 10,
+   "converged": true,
+   "exit_emittance": 5.5675785307246715,
+   "exit_size": 0.3256633788993048,
+   "waist_x": 71.5,
+   "waist_size": 0.17551966090039428,
+   "transmission": 0.9999999999999999
+  },
+  {
+   "current": 300.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.230867936719491,
+   "exit_size": 0.3037733823426427,
+   "waist_x": 72.0,
+   "waist_size": 0.1686982648577207,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    320,
+    40
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.186237272028704,
+   "exit_size": 0.2999385172392897,
+   "waist_x": 72.25,
+   "waist_size": 0.16803983588493449,
+   "transmission": 0.9999999999999999
+  },
+  {
+   "current": 300.0,
+   "parameter": "num_elements",
+   "num_elements": [
+    640,
+    80
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 10,
+   "converged": true,
+   "exit_emittance": 5.183564928954687,
+   "exit_size": 0.29917092511542026,
+   "waist_x": 72.25,
+   "waist_size": 0.1680776656592405,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "degree",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 2,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 10,
+   "converged": true,
+   "exit_emittance": 5.238719317825692,
+   "exit_size": 0.29700304136201683,
+   "waist_x": 72.25,
+   "waist_size": 0.16888458418199057,
+   "transmission": 0.9999999999999999
+  },
+  {
+   "current": 300.0,
+   "parameter": "degree",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.230867936719491,
+   "exit_size": 0.3037733823426427,
+   "waist_x": 72.0,
+   "waist_size": 0.1686982648577207,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "degree",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 4,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 10,
+   "converged": true,
+   "exit_emittance": 5.219944536617772,
+   "exit_size": 0.29694493901328217,
+   "waist_x": 72.25,
+   "waist_size": 0.16871447975946835,
+   "transmission": 0.9999999999999999
+  },
+  {
+   "current": 300.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 500,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.23843087354524,
+   "exit_size": 0.3032778031222587,
+   "waist_x": 72.25,
+   "waist_size": 0.16925900688935971,
+   "transmission": 0.9999999999999999
+  },
+  {
+   "current": 300.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 1000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.224138995577006,
+   "exit_size": 0.30440885199430734,
+   "waist_x": 72.0,
+   "waist_size": 0.16818146487791327,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.230867936719491,
+   "exit_size": 0.3037733823426427,
+   "waist_x": 72.0,
+   "waist_size": 0.1686982648577207,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 4000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.226964101130223,
+   "exit_size": 0.3036562711923984,
+   "waist_x": 72.0,
+   "waist_size": 0.1685984595353552,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "n_rays",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 8000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.228423978205868,
+   "exit_size": 0.3036794915045164,
+   "waist_x": 72.0,
+   "waist_size": 0.16864858979197148,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.08,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.236837219033822,
+   "exit_size": 0.30614880067177425,
+   "waist_x": 72.0,
+   "waist_size": 0.1686873888891929,
+   "transmission": 0.9999999999999997
+  },
+  {
+   "current": 300.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.04,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.230867936719491,
+   "exit_size": 0.3037733823426427,
+   "waist_x": 72.0,
+   "waist_size": 0.1686982648577207,
+   "transmission": 0.9999999999999998
+  },
+  {
+   "current": 300.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.02,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.229237594295859,
+   "exit_size": 0.3027938792547512,
+   "waist_x": 72.0,
+   "waist_size": 0.16870165354176903,
+   "transmission": 0.9999999999999994
+  },
+  {
+   "current": 300.0,
+   "parameter": "dt",
+   "num_elements": [
+    160,
+    20
+   ],
+   "degree": 3,
+   "n_rays": 2000,
+   "dt": 0.01,
+   "rounds": 9,
+   "converged": true,
+   "exit_emittance": 5.228536550418557,
+   "exit_size": 0.30237618028463215,
+   "waist_x": 72.0,
+   "waist_size": 0.16870259781380698,
+   "transmission": 0.9999999999999999
+  }
+ ],
+ "time_dependent": [
+  {
+   "num_elements": [
+    160,
+    20
+   ],
+   "markers_per_ns": 80.0,
+   "dt": 0.04,
+   "exit_emittance": 5.512864956431248,
+   "exit_size": 0.32796469900219527,
+   "waist_x": 71.79677419354839,
+   "waist_size": 0.0961724730444081,
+   "t_steady": 32.0
+  },
+  {
+   "num_elements": [
+    320,
+    40
+   ],
+   "markers_per_ns": 80.0,
+   "dt": 0.04,
+   "exit_emittance": 5.572156742624037,
+   "exit_size": 0.32487861445751387,
+   "waist_x": 71.79677419354839,
+   "waist_size": 0.12603684580144645,
+   "t_steady": 32.0
+  },
+  {
+   "num_elements": [
+    160,
+    20
+   ],
+   "markers_per_ns": 160.0,
+   "dt": 0.04,
+   "exit_emittance": 5.402938254145202,
+   "exit_size": 0.3137307127601324,
+   "waist_x": 70.30645161290323,
+   "waist_size": 0.13809003913926732,
+   "t_steady": 32.0
+  },
+  {
+   "num_elements": [
+    160,
+    20
+   ],
+   "markers_per_ns": 80.0,
+   "dt": 0.02,
+   "exit_emittance": 5.73154911008554,
+   "exit_size": 0.32472605539669563,
+   "waist_x": 77.26129032258065,
+   "waist_size": 0.15532863623385965,
+   "t_steady": 32.0
+  }
+ ]
+}
