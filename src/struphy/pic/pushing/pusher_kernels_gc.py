@@ -1796,7 +1796,7 @@ def push_gc_cc_J1_H1vec(
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
 ):
-    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+    r"""Velocity update step for the :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`.
 
     Marker update :
 
@@ -1931,7 +1931,7 @@ def push_gc_cc_J1_Hcurl(
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
 ):
-    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+    r"""Velocity update step for the :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`.
 
     Marker update:
 
@@ -2078,7 +2078,7 @@ def push_gc_cc_J1_Hdiv(
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
 ):
-    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+    r"""Velocity update step for the :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`.
 
     Marker update:
 
@@ -2233,7 +2233,7 @@ def push_gc_cc_J2_stage_H1vec(
     b: "float[:]",
     c: "float[:]",
 ):
-    r"""Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
+    r"""Single stage of a s-stage explicit pushing step for the :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
 
     Marker update:
 
@@ -2426,7 +2426,7 @@ def push_gc_cc_J2_stage_Hdiv(
     b: "float[:]",
     c: "float[:]",
 ):
-    r"""Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
+    r"""Single stage of a s-stage explicit pushing step for the :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
 
     Marker update:
 
@@ -2470,7 +2470,11 @@ def push_gc_cc_J2_stage_Hdiv(
         last = 0.0
 
     for ip in range(n_markers):
-        # check if marker is a hole
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # if particle is refilled
         if markers[ip, first_init_idx] == -1.0:
             continue
 

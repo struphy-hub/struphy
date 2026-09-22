@@ -11,6 +11,15 @@ Particle base class
     :exclude-members: __init__
 
 
+Particle subclasses
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.pic.particles
+    :members:
+    :special-members:
+    :show-inheritance:
+
+
 Particel-to-grid accumulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

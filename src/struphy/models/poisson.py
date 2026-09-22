@@ -79,7 +79,7 @@ class Poisson(StruphyModel):
     def velocity_scale(self):
         return None
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -87,8 +87,8 @@ class Poisson(StruphyModel):
         # # use setter to assign source
         # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
+        # Solve to get initial potential (before time stepping)
+        logger.info("\nSolving initial Poisson problem (before time stepping)...")
 
         self.propagators.poisson(1.0)
 

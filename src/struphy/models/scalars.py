@@ -171,9 +171,17 @@ class Scalars:
     def update(self):
         for scalar in self.dct.values():
             scalar.update()
-        # reset status to False for next update
+        # reset status to False for next update, including the summands of sums: `a + b + c` nests
+        # SumOfScalars(SumOfScalars(a, b), c), and an inner sum left up to date would keep its first value
         for scalar in self.dct.values():
-            scalar.uptodate = False
+            _mark_outdated(scalar)
+
+
+def _mark_outdated(scalar: Scalar):
+    scalar.uptodate = False
+    for variable in scalar.variables:
+        if isinstance(variable, Scalar):
+            _mark_outdated(variable)
 
 
 @auto_convert_docstring
@@ -293,29 +301,23 @@ class KineticEnergyPIC(PICScalar):
 
     :math:
 
-        \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
+        \mathcal E = \frac{\alpha}{2} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
 
-    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
-    and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
+    where :math:`\alpha` is a normalization constant and :math:`w_i` and :math:`v_i` are the weight and
+    velocity of particle :math:`i`. The marker weights already carry the :math:`1/N_p` of the Monte-Carlo
+    estimate (:meth:`~struphy.pic.base.Particles.initialize_weights` sets
+    :math:`w_i = f_i / (s_i N_p)`), so the sum must not be divided by :math:`N_p` again.
     """
 
     def _local_update(self):
-
+        # `particles.velocities` and `.weights` are fancy-indexed copies of the marker array, not views,
+        # so they must be read at every update: a cached copy keeps the state of the first call forever.
+        # TODO: velocities need to be redefined for Particles5d? Put magnetic moment as COM.
         particles = self.variables[0].particles
-
         velocities = particles.velocities
         weights = particles.weights
-        Np = particles.Np
 
-        velocity_sq = xp.sum(velocities**2, axis=1)
-
-        energy = (
-            self.normalization
-            * 0.5
-            / Np
-            * xp.sum(weights * velocity_sq)
-        )
-
+        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 
@@ -347,19 +349,21 @@ class KineticEnergySPH(SPHScalar):
 
     :math:
 
-        \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
+        \mathcal E = \frac{\alpha}{2} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
 
-    where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
-    and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
+    where :math:`\alpha` is a normalization constant and :math:`w_i` and :math:`v_i` are the weight and
+    velocity of particle :math:`i`. The marker weights already carry the :math:`1/N_p` of the Monte-Carlo
+    estimate (:meth:`~struphy.pic.base.Particles.initialize_weights` sets
+    :math:`w_i = f_i / (s_i N_p)`), so the sum must not be divided by :math:`N_p` again.
     """
 
     def _local_update(self):
-        if not hasattr(self, "velocities"):
-            self.velocities = self.variables[0].particles.velocities
-            self.weights = self.variables[0].particles.weights
-            self.Np = self.variables[0].particles.Np
+        # As in KineticEnergyPIC: the marker arrays are copies, so they are read at every update.
+        particles = self.variables[0].particles
+        velocities = particles.velocities
+        weights = particles.weights
 
-        energy = self.normalization * 0.5 / self.Np * xp.sum(self.weights * xp.sum(self.velocities**2, axis=1))
+        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 

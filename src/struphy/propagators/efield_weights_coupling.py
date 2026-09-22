@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner
@@ -17,7 +18,6 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -190,7 +190,7 @@ class EfieldWeightsCoupling(Propagator):
         self._accum = Accumulator(
             particles,
             "Hcurl",
-            Pyccelkernel(accum_kernels.linear_vlasov_ampere),
+            PyccelKernel(accum_kernels.linear_vlasov_ampere),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -243,7 +243,7 @@ class EfieldWeightsCoupling(Propagator):
 
         self._pusher = Pusher(
             particles,
-            Pyccelkernel(pusher_kernels.push_weights_with_efield_lin_va),
+            PyccelKernel(pusher_kernels.push_weights_with_efield_lin_va),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,

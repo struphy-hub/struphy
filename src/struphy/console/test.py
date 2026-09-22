@@ -57,6 +57,7 @@ def struphy_test(
             f"{LIBPATH}/polar/tests/",
             f"{LIBPATH}/post_processing/tests/",
             f"{LIBPATH}/propagators/tests/",
+            f"{LIBPATH}/simulation/tests/",
         ]
 
         if mpi > 1:
@@ -72,6 +73,7 @@ def struphy_test(
             cmd = [
                 "pytest",
                 "--testmon",
+                "-xvs",
             ] + list_of_tests
 
         if with_desc:
@@ -155,7 +157,6 @@ def struphy_test(
             "pytest",
             "-m",
             "single",
-            "-xvs",
             # "--with-mpi",
             "--model-name",
             group,

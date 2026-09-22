@@ -58,8 +58,7 @@ def struphy_compile(
     language,
     compiler,
     compiler_config,
-    omp_pic,
-    omp_feec,
+    openmp,
     delete,
     status,
     verbose,
@@ -81,11 +80,8 @@ def struphy_compile(
     compiler_config : str
         Path to a JSON compiler file.
 
-    omp_pic : bool
-        Whether to compile PIC kernels with OpenMP (default=False).
-
-    omp_feec : bool
-        WHether to compile FEEC kernels with OpenMP (default=False).
+    openmp : bool
+        Whether to compile all kernels with OpenMP (default=False).
 
     delete : bool
         If True, deletes generated Fortran/C files and .so files (default=False).
@@ -150,8 +146,7 @@ def struphy_compile(
         # set initial compiler infos to None
         state["last_used_language"] = None
         state["last_used_compiler"] = None
-        state["last_used_omp_pic"] = None
-        state["last_used_omp_feec"] = None
+        state["last_used_omp"] = None
 
         utils.save_state(state)
     # source files
@@ -199,7 +194,7 @@ def struphy_compile(
         )
         print(f"{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).")
         print(
-            f"\ncompiler={state['last_used_compiler']}\nflags_omp_pic={state['last_used_omp_pic']}\nflags_omp_feec={state['last_used_omp_feec']}",
+            f"\ncompiler={state['last_used_compiler']}\nflags_omp={state.get('last_used_omp')}",
         )
         if len(list_not_compiled) > 0:
             print("\nPure Python kernels (not compiled) are:")
@@ -226,12 +221,9 @@ def struphy_compile(
 
     else:
         # struphy and psydac (change dir not to be in source path)
-        flag_omp_pic = ""
-        flag_omp_feec = ""
-        if omp_pic:
-            flag_omp_pic = " --openmp"
-        if omp_feec:
-            flag_omp_feec = " --openmp"
+        flag_omp = ""
+        if openmp:
+            flag_omp = " --openmp"
 
         # pyccel flags
         flags = "--language=" + language
@@ -265,8 +257,7 @@ def struphy_compile(
 
         state["last_used_language"] = language
         state["last_used_compiler"] = compiler
-        state["last_used_omp_pic"] = flag_omp_pic
-        state["last_used_omp_feec"] = flag_omp_feec
+        state["last_used_omp"] = flag_omp
 
         utils.save_state(state)
 
@@ -311,8 +302,7 @@ def struphy_compile(
             "compile_struphy.mk",
             "sources=" + sources,
             "flags=" + flags,
-            "flags_openmp_pic=" + flag_omp_pic,
-            "flags_openmp_mhd=" + flag_omp_feec,
+            "flags_openmp=" + flag_omp,
         ]
         subp_run(cmd)
         print("Done.")

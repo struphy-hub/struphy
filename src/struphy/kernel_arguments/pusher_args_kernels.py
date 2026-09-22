@@ -1,5 +1,7 @@
 # from numpy import copy
-from numpy import empty
+# NOTE: This file must use ONLY numpy for pyccel compilation compatibility.
+# Backend conversion (NumPy/CuPy) happens at the Python wrapper level.
+import numpy as np
 
 
 class MarkerArguments:
@@ -35,6 +37,9 @@ class MarkerArguments:
 
     first_free_idx : int
         First index for storing auxiliary quantities for each particle.
+
+    mu_idx : int
+        Column index of particle magnetic moment.
     """
 
     def __init__(
@@ -49,6 +54,7 @@ class MarkerArguments:
         first_shift_idx: int,
         residual_idx: int,
         first_free_idx: int,
+        mu_idx: int,
     ):
         self.markers = markers
         self.valid_mks = valid_mks
@@ -63,11 +69,7 @@ class MarkerArguments:
         self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
         self.residual_idx = residual_idx  # residual in iterative solvers
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
-
-        # only used for Particles5D
-        self.energy_idx = 8  # particle energy
-        self.mu_idx = 9  # particle magnetic moment
-        self.toroidalmom_idx = 10  # particle toroidal momentum
+        self.mu_idx = mu_idx  # particle magnetic moment
 
 
 class DerhamArguments:
@@ -99,12 +101,12 @@ class DerhamArguments:
         self.tn3 = tn3
         self.starts = starts
 
-        self.bn1 = empty(pn[0] + 1, dtype=float)
-        self.bn2 = empty(pn[1] + 1, dtype=float)
-        self.bn3 = empty(pn[2] + 1, dtype=float)
-        self.bd1 = empty(pn[0], dtype=float)
-        self.bd2 = empty(pn[1], dtype=float)
-        self.bd3 = empty(pn[2], dtype=float)
+        self.bn1 = np.empty(int(pn[0] + 1), dtype=float)
+        self.bn2 = np.empty(int(pn[1] + 1), dtype=float)
+        self.bn3 = np.empty(int(pn[2] + 1), dtype=float)
+        self.bd1 = np.empty(int(pn[0]), dtype=float)
+        self.bd2 = np.empty(int(pn[1]), dtype=float)
+        self.bd3 = np.empty(int(pn[2]), dtype=float)
 
 
 class DomainArguments:

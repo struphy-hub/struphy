@@ -1,7 +1,21 @@
+"""Pushing packaged profiling results to the profiling-data repo.
+
+Used by `ProfilingCase` during a `--upload` run, and standalone afterwards: a run
+without `--upload` packages its case folder locally, and
+
+    python upload.py <packaged case folder>
+
+pushes that folder as it stands, without re-running the case. `finalize_run` prints
+this command with the folder filled in.
+"""
+
+import argparse
+import json
 import os
 import random
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -78,3 +92,56 @@ def _push_profiling_data(clone_dir: Path, run_commit: str) -> None:
     raise RuntimeError(
         "Failed to push profiling data to profiling-data repo after retries.",
     )
+
+
+def _packaged_case_commit(case_dir: Path) -> str:
+    """The Struphy commit a packaged case was produced with, for the commit message.
+
+    Read from the case's own `case_metadata.json`; falls back to the commit token in
+    the folder name (`<timestamp>-<commit>-<testcase>`) if it is not recorded there.
+    """
+    metadata = json.loads((case_dir / "case_metadata.json").read_text(encoding="utf-8"))
+    commit = metadata.get("software_information", {}).get("struphy_commit")
+    if commit:
+        return commit
+
+    name_parts = case_dir.name.split("-")
+    return name_parts[1] if len(name_parts) > 1 else "unknown"
+
+
+def upload_packaged_case(case_dir: Path) -> None:
+    """Push one already-packaged case folder to the profiling-data repo.
+
+    For a case packaged by a run without `--upload`: the folder is copied into a fresh
+    clone as it stands (replacing an earlier upload of the same folder name) and pushed.
+    Nothing is re-packaged, so a case can be reviewed locally first and uploaded later.
+    """
+    case_dir = case_dir.resolve()
+    if not (case_dir / "case_metadata.json").exists():
+        raise SystemExit(
+            f"{case_dir} is not a packaged profiling case folder: no case_metadata.json in it.",
+        )
+
+    with tempfile.TemporaryDirectory(prefix="profiling-data-") as temporary_dir:
+        clone_dir = _clone_profiling_data(Path(temporary_dir) / "profiling-data")
+        destination = clone_dir / case_dir.name
+        if destination.exists():
+            shutil.rmtree(destination)
+        shutil.copytree(case_dir, destination)
+        _push_profiling_data(clone_dir, _packaged_case_commit(case_dir))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Push an already-packaged profiling case folder to the profiling-data repo.",
+    )
+    parser.add_argument(
+        "case_dir",
+        type=Path,
+        help="The packaged case folder to push, as printed by a run made without --upload.",
+    )
+    upload_packaged_case(parser.parse_args().case_dir)
+
+
+if __name__ == "__main__":
+    main()

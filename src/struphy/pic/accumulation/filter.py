@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 import cunumpy as xp
-import numpy as np
 from scipy.fft import irfft, rfft
 
 from struphy.feec.psydac_derham import Derham
@@ -165,7 +164,7 @@ class AccumFilter:
         else:
             vec_temp = xp.zeros(int((tor_num_elements - 1) / 2) + 1, dtype=complex)
 
-        for axis, comp, starts, ends in self._yield_dir_components(vec):
+        for _, comp, starts, ends in self._yield_dir_components(vec):
             for i in range(3):
                 ir[i] = int(ends[i] + 1 - starts[i])
 
@@ -183,4 +182,4 @@ class AccumFilter:
                     # inverse FFT back to real space, write in-place
                     comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_num_elements)
 
-        vec.update_ghost_regions()
+            comp.update_ghost_regions()

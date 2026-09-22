@@ -7,6 +7,7 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -441,6 +442,7 @@ class ImplicitDiffusion(Propagator):
                     valid_mks = src.particles.valid_mks
                     first_free_idx = src.particles.first_free_idx
                     density = src.particles.f0.n0(eta)
+
                     src.particles.markers[valid_mks, first_free_idx] = density
                     # 2. accumulate
                     src()
@@ -461,10 +463,11 @@ class ImplicitDiffusion(Propagator):
         self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
 
         # solve
-        out = self._solver.solve(rhs, out=self._tmp)
+        with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
+            out = self._solver.solve(rhs, out=self._tmp)
         info = self._solver._info
 
         if self._info:
-            logger.info(info)
+            logger.warning(f"\nSolver info: {info}")
 
         self.update_feec_variables(phi=out)
