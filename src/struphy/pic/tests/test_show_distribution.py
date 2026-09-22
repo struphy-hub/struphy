@@ -1,23 +1,27 @@
 import logging
 
+import pytest
+
 from struphy import set_logging_level
+
 set_logging_level(logging.WARNING)
 
 logger = logging.getLogger("struphy")
 
 
+@pytest.mark.mpi_skip
 def test_gyro_maxwellian_2d(do_plot=False):
 
-    from struphy import Simulation, equils
-    from struphy import LoadingParameters, maxwellians
+    from struphy import LoadingParameters, Simulation, equils, maxwellians
     from struphy.models import LinearMHDDriftkineticCC
 
     model = LinearMHDDriftkineticCC()
     equil = equils.HomogenSlab()
-    
-    sim = Simulation(model=model,
-                     equil=equil,
-                     )
+
+    sim = Simulation(
+        model=model,
+        equil=equil,
+    )
 
     loading_params = LoadingParameters(Np=100000, seed=3928)
     model.energetic_ions.set_markers(loading_params=loading_params)
@@ -31,6 +35,7 @@ def test_gyro_maxwellian_2d(do_plot=False):
     sim.allocate()
 
     import numpy as np
+
     for i in range(5):
         components = [False] * 5
         components[i] = True
@@ -43,7 +48,7 @@ def test_gyro_maxwellian_2d(do_plot=False):
         err = model.energetic_ions.var.particles.show_distribution_function(components, bin_edges, do_plot=do_plot)
         print(f"1d {components = }, {err = }")
         assert err < 0.05
-        
+
     components = [False] * 5
     components[3] = True
     components[4] = True
@@ -65,6 +70,7 @@ def test_gyro_maxwellian_2d(do_plot=False):
     # maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)
     # init = maxwellian_1pt + maxwellian_2
     # model.energetic_ions.var.add_initial_condition(init)
+
 
 if __name__ == "__main__":
     test_gyro_maxwellian_2d(do_plot=True)

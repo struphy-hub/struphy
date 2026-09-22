@@ -7,9 +7,9 @@ from typing import Callable, get_args
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import cm
 from matplotlib.colors import Normalize
-import numpy as np
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.geometry.base import Domain
@@ -268,7 +268,7 @@ class KineticBackground(metaclass=ABCMeta):
 
         n_axes_integration = 3 + self.vdim - n_axes_plot
         max_quad_points = max_points
-        
+
         for r in n_eval_pts:
             max_quad_points //= r
 
@@ -393,7 +393,7 @@ class KineticBackground(metaclass=ABCMeta):
             for a positive velocity coordinate (such as mu or v_perp) the range is [0, v_lim].
 
         resol : int | np.ndarray
-            Resolution of the evaluation grid along the axis. If an integer is provided, it is used to generate a linearly spaced array of that many points spanning the axis range. 
+            Resolution of the evaluation grid along the axis. If an integer is provided, it is used to generate a linearly spaced array of that many points spanning the axis range.
             If a numpy array is provided, it is used directly as the evaluation points along the axis.
 
         Returns

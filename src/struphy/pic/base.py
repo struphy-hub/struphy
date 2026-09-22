@@ -16,13 +16,13 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+import numpy as np
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
 from sympy.ntheory import factorint
-import numpy as np
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
@@ -421,11 +421,11 @@ class Particles(metaclass=ABCMeta):
     def vdim(self):
         """Dimension of the velocity space."""
         pass
-    
+
     @property
     @abstractmethod
     def coordinate_labels(self) -> tuple[str]:
-        """Labels for the coordinates in the phase space. 
+        """Labels for the coordinates in the phase space.
         Length must be 3 + vdim, where the first 3 are the spatial coordinates and the last vdim are the velocity coordinates."""
         pass
 
@@ -1602,10 +1602,10 @@ class Particles(metaclass=ABCMeta):
 
         bin_edges : list[np.ndarray]
             List of bin edges (resolution) having the length of True entries in components.
-            
+
         do_plot : bool
-            Whether to show the plot (default: False). 
-            
+            Whether to show the plot (default: False).
+
         Returns
         -------
         err : float
@@ -1623,21 +1623,23 @@ class Particles(metaclass=ABCMeta):
         f_slice, df_slice = self.binning(components, bin_edges)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
-        
+
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
             i = int(indices[0])
             resol = bin_centers[0]
-            integrate_resol = [.5, .5, .5] + [100]*self.vdim
+            integrate_resol = [0.5, 0.5, 0.5] + [100] * self.vdim
             integrate_resol[i] = None
             if i < 3:
                 v_lim = 5
             else:
                 v_lim = bin_edges[0][-1]
-            f_init, pts, _, _ = self.f_init.reduced_eval(dim_1=i, v_lim=v_lim, resol=resol, integrate_resol=integrate_resol)
-            
+            f_init, pts, _, _ = self.f_init.reduced_eval(
+                dim_1=i, v_lim=v_lim, resol=resol, integrate_resol=integrate_resol
+            )
+
             if do_plot:
                 plt.plot(pts, f_init, "r--", label="analytic initial condition")
                 plt.xlabel(self.coordinate_labels[i])
@@ -1646,7 +1648,7 @@ class Particles(metaclass=ABCMeta):
         else:
             i = int(indices[0])
             j = int(indices[1])
-            
+
             if do_plot:
                 plt.subplot(1, 2, 1)
                 plt.contourf(bin_centers[0], bin_centers[1], f_slice.T, levels=20)
@@ -1656,24 +1658,25 @@ class Particles(metaclass=ABCMeta):
                 plt.title("Binned f")
 
             resol = tuple(bin_centers)
-            integrate_resol = [.5, .5, .5] + [100]*self.vdim
+            integrate_resol = [0.5, 0.5, 0.5] + [100] * self.vdim
             integrate_resol[i] = None
             integrate_resol[j] = None
-            
+
             v_lim = [5, 5]
             if i > 2:
                 v_lim[0] = bin_edges[0][-1]
             if j > 2:
                 v_lim[1] = bin_edges[1][-1]
             v_lim = tuple(v_lim)
-            
-            f_init, pts1, pts2, _ = self.f_init.reduced_eval(dim_1=i,
-                                                         dim_2=j,
-                                                         v_lim=v_lim,
-                                                         resol=resol, 
-                                                         integrate_resol=integrate_resol,
-                                                         )
-            
+
+            f_init, pts1, pts2, _ = self.f_init.reduced_eval(
+                dim_1=i,
+                dim_2=j,
+                v_lim=v_lim,
+                resol=resol,
+                integrate_resol=integrate_resol,
+            )
+
             if do_plot:
                 plt.subplot(1, 2, 2)
                 plt.contourf(pts1, pts2, f_init.T, levels=20)
@@ -1686,7 +1689,7 @@ class Particles(metaclass=ABCMeta):
             plt.show()
 
         err = np.max(np.abs(f_init - f_slice)) / np.max(f_init)
-            
+
         return err
 
     @profile
