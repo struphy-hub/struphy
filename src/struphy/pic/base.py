@@ -15,6 +15,7 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+import numpy as np
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -1587,7 +1588,7 @@ class Particles(metaclass=ABCMeta):
 
         return f_slice, df_slice
 
-    def show_distribution_function(self, components: list[bool], bin_edges: list[xp.ndarray], do_plot=False):
+    def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray], do_plot=False):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -1598,7 +1599,7 @@ class Particles(metaclass=ABCMeta):
             List of length 3+vdim giving the directions in phase space in which to bin.
             Up to two entries can be True, the rest must be False. The True entries correspond to the axes of the binning.
 
-        bin_edges : list[xp.ndarray]
+        bin_edges : list[np.ndarray]
             List of bin edges (resolution) having the length of True entries in components.
 
         do_plot : bool
@@ -1614,7 +1615,7 @@ class Particles(metaclass=ABCMeta):
 
         assert len(components) == 3 + self.vdim, f"components must be of length {3 + self.vdim}, is {len(components)}."
 
-        n_dim = xp.count_nonzero(components)
+        n_dim = np.count_nonzero(components)
 
         assert n_dim == 1 or n_dim == 2, f"Distribution function can only be shown in 1D or 2D slices, not {n_dim}."
 
@@ -1622,7 +1623,7 @@ class Particles(metaclass=ABCMeta):
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
 
-        indices = xp.nonzero(components)[0]
+        indices = np.nonzero(components)[0]
 
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
@@ -1686,7 +1687,7 @@ class Particles(metaclass=ABCMeta):
         if do_plot:
             plt.show()
 
-        err = xp.max(xp.abs(f_init - f_slice)) / xp.max(f_init)
+        err = np.max(np.abs(f_init - f_slice)) / np.max(f_init)
 
         return err
 
