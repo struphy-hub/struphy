@@ -1187,26 +1187,41 @@ def surface_kernel_3d_mat(
     nq1 = shape(w1)[1]
     nq2 = shape(w2)[1]
 
-    starts = [starts0, starts1, starts2]
-    pads = [pads0, pads1, pads2]
-    pi = [pi0, pi1, pi2]
-    pj = [pj0, pj1, pj2]
-
-    surf_dirs = [d for d in range(3) if d != normal_dir]
-
-    pi_s1 = pi[surf_dirs[0]]
-    pi_s2 = pi[surf_dirs[1]]
-
-    pj_s1 = pj[surf_dirs[0]]
-    pj_s2 = pj[surf_dirs[1]]
-
-    starts_n = starts[normal_dir]
-    starts_s1 = starts[surf_dirs[0]]
-    starts_s2 = starts[surf_dirs[1]]
-
-    pads_n = pads[normal_dir]
-    pads_s1 = pads[surf_dirs[0]]
-    pads_s2 = pads[surf_dirs[1]]
+    # Select the normal (n) and the two tangential (s1, s2) directions with scalars only:
+    # Python lists would make pyccel generate gFTL containers, which we want to avoid as a dependency.
+    if normal_dir == 0:
+        pi_s1 = pi1
+        pi_s2 = pi2
+        pj_s1 = pj1
+        pj_s2 = pj2
+        starts_n = starts0
+        starts_s1 = starts1
+        starts_s2 = starts2
+        pads_n = pads0
+        pads_s1 = pads1
+        pads_s2 = pads2
+    elif normal_dir == 1:
+        pi_s1 = pi0
+        pi_s2 = pi2
+        pj_s1 = pj0
+        pj_s2 = pj2
+        starts_n = starts1
+        starts_s1 = starts0
+        starts_s2 = starts2
+        pads_n = pads1
+        pads_s1 = pads0
+        pads_s2 = pads2
+    else:
+        pi_s1 = pi0
+        pi_s2 = pi1
+        pj_s1 = pj0
+        pj_s2 = pj1
+        starts_n = starts2
+        starts_s1 = starts0
+        starts_s2 = starts1
+        pads_n = pads2
+        pads_s1 = pads0
+        pads_s2 = pads1
 
     i_local_n = boundary_index - starts_n
 

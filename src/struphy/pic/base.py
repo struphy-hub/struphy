@@ -2997,14 +2997,12 @@ class Particles(metaclass=ABCMeta):
                         flat_eval=flat_eval,
                     )
 
-                    out0 = self.f0.n0(E1, E2, E3)
+                    out = self.f0.n0(E1, E2, E3)
 
-                    if _density is None:
-                        out = out0
-                    else:
+                    if _density is not None:
                         out1 = _density(E1, E2, E3)
-                        assert out0.shape == out1.shape
-                        out = out0 + out1
+                        assert out.shape == out1.shape
+                        out += out1
 
                     if flat_eval:
                         out = xp.squeeze(out)
@@ -3014,10 +3012,9 @@ class Particles(metaclass=ABCMeta):
                 # see _f_init above for why this conversion is needed.
                 etas = tuple(_dev(e) for e in etas)
                 if len(etas) == 1:
-                    if _u1 is None:
-                        out = self.f0.uv(etas[0])
-                    else:
-                        out = self.f0.uv(etas[0]) + _u1(*etas[0].T)
+                    out = self.f0.uv(etas[0])
+                    if _u1 is not None:
+                        out[0] += _u1(*etas[0].T)
                 else:
                     assert len(etas) == 3
                     E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
@@ -3027,14 +3024,12 @@ class Particles(metaclass=ABCMeta):
                         flat_eval=flat_eval,
                     )
 
-                    out0 = self.f0.uv(E1, E2, E3)
+                    out = self.f0.uv(E1, E2, E3)
 
-                    if _u1 is None:
-                        out = out0
-                    else:
+                    if _u1 is not None:
                         out1 = _u1(E1, E2, E3)
-                        assert out0.shape == out1.shape
-                        out = out0 + out1
+                        assert out[0].shape == out1.shape
+                        out[0] += out1
 
                     if flat_eval:
                         out = xp.squeeze(out)

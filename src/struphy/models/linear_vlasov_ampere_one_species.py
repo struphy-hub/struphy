@@ -20,7 +20,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
 from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vin_efield import PushVinEfield
+from struphy.propagators.push_v_in_force_field import PushVinForceField
 from struphy.propagators.push_vxb import PushVxB
 
 logger = logging.getLogger("struphy")
@@ -85,7 +85,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         ):
             self.push_eta = PushEta()
             if with_E0:
-                self.push_vinE = PushVinEfield()
+                self.push_vinE = PushVinForceField()
             self.coupling_Eweights = EfieldWeightsCoupling()
             if with_B0:
                 self.push_vxb = PushVxB()
@@ -165,7 +165,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     def velocity_scale(self):
         return "light"
 
-    def allocate_helpers(self):
+    def post_allocate(self):
         """Solve initial Poisson equation.
 
         :meta private:
@@ -174,10 +174,11 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-
+        # No control variate here: the markers of a DeltaFParticles6D species already carry
+        # delta_f alone (w = delta_f / s0 / Np, set by initialize_weights), so subtracting the
+        # background f0 a second time -- which is what update_weights does -- would leave every
+        # weight offset by the constant -f0 / s0 / Np. That constant is a net charge, and it makes
+        # the periodic Poisson problem below singular.
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
@@ -310,7 +311,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.push_vin_efield.PushVinEfield` (if :attr:`with_E0` is True)
+        2. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField` (if :attr:`with_E0` is True)
         3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
         4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
         """
@@ -318,9 +319,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     {PushEta.__doc__}
 
-    **2. push_vin_efield.PushVinEfield:**
+    **2. push_v_in_force_field.PushVinForceField:**
 
-    {PushVinEfield.__doc__}
+    {PushVinForceField.__doc__}
 
 **3. efield_weights_coupling.EfieldWeightsCoupling:**
 
