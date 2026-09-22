@@ -29,7 +29,7 @@ class Particles6D(Particles):
     # Class properties
     vdim = 3
     """Dimension of the (Cartesian) velocity space, here 3."""
-    coordinate_labels = ("$\\eta1$", "$\\eta2$", "$\\eta3$", "$v_x$", "$v_y$", "$v_z$")
+    coordinate_labels = ("$\\eta_1$", "$\\eta_2$", "$\\eta_3$", "$v_x$", "$v_y$", "$v_z$")
     """Labels for the coordinates in the phase space. Length is 6, with the first 3 being the spatial coordinates and the last 3 being the velocity coordinates."""
     default_background = maxwellians.Maxwellian3D()
     """Default kinetic background is a 3D Cartesian Maxwellian."""
@@ -260,7 +260,7 @@ class Particles5D(Particles):
     # Class properties
     vdim = 2
     """Dimension of the velocity space, here 2 (:math:`v_\\parallel, \\mu`)."""
-    coordinate_labels = ("$\\eta1$", "$\\eta2$", "$\\eta3$", "$v_\\parallel$", "$\\mu$")
+    coordinate_labels = ("$\\eta_1$", "$\\eta_2$", "$\\eta_3$", "$v_\\parallel$", "$\\mu$")
     """Labels for the coordinates in the phase space. Length is 5, with the first 3 being the spatial coordinates and the last 2 being the velocity coordinates."""
     mu_idx = 4
     """Column index of particle magnetic moment."""
@@ -518,7 +518,7 @@ class Particles5Dvperp(Particles):
     # Class properties
     vdim = 2
     """Dimension of the velocity space, here 2 (:math:`v_\\parallel, v_\\perp`)."""
-    coordinate_labels = ("$\\eta1$", "$\\eta2$", "$\\eta3$", "$v_\\parallel$", "$v_\\perp$")
+    coordinate_labels = ("$\\eta_1$", "$\\eta_2$", "$\\eta_3$", "$v_\\parallel$", "$v_\\perp$")
     """Labels for the coordinates in the phase space. Length is 5, with the first 3 being the spatial coordinates and the last 2 being the velocity coordinates."""
     default_background = maxwellians.GyroMaxwellian2Dvperp()
     """Default kinetic background is a gyrotropic Maxwellian in :math:`(v_\\parallel, v_\\perp)`."""
@@ -811,7 +811,7 @@ class Particles3D(Particles):
     # Class properties
     vdim = 0
     """Dimension of the velocity space, here 0 (no velocity coordinates)."""
-    coordinate_labels = ("$\\eta1$", "$\\eta2$", "$\\eta3$")
+    coordinate_labels = ("$\\eta_1$", "$\\eta_2$", "$\\eta_3$")
     """Labels for the coordinates in the phase space. Length is 3, with all being spatial coordinates."""
     default_background = maxwellians.ColdPlasma()
     """Default kinetic background is a cold-plasma (velocity-independent) density."""
@@ -888,7 +888,7 @@ class ParticlesSPH(Particles):
     # Class properties
     vdim = 3
     """Dimension of the per-marker Cartesian velocity attribute, here 3 (not a sampled coordinate, see class docstring)."""
-    coordinate_labels = ("$\\eta1$", "$\\eta2$", "$\\eta3$", "$v_x$", "$v_y$", "$v_z$")
+    coordinate_labels = ("$\\eta_1$", "$\\eta_2$", "$\\eta_3$", "$v_x$", "$v_y$", "$v_z$")
     """Labels for the coordinates in the phase space. Length is 6, with the first 3 being the spatial coordinates and the last 3 being the velocity coordinates."""
     default_background = equils.ConstantVelocity()
     """Default fluid background is a spatially constant velocity field."""

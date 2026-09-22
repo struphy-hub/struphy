@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 import warnings
@@ -16,7 +15,6 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
-import numpy as np
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -1589,7 +1587,7 @@ class Particles(metaclass=ABCMeta):
 
         return f_slice, df_slice
 
-    def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray], do_plot=False):
+    def show_distribution_function(self, components: list[bool], bin_edges: list[xp.ndarray], do_plot=False):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -1600,7 +1598,7 @@ class Particles(metaclass=ABCMeta):
             List of length 3+vdim giving the directions in phase space in which to bin.
             Up to two entries can be True, the rest must be False. The True entries correspond to the axes of the binning.
 
-        bin_edges : list[np.ndarray]
+        bin_edges : list[xp.ndarray]
             List of bin edges (resolution) having the length of True entries in components.
 
         do_plot : bool
@@ -1624,13 +1622,13 @@ class Particles(metaclass=ABCMeta):
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
 
-        indices = np.nonzero(components)[0]
+        indices = xp.nonzero(components)[0]
 
         if n_dim == 1:
             plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
             i = int(indices[0])
             resol = bin_centers[0]
-            integrate_resol = [0.5, 0.5, 0.5] + [100] * self.vdim
+            integrate_resol = [0.5, 0.5, 0.5] + [32] * self.vdim
             integrate_resol[i] = None
             if i < 3:
                 v_lim = 5
@@ -1688,7 +1686,7 @@ class Particles(metaclass=ABCMeta):
         if do_plot:
             plt.show()
 
-        err = np.max(np.abs(f_init - f_slice)) / np.max(f_init)
+        err = xp.max(xp.abs(f_init - f_slice)) / xp.max(f_init)
 
         return err
 
