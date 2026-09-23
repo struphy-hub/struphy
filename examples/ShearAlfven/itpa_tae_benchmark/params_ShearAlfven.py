@@ -59,14 +59,14 @@ model.mhd.velocity.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
-    save_step=2,
+    save_step=10,
     out_folders="/u/shrusi/git_repos/struphy/examples/ShearAlfven/itpa_tae_benchmark/",
-    sim_folder="sim5_higherResolution_ShearAlfven",
-    max_runtime=230
+    sim_folder="sim6_higherResolution_ShearAlfven",
+    max_runtime=470
     )
 
 # Time stepping
-time_opts = Time(dt=0.5, Tend=500.)
+time_opts = Time(dt=0.1, Tend=500.)
 
 # Geometry
 domain = domains.HollowTorus(
