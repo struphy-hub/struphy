@@ -397,7 +397,7 @@ def export_profiling(sim, stem: str) -> dict:
     example page renders as native Plotly figures. Returns the metadata fields that point to them,
     ready for `merge_metadata`.
     """
-    from _profiling_exports import plot_durations
+
     from scope_profiler import plot_gantt, read_h5, write_region_statistics_json
 
     barrier()  # the ranks write the profiling file together
