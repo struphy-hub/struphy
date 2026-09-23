@@ -111,6 +111,22 @@ class SchurSolver:
         self._BC = bc
         self._cached_dt = None
 
+    def _update_operators(self, dt):
+        """Rebuild the Schur and right-hand side operators when inputs change."""
+        if dt == self._cached_dt:
+            return
+
+        self._schur *= 0.0
+        self._schur += self._BC
+        self._schur *= -(dt**2)
+        self._schur += self._A
+
+        self._rhs_m *= 0.0
+        self._rhs_m += self._BC
+        self._rhs_m *= dt**2
+        self._rhs_m += self._A
+        self._cached_dt = dt
+
     @profile
     @ProfileManager.profile("solve: SchurSolver")
     def __call__(self, xn, Byn, dt, out=None):
@@ -144,19 +160,8 @@ class SchurSolver:
         assert xn.space == self._A.domain
         assert Byn.space == self._A.codomain
 
-        # Both operators are constant until dt, A, or BC changes. Updating the
-        # Schur matrix in place keeps the iterative solver's operator attached.
-        if dt != self._cached_dt:
-            self._schur *= 0.0
-            self._schur += self._BC
-            self._schur *= -(dt**2)
-            self._schur += self._A
-
-            self._rhs_m *= 0.0
-            self._rhs_m += self._BC
-            self._rhs_m *= dt**2
-            self._rhs_m += self._A
-            self._cached_dt = dt
+        # Updating the Schur matrix in place keeps the iterative solver attached.
+        self._update_operators(dt)
 
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
         rhs = self._rhs_m.dot(xn, out=self._rhs)
