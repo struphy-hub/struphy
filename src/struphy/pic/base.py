@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 import warnings
@@ -18,6 +17,7 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+import numpy as np
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -546,6 +546,13 @@ class Particles(metaclass=ABCMeta):
     @abstractmethod
     def vdim(self):
         """Dimension of the velocity space."""
+        pass
+
+    @property
+    @abstractmethod
+    def coordinate_labels(self) -> tuple[str]:
+        """Labels for the coordinates in the phase space.
+        Length must be 3 + vdim, where the first 3 are the spatial coordinates and the last vdim are the velocity coordinates."""
         pass
 
     @property
@@ -1814,7 +1821,7 @@ class Particles(metaclass=ABCMeta):
         # same backend as everything else this class returns.
         return xp.asarray(f_slice), xp.asarray(df_slice)
 
-    def show_distribution_function(self, components, bin_edges):
+    def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray], do_plot=False):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -1822,13 +1829,24 @@ class Particles(metaclass=ABCMeta):
         Parameters
         ----------
         components : list[bool]
-            List of length 6 giving the directions in phase space in which to bin.
+            List of length 3+vdim giving the directions in phase space in which to bin.
+            Up to two entries can be True, the rest must be False. The True entries correspond to the axes of the binning.
 
-        bin_edges : list[array]
+        bin_edges : list[np.ndarray]
             List of bin edges (resolution) having the length of True entries in components.
+
+        do_plot : bool
+            Whether to show the plot (default: False).
+
+        Returns
+        -------
+        err : float
+            Maximum relative error between the binned distribution function and the analytic initial condition.
         """
 
         import matplotlib.pyplot as plt
+
+        assert len(components) == 3 + self.vdim, f"components must be of length {3 + self.vdim}, is {len(components)}."
 
         n_dim = np.count_nonzero(components)
 
@@ -1838,27 +1856,73 @@ class Particles(metaclass=ABCMeta):
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
 
-        labels = {
-            0: r"$\eta_1$",
-            1: r"$\eta_2$",
-            2: r"$\eta_3$",
-            3: "$v_1$",
-            4: "$v_2$",
-            5: "$v_3$",
-        }
-        indices = xp.nonzero(components)[0]
+        indices = np.nonzero(components)[0]
 
         if n_dim == 1:
-            plt.plot(bin_centers[0], f_slice)
-            plt.xlabel(labels[indices[0]])
-        else:
-            plt.contourf(bin_centers[0], bin_centers[1], df_slice.T, levels=20)
-            plt.colorbar()
-            # plt.axis('square')
-            plt.xlabel(labels[indices[0]])
-            plt.ylabel(labels[indices[1]])
+            plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
+            i = int(indices[0])
+            resol = bin_centers[0]
+            integrate_resol = [0.5, 0.5, 0.5] + [32] * self.vdim
+            integrate_resol[i] = None
+            if i < 3:
+                v_lim = 5
+            else:
+                v_lim = bin_edges[0][-1]
+            f_init, pts, _, _ = self.f_init.reduced_eval(
+                dim_1=i, v_lim=v_lim, resol=resol, integrate_resol=integrate_resol
+            )
 
-        plt.show()
+            if do_plot:
+                plt.plot(pts, f_init, "r--", label="analytic initial condition")
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel("f")
+                plt.legend()
+        else:
+            i = int(indices[0])
+            j = int(indices[1])
+
+            if do_plot:
+                plt.subplot(1, 2, 1)
+                plt.contourf(bin_centers[0], bin_centers[1], f_slice.T, levels=20)
+                plt.colorbar()
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel(self.coordinate_labels[j])
+                plt.title("Binned f")
+
+            resol = tuple(bin_centers)
+            integrate_resol = [0.5, 0.5, 0.5] + [100] * self.vdim
+            integrate_resol[i] = None
+            integrate_resol[j] = None
+
+            v_lim = [5, 5]
+            if i > 2:
+                v_lim[0] = bin_edges[0][-1]
+            if j > 2:
+                v_lim[1] = bin_edges[1][-1]
+            v_lim = tuple(v_lim)
+
+            f_init, pts1, pts2, _ = self.f_init.reduced_eval(
+                dim_1=i,
+                dim_2=j,
+                v_lim=v_lim,
+                resol=resol,
+                integrate_resol=integrate_resol,
+            )
+
+            if do_plot:
+                plt.subplot(1, 2, 2)
+                plt.contourf(pts1, pts2, f_init.T, levels=20)
+                plt.colorbar()
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel(self.coordinate_labels[j])
+                plt.title("Analytic initial condition")
+
+        if do_plot:
+            plt.show()
+
+        err = np.max(np.abs(f_init - f_slice)) / np.max(f_init)
+
+        return err
 
     @profile
     @ProfileManager.profile("mpi_sort_markers")
