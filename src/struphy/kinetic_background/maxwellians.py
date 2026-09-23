@@ -214,7 +214,11 @@ class GyroMaxwellian2D(Maxwellian):
 
         B0 = self.params["B0"]
 
-        return B0(eta1, eta2, eta3) if callable(B0) else B0 + 0 * eta1
+        if callable(B0):
+            etas = xp.stack((eta1, eta2, eta3), axis=1)
+            return B0(etas)
+
+        return B0 + 0 * eta1
 
     @property
     def volume_form(self) -> bool:
