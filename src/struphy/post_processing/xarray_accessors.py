@@ -374,6 +374,24 @@ class SliceView:
 class ArrayAnalysis(_ArrayAccessor):
     """Quantitative diagnostics of one array, as ``array.struphy.analysis.<quantity>(...)``."""
 
+    def fft(self, *, dim: str, detrend: bool = False, window: str | None = None):
+        """Two-sided Fourier coefficients; see :func:`struphy.post_processing.time_fft.fft`."""
+        from struphy.post_processing.time_fft import fft
+
+        return fft(self._array, dim=dim, detrend=detrend, window=window)
+
+    def time_fft(self, *, detrend: bool = False, window: str | None = None):
+        """Temporal coefficients and power; see :func:`struphy.post_processing.time_fft.time_fft`."""
+        from struphy.post_processing.time_fft import time_fft
+
+        return time_fft(self._array, detrend=detrend, window=window)
+
+    def filter_time(self, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0):
+        """Dominant-band reconstruction; see :func:`struphy.post_processing.time_fft.filter_time`."""
+        from struphy.post_processing.time_fft import filter_time
+
+        return filter_time(self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins)
+
     def growth_rate(self, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
         """Fit ``exp(rate * t + intercept)`` to this time series within ``window``.
 

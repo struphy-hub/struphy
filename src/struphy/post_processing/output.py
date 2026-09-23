@@ -304,6 +304,24 @@ class Output:
             raise ValueError("method requires a coordinate selection through sel")
         return array.to_numpy() if as_numpy else array
 
+    def fft(self, product: str | xr.DataArray, *, dim: str, detrend: bool = False, window: str | None = None):
+        """Two-sided Fourier coefficients along a named coordinate; see :func:`struphy.post_processing.time_fft.fft`."""
+        from struphy.post_processing.time_fft import fft
+
+        return fft(self._array(product), dim=dim, detrend=detrend, window=window)
+
+    def time_fft(self, product: str | xr.DataArray, *, detrend: bool = False, window: str | None = None):
+        """One-sided temporal coefficients and per-bin power; see :func:`struphy.post_processing.time_fft.time_fft`."""
+        from struphy.post_processing.time_fft import time_fft
+
+        return time_fft(self._array(product), detrend=detrend, window=window)
+
+    def filter_time(self, product: str | xr.DataArray, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0):
+        """Reconstruct the dominant temporal band; see :func:`struphy.post_processing.time_fft.filter_time`."""
+        from struphy.post_processing.time_fft import filter_time
+
+        return filter_time(self._array(product), dims=dims, omega_min=omega_min, pad_bins=pad_bins)
+
     def growth_rate(self, product: str | xr.DataArray, *, window=(None, None), amplitude: bool = False):
         """Fit exponential growth of a scalar product and return a ``FitResult``."""
         from struphy.diagnostics.analysis import GrowthFit, growth_rate

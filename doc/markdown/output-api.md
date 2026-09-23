@@ -132,6 +132,76 @@ html_report = out.report("report", format="html")
 `out.xarray` provides the complete lazy xarray `DataTree` when access to the grouped product
 store is useful. Prefer `evaluate(key)` for normal single-product work.
 
+## Fourier spectra and temporal filtering
+
+Fourier diagnostics operate on a saved product name or a selected `DataArray`.
+They run on demand; no FFT option on `pproc()` and no legacy pickle files are
+needed. Select a component, slice or time interval before transforming when you
+do not need the full field: the selected values are loaded into memory.
+
+```python
+velocity = out.evaluate("mhd/velocity_xyz").isel(e3=0)
+spectrum = out.time_fft(velocity)
+coefficients = spectrum.coefficients       # complex, t replaced by omega
+power_at_each_point = spectrum.power       # one-sided mean-square power per bin
+plane_power = spectrum.power.mean(("e1", "e2"))
+
+# Optional mean subtraction and a periodic Hann taper for spectral inspection
+tapered = out.time_fft(velocity, detrend=True, window="hann")
+
+# A two-sided FFT along any uniform numeric coordinate, including complex data
+initial = out.evaluate("mhd/velocity").isel(t=0, component=0, e1=4, e3=0)
+initial = initial.isel(e2=slice(None, -1))  # if the grid includes both periodic endpoints
+modes = out.fft(initial, dim="e2")         # complex coefficients, coordinate k_e2
+m = modes.k_e2 / (2 * np.pi)              # eta2 has period 1
+```
+
+All transforms divide coefficients by the sample count `N`. `time_fft` doubles
+positive-frequency **power**, except DC and the even-length Nyquist bin. Thus
+`spectrum.power.sum("omega")` equals the time mean square of the input. With a
+window or mean subtraction it equals the mean square of that processed signal;
+no window-amplitude correction is applied. Power is per bin, not a density per
+unit frequency, and a sum over spatial samples is not a volume-weighted energy.
+
+Frequencies are angular: `omega = 2*pi*f`, with units inverse to the supplied
+time coordinate (`rad / s` when time is in seconds). Sampling comes from the
+saved times, including `save_step`/post-processing downsampling, not the original
+solver time step. `frequency_resolution`, `nyquist_frequency`, `n_samples` and
+`sample_spacing` are recorded in the result attributes. At least two finite,
+strictly increasing, uniformly spaced samples are required. Irregular grids
+(including an off-cadence final sample), NaNs and complex input to the one-sided
+time transform are rejected. The general `fft` supports complex data. Duplicate
+spatial endpoints must be removed explicitly; the temporal last sample is retained.
+
+To reproduce the dominant-frequency filtering workflow from the TAE example:
+
+```python
+result = out.filter_time(velocity, dims=("e1", "e2"), omega_min=1e-8, pad_bins=0)
+filtered_velocity = result.filtered       # original dimensions, coordinates and units
+bands = result.spectrum                   # reduced power, dominant_frequency, omega_lo/hi
+print(bands[["dominant_frequency", "omega_lo", "omega_hi", "has_peak"]])
+
+# Wider band, recomputed in memory without rerunning the simulation or pproc
+wider = out.filter_time(velocity, pad_bins=2)
+```
+
+Power is summed over `dims` to choose a contiguous full-width-at-half-maximum
+band for each remaining dimension. The default reduces all dimensions except
+`t` and `component`, so every component has one band shared across space.
+`dims=()` selects a band independently at every point. Padding adds bins on
+either side but never includes frequencies below the positive `omega_min`.
+Filtering uses an untapered transform and preserves neither the DC offset nor
+unselected modes. A zero or constant component returns zero filtered values,
+`has_peak=False`, NaN frequency bounds and indices of −1. No peak is invented
+for it. Short records, off-bin frequencies and abrupt band edges can produce
+leakage and ringing: a strongest bin does not by itself identify an eigenfrequency.
+
+`inverse_time_fft(spectrum.coefficients, velocity)` from
+`struphy.post_processing.time_fft` reconstructs a time series, using the template
+to retain the original coordinates and distinguish odd/even lengths. Windowing
+and mean subtraction are not undone. The same diagnostics are available as
+`array.struphy.analysis.fft(...)`, `.time_fft(...)` and `.filter_time(...)`.
+
 ## Reduce a distribution function
 
 A binned distribution usually has more dimensions than a question needs. `spatial_average`
