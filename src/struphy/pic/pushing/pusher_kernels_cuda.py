@@ -35,6 +35,7 @@ the function itself only builds the argument tuple and calls
 :func:`~struphy.cuda.launch_1d`. If a function in this module does *not* sit
 next to a ``CudaKernel``, it does not touch the GPU.
 """
+
 from struphy.cuda import CudaKernel, launch_1d, load_cuda_source
 
 _PUSH_V_EFIELD_CUBOID_SRC = load_cuda_source(__file__, "pusher_kernels_cuda/_push_v_efield_cuboid_src.cu")

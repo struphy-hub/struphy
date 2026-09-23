@@ -10,9 +10,7 @@ from struphy import set_logging_level
 # assembly, particle-to-grid accumulation). Under ARRAY_BACKEND=cupy they are
 # skipped rather than run to failure, so a GPU CI run reports the state of
 # the actually-ported code paths instead of drowning in known gaps.
-_NEEDS_HOST_KERNELS_SKIP_REASON = (
-    "needs_host_kernels: not yet ported to the CuPy backend (ARRAY_BACKEND=cupy)"
-)
+_NEEDS_HOST_KERNELS_SKIP_REASON = "needs_host_kernels: not yet ported to the CuPy backend (ARRAY_BACKEND=cupy)"
 
 
 def set_logging_level_pytest(config):
