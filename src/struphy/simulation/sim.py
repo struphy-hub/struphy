@@ -7,10 +7,10 @@ import shutil
 import sysconfig
 import time
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
-import pyvista as pv
 import yaml
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
@@ -20,13 +20,14 @@ from line_profiler import profile
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
 
+if TYPE_CHECKING:
+    import pyvista as pv
+
 # api imports
 from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    PlottingData,
-    PostProcessor,
     ProfilingOptions,
     Time,
     domains,
@@ -53,7 +54,6 @@ from struphy.fields_background.projected_equils import (
 )
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
-from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
@@ -507,6 +507,8 @@ class Simulation(SimulationBase):
         ]
 
         # Create PyVista structured grid
+        import pyvista as pv
+
         mesh = pv.StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         # Add point data
@@ -530,8 +532,10 @@ class Simulation(SimulationBase):
         nz: int = 32,
         window_size: tuple | None = None,
         zoom_factor: int = 1.0,
-    ) -> pv.Plotter:
+    ) -> "pv.Plotter":
         """Visualize the geometry and (projected) equilibrium fields using PyVista."""
+        import pyvista as pv
+
         if self.rank == 0:
             mesh = self.create_geometry_mesh(nx=nx, ny=ny, nz=nz)
 
@@ -888,6 +892,9 @@ class Simulation(SimulationBase):
         physical field views, and optionally produce VTK outputs.
         """
 
+        # imported here: the post-processing machinery is only needed after a run and is slow to import
+        from struphy import PostProcessor
+
         # setup post processor and plotting
         if parallel_pproc:
             self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
@@ -920,6 +927,8 @@ class Simulation(SimulationBase):
         data and exposes convenient attributes such as `orbits`, `f`, and
         grid information for downstream plotting or analysis.
         """
+
+        from struphy import PlottingData
 
         if not hasattr(self, "_plotting_data") and self.rank == 0:
             self._plotting_data = PlottingData(sim=self)

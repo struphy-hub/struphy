@@ -6,8 +6,6 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-import scipy
-import scipy.special
 
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
@@ -374,6 +372,8 @@ class CoaxialWaveguideElectric_r(Perturbation):
         self.comp = 0
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -419,6 +419,8 @@ class CoaxialWaveguideElectric_theta(Perturbation):
         self.comp = 1
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -461,6 +463,8 @@ class CoaxialWaveguideMagnetic(Perturbation):
         self.comp = 2
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi

@@ -10,26 +10,14 @@ import cunumpy as xp
 import h5py
 import numpy as np
 from cunumpy import PyccelKernel
-from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
-from scipy.sparse.linalg import splu, spsolve
-
-try:
-    from IPython.display import HTML, display
-except ImportError:
-
-    def HTML(data):
-        return data
-
-    def display(*objects, **kwargs):
-        return objects[0] if objects else None
-
 
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -1716,6 +1704,8 @@ class Domain(metaclass=DomainMeta):
         grids_phy = [tmp[0], tmp[1], tmp[2]]
 
         # Create PyVista structured grid
+        from pyvista import StructuredGrid
+
         mesh = StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         return mesh
@@ -1727,6 +1717,8 @@ class Domain(metaclass=DomainMeta):
         nz: int = 32,
     ):
         """Show the 3D geometry using PyVista."""
+        from pyvista import Plotter
+
         mesh = self.create_geometry_mesh(nx, ny, nz)
         plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
@@ -2444,6 +2436,8 @@ def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
         The control points.
     """
 
+    from scipy.sparse.linalg import splu, spsolve
+
     # number of basis functions
     NbaseN = [
         num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
@@ -2532,6 +2526,8 @@ def spline_interpolation_nd(degree: list, spl_kind: list, grids_1d: list, values
     indN : list[array]
         Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
     """
+
+    from scipy.sparse.linalg import splu
 
     T = []
     indN = []
