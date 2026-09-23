@@ -71,12 +71,14 @@ class SchurSolver:
         self._A = A
         self._BC = BC
 
-        # Allocate memory for matrices used in solving the Schur system
-        self._schur = A.copy()
-        self._rhs_m = A.copy()
+        # Operators are built lazily once dt is known.  In particular, do not
+        # construct these by zeroing a copy of A: for structured operators a
+        # zeroed matrix can still execute a full (and expensive) matvec.
+        self._schur = None
+        self._rhs_m = None
         self._cached_dt = None
 
-        # Keep the solver attached to the Schur matrix, which is updated in place.
+        # The solver is attached to the cached Schur operator once dt is known.
         self._solver_name = solver_name
 
         kwargs = solver_params.__dict__.copy()
@@ -84,7 +86,7 @@ class SchurSolver:
         if precond is not None:
             kwargs["pc"] = precond
 
-        self._solver = inverse(self._schur, solver_name, **kwargs)
+        self._solver = inverse(A, solver_name, **kwargs)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = A.codomain.zeros()
@@ -116,15 +118,10 @@ class SchurSolver:
         if dt == self._cached_dt:
             return
 
-        self._schur *= 0.0
-        self._schur += self._BC
-        self._schur *= -(dt**2)
-        self._schur += self._A
-
-        self._rhs_m *= 0.0
-        self._rhs_m += self._BC
-        self._rhs_m *= dt**2
-        self._rhs_m += self._A
+        dt2 = dt**2
+        self._schur = self._A - dt2 * self._BC
+        self._rhs_m = self._A + dt2 * self._BC
+        self._solver.linop = self._schur
         self._cached_dt = dt
 
     @profile
@@ -160,7 +157,7 @@ class SchurSolver:
         assert xn.space == self._A.domain
         assert Byn.space == self._A.codomain
 
-        # Updating the Schur matrix in place keeps the iterative solver attached.
+        # Reuse both composite operators while dt, A and BC are unchanged.
         self._update_operators(dt)
 
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)

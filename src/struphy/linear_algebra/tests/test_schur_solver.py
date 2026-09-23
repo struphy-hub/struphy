@@ -27,30 +27,31 @@ def test_schur_solver_reuses_fixed_step_and_rebuilds_after_changes(monkeypatch):
     xn = space.zeros()
     xn[:] = 1.0
     byn = space.zeros()
-    schur_matrix = solver._solver.linop
     rebuilds = 0
-    original_imul = StencilMatrix.__imul__
+    original_setter = type(solver._solver).linop.fset
 
-    def count_rebuilds(matrix, value):
+    def count_rebuilds(inverse, matrix):
         nonlocal rebuilds
-        if matrix is schur_matrix:
-            rebuilds += 1
-        return original_imul(matrix, value)
+        rebuilds += 1
+        return original_setter(inverse, matrix)
 
-    monkeypatch.setattr(StencilMatrix, "__imul__", count_rebuilds)
+    monkeypatch.setattr(type(solver._solver), "linop", property(type(solver._solver).linop.fget, count_rebuilds))
 
     def solve(dt, a, bc):
+        old_schur = solver._solver.linop
         result, info = solver(xn, byn, dt)
         assert info["success"]
         assert result.toarray() == pytest.approx((a + dt**2 * bc) / (a - dt**2 * bc))
-        assert solver._solver.linop is schur_matrix
+        return old_schur, solver._solver.linop
 
-    solve(0.5, 4.0, -1.0)
+    _, first_schur = solve(0.5, 4.0, -1.0)
     first_rebuilds = rebuilds
-    solve(0.5, 4.0, -1.0)
+    old_schur, cached_schur = solve(0.5, 4.0, -1.0)
     assert rebuilds == first_rebuilds
-    solve(1.0, 4.0, -1.0)
+    assert old_schur is first_schur is cached_schur
+    _, changed_dt_schur = solve(1.0, 4.0, -1.0)
     assert rebuilds > first_rebuilds
+    assert changed_dt_schur is not cached_schur
 
     solver.BC = diagonal(-2.0)
     solve(1.0, 4.0, -2.0)
@@ -95,6 +96,7 @@ def test_schur_solver_cached_step_benchmark():
         f"full solve cached={cached_solve / steps * 1e3:.2f}ms/step, "
         f"rebuilt={rebuilt_solve / steps * 1e3:.2f}ms/step"
     )
+
 
 if __name__ == "__main__":
     test_schur_solver_cached_step_benchmark()
