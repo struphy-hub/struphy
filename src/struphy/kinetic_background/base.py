@@ -3,12 +3,13 @@
 import copy
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Callable
+from typing import Callable, get_args
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
+import numpy as np
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.geometry.base import Domain
@@ -170,10 +171,10 @@ class KineticBackground(metaclass=ABCMeta):
 
     def reduced_eval(
         self,
-        dim_1: LiteralOptions.KineticDimensionsToPlot = "e1",
-        dim_2: LiteralOptions.KineticDimensionsToPlot | None = None,
+        dim_1: LiteralOptions.KineticDimensionsToPlot | int = "e1",
+        dim_2: LiteralOptions.KineticDimensionsToPlot | int | None = None,
         v_lim: float | tuple[float] = 5.0,
-        resol: int | tuple[int] = 100,
+        resol: int | tuple[int] | np.ndarray | tuple[np.ndarray] = 100,
         integrate_resol: tuple[int | float] | None = None,
         max_points: int = 1e8,
         domain: Domain | None = None,
@@ -186,7 +187,7 @@ class KineticBackground(metaclass=ABCMeta):
 
         Parameters
         ----------
-        dim_1, dim_2 : LiteralOptions.KineticDimensionsToPlot = ["e1","e2","e3","v1","v2","v3"]
+        dim_1, dim_2 : LiteralOptions.KineticDimensionsToPlot | int
             The axis (or axes) along which the reduced distribution is evaluated (i.e. the axes that are not integrated out).
             They refere to logical phase space axes.
             If dim_2 is not defined the reduced distribution is 1D, otherwise it is 2D.
@@ -199,9 +200,9 @@ class KineticBackground(metaclass=ABCMeta):
             For a Cartesian velocity coordinate (and v_parallel), the limits are [-v_lim, v_lim]. For a positive
             velocity coordinate (such as mu or v_perp), the limits are [0, v_lim].
 
-        resol : int | tuple[int]
+        resol : int | tuple[int] | np.ndarray | tuple[np.ndarray]
             Resolution of the evaluation grid along the plotted axis (axes). If a single integer is provided,
-            it is used for both dim_1 and dim_2.
+            it is used for both dim_1 and dim_2. If a numpy array is provided, it is used as the evaluation points along the corresponding axis (or axes).
 
         integrate_resol : tuple[int | float] | None
             Number of quadrature points for integration along each phase space axis.
@@ -232,6 +233,10 @@ class KineticBackground(metaclass=ABCMeta):
             Dictionary with keys "x", "y", "z" holding the domain-mapped position arrays (broadcast to the shape
             of ``reduced_density``), or None if no domain was given.
         """
+        if isinstance(dim_1, int):
+            dim_1 = get_args(LiteralOptions.KineticDimensionsToPlot)[dim_1]
+        if isinstance(dim_2, int):
+            dim_2 = get_args(LiteralOptions.KineticDimensionsToPlot)[dim_2]
 
         if domain is not None:
             assert dim_1 in ["e1", "e2", "e3"] and dim_2 in ["e1", "e2", "e3"], (
@@ -241,7 +246,8 @@ class KineticBackground(metaclass=ABCMeta):
         n_axes_plot = 1 + (dim_2 is not None)
         n_v_to_plot = ("v" in dim_1) + ("v" in dim_2 if dim_2 is not None else 0)
 
-        if isinstance(v_lim, float):
+        if isinstance(v_lim, (int, float)):
+            v_lim = float(v_lim)
             v_lim = (v_lim, v_lim)
         else:
             assert isinstance(v_lim, tuple)
@@ -250,10 +256,20 @@ class KineticBackground(metaclass=ABCMeta):
 
         if isinstance(resol, int):
             resol = (resol,) * n_axes_plot
+            n_eval_pts = resol
+        elif isinstance(resol, np.ndarray):
+            resol = (resol,)
+            n_eval_pts = (resol[0].size,)
+        elif isinstance(resol, tuple):
+            assert len(resol) == n_axes_plot, (
+                f"resol must have length {n_axes_plot} for this evaluation (dim_1, dim_2)."
+            )
+            n_eval_pts = tuple(r.size if isinstance(r, np.ndarray) else r for r in resol)
 
         n_axes_integration = 3 + self.vdim - n_axes_plot
         max_quad_points = max_points
-        for r in resol:
+        
+        for r in n_eval_pts:
             max_quad_points //= r
 
         # phase space grid, first add plotting points for the axes that are plotted
@@ -362,7 +378,7 @@ class KineticBackground(metaclass=ABCMeta):
         self,
         dim: LiteralOptions.KineticDimensionsToPlot,
         v_lim: float,
-        resol: int,
+        resol: int | np.ndarray,
     ):
         """Resolve a single dimension key to its phase-space axis index and its array of evaluation points.
 
@@ -376,8 +392,9 @@ class KineticBackground(metaclass=ABCMeta):
             span [0, 1]). For a Cartesian velocity coordinate (and v_parallel) the range is [-v_lim, v_lim];
             for a positive velocity coordinate (such as mu or v_perp) the range is [0, v_lim].
 
-        resol : int
-            Number of evaluation points along the axis.
+        resol : int | np.ndarray
+            Resolution of the evaluation grid along the axis. If an integer is provided, it is used to generate a linearly spaced array of that many points spanning the axis range. 
+            If a numpy array is provided, it is used directly as the evaluation points along the axis.
 
         Returns
         -------
@@ -416,10 +433,15 @@ class KineticBackground(metaclass=ABCMeta):
                 v_left = 0.0
                 v_right = v_lim
 
-        if axe_to_plot < 3:
-            plot_pts = xp.linspace(0.0, 1.0, resol)
+        if isinstance(resol, int):
+            if axe_to_plot < 3:
+                plot_pts = xp.linspace(0.0, 1.0, resol)
+            else:
+                plot_pts = xp.linspace(v_left, v_right, resol)
+        elif isinstance(resol, np.ndarray):
+            plot_pts = resol
         else:
-            plot_pts = xp.linspace(v_left, v_right, resol)
+            raise AssertionError("resol argument must be an int or a numpy array")
 
         return axe_to_plot, plot_pts
 

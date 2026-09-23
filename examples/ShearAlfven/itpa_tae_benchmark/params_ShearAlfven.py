@@ -4,9 +4,9 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Default LinearMHD"
+name = "Default ShearAlfven"
 description = """
-This is the default simulation for the model LinearMHD. 
+This is the default simulation for the model ShearAlfven. 
 It is meant to be a template for users to set up their own simulations with this model. 
 It contains all the necessary components of a Struphy simulation, including the model, 
 the environment options, the time stepping options, the geometry, the equilibrium, 
@@ -41,19 +41,17 @@ import numpy as np
 # Instance of the model
 # ---------------------
 
-from struphy.models import LinearMHD
+from struphy.models import ShearAlfven
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model = LinearMHD(base_units=base_units)
+model = ShearAlfven(base_units=base_units)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True
-model.mhd.density.save_data = True
 model.mhd.velocity.save_data = True
-model.mhd.pressure.save_data = True
 
 # --------------------------
 # Instance of the simulation
@@ -62,9 +60,9 @@ model.mhd.pressure.save_data = True
 # Environment options
 env = EnvironmentOptions(
     save_step=2,
-    out_folders="/u/shrusi/git_repos/struphy/examples/LinearMHD/itpa_tae_benchmark/",
-    sim_folder="sim5_higherResolution",
-    max_runtime=350
+    out_folders="/u/shrusi/git_repos/struphy/examples/ShearAlfven/itpa_tae_benchmark/",
+    sim_folder="sim5_higherResolution_ShearAlfven",
+    max_runtime=230
     )
 
 # Time stepping
@@ -114,7 +112,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
-    profiling_opts=profiling_opts
+    profiling_opts=profiling_opts,
 )
 
 # ------------------
@@ -122,14 +120,15 @@ sim = Simulation(
 # ------------------
 
 model.propagators.shear_alf.options = model.propagators.shear_alf.Options()
-model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
 
 # ------------------
 # Initial conditions
 # ------------------
 # Initial conditions are the sum of the background(s) and the perturbation(s).
+# If backgrounds or perturbations are not specified, they are assumed to be zero.
 
 # Background for (some) FEEC variables
+# model.mhd.velocity.add_background(FieldsBackground())
 
 # Perturbations for (some) FEEC variables
 ms_radial_1, ms_radial_2 = 10, 11
@@ -154,7 +153,5 @@ perturbation_poloidal = perturbations.TorusModesCos(
 model.mhd.velocity.add_perturbation(perturbation=perturbation_radial)
 model.mhd.velocity.add_perturbation(perturbation=perturbation_poloidal)
 
-
-
 if __name__ == "__main__":
-    sim.run(profiling_activated=True)
+    sim.run()
