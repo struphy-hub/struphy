@@ -130,6 +130,7 @@ def test_set_zero_velocity_mpi(mapping, comp: int, show_plot=False):
     """
 
     import cunumpy as xp
+    import numpy as np
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
@@ -181,10 +182,13 @@ def test_set_zero_velocity_mpi(mapping, comp: int, show_plot=False):
     if comm is None:
         mpi_result = binned_result
     else:
-        mpi_result = xp.zeros_like(binned_result)
+        # mpi4py needs host buffers regardless of the active backend.
+        host_binned = [xp.to_numpy(b) for b in binned_result]
+        host_result = [np.zeros_like(b) for b in host_binned]
         for i in range(3):
-            comm.Allreduce(binned_result[i], mpi_result[i], op=MPI.SUM)
+            comm.Allreduce(host_binned[i], host_result[i], op=MPI.SUM)
         comm.Barrier()
+        mpi_result = [xp.asarray(r) for r in host_result]
 
     # tests
     if show_plot and rank == 0:

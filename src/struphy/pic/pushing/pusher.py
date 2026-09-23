@@ -2,7 +2,8 @@
 
 import logging
 
-import cunumpy as xp
+import cunumpy
+import numpy as np
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
@@ -10,6 +11,11 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
+from struphy.pic.pushing.pusher_kernels_cuda import (
+    SUPPORTED_GENERAL_KIND_MAPS,
+    push_v_with_efield_cuboid_gpu,
+    push_v_with_efield_general_gpu,
+)
 
 logger = logging.getLogger("struphy")
 
@@ -138,7 +144,7 @@ class Pusher:
             comps = ker_args[2]
 
             # check marker array column number
-            assert isinstance(comps, xp.ndarray)
+            assert isinstance(comps, np.ndarray)
             assert column_nr + comps.size < particles.n_cols, (
                 f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
             )
@@ -150,7 +156,7 @@ class Pusher:
             comps = ker_args[3]
 
             # check marker array column number
-            assert isinstance(comps, xp.ndarray)
+            assert isinstance(comps, np.ndarray)
             assert column_nr + comps.size < particles.n_cols, (
                 f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
             )
@@ -162,7 +168,9 @@ class Pusher:
         self._region_name = "pusher: " + self.kernel.name
         self._kernel_region_names = {}
 
-        self._residuals = xp.zeros(self.particles.markers.shape[0])
+        # marker-row-indexed, so they live on the same backend as the markers
+        # (device under CuPy) -- see Particles._allocate_marker_array
+        self._residuals = cunumpy.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
@@ -170,6 +178,66 @@ class Pusher:
             self._box_comm = self.particles.sorting_boxes.communicate
         else:
             self._box_comm = False
+
+        # hand-written CUDA replacement for push_v_with_efield's per-marker
+        # math on a Cuboid domain. It only swaps out the inner kernel call
+        # (see the "push markers" branch in _push()), so it stays correct
+        # alongside unmodified apply_kinetic_bc/mpi_sort_markers/update_holes
+        # for multi-rank runs.
+        self._gpu_v_efield_cuboid = (
+            cunumpy.cupy_backend and kernel.name == "push_v_with_efield" and args_domain.kind_map == 10
+        )
+        if self._gpu_v_efield_cuboid:
+            import cupy as cp
+
+            l1, r1, l2, r2, l3, r3 = (float(p) for p in args_domain.params[:6])
+            self._gpu_v_efield_scale = (1.0 / (r1 - l1), 1.0 / (r2 - l2), 1.0 / (r3 - l3))
+
+            args_derham, e1_1, e1_2, e1_3, const = args_kernel
+            self._gpu_v_efield_const = float(const)
+            self._gpu_v_efield_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_v_efield_starts = tuple(int(s) for s in args_derham.starts)
+            # knot vectors are tiny host arrays; cache them on the device once
+            self._gpu_v_efield_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_v_efield_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_v_efield_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            # FE coefficients are already device-resident CuPy arrays under the
+            # CuPy backend (StencilVector allocates via cunumpy's xp) and are
+            # never reassigned after PushVinEfield.allocate() builds them, so
+            # these references stay valid and need no per-call transfer.
+            self._gpu_v_efield_e1_1 = e1_1
+            self._gpu_v_efield_e1_2 = e1_2
+            self._gpu_v_efield_e1_3 = e1_3
+
+        # general (non-Cuboid) CUDA replacement for push_v_with_efield: same
+        # B-spline evaluation as _gpu_v_efield_cuboid, but with DF(eta)
+        # evaluated per marker instead of assumed constant-diagonal.
+        self._gpu_v_efield_general = (
+            cunumpy.cupy_backend
+            and kernel.name == "push_v_with_efield"
+            and not self._gpu_v_efield_cuboid
+            and args_domain.kind_map in SUPPORTED_GENERAL_KIND_MAPS
+        )
+        if self._gpu_v_efield_general:
+            import cupy as cp
+
+            self._gpu_v_efield_general_kind_map = int(args_domain.kind_map)
+            self._gpu_v_efield_general_params = cp.asarray(
+                np.asarray(args_domain.params, dtype=float), dtype=cp.float64
+            )
+
+            args_derham, e1_1, e1_2, e1_3, const = args_kernel
+            self._gpu_v_efield_general_const = float(const)
+            self._gpu_v_efield_general_pn = tuple(int(p) for p in args_derham.pn)
+            self._gpu_v_efield_general_starts = tuple(int(s) for s in args_derham.starts)
+            self._gpu_v_efield_general_tn1 = cp.asarray(args_derham.tn1, dtype=cp.float64)
+            self._gpu_v_efield_general_tn2 = cp.asarray(args_derham.tn2, dtype=cp.float64)
+            self._gpu_v_efield_general_tn3 = cp.asarray(args_derham.tn3, dtype=cp.float64)
+            # FE coefficients are already device-resident under CuPy, see
+            # _gpu_v_efield_cuboid above.
+            self._gpu_v_efield_general_e1_1 = e1_1
+            self._gpu_v_efield_general_e1_2 = e1_2
+            self._gpu_v_efield_general_e1_3 = e1_3
 
     @profile
     def __call__(self, dt: float):
@@ -187,6 +255,14 @@ class Pusher:
             name = "kernel: " + _kernel_name(kernel)
             self._kernel_region_names[id(kernel)] = name
         return name
+
+    def _run_marker_column_kernel(self, ker, alpha, column_nr, comps, add_args):
+        """Run one init/eval kernel (they write a marker column in place)."""
+        with (
+            ProfileManager.profile_region(self._kernel_region(ker)),
+            self.particles.host_markers(write=True) as args_markers,
+        ):
+            ker(alpha, column_nr, comps, args_markers, self._args_domain, *add_args)
 
     def _push(self, dt: float):
         """Body of :meth:`__call__`, see there."""
@@ -206,6 +282,8 @@ class Pusher:
         init_slice = slice(first_pusher_idx, first_shift_idx)
         shift_slice = slice(first_shift_idx, residual_idx)
 
+        # Runs in place on whichever backend the markers live on -- device
+        # under CuPy, with no transfer (see Particles._allocate_marker_array).
         # save initial phase space coordinates
         markers[:, init_slice] = markers[:, : 3 + vdim]
 
@@ -225,15 +303,13 @@ class Pusher:
             comps = ker_args[2]
             add_args = ker_args[3]
 
-            with ProfileManager.profile_region(self._kernel_region(ker)):
-                ker(
-                    xp.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                    column_nr,
-                    comps,
-                    self.particles.args_markers,
-                    self._args_domain,
-                    *add_args,
-                )
+            self._run_marker_column_kernel(
+                ker,
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                column_nr,
+                comps,
+                add_args,
+            )
 
             # update boxes
             if self._box_comm:
@@ -242,7 +318,7 @@ class Pusher:
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = xp.empty(1, dtype=int)
+            n_not_converged = np.empty(1, dtype=int)
             n_not_converged[0] = self.particles.n_mks_loc
             k = 0
 
@@ -273,15 +349,7 @@ class Pusher:
                         )
 
                     # evaluate
-                    with ProfileManager.profile_region(self._kernel_region(ker)):
-                        ker(
-                            alpha,
-                            column_nr,
-                            comps,
-                            self.particles.args_markers,
-                            self._args_domain,
-                            *add_args,
-                        )
+                    self._run_marker_column_kernel(ker, alpha, column_nr, comps, add_args)
 
                     # update boxes
                     if self._box_comm:
@@ -296,14 +364,53 @@ class Pusher:
                     )
 
                 # push markers
-                with ProfileManager.profile_region("kernel: " + self.kernel.name):
-                    self.kernel(
-                        dt,
-                        stage,
-                        self.particles.args_markers,
-                        self._args_domain,
-                        *self._args_kernel,
-                    )
+                if self._gpu_v_efield_cuboid:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda]"):
+                        push_v_with_efield_cuboid_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            self._gpu_v_efield_pn,
+                            self._gpu_v_efield_tn1,
+                            self._gpu_v_efield_tn2,
+                            self._gpu_v_efield_tn3,
+                            self._gpu_v_efield_starts,
+                            self._gpu_v_efield_e1_1,
+                            self._gpu_v_efield_e1_2,
+                            self._gpu_v_efield_e1_3,
+                            self._gpu_v_efield_scale,
+                            dt * self._gpu_v_efield_const,
+                        )
+                elif self._gpu_v_efield_general:
+                    with ProfileManager.profile_region("kernel: " + self.kernel.name + " [cuda general]"):
+                        push_v_with_efield_general_gpu(
+                            markers,
+                            self.particles.n_cols,
+                            self._gpu_v_efield_general_pn,
+                            self._gpu_v_efield_general_tn1,
+                            self._gpu_v_efield_general_tn2,
+                            self._gpu_v_efield_general_tn3,
+                            self._gpu_v_efield_general_starts,
+                            self._gpu_v_efield_general_e1_1,
+                            self._gpu_v_efield_general_e1_2,
+                            self._gpu_v_efield_general_e1_3,
+                            self._gpu_v_efield_general_kind_map,
+                            self._gpu_v_efield_general_params,
+                            dt * self._gpu_v_efield_general_const,
+                        )
+                else:
+                    # no CUDA port for this kernel: fall back to the compiled
+                    # host-only one, which pushes markers in place
+                    with (
+                        ProfileManager.profile_region("kernel: " + self.kernel.name),
+                        self.particles.host_markers(write=True) as args_markers,
+                    ):
+                        self.kernel(
+                            dt,
+                            stage,
+                            args_markers,
+                            self._args_domain,
+                            *self._args_kernel,
+                        )
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
                 self.particles.update_holes()
@@ -315,13 +422,15 @@ class Pusher:
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
                     self._residuals[:] = markers[:, residual_idx]
-                    max_res = xp.max(self._residuals)
+                    max_res = float(cunumpy.max(self._residuals))
                     if max_res < 0.0:
                         max_res = None
                     self._converged_loc[:] = self._residuals < self._tol
                     self._not_converged_loc[:] = ~self._converged_loc
-                    n_not_converged[0] = xp.count_nonzero(
-                        self._not_converged_loc,
+                    # n_not_converged is a host buffer: it is passed straight
+                    # into an mpi4py Allreduce below.
+                    n_not_converged[0] = int(
+                        cunumpy.count_nonzero(self._not_converged_loc),
                     )
 
                     logger.debug(
