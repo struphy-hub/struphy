@@ -22,11 +22,13 @@ def test_density_weighted_mass_reassembly():
     weighted = masses.WMMnew
     rho = weighted.spline_functions["l2_field"]
     rho.vector = derham.projectors["3"](lambda e1, e2, e3: 2.0 + 0 * e1)
-    probe = derham.projectors["v"]([
-        lambda e1, e2, e3: 1.0 + 0 * e1,
-        lambda e1, e2, e3: 2.0 + 0 * e1,
-        lambda e1, e2, e3: 3.0 + 0 * e1,
-    ])
+    probe = derham.projectors["v"](
+        [
+            lambda e1, e2, e3: 1.0 + 0 * e1,
+            lambda e1, e2, e3: 2.0 + 0 * e1,
+            lambda e1, e2, e3: 3.0 + 0 * e1,
+        ]
+    )
     reference = masses.Mv.dot(probe).toarray() * (2.0 / 6.0)
     weighted.assemble()
     np.testing.assert_allclose(weighted.dot(probe).toarray(), reference, rtol=1e-12, atol=1e-12)
