@@ -1,4 +1,5 @@
 # third party imports
+import dataclasses
 import glob
 import json
 import logging
@@ -6,7 +7,8 @@ import os
 import shutil
 import sysconfig
 import time
-from collections.abc import Sequence
+import warnings
+from pathlib import Path
 
 import cunumpy as xp
 import h5py
@@ -25,8 +27,6 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    PlottingData,
-    PostProcessor,
     ProfilingOptions,
     Time,
     domains,
@@ -65,6 +65,8 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
+from struphy.post_processing.legacy import legacy_views
+from struphy.post_processing.output import Output
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
@@ -171,8 +173,8 @@ class Simulation(SimulationBase):
         self.Barrier()
         self.start_time = time.time()
 
-        self._save_config()
         self.clone_config = self._create_clone_config()
+        self._output = None
         self.Barrier()
 
     # ----------------
@@ -599,7 +601,7 @@ class Simulation(SimulationBase):
             self.data.add_data({key_time: val})
             self.data.add_data({key_time_restart: val})
 
-    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None):
+    def run(self, one_time_step: bool = False, profiling_activated: bool | None = None) -> Output:
         """Main entry point to execute the simulation time loop.
 
         Responsibilities include allocation (when not restarting),
@@ -615,6 +617,11 @@ class Simulation(SimulationBase):
         profiling_activated : bool | None
             If True, activate profiling with scope-profiler for this run. If
             None, profiling is disabled.
+
+        Returns
+        -------
+        Output
+            The output of this run, see :attr:`output`.
         """
         if profiling_activated is None:
             profiling_activated = False
@@ -626,6 +633,10 @@ class Simulation(SimulationBase):
             logger.info(f"Description: {self.description}")
 
         self._remove_existing_output_files()
+        self._setup_folders()
+        self._copy_parameter_file()
+        self.Barrier()
+        self._output = None
 
         with ProfileManager.session(
             options=self.profiling_opts,
@@ -820,7 +831,8 @@ class Simulation(SimulationBase):
                     # print current time and scalar quantities to screen
                     step = str(int(self.time_state["index"][0])).zfill(len(total_steps_str))
 
-                    message = "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
+                    message = "\n" + "-" * 80 + "\n"
+                    message += "time step:".ljust(25) + f"{step}/{total_steps + start_step}".rjust(25)
                     message += (
                         "\n"
                         + "normalized time:".ljust(25)
@@ -872,67 +884,101 @@ class Simulation(SimulationBase):
             if self.clone_config is not None:
                 self.clone_config.free()
 
+        return self.output
+
+    @property
+    def output(self) -> Output:
+        """The output of this simulation in ``env.path_out``, see :class:`~struphy.Output`.
+
+        Scalars are available as soon as data is written; fields and particle products are
+        post-processed on first access, or explicitly with ``sim.output.pproc(...)``.
+        """
+        if self._output is None or self._output.path_out != Path(self.env.path_out).resolve():
+            self._output = Output(self.env.path_out)
+        return self._output
+
+    # ------------------------------------------------------------------
+    # Deprecated post-processing entry points, superseded by self.output
+    # ------------------------------------------------------------------
+
     def pproc(
         self,
         step: int = 1,
-        celldivide: int | Sequence[int] = 1,
+        celldivide: int | tuple[int, int, int] = 1,
         physical: bool = False,
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
         parallel_pproc: bool = False,
-    ):
-        """Run post-processing on saved simulation data.
+        force: bool = True,
+        load: bool = False,
+    ) -> Output | None:
+        """Deprecated, use ``sim.output.pproc(...)``, see :meth:`struphy.Output.pproc`."""
+        warnings.warn(
+            "Simulation.pproc() is deprecated; use sim.output.pproc(...) instead.\n"
+            "How to update your script: replace 'sim.pproc(physical=True)' by 'out = sim.output' and "
+            "'out.pproc(physical=True)' (same options). Post-processing also runs on first access of a product, "
+            "so the call can be dropped if the default options suffice; drop 'sim.load_plotting_data()' as well "
+            "and read the products from 'out', see the warning of load_plotting_data().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.output.pproc(
+            step=step,
+            celldivide=celldivide,
+            physical=physical,
+            guiding_center=guiding_center,
+            classify=classify,
+            create_vtk=create_vtk,
+            parallel=parallel_pproc,
+            force=force,
+        )
+        return self.load_plotting_data() if load else None
 
-        Uses `PostProcessor` to generate plots, process guiding-center or
-        physical field views, and optionally produce VTK outputs.
+    def load_plotting_data(self) -> Output | None:
+        """Deprecated, use :attr:`output`; attaches its products as attributes of the simulation.
+
+        They have the shapes of earlier versions, see :func:`struphy.post_processing.legacy.legacy_views`.
+
+        Returns the :class:`struphy.Output` on rank 0 and ``None`` on the other ranks.
         """
+        warnings.warn(
+            "Simulation.load_plotting_data() is deprecated; use sim.output (a struphy.Output) instead.\n"
+            "How to update your script, with out = sim.output:\n"
+            "  sim.orbits.<species>                        ->  out.orbits.<species>\n"
+            "  sim.f.<species>.<slice>.f_binned            ->  out.distributions.<species>.<slice>.f\n"
+            "  sim.f.<species>.<slice>.grid_e1             ->  out.distributions.<species>.<slice>.e1\n"
+            "  sim.spline_values.<species>.<name>_log.data ->  out.fields.<species>.<name>\n"
+            "  sim.spline_values.<species>.<name>_phy.data ->  out.fields.<species>.<name>_xyz\n"
+            "  sim.n_sph.<species>.<view>.n_sph            ->  out.densities.<species>.<view>.n\n"
+            "  sim.grids_log / sim.grids_phy / sim.t_grid  ->  out.grids_log / out.grids_phy / out.time\n"
+            "The products are xarray.DataArrays with named dimensions and coordinates (e.g. arr.t, arr.e1).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if self.rank != 0:
+            return None
+        output = self.output
+        views = legacy_views(output)
+        self.orbits = views.orbits
+        self.f = views.f
+        self.spline_values = views.spline_values
+        self.n_sph = views.n_sph
+        self.grids_log = output.grids_log
+        self.grids_phy = output.grids_phy
+        self.t_grid = xp.array(output.time)
+        return output
 
-        # setup post processor and plotting
-        if parallel_pproc:
-            self._post_processor = PostProcessor(sim=self, parallel_pproc=True)
-
-            self.post_processor.process(
-                step=step,
-                celldivide=celldivide,
-                physical=physical,
-                guiding_center=guiding_center,
-                classify=classify,
-                create_vtk=create_vtk,
-            )
-        else:
-            if self.rank == 0:
-                self._post_processor = PostProcessor(sim=self, parallel_pproc=False)
-
-                self.post_processor.process(
-                    step=step,
-                    celldivide=celldivide,
-                    physical=physical,
-                    guiding_center=guiding_center,
-                    classify=classify,
-                    create_vtk=create_vtk,
-                )
-
-    def load_plotting_data(self):
-        """Load plotting datasets produced by post-processing.
-
-        Creates a `PlottingData` instance on rank 0 (if needed), loads the
-        data and exposes convenient attributes such as `orbits`, `f`, and
-        grid information for downstream plotting or analysis.
-        """
-
-        if not hasattr(self, "_plotting_data") and self.rank == 0:
-            self._plotting_data = PlottingData(sim=self)
-        self.plotting_data.load()
-
-        # expose attributes
-        self.orbits = self.plotting_data.orbits
-        self.f = self.plotting_data.f
-        self.spline_values = self.plotting_data.spline_values
-        self.n_sph = self.plotting_data.n_sph
-        self.grids_log = self.plotting_data.grids_log
-        self.grids_phy = self.plotting_data.grids_phy
-        self.t_grid = self.plotting_data.t_grid
+    @property
+    def plotting_data(self) -> Output:
+        """Deprecated alias of :attr:`output`."""
+        warnings.warn(
+            "Simulation.plotting_data is deprecated; use sim.output instead "
+            "(e.g. 'sim.plotting_data.orbits' -> 'sim.output.orbits').",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.output
 
     # ---------------------
     # Code specific methods
@@ -1135,8 +1181,8 @@ class Simulation(SimulationBase):
                     if n < 10:  # print only ten statements in case of many processes
                         logger.info("Removed existing file " + file)
 
-    def _save_config(self):
-        """Save the parameter file (or, if there is none, the configuration as JSON) to the output folder."""
+    def _copy_parameter_file(self):
+        """Copy the parameter file to the output folder for reference."""
         if self.rank != 0:
             return
 
@@ -1148,8 +1194,6 @@ class Simulation(SimulationBase):
                 )
             except shutil.SameFileError:
                 pass
-        else:
-            self.export(os.path.join(self.env.path_out, "config.json"))
 
     def _create_clone_config(self) -> CloneConfig | None:
         """Setup domain cloning communicators, None if there is only one clone (or no MPI).
@@ -1354,6 +1398,28 @@ class Simulation(SimulationBase):
             logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @profile
+    @staticmethod
+    def _binned_background(background, bin_plot) -> xp.ndarray:
+        """Evaluate a kinetic background on the bin centers of ``bin_plot``.
+
+        Directions that are not binned are evaluated at zero; velocity directions that are not
+        binned are integrated out like the binned data (exact for Maxwellians).
+        """
+        centers = {
+            dim: edges[:-1] + (edges[1] - edges[0]) / 2
+            for dim, edges in zip(bin_plot.slice.split("_"), bin_plot.bin_edges)
+        }
+        grids = [centers.get(dim, xp.zeros(1)) for dim in ("e1", "e2", "e3")]
+        factor = 1.0
+        for component in range(1, background.vdim + 1):
+            dim = f"v{component}"
+            if dim in centers:
+                grids.append(centers[dim])
+            else:
+                grids.append(xp.zeros(1))
+                factor *= xp.sqrt(2 * xp.pi)
+        return background(*xp.meshgrid(*grids, indexing="ij")).squeeze() * factor
+
     def _initialize_hdf5_datasets(self, data: DataContainer, size: int):
         """
         Create datasets in hdf5 files according to model unknowns and diagnostics data.
@@ -1480,6 +1546,17 @@ class Simulation(SimulationBase):
                             be[:-1] + (be[1] - be[0]) / 2
                         )
 
+                    # the static background of a delta-f species, so that post-processing can
+                    # reconstruct the full f without the simulation's configuration
+                    if var.space == "DeltaFParticles6D":
+                        key_background = os.path.join(key_spec, "f_background", slice)
+                        if key_background in file:
+                            del file[key_background]
+                        file.create_dataset(
+                            key_background,
+                            data=DataContainer._as_numpy_array(self._binned_background(var.backgrounds, bin_plot)),
+                        )
+
                 for i, kd_plot in enumerate(species.saving_params.kernel_density_plots):
                     key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
 
@@ -1601,8 +1678,8 @@ class Simulation(SimulationBase):
         non-reconstructible facts (MPI layout, live particle counts, caller-supplied
         timestamps, ...), serialized to a JSON string.
 
-        This is metadata for humans/logging, not a serialization meant to be fed back
-        into :meth:`from_dict` — use :meth:`to_dict`/:meth:`export` for that.
+        The configuration snapshot can also be restored by :meth:`from_output`;
+        run-specific facts do not restore live simulation state.
 
         Parameters
         ----------
@@ -1648,8 +1725,8 @@ class Simulation(SimulationBase):
             time_opts=Time.from_dict(dct["time_opts"]),
             domain=domains.Cuboid.from_dict(dct["domain"]),
             equil=FluidEquilibrium.from_dict(dct["equil"]),
-            grid=grids.TensorProductGrid.from_dict(dct["grid"]),
-            derham_opts=DerhamOptions.from_dict(dct["derham_opts"]),
+            grid=grids.TensorProductGrid.from_dict(dct["grid"]) if dct["grid"] is not None else None,
+            derham_opts=DerhamOptions.from_dict(dct["derham_opts"]) if dct["derham_opts"] is not None else None,
             profiling_opts=ProfilingOptions(
                 **{
                     key: value
@@ -1687,6 +1764,33 @@ class Simulation(SimulationBase):
         # Convert lists to tuples for relevant keys
         dct = convert_lists_to_tuples(dct)
         return cls.from_dict(dct)
+
+    @classmethod
+    def from_output(cls, path_out: str) -> "Simulation":
+        """Restore the simulation that wrote the output folder ``path_out``.
+
+        The configuration is read from the ``run_metadata.json`` written by :meth:`run`,
+        falling back to legacy ``config.json`` if absent; a copied
+        parameter file is never executed. The metadata holds the options objects and the
+        arguments of the model (and thus its units), which is all that post-processing and
+        plotting need, but not configuration applied to the model after construction, such as
+        markers, backgrounds, perturbations and propagator options.
+        Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
+        """
+        path_out = os.path.abspath(path_out)
+        config_path = os.path.join(path_out, "run_metadata.json")
+        if not os.path.exists(config_path):
+            config_path = os.path.join(path_out, "config.json")
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(
+                f"Neither config.json nor run_metadata.json exists in {path_out}; is it a Struphy output folder? Outputs of older "
+                "versions can get one with sim.to_run_metadata(os.path.join(path_out, 'run_metadata.json')) from their parameter file."
+            )
+        sim = cls.from_file(config_path)
+        sim.env = dataclasses.replace(
+            sim.env, out_folders=os.path.dirname(path_out), sim_folder=os.path.basename(path_out)
+        )
+        return sim
 
     def generate_script(
         self,
@@ -1857,9 +1961,6 @@ if __name__ == "__main__":
         assert isinstance(value, EnvironmentOptions)
         self._env = value
 
-        # create output folders
-        self._setup_folders()
-
     @property
     def profiling_filepath(self) -> str:
         """Path to the profiling file, if profiling is enabled."""
@@ -2016,33 +2117,23 @@ if __name__ == "__main__":
 
     @property
     def derham(self):
-        """3d Derham sequence, see :ref:`derham`."""
-        return self._derham
+        """3d Derham sequence, see :ref:`derham`; None before :meth:`allocate`."""
+        return getattr(self, "_derham", None)
 
     @property
     def mass_ops(self):
         """WeighteMassOperators object, see :ref:`mass_ops`."""
-        return self._mass_ops
+        return getattr(self, "_mass_ops", None)
 
     @property
     def basis_ops(self):
         """Basis projection operators."""
-        return self._basis_ops
+        return getattr(self, "_basis_ops", None)
 
     @property
     def projected_equil(self):
         """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_equil
-
-    @property
-    def post_processor(self):
-        """PostProcessor object for post-processing finished Struphy runs."""
-        return self._post_processor
-
-    @property
-    def plotting_data(self):
-        """PlottingData object for loading and storing data generated during post-processing."""
-        return self._plotting_data
+        return getattr(self, "_projected_equil", None)
 
     @property
     def clone_config(self):

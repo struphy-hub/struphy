@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
+"""Spectral diagnostics and deprecated plotting helpers for legacy output.
+
+Use ``Output(path)`` and array ``.struphy.plot`` accessors for new plotting code.
+The legacy distribution/video helpers read the old NPY layout, not output.nc.
+``power_spectrum_2d`` remains supported by the analysis accessor.
+"""
+
 import logging
 import os
 import shutil
 import subprocess
+import warnings
+from functools import wraps
 
 import cunumpy as xp
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+import xarray as xr
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
 
@@ -16,13 +26,66 @@ from struphy.utils.progress import tqdm
 logger = logging.getLogger("struphy")
 
 
+def _legacy_plot(replacement):
+    def decorate(function):
+        @wraps(function)
+        def wrapped(*args, **kwargs):
+            warnings.warn(
+                f"diagn_tools.{function.__name__} is deprecated; use {replacement}. "
+                "Open new output with Output(path); legacy file-based helpers require the old NPY layout.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return function(*args, **kwargs)
+
+        return wrapped
+
+    return decorate
+
+
+def _accept_legacy_values(function):
+    """Also accept the call ``function(values, name, grids, grids_mapped=None, ...)`` of earlier versions.
+
+    ``values`` maps time to the list of components of a field, as ``sim.spline_values.<species>.<name>.data``
+    of :meth:`Simulation.load_plotting_data`. It is converted to a field with a logical and, if
+    ``grids_mapped`` is given, a physical fft coordinate.
+    """
+
+    def from_legacy_values(values, name, grids, grids_mapped=None, **kwargs):
+        times = sorted(values)
+        data = xp.stack([xp.stack([xp.asarray(comp) for comp in values[t]]) for t in times])
+        coords = {"t": times, "component": xp.arange(data.shape[1])}
+        coords.update({f"e{n}": xp.asarray(grid) for n, grid in enumerate(grids, 1)})
+        if grids_mapped is not None:
+            coords.update({X: (("e1", "e2", "e3"), xp.asarray(grid)) for X, grid in zip("XYZ", grids_mapped)})
+        field = xr.DataArray(data, dims=("t", "component", "e1", "e2", "e3"), coords=coords, name=name)
+        return function(field, physical=grids_mapped is not None, **kwargs)
+
+    @wraps(function)
+    def wrapped(field, *args, **kwargs):
+        if not isinstance(field, dict):
+            return function(field, *args, **kwargs)
+        warnings.warn(
+            f"diagn_tools.{function.__name__}(values, name, grids, ...) is deprecated; pass a field of an Output.\n"
+            "How to update your script, with out = sim.output:\n"
+            "  power_spectrum_2d(E_of_t, 'e_field_log', grids=sim.grids_log, grids_mapped=sim.grids_phy, ...)\n"
+            "  ->  out.fields.em_fields.e_field_log.struphy.analysis.dispersion(physical=True, ...)\n"
+            "'physical=True' replaces 'grids_mapped'; 'grids' and 'name' are read from the field itself. "
+            "Take the field from out.with_time_units('normalized') if you compare with normalized dispersion relations.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return from_legacy_values(field, *args, **kwargs)
+
+    return wrapped
+
+
+@_accept_legacy_values
 def power_spectrum_2d(
-    values: dict,
-    name: str,
-    grids: tuple,
-    grids_mapped: tuple = None,
+    field: xr.DataArray,
     component: int = 0,
     slice_at: tuple = (None, 0, 0),
+    physical: bool = False,
     do_plot: bool = False,
     disp_name: str = None,
     disp_params: dict = {},
@@ -39,32 +102,29 @@ def power_spectrum_2d(
 
     Parameters
     ----------
-    values : dict
-        Dictionary holding values of a B-spline FemField on the grid as 3d xp.arrays:
-        values[n] contains the values at time step n, where n = 0:Nt-1:step with 0<step.
-
-    name : str
-        Name of the FemField.
-
-    grids : 3-tuple
-        1d logical grids in each eta-direction with num_elements[i]*npts_per_cell[i] + 1 entries in each direction.
-
-    grids_mapped : 3-tuple
-        Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.
+    field : xarray.DataArray
+        An evaluated FEEC field of a :class:`~struphy.Output`, with dims ``(t, [component,] e1, e2, e3)``,
+        e.g. ``run.fields.em_fields.e_field_log``. Its time coordinate must be uniform; use
+        ``run.with_time_units("normalized")`` to compare with normalized dispersion relations.
 
     component : int
-        Which component of a FemField to consider; is 0 for 0-and 3-forms, is in {0, 1, 2} for 1- and 2-forms.
+        Which component of the field to consider; ignored for fields without a component dimension.
 
     slice_at : 3-tuple
         At which indices i, j the 1d slice data (t, eta)_(i, j) should be obtained.
         One entry must be "None"; this is the direction of the fft.
         Default: [None, 0, 0] performs the eta1-fft at (eta2[0], eta3[0]).
 
+    physical : boolean
+        Perform the fft on the physical coordinate (X, Y or Z) along the fft direction instead of
+        on the logical one. The field must carry physical coordinates.
+
     do_plot : boolean
         Plot result if True, otherwise return things.
 
     disp_name : str
-        The name of the dispersion relation class in struphy.dispersion_relations.analytic to be used for analytic comparison.
+        The name of the dispersion relation class in struphy.dispersion_relations.analytic to be used for analytic
+        comparison. If None, only the computed spectrum is drawn.
 
     disp_params : dict
         Parameters needed for analytical dispersion relation, see struphy.dispersion_relations.analytic.
@@ -106,43 +166,27 @@ def power_spectrum_2d(
     coeffs : list[list]
         List of fitting coefficients (lenght is fit_branches).
     """
+    assert list(slice_at).count(None) == 1, 'Exactly one entry of slice_at must be "None".'
+    name = str(field.name)
+    if "component" in field.dims:
+        field = field.isel(component=component)
 
-    keys = list(values.keys())
+    # extract 2d data (t, eta) for fft
+    axis = list(slice_at).index(None)
+    along = ("e1", "e2", "e3")[axis]
+    fixed = {dim: index for dim, index in zip(("e1", "e2", "e3"), slice_at) if index is not None}
+    sliced = field.isel(fixed).transpose("t", along)
+    data = xp.asarray(sliced)
 
     # check uniform grid in time
-    dt = keys[1] - keys[0]
-    assert xp.all([xp.abs(y - x - dt) < 1e-12 for x, y in zip(keys[:-1], keys[1:])])
+    time = xp.asarray(sliced.t)
+    dt = time[1] - time[0]
+    assert xp.allclose(time[1:] - time[:-1], dt, rtol=0.0, atol=1e-12 * max(1.0, abs(dt))), "time grid is not uniform"
 
-    # create 4d xp.array with shape (time, eta1, eta2, eta3)
-    dim_t = len(keys)
-    dim_eta = values[keys[0]][component].shape
-
-    temp = xp.zeros((dim_t, *dim_eta))
-
-    for n, (time, snapshot) in enumerate(values.items()):
-        temp[n, :, :, :] = snapshot[component]
-
-    # Extract 2d data (t, eta) for fft
-    if slice_at[0] is None:
-        data = temp[:, :, slice_at[1], slice_at[2]]
-        grid = grids[0]
-        if grids_mapped is not None:
-            grid = grids_mapped[0][:, slice_at[1], slice_at[2]]
-
-    elif slice_at[1] is None:
-        data = temp[:, slice_at[0], :, slice_at[2]]
-        grid = grids[1]
-        if grids_mapped is not None:
-            grid = grids_mapped[1][slice_at[0], :, slice_at[2]]
-
-    elif slice_at[2] is None:
-        data = temp[:, slice_at[0], slice_at[1], :]
-        grid = grids[2].flatten()
-        if grids_mapped is not None:
-            grid = grids_mapped[2][slice_at[0], slice_at[1], :]
-
+    if physical:
+        grid = xp.asarray(sliced[("X", "Y", "Z")[axis]])
     else:
-        AssertionError('One entry of slice_at must be "None".')
+        grid = xp.asarray(sliced[along])
 
     # extract uniform grid in space
     Nt = data.shape[0]
@@ -223,24 +267,19 @@ def power_spectrum_2d(
 
                 ax.plot(kvec, fun(kvec), "r:", label=f"fit_{n + 1}")
 
-        # analytic solution:
-        disp_class = getattr(analytic, disp_name)
-        disp = disp_class(**disp_params)
+        # analytic solution, when a dispersion relation is given
+        set_min = set_max = 0.0
+        if disp_name is not None:
+            disp = getattr(analytic, disp_name)(**disp_params)
 
-        kpara = kvec
-
-        branches = disp(kpara)
-        set_min = 0.0
-        set_max = 0.0
-        for key, branch in branches.items():
-            vals = xp.real(branch)
-            ax.plot(kvec, vals, "--", label=key)
-            tmp = xp.min(vals)
-            if tmp < set_min:
-                set_min = tmp
-            tmp = xp.max(vals)
-            if tmp > set_max:
-                set_max = tmp
+            branches = disp(kvec)
+            for key, branch in branches.items():
+                vals = xp.real(branch)
+                ax.plot(kvec, vals, "--", label=key)
+                set_min = min(set_min, xp.min(vals))
+                set_max = max(set_max, xp.max(vals))
+        else:
+            set_min, set_max = 0.0, omega[-1]
 
         ax.legend()
         ax.set_xlim(0, kvec[-1])
@@ -255,6 +294,7 @@ def power_spectrum_2d(
     return omega, kvec, dispersion, coeffs
 
 
+@_legacy_plot("out.plot.scalars() or scalar.struphy.plot.timeseries()")
 def plot_scalars(
     time,
     scalar_quantities,
@@ -450,6 +490,7 @@ def plot_scalars(
         plt.show()
 
 
+@_legacy_plot("array.struphy.plot.slice()")
 def plot_distr_fun(
     path,
     time_idx,
@@ -584,6 +625,7 @@ def plot_distr_fun(
         del delta_f
 
 
+@_legacy_plot("array.struphy.plot.view(...).animation() or .panels()")
 def plots_videos_2d(
     t_grid,
     grid_slices,
@@ -743,6 +785,7 @@ def plots_videos_2d(
             raise NotImplementedError(f"{output=} is not implemented!")
 
 
+@_legacy_plot("array.struphy.plot.view(...).animation().save(path)")
 def video_2d(slc, diagn_path, images_path):
     """Create a video of all 2D slices of the distribution function over time.
 
@@ -817,6 +860,7 @@ def video_2d(slc, diagn_path, images_path):
     video.release()
 
 
+@_legacy_plot("array.struphy.plot.view(...).animation()")
 def plots_2d_video(
     t_grid,
     grid_1_mesh,
@@ -898,6 +942,7 @@ def plots_2d_video(
     plt.close("all")
 
 
+@_legacy_plot("array.struphy.plot.panels()")
 def plots_2d_overview(
     t_grid,
     grid_1_mesh,

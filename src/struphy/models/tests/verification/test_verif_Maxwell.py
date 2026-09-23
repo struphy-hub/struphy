@@ -19,7 +19,6 @@ from struphy import (
     grids,
     perturbations,
 )
-from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import Maxwell
 
 logger = logging.getLogger("struphy")
@@ -65,23 +64,16 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run().with_time_units("normalized")
 
     # post processing
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
+    run.process()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.load_plotting_data()
-
         # fft
-        E_of_t = sim.spline_values.em_fields.e_field_log.data
-        _1, _2, _3, coeffs = power_spectrum_2d(
-            E_of_t,
-            "e_field_log",
-            grids=sim.grids_log,
-            grids_mapped=sim.grids_phy,
+        _1, _2, _3, coeffs = run["em_fields/e_field"].struphy.analysis.dispersion(
+            physical=True,
             component=0,
             slice_at=[0, 0, None],
             do_plot=do_plot,
@@ -150,11 +142,10 @@ def test_coaxial(do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run().with_time_units("normalized")
 
     # post processing
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(physical=True)
+    run.process(physical=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -164,16 +155,14 @@ def test_coaxial(do_plot: bool = False):
         num_elements = grid.num_elements
         modes = m
 
-        # load data
-        sim.load_plotting_data()
+        # load data at the final time in the plane eta3 = 0
+        e_field_xyz = run.fields.em_fields.e_field_xyz.isel(t=-1, e3=0)
+        b_field_xyz = run.fields.em_fields.b_field_xyz.isel(t=-1, e3=0)
+        t_end = float(e_field_xyz.t)
 
-        t_grid = sim.t_grid
-        grids_phy = sim.grids_phy
-        e_field_phy = sim.spline_values.em_fields.e_field_phy.data
-        b_field_phy = sim.spline_values.em_fields.b_field_phy.data
-
-        X = grids_phy[0][:, :, 0]
-        Y = grids_phy[1][:, :, 0]
+        X = e_field_xyz.X.values
+        Y = e_field_xyz.Y.values
+        Z = e_field_xyz.Z.values
 
         # define analytic solution
         def B_z(X, Y, Z, m, t):
@@ -208,13 +197,13 @@ def test_coaxial(do_plot: bool = False):
 
         # plot
         if do_plot:
-            vmin = E_theta(X, Y, grids_phy[0], modes, 0).min()
-            vmax = E_theta(X, Y, grids_phy[0], modes, 0).max()
+            vmin = E_theta(X, Y, Z, modes, 0).min()
+            vmax = E_theta(X, Y, Z, modes, 0).max()
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
             plot_exac = ax1.contourf(
                 X,
                 Y,
-                E_theta(X, Y, grids_phy[0], modes, t_grid[-1]),
+                E_theta(X, Y, Z, modes, t_end),
                 cmap="plasma",
                 levels=100,
                 vmin=vmin,
@@ -223,7 +212,7 @@ def test_coaxial(do_plot: bool = False):
             ax2.contourf(
                 X,
                 Y,
-                to_E_theta(X, Y, e_field_phy[t_grid[-1]][0][:, :, 0], e_field_phy[t_grid[-1]][1][:, :, 0]),
+                to_E_theta(X, Y, e_field_xyz.isel(component=0).values, e_field_xyz.isel(component=1).values),
                 cmap="plasma",
                 levels=100,
                 vmin=vmin,
@@ -236,12 +225,12 @@ def test_coaxial(do_plot: bool = False):
             plt.show()
 
         # assert
-        Ex_tend = e_field_phy[t_grid[-1]][0][:, :, 0]
-        Ey_tend = e_field_phy[t_grid[-1]][1][:, :, 0]
-        Er_exact = E_r(X, Y, grids_phy[0], modes, t_grid[-1])
-        Etheta_exact = E_theta(X, Y, grids_phy[0], modes, t_grid[-1])
-        Bz_tend = b_field_phy[t_grid[-1]][2][:, :, 0]
-        Bz_exact = B_z(X, Y, grids_phy[0], modes, t_grid[-1])
+        Ex_tend = e_field_xyz.isel(component=0).values
+        Ey_tend = e_field_xyz.isel(component=1).values
+        Er_exact = E_r(X, Y, Z, modes, t_end)
+        Etheta_exact = E_theta(X, Y, Z, modes, t_end)
+        Bz_tend = b_field_xyz.isel(component=2).values
+        Bz_exact = B_z(X, Y, Z, modes, t_end)
 
         error_Er = xp.max(xp.abs((to_E_r(X, Y, Ex_tend, Ey_tend) - Er_exact)))
         error_Etheta = xp.max(xp.abs((to_E_theta(X, Y, Ex_tend, Ey_tend) - Etheta_exact)))

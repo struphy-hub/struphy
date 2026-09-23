@@ -109,17 +109,14 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run()
+    run.process()
 
-    # post processing
+    # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-
-        # diagnostics
-        sim.load_plotting_data()
-
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values
 
         if do_plot:
             ppb = 8
@@ -243,20 +240,17 @@ def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run()
+    run.process()
 
-    # post processing
+    # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-
-        # diagnostics
-        sim.load_plotting_data()
-
-        e1_binned = sim.f.euler_fluid.e1_density.grid_e1
-        n_binned = sim.f.euler_fluid.e1_density.delta_f_binned
-        j1_binned = sim.f.euler_fluid.e1_current_1.f_binned
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
+        e1_binned = run.distributions.euler_fluid.e1_density.f.e1.values
+        n_binned = run.distributions.euler_fluid.e1_density.delta_f.values
+        j1_binned = run.distributions.euler_fluid.e1_current_1.f.values
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values
 
         print(f"{e1_binned.shape = }")
         print(f"{n_binned.shape = }")
@@ -452,20 +446,17 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run()
+    run.process()
 
-    # post processing
+    # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-
-        # diagnostics
-        sim.load_plotting_data()
-
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
-        e1_binned = sim.f.euler_fluid.e1_density.grid_e1
-        n_binned = sim.f.euler_fluid.e1_density.f_binned
-        j1_binned = sim.f.euler_fluid.e1_current_1.f_binned
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values
+        e1_binned = run.distributions.euler_fluid.e1_density.f.e1.values
+        n_binned = run.distributions.euler_fluid.e1_density.f.values
+        j1_binned = run.distributions.euler_fluid.e1_current_1.f.values
         print(f"{e1_binned.shape = }")
         print(f"{n_binned.shape = }")
         print(f"{j1_binned.shape = }")
@@ -667,14 +658,12 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
         derham_opts=None,
     )
 
-    sim.run()
+    run = sim.run()
+    run.process()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-        sim.load_plotting_data()
-
-        e2_grid = sim.f.euler_fluid.e2_current_1.grid_e2  # logical y in [0, 1]
-        j1_binned = sim.f.euler_fluid.e2_current_1.f_binned  # shape (Nt+1, n_bins)
+        e2_grid = run.distributions.euler_fluid.e2_current_1.f.e2.values  # logical y in [0, 1]
+        j1_binned = run.distributions.euler_fluid.e2_current_1.f.values  # shape (Nt+1, n_bins)
 
         import numpy as np
 
@@ -752,7 +741,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
             from matplotlib.colors import LinearSegmentedColormap
             from tqdm import tqdm as _tqdm
 
-            orbits = np.asarray(sim.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
+            orbits = np.asarray(run.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
             # attrs for vdim=2: [x, y, z, v1, v2, w, diag, id]
 
             Nt_orb = orbits.shape[0]
@@ -929,27 +918,26 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
         derham_opts=None,
     )
 
-    sim.run()
+    run = sim.run()
+    run.process()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-        sim.load_plotting_data()
-
         import numpy as np
 
         dt = time_opts.dt
         Nt = int(time_opts.Tend / dt)
         times = np.linspace(0.0, time_opts.Tend, Nt + 1)
 
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph  # (Nt+1, pts_e1, pts_e2, 1)
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values  # (Nt+1, pts_e1, pts_e2, 1)
 
         X = np.asarray(ee1)[:, :, 0] * r1  # physical x, shape (pts_e1, pts_e2)
         Y = np.asarray(ee2)[:, :, 0] * r2  # physical y, shape (pts_e1, pts_e2)
         n_arr = np.asarray(n_sph)  # (Nt+1, pts_e1, pts_e2, 1)
 
         # orbits needed for both do_plot scatter overlay and create_png
-        orbits = np.asarray(sim.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
+        orbits = np.asarray(run.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
         Nt_orb = orbits.shape[0]
         t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
 

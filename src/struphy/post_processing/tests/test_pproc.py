@@ -6,7 +6,7 @@ import pytest
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
 
-from struphy import Simulation, set_logging_level
+from struphy import Output, Simulation, set_logging_level
 from struphy.io.setup import import_parameters_py
 
 set_logging_level(logging.WARNING)
@@ -20,90 +20,53 @@ PARAMS_PATH = (
 @pytest.mark.mpi(min_size=2)
 def test_pproc_mpi(show_plot=False):
 
-    def do_plotting(sim: Simulation, from_parallel=False):
-        sim.load_plotting_data()
-
-        t_grid = sim.t_grid
-        eta1 = sim.grids_log[0]
-        e_field = sim.spline_values.em_fields.e_field_log
-        phi = sim.spline_values.em_fields.phi_log
-
-        f = sim.f.kinetic_ions.e1_v1_density
-        print(f.__dict__.keys())
-        bins_e1 = f.grid_e1
-        bins_v1 = f.grid_v1
-        f_binned = f.f_binned
-        df_binned = f.delta_f_binned
-        print(f"{f_binned.shape=}")
-
-        if from_parallel:
-            extra = " (from parallel pproc)"
-        else:
-            extra = ""
-
-        n = 0  # time index
+    def do_plotting(run: Output, from_parallel=False):
+        e_field = run.fields.em_fields.e_field.isel(t=0, component=0, e2=0, e3=0)
+        phi = run.fields.em_fields.phi.isel(t=0, e2=0, e3=0)
+        f = run.distributions.kinetic_ions.e1_v1_density
+        f_binned = f.f.isel(t=0)
+        df_binned = f.delta_f.isel(t=0)
 
         if show_plot:
+            extra = " (from parallel pproc)" if from_parallel else ""
             plt.figure(figsize=(12, 12))
-            plt.subplot(2, 2, 1)
-            plt.plot(eta1, e_field.data[t_grid[n]][0][:, 0, 0], label="Ex")
-            plt.title(f"Ex at t={t_grid[n]} on rank 0{extra}")
-            plt.xlabel("$\\eta1$")
-            plt.ylabel("Ex")
-            plt.legend()
+            for index, (data, title) in enumerate(((e_field, "Ex"), (phi, "phi")), 1):
+                plt.subplot(2, 2, index)
+                data.plot(label=title)
+                plt.title(f"{title} at t={float(data.t)} on rank 0{extra}")
+                plt.legend()
+            for index, (data, title) in enumerate(((f_binned, "full f"), (df_binned, "delta f")), 3):
+                plt.subplot(2, 2, index)
+                data.plot(x="e1", y="v1")
+                plt.title(f"{title} at t={float(data.t)} on rank 0{extra}")
 
-            plt.subplot(2, 2, 2)
-            plt.plot(eta1, phi.data[t_grid[n]][0][:, 0, 0], label="phi")
-            plt.title(f"phi at t={t_grid[n]} on rank 0{extra}")
-            plt.xlabel("$\\eta1$")
-            plt.ylabel("phi")
-            plt.legend()
-
-            plt.subplot(2, 2, 3)
-            plt.pcolor(bins_e1, bins_v1, f_binned[n].T, shading="auto")
-            plt.title(f"full f at t={t_grid[n]} on rank 0{extra}")
-            plt.xlabel("$\\eta1$")
-            plt.ylabel("$v_x$")
-
-            plt.subplot(2, 2, 4)
-            plt.pcolor(bins_e1, bins_v1, df_binned[n].T, shading="auto")
-            plt.title(f"delta f at t={t_grid[n]} on rank 0{extra}")
-            plt.xlabel("$\\eta1$")
-            plt.ylabel("$v_x$")
-
-        return (
-            e_field.data[t_grid[n]][0][:, 0, 0],
-            phi.data[t_grid[n]][0][:, 0, 0],
-            f_binned[n].T,
-            df_binned[n].T,
-        )
+        return tuple(np.asarray(data) for data in (e_field, phi, f_binned, df_binned))
 
     test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
 
     sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
 
     sim.run(one_time_step=True)
+    run = Output(sim.env.path_out)
 
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        # serial pproc
-        sim.pproc()
-        r1, r2, r3, r4 = do_plotting(sim)
-    MPI.COMM_WORLD.Barrier()
+    # serial pproc
+    run.process(create_vtk=True)
+    if sim.rank == 0:
+        serial = do_plotting(run)
 
     # parallel pproc
-    sim.pproc(parallel_pproc=True)
+    run.process(create_vtk=True, parallel=True, force=True)
 
     # plot and compare results from serial and parallel pproc
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        r1_mpi, r2_mpi, r3_mpi, r4_mpi = do_plotting(sim, from_parallel=True)
+    if sim.rank == 0:
+        parallel = do_plotting(run, from_parallel=True)
         if show_plot:
             plt.show()
 
-        assert np.allclose(r1, r1_mpi)
-        assert np.allclose(r2, r2_mpi)
-        assert np.allclose(r3, r3_mpi)
-        assert np.allclose(r4, r4_mpi)
+        for expected, actual in zip(serial, parallel):
+            assert np.allclose(expected, actual)
         print("All checks passed for parallel pproc vs serial pproc.")
+    MPI.COMM_WORLD.Barrier()
 
 
 if __name__ == "__main__":
