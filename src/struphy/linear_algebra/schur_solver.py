@@ -74,8 +74,9 @@ class SchurSolver:
         # Allocate memory for matrices used in solving the Schur system
         self._schur = A.copy()
         self._rhs_m = A.copy()
+        self._cached_dt = None
 
-        # initialize solver with dummy matrix A
+        # Keep the solver attached to the Schur matrix, which is updated in place.
         self._solver_name = solver_name
 
         kwargs = solver_params.__dict__.copy()
@@ -83,7 +84,7 @@ class SchurSolver:
         if precond is not None:
             kwargs["pc"] = precond
 
-        self._solver = inverse(A, solver_name, **kwargs)
+        self._solver = inverse(self._schur, solver_name, **kwargs)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = A.codomain.zeros()
@@ -102,11 +103,13 @@ class SchurSolver:
     def A(self, a):
         """Upper left block from [[A B], [C Id]]."""
         self._A = a
+        self._cached_dt = None
 
     @BC.setter
     def BC(self, bc):
         """Product from [[A B], [C Id]]."""
         self._BC = bc
+        self._cached_dt = None
 
     @profile
     @ProfileManager.profile("solve: SchurSolver")
@@ -141,19 +144,19 @@ class SchurSolver:
         assert xn.space == self._A.domain
         assert Byn.space == self._A.codomain
 
-        # left- and right-hand side operators
-        self._schur *= 0.0
-        self._schur += self._BC
-        self._schur *= -(dt**2)
-        self._schur += self._A
+        # Both operators are constant until dt, A, or BC changes. Updating the
+        # Schur matrix in place keeps the iterative solver's operator attached.
+        if dt != self._cached_dt:
+            self._schur *= 0.0
+            self._schur += self._BC
+            self._schur *= -(dt**2)
+            self._schur += self._A
 
-        self._rhs_m *= 0.0
-        self._rhs_m += self._BC
-        self._rhs_m *= dt**2
-        self._rhs_m += self._A
-
-        # use setter to update lhs matrix
-        self._solver.linop = self._schur
+            self._rhs_m *= 0.0
+            self._rhs_m += self._BC
+            self._rhs_m *= dt**2
+            self._rhs_m += self._A
+            self._cached_dt = dt
 
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
         rhs = self._rhs_m.dot(xn, out=self._rhs)
