@@ -95,3 +95,6 @@ def test_schur_solver_cached_step_benchmark():
         f"full solve cached={cached_solve / steps * 1e3:.2f}ms/step, "
         f"rebuilt={rebuilt_solve / steps * 1e3:.2f}ms/step"
     )
+
+if __name__ == "__main__":
+    test_schur_solver_cached_step_benchmark()
