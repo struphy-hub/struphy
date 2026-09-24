@@ -285,6 +285,29 @@ def test_evaluate_selects_positions_coordinates_and_slices(run):
     np.testing.assert_allclose(values, 2.0)
 
 
+def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
+    calls = []
+
+    class Field:
+        def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
+            calls.append((eta1, eta2, eta3))
+            return [eta1, eta2, eta3]
+
+    field = Field()
+    monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"e_field": field}})
+
+    values = run.evaluate("em_fields/e_field", eta1=0.25, eta2=0.5, eta3=0.75, component=2)
+
+    assert values.dims == ("t",)
+    np.testing.assert_allclose(values.t, np.arange(NT) / (NT - 1))
+    np.testing.assert_allclose(values, 0.75)
+    assert calls == [(0.25, 0.5, 0.75)] * NT
+
+    last = run.evaluate("em_fields/e_field", eta1=0.25, eta2=0.5, eta3=0.75, t=-1)
+    assert last.dims == ("t", "component")
+    assert last.sizes["t"] == 1
+
+
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))

@@ -274,7 +274,10 @@ class Output:
         drop: bool = False,
         as_numpy: bool = False,
         physical: Mapping[str, float] | None = None,
-        t: int | float | str | None = None,
+        t: int | float | slice | Sequence[int] | None = None,
+        eta1: float | None = None,
+        eta2: float | None = None,
+        eta3: float | None = None,
         **coordinates: Any,
     ) -> xr.DataArray | np.ndarray:
         """Return a named simulation product as an :class:`xarray.DataArray`.
@@ -294,8 +297,24 @@ class Output:
         ``physical={"X": x, "Y": y, "Z": z}`` evaluates a field at a physical point when
         its domain supplies an analytical ``inverse_map``. It converts the point to logical
         coordinates and uses xarray interpolation.
+
+        Supplying all of ``eta1``, ``eta2`` and ``eta3`` instead evaluates a raw FEEC
+        spline field directly at that logical point.  This reads coefficients one saved
+        snapshot at a time and does not materialize a spatial post-processing product.
+        Use a raw field name such as ``"em_fields/e_field"``.
         """
         selectors = dict(coordinates)
+
+        eta = (eta1, eta2, eta3)
+        has_eta = any(value is not None for value in eta)
+        if has_eta:
+            if any(value is None for value in eta):
+                raise ValueError("eta1, eta2, and eta3 must be supplied together")
+            if physical:
+                raise ValueError("physical and eta1/eta2/eta3 selections cannot be combined")
+            array = self._evaluate_spline_point(name, *map(float, eta), t=t, method=method)
+            t = None
+            method = None
 
         physical_sel = None
         if physical:
@@ -307,7 +326,8 @@ class Output:
                 raise NotImplementedError(f"{type(self.domain).__name__} has no inverse_map for physical evaluation")
             eta = inverse(*(float(physical[axis]) for axis in ("X", "Y", "Z")))
             physical_sel = dict(zip(("e1", "e2", "e3"), map(float, eta)))
-        array = self._product(name)
+        if not has_eta:
+            array = self._product(name)
         if t is not None:
             if isinstance(t, (int, np.integer)):
                 array = array.isel(t=[int(t)], drop=drop)
@@ -331,6 +351,75 @@ class Output:
         elif method is not None:
             raise ValueError("method requires a direct coordinate selector")
         return array.to_numpy() if as_numpy else array
+
+    def _evaluate_spline_point(
+        self, name: str, eta1: float, eta2: float, eta3: float, *, t: int | float | slice | Sequence[int] | None,
+        method: str | None,
+    ) -> xr.DataArray:
+        """Evaluate one raw FEEC field at one logical point for selected snapshots."""
+        try:
+            species, variable = name.split("/")
+        except ValueError as error:
+            raise ValueError("raw spline fields use a 'species/variable' name") from error
+
+        path = self.path_out / "data" / "data_proc0.hdf5"
+        with h5py.File(path) as file:
+            if "feec" not in file:
+                raise ValueError("This output contains no saved FEEC fields")
+            times = np.asarray(file["time/value"]) * self.time_scale
+            indices = self._snapshot_indices(t, times, method=method)
+
+        values = []
+        for snapshot in indices:
+            fields = self.spline_fields(t=int(snapshot))
+            try:
+                field = fields[species][variable]
+            except KeyError as error:
+                available = tuple(f"{group}/{key}" for group, entries in fields.items() for key in entries)
+                raise KeyError(f"{name!r} is not a saved raw FEEC field; available fields: {available}") from error
+            value = field(eta1, eta2, eta3, squeeze_out=True)
+            if isinstance(value, (list, tuple)):
+                value = [component.item() if hasattr(component, "item") else component for component in value]
+            else:
+                value = value.item() if hasattr(value, "item") else value
+            values.append(value)
+
+        data = np.asarray(values)
+        dims = ("t",) if data.ndim == 1 else ("t", "component")
+        coords: dict[str, Any] = {"t": times[indices]}
+        if data.ndim == 2:
+            coords["component"] = np.arange(data.shape[1])
+        return self._stamp(xr.DataArray(data, dims=dims, coords=coords, name=variable))
+
+    @staticmethod
+    def _snapshot_indices(
+        selection: int | float | slice | Sequence[int] | None, times: np.ndarray, *, method: str | None,
+    ) -> np.ndarray:
+        """Turn the public ``t`` selector into non-negative saved-snapshot indices."""
+        count = len(times)
+        if selection is None:
+            return np.arange(count)
+        if isinstance(selection, (int, np.integer)):
+            indices = np.array([int(selection)])
+        elif isinstance(selection, slice):
+            return np.arange(count)[selection]
+        elif isinstance(selection, (list, tuple, np.ndarray)):
+            if not all(isinstance(index, (int, np.integer)) for index in selection):
+                raise TypeError("t sequences must contain saved-snapshot indices")
+            indices = np.asarray(selection, dtype=int)
+        elif isinstance(selection, (float, np.floating)):
+            matches = np.flatnonzero(np.isclose(times, float(selection)))
+            if matches.size:
+                return matches[:1]
+            if method == "nearest" and count:
+                return np.array([np.abs(times - float(selection)).argmin()])
+            raise KeyError(f"time coordinate {selection} is not saved")
+        else:
+            raise TypeError("t must be a saved-snapshot index, index sequence, slice, or float time coordinate")
+        indices = np.where(indices < 0, indices + count, indices)
+        if np.any((indices < 0) | (indices >= count)):
+            raise IndexError("t is outside the saved snapshot range")
+        return indices
 
     def _product(self, name: str) -> xr.DataArray:
         """Resolve one saved product for :meth:`evaluate`."""
