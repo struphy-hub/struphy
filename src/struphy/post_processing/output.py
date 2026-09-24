@@ -262,22 +262,9 @@ class Output:
         self._tree = None
         self._species = None
         self._seconds = None
-
-    def __getitem__(self, name: str) -> xr.DataArray:
-        """Compatibility shorthand for :meth:`evaluate`."""
-        if name in self.scalars.data_vars:
-            return self.scalars[name]
-        for catalog in (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog):
-            if name in catalog:
-                return catalog[name]
-        available = (
-            *self.scalars.data_vars,
-            *self.field_catalog,
-            *self.distribution_catalog,
-            *self.density_catalog,
-            *self.orbit_catalog,
-        )
-        raise KeyError(f"{name!r} not found; available products: {available}")
+        self._spline_derham = None
+        self._spline_fields = None
+        self._spline_snapshot = None
 
     def evaluate(
         self,
@@ -1995,6 +1982,90 @@ class Output:
                     )
                 self._scalars = xr.Dataset(variables)
         return self._scalars
+
+    def iter_spline_coefficients(self, *, stride: int = 1, rank: int = 0):
+        """Yield saved FEEC spline coefficients one snapshot at a time.
+
+        This reads only the raw ``data_proc<rank>.hdf5`` datasets. It does not
+        allocate spline functions, evaluate fields, create post-processing files,
+        or load particle data. Scalar variables are arrays; vector variables are
+        tuples of component arrays.
+
+        ``rank`` selects one MPI rank's local coefficients. Global assembly remains
+        part of the explicit post-processing workflow.
+        """
+        if not isinstance(stride, int) or stride < 1:
+            raise ValueError("stride must be a positive integer")
+        if not isinstance(rank, int) or rank < 0:
+            raise ValueError("rank must be a non-negative integer")
+
+        path = self.path_out / "data" / f"data_proc{rank}.hdf5"
+        with h5py.File(path) as file:
+            if "feec" not in file:
+                return
+            times = file["time/value"]
+            for snapshot in range(0, len(times), stride):
+                coefficients = {}
+                for species_name, species in file["feec"].items():
+                    variables = {}
+                    for variable_name, variable in species.items():
+                        if isinstance(variable, h5py.Dataset):
+                            variables[variable_name] = np.asarray(variable[snapshot])
+                        else:
+                            variables[variable_name] = tuple(
+                                np.asarray(variable[component][snapshot]) for component in sorted(variable, key=int)
+                            )
+                    coefficients[species_name] = variables
+                yield float(times[snapshot]) * self.time_scale, coefficients
+
+    def spline_fields(self, snapshot: int) -> dict:
+        """Return FEEC ``SplineFunction`` objects loaded with one saved snapshot.
+
+        The spline functions are allocated once and reused. Requesting the same
+        snapshot performs no HDF5 reads; requesting another snapshot overwrites
+        their coefficients in place. Copy evaluated values before requesting a
+        different snapshot.
+
+        The returned mapping is ``species -> variable -> SplineFunction``. It is
+        intentionally separate from :meth:`evaluate`, which serves persisted
+        post-processed xarray products.
+        """
+        if not isinstance(snapshot, int):
+            raise TypeError("snapshot must be an integer")
+        if self.grid is None or self.derham_opts is None:
+            raise ValueError("Spline fields require saved grid and derham options")
+
+        data_path = self.path_out / "data" / "data_proc0.hdf5"
+        with h5py.File(data_path) as file:
+            if "feec" not in file:
+                raise ValueError("This output contains no saved FEEC fields")
+            n_snapshots = len(file["time/value"])
+            if snapshot < 0:
+                snapshot += n_snapshots
+            if not 0 <= snapshot < n_snapshots:
+                raise IndexError(f"snapshot {snapshot} is outside [0, {n_snapshots})")
+
+            if self._spline_fields is None:
+                self._spline_derham = Derham(self.grid, self.derham_opts, comm=None, domain=self.domain)
+                self._spline_fields = {
+                    species_name: {
+                        variable_name: self._spline_derham.create_spline_function(
+                            variable_name, variable.attrs["space_id"]
+                        )
+                        for variable_name, variable in species.items()
+                    }
+                    for species_name, species in file["feec"].items()
+                }
+
+        if snapshot != self._spline_snapshot:
+            with ExitStack() as stack:
+                files = [
+                    stack.enter_context(h5py.File(self.path_out / "data" / f"data_proc{rank}.hdf5"))
+                    for rank in range(self.mpi_ranks)
+                ]
+                self._load_femfields(self._spline_fields, files, snapshot)
+            self._spline_snapshot = snapshot
+        return self._spline_fields
 
     @property
     def label(self) -> str:

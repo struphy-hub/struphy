@@ -369,6 +369,21 @@ def test_info_labels_distribution_and_density_symbols(run, capsys):
     assert "SPH density ($n$)" in text
 
 
+def test_iter_spline_coefficients_reads_one_raw_snapshot_at_a_time(run):
+    raw_path = run.path_out / "data" / "data_proc0.hdf5"
+    with h5py.File(raw_path, "a") as file:
+        file.create_dataset("feec/em_fields/phi", data=np.arange(NT * 2).reshape(NT, 2))
+        file.create_group("feec/em_fields/e_field")
+        file.create_dataset("feec/em_fields/e_field/1", data=np.full((NT, 2), 1.0))
+        file.create_dataset("feec/em_fields/e_field/2", data=np.full((NT, 2), 2.0))
+
+    snapshots = list(run.iter_spline_coefficients(stride=2))
+    assert [time for time, _ in snapshots] == [0.0, 1.0]
+    assert np.array_equal(snapshots[1]["em_fields"]["phi"], np.array([4, 5]))
+    assert len(snapshots[0]["em_fields"]["e_field"]) == 2
+    assert np.array_equal(snapshots[0]["em_fields"]["e_field"][1], np.array([2.0, 2.0]))
+
+
 def test_normalized_time_carries_seconds_as_a_coordinate(run):
     energy = run.scalars.en_tot
     assert "units" not in energy.t.attrs, "normalized time has no unit"
