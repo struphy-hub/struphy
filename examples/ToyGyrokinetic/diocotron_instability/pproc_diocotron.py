@@ -27,7 +27,7 @@ SWEEPS = [
 
 
 def main(paths=(DEFAULT_OUTPUT,)):
-    runs = [Output(path).process(physical=True) for path in paths]
+    runs = [Output(path).pproc(physical=True) for path in paths]
     run = runs[0]
 
     # growth rate of the electrostatic energy, one curve per run

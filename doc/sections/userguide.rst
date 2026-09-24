@@ -499,20 +499,18 @@ After initial conditions are set, launch the run:
 11. Post-processing and visualization
 -------------------------------------
 
-A serial postprocessor can be reconstructed from a saved output folder, including
-one moved to another location:
+A postprocessor can be reconstructed from a saved output folder, including one
+moved to another location:
 
 .. code-block:: python
 
-    from struphy.post_processing.post_processing_tools import PostProcessor
+    from struphy import Output
 
-    processor = PostProcessor.from_output("./runs/my_run")
-    processor.process(physical=True)
+    output = Output("./runs/my_run")
+    output.pproc(physical=True)
 
-This reads ``run_metadata.json``, falling back to legacy ``config.json`` when needed.
-The original MPI rank count comes from ``run_metadata.json`` or legacy ``meta.yml``.
-Under MPI, call this factory on one rank only; use ``Output.process`` for automatic
-rank handling.
+This reads the ``run_metadata.json`` written by the simulation. Under MPI, call
+``pproc`` on every rank; serial processing runs on rank 0 while the other ranks wait.
 
 The output of a simulation is a :class:`~struphy.Output`. ``sim.run()`` returns it,
 and it stays available as ``sim.output``:
@@ -549,18 +547,18 @@ not configuration applied to the model afterwards, such as backgrounds or pertur
     out.domain, out.model.units
 
 
-Choosing post-processing options: ``out.process()``
+Choosing post-processing options: ``out.pproc()``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Scalars need no post-processing. Fields, binned distribution functions, SPH
 densities and orbits are evaluated from the raw HDF5 data and written to a
 ``post_processing/`` sub-folder of the output directory. Without an explicit call
 this happens with default options the first time such a product is accessed. To
-choose the options, call ``process`` first:
+choose the options, call ``pproc`` first:
 
 .. code-block:: python
 
-    out.process(
+    out.pproc(
         step=1,                # evaluate every N-th saved time step
         celldivide=1,          # sub-divide each grid cell for smoother output
         physical=False,        # also evaluate fields in physical coordinates (*_xyz)
@@ -573,7 +571,7 @@ choose the options, call ``process`` first:
 
 All arguments are optional and default to the values shown above. Products that
 were already made from the same raw output with the same options are reused, so a
-plotting script can be re-run cheaply. Under MPI, call ``process`` on every rank:
+plotting script can be re-run cheaply. Under MPI, call ``pproc`` on every rank:
 serial processing runs on rank 0 while the other ranks wait, and
 ``parallel=True`` uses the allocated simulation on all ranks.
 
@@ -669,7 +667,7 @@ trajectories are available under ``out.orbits``:
 VTK output for ParaView and PyVista
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you call ``out.process(create_vtk=True)``, Struphy writes structured-grid VTK
+If you call ``out.pproc(create_vtk=True)``, Struphy writes structured-grid VTK
 files (``.vts``) inside the post-processing folder, grouped by species.
 Typical locations are:
 
@@ -933,7 +931,7 @@ Gantt charts and flame graphs.
 
 Note that ``profiling_data.h5`` is a plain ``scope-profiler`` output file, so
 it is post-processed with ``scope-profiler`` itself rather than with
-``out.process()`` — the two are independent post-processing paths.
+``out.pproc()`` — the two are independent post-processing paths.
 
 
 Post-processing with the ``scope-profiler`` CLI

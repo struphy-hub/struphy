@@ -11,7 +11,7 @@ MANIFEST_SCHEMA_VERSION = 1
 def source_fingerprint(path_out: str) -> str:
     """Fingerprint the raw run files that determine post-processing products."""
     digest = hashlib.sha256()
-    for name in ("config.json", "run_metadata.json", "meta.yml", "data/data_proc0.hdf5"):
+    for name in ("run_metadata.json", "data/data_proc0.hdf5"):
         path = os.path.join(path_out, name)
         if not os.path.exists(path):
             continue

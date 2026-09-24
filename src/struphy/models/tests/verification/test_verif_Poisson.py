@@ -79,7 +79,7 @@ def test_poisson_1d(do_plot=False):
     run = sim.run().with_time_units("normalized")
 
     # post processing
-    run.process()
+    run.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:

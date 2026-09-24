@@ -128,7 +128,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
 
     if comm is not None:
         comm.Barrier()
-    run.process(create_vtk=True)
+    run.pproc(create_vtk=True)
     if rank == 0:
         # discover (but do not load) every product
         for catalog in (run.field_catalog, run.distribution_catalog, run.density_catalog, run.orbit_catalog):

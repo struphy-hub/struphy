@@ -8,10 +8,8 @@ import json
 import logging
 import os
 import shutil
-import sysconfig
 import textwrap
 import time
-import warnings
 from pathlib import Path
 
 import cunumpy as xp
@@ -71,13 +69,12 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.physics.physics import Units
 from struphy.pic.base import Particles
-from struphy.post_processing.legacy import legacy_views
 from struphy.post_processing.output import Output
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.progress import tqdm
-from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
+from struphy.utils.utils import ruff_autofix_and_format
 
 logger = logging.getLogger("struphy")
 
@@ -868,23 +865,6 @@ class Simulation(SimulationBase):
 
             self.Barrier()
 
-            if self.rank == 0:
-                # save meta-data
-                meta = {
-                    "platform": sysconfig.get_platform(),
-                    "python version": sysconfig.get_python_version(),
-                    "model name": self.model_name,
-                    "parameter file": self.params_path,
-                    "output folder": self.env.path_out,
-                    "MPI processes": self.comm_size,
-                    "use MPI.COMM_WORLD": self.comm is not None,
-                    "number of domain clones": self.env.num_clones,
-                    "restart": self.env.restart,
-                    "max wall-clock [min]": self.env.max_runtime,
-                    "save interval [steps]": self.env.save_step,
-                    "wall-clock time[min]": (end_time - self.start_time) / 60,
-                }
-                dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
             logger.info("Struphy run finished.")
 
             if self.clone_config is not None:
@@ -902,89 +882,6 @@ class Simulation(SimulationBase):
         if self._output is None or self._output.path_out != Path(self.env.path_out).resolve():
             self._output = Output(self.env.path_out)
         return self._output
-
-    # ------------------------------------------------------------------
-    # Deprecated post-processing entry points, superseded by self.output
-    # ------------------------------------------------------------------
-
-    def pproc(
-        self,
-        step: int = 1,
-        celldivide: int | tuple[int, int, int] = 1,
-        physical: bool = False,
-        guiding_center: bool = False,
-        classify: bool = False,
-        create_vtk: bool = True,
-        parallel_pproc: bool = False,
-        force: bool = True,
-        load: bool = False,
-    ) -> Output | None:
-        """Deprecated, use ``sim.output.pproc(...)``, see :meth:`struphy.Output.pproc`."""
-        warnings.warn(
-            "Simulation.pproc() is deprecated; use sim.output.pproc(...) instead.\n"
-            "How to update your script: replace 'sim.pproc(physical=True)' by 'out = sim.output' and "
-            "'out.pproc(physical=True)' (same options). Post-processing also runs on first access of a product, "
-            "so the call can be dropped if the default options suffice; drop 'sim.load_plotting_data()' as well "
-            "and read the products from 'out', see the warning of load_plotting_data().",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.output.pproc(
-            step=step,
-            celldivide=celldivide,
-            physical=physical,
-            guiding_center=guiding_center,
-            classify=classify,
-            create_vtk=create_vtk,
-            parallel=parallel_pproc,
-            force=force,
-        )
-        return self.load_plotting_data() if load else None
-
-    def load_plotting_data(self) -> Output | None:
-        """Deprecated, use :attr:`output`; attaches its products as attributes of the simulation.
-
-        They have the shapes of earlier versions, see :func:`struphy.post_processing.legacy.legacy_views`.
-
-        Returns the :class:`struphy.Output` on rank 0 and ``None`` on the other ranks.
-        """
-        warnings.warn(
-            "Simulation.load_plotting_data() is deprecated; use sim.output (a struphy.Output) instead.\n"
-            "How to update your script, with out = sim.output:\n"
-            "  sim.orbits.<species>                        ->  out.orbits.<species>\n"
-            "  sim.f.<species>.<slice>.f_binned            ->  out.distributions.<species>.<slice>.f\n"
-            "  sim.f.<species>.<slice>.grid_e1             ->  out.distributions.<species>.<slice>.e1\n"
-            "  sim.spline_values.<species>.<name>_log.data ->  out.fields.<species>.<name>\n"
-            "  sim.spline_values.<species>.<name>_phy.data ->  out.fields.<species>.<name>_xyz\n"
-            "  sim.n_sph.<species>.<view>.n_sph            ->  out.densities.<species>.<view>.n\n"
-            "  sim.grids_log / sim.grids_phy / sim.t_grid  ->  out.grids_log / out.grids_phy / out.time\n"
-            "The products are xarray.DataArrays with named dimensions and coordinates (e.g. arr.t, arr.e1).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if self.rank != 0:
-            return None
-        output = self.output
-        views = legacy_views(output)
-        self.orbits = views.orbits
-        self.f = views.f
-        self.spline_values = views.spline_values
-        self.n_sph = views.n_sph
-        self.grids_log = output.grids_log
-        self.grids_phy = output.grids_phy
-        self.t_grid = xp.array(output.time)
-        return output
-
-    @property
-    def plotting_data(self) -> Output:
-        """Deprecated alias of :attr:`output`."""
-        warnings.warn(
-            "Simulation.plotting_data is deprecated; use sim.output instead "
-            "(e.g. 'sim.plotting_data.orbits' -> 'sim.output.orbits').",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.output
 
     # ---------------------
     # Code specific methods
@@ -1830,22 +1727,18 @@ class Simulation(SimulationBase):
 
     def _restore_initial_conditions(self, metadata: dict):
         """Attach metadata initial conditions to the reconstructed model variables."""
-        version = metadata.get("model", {}).get(
-            "initial_conditions_schema_version", metadata.get("initial_conditions_schema_version", 1)
-        )
+        version = metadata.get("model", {}).get("initial_conditions_schema_version", 1)
         if version != 1:
             raise ValueError(f"Unsupported initial-conditions metadata schema version: {version}.")
         model_species = metadata.get("model", {}).get("species", {})
-        definitions = metadata.get("initial_conditions")
-        if definitions is None:
-            definitions = {
-                species_name: {
-                    name: variable["initial_conditions"]
-                    for name, variable in species.get("variables", {}).items()
-                    if "initial_conditions" in variable
-                }
-                for species_name, species in model_species.items()
+        definitions = {
+            species_name: {
+                name: variable["initial_conditions"]
+                for name, variable in species.get("variables", {}).items()
+                if "initial_conditions" in variable
             }
+            for species_name, species in model_species.items()
+        }
         for species_name, variables in definitions.items():
             species = self.model.species.get(species_name)
             if species is None:
@@ -1964,8 +1857,7 @@ class Simulation(SimulationBase):
     def from_output(cls, path_out: str) -> "Simulation":
         """Restore the simulation that wrote the output folder ``path_out``.
 
-        The configuration is read from the ``run_metadata.json`` written by :meth:`run`,
-        falling back to legacy ``config.json`` if absent; a copied
+        The configuration is read from the ``run_metadata.json`` written by :meth:`run`; a copied
         parameter file is never executed. The metadata holds the options objects and the
         arguments of the model (and thus its units), which is all that post-processing and
         plotting need. Initial conditions are restored when present, including
@@ -1975,12 +1867,7 @@ class Simulation(SimulationBase):
         path_out = os.path.abspath(path_out)
         config_path = os.path.join(path_out, "run_metadata.json")
         if not os.path.exists(config_path):
-            config_path = os.path.join(path_out, "config.json")
-        if not os.path.exists(config_path):
-            raise FileNotFoundError(
-                f"Neither config.json nor run_metadata.json exists in {path_out}; is it a Struphy output folder? Outputs of older "
-                "versions can get one with sim.to_run_metadata(os.path.join(path_out, 'run_metadata.json')) from their parameter file."
-            )
+            raise FileNotFoundError(f"run_metadata.json does not exist in {path_out}; is it a Struphy output folder?")
         sim = cls.from_file(config_path)
         sim.env = dataclasses.replace(
             sim.env, out_folders=os.path.dirname(path_out), sim_folder=os.path.basename(path_out)

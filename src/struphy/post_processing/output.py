@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import shutil
-import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from functools import cached_property
@@ -188,8 +187,8 @@ class Output:
     Optional plotting is provided by the separate ``struphy-plots`` package.
 
     * :attr:`scalars` are read directly from the raw HDF5 output.
-    * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` are retained
-      as compatibility views over the post-processed products.
+    * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` group the
+      post-processed products.
     * :attr:`model`, :attr:`initial_conditions`, :attr:`domain` and numerical options are
       reconstructed lazily from saved metadata. No simulation object is created or retained.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
@@ -599,13 +598,12 @@ class Output:
 
     @cached_property
     def metadata(self) -> dict:
-        """Saved run metadata, with legacy ``config.json`` supported as a fallback."""
-        for name in ("run_metadata.json", "config.json"):
-            path = self.path_out / name
-            if path.is_file():
-                with path.open() as stream:
-                    return json.load(stream)
-        raise FileNotFoundError(f"Neither run_metadata.json nor config.json exists in {self.path_out}")
+        """Saved run metadata."""
+        path = self.path_out / "run_metadata.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"run_metadata.json does not exist in {self.path_out}")
+        with path.open() as stream:
+            return json.load(stream)
 
     def _restore(self, key, cls):
         # Constructors expect tuples where JSON encodes sequences as lists.
@@ -654,9 +652,7 @@ class Output:
         """
         from struphy.simulation.sim import Simulation
 
-        version = self.metadata.get("model", {}).get(
-            "initial_conditions_schema_version", self.metadata.get("initial_conditions_schema_version", 1)
-        )
+        version = self.metadata.get("model", {}).get("initial_conditions_schema_version", 1)
         if version != 1:
             raise ValueError(f"Unsupported initial-conditions metadata schema version: {version}.")
         result = {}
@@ -673,10 +669,7 @@ class Output:
         return result
 
     def _initial_condition_metadata(self) -> dict:
-        """Read variable definitions, including the layout of older output folders."""
-        legacy = self.metadata.get("initial_conditions")
-        if legacy is not None:
-            return legacy
+        """Read variable definitions from the current run metadata schema."""
         return {
             species_name: {
                 name: variable["initial_conditions"]
@@ -724,12 +717,7 @@ class Output:
     @cached_property
     def mpi_ranks(self) -> int:
         """Number of ranks that wrote the raw output (not the current communicator)."""
-        if "mpi_ranks" in self.metadata:
-            return int(self.metadata["mpi_ranks"])
-        import yaml
-
-        with (self.path_out / "meta.yml").open() as stream:
-            return int(yaml.safe_load(stream)["MPI processes"])
+        return int(self.metadata["mpi_ranks"])
 
     @property
     def is_processed(self) -> bool:
@@ -816,10 +804,6 @@ class Output:
             self._pproc_derham = Derham(
                 self.grid, self.derham_opts, comm=self._pproc_comm if parallel else None, domain=self.domain,
             )
-
-    def process(self, **options) -> "Output":
-        """Compatibility alias for :meth:`pproc`."""
-        return self.pproc(**options)
 
     def _write_manifest(self, status, *, options=None, error=None):
         if self._pproc_rank != 0:
@@ -1920,30 +1904,6 @@ class Output:
     @property
     def orbit_catalog(self) -> ProductMapping:
         return self._product_mappings()["orbits"]
-
-    @property
-    def f(self) -> DistributionProducts:
-        """Deprecated alias of :attr:`distributions`."""
-        warnings.warn("Output.f is deprecated; use out.distributions instead.", DeprecationWarning, stacklevel=2)
-        return self.distributions
-
-    @property
-    def spline_values(self) -> FieldProducts:
-        """Deprecated alias of :attr:`fields`."""
-        warnings.warn("Output.spline_values is deprecated; use out.fields instead.", DeprecationWarning, stacklevel=2)
-        return self.fields
-
-    @property
-    def n_sph(self) -> DensityProducts:
-        """Deprecated alias of :attr:`densities`."""
-        warnings.warn("Output.n_sph is deprecated; use out.densities instead.", DeprecationWarning, stacklevel=2)
-        return self.densities
-
-    @property
-    def t_grid(self):
-        """Deprecated alias of :attr:`time`."""
-        warnings.warn("Output.t_grid is deprecated; use out.time instead.", DeprecationWarning, stacklevel=2)
-        return self.time
 
     @property
     def time_scale(self) -> float:

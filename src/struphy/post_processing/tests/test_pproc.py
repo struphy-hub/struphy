@@ -50,12 +50,12 @@ def test_pproc_mpi(show_plot=False):
     run = Output(sim.env.path_out)
 
     # serial pproc
-    run.process(create_vtk=True)
+    run.pproc(create_vtk=True)
     if sim.rank == 0:
         serial = do_plotting(run)
 
     # parallel pproc
-    run.process(create_vtk=True, parallel=True, force=True)
+    run.pproc(create_vtk=True, parallel=True, force=True)
 
     # plot and compare results from serial and parallel pproc
     if sim.rank == 0:

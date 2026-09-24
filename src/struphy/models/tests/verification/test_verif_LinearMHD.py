@@ -78,7 +78,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     run = sim.run().with_time_units("normalized")
 
     # post processing
-    run.process()
+    run.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:

@@ -100,7 +100,7 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
     )
 
     run = sim.run()
-    run.process()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         e1_grid = run.distributions.fluid.e1_current_1.f.e1.values.flatten()
@@ -206,7 +206,7 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
     )
 
     run = sim.run()
-    run.process()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         e1_grid = run.distributions.fluid.e1_current_1.f.e1.values.flatten()
@@ -317,7 +317,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
     )
 
     run = sim.run()
-    run.process()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         e2_grid = run.distributions.fluid.e2_current_1.f.e2.values.flatten()

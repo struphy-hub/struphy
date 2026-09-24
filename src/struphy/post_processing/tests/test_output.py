@@ -410,8 +410,7 @@ def test_processing_options_are_part_of_the_manifest(tmp_path):
 
 def test_manifest_is_stale_when_raw_output_changes(tmp_path):
     root = write_tree(str(tmp_path))
-    with open(os.path.join(root, "meta.yml"), "w") as stream:
-        stream.write("MPI processes: 1\n")
+    os.utime(os.path.join(root, "data", "data_proc0.hdf5"), None)
     assert not is_processed(root)
 
 
@@ -422,7 +421,7 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
     monkeypatch.setattr(Output, "_process_raw", lambda self, **options: calls.append(("process", options)))
     comm = FakeComm(rank=rank, size=2)
     run = output_with_comm(monkeypatch, write_tree(str(tmp_path)), comm)
-    assert run.process(physical=True) is run
+    assert run.pproc(physical=True) is run
     expected = [
         ("setup", False),
         (
@@ -440,7 +439,7 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
     monkeypatch.setattr(Output, "_process_raw", lambda self, **options: None)
-    output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(rank=3, size=4)).process(parallel=True)
+    output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(rank=3, size=4)).pproc(parallel=True)
     assert calls == [True]
 
 
@@ -449,7 +448,7 @@ def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
     run = Output(root)
     calls = []
-    monkeypatch.setattr(Output, "process", lambda self, **options: calls.append(options))
+    monkeypatch.setattr(Output, "pproc", lambda self, **options: calls.append(options))
 
     with pytest.raises(AttributeError, match="available species"):
         run.typo_here
@@ -525,7 +524,7 @@ def test_a_failing_property_reports_its_own_error(tmp_path):
 def test_parallel_processing_rejects_a_different_rank_count(tmp_path, monkeypatch):
     run = output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(size=2))
     with pytest.raises(ValueError, match="same number of MPI ranks"):
-        run.process(parallel=True)
+        run.pproc(parallel=True)
 
 
 def test_saved_rank_count_does_not_block_serial_implicit_processing(tmp_path, monkeypatch):

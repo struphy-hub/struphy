@@ -110,7 +110,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
     # run
     run = sim.run()
-    run.process()
+    run.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -241,7 +241,7 @@ def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
 
     # run
     run = sim.run()
-    run.process()
+    run.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -447,7 +447,7 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
 
     # run
     run = sim.run()
-    run.process()
+    run.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -659,7 +659,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
     )
 
     run = sim.run()
-    run.process()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         e2_grid = run.distributions.euler_fluid.e2_current_1.f.e2.values  # logical y in [0, 1]
@@ -919,7 +919,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
     )
 
     run = sim.run()
-    run.process()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         import numpy as np

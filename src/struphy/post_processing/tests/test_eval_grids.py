@@ -17,7 +17,7 @@ from struphy.post_processing.output import Output
 def make_pproc(num_elements, domain_array):
     """A Output stub that only knows about its Derham decomposition.
 
-    ``__init__`` is bypassed on purpose (it creates output folders and reads meta.yml).
+    ``__init__`` is bypassed on purpose because it creates output folders and reads metadata.
     """
     pproc = Output.__new__(Output)
     pproc._pproc_derham = SimpleNamespace(

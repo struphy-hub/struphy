@@ -3,7 +3,6 @@
 import json
 import os
 from pathlib import Path
-from types import SimpleNamespace
 
 import h5py
 import numpy as np
@@ -175,27 +174,6 @@ def test_run_metadata_embeds_user_function_source(tmp_path):
     assert len(density["source_sha256"]) == 64
 
 
-def test_legacy_initial_conditions_metadata_can_still_be_restored(tmp_path):
-    path_out = tmp_path / "sim_1"
-    path_out.mkdir()
-    sim = make_sim(tmp_path)
-    sim.model.em_fields.b_field.add_background(FieldsBackground(values=(1.0, 2.0, 3.0)))
-    metadata = json.loads(sim.to_run_metadata())
-    metadata["initial_conditions_schema_version"] = metadata["model"].pop("initial_conditions_schema_version")
-    metadata["initial_conditions"] = {
-        species_name: {
-            variable_name: variable.pop("initial_conditions")
-            for variable_name, variable in species["variables"].items()
-        }
-        for species_name, species in metadata["model"]["species"].items()
-    }
-    (path_out / "run_metadata.json").write_text(json.dumps(metadata))
-
-    restored = Simulation.from_output(path_out)
-    assert restored.model.em_fields.b_field.backgrounds.values == (1.0, 2.0, 3.0)
-    output = Output(path_out)
-    assert output.initial_conditions["em_fields"]["b_field"]["backgrounds"].values == (1.0, 2.0, 3.0)
-
 
 def test_from_output_restores_embedded_initial_condition_source(tmp_path, monkeypatch):
     path_out = tmp_path / "sim_1"
@@ -311,21 +289,15 @@ def test_from_output_never_executes_the_parameter_file(tmp_path):
     assert Simulation.from_output(sim.env.path_out).time_opts.dt == 0.123
 
 
-def test_from_output_requires_a_configuration(tmp_path):
-    with pytest.raises(FileNotFoundError, match="config.json"):
+def test_from_output_requires_run_metadata(tmp_path):
+    with pytest.raises(FileNotFoundError, match="run_metadata.json"):
         Simulation.from_output(tmp_path)
 
 
-@pytest.mark.parametrize("metadata_only", [False, True])
-def test_processing_from_moved_output(tmp_path, metadata_only):
+def test_processing_from_moved_output(tmp_path):
     sim = make_sim(tmp_path, grid=None, derham_opts=None, time_opts=Time(dt=0.123))
     os.makedirs(os.path.join(sim.env.path_out, "data"))
-    if metadata_only:
-        sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"), mpi_ranks=3)
-    else:
-        sim.export(os.path.join(sim.env.path_out, "config.json"))
-        with open(os.path.join(sim.env.path_out, "meta.yml"), "w") as stream:
-            stream.write("MPI processes: 3\n")
+    sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"), mpi_ranks=3)
     with h5py.File(os.path.join(sim.env.path_out, "data", "data_proc0.hdf5"), "w") as data:
         data.create_dataset("time/value", data=[0.0, 0.123])
     moved = tmp_path / "moved"
@@ -343,55 +315,5 @@ def test_processing_from_moved_output(tmp_path, metadata_only):
     assert processor.mpi_ranks == 3
     assert sentinel.read_text() == "keep until processing"
     assert Output(moved).time_opts.dt == 0.123
-    assert processor.process(create_vtk=False)
+    assert processor.pproc(create_vtk=False)
     assert is_processed(moved)
-
-
-def test_from_output_prefers_metadata_over_legacy_config(tmp_path):
-    sim = make_sim(tmp_path, time_opts=Time(dt=0.123))
-    os.makedirs(sim.env.path_out)
-    sim.export(os.path.join(sim.env.path_out, "config.json"))
-    sim.time_opts = Time(dt=0.456)
-    sim._write_run_metadata()
-    assert Simulation.from_output(sim.env.path_out).time_opts.dt == 0.456
-
-
-def test_deprecated_pproc_delegates_to_the_output(tmp_path, monkeypatch):
-    sim = make_sim(tmp_path)
-    calls = []
-    monkeypatch.setattr(type(sim.output), "process", lambda self, **options: calls.append(options))
-    monkeypatch.setattr(type(sim), "load_plotting_data", lambda self: "loaded")
-
-    with pytest.deprecated_call():
-        assert sim.pproc(physical=True) is None
-    assert calls == [
-        dict(
-            step=1,
-            celldivide=1,
-            physical=True,
-            guiding_center=False,
-            classify=False,
-            create_vtk=True,
-            parallel=False,
-            force=True,
-        )
-    ]
-    with pytest.deprecated_call():
-        assert sim.pproc(load=True) == "loaded"
-
-
-def test_deprecated_load_plotting_data_attaches_the_products(tmp_path, monkeypatch):
-    sim = make_sim(tmp_path)
-    output = sim.output
-    views = SimpleNamespace(orbits="o", f="f", spline_values="s", n_sph="n")
-    monkeypatch.setattr("struphy.simulation.sim.legacy_views", lambda out: views if out is output else None)
-    for name, value in (("grids_log", "gl"), ("grids_phy", "gp"), ("time", np.array([0.0, 0.5]))):
-        monkeypatch.setattr(type(output), name, property(lambda self, value=value: value))
-
-    with pytest.deprecated_call():
-        assert sim.load_plotting_data() is output
-    assert (sim.orbits, sim.f, sim.spline_values, sim.n_sph) == ("o", "f", "s", "n")
-    assert (sim.grids_log, sim.grids_phy) == ("gl", "gp")
-    assert sim.t_grid.tolist() == [0.0, 0.5]
-    with pytest.deprecated_call():
-        assert sim.plotting_data is output

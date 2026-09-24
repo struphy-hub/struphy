@@ -58,7 +58,7 @@ def split_eta1(num_elements, n_parts):
 def make_mpi_pproc(comm, num_elements=NUM_ELEMENTS):
     """An Output stub in parallel mode, decomposed over ``comm``.
 
-    ``__init__`` is bypassed on purpose (it creates output folders and reads meta.yml);
+    ``__init__`` is bypassed on purpose because it creates output folders and reads metadata;
     ``_create_eval_grids`` and ``_collect_on_root`` only need the attributes set here.
     """
     pproc = Output.__new__(Output)

@@ -68,7 +68,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     run = sim.run().with_time_units("normalized")
 
     # post processing
-    run.process()
+    run.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -147,7 +147,7 @@ def test_coaxial(do_plot: bool = False):
     run = sim.run().with_time_units("normalized")
 
     # post processing
-    run.process(physical=True)
+    run.pproc(physical=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
