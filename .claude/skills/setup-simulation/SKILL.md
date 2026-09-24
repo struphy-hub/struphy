@@ -139,7 +139,7 @@ from struphy import Output
 
 path_out = Path(__file__).resolve().parent / "sim_data"
 out = Output(path_out)
-out.process(physical=True)       # optional; products are otherwise processed with defaults on first access
+out.pproc(physical=True)         # optional; products are otherwise processed with defaults on first access
 
 out.scalars.<name>                                     # xarray time series, no post-processing needed
 out.fields.<species>.<variable>                    # dims (t, [component,] e1, e2, e3)
@@ -156,21 +156,19 @@ explicit output path.
 
 `Output` does not retain or construct a `Simulation`; there is no `out.sim`. Do not
 import the parameter module for post-processing. Metadata comes from
-`run_metadata.json`, with legacy `config.json` supported only as a fallback.
-`sim.pproc()` remains supported for existing callers. Under MPI, call
-`out.process()` on every rank; `parallel=True` requires the saved run's rank count.
+`run_metadata.json`. Under MPI, call `out.pproc()` on every rank; `parallel=True`
+requires the saved run's rank count.
 
-Products sit under their species and plot themselves, no imports needed:
+Products are xarray objects. Use xarray's plotting and selection methods:
 
 ```python
-out.<species>.<binning_name>.f.struphy.plot.slice(x="e1", y="v1", t="last")   # also .panels/.viewer/.animation/.frames
-out.<species>.orbits.struphy.plot.trajectories()
-out.scalars.<name>.struphy.plot.timeseries(fit=(t0, t1))                             # also .growth_rate/.drift/.relative_error
-out.plot.scalars(), out.plot.equilibrium(), out.save_report()                   # whole-run plots
+out.<species>.<binning_name>.f.isel(t=-1).plot(x="e1", y="v1")
+out.scalars.<name>.plot.line(x="t")
+out.<species>.orbits.isel(marker=0).sel(quantity=["x", "y", "z"]).plot.line(x="t", hue="quantity")
 ```
 
-Name any dimension to select it: `t="last"`, `t=-1` (position), `t=0.35` (nearest value), `component=0`.
-See `examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py` for a complete script.
+Select by position with `.isel(t=-1, component=0)` or by coordinate with
+`.sel(t=0.35, method="nearest")`. See the post-processing tutorial for a complete script.
 
 ## Common pitfalls
 
