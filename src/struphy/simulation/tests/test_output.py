@@ -9,9 +9,9 @@ import h5py
 import numpy as np
 import pytest
 
-from struphy import BaseUnits, EnvironmentOptions, FieldsBackground, Output, Simulation, Time, maxwellians, perturbations
+from struphy import BaseUnits, EnvironmentOptions, FieldsBackground, Output, Simulation, Time, equils, maxwellians, perturbations
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models import ColdPlasmaVlasov, Maxwell, Poisson, VlasovAmpereOneSpecies
+from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
 from struphy.particles.parameters import LoadingParameters
 from struphy.pic.accumulation.filter import FilterParameters
@@ -127,6 +127,7 @@ def test_run_metadata_contains_serialized_initial_conditions(tmp_path):
     )
 
     metadata = json.loads(sim.to_run_metadata())
+    assert metadata["initial_conditions_schema_version"] == 1
     b_field = metadata["initial_conditions"]["em_fields"]["b_field"]
     assert b_field["backgrounds"] == {
         "type": "FieldsBackground",
@@ -166,6 +167,24 @@ def test_from_output_restores_initial_conditions_and_requires_trust_for_source(t
     restored = Simulation.from_output(path_out, trust_initial_condition_source=True)
     density = restored.model.kinetic_ions.var.backgrounds.params["n"][0]
     assert density(0.2, 0.3, 0.4) == user_density_profile(0.2, 0.3, 0.4)
+
+
+def test_versioned_initial_conditions_round_trip_allocates_and_runs_one_step(tmp_path):
+    sim = Simulation(
+        model=LinearMHD(),
+        equil=equils.HomogenSlab(),
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
+    )
+    sim.model.mhd.velocity.add_background(FieldsBackground(type="FluidEquilibrium", variable="uv"))
+    sim.model.propagators.shear_alf.options = sim.model.propagators.shear_alf.Options()
+    sim.model.propagators.mag_sonic.options = sim.model.propagators.mag_sonic.Options()
+    os.makedirs(sim.env.path_out)
+    sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"))
+
+    restored = Simulation.from_output(sim.env.path_out)
+    assert restored.model.mhd.velocity.backgrounds == sim.model.mhd.velocity.backgrounds
+    assert restored._deserialize_initial_condition(sim.equil.to_dict(), trust_source=False) == sim.equil
+    restored.run(one_time_step=True)
 
 
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):

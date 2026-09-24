@@ -1796,7 +1796,7 @@ class Simulation(SimulationBase):
         from struphy.kinetic_background import base as kinetic_background_base
 
         params = Simulation._deserialize_initial_condition(value["params"], trust_source)
-        for module in (perturbations, maxwellians, kinetic_background_base):
+        for module in (equils, perturbations, maxwellians, kinetic_background_base):
             initial_condition_class = getattr(module, kind, None)
             if initial_condition_class is not None:
                 return initial_condition_class(**params)
@@ -1804,6 +1804,9 @@ class Simulation(SimulationBase):
 
     def _restore_initial_conditions(self, metadata: dict, trust_source: bool):
         """Attach metadata initial conditions to the reconstructed model variables."""
+        version = metadata.get("initial_conditions_schema_version", 1)
+        if version != 1:
+            raise ValueError(f"Unsupported initial-conditions metadata schema version: {version}.")
         for species_name, variables in metadata.get("initial_conditions", {}).items():
             species = self.model.species.get(species_name)
             if species is None:
@@ -1847,6 +1850,7 @@ class Simulation(SimulationBase):
                 "mpi_ranks": self.comm_size,
                 "use_mpi_comm_world": self.comm is not None,
                 "particle_species": self._collect_particle_metadata(),
+                "initial_conditions_schema_version": 1,
                 "initial_conditions": self._collect_initial_conditions_metadata(),
                 **extra_data,
             },
