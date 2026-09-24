@@ -2,9 +2,9 @@ import argparse
 from pathlib import Path
 
 import cunumpy as xp
+import struphy_plots
 
 from struphy import Output
-import struphy_plots
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_data"
 

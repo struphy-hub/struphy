@@ -7,7 +7,6 @@ import xarray as xr
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
-
 from struphy_plots.plotting import (  # noqa: E402
     GrowthFit,
     InteractiveSliceViewer,
@@ -17,18 +16,19 @@ from struphy_plots.plotting import (  # noqa: E402
     growth_rate,
     logical_grids,
     physical_grids,
-    plot_panels,
     plot_lineout,
+    plot_panels,
     plot_scalars,
+    plot_slice,
+    plot_timeseries,
     plot_vector,
     plot_volume_slices,
     pyvista_volume,
-    plot_slice,
-    plot_timeseries,
     relative_error,
     save_all_scalars,
     save_frames,
 )
+
 from struphy.post_processing.arrays import data_array  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore:Animation was deleted")
@@ -209,9 +209,8 @@ def test_slice_can_display_the_sweep_dimension():
 
 
 def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeypatch):
-    from matplotlib.figure import Figure
-
     import struphy_plots  # noqa: F401
+    from matplotlib.figure import Figure
 
     data = phase_space(nt=3).astype(float)
     data[1] = data[1] * 100  # extrema in a frame omitted by panels and export
@@ -245,9 +244,8 @@ def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeyp
 
 @pytest.mark.parametrize("shared_clim", [True, False])
 def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, shared_clim):
-    from matplotlib.figure import Figure
-
     import struphy_plots  # noqa: F401
+    from matplotlib.figure import Figure
 
     data = phase_space(nt=2)
     options = dict(x="e1", y="v1", vmin=-5, vmax=100, shared_clim=shared_clim, cmap="coolwarm")

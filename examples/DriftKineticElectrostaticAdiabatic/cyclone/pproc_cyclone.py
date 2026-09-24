@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
 
+import struphy_plots
 from matplotlib import pyplot as plt
+from struphy_plots.output_accessors import OutputPlots
 
 from struphy import Output
-import struphy_plots
-from struphy_plots.output_accessors import OutputPlots
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
 

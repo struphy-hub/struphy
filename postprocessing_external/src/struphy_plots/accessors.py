@@ -106,8 +106,15 @@ class ArrayPlots(_ArrayAccessor):
         return plot_lineout(_select(self._array, view), x=x, ax=ax, title=title)
 
     def vector(
-        self, *, x: str, y: str, components: tuple[int, int] = (0, 1), stride: int = 1,
-        coordinates: Coordinates = "logical", ax=None, **selection,
+        self,
+        *,
+        x: str,
+        y: str,
+        components: tuple[int, int] = (0, 1),
+        stride: int = 1,
+        coordinates: Coordinates = "logical",
+        ax=None,
+        **selection,
     ):
         """Plot two vector components after selecting time and remaining dimensions."""
         from .plotting import _select, plot_vector

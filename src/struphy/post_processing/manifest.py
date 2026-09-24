@@ -4,7 +4,6 @@ import hashlib
 import json
 import os
 
-
 MANIFEST_SCHEMA_VERSION = 1
 
 

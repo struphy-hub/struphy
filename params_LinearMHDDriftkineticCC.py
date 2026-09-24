@@ -1,7 +1,7 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 name = "Default LinearMHDDriftkineticCC"
@@ -15,45 +15,44 @@ Users can modify this file to set up their own simulations with different parame
 """
 
 import logging
+
 import numpy as np
+
 from struphy import set_logging_level
 from struphy.initial.base import Perturbation
+
 set_logging_level(logging.WARNING)
 
 # ------------------
 # Import Struphy API
 # ------------------
 
+# For particles:
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    KernelDensityPlot,
+    LoadingParameters,
     ProfilingOptions,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
+    WeightsParameters,
     domains,
     equils,
     grids,
-    perturbations,
-)
-
-# For particles:
-from struphy import (
-    BinningPlot,
-    BoundaryParameters,
-    KernelDensityPlot,
-    LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
-    SavingParameters,
     maxwellians,
+    perturbations,
 )
 
 # ---------------------
 # Instance of the model
 # ---------------------
-
 from struphy.models import LinearMHDDriftkineticCC
 
 # Units
@@ -118,12 +117,13 @@ weights_params = WeightsParameters()
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters()
 saving_params = SavingParameters()
-model.energetic_ions.set_markers(loading_params=loading_params,
-                                 weights_params=weights_params,
-                                 boundary_params=boundary_params,
-                                 sorting_params=sorting_params,
-                                 saving_params=saving_params,
-                                 )
+model.energetic_ions.set_markers(
+    loading_params=loading_params,
+    weights_params=weights_params,
+    boundary_params=boundary_params,
+    sorting_params=sorting_params,
+    saving_params=saving_params,
+)
 
 # ------------------
 # Propagator options
@@ -164,15 +164,16 @@ class RadialVelocityPerturbation(Perturbation):
 model.mhd.velocity.add_background(FieldsBackground())
 
 # Perturbations for (some) FEEC variables
-model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))
-model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=1))
-model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))
+model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="v", comp=0))
+model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="v", comp=1))
+model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="v", comp=2))
 # A custom perturbation class can be combined with built-in perturbations.
 model.mhd.velocity.add_perturbation(RadialVelocityPerturbation(amplitude=0.02, comp=0))
 
 # For kinetic species the background is mandatory.
 # For kinetic species, if add_initial_condition() is not called, the background is taken as the kinetic initial condition.
 # For kinetic species the perturbations are added to the moments of the distribution function (defined as tuples).
+
 
 # User-defined profiles can be used anywhere a kinetic Maxwellian accepts a
 # callable. They are written inline to run_metadata.json and restored with

@@ -280,8 +280,15 @@ def plot_lineout(data: xr.DataArray, *, x: str | None = None, ax=None, title=Non
 
 
 def plot_vector(
-    data: xr.DataArray, *, x: str, y: str, components: tuple[int, int] = (0, 1), component_dim: str = "component", ax=None,
-    stride: int = 1, coordinates: Literal["logical", "physical"] = "logical",
+    data: xr.DataArray,
+    *,
+    x: str,
+    y: str,
+    components: tuple[int, int] = (0, 1),
+    component_dim: str = "component",
+    ax=None,
+    stride: int = 1,
+    coordinates: Literal["logical", "physical"] = "logical",
 ):
     """Render two components of a selected vector field with Matplotlib quivers."""
     validate_array(data, required_dims=(component_dim, x, y))
@@ -289,7 +296,9 @@ def plot_vector(
         raise ValueError(f"select every dimension except {component_dim!r}, {x!r}, and {y!r}; got {data.dims}")
     if stride < 1:
         raise ValueError("stride must be positive")
-    vector = data.transpose(component_dim, x, y).isel({component_dim: list(components), x: slice(None, None, stride), y: slice(None, None, stride)})
+    vector = data.transpose(component_dim, x, y).isel(
+        {component_dim: list(components), x: slice(None, None, stride), y: slice(None, None, stride)}
+    )
     if coordinates == "physical":
         planes = {frozenset(("e1", "e2")): "XY", frozenset(("e1", "e3")): "XZ", frozenset(("e2", "e3")): "YZ"}
         plane = planes.get(frozenset((x, y)))
@@ -319,11 +328,13 @@ def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = N
         ax.set(xlabel=axis_label(plane, x), ylabel=axis_label(plane, y), title=f"{normal} index {indices[normal]}")
         fig.colorbar(mesh, ax=ax, label=value_label(data))
         artists.append(mesh)
-    fig.suptitle(" — ".join(filter(None, (_label(data), shared_run_label(data)))) )
+    fig.suptitle(" — ".join(filter(None, (_label(data), shared_run_label(data)))))
     return PlotResult(fig, axes, artists)
 
 
-def plot_compare(first: xr.DataArray, second: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference", ax=None):
+def plot_compare(
+    first: xr.DataArray, second: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference", ax=None
+):
     """Plot a one-dimensional aligned difference or ratio of two arrays."""
     first, second = xr.align(first, second, join="inner")
     result = first - second if mode == "difference" else xr.where(second != 0, first / second, np.nan)

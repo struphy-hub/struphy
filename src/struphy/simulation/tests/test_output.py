@@ -8,14 +8,24 @@ import h5py
 import numpy as np
 import pytest
 
-from struphy import BaseUnits, EnvironmentOptions, FieldsBackground, Output, Simulation, Time, equils, maxwellians, perturbations
+from struphy import (
+    BaseUnits,
+    EnvironmentOptions,
+    FieldsBackground,
+    Output,
+    Simulation,
+    Time,
+    equils,
+    maxwellians,
+    perturbations,
+)
+from struphy.initial.base import Perturbation
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
 from struphy.particles.parameters import LoadingParameters
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.post_processing.manifest import is_processed
-from struphy.initial.base import Perturbation
 
 
 def user_density_profile(eta1, eta2, eta3):
@@ -115,7 +125,11 @@ def test_run_metadata_contains_variables_and_propagator_options(tmp_path):
     assert metadata["model"] == sim.model.to_dict(initial_condition_serializer=sim._serialize_initial_condition)
     assert "species" not in metadata
     assert "propagator_options" not in metadata
-    assert {key: value for key, value in metadata["model"]["species"]["em_fields"]["variables"]["e_field"].items() if key != "initial_conditions"} == {
+    assert {
+        key: value
+        for key, value in metadata["model"]["species"]["em_fields"]["variables"]["e_field"].items()
+        if key != "initial_conditions"
+    } == {
         "class": "FEECVariable",
         "space": "Hcurl",
         "save_data": False,
@@ -155,7 +169,9 @@ def test_run_metadata_contains_serialized_initial_conditions(tmp_path):
     }
     assert b_field["perturbations"]["type"] == "TorusModesCos"
 
-    kinetic = json.loads(kinetic_sim.to_run_metadata())["model"]["species"]["kinetic_ions"]["variables"]["var"]["initial_conditions"]
+    kinetic = json.loads(kinetic_sim.to_run_metadata())["model"]["species"]["kinetic_ions"]["variables"]["var"][
+        "initial_conditions"
+    ]
     assert kinetic["backgrounds"]["type"] == "Maxwellian3D"
     assert kinetic["initial_condition"]["type"] == "SumKineticBackground"
     assert kinetic["initial_condition"]["params"]["f1"]["params"]["n"][1]["type"] == "TorusModesCos"
@@ -165,14 +181,13 @@ def test_run_metadata_embeds_user_function_source(tmp_path):
     sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
     sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(user_density_profile, None)))
 
-    density = json.loads(sim.to_run_metadata())["model"]["species"]["kinetic_ions"]["variables"]["var"]["initial_conditions"]["backgrounds"][
-        "params"
-    ]["n"][0]
+    density = json.loads(sim.to_run_metadata())["model"]["species"]["kinetic_ions"]["variables"]["var"][
+        "initial_conditions"
+    ]["backgrounds"]["params"]["n"][0]
     assert density["type"] == "python_function"
     assert density["name"] == "user_density_profile"
     assert "def user_density_profile" in density["source"]
     assert len(density["source_sha256"]) == 64
-
 
 
 def test_from_output_restores_embedded_initial_condition_source(tmp_path, monkeypatch):
@@ -273,7 +288,8 @@ def test_cold_plasma_vlasov_species_and_variables_own_their_metadata(tmp_path):
     assert species["thermal_elec"]["alpha"] == 3.0
     assert species["thermal_elec"]["epsilon"] == 0.5
     assert species["thermal_elec"]["variables"]["current"]["initial_conditions"] == {
-        "backgrounds": None, "perturbations": None
+        "backgrounds": None,
+        "perturbations": None,
     }
     assert species["hot_elec"]["loading_params"]["Np"] == 1234
     assert species["hot_elec"]["variables"]["var"]["initial_conditions"]["initial_condition"] is None

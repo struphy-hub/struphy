@@ -6,8 +6,8 @@ import time
 import numpy as np
 import pytest
 import xarray as xr
-
 from struphy_plots.analysis import spatial_average, velocity_moments
+
 from struphy.post_processing.arrays import data_array
 from struphy.post_processing.output import Output
 from struphy.post_processing.tests.test_output import write_tree

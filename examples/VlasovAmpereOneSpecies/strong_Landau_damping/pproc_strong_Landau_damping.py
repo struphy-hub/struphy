@@ -1,8 +1,9 @@
 import argparse
 from pathlib import Path
 
-from struphy import Output
 import struphy_plots
+
+from struphy import Output
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_data"
 

@@ -1,6 +1,6 @@
 # third party imports
-import dataclasses
 import copy
+import dataclasses
 import glob
 import hashlib
 import inspect
@@ -55,8 +55,8 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.io.output_handling import DataContainer
 from struphy.initial.base import Perturbation
+from struphy.io.output_handling import DataContainer
 from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -1574,13 +1574,16 @@ class Simulation(SimulationBase):
             return {str(key): Simulation._serialize_initial_condition(item) for key, item in value.items()}
         if isinstance(value, (list, tuple)):
             return [Simulation._serialize_initial_condition(item) for item in value]
-        if type(value).__module__ not in {
-            "struphy.initial.perturbations",
-            "struphy.kinetic_background.maxwellians",
-            "struphy.kinetic_background.base",
-            "struphy.io.options",
-        } and not inspect.isfunction(value) and (
-            isinstance(value, Perturbation) or callable(value)
+        if (
+            type(value).__module__
+            not in {
+                "struphy.initial.perturbations",
+                "struphy.kinetic_background.maxwellians",
+                "struphy.kinetic_background.base",
+                "struphy.io.options",
+            }
+            and not inspect.isfunction(value)
+            and (isinstance(value, Perturbation) or callable(value))
         ):
             cls = type(value)
             if "<locals>" in cls.__qualname__:
@@ -1666,8 +1669,10 @@ class Simulation(SimulationBase):
             return value
         if isinstance(value, list):
             return tuple(Simulation._deserialize_initial_condition(item) for item in value)
-        if not isinstance(value, dict) or "type" not in value or (
-            "params" not in value and value["type"] not in {"python_function", "python_class", "callable"}
+        if (
+            not isinstance(value, dict)
+            or "type" not in value
+            or ("params" not in value and value["type"] not in {"python_function", "python_class", "callable"})
         ):
             return {key: Simulation._deserialize_initial_condition(item) for key, item in value.items()}
 
@@ -1678,8 +1683,8 @@ class Simulation(SimulationBase):
             source = value["source"]
             if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
                 raise ValueError("Initial-condition function source hash does not match its metadata.")
-            import numpy as np
             import cunumpy as xp
+            import numpy as np
 
             namespace = {"np": np, "numpy": np, "xp": xp, "cp": xp, "cupy": xp}
             exec(source, namespace)  # noqa: S102 -- reconstruct saved Python function
@@ -1690,8 +1695,8 @@ class Simulation(SimulationBase):
             source = value["source"]
             if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
                 raise ValueError("Initial-condition class source hash does not match its metadata.")
-            import numpy as np
             import cunumpy as xp
+            import numpy as np
 
             namespace = {
                 "np": np,
@@ -1715,8 +1720,8 @@ class Simulation(SimulationBase):
             return FieldsBackground(**Simulation._deserialize_initial_condition(value["params"]))
 
         from struphy.initial import perturbations
-        from struphy.kinetic_background import maxwellians
         from struphy.kinetic_background import base as kinetic_background_base
+        from struphy.kinetic_background import maxwellians
 
         params = Simulation._deserialize_initial_condition(value["params"])
         for module in (equils, perturbations, maxwellians, kinetic_background_base):

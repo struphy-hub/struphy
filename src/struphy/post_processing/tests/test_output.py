@@ -15,8 +15,8 @@ from struphy.models import Maxwell
 from struphy.post_processing import output as output_module
 from struphy.post_processing import store
 from struphy.post_processing.arrays import orbit_quantities
-from struphy.post_processing.output import Output, open_output
 from struphy.post_processing.manifest import is_processed, normalize_options, source_fingerprint
+from struphy.post_processing.output import Output, open_output
 
 NT, N1, N2, N3, NV, N_MARKERS = 3, 4, 5, 6, 7, 10
 
@@ -472,10 +472,24 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
     source = field(eta1, eta2, eta3)
     for target in ("1", "2", "v", "norm"):
         result = run.evaluate(
-            "em_fields/e_field", eta1=eta1, eta2=eta2, eta3=eta3, t=0, representation=target,
+            "em_fields/e_field",
+            eta1=eta1,
+            eta2=eta2,
+            eta3=eta3,
+            t=0,
+            representation=target,
         )
-        expected = source if target == "1" else domain.transform(
-            source, eta1, eta2, eta3, kind=f"1_to_{target}", squeeze_out=True,
+        expected = (
+            source
+            if target == "1"
+            else domain.transform(
+                source,
+                eta1,
+                eta2,
+                eta3,
+                kind=f"1_to_{target}",
+                squeeze_out=True,
+            )
         )
         expected = np.squeeze(np.asarray(expected))
         np.testing.assert_allclose(result.isel(t=0), expected)

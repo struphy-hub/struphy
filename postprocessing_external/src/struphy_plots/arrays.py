@@ -13,10 +13,21 @@ import numpy as np
 import xarray as xr
 
 DIM_LABELS = {
-    "t": r"$t$", "e1": r"$\eta_1$", "e2": r"$\eta_2$", "e3": r"$\eta_3$",
-    "v1": r"$v_1$", "v2": r"$v_2$", "v3": r"$v_3$", "x": r"$x$", "y": r"$y$",
-    "z": r"$z$", "R": r"$R$", "Z": r"$Z$", "component": "component",
-    "marker": "marker", "quantity": "quantity",
+    "t": r"$t$",
+    "e1": r"$\eta_1$",
+    "e2": r"$\eta_2$",
+    "e3": r"$\eta_3$",
+    "v1": r"$v_1$",
+    "v2": r"$v_2$",
+    "v3": r"$v_3$",
+    "x": r"$x$",
+    "y": r"$y$",
+    "z": r"$z$",
+    "R": r"$R$",
+    "Z": r"$Z$",
+    "component": "component",
+    "marker": "marker",
+    "quantity": "quantity",
 }
 SCALARS_EXCLUDE = ("time",)
 

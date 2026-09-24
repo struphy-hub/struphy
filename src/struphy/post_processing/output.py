@@ -13,8 +13,8 @@ from html import escape
 from pathlib import Path
 from typing import Any, Literal
 
-import h5py
 import cunumpy as xp
+import h5py
 import numpy as np
 import xarray as xr
 from feectools.ddm.mpi import MockComm
@@ -27,10 +27,20 @@ from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
 from struphy.post_processing import store
 from struphy.post_processing.arrays import (
-    BINNED_LABELS, data_array, save_scalars, wrap_binned_data, wrap_field_data, wrap_orbits,
+    BINNED_LABELS,
+    data_array,
+    save_scalars,
+    wrap_binned_data,
+    wrap_field_data,
+    wrap_orbits,
+)
+from struphy.post_processing.manifest import (
+    MANIFEST_SCHEMA_VERSION,
+    is_processed,
+    normalize_options,
+    source_fingerprint,
 )
 from struphy.post_processing.orbits import orbits_tools
-from struphy.post_processing.manifest import MANIFEST_SCHEMA_VERSION, is_processed, normalize_options, source_fingerprint
 from struphy.post_processing.profiling import Profile
 from struphy.post_processing.si import to_si
 from struphy.utils.progress import tqdm
@@ -394,8 +404,15 @@ class Output:
         return tuple((np.arange(n, dtype=float) + 0.5) / n for n in num_elements)
 
     def _evaluate_spline_field(
-        self, name: str, eta1: Any, eta2: Any, eta3: Any, *, t: int | float | slice | Sequence[int] | None,
-        method: str | None, representation: Representation | None,
+        self,
+        name: str,
+        eta1: Any,
+        eta2: Any,
+        eta3: Any,
+        *,
+        t: int | float | slice | Sequence[int] | None,
+        method: str | None,
+        representation: Representation | None,
     ) -> xr.DataArray:
         """Evaluate one raw FEEC field on a tensor-product logical grid."""
         try:
@@ -453,7 +470,11 @@ class Output:
         return array.assign_coords(coordinates)
 
     def _apply_representation(
-        self, value: Any, etas: tuple[Any, Any, Any], source: str, representation: Representation | None,
+        self,
+        value: Any,
+        etas: tuple[Any, Any, Any],
+        source: str,
+        representation: Representation | None,
     ) -> Any:
         """Transform a field from its FEEC-space representation to the requested target."""
         target = representation or ("norm" if source in {"1", "2", "v"} else "0")
@@ -502,7 +523,10 @@ class Output:
 
     @staticmethod
     def _snapshot_indices(
-        selection: int | float | slice | Sequence[int] | None, times: np.ndarray, *, method: str | None,
+        selection: int | float | slice | Sequence[int] | None,
+        times: np.ndarray,
+        *,
+        method: str | None,
     ) -> np.ndarray:
         """Turn the public ``t`` selector into non-negative saved-snapshot indices."""
         count = len(times)
@@ -940,9 +964,17 @@ class Output:
         finally:
             self._reset()
             for name in (
-                "_pproc_derham", "_pproc_comm", "_pproc_rank", "_pproc_ranks", "_pproc_parallel",
-                "_pproc_t_grid", "_pproc_exist_fields", "_pproc_exist_particles",
-                "_pproc_kinetic_species", "_pproc_kinetic_kinds", "_collect_recv_bufs",
+                "_pproc_derham",
+                "_pproc_comm",
+                "_pproc_rank",
+                "_pproc_ranks",
+                "_pproc_parallel",
+                "_pproc_t_grid",
+                "_pproc_exist_fields",
+                "_pproc_exist_particles",
+                "_pproc_kinetic_species",
+                "_pproc_kinetic_kinds",
+                "_collect_recv_bufs",
             ):
                 self.__dict__.pop(name, None)
         return self
@@ -958,7 +990,10 @@ class Output:
         self._pproc_derham = None
         if self.grid is not None and self.derham_opts is not None:
             self._pproc_derham = Derham(
-                self.grid, self.derham_opts, comm=self._pproc_comm if parallel else None, domain=self.domain,
+                self.grid,
+                self.derham_opts,
+                comm=self._pproc_comm if parallel else None,
+                domain=self.domain,
             )
 
     def _write_manifest(self, status, *, options=None, error=None):
@@ -2288,10 +2323,20 @@ class Output:
                 key: value
                 for key, value in species.items()
                 if key
-                not in {"class", "variables", "loading_params", "weights_params", "boundary_params", "sorting_params", "saving_params"}
+                not in {
+                    "class",
+                    "variables",
+                    "loading_params",
+                    "weights_params",
+                    "boundary_params",
+                    "sorting_params",
+                    "saving_params",
+                }
                 and value is not None
             }
-            lines.append(f"  {species_name} ({species.get('class', 'Species')}): {json.dumps(parameters, sort_keys=True)}")
+            lines.append(
+                f"  {species_name} ({species.get('class', 'Species')}): {json.dumps(parameters, sort_keys=True)}"
+            )
             for variable_name, variable in species.get("variables", {}).items():
                 lines.append(
                     f"    {variable_name}: {variable.get('class', 'Variable')} "
@@ -2303,7 +2348,9 @@ class Output:
         lines.append("Initial conditions:")
         for species_name, variables in self._initial_condition_metadata().items():
             for variable_name, definition in variables.items():
-                parts = ", ".join(f"{key}={self._initial_condition_description(value)}" for key, value in definition.items())
+                parts = ", ".join(
+                    f"{key}={self._initial_condition_description(value)}" for key, value in definition.items()
+                )
                 lines.append(f"  {species_name}.{variable_name}: {parts}")
         lines = [
             *lines,
