@@ -325,6 +325,11 @@ def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
     np.testing.assert_allclose(values[0], [[75.25, 85.25], [75.5, 85.5]])
 
 
+def test_evaluate_raw_spline_field_rejects_coordinates_outside_unit_cube(run):
+    with pytest.raises(ValueError, match="logical unit interval"):
+        run.evaluate("em_fields/phi", eta1=-0.01, eta2=0.5, eta3=0.5)
+
+
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))

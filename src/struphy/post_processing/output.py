@@ -405,6 +405,8 @@ class Output:
         coords = {}
         for dimension, eta in zip(("e1", "e2", "e3"), etas):
             array = np.asarray(eta, dtype=float)
+            if not np.all(np.isfinite(array)) or np.any((array < 0.0) | (array > 1.0)):
+                raise ValueError(f"{dimension} values must be finite and lie in the logical unit interval [0, 1]")
             if array.ndim == 0:
                 arguments.append(float(array))
             elif array.ndim == 1:
