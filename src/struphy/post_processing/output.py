@@ -198,10 +198,6 @@ class Output:
     ----------
     path_out:
         The simulation output folder, ``sim.env.path_out``.
-    time_units:
-        ``"normalized"`` (the default) keeps Struphy time units, in which the analytic
-        results of the models are expressed; every product then also carries seconds as the
-        coordinate ``t_seconds``. ``"physical"`` makes ``t`` itself seconds.
     trust_initial_condition_source:
         Allow reconstruction of Python functions and classes embedded in initial-condition
         metadata. Enable this only for output folders you trust.
@@ -211,13 +207,10 @@ class Output:
         self,
         path_out,
         *,
-        time_units: str = "normalized",
         trust_initial_condition_source: bool = False,
     ):
-        if time_units not in {"physical", "normalized"}:
-            raise ValueError("time_units must be 'physical' or 'normalized'")
         self.path_out = Path(path_out).resolve()
-        self.time_units = time_units
+        self._time_units = "normalized"
         self.trust_initial_condition_source = trust_initial_condition_source
         self.comm = mpi_comm_world()
         self._reset()
@@ -231,13 +224,25 @@ class Output:
     def __repr__(self):
         return f"{type(self).__name__}({str(self.path_out)!r}, processed={self.is_processed})"
 
+    @property
+    def time_units(self) -> str:
+        """Time coordinates returned by this view: ``normalized`` or ``physical``."""
+        return self._time_units
+
     def with_time_units(self, time_units: str) -> "Output":
-        """The same output with time coordinates in ``"physical"`` or ``"normalized"`` units."""
-        return type(self)(
+        """Open an independent view with ``t`` in normalized units or seconds.
+
+        Normalized arrays also carry a ``t_seconds`` coordinate. This choice changes
+        only data returned by the view; saved products remain in normalized units.
+        """
+        if time_units not in {"physical", "normalized"}:
+            raise ValueError("time_units must be 'physical' or 'normalized'")
+        view = type(self)(
             self.path_out,
-            time_units=time_units,
             trust_initial_condition_source=self.trust_initial_condition_source,
         )
+        view._time_units = time_units
+        return view
 
     def clear_cache(self):
         """Close lazy product files and discard loaded arrays while retaining metadata."""
@@ -2071,7 +2076,7 @@ class Output:
             "- Use out.initial_conditions for reconstructed backgrounds, perturbations, and distributions.",
             "- Use Output(path, trust_initial_condition_source=True) only for trusted runs with embedded Python source.",
             "- Use out.keys(), out.fields, out.distributions, out.densities, and out.orbits to discover products.",
-            "- Use out.evaluate(key), out.process(...), and array.struphy.plot.* to load and plot products.",
+            "- Use out.evaluate(key), out.pproc(...), and array.struphy.plot.* to load and plot products.",
             "",
             f"{'Key':<{key_width}}  Description",
             f"{'-' * key_width}  -----------",
@@ -2311,7 +2316,7 @@ class Output:
         return array
 
 
-def open_output(path_out, *, time_units: str = "normalized") -> Output:
+def open_output(path_out) -> Output:
     """Open the output folder of a finished simulation.
 
     Saved metadata is read immediately; products are materialized and opened on demand.
@@ -2320,9 +2325,8 @@ def open_output(path_out, *, time_units: str = "normalized") -> Output:
     ----------
     path_out:
         The simulation output folder (``sim.env.path_out`` of the run).
-        ``"normalized"`` (the default) or ``"physical"`` (seconds) time coordinates.
     """
     path = Path(path_out)
     if not (path / "data").is_dir():
         raise FileNotFoundError(f"{path.resolve()} is not a Struphy output folder (it has no data/ directory)")
-    return Output(path, time_units=time_units)
+    return Output(path)

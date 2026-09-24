@@ -25,7 +25,7 @@ def binned(values, dims, coords, name="f"):
 
 @pytest.fixture
 def run(tmp_path):
-    return Output(write_tree(str(tmp_path)), time_units="normalized")
+    return Output(write_tree(str(tmp_path)))
 
 
 # --- reductions ---------------------------------------------------------------------------------
@@ -204,7 +204,7 @@ def test_unknown_units_are_rejected(run):
 
 
 def test_physical_time_units_are_not_converted_twice(tmp_path):
-    physical = Output(write_tree(str(tmp_path)), time_units="physical")
+    physical = Output(write_tree(str(tmp_path))).with_time_units("physical")
     np.testing.assert_allclose(physical.to_si(F).t, physical[F].t)
 
 

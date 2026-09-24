@@ -129,7 +129,7 @@ def output_with_comm(monkeypatch, path, comm, **kwargs):
 
 @pytest.fixture
 def run(tmp_path):
-    return Output(write_tree(str(tmp_path)), time_units="normalized")
+    return Output(write_tree(str(tmp_path)))
 
 
 def test_products_are_discovered_without_loading_arrays(run):
@@ -237,7 +237,7 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
 def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    run = Output(root, time_units="normalized")
+    run = Output(root)
     calls = []
 
     def fake_pproc(self, **options):
@@ -336,7 +336,7 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
 def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    run = Output(root, time_units="normalized")
+    run = Output(root)
     calls = []
     monkeypatch.setattr(Output, "process", lambda self, **options: calls.append(options))
 
@@ -375,9 +375,17 @@ def test_normalized_time_carries_seconds_as_a_coordinate(run):
     np.testing.assert_allclose(energy.t_seconds, energy.t * float(run.model.units.t))
     assert energy.t_seconds.attrs["units"] == "s"
 
-    seconds = Output(run.path_out, time_units="physical").scalars.en_tot
+    physical = run.with_time_units("physical")
+    assert physical is not run
+    assert run.time_units == "normalized"
+    assert physical.time_units == "physical"
+    seconds = physical.scalars.en_tot
     np.testing.assert_allclose(seconds.t, energy.t * float(run.model.units.t))
     assert "t_seconds" not in seconds.coords
+    assert "t_seconds" in run.scalars.en_tot.coords
+
+    with pytest.raises(ValueError, match="time_units"):
+        run.with_time_units("hours")
 
 
 def test_a_failing_property_reports_its_own_error(tmp_path):

@@ -25,7 +25,7 @@ def make_run(root, name="sim_1"):
         time = np.asarray(file["time/value"])
         file.create_dataset("scalar/en_phi", data=np.exp(RATE * time))
     write_manifest(path)
-    return Output(path, time_units="normalized")
+    return Output(path)
 
 
 @pytest.fixture

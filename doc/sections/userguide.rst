@@ -530,8 +530,8 @@ Every product is an :class:`xarray.DataArray` with named dimensions
 Arrays are read from disk only when accessed.
 
 Time is in Struphy units, in which the models' analytic results are written; seconds come
-along as the coordinate ``t_seconds``. Pass ``time_units="physical"`` to
-:class:`~struphy.Output` to make ``t`` itself seconds.
+along as the coordinate ``t_seconds``. Use ``out.with_time_units("physical")``
+to make ``t`` itself seconds in an independent view.
 
 In a separate process, for example a plotting script on a laptop after a cluster
 run, open the output folder instead. Nothing is allocated and no MPI is needed.
