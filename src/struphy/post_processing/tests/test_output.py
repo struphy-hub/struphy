@@ -365,8 +365,9 @@ def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
     assert {"em_fields", "kinetic_ions"} <= set(dir(run)), "species are known before processing"
 
 
-def test_info_lists_evaluable_products_with_descriptions(run):
-    text = run.info()
+def test_info_lists_evaluable_products_with_descriptions(run, capsys):
+    assert run.info() is None
+    text = capsys.readouterr().out
     assert "Configuration" in text and "Species and variables" in text
     assert "Propagator options" in text and "Initial conditions" in text
     assert "Help" in text and "out.initial_conditions" in text
@@ -378,8 +379,9 @@ def test_info_lists_evaluable_products_with_descriptions(run):
     assert run.field_catalog._cache == {}, "listing must not load arrays"
 
 
-def test_info_labels_distribution_and_density_symbols(run):
-    text = run.info()
+def test_info_labels_distribution_and_density_symbols(run, capsys):
+    run.info()
+    text = capsys.readouterr().out
     assert "particle distribution ($f$)" in text
     assert "particle distribution ($\\delta f$)" in text
     assert "SPH density ($n$)" in text

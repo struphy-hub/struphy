@@ -21,7 +21,7 @@ Use `keys()` to list the names accepted by `evaluate()`, or `info()` for the sam
 short descriptions.
 
 ```python
-print(out.info())
+out.info()
 
 for key in out.keys():
     print(key)

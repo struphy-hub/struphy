@@ -987,10 +987,10 @@ class Output:
             self._label = ", ".join(values) or self.path_out.name
         return self._label
 
-    def info(self) -> str:
-        """A concise run summary, configuration reference, and product catalog.
+    def info(self) -> None:
+        """Print a concise run summary, configuration reference, and product catalog.
 
-        Use ``print(out.info())`` interactively. The summary includes model parameters,
+        Use ``out.info()`` interactively. The summary includes model parameters,
         species variables, propagator options, and initial-condition definitions saved in
         metadata. As with :meth:`keys`, the product catalog materializes default
         post-processing when needed; call :meth:`pproc` first to choose its options.
@@ -1045,7 +1045,7 @@ class Output:
             f"{'-' * key_width}  -----------",
         ]
         lines.extend(f"{key:<{key_width}}  {description}" for key, description in rows)
-        return "\n".join(lines)
+        print("\n".join(lines))
 
     @staticmethod
     def _initial_condition_description(value) -> str:
