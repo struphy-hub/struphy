@@ -927,10 +927,11 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         return path
 
-    def to_dict(self) -> dict:
+    def to_dict(self, *, initial_condition_serializer=None) -> dict:
         """Serialize the model constructor, variables and propagator options.
 
-        Backgrounds and perturbations are not part of this dictionary.
+        Pass an initial-condition serializer to include each variable's definitions
+        in run metadata. The plain configuration omits them.
         """
         params = {}
         for key, value in self.params.items():
@@ -939,16 +940,33 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             elif not isinstance(value, (bool, int, float, str, tuple, list, type(None))):
                 raise TypeError(f"cannot serialize argument {key}={value!r} of {self.__class__.__name__}")
             params[key] = value
-        return {
+        species = {name: item.to_dict() for name, item in self.species.items()}
+        if initial_condition_serializer is not None:
+            for species_name, item in self.species.items():
+                for variable_name, variable in item.variables.items():
+                    definitions = {
+                        "backgrounds": initial_condition_serializer(variable.backgrounds),
+                        "perturbations": initial_condition_serializer(variable.perturbations),
+                    }
+                    if isinstance(variable, PICVariable):
+                        # Reading the property can mutate the variable's state.
+                        definitions["initial_condition"] = initial_condition_serializer(
+                            getattr(variable, "_initial_condition", variable.backgrounds)
+                        )
+                    species[species_name]["variables"][variable_name]["initial_conditions"] = definitions
+        result = {
             "model": self.__class__.__name__,
             "params": params,
-            "species": {name: species.to_dict() for name, species in self.species.items()},
+            "species": species,
             "propagator_options": {
                 name: self._serialize_propagator_option(prop.options)
                 for name, prop in vars(self.propagators).items()
                 if isinstance(prop, Propagator)
             },
         }
+        if initial_condition_serializer is not None:
+            result["initial_conditions_schema_version"] = 1
+        return result
 
     def _serialize_propagator_option(self, value):
         """Convert nested option dataclasses and variable references to JSON data."""

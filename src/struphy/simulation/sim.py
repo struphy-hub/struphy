@@ -1762,26 +1762,6 @@ class Simulation(SimulationBase):
         # other values visible in provenance rather than making metadata writing fail.
         return value
 
-    def _collect_initial_conditions_metadata(self) -> dict:
-        """Collect initial-condition definitions for every model variable."""
-        initial_conditions = {}
-        for species_name, species in self.model.species.items():
-            variables = {}
-            for variable_name, variable in species.variables.items():
-                entry = {
-                    "backgrounds": self._serialize_initial_condition(variable.backgrounds),
-                    "perturbations": self._serialize_initial_condition(variable.perturbations),
-                }
-                if isinstance(variable, PICVariable):
-                    # ``initial_condition`` defaults to backgrounds. Do not access the
-                    # property here, because doing so mutates the variable's state.
-                    entry["initial_condition"] = self._serialize_initial_condition(
-                        getattr(variable, "_initial_condition", variable.backgrounds)
-                    )
-                variables[variable_name] = entry
-            initial_conditions[species_name] = variables
-        return initial_conditions
-
     @staticmethod
     def _deserialize_initial_condition(value, trust_source: bool):
         """Rebuild one initial-condition definition from metadata."""
@@ -1860,10 +1840,23 @@ class Simulation(SimulationBase):
 
     def _restore_initial_conditions(self, metadata: dict, trust_source: bool):
         """Attach metadata initial conditions to the reconstructed model variables."""
-        version = metadata.get("initial_conditions_schema_version", 1)
+        version = metadata.get("model", {}).get(
+            "initial_conditions_schema_version", metadata.get("initial_conditions_schema_version", 1)
+        )
         if version != 1:
             raise ValueError(f"Unsupported initial-conditions metadata schema version: {version}.")
-        for species_name, variables in metadata.get("initial_conditions", {}).items():
+        model_species = metadata.get("model", {}).get("species", {})
+        definitions = metadata.get("initial_conditions")
+        if definitions is None:
+            definitions = {
+                species_name: {
+                    name: variable["initial_conditions"]
+                    for name, variable in species.get("variables", {}).items()
+                    if "initial_conditions" in variable
+                }
+                for species_name, species in model_species.items()
+            }
+        for species_name, variables in definitions.items():
             species = self.model.species.get(species_name)
             if species is None:
                 continue
@@ -1900,12 +1893,11 @@ class Simulation(SimulationBase):
             The JSON-encoded simulation metadata.
         """
         config = self.to_dict()
+        config["model"] = self.model.to_dict(initial_condition_serializer=self._serialize_initial_condition)
         config.update(
             {
                 "mpi_ranks": self.comm_size,
                 "use_mpi_comm_world": self.comm is not None,
-                "initial_conditions_schema_version": 1,
-                "initial_conditions": self._collect_initial_conditions_metadata(),
                 **extra_data,
             },
         )

@@ -15,7 +15,7 @@ from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, Vlasov
 from struphy.ode.utils import ButcherTableau
 from struphy.particles.parameters import LoadingParameters
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.post_processing.post_processing_tools import PostProcessor, is_processed
+from struphy.post_processing.manifest import is_processed
 from struphy.initial.base import Perturbation
 
 
@@ -95,7 +95,7 @@ def test_run_writes_only_metadata_and_copies_the_parameter_file(tmp_path):
     sim._copy_parameter_file()
     assert sorted(os.listdir(sim.env.path_out)) == ["parameters.py", "run_metadata.json"]
     metadata = json.loads((tmp_path / "sim_1" / "run_metadata.json").read_text())
-    assert metadata["model"] == sim.model.to_dict()
+    assert metadata["model"] == sim.model.to_dict(initial_condition_serializer=sim._serialize_initial_condition)
     assert metadata["mpi_ranks"] == sim.comm_size
     assert metadata["started_at_epoch_s"] == sim.start_time
 
@@ -113,10 +113,10 @@ def test_run_metadata_contains_variables_and_propagator_options(tmp_path):
     sim._write_run_metadata()
 
     metadata = json.loads((tmp_path / "sim_1" / "run_metadata.json").read_text())
-    assert metadata["model"] == sim.model.to_dict()
+    assert metadata["model"] == sim.model.to_dict(initial_condition_serializer=sim._serialize_initial_condition)
     assert "species" not in metadata
     assert "propagator_options" not in metadata
-    assert metadata["model"]["species"]["em_fields"]["variables"]["e_field"] == {
+    assert {key: value for key, value in metadata["model"]["species"]["em_fields"]["variables"]["e_field"].items() if key != "initial_conditions"} == {
         "class": "FEECVariable",
         "space": "Hcurl",
         "save_data": False,
@@ -146,15 +146,17 @@ def test_run_metadata_contains_serialized_initial_conditions(tmp_path):
     )
 
     metadata = json.loads(sim.to_run_metadata())
-    assert metadata["initial_conditions_schema_version"] == 1
-    b_field = metadata["initial_conditions"]["em_fields"]["b_field"]
+    assert metadata["model"]["initial_conditions_schema_version"] == 1
+    assert "initial_conditions_schema_version" not in metadata
+    assert "initial_conditions" not in metadata
+    b_field = metadata["model"]["species"]["em_fields"]["variables"]["b_field"]["initial_conditions"]
     assert b_field["backgrounds"] == {
         "type": "FieldsBackground",
         "params": {"type": "LogicalConst", "values": [1.0, 2.0, 3.0], "variable": None},
     }
     assert b_field["perturbations"]["type"] == "TorusModesCos"
 
-    kinetic = json.loads(kinetic_sim.to_run_metadata())["initial_conditions"]["kinetic_ions"]["var"]
+    kinetic = json.loads(kinetic_sim.to_run_metadata())["model"]["species"]["kinetic_ions"]["variables"]["var"]["initial_conditions"]
     assert kinetic["backgrounds"]["type"] == "Maxwellian3D"
     assert kinetic["initial_condition"]["type"] == "SumKineticBackground"
     assert kinetic["initial_condition"]["params"]["f1"]["params"]["n"][1]["type"] == "TorusModesCos"
@@ -164,13 +166,35 @@ def test_run_metadata_embeds_user_function_source(tmp_path):
     sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
     sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(user_density_profile, None)))
 
-    density = json.loads(sim.to_run_metadata())["initial_conditions"]["kinetic_ions"]["var"]["backgrounds"][
+    density = json.loads(sim.to_run_metadata())["model"]["species"]["kinetic_ions"]["variables"]["var"]["initial_conditions"]["backgrounds"][
         "params"
     ]["n"][0]
     assert density["type"] == "python_function"
     assert density["name"] == "user_density_profile"
     assert "def user_density_profile" in density["source"]
     assert len(density["source_sha256"]) == 64
+
+
+def test_legacy_initial_conditions_metadata_can_still_be_restored(tmp_path):
+    path_out = tmp_path / "sim_1"
+    path_out.mkdir()
+    sim = make_sim(tmp_path)
+    sim.model.em_fields.b_field.add_background(FieldsBackground(values=(1.0, 2.0, 3.0)))
+    metadata = json.loads(sim.to_run_metadata())
+    metadata["initial_conditions_schema_version"] = metadata["model"].pop("initial_conditions_schema_version")
+    metadata["initial_conditions"] = {
+        species_name: {
+            variable_name: variable.pop("initial_conditions")
+            for variable_name, variable in species["variables"].items()
+        }
+        for species_name, species in metadata["model"]["species"].items()
+    }
+    (path_out / "run_metadata.json").write_text(json.dumps(metadata))
+
+    restored = Simulation.from_output(path_out)
+    assert restored.model.em_fields.b_field.backgrounds.values == (1.0, 2.0, 3.0)
+    output = Output(path_out)
+    assert output.initial_conditions["em_fields"]["b_field"]["backgrounds"].values == (1.0, 2.0, 3.0)
 
 
 def test_from_output_restores_initial_conditions_and_requires_trust_for_source(tmp_path, monkeypatch):
@@ -242,7 +266,7 @@ def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
     sim.model.propagators.poisson.options.filter_params = {variable: FilterParameters("fourier_in_tor", (1, 2))}
 
     metadata = json.loads(sim.to_run_metadata())
-    assert metadata["model"] == sim.model.to_dict()
+    assert metadata["model"] == sim.model.to_dict(initial_condition_serializer=sim._serialize_initial_condition)
 
     assert metadata["model"]["species"]["em_fields"]["variables"]["source"]["space"] == "H1"
     assert metadata["model"]["propagator_options"]["poisson"]["filter_params"] == {
@@ -265,16 +289,17 @@ def test_cold_plasma_vlasov_species_and_variables_own_their_metadata(tmp_path):
 
     species = json.loads(sim.to_run_metadata())["model"]["species"]
 
-    assert species["thermal_elec"] == model.thermal_elec.to_dict()
-    assert species["hot_elec"] == model.hot_elec.to_dict()
+    assert species == model.to_dict(initial_condition_serializer=sim._serialize_initial_condition)["species"]
     assert species["thermal_elec"]["class"] == "ThermalElectrons"
     assert species["thermal_elec"]["charge_number"] == -2
     assert species["thermal_elec"]["mass_number"] == 0.25
     assert species["thermal_elec"]["alpha"] == 3.0
     assert species["thermal_elec"]["epsilon"] == 0.5
-    assert species["thermal_elec"]["variables"]["current"] == model.thermal_elec.current.to_dict()
+    assert species["thermal_elec"]["variables"]["current"]["initial_conditions"] == {
+        "backgrounds": None, "perturbations": None
+    }
     assert species["hot_elec"]["loading_params"]["Np"] == 1234
-    assert species["hot_elec"]["variables"]["var"] == model.hot_elec.var.to_dict()
+    assert species["hot_elec"]["variables"]["var"]["initial_conditions"]["initial_condition"] is None
     assert species["hot_elec"]["variables"]["var"]["save_data"] is False
 
 
@@ -293,7 +318,7 @@ def test_from_output_requires_a_configuration(tmp_path):
 
 
 @pytest.mark.parametrize("metadata_only", [False, True])
-def test_processor_from_moved_output(tmp_path, metadata_only):
+def test_processing_from_moved_output(tmp_path, metadata_only):
     sim = make_sim(tmp_path, grid=None, derham_opts=None, time_opts=Time(dt=0.123))
     os.makedirs(os.path.join(sim.env.path_out, "data"))
     if metadata_only:
@@ -311,13 +336,12 @@ def test_processor_from_moved_output(tmp_path, metadata_only):
     sentinel = products / "existing.txt"
     sentinel.write_text("keep until processing")
 
-    processor = PostProcessor.from_output(moved)
+    processor = Output(moved)
 
-    assert processor.path_out == str(moved)
+    assert processor.path_out == moved
     assert processor.model.to_dict() == sim.model.to_dict()
     assert processor.domain == sim.domain
-    assert processor.comm_size == 3
-    assert list(processor.range_ranks) == [0, 1, 2]
+    assert processor.mpi_ranks == 3
     assert sentinel.read_text() == "keep until processing"
     assert Output(moved).time_opts.dt == 0.123
     assert processor.process(create_vtk=False)

@@ -15,7 +15,7 @@ from struphy.post_processing import output as output_module
 from struphy.post_processing import store
 from struphy.post_processing.arrays import orbit_quantities
 from struphy.post_processing.output import Output, open_output
-from struphy.post_processing.post_processing_tools import is_processed, normalize_options, source_fingerprint
+from struphy.post_processing.manifest import is_processed, normalize_options, source_fingerprint
 
 NT, N1, N2, N3, NV, N_MARKERS = 3, 4, 5, 6, 7, 10
 
@@ -306,23 +306,14 @@ def test_manifest_is_stale_when_raw_output_changes(tmp_path):
 
 @pytest.mark.parametrize("rank", [0, 1])
 def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
-    from struphy.post_processing import post_processing_tools
-
     calls = []
-
-    class FakePostProcessor:
-        def __init__(self, output, parallel_pproc=False):
-            calls.append(("construct", parallel_pproc))
-
-        def process(self, **options):
-            calls.append(("process", options))
-
-    monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(("setup", parallel)))
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: calls.append(("process", options)))
     comm = FakeComm(rank=rank, size=2)
     run = output_with_comm(monkeypatch, write_tree(str(tmp_path)), comm)
     assert run.process(physical=True) is run
     expected = [
-        ("construct", False),
+        ("setup", False),
         (
             "process",
             dict(
@@ -335,18 +326,9 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
 
 
 def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
-    from struphy.post_processing import post_processing_tools
-
     calls = []
-
-    class FakePostProcessor:
-        def __init__(self, output, parallel_pproc=False):
-            calls.append(parallel_pproc)
-
-        def process(self, **options):
-            pass
-
-    monkeypatch.setattr(post_processing_tools, "PostProcessor", FakePostProcessor)
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: None)
     output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(rank=3, size=4)).process(parallel=True)
     assert calls == [True]
 

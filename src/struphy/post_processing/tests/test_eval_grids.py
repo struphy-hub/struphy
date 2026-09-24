@@ -11,16 +11,16 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from struphy.post_processing.post_processing_tools import PostProcessor
+from struphy.post_processing.output import Output
 
 
 def make_pproc(num_elements, domain_array):
-    """A PostProcessor stub that only knows about its Derham decomposition.
+    """A Output stub that only knows about its Derham decomposition.
 
     ``__init__`` is bypassed on purpose (it creates output folders and reads meta.yml).
     """
-    pproc = PostProcessor.__new__(PostProcessor)
-    pproc.derham = SimpleNamespace(
+    pproc = Output.__new__(Output)
+    pproc._pproc_derham = SimpleNamespace(
         num_elements=num_elements,
         domain_array=np.array(domain_array, dtype=float),
     )
@@ -225,7 +225,7 @@ def test_gather_reproduces_the_global_array():
 def test_collect_on_root_is_a_no_op_in_serial():
     """With ``parallel_pproc=False`` the local array is already the global one."""
     pproc = make_pproc(NUM_ELEMENTS, DOM_ARR_1_RANK)
-    pproc.parallel_pproc = False
+    pproc._pproc_parallel = False
 
     grids_log, grid_slices = pproc._create_eval_grids()
     shape = tuple(grid.size for grid in grids_log)

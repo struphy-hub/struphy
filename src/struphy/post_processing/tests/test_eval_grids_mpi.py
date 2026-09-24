@@ -19,7 +19,7 @@ import cunumpy as xp
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.post_processing.post_processing_tools import PostProcessor
+from struphy.post_processing.output import Output
 
 # divisible by 1, 2, 3 and 4, so eta1 can be split evenly over the usual rank counts
 NUM_ELEMENTS = (12, 2, 2)
@@ -56,20 +56,20 @@ def split_eta1(num_elements, n_parts):
 
 
 def make_mpi_pproc(comm, num_elements=NUM_ELEMENTS):
-    """A PostProcessor stub in parallel mode, decomposed over ``comm``.
+    """An Output stub in parallel mode, decomposed over ``comm``.
 
     ``__init__`` is bypassed on purpose (it creates output folders and reads meta.yml);
     ``_create_eval_grids`` and ``_collect_on_root`` only need the attributes set here.
     """
-    pproc = PostProcessor.__new__(PostProcessor)
-    pproc.derham = SimpleNamespace(
+    pproc = Output.__new__(Output)
+    pproc._pproc_derham = SimpleNamespace(
         num_elements=num_elements,
         domain_array=xp.array(split_eta1(num_elements, comm.Get_size()), dtype=float),
     )
-    pproc.parallel_pproc = True
-    pproc.comm = comm
-    pproc.comm_size = comm.Get_size()
-    pproc.rank = comm.Get_rank()
+    pproc._pproc_parallel = True
+    pproc._pproc_comm = comm
+    pproc.mpi_ranks = comm.Get_size()
+    pproc._pproc_rank = comm.Get_rank()
     return pproc
 
 
@@ -132,11 +132,11 @@ def test_collect_on_root_reproduces_the_global_array(celldivide):
     shape = tuple(grid.size for grid in grids_log)
 
     glob_val = global_array(shape)
-    loc_val = glob_val[grid_slices[pproc.rank]]
+    loc_val = glob_val[grid_slices[pproc._pproc_rank]]
 
     gathered = pproc._collect_on_root(loc_val, grid_slices, shape)
 
-    if pproc.rank == 0:
+    if pproc._pproc_rank == 0:
         assert gathered.shape == shape
         assert xp.array_equal(gathered, glob_val)
     else:
@@ -160,12 +160,12 @@ def test_collect_on_root_handles_non_contiguous_local_arrays():
 
     # mimic taking one component out of a (3, *shape) array laid out component-last
     stacked = xp.stack([glob_val, glob_val + 1000.0, glob_val + 2000.0], axis=-1)
-    loc_val = stacked[grid_slices[pproc.rank]][..., 0]
+    loc_val = stacked[grid_slices[pproc._pproc_rank]][..., 0]
     assert not loc_val.flags["C_CONTIGUOUS"]
 
     gathered = pproc._collect_on_root(loc_val, grid_slices, shape)
 
-    if pproc.rank == 0:
+    if pproc._pproc_rank == 0:
         assert xp.array_equal(gathered, glob_val)
     else:
         assert gathered is None
@@ -186,14 +186,14 @@ def test_collect_on_root_repeated_calls_stay_correct():
 
     for step in range(3):
         glob_val = global_array(shape, offset=1000 * step)
-        loc_val = glob_val[grid_slices[pproc.rank]]
+        loc_val = glob_val[grid_slices[pproc._pproc_rank]]
 
         gathered = pproc._collect_on_root(loc_val, grid_slices, shape)
 
-        if pproc.rank == 0:
+        if pproc._pproc_rank == 0:
             assert xp.array_equal(gathered, glob_val), f"wrong data gathered in step {step}"
 
-    if pproc.rank == 0:
+    if pproc._pproc_rank == 0:
         # buffers were cached, i.e. the reuse path above was actually taken
         assert len(pproc._collect_recv_bufs) == comm.Get_size() - 1
 
@@ -209,11 +209,11 @@ def test_collect_on_root_keeps_dtypes_apart():
 
     for dtype in (float, complex, float):
         glob_val = global_array(shape, dtype=dtype)
-        loc_val = glob_val[grid_slices[pproc.rank]]
+        loc_val = glob_val[grid_slices[pproc._pproc_rank]]
 
         gathered = pproc._collect_on_root(loc_val, grid_slices, shape)
 
-        if pproc.rank == 0:
+        if pproc._pproc_rank == 0:
             assert gathered.dtype == glob_val.dtype
             assert xp.array_equal(gathered, glob_val)
 
@@ -227,10 +227,10 @@ def test_only_root_allocates_the_global_array():
     grids_log, grid_slices = pproc._create_eval_grids()
     shape = tuple(grid.size for grid in grids_log)
 
-    loc_val = global_array(shape)[grid_slices[pproc.rank]]
+    loc_val = global_array(shape)[grid_slices[pproc._pproc_rank]]
     gathered = pproc._collect_on_root(loc_val, grid_slices, shape)
 
-    is_root = pproc.rank == 0
+    is_root = pproc._pproc_rank == 0
     assert (gathered is not None) == is_root
 
     # the local block is strictly smaller than the global grid on at least one rank
