@@ -18,6 +18,7 @@ from struphy import (
     perturbations,
     set_logging_level,
 )
+from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import LinearMHD
 
 set_logging_level()
@@ -87,7 +88,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
 
         disp_params = {"B0x": B0x, "B0y": B0y, "B0z": B0z, "p0": p0, "n0": n0, "gamma": 5 / 3}
 
-        _1, _2, _3, coeffs = run.evaluate("mhd/velocity").struphy.analysis.dispersion(
+        _1, _2, _3, coeffs = power_spectrum_2d(
+            run.evaluate("mhd/velocity"),
             physical=True,
             component=0,
             slice_at=[0, 0, None],
@@ -107,7 +109,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
-        _1, _2, _3, coeffs = run.evaluate("mhd/pressure").struphy.analysis.dispersion(
+        _1, _2, _3, coeffs = power_spectrum_2d(
+            run.evaluate("mhd/pressure"),
             physical=True,
             component=0,
             slice_at=[0, 0, None],

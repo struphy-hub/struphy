@@ -31,7 +31,6 @@ from struphy.post_processing.arrays import (
     BINNED_LABELS, data_array, save_scalars, wrap_binned_data, wrap_field_data, wrap_orbits,
 )
 from struphy.post_processing.orbits import orbits_tools
-from struphy.post_processing.output_accessors import OutputPlots
 from struphy.post_processing.manifest import MANIFEST_SCHEMA_VERSION, is_processed, normalize_options, source_fingerprint
 from struphy.post_processing.profiling import Profile
 from struphy.post_processing.si import to_si
@@ -186,7 +185,7 @@ class Output:
     Call :meth:`evaluate` to obtain one product as an :class:`xarray.DataArray`. It materializes
     post-processing products on demand; call :meth:`pproc` explicitly to choose its options.
     The :attr:`xarray` property exposes the complete post-processed product tree.
-    Render products through this object too, e.g. ``out.viewer("em_fields/E", x="e1", y="e2")``.
+    Optional plotting is provided by the separate ``struphy-plots`` package.
 
     * :attr:`scalars` are read directly from the raw HDF5 output.
     * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` are retained
@@ -480,45 +479,6 @@ class Output:
         )
         raise KeyError(f"{name!r} not found; available products: {available}")
 
-    def growth_rate(self, product: str | xr.DataArray, *, window=(None, None), amplitude: bool = False):
-        """Fit exponential growth of a scalar product and return a ``FitResult``."""
-        from struphy.diagnostics.analysis import GrowthFit, growth_rate
-
-        return growth_rate(self._array(product), GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
-
-    def damping_rate(self, product: str | xr.DataArray, *, window=(None, None), amplitude: bool = False):
-        """Fit exponential decay to the envelope of an oscillating scalar; returns a ``FitResult``."""
-        from struphy.diagnostics.analysis import GrowthFit, damping_rate
-
-        return damping_rate(self._array(product), GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
-
-    def envelope(self, product: str | xr.DataArray) -> xr.DataArray:
-        """Return the local maxima of a time series, e.g. to overlay on the signal."""
-        from struphy.diagnostics.analysis import envelope
-
-        return envelope(self._array(product))
-
-    def norm(self, product: str | xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArray:
-        """Return the L2 norm over ``dims`` (default: all but ``t``), as a function of time."""
-        from struphy.diagnostics.analysis import norm
-
-        return norm(self._array(product), dims=dims, squared=squared)
-
-    def spatial_average(self, product: str | xr.DataArray, *, dims=None) -> xr.DataArray:
-        """Mean of a product over ``e1``, ``e2``, ``e3`` (or ``dims``), e.g. f(t, v1) from f(t, e1, v1)."""
-        from struphy.diagnostics.analysis import spatial_average
-
-        return spatial_average(self._array(product), dims=dims)
-
-    def velocity_moments(self, product: str | xr.DataArray, *, dims=None) -> xr.Dataset:
-        """Density, mean velocity and variance of a binned distribution, as functions of the other dimensions.
-
-        See :func:`struphy.diagnostics.analysis.velocity_moments`.
-        """
-        from struphy.diagnostics.analysis import velocity_moments
-
-        return velocity_moments(self._array(product), dims=dims)
-
     def with_physical_coords(self, product: str | xr.DataArray) -> xr.DataArray:
         """Attach mapped ``X``, ``Y``, ``Z`` coordinates to a product on a logical grid.
 
@@ -543,18 +503,6 @@ class Output:
             keep = tuple(slice(None) if dim in dims else 0 for dim in ("e1", "e2", "e3"))
             array = array.assign_coords({name: (dims, values[keep])})
         return array
-
-    def drift(self, product: str | xr.DataArray, *, ref=None) -> xr.DataArray:
-        """Return the deviation of a time series from a reference or its initial value."""
-        from struphy.diagnostics.analysis import drift
-
-        return drift(self._array(product), ref=ref)
-
-    def relative_error(self, product: str | xr.DataArray, *, ref=None, skip_first: bool = True) -> xr.DataArray:
-        """Return the absolute relative deviation of a time series."""
-        from struphy.diagnostics.analysis import relative_error
-
-        return relative_error(self._array(product), ref=ref, skip_first=skip_first)
 
     def keys(self) -> tuple[str, ...]:
         """Return the names accepted by :meth:`evaluate`, without loading their arrays.
@@ -599,71 +547,6 @@ class Output:
         if isinstance(product, xr.DataArray):
             return product
         raise TypeError(f"product must be a product name or xarray.DataArray, got {type(product).__name__}")
-
-    def timeseries(self, product: str | xr.DataArray, *others: str | xr.DataArray, **kwargs):
-        """Plot one or more scalar products; see :meth:`ArrayPlots.timeseries`."""
-        from struphy.post_processing.xarray_accessors import ArrayPlots
-
-        result = ArrayPlots(self._array(product)).timeseries(*(self._array(other) for other in others), **kwargs)
-        return result.fig, result.ax
-
-    def view(self, product: str | xr.DataArray, **kwargs):
-        """Configure a reusable slice view of one product; see :meth:`ArrayPlots.view`."""
-        from struphy.post_processing.xarray_accessors import ArrayPlots
-
-        return ArrayPlots(self._array(product)).view(**kwargs)
-
-    def slice(self, product: str | xr.DataArray, *, ax=None, **kwargs):
-        """Render one two-dimensional slice; see :meth:`ArrayPlots.slice`."""
-        result = self.view(product, **kwargs).slice(ax=ax)
-        return result.fig, result.ax
-
-    def panels(self, product: str | xr.DataArray, **kwargs):
-        """Render evenly spaced snapshots; see :meth:`ArrayPlots.panels`."""
-        from struphy.post_processing.xarray_accessors import ArrayPlots
-
-        result = ArrayPlots(self._array(product)).panels(**kwargs)
-        return result.fig, result.ax
-
-    def viewer(self, product: str | xr.DataArray, **kwargs):
-        """Create an interactive slice viewer; see :meth:`ArrayPlots.viewer`."""
-        from struphy.post_processing.xarray_accessors import ArrayPlots
-
-        viewer = ArrayPlots(self._array(product)).viewer(**kwargs)
-        result = viewer.draw()
-        result.fig._struphy_viewer = viewer
-        return result.fig, result.ax
-
-    def animation(self, product: str | xr.DataArray, **kwargs):
-        """Create a slice animation; see :meth:`ArrayPlots.animation`."""
-        from struphy.post_processing.xarray_accessors import ArrayPlots
-
-        animation = ArrayPlots(self._array(product)).animation(**kwargs)
-        animation._fig._struphy_animation = animation
-        return animation._fig, animation._fig.axes[0]
-
-    def frames(self, product: str | xr.DataArray, directory, **kwargs):
-        """Export slice frames; see :meth:`ArrayPlots.frames`."""
-        from struphy.post_processing.xarray_accessors import ArrayPlots
-
-        return ArrayPlots(self._array(product)).frames(directory, **kwargs)
-
-    def trajectories(self, product: str | xr.DataArray, **kwargs):
-        """Plot saved marker trajectories; see :meth:`ArrayPlots.trajectories`."""
-        from struphy.post_processing.xarray_accessors import ArrayPlots
-
-        result = ArrayPlots(self._array(product)).trajectories(**kwargs)
-        return result.fig, result.ax
-
-    def plot_scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
-        """Plot an overview of the scalar time series of this run."""
-        result = OutputPlots(self).scalars(names=names, relative_to=relative_to, logy=logy)
-        return result.fig, result.ax
-
-    def equilibrium(self, ax=None):
-        """Plot the radial equilibrium profiles saved with this run."""
-        result = OutputPlots(self).equilibrium(ax=ax)
-        return result.fig, result.ax
 
     @property
     def units(self):
@@ -2039,15 +1922,6 @@ class Output:
         return self._product_mappings()["orbits"]
 
     @property
-    def plot(self) -> OutputPlots:
-        """Compatibility namespace for whole-run plots.
-
-        Prefer :meth:`plot_scalars` and :meth:`equilibrium`; product plots are direct methods
-        of :class:`Output`, such as :meth:`viewer` and :meth:`timeseries`.
-        """
-        return OutputPlots(self)
-
-    @property
     def f(self) -> DistributionProducts:
         """Deprecated alias of :attr:`distributions`."""
         warnings.warn("Output.f is deprecated; use out.distributions instead.", DeprecationWarning, stacklevel=2)
@@ -2308,7 +2182,7 @@ class Output:
             "- Use out.initial_conditions for reconstructed backgrounds, perturbations, and distributions.",
             "- Saved Python initial conditions are reconstructed from source; unsupported definitions remain in out.metadata.",
             "- Use out.keys(), out.fields, out.distributions, out.densities, and out.orbits to discover products.",
-            "- Use out.evaluate(key), out.pproc(...), and array.struphy.plot.* to load and plot products.",
+            "- Use out.evaluate(key) and out.pproc(...) to load and process products.",
             "",
             f"{'Key':<{key_width}}  Description",
             f"{'-' * key_width}  -----------",
@@ -2369,16 +2243,6 @@ class Output:
         """Write the scalar time series as CSV (or NPZ); ``post_processing/scalars.csv`` by default."""
         path = Path(path) if path else self.path_pproc / "scalars.csv"
         return save_scalars(self.scalars, str(path), **kwargs)
-
-    def save_report(self, directory=None, **kwargs) -> list[str]:
-        """Write the standard report: a scalar table, the scalar overview and one figure per scalar.
-
-        Files go to ``post_processing/report/`` by default; returns their paths.
-        """
-        from struphy.diagnostics.plotting import save_all_scalars
-
-        directory = Path(directory) if directory else self.path_pproc / "report"
-        return save_all_scalars(self.scalars, directory, run_label=self.label, **kwargs)
 
     def report(self, directory=None, *, products=(), format: str = "markdown", max_scalar_rows: int = 200) -> str:
         """Write a compact, reproducible data report and return its path.

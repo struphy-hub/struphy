@@ -197,11 +197,9 @@ def test_scalar_time_uses_the_same_policy_as_postprocessed_products(run):
     np.testing.assert_allclose(run.scalars.en_tot.t, run.time)
 
 
-def test_saving_scalars_and_plotting_a_product(run, tmp_path):
+def test_saving_scalars(run, tmp_path):
     path = run.save_scalars(tmp_path / "scalars.csv")
     assert os.path.exists(path)
-    result = run.scalars.en_tot.struphy.plot.timeseries(logy=False)
-    assert result.ax.get_xlabel() == "$t$"
 
 
 def test_open_output_needs_an_output_folder(tmp_path):
@@ -492,9 +490,9 @@ def test_iter_spline_coefficients_reads_one_raw_snapshot_at_a_time(run):
 
     snapshots = list(run.iter_spline_coefficients(stride=2))
     assert [time for time, _ in snapshots] == [0.0, 1.0]
-    assert np.array_equal(snapshots[1]["em_fields"]["phi"], np.array([4, 5]))
-    assert len(snapshots[0]["em_fields"]["e_field"]) == 2
-    assert np.array_equal(snapshots[0]["em_fields"]["e_field"][1], np.array([2.0, 2.0]))
+    assert np.array_equal(snapshots[1][1]["em_fields"]["phi"], np.array([4, 5]))
+    assert len(snapshots[0][1]["em_fields"]["e_field"]) == 2
+    assert np.array_equal(snapshots[0][1]["em_fields"]["e_field"][1], np.array([2.0, 2.0]))
 
 
 def test_normalized_time_carries_seconds_as_a_coordinate(run):

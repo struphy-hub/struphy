@@ -581,13 +581,14 @@ serial processing runs on rank 0 while the other ranks wait, and
 Standard plots and analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Products sit under the species that produced them and plot themselves through their
-``.struphy`` accessor, which holds ``.plot`` and ``.analysis``. No imports are needed and
-everything completes as you type:
+Plotting and derived diagnostics are optional and live in the separate
+``struphy-plots`` package. Install it separately, then import it to register its
+optional xarray accessor:
 
 .. code-block:: python
 
-    # products plot themselves
+    import struphy_plots
+
     f = out.kinetic_ions.e1_v1_density.f
     f.struphy.plot.slice(x="e1", y="v1", t="last")
     f.struphy.plot.panels(x="e1", y="v1", nrows=3, ncols=4)
@@ -596,14 +597,6 @@ everything completes as you type:
     out.kinetic_ions.orbits.struphy.plot.trajectories()
     out.scalars.en_phi.struphy.plot.timeseries(fit=(0.0, 40.0))        # exponential fit in a window
     out.scalars.en_phi.struphy.analysis.growth_rate(window=(0.0, 40.0)).rate
-
-    # plots of the whole run
-    out.plot.scalars()                                   # every scalar time series
-    out.save_report()                                    # table + figures in post_processing/report/
-
-    # the same products by name, which suits scripts and loops
-    out["kinetic_ions/e1_v1_density/f"].struphy.plot.slice(x="e1", y="v1", t="last")
-    out["em_fields/e_field"].struphy.analysis.dispersion(slice_at=(0, 0, None), fit_branches=1)
 
 Plots return a ``PlotResult`` with ``.show()`` and ``.save(path)``. Time series of
 several runs are labeled by run:
@@ -647,6 +640,7 @@ perturbation with respect to the background:
 .. code-block:: python
 
     f = out.distributions.kinetic_ions.e1_v1_density.f   # dims (t, e1, v1)
+    import struphy_plots
     f.struphy.plot.slice(x="e1", y="v1", t="last").show()
 
 

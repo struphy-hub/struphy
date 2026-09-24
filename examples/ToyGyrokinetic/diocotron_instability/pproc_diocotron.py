@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 from struphy import Output
+import struphy_plots
+from struphy_plots.output_accessors import OutputPlots
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
 
@@ -43,7 +45,7 @@ def main(paths=(DEFAULT_OUTPUT,)):
         return
 
     if SHOW_EQUIL_PROFILE:
-        run.plot.equilibrium()
+        OutputPlots(run).equilibrium()
 
     for name in SWEEPS:
         run.evaluate(name).struphy.plot.viewer(x="e1", y="e2", coords="physical", plane="XY").show()

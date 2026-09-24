@@ -2,6 +2,8 @@ import argparse
 from pathlib import Path
 
 from struphy import Output
+import struphy_plots
+from struphy_plots.plotting import save_all_scalars
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_data"
 
@@ -10,7 +12,7 @@ def main(path_out=DEFAULT_OUTPUT):
     run = Output(path_out)
 
     # table and figures of every scalar: post_processing/report/
-    run.save_report()
+    save_all_scalars(run.scalars, run.path_pproc / "report", run_label=run.label)
 
     # electric field growth against the analytical rate (0.2845 in units of m/c)
     energy = run.scalars.electric_energy

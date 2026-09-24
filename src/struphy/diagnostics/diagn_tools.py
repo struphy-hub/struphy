@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Spectral diagnostics and deprecated plotting helpers for legacy output.
 
-Use ``Output(path)`` and array ``.struphy.plot`` accessors for new plotting code.
+Use the optional ``struphy-plots`` package for new plotting code.
 The legacy distribution/video helpers read the old NPY layout, not output.nc.
 ``power_spectrum_2d`` remains supported by the analysis accessor.
 """
@@ -69,7 +69,7 @@ def _accept_legacy_values(function):
             f"diagn_tools.{function.__name__}(values, name, grids, ...) is deprecated; pass a field of an Output.\n"
             "How to update your script, with out = sim.output:\n"
             "  power_spectrum_2d(E_of_t, 'e_field_log', grids=sim.grids_log, grids_mapped=sim.grids_phy, ...)\n"
-            "  ->  out.fields.em_fields.e_field_log.struphy.analysis.dispersion(physical=True, ...)\n"
+            "  ->  struphy_plots analysis helpers applied to out.fields.em_fields.e_field_log\n"
             "'physical=True' replaces 'grids_mapped'; 'grids' and 'name' are read from the field itself. "
             "Take the field from out.with_time_units('normalized') if you compare with normalized dispersion relations.",
             DeprecationWarning,
@@ -294,7 +294,7 @@ def power_spectrum_2d(
     return omega, kvec, dispersion, coeffs
 
 
-@_legacy_plot("out.plot.scalars() or scalar.struphy.plot.timeseries()")
+@_legacy_plot("struphy_plots.plotting.plot_scalars()")
 def plot_scalars(
     time,
     scalar_quantities,
@@ -490,7 +490,7 @@ def plot_scalars(
         plt.show()
 
 
-@_legacy_plot("array.struphy.plot.slice()")
+@_legacy_plot("struphy_plots.plotting.plot_slice()")
 def plot_distr_fun(
     path,
     time_idx,
@@ -625,7 +625,7 @@ def plot_distr_fun(
         del delta_f
 
 
-@_legacy_plot("array.struphy.plot.view(...).animation() or .panels()")
+@_legacy_plot("struphy_plots.plotting.animate_slices() or plot_panels()")
 def plots_videos_2d(
     t_grid,
     grid_slices,
@@ -785,7 +785,7 @@ def plots_videos_2d(
             raise NotImplementedError(f"{output=} is not implemented!")
 
 
-@_legacy_plot("array.struphy.plot.view(...).animation().save(path)")
+@_legacy_plot("struphy_plots.plotting.animate_slices().save(path)")
 def video_2d(slc, diagn_path, images_path):
     """Create a video of all 2D slices of the distribution function over time.
 
@@ -860,7 +860,7 @@ def video_2d(slc, diagn_path, images_path):
     video.release()
 
 
-@_legacy_plot("array.struphy.plot.view(...).animation()")
+@_legacy_plot("struphy_plots.plotting.animate_slices()")
 def plots_2d_video(
     t_grid,
     grid_1_mesh,
@@ -942,7 +942,7 @@ def plots_2d_video(
     plt.close("all")
 
 
-@_legacy_plot("array.struphy.plot.panels()")
+@_legacy_plot("struphy_plots.plotting.plot_panels()")
 def plots_2d_overview(
     t_grid,
     grid_1_mesh,
