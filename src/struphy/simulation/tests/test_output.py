@@ -173,7 +173,7 @@ def test_run_metadata_embeds_user_function_source(tmp_path):
     assert len(density["source_sha256"]) == 64
 
 
-def test_from_output_restores_initial_conditions_and_requires_trust_for_source(tmp_path):
+def test_from_output_restores_initial_conditions_and_requires_trust_for_source(tmp_path, monkeypatch):
     path_out = tmp_path / "sim_1"
     path_out.mkdir()
     sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
@@ -189,6 +189,15 @@ def test_from_output_restores_initial_conditions_and_requires_trust_for_source(t
 
     restored_from_file = Simulation.from_file(path_out / "run_metadata.json", trust_initial_condition_source=True)
     assert restored_from_file.model.kinetic_ions.var.backgrounds.params["n"][0](0.2, 0.3, 0.4) == 1.0
+
+    def simulation_init_must_not_run(*args, **kwargs):
+        raise AssertionError("Output must not instantiate Simulation")
+
+    monkeypatch.setattr(Simulation, "__init__", simulation_init_must_not_run)
+    output = Output(path_out, trust_initial_condition_source=True)
+    density_from_output = output.initial_conditions["kinetic_ions"]["var"]["backgrounds"].params["n"][0]
+    assert density_from_output(0.2, 0.3, 0.4) == 1.0
+    assert output.model.kinetic_ions.var.backgrounds.params["n"][0](0.2, 0.3, 0.4) == 1.0
 
 
 def test_from_output_restores_user_perturbation_subclasses_and_callable_objects(tmp_path):

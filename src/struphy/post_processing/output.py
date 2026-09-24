@@ -172,8 +172,8 @@ class Output:
     * :attr:`scalars` are read directly from the raw HDF5 output.
     * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` are retained
       as compatibility views over the post-processed products.
-    * :attr:`model`, :attr:`domain` and numerical options are reconstructed lazily
-      from saved metadata. No simulation object is created or retained.
+    * :attr:`model`, :attr:`initial_conditions`, :attr:`domain` and numerical options are
+      reconstructed lazily from saved metadata. No simulation object is created or retained.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
     Parameters
@@ -184,13 +184,23 @@ class Output:
         ``"normalized"`` (the default) keeps Struphy time units, in which the analytic
         results of the models are expressed; every product then also carries seconds as the
         coordinate ``t_seconds``. ``"physical"`` makes ``t`` itself seconds.
+    trust_initial_condition_source:
+        Allow reconstruction of Python functions and classes embedded in initial-condition
+        metadata. Enable this only for output folders you trust.
     """
 
-    def __init__(self, path_out, *, time_units: str = "normalized"):
+    def __init__(
+        self,
+        path_out,
+        *,
+        time_units: str = "normalized",
+        trust_initial_condition_source: bool = False,
+    ):
         if time_units not in {"physical", "normalized"}:
             raise ValueError("time_units must be 'physical' or 'normalized'")
         self.path_out = Path(path_out).resolve()
         self.time_units = time_units
+        self.trust_initial_condition_source = trust_initial_condition_source
         self.comm = mpi_comm_world()
         self._reset()
         # A Simulation can expose its Output before it has written metadata. In that case,
@@ -205,7 +215,11 @@ class Output:
 
     def with_time_units(self, time_units: str) -> "Output":
         """The same output with time coordinates in ``"physical"`` or ``"normalized"`` units."""
-        return type(self)(self.path_out, time_units=time_units)
+        return type(self)(
+            self.path_out,
+            time_units=time_units,
+            trust_initial_condition_source=self.trust_initial_condition_source,
+        )
 
     def clear_cache(self):
         """Close lazy product files and discard loaded arrays while retaining metadata."""
@@ -564,10 +578,48 @@ class Output:
 
     @cached_property
     def model(self):
-        """Model reconstructed from its saved constructor arguments."""
+        """Model reconstructed from saved metadata, including initial conditions."""
         from struphy.models.base import StruphyModel
+        from struphy.models.variables import PICVariable
 
-        return self._restore("model", StruphyModel)
+        model = self._restore("model", StruphyModel)
+        for species_name, variables in self.initial_conditions.items():
+            species = model.species.get(species_name)
+            if species is None:
+                continue
+            for variable_name, definition in variables.items():
+                variable = species.variables.get(variable_name)
+                if variable is None:
+                    continue
+                variable._backgrounds = definition["backgrounds"]
+                variable._perturbations = definition["perturbations"]
+                if isinstance(variable, PICVariable):
+                    variable._initial_condition = definition["initial_condition"]
+        return model
+
+    @cached_property
+    def initial_conditions(self) -> dict:
+        """Initial-condition definitions reconstructed from run metadata.
+
+        This reconstructs backgrounds, perturbations, kinetic distributions, and
+        supported inline Python functions/classes without creating a
+        :class:`~struphy.simulation.sim.Simulation` instance.
+        """
+        from struphy.simulation.sim import Simulation
+
+        version = self.metadata.get("initial_conditions_schema_version", 1)
+        if version != 1:
+            raise ValueError(f"Unsupported initial-conditions metadata schema version: {version}.")
+        return {
+            species_name: {
+                variable_name: {
+                    key: Simulation._deserialize_initial_condition(value, self.trust_initial_condition_source)
+                    for key, value in definition.items()
+                }
+                for variable_name, definition in variables.items()
+            }
+            for species_name, variables in self.metadata.get("initial_conditions", {}).items()
+        }
 
     @cached_property
     def domain(self):
