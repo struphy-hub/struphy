@@ -16,10 +16,29 @@ from struphy.ode.utils import ButcherTableau
 from struphy.particles.parameters import LoadingParameters
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.post_processing.post_processing_tools import PostProcessor, is_processed
+from struphy.initial.base import Perturbation
 
 
 def user_density_profile(eta1, eta2, eta3):
     return 1.0 + eta1 * 0.0 + eta2 * 0.0 + eta3 * 0.0
+
+
+class UserCosinePerturbation(Perturbation):
+    def __init__(self, amplitude=0.1):
+        self.params = {"amplitude": amplitude}
+        self.given_in_basis = "0"
+
+    def __call__(self, eta1, eta2, eta3, flat_eval=False):
+        return self.params["amplitude"] * np.cos(2.0 * np.pi * eta2)
+
+
+class UserCallableProfile:
+    def __init__(self, offset):
+        self.offset = offset
+
+    def __call__(self, *etas):
+        eta1 = etas[0][:, 0] if len(etas) == 1 else etas[0]
+        return self.offset + 0.0 * eta1
 
 
 def make_sim(tmp_path, **kwargs):
@@ -167,6 +186,24 @@ def test_from_output_restores_initial_conditions_and_requires_trust_for_source(t
     restored = Simulation.from_output(path_out, trust_initial_condition_source=True)
     density = restored.model.kinetic_ions.var.backgrounds.params["n"][0]
     assert density(0.2, 0.3, 0.4) == user_density_profile(0.2, 0.3, 0.4)
+
+
+def test_from_output_restores_user_perturbation_subclasses_and_callable_objects(tmp_path):
+    path_out = tmp_path / "sim_1"
+    path_out.mkdir()
+    sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
+    perturbation = UserCosinePerturbation(amplitude=0.25)
+    sim.model.em_fields.e_field.add_perturbation(perturbation)
+    sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(UserCallableProfile(1.5), None)))
+    sim.to_run_metadata(str(path_out / "run_metadata.json"))
+
+    restored = Simulation.from_output(path_out, trust_initial_condition_source=True)
+    restored_perturbation = restored.model.em_fields.e_field.perturbations
+    restored_profile = restored.model.kinetic_ions.var.backgrounds.params["n"][0]
+    assert isinstance(restored_perturbation, Perturbation)
+    assert type(restored_perturbation).__name__ == "UserCosinePerturbation"
+    assert restored_perturbation(0.0, 0.0, 0.0) == 0.25
+    assert restored_profile(np.array([[0.2, 0.3, 0.4]])) == 1.5
 
 
 def test_versioned_initial_conditions_round_trip_allocates_and_runs_one_step(tmp_path):

@@ -57,6 +57,7 @@ from struphy.fields_background.projected_equils import (
 )
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
+from struphy.initial.base import Perturbation
 from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -1692,6 +1693,47 @@ class Simulation(SimulationBase):
             return {str(key): Simulation._serialize_initial_condition(item) for key, item in value.items()}
         if isinstance(value, (list, tuple)):
             return [Simulation._serialize_initial_condition(item) for item in value]
+        if type(value).__module__ not in {
+            "struphy.initial.perturbations",
+            "struphy.kinetic_background.maxwellians",
+            "struphy.kinetic_background.base",
+            "struphy.io.options",
+        } and not inspect.isfunction(value) and (
+            isinstance(value, Perturbation) or callable(value)
+        ):
+            cls = type(value)
+            if "<locals>" in cls.__qualname__:
+                return {
+                    "type": "python_class",
+                    "serialization": "unsupported",
+                    "reason": "nested classes are not supported",
+                }
+            try:
+                source = textwrap.dedent(inspect.getsource(cls))
+            except (OSError, TypeError):
+                return {
+                    "type": "python_class",
+                    "serialization": "unsupported",
+                    "reason": "source code is unavailable",
+                }
+            data = {
+                "type": "python_class",
+                "name": cls.__name__,
+                "source": source,
+                "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+            }
+            if hasattr(value, "params"):
+                data["params"] = Simulation._serialize_initial_condition(value.params)
+            elif hasattr(value, "__dict__"):
+                data["state"] = Simulation._serialize_initial_condition(vars(value))
+            else:
+                data.update(
+                    {
+                        "serialization": "unsupported",
+                        "reason": "callable objects without instance state are not supported",
+                    }
+                )
+            return data
         if dataclasses.is_dataclass(value) and not isinstance(value, type):
             return {
                 "type": type(value).__name__,
@@ -1764,7 +1806,7 @@ class Simulation(SimulationBase):
         if isinstance(value, list):
             return tuple(Simulation._deserialize_initial_condition(item, trust_source) for item in value)
         if not isinstance(value, dict) or "type" not in value or (
-            "params" not in value and value["type"] not in {"python_function", "callable"}
+            "params" not in value and value["type"] not in {"python_function", "python_class", "callable"}
         ):
             return {key: Simulation._deserialize_initial_condition(item, trust_source) for key, item in value.items()}
 
@@ -1786,6 +1828,36 @@ class Simulation(SimulationBase):
             namespace = {"np": np, "numpy": np, "xp": xp, "cp": xp, "cupy": xp}
             exec(source, namespace)  # noqa: S102 -- explicitly gated by trust_source
             return namespace[value["name"]]
+        if kind == "python_class":
+            if value.get("serialization") == "unsupported":
+                raise ValueError(f"Cannot restore initial-condition class: {value['reason']}.")
+            if not trust_source:
+                raise ValueError(
+                    "Initial-condition metadata contains Python source. Pass trust_initial_condition_source=True "
+                    "to Simulation.from_output() only for trusted output."
+                )
+            source = value["source"]
+            if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
+                raise ValueError("Initial-condition class source hash does not match its metadata.")
+            import numpy as np
+            import cunumpy as xp
+
+            namespace = {
+                "np": np,
+                "numpy": np,
+                "xp": xp,
+                "cp": xp,
+                "cupy": xp,
+                "Perturbation": Perturbation,
+                "dataclass": dataclasses.dataclass,
+            }
+            exec(source, namespace)  # noqa: S102 -- explicitly gated by trust_source
+            initial_condition_class = namespace[value["name"]]
+            if "params" in value:
+                return initial_condition_class(**Simulation._deserialize_initial_condition(value["params"], trust_source))
+            initial_condition = initial_condition_class.__new__(initial_condition_class)
+            initial_condition.__dict__.update(Simulation._deserialize_initial_condition(value["state"], trust_source))
+            return initial_condition
         if kind == "callable":
             raise ValueError(f"Cannot restore initial-condition callable: {value['reason']}.")
         if kind == "FieldsBackground":
