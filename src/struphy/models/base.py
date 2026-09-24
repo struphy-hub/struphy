@@ -1,6 +1,7 @@
 import logging
 import os
 from abc import ABCMeta, abstractmethod
+from dataclasses import fields, is_dataclass
 from textwrap import indent
 
 import cunumpy as xp
@@ -927,10 +928,9 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         return path
 
     def to_dict(self) -> dict:
-        """Serialize the model class and the arguments passed to its ``__init__``.
+        """Serialize the model constructor, variables and propagator options.
 
-        Configuration applied after construction (markers, backgrounds, perturbations,
-        propagator options) is not part of this dictionary.
+        Backgrounds and perturbations are not part of this dictionary.
         """
         params = {}
         for key, value in self.params.items():
@@ -939,7 +939,38 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             elif not isinstance(value, (bool, int, float, str, tuple, list, type(None))):
                 raise TypeError(f"cannot serialize argument {key}={value!r} of {self.__class__.__name__}")
             params[key] = value
-        return {"model": self.__class__.__name__, "params": params}
+        return {
+            "model": self.__class__.__name__,
+            "params": params,
+            "species": {name: species.to_dict() for name, species in self.species.items()},
+            "propagator_options": {
+                name: self._serialize_propagator_option(prop.options)
+                for name, prop in vars(self.propagators).items()
+                if isinstance(prop, Propagator)
+            },
+        }
+
+    def _serialize_propagator_option(self, value):
+        """Convert nested option dataclasses and variable references to JSON data."""
+        if is_dataclass(value) and not isinstance(value, type):
+            return {
+                field.name: self._serialize_propagator_option(getattr(value, field.name))
+                for field in fields(value)
+                if field.init
+            }
+        if isinstance(value, dict):
+            variable_names = {
+                id(variable): f"{species_name}.{variable_name}"
+                for species_name, species in self.species.items()
+                for variable_name, variable in species.variables.items()
+            }
+            return {
+                variable_names[id(key)] if id(key) in variable_names else key: self._serialize_propagator_option(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, (list, tuple)):
+            return [self._serialize_propagator_option(item) for item in value]
+        return value
 
     @classmethod
     def from_dict(cls, dct) -> "StruphyModel":

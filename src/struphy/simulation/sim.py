@@ -1679,7 +1679,8 @@ class Simulation(SimulationBase):
         timestamps, ...), serialized to a JSON string.
 
         The configuration snapshot can also be restored by :meth:`from_output`;
-        run-specific facts do not restore live simulation state.
+        variable details and propagator options are recorded for inspection,
+        while run-specific facts do not restore live simulation state.
 
         Parameters
         ----------
@@ -1773,8 +1774,8 @@ class Simulation(SimulationBase):
         falling back to legacy ``config.json`` if absent; a copied
         parameter file is never executed. The metadata holds the options objects and the
         arguments of the model (and thus its units), which is all that post-processing and
-        plotting need, but not configuration applied to the model after construction, such as
-        markers, backgrounds, perturbations and propagator options.
+        plotting need. Variable details and propagator options are available in the JSON
+        metadata, but are not reapplied to the reconstructed model.
         Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
         """
         path_out = os.path.abspath(path_out)

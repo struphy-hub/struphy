@@ -10,7 +10,11 @@ import numpy as np
 import pytest
 
 from struphy import BaseUnits, EnvironmentOptions, Output, Simulation, Time
-from struphy.models import Maxwell, VlasovAmpereOneSpecies
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models import ColdPlasmaVlasov, Maxwell, Poisson, VlasovAmpereOneSpecies
+from struphy.ode.utils import ButcherTableau
+from struphy.particles.parameters import LoadingParameters
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.post_processing.post_processing_tools import PostProcessor, is_processed
 
 
@@ -71,6 +75,77 @@ def test_run_writes_only_metadata_and_copies_the_parameter_file(tmp_path):
     assert metadata["model"] == sim.model.to_dict()
     assert metadata["mpi_ranks"] == sim.comm_size
     assert metadata["started_at_epoch_s"] == sim.start_time
+
+
+def test_run_metadata_contains_variables_and_propagator_options(tmp_path):
+    sim = make_sim(tmp_path)
+    sim.model.em_fields.e_field.save_data = False
+    sim.model.propagators.maxwell.options = sim.model.propagators.maxwell.Options(
+        algo="explicit",
+        solver_params=SolverParameters(tol=1e-6, maxiter=42),
+        butcher=ButcherTableau("heun2"),
+    )
+    os.makedirs(sim.env.path_out)
+
+    sim._write_run_metadata()
+
+    metadata = json.loads((tmp_path / "sim_1" / "run_metadata.json").read_text())
+    assert metadata["model"] == sim.model.to_dict()
+    assert "species" not in metadata
+    assert "propagator_options" not in metadata
+    assert metadata["model"]["species"]["em_fields"]["variables"]["e_field"] == {
+        "class": "FEECVariable",
+        "space": "Hcurl",
+        "save_data": False,
+    }
+    assert metadata["model"]["species"]["em_fields"]["variables"]["b_field"]["space"] == "Hdiv"
+    options = metadata["model"]["propagator_options"]["maxwell"]
+    assert options["algo"] == "explicit"
+    assert options["solver_params"]["tol"] == 1e-6
+    assert options["solver_params"]["maxiter"] == 42
+    assert options["butcher"] == {"algo": "heun2"}
+
+
+def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
+    sim = Simulation(model=Poisson(), env=EnvironmentOptions(out_folders=str(tmp_path)))
+    variable = sim.model.em_fields.source
+    sim.model.propagators.poisson.options.filter_params = {variable: FilterParameters("fourier_in_tor", (1, 2))}
+
+    metadata = json.loads(sim.to_run_metadata())
+    assert metadata["model"] == sim.model.to_dict()
+
+    assert metadata["model"]["species"]["em_fields"]["variables"]["source"]["space"] == "H1"
+    assert metadata["model"]["propagator_options"]["poisson"]["filter_params"] == {
+        "em_fields.source": {"use_filter": "fourier_in_tor", "modes": [1, 2], "repeat": 1, "alpha": 0.5}
+    }
+
+
+def test_cold_plasma_vlasov_species_and_variables_own_their_metadata(tmp_path):
+    model = ColdPlasmaVlasov(
+        thermal_charge_number=-2,
+        thermal_mass_number=0.25,
+        thermal_alpha=3.0,
+        thermal_epsilon=0.5,
+        hot_mass_number=0.125,
+        hot_epsilon=0.75,
+    )
+    model.hot_elec.set_markers(loading_params=LoadingParameters(Np=1234))
+    model.hot_elec.var.save_data = False
+    sim = Simulation(model=model, env=EnvironmentOptions(out_folders=str(tmp_path)))
+
+    species = json.loads(sim.to_run_metadata())["model"]["species"]
+
+    assert species["thermal_elec"] == model.thermal_elec.to_dict()
+    assert species["hot_elec"] == model.hot_elec.to_dict()
+    assert species["thermal_elec"]["class"] == "ThermalElectrons"
+    assert species["thermal_elec"]["charge_number"] == -2
+    assert species["thermal_elec"]["mass_number"] == 0.25
+    assert species["thermal_elec"]["alpha"] == 3.0
+    assert species["thermal_elec"]["epsilon"] == 0.5
+    assert species["thermal_elec"]["variables"]["current"] == model.thermal_elec.current.to_dict()
+    assert species["hot_elec"]["loading_params"]["Np"] == 1234
+    assert species["hot_elec"]["variables"]["var"] == model.hot_elec.var.to_dict()
+    assert species["hot_elec"]["variables"]["var"]["save_data"] is False
 
 
 def test_from_output_never_executes_the_parameter_file(tmp_path):
