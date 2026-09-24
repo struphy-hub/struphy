@@ -356,6 +356,44 @@ def test_evaluate_raw_spline_field_applies_requested_representation(run, monkeyp
     assert calls == [("3_to_0", (0.5, 0.5, 0.5), True)]
 
 
+@pytest.mark.parametrize(
+    "domain",
+    [
+        pytest.param(domains.Cuboid(), id="cuboid"),
+        pytest.param(domains.HollowTorus(a1=0.2, a2=0.4, R0=1.0, tor_period=1), id="hollow-torus"),
+        pytest.param(domains.Colella(), id="non-orthogonal-colella"),
+    ],
+)
+def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, domain):
+    """Raw evaluation uses the field's H(curl) source representation on every domain."""
+    eta1 = np.linspace(0.2, 0.8, 4)
+    eta2 = np.linspace(0.1, 0.9, 5)
+    eta3 = 0.25
+
+    class Field:
+        space_id = "Hcurl"
+
+        def __call__(self, e1, e2, e3, *, squeeze_out=False):
+            e1, e2, e3 = np.meshgrid(e1, e2, e3, indexing="ij")
+            return [1.0 + e1, 2.0 + e2, 3.0 + e3]
+
+    field = Field()
+    monkeypatch.setattr(run, "domain", domain)
+    monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"e_field": field}})
+
+    source = field(eta1, eta2, eta3)
+    for target in ("1", "2", "v", "norm"):
+        result = run.evaluate(
+            "em_fields/e_field", eta1=eta1, eta2=eta2, eta3=eta3, t=0, representation=target,
+        )
+        expected = source if target == "1" else domain.transform(
+            source, eta1, eta2, eta3, kind=f"1_to_{target}", squeeze_out=True,
+        )
+        expected = np.squeeze(np.asarray(expected))
+        np.testing.assert_allclose(result.isel(t=0), expected)
+        assert result.dims == ("t", "component", "e1", "e2")
+
+
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
