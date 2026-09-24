@@ -285,24 +285,17 @@ class Output:
         analysis. Set ``as_numpy=True`` to return only the selected values as a
         :class:`numpy.ndarray`.
 
-        Common selections can be passed directly: integer ``t`` selects a saved
-        snapshot (``t=0`` first, ``t=-1`` last), while float ``t`` selects a time
-        coordinate. Other keyword arguments select named coordinates, for example
-        ``component=2`` or ``e1=0.5``.
+        Common selections can be passed directly: ``t`` selects saved snapshots
+        by index (an integer, list of integers, or slice); omit it for every
+        saved timestep. The returned array always retains its ``t`` dimension.
+        A float ``t`` selects a time coordinate. Other keyword arguments select
+        named coordinates, for example ``component=2`` or ``e1=0.5``.
 
         ``physical={"X": x, "Y": y, "Z": z}`` evaluates a field at a physical point when
         its domain supplies an analytical ``inverse_map``. It converts the point to logical
         coordinates and uses xarray interpolation.
         """
         selectors = dict(coordinates)
-        t_index = None
-        if t is not None:
-            if isinstance(t, (int, np.integer)):
-                t_index = int(t)
-            elif isinstance(t, (float, np.floating)):
-                selectors["t"] = float(t)
-            else:
-                raise TypeError("t must be an integer snapshot index or a float time coordinate")
 
         physical_sel = None
         if physical:
@@ -315,8 +308,19 @@ class Output:
             eta = inverse(*(float(physical[axis]) for axis in ("X", "Y", "Z")))
             physical_sel = dict(zip(("e1", "e2", "e3"), map(float, eta)))
         array = self._product(name)
-        if t_index is not None:
-            array = array.isel(t=t_index, drop=drop)
+        if t is not None:
+            if isinstance(t, (int, np.integer)):
+                array = array.isel(t=[int(t)], drop=drop)
+            elif isinstance(t, slice):
+                array = array.isel(t=t, drop=drop)
+            elif isinstance(t, (list, tuple, np.ndarray)):
+                if not all(isinstance(index, (int, np.integer)) for index in t):
+                    raise TypeError("t sequences must contain saved-snapshot indices")
+                array = array.isel(t=list(t), drop=drop)
+            elif isinstance(t, (float, np.floating)):
+                selectors["t"] = [float(t)]
+            else:
+                raise TypeError("t must be a saved-snapshot index, index sequence, slice, or float time coordinate")
         if physical_sel:
             array = array.interp(physical_sel, method=method or "linear")
         if selectors:

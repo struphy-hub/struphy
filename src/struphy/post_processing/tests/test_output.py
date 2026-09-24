@@ -262,8 +262,12 @@ def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
 
 def test_evaluate_selects_positions_coordinates_and_slices(run):
     field = run.evaluate("em_fields/E", t=-1, component=2)
-    assert field.dims == ("e1", "e2", "e3")
+    assert field.dims == ("t", "e1", "e2", "e3")
+    assert field.sizes["t"] == 1
     np.testing.assert_allclose(field, 3.0)
+
+    every_second = run.evaluate("em_fields/E", t=slice(0, None, 2))
+    assert every_second.sizes["t"] == 2
 
     phase_space = run.evaluate(
         "kinetic_ions/e1_v1_density/f",
