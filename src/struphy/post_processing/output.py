@@ -263,8 +263,7 @@ class Output:
         self._species = None
         self._seconds = None
         self._spline_derham = None
-        self._spline_fields = None
-        self._spline_snapshot = None
+        self._spline_snapshots = {}
 
     def evaluate(
         self,
@@ -2196,11 +2195,12 @@ class Output:
     def spline_fields(self, *, t: int) -> dict:
         """Return FEEC ``SplineFunction`` objects loaded at saved index ``t``.
 
-        The spline functions are allocated once and reused. Requesting the same
-        ``t`` performs no HDF5 reads; requesting another index overwrites
-        their coefficients in place. Copy evaluated values before requesting a
-        different index. As with :meth:`evaluate`, ``t=0`` is the first saved
-        snapshot and ``t=-1`` is the last.
+        Every requested snapshot is retained in an in-memory cache. Requesting
+        an already loaded ``t`` performs no HDF5 reads; requesting a new one
+        allocates and fills one additional set of spline functions without
+        altering earlier snapshots. The cache therefore grows with the number
+        of requested snapshots. As with :meth:`evaluate`, ``t=0`` is the first
+        saved snapshot and ``t=-1`` is the last.
 
         The returned mapping is ``species -> variable -> SplineFunction``. It is
         intentionally separate from :meth:`evaluate`, which serves persisted
@@ -2221,9 +2221,10 @@ class Output:
             if not 0 <= t < n_snapshots:
                 raise IndexError(f"t={t} is outside the saved snapshot range")
 
-            if self._spline_fields is None:
+            if self._spline_derham is None:
                 self._spline_derham = Derham(self.grid, self.derham_opts, comm=None, domain=self.domain)
-                self._spline_fields = {
+            if t not in self._spline_snapshots:
+                fields = {
                     species_name: {
                         variable_name: self._spline_derham.create_spline_function(
                             variable_name, variable.attrs["space_id"]
@@ -2233,15 +2234,15 @@ class Output:
                     for species_name, species in file["feec"].items()
                 }
 
-        if t != self._spline_snapshot:
+        if t not in self._spline_snapshots:
             with ExitStack() as stack:
                 files = [
                     stack.enter_context(h5py.File(self.path_out / "data" / f"data_proc{rank}.hdf5"))
                     for rank in range(self.mpi_ranks)
                 ]
-                self._load_femfields(self._spline_fields, files, t)
-            self._spline_snapshot = t
-        return self._spline_fields
+                self._load_femfields(fields, files, t)
+            self._spline_snapshots[t] = fields
+        return self._spline_snapshots[t]
 
     @property
     def label(self) -> str:
