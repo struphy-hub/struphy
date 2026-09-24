@@ -198,20 +198,11 @@ class Output:
     ----------
     path_out:
         The simulation output folder, ``sim.env.path_out``.
-    trust_initial_condition_source:
-        Allow reconstruction of Python functions and classes embedded in initial-condition
-        metadata. Enable this only for output folders you trust.
     """
 
-    def __init__(
-        self,
-        path_out,
-        *,
-        trust_initial_condition_source: bool = False,
-    ):
+    def __init__(self, path_out):
         self.path_out = Path(path_out).resolve()
         self._time_units = "normalized"
-        self.trust_initial_condition_source = trust_initial_condition_source
         self.comm = mpi_comm_world()
         self._reset()
         # A Simulation can expose its Output before it has written metadata. In that case,
@@ -237,10 +228,7 @@ class Output:
         """
         if time_units not in {"physical", "normalized"}:
             raise ValueError("time_units must be 'physical' or 'normalized'")
-        view = type(self)(
-            self.path_out,
-            trust_initial_condition_source=self.trust_initial_condition_source,
-        )
+        view = type(self)(self.path_out)
         view._time_units = time_units
         return view
 
@@ -612,9 +600,11 @@ class Output:
                 variable = species.variables.get(variable_name)
                 if variable is None:
                     continue
-                variable._backgrounds = definition["backgrounds"]
-                variable._perturbations = definition["perturbations"]
-                if isinstance(variable, PICVariable):
+                if "backgrounds" in definition:
+                    variable._backgrounds = definition["backgrounds"]
+                if "perturbations" in definition:
+                    variable._perturbations = definition["perturbations"]
+                if isinstance(variable, PICVariable) and "initial_condition" in definition:
                     variable._initial_condition = definition["initial_condition"]
         return model
 
@@ -622,9 +612,11 @@ class Output:
     def initial_conditions(self) -> dict:
         """Initial-condition definitions reconstructed from run metadata.
 
-        This reconstructs backgrounds, perturbations, kinetic distributions, and
-        supported inline Python functions/classes without creating a
-        :class:`~struphy.simulation.sim.Simulation` instance.
+        This reconstructs backgrounds, perturbations, distributions, and saved
+        Python functions/classes without creating a
+        :class:`~struphy.simulation.sim.Simulation` instance. Definitions that
+        cannot be deserialized are omitted; their serialized form remains in
+        :attr:`metadata`.
         """
         from struphy.simulation.sim import Simulation
 
@@ -633,16 +625,18 @@ class Output:
         )
         if version != 1:
             raise ValueError(f"Unsupported initial-conditions metadata schema version: {version}.")
-        return {
-            species_name: {
-                variable_name: {
-                    key: Simulation._deserialize_initial_condition(value, self.trust_initial_condition_source)
-                    for key, value in definition.items()
-                }
-                for variable_name, definition in variables.items()
-            }
-            for species_name, variables in self._initial_condition_metadata().items()
-        }
+        result = {}
+        for species_name, variables in self._initial_condition_metadata().items():
+            result[species_name] = {}
+            for variable_name, definition in variables.items():
+                restored = {}
+                for key, value in definition.items():
+                    try:
+                        restored[key] = Simulation._deserialize_initial_condition(value)
+                    except ValueError as error:
+                        logger.warning("Skipping %s.%s %s: %s", species_name, variable_name, key, error)
+                result[species_name][variable_name] = restored
+        return result
 
     def _initial_condition_metadata(self) -> dict:
         """Read variable definitions, including the layout of older output folders."""
@@ -2074,7 +2068,7 @@ class Output:
             "----",
             "- Use out.model for the reconstructed model and its variables.",
             "- Use out.initial_conditions for reconstructed backgrounds, perturbations, and distributions.",
-            "- Use Output(path, trust_initial_condition_source=True) only for trusted runs with embedded Python source.",
+            "- Saved Python initial conditions are reconstructed from source; unsupported definitions remain in out.metadata.",
             "- Use out.keys(), out.fields, out.distributions, out.densities, and out.orbits to discover products.",
             "- Use out.evaluate(key), out.pproc(...), and array.struphy.plot.* to load and plot products.",
             "",

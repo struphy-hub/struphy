@@ -197,31 +197,30 @@ def test_legacy_initial_conditions_metadata_can_still_be_restored(tmp_path):
     assert output.initial_conditions["em_fields"]["b_field"]["backgrounds"].values == (1.0, 2.0, 3.0)
 
 
-def test_from_output_restores_initial_conditions_and_requires_trust_for_source(tmp_path, monkeypatch):
+def test_from_output_restores_embedded_initial_condition_source(tmp_path, monkeypatch):
     path_out = tmp_path / "sim_1"
     path_out.mkdir()
     sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
     sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(user_density_profile, None)))
     sim.to_run_metadata(str(path_out / "run_metadata.json"))
 
-    with pytest.raises(ValueError, match="trust_initial_condition_source=True"):
-        Simulation.from_output(path_out)
-
-    restored = Simulation.from_output(path_out, trust_initial_condition_source=True)
+    restored = Simulation.from_output(path_out)
     density = restored.model.kinetic_ions.var.backgrounds.params["n"][0]
     assert density(0.2, 0.3, 0.4) == user_density_profile(0.2, 0.3, 0.4)
 
-    restored_from_file = Simulation.from_file(path_out / "run_metadata.json", trust_initial_condition_source=True)
+    restored_from_file = Simulation.from_file(path_out / "run_metadata.json")
     assert restored_from_file.model.kinetic_ions.var.backgrounds.params["n"][0](0.2, 0.3, 0.4) == 1.0
 
     def simulation_init_must_not_run(*args, **kwargs):
         raise AssertionError("Output must not instantiate Simulation")
 
     monkeypatch.setattr(Simulation, "__init__", simulation_init_must_not_run)
-    output = Output(path_out, trust_initial_condition_source=True)
+    output = Output(path_out)
     density_from_output = output.initial_conditions["kinetic_ions"]["var"]["backgrounds"].params["n"][0]
     assert density_from_output(0.2, 0.3, 0.4) == 1.0
     assert output.model.kinetic_ions.var.backgrounds.params["n"][0](0.2, 0.3, 0.4) == 1.0
+    saved = output.metadata["model"]["species"]["kinetic_ions"]["variables"]["var"]["initial_conditions"]
+    assert saved["backgrounds"]["params"]["n"][0]["name"] == "user_density_profile"
 
 
 def test_from_output_restores_user_perturbation_subclasses_and_callable_objects(tmp_path):
@@ -233,7 +232,7 @@ def test_from_output_restores_user_perturbation_subclasses_and_callable_objects(
     sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(UserCallableProfile(1.5), None)))
     sim.to_run_metadata(str(path_out / "run_metadata.json"))
 
-    restored = Simulation.from_output(path_out, trust_initial_condition_source=True)
+    restored = Simulation.from_output(path_out)
     restored_perturbation = restored.model.em_fields.e_field.perturbations
     restored_profile = restored.model.kinetic_ions.var.backgrounds.params["n"][0]
     assert isinstance(restored_perturbation, Perturbation)
@@ -256,7 +255,7 @@ def test_versioned_initial_conditions_round_trip_allocates_and_runs_one_step(tmp
 
     restored = Simulation.from_output(sim.env.path_out)
     assert restored.model.mhd.velocity.backgrounds == sim.model.mhd.velocity.backgrounds
-    assert restored._deserialize_initial_condition(sim.equil.to_dict(), trust_source=False) == sim.equil
+    assert restored._deserialize_initial_condition(sim.equil.to_dict()) == sim.equil
     restored.run(one_time_step=True)
 
 
