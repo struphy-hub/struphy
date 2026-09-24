@@ -292,12 +292,14 @@ class Output:
         A float ``t`` selects a time coordinate. Other keyword arguments select
         named coordinates, for example ``component=2`` or ``e1=0.5``.
 
-        Supplying all of ``eta1``, ``eta2`` and ``eta3`` instead evaluates a raw FEEC
-        spline field directly on that logical grid. Each eta can be a scalar, a list,
-        a one-dimensional array, or a ``range``; mixed inputs form their tensor-product
-        mesh internally. This reads coefficients one saved snapshot at a time and does
-        not materialize a spatial post-processing product. Use a raw field name such as
-        ``"em_fields/e_field"``. ``representation`` selects the output representation
+        Supplying an ``eta`` evaluates a raw FEEC spline field directly on that logical
+        grid. Each eta can be a scalar, a list, a one-dimensional array, or a ``range``;
+        mixed inputs form their tensor-product mesh internally. Omitted directions in a
+        line or plane cut use the logical midpoint, ``0.5``. When ``name`` identifies a
+        raw FEEC field and all three etas are omitted, the field is evaluated at the
+        cell centres of the full simulation grid. This reads coefficients one saved
+        snapshot at a time and does not materialize a spatial post-processing product.
+        Use a raw field name such as ``"em_fields/e_field"``. ``representation`` selects the output representation
         after spline evaluation: one of ``"0"``, ``"1"``, ``"2"``, ``"3"``, ``"v"``, or
         ``"norm"``. The input representation is inferred from the field's FEEC space.
         Scalars default to ``"0"`` and vectors to ``"norm"``.
@@ -308,16 +310,23 @@ class Output:
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
+        is_raw_spline_field = not has_eta and self._is_raw_spline_field(name)
         if has_eta:
-            if any(value is None for value in eta):
-                raise ValueError("eta1, eta2, and eta3 must be supplied together")
+            eta = tuple(0.5 if value is None else value for value in eta)
             array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
             t = None
             method = None
+        elif is_raw_spline_field:
+            array = self._evaluate_spline_field(
+                name, *self._default_logical_grid(), t=t, method=method, representation=representation
+            )
+            t = None
+            method = None
         if not has_eta:
-            if representation is not None:
-                raise ValueError("representation requires eta1, eta2, and eta3")
-            array = self._product(name)
+            if representation is not None and not is_raw_spline_field:
+                raise ValueError("representation requires FEEC evaluation")
+            if not is_raw_spline_field:
+                array = self._product(name)
         if t is not None:
             if isinstance(t, (int, np.integer)):
                 array = array.isel(t=[int(t)], drop=drop)
@@ -339,6 +348,25 @@ class Output:
         elif method is not None:
             raise ValueError("method requires a direct coordinate selector")
         return array.to_numpy() if as_numpy else array
+
+    def _is_raw_spline_field(self, name: str) -> bool:
+        """Whether ``name`` is a raw FEEC field saved in the primary output file."""
+        try:
+            species, variable = name.split("/")
+        except ValueError:
+            return False
+        path = self.path_out / "data" / "data_proc0.hdf5"
+        with h5py.File(path) as file:
+            return f"feec/{species}/{variable}" in file
+
+    def _default_logical_grid(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return one logical cell-centre coordinate per simulation-grid cell."""
+        if self.grid is None:
+            raise ValueError("default FEEC evaluation requires saved grid metadata")
+        num_elements = np.asarray(self.grid.num_elements, dtype=int)
+        if num_elements.shape != (3,) or np.any(num_elements <= 0):
+            raise ValueError("saved grid must define three positive num_elements values")
+        return tuple((np.arange(n, dtype=float) + 0.5) / n for n in num_elements)
 
     def _evaluate_spline_field(
         self, name: str, eta1: Any, eta2: Any, eta3: Any, *, t: int | float | slice | Sequence[int] | None,

@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import h5py
 import numpy as np
@@ -325,6 +326,42 @@ def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
     np.testing.assert_allclose(values.e1, [0.25, 0.5])
     np.testing.assert_allclose(values.e2, [0.0, 1.0])
     np.testing.assert_allclose(values[0], [[75.25, 85.25], [75.5, 85.5]])
+
+
+def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run, monkeypatch):
+    class Field:
+        space_id = "H1"
+
+        def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
+            return np.ones((len(eta1), len(eta2), len(eta3)))
+
+    with h5py.File(run.path_out / "data" / "data_proc0.hdf5", "a") as file:
+        file["feec/em_fields"].create_dataset("phi", data=np.empty(0))
+    run.grid = SimpleNamespace(num_elements=(2, 3, 4))
+    monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
+
+    values = run.evaluate("em_fields/phi", t=0)
+
+    assert values.dims == ("t", "e1", "e2", "e3")
+    assert values.shape == (1, 2, 3, 4)
+    np.testing.assert_allclose(values.e1, [0.25, 0.75])
+    np.testing.assert_allclose(values.e2, [1 / 6, 0.5, 5 / 6])
+    np.testing.assert_allclose(values.e3, [0.125, 0.375, 0.625, 0.875])
+
+
+def test_evaluate_raw_spline_field_defaults_omitted_cut_coordinates_to_midpoint(run, monkeypatch):
+    class Field:
+        space_id = "H1"
+
+        def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
+            return np.asarray(eta1)[:, None, None] + eta2 + eta3
+
+    monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
+
+    values = run.evaluate("em_fields/phi", eta1=[0.25, 0.75], t=0)
+
+    assert values.dims == ("t", "e1")
+    np.testing.assert_allclose(values[0], [1.25, 1.75])
 
 
 def test_evaluate_raw_spline_field_rejects_coordinates_outside_unit_cube(run):
