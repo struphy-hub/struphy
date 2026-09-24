@@ -187,6 +187,9 @@ def test_from_output_restores_initial_conditions_and_requires_trust_for_source(t
     density = restored.model.kinetic_ions.var.backgrounds.params["n"][0]
     assert density(0.2, 0.3, 0.4) == user_density_profile(0.2, 0.3, 0.4)
 
+    restored_from_file = Simulation.from_file(path_out / "run_metadata.json", trust_initial_condition_source=True)
+    assert restored_from_file.model.kinetic_ions.var.backgrounds.params["n"][0](0.2, 0.3, 0.4) == 1.0
+
 
 def test_from_output_restores_user_perturbation_subclasses_and_callable_objects(tmp_path):
     path_out = tmp_path / "sim_1"

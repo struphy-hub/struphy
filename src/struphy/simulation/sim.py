@@ -1,5 +1,6 @@
 # third party imports
 import dataclasses
+import copy
 import glob
 import hashlib
 import inspect
@@ -1959,8 +1960,13 @@ class Simulation(SimulationBase):
         )
 
     @classmethod
-    def from_file(cls, file_path: str) -> "SimulationBase":
-        """Deserialize a simulation configuration from a file based on the file extension."""
+    def from_file(cls, file_path: str, trust_initial_condition_source: bool = False) -> "SimulationBase":
+        """Deserialize a simulation configuration from a YAML or JSON file.
+
+        Initial conditions in run metadata are restored when present. Embedded
+        Python functions and classes require ``trust_initial_condition_source=True``.
+        """
+        file_path = os.fspath(file_path)
         if file_path.endswith(".yaml") or file_path.endswith(".yml"):
             with open(file_path, "r") as f:
                 dct = yaml.safe_load(f)
@@ -1969,6 +1975,8 @@ class Simulation(SimulationBase):
                 dct = json.load(f)
         else:
             raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")
+
+        metadata = copy.deepcopy(dct)
 
         # YAML and JSON do not have a native tuple type,
         # so when you load them with PyYAML or json,
@@ -1985,7 +1993,9 @@ class Simulation(SimulationBase):
 
         # Convert lists to tuples for relevant keys
         dct = convert_lists_to_tuples(dct)
-        return cls.from_dict(dct)
+        sim = cls.from_dict(dct)
+        sim._restore_initial_conditions(metadata, trust_initial_condition_source)
+        return sim
 
     @classmethod
     def from_output(cls, path_out: str, trust_initial_condition_source: bool = False) -> "Simulation":
@@ -2009,13 +2019,10 @@ class Simulation(SimulationBase):
                 f"Neither config.json nor run_metadata.json exists in {path_out}; is it a Struphy output folder? Outputs of older "
                 "versions can get one with sim.to_run_metadata(os.path.join(path_out, 'run_metadata.json')) from their parameter file."
             )
-        sim = cls.from_file(config_path)
+        sim = cls.from_file(config_path, trust_initial_condition_source=trust_initial_condition_source)
         sim.env = dataclasses.replace(
             sim.env, out_folders=os.path.dirname(path_out), sim_folder=os.path.basename(path_out)
         )
-        with open(config_path) as stream:
-            metadata = json.load(stream)
-        sim._restore_initial_conditions(metadata, trust_initial_condition_source)
         return sim
 
     def generate_script(
