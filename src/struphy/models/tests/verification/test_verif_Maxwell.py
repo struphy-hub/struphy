@@ -72,7 +72,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
         # fft
-        _1, _2, _3, coeffs = run["em_fields/e_field"].struphy.analysis.dispersion(
+        _1, _2, _3, coeffs = run.evaluate("em_fields/e_field").struphy.analysis.dispersion(
             physical=True,
             component=0,
             slice_at=[0, 0, None],

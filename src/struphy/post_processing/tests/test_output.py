@@ -256,7 +256,7 @@ def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch
 def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
     field = run.evaluate("em_fields/E")
     assert isinstance(field, xr.DataArray)
-    assert field is run["em_fields/E"]
+    assert field is run.evaluate("em_fields/E")
     assert run.xarray is run.tree
 
 

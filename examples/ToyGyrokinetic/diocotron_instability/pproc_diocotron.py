@@ -46,7 +46,7 @@ def main(paths=(DEFAULT_OUTPUT,)):
         run.plot.equilibrium()
 
     for name in SWEEPS:
-        run[name].struphy.plot.viewer(x="e1", y="e2", coords="physical", plane="XY").show()
+        run.evaluate(name).struphy.plot.viewer(x="e1", y="e2", coords="physical", plane="XY").show()
 
     run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=1000).show()
 

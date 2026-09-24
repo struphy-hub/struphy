@@ -147,8 +147,8 @@ def test_reductions_are_available_from_the_run_and_the_accessor(run):
 
     average = run.spatial_average(F)
     assert average.dims == ("t", "v1")
-    xr.testing.assert_identical(average, run[F].struphy.analysis.spatial_average())
-    xr.testing.assert_identical(moments, run[F].struphy.analysis.velocity_moments())
+    xr.testing.assert_identical(average, run.evaluate(F).struphy.analysis.spatial_average())
+    xr.testing.assert_identical(moments, run.evaluate(F).struphy.analysis.velocity_moments())
 
 
 # --- SI units ---------------------------------------------------------------------------------
@@ -157,28 +157,28 @@ def test_reductions_are_available_from_the_run_and_the_accessor(run):
 def test_coordinates_are_converted_and_values_left_alone(run):
     units = run.units
     f = run.to_si(F)
-    np.testing.assert_allclose(f.v1, run[F].v1 * units.v)
+    np.testing.assert_allclose(f.v1, run.evaluate(F).v1 * units.v)
     assert f.v1.attrs["units"] == "m/s"
-    np.testing.assert_allclose(f.t, run[F].t * units.t)
+    np.testing.assert_allclose(f.t, run.evaluate(F).t * units.t)
     assert f.t.attrs["units"] == "s"
     assert "t_seconds" not in f.coords
-    np.testing.assert_array_equal(f.e1, run[F].e1)  # logical coordinates are dimensionless
-    np.testing.assert_array_equal(f, run[F])
+    np.testing.assert_array_equal(f.e1, run.evaluate(F).e1)  # logical coordinates are dimensionless
+    np.testing.assert_array_equal(f, run.evaluate(F))
     assert "units" not in f.attrs
-    assert run[F].v1.attrs.get("units") is None  # the run's own product is untouched
-    assert "t_seconds" in run[F].coords
+    assert run.evaluate(F).v1.attrs.get("units") is None  # the run's own product is untouched
+    assert "t_seconds" in run.evaluate(F).coords
 
 
 def test_mapped_coordinates_are_scaled_by_the_length_unit(run):
     assert run.units.x == 2.0
     field = run.to_si("em_fields/E")
-    np.testing.assert_allclose(field.X, run["em_fields/E"].X * 2.0)
+    np.testing.assert_allclose(field.X, run.evaluate("em_fields/E").X * 2.0)
     assert field.X.attrs["units"] == "m"
 
 
 def test_values_are_converted_with_a_named_unit(run):
     field = run.to_si("em_fields/E", "B")
-    np.testing.assert_allclose(field, run["em_fields/E"] * run.units.B)
+    np.testing.assert_allclose(field, run.evaluate("em_fields/E") * run.units.B)
     assert field.attrs["units"] == "T"
     assert field.name == "E"
     assert field.attrs["run_name"] == run.path_out.name
@@ -186,7 +186,7 @@ def test_values_are_converted_with_a_named_unit(run):
 
 def test_values_are_converted_with_a_composite_unit(run):
     field = run.to_si("em_fields/E", run.units.v * run.units.B, label="V/m")
-    np.testing.assert_allclose(field, run["em_fields/E"] * run.units.v * run.units.B)
+    np.testing.assert_allclose(field, run.evaluate("em_fields/E") * run.units.v * run.units.B)
     assert field.attrs["units"] == "V/m"
 
 

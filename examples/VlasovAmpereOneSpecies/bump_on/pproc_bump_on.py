@@ -12,7 +12,7 @@ def main(path_out=DEFAULT_OUTPUT):
     run = Output(path_out)
 
     # initial velocity distribution
-    initial = run["kinetic_ions/v1_density/f"].isel(t=0)
+    initial = run.evaluate("kinetic_ions/v1_density/f").isel(t=0)
     ax = initial.plot()[0].axes
     ax.set(
         xlabel="velocity $v$",

@@ -87,7 +87,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
 
         disp_params = {"B0x": B0x, "B0y": B0y, "B0z": B0z, "p0": p0, "n0": n0, "gamma": 5 / 3}
 
-        _1, _2, _3, coeffs = run["mhd/velocity"].struphy.analysis.dispersion(
+        _1, _2, _3, coeffs = run.evaluate("mhd/velocity").struphy.analysis.dispersion(
             physical=True,
             component=0,
             slice_at=[0, 0, None],
@@ -107,7 +107,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
-        _1, _2, _3, coeffs = run["mhd/pressure"].struphy.analysis.dispersion(
+        _1, _2, _3, coeffs = run.evaluate("mhd/pressure").struphy.analysis.dispersion(
             physical=True,
             component=0,
             slice_at=[0, 0, None],

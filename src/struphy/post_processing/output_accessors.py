@@ -3,7 +3,7 @@
 Plots and diagnostics of a single array live on the array, see
 :class:`~struphy.post_processing.xarray_accessors.StruphyAccessor`:
 ``out.em_fields.phi_log.struphy.plot.slice(...)``, or by name
-``out["em_fields/phi_log"].struphy.plot.slice(...)``.
+``out.evaluate("em_fields/phi_log").struphy.plot.slice(...)``.
 """
 
 from __future__ import annotations

@@ -302,7 +302,7 @@ class Output:
                 raise NotImplementedError(f"{type(self.domain).__name__} has no inverse_map for physical evaluation")
             eta = inverse(*(float(physical[axis]) for axis in ("X", "Y", "Z")))
             physical_sel = dict(zip(("e1", "e2", "e3"), map(float, eta)))
-        array = self[name]
+        array = self._product(name)
         if isel:
             array = array.isel(isel, drop=drop)
         if physical_sel:
@@ -315,6 +315,22 @@ class Output:
         elif method is not None:
             raise ValueError("method requires a coordinate selection through sel")
         return array.to_numpy() if as_numpy else array
+
+    def _product(self, name: str) -> xr.DataArray:
+        """Resolve one saved product for :meth:`evaluate`."""
+        if name in self.scalars.data_vars:
+            return self.scalars[name]
+        for catalog in (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog):
+            if name in catalog:
+                return catalog[name]
+        available = (
+            *self.scalars.data_vars,
+            *self.field_catalog,
+            *self.distribution_catalog,
+            *self.density_catalog,
+            *self.orbit_catalog,
+        )
+        raise KeyError(f"{name!r} not found; available products: {available}")
 
     def growth_rate(self, product: str | xr.DataArray, *, window=(None, None), amplitude: bool = False):
         """Fit exponential growth of a scalar product and return a ``FitResult``."""
