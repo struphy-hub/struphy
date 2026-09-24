@@ -1662,23 +1662,6 @@ class Simulation(SimulationBase):
             "profiling_opts": vars(self.profiling_opts).copy(),
         }
 
-    def _collect_particle_metadata(self) -> dict:
-        """Collect per-species marker metadata (Np, ppc, ppb) for the current sim."""
-        particle_metadata = {}
-        for species_name, species in self.model.particle_species.items():
-            species_metadata = {}
-            for variable_name, variable in species.variables.items():
-                if isinstance(variable, PICVariable | SPHVariable) and hasattr(variable, "_particles"):
-                    particles = variable.particles
-                    species_metadata[variable_name] = {
-                        "Np": particles.Np,
-                        "ppc": particles.ppc,
-                        "ppb": particles.ppb,
-                    }
-            if species_metadata:
-                particle_metadata[species_name] = species_metadata
-        return particle_metadata
-
     @staticmethod
     def _serialize_initial_condition(value):
         """Convert initial-condition definitions into JSON-compatible provenance data.
@@ -1919,10 +1902,8 @@ class Simulation(SimulationBase):
         config = self.to_dict()
         config.update(
             {
-                "model_name": self.model_name,
                 "mpi_ranks": self.comm_size,
                 "use_mpi_comm_world": self.comm is not None,
-                "particle_species": self._collect_particle_metadata(),
                 "initial_conditions_schema_version": 1,
                 "initial_conditions": self._collect_initial_conditions_metadata(),
                 **extra_data,
