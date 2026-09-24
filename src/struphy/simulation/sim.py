@@ -30,6 +30,7 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
+    FieldsBackground,
     ProfilingOptions,
     Time,
     domains,
@@ -1755,6 +1756,67 @@ class Simulation(SimulationBase):
             initial_conditions[species_name] = variables
         return initial_conditions
 
+    @staticmethod
+    def _deserialize_initial_condition(value, trust_source: bool):
+        """Rebuild one initial-condition definition from metadata."""
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, list):
+            return tuple(Simulation._deserialize_initial_condition(item, trust_source) for item in value)
+        if not isinstance(value, dict) or "type" not in value or (
+            "params" not in value and value["type"] not in {"python_function", "callable"}
+        ):
+            return {key: Simulation._deserialize_initial_condition(item, trust_source) for key, item in value.items()}
+
+        kind = value["type"]
+        if kind == "python_function":
+            if value.get("serialization") == "unsupported":
+                raise ValueError(f"Cannot restore initial-condition function: {value['reason']}.")
+            if not trust_source:
+                raise ValueError(
+                    "Initial-condition metadata contains Python source. Pass trust_initial_condition_source=True "
+                    "to Simulation.from_output() only for trusted output."
+                )
+            source = value["source"]
+            if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
+                raise ValueError("Initial-condition function source hash does not match its metadata.")
+            import numpy as np
+            import cunumpy as xp
+
+            namespace = {"np": np, "numpy": np, "xp": xp, "cp": xp, "cupy": xp}
+            exec(source, namespace)  # noqa: S102 -- explicitly gated by trust_source
+            return namespace[value["name"]]
+        if kind == "callable":
+            raise ValueError(f"Cannot restore initial-condition callable: {value['reason']}.")
+        if kind == "FieldsBackground":
+            return FieldsBackground(**Simulation._deserialize_initial_condition(value["params"], trust_source))
+
+        from struphy.initial import perturbations
+        from struphy.kinetic_background import maxwellians
+        from struphy.kinetic_background import base as kinetic_background_base
+
+        params = Simulation._deserialize_initial_condition(value["params"], trust_source)
+        for module in (perturbations, maxwellians, kinetic_background_base):
+            initial_condition_class = getattr(module, kind, None)
+            if initial_condition_class is not None:
+                return initial_condition_class(**params)
+        raise ValueError(f"Unknown initial-condition type '{kind}'.")
+
+    def _restore_initial_conditions(self, metadata: dict, trust_source: bool):
+        """Attach metadata initial conditions to the reconstructed model variables."""
+        for species_name, variables in metadata.get("initial_conditions", {}).items():
+            species = self.model.species.get(species_name)
+            if species is None:
+                continue
+            for variable_name, entry in variables.items():
+                variable = species.variables.get(variable_name)
+                if variable is None:
+                    continue
+                variable._backgrounds = self._deserialize_initial_condition(entry["backgrounds"], trust_source)
+                variable._perturbations = self._deserialize_initial_condition(entry["perturbations"], trust_source)
+                if isinstance(variable, PICVariable):
+                    variable._initial_condition = self._deserialize_initial_condition(entry["initial_condition"], trust_source)
+
     def to_run_metadata(self, file_path: str = None, **extra_data) -> str:
         """Snapshot of the reconstructible config (see :meth:`to_dict`) plus run-specific,
         non-reconstructible facts (MPI layout, live particle counts, caller-supplied
@@ -1850,15 +1912,16 @@ class Simulation(SimulationBase):
         return cls.from_dict(dct)
 
     @classmethod
-    def from_output(cls, path_out: str) -> "Simulation":
+    def from_output(cls, path_out: str, trust_initial_condition_source: bool = False) -> "Simulation":
         """Restore the simulation that wrote the output folder ``path_out``.
 
         The configuration is read from the ``run_metadata.json`` written by :meth:`run`,
         falling back to legacy ``config.json`` if absent; a copied
         parameter file is never executed. The metadata holds the options objects and the
         arguments of the model (and thus its units), which is all that post-processing and
-        plotting need. Variable details and propagator options are available in the JSON
-        metadata, but are not reapplied to the reconstructed model.
+        plotting need. Initial conditions are restored when present; embedded Python
+        functions additionally require ``trust_initial_condition_source=True`` because
+        restoration executes their saved source.
         Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
         """
         path_out = os.path.abspath(path_out)
@@ -1874,6 +1937,9 @@ class Simulation(SimulationBase):
         sim.env = dataclasses.replace(
             sim.env, out_folders=os.path.dirname(path_out), sim_folder=os.path.basename(path_out)
         )
+        with open(config_path) as stream:
+            metadata = json.load(stream)
+        sim._restore_initial_conditions(metadata, trust_initial_condition_source)
         return sim
 
     def generate_script(

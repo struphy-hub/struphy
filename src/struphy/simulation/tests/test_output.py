@@ -153,6 +153,21 @@ def test_run_metadata_embeds_user_function_source(tmp_path):
     assert len(density["source_sha256"]) == 64
 
 
+def test_from_output_restores_initial_conditions_and_requires_trust_for_source(tmp_path):
+    path_out = tmp_path / "sim_1"
+    path_out.mkdir()
+    sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
+    sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(user_density_profile, None)))
+    sim.to_run_metadata(str(path_out / "run_metadata.json"))
+
+    with pytest.raises(ValueError, match="trust_initial_condition_source=True"):
+        Simulation.from_output(path_out)
+
+    restored = Simulation.from_output(path_out, trust_initial_condition_source=True)
+    density = restored.model.kinetic_ions.var.backgrounds.params["n"][0]
+    assert density(0.2, 0.3, 0.4) == user_density_profile(0.2, 0.3, 0.4)
+
+
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
     sim = Simulation(model=Poisson(), env=EnvironmentOptions(out_folders=str(tmp_path)))
     variable = sim.model.em_fields.source
