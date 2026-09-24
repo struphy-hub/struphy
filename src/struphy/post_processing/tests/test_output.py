@@ -337,7 +337,14 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
 
     with h5py.File(run.path_out / "data" / "data_proc0.hdf5", "a") as file:
         file["feec/em_fields"].create_dataset("phi", data=np.empty(0))
+
+    class Domain:
+        def __call__(self, eta1, eta2, eta3):
+            e1, e2, e3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            return e1 + 1.0, e2 + 2.0, e3 + 3.0
+
     run.grid = SimpleNamespace(num_elements=(2, 3, 4))
+    run.domain = Domain()
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
 
     values = run.evaluate("em_fields/phi", t=0)
@@ -347,6 +354,10 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
     np.testing.assert_allclose(values.e1, [0.25, 0.75])
     np.testing.assert_allclose(values.e2, [1 / 6, 0.5, 5 / 6])
     np.testing.assert_allclose(values.e3, [0.125, 0.375, 0.625, 0.875])
+    assert values.X.dims == values.Y.dims == values.Z.dims == ("e1", "e2", "e3")
+    np.testing.assert_allclose(values.X[:, 0, 0], [1.25, 1.75])
+    np.testing.assert_allclose(values.Y[0, :, 0], [2 + 1 / 6, 2.5, 2 + 5 / 6])
+    np.testing.assert_allclose(values.Z[0, 0, :], [3.125, 3.375, 3.625, 3.875])
 
 
 def test_evaluate_raw_spline_field_defaults_omitted_cut_coordinates_to_midpoint(run, monkeypatch):
@@ -382,6 +393,9 @@ def test_evaluate_raw_spline_field_applies_requested_representation(run, monkeyp
         def transform(self, value, *etas, kind, squeeze_out):
             calls.append((kind, etas, squeeze_out))
             return value
+
+        def __call__(self, eta1, eta2, eta3):
+            return np.meshgrid(eta1, eta2, eta3, indexing="ij")
 
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
     monkeypatch.setattr(run, "domain", Domain())

@@ -410,7 +410,22 @@ class Output:
         coords: dict[str, Any] = {"t": times[indices], **grid_coords}
         if is_vector:
             coords["component"] = np.arange(data.shape[1])
-        return self._stamp(xr.DataArray(data, dims=dims, coords=coords, name=variable))
+        array = self._stamp(xr.DataArray(data, dims=dims, coords=coords, name=variable))
+        return self._attach_physical_coords(array, etas, grid_dims)
+
+    def _attach_physical_coords(
+        self, array: xr.DataArray, etas: tuple[Any, Any, Any], dims: tuple[str, ...]
+    ) -> xr.DataArray:
+        """Map a raw FEEC evaluation grid and attach its Cartesian coordinates."""
+        grids = [np.atleast_1d(np.asarray(eta, dtype=float)) for eta in etas]
+        mapped = self.domain(*grids)
+        shape = tuple(len(grid) for grid in grids)
+        keep = tuple(slice(None) if dim in dims else 0 for dim in ("e1", "e2", "e3"))
+        coordinates = {}
+        for name, values in zip(("X", "Y", "Z"), mapped):
+            values = np.asarray(values).reshape(shape)[keep]
+            coordinates[name] = (dims, values) if dims else values.item()
+        return array.assign_coords(coordinates)
 
     def _apply_representation(
         self, value: Any, etas: tuple[Any, Any, Any], source: str, representation: Representation | None,
