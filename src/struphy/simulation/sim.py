@@ -1,11 +1,14 @@
 # third party imports
 import dataclasses
 import glob
+import hashlib
+import inspect
 import json
 import logging
 import os
 import shutil
 import sysconfig
+import textwrap
 import time
 import warnings
 from pathlib import Path
@@ -1698,11 +1701,35 @@ class Simulation(SimulationBase):
                 "type": type(value).__name__,
                 "params": Simulation._serialize_initial_condition(value.params),
             }
+        if inspect.isfunction(value):
+            # Top-level functions are fully captured in metadata.  Their source is
+            # self-contained: neither the module name nor a source-file reference is
+            # required to recover it later.
+            if value.__name__ == "<lambda>" or "<locals>" in value.__qualname__ or value.__closure__ is not None:
+                return {
+                    "type": "python_function",
+                    "serialization": "unsupported",
+                    "reason": "lambdas, nested functions, and closures are not supported",
+                }
+            try:
+                source = textwrap.dedent(inspect.getsource(value))
+            except (OSError, TypeError):
+                return {
+                    "type": "python_function",
+                    "serialization": "unsupported",
+                    "reason": "source code is unavailable",
+                }
+            return {
+                "type": "python_function",
+                "name": value.__name__,
+                "source": source,
+                "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+            }
         if callable(value):
             return {
                 "type": "callable",
-                "module": getattr(value, "__module__", None),
-                "qualname": getattr(value, "__qualname__", repr(value)),
+                "serialization": "unsupported",
+                "reason": "only top-level Python functions are currently supported",
             }
         # CuPyJSONEncoder handles NumPy/CuPy arrays after this traversal. Keep
         # other values visible in provenance rather than making metadata writing fail.

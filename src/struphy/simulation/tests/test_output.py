@@ -18,6 +18,10 @@ from struphy.pic.accumulation.filter import FilterParameters
 from struphy.post_processing.post_processing_tools import PostProcessor, is_processed
 
 
+def user_density_profile(eta1, eta2, eta3):
+    return 1.0 + eta1 * 0.0 + eta2 * 0.0 + eta3 * 0.0
+
+
 def make_sim(tmp_path, **kwargs):
     env = EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1")
     return Simulation(model=Maxwell(), env=env, **kwargs)
@@ -134,6 +138,19 @@ def test_run_metadata_contains_serialized_initial_conditions(tmp_path):
     assert kinetic["backgrounds"]["type"] == "Maxwellian3D"
     assert kinetic["initial_condition"]["type"] == "SumKineticBackground"
     assert kinetic["initial_condition"]["params"]["f1"]["params"]["n"][1]["type"] == "TorusModesCos"
+
+
+def test_run_metadata_embeds_user_function_source(tmp_path):
+    sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
+    sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(user_density_profile, None)))
+
+    density = json.loads(sim.to_run_metadata())["initial_conditions"]["kinetic_ions"]["var"]["backgrounds"][
+        "params"
+    ]["n"][0]
+    assert density["type"] == "python_function"
+    assert density["name"] == "user_density_profile"
+    assert "def user_density_profile" in density["source"]
+    assert len(density["source_sha256"]) == 64
 
 
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
