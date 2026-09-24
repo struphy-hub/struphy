@@ -289,6 +289,8 @@ def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
     calls = []
 
     class Field:
+        space_id = "H1vec"
+
         def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
             calls.append((eta1, eta2, eta3))
             return [np.full((1, 1, 1), eta1), np.full((1, 1, 1), eta2), np.full((1, 1, 1), eta3)]
@@ -310,6 +312,8 @@ def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
 
 def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
     class Field:
+        space_id = "H1"
+
         def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
             e1, e2, e3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
             value = e1 + 10 * e2 + 100 * e3
@@ -334,20 +338,22 @@ def test_evaluate_raw_spline_field_applies_requested_representation(run, monkeyp
     calls = []
 
     class Field:
+        space_id = "L2"
+
         def __call__(self, *etas, **kwargs):
             return np.ones((1, 1, 1))
 
     class Domain:
-        def push(self, value, *etas, kind, squeeze_out):
+        def transform(self, value, *etas, kind, squeeze_out):
             calls.append((kind, etas, squeeze_out))
             return value
 
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
     monkeypatch.setattr(run, "domain", Domain())
 
-    run.evaluate("em_fields/phi", eta1=0.5, eta2=0.5, eta3=0.5, t=0, representation="push:3")
+    run.evaluate("em_fields/phi", eta1=0.5, eta2=0.5, eta3=0.5, t=0, representation="0")
 
-    assert calls == [("3", (0.5, 0.5, 0.5), True)]
+    assert calls == [("3_to_0", (0.5, 0.5, 0.5), True)]
 
 
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):

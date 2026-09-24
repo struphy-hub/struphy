@@ -12,7 +12,7 @@ from contextlib import ExitStack
 from functools import cached_property
 from html import escape
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import h5py
 import cunumpy as xp
@@ -41,6 +41,7 @@ logger = logging.getLogger("struphy")
 
 # Push-forward of each de Rham space to Cartesian components, see Domain.push.
 PUSH_KINDS = {"H1": "0", "Hcurl": "1", "Hdiv": "2", "L2": "3", "H1vec": "v"}
+Representation = Literal["0", "1", "2", "3", "v", "norm"]
 
 
 def mpi_comm_world():
@@ -276,7 +277,7 @@ class Output:
         eta1: Any | None = None,
         eta2: Any | None = None,
         eta3: Any | None = None,
-        representation: str | None = None,
+        representation: Representation | None = None,
         **coordinates: Any,
     ) -> xr.DataArray | np.ndarray:
         """Return a named simulation product as an :class:`xarray.DataArray`.
@@ -298,11 +299,10 @@ class Output:
         a one-dimensional array, or a ``range``; mixed inputs form their tensor-product
         mesh internally. This reads coefficients one saved snapshot at a time and does
         not materialize a spatial post-processing product. Use a raw field name such as
-        ``"em_fields/e_field"``. ``representation`` is applied after spline evaluation:
-        short kinds (``"0"``, ``"1"``, ``"2"``, ``"3"``, ``"v"``) push forward, and
-        ``"norm"`` transforms a normalized vector to Cartesian components. Use
-        ``"push:<kind>"``, ``"pull:<kind>"``, or ``"transform:<kind>"`` for an explicit
-        domain operation. Scalars default to ``"0"`` and vectors to ``"norm"``.
+        ``"em_fields/e_field"``. ``representation`` selects the output representation
+        after spline evaluation: one of ``"0"``, ``"1"``, ``"2"``, ``"3"``, ``"v"``, or
+        ``"norm"``. The input representation is inferred from the field's FEEC space.
+        Scalars default to ``"0"`` and vectors to ``"norm"``.
         """
         selectors = dict(coordinates)
         if "physical" in selectors:
@@ -344,7 +344,7 @@ class Output:
 
     def _evaluate_spline_field(
         self, name: str, eta1: Any, eta2: Any, eta3: Any, *, t: int | float | slice | Sequence[int] | None,
-        method: str | None, representation: str | None,
+        method: str | None, representation: Representation | None,
     ) -> xr.DataArray:
         """Evaluate one raw FEEC field on a tensor-product logical grid."""
         try:
@@ -371,7 +371,7 @@ class Output:
                 available = tuple(f"{group}/{key}" for group, entries in fields.items() for key in entries)
                 raise KeyError(f"{name!r} is not a saved raw FEEC field; available fields: {available}") from error
             value = field(*etas, squeeze_out=False)
-            value = self._apply_representation(value, etas, representation)
+            value = self._apply_representation(value, etas, PUSH_KINDS[field.space_id], representation)
             if isinstance(value, (list, tuple)):
                 value = [self._reshape_spline_value(component, grid_shape) for component in value]
             else:
@@ -386,29 +386,19 @@ class Output:
             coords["component"] = np.arange(data.shape[1])
         return self._stamp(xr.DataArray(data, dims=dims, coords=coords, name=variable))
 
-    def _apply_representation(self, value: Any, etas: tuple[Any, Any, Any], representation: str | None) -> Any:
-        """Apply one domain basis transformation to evaluated spline values."""
-        is_vector = isinstance(value, (list, tuple))
-        representation = representation or ("norm" if is_vector else "0")
-        if representation == "norm":
-            operation, kind, result_is_vector = "transform", "norm_to_v", True
-        elif representation.startswith(("push:", "pull:", "transform:")):
-            operation, kind = representation.split(":", maxsplit=1)
-            result_is_vector = kind not in {"0", "3", "0_to_3", "3_to_0"}
-        elif representation in {"0", "1", "2", "3", "v"}:
-            operation, kind = "push", representation
-            result_is_vector = kind in {"1", "2", "v"}
-        elif "_to_" in representation:
-            operation, kind = "transform", representation
-            result_is_vector = kind not in {"0_to_3", "3_to_0"}
-        else:
-            raise ValueError(f"unknown representation {representation!r}")
-
+    def _apply_representation(
+        self, value: Any, etas: tuple[Any, Any, Any], source: str, representation: Representation | None,
+    ) -> Any:
+        """Transform a field from its FEEC-space representation to the requested target."""
+        target = representation or ("norm" if source in {"1", "2", "v"} else "0")
+        if target == source:
+            return value
+        transformation = f"{source}_to_{target}"
         try:
-            transformed = getattr(self.domain, operation)(value, *etas, kind=kind, squeeze_out=True)
+            transformed = self.domain.transform(value, *etas, kind=transformation, squeeze_out=True)
         except KeyError as error:
-            raise ValueError(f"{operation}:{kind} is not supported by {type(self.domain).__name__}") from error
-        if result_is_vector and not isinstance(transformed, (list, tuple)):
+            raise ValueError(f"cannot transform {source!r} fields to representation {target!r}") from error
+        if target not in {"0", "3"} and not isinstance(transformed, (list, tuple)):
             transformed = [transformed[component] for component in range(3)]
         return transformed
 

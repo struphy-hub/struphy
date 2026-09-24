@@ -220,6 +220,9 @@ class Domain(metaclass=DomainMeta):
             "v_to_2": 16,
             "1_to_v": 17,
             "2_to_v": 18,
+            "1_to_norm": 19,
+            "2_to_norm": 20,
+            "v_to_norm": 21,
         }
 
         self._dict_transformations = {
@@ -1010,7 +1013,7 @@ class Domain(metaclass=DomainMeta):
 
         Notes
         -----
-        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v' and '2_to_v'.
+        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v', '2_to_v', '1_to_norm', '2_to_norm' and 'v_to_norm'.
         """
 
         return self._pull_push_transform(
