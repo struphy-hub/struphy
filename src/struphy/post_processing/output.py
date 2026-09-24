@@ -270,28 +270,40 @@ class Output:
         self,
         name: str,
         *,
-        sel: Mapping[str, Any] | None = None,
-        isel: Mapping[str, Any] | None = None,
         method: str | None = None,
         drop: bool = False,
         as_numpy: bool = False,
         physical: Mapping[str, float] | None = None,
+        t: int | float | str | None = None,
+        **coordinates: Any,
     ) -> xr.DataArray | np.ndarray:
         """Return a named simulation product as an :class:`xarray.DataArray`.
 
         Scalars are read directly from raw output. Other products are materialized with
         :meth:`pproc` on first use when no complete post-processing output exists. The returned
         array is an ordinary xarray object, so use xarray for selection, arithmetic and further
-        analysis. ``isel`` selects positions (for example ``{"t": -1}``) and ``sel`` selects
-        dimension-coordinate values (for example ``{"e3": 0.5}``). Positional selection is
-        applied first, followed by coordinate selection. ``method`` and ``drop`` have xarray's
-        usual ``.sel``/``.isel`` meanings. Set ``as_numpy=True`` to return only the selected
-        values as a :class:`numpy.ndarray`.
+        analysis. Set ``as_numpy=True`` to return only the selected values as a
+        :class:`numpy.ndarray`.
+
+        Common selections can be passed directly: integer ``t`` selects a saved
+        snapshot (``t=0`` first, ``t=-1`` last), while float ``t`` selects a time
+        coordinate. Other keyword arguments select named coordinates, for example
+        ``component=2`` or ``e1=0.5``.
 
         ``physical={"X": x, "Y": y, "Z": z}`` evaluates a field at a physical point when
         its domain supplies an analytical ``inverse_map``. It converts the point to logical
         coordinates and uses xarray interpolation.
         """
+        selectors = dict(coordinates)
+        t_index = None
+        if t is not None:
+            if isinstance(t, (int, np.integer)):
+                t_index = int(t)
+            elif isinstance(t, (float, np.floating)):
+                selectors["t"] = float(t)
+            else:
+                raise TypeError("t must be an integer snapshot index or a float time coordinate")
+
         physical_sel = None
         if physical:
             required = {"X", "Y", "Z"}
@@ -303,17 +315,17 @@ class Output:
             eta = inverse(*(float(physical[axis]) for axis in ("X", "Y", "Z")))
             physical_sel = dict(zip(("e1", "e2", "e3"), map(float, eta)))
         array = self._product(name)
-        if isel:
-            array = array.isel(isel, drop=drop)
+        if t_index is not None:
+            array = array.isel(t=t_index, drop=drop)
         if physical_sel:
             array = array.interp(physical_sel, method=method or "linear")
-        if sel:
+        if selectors:
             options = {"drop": drop}
             if method is not None:
                 options["method"] = method
-            array = array.sel(sel, **options)
+            array = array.sel(selectors, **options)
         elif method is not None:
-            raise ValueError("method requires a coordinate selection through sel")
+            raise ValueError("method requires a direct coordinate selector")
         return array.to_numpy() if as_numpy else array
 
     def _product(self, name: str) -> xr.DataArray:
