@@ -367,6 +367,9 @@ def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
 
 def test_info_lists_evaluable_products_with_descriptions(run):
     text = run.info()
+    assert "Configuration" in text and "Species and variables" in text
+    assert "Propagator options" in text and "Initial conditions" in text
+    assert "Help" in text and "out.initial_conditions" in text
     assert "Key" in text and "Description" in text
     assert "en_tot" in text and "scalar time series" in text
     assert "kinetic_ions/e1_v1_density/f" in text and "particle distribution" in text

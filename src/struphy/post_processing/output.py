@@ -988,22 +988,82 @@ class Output:
         return self._label
 
     def info(self) -> str:
-        """A table of every key accepted by :meth:`evaluate`, with a short description.
+        """A concise run summary, configuration reference, and product catalog.
 
-        Use ``print(out.info())`` interactively. As with :meth:`keys`, this materializes default
+        Use ``print(out.info())`` interactively. The summary includes model parameters,
+        species variables, propagator options, and initial-condition definitions saved in
+        metadata. As with :meth:`keys`, the product catalog materializes default
         post-processing when needed; call :meth:`pproc` first to choose its options.
         """
         rows = [(key, self._product_description(key)) for key in self.keys()]
         key_width = max((len(key) for key, _ in rows), default=3)
+        model = self.metadata.get("model", {})
         lines = [
             f"Output: {self.path_out}",
             self.label,
+            "",
+            "Configuration",
+            "-------------",
+            f"Model: {model.get('model', self.metadata.get('model_name', 'unknown'))}",
+            f"Model parameters: {json.dumps(model.get('params', {}), sort_keys=True)}",
+            "Species and variables:",
+        ]
+        for species_name, species in model.get("species", {}).items():
+            parameters = {
+                key: value
+                for key, value in species.items()
+                if key
+                not in {"class", "variables", "loading_params", "weights_params", "boundary_params", "sorting_params", "saving_params"}
+                and value is not None
+            }
+            lines.append(f"  {species_name} ({species.get('class', 'Species')}): {json.dumps(parameters, sort_keys=True)}")
+            for variable_name, variable in species.get("variables", {}).items():
+                lines.append(
+                    f"    {variable_name}: {variable.get('class', 'Variable')} "
+                    f"[{variable.get('space', 'unknown')}], save_data={variable.get('save_data', True)}"
+                )
+        lines.append("Propagator options:")
+        for name, options in model.get("propagator_options", {}).items():
+            lines.append(f"  {name}: {json.dumps(options, sort_keys=True)}")
+        lines.append("Initial conditions:")
+        for species_name, variables in self.metadata.get("initial_conditions", {}).items():
+            for variable_name, definition in variables.items():
+                parts = ", ".join(f"{key}={self._initial_condition_description(value)}" for key, value in definition.items())
+                lines.append(f"  {species_name}.{variable_name}: {parts}")
+        lines = [
+            *lines,
+            "",
+            "Help",
+            "----",
+            "- Use out.model for the reconstructed model and its variables.",
+            "- Use out.initial_conditions for reconstructed backgrounds, perturbations, and distributions.",
+            "- Use Output(path, trust_initial_condition_source=True) only for trusted runs with embedded Python source.",
+            "- Use out.keys(), out.fields, out.distributions, out.densities, and out.orbits to discover products.",
+            "- Use out.evaluate(key), out.process(...), and array.struphy.plot.* to load and plot products.",
             "",
             f"{'Key':<{key_width}}  Description",
             f"{'-' * key_width}  -----------",
         ]
         lines.extend(f"{key:<{key_width}}  {description}" for key, description in rows)
         return "\n".join(lines)
+
+    @staticmethod
+    def _initial_condition_description(value) -> str:
+        """Short, source-free description of one serialized initial condition."""
+        if value is None:
+            return "none"
+        if isinstance(value, list):
+            return "[" + ", ".join(Output._initial_condition_description(item) for item in value) + "]"
+        if not isinstance(value, dict):
+            return repr(value)
+        kind = value.get("type")
+        if kind is None:
+            return "mapping"
+        if kind in {"python_function", "python_class"}:
+            return f"{kind}({value.get('name', value.get('serialization', 'unknown'))})"
+        if kind == "callable":
+            return f"callable({value.get('serialization', 'unknown')})"
+        return kind
 
     def _product_description(self, key: str) -> str:
         """A stable description for a key, without loading its data array."""
