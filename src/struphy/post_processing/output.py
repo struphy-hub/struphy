@@ -2034,20 +2034,21 @@ class Output:
                     coefficients[species_name] = variables
                 yield float(times[snapshot]) * self.time_scale, coefficients
 
-    def spline_fields(self, snapshot: int) -> dict:
-        """Return FEEC ``SplineFunction`` objects loaded with one saved snapshot.
+    def spline_fields(self, *, t: int) -> dict:
+        """Return FEEC ``SplineFunction`` objects loaded at saved index ``t``.
 
         The spline functions are allocated once and reused. Requesting the same
-        snapshot performs no HDF5 reads; requesting another snapshot overwrites
+        ``t`` performs no HDF5 reads; requesting another index overwrites
         their coefficients in place. Copy evaluated values before requesting a
-        different snapshot.
+        different index. As with :meth:`evaluate`, ``t=0`` is the first saved
+        snapshot and ``t=-1`` is the last.
 
         The returned mapping is ``species -> variable -> SplineFunction``. It is
         intentionally separate from :meth:`evaluate`, which serves persisted
         post-processed xarray products.
         """
-        if not isinstance(snapshot, int):
-            raise TypeError("snapshot must be an integer")
+        if not isinstance(t, int):
+            raise TypeError("t must be an integer saved-snapshot index")
         if self.grid is None or self.derham_opts is None:
             raise ValueError("Spline fields require saved grid and derham options")
 
@@ -2056,10 +2057,10 @@ class Output:
             if "feec" not in file:
                 raise ValueError("This output contains no saved FEEC fields")
             n_snapshots = len(file["time/value"])
-            if snapshot < 0:
-                snapshot += n_snapshots
-            if not 0 <= snapshot < n_snapshots:
-                raise IndexError(f"snapshot {snapshot} is outside [0, {n_snapshots})")
+            if t < 0:
+                t += n_snapshots
+            if not 0 <= t < n_snapshots:
+                raise IndexError(f"t={t} is outside the saved snapshot range")
 
             if self._spline_fields is None:
                 self._spline_derham = Derham(self.grid, self.derham_opts, comm=None, domain=self.domain)
@@ -2073,14 +2074,14 @@ class Output:
                     for species_name, species in file["feec"].items()
                 }
 
-        if snapshot != self._spline_snapshot:
+        if t != self._spline_snapshot:
             with ExitStack() as stack:
                 files = [
                     stack.enter_context(h5py.File(self.path_out / "data" / f"data_proc{rank}.hdf5"))
                     for rank in range(self.mpi_ranks)
                 ]
-                self._load_femfields(self._spline_fields, files, snapshot)
-            self._spline_snapshot = snapshot
+                self._load_femfields(self._spline_fields, files, t)
+            self._spline_snapshot = t
         return self._spline_fields
 
     @property
