@@ -265,6 +265,8 @@ class Particles5D(Particles):
     default_n_cols = {"diagnostics": 2, "aux": 12}
     """Default number of buffer columns is 2 diagnostics (perpendicular energy, canonical toroidal
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
+    get_PBb = None
+    """Optional callable without arguments, set on the instance by the model, that is used to evaluate the energy of markers, see :meth:`_accumulate_lost_energy`)."""
 
     def __post_init__(self):
         """Retrieve the discrete equilibrium magnetic-field quantities (:math:`|B_0|`, unit 1-form
@@ -446,6 +448,59 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
+    @property
+    def lost_energy(self):
+        """Cumulative energy of lost markers removed on this process, in two parts ``[sum(w * v_parallel**2 / 2), sum(w * mu * (|B_0| + b_parallel))]``."""
+        if not hasattr(self, "_lost_energy"):
+            self._lost_energy = xp.zeros(2, dtype=float)
+        return self._lost_energy
+
+    def _add_lost_markers(self, is_outside):
+        stored = super()._add_lost_markers(is_outside)
+        self._accumulate_lost_energy(stored, is_outside)
+
+    def _accumulate_lost_energy(self, stored, is_outside):
+        n = stored.stop - stored.start
+        if n == 0:
+            return
+
+        old = self.lost_markers[stored]
+
+        rows = self._markers[is_outside]
+        tmp = xp.array(rows[rows[:, 0] != -1.0][:n])
+        tmp[:, :3] = old[:, :3]
+
+        if self.get_PBb is not None:
+            self.set_magnetic_field(self.get_PBb())
+
+        utilities_kernels.eval_magnetic_energy_PBb(
+            tmp,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            self.first_diagnostics_idx,
+            self.mu_idx,
+            self.absB0_h._data,
+            self._tmp0._data,
+            xp.array(self.derham.spl_kind, dtype=bool),
+        )
+
+        weights = old[:, 3 + self.vdim]
+        self.lost_energy[0] += xp.sum(weights * 0.5 * old[:, 3] ** 2)
+        self.lost_energy[1] += xp.sum(weights * tmp[:, self.first_diagnostics_idx])
+
+    def set_magnetic_field(self, PBb):
+        r"""Stores the (time-dependent) magnetic field used to evaluate the magnetic-moment energy of markers,
+        see :meth:`save_magnetic_energy`.
+
+        Parameters
+        ----------
+        PBb : BlockVector
+            Finite element coefficients of the time-dependent magnetic field, projected onto V0.
+        """
+        E0T = self.derham.extraction_ops["0"].transpose()
+        PBbt = E0T.dot(PBb, out=self._tmp0)
+        PBbt.update_ghost_regions()
+
     def save_magnetic_energy(self, PBb):
         r"""
         Calculate the (time-dependent) magnetic field energy at each marker's position and assign it
@@ -457,9 +512,7 @@ class Particles5D(Particles):
             Finite element coefficients of the time-dependent magnetic field, projected onto V0.
         """
 
-        E0T = self.derham.extraction_ops["0"].transpose()
-        PBbt = E0T.dot(PBb, out=self._tmp0)
-        PBbt.update_ghost_regions()
+        self.set_magnetic_field(PBb)
 
         utilities_kernels.eval_magnetic_energy_PBb(
             self.markers,
@@ -468,7 +521,7 @@ class Particles5D(Particles):
             self.first_diagnostics_idx,
             self.mu_idx,
             self.absB0_h._data,
-            PBbt._data,
+            self._tmp0._data,
             xp.array(self.derham.spl_kind, dtype=bool),
         )
 

@@ -444,8 +444,8 @@ class CurrentCoupling5DGradB(Propagator):
         # clear buffer
         markers[:, first_init_idx:-2] = 0.0
 
-        # save old marker positions
-        markers[:, first_init_idx : first_init_idx + 3] = markers[:, :3]
+        # save old marker phase space coordinates
+        markers[:, first_init_idx : first_init_idx + 3 + particles.vdim] = markers[:, : 3 + particles.vdim]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)

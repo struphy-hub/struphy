@@ -771,9 +771,37 @@ class Particles(metaclass=ABCMeta):
         return self._lost_markers
 
     @property
+    def n_stored_lost_markers(self):
+        """Number of rows of :attr:`lost_markers` that are filled."""
+        return self._n_stored_lost_markers
+
+    @property
     def n_lost_markers(self):
         """Number of removed particles."""
         return self._n_lost_markers
+
+    def _add_lost_markers(self, is_outside):
+
+        lost = self._markers[is_outside]
+        lost = lost[lost[:, 0] != -1.0]
+
+        n0 = self._n_stored_lost_markers
+        n = min(len(lost), self._lost_markers.shape[0] - n0)
+        if n < len(lost):
+            logger.warning("Array for lost markers is full, the info of further lost markers is not stored.")
+        if n > 0:
+            rows = lost[:n]
+            nvars = 3 + self.vdim
+            f = self.first_pusher_idx
+            out = self._lost_markers[n0 : n0 + n]
+            out[:, :nvars] = rows[:, f : f + nvars]
+            out[:, nvars] = rows[:, self.index["weights"]]
+            out[:, nvars + 1] = rows[:, self.index["s0"]]
+            out[:, nvars + 2] = rows[:, self.index["w0"]]
+            out[:, nvars + 3] = rows[:, self.index["ids"]]
+        self._n_stored_lost_markers += n
+
+        return slice(n0, n0 + n)
 
     @property
     def valid_mks(self):
@@ -1738,6 +1766,7 @@ class Particles(metaclass=ABCMeta):
             if self.bc_refill is not None:
                 self._particle_refilling()
 
+            self._add_lost_markers(self._is_outside)
             self._markers[self._is_outside, :-1] = -1.0
             self._n_lost_markers += len(xp.nonzero(self._is_outside)[0])
 
@@ -2432,6 +2461,7 @@ class Particles(metaclass=ABCMeta):
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
+        self._n_stored_lost_markers = 0
 
         # arguments for kernels
         self._args_markers = MarkerArguments(

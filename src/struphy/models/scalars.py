@@ -45,6 +45,10 @@ class Scalar(metaclass=ABCMeta):
             self._mpi_sum()
             self.uptodate = True
 
+    def reset(self):
+        """Mark the scalar as not up to date, such that the next .update() recomputes it."""
+        self.uptodate = False
+
     def __add__(self, other):
         return SumOfScalars(self, other)
 
@@ -66,6 +70,12 @@ class SumOfScalars(Scalar):
             scalar.update()
         energy = sum(scalar.value[0] for scalar in self.variables)
         self.value[0] = energy
+
+    def reset(self):
+        """Mark the scalar as not up to date, so then the next .update() recomputes it."""
+        super().reset()
+        for scalar in self.variables:
+            scalar.reset()
 
 
 class PICScalar(Scalar):
@@ -158,7 +168,7 @@ class Scalars:
             scalar.update()
         # reset status to False for next update
         for scalar in self.dct.values():
-            scalar.uptodate = False
+            scalar.reset()
 
 
 @auto_convert_docstring

@@ -166,15 +166,22 @@ class LinearMHDDriftkineticCC(StruphyModel):
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
-        particle_parallel = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        particle_parallel = FunctionScalarPIC(self._compute_en_fv, self.energetic_ions.var)
         particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
+        lost_energy = FunctionScalarPIC(self._compute_en_lost, self.energetic_ions.var)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,
             en_B=magnetic_energy,
             en_fv=particle_parallel,
             en_fB=particle_magnetic,
-            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_parallel + particle_magnetic,
+            en_lost=lost_energy,
+            en_tot=kinetic_energy
+            + pressure_energy
+            + magnetic_energy
+            + particle_parallel
+            + particle_magnetic
+            + lost_energy,
             n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
         )
 
@@ -200,12 +207,39 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
+        self.energetic_ions.var.particles.get_PBb = lambda: self._PB.dot(self.em_fields.b_field.spline.vector)
+
+    def _save_magnetic_energy(self):
+        particles = self.energetic_ions.var.particles
+        self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
+        particles.save_magnetic_energy(self._PBb)
+
+    def _compute_en_fv(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particles = self.energetic_ions.var.particles
+
+        return (
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 3] ** 2,
+            )
+            / 2.0
+            * Ah
+            / Ab
+        )
+
+    def _compute_en_lost(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particles = self.energetic_ions.var.particles
+
+        return float(particles.lost_energy.sum()) * Ah / Ab
+
     def _compute_en_fB(self):
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
         particles = self.energetic_ions.var.particles
-        self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
-        particles.save_magnetic_energy(self._PBb)
+        self._save_magnetic_energy()
 
         return (
             particles.markers[~particles.holes, 5].dot(
@@ -295,6 +329,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         - Magnetic energy: ``en_B``
         - Parallel energetic-particle energy: ``en_fv``
         - Magnetic-moment energetic-particle energy: ``en_fB``
+        - Energy carried away by lost particles (cumulative, included in ``en_tot``): ``en_lost``
         - Total energy: ``en_tot``
         - Lost particles: ``n_lost_particles``"""
 
