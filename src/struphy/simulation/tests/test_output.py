@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 import pytest
 
-from struphy import BaseUnits, EnvironmentOptions, Output, Simulation, Time
+from struphy import BaseUnits, EnvironmentOptions, FieldsBackground, Output, Simulation, Time, maxwellians, perturbations
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import ColdPlasmaVlasov, Maxwell, Poisson, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
@@ -104,6 +104,36 @@ def test_run_metadata_contains_variables_and_propagator_options(tmp_path):
     assert options["solver_params"]["tol"] == 1e-6
     assert options["solver_params"]["maxiter"] == 42
     assert options["butcher"] == {"algo": "heun2"}
+
+
+def test_run_metadata_contains_serialized_initial_conditions(tmp_path):
+    sim = make_sim(tmp_path)
+    velocity = sim.model.em_fields.b_field
+    velocity.add_background(FieldsBackground(values=(1.0, 2.0, 3.0)))
+    velocity.add_perturbation(perturbations.TorusModesCos(amps=(0.2,)))
+
+    # A nested perturbation inside a summed kinetic distribution exercises the
+    # recursive serializer used for PIC initial conditions.
+    kinetic_sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
+    perturbation = perturbations.TorusModesCos(amps=(0.3,))
+    background = maxwellians.Maxwellian3D(n=(1.0, None))
+    kinetic_sim.model.kinetic_ions.var.add_background(background)
+    kinetic_sim.model.kinetic_ions.var.add_initial_condition(
+        maxwellians.Maxwellian3D(n=(1.0, perturbation)) + background
+    )
+
+    metadata = json.loads(sim.to_run_metadata())
+    b_field = metadata["initial_conditions"]["em_fields"]["b_field"]
+    assert b_field["backgrounds"] == {
+        "type": "FieldsBackground",
+        "params": {"type": "LogicalConst", "values": [1.0, 2.0, 3.0], "variable": None},
+    }
+    assert b_field["perturbations"]["type"] == "TorusModesCos"
+
+    kinetic = json.loads(kinetic_sim.to_run_metadata())["initial_conditions"]["kinetic_ions"]["var"]
+    assert kinetic["backgrounds"]["type"] == "Maxwellian3D"
+    assert kinetic["initial_condition"]["type"] == "SumKineticBackground"
+    assert kinetic["initial_condition"]["params"]["f1"]["params"]["n"][1]["type"] == "TorusModesCos"
 
 
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):

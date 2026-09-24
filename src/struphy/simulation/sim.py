@@ -1673,6 +1673,61 @@ class Simulation(SimulationBase):
                 particle_metadata[species_name] = species_metadata
         return particle_metadata
 
+    @staticmethod
+    def _serialize_initial_condition(value):
+        """Convert initial-condition definitions into JSON-compatible provenance data.
+
+        This deliberately captures constructor parameters rather than evaluated FEEC
+        coefficients or particle data.  It is therefore small and records the setup
+        that produced the initial state.  The representation is not yet used to
+        reconstruct a simulation from output.
+        """
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, dict):
+            return {str(key): Simulation._serialize_initial_condition(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [Simulation._serialize_initial_condition(item) for item in value]
+        if dataclasses.is_dataclass(value) and not isinstance(value, type):
+            return {
+                "type": type(value).__name__,
+                "params": Simulation._serialize_initial_condition(value.to_dict()),
+            }
+        if hasattr(value, "params"):
+            return {
+                "type": type(value).__name__,
+                "params": Simulation._serialize_initial_condition(value.params),
+            }
+        if callable(value):
+            return {
+                "type": "callable",
+                "module": getattr(value, "__module__", None),
+                "qualname": getattr(value, "__qualname__", repr(value)),
+            }
+        # CuPyJSONEncoder handles NumPy/CuPy arrays after this traversal. Keep
+        # other values visible in provenance rather than making metadata writing fail.
+        return value
+
+    def _collect_initial_conditions_metadata(self) -> dict:
+        """Collect initial-condition definitions for every model variable."""
+        initial_conditions = {}
+        for species_name, species in self.model.species.items():
+            variables = {}
+            for variable_name, variable in species.variables.items():
+                entry = {
+                    "backgrounds": self._serialize_initial_condition(variable.backgrounds),
+                    "perturbations": self._serialize_initial_condition(variable.perturbations),
+                }
+                if isinstance(variable, PICVariable):
+                    # ``initial_condition`` defaults to backgrounds. Do not access the
+                    # property here, because doing so mutates the variable's state.
+                    entry["initial_condition"] = self._serialize_initial_condition(
+                        getattr(variable, "_initial_condition", variable.backgrounds)
+                    )
+                variables[variable_name] = entry
+            initial_conditions[species_name] = variables
+        return initial_conditions
+
     def to_run_metadata(self, file_path: str = None, **extra_data) -> str:
         """Snapshot of the reconstructible config (see :meth:`to_dict`) plus run-specific,
         non-reconstructible facts (MPI layout, live particle counts, caller-supplied
@@ -1703,6 +1758,7 @@ class Simulation(SimulationBase):
                 "mpi_ranks": self.comm_size,
                 "use_mpi_comm_world": self.comm is not None,
                 "particle_species": self._collect_particle_metadata(),
+                "initial_conditions": self._collect_initial_conditions_metadata(),
                 **extra_data,
             },
         )
