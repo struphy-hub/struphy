@@ -269,19 +269,58 @@ def test_evaluate_selects_positions_coordinates_and_slices(run):
     assert every_second.sizes["t"] == 2
 
     phase_space = run.evaluate(
-        "kinetic_ions/e1_v1_density/f",
+        "kinetic_ions/f",
+        dataset="e1_v1_density/f",
         e1=0.49,
         method="nearest",
         drop=True,
     )
     assert phase_space.dims == ("t", "v1")
 
-    history = run.evaluate("en_tot").isel(t=slice(1, None))
+    history = run.evaluate("scalars", variables="en_tot").en_tot.isel(t=slice(1, None))
     assert history.sizes["t"] == NT - 1
 
-    values = run.evaluate("en_tot", t=-1, as_numpy=True)
-    assert isinstance(values, np.ndarray)
-    np.testing.assert_allclose(values, 2.0)
+    with pytest.raises(TypeError, match="always returns xarray"):
+        run.evaluate("scalars", variables="en_tot", t=-1, as_numpy=True)
+
+    with pytest.raises(ValueError, match="species/variable"):
+        run.evaluate("en_tot")
+
+
+def test_evaluate_scalars_and_particle_defaults(run):
+    scalars = run.evaluate("scalars", variables="en_tot", t=-1)
+    assert isinstance(scalars, xr.Dataset)
+    assert list(scalars.data_vars) == ["en_tot"]
+    assert scalars.sizes["t"] == 1
+
+    distribution = run.evaluate("kinetic_ions/f")
+    assert distribution.name == "f"
+    assert distribution.dims == ("t", "e1", "v1")
+
+    fallback = run.evaluate("kinetic_ions/any_variable")
+    assert fallback.name == "f"
+
+    density = run.evaluate("kinetic_ions/n")
+    assert density.name == "n"
+    assert density.dims == ("t", "e1", "e2", "e3")
+
+    selected = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
+    assert selected.name == "delta_f"
+
+    orbits = run.evaluate("kinetic_ions/orbits")
+    assert orbits.name == "orbits"
+
+
+def test_info_lists_particle_dataset_choices_in_default_order(run, capsys):
+    run.info("kinetic_ions/f")
+    report = capsys.readouterr().out
+    assert "Dataset choices (default first):" in report
+    assert "kinetic_ions/e1_v1_density/f" in report
+
+
+def test_plot_makes_a_quick_xarray_view(run):
+    artist = run.plot(run.evaluate("em_fields/E"))
+    assert artist is not None
 
 
 def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):

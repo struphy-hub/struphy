@@ -246,8 +246,8 @@ class Output:
     @staticmethod
     def compare(first: "Output", second: "Output", product: str, *, method: str = "linear") -> xr.Dataset:
         """Align one product from two runs and return both values, their difference and ratio."""
-        left = first.evaluate(product)
-        right = second.evaluate(product)
+        left = first._array(product)
+        right = second._array(product)
         right = right.interp_like(left, method=method)
         difference = left - right
         ratio = xr.where(right != 0, left / right, np.nan)
@@ -270,27 +270,31 @@ class Output:
         *,
         method: str | None = None,
         drop: bool = False,
-        as_numpy: bool = False,
         t: int | float | slice | Sequence[int] | None = None,
         eta1: Any | None = None,
         eta2: Any | None = None,
         eta3: Any | None = None,
         representation: Representation | None = None,
+        dataset: str | None = None,
+        variables: str | Sequence[str] | None = None,
         **coordinates: Any,
-    ) -> xr.DataArray | np.ndarray:
-        """Return a named simulation product as an :class:`xarray.DataArray`.
+    ) -> xr.DataArray | xr.Dataset:
+        """Return a named simulation product as an xarray object.
 
         Scalars are read directly from raw output. Other products are materialized with
         :meth:`pproc` on first use when no complete post-processing output exists. The returned
         array is an ordinary xarray object, so use xarray for selection, arithmetic and further
-        analysis. Set ``as_numpy=True`` to return only the selected values as a
-        :class:`numpy.ndarray`.
+        analysis. ``evaluate("scalars")`` returns an :class:`xarray.Dataset` containing
+        all scalar histories; use ``variables=`` to select scalar names.
 
         Common selections can be passed directly: ``t`` selects saved snapshots
         by index (an integer, list of integers, or slice); omit it for every
         saved timestep. The returned array always retains its ``t`` dimension.
         A float ``t`` selects a time coordinate. Other keyword arguments select
-        named coordinates, for example ``component=2`` or ``e1=0.5``.
+        named coordinates, for example ``component=2`` or ``e1=0.5``. For particle
+        products, a ``"species/variable"`` name selects the first matching binned
+        product, then density/KDE product, then orbits. Pass ``dataset=`` to select a
+        particular discovered product; use ``out.info("species/variable")`` to list them.
 
         Supplying an ``eta`` evaluates a raw FEEC spline field directly on that logical
         grid. Each eta can be a scalar, a list, a one-dimensional array, or a ``range``;
@@ -307,11 +311,32 @@ class Output:
         selectors = dict(coordinates)
         if "physical" in selectors:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
+        if "as_numpy" in selectors:
+            raise TypeError("evaluate() always returns xarray; call .to_numpy() on its result when needed")
+        if name != "scalars" and name.count("/") != 1:
+            raise ValueError("evaluate() names must use the 'species/variable' form, or be 'scalars'")
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
-        is_raw_spline_field = not has_eta and self._is_raw_spline_field(name)
-        if has_eta:
+        if has_eta and dataset is not None:
+            raise ValueError("dataset= cannot be combined with direct FEEC eta evaluation")
+        if name == "scalars":
+            if has_eta or representation is not None or dataset is not None:
+                raise ValueError("'scalars' accepts only time, variables, and coordinate selections")
+            if variables is None:
+                array: xr.DataArray | xr.Dataset = self.scalars
+            else:
+                names = [variables] if isinstance(variables, str) else list(variables)
+                unknown = set(names) - set(self.scalars.data_vars)
+                if unknown:
+                    raise KeyError(f"unknown scalar variables: {tuple(sorted(unknown))}")
+                array = self.scalars[names]
+        elif variables is not None:
+            raise ValueError("variables= is only valid with evaluate('scalars')")
+        is_raw_spline_field = not has_eta and dataset is None and self._is_raw_spline_field(name)
+        if name == "scalars":
+            is_raw_spline_field = False
+        elif has_eta:
             eta = tuple(0.5 if value is None else value for value in eta)
             array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
             t = None
@@ -325,8 +350,8 @@ class Output:
         if not has_eta:
             if representation is not None and not is_raw_spline_field:
                 raise ValueError("representation requires FEEC evaluation")
-            if not is_raw_spline_field:
-                array = self._product(name)
+            if not is_raw_spline_field and name != "scalars":
+                array = self._product(name, dataset=dataset)
         if t is not None:
             if isinstance(t, (int, np.integer)):
                 array = array.isel(t=[int(t)], drop=drop)
@@ -347,7 +372,7 @@ class Output:
             array = array.sel(selectors, **options)
         elif method is not None:
             raise ValueError("method requires a direct coordinate selector")
-        return array.to_numpy() if as_numpy else array
+        return array
 
     def _is_raw_spline_field(self, name: str) -> bool:
         """Whether ``name`` is a raw FEEC field saved in the primary output file."""
@@ -505,13 +530,18 @@ class Output:
             raise IndexError("t is outside the saved snapshot range")
         return indices
 
-    def _product(self, name: str) -> xr.DataArray:
+    def _product(self, name: str, *, dataset: str | None = None) -> xr.DataArray:
         """Resolve one saved product for :meth:`evaluate`."""
+        if dataset is not None:
+            name = self._dataset_key(name, dataset)
         if name in self.scalars.data_vars:
             return self.scalars[name]
         for catalog in (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog):
             if name in catalog:
                 return catalog[name]
+        candidates = self._particle_candidates(name)
+        if candidates:
+            return candidates[0][1]
         available = (
             *self.scalars.data_vars,
             *self.field_catalog,
@@ -520,6 +550,60 @@ class Output:
             *self.orbit_catalog,
         )
         raise KeyError(f"{name!r} not found; available products: {available}")
+
+    def _dataset_key(self, name: str, dataset: str) -> str:
+        """Resolve a species-relative explicit particle dataset name."""
+        if dataset in self.keys():
+            return dataset
+        try:
+            species, _ = name.split("/")
+        except ValueError as error:
+            raise ValueError("dataset= requires a 'species/variable' name") from error
+        key = species if dataset == "orbits" else f"{species}/{dataset}"
+        if key not in self.keys():
+            raise KeyError(f"{dataset!r} is not a dataset for {species!r}; choices: {self._candidate_keys(name)}")
+        return key
+
+    def _particle_candidates(self, name: str) -> list[tuple[str, xr.DataArray]]:
+        """Particle products matching ``species/variable``, in public default order."""
+        try:
+            species, variable = name.split("/")
+        except ValueError:
+            return []
+        candidates = []
+        for catalog in (self.distribution_catalog, self.density_catalog):
+            for key in catalog:
+                if key.startswith(f"{species}/") and key.rsplit("/", 1)[-1] == variable:
+                    candidates.append((key, catalog[key]))
+        if candidates:
+            return candidates
+        if variable == "orbits" and species in self.orbit_catalog:
+            return [(species, self.orbit_catalog[species])]
+        for catalog in (self.distribution_catalog, self.density_catalog):
+            keys = [key for key in catalog if key.startswith(f"{species}/")]
+            if keys:
+                return [(key, catalog[key]) for key in keys]
+        if species in self.orbit_catalog:
+            candidates.append((species, self.orbit_catalog[species]))
+        return candidates
+
+    def _candidate_keys(self, name: str) -> tuple[str, ...]:
+        """Discovered particle datasets that can be selected for a species/variable name."""
+        try:
+            species, variable = name.split("/")
+        except ValueError:
+            return ()
+        keys = [key for key, _ in self._particle_candidates(name)]
+        if not keys and variable == "*":
+            keys = [
+                key
+                for catalog in (self.distribution_catalog, self.density_catalog)
+                for key in sorted(catalog)
+                if key.startswith(f"{species}/")
+            ]
+            if species in self.orbit_catalog:
+                keys.append(species)
+        return tuple(keys)
 
     def with_physical_coords(self, product: str | xr.DataArray) -> xr.DataArray:
         """Attach mapped ``X``, ``Y``, ``Z`` coordinates to a product on a logical grid.
@@ -567,7 +651,7 @@ class Output:
             "description": ("product", [self._product_description(key) for key in keys]),
         }
         if details:
-            arrays = [self.evaluate(key) for key in keys]
+            arrays = [self._array(key) for key in keys]
             data["dimensions"] = ("product", [", ".join(array.dims) for array in arrays])
             data["units"] = ("product", [str(array.attrs.get("units", "")) for array in arrays])
         return xr.Dataset(data, coords={"product": list(keys)})
@@ -585,10 +669,39 @@ class Output:
     def _array(self, product: str | xr.DataArray) -> xr.DataArray:
         """Resolve a saved product name or accept an already-derived xarray array."""
         if isinstance(product, str):
+            if product in self.scalars.data_vars:
+                return self.scalars[product]
+            for catalog in (self.field_catalog, self.distribution_catalog, self.density_catalog, self.orbit_catalog):
+                if product in catalog:
+                    return catalog[product]
             return self.evaluate(product)
         if isinstance(product, xr.DataArray):
             return product
         raise TypeError(f"product must be a product name or xarray.DataArray, got {type(product).__name__}")
+
+    def plot(self, array: xr.DataArray | xr.Dataset, **kwargs: Any) -> Any:
+        """Make a small xarray quick-look plot.
+
+        Time-dependent spatial data are shown at the last saved time, vector data use
+        the first component, and remaining dimensions beyond two are sliced at their
+        midpoint. For publication plots, select dimensions explicitly and call xarray's
+        plotting methods directly.
+        """
+        if isinstance(array, xr.Dataset):
+            if len(array.data_vars) != 1:
+                raise ValueError("plot() needs a DataArray or a Dataset containing exactly one variable")
+            array = array[next(iter(array.data_vars))]
+        if not isinstance(array, xr.DataArray):
+            raise TypeError(f"plot() needs an xarray DataArray or Dataset, got {type(array).__name__}")
+        view = array
+        for dim, index in (("t", -1), ("component", 0)):
+            if dim in view.dims and view.ndim > 2:
+                view = view.isel({dim: index})
+        while view.ndim > 2:
+            view = view.isel({view.dims[-1]: view.sizes[view.dims[-1]] // 2})
+        if view.ndim == 1 and "t" in view.dims:
+            return view.plot.line(x="t", **kwargs)
+        return view.plot(**kwargs)
 
     @property
     def units(self):
@@ -2133,14 +2246,30 @@ class Output:
             self._label = ", ".join(values) or self.path_out.name
         return self._label
 
-    def info(self) -> None:
+    def info(self, name: str | None = None) -> None:
         """Print a concise run summary, configuration reference, and product catalog.
 
         Use ``out.info()`` interactively. The summary includes model parameters,
         species variables, propagator options, and initial-condition definitions saved in
         metadata. As with :meth:`keys`, the product catalog materializes default
         post-processing when needed; call :meth:`pproc` first to choose its options.
+        ``out.info("species/variable")`` instead lists the particle datasets that can
+        satisfy that request, in the default selection order.
         """
+        if name is not None:
+            if name == "scalars":
+                rows = [(key, self._product_description(key)) for key in self.scalars.data_vars]
+            else:
+                rows = [(key, self._product_description(key)) for key in self._candidate_keys(name)]
+            if not rows:
+                print(f"No alternative datasets for {name!r}.")
+                return
+            width = max(len(key) for key, _ in rows)
+            print("Dataset choices (default first):")
+            print(f"{'Dataset':<{width}}  Description")
+            print(f"{'-' * width}  -----------")
+            print("\n".join(f"{key:<{width}}  {description}" for key, description in rows))
+            return
         rows = [(key, self._product_description(key)) for key in self.keys()]
         key_width = max((len(key) for key, _ in rows), default=3)
         model = self.metadata.get("model", {})
@@ -2257,7 +2386,7 @@ class Output:
         if format not in {"markdown", "html"}:
             raise ValueError("format must be 'markdown' or 'html'")
         catalog = self.catalog(details=False)
-        requested = [self.evaluate(key) for key in products]
+        requested = [self._array(key) for key in products]
         directory = Path(directory) if directory else self.path_pproc / "report"
         directory.mkdir(parents=True, exist_ok=True)
         csv_path = save_scalars(self.scalars, str(directory / "scalars.csv"))

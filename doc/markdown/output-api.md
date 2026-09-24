@@ -17,8 +17,9 @@ out = sim.run()
 
 ## Discover available data
 
-Use `keys()` to list the names accepted by `evaluate()`, or `info()` for the same names with
-short descriptions.
+Use `keys()` to list discovered products, or `info()` for their short descriptions. Pass fields
+and particle data to `evaluate()` as `species/variable`; use the reserved `"scalars"` name for
+scalar histories.
 
 ```python
 out.info()
@@ -51,46 +52,54 @@ missing non-scalar product when running serially.
 
 ## Evaluate data
 
-`evaluate()` returns an ordinary `xarray.DataArray`. Use xarray for selections, arithmetic,
-reductions, and interoperability with other scientific Python packages.
+`evaluate()` always returns an xarray object: an `xarray.DataArray` for one field or particle
+product, and an `xarray.Dataset` for `"scalars"`. Use xarray for selections, arithmetic,
+reductions, plotting, and interoperability with other scientific Python packages.
 
 ```python
 rho = out.evaluate("diagnostics/rho_xyz")
-phi = out.evaluate("phi_integral")
+scalars = out.evaluate("scalars")
+electric_energy = out.evaluate("scalars", variables="electric_energy")
 
 # Last saved time and one vector component, selected by integer position
-electric_field = out.evaluate("em_fields/E", isel={"t": -1, "component": 2})
+electric_field = out.evaluate("em_fields/E", t=-1, component=2)
 
 # Select the nearest logical-coordinate plane
-midplane = out.evaluate(
-    "diagnostics/rho_xyz",
-    sel={"e3": 0.5},
-    method="nearest",
-    drop=True,
-)
+midplane = out.evaluate("diagnostics/rho_xyz", e3=0.5, method="nearest", drop=True)
 
 # Select a time range
-history = out.evaluate("phi_integral", isel={"t": slice(100, None)})
+history = out.evaluate("scalars", variables="electric_energy", t=slice(100, None)).electric_energy
 ```
 
-`isel` uses integer positions and `sel` uses named dimension-coordinate values. Selections are
-applied in that order. Physical `X`, `Y`, and `Z` coordinates describe the mapped logical grid;
-evaluating at an arbitrary physical point requires interpolation or an inverse-coordinate map.
+Integer `t` values select saved snapshot positions; a floating-point `t` selects a saved time
+coordinate. Other keyword arguments select named xarray coordinates. Physical `X`, `Y`, and `Z`
+coordinates describe the mapped logical grid; evaluating at an arbitrary physical point requires
+interpolation or an inverse-coordinate map.
 
-To return only values, without xarray coordinates and attributes, use `as_numpy=True`.
+For raw FEEC fields, use the `species/variable` name. With no `eta` coordinates, evaluation uses
+the full simulation grid at cell centres and includes `X`, `Y`, and `Z` coordinates. Providing
+one or two eta coordinates makes a line or plane cut; unspecified directions use `0.5`.
 
 ```python
-rho_values = out.evaluate("diagnostics/rho_xyz", isel={"t": -1}, as_numpy=True)
+import numpy as np
+
+phi = out.evaluate("em_fields/phi", t=-1)  # full 3-D grid
+line = out.evaluate("em_fields/phi", eta1=np.linspace(0, 1, 200), t=-1)
 ```
 
-For domains with an analytical inverse map, evaluate a field at a physical point directly:
+Particle products use the same `species/variable` form. The default is the first matching binned
+result, followed by a density/KDE result and then orbits. `info()` exposes the available choices;
+`dataset=` selects one explicitly.
 
 ```python
-value = out.evaluate(
-    "em_fields/phi_xyz",
-    physical={"X": 1.0, "Y": 0.0, "Z": 0.2},
-)
+out.info("kinetic_ions/f")
+distribution = out.evaluate("kinetic_ions/f")
+delta_f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
 ```
+
+For a quick inspection, `out.plot(array)` chooses the last time, first vector component, and
+midpoint slices as needed. For controlled figures, select dimensions explicitly and call xarray's
+native `.plot()` methods.
 
 ## Analyze and report data
 
@@ -146,9 +155,9 @@ by the mass. Mean and variance are NaN where the density is not positive, and a 
 has only the density (its perturbation).
 
 ```python
-f = "kinetic_ions/e1_v1_density/f"
+f = "kinetic_ions/f"
 
-data = out.evaluate(f)
+data = out.evaluate(f, dataset="e1_v1_density/f")
 f_of_v = data.mean(("e1", "e2", "e3"), missing_dims="ignore")
 velocity_grid = data.v1
 bin_width = velocity_grid.differentiate("v1")
@@ -212,40 +221,21 @@ For anything not covered here, `out.profile.results` is the full `scope_profiler
 
 ## Plot data
 
-Struphy-aware plotting is performed by `Output`, not by modifying xarray arrays. Rendering
-methods return `(fig, ax)` (or `(fig, axes)` for panels), so normal Matplotlib controls display,
-saving, and further customization.
+Use the native xarray plotting methods after making the intended selection.
 
 ```python
-from matplotlib import pyplot as plt
+out.evaluate("scalars", variables="electric_energy").electric_energy.plot.line(x="t")
 
-fig, ax = out.timeseries("phi_integral", fit=(0.0, None), fit_amplitude=True)
-ax.set_title("Potential growth")
-
-fig, ax = out.viewer(
-    "diagnostics/rho_xyz",
-    x="e1",
-    y="e2",
-    coords="physical",
-    plane="RZ",
-)
-
-fig, axes = out.panels("kinetic_ions/e1_v1_density/f", x="e1", y="v1")
-fig, ax = out.trajectories("kinetic_ions", max_markers=1000)
-
-plt.show()
+rho = out.evaluate("diagnostics/rho_xyz", t=-1)
+rho.isel(e3=rho.sizes["e3"] // 2).plot(x="e1", y="e2")
 ```
 
-Plotting methods also accept a derived `DataArray` instead of a saved-product name.
+For an intentionally simple inspection plot, pass an xarray object to `Output.plot()`.
+It chooses the last time, first vector component, and midpoint slices until xarray can plot it.
 
 ```python
-rho_last = out.evaluate("diagnostics/rho_xyz", isel={"t": -1})
-fig, ax = out.slice(rho_last, x="e1", y="e2", coords="physical", plane="RZ")
+out.plot(out.evaluate("em_fields/E"))
 ```
-
-The available product plotting methods are `timeseries`, `slice`, `panels`, `viewer`,
-`animation`, and `trajectories`. `view` creates a reusable view configuration, while `frames`
-writes PNG files and returns their paths. Whole-run plots are `plot_scalars` and `equilibrium`.
 
 ## MPI post-processing
 
