@@ -579,29 +579,27 @@ serial processing runs on rank 0 while the other ranks wait, and
 Standard plots and analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Plotting and derived diagnostics are optional and live in the separate
-``struphy-plots`` package. Install it separately, then import it to register its
-optional xarray accessor:
+Products are standard xarray objects. Use xarray's plotting methods for the
+ordinary one- and two-dimensional cases:
 
 .. code-block:: python
-
-    import struphy_plots
 
     f = out.kinetic_ions.e1_v1_density.f
-    f.struphy.plot.slice(x="e1", y="v1", t="last")
-    f.struphy.plot.panels(x="e1", y="v1", nrows=3, ncols=4)
-    f.struphy.plot.viewer(x="e1", y="v1").show()
-    out.em_fields.phi_xyz.struphy.plot.slice(x="e1", y="e2", t="last", coords="physical")
-    out.kinetic_ions.orbits.struphy.plot.trajectories()
-    out.scalars.en_phi.struphy.plot.timeseries(fit=(0.0, 40.0))        # exponential fit in a window
-    out.scalars.en_phi.struphy.analysis.growth_rate(window=(0.0, 40.0)).rate
+    f.isel(t=-1).plot(x="e1", y="v1")
+    out.scalars.en_phi.plot.line(x="t")
+    out.em_fields.phi_xyz.isel(t=-1, e3=0).plot(x="e1", y="e2")
 
-Plots return a ``PlotResult`` with ``.show()`` and ``.save(path)``. Time series of
-several runs are labeled by run:
+For a comparison across runs, use a Matplotlib axes and plot the labeled arrays
+onto it:
 
 .. code-block:: python
 
-    out_a.scalars.en_phi.struphy.plot.timeseries(out_b.scalars.en_phi, fit=(0.0, 40.0))
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    out_a.scalars.en_phi.plot(ax=ax, label="run A")
+    out_b.scalars.en_phi.plot(ax=ax, label="run B")
+    ax.legend()
 
 The sections below access the arrays directly for custom Matplotlib plots.
 
@@ -638,8 +636,7 @@ perturbation with respect to the background:
 .. code-block:: python
 
     f = out.distributions.kinetic_ions.e1_v1_density.f   # dims (t, e1, v1)
-    import struphy_plots
-    f.struphy.plot.slice(x="e1", y="v1", t="last").show()
+    f.isel(t=-1).plot(x="e1", y="v1")
 
 
 Plotting particle orbits

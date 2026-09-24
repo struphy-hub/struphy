@@ -184,7 +184,7 @@ class Output:
     Call :meth:`evaluate` to obtain one product as an :class:`xarray.DataArray`. It materializes
     post-processing products on demand; call :meth:`pproc` explicitly to choose its options.
     The :attr:`xarray` property exposes the complete post-processed product tree.
-    Optional plotting is provided by the separate ``struphy-plots`` package.
+    Products are standard xarray objects and can be plotted with their xarray methods.
 
     * :attr:`scalars` are read directly from the raw HDF5 output.
     * :attr:`fields`, :attr:`distributions`, :attr:`densities` and :attr:`orbits` group the

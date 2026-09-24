@@ -139,7 +139,7 @@ averages over the logical space dimensions `e1`, `e2` and `e3` (or the ones pass
 so an `e1_v1` product becomes f(v1, t). The mean is uniform in the logical coordinates, which is
 the volume average on a Cartesian domain; on a mapped domain it is not weighted by the Jacobian.
 
-`struphy_plots.analysis.velocity_moments` integrates over the velocity dimensions instead and returns a dataset with the
+The velocity moments are readily computed with xarray reductions over the velocity dimensions; the result is a dataset with the
 `density`, and the mean `mean_v1` and variance `variance_v1` along every velocity direction, as
 functions of the remaining dimensions. In normalized units the variance is the temperature divided
 by the mass. Mean and variance are NaN where the density is not positive, and a `delta_f` product
@@ -148,15 +148,17 @@ has only the density (its perturbation).
 ```python
 f = "kinetic_ions/e1_v1_density/f"
 
-from struphy_plots.analysis import spatial_average, velocity_moments
-
-f_of_v = spatial_average(out.evaluate(f))    # dimensions (t, v1)
-moments = velocity_moments(out.evaluate(f))  # density, mean_v1, variance_v1 over (t, e1)
-temperature_over_mass = spatial_average(moments.variance_v1)
+data = out.evaluate(f)
+f_of_v = data.mean(("e1", "e2", "e3"), missing_dims="ignore")
+velocity_grid = data.v1
+bin_width = velocity_grid.differentiate("v1")
+density = (data * bin_width).sum("v1")
+mean_v1 = (data * velocity_grid * bin_width).sum("v1") / density
+temperature_over_mass = ((data * (velocity_grid - mean_v1) ** 2 * bin_width).sum("v1") / density).mean(
+    ("e1", "e2", "e3"), missing_dims="ignore"
+)
 ```
 
-Importing `struphy_plots` additionally registers the optional
-`array.struphy.analysis` accessor.
 
 ## Convert to SI units
 
