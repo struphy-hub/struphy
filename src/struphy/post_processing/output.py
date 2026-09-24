@@ -273,11 +273,11 @@ class Output:
         method: str | None = None,
         drop: bool = False,
         as_numpy: bool = False,
-        physical: Mapping[str, float] | None = None,
         t: int | float | slice | Sequence[int] | None = None,
         eta1: Any | None = None,
         eta2: Any | None = None,
         eta3: Any | None = None,
+        representation: str | None = None,
         **coordinates: Any,
     ) -> xr.DataArray | np.ndarray:
         """Return a named simulation product as an :class:`xarray.DataArray`.
@@ -294,41 +294,32 @@ class Output:
         A float ``t`` selects a time coordinate. Other keyword arguments select
         named coordinates, for example ``component=2`` or ``e1=0.5``.
 
-        ``physical={"X": x, "Y": y, "Z": z}`` evaluates a field at a physical point when
-        its domain supplies an analytical ``inverse_map``. It converts the point to logical
-        coordinates and uses xarray interpolation.
-
         Supplying all of ``eta1``, ``eta2`` and ``eta3`` instead evaluates a raw FEEC
         spline field directly on that logical grid. Each eta can be a scalar, a list,
         a one-dimensional array, or a ``range``; mixed inputs form their tensor-product
         mesh internally. This reads coefficients one saved snapshot at a time and does
         not materialize a spatial post-processing product. Use a raw field name such as
-        ``"em_fields/e_field"``.
+        ``"em_fields/e_field"``. ``representation`` is applied after spline evaluation:
+        short kinds (``"0"``, ``"1"``, ``"2"``, ``"3"``, ``"v"``) push forward, and
+        ``"norm"`` transforms a normalized vector to Cartesian components. Use
+        ``"push:<kind>"``, ``"pull:<kind>"``, or ``"transform:<kind>"`` for an explicit
+        domain operation. Scalars default to ``"0"`` and vectors to ``"norm"``.
         """
         selectors = dict(coordinates)
+        if "physical" in selectors:
+            raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
         if has_eta:
             if any(value is None for value in eta):
                 raise ValueError("eta1, eta2, and eta3 must be supplied together")
-            if physical:
-                raise ValueError("physical and eta1/eta2/eta3 selections cannot be combined")
-            array = self._evaluate_spline_field(name, *eta, t=t, method=method)
+            array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
             t = None
             method = None
-
-        physical_sel = None
-        if physical:
-            required = {"X", "Y", "Z"}
-            if set(physical) != required:
-                raise ValueError("physical selection requires exactly X, Y and Z")
-            inverse = getattr(self.domain, "inverse_map", None)
-            if inverse is None:
-                raise NotImplementedError(f"{type(self.domain).__name__} has no inverse_map for physical evaluation")
-            eta = inverse(*(float(physical[axis]) for axis in ("X", "Y", "Z")))
-            physical_sel = dict(zip(("e1", "e2", "e3"), map(float, eta)))
         if not has_eta:
+            if representation is not None:
+                raise ValueError("representation requires eta1, eta2, and eta3")
             array = self._product(name)
         if t is not None:
             if isinstance(t, (int, np.integer)):
@@ -343,8 +334,6 @@ class Output:
                 selectors["t"] = [float(t)]
             else:
                 raise TypeError("t must be a saved-snapshot index, index sequence, slice, or float time coordinate")
-        if physical_sel:
-            array = array.interp(physical_sel, method=method or "linear")
         if selectors:
             options = {"drop": drop}
             if method is not None:
@@ -356,7 +345,7 @@ class Output:
 
     def _evaluate_spline_field(
         self, name: str, eta1: Any, eta2: Any, eta3: Any, *, t: int | float | slice | Sequence[int] | None,
-        method: str | None,
+        method: str | None, representation: str | None,
     ) -> xr.DataArray:
         """Evaluate one raw FEEC field on a tensor-product logical grid."""
         try:
@@ -382,7 +371,8 @@ class Output:
             except KeyError as error:
                 available = tuple(f"{group}/{key}" for group, entries in fields.items() for key in entries)
                 raise KeyError(f"{name!r} is not a saved raw FEEC field; available fields: {available}") from error
-            value = field(*etas, squeeze_out=True)
+            value = field(*etas, squeeze_out=False)
+            value = self._apply_representation(value, etas, representation)
             if isinstance(value, (list, tuple)):
                 value = [self._reshape_spline_value(component, grid_shape) for component in value]
             else:
@@ -396,6 +386,32 @@ class Output:
         if is_vector:
             coords["component"] = np.arange(data.shape[1])
         return self._stamp(xr.DataArray(data, dims=dims, coords=coords, name=variable))
+
+    def _apply_representation(self, value: Any, etas: tuple[Any, Any, Any], representation: str | None) -> Any:
+        """Apply one domain basis transformation to evaluated spline values."""
+        is_vector = isinstance(value, (list, tuple))
+        representation = representation or ("norm" if is_vector else "0")
+        if representation == "norm":
+            operation, kind, result_is_vector = "transform", "norm_to_v", True
+        elif representation.startswith(("push:", "pull:", "transform:")):
+            operation, kind = representation.split(":", maxsplit=1)
+            result_is_vector = kind not in {"0", "3", "0_to_3", "3_to_0"}
+        elif representation in {"0", "1", "2", "3", "v"}:
+            operation, kind = "push", representation
+            result_is_vector = kind in {"1", "2", "v"}
+        elif "_to_" in representation:
+            operation, kind = "transform", representation
+            result_is_vector = kind not in {"0_to_3", "3_to_0"}
+        else:
+            raise ValueError(f"unknown representation {representation!r}")
+
+        try:
+            transformed = getattr(self.domain, operation)(value, *etas, kind=kind, squeeze_out=True)
+        except KeyError as error:
+            raise ValueError(f"{operation}:{kind} is not supported by {type(self.domain).__name__}") from error
+        if result_is_vector and not isinstance(transformed, (list, tuple)):
+            transformed = [transformed[component] for component in range(3)]
+        return transformed
 
     @staticmethod
     def _logical_grid(*etas: Any) -> tuple[tuple[Any, Any, Any], tuple[str, ...], dict[str, np.ndarray]]:
