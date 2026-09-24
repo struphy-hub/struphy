@@ -308,6 +308,23 @@ def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
     assert last.sizes["t"] == 1
 
 
+def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
+    class Field:
+        def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
+            e1, e2, e3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            value = e1 + 10 * e2 + 100 * e3
+            return value.squeeze() if squeeze_out else value
+
+    monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
+
+    values = run.evaluate("em_fields/phi", eta1=[0.25, 0.5], eta2=range(2), eta3=0.75, t=0)
+
+    assert values.dims == ("t", "e1", "e2")
+    np.testing.assert_allclose(values.e1, [0.25, 0.5])
+    np.testing.assert_allclose(values.e2, [0.0, 1.0])
+    np.testing.assert_allclose(values[0], [[75.25, 85.25], [75.5, 85.5]])
+
+
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))

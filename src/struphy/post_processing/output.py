@@ -275,9 +275,9 @@ class Output:
         as_numpy: bool = False,
         physical: Mapping[str, float] | None = None,
         t: int | float | slice | Sequence[int] | None = None,
-        eta1: float | None = None,
-        eta2: float | None = None,
-        eta3: float | None = None,
+        eta1: Any | None = None,
+        eta2: Any | None = None,
+        eta3: Any | None = None,
         **coordinates: Any,
     ) -> xr.DataArray | np.ndarray:
         """Return a named simulation product as an :class:`xarray.DataArray`.
@@ -299,9 +299,11 @@ class Output:
         coordinates and uses xarray interpolation.
 
         Supplying all of ``eta1``, ``eta2`` and ``eta3`` instead evaluates a raw FEEC
-        spline field directly at that logical point.  This reads coefficients one saved
-        snapshot at a time and does not materialize a spatial post-processing product.
-        Use a raw field name such as ``"em_fields/e_field"``.
+        spline field directly on that logical grid. Each eta can be a scalar, a list,
+        a one-dimensional array, or a ``range``; mixed inputs form their tensor-product
+        mesh internally. This reads coefficients one saved snapshot at a time and does
+        not materialize a spatial post-processing product. Use a raw field name such as
+        ``"em_fields/e_field"``.
         """
         selectors = dict(coordinates)
 
@@ -312,7 +314,7 @@ class Output:
                 raise ValueError("eta1, eta2, and eta3 must be supplied together")
             if physical:
                 raise ValueError("physical and eta1/eta2/eta3 selections cannot be combined")
-            array = self._evaluate_spline_point(name, *map(float, eta), t=t, method=method)
+            array = self._evaluate_spline_field(name, *eta, t=t, method=method)
             t = None
             method = None
 
@@ -352,11 +354,11 @@ class Output:
             raise ValueError("method requires a direct coordinate selector")
         return array.to_numpy() if as_numpy else array
 
-    def _evaluate_spline_point(
-        self, name: str, eta1: float, eta2: float, eta3: float, *, t: int | float | slice | Sequence[int] | None,
+    def _evaluate_spline_field(
+        self, name: str, eta1: Any, eta2: Any, eta3: Any, *, t: int | float | slice | Sequence[int] | None,
         method: str | None,
     ) -> xr.DataArray:
-        """Evaluate one raw FEEC field at one logical point for selected snapshots."""
+        """Evaluate one raw FEEC field on a tensor-product logical grid."""
         try:
             species, variable = name.split("/")
         except ValueError as error:
@@ -369,6 +371,9 @@ class Output:
             times = np.asarray(file["time/value"]) * self.time_scale
             indices = self._snapshot_indices(t, times, method=method)
 
+        etas, grid_dims, grid_coords = self._logical_grid(eta1, eta2, eta3)
+        grid_shape = tuple(len(grid_coords[dim]) for dim in grid_dims)
+
         values = []
         for snapshot in indices:
             fields = self.spline_fields(t=int(snapshot))
@@ -377,19 +382,50 @@ class Output:
             except KeyError as error:
                 available = tuple(f"{group}/{key}" for group, entries in fields.items() for key in entries)
                 raise KeyError(f"{name!r} is not a saved raw FEEC field; available fields: {available}") from error
-            value = field(eta1, eta2, eta3, squeeze_out=True)
+            value = field(*etas, squeeze_out=True)
             if isinstance(value, (list, tuple)):
-                value = [component.item() if hasattr(component, "item") else component for component in value]
+                value = [self._reshape_spline_value(component, grid_shape) for component in value]
             else:
-                value = value.item() if hasattr(value, "item") else value
+                value = self._reshape_spline_value(value, grid_shape)
             values.append(value)
 
-        data = np.asarray(values)
-        dims = ("t",) if data.ndim == 1 else ("t", "component")
-        coords: dict[str, Any] = {"t": times[indices]}
-        if data.ndim == 2:
+        is_vector = bool(values and isinstance(values[0], list))
+        data = np.asarray(values) if values else np.empty((0, *grid_shape))
+        dims = ("t",) + (("component",) if is_vector else ()) + tuple(grid_dims)
+        coords: dict[str, Any] = {"t": times[indices], **grid_coords}
+        if is_vector:
             coords["component"] = np.arange(data.shape[1])
         return self._stamp(xr.DataArray(data, dims=dims, coords=coords, name=variable))
+
+    @staticmethod
+    def _logical_grid(*etas: Any) -> tuple[tuple[Any, Any, Any], tuple[str, ...], dict[str, np.ndarray]]:
+        """Normalize mixed logical-coordinate inputs for spline tensor-product evaluation."""
+        arguments = []
+        dims = []
+        coords = {}
+        for dimension, eta in zip(("e1", "e2", "e3"), etas):
+            array = np.asarray(eta, dtype=float)
+            if array.ndim == 0:
+                arguments.append(float(array))
+            elif array.ndim == 1:
+                if not array.size:
+                    raise ValueError(f"{dimension} must contain at least one coordinate")
+                arguments.append(xp.asarray(array))
+                dims.append(dimension)
+                coords[dimension] = array
+            else:
+                raise ValueError(f"{dimension} must be a scalar or one-dimensional coordinate sequence")
+        return tuple(arguments), tuple(dims), coords
+
+    @staticmethod
+    def _reshape_spline_value(value: Any, shape: tuple[int, ...]) -> Any:
+        """Convert one squeezed spline result to the requested logical-grid shape."""
+        if hasattr(value, "get"):
+            value = value.get()
+        array = np.asarray(value)
+        if not shape:
+            return array.item()
+        return array.reshape(shape)
 
     @staticmethod
     def _snapshot_indices(
