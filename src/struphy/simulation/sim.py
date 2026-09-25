@@ -1967,7 +1967,10 @@ from struphy.models import {self.model.__class__.__name__}
 
         sim_class_def += ")\n"
 
+        # Rebuild from the serialized configuration so post-construction model
+        # settings (particle parameters and propagator options) are preserved.
         script += sim_setup + "\n" + sim_class_def
+        script += f"\n# Restore the complete model configuration\nsim = Simulation.from_dict({self.to_dict()!r})\n"
         if include_main_guard:
             script += """
 if __name__ == "__main__":

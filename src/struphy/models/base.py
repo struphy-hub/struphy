@@ -994,13 +994,77 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     def from_dict(cls, dct) -> "StruphyModel":
         """Deserialize a model from :meth:`to_dict`."""
         from struphy.models.utils import get_model_by_name
+        from struphy.particles.parameters import (
+            BoundaryParameters,
+            LoadingParameters,
+            SavingParameters,
+            SortingParameters,
+            WeightsParameters,
+        )
 
         params = {}
         for key, value in dct.get("params", {}).items():
             if isinstance(value, dict) and set(value) == {"BaseUnits"}:
                 value = BaseUnits.from_dict(value["BaseUnits"])
             params[key] = value
-        return get_model_by_name(dct["model"])(**params)
+        model = get_model_by_name(dct["model"])(**params)
+
+        parameter_types = {
+            "loading_params": LoadingParameters,
+            "weights_params": WeightsParameters,
+            "boundary_params": BoundaryParameters,
+            "sorting_params": SortingParameters,
+            "saving_params": SavingParameters,
+        }
+        for species_name, species_data in dct.get("species", {}).items():
+            species = model.species.get(species_name)
+            if species is None:
+                continue
+            for variable_name, variable_data in species_data.get("variables", {}).items():
+                variable = species.variables.get(variable_name)
+                if variable is None:
+                    continue
+                if "save_data" in variable_data:
+                    variable.save_data = variable_data["save_data"]
+                if isinstance(variable, PICVariable) and "n_as_volume_form" in variable_data:
+                    variable._n_as_volume_form = variable_data["n_as_volume_form"]
+
+            if isinstance(species, ParticleSpecies) and "loading_params" in species_data:
+                marker_params = {
+                    name: parameter_types[name](**species_data[name])
+                    for name in parameter_types
+                    if name in species_data
+                }
+                marker_params["bufsize"] = species_data.get("bufsize", 1.0)
+                species.set_markers(**marker_params)
+
+        def restore_option(value, template):
+            if is_dataclass(template) and isinstance(value, dict):
+                for field in fields(template):
+                    if field.init and field.name in value:
+                        setattr(template, field.name, restore_option(value[field.name], getattr(template, field.name)))
+                return template
+            if isinstance(template, dict) and isinstance(value, dict):
+                return {
+                    restore_option(key, key): restore_option(item, template.get(key))
+                    for key, item in value.items()
+                }
+            if isinstance(value, list):
+                template_item = template[0] if isinstance(template, (list, tuple)) and template else None
+                return [restore_option(item, template_item) for item in value]
+            if isinstance(value, str) and "." in value:
+                species_name, variable_name = value.split(".", 1)
+                species = model.species.get(species_name)
+                if species is not None and variable_name in species.variables:
+                    return species.variables[variable_name]
+            return value
+
+        for prop_name, options in dct.get("propagator_options", {}).items():
+            propagator = getattr(model.propagators, prop_name, None)
+            if propagator is not None:
+                restore_option(options, propagator.options)
+
+        return model
 
     @classmethod
     def from_name(cls, name: str) -> "StruphyModel":
