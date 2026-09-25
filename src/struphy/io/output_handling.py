@@ -1,4 +1,3 @@
-import ctypes
 import logging
 import os
 
@@ -46,10 +45,10 @@ class DataContainer:
         # check if file already exists
         file_exists = os.path.exists(self.file_path)
 
-        # dictionary with pairs (dataset key : object ID)
+        # dictionary with pairs (dataset key : object to save)
         self._dset_dict = {}
 
-        # get dataset keys if file already exists and set None object IDs; time series are
+        # get dataset keys if file already exists and set None objects; time series are
         # chunked (see add_data), static datasets such as kinetic backgrounds are not
         if file_exists:
             dataset_keys = []
@@ -78,7 +77,7 @@ class DataContainer:
 
     @property
     def dset_dict(self):
-        """Dictionary with dataset keys and object IDs."""
+        """Dictionary with dataset keys and the objects saved to them."""
         return self._dset_dict
 
     @staticmethod
@@ -139,8 +138,8 @@ class DataContainer:
                         )
                         file[key][0] = val_np
 
-            # set object ID
-            self._dset_dict[key] = id(val)
+            # keep a reference, so the object is alive and current when it is saved
+            self._dset_dict[key] = val
 
     def save_data(self, keys=None):
         """
@@ -151,18 +150,15 @@ class DataContainer:
         keys : list
             Keys to the data objects specified when using "add_data". Default saves all specified data objects.
         """
+        if keys is None:
+            keys = self._dset_dict
         with h5py.File(self.file_path, "a") as file:
-            # loop over all keys
-            if keys is None:
-                for key in self._dset_dict:
-                    file[key].resize(file[key].shape[0] + 1, axis=0)
-                    file[key][-1] = self._as_numpy_array(ctypes.cast(self._dset_dict[key], ctypes.py_object).value)
-
-            # only loop over given keys
-            else:
-                for key in keys:
-                    file[key].resize(file[key].shape[0] + 1, axis=0)
-                    file[key][-1] = self._as_numpy_array(ctypes.cast(self._dset_dict[key], ctypes.py_object).value)
+            for key in keys:
+                val = self._dset_dict[key]
+                if val is None:
+                    raise KeyError(f"Dataset {key!r} exists in {self.file_path} but no data was added for it")
+                file[key].resize(file[key].shape[0] + 1, axis=0)
+                file[key][-1] = self._as_numpy_array(val)
 
     def info(self):
         """Print info of data sets to screen."""
