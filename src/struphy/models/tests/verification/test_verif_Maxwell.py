@@ -3,9 +3,12 @@ import os
 import shutil
 
 import cunumpy as xp
+import numpy as np
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
+from scipy.fft import fft2, fftfreq
+from scipy.signal import argrelextrema
 from scipy.special import jv, yn
 
 from struphy import (
@@ -22,6 +25,38 @@ from struphy import (
 from struphy.models import Maxwell
 
 logger = logging.getLogger("struphy")
+
+
+def _power_spectrum(field, component=0):
+    """Space-time power spectrum |F(omega, k)| of a field along z, at the first x and y grid point."""
+    if "component" in field.dims:
+        field = field.isel(component=component)
+    data = field.isel(e1=0, e2=0).transpose("t", "e3")
+    time, z = data.t.values, data.Z.values
+    nt, nz = data.shape
+    power = (2.0 / nt) * (2.0 / nz) * np.abs(fft2(data.values))[: nt // 2, : nz // 2]
+    omega = 2 * np.pi * fftfreq(nt, time[1] - time[0])[: nt // 2]
+    k = 2 * np.pi * fftfreq(nz, z[1] - z[0])[: nz // 2]
+    return omega, k, power
+
+
+def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
+    """Fit omega = v * k + b to each of the n_branches spectral peaks; returns [(v, b), ...]."""
+    k_fit, omega_fit = [], [[] for _ in range(n_branches)]
+    for i in range(k.size // 8, k.size // 2):
+        column = power[:, i]
+        maxima = argrelextrema(column, np.greater, order=order)[0]
+        peaks = sorted(j for j in maxima if column[j] > noise_level * column.max())
+        if not peaks:
+            continue
+        assert len(peaks) == n_branches, (
+            f"Found {len(peaks)} branches at k={k[i]:.3f}, expected {n_branches}. "
+            "Try another noise_level or order."
+        )
+        k_fit.append(k[i])
+        for branch, j in zip(omega_fit, peaks):
+            branch.append(omega[j])
+    return [np.polyfit(k_fit, branch, deg=1) for branch in omega_fit]
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
@@ -72,20 +107,12 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
         # fft
-        spectrum = run.dispersion(
-            "em_fields/e_field",
-            physical=True,
-            component=0,
-            slice_at=[0, 0, None],
-            fit_branches=1,
-            noise_level=0.5,
-            extr_order=10,
-            fit_degree=(1,),
-        )
+        omega, k, power = _power_spectrum(run.fields.em_fields.e_field, component=0)
+        fits = _fit_branches(omega, k, power, n_branches=1, noise_level=0.5)
 
         # assert
         c_light_speed = 1.0
-        assert xp.abs(spectrum.branch_coefficients.values[0, 0] - c_light_speed) < 0.02
+        assert xp.abs(fits[0][0] - c_light_speed) < 0.02
 
         shutil.rmtree(test_folder)
 
