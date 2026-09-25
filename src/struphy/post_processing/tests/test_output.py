@@ -255,7 +255,8 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
 def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    run = Output(root)
+    # Automatic processing is serial only; the multi-rank refusal is tested separately.
+    run = output_with_comm(monkeypatch, root, FakeComm())
     calls = []
 
     def fake_pproc(self, **options):
