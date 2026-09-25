@@ -40,9 +40,10 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
    ../_collections/tutorials/tutorial_beltrami_sph
    ../_collections/tutorials/tutorial_gas_expansion_sph
    ../_collections/tutorials/tutorial_viscous_euler_sph
-   ../_collections/tutorials/tutorial_velocity_diffsusion_sph
+   ../_collections/tutorials/tutorial_velocity_diffusion_sph
    ../_collections/tutorials/tutorial_hagen_poiseuille_sph
    ../_collections/tutorials/tutorial_dam_break_sph
+   ../_collections/tutorials/tutorial_pressureless_sph_shock
 
 
 .. toctree::
