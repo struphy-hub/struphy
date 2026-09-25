@@ -74,11 +74,14 @@ def test_binned_wrapper_keeps_memory_mappable_values():
     assert data.attrs["label"] == "$f$"
 
 
-def test_orbits_name_their_columns():
-    data = wrap_orbits(np.zeros((2, 5, 8)), [0, 1])
-    assert list(data.quantity.values) == ["x", "y", "z", "v1", "v2", "v3", "weight", "id"]
-    assert data.sel(marker=2).dims == ("t", "quantity")
-    assert data.sel(quantity="weight").dims == ("t", "marker")
+def test_orbits_are_one_variable_per_quantity():
+    quantities = ((0, "x", "$x$", "position x"), (6, "weight", "$w$", "marker weight"))
+    data = wrap_orbits(np.arange(20.0).reshape(2, 5, 2), [0, 1], quantities)
+    assert list(data.data_vars) == ["x", "weight"]
+    assert data.weight.dims == ("t", "marker")
+    assert data.weight.attrs["description"] == "marker weight"
+    np.testing.assert_array_equal(data.weight.isel(t=0), [1, 3, 5, 7, 9])
+    assert data.sel(marker=2).x.dims == ("t",)
 
 
 def test_scalar_alignment_is_exact():

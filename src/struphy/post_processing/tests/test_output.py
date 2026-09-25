@@ -14,7 +14,8 @@ from struphy import BaseUnits, Time, domains
 from struphy.models import Maxwell
 from struphy.post_processing import output as output_module
 from struphy.post_processing import store
-from struphy.post_processing.arrays import orbit_quantities
+from struphy.pic.particles import Particles6D
+from struphy.post_processing.arrays import wrap_orbits
 from struphy.post_processing.manifest import is_processed, normalize_options, source_fingerprint
 from struphy.post_processing.output import Output, open_output
 
@@ -66,14 +67,8 @@ def write_tree(root):
             coords={"t": t, "e1": logical["e1"], "e2": logical["e2"], "e3": np.zeros(1)},
         ),
     )
-    store.write_group(
-        path,
-        "/kinetic_ions",
-        xr.Dataset(
-            {"orbits": (("t", "marker", "quantity"), np.stack([np.full((N_MARKERS, 8), step) for step in range(NT)]))},
-            coords={"t": t, "marker": np.arange(N_MARKERS), "quantity": orbit_quantities(8)},
-        ),
-    )
+    orbits = np.stack([np.full((N_MARKERS, 7), step) for step in range(NT)])
+    store.write_group(path, "/kinetic_ions/orbits", wrap_orbits(orbits, t, Particles6D.orbit_quantities))
 
     data_dir = os.path.join(root, "data")
     os.makedirs(data_dir)
@@ -187,10 +182,34 @@ def test_sph_density_views_take_dimensions_from_their_grids(run):
     np.testing.assert_allclose(data.e2, np.linspace(0, 1, N2))
 
 
-def test_orbit_product_keeps_column_semantics(run):
+def test_orbit_product_is_a_dataset_of_named_quantities(run):
     data = run.orbits["kinetic_ions"]
-    assert data.dims == ("t", "marker", "quantity")
-    assert list(data.quantity.values) == ["x", "y", "z", "v1", "v2", "v3", "weight", "id"]
+    assert isinstance(data, xr.Dataset)
+    assert list(data.data_vars) == ["x", "y", "z", "v1", "v2", "v3", "weight"]
+    assert dict(data.sizes) == {"t": NT, "marker": N_MARKERS}
+    assert data.x.attrs["description"] == "physical position x"
+    assert data.v1.attrs["long_name"] == "$v_x$"
+    np.testing.assert_array_equal(data.marker, np.arange(N_MARKERS))
+
+
+def test_orbits_of_earlier_stores_are_converted_on_read(tmp_path):
+    root = write_tree(str(tmp_path))
+    path = store.store_path(os.path.join(root, "post_processing"))
+    t = np.linspace(0, 1, NT)
+    legacy = np.stack([np.full((N_MARKERS, 8), step) for step in range(NT)])
+    names = ["x", "y", "z", "v1", "v2", "v3", "weight", "id"]
+    store.write_group(
+        path,
+        "/electrons",
+        xr.Dataset(
+            {"orbits": (("t", "marker", "quantity"), legacy)},
+            coords={"t": t, "marker": np.arange(N_MARKERS), "quantity": names},
+        ),
+    )
+    data = Output(root).orbits["electrons"]
+    assert isinstance(data, xr.Dataset)
+    assert list(data.data_vars) == names[:-1]
+    assert data.x.dims == ("t", "marker")
 
 
 def test_scalar_time_uses_the_same_policy_as_postprocessed_products(run):
@@ -308,7 +327,7 @@ def test_evaluate_scalars_and_particle_defaults(run):
     assert selected.name == "delta_f"
 
     orbits = run.evaluate("kinetic_ions/orbits")
-    assert orbits.name == "orbits"
+    assert isinstance(orbits, xr.Dataset) and "weight" in orbits.data_vars
 
 
 def test_info_lists_particle_dataset_choices_in_default_order(run, capsys):
@@ -559,15 +578,25 @@ def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
 def test_info_lists_evaluable_products_with_descriptions(run, capsys):
     assert run.info() is None
     text = capsys.readouterr().out
-    assert "Configuration" in text and "Species and variables" in text
-    assert "Propagator options" in text and "Initial conditions" in text
-    assert "Help" in text and "out.initial_conditions" in text
-    assert "Key" in text and "Description" in text
+    assert "Configuration" not in text and "Propagator options" not in text
+    assert "Key" in text and "Description" in text and "Load with" in text and "Hints" in text
+    assert "out.evaluate('scalars', variables='en_tot')" in text
+    assert "out.evaluate('kinetic_ions/f', dataset='kinetic_ions/e1_v1_density/f')" in text
+    assert "out.evaluate('kinetic_ions/orbits')" in text
     assert "en_tot" in text and "scalar time series" in text
     assert "kinetic_ions/e1_v1_density/f" in text and "particle distribution" in text
     assert "kinetic_ions" in text and "marker trajectories" in text
     assert "em_fields/E" in text and "field" in text
     assert run.field_catalog._cache == {}, "listing must not load arrays"
+
+
+def test_info_evaluate_calls_load_their_keys(run):
+    for key in run.keys():
+        call = run._evaluate_call(key)
+        array = eval(call, {"out": run})
+        if key in run.scalars.data_vars:
+            array = array[key]
+        xr.testing.assert_identical(array, run._product(key))
 
 
 def test_info_labels_distribution_and_density_symbols(run, capsys):

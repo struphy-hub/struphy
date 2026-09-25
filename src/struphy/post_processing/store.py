@@ -4,7 +4,7 @@
 that group's dataset::
 
     /em_fields                     e_field, phi, and e_field_xyz, phi_xyz with physical=True
-    /kinetic_ions                  orbits
+    /kinetic_ions/orbits           x, y, z, v1, ... (one variable per quantity, see Particles.orbit_quantities)
     /kinetic_ions/e1_v1_density    f, delta_f
     /kinetic_ions/view_0           n
 
