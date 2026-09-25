@@ -7,24 +7,35 @@ more than one folder only the growth-rate comparison is shown.
 import sys
 from pathlib import Path
 
-import struphy_plots
-from struphy_plots.output_accessors import OutputPlots
+import numpy as np
+from matplotlib import pyplot as plt
 
 from struphy import Output
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
 
+# scalar whose exponential growth rate is fitted, and the fit window in Struphy time units
 FIT_QUANTITY = "en_phi"
 FIT_WINDOW = (0.0, 42.0)
 
-SHOW_EQUIL_PROFILE = True
-
-# products to sweep interactively in the physical XY plane
-SWEEPS = [
-    "kinetic_ions/e1_e2_density/f",
-    "kinetic_ions/e1_e2_density/delta_f",
-    "em_fields/phi_xyz",
+# products shown at the last saved time in the physical XY plane
+SNAPSHOTS = [
+    ("kinetic_ions", "e1_e2_density", "f"),
+    ("kinetic_ions", "e1_e2_density", "delta_f"),
+    ("em_fields", "phi_xyz"),
 ]
+
+
+def fit_growth(series, window=(None, None)):
+    """Fit ``exp(rate * t + intercept)`` to the positive samples inside ``window``."""
+    time, values = series.t.values, series.values
+    lo = time[0] if window[0] is None else window[0]
+    hi = time[-1] if window[1] is None else window[1]
+    mask = (time >= lo) & (time <= hi) & np.isfinite(values) & (values > 0)
+    if np.count_nonzero(mask) < 2:
+        return None
+    rate, intercept = np.polyfit(time[mask], np.log(values[mask]), 1)
+    return rate, intercept, time[mask]
 
 
 def main(paths=(DEFAULT_OUTPUT,)):
@@ -32,26 +43,39 @@ def main(paths=(DEFAULT_OUTPUT,)):
     run = runs[0]
 
     # growth rate of the electrostatic energy, one curve per run
-    first, *rest = (each[FIT_QUANTITY] for each in runs)
-    plot = first.struphy.plot.timeseries(
-        *rest,
-        fit=FIT_WINDOW,
-        title=f"Evolution of {FIT_QUANTITY}",
-    ).show()
-
-    for each, result in zip(runs, plot.fit_results):
-        print(f"{each.path_out.name}: growth rate = {None if result is None else result.rate}")
+    fig, ax = plt.subplots()
+    for each in runs:
+        series = each.scalars[FIT_QUANTITY]
+        (line,) = ax.plot(series.t, series, label=each.path_out.name)
+        result = fit_growth(series, FIT_WINDOW)
+        if result is not None:
+            rate, intercept, time = result
+            ax.plot(time, np.exp(rate * time + intercept), "--", color=line.get_color())
+        print(f"{each.path_out.name}: growth rate = {None if result is None else result[0]}")
+    ax.set(xlabel="time", yscale="log", title=f"Evolution of {FIT_QUANTITY}")
+    ax.legend()
+    plt.show()
 
     if len(runs) > 1:
         return
 
-    if SHOW_EQUIL_PROFILE:
-        OutputPlots(run).equilibrium()
+    for path in SNAPSHOTS:
+        data = run
+        for part in path:
+            data = getattr(data, part)
+        snapshot = data.isel(t=-1)
+        if "e3" in snapshot.dims:
+            snapshot = snapshot.isel(e3=0)
+        fig, ax = plt.subplots()
+        snapshot.plot(x="X", y="Y", ax=ax)
+        ax.set(aspect="equal", title=f"{'/'.join(path)}, t = {float(snapshot.t):.3g}")
+        plt.show()
 
-    for name in SWEEPS:
-        run.evaluate(name).struphy.plot.viewer(x="e1", y="e2", coords="physical", plane="XY").show()
-
-    run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=1000).show()
+    orbits = run.kinetic_ions.orbits.isel(marker=slice(0, 1000))
+    fig, ax = plt.subplots()
+    ax.plot(orbits.x, orbits.y, lw=0.5)
+    ax.set(xlabel="$x$", ylabel="$y$", title="Marker trajectories", aspect="equal")
+    plt.show()
 
 
 if __name__ == "__main__":

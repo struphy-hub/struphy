@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 import cunumpy as xp
-import struphy_plots
+import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
@@ -10,8 +10,17 @@ from struphy import Output
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_data"
 
 
+def plot_panels(data, x, y, n_panels, ncols, title=None):
+    """Snapshots of a binned distribution at evenly spaced saved times, one panel each."""
+    times = np.unique(np.linspace(0, data.sizes["t"] - 1, n_panels).round().astype(int))
+    grid = data.isel(t=times).plot(x=x, y=y, col="t", col_wrap=min(ncols, len(times)))
+    if title is not None:
+        grid.fig.suptitle(title)
+    return grid
+
+
 def main(path_out=DEFAULT_OUTPUT):
-    run = Output(path_out, time_units="normalized")
+    run = Output(path_out).with_time_units("normalized")
     time = run.time
     Tend = run.time_opts.Tend
     algo = run.time_opts.split_algo
@@ -101,7 +110,8 @@ def main(path_out=DEFAULT_OUTPUT):
         ("v1_v2_density", "v1", "v2"),
     ):
         for quantity in ("f", "delta_f"):
-            getattr(getattr(distributions, bin_name), quantity).struphy.plot.panels(x=x, y=y, nrows=5, ncols=4).show()
+            plot_panels(getattr(getattr(distributions, bin_name), quantity), x=x, y=y, n_panels=20, ncols=4)
+            plt.show()
 
     # ------------------
     # EM field at selected times

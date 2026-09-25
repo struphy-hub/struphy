@@ -2,11 +2,21 @@ import argparse
 from pathlib import Path
 
 import cunumpy as xp
-import struphy_plots
+import numpy as np
+from matplotlib import pyplot as plt
 
 from struphy import Output
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_data"
+
+
+def plot_panels(data, x, y, n_panels, ncols, title=None):
+    """Snapshots of a binned distribution at evenly spaced saved times, one panel each."""
+    times = np.unique(np.linspace(0, data.sizes["t"] - 1, n_panels).round().astype(int))
+    grid = data.isel(t=times).plot(x=x, y=y, col="t", col_wrap=min(ncols, len(times)))
+    if title is not None:
+        grid.fig.suptitle(title)
+    return grid
 
 
 def E_exact(t, eps=0.001):
@@ -22,18 +32,19 @@ def main(path_out=DEFAULT_OUTPUT, amplitude=0.001):
     run = Output(path_out)
 
     # electric field energy against the analytical damping
-    energy = run.scalars.electric_energy.copy()
-    energy.attrs["label"] = "numerical"
-    analytical = energy.copy(data=E_exact(energy.t.values, eps=amplitude))  # t is in Struphy units
-    analytical.attrs["label"] = "analytical"
-    energy.struphy.plot.timeseries(analytical, title="Electric energy").show()
+    energy = run.scalars.electric_energy
+    analytical = E_exact(energy.t.values, eps=amplitude)  # t is in Struphy units
+    fig, ax = plt.subplots()
+    ax.plot(energy.t, energy, label="numerical")
+    ax.plot(energy.t, analytical, "--", label="analytical")
+    ax.set(xlabel="time", yscale="log", title="Electric energy")
+    ax.legend()
+    plt.show()
 
     # full f and delta f in the e1-v1 plane at four times
     for quantity, title in (("f", "full-$f$"), ("delta_f", r"$\delta f$")):
-        getattr(run.kinetic_ions.e1_v1_density, quantity).struphy.plot.panels(
-            x="e1", y="v1", nrows=1, ncols=4, title=title
-        ).show()
-
+        plot_panels(getattr(run.kinetic_ions.e1_v1_density, quantity), x="e1", y="v1", n_panels=4, ncols=4, title=title)
+        plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
