@@ -35,7 +35,6 @@ def test_gyro_maxwellian_2d(do_plot=False):
     sim.allocate()
 
     import numpy as np
-
     for i in range(5):
         components = [False] * 5
         components[i] = True
@@ -48,7 +47,6 @@ def test_gyro_maxwellian_2d(do_plot=False):
         err = model.energetic_ions.var.particles.show_distribution_function(components, bin_edges, do_plot=do_plot)
         print(f"1d {components = }, {err = }")
         assert err < 0.05
-
     components = [False] * 5
     components[3] = True
     components[4] = True

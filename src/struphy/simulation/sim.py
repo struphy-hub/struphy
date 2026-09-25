@@ -881,11 +881,18 @@ class Simulation(SimulationBase):
         classify: bool = False,
         create_vtk: bool = True,
         parallel_pproc: bool = False,
+        perform_time_fft: bool = False,
+        fft_pad_bins: int = 0,
     ):
         """Run post-processing on saved simulation data.
 
         Uses `PostProcessor` to generate plots, process guiding-center or
         physical field views, and optionally produce VTK outputs.
+
+        `perform_time_fft` additionally FFTs each evaluated field along the time axis, keeps
+        only the FWHM band (widened by `fft_pad_bins` bins on each side) around its dominant
+        frequency and inverse-FFTs. After ``load_plotting_data()``, the filtered fields are
+        available as e.g. ``spline_values.mhd.velocity_log.data.filtered()``.
         """
 
         # setup post processor and plotting
@@ -899,6 +906,8 @@ class Simulation(SimulationBase):
                 guiding_center=guiding_center,
                 classify=classify,
                 create_vtk=create_vtk,
+                perform_time_fft=perform_time_fft,
+                fft_pad_bins=fft_pad_bins,
             )
         else:
             if self.rank == 0:
@@ -911,6 +920,8 @@ class Simulation(SimulationBase):
                     guiding_center=guiding_center,
                     classify=classify,
                     create_vtk=create_vtk,
+                    perform_time_fft=perform_time_fft,
+                    fft_pad_bins=fft_pad_bins,
                 )
 
     def load_plotting_data(self):
@@ -919,6 +930,9 @@ class Simulation(SimulationBase):
         Creates a `PlottingData` instance on rank 0 (if needed), loads the
         data and exposes convenient attributes such as `orbits`, `f`, and
         grid information for downstream plotting or analysis.
+
+        Time-FFT filtered fields from ``pproc(perform_time_fft=True)`` are accessed from
+        the unfiltered ones, e.g. ``spline_values.mhd.velocity_log.data.filtered()``.
         """
 
         if not hasattr(self, "_plotting_data") and self.rank == 0:

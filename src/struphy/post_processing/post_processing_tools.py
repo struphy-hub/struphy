@@ -27,6 +27,7 @@ from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
 from struphy.post_processing.orbits import orbits_tools
+from struphy.post_processing.time_fft import filter_val_dict
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.progress import tqdm
 
@@ -108,6 +109,79 @@ class DataDict:
             out += f"{key = }".ljust(25)
             out += f"shape = {shp}\n"
         return out
+
+
+class FieldData(dict):
+    """Post-processed field values ``{t: [comp_0, comp_1, ...]}`` with access to the time-FFT filtered version.
+
+    Behaves exactly like the plain dict stored in ``<var>_log.bin``. The filtered data is
+    only read (or computed) when :meth:`filtered` or :meth:`spectrum` is called, and then cached.
+
+    Parameters
+    ----------
+    data : dict
+        ``{t: [comp_0, comp_1, ...]}``.
+    path_filtered : str, optional
+        Path of the corresponding ``.bin`` file in ``fields_data_filtered/`` written by
+        ``PostProcessor.process(perform_time_fft=True)``, if any.
+    """
+
+    def __init__(self, data: dict, path_filtered: str = None):
+        super().__init__(data)
+        self._path_filtered = path_filtered
+        self._cache = {}
+
+    def _saved_pad_bins(self):
+        """``fft_pad_bins`` used by pproc for the filtered data on disk, or None if there is none."""
+        if self._path_filtered is None or not os.path.exists(self._path_filtered):
+            return None
+        path_fft = self._path_filtered.replace(".bin", "_fft.pkl")
+        if not os.path.exists(path_fft):
+            # written by an older version of pproc, without the spectrum
+            logger.warning(f"No {path_fft}, computing the filtered data in memory; re-run pproc to update.")
+            self._path_filtered = None
+            return None
+        if "saved" not in self._cache:
+            with open(path_fft, "rb") as f:
+                self._cache["saved"] = pickle.load(f)
+        return self._cache["saved"]["pad_bins"]
+
+    def _get(self, pad_bins: int | None):
+        saved = self._saved_pad_bins()
+        if pad_bins is None:
+            pad_bins = 0 if saved is None else saved
+
+        if pad_bins not in self._cache:
+            if pad_bins == saved:
+                with open(self._path_filtered, "rb") as f:
+                    self._cache[pad_bins] = (pickle.load(f), self._cache["saved"])
+            else:
+                self._cache[pad_bins] = filter_val_dict(self, pad_bins=pad_bins)
+        return self._cache[pad_bins]
+
+    def filtered(self, pad_bins: int = None) -> dict:
+        """Time-FFT filtered field: only the FWHM band (+ ``pad_bins`` on each side) around the dominant frequency.
+
+        Same ``{t: [comp_0, comp_1, ...]}`` layout as ``self``, so any code written for the
+        unfiltered data runs unchanged on the result.
+
+        Parameters
+        ----------
+        pad_bins : int, optional
+            Extra frequency bins kept on each side of the FWHM band. None (default) returns
+            the data saved by ``pproc(perform_time_fft=True, fft_pad_bins=...)``, or computes
+            it with ``pad_bins=0`` if pproc did not save it. Any other value is computed in
+            memory from the unfiltered data (no need to re-run pproc).
+        """
+        return self._get(pad_bins)[0]
+
+    def spectrum(self, pad_bins: int = None) -> dict:
+        """Unfiltered power spectrum and kept band belonging to ``filtered(pad_bins)``.
+
+        Returns a dict with ``omega``, ``pad_bins`` and, per component (first axis), ``power``,
+        ``dominant_frequency``, ``idx_dominant``, ``idx_lo``, ``idx_hi``, ``omega_lo``, ``omega_hi``.
+        """
+        return self._get(pad_bins)[1]
 
 
 class ParamsIn:
@@ -302,6 +376,8 @@ class PostProcessor:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
+        perform_time_fft: bool = False,
+        fft_pad_bins: int = 0,
     ):
         """Run post-processing for fields and particle data in ``self.path_out``.
 
@@ -321,6 +397,16 @@ class PostProcessor:
             If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        perform_time_fft : bool
+            If True, FFT each evaluated field along the time axis, keep only the FWHM band
+            around its dominant (non-zero) frequency and inverse-FFT. The filtered fields are
+            written to ``fields_data_filtered/<species>/`` under the same file names as the
+            unfiltered ones in ``fields_data/<species>/``, together with the unfiltered spectrum
+            and the kept band (``<var>_fft.pkl``). After loading, access them via
+            ``sim.spline_values.<species>.<var>.data.filtered()`` and ``.spectrum()``.
+        fft_pad_bins : int
+            Extra frequency bins kept on each side of the FWHM band (counteracts spectral
+            leakage of the dominant peak into neighbouring bins).
         """
         logger.warning(f"\nPost-processing path {self.path_out}")
 
@@ -361,6 +447,8 @@ class PostProcessor:
             celldivide=celldivide,
             physical=physical,
             create_vtk=create_vtk,
+            perform_time_fft=perform_time_fft,
+            fft_pad_bins=fft_pad_bins,
         )
 
         # particle variables
@@ -376,6 +464,8 @@ class PostProcessor:
         celldivide: int | Sequence[int] = (1, 1, 1),
         physical: bool = False,
         create_vtk: bool = True,
+        perform_time_fft: bool = False,
+        fft_pad_bins: int = 0,
     ):
         """Evaluate the FEEC fields of all saved time steps and write them to disk.
 
@@ -395,6 +485,16 @@ class PostProcessor:
             If True, also compute push-forwarded physical (x,y,z) components of fields.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        perform_time_fft : bool
+            If True, FFT each evaluated field along the time axis, keep only the FWHM band
+            around its dominant (non-zero) frequency and inverse-FFT. The filtered fields are
+            written to ``fields_data_filtered/<species>/`` under the same file names as the
+            unfiltered ones in ``fields_data/<species>/``, together with the unfiltered spectrum
+            and the kept band (``<var>_fft.pkl``). After loading, access them via
+            ``sim.spline_values.<species>.<var>.data.filtered()`` and ``.spectrum()``.
+        fft_pad_bins : int
+            Extra frequency bins kept on each side of the FWHM band (counteracts spectral
+            leakage of the dominant peak into neighbouring bins).
         """
         if not self.exist_fields:
             logger.warning("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
@@ -430,7 +530,6 @@ class PostProcessor:
 
             for n, t in enumerate(tqdm(t_grid)):
                 self._load_femfields(fields, files, n, step=step)
-
                 vals, vals_phy = self._eval_femfields(
                     fields,
                     grids_log_loc,
@@ -469,6 +568,38 @@ class PostProcessor:
                     if physical:
                         with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
                             pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            # time-FFT: keep only the FWHM band around each field's dominant frequency
+            if perform_time_fft:
+                logger.warning("\nPerforming time-FFT of field data ...")
+                path_filtered = os.path.join(self.path_pproc, "fields_data_filtered")
+                shutil.rmtree(path_filtered, ignore_errors=True)
+                os.mkdir(path_filtered)
+
+                data_by_suffix = {"_log": point_data}
+                if physical:
+                    data_by_suffix["_phy"] = point_data_phy
+                filtered_by_suffix = {suffix: {} for suffix in data_by_suffix}
+
+                for suffix, data in data_by_suffix.items():
+                    for species, vars in data.items():
+                        os.makedirs(os.path.join(path_filtered, species), exist_ok=True)
+                        for name, val_dict in vars.items():
+                            logger.info(f"  {species}/{name}{suffix}:")
+                            filtered_val_dict, fft_data = filter_val_dict(val_dict, pad_bins=fft_pad_bins)
+                            filtered_by_suffix[suffix].setdefault(species, {})[name] = filtered_val_dict
+
+                            # same file name and layout as in fields_data/, read lazily by FieldData.filtered()
+                            with open(os.path.join(path_filtered, species, name + suffix + ".bin"), "wb") as handle:
+                                pickle.dump(filtered_val_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                            with open(os.path.join(path_filtered, species, name + suffix + "_fft.pkl"), "wb") as handle:
+                                pickle.dump(fft_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                if create_vtk:
+                    self._create_vtk(path_filtered, t_grid, grids_phy, filtered_by_suffix["_log"])
+                    if physical:
+                        self._create_vtk(path_filtered, t_grid, grids_phy, filtered_by_suffix["_phy"], physical=True)
 
             # save grids
             with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
@@ -1327,6 +1458,8 @@ class PostProcessor:
                 # save sph density
                 xp.save(os.path.join(path_view, "n_sph.npy"), data)
 
+    def _time_fft(self, fields):
+        pass
 
 class PlottingData:
     """Container for loading and accessing post-processed Struphy simulation data.
@@ -1430,6 +1563,28 @@ class PlottingData:
         """
         return self._spline_values
 
+    @staticmethod
+    def _load_spline_values(path_fields: str, spline_values: SplineValues):
+        """Load every ``<species>/<var>.bin`` in ``path_fields`` into ``spline_values.<species>.<var>``.
+
+        Each field is wrapped in a :class:`FieldData` pointing to its time-FFT filtered
+        counterpart in the sibling folder ``fields_data_filtered/``.
+        """
+        path_filtered = os.path.join(os.path.dirname(path_fields), "fields_data_filtered")
+        species = next(os.walk(path_fields))[1]
+        for spec in species:
+            spec_holder = SpecHolder()
+            setattr(spline_values, spec, spec_holder)
+            path_spec = os.path.join(path_fields, spec)
+            files = next(os.walk(path_spec))[2]
+            logger.info(f"\nFiles in {path_spec}: {files}")
+            for file in files:
+                if ".bin" in file:
+                    var = file.split(".")[0]
+                    with open(os.path.join(path_spec, file), "rb") as f:
+                        field_data = FieldData(pickle.load(f), os.path.join(path_filtered, spec, file))
+                        setattr(spec_holder, var, DataDict(field_data))
+
     @property
     def n_sph(self) -> DensitySPH:
         """SPH density fields by species.
@@ -1476,24 +1631,7 @@ class PlottingData:
             with open(os.path.join(path_fields, "grids_phy.bin"), "rb") as f:
                 self.grids_phy = pickle.load(f)
 
-            # species folders
-            species = next(os.walk(path_fields))[1]
-            for spec in species:
-                spec_holder = SpecHolder()
-                setattr(self.spline_values, spec, spec_holder)
-                # self.arrays[spec] = {}
-                path_spec = os.path.join(path_fields, spec)
-                wlk = os.walk(path_spec)
-                files = next(wlk)[2]
-                logger.info(f"\nFiles in {path_spec}: {files}")
-                for file in files:
-                    if ".bin" in file:
-                        var = file.split(".")[0]
-                        with open(os.path.join(path_spec, file), "rb") as f:
-                            # try:
-                            data_dict = DataDict(pickle.load(f))
-                            setattr(spec_holder, var, data_dict)
-                            # self.arrays[spec][var] = pickle.load(f)
+            self._load_spline_values(path_fields, self.spline_values)
 
         if os.path.exists(path_kinetic):
             # species folders

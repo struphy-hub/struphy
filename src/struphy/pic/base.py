@@ -22,6 +22,7 @@ from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
 from sympy.ntheory import factorint
+import numpy as np
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
@@ -419,6 +420,13 @@ class Particles(metaclass=ABCMeta):
     @abstractmethod
     def vdim(self):
         """Dimension of the velocity space."""
+        pass
+    
+    @property
+    @abstractmethod
+    def coordinate_labels(self) -> tuple[str]:
+        """Labels for the coordinates in the phase space. 
+        Length must be 3 + vdim, where the first 3 are the spatial coordinates and the last vdim are the velocity coordinates."""
         pass
 
     @property
@@ -1622,7 +1630,6 @@ class Particles(metaclass=ABCMeta):
         f_slice, df_slice = self.binning(components, bin_edges)
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
-
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:
@@ -1688,7 +1695,6 @@ class Particles(metaclass=ABCMeta):
             plt.show()
 
         err = np.max(np.abs(f_init - f_slice)) / np.max(f_init)
-
         return err
 
     @profile
