@@ -97,29 +97,36 @@ distribution = out.evaluate("kinetic_ions/f")
 delta_f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
 ```
 
-For a quick inspection, `out.plot(array)` chooses the last time, first vector component, and
-midpoint slices as needed. For controlled figures, select dimensions explicitly and call xarray's
-native `.plot()` methods.
+To make a figure, select the dimensions to show and call xarray's native `.plot()` methods (see
+[Plot data](#plot-data)).
 
 ## Analyze and report data
 
-Numerical helpers stay on `Output` and return values or xarray arrays rather than figures.
+`Output` has no fitting or error helpers: products are xarray objects, so such analysis is a few
+lines of xarray and NumPy. Relative energy error, and an exponential growth or damping rate
+fitted over a time window:
 
 ```python
-fit = out.growth_rate("phi_integral", window=(20.0, 60.0), amplitude=True)
-energy_error = out.relative_error("en_tot")
-energy_drift = out.drift("en_tot")
+energy = out.evaluate("scalars", variables="en_tot").en_tot
+relative_error = (energy - energy.isel(t=0)) / energy.isel(t=0)
+
+window = out.evaluate("scalars", variables="phi_integral").phi_integral.sel(t=slice(20.0, 60.0))
+rate, log_amplitude = np.polyfit(window.t, np.log(np.abs(window)), 1)
 ```
 
-For oscillating signals such as the field energy in Landau damping, `damping_rate` fits the
-exponential to the local maxima (`envelope`) instead of the raw series. `norm` reduces a field
-to a time series (by default over every dimension except `t`), which can then be fitted.
+For an oscillating signal such as the field energy in Landau damping, fit the local maxima rather
+than the raw series. A field reduces to a time series with an xarray reduction over every
+dimension except `t`.
 
 ```python
-damping = out.damping_rate("electric_energy", window=(0.0, 8.0), amplitude=True)
-peaks = out.envelope("electric_energy")
+from scipy.signal import find_peaks
 
-growth = out.growth_rate(out.norm("diagnostics/rho", squared=True), amplitude=True)
+electric_energy = out.evaluate("scalars", variables="electric_energy").electric_energy
+peaks, _ = find_peaks(electric_energy.values)
+damping_rate, _ = np.polyfit(electric_energy.t[peaks], np.log(electric_energy[peaks]), 1)
+
+rho = out.evaluate("diagnostics/rho")
+rho_squared = (rho**2).mean([dim for dim in rho.dims if dim != "t"])
 ```
 
 Fields carry mapped `X`, `Y`, `Z` coordinates; binned products (such as `e1_e2_density`) do not.
@@ -143,29 +150,26 @@ store is useful. Prefer `evaluate(key)` for normal single-product work.
 
 ## Reduce a distribution function
 
-A binned distribution usually has more dimensions than a question needs. `spatial_average`
-averages over the logical space dimensions `e1`, `e2` and `e3` (or the ones passed as `dims`),
-so an `e1_v1` product becomes f(v1, t). The mean is uniform in the logical coordinates, which is
-the volume average on a Cartesian domain; on a mapped domain it is not weighted by the Jacobian.
+A binned distribution usually has more dimensions than a question needs. Averaging over the
+logical space dimensions it has turns an `e1_v1` product into f(v1, t). A binned product keeps
+only the dimensions of its slice, so select them from `data.dims`. The mean is uniform in the
+logical coordinates, which is the volume average on a Cartesian domain; on a mapped domain it is
+not weighted by the Jacobian.
 
-The velocity moments are readily computed with xarray reductions over the velocity dimensions; the result is a dataset with the
-`density`, and the mean `mean_v1` and variance `variance_v1` along every velocity direction, as
-functions of the remaining dimensions. In normalized units the variance is the temperature divided
-by the mass. Mean and variance are NaN where the density is not positive, and a `delta_f` product
-has only the density (its perturbation).
+Velocity moments are xarray reductions over a velocity dimension: the density, the mean velocity
+and the variance, as functions of the remaining dimensions. In normalized units the variance is
+the temperature divided by the mass. Mean and variance are NaN where the density is not positive;
+for a `delta_f` product only the density (its perturbation) is meaningful.
 
 ```python
-f = "kinetic_ions/f"
+data = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")
+space = [dim for dim in ("e1", "e2", "e3") if dim in data.dims]
+f_of_v = data.mean(space)
 
-data = out.evaluate(f, dataset="e1_v1_density/f")
-f_of_v = data.mean(("e1", "e2", "e3"), missing_dims="ignore")
-velocity_grid = data.v1
-bin_width = velocity_grid.differentiate("v1")
+bin_width = data.v1.differentiate("v1")
 density = (data * bin_width).sum("v1")
-mean_v1 = (data * velocity_grid * bin_width).sum("v1") / density
-temperature_over_mass = ((data * (velocity_grid - mean_v1) ** 2 * bin_width).sum("v1") / density).mean(
-    ("e1", "e2", "e3"), missing_dims="ignore"
-)
+mean_v1 = (data * data.v1 * bin_width).sum("v1") / density
+temperature_over_mass = ((data * (data.v1 - mean_v1) ** 2 * bin_width).sum("v1") / density).mean(space)
 ```
 
 
@@ -230,12 +234,8 @@ rho = out.evaluate("diagnostics/rho_xyz", t=-1)
 rho.isel(e3=rho.sizes["e3"] // 2).plot(x="e1", y="e2")
 ```
 
-For an intentionally simple inspection plot, pass an xarray object to `Output.plot()`.
-It chooses the last time, first vector component, and midpoint slices until xarray can plot it.
-
-```python
-out.plot(out.evaluate("em_fields/E"))
-```
+xarray squeezes size-one dimensions before plotting, so an array that is 2-D on a grid with one
+cell in some direction plots as a line. Select until the array has the dimensions the plot needs.
 
 ## MPI post-processing
 
