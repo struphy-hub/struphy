@@ -571,15 +571,25 @@ def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
 def test_info_lists_evaluable_products_with_descriptions(run, capsys):
     assert run.info() is None
     text = capsys.readouterr().out
-    assert "Configuration" in text and "Species and variables" in text
-    assert "Propagator options" in text and "Initial conditions" in text
-    assert "Help" in text and "out.initial_conditions" in text
-    assert "Key" in text and "Description" in text
+    assert "Configuration" not in text and "Propagator options" not in text
+    assert "Key" in text and "Description" in text and "Load with" in text and "Hints" in text
+    assert "out.evaluate('scalars', variables='en_tot')" in text
+    assert "out.evaluate('kinetic_ions/f', dataset='kinetic_ions/e1_v1_density/f')" in text
+    assert "out.evaluate('kinetic_ions/orbits')" in text
     assert "en_tot" in text and "scalar time series" in text
     assert "kinetic_ions/e1_v1_density/f" in text and "particle distribution" in text
     assert "kinetic_ions" in text and "marker trajectories" in text
     assert "em_fields/E" in text and "field" in text
     assert run.field_catalog._cache == {}, "listing must not load arrays"
+
+
+def test_info_evaluate_calls_load_their_keys(run):
+    for key in run.keys():
+        call = run._evaluate_call(key)
+        array = eval(call, {"out": run})
+        if key in run.scalars.data_vars:
+            array = array[key]
+        xr.testing.assert_identical(array, run._product(key))
 
 
 def test_info_labels_distribution_and_density_symbols(run, capsys):

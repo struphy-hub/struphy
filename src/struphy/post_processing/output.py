@@ -2320,14 +2320,12 @@ class Output:
         return self._label
 
     def info(self, name: str | None = None) -> None:
-        """Print a concise run summary, configuration reference, and product catalog.
+        """Print the evaluable keys and how to load each one with :meth:`evaluate`.
 
-        Use ``out.info()`` interactively. The summary includes model parameters,
-        species variables, propagator options, and initial-condition definitions saved in
-        metadata. As with :meth:`keys`, the product catalog materializes default
-        post-processing when needed; call :meth:`pproc` first to choose its options.
-        ``out.info("species/variable")`` instead lists the particle datasets that can
-        satisfy that request, in the default selection order.
+        As with :meth:`keys`, listing materializes default post-processing when needed;
+        call :meth:`pproc` first to choose its options. ``out.info("species/variable")``
+        instead lists the particle datasets that can satisfy that request, in the default
+        selection order.
         """
         if name is not None:
             if name == "scalars":
@@ -2343,87 +2341,37 @@ class Output:
             print(f"{'-' * width}  -----------")
             print("\n".join(f"{key:<{width}}  {description}" for key, description in rows))
             return
-        rows = [(key, self._product_description(key)) for key in self.keys()]
-        key_width = max((len(key) for key, _ in rows), default=3)
-        model = self.metadata.get("model", {})
+        rows = [(key, self._product_description(key), self._evaluate_call(key)) for key in self.keys()]
+        key_width = max((len(key) for key, _, _ in rows), default=3)
+        description_width = max((len(description) for _, description, _ in rows), default=11)
         lines = [
             f"Output: {self.path_out}",
-            self.label,
             "",
-            "Configuration",
-            "-------------",
-            f"Model: {model.get('model', self.metadata.get('model_name', 'unknown'))}",
-            f"Model parameters: {json.dumps(model.get('params', {}), sort_keys=True)}",
-            "Species and variables:",
+            f"{'Key':<{key_width}}  {'Description':<{description_width}}  Load with",
+            f"{'-' * key_width}  {'-' * description_width}  ---------",
+            *(f"{key:<{key_width}}  {description:<{description_width}}  {call}" for key, description, call in rows),
+            "",
+            "Hints",
+            "-----",
+            "- t=-1 (index), t=slice(...) or t=0.5 (time value) selects snapshots; the t dimension is kept.",
+            "- Other keyword arguments select named coordinates, e.g. component=0 or quantity='x'.",
+            "- Fields: pass eta1=, eta2=, eta3= (scalars or 1D arrays) to evaluate on a logical grid;",
+            "  omitted directions default to 0.5. The result carries physical coordinates X, Y, Z.",
+            "- Particles: out.info('species/variable') lists alternative datasets for dataset=.",
+            "- Results are xarray objects: use .sel/.isel, .plot(x='X'), or .values for NumPy.",
         ]
-        for species_name, species in model.get("species", {}).items():
-            parameters = {
-                key: value
-                for key, value in species.items()
-                if key
-                not in {
-                    "class",
-                    "variables",
-                    "loading_params",
-                    "weights_params",
-                    "boundary_params",
-                    "sorting_params",
-                    "saving_params",
-                }
-                and value is not None
-            }
-            lines.append(
-                f"  {species_name} ({species.get('class', 'Species')}): {json.dumps(parameters, sort_keys=True)}"
-            )
-            for variable_name, variable in species.get("variables", {}).items():
-                lines.append(
-                    f"    {variable_name}: {variable.get('class', 'Variable')} "
-                    f"[{variable.get('space', 'unknown')}], save_data={variable.get('save_data', True)}"
-                )
-        lines.append("Propagator options:")
-        for name, options in model.get("propagator_options", {}).items():
-            lines.append(f"  {name}: {json.dumps(options, sort_keys=True)}")
-        lines.append("Initial conditions:")
-        for species_name, variables in self._initial_condition_metadata().items():
-            for variable_name, definition in variables.items():
-                parts = ", ".join(
-                    f"{key}={self._initial_condition_description(value)}" for key, value in definition.items()
-                )
-                lines.append(f"  {species_name}.{variable_name}: {parts}")
-        lines = [
-            *lines,
-            "",
-            "Help",
-            "----",
-            "- Use out.model for the reconstructed model and its variables.",
-            "- Use out.initial_conditions for reconstructed backgrounds, perturbations, and distributions.",
-            "- Saved Python initial conditions are reconstructed from source; unsupported definitions remain in out.metadata.",
-            "- Use out.keys(), out.fields, out.distributions, out.densities, and out.orbits to discover products.",
-            "- Use out.evaluate(key) and out.pproc(...) to load and process products.",
-            "",
-            f"{'Key':<{key_width}}  Description",
-            f"{'-' * key_width}  -----------",
-        ]
-        lines.extend(f"{key:<{key_width}}  {description}" for key, description in rows)
         print("\n".join(lines))
 
-    @staticmethod
-    def _initial_condition_description(value) -> str:
-        """Short, source-free description of one serialized initial condition."""
-        if value is None:
-            return "none"
-        if isinstance(value, list):
-            return "[" + ", ".join(Output._initial_condition_description(item) for item in value) + "]"
-        if not isinstance(value, dict):
-            return repr(value)
-        kind = value.get("type")
-        if kind is None:
-            return "mapping"
-        if kind in {"python_function", "python_class"}:
-            return f"{kind}({value.get('name', value.get('serialization', 'unknown'))})"
-        if kind == "callable":
-            return f"callable({value.get('serialization', 'unknown')})"
-        return kind
+    def _evaluate_call(self, key: str) -> str:
+        """The :meth:`evaluate` call that loads ``key``."""
+        if key in self.scalars.data_vars:
+            return f"out.evaluate('scalars', variables='{key}')"
+        if key in self.field_catalog:
+            return f"out.evaluate('{key}')"
+        if key in self.distribution_catalog or key in self.density_catalog:
+            species, *_, variable = key.split("/")
+            return f"out.evaluate('{species}/{variable}', dataset='{key}')"
+        return f"out.evaluate('{key}/orbits')"
 
     def _product_description(self, key: str) -> str:
         """A stable description for a key, without loading its data array."""
