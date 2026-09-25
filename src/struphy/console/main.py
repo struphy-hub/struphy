@@ -431,19 +431,13 @@ def add_parser_likwid_profile(subparsers):
 
 def add_parser_output(subparsers):
     """Add the lightweight command-line interface for completed simulation output."""
-    parser = subparsers.add_parser("output", help="inspect, process, report, or plot a simulation output")
-    parser.add_argument("action", choices=("info", "keys", "pproc", "report", "plot"))
+    parser = subparsers.add_parser("output", help="inspect, process, or report a simulation output")
+    parser.add_argument("action", choices=("info", "keys", "pproc", "report"))
     parser.add_argument("path", help="simulation output directory")
     parser.add_argument("--physical", action="store_true", help="materialize physical field components")
     parser.add_argument("--parallel", action="store_true", help="use MPI.COMM_WORLD for parallel pproc")
     parser.add_argument("--format", choices=("markdown", "html"), default="markdown", help="report format")
     parser.add_argument("--directory", help="report directory")
-    parser.add_argument(
-        "--kind", choices=("timeseries", "slice", "panels", "viewer", "trajectories"), default="timeseries"
-    )
-    parser.add_argument("--product", help="product key for plot")
-    parser.add_argument("--x", help="first displayed dimension")
-    parser.add_argument("--y", help="second displayed dimension")
 
 
 def add_parser_test(subparsers, list_models):
