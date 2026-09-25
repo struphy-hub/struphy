@@ -29,6 +29,7 @@ from struphy.post_processing import store
 from struphy.post_processing.arrays import (
     BINNED_LABELS,
     data_array,
+    orbits_from_legacy,
     save_scalars,
     wrap_binned_data,
     wrap_field_data,
@@ -181,7 +182,8 @@ class DensityProducts(ProductNamespace):
 
 
 class OrbitProducts(ProductNamespace):
-    """Marker trajectories grouped by species."""
+    """Marker trajectories grouped by species, each an :class:`xarray.Dataset` with one
+    ``(t, marker)`` variable per quantity of :attr:`~struphy.pic.base.Particles.orbit_quantities`."""
 
 
 class Output:
@@ -1724,24 +1726,18 @@ class Output:
             # get number of time steps and markers
             nt, n_markers, n_cols = file_0["kinetic/" + species + "/markers"].shape
 
-        # get velocity dimension from one of the variables of the species
+        # get the saved orbit quantities from the particle class of the species
         for _, var in species_obj.variables.items():
             assert isinstance(var, PICVariable | SPHVariable)
             cls: Particles = var.particles_class
-            vdim = cls.vdim
+            quantities = cls.orbit_quantities
             break
 
         log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
 
-        # directory for .txt files and marker index which will be saved
+        # directory for .txt files and marker columns which will be saved (marker index last)
         path_orbits = os.path.join(path_kinetic_species, "orbits")
-
-        if vdim == 2:
-            save_index = list(range(0, 6)) + [10] + [-1]
-        elif vdim == 3:
-            save_index = list(range(0, 7)) + [-1]
-        else:
-            save_index = list(range(0, 4)) + [-1]
+        save_index = [column for column, *_ in quantities] + [-1]
 
         if self._pproc_rank == 0:
             try:
@@ -1815,8 +1811,9 @@ class Output:
             self._pproc_comm.Barrier()
 
         if self._pproc_rank == 0:
-            values = wrap_orbits(xp.stack(orbits), self._pproc_t_grid[: len(orbits)])
-            store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset({"orbits": values}))
+            # the marker index (last column) equals the position along the marker axis
+            values = wrap_orbits(xp.stack(orbits)[..., :-1], self._pproc_t_grid[: len(orbits)], quantities)
+            store.write_group(store.store_path(self.path_pproc), f"/{species}/orbits", values)
 
     def _post_process_f(
         self,
@@ -2354,10 +2351,12 @@ class Output:
             "Hints",
             "-----",
             "- t=-1 (index), t=slice(...) or t=0.5 (time value) selects snapshots; the t dimension is kept.",
-            "- Other keyword arguments select named coordinates, e.g. component=0 or quantity='x'.",
+            "- Other keyword arguments select named coordinates, e.g. component=0 or marker=[0, 1, 2].",
             "- Fields: pass eta1=, eta2=, eta3= (scalars or 1D arrays) to evaluate on a logical grid;",
             "  omitted directions default to 0.5. The result carries physical coordinates X, Y, Z.",
             "- Particles: out.info('species/variable') lists alternative datasets for dataset=.",
+            "- Orbits are an xarray.Dataset with one (t, marker) variable per quantity, e.g. orbits.x;",
+            "  each variable's 'description' attribute says what it is.",
             "- Results are xarray objects: use .sel/.isel, .plot(x='X'), or .values for NumPy.",
         ]
         print("\n".join(lines))
@@ -2385,7 +2384,7 @@ class Output:
         if key in self.density_catalog:
             label = BINNED_LABELS.get(key.rsplit("/", 1)[-1], key.rsplit("/", 1)[-1])
             return f"SPH density ({label})"
-        return "marker trajectories"
+        return f"marker trajectories ({', '.join(self.orbit_catalog[key].data_vars)})"
 
     def _product_kind(self, key: str) -> str:
         if key in self.scalars.data_vars:
@@ -2553,11 +2552,17 @@ class Output:
         """Loaders for one kind of product, keyed as ``<species>[/<slice>]/<variable>``."""
         loaders = {}
         for group, dataset in self._groups().items():
+            if dataset.attrs.get("product") == "orbits":
+                if kind == "orbits":
+                    loaders[group.rsplit("/", 1)[0]] = lambda group=group: self._load(group)
+                continue
             for name in dataset.data_vars:
                 if self._kind(group, name) != kind:
                     continue
-                key = group if name == "orbits" else f"{group}/{name}"
-                loaders[key] = lambda group=group, name=name: self._load(group, name)
+                if name == "orbits":  # one (t, marker, quantity) array in stores of earlier versions
+                    loaders[group] = lambda group=group: orbits_from_legacy(self._load(group, "orbits"))
+                else:
+                    loaders[f"{group}/{name}"] = lambda group=group, name=name: self._load(group, name)
         return loaders
 
     @staticmethod
@@ -2569,8 +2574,9 @@ class Output:
             return "fields"
         return "densities" if name == "n" else "distributions"
 
-    def _load(self, group: str, name: str) -> xr.DataArray:
-        array = self.tree[group].ds[name]
+    def _load(self, group: str, name: str | None = None) -> xr.DataArray | xr.Dataset:
+        """One variable of a store group, or the whole group dataset when ``name`` is None."""
+        array = self.tree[group].to_dataset() if name is None else self.tree[group].ds[name]
         if self.time_units == "physical" and "t" in array.dims:
             array = array.assign_coords(t=array.t * self.time_scale)
             array.coords["t"].attrs["units"] = "s"

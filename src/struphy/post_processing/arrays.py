@@ -26,7 +26,6 @@ DIM_LABELS = {
     "Z": r"$Z$",
     "component": "component",
     "marker": "marker",
-    "quantity": "quantity",
 }
 BINNED_LABELS = {"f": "$f$", "delta_f": r"$\delta f$", "n": "$n$"}
 SCALARS_EXCLUDE = ("time",)
@@ -140,44 +139,39 @@ def save_scalars(scalars: xr.Dataset | Mapping, path: str, *, names=None, exclud
     return path
 
 
-def orbit_columns(n_columns: int) -> dict:
-    columns = {"position": slice(0, 3), "id": n_columns - 1}
-    if n_columns == 8:
-        columns.update(velocity=slice(3, 6), weight=6)
-    elif n_columns == 5:
-        columns["velocity"] = 3
-    else:
-        columns["velocity"] = slice(3, n_columns - 1)
-    return columns
+def wrap_orbits(values, time, quantities, *, time_unit="") -> xr.Dataset:
+    """Marker orbits as one ``(t, marker)`` variable per saved quantity.
 
-
-def orbit_quantities(n_columns: int) -> list[str]:
-    """Name every saved marker column, so that orbits are self-describing."""
-    columns = orbit_columns(n_columns)
-    names = [""] * n_columns
-    for axis, name in enumerate(("x", "y", "z")):
-        names[axis] = name
-    velocity = columns["velocity"]
-    indices = range(*velocity.indices(n_columns)) if isinstance(velocity, slice) else [velocity]
-    for number, index in enumerate(indices, 1):
-        names[index] = f"v{number}"
-    if "weight" in columns:
-        names[columns["weight"]] = "weight"
-    names[columns["id"]] = "id"
-    return [name or f"column_{index}" for index, name in enumerate(names)]
-
-
-def wrap_orbits(values, time, *, time_unit="") -> xr.DataArray:
-    """Label marker orbits with time, marker and named quantity dimensions."""
+    ``quantities`` are the ``(column, name, long_name, description)`` entries of
+    :attr:`~struphy.pic.base.Particles.orbit_quantities`, in the order of the last axis of
+    ``values``.
+    """
     values = np.asarray(values)
-    return data_array(
-        values,
-        ("t", "marker", "quantity"),
-        {"t": time, "marker": np.arange(values.shape[1]), "quantity": orbit_quantities(values.shape[2])},
-        name="orbits",
-        label="marker orbits",
-        coord_units={"t": time_unit},
+    coords = {"t": time, "marker": np.arange(values.shape[1])}
+    return xr.Dataset(
+        {
+            name: data_array(
+                values[..., index],
+                ("t", "marker"),
+                coords,
+                name=name,
+                label=long_name,
+                coord_units={"t": time_unit},
+                attrs={"description": description},
+            )
+            for index, (_, name, long_name, description) in enumerate(quantities)
+        },
+        attrs={"product": "orbits", "label": "marker orbits"},
     )
+
+
+def orbits_from_legacy(array: xr.DataArray) -> xr.Dataset:
+    """Convert a ``(t, marker, quantity)`` orbits array of an earlier store to :func:`wrap_orbits` form."""
+    dataset = array.to_dataset(dim="quantity").drop_vars("id", errors="ignore")
+    for name in dataset.data_vars:
+        dataset[name].attrs = {"label": name, "long_name": DIM_LABELS.get(name, name)}
+    dataset.attrs.update(product="orbits", label="marker orbits")
+    return dataset
 
 
 def wrap_field_data(

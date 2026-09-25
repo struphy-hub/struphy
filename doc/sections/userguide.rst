@@ -644,17 +644,22 @@ Plotting particle orbits
 
 If ``n_markers > 0`` was set in
 :class:`~struphy.particles.parameters.SavingParameters`, individual marker
-trajectories are available under ``out.orbits``:
+trajectories are available as an :class:`xarray.Dataset` with one ``(t, marker)``
+variable per saved quantity. Positions ``x, y, z`` are physical; the remaining
+quantities (velocities, ``weight``, ...) depend on the particle class, see
+:attr:`~struphy.pic.base.Particles.orbit_quantities`. Each variable's
+``description`` attribute says what it is.
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
 
-    orbits = out.orbits.kinetic_ions               # dims (t, marker, attribute)
+    orbits = out.evaluate("kinetic_ions/orbits")   # or out.orbits.kinetic_ions
+    print(orbits)                                  # lists x, y, z, v1, v2, v3, weight
     marker = orbits.isel(marker=0)
 
     plt.figure()
-    plt.plot(marker.isel(attribute=0), marker.isel(attribute=2))  # position x vs z
+    plt.plot(marker.x, marker.z)  # position x vs z
     plt.xlabel("x")
     plt.ylabel("z")
     plt.title("Marker orbit (particle 0)")

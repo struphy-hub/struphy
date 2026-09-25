@@ -144,7 +144,7 @@ out.pproc(physical=True)         # optional; products are otherwise processed wi
 out.scalars.<name>                                     # xarray time series, no post-processing needed
 out.fields.<species>.<variable>                    # dims (t, [component,] e1, e2, e3)
 out.distributions.<species>.<binning_name>.f    # dims (t, <slice dims>)
-out.orbits.<species>                                   # dims (t, marker, quantity)
+out.orbits.<species>                                   # Dataset: one (t, marker) variable per quantity (x, y, z, v1, ..., weight)
 out.model.units                                        # model reconstructed from metadata
 out.domain, out.grid, out.time_opts, out.derham_opts     # reconstructed lazily with from_dict()
 ```
@@ -164,7 +164,7 @@ Products are xarray objects. Use xarray's plotting and selection methods:
 ```python
 out.<species>.<binning_name>.f.isel(t=-1).plot(x="e1", y="v1")
 out.scalars.<name>.plot.line(x="t")
-out.<species>.orbits.isel(marker=0).sel(quantity=["x", "y", "z"]).plot.line(x="t", hue="quantity")
+out.<species>.orbits.isel(marker=0)[["x", "y", "z"]].to_dataarray("quantity").plot.line(x="t", hue="quantity")
 ```
 
 Select by position with `.isel(t=-1, component=0)` or by coordinate with
