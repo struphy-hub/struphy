@@ -1,7 +1,9 @@
 import numpy as np
+from matplotlib import pyplot as plt
+
 from struphy import Simulation, domains, grids, perturbations
 from struphy.models import Poisson
-from matplotlib import pyplot as plt
+
 model = Poisson()
 
 stab_eps = 1e-8
@@ -32,14 +34,14 @@ out = sim.run()
 fig, axs = plt.subplots(1, 2, figsize=(12, 4))
 
 eta1 = np.linspace(0, 1, 100)
-phi_1d = out.evaluate("em_fields/phi", eta1=eta1, t = -1)
+phi_1d = out.evaluate("em_fields/phi", eta1=eta1, t=-1)
 
 x = phi_1d["X"]
 phi_exact = np.cos(k * x)
 phi_exact_logical = np.cos(Lx * k * eta1)
 
-phi_1d.plot(ax=axs[0], label="Struphy") # Plot along eta1
-phi_1d.plot(x="X", ax=axs[1], label="Struphy") # Plot along the physical coordinate X
+phi_1d.plot(ax=axs[0], label="Struphy")  # Plot along eta1
+phi_1d.plot(x="X", ax=axs[1], label="Struphy")  # Plot along the physical coordinate X
 axs[0].plot(eta1, phi_exact_logical, "k--", lw=1.8, label="exact")
 axs[1].plot(x, phi_exact, "k--", lw=1.8, label="exact")
 
@@ -50,6 +52,6 @@ fig.savefig("quickstart_poisson_phi.png", dpi=150)
 plt.show()
 
 # Plot phi in 2d in physical coordinates
-phi_2d = out.evaluate("em_fields/phi", eta1=np.linspace(0,1,100), eta2=np.linspace(0,1,100), t = -1)
+phi_2d = out.evaluate("em_fields/phi", eta1=np.linspace(0, 1, 100), eta2=np.linspace(0, 1, 100), t=-1)
 phi_2d.plot(x="X", y="Y")
 plt.show()

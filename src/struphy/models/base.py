@@ -1046,8 +1046,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
                 return template
             if isinstance(template, dict) and isinstance(value, dict):
                 return {
-                    restore_option(key, key): restore_option(item, template.get(key))
-                    for key, item in value.items()
+                    restore_option(key, key): restore_option(item, template.get(key)) for key, item in value.items()
                 }
             if isinstance(value, list):
                 template_item = template[0] if isinstance(template, (list, tuple)) and template else None
