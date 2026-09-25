@@ -1,6 +1,7 @@
 """Tests for the link between a Simulation and its output."""
 
 import json
+import inspect
 import os
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from struphy import (
     perturbations,
 )
 from struphy.initial.base import Perturbation
+from struphy.initial import perturbations
+from struphy.kinetic_background import maxwellians
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
@@ -175,6 +178,30 @@ def test_run_metadata_contains_serialized_initial_conditions(tmp_path):
     assert kinetic["backgrounds"]["type"] == "Maxwellian3D"
     assert kinetic["initial_condition"]["type"] == "SumKineticBackground"
     assert kinetic["initial_condition"]["params"]["f1"]["params"]["n"][1]["type"] == "TorusModesCos"
+
+
+def test_all_builtin_initial_conditions_round_trip():
+    initial_conditions = [
+        FieldsBackground(values=(1.0, 2.0, 3.0)),
+        equils.HomogenSlab(),
+        maxwellians.Maxwellian3D(n=(1.0, perturbations.Noise(seed=7))),
+        maxwellians.Maxwellian3D() + maxwellians.Maxwellian3D(n=(0.2, None)),
+        2.0 * maxwellians.GyroMaxwellian2D(),
+    ]
+
+    for module in (perturbations, maxwellians):
+        for name, initial_condition_class in vars(module).items():
+            if not inspect.isclass(initial_condition_class) or initial_condition_class.__module__ != module.__name__:
+                continue
+            if name == "CanonicalMaxwellian2D":
+                initial_conditions.append(initial_condition_class(equil=equils.AdhocTorus()))
+            else:
+                initial_conditions.append(initial_condition_class())
+
+    for initial_condition in initial_conditions:
+        serialized = Simulation._serialize_initial_condition(initial_condition)
+        restored = Simulation._deserialize_initial_condition(serialized)
+        assert Simulation._serialize_initial_condition(restored) == serialized, type(initial_condition).__name__
 
 
 def test_run_metadata_embeds_user_function_source(tmp_path):

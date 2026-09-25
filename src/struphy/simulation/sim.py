@@ -1621,12 +1621,31 @@ class Simulation(SimulationBase):
         if dataclasses.is_dataclass(value) and not isinstance(value, type):
             return {
                 "type": type(value).__name__,
-                "params": Simulation._serialize_initial_condition(value.to_dict()),
+                "params": Simulation._serialize_initial_condition(
+                    {
+                        field.name: getattr(value, field.name)
+                        for field in dataclasses.fields(value)
+                        if field.init
+                    }
+                ),
             }
         if hasattr(value, "params"):
+            parameters = value.params
+            try:
+                signature = inspect.signature(type(value))
+            except (TypeError, ValueError):
+                signature = None
+            if signature is not None and not any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values()
+            ):
+                parameters = {
+                    name: parameter_value
+                    for name, parameter_value in parameters.items()
+                    if name in signature.parameters
+                }
             return {
                 "type": type(value).__name__,
-                "params": Simulation._serialize_initial_condition(value.params),
+                "params": Simulation._serialize_initial_condition(parameters),
             }
         if inspect.isfunction(value):
             # Top-level functions are fully captured in metadata.  Their source is
