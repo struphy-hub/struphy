@@ -38,6 +38,7 @@ def main(path_out=DEFAULT_OUTPUT):
     plot_panels(run.kinetic_ions.e1_v1_density.f, x="e1", y="v1", n_panels=12, ncols=4)
     plt.show()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
     parser.add_argument(
