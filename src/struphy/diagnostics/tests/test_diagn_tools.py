@@ -45,28 +45,3 @@ def test_fitted_phase_speed(physical):
 def test_needs_exactly_one_fft_direction():
     with pytest.raises(AssertionError, match="slice_at"):
         power_spectrum_2d(standing_waves(tend=1.0), slice_at=(None, None, 0))
-
-
-def test_legacy_call_with_a_dict_of_time_snapshots():
-    field = standing_waves()
-    values = {float(t): list(snapshot) for t, snapshot in zip(field.t.values, field.values)}
-    grids_log = [field[dim].values for dim in ("e1", "e2", "e3")]
-    grids_phy = [field[dim].values for dim in ("X", "Y", "Z")]
-
-    with pytest.deprecated_call():
-        omega, kvec, dispersion, coeffs = power_spectrum_2d(
-            values,
-            "e_field_log",
-            grids=grids_log,
-            grids_mapped=grids_phy,
-            component=1,
-            slice_at=[0, 0, None],
-            fit_branches=1,
-            noise_level=0.5,
-        )
-    assert coeffs[0][0] == pytest.approx(SPEED, rel=0.02)
-    with pytest.deprecated_call():
-        *_, coeffs = power_spectrum_2d(
-            values, "e_field_log", grids_log, component=1, slice_at=[0, 0, None], fit_branches=1, noise_level=0.5
-        )
-    assert coeffs[0][0] == pytest.approx(SPEED / LENGTH, rel=0.02)

@@ -296,11 +296,3 @@ def test_sweep_rejects_invalid_step(tmp_path, step):
     with pytest.raises(ValueError, match="positive integer"):
         save_frames(phase_space(), tmp_path, view=View(x="e1", y="v1"), step=step)
 
-
-def test_legacy_scalar_plot_warns_and_still_renders(monkeypatch):
-    from struphy.diagnostics import diagn_tools
-
-    monkeypatch.setattr(plt, "show", lambda: None)
-    with pytest.deprecated_call(match="diagn_tools.plot_scalars"):
-        diagn_tools.plot_scalars(np.arange(3), {"en_tot": np.array([1.0, 2.0, 3.0])})
-    assert plt.get_fignums()

@@ -121,7 +121,6 @@ changelog = "https://github.com/struphy-hub/struphy/blob/devel/CHANGELOG.md"
 
 [project.scripts]
 struphy = "struphy.console.main:struphy"
-kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 
 [tool.setuptools.package-data]
 "struphy.fields_background.mhd_equil.eqdsk" = [
