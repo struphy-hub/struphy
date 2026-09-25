@@ -20,9 +20,7 @@ from struphy import (
     maxwellians,
     perturbations,
 )
-from struphy.initial import perturbations
 from struphy.initial.base import Perturbation
-from struphy.kinetic_background import maxwellians
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
