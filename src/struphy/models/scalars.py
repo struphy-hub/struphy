@@ -50,22 +50,37 @@ class Scalar(metaclass=ABCMeta):
 
 
 class SumOfScalars(Scalar):
-    """Scalar representing the sum of other scalars. An update of this scalar will also update all its summands."""
+    """Scalar representing the sum of other scalars."""
 
     def __init__(self, *scalars):
         for scalar in scalars:
             assert isinstance(scalar, Scalar)
+
         super().__init__(*scalars)
 
     def _local_update(self):
-        "Local updates for each summands are performed in _mpi_sum via .update()."
         pass
 
     def _mpi_sum(self):
         for scalar in self.variables:
             scalar.update()
-        energy = sum(scalar.value[0] for scalar in self.variables)
-        self.value[0] = energy
+
+        self.value[0] = sum(
+            scalar.value[0]
+            for scalar in self.variables
+        )
+
+    def update(self):
+        """
+        Composite scalars must always be recomputed.
+
+        Their component scalars may already have been updated during
+        the current diagnostic cycle, while intermediate SumOfScalars
+        objects can otherwise retain cached values from an earlier step.
+        """
+
+        self._mpi_sum()
+        self.uptodate = True
 
 
 class PICScalar(Scalar):

@@ -114,9 +114,9 @@ class Species(metaclass=ABCMeta):
         # set species properties
         self._charge_number = charge_number
         self._mass_number = mass_number
-        self._alpha = alpha
-        self._epsilon = epsilon
-        self._kappa = kappa
+        self.prescribed_alpha = alpha
+        self.prescribed_epsilon = epsilon
+        self.prescribed_kappa = kappa
 
     @property
     def variables(self) -> dict:
@@ -136,27 +136,6 @@ class Species(metaclass=ABCMeta):
             self._mass_number = 1
         return self._mass_number
 
-    @property
-    def alpha(self) -> float:
-        """The ratio of plasma frequency to cyclotron frequency, Omega_p / Omega_c (default = None)."""
-        if not hasattr(self, "_alpha"):
-            self._alpha = None
-        return self._alpha
-
-    @property
-    def epsilon(self) -> float:
-        """The normalized cyclotron period, 1/(Omega_c * time_unit), default = None."""
-        if not hasattr(self, "_epsilon"):
-            self._epsilon = None
-        return self._epsilon
-
-    @property
-    def kappa(self) -> float:
-        """The normalized plasma frequency, Omega_p * time_unit (default = None)."""
-        if not hasattr(self, "_kappa"):
-            self._kappa = None
-        return self._kappa
-
     class EquationParameters:
         """Normalization parameters of one species, appearing in scaled equations."""
 
@@ -172,6 +151,7 @@ class Species(metaclass=ABCMeta):
 
             if units is None:
                 units = Units()
+            self.units = units
 
             Z = species.charge_number
             A = species.mass_number
@@ -179,36 +159,66 @@ class Species(metaclass=ABCMeta):
             con = ConstantsOfNature()
 
             # relevant frequencies
-            om_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
-            om_c = Z * con.e * units.B / (A * con.mH)
+            self._omega_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            self._omega_c = Z * con.e * units.B / (A * con.mH)
 
             # compute equation parameters
             if alpha is None:
-                self.alpha = om_p / om_c
+                self._alpha = self.omega_p / self.omega_c
+                self.alpha_str = ""
             else:
-                self.alpha = alpha
-                if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.alpha =}")
+                self._alpha = alpha
+                self.alpha_str = " (overridden)"
+                logger.info(f"Override equation parameter {self.alpha =}")
 
             if epsilon is None:
-                self.epsilon = 1.0 / (om_c * units.t)
+                self._epsilon = 1.0 / (self.omega_c * units.t)
+                self.epsilon_str = ""
             else:
-                self.epsilon = epsilon
-                if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.epsilon =}")
+                self._epsilon = epsilon
+                self.epsilon_str = " (overridden)"
+                logger.info(f"Override equation parameter {self.epsilon =}")
 
             if kappa is None:
-                self.kappa = om_p * units.t
+                self._kappa = self.omega_p * units.t
+                self.kappa_str = ""
             else:
-                self.kappa = kappa
-                if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.kappa =}")
+                self._kappa = kappa
+                self.kappa_str = " (overridden)"
+                logger.info(f"Override equation parameter {self.kappa =}")
 
         def show(self):
             print(f"\nEquation parameters for species {self.species.__class__.__name__}:")
-            for key, val in self.__dict__.items():
-                if key != "species":
-                    print(f"{(key + ':').ljust(25)} {val:4.3e}")
+            print(f"Plasma frequency: {self.omega_p:4.3e} s⁻¹")
+            print(f"Cyclotron frequency: {self.omega_c:4.3e} s⁻¹")
+            print(f"Alpha (plasma frequency / cyclotron frequency): {self.alpha:4.3e}{self.alpha_str}")
+            print(f"Epsilon (normalized cyclotron period): {self.epsilon:4.3e}{self.epsilon_str}")
+            print(f"Kappa (normalized plasma frequency): {self.kappa:4.3e}{self.kappa_str}")
+
+        @property
+        def omega_p(self) -> float:
+            """Plasma frequency scale of the species (defined in terms of units)."""
+            return self._omega_p
+        
+        @property
+        def omega_c(self) -> float:
+            """Cyclotron frequency scale of the species (defined in terms of units)."""
+            return self._omega_c
+
+        @property
+        def alpha(self) -> float:
+            """The ratio of plasma frequency to cyclotron frequency, Omega_p / Omega_c (default = None)."""
+            return self._alpha
+    
+        @property
+        def epsilon(self) -> float:
+            """The normalized cyclotron period, 1/(Omega_c * time_unit), default = None."""
+            return self._epsilon
+    
+        @property
+        def kappa(self) -> float:
+            """The normalized plasma frequency, Omega_p * time_unit (default = None)."""
+            return self._kappa
 
     @property
     def equation_params(self) -> EquationParameters:
@@ -224,9 +234,9 @@ class Species(metaclass=ABCMeta):
         self._equation_params = self.EquationParameters(
             species=self,
             units=units,
-            alpha=self.alpha,
-            epsilon=self.epsilon,
-            kappa=self.kappa,
+            alpha=self.prescribed_alpha,
+            epsilon=self.prescribed_epsilon,
+            kappa=self.prescribed_kappa,
         )
 
 
