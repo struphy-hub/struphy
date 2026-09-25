@@ -122,14 +122,6 @@ peaks = out.envelope("electric_energy")
 growth = out.growth_rate(out.norm("diagnostics/rho", squared=True), amplitude=True)
 ```
 
-For a saved field, `dispersion()` computes a labeled space-time power spectrum without
-creating a figure:
-
-```python
-spectrum = out.dispersion("em_fields/e_field", component=0, slice_at=(0, 0, None))
-spectrum.power.plot(x="k", y="omega")
-```
-
 Fields carry mapped `X`, `Y`, `Z` coordinates; binned products (such as `e1_e2_density`) do not.
 `with_physical_coords` attaches them by evaluating the run's domain on the array's logical grid.
 

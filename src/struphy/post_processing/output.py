@@ -263,44 +263,6 @@ class Output:
         ratio = xr.where(right != 0, left / right, np.nan)
         return xr.Dataset({"first": left, "second": right, "difference": difference, "ratio": ratio})
 
-    def dispersion(
-        self,
-        name: str,
-        *,
-        dataset: str | None = None,
-        component: int = 0,
-        slice_at: tuple = (None, 0, 0),
-        physical: bool = False,
-        fit_branches: int = 0,
-        noise_level: float = 0.1,
-        extr_order: int = 10,
-        fit_degree: tuple[int, ...] = (1,),
-    ) -> xr.Dataset:
-        """Compute a space-time dispersion spectrum for one saved field.
-
-        The returned dataset has ``power(omega, k)`` and angular-frequency/wave-number
-        coordinates. Optional polynomial branch fits are stored as ``branch_coefficients``.
-        Plotting is intentionally left to the optional xarray plotting package.
-        """
-        field = self._product(name, dataset=dataset) if dataset is not None else self._array(name)
-        from struphy.post_processing.spectral import compute_dispersion
-
-        result = compute_dispersion(
-            field,
-            component=component,
-            slice_at=slice_at,
-            physical=physical,
-            fit_branches=fit_branches,
-            noise_level=noise_level,
-            extr_order=extr_order,
-            fit_degree=fit_degree,
-        )
-        result.attrs.update(run=self.label, run_name=self.path_out.name, source=name)
-        result["omega"].attrs["long_name"] = "angular frequency"
-        result["k"].attrs["long_name"] = "wave number"
-        result["power"].attrs["long_name"] = "space-time power spectrum"
-        return result
-
     def _reset(self):
         if getattr(self, "_tree", None) is not None:
             self._tree.close()  # an open store would block the next process() from writing it
@@ -740,30 +702,6 @@ class Output:
         if isinstance(product, xr.DataArray):
             return product
         raise TypeError(f"product must be a product name or xarray.DataArray, got {type(product).__name__}")
-
-    def plot(self, array: xr.DataArray | xr.Dataset, **kwargs: Any) -> Any:
-        """Make a small xarray quick-look plot.
-
-        Time-dependent spatial data are shown at the last saved time, vector data use
-        the first component, and remaining dimensions beyond two are sliced at their
-        midpoint. For publication plots, select dimensions explicitly and call xarray's
-        plotting methods directly.
-        """
-        if isinstance(array, xr.Dataset):
-            if len(array.data_vars) != 1:
-                raise ValueError("plot() needs a DataArray or a Dataset containing exactly one variable")
-            array = array[next(iter(array.data_vars))]
-        if not isinstance(array, xr.DataArray):
-            raise TypeError(f"plot() needs an xarray DataArray or Dataset, got {type(array).__name__}")
-        view = array
-        for dim, index in (("t", -1), ("component", 0)):
-            if dim in view.dims and view.ndim > 2:
-                view = view.isel({dim: index})
-        while view.ndim > 2:
-            view = view.isel({view.dims[-1]: view.sizes[view.dims[-1]] // 2})
-        if view.ndim == 1 and "t" in view.dims:
-            return view.plot.line(x="t", **kwargs)
-        return view.plot(**kwargs)
 
     @property
     def units(self):
