@@ -1295,7 +1295,6 @@ class Particles(metaclass=ABCMeta):
 
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
                 v_th = xp.array(self.loading_params.moments[self.vdim :])
-                B0 = self.loading_params.B0
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if isinstance(self, Particles6D):
@@ -1318,6 +1317,10 @@ class Particles(metaclass=ABCMeta):
                         + u_mean[0]
                     )
 
+                    # mu is drawn with the field strength B0 of the sampling density, evaluated at the marker positions
+                    B0 = self.sampling_density.params["B0"]
+                    if callable(B0):
+                        B0 = B0(self._markers[:n_mks_load_loc, :3])
                     self._markers[:n_mks_load_loc, 4] = -xp.log(1.0 - self.velocities[:, 1]) * v_th[1] ** 2 / B0
 
                     # mu is a magnetic moment and must be >= 0.

@@ -631,6 +631,15 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                         self.test_mask[2 * n_markers // 3] = True
         return cached
 
+    @property
+    def B_max(self):
+        r"""Maximum equilibrium field strength :math:`B_\text{max} = \max |\mathbf B_0|` over the plasma domain"""
+        if not hasattr(self, "_B_max"):
+            e1 = xp.linspace(0.0, 1.0, 300)
+            e2 = xp.linspace(0.0, 1.0, 300)
+            self._B_max = float(xp.max(self.equil.absB0(e1, e2, xp.zeros(1))))
+        return self._B_max
+
     def eval_psic(self, *coords):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
 
@@ -679,12 +688,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            positive_mask = (energy - mu * B0) > 0
+            B_max = self.B_max
+            positive_mask = (energy - mu * B_max) > 0
             correction = xp.zeros_like(psi_c)
             correction[positive_mask] = (
                 self._epsilon
                 * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * xp.sqrt(2 * (energy - mu * B_max)[positive_mask])
                 * R0
             )
             psi_c += correction
@@ -705,12 +715,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            positive_mask[:] = (energy - mu * B0) > 0
+            B_max = self.B_max
+            positive_mask[:] = (energy - mu * B_max) > 0
             correction[:] = 0.0
             correction[positive_mask] = (
                 self._epsilon
                 * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * xp.sqrt(2 * (energy - mu * B_max)[positive_mask])
                 * R0
             )
             psi_c[:] += correction

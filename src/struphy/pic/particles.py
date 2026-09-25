@@ -473,6 +473,41 @@ class Particles5D(Particles):
         if self.get_PBb is not None:
             self.set_magnetic_field(self.get_PBb())
 
+        weights = old[:, 3 + self.vdim]
+        self.lost_energy[0] += xp.sum(weights * 0.5 * old[:, 3] ** 2)
+        self.lost_energy[1] += xp.sum(weights * self._eval_mu_B(tmp))
+
+    @property
+    def refill_energy(self):
+        """Cumulative energy lost by markers when they are refilled on this process,
+        ``sum(w * mu * (|B_0| + b_parallel))`` before minus after refilling (:math:`v_\\parallel` and :math:`\\mu` are unchanged)."""
+        if not hasattr(self, "_refill_energy"):
+            self._refill_energy = xp.zeros(1, dtype=float)
+        return self._refill_energy
+
+    def _particle_refilling(self):
+        refilled = xp.zeros(self._markers.shape[0], dtype=bool)
+        for kind in self.bc_refill:
+            refilled |= self._is_outside_left if kind == "inner" else self._is_outside_right
+
+        if not xp.any(refilled):
+            return super()._particle_refilling()
+
+        if self.get_PBb is not None:
+            self.set_magnetic_field(self.get_PBb())
+
+        # positions outside [0, 1] are folded back into the domain by the energy kernel
+        en_before = self._eval_mu_B(self._markers[refilled])
+        super()._particle_refilling()
+        en_after = self._eval_mu_B(self._markers[refilled])
+
+        weights = self._markers[refilled, self.index["weights"]]
+        self.refill_energy[0] += xp.sum(weights * (en_before - en_after))
+
+    def _eval_mu_B(self, rows):
+        """Evaluate :math:`\\mu (|B_0| + b_\\parallel)` at the positions of a copy of the given marker rows,
+        with the magnetic field last set by :meth:`set_magnetic_field`."""
+        tmp = xp.array(rows)
         utilities_kernels.eval_magnetic_energy_PBb(
             tmp,
             self.derham.args_derham,
@@ -483,10 +518,7 @@ class Particles5D(Particles):
             self._tmp0._data,
             xp.array(self.derham.spl_kind, dtype=bool),
         )
-
-        weights = old[:, 3 + self.vdim]
-        self.lost_energy[0] += xp.sum(weights * 0.5 * old[:, 3] ** 2)
-        self.lost_energy[1] += xp.sum(weights * tmp[:, self.first_diagnostics_idx])
+        return tmp[:, self.first_diagnostics_idx]
 
     def set_magnetic_field(self, PBb):
         r"""Stores the (time-dependent) magnetic field used to evaluate the magnetic-moment energy of markers,

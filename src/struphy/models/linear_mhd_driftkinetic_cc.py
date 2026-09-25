@@ -169,6 +169,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         particle_parallel = FunctionScalarPIC(self._compute_en_fv, self.energetic_ions.var)
         particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
         lost_energy = FunctionScalarPIC(self._compute_en_lost, self.energetic_ions.var)
+        refill_energy = FunctionScalarPIC(self._compute_en_refill, self.energetic_ions.var)
         self.scalars = Scalars(
             en_U=kinetic_energy,
             en_p=pressure_energy,
@@ -176,12 +177,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
             en_fv=particle_parallel,
             en_fB=particle_magnetic,
             en_lost=lost_energy,
+            en_refill=refill_energy,
             en_tot=kinetic_energy
             + pressure_energy
             + magnetic_energy
             + particle_parallel
             + particle_magnetic
-            + lost_energy,
+            + lost_energy
+            + refill_energy,
             n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
         )
 
@@ -234,6 +237,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
         particles = self.energetic_ions.var.particles
 
         return float(particles.lost_energy.sum()) * Ah / Ab
+
+    def _compute_en_refill(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particles = self.energetic_ions.var.particles
+
+        return float(particles.refill_energy.sum()) * Ah / Ab
 
     def _compute_en_fB(self):
         Ab = self.mhd.mass_number
@@ -330,6 +340,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         - Parallel energetic-particle energy: ``en_fv``
         - Magnetic-moment energetic-particle energy: ``en_fB``
         - Energy carried away by lost particles (cumulative, included in ``en_tot``): ``en_lost``
+        - Energy lost by particles when refilled (cumulative, included in ``en_tot``): ``en_refill``
         - Total energy: ``en_tot``
         - Lost particles: ``n_lost_particles``"""
 
