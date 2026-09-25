@@ -665,3 +665,17 @@ def test_saved_rank_count_does_not_block_serial_implicit_processing(tmp_path, mo
     monkeypatch.setattr(Output, "pproc", lambda self: calls.append(self.path_out))
     run._ensure_processed()
     assert calls == [run.path_out]
+
+
+def test_command_line_lists_keys_and_writes_a_report(tmp_path, monkeypatch, capsys):
+    import sys
+
+    from struphy.console.main import struphy
+
+    root = write_tree(str(tmp_path / "run"))
+    for argv in (["struphy", "output", "keys", root], ["struphy", "output", "report", root, "--format", "html"]):
+        monkeypatch.setattr(sys, "argv", argv)
+        struphy()
+    printed = capsys.readouterr().out.splitlines()
+    assert printed[: len(Output(root).keys())] == list(Output(root).keys())
+    assert Path(printed[-1]).name == "report.html" and Path(printed[-1]).exists()
