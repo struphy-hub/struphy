@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pyvista as pv
 from matplotlib import pyplot as plt
 
 from struphy import Output
@@ -11,6 +12,8 @@ DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
 # scalar whose exponential growth rate is fitted, and the fit window in Struphy time units
 FIT_QUANTITY = "phi_integral"
 FIT_WINDOW = (0.0, None)
+
+SHOW_EQUIL_PROFILE = False
 
 # products shown at the last saved time, as (product, physical plane, logical coordinate held fixed)
 SNAPSHOTS = [
@@ -63,6 +66,24 @@ def plot_plane(data, plane, fixed):
     return fig, ax
 
 
+def plot_equilibrium(path_out):
+    """Radial equilibrium profiles from the geometry written at the start of the run."""
+    equilibrium = pv.read(str(Path(path_out) / "geometry.vts"))
+    shape = equilibrium.dimensions
+    grid = np.reshape(equilibrium.points, shape + (3,))
+    radius = np.sqrt(grid[..., 0] ** 2 + grid[..., 1] ** 2)[0, 0]
+    pressure = np.reshape(equilibrium.point_data["p0"], shape)[0, 0]
+    fig, ax = plt.subplots()
+    ax.plot(radius, pressure, label=r"$p_0$")
+    if "n0" in equilibrium.point_data:
+        density = np.reshape(equilibrium.point_data["n0"], shape)[0, 0]
+        ax.plot(radius, density, label=r"$n_0$")
+        ax.plot(radius, pressure / density, label=r"$T_0$")
+    ax.set(xlabel=r"$R$", title="Radial equilibrium profiles")
+    ax.legend()
+    return fig, ax
+
+
 def plot_trajectories(orbits, max_markers=1000):
     """Marker paths in the physical XY plane."""
     selected = orbits.isel(marker=slice(0, max_markers))
@@ -77,6 +98,9 @@ def main(path_out=DEFAULT_OUTPUT):
 
     # growth rate of the electrostatic potential
     plot_growth(run.scalars[FIT_QUANTITY], window=FIT_WINDOW)
+
+    if SHOW_EQUIL_PROFILE:
+        plot_equilibrium(run.path_out)
 
     for name, plane, fixed in SNAPSHOTS:
         plot_plane(product(run, name), plane, fixed)

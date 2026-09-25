@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pyvista as pv
 from matplotlib import pyplot as plt
 
 from struphy import Output
@@ -18,12 +19,32 @@ DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
 FIT_QUANTITY = "en_phi"
 FIT_WINDOW = (0.0, 42.0)
 
+SHOW_EQUIL_PROFILE = True
+
 # products shown at the last saved time in the physical XY plane
 SNAPSHOTS = [
     ("kinetic_ions", "e1_e2_density", "f"),
     ("kinetic_ions", "e1_e2_density", "delta_f"),
     ("em_fields", "phi_xyz"),
 ]
+
+
+def plot_equilibrium(path_out):
+    """Radial equilibrium profiles from the geometry written at the start of the run."""
+    equilibrium = pv.read(str(Path(path_out) / "geometry.vts"))
+    shape = equilibrium.dimensions
+    grid = np.reshape(equilibrium.points, shape + (3,))
+    radius = np.sqrt(grid[..., 0] ** 2 + grid[..., 1] ** 2)[0, 0]
+    pressure = np.reshape(equilibrium.point_data["p0"], shape)[0, 0]
+    fig, ax = plt.subplots()
+    ax.plot(radius, pressure, label=r"$p_0$")
+    if "n0" in equilibrium.point_data:
+        density = np.reshape(equilibrium.point_data["n0"], shape)[0, 0]
+        ax.plot(radius, density, label=r"$n_0$")
+        ax.plot(radius, pressure / density, label=r"$T_0$")
+    ax.set(xlabel=r"$R$", title="Radial equilibrium profiles")
+    ax.legend()
+    return fig, ax
 
 
 def fit_growth(series, window=(None, None)):
@@ -58,6 +79,10 @@ def main(paths=(DEFAULT_OUTPUT,)):
 
     if len(runs) > 1:
         return
+
+    if SHOW_EQUIL_PROFILE:
+        plot_equilibrium(run.path_out)
+        plt.show()
 
     for path in SNAPSHOTS:
         data = run
