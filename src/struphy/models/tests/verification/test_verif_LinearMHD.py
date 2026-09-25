@@ -18,7 +18,6 @@ from struphy import (
     perturbations,
     set_logging_level,
 )
-from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import LinearMHD
 
 set_logging_level()
@@ -86,16 +85,11 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         Bsquare = B0x**2 + B0y**2 + B0z**2
         p0 = beta * Bsquare / 2
 
-        disp_params = {"B0x": B0x, "B0y": B0y, "B0z": B0z, "p0": p0, "n0": n0, "gamma": 5 / 3}
-
-        _1, _2, _3, coeffs = power_spectrum_2d(
-            run.evaluate("mhd/velocity"),
+        spectrum = run.dispersion(
+            "mhd/velocity",
             physical=True,
             component=0,
             slice_at=[0, 0, None],
-            do_plot=do_plot,
-            disp_name="MHDhomogenSlab",
-            disp_params=disp_params,
             fit_branches=1,
             noise_level=0.5,
             extr_order=10,
@@ -106,17 +100,14 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         vA = xp.sqrt(Bsquare / n0)
         v_alfven = vA * B0z / xp.sqrt(Bsquare)
         logger.info(f"{v_alfven =}")
-        assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
+        assert xp.abs(spectrum.branch_coefficients.values[0, 0] - v_alfven) < 0.07
 
         # second fft
-        _1, _2, _3, coeffs = power_spectrum_2d(
-            run.evaluate("mhd/pressure"),
+        spectrum = run.dispersion(
+            "mhd/pressure",
             physical=True,
             component=0,
             slice_at=[0, 0, None],
-            do_plot=do_plot,
-            disp_name="MHDhomogenSlab",
-            disp_params=disp_params,
             fit_branches=2,
             noise_level=0.4,
             extr_order=10,
@@ -132,8 +123,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         v_fast = xp.sqrt(1 / 2 * (cS**2 + vA**2) * (1 + xp.sqrt(1 - delta)))
         logger.info(f"{v_slow =}")
         logger.info(f"{v_fast =}")
-        assert xp.abs(coeffs[0][0] - v_slow) < 0.05
-        assert xp.abs(coeffs[1][0] - v_fast) < 0.19
+        assert xp.abs(spectrum.branch_coefficients.values[0, 0] - v_slow) < 0.05
+        assert xp.abs(spectrum.branch_coefficients.values[1, 0] - v_fast) < 0.19
 
         shutil.rmtree(test_folder)
 

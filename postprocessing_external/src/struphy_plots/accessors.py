@@ -465,7 +465,7 @@ class ArrayAnalysis(_ArrayAccessor):
         """Mean over the logical space dimensions ``e1``, ``e2``, ``e3`` (or ``dims``).
 
         For a binned ``e1_v1`` distribution this is f(v1, t) averaged over space; see
-        :func:`struphy.diagnostics.analysis.spatial_average`.
+        :func:`struphy_plots.analysis.spatial_average`.
         """
         from .analysis import spatial_average
 
@@ -474,7 +474,7 @@ class ArrayAnalysis(_ArrayAccessor):
     def velocity_moments(self, *, dims=None) -> xr.Dataset:
         """Density, mean velocity and variance of a binned distribution over its velocity dimensions.
 
-        See :func:`struphy.diagnostics.analysis.velocity_moments` for the definitions.
+        See :func:`struphy_plots.analysis.velocity_moments` for the definitions.
         """
         from .analysis import velocity_moments
 
@@ -484,13 +484,13 @@ class ArrayAnalysis(_ArrayAccessor):
         """Space-time power spectrum of this field and fitted dispersion branches.
 
         The time coordinate must be normalized, see :meth:`struphy.Output.with_time_units`. See
-        :func:`struphy.diagnostics.diagn_tools.power_spectrum_2d` for ``slice_at``, the fit options
-        and ``do_plot``. Returns ``(omega, kvec, spectrum, coeffs)``.
+        :func:`struphy.post_processing.spectral.compute_dispersion` for ``slice_at`` and fit options.
+        Returns an xarray Dataset with ``power(omega, k)``.
         """
-        from struphy.diagnostics.diagn_tools import power_spectrum_2d
+        from struphy.post_processing.spectral import compute_dispersion
 
         if self._array.t.attrs.get("units") == "s":
             raise ValueError(
                 "the spectrum needs normalized time; take the field from out.with_time_units('normalized')"
             )
-        return power_spectrum_2d(self._array, component=component, slice_at=slice_at, physical=physical, **kwargs)
+        return compute_dispersion(self._array, component=component, slice_at=slice_at, physical=physical, **kwargs)

@@ -19,7 +19,6 @@ from struphy import (
     grids,
     perturbations,
 )
-from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.models import Maxwell
 
 logger = logging.getLogger("struphy")
@@ -73,13 +72,11 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
         # fft
-        _1, _2, _3, coeffs = power_spectrum_2d(
-            run.evaluate("em_fields/e_field"),
+        spectrum = run.dispersion(
+            "em_fields/e_field",
             physical=True,
             component=0,
             slice_at=[0, 0, None],
-            do_plot=do_plot,
-            disp_name="Maxwell1D",
             fit_branches=1,
             noise_level=0.5,
             extr_order=10,
@@ -88,7 +85,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
 
         # assert
         c_light_speed = 1.0
-        assert xp.abs(coeffs[0][0] - c_light_speed) < 0.02
+        assert xp.abs(spectrum.branch_coefficients.values[0, 0] - c_light_speed) < 0.02
 
         shutil.rmtree(test_folder)
 

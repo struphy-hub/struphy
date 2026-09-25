@@ -282,10 +282,10 @@ class Output:
         coordinates. Optional polynomial branch fits are stored as ``branch_coefficients``.
         Plotting is intentionally left to the optional xarray plotting package.
         """
-        from struphy.diagnostics.diagn_tools import power_spectrum_2d
-
         field = self._product(name, dataset=dataset) if dataset is not None else self._array(name)
-        omega, kvec, power, coefficients = power_spectrum_2d(
+        from struphy.post_processing.spectral import compute_dispersion
+
+        result = compute_dispersion(
             field,
             component=component,
             slice_at=slice_at,
@@ -295,24 +295,10 @@ class Output:
             extr_order=extr_order,
             fit_degree=fit_degree,
         )
-        result = xr.Dataset(
-            {
-                "power": (("omega", "k"), np.asarray(power)),
-            },
-            coords={"omega": np.asarray(omega), "k": np.asarray(kvec)},
-            attrs={"run": self.label, "run_name": self.path_out.name, "source": name},
-        )
+        result.attrs.update(run=self.label, run_name=self.path_out.name, source=name)
         result["omega"].attrs["long_name"] = "angular frequency"
         result["k"].attrs["long_name"] = "wave number"
         result["power"].attrs["long_name"] = "space-time power spectrum"
-        if coefficients:
-            width = max(len(np.asarray(values).ravel()) for values in coefficients)
-            fitted = np.full((len(coefficients), width), np.nan)
-            for index, values in enumerate(coefficients):
-                values = np.asarray(values).ravel()
-                fitted[index, : values.size] = values
-            result["branch_coefficients"] = (("branch", "coefficient"), fitted)
-            result = result.assign_coords(branch=np.arange(len(coefficients)))
         return result
 
     def _reset(self):

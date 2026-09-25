@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class OutputPlots:
     """Plots of a whole run, constructed as ``OutputPlots(out)``.
 
-    They return a rendered :class:`~struphy.diagnostics.plotting.PlotResult` with ``.show()``
+    They return plotting-library objects with ``.show()``
     and ``.save(path)``, titled with the run's numerical parameters. Plots of one product are
     methods of that product, e.g. ``out.kinetic_ions.orbits.struphy.plot.trajectories()``.
     """
