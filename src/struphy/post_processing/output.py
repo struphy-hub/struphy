@@ -263,6 +263,58 @@ class Output:
         ratio = xr.where(right != 0, left / right, np.nan)
         return xr.Dataset({"first": left, "second": right, "difference": difference, "ratio": ratio})
 
+    def dispersion(
+        self,
+        name: str,
+        *,
+        dataset: str | None = None,
+        component: int = 0,
+        slice_at: tuple = (None, 0, 0),
+        physical: bool = False,
+        fit_branches: int = 0,
+        noise_level: float = 0.1,
+        extr_order: int = 10,
+        fit_degree: tuple[int, ...] = (1,),
+    ) -> xr.Dataset:
+        """Compute a space-time dispersion spectrum for one saved field.
+
+        The returned dataset has ``power(omega, k)`` and angular-frequency/wave-number
+        coordinates. Optional polynomial branch fits are stored as ``branch_coefficients``.
+        Plotting is intentionally left to the optional xarray plotting package.
+        """
+        from struphy.diagnostics.diagn_tools import power_spectrum_2d
+
+        field = self._product(name, dataset=dataset) if dataset is not None else self._array(name)
+        omega, kvec, power, coefficients = power_spectrum_2d(
+            field,
+            component=component,
+            slice_at=slice_at,
+            physical=physical,
+            fit_branches=fit_branches,
+            noise_level=noise_level,
+            extr_order=extr_order,
+            fit_degree=fit_degree,
+        )
+        result = xr.Dataset(
+            {
+                "power": (("omega", "k"), np.asarray(power)),
+            },
+            coords={"omega": np.asarray(omega), "k": np.asarray(kvec)},
+            attrs={"run": self.label, "run_name": self.path_out.name, "source": name},
+        )
+        result["omega"].attrs["long_name"] = "angular frequency"
+        result["k"].attrs["long_name"] = "wave number"
+        result["power"].attrs["long_name"] = "space-time power spectrum"
+        if coefficients:
+            width = max(len(np.asarray(values).ravel()) for values in coefficients)
+            fitted = np.full((len(coefficients), width), np.nan)
+            for index, values in enumerate(coefficients):
+                values = np.asarray(values).ravel()
+                fitted[index, : values.size] = values
+            result["branch_coefficients"] = (("branch", "coefficient"), fitted)
+            result = result.assign_coords(branch=np.arange(len(coefficients)))
+        return result
+
     def _reset(self):
         if getattr(self, "_tree", None) is not None:
             self._tree.close()  # an open store would block the next process() from writing it

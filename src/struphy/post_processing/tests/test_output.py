@@ -311,6 +311,13 @@ def test_evaluate_scalars_and_particle_defaults(run):
     assert orbits.name == "orbits"
 
 
+def test_output_dispersion_returns_labeled_dataset(run):
+    spectrum = run.dispersion("em_fields/E", component=0, slice_at=(None, 0, 0))
+    assert set(spectrum.data_vars) == {"power"}
+    assert spectrum.power.dims == ("omega", "k")
+    assert spectrum.attrs["source"] == "em_fields/E"
+
+
 def test_info_lists_particle_dataset_choices_in_default_order(run, capsys):
     run.info("kinetic_ions/f")
     report = capsys.readouterr().out
