@@ -1,8 +1,10 @@
 # third party imports
+import ast
 import copy
 import dataclasses
 import glob
 import hashlib
+import importlib
 import inspect
 import json
 import logging
@@ -1560,7 +1562,59 @@ class Simulation(SimulationBase):
         }
 
     @staticmethod
-    def _serialize_initial_condition(value):
+    def _serialize_function_globals(func, source: str, seen=None) -> dict:
+        """Capture the module-level names a user function needs to be re-executed.
+
+        Default arguments (``def f(x, r=r_minus)``) and body references (``R0``,
+        helper functions) are resolved in the defining module, so the source alone
+        cannot be restored.  Plain values, modules and other top-level functions are
+        recorded; anything else is left out and fails only if it is actually used.
+        """
+        seen = set() if seen is None else seen
+        seen = seen | {id(func)}
+        names = sorted(
+            {
+                node.id
+                for node in ast.walk(ast.parse(source))
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+            }
+        )
+
+        def plain(item):
+            if item is None or isinstance(item, (bool, int, float, str)):
+                return True
+            return isinstance(item, (list, tuple)) and all(plain(each) for each in item)
+
+        referenced = {}
+        for name in names:
+            if name == func.__name__ or name not in func.__globals__:
+                continue
+            item = func.__globals__[name]
+            if inspect.ismodule(item):
+                referenced[name] = {"type": "module", "name": item.__name__}
+            elif plain(item):
+                referenced[name] = {"type": "value", "value": Simulation._serialize_initial_condition(item)}
+            elif inspect.isfunction(item) and id(item) not in seen:
+                serialized = Simulation._serialize_initial_condition(item, _seen=seen)
+                if serialized.get("serialization") != "unsupported":
+                    referenced[name] = serialized
+        return referenced
+
+    @staticmethod
+    def _deserialize_function_globals(referenced: dict) -> dict:
+        """Rebuild the namespace recorded by :meth:`_serialize_function_globals`."""
+        namespace = {}
+        for name, item in referenced.items():
+            if item["type"] == "module":
+                namespace[name] = importlib.import_module(item["name"])
+            elif item["type"] == "value":
+                namespace[name] = Simulation._deserialize_initial_condition(item["value"])
+            else:
+                namespace[name] = Simulation._deserialize_initial_condition(item)
+        return namespace
+
+    @staticmethod
+    def _serialize_initial_condition(value, _seen=None):
         """Convert initial-condition definitions into JSON-compatible provenance data.
 
         This deliberately captures constructor parameters rather than evaluated FEEC
@@ -1592,20 +1646,25 @@ class Simulation(SimulationBase):
                     "serialization": "unsupported",
                     "reason": "nested classes are not supported",
                 }
-            try:
-                source = textwrap.dedent(inspect.getsource(cls))
-            except (OSError, TypeError):
-                return {
+            if cls.__module__ == "struphy" or cls.__module__.startswith("struphy."):
+                # Struphy's own classes are importable; re-executing their source would
+                # lose the names their module imports.
+                data = {"type": "python_class", "name": cls.__qualname__, "module": cls.__module__}
+            else:
+                try:
+                    source = textwrap.dedent(inspect.getsource(cls))
+                except (OSError, TypeError):
+                    return {
+                        "type": "python_class",
+                        "serialization": "unsupported",
+                        "reason": "source code is unavailable",
+                    }
+                data = {
                     "type": "python_class",
-                    "serialization": "unsupported",
-                    "reason": "source code is unavailable",
+                    "name": cls.__name__,
+                    "source": source,
+                    "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
                 }
-            data = {
-                "type": "python_class",
-                "name": cls.__name__,
-                "source": source,
-                "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
-            }
             if hasattr(value, "params"):
                 data["params"] = Simulation._serialize_initial_condition(value.params)
             elif hasattr(value, "__dict__"):
@@ -1661,12 +1720,16 @@ class Simulation(SimulationBase):
                     "serialization": "unsupported",
                     "reason": "source code is unavailable",
                 }
-            return {
+            data = {
                 "type": "python_function",
                 "name": value.__name__,
                 "source": source,
                 "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
             }
+            referenced = Simulation._serialize_function_globals(value, source, _seen)
+            if referenced:
+                data["globals"] = referenced
+            return data
         if callable(value):
             return {
                 "type": "callable",
@@ -1702,28 +1765,34 @@ class Simulation(SimulationBase):
             import numpy as np
 
             namespace = {"np": np, "numpy": np, "xp": xp, "cp": xp, "cupy": xp}
+            namespace.update(Simulation._deserialize_function_globals(value.get("globals", {})))
             exec(source, namespace)  # noqa: S102 -- reconstruct saved Python function
             return namespace[value["name"]]
         if kind == "python_class":
             if value.get("serialization") == "unsupported":
                 raise ValueError(f"Cannot restore initial-condition class: {value['reason']}.")
-            source = value["source"]
-            if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
-                raise ValueError("Initial-condition class source hash does not match its metadata.")
-            import cunumpy as xp
-            import numpy as np
+            if "module" in value:
+                initial_condition_class = importlib.import_module(value["module"])
+                for part in value["name"].split("."):
+                    initial_condition_class = getattr(initial_condition_class, part)
+            else:
+                source = value["source"]
+                if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
+                    raise ValueError("Initial-condition class source hash does not match its metadata.")
+                import cunumpy as xp
+                import numpy as np
 
-            namespace = {
-                "np": np,
-                "numpy": np,
-                "xp": xp,
-                "cp": xp,
-                "cupy": xp,
-                "Perturbation": Perturbation,
-                "dataclass": dataclasses.dataclass,
-            }
-            exec(source, namespace)  # noqa: S102 -- reconstruct saved Python class
-            initial_condition_class = namespace[value["name"]]
+                namespace = {
+                    "np": np,
+                    "numpy": np,
+                    "xp": xp,
+                    "cp": xp,
+                    "cupy": xp,
+                    "Perturbation": Perturbation,
+                    "dataclass": dataclasses.dataclass,
+                }
+                exec(source, namespace)  # noqa: S102 -- reconstruct saved Python class
+                initial_condition_class = namespace[value["name"]]
             if "params" in value:
                 return initial_condition_class(**Simulation._deserialize_initial_condition(value["params"]))
             initial_condition = initial_condition_class.__new__(initial_condition_class)

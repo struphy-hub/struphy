@@ -35,6 +35,17 @@ def user_density_profile(eta1, eta2, eta3):
     return 1.0 + eta1 * 0.0 + eta2 * 0.0 + eta3 * 0.0
 
 
+PROFILE_INNER, PROFILE_OUTER = 0.25, 0.75
+
+
+def user_radial_step(eta1):
+    return np.where((PROFILE_INNER <= eta1) & (eta1 < PROFILE_OUTER), 1.0, 0.0)
+
+
+def user_profile_with_globals(eta1, eta2, eta3, inner=PROFILE_INNER):
+    return 2.0 * user_radial_step(eta1) + inner + eta2 * 0.0 + eta3 * 0.0
+
+
 class UserCosinePerturbation(Perturbation):
     def __init__(self, amplitude=0.1):
         self.params = {"amplitude": amplitude}
@@ -215,6 +226,28 @@ def test_run_metadata_embeds_user_function_source(tmp_path):
     assert density["name"] == "user_density_profile"
     assert "def user_density_profile" in density["source"]
     assert len(density["source_sha256"]) == 64
+
+
+def test_user_function_referencing_module_globals_round_trips():
+    serialized = Simulation._serialize_initial_condition(user_profile_with_globals)
+    assert set(serialized["globals"]) == {"PROFILE_INNER", "user_radial_step"}
+    assert set(serialized["globals"]["user_radial_step"]["globals"]) == {"PROFILE_INNER", "PROFILE_OUTER", "np"}
+
+    restored = Simulation._deserialize_initial_condition(json.loads(json.dumps(serialized)))
+    assert restored(0.5, 0.0, 0.0) == user_profile_with_globals(0.5, 0.0, 0.0)
+    assert restored(0.9, 0.0, 0.0) == user_profile_with_globals(0.9, 0.0, 0.0)
+
+
+def test_struphy_class_wrapping_user_function_round_trips():
+    from struphy.initial.base import GenericPerturbation
+
+    serialized = Simulation._serialize_initial_condition(GenericPerturbation(user_profile_with_globals))
+    assert serialized["module"] == "struphy.initial.base"
+    assert "source" not in serialized
+
+    restored = Simulation._deserialize_initial_condition(json.loads(json.dumps(serialized)))
+    assert isinstance(restored, GenericPerturbation)
+    assert restored(0.5, 0.0, 0.0) == user_profile_with_globals(0.5, 0.0, 0.0)
 
 
 def test_from_output_restores_embedded_initial_condition_source(tmp_path, monkeypatch):
