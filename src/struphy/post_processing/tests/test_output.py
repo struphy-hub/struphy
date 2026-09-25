@@ -12,9 +12,9 @@ import xarray as xr
 
 from struphy import BaseUnits, Time, domains
 from struphy.models import Maxwell
+from struphy.pic.particles import Particles6D
 from struphy.post_processing import output as output_module
 from struphy.post_processing import store
-from struphy.pic.particles import Particles6D
 from struphy.post_processing.arrays import wrap_orbits
 from struphy.post_processing.manifest import is_processed, normalize_options, source_fingerprint
 from struphy.post_processing.output import Output, open_output

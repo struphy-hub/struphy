@@ -1,7 +1,7 @@
 """Tests for the link between a Simulation and its output."""
 
-import json
 import inspect
+import json
 import os
 from pathlib import Path
 
@@ -20,8 +20,8 @@ from struphy import (
     maxwellians,
     perturbations,
 )
-from struphy.initial.base import Perturbation
 from struphy.initial import perturbations
+from struphy.initial.base import Perturbation
 from struphy.kinetic_background import maxwellians
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies

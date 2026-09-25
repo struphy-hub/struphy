@@ -1622,11 +1622,7 @@ class Simulation(SimulationBase):
             return {
                 "type": type(value).__name__,
                 "params": Simulation._serialize_initial_condition(
-                    {
-                        field.name: getattr(value, field.name)
-                        for field in dataclasses.fields(value)
-                        if field.init
-                    }
+                    {field.name: getattr(value, field.name) for field in dataclasses.fields(value) if field.init}
                 ),
             }
         if hasattr(value, "params"):
