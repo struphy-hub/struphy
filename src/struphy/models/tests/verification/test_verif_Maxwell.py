@@ -50,8 +50,7 @@ def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
         if not peaks:
             continue
         assert len(peaks) == n_branches, (
-            f"Found {len(peaks)} branches at k={k[i]:.3f}, expected {n_branches}. "
-            "Try another noise_level or order."
+            f"Found {len(peaks)} branches at k={k[i]:.3f}, expected {n_branches}. Try another noise_level or order."
         )
         k_fit.append(k[i])
         for branch, j in zip(omega_fit, peaks):
