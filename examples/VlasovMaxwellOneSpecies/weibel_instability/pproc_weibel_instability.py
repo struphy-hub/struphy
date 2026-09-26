@@ -29,7 +29,7 @@ def main(path_out=DEFAULT_OUTPUT):
     # Gauss law violation
     # ------------------
     if run.model.measure_gauss_law:
-        gauss_error = run.scalars.gauss_error
+        gauss_error = run.evaluate("scalars", variables="gauss_error")["gauss_error"]
 
         fig, ax = plt.subplots(1, figsize=(10, 6))
         ax.plot(gauss_error.t, gauss_error)
@@ -45,8 +45,8 @@ def main(path_out=DEFAULT_OUTPUT):
     # ------------------
     # progression of EM-field energy along different directions
     # ------------------
-    e_field = run.fields.em_fields.e_field
-    b_field = run.fields.em_fields.b_field
+    e_field = run.evaluate("em_fields/e_field")
+    b_field = run.evaluate("em_fields/b_field")
     spatial = ("e1", "e2", "e3")
     unit_volume = xp.prod([1 / (e_field.sizes[dim] - 1) for dim in spatial])
 
@@ -104,13 +104,13 @@ def main(path_out=DEFAULT_OUTPUT):
     # ------------------
     # Binning distribution evolution
     # ------------------
-    distributions = run.distributions.kinetic_ions
     for bin_name, x, y in (
         ("e1_v1_density", "e1", "v1"),
         ("v1_v2_density", "v1", "v2"),
     ):
+        binned = run.evaluate(f"kinetic_ions/{bin_name}")
         for quantity in ("f", "delta_f"):
-            plot_panels(getattr(getattr(distributions, bin_name), quantity), x=x, y=y, n_panels=20, ncols=4)
+            plot_panels(binned[quantity], x=x, y=y, n_panels=20, ncols=4)
             plt.show()
 
     # ------------------
@@ -148,7 +148,7 @@ def main(path_out=DEFAULT_OUTPUT):
         fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(9, 9), sharey=True, sharex=True)
         for i in range(3):
             for j in range(3):
-                current = getattr(distributions, f"e{i + 1}_current_{j + 1}").f
+                current = run.evaluate(f"kinetic_ions/e{i + 1}_current_{j + 1}")["f"]
                 current = current.sel(t=time_step, method="nearest")
                 ax[i, j].axhline(color="red", alpha=0.5)
                 ax[i, j].plot(current[f"e{i + 1}"], current)
