@@ -507,10 +507,12 @@ moved to another location:
     from struphy import Output
 
     output = Output("./runs/my_run")
-    output.pproc(physical=True)
 
-This reads the ``run_metadata.json`` written by the simulation. Under MPI, call
-``pproc`` on every rank; serial processing runs on rank 0 while the other ranks wait.
+This reads the ``run_metadata.json`` written by the simulation. Products are
+materialized with :meth:`~struphy.Output.pproc` on first access, using default
+options; call ``pproc`` explicitly first to choose different options (see
+below), and under MPI call it on every rank, since serial processing runs on
+rank 0 while the other ranks wait.
 
 The output of a simulation is a :class:`~struphy.Output`. ``sim.run()`` returns it,
 and it stays available as ``sim.output``:
