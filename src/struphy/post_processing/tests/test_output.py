@@ -29,7 +29,7 @@ def write_tree(root):
     t = np.linspace(0, 1, NT)
     np.save(os.path.join(pproc, "t_grid.npy"), t)
 
-    logical = {f"e{axis + 1}": np.linspace(0, 1, n) for axis, n in enumerate((N1, N2, N3))}
+    logical = {f"eta{axis + 1}": np.linspace(0, 1, n) for axis, n in enumerate((N1, N2, N3))}
     mapped = np.meshgrid(*logical.values(), indexing="ij")
     path = store.store_path(pproc)
     store.create(path)
@@ -39,7 +39,7 @@ def write_tree(root):
         xr.Dataset(
             {
                 "E": (
-                    ("t", "component", "e1", "e2", "e3"),
+                    ("t", "component", "eta1", "eta2", "eta3"),
                     np.stack([np.stack([np.full((N1, N2, N3), i + time) for i in range(3)]) for time in t]),
                 )
             },
@@ -47,7 +47,7 @@ def write_tree(root):
                 "t": t,
                 "component": [0, 1, 2],
                 **logical,
-                **{name: (("e1", "e2", "e3"), grid) for name, grid in zip(("X", "Y", "Z"), mapped)},
+                **{name: (("eta1", "eta2", "eta3"), grid) for name, grid in zip(("X", "Y", "Z"), mapped)},
             },
         ),
     )
@@ -55,16 +55,19 @@ def write_tree(root):
         path,
         "/kinetic_ions/e1_v1_density",
         xr.Dataset(
-            {"f": (("t", "e1", "v1"), np.ones((NT, N1, NV))), "delta_f": (("t", "e1", "v1"), np.zeros((NT, N1, NV)))},
-            coords={"t": t, "e1": logical["e1"], "v1": np.linspace(-3, 3, NV)},
+            {
+                "f": (("t", "eta1", "v1"), np.ones((NT, N1, NV))),
+                "delta_f": (("t", "eta1", "v1"), np.zeros((NT, N1, NV))),
+            },
+            coords={"t": t, "eta1": logical["eta1"], "v1": np.linspace(-3, 3, NV)},
         ),
     )
     store.write_group(
         path,
         "/kinetic_ions/view_0",
         xr.Dataset(
-            {"n": (("t", "e1", "e2", "e3"), np.ones((NT, N1, N2, 1)))},
-            coords={"t": t, "e1": logical["e1"], "e2": logical["e2"], "e3": np.zeros(1)},
+            {"n": (("t", "eta1", "eta2", "eta3"), np.ones((NT, N1, N2, 1)))},
+            coords={"t": t, "eta1": logical["eta1"], "eta2": logical["eta2"], "eta3": np.zeros(1)},
         ),
     )
     orbits = np.stack([np.full((N_MARKERS, 7), step) for step in range(NT)])
@@ -163,23 +166,23 @@ def test_catalog_is_structured_and_report_is_written(run, tmp_path):
 
 def test_field_has_named_and_curvilinear_coordinates(run):
     field = run.fields["em_fields/E"]
-    assert field.dims == ("t", "component", "e1", "e2", "e3")
-    assert field.X.dims == ("e1", "e2", "e3")
+    assert field.dims == ("t", "component", "eta1", "eta2", "eta3")
+    assert field.X.dims == ("eta1", "eta2", "eta3")
     np.testing.assert_allclose(field.isel(t=0, component=2), 2)
     assert run.field_catalog._cache["em_fields/E"] is field
 
 
 def test_binned_products_have_coordinates(run):
     data = run.distributions["kinetic_ions/e1_v1_density/f"]
-    assert data.dims == ("t", "e1", "v1")
+    assert data.dims == ("t", "eta1", "v1")
     np.testing.assert_allclose(data.v1, np.linspace(-3, 3, NV))
 
 
 def test_sph_density_views_take_dimensions_from_their_grids(run):
     data = run.densities.kinetic_ions.view_0.n
-    assert data.dims == ("t", "e1", "e2", "e3")
+    assert data.dims == ("t", "eta1", "eta2", "eta3")
     assert data.shape == (NT, N1, N2, 1)
-    np.testing.assert_allclose(data.e2, np.linspace(0, 1, N2))
+    np.testing.assert_allclose(data.eta2, np.linspace(0, 1, N2))
 
 
 def test_orbit_product_is_a_dataset_of_named_quantities(run):
@@ -281,7 +284,7 @@ def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
 
 def test_evaluate_selects_positions_coordinates_and_slices(run):
     field = run.evaluate("em_fields/E", t=-1, component=2)
-    assert field.dims == ("t", "e1", "e2", "e3")
+    assert field.dims == ("t", "eta1", "eta2", "eta3")
     assert field.sizes["t"] == 1
     np.testing.assert_allclose(field, 3.0)
 
@@ -291,7 +294,7 @@ def test_evaluate_selects_positions_coordinates_and_slices(run):
     phase_space = run.evaluate(
         "kinetic_ions/f",
         dataset="e1_v1_density/f",
-        e1=0.49,
+        eta1=0.49,
         method="nearest",
         drop=True,
     )
@@ -315,14 +318,14 @@ def test_evaluate_scalars_and_particle_defaults(run):
 
     distribution = run.evaluate("kinetic_ions/f")
     assert distribution.name == "f"
-    assert distribution.dims == ("t", "e1", "v1")
+    assert distribution.dims == ("t", "eta1", "v1")
 
     fallback = run.evaluate("kinetic_ions/any_variable")
     assert fallback.name == "f"
 
     density = run.evaluate("kinetic_ions/n")
     assert density.name == "n"
-    assert density.dims == ("t", "e1", "e2", "e3")
+    assert density.dims == ("t", "eta1", "eta2", "eta3")
 
     selected = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
     assert selected.name == "delta_f"
@@ -368,17 +371,17 @@ def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
         space_id = "H1"
 
         def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
-            e1, e2, e3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
-            value = e1 + 10 * e2 + 100 * e3
+            eta1, eta2, eta3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            value = eta1 + 10 * eta2 + 100 * eta3
             return value.squeeze() if squeeze_out else value
 
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
 
     values = run.evaluate("em_fields/phi", eta1=[0.25, 0.5], eta2=range(2), eta3=0.75, t=0)
 
-    assert values.dims == ("t", "e1", "e2")
-    np.testing.assert_allclose(values.e1, [0.25, 0.5])
-    np.testing.assert_allclose(values.e2, [0.0, 1.0])
+    assert values.dims == ("t", "eta1", "eta2")
+    np.testing.assert_allclose(values.eta1, [0.25, 0.5])
+    np.testing.assert_allclose(values.eta2, [0.0, 1.0])
     np.testing.assert_allclose(values[0], [[75.25, 85.25], [75.5, 85.5]])
 
 
@@ -394,8 +397,8 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
 
     class Domain:
         def __call__(self, eta1, eta2, eta3):
-            e1, e2, e3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
-            return e1 + 1.0, e2 + 2.0, e3 + 3.0
+            eta1, eta2, eta3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            return eta1 + 1.0, eta2 + 2.0, eta3 + 3.0
 
     run.grid = SimpleNamespace(num_elements=(2, 3, 4))
     run.domain = Domain()
@@ -403,12 +406,12 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
 
     values = run.evaluate("em_fields/phi", t=0)
 
-    assert values.dims == ("t", "e1", "e2", "e3")
+    assert values.dims == ("t", "eta1", "eta2", "eta3")
     assert values.shape == (1, 2, 3, 4)
-    np.testing.assert_allclose(values.e1, [0.25, 0.75])
-    np.testing.assert_allclose(values.e2, [1 / 6, 0.5, 5 / 6])
-    np.testing.assert_allclose(values.e3, [0.125, 0.375, 0.625, 0.875])
-    assert values.X.dims == values.Y.dims == values.Z.dims == ("e1", "e2", "e3")
+    np.testing.assert_allclose(values.eta1, [0.25, 0.75])
+    np.testing.assert_allclose(values.eta2, [1 / 6, 0.5, 5 / 6])
+    np.testing.assert_allclose(values.eta3, [0.125, 0.375, 0.625, 0.875])
+    assert values.X.dims == values.Y.dims == values.Z.dims == ("eta1", "eta2", "eta3")
     np.testing.assert_allclose(values.X[:, 0, 0], [1.25, 1.75])
     np.testing.assert_allclose(values.Y[0, :, 0], [2 + 1 / 6, 2.5, 2 + 5 / 6])
     np.testing.assert_allclose(values.Z[0, 0, :], [3.125, 3.375, 3.625, 3.875])
@@ -425,7 +428,7 @@ def test_evaluate_raw_spline_field_defaults_omitted_cut_coordinates_to_midpoint(
 
     values = run.evaluate("em_fields/phi", eta1=[0.25, 0.75], t=0)
 
-    assert values.dims == ("t", "e1")
+    assert values.dims == ("t", "eta1")
     np.testing.assert_allclose(values[0], [1.25, 1.75])
 
 
@@ -476,9 +479,9 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
     class Field:
         space_id = "Hcurl"
 
-        def __call__(self, e1, e2, e3, *, squeeze_out=False):
-            e1, e2, e3 = np.meshgrid(e1, e2, e3, indexing="ij")
-            return [1.0 + e1, 2.0 + e2, 3.0 + e3]
+        def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
+            eta1, eta2, eta3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            return [1.0 + eta1, 2.0 + eta2, 3.0 + eta3]
 
     field = Field()
     monkeypatch.setattr(run, "domain", domain)
@@ -508,7 +511,7 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
         )
         expected = np.squeeze(np.asarray(expected))
         np.testing.assert_allclose(result.isel(t=0), expected)
-        assert result.dims == ("t", "component", "e1", "e2")
+        assert result.dims == ("t", "component", "eta1", "eta2")
 
 
 def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
@@ -679,3 +682,18 @@ def test_command_line_lists_keys_and_writes_a_report(tmp_path, monkeypatch, caps
     printed = capsys.readouterr().out.splitlines()
     assert printed[: len(Output(root).keys())] == list(Output(root).keys())
     assert Path(printed[-1]).name == "report.html" and Path(printed[-1]).exists()
+
+
+def test_stores_of_schema_version_1_are_read_with_eta_dimensions(tmp_path):
+    """Post-processing output written before the rename (e1, e2, e3) keeps working."""
+    path = str(tmp_path / "output.nc")
+    xr.Dataset(attrs={"schema_version": 1}).to_netcdf(path, mode="w", engine=store.ENGINE)
+    legacy = xr.Dataset(
+        {"phi": (("t", "e1", "e2"), np.ones((2, 3, 4)))},
+        coords={"t": [0.0, 1.0], "e1": np.linspace(0, 1, 3), "e2": np.linspace(0, 1, 4)},
+    )
+    store.write_group(path, "/em_fields", legacy)
+    tree = store.open_tree(path)
+    assert tree["em_fields"].ds.phi.dims == ("t", "eta1", "eta2")
+    tree.close()
+    assert store.SCHEMA_VERSION == 2

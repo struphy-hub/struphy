@@ -309,7 +309,7 @@ class Output:
         by index (an integer, list of integers, or slice); omit it for every
         saved timestep. The returned array always retains its ``t`` dimension.
         A float ``t`` selects a time coordinate. Other keyword arguments select
-        named coordinates, for example ``component=2`` or ``e1=0.5``. For particle
+        named coordinates, for example ``component=2`` or ``eta1=0.5`` (for a product other than a raw FEEC field). For particle
         products, a ``"species/variable"`` name selects the first matching binned
         product, then density/KDE product, then orbits. Pass ``dataset=`` to select a
         particular discovered product; use ``out.info("species/variable")`` to list them.
@@ -336,6 +336,13 @@ class Output:
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
+        if has_eta and name != "scalars" and (dataset is not None or self._is_kinetic_product(name)):
+            # Only raw FEEC fields can be evaluated anywhere; for particle products (binned
+            # distributions, SPH densities, ...) eta1/eta2/eta3 select their saved logical coordinates.
+            for direction, value in enumerate(eta, 1):
+                if value is not None:
+                    selectors[f"eta{direction}"] = value
+            eta, has_eta = (None, None, None), False
         if has_eta and dataset is not None:
             raise ValueError("dataset= cannot be combined with direct FEEC eta evaluation")
         if name == "scalars":
@@ -393,6 +400,15 @@ class Output:
         elif method is not None:
             raise ValueError("method requires a direct coordinate selector")
         return array
+
+    def _is_kinetic_product(self, name: str) -> bool:
+        """Whether ``name`` belongs to a kinetic species of the raw output (and is no FEEC field)."""
+        species = name.split("/")[0]
+        path = self.path_out / "data" / "data_proc0.hdf5"
+        if not path.exists():
+            return False
+        with h5py.File(path) as file:
+            return f"kinetic/{species}" in file and not self._is_raw_spline_field(name)
 
     def _is_raw_spline_field(self, name: str) -> bool:
         """Whether ``name`` is a raw FEEC field saved in the primary output file."""
@@ -472,7 +488,7 @@ class Output:
         grids = [np.atleast_1d(np.asarray(eta, dtype=float)) for eta in etas]
         mapped = self.domain(*grids)
         shape = tuple(len(grid) for grid in grids)
-        keep = tuple(slice(None) if dim in dims else 0 for dim in ("e1", "e2", "e3"))
+        keep = tuple(slice(None) if dim in dims else 0 for dim in ("eta1", "eta2", "eta3"))
         coordinates = {}
         for name, values in zip(("X", "Y", "Z"), mapped):
             values = np.asarray(values).reshape(shape)[keep]
@@ -505,7 +521,7 @@ class Output:
         arguments = []
         dims = []
         coords = {}
-        for dimension, eta in zip(("e1", "e2", "e3"), etas):
+        for dimension, eta in zip(("eta1", "eta2", "eta3"), etas):
             array = np.asarray(eta, dtype=float)
             if not np.all(np.isfinite(array)) or np.any((array < 0.0) | (array > 1.0)):
                 raise ValueError(f"{dimension} values must be finite and lie in the logical unit interval [0, 1]")
@@ -643,24 +659,26 @@ class Output:
         """Attach mapped ``X``, ``Y``, ``Z`` coordinates to a product on a logical grid.
 
         Fields already carry them; this is for products that do not, such as binned densities.
-        The coordinates are evaluated with the run's domain on the array's ``e1``, ``e2``, ``e3``
+        The coordinates are evaluated with the run's domain on the array's ``eta1``, ``eta2``, ``eta3``
         grid; a missing logical dimension is evaluated at ``0.5``.
         """
         array = self._array(product)
         if all(name in array.coords for name in ("X", "Y", "Z")):
             return array
-        dims = tuple(dim for dim in ("e1", "e2", "e3") if dim in array.dims)
+        dims = tuple(dim for dim in ("eta1", "eta2", "eta3") if dim in array.dims)
         if not dims:
-            raise ValueError(f"{array.name!r} has no logical dimensions e1, e2, e3; its dimensions are {array.dims}")
+            raise ValueError(
+                f"{array.name!r} has no logical dimensions eta1, eta2, eta3; its dimensions are {array.dims}"
+            )
         missing = [dim for dim in dims if dim not in array.coords]
         if missing:
             raise ValueError(f"{array.name!r} has no coordinate values for {missing}")
-        grids = [np.asarray(array.coords[dim]) if dim in dims else np.array([0.5]) for dim in ("e1", "e2", "e3")]
+        grids = [np.asarray(array.coords[dim]) if dim in dims else np.array([0.5]) for dim in ("eta1", "eta2", "eta3")]
         mapped = self.domain(*grids)
         shape = tuple(len(grid) for grid in grids)
         for name, values in zip(("X", "Y", "Z"), mapped):
             values = np.asarray(values).reshape(shape)
-            keep = tuple(slice(None) if dim in dims else 0 for dim in ("e1", "e2", "e3"))
+            keep = tuple(slice(None) if dim in dims else 0 for dim in ("eta1", "eta2", "eta3"))
             array = array.assign_coords({name: (dims, values[keep])})
         return array
 
@@ -1793,7 +1811,8 @@ class Output:
         slice_grids = {}
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
-                dims = [part for part in slice_name.split("_")]
+                # the slice name keeps struphy's short labels (e1_v1); the dimensions are eta1, v1, ...
+                dims = [store.LOGICAL_DIMS.get(part, part) for part in slice_name.split("_")]
                 centers = [grid[:] for _, grid in file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()]
                 slice_grids[slice_name] = dict(zip(dims, centers))
         slice_names = list(slice_grids)
@@ -1883,15 +1902,15 @@ class Output:
 
     def _mapped_coords(self, grids: dict) -> dict:
         """``X``, ``Y``, ``Z`` on the logical directions of ``grids``, when there are two or three."""
-        logical = tuple(dim for dim in grids if dim in ("e1", "e2", "e3"))
+        logical = tuple(dim for dim in grids if dim in ("eta1", "eta2", "eta3"))
         if len(logical) not in (2, 3) or self.domain is None:
             return {}
         try:
             if len(logical) == 2:
                 mesh = xp.meshgrid(*(xp.asarray(grids[dim]) for dim in logical), indexing="ij")
-                arguments = {"e1": 0.5, "e2": 0.0, "e3": 0.0}
+                arguments = {"eta1": 0.5, "eta2": 0.0, "eta3": 0.0}
                 arguments.update(dict(zip(logical, mesh)))
-                mapped = self.domain(arguments["e1"], arguments["e2"], arguments["e3"], squeeze_out=True)
+                mapped = self.domain(arguments["eta1"], arguments["eta2"], arguments["eta3"], squeeze_out=True)
             else:
                 mapped = self.domain(*(xp.asarray(grids[dim]) for dim in logical))
         except (TypeError, ValueError):
@@ -1922,7 +1941,7 @@ class Output:
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
             for view in file_0["kinetic/" + species + "/n_sph"]:
                 attrs = file_0["kinetic/" + species + "/n_sph/" + view].attrs
-                view_grids[view] = {f"e{direction}": attrs["eta" + direction][:] for direction in ("1", "2", "3")}
+                view_grids[view] = {f"eta{direction}": attrs["eta" + direction][:] for direction in ("1", "2", "3")}
         views = list(view_grids)
 
         # compute sph density
@@ -2100,7 +2119,7 @@ class Output:
     def _first_field(self) -> xr.Dataset | None:
         """The dataset of a field species, which carries the evaluation grids."""
         for group, dataset in self._groups().items():
-            if "/" not in group and any("e1" in dataset[name].dims for name in dataset.data_vars):
+            if "/" not in group and any("eta1" in dataset[name].dims for name in dataset.data_vars):
                 return dataset
         return None
 
@@ -2123,7 +2142,7 @@ class Output:
         if dataset is None:
             return None
         if name == "grids_log":
-            return [np.asarray(dataset[dim]) for dim in ("e1", "e2", "e3")]
+            return [np.asarray(dataset[dim]) for dim in ("eta1", "eta2", "eta3")]
         if not all(coordinate in dataset.coords for coordinate in ("X", "Y", "Z")):
             return None
         return [np.asarray(dataset[coordinate]) for coordinate in ("X", "Y", "Z")]

@@ -21,8 +21,8 @@ PARAMS_PATH = (
 def test_pproc_mpi(show_plot=False):
 
     def do_plotting(run: Output, from_parallel=False):
-        e_field = run.fields.em_fields.e_field.isel(t=0, component=0, e2=0, e3=0)
-        phi = run.fields.em_fields.phi.isel(t=0, e2=0, e3=0)
+        e_field = run.fields.em_fields.e_field.isel(t=0, component=0, eta2=0, eta3=0)
+        phi = run.fields.em_fields.phi.isel(t=0, eta2=0, eta3=0)
         f = run.distributions.kinetic_ions.e1_v1_density
         f_binned = f.f.isel(t=0)
         df_binned = f.delta_f.isel(t=0)
@@ -37,7 +37,7 @@ def test_pproc_mpi(show_plot=False):
                 plt.legend()
             for index, (data, title) in enumerate(((f_binned, "full f"), (df_binned, "delta f")), 3):
                 plt.subplot(2, 2, index)
-                data.plot(x="e1", y="v1")
+                data.plot(x="eta1", y="v1")
                 plt.title(f"{title} at t={float(data.t)} on rank 0{extra}")
 
         return tuple(np.asarray(data) for data in (e_field, phi, f_binned, df_binned))
