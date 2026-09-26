@@ -99,14 +99,13 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
         derham_opts=derham_opts,
     )
 
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-        sim.load_plotting_data()
-
-        e1_grid = np.asarray(sim.f.fluid.e1_current_1.grid_e1).flatten()
-        j1_binned = np.asarray(sim.f.fluid.e1_current_1.f_binned)  # (Nt+1, n_bins)
+        j1 = run.evaluate("fluid/current_1", dataset="e1_current_1/f")
+        e1_grid = j1.e1.values.flatten()
+        j1_binned = j1.values  # (Nt+1, n_bins)
 
         amp_initial = 0.5 * (np.max(j1_binned[0]) - np.min(j1_binned[0]))
         amp_final = 0.5 * (np.max(j1_binned[-1]) - np.min(j1_binned[-1]))
@@ -207,14 +206,13 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
         derham_opts=derham_opts,
     )
 
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-        sim.load_plotting_data()
-
-        e1_grid = np.asarray(sim.f.fluid.e1_current_1.grid_e1).flatten()
-        j1_binned = np.asarray(sim.f.fluid.e1_current_1.f_binned)  # (Nt+1, n_bins)
+        j1 = run.evaluate("fluid/current_1", dataset="e1_current_1/f")
+        e1_grid = j1.e1.values.flatten()
+        j1_binned = j1.values  # (Nt+1, n_bins)
 
         amp_initial = np.max(np.abs(j1_binned[0]))
         amp_final = np.max(np.abs(j1_binned[-1]))
@@ -320,15 +318,15 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         derham_opts=derham_opts,
     )
 
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-        sim.load_plotting_data()
-
-        e2_grid = np.asarray(sim.f.fluid.e2_current_1.grid_e2).flatten()
-        j1_binned = np.asarray(sim.f.fluid.e2_current_1.f_binned)  # (Nt+1, n_bins)
-        j2_binned = np.asarray(sim.f.fluid.e2_current_2.f_binned)  # (Nt+1, n_bins)
+        j1 = run.evaluate("fluid/current_1", dataset="e2_current_1/f")
+        j2 = run.evaluate("fluid/current_2", dataset="e2_current_2/f")
+        e2_grid = j1.e2.values.flatten()
+        j1_binned = j1.values  # (Nt+1, n_bins)
+        j2_binned = j2.values  # (Nt+1, n_bins)
 
         # Analytische Profile
         U = 0.5
@@ -362,10 +360,6 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
 
             plt.tight_layout()
             plt.show()
-
-        e2_grid = np.asarray(sim.f.fluid.e2_current_1.grid_e2).flatten()
-        j1_binned = np.asarray(sim.f.fluid.e2_current_1.f_binned)  # (Nt+1, n_bins)
-        j2_binned = np.asarray(sim.f.fluid.e2_current_2.f_binned)  # (Nt+1, n_bins)
 
         # --- DEBUG: Check marker velocities ---
         markers = model.fluid.density.particles.markers

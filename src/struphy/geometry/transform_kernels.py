@@ -41,6 +41,12 @@
 
 - 1-form --> vector : (a_1, a_2, a_3) = G^(-1) * (a^1_1, a^1_2, a^1_3)
 - 2-form --> vector : (a_1, a_2, a_3) =          (a^2_1, a^2_2, a^2_3) / |det(DF)|
+
+Let h_i = ||DF[:, i]||. The normalized-vector representation stores a^*_i = h_i a_i.
+Consequently, the inverse transformations added here are 1-form --> norm, 2-form --> norm,
+and vector --> norm: each first obtains the Cartesian vector and then multiplies component i
+by h_i. These are used when :meth:`Domain.transform` converts a saved FEEC field to the
+``"norm"`` representation.
 """
 
 from numpy import empty, shape, sqrt, zeros
@@ -204,7 +210,15 @@ def tran(
         Logical evaluation points.
 
     kind_fun : int
-        Which transformation to be performed.
+        Which transformation to perform. The values are assigned by
+        ``Domain.dict_transformations["tran"]``:
+
+        - 0, 1: ``0_to_3``, ``3_to_0``
+        - 10, 11: ``1_to_2``, ``2_to_1``
+        - 12, 13, 14: ``norm_to_v``, ``norm_to_1``, ``norm_to_2``
+        - 15, 16: ``v_to_1``, ``v_to_2``
+        - 17, 18: ``1_to_v``, ``2_to_v``
+        - 19, 20, 21: ``1_to_norm``, ``2_to_norm``, ``v_to_norm``
 
     args_domain : DomainArguments
         Domain info.
@@ -289,6 +303,29 @@ def tran(
     # 2-form to vector (a = a^2 / |det(DF)|)
     elif kind_fun == 18:
         out[:] = a / abs(detdf)
+
+    # 1-form to normalized vector
+    elif kind_fun == 19:
+        linalg_kernels.matrix_inv_with_det(dfmat1, detdf, dfmat2)
+        linalg_kernels.transpose(dfmat2, dfmat3)
+        linalg_kernels.matrix_vector(dfmat3, a, vec1)
+        linalg_kernels.matrix_vector(dfmat2, vec1, out)
+        out[0] = out[0] * sqrt(dfmat1[0, 0] ** 2 + dfmat1[1, 0] ** 2 + dfmat1[2, 0] ** 2)
+        out[1] = out[1] * sqrt(dfmat1[0, 1] ** 2 + dfmat1[1, 1] ** 2 + dfmat1[2, 1] ** 2)
+        out[2] = out[2] * sqrt(dfmat1[0, 2] ** 2 + dfmat1[1, 2] ** 2 + dfmat1[2, 2] ** 2)
+
+    # 2-form to normalized vector
+    elif kind_fun == 20:
+        out[:] = a / abs(detdf)
+        out[0] = out[0] * sqrt(dfmat1[0, 0] ** 2 + dfmat1[1, 0] ** 2 + dfmat1[2, 0] ** 2)
+        out[1] = out[1] * sqrt(dfmat1[0, 1] ** 2 + dfmat1[1, 1] ** 2 + dfmat1[2, 1] ** 2)
+        out[2] = out[2] * sqrt(dfmat1[0, 2] ** 2 + dfmat1[1, 2] ** 2 + dfmat1[2, 2] ** 2)
+
+    # Cartesian vector to normalized vector
+    elif kind_fun == 21:
+        out[0] = a[0] * sqrt(dfmat1[0, 0] ** 2 + dfmat1[1, 0] ** 2 + dfmat1[2, 0] ** 2)
+        out[1] = a[1] * sqrt(dfmat1[0, 1] ** 2 + dfmat1[1, 1] ** 2 + dfmat1[2, 1] ** 2)
+        out[2] = a[2] * sqrt(dfmat1[0, 2] ** 2 + dfmat1[1, 2] ** 2 + dfmat1[2, 2] ** 2)
 
 
 @stack_array("tmp1", "tmp2")

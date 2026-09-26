@@ -163,7 +163,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     @property
     def options(self) -> Options:
-        assert hasattr(self, "_options"), "Options not set."
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
         return self._options
 
     @options.setter

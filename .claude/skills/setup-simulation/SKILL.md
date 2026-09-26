@@ -1,14 +1,15 @@
 ---
 name: setup-simulation
-description: Use when creating or editing a Struphy simulation parameter file (params_*.py) - choosing a model, configuring domain/grid/time-stepping, species/backgrounds/perturbations and propagator options, then running the simulation and post-processing results. Triggers on requests like "set up a simulation", "create a params file for <Model>", "configure a run of <Model>", or "how do I run struphy".
+description: Use when creating or editing a Struphy simulation parameter file (params_*.py) - choosing a model, configuring domain/grid/time-stepping, species/backgrounds/perturbations and propagator options, then running the simulation and post-processing results. Triggers on requests like "set up a simulation", "create a params file for a model", "configure a model run", or "how do I run struphy".
 ---
 
 # Setting up a Struphy simulation
 
 Struphy simulations are configured as plain Python scripts (`params_<name>.py`) that
-build a `Simulation` object from the Struphy API, then call `sim.run()`. There is no
-YAML/JSON config — the params file *is* the config, so it can use real Python
-(loops, conditionals, computed values) to derive parameters.
+build a `Simulation` object from the Struphy API, then call `sim.run()`. The params
+file can use real Python (loops, conditionals, computed values) to derive parameters.
+Each run writes `run_metadata.json`, containing a configuration snapshot and runtime
+facts such as the MPI rank count. Post-processing reads this saved metadata directly.
 
 ## Workflow
 
@@ -50,6 +51,8 @@ Based on `examples/VlasovAmpereOneSpecies/two_stream/params_two_stream.py` and
 description = """..."""
 
 # 2. Imports from the top-level struphy API
+from pathlib import Path
+
 from struphy import (
     BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground,
     Simulation, Time, domains, equils, grids, perturbations,
@@ -63,11 +66,14 @@ from struphy.models import <ModelName>
 
 # 3. Model instance (constructor kwargs are model-specific, e.g. alpha/epsilon/with_B0)
 model = <ModelName>(...)
-model.<species>.save_data = True   # opt in/out of saving each variable
+model.<species>.<variable>.save_data = True   # opt in/out of saving each variable
 
 # 4. Simulation-level config (all optional, sensible defaults exist)
 base_units = BaseUnits()                                   # x, B, n, kBT -> derived units
-env = EnvironmentOptions(sim_folder="sim_data")             # output folder, restart, save_step, ...
+env = EnvironmentOptions(
+    out_folders=str(Path(__file__).resolve().parent),
+    sim_folder="sim_data",
+)  # output beside the script, independent of the working directory
 time_opts = Time(dt=0.1, Tend=50.0, split_algo="LieTrotter")
 domain = domains.Cuboid(r1=31.42)                           # see src/struphy/geometry/domains.py
 equil = None                                                # or e.g. equils.HomogenSlab()
@@ -108,41 +114,61 @@ perturbation = perturbations.ModesCos(amps=(0.001,), ls=(1,))
 init = maxwellians.Maxwellian3D(n=(0.5, perturbation), u1=(3.0, None))
 model.<kinetic_species>.var.add_initial_condition(init)
 
-# 9. Run — guard with __main__ so pproc scripts can `import params_<name> as params`
-#    without triggering a run.
+# 9. Run only when the parameter script is executed directly.
 if __name__ == "__main__":
     sim.run()
 ```
 
 Key building blocks and where to look them up:
 
-| Piece | Source |
-|---|---|
-| Domains (`Cuboid`, `HollowTorus`, `Tokamak`, ...) | `src/struphy/geometry/domains.py` |
-| Grid | `src/struphy/topology/grids.py` (`TensorProductGrid`) |
-| Fluid equilibria | `src/struphy/fields_background/equils.py` |
-| Perturbations | `src/struphy/initial/perturbations.py` |
-| Kinetic backgrounds | `src/struphy/kinetic_background/maxwellians.py` |
+| Piece                                                                                                | Source                                                         |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Domains (`Cuboid`, `HollowTorus`, `Tokamak`, ...)                                                    | `src/struphy/geometry/domains.py`                              |
+| Grid                                                                                                 | `src/struphy/topology/grids.py` (`TensorProductGrid`)          |
+| Fluid equilibria                                                                                     | `src/struphy/fields_background/equils.py`                      |
+| Perturbations                                                                                        | `src/struphy/initial/perturbations.py`                         |
+| Kinetic backgrounds                                                                                  | `src/struphy/kinetic_background/maxwellians.py`                |
 | Options dataclasses (`Time`, `BaseUnits`, `DerhamOptions`, `EnvironmentOptions`, `FieldsBackground`) | `src/struphy/io/options.py` (full docstrings with every field) |
-| Models and their propagators/species | `src/struphy/models/<model>.py` |
+| Models and their propagators/species                                                                 | `src/struphy/models/<model>.py`                                |
 
 ## Post-processing pattern
 
 ```python
-import params_<name> as params   # importing does NOT re-run the sim (guarded above)
-from struphy import PostProcessor, PlottingData
+from pathlib import Path
+from struphy import Output
 
-pp = PostProcessor(sim=params.sim)
-pp.process()
+path_out = Path(__file__).resolve().parent / "sim_data"
+out = Output(path_out)
+out.pproc(physical=True)         # optional; products are otherwise processed with defaults on first access
 
-pdata = PlottingData(sim=params.sim)
-pdata.load()
-# pdata.f.<species>.<binning_name>.f_binned / grid_e1 / grid_v1, etc.
+out.scalars.<name>                                     # xarray time series, no post-processing needed
+out.fields.<species>.<variable>                    # dims (t, [component,] e1, e2, e3)
+out.distributions.<species>.<binning_name>.f    # dims (t, <slice dims>)
+out.orbits.<species>                                   # Dataset: one (t, marker) variable per quantity (x, y, z, v1, ..., weight)
+out.model.units                                        # model reconstructed from metadata
+out.domain, out.grid, out.time_opts, out.derham_opts     # reconstructed lazily with from_dict()
 ```
 
-For scalar diagnostics (energies, ...) saved every step, read directly from
-`<env.path_out>/data/data_proc0.hdf5` (`scalar/<name>`, `time/value`) — no
-post-processing needed, as shown in `examples/VlasovAmpereOneSpecies/two_stream/pproc_two_stream.py`.
+Use the same folder name as the parameter script (`sim_data` or `sim_1` in the
+examples). Keep a command-line path override when useful; only the default is
+relative to `__file__`. In notebooks, where `__file__` is unavailable, choose an
+explicit output path.
+
+`Output` does not retain or construct a `Simulation`; there is no `out.sim`. Do not
+import the parameter module for post-processing. Metadata comes from
+`run_metadata.json`. Under MPI, call `out.pproc()` on every rank; `parallel=True`
+requires the saved run's rank count.
+
+Products are xarray objects. Use xarray's plotting and selection methods:
+
+```python
+out.<species>.<binning_name>.f.isel(t=-1).plot(x="e1", y="v1")
+out.scalars.<name>.plot.line(x="t")
+out.<species>.orbits.isel(marker=0)[["x", "y", "z"]].to_dataarray("quantity").plot.line(x="t", hue="quantity")
+```
+
+Select by position with `.isel(t=-1, component=0)` or by coordinate with
+`.sel(t=0.35, method="nearest")`. See the post-processing tutorial for a complete script.
 
 ## Common pitfalls
 
@@ -151,5 +177,5 @@ post-processing needed, as shown in `examples/VlasovAmpereOneSpecies/two_stream/
 - For kinetic species, a background is required even if only using perturbations;
   perturbations attach to distribution moments (via `maxwellians.*`), not directly to
   the species variable like field perturbations do.
-- `sim.run()` must stay behind `if __name__ == "__main__":` so the params file can be
-  safely imported for post-processing.
+- Keep `sim.run()` behind `if __name__ == "__main__":` to avoid starting a run on
+  import. Post-processing scripts should open the saved output folder directly.

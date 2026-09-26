@@ -1,3 +1,3 @@
-from struphy.post_processing.post_processing_tools import PlottingData, PostProcessor
+from struphy.post_processing.output import Output, open_output
 
-__all__ = ["PostProcessor", "PlottingData"]
+__all__ = ["Output", "open_output"]

@@ -1,7 +1,7 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 description = """
@@ -16,42 +16,41 @@ Vlasov-Ampère system and the accuracy of particle-in-cell methods.
 # Import Struphy API
 # ------------------
 
-from struphy import (
-    BaseUnits,
-    DerhamOptions,
-    EnvironmentOptions,
-    FieldsBackground,
-    Simulation,
-    Time,
-    domains,
-    equils,
-    grids,
-    perturbations,
-)
+from pathlib import Path
 
 # For particles:
 from struphy import (
+    BaseUnits,
     BinningPlot,
     BoundaryParameters,
+    DerhamOptions,
+    EnvironmentOptions,
+    FieldsBackground,
     KernelDensityPlot,
     LoadingParameters,
-    WeightsParameters,
-    SortingParameters,
     SavingParameters,
+    Simulation,
+    SortingParameters,
+    Time,
+    WeightsParameters,
+    domains,
+    equils,
+    grids,
     maxwellians,
+    perturbations,
 )
+from struphy.models import VlasovAmpereOneSpecies
 
 # ---------------------
 # Instance of the model
 # ---------------------
 
-from struphy.models import VlasovAmpereOneSpecies
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0 = False)
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -63,13 +62,13 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_data")
+env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data")
 
 # Time stepping
-time_opts = Time(dt = 0.05, Tend = 20.0, split_algo = "LieTrotter")
+time_opts = Time(dt=0.05, Tend=20.0, split_algo="LieTrotter")
 
 # Geometry
-domain = domains.Cuboid(r1 = 12.56) # r1 -> pi * 4 -> k = 0.5
+domain = domains.Cuboid(r1=12.56)  # r1 -> pi * 4 -> k = 0.5
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = None
@@ -96,27 +95,28 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc = 1000)
-weights_params = WeightsParameters(control_variate= True)
+loading_params = LoadingParameters(ppc=1000)
+weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
 
-binplot = BinningPlot(slice='e1_v1', n_bins= (128, 128), ranges= ((0.,1.), (-5.,5.)))
+binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
 saving_params = SavingParameters(binning_plots=(binplot,))
 
-model.kinetic_ions.set_markers(loading_params=loading_params,
-                               weights_params=weights_params,
-                               boundary_params=boundary_params,
-                               sorting_params=sorting_params,
-                               saving_params=saving_params,
-                               bufsize = 0.4,
-                               )
+model.kinetic_ions.set_markers(
+    loading_params=loading_params,
+    weights_params=weights_params,
+    boundary_params=boundary_params,
+    sorting_params=sorting_params,
+    saving_params=saving_params,
+    bufsize=0.4,
+)
 
 # ------------------
 # Propagator options
 # ------------------
 
-model.propagators.push_eta.options = model.propagators.push_eta.Options() 
+model.propagators.push_eta.options = model.propagators.push_eta.Options()
 if model.with_B0:
     model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 
@@ -138,8 +138,8 @@ background = maxwellians.Maxwellian3D(n=(1.0, None))
 model.kinetic_ions.var.add_background(background)
 
 # Perturbations for (some) kinetic species
-perturbation = perturbations.ModesCos(amps = (0.001,), ls = (1,))
-init = maxwellians.Maxwellian3D(n = (1.0,perturbation))
+perturbation = perturbations.ModesCos(amps=(0.001,), ls=(1,))
+init = maxwellians.Maxwellian3D(n=(1.0, perturbation))
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

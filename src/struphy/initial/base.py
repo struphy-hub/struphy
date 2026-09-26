@@ -1,3 +1,4 @@
+import copy
 import logging
 from abc import ABCMeta, abstractmethod
 from typing import Callable
@@ -226,6 +227,7 @@ class GenericPerturbation(Perturbation):
         given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        self.params = copy.deepcopy(locals())
         self.fun = fun
 
         # use the setters
