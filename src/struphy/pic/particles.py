@@ -265,8 +265,6 @@ class Particles5D(Particles):
     default_n_cols = {"diagnostics": 2, "aux": 12}
     """Default number of buffer columns is 2 diagnostics (perpendicular energy, canonical toroidal
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
-    get_PBb = None
-    """Optional callable without arguments, set on the instance by the model, that is used to evaluate the energy of markers, see :meth:`_accumulate_lost_energy`)."""
 
     def __post_init__(self):
         """Retrieve the discrete equilibrium magnetic-field quantities (:math:`|B_0|`, unit 1-form
@@ -470,9 +468,6 @@ class Particles5D(Particles):
         tmp = xp.array(rows[rows[:, 0] != -1.0][:n])
         tmp[:, :3] = old[:, :3]
 
-        if self.get_PBb is not None:
-            self.set_magnetic_field(self.get_PBb())
-
         weights = old[:, 3 + self.vdim]
         self.lost_energy[0] += xp.sum(weights * 0.5 * old[:, 3] ** 2)
         self.lost_energy[1] += xp.sum(weights * self._eval_mu_B(tmp))
@@ -485,6 +480,13 @@ class Particles5D(Particles):
             self._refill_energy = xp.zeros(1, dtype=float)
         return self._refill_energy
 
+    @property
+    def refilled_ids(self):
+        """IDs of markers refilled on this process since the last sorting, whose energy after refilling is still to be subtracted from :attr:`refill_energy`."""
+        if not hasattr(self, "_refilled_ids"):
+            self._refilled_ids = xp.empty(0, dtype=float)
+        return self._refilled_ids
+
     def _particle_refilling(self):
         refilled = xp.zeros(self._markers.shape[0], dtype=bool)
         for kind in self.bc_refill:
@@ -493,16 +495,34 @@ class Particles5D(Particles):
         if not xp.any(refilled):
             return super()._particle_refilling()
 
-        if self.get_PBb is not None:
-            self.set_magnetic_field(self.get_PBb())
-
-        # positions outside [0, 1] are folded back into the domain by the energy kernel
-        en_before = self._eval_mu_B(self._markers[refilled])
-        super()._particle_refilling()
-        en_after = self._eval_mu_B(self._markers[refilled])
-
         weights = self._markers[refilled, self.index["weights"]]
-        self.refill_energy[0] += xp.sum(weights * (en_before - en_after))
+        self.refill_energy[0] += xp.sum(weights * self._eval_mu_B(self._markers[refilled]))
+
+        super()._particle_refilling()
+
+        if self.mpi_comm is None:
+            self.refill_energy[0] -= xp.sum(weights * self._eval_mu_B(self._markers[refilled]))
+        else:
+            self._refilled_ids = xp.concatenate((self.refilled_ids, self._markers[refilled, self.index["ids"]]))
+
+    def mpi_sort_markers(self, *args, **kwargs):
+        out = super().mpi_sort_markers(*args, **kwargs)
+        self._subtract_refill_energy_after()
+        return out
+
+    def _subtract_refill_energy_after(self):
+        ids_loc = self.refilled_ids
+        self._refilled_ids = xp.empty(0, dtype=float)
+
+        n_tot = self.mpi_comm.allreduce(ids_loc.size)
+        if n_tot == 0:
+            return
+
+        ids = xp.concatenate(self.mpi_comm.allgather(ids_loc))
+        mine = xp.isin(self._markers[:, self.index["ids"]], ids) & (self._markers[:, 0] != -1.0)
+        if xp.any(mine):
+            weights = self._markers[mine, self.index["weights"]]
+            self.refill_energy[0] -= xp.sum(weights * self._eval_mu_B(self._markers[mine]))
 
     def _eval_mu_B(self, rows):
         """Evaluate :math:`\\mu (|B_0| + b_\\parallel)` at the positions of a copy of the given marker rows,
