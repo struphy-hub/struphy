@@ -25,7 +25,7 @@ def main(path_out=DEFAULT_OUTPUT):
     print(f"scalars written to {run.save_scalars()}")
 
     # electric field growth against the analytical rate (0.2845 in units of m/c)
-    energy = run.scalars.electric_energy
+    energy = run.evaluate("scalars", variables="electric_energy")["electric_energy"]
     analytical = 10 ** (0.2845 * energy.t - 5.3)  # t is in Struphy units
     fig, ax = plt.subplots()
     ax.plot(energy.t, energy, label="numerical")
@@ -35,7 +35,8 @@ def main(path_out=DEFAULT_OUTPUT):
     plt.show()
 
     # phase space evolution
-    plot_panels(run.kinetic_ions.e1_v1_density.f, x="e1", y="v1", n_panels=12, ncols=4)
+    data = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")
+    plot_panels(data, x="e1", y="v1", n_panels=12, ncols=4)
     plt.show()
 
 

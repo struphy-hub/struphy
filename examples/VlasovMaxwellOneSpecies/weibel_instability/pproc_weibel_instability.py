@@ -108,9 +108,9 @@ def main(path_out=DEFAULT_OUTPUT):
         ("e1_v1_density", "e1", "v1"),
         ("v1_v2_density", "v1", "v2"),
     ):
-        binned = run.evaluate(f"kinetic_ions/{bin_name}")
         for quantity in ("f", "delta_f"):
-            plot_panels(binned[quantity], x=x, y=y, n_panels=20, ncols=4)
+            data = run.evaluate(f"kinetic_ions/{quantity}", dataset=f"{bin_name}/{quantity}")
+            plot_panels(data, x=x, y=y, n_panels=20, ncols=4)
             plt.show()
 
     # ------------------
@@ -148,7 +148,7 @@ def main(path_out=DEFAULT_OUTPUT):
         fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(9, 9), sharey=True, sharex=True)
         for i in range(3):
             for j in range(3):
-                current = run.evaluate(f"kinetic_ions/e{i + 1}_current_{j + 1}")["f"]
+                current = run.evaluate("kinetic_ions/f", dataset=f"e{i + 1}_current_{j + 1}/f")
                 current = current.sel(t=time_step, method="nearest")
                 ax[i, j].axhline(color="red", alpha=0.5)
                 ax[i, j].plot(current[f"e{i + 1}"], current)

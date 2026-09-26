@@ -32,7 +32,7 @@ def main(path_out=DEFAULT_OUTPUT, amplitude=0.001):
     run = Output(path_out)
 
     # electric field energy against the analytical damping
-    energy = run.scalars.electric_energy
+    energy = run.evaluate("scalars", variables="electric_energy")["electric_energy"]
     analytical = E_exact(energy.t.values, eps=amplitude)  # t is in Struphy units
     fig, ax = plt.subplots()
     ax.plot(energy.t, energy, label="numerical")
@@ -43,7 +43,8 @@ def main(path_out=DEFAULT_OUTPUT, amplitude=0.001):
 
     # full f and delta f in the e1-v1 plane at four times
     for quantity, title in (("f", "full-$f$"), ("delta_f", r"$\delta f$")):
-        plot_panels(getattr(run.kinetic_ions.e1_v1_density, quantity), x="e1", y="v1", n_panels=4, ncols=4, title=title)
+        data = run.evaluate(f"kinetic_ions/{quantity}", dataset=f"e1_v1_density/{quantity}")
+        plot_panels(data, x="e1", y="v1", n_panels=4, ncols=4, title=title)
         plt.show()
 
 

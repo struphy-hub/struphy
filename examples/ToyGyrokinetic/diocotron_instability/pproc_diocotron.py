@@ -29,6 +29,14 @@ SNAPSHOTS = [
 ]
 
 
+def product(run, parts):
+    """Look up a saved product such as ``("kinetic_ions", "e1_e2_density", "f")`` via evaluate()."""
+    species, *rest = parts
+    if len(rest) == 1:
+        return run.evaluate("/".join(parts))
+    return run.evaluate(f"{species}/{rest[-1]}", dataset="/".join(rest))
+
+
 def plot_equilibrium(path_out):
     """Radial equilibrium profiles from the geometry written at the start of the run."""
     equilibrium = pv.read(str(Path(path_out) / "geometry.vts"))
@@ -66,7 +74,7 @@ def main(paths=(DEFAULT_OUTPUT,)):
     # growth rate of the electrostatic energy, one curve per run
     fig, ax = plt.subplots()
     for each in runs:
-        series = each.scalars[FIT_QUANTITY]
+        series = each.evaluate("scalars", variables=FIT_QUANTITY)[FIT_QUANTITY]
         (line,) = ax.plot(series.t, series, label=each.path_out.name)
         result = fit_growth(series, FIT_WINDOW)
         if result is not None:
@@ -85,9 +93,7 @@ def main(paths=(DEFAULT_OUTPUT,)):
         plt.show()
 
     for path in SNAPSHOTS:
-        data = run
-        for part in path:
-            data = getattr(data, part)
+        data = product(run, path)
         snapshot = data.isel(t=-1)
         if "e3" in snapshot.dims:
             snapshot = snapshot.isel(e3=0)
@@ -96,7 +102,7 @@ def main(paths=(DEFAULT_OUTPUT,)):
         ax.set(aspect="equal", title=f"{'/'.join(path)}, t = {float(snapshot.t):.3g}")
         plt.show()
 
-    orbits = run.kinetic_ions.orbits.isel(marker=slice(0, 1000))
+    orbits = run.evaluate("kinetic_ions/orbits").isel(marker=slice(0, 1000))
     fig, ax = plt.subplots()
     ax.plot(orbits.x, orbits.y, lw=0.5)
     ax.set(xlabel="$x$", ylabel="$y$", title="Marker trajectories", aspect="equal")

@@ -22,7 +22,7 @@ def main(path_out=DEFAULT_OUTPUT):
     run = Output(path_out)
 
     # initial velocity distribution
-    initial = run.kinetic_ions.v1_density.f.isel(t=0)
+    initial = run.evaluate("kinetic_ions/f", dataset="v1_density/f").isel(t=0)
     ax = initial.plot()[0].axes
     ax.set(
         xlabel="velocity $v$",
@@ -32,12 +32,13 @@ def main(path_out=DEFAULT_OUTPUT):
     plt.show()
 
     # electric field energy
-    run.scalars.electric_energy.plot(yscale="log")
+    run.evaluate("scalars", variables="electric_energy")["electric_energy"].plot(yscale="log")
     plt.title("Electric energy")
     plt.show()
 
     # full f in the e1-v1 plane
-    plot_panels(run.kinetic_ions.e1_v1_density.f, x="e1", y="v1", n_panels=12, ncols=4, title="full-$f$")
+    data = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")
+    plot_panels(data, x="e1", y="v1", n_panels=12, ncols=4, title="full-$f$")
     plt.show()
 
 

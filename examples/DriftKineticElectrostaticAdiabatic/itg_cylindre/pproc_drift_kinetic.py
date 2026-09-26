@@ -25,11 +25,11 @@ SNAPSHOTS = [
 
 
 def product(run, name):
-    """Look up a saved product such as ``"kinetic_ions/e1_e2_density/f"`` by attribute access."""
-    data = run
-    for part in name.split("/"):
-        data = getattr(data, part)
-    return data
+    """Look up a saved product such as ``"kinetic_ions/e1_e2_density/f"`` via evaluate()."""
+    species, *rest = name.split("/")
+    if len(rest) == 1:
+        return run.evaluate(name)
+    return run.evaluate(f"{species}/{rest[-1]}", dataset="/".join(rest))
 
 
 def plot_growth(series, window=(None, None)):
@@ -97,7 +97,7 @@ def main(path_out=DEFAULT_OUTPUT):
     run = Output(path_out).pproc(physical=True)
 
     # growth rate of the electrostatic potential
-    plot_growth(run.scalars[FIT_QUANTITY], window=FIT_WINDOW)
+    plot_growth(run.evaluate("scalars", variables=FIT_QUANTITY)[FIT_QUANTITY], window=FIT_WINDOW)
 
     if SHOW_EQUIL_PROFILE:
         plot_equilibrium(run.path_out)
@@ -105,7 +105,7 @@ def main(path_out=DEFAULT_OUTPUT):
     for name, plane, fixed in SNAPSHOTS:
         plot_plane(product(run, name), plane, fixed)
 
-    plot_trajectories(run.kinetic_ions.orbits, max_markers=1000)
+    plot_trajectories(run.evaluate("kinetic_ions/orbits"), max_markers=1000)
     plt.show()
 
 
