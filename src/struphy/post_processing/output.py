@@ -1956,6 +1956,9 @@ class Output:
         if self.is_processed:
             return
         if self.comm.Get_size() > 1:
+            # pproc() is collective (rank 0 works while the rest wait at a Barrier), but evaluate()
+            # is not guaranteed to be called on every rank; auto-triggering pproc() here could hang
+            # ranks that never reach this call instead of failing fast.
             raise RuntimeError(f"{self.path_out} has no post-processed data; call out.pproc() on all ranks first")
         logger.warning(
             "\nNo post-processed data in %s, processing with default options (call out.pproc(...) to choose them)",

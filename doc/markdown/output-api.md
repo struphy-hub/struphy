@@ -29,23 +29,7 @@ for key in out.keys():
 ```
 
 `keys()` and `info()` do not load product arrays. If post-processed products do not exist yet,
-they materialize them using default post-processing options. Call `pproc()` first when those
-options matter.
-
-## Materialize post-processing products
-
-Use `pproc()` explicitly to choose how fields and particle diagnostics are generated.
-
-```python
-out.pproc(
-    physical=True,       # also create physical field components and coordinates
-    step=1,              # use every saved time step
-    celldivide=1,
-)
-```
-
-Matching existing products are reused. `evaluate()` also calls `pproc()` automatically for a
-missing non-scalar product when running serially.
+they materialize them using default post-processing options.
 
 ## Evaluate data
 
@@ -253,4 +237,7 @@ out.pproc(parallel=True, physical=True)
 ```
 
 Automatic materialization through `evaluate()` is intentionally disabled when more than one MPI
-rank is active. Call `pproc()` explicitly first in that case.
+rank is active. Call `pproc()` explicitly first in that case. `pproc()` is collective: rank 0
+works while the rest wait at a barrier. `evaluate()` cannot trigger it automatically because it
+is not guaranteed to be called on every rank, and doing so could hang ranks that never reach the
+call instead of failing fast.
