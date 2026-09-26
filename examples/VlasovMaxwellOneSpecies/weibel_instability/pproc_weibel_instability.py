@@ -48,7 +48,9 @@ def main(path_out=DEFAULT_OUTPUT):
     e_field = run.evaluate("em_fields/e_field")
     b_field = run.evaluate("em_fields/b_field")
     spatial = ("e1", "e2", "e3")
-    unit_volume = xp.prod([1 / (e_field.sizes[dim] - 1) for dim in spatial])
+    # a periodic direction with a single element has size 1 (no repeated endpoint);
+    # its cell then spans the whole unit length, contributing a factor of 1
+    unit_volume = xp.prod([1 / max(e_field.sizes[dim] - 1, 1) for dim in spatial])
 
     def field_energy(field):
         """Energy of each component over space, as array of shape (component, t)."""
