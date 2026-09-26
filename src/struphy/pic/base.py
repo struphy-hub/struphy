@@ -4319,6 +4319,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             out=self._sorting_etas,
         )
 
+        if xp.any(alpha < 1.0):
+            done = self.markers[:, bi] == -1.0
+            self._sorting_etas[done] = xp.mod(self.markers[done, :3], 1.0)
+
         # check which particles are on the current process domain
         self._is_on_proc_domain = xp.logical_and(
             self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
