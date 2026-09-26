@@ -215,9 +215,7 @@ The same Simulation API is reused across models. For example, replace :class:`~s
         perturbations.ModesCos(ls=(1,), amps=(1e-2,), comp=1)
     )
 
-    env = EnvironmentOptions(
-        out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data"
-    )
+    env = EnvironmentOptions(sim_folder="sim_data")
     sim = Simulation(model=model, env=env, params_path=__file__)
     if __name__ == "__main__":
         sim.run()
