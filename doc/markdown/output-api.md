@@ -236,8 +236,13 @@ world communicator must have the same number of ranks as the run that wrote the 
 out.pproc(parallel=True, physical=True)
 ```
 
-Automatic materialization through `evaluate()` is intentionally disabled when more than one MPI
-rank is active. Call `pproc()` explicitly first in that case. `pproc()` is collective: rank 0
-works while the rest wait at a barrier. `evaluate()` cannot trigger it automatically because it
-is not guaranteed to be called on every rank, and doing so could hang ranks that never reach the
-call instead of failing fast.
+Automatic materialization through `evaluate()` is disabled by default when more than one MPI rank
+is active, because `pproc()` is collective (rank 0 works while the rest wait at a barrier) and
+`evaluate()` is not otherwise guaranteed to be called on every rank; auto-triggering it could hang
+ranks that never reach the call instead of failing fast. Call `pproc()` explicitly first in that
+case, or pass `parallel=True` to `evaluate()` when calling it collectively on every rank; this
+triggers `pproc(parallel=True)` automatically on first use.
+
+```python
+out.evaluate("em_fields/E", parallel=True)
+```

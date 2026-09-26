@@ -289,6 +289,7 @@ class Output:
         representation: Representation | None = None,
         dataset: str | None = None,
         variables: str | Sequence[str] | None = None,
+        parallel: bool = False,
         **coordinates: Any,
     ) -> xr.DataArray | xr.Dataset:
         """Return a named simulation product as an xarray object.
@@ -298,6 +299,11 @@ class Output:
         array is an ordinary xarray object, so use xarray for selection, arithmetic and further
         analysis. ``evaluate("scalars")`` returns an :class:`xarray.Dataset` containing
         all scalar histories; use ``variables=`` to select scalar names.
+
+        Under more than one MPI rank, automatic materialization is disabled unless ``parallel``
+        is set: pass ``parallel=True`` only when calling ``evaluate()`` collectively on every
+        rank, which triggers :meth:`pproc` with ``parallel=True`` on first use. Otherwise call
+        :meth:`pproc` explicitly first.
 
         Common selections can be passed directly: ``t`` selects saved snapshots
         by index (an integer, list of integers, or slice); omit it for every
@@ -363,6 +369,8 @@ class Output:
             if representation is not None and not is_raw_spline_field:
                 raise ValueError("representation requires FEEC evaluation")
             if not is_raw_spline_field and name != "scalars":
+                if parallel and not self.is_processed:
+                    self.pproc(parallel=True)
                 array = self._product(name, dataset=dataset)
         if t is not None:
             if isinstance(t, (int, np.integer)):
