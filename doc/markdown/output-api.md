@@ -26,9 +26,6 @@ out.info()
 
 for key in out.keys():
     print(key)
-
-# Machine-readable product metadata
-catalog = out.catalog(details=True)
 ```
 
 `keys()` and `info()` do not load product arrays. If post-processed products do not exist yet,
@@ -137,8 +134,8 @@ density = out.with_physical_coords("kinetic_ions/e1_e2_density/f").isel(t=-1)
 radius = np.hypot(density.X, density.Y)
 ```
 
-Write a compact data report with metadata and the product catalog. Add selected products to
-record their dimensions and units.
+Write a compact data report with metadata. Add selected products to record their dimensions and
+units.
 
 ```python
 report = out.report("report", products=["en_tot", "diagnostics/rho_xyz"])
