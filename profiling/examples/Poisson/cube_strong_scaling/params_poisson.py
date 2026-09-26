@@ -136,7 +136,7 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 if __name__ == "__main__":
     run = sim.run(profiling_activated=True, one_time_step=True)
-    run.process(create_vtk=True, parallel=True)
+    run.pproc(create_vtk=True, parallel=True)
 
     def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
         from matplotlib import pyplot as plt
@@ -233,11 +233,11 @@ if __name__ == "__main__":
         return fig
 
     if sim.comm.rank == 0:
-        rhs_data = run.fields.em_fields.source_log
+        rhs_data = run.evaluate("em_fields/source_log")
         print(rhs_data)
         rhs = rhs_data.isel(t=0).values
 
-        phi_data = run.fields.em_fields.phi_log
+        phi_data = run.evaluate("em_fields/phi_log")
         print(phi_data)
         phi = phi_data.isel(t=-1).values
         x, y, z = run.grids_phy

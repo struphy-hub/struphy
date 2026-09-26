@@ -519,8 +519,8 @@ and it stays available as ``sim.output``:
 
     out = sim.run()
 
-    out.scalars.total_energy        # scalar time series, straight from the raw output
-    out.fields.em_fields.e_field  # evaluated FEEC field (post-processed on first access)
+    out.evaluate("scalars", variables="total_energy")  # scalar time series, straight from the raw output
+    out.evaluate("em_fields/e_field")  # evaluated FEEC field (post-processed on first access)
     out.domain, out.model.units      # reconstructed from saved metadata
 
 Every product is an :class:`xarray.DataArray` with named dimensions
@@ -584,10 +584,10 @@ ordinary one- and two-dimensional cases:
 
 .. code-block:: python
 
-    f = out.kinetic_ions.e1_v1_density.f
+    f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")
     f.isel(t=-1).plot(x="e1", y="v1")
-    out.scalars.en_phi.plot.line(x="t")
-    out.em_fields.phi_xyz.isel(t=-1, e3=0).plot(x="e1", y="e2")
+    out.evaluate("scalars", variables="en_phi")["en_phi"].plot.line(x="t")
+    out.evaluate("em_fields/phi_xyz").isel(t=-1, e3=0).plot(x="e1", y="e2")
 
 For a comparison across runs, use a Matplotlib axes and plot the labeled arrays
 onto it:
@@ -597,8 +597,8 @@ onto it:
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
-    out_a.scalars.en_phi.plot(ax=ax, label="run A")
-    out_b.scalars.en_phi.plot(ax=ax, label="run B")
+    out_a.evaluate("scalars", variables="en_phi")["en_phi"].plot(ax=ax, label="run A")
+    out_b.evaluate("scalars", variables="en_phi")["en_phi"].plot(ax=ax, label="run B")
     ax.legend()
 
 The sections below access the arrays directly for custom Matplotlib plots.
@@ -615,7 +615,7 @@ components) or ``<variable_name>_xyz`` (physical components, with
 
     import matplotlib.pyplot as plt
 
-    e_field = out.fields.em_fields.e_field      # dims (t, component, e1, e2, e3)
+    e_field = out.evaluate("em_fields/e_field")  # dims (t, component, e1, e2, e3)
     snapshot = e_field.isel(t=-1, component=0, e2=0, e3=0)
 
     plt.figure()
@@ -635,7 +635,7 @@ perturbation with respect to the background:
 
 .. code-block:: python
 
-    f = out.distributions.kinetic_ions.e1_v1_density.f   # dims (t, e1, v1)
+    f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")   # dims (t, e1, v1)
     f.isel(t=-1).plot(x="e1", y="v1")
 
 
@@ -654,7 +654,7 @@ quantities (velocities, ``weight``, ...) depend on the particle class, see
 
     import matplotlib.pyplot as plt
 
-    orbits = out.evaluate("kinetic_ions/orbits")   # or out.orbits.kinetic_ions
+    orbits = out.evaluate("kinetic_ions/orbits")
     print(orbits)                                  # lists x, y, z, v1, v2, v3, weight
     marker = orbits.isel(marker=0)
 
