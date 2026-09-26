@@ -210,7 +210,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
-        self.energetic_ions.var.particles.get_PBb = lambda: self._PB.dot(self.em_fields.b_field.spline.vector)
+    def integrate(self, dt, split_algo="LieTrotter"):
+        self._PB.dot(self.em_fields.b_field.spline.vector, out=self._PBb)
+        self.energetic_ions.var.particles.set_magnetic_field(self._PBb)
+        super().integrate(dt, split_algo=split_algo)
 
     def _save_magnetic_energy(self):
         particles = self.energetic_ions.var.particles
