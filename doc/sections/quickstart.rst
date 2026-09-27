@@ -88,8 +88,8 @@ For periodic boundary conditions we will stabilize via ``options``.
 7. Evaluate the potential on a line along :math:`\eta_1` and compare to the exact solution.
    ``out.evaluate()`` takes a ``"species/variable"`` name, evaluates the saved spline
    field on the given logical coordinates, and returns a labeled :class:`xarray.DataArray`.
-   Omitted directions (here :math:`\eta_2, \eta_3`) default to the midpoint ``0.5``,
-   and ``t=-1`` selects the last saved snapshot. The array also carries the physical
+   Scalars fix a direction (here :math:`\eta_2 = \eta_3 = 0.5`); omitted directions stay
+   on the cell centres of the simulation grid. ``t=-1`` selects the last saved snapshot. The array also carries the physical
    coordinates ``X, Y, Z`` so that xarray's ``.plot()`` can use either coordinate system.
 
 .. code-block:: python
@@ -97,7 +97,7 @@ For periodic boundary conditions we will stabilize via ``options``.
     fig, axs = plt.subplots(1, 2, figsize=(12, 4))
 
     eta1 = np.linspace(0, 1, 100)
-    phi_1d = out.evaluate("em_fields/phi", eta1=eta1, t=-1)
+    phi_1d = out.evaluate("em_fields/phi", eta1=eta1, eta2=0.5, eta3=0.5, t=-1)
 
     x = phi_1d["X"]
     phi_exact = np.cos(k * x)
@@ -171,12 +171,12 @@ Full script (save as ``params_poisson.py`` and run with ``python params_poisson.
         out = sim.run()
 
         # out.evaluate() evaluates a saved field on logical coordinates (eta1, eta2, eta3)
-        # and returns a labeled xarray.DataArray; omitted etas default to 0.5,
-        # t=-1 selects the last snapshot. Physical coordinates X, Y, Z are attached.
+        # and returns a labeled xarray.DataArray; scalar etas fix a direction, omitted etas stay
+        # on the simulation grid's cell centres, t=-1 selects the last snapshot. Physical coordinates X, Y, Z are attached.
         fig, axs = plt.subplots(1, 2, figsize=(12, 4))
 
         eta1 = np.linspace(0, 1, 100)
-        phi_1d = out.evaluate("em_fields/phi", eta1=eta1, t=-1)
+        phi_1d = out.evaluate("em_fields/phi", eta1=eta1, eta2=0.5, eta3=0.5, t=-1)
 
         x = phi_1d["X"]
         phi_exact = np.cos(k * x)
