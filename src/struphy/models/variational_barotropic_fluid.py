@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -7,38 +7,19 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 
 
 class VariationalBarotropicFluid(StruphyModel):
-    r"""Barotropic fluid equations discretized with a variational method.
+    """Barotropic fluid equations discretized with a variational method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{A} \qquad \hat{\mathcal U} = \frac{\hat \rho}{2} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho))}{\partial \rho} = 0 \,.
-
-    where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho/2`.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mass_number: float
+        Mass number (in units of Proton mass) of the fluid species (default: 1.0)
     """
 
     @classmethod
@@ -57,12 +38,15 @@ class VariationalBarotropicFluid(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.variat_dens = propagators_fields.VariationalDensityEvolve()
-            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
+            self.variat_dens = VariationalDensityEvolve()
+            self.variat_mom = VariationalMomentumAdvection()
 
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.fluid = self.Fluid(mass_number=mass_number)
@@ -96,6 +80,29 @@ class VariationalBarotropicFluid(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    def post_allocate(self):
+        pass
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "variat_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='barotropic')\n",
+                    ]
+                if "velocity.add_background" in line:
+                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
     @classmethod
     def doc_pde(cls):
@@ -136,13 +143,18 @@ class VariationalBarotropicFluid(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.VariationalDensityEvolve:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_fields.VariationalDensityEvolve.__doc__}
+        1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
+        2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
+        """
+        doc = rf"""**1. VariationalDensityEvolve:**
 
-**2. propagators_fields.VariationalMomentumAdvection:**
+{VariationalDensityEvolve.__doc__}
 
-{propagators_fields.VariationalMomentumAdvection.__doc__}
+**2. VariationalMomentumAdvection:**
+
+{VariationalMomentumAdvection.__doc__}
 """
         return doc
 
@@ -181,26 +193,3 @@ class VariationalBarotropicFluid(StruphyModel):
         - magnetic-field dynamics
         - viscous or resistive effects
         - kinetic plasma phenomena"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "variat_dens.Options" in line:
-                    new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='barotropic')\n",
-                    ]
-                if "velocity.add_background" in line:
-                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

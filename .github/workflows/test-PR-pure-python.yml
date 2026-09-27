@@ -4,9 +4,6 @@ on:
   pull_request:
     branches:
       - devel
-  push:
-    branches:
-      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -43,6 +40,14 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
+      - name: fetch origin devel
+        run: |
+          pwd 
+          ls -a
+          git config --global --add safe.directory /__w/struphy/struphy
+          git fetch --no-tags origin devel:refs/remotes/origin/devel
+          git rev-parse --verify origin/devel
+
       - name: Check .testmondata 1
         run: |
           ls .testmon* || echo "No .testmondata"
@@ -69,7 +74,11 @@ jobs:
         with:
           env-name: env
 
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+
       - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
         uses: ./.github/actions/install/feectools-submodule
         with:
           env-name: env
@@ -88,11 +97,11 @@ jobs:
             mpirun --version
             mpirun --oversubscribe -n 1 python -c "from mpi4py import MPI; print('rank:', MPI.COMM_WORLD.rank); print('size:', MPI.COMM_WORLD.size)"
       
-      - name: Pytest-MPI plugin check
-        shell: bash
-        run: |
-          source env/bin/activate
-          pytest --trace-config | grep mpi || true
+      # - name: Pytest-MPI plugin check
+      #   shell: bash
+      #   run: |
+      #     source env/bin/activate
+      #     pytest --trace-config | grep mpi || true
 
       - name: Pytest with collect-only
         shell: bash

@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -7,49 +7,28 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
 
 
 class TwoFluidQuasiNeutralToy(StruphyModel):
-    r"""Linearized, quasi-neutral two-fluid model with zero electron inertia.
+    """Linearized, quasi-neutral two-fluid model with zero electron inertia.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u = \hat v_\textnormal{th}\,,\qquad  e\hat \phi = m \hat v_\textnormal{th}^2\,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \frac{\partial \mathbf u}{\partial t} &= - \nabla \phi + \frac{\mathbf u \times \mathbf B_0}{\varepsilon} + \nu \Delta \mathbf u + \mathbf f\,,
-        \\[2mm]
-        0 &= \nabla \phi - \frac{\mathbf u_e \times \mathbf B_0}{\varepsilon} + \nu_e \Delta \mathbf u_e + \mathbf f_e \,,
-        \\[3mm]
-        \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
-
-    where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms,
-    and with the normalization parameter
-
-    .. math::
-
-        \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
-
-    :ref:`Model info <add_model>`:
-
-    References
+    Parameters
     ----------
-    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
-    in plasma physics, Journal of Computational Physics 2018.
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits(kBT=1.0))
+    ion_charge_number: int
+        Charge number (in units of the positive elementary charge) of the ion species (default: 1)
+    ion_mass_number: float
+        Mass number (in units of Proton mass) of the ion species (default: 1.0)
+    ion_epsilon: float, optional
+        Normalized cyclotron period of the ion species. If None, computed from units and charge/mass numbers.
+    electron_charge_number: int
+        Charge number (in units of the positive elementary charge) of the electron species (default: 1)
+    electron_mass_number: float
+        Mass number (in units of Proton mass) of the electron species (default: 1.0)
+    electron_epsilon: float, optional
+        Normalized cyclotron period of the electron species. If None, computed from units and charge/mass numbers.
     """
 
     @classmethod
@@ -95,7 +74,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.qn_full = propagators_fields.TwoFluidQuasiNeutralFull()
+            self.qn_full = TwoFluidQuasiNeutralFull()
 
     ## abstract methods
 
@@ -109,6 +88,9 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         electron_mass_number: float = 1.0,
         electron_epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMfields()
@@ -143,6 +125,24 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     @property
     def velocity_scale(self):
         return "thermal"
+
+    def post_allocate(self):
+        pass
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "BaseUnits()" in line:
+                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
     @classmethod
     def doc_pde(cls):
@@ -186,9 +186,13 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.TwoFluidQuasiNeutralFull:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_fields.TwoFluidQuasiNeutralFull.__doc__}
+        1. :class:`~struphy.propagators.two_fluid_quasi_neutral_full.TwoFluidQuasiNeutralFull`
+        """
+        doc = rf"""**1. TwoFluidQuasiNeutralFull:**
+
+{TwoFluidQuasiNeutralFull.__doc__}
 """
         return doc
 
@@ -196,7 +200,12 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def doc_long_description(cls):
         r"""TwoFluidQuasiNeutralToy is a reduced linear two-fluid benchmark with
         zero electron inertia. It is meant for studying the quasi-neutral solve
-        and the coupled ion/electron velocity response in a simplified setting."""
+        and the coupled ion/electron velocity response in a simplified setting.
+
+        References
+        ----------
+        [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+        in plasma physics, Journal of Computational Physics 2018."""
 
     @classmethod
     def doc_examples(cls):
@@ -228,21 +237,3 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         - finite electron inertia effects
         - kinetic phase-space phenomena
         - self-consistent electromagnetic wave propagation"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "BaseUnits()" in line:
-                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

@@ -3,8 +3,11 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
 
+from scope_profiler import ProfilingOptions
+
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
+    __dataclass_repr_all_stacked__,
     __dataclass_repr_no_defaults__,
     all_class_params_are_default,
     check_option,
@@ -13,6 +16,7 @@ from struphy.utils.utils import (
 logger = logging.getLogger("struphy")
 
 
+@dataclass
 class OptionsBase:
     def to_dict(self) -> dict:
         """Convert dataclass instance to dictionary."""
@@ -30,6 +34,9 @@ class OptionsBase:
 
         valid_fields = {field.name for field in fields(cls) if field.init}
         return cls(**{key: _lists_to_tuples(value) for key, value in dct.items() if key in valid_fields})
+
+    def __repr__(self):
+        return __dataclass_repr_all_stacked__(self)
 
 
 @dataclass
@@ -57,8 +64,13 @@ class LiteralOptions:
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
     OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
 
-    # fields background
+    # fields backgrounds
     BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+
+    # kinetic backgrounds
+    VelocityCoordinates = Literal["cartesian", "vpara_mu", "vpara_vperp", "vpara_energy"]
+    OptsGaussianCoordinate = Literal["cartesian", "polar", "mu", "energy"]
+    KineticDimensionsToPlot = Literal["e1", "e2", "e3", "v1", "v2", "v3"]
 
     # models
     ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
@@ -77,9 +89,10 @@ class LiteralOptions:
     OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
 
     # markers
-    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
-    OptsMarkerBC = Literal["periodic", "reflect"]
+    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles5Dvperp", "Particles3D"]
+    OptsMarkerBC = Literal["periodic", "reflect", "remove", "refill"]
     OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
+    OptsRefillBC = Literal["inner", "outer"]
     OptsLoading = Literal[
         "pseudo_random",
         "sobol_standard",
@@ -126,7 +139,7 @@ class LiteralOptions:
     ]
 
 
-@dataclass
+@dataclass(repr=False)
 class Time(OptionsBase):
     """Set options for time stepping in parameter/launch files.
 
@@ -148,11 +161,6 @@ class Time(OptionsBase):
 
     def __post_init__(self):
         check_option(self.split_algo, LiteralOptions.SplitAlgos)
-
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
@@ -187,12 +195,6 @@ class BaseUnits(OptionsBase):
     n: float = 1.0
     kBT: float = None
 
-    def __str__(self):
-        units = ["m", "T", "1e20/m^3", "keV"]
-        for (k, v), unit in zip(self.__dict__.items(), units):
-            logger.info(f"{k + ':':<20}{v} {unit}")
-        return ""
-
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 
@@ -204,7 +206,7 @@ class BaseUnits(OptionsBase):
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 
 
-@dataclass
+@dataclass(repr=False)
 class DerhamOptions(OptionsBase):
     """Set options for the 3D discrete de Rham spaces in parameter/launch files.
 
@@ -260,20 +262,23 @@ class DerhamOptions(OptionsBase):
                 check_option(bc[0], LiteralOptions.OptsNonTrivialBoundaryCondition)
                 check_option(bc[1], LiteralOptions.OptsNonTrivialBoundaryCondition)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
 
     @property
     def is_default(self):
         return all_class_params_are_default(self)
 
 
-@dataclass
+@dataclass(repr=False)
 class FieldsBackground(OptionsBase):
     """Set options for static fluid backgrounds/equilibria in parameter/launch files.
 
@@ -297,11 +302,6 @@ class FieldsBackground(OptionsBase):
     def __post_init__(self):
         check_option(self.type, LiteralOptions.BackgroundTypes)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
-
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 
@@ -310,7 +310,7 @@ class FieldsBackground(OptionsBase):
         return all_class_params_are_default(self)
 
 
-@dataclass
+@dataclass(repr=False)
 class EnvironmentOptions(OptionsBase):
     """Set environment options for launching run on current architecture
     (these options do not influence the simulation result).
@@ -324,6 +324,9 @@ class EnvironmentOptions(OptionsBase):
         Folder in ``out_folders/`` for the current simulation (default= ``sim_1/`` ).
         Will create the folder if it does not exist OR cleans the folder for new runs.
 
+    sim_label: str | None, optional
+        Label for the simulation (default=None)
+
     restart : bool
         Whether to restart a run (default=False).
 
@@ -333,41 +336,48 @@ class EnvironmentOptions(OptionsBase):
     save_step : int
         When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
 
+    save_restart : bool
+        Whether to write the restart checkpoint (full marker arrays and FEEC
+        restart coefficients, written once at setup and once at the end of
+        the run). Restart data can dominate the run time for large particle
+        counts; set to ``False`` to skip it when restart capability isn't
+        needed, e.g. for pure timing/benchmark runs (default=True).
+
     sort_step: int, optional
         Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
 
     num_clones: int, optional
         Number of domain clones (default=1)
 
-    profiling_activated: bool, optional
-        Activate profiling with scope-profiler (default=False)
-
-    profiling_trace: bool, optional
-        Save time-trace of each profiling region (default=False)
     """
 
     out_folders: str = os.getcwd()
     sim_folder: str = "sim_1"
+    sim_label: str | None = None
     restart: bool = False
     max_runtime: int = 300
     save_step: int = 1
+    save_restart: bool = True
     sort_step: int = 0
     num_clones: int = 1
-    profiling_activated: bool = False
-    profiling_trace: bool = False
-    gui: bool = True
 
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
 
-    def __str__(self):
-        for k, v in self.__dict__.items():
-            logger.info(f"{k + ':':<20}{v}")
-        return ""
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
 
+    def __repr_all_stacked__(self):
+        return __dataclass_repr_all_stacked__(self)
+
     @property
     def is_default(self):
         return all_class_params_are_default(self)
+
+
+"""Profiling options are provided directly by scope-profiler."""

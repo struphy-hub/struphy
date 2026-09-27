@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -7,31 +7,23 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import SPHVariable
-from struphy.propagators import (
-    propagators_markers,
-)
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_v_in_force_field import PushVinForceField
 
 
 class PressureLessSPH(StruphyModel):
-    r"""Pressureless fluid discretized with smoothed particle hydrodynamics
+    r"""Particle discretization of pressureless Euler flow with external forcing.
 
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = - \nabla \phi_0 \,,
-
-    where :math:`\phi_0` is a static external potential.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-
-    This is discretized by particles going in straight lines.
+    Parameters
+    ----------
+    base_units : BaseUnits, optional
+        Reference units used to derive model normalization constants.
+    charge_number : int, optional
+        Species charge number (default is 1).
+    mass_number : float, optional
+        Species mass number (default is 1.0).
+    epsilon : float, optional
+        Scaling parameter for force field (default is None).
     """
 
     @classmethod
@@ -58,8 +50,8 @@ class PressureLessSPH(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.push_eta = propagators_markers.PushEta()
-            self.push_v = propagators_markers.PushVinEfield()
+            self.push_eta = PushEta()
+            self.push_v = PushVinForceField()
 
     ## abstract methods
 
@@ -70,6 +62,9 @@ class PressureLessSPH(StruphyModel):
         mass_number: float = 1.0,
         epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.cold_fluid = self.ColdFluid(
@@ -101,6 +96,32 @@ class PressureLessSPH(StruphyModel):
     def velocity_scale(self):
         return None
 
+    # @staticmethod
+    # def diagnostics_dct():
+    #     dct = {}
+    #     dct["projected_density"] = "L2"
+    #     return dct
+
+    def post_allocate(self):
+        pass
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "push_v.Options" in line:
+                    new_file += ["phi = equil.p0\n"]
+                    new_file += ["model.propagators.push_v.phi = phi\n"]
+                    new_file += [line]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -115,16 +136,19 @@ class PressureLessSPH(StruphyModel):
 
         .. math::
 
-            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) = -\nabla \phi_0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) = \mathbf{F}
 
-        where :math:`\phi_0` is a static external potential.
+        where :math:`\mathbf{F}` is an external force.
         """
 
     @classmethod
     def doc_normalization(cls):
-        r"""No special field normalization is introduced beyond the particle units
-        inherited from the simulation setup. This model does not define a
-        separate wave or plasma velocity scale."""
+        r"""Velocity and field normalizations:
+
+        .. math::
+
+            \hat{u} = 1\,\textrm{m/s}, \qquad \hat{F} = \frac{m\hat{n}\hat{u}}{\hat{t}}\,.
+        """
 
     @classmethod
     def doc_scalar_quantities(cls):
@@ -134,13 +158,18 @@ class PressureLessSPH(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushEta:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_markers.PushEta.__doc__}
+        1. :class:`~struphy.propagators.push_eta.PushEta`
+        2. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField`
+        """
+        doc = rf"""**1. PushEta:**
 
-**2. propagators_markers.PushVinEfield:**
+    {PushEta.__doc__}
 
-{propagators_markers.PushVinEfield.__doc__}
+    **2. PushVinForceField:**
+
+    {PushVinForceField.__doc__}
 """
         return doc
 
@@ -148,7 +177,7 @@ class PressureLessSPH(StruphyModel):
     def doc_long_description(cls):
         r"""PressureLessSPH is a meshfree particle model for a pressureless fluid.
         It is primarily useful as a simple SPH benchmark or as a reduced
-        particle transport model in a prescribed potential."""
+        particle transport model in a prescribed force field or potential."""
 
     @classmethod
     def doc_examples(cls):
@@ -178,28 +207,3 @@ class PressureLessSPH(StruphyModel):
         - FEEC-based grid discretizations
         - electromagnetic plasma dynamics
         - viscous or thermal closures"""
-
-    # @staticmethod
-    # def diagnostics_dct():
-    #     dct = {}
-    #     dct["projected_density"] = "L2"
-    #     return dct
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "push_v.Options" in line:
-                    new_file += ["phi = equil.p0\n"]
-                    new_file += ["model.propagators.push_v.options = model.propagators.push_v.Options(phi=phi)\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

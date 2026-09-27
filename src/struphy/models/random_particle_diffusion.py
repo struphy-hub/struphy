@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -7,36 +7,16 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.push_random_diffusion import PushRandomDiffusion
 
 
 class RandomParticleDiffusion(StruphyModel):
-    r"""Diffusion equation discretized with a (random) particle method;
-    the diffusion is computed through a Wiener process.
+    """Diffusion equation discretized with a random particle method, via a Wiener process.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D := \frac{\hat x^2}{\hat t } \,.
-
-    :ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
-
-    .. math::
-
-        \frac{\partial u}{\partial t} -  D \, \Delta u = 0\,,
-
-    where :math:`D > 0` is a positive diffusion coefficient.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushRandomDiffusion`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
     """
 
     @classmethod
@@ -54,11 +34,14 @@ class RandomParticleDiffusion(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.rand_diff = propagators_markers.PushRandomDiffusion()
+            self.rand_diff = PushRandomDiffusion()
 
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits()):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()
@@ -81,6 +64,9 @@ class RandomParticleDiffusion(StruphyModel):
     @property
     def velocity_scale(self):
         return None
+
+    def post_allocate(self):
+        pass
 
     @classmethod
     def doc_pde(cls):
@@ -112,9 +98,13 @@ class RandomParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushRandomDiffusion:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_markers.PushRandomDiffusion.__doc__}
+        1. :class:`~struphy.propagators.push_random_diffusion.PushRandomDiffusion`
+        """
+        doc = rf"""**1. push_random_diffusion.PushRandomDiffusion:**
+
+    {PushRandomDiffusion.__doc__}
 """
         return doc
 
@@ -151,6 +141,3 @@ class RandomParticleDiffusion(StruphyModel):
         - electromagnetic or fluid plasma dynamics
         - deterministic advection-dominated transport
         - anisotropic plasma kinetics in phase space"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass

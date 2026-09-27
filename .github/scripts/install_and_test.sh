@@ -38,13 +38,13 @@ echo "Setting up Python virtual environment"
 echo "----------------------------------------"
 which python
 python --version
-if [ ! -d "env" ]; then
-    echo "Creating virtual environment 'env'"
-    python -m venv env
+if [ ! -d ".venv" ]; then
+    echo "Creating virtual environment '.venv'"
+    python -m venv .venv
 else
-    echo "Virtual environment 'env' already exists"
+    echo "Virtual environment '.venv' already exists"
 fi
-source env/bin/activate
+source .venv/bin/activate
 echo "Activated virtual environment"
 echo
 

@@ -8,12 +8,14 @@ from typing import Literal
 import cunumpy as xp
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+from scope_profiler import ProfileManager
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
+from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.utils.utils import check_option
 
@@ -25,9 +27,7 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ----
-    All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
-    in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
-    Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
+    All Struphy propagators are subclasses of ``Propagator`` and must be added under ``struphy/propagators/``.
     """
 
     @abstractmethod
@@ -52,8 +52,13 @@ class Propagator(metaclass=ABCMeta):
         self.variables = self.Variables()
 
     @abstractmethod
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
+        """Template for configuration options of a propagator.
+
+        Subclasses should override this to define specific propagator options.
+        """
+
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
@@ -75,9 +80,10 @@ class Propagator(metaclass=ABCMeta):
     def options(self, new):
         assert isinstance(new, self.Options)
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @abstractmethod
-    def allocate(self, verbose: bool = False):
+    def allocate(self):
         """Allocate all data/objects of the instance."""
 
     @abstractmethod
@@ -91,12 +97,20 @@ class Propagator(metaclass=ABCMeta):
             Time step size.
         """
 
+    @property
+    def _solve_region(self) -> str:
+        """Name of the profiling region for the linear solve(s) of this propagator."""
+        if not hasattr(self, "_solve_region_name"):
+            self._solve_region_name = "solve: " + self.__class__.__name__
+        return self._solve_region_name
+
     def show_options(self):
         """Print the options of the propagator."""
         logger.info(f"\nOptions for propagator '{self.__class__.__name__}':")
         for k, v in self.options.__dict__.items():
             logger.info(f"    {k + ':':<20}{v}")
 
+    @ProfileManager.profile("update_feec_variables")
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
         update feec coefficients and update ghost regions.

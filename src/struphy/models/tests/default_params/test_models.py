@@ -42,65 +42,41 @@ def test_all_models_expose_new_doc_api():
 
 @pytest.mark.models
 @pytest.mark.toy
-def test_toy(
-    test_profiling: bool = True,
-    vrbose: bool = False,
-    nclones: int = 1,
-    show_plots: bool = False,
-):
+def test_toy(test_profiling: bool = True):
     for model in models_utils.get_models(model_type="Toy"):
         ut.call_test(
             model=model(),
             test_profiling=test_profiling,
-            verbose=vrbose,
         )
 
 
 @pytest.mark.models
 @pytest.mark.fluid
-def test_fluid(
-    test_profiling: bool = True,
-    vrbose: bool = False,
-    nclones: int = 1,
-    show_plots: bool = False,
-):
+def test_fluid(test_profiling: bool = True):
     for model in models_utils.get_models(model_type="Fluid"):
         ut.call_test(
             model=model(),
             test_profiling=test_profiling,
-            verbose=vrbose,
         )
 
 
 @pytest.mark.models
 @pytest.mark.kinetic
-def test_kinetic(
-    test_profiling: bool = True,
-    vrbose: bool = False,
-    nclones: int = 1,
-    show_plots: bool = False,
-):
+def test_kinetic(test_profiling: bool = True):
     for model in models_utils.get_models(model_type="Kinetic"):
         ut.call_test(
             model=model(),
             test_profiling=test_profiling,
-            verbose=vrbose,
         )
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
-def test_hybrid(
-    test_profiling: bool = True,
-    vrbose: bool = False,
-    nclones: int = 1,
-    show_plots: bool = False,
-):
+def test_hybrid(test_profiling: bool = True):
     for model in models_utils.get_models(model_type="Hybrid"):
         ut.call_test(
             model=model(),
             test_profiling=test_profiling,
-            verbose=vrbose,
         )
 
 
@@ -108,16 +84,12 @@ def test_hybrid(
 def test_single_model(
     model_name: str,
     test_profiling: bool = True,
-    vrbose: bool = False,
-    nclones: int = 1,
-    show_plots: bool = False,
 ):
     logger.info(f"{model_name = }")
     model = models_utils.get_model_by_name(model_name=model_name)
     ut.call_test(
         model=model(),
         test_profiling=test_profiling,
-        verbose=vrbose,
     )
 
 

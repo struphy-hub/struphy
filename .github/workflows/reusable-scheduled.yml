@@ -9,6 +9,7 @@ on:
 
 jobs:
   test:
+    name: ${{ matrix.test-type }} (${{ matrix.compile-language }}, ${{ matrix.shard }})
     runs-on: ${{ inputs.os }}
     env:
       OMPI_MCA_rmaps_base_oversubscribe: 1 # Linux
@@ -19,6 +20,20 @@ jobs:
         python-version: ["3.12"]
         compile-language: ["fortran", "c"]
         test-type: ["unit", "model", "verification"] #"quickstart", "tutorials"]
+        shard: ["shard-1", "shard-2", "shard-3", "shard-4"]
+        exclude:
+          - test-type: model
+            shard: shard-2
+          - test-type: model
+            shard: shard-3
+          - test-type: model
+            shard: shard-4
+          - test-type: verification
+            shard: shard-2
+          - test-type: verification
+            shard: shard-3
+          - test-type: verification
+            shard: shard-4
 
     steps:
       # Checkout the repository
@@ -74,22 +89,60 @@ jobs:
           language: ${{ matrix.compile-language }}
 
       - name: Set environment for mpi run
-        uses: ./.github/actions/environment/unit-mpi
+        run: |
+          {
+            echo 'TESTMON_KEY=testmon-unit-mpi'
+            echo 'RUN_MAXWELL=mpirun -n 1 pytest -m single --testmon-forceselect -v --with-mpi --model-name Maxwell'
+            echo 'UNINSTALL_MPI='
+            echo 'PYTEST_CMD=mpirun -n 2 pytest -v --testmon --with-mpi'
+          } >> "$GITHUB_ENV"
 
       - name: Run unit tests with MPI
         if: matrix.test-type == 'unit'
-        uses: ./.github/actions/tests/unit
-        with:
-          struphy-path: ${{ env.STRUPHY_PATH }}
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-${{ matrix.shard }}
+        run: |
+          case "${{ matrix.shard }}" in
+            shard-1)
+              TEST_FILES="bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/"
+              ;;
+            shard-2)
+              TEST_FILES="propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/"
+              ;;
+            shard-3)
+              TEST_FILES="feec/tests/"
+              ;;
+            shard-4)
+              TEST_FILES="pic/tests/"
+              ;;
+            *)
+              echo "Unknown test shard: ${{ matrix.shard }}" >&2
+              exit 1
+              ;;
+          esac
+          set +e
+          source /bin/activate || true
+          set -e
+          pip show struphy
+          struphy compile --status
+          cd ${{ env.STRUPHY_PATH }}
+          pwd
+          echo "Running $RUN_MAXWELL"
+          $RUN_MAXWELL
+          echo "Running $UNINSTALL_MPI"
+          $UNINSTALL_MPI
+          git status || true
+          echo "Running $PYTEST_CMD $TEST_FILES"
+          $PYTEST_CMD $TEST_FILES
 
       - name: Run model tests with MPI
-        if: matrix.test-type == 'model'
+        if: matrix.test-type == 'model' && matrix.shard == 'shard-1'
         shell: bash
         run: |
           mpirun -oversubscribe -n 2 pytest -x -m models --with-mpi $STRUPHY_PATH/models/tests/default_params/
 
       - name: Run verification tests with MPI
-        if: matrix.test-type == 'verification'
+        if: matrix.test-type == 'verification' && matrix.shard == 'shard-1'
         shell: bash
         run: |
           mpirun --oversubscribe -n 2 pytest -x --with-mpi $STRUPHY_PATH/models/tests/verification/

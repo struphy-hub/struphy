@@ -2,6 +2,8 @@ import logging
 
 import pytest
 
+pytestmark = pytest.mark.mpi_pic
+
 logger = logging.getLogger("struphy")
 
 

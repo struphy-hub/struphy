@@ -7,6 +7,7 @@ from feectools.linalg.basic import LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.direct_solvers import SparseSolver
 from feectools.linalg.solvers import inverse
+from scope_profiler import ProfileManager
 
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
@@ -140,7 +141,6 @@ class SaddlePointSolver:
         self._max_iter = max_iter
         self._spectralanalysis = spectralanalysis
         self._dimension = dimension
-        self._verbose = solver_params["verbose"]
 
         if self._variant == "Inverse_Solver":
             self._block_domainM = BlockVectorSpace(self._A.domain, self._B.transpose().domain)
@@ -250,6 +250,7 @@ class SaddlePointSolver:
         elif self._variant == "Inverse_Solver":
             self._Apre = a
 
+    @ProfileManager.profile("solve: SaddlePointSolver")
     def __call__(self, U_init=None, Ue_init=None, P_init=None, out=None):
         """
         Solves the saddle-point problem using the Uzawa algorithm.
@@ -320,12 +321,11 @@ class SaddlePointSolver:
                 self._Unp = U_init.toarray() if U_init is not None else self._Unp
                 self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
 
-            if self._verbose:
-                logger.info("Uzawa solver:")
-                logger.info("+---------+---------------------+")
-                logger.info("+ Iter. # | L2-norm of residual |")
-                logger.info("+---------+---------------------+")
-                template = "| {:7d} | {:19.2e} |"
+            logger.debug("Uzawa solver:")
+            logger.debug("+---------+---------------------+")
+            logger.debug("+ Iter. # | L2-norm of residual |")
+            logger.debug("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
 
             for iteration in range(self._max_iter):
                 # Step 1: Compute velocity U by solving A U = -Bᵀ P + F -A Un
@@ -358,12 +358,11 @@ class SaddlePointSolver:
                 self._residual_norms.append(residual_normR1)  # Store residual norm
                 # Check for convergence based on residual norm
                 if residual_norm < self._tol:
-                    if self._verbose:
-                        logger.info(template.format(iteration + 1, residual_norm))
-                        logger.info("+---------+---------------------+")
+                    logger.debug(template.format(iteration + 1, residual_norm))
+                    logger.debug("+---------+---------------------+")
                     info["success"] = True
                     info["niter"] = iteration + 1
-                    if self._verbose:
+                    if logger.level <= logging.DEBUG:
                         _plot_residual_norms(self._residual_norms)
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
@@ -373,16 +372,14 @@ class SaddlePointSolver:
                 # alpha = ((self._Precnp.dot(R)).dot(R)) / ((self._Precnp.dot(R)).dot(self._Precnp.dot(R)))
                 self._Pnp += alpha.real * R.real
 
-                if self._verbose:
-                    logger.info(template.format(iteration + 1, residual_norm))
+                logger.debug(template.format(iteration + 1, residual_norm))
 
-            if self._verbose:
-                logger.info("+---------+---------------------+")
+            logger.debug("+---------+---------------------+")
 
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
-            if self._verbose:
+            if logger.level <= logging.DEBUG:
                 _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 

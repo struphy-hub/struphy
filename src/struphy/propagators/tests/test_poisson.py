@@ -3,6 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
+from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import (
@@ -19,14 +20,13 @@ from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models.variables import FEECVariable
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.accum_kernels import charge_density_0form
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
+from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
@@ -190,21 +190,19 @@ def test_poisson_1d(
                 tol=1.0e-13,
                 maxiter=3000,
                 info=True,
-                verbose=False,
                 recycle=False,
             )
 
             _phi = FEECVariable(space="H1")
             _phi.allocate(derham=derham, domain=domain)
 
-            poisson_solver = Poisson()
+            poisson_solver = PoissonSolve(rho=rho)
             poisson_solver.variables.phi = _phi
 
             poisson_solver.options = poisson_solver.Options(
                 stab_eps=1e-12,
                 # sigma_2=0.0,
                 # sigma_3=1.0,
-                rho=rho,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
                 solver_params=solver_params,
@@ -346,40 +344,37 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = Pyccelkernel(charge_density_0form)
-    accum = AccumulatorVector(particles, "H1", kernel, mass_ops, domain.args_domain)
-    # accum()
-    # if do_plot:
-    #     accum.show_accumulated_spline_field(mass_ops)
-
-    rho = accum
+    kernel = PyccelKernel(charge_density_0form)
+    # control_variate=True, so no PICVariable.species is needed to build the analytical background term
+    pic_var = PICVariable(space="Particles6D")
+    pic_var._particles = particles
+    rho = ParticlesToGrid(pic_var, "H1", kernel)
 
     # create Poisson solver
     solver_params = SolverParameters(
         tol=1.0e-13,
         maxiter=3000,
         info=True,
-        verbose=False,
         recycle=False,
     )
 
     _phi = FEECVariable(space="H1")
     _phi.allocate(derham=derham, domain=domain)
 
-    poisson_solver = Poisson()
+    poisson_solver = PoissonSolve(rho=rho)
     poisson_solver.variables.phi = _phi
 
     poisson_solver.options = poisson_solver.Options(
         stab_eps=1e-6,
         # sigma_2=0.0,
         # sigma_3=1.0,
-        rho=rho,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
     )
 
     poisson_solver.allocate()
+    accum = poisson_solver.sources[0]
 
     # Solve Poisson (call propagator with dt=1.)
     dt = 1.0
@@ -558,21 +553,19 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         tol=1.0e-13,
         maxiter=3000,
         info=True,
-        verbose=False,
         recycle=False,
     )
 
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
 
-    poisson_solver1 = Poisson()
+    poisson_solver1 = PoissonSolve(rho=rho1)
     poisson_solver1.variables.phi = _phi1
 
     poisson_solver1.options = poisson_solver1.Options(
         stab_eps=1e-8,
         # sigma_2=0.0,
         # sigma_3=1.0,
-        rho=rho1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -581,14 +574,14 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     poisson_solver1.allocate()
 
     # _phi1 = derham.create_spline_function("test1", "H1")
-    # poisson_solver1 = Poisson(
+    # poisson_solver1 = PoissonFieldSolve(
     #     _phi1.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec1, solver=solver_params
     # )
 
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
 
-    poisson_solver2 = Poisson()
+    poisson_solver2 = PoissonSolve(rho=rho2)
     poisson_solver2.variables.phi = _phi2
 
     stab_eps = 1e-8
@@ -601,7 +594,6 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         stab_eps=stab_eps,
         # sigma_2=0.0,
         # sigma_3=1.0,
-        rho=rho2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,

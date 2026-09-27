@@ -47,7 +47,7 @@ def split_command(command):
         ["compile", "-y"],
         ["compile", "--language", "fortran"],
         ["compile", "--compiler", "intel"],
-        ["compile", "--omp-pic"],
+        ["compile", "--openmp"],
         ["compile", "--verbose"],
         ["compile", "--delete"],
         # Test cases for 'params' sub-command

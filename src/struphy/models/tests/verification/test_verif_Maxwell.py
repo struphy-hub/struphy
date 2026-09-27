@@ -62,19 +62,18 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         domain=domain,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(verbose=True)
+        sim.pproc()
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.load_plotting_data(verbose=True)
+        sim.load_plotting_data()
 
         # fft
         E_of_t = sim.spline_values.em_fields.e_field_log.data
@@ -148,15 +147,14 @@ def test_coaxial(do_plot: bool = False):
         equil=equil,
         grid=grid,
         derham_opts=derham_opts,
-        verbose=True,
     )
 
     # run
-    sim.run(verbose=True)
+    sim.run()
 
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc(physical=True, verbose=True)
+        sim.pproc(physical=True)
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -167,7 +165,7 @@ def test_coaxial(do_plot: bool = False):
         modes = m
 
         # load data
-        sim.load_plotting_data(verbose=True)
+        sim.load_plotting_data()
 
         t_grid = sim.t_grid
         grids_phy = sim.grids_phy

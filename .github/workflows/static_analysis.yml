@@ -30,8 +30,11 @@ jobs:
   struphy_lint_all:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -47,6 +50,9 @@ jobs:
 
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy-editable
+
+      - name: Reinstall feectools from submodule
+        uses: ./.github/actions/install/feectools-submodule
 
       - name: Lint the repo
         run: |
@@ -109,7 +115,7 @@ jobs:
 
       - name: Code formatting with ruff
         run: |
-          pip install ruff
+          pip install ruff==0.15.0
           ruff check
       
       # - name: ruff format --check

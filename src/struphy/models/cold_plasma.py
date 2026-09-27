@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -8,46 +8,26 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.jxb_cold import JxBCold
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+from struphy.propagators.ohm_cold import OhmCold
 
 
 class ColdPlasma(StruphyModel):
-    r"""Cold plasma model.
+    """Cold plasma model: electron-fluid current coupled with Maxwell's equations via a cold-plasma Ohm's law.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat v = c\,,\qquad \hat E = c \hat B \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \frac{1}{n_0} &\frac{\partial \mathbf j}{\partial t} = \frac{1}{\varepsilon} \mathbf E + \frac{1}{\varepsilon n_0} \mathbf j \times \mathbf B_0\,,
-        \\[2mm]
-        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-        \\[2mm]
-        -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-        \frac{\alpha^2}{\varepsilon} \mathbf j \,,
-
-    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
-
-    .. math::
-
-        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-    2. :class:`~struphy.propagators.propagators_fields.OhmCold`
-    3. :class:`~struphy.propagators.propagators_fields.JxBCold`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the electron species (default: -1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the electron species (default: 1/1836)
+    alpha: float, optional
+        Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
+    epsilon: float, optional
+        Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
     """
 
     @classmethod
@@ -82,9 +62,9 @@ class ColdPlasma(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
-            self.ohm = propagators_fields.OhmCold()
-            self.jxb = propagators_fields.JxBCold()
+            self.maxwell = MaxwellWeakAmpere()
+            self.ohm = OhmCold()
+            self.jxb = JxBCold()
 
     ## abstract methods
 
@@ -96,6 +76,9 @@ class ColdPlasma(StruphyModel):
         alpha: float = None,
         epsilon: float = None,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -146,6 +129,9 @@ class ColdPlasma(StruphyModel):
     def velocity_scale(self):
         return "light"
 
+    def post_allocate(self):
+        pass
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -194,17 +180,23 @@ class ColdPlasma(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_fields.Maxwell.__doc__}
+        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
+        2. :class:`~struphy.propagators.ohm_cold.OhmCold`
+        3. :class:`~struphy.propagators.jxb_cold.JxBCold`
+        """
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
 
-**2. propagators_fields.OhmCold:**
+{MaxwellWeakAmpere.__doc__}
 
-{propagators_fields.OhmCold.__doc__}
+**2. OhmCold:**
 
-**3. propagators_fields.JxBCold:**
+{OhmCold.__doc__}
 
-{propagators_fields.JxBCold.__doc__}
+**3. JxBCold:**
+
+{JxBCold.__doc__}
 """
         return doc
 
@@ -247,6 +239,3 @@ class ColdPlasma(StruphyModel):
         - kinetic resonances or velocity-space instabilities
         - multi-species hybrid or fully kinetic problems
         - collisional closures beyond the built-in cold-plasma approximation"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass

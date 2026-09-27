@@ -1,6 +1,8 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.basic import FemSpace
@@ -19,7 +21,6 @@ from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring
-from struphy.utils.pyccel import Pyccelkernel
 
 logger = logging.getLogger("struphy")
 
@@ -36,9 +37,6 @@ class BasisProjectionOperators:
     domain : :ref:`avail_mappings`
         Mapping from logical unit cube to physical domain and corresponding metric coefficients.
 
-    verbose : bool
-        Show info on screen.
-
     **weights : dict
         Objects to access callables that can serve as weight functions.
 
@@ -49,21 +47,17 @@ class BasisProjectionOperators:
     - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, verbose=True, **weights):
+    def __init__(self, derham, domain, **weights):
         self._derham = derham
         self._domain = domain
         self._weights = weights
-        self._verbose = verbose
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
-        if xp.any(
-            [degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]
-        ):
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(
-                    f'\nWARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
-                )
+        if any([degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]):
+            logger.warning(
+                f'WARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
+            )
 
     @property
     def derham(self) -> Derham:
@@ -84,11 +78,6 @@ class BasisProjectionOperators:
     def rank(self) -> int:
         """MPI rank, is 0 if no communicator."""
         return self._rank
-
-    @property
-    def verbose(self):
-        """Bool: show info on screen."""
-        return self._verbose
 
     # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
     def DF(self, e1, e2, e3):
@@ -936,12 +925,9 @@ class BasisProjectionOperators:
             )
 
         if assemble:
-            if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-                logger.info(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
-            out.assemble(verbose=self.verbose)
-
-        if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-            logger.info("Done.")
+            logger.debug(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+            out.assemble()
+            logger.debug("Done.")
 
         return out
 
@@ -1070,11 +1056,11 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         if isinstance(V, TensorFemSpace):
             self._Vspaces = [V.coeff_space]
             self._V1ds = [V.spaces]
-            self._VNbasis = xp.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
+            self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
         else:
             self._Vspaces = V.coeff_space
             self._V1ds = [comp.spaces for comp in V.spaces]
-            self._VNbasis = xp.array(
+            self._VNbasis = np.array(
                 [
                     [self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis],
                     [
@@ -1234,7 +1220,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         if self._transposed:
             self._mat_T = self._mat.T
 
-    def assemble(self, verbose=False):
+    def assemble(self):
         """
         Assembles the BasisProjectionOperatorLocal. And
         store it in self._mat.
@@ -1818,7 +1804,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         """The degrees of freedom operator as composite linear operator containing polar extraction and boundary operators."""
         return self._dof_operator
 
-    def dot(self, v, out=None, tol=1e-14, maxiter=1000, verbose=False):
+    def dot(self, v, out=None, tol=1e-14, maxiter=1000):
         """
         Applies the basis projection operator to the FE coefficients v.
 
@@ -1835,9 +1821,6 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         maxiter : int, optional
             Maximum number of iterations in iterative solve (only used in polar case).
-
-        verbose : bool, optional
-            Whether to print some information in each iteration in iterative solve (only used in polar case).
 
         Returns
         -------
@@ -1922,7 +1905,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         if self._transposed:
             self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
-    def assemble(self, weights=None, verbose=False):
+    def assemble(self, weights=None):
         """
         Assembles the tensor-product DOF matrix sigma_i(weights[i,j]*Lambda_j), where i=(i1, i2, ...)
         and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d). And
@@ -1965,13 +1948,13 @@ class BasisProjectionOperator(LinOpWithTransp):
 
             # input vector space (domain), column of block
             for j, (Vspace, V1d, loc_weight) in enumerate(zip(_Vspaces, _V1ds, weight_line)):
-                _starts_in = xp.array(Vspace.starts)
-                _ends_in = xp.array(Vspace.ends)
-                _pads_in = xp.array(Vspace.pads)
+                _starts_in = np.array(Vspace.starts)
+                _ends_in = np.array(Vspace.ends)
+                _pads_in = np.array(Vspace.pads)
 
-                _starts_out = xp.array(Wspace.starts)
-                _ends_out = xp.array(Wspace.ends)
-                _pads_out = xp.array(Wspace.pads)
+                _starts_out = np.array(Wspace.starts)
+                _ends_out = np.array(Wspace.ends)
+                _pads_out = np.array(Wspace.pads)
 
                 # use cached information if asked
                 if self._use_cache:
@@ -2059,15 +2042,14 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = Pyccelkernel(
+                    kernel = PyccelKernel(
                         getattr(
                             basis_projection_kernels,
                             "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
                         ),
                     )
 
-                    if rank == 0 and verbose:
-                        logger.info(f"Assemble block {i, j}")
+                    logger.debug(f"Assemble block {i, j}")
                     kernel(
                         dofs_mat._data,
                         _starts_in,

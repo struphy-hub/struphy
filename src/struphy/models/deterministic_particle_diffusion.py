@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -7,37 +7,16 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.push_deterministic_diffusion import PushDeterministicDiffusion
 
 
 class DeterministicParticleDiffusion(StruphyModel):
-    r"""Diffusion equation discretized with a deterministic particle method;
-    the solution is :math:`L^2`-projected onto :math:`V^0 \subset H^1` to compute the flux.
+    """Diffusion equation discretized with a deterministic particle method.
 
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat D := \frac{\hat x^2}{\hat t } \,.
-
-    :ref:`Equations <gempic>`: Find :math:`u:\mathbb R\times \Omega\to \mathbb R^+` such that
-
-    .. math::
-
-        \frac{\partial u}{\partial t} +  \nabla \cdot\left(\mathbf F(u) u\right) = 0\,, \qquad \mathbf F(u) = -\mathbb D\,\frac{\nabla u}{u}\,,
-
-    where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix.
-    At the moment only matrices of the form :math:`D*Id` are implemented, where :math:`D > 0` is a positive diffusion coefficient.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushDeterministicDiffusion`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
     """
 
     @classmethod
@@ -55,11 +34,14 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.det_diff = propagators_markers.PushDeterministicDiffusion()
+            self.det_diff = PushDeterministicDiffusion()
 
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits()):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.hydrogen = self.Hydrogen()
@@ -82,6 +64,9 @@ class DeterministicParticleDiffusion(StruphyModel):
     @property
     def velocity_scale(self):
         return None
+
+    def post_allocate(self):
+        pass
 
     @classmethod
     def doc_pde(cls):
@@ -116,9 +101,13 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushDeterministicDiffusion:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_markers.PushDeterministicDiffusion.__doc__}
+        1. :class:`~struphy.propagators.push_deterministic_diffusion.PushDeterministicDiffusion`
+        """
+        doc = rf"""**1. push_deterministic_diffusion.PushDeterministicDiffusion:**
+
+    {PushDeterministicDiffusion.__doc__}
 """
         return doc
 
@@ -157,6 +146,3 @@ class DeterministicParticleDiffusion(StruphyModel):
         - kinetic Vlasov problems in phase space
         - nonlinear fluid systems with pressure or momentum evolution
         - diffusion tensors outside the currently supported simplified forms"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass

@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -8,65 +8,21 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators import (
-    propagators_markers,
-)
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.push_eta import PushEta
+from struphy.propagators.push_vxb import PushVxB
 
 
 class Vlasov(StruphyModel):
-    r"""Vlasov equation in static background magnetic field.
+    """Vlasov equation for a single species in a static background magnetic field.
 
-    Kinetic plasma description using particle distribution function in fixed external magnetic field.
-    Evolves the particle distribution function f(x, v, t) under Lorentz force from externally applied fields.
-    No self-consistent electromagnetic fields or particle feedback on fields.
-    Suitable for investigating kinetic dynamics in imposed magnetic field configurations.
-
-    **Physics Description:**
-    This model solves the collisionless Vlasov equation for individual particle species.
-    Particles move under the influence of a prescribed (static) background magnetic field B0.
-    The distribution function f describes the density of particles at position x with velocity v.
-    Useful for studying kinetic effects, gyro-motion, phase space dynamics, and particle trajectories
-    in externally controlled magnetic field environments without plasma self-interactions.
-
-    **Keywords:** kinetic, Vlasov equation, particle distribution, collisionless plasma, gyro-motion,
-    cyclotron motion, magnetic field, Lorentz force, phase space, distribution function, kinetic dynamics,
-    gyrokinetics, charged particle, background field, external field, drift motion, cyclotron radius,
-    Larmor radius, particle tracing, kinetic transport, phase space evolution, kinetic instability,
-    particle dynamics, magnetic confinement, drift orbits, gyroscale
-
-    **Physics type:** Kinetic (particle-based, not fluid)
-    **Particle dynamics:** Full kinetic evolution - gyro-motion, drifts, and advection in velocity space
-    **Field coupling:** None - uses imposed external magnetic field only (no self-consistency)
-    **Current source:** None (fields are given, not self-generated)
-    **Collision effects:** None (collisionless kinetic model)
-    **Temperature effects:** Implicit in initial distribution function (not enforced separately)
-
-    **Use for:**
-    - Kinetic dynamics in fixed magnetic field geometry
-    - Gyro-motion and cyclotron dynamics studies
-    - Particle distribution evolution in external fields
-    - Phase space advection and flow
-    - Kinetic effects without plasma feedback
-    - Testing particle propagators and methods
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat v = \hat \Omega_\textnormal{c} \hat x\,.,,
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    2. :class:`~struphy.propagators.propagators_markers.PushEta`
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    charge_number: int
+        Charge number (in units of the positive elementary charge) of the species (default: 1)
+    mass_number: float
+        Mass number (in units of Proton mass) of the species (default: 1.0)
     """
 
     __exclusion__ = """
@@ -99,8 +55,8 @@ class Vlasov(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.push_vxb = propagators_markers.PushVxB()
-            self.push_eta = propagators_markers.PushEta()
+            self.push_vxb = PushVxB()
+            self.push_eta = PushEta()
 
     ## abstract methods
 
@@ -110,6 +66,9 @@ class Vlasov(StruphyModel):
         charge_number: int = 1,
         mass_number: float = 1.0,
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.kinetic_ions = self.KineticIons(
@@ -139,6 +98,9 @@ class Vlasov(StruphyModel):
     def velocity_scale(self):
         return "cyclotron"
 
+    def post_allocate(self):
+        pass
+
     @classmethod
     def doc_pde(cls):
         r"""**PDEs solved by model:**
@@ -167,13 +129,18 @@ class Vlasov(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushVxB:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_markers.PushVxB.__doc__}
+        1. :class:`~struphy.propagators.push_vxb.PushVxB`
+        2. :class:`~struphy.propagators.push_eta.PushEta`
+        """
+        doc = rf"""**1. push_vxb.PushVxB:**
 
-**2. propagators_markers.PushEta:**
+    {PushVxB.__doc__}
 
-{propagators_markers.PushEta.__doc__}
+    **2. push_eta.PushEta:**
+
+    {PushEta.__doc__}
 """
         return doc
 
@@ -211,6 +178,3 @@ class Vlasov(StruphyModel):
         - collisional kinetic dynamics
         - guiding-center reduction studies
         - fluid or MHD-scale closures"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        pass

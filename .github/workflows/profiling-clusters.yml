@@ -1,0 +1,30 @@
+name: Cluster workflow
+on:
+  pull_request:
+    branches:
+      - devel-unused-for-now
+
+  # schedule:
+  #   # run at 1 a.m. every night
+  #   - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  # Raven:
+  #   uses: ./.github/workflows/reusable-profiling-clusters.yml
+  #   with:
+  #     runner_tags: '["self-hosted", "protected", "raven"]'
+  
+  # Viper:
+  #   uses: ./.github/workflows/reusable-profiling-clusters.yml
+  #   with:
+  #     runner_tags: '["self-hosted", "protected", "viper"]'
+  # TOK:
+  #   uses: ./.github/workflows/reusable-profiling-clusters.yml
+  #   with:
+  #     runner_tags: '["self-hosted", "tok"]'
+  
+  Pitagora:
+    uses: ./.github/workflows/reusable-profiling-clusters.yml
+    with:
+      runner_tags: '["self-hosted", "pitagora"]'

@@ -22,7 +22,7 @@ logger = logging.getLogger("struphy")
 def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=False):
     """Test weighted mass matrices by recovering projected functions from the DeRham complex.
 
-    For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad}``,
+    For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad, M0ad_withT}``,
     the test:
 
     1. Projects known trigonometric right-hand-side functions onto the
@@ -32,9 +32,11 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
        it point-wise to the exact function.
 
     The density-weighted operators (``M1n``, ``M2n``, ``Mvn``, ``M0ad``) are
-    tested against ``exact / n0``, and the inverse-density operator
+    tested against ``exact / n0``, ``M0ad_withT`` is tested against ``exact * t0 / n0``, and the inverse-density operator
     (``M1ninv``) is tested against ``exact * n0``.
     """
+
+    from types import MethodType
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
@@ -82,7 +84,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     # derham object
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
-    derham = Derham(grid, derham_opts, comm=mpi_comm)
+    derham = Derham(grid, derham_opts, comm=mpi_comm, domain=domain)
 
     logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
 
@@ -111,6 +113,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     rhs = {}
     rhs["M0"] = l2proj_0.get_dofs(rhs_0, apply_bc=True)
     rhs["M0ad"] = rhs["M0"]
+    rhs["M0ad_withT"] = rhs["M0"]
     rhs["M1"] = l2proj_1.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
     rhs["M1n"] = rhs["M1"]
     rhs["M1ninv"] = rhs["M1"]
@@ -134,7 +137,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     elif min(degree) == 2:
         err_bound = 2.6e-2
 
-    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "WMM", "WMMnew"]
+    names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "M0ad_withT", "WMM", "WMMnew"]
     for name in names:
         if name == "WMM":
             intermediate = mass_ops.WMM
@@ -155,7 +158,9 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
             exact = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
 
         solver = "cg"
-        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew"]:
+        if name == "M0ad_withT":
+            exact *= equil.t0(e1, e2, e3)
+        if name in ["M1n", "M2n", "Mvn", "M0ad", "WMM", "WMMnew", "M0ad_withT"]:
             # solve n0 * u = f, where n0 is the equilibrium density
             exact /= equil.n0(e1, e2, e3)
         elif name == "M1ninv":
@@ -215,6 +220,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         logger.info(f"Test passed for {name}")
 
 
+@pytest.mark.parametrize("case", ["1-form", "2-form"])
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("eps", [1.0])
 @pytest.mark.parametrize("num_elements", [(32, 32, 32)])
@@ -229,16 +235,18 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         ("HollowTorus", "AdhocTorus"),
     ],
 )
-def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, show_plots=False):
-    """Test the rotation-stabilized ``M2B`` mass operator on the Hdiv space.
+def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_free, show_plots=False):
+    """Test the rotation-stabilized mass operators on the Hdiv and Hcurl spaces.
 
     The test verifies that the perp-to-field component of the numerical
-    solution matches the analytically derived exact solution for the
-    regularised rotation problem
+    solution matches the analytically derived exact solution for the following
+    regularised rotation problems:
 
-    eps * u2 + B2 x u2 = G*f2,
+    1. B and u as 2-forms: eps * u2 + B2 x u2 = G*f2,
 
-    where B2 and f2 are given 2-forms, and eps is a regularisation parameter.
+    2. B and u as 1-forms: eps * u1 + B1 x u1 = G^{-1}*sqrt(g)*f1,
+
+    where eps is a regularisation parameter.
 
     The exact perpendicular solution is computed analytically from the
     right-hand-side trigonometric functions, the local rotation matrix built
@@ -312,8 +320,11 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
     def rhs_2(e1, e2, e3):
         return xp.zeros_like(e1)
 
-    l2proj_2 = L2Projector("Hdiv", mass_ops)
-    rhs = l2proj_2.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
+    if case == "1-form":
+        l2proj = L2Projector("Hcurl", mass_ops)
+    elif case == "2-form":
+        l2proj = L2Projector("Hdiv", mass_ops)
+    rhs = l2proj.get_dofs((rhs_0, rhs_1, rhs_2), apply_bc=True)
 
     # test mass matrices
     e1 = xp.linspace(0, 1, 8)
@@ -322,41 +333,83 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
     ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     if min(degree) == 1:
-        err_bound = 1e-1
+        err_bound = 1.15e-1
     elif min(degree) == 2:
-        err_bound = 1e-2
+        err_bound = 1.4e-2
 
-    # exact solution to the rotation problem u2 + B2 x u2 = G*f2, where G is the metric tensor and B2 is the magnetic field as a 2-form
-    rot_B = LocalRotationMatrix(equil.b2_1, equil.b2_2, equil.b2_3)(ee1, ee2, ee3)
+    # exact solution to the rotation problem u + B x u = rhs
+    if case == "1-form":
+        rot_B = LocalRotationMatrix(equil.b1_1, equil.b1_2, equil.b1_3)(ee1, ee2, ee3)
+    elif case == "2-form":
+        rot_B = LocalRotationMatrix(equil.b2_1, equil.b2_2, equil.b2_3)(ee1, ee2, ee3)
     logger.debug(f"{rot_B.shape = }")
 
     G = domain.metric(ee1, ee2, ee3, change_out_order=True)
-    logger.debug(f"{G.shape = }")
+    Ginv = domain.metric_inv(ee1, ee2, ee3, change_out_order=True)
+    sqrt_g = domain.jacobian_det(ee1, ee2, ee3)
+    logger.debug(f"{G.shape = }, {Ginv.shape = }")
 
     # numpy operates on the last two indices with @
     rhs_mat = xp.array([rhs_0(ee1, ee2, ee3), rhs_1(ee1, ee2, ee3), rhs_2(ee1, ee2, ee3)])
     tmp = xp.transpose(rhs_mat, axes=(1, 2, 3, 0))
     logger.debug(f"{tmp.shape = }")
-    f = xp.matvec(G, tmp)
 
-    absB2 = equil.b2_1(ee1, ee2, ee3) ** 2 + equil.b2_2(ee1, ee2, ee3) ** 2 + equil.b2_3(ee1, ee2, ee3) ** 2
-    logger.debug(f"{xp.min(xp.abs(absB2)) = }")
+    if case == "1-form":
+        f = xp.matvec(Ginv, tmp)
+        f *= sqrt_g[..., xp.newaxis]
+        absBsq = equil.b1_1(ee1, ee2, ee3) ** 2 + equil.b1_2(ee1, ee2, ee3) ** 2 + equil.b1_3(ee1, ee2, ee3) ** 2
+    elif case == "2-form":
+        f = xp.matvec(G, tmp)
+        absBsq = equil.b2_1(ee1, ee2, ee3) ** 2 + equil.b2_2(ee1, ee2, ee3) ** 2 + equil.b2_3(ee1, ee2, ee3) ** 2
+
+    logger.debug(f"{xp.min(xp.abs(absBsq)) = }")
+
     f_rot_B = -xp.transpose(xp.matvec(rot_B, f), axes=(3, 0, 1, 2))
     tmp = -xp.matvec(rot_B, xp.matvec(rot_B, f))
-    f_perp = xp.transpose(tmp, axes=(3, 0, 1, 2)) / absB2
+    f_perp = xp.transpose(tmp, axes=(3, 0, 1, 2)) / absBsq
 
-    exact = (f_rot_B + eps * f_perp) / (eps**2 + absB2)
+    exact = (f_rot_B + eps * f_perp) / (eps**2 + absBsq)
     logger.debug(f"{exact.shape = }")
 
     # numerical solution (weak form)
     solver = "gmres"
-    stab = mass_ops.M2stab_for_rot
 
-    M = mass_ops.M2B
+    if case == "1-form":
+        stab = mass_ops.create_weighted_mass(
+            "Hcurl",
+            "Hcurl",
+            weights=("Identity",),
+            name="M1stab_for_rot",
+            assemble=True,
+        )
+
+        rot_B1 = LocalRotationMatrix(
+            equil.b1_1,
+            equil.b1_2,
+            equil.b1_3,
+        )
+
+        M = mass_ops.create_weighted_mass(
+            "Hcurl",
+            "Hcurl",
+            weights=(rot_B1,),
+            name="M1B1",
+            assemble=True,
+        )
+
+    elif case == "2-form":
+        stab = mass_ops.M2stab_for_rot
+        M = mass_ops.M2B
+
+    # stabilization and solver
     M += eps * stab
-
-    result = derham.create_spline_function("result", "Hdiv")
     Minv = inverse(M, solver, tol=1e-7, maxiter=1000, verbose=False)
+
+    if case == "1-form":
+        result = derham.create_spline_function("result", "Hcurl")
+    elif case == "2-form":
+        result = derham.create_spline_function("result", "Hdiv")
+
     result.vector = Minv.dot(rhs)
 
     result_values = xp.array(result(e1, e2, e3))
@@ -364,7 +417,7 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
 
     tmp = xp.matvec(rot_B, xp.transpose(result_values, axes=(1, 2, 3, 0)))
     tmp2 = -xp.matvec(rot_B, tmp)
-    result_values_perp = xp.transpose(tmp2, axes=(3, 0, 1, 2)) / absB2
+    result_values_perp = xp.transpose(tmp2, axes=(3, 0, 1, 2)) / absBsq
     logger.debug(f"{result_values_perp.shape = }")
 
     if show_plots:
@@ -398,6 +451,111 @@ def test_rotation(num_elements, degree, bcs, map_and_equil, eps, matrix_free, sh
     err = xp.max(xp.abs(result_values_perp - exact)) / xp.max(xp.abs(exact))
     print(f"relative max-error: {err:.2e}")
     assert err < err_bound, f"relative max-error {err:.2e} exceeds bound of {err_bound:.2e}"
+
+
+@pytest.mark.parametrize("num_elements", [(8, 9, 11)])
+@pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
+@pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
+@pytest.mark.parametrize("matrix_free", [False])
+@pytest.mark.parametrize(
+    "map_and_equil",
+    [
+        ("Cuboid", "HomogenSlab"),
+        ("Colella", "HomogenSlab"),
+        ("HollowCylinder", "ScrewPinch"),
+        ("HollowTorus", "AdhocTorus"),
+    ],
+)
+def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free, map_and_equil):
+    """Test whether different choices of basis for the magnetic background yield the same rotation-stabilized mass operator."""
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.solvers import inverse
+
+    from struphy import domains, equils
+    from struphy.feec.mass import L2Projector, WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import LocalRotationMatrix
+    from struphy.geometry.base import Domain
+    from struphy.geometry.domains import Cuboid, HollowCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    mpi_comm = MPI.COMM_WORLD
+    mpi_rank = mpi_comm.Get_rank()
+    mpi_size = mpi_comm.Get_size()
+    mpi_comm.Barrier()
+
+    logger.debug(f"Rank {mpi_rank} | Start test_mass with " + str(mpi_size) + " MPI processes!")
+
+    # mapping
+    domain_class = getattr(domains, map_and_equil[0])
+    domain: Domain = domain_class()
+    logger.debug(f"{domain = }")
+
+    # equilibrium
+    equil_class = getattr(equils, map_and_equil[1])
+    equil = equil_class()
+    equil.domain = domain
+    logger.debug(f"{equil = }")
+
+    # derham object
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
+
+    logger.debug(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
+
+    # mass matrices object
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
+
+    # different spaces for B:
+    rot_B1 = LocalRotationMatrix(
+        equil.b1_1,
+        equil.b1_2,
+        equil.b1_3,
+    )
+
+    rot_B2 = LocalRotationMatrix(
+        equil.b2_1,
+        equil.b2_2,
+        equil.b2_3,
+    )
+
+    e = xp.array([0.5])
+    ee1, ee2, ee3 = xp.meshgrid(e, e, e, indexing="ij")
+
+    if isinstance(domain, domains.Cuboid):
+        assert xp.all(rot_B1(ee1, ee2, ee3) == rot_B2(ee1, ee2, ee3)), (
+            "Rotation matrices for B1 and B2 are not equal at the same point."
+        )
+
+    M1B1 = mass_ops.create_weighted_mass(
+        "Hcurl",
+        "Hcurl",
+        weights=(rot_B1,),
+        name="M1B1",
+        assemble=True,
+    )
+
+    M1B2 = mass_ops.create_weighted_mass(
+        "Hcurl",
+        "Hcurl",
+        weights=(
+            "Ginv",
+            rot_B2,
+            "Ginv",
+            "sqrt_g",
+        ),
+        name="M1B2",
+        assemble=True,
+    )
+
+    print(f"{M1B1.toarray().shape = }")
+    print(f"{M1B2.toarray().shape = }")
+
+    assert xp.all(xp.isclose(M1B1.toarray(), M1B2.toarray())), "Mass matrices for B1 and B2 are not equal."
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
@@ -1122,29 +1280,122 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     logger.info(f"Rank {mpi_rank} | All tests passed!")
 
 
+@pytest.mark.parametrize("num_elements", [[12, 13, 14]])
+@pytest.mark.parametrize("mpi_mask", [(False, False, True), (True, False, True)])
+@pytest.mark.parametrize("degree", [[2, 2, 3], [1, 1, 1], [1, 4, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (None, None, None),
+        (("free", "dirichlet"), None, None),
+        (None, ("dirichlet", "dirichlet"), ("dirichlet", "dirichlet")),
+    ],
+)
+def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False):
+    """This function tests the AverageOperator implementation by comparing the result
+    from the AverageOperator/StencilVector multiplication and a basic averaging with np.mean.
+    The vector averaged with numpy is produced by evaluating a FEECVariable that contains the StencilVector."""
+    import cunumpy as xp
+    import matplotlib.pyplot as plt
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.mass import AverageOperator
+    from struphy.feec.psydac_derham import Derham
+    from struphy.models.variables import FEECVariable
+
+    derham_opt = DerhamOptions(degree, bcs)
+    domain = domains.Cuboid()
+    grid = grids.TensorProductGrid(num_elements, mpi_mask)
+    comm = MPI.COMM_WORLD
+    derham = Derham(grid, derham_opt, comm=(comm if comm.Get_size() > 1 else None), domain=domain)
+
+    n_points = 100
+    linspace = xp.linspace(0, 1, n_points)
+    grid_eval = xp.meshgrid(linspace, linspace, linspace, indexing="ij")
+
+    var = FEECVariable("H1")
+    var.allocate(derham, domain)
+    v = derham.V0.zeros()
+    v._data = xp.random.random(v._data.shape)
+    v.update_ghost_regions()
+    var.spline.vector = v
+    var_eval = var.spline(*grid_eval)
+
+    var_out = FEECVariable("H1")
+    var_out.allocate(derham, domain)
+
+    for dir in range(3):
+        av_op = AverageOperator(derham, "H1", dir)
+
+        out = av_op.dot(v)
+        sl_out = tuple([(slice(None) if i != dir else 0) for i in range(3)])
+
+        var_out.spline.vector = out
+
+        var_out_eval = var_out.spline(*grid_eval)
+        var_averaged = var_eval.mean(axis=dir)
+
+        max_diff = xp.max(xp.abs(var_out_eval[sl_out] - var_averaged))
+        logger.info(f"{max_diff=} for direction={dir}")
+        assert max_diff < 0.03
+
+        if show_plots:
+            e1, e2 = grid_eval[(dir + 1) % 3][sl_out], grid_eval[(dir + 2) % 3][sl_out]
+            xlabel = 1 if dir == 0 else 0
+            ylabel = 1 if dir == 2 else 2
+            plt.figure(figsize=(12, 5))
+            plt.subplot(1, 2, 1)
+            plt.pcolor(e1, e2, var_averaged)
+            plt.colorbar()
+            plt.title("simple average using np.mean")
+            plt.xlabel("eta_" + str(xlabel))
+            plt.ylabel("eta_" + str(ylabel))
+            plt.subplot(1, 2, 2)
+            plt.pcolor(e1, e2, var_out_eval[sl_out])
+            plt.colorbar()
+            plt.title("average using linear operator")
+            plt.xlabel("eta_" + str(xlabel))
+            plt.ylabel("eta_" + str(ylabel))
+            plt.show()
+
+
 if __name__ == "__main__":
-    test_mass(
+    # test_mass(
+    #    num_elements=(32, 32, 32),
+    #    degree=(1, 1, 1),
+    #    bcs=(("dirichlet", "dirichlet"), None, None),
+    #    # bcs=(None, None, None),
+    #    map_and_equil=("Cuboid", "HomogenSlab"),
+    #    # map_and_equil=("Colella", "HomogenSlab"),
+    #    # map_and_equil=("HollowCylinder", "ScrewPinch"),
+    #    # map_and_equil=("HollowTorus", "AdhocTorus"),
+    #    matrix_free=False,
+    #    show_plots=True,
+    # )
+    test_rotation(
+        case="1-form",
         num_elements=(32, 32, 32),
         degree=(1, 1, 1),
         bcs=(("dirichlet", "dirichlet"), None, None),
         # bcs=(None, None, None),
-        map_and_equil=("Cuboid", "HomogenSlab"),
+        # map_and_equil=("Cuboid", "HomogenSlab"),
         # map_and_equil=("Colella", "HomogenSlab"),
         # map_and_equil=("HollowCylinder", "ScrewPinch"),
-        # map_and_equil=("HollowTorus", "AdhocTorus"),
+        map_and_equil=("HollowTorus", "AdhocTorus"),
+        eps=1.0,
         matrix_free=False,
         show_plots=True,
     )
-    # test_rotation(
-    #     num_elements=(32, 32, 32),
-    #     degree=(1, 1, 1),
-    #     bcs=(("dirichlet", "dirichlet"), None, None),
-    #     # bcs=(None, None, None),
-    #     # map_and_equil=("Cuboid", "HomogenSlab"),
-    #     # map_and_equil=("Colella", "HomogenSlab"),
-    #     # map_and_equil=("HollowCylinder", "ScrewPinch"),
-    #     map_and_equil=("HollowTorus", "AdhocTorus"),
-    #     eps=1.0,
-    #     matrix_free=False,
+    # test_average_operator(
+    #     num_elements=(12, 13, 14),
+    #     mpi_mask=(True, True, True),
+    #     degree=(2, 3, 4),
+    #     bcs=(("dirichlet", "dirichlet"), None, ("dirichlet", "dirichlet")),
     #     show_plots=True,
+    # test_identity_mapping_equivalence(
+    #     num_elements=(3, 1, 1),
+    #     degree=(1, 1, 1),
+    #     bcs=(None, None, None),
+    #     # bcs=(("dirichlet", "dirichlet"), None, None),
     # )

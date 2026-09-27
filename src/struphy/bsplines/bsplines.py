@@ -611,8 +611,8 @@ def make_knots(breaks, degree, periodic):
 
     if periodic:
         period = breaks[-1] - breaks[0]
-        T[0:p] = [xi - period for xi in breaks[-p - 1 : -1]]
-        T[-p:] = [xi + period for xi in breaks[1 : p + 1]]
+        T[0:p] = xp.asarray([xi - period for xi in breaks[-p - 1 : -1]])
+        T[-p:] = xp.asarray([xi + period for xi in breaks[1 : p + 1]])
     else:
         T[0:p] = breaks[0]
         T[-p:] = breaks[-1]

@@ -1,4 +1,4 @@
-from feectools.ddm.mpi import mpi as MPI
+import copy
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -8,12 +8,7 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators import (
-    propagators_fields,
-)
-from struphy.propagators.base import Propagator
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
 
 class Maxwell(StruphyModel):
@@ -37,11 +32,14 @@ class Maxwell(StruphyModel):
 
     class Propagators:
         def __init__(self):
-            self.maxwell = propagators_fields.Maxwell()
+            self.maxwell = MaxwellWeakAmpere()
 
     ## abstract methods
 
     def __init__(self, base_units: BaseUnits = BaseUnits()):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -75,7 +73,7 @@ class Maxwell(StruphyModel):
     def velocity_scale(self):
         return "light"
 
-    def allocate_helpers(self, verbose: bool = False):
+    def post_allocate(self):
         pass
 
     ## abstract methods for documentation
@@ -121,13 +119,13 @@ class Maxwell(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        """Propagators:
+        """Time integration is performed by the following propagators (in sequence):
 
-        1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
         """
-        doc = rf"""**1. propagators_fields.Maxwell:**
+        doc = rf"""**1. propagators.maxwell.Maxwell:**
         
-{propagators_fields.Maxwell.__doc__}
+{MaxwellWeakAmpere.__doc__}
 """
         return doc
 

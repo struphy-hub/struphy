@@ -18,13 +18,12 @@ class ProjectedFluidEquilibrium:
     :class:`~struphy.fields_background.base.FluidEquilibrium` into Derham spaces.
     Return coefficients."""
 
-    def __init__(self, equil: FluidEquilibrium, derham: Derham, verbose: bool = False):
+    def __init__(self, equil: FluidEquilibrium, derham: Derham):
         self._equil = equil
         self._derham = derham
 
-        if verbose and derham.comm.Get_rank() == 0:
-            logger.info(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
-            logger.info(f"{self.derham = }")
+        logger.debug(f"Projecting equilibrium '{equil.__class__.__name__}' into Derham spaces ...")
+        logger.debug(f"{self.derham = }")
 
         # commuting projectors
         self._P0 = derham.P0
@@ -40,8 +39,7 @@ class ProjectedFluidEquilibrium:
         self._E3T = derham.extraction_ops["3"].transpose()
         self._EvT = derham.extraction_ops["v"].transpose()
 
-        if verbose and derham.comm.Get_rank() == 0:
-            logger.info("... Done.")
+        logger.debug("... Done.")
 
     @property
     def equil(self):
@@ -198,8 +196,8 @@ class ProjectedFluidEquilibriumWithB(ProjectedFluidEquilibrium):
     :class:`~struphy.fields_background.base.FluidEquilibriumWithB` into Derham spaces.
     Return coefficients."""
 
-    def __init__(self, equil: FluidEquilibriumWithB, derham: Derham, verbose: bool = False):
-        super().__init__(equil, derham, verbose=verbose)
+    def __init__(self, equil: FluidEquilibriumWithB, derham: Derham):
+        super().__init__(equil, derham)
 
     # ---------#
     # 0-forms #
@@ -334,8 +332,8 @@ class ProjectedMHDequilibrium(ProjectedFluidEquilibriumWithB):
     :class:`~struphy.fields_background.base.MHDequilibrium` into Derham spaces.
     Return coefficients."""
 
-    def __init__(self, equil: MHDequilibrium, derham: Derham, verbose: bool = False):
-        super().__init__(equil, derham, verbose=verbose)
+    def __init__(self, equil: MHDequilibrium, derham: Derham):
+        super().__init__(equil, derham)
 
     # ---------#
     # 0-forms #

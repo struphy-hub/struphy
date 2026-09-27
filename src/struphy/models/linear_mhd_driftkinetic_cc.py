@@ -1,7 +1,7 @@
+import copy
 import logging
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -21,93 +21,35 @@ from struphy.models.species import (
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.polar.basic import PolarVector
-from struphy.propagators import (
-    propagators_coupling,
-    propagators_fields,
-    propagators_markers,
-)
 from struphy.propagators.base import Propagator
+from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
+from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
+from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
-rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHDDriftkineticCC(StruphyModel):
-    r"""Hybrid linear ideal MHD + energetic ions (5D Driftkinetic) with **current coupling scheme**. 
+    """Hybrid linear ideal MHD coupled with energetic ions (5D drift-kinetic) via the current-coupling scheme.
 
-    :ref:`normalization`: 
-
-    .. math::
-
-        \hat U = \hat v =: \hat v_\textnormal{A, bulk} \,, \qquad
-        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{h} \hat \mu \hat B} \,,\qquad 
-        \hat \mu = \frac{A_\textnormal{h} m_\textnormal{H} \hat v_\textnormal{h}^2}{\hat B} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \begin{align}
-        \textnormal{MHD} &\left\{
-        \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_{0} \tilde{\mathbf{U}})=0\,, 
-        \\
-        \rho_{0} &\frac{\partial \tilde{\mathbf{U}}}{\partial t} - \tilde p\, \nabla
-        = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B} + (\nabla \times \mathbf B_0) \times \tilde{\mathbf{B}}
-        + \frac{A_\textnormal{h}}{A_\textnormal{b}} \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} - \nabla \times \mathbf{M}_\textnormal{gc} \right] \times \mathbf{B} \,,
-        \\
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
-        \\
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B})
-        = 0\,,
-        \end{aligned}
-        \right.
-        \\[2mm]
-        \textnormal{EPs}\,\, &\left\{\,\,
-        \begin{aligned}
-        \quad &\frac{\partial f_\textnormal{h}}{\partial t} + \frac{1}{B_\parallel^*}(v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*)\cdot\nabla f_\textnormal{h}
-        + \frac{1}{\epsilon} \frac{1}{B_\parallel^*} (\mathbf{B}^* \cdot \mathbf{E}^*) \frac{\partial f_\textnormal{h}}{\partial v_\parallel}
-        = 0\,,
-        \\
-        & n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \,\textnormal dv_\parallel \textnormal d\mu \,,
-        \\
-        & \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*}(v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^*) \,\textnormal dv_\parallel \textnormal d\mu \,,
-        \\
-        & \mathbf{M}_\textnormal{gc} = - \int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \,\textnormal dv_\parallel \textnormal d\mu \,,
-        \end{aligned}
-        \right.
-        \end{align}
-
-    where 
-
-    .. math::
-
-        \begin{align}
-        B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*\,,
-        \\[2mm]
-        \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,
-        \\[2mm]
-        \mathbf{E}^* &= - \tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla (\mathbf{b}_0 \cdot \mathbf{B}) \,,
-        \end{align}
-
-    with the normalization parameter 
-
-    .. math::
-
-        \epsilon = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,, \qquad \hat \Omega_\textnormal{c,hot} = \frac{Z_\textnormal{h} e \hat B}{A_\textnormal{h} m_\textnormal{H}} \,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
-    3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
-    4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
-    5. :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`
-    6. :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D`
-    7. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
-
-    :ref:`Model info <add_model>`:
+    Parameters
+    ----------
+    base_units: BaseUnits
+        Base units for normalization (default: BaseUnits())
+    mhd_mass_number: float
+        Mass number (in units of Proton mass) of the MHD bulk species (default: 1.0)
+    hot_charge_number: int
+        Charge number (in units of the positive elementary charge) of the energetic ion species (default: 1)
+    hot_mass_number: float
+        Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
+    hot_epsilon: float, optional
+        Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    turn_off: tuple[str, ...]
+        Names of coupling terms to turn off (default: (None,))
     """
 
     @classmethod
@@ -144,21 +86,26 @@ class LinearMHDDriftkineticCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, turn_off: tuple[str, ...] = (None,)):
+        def __init__(
+            self,
+            turn_off: tuple[str, ...] = (None,),
+            b_field: FEECVariable = None,
+            energetic_ions_var: PICVariable = None,
+        ):
             if "PushGuidingCenterBxEstar" not in turn_off:
-                self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
+                self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
             if "PushGuidingCenterParallel" not in turn_off:
-                self.push_parallel = propagators_markers.PushGuidingCenterParallel()
+                self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
             if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-                self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
+                self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D(energetic_ions=energetic_ions_var)
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = propagators_fields.Magnetosonic()
+                self.magnetosonic = Magnetosonic(b_field=b_field)
             if "CurrentCoupling5DDensity" not in turn_off:
-                self.cc5d_density = propagators_fields.CurrentCoupling5DDensity()
+                self.cc5d_density = CurrentCoupling5DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
             if "CurrentCoupling5DGradB" not in turn_off:
-                self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
+                self.cc5d_gradb = CurrentCoupling5DGradB(b_tilde=b_field)
             if "CurrentCoupling5DCurlb" not in turn_off:
-                self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
+                self.cc5d_curlb = CurrentCoupling5DCurlb(b_tilde=b_field)
 
     def __init__(
         self,
@@ -169,6 +116,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         hot_epsilon: float = None,
         turn_off: tuple[str, ...] = (None,),
     ):
+
+        # 0. store input parameters
+        self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
@@ -183,7 +133,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(turn_off)
+        self.propagators = self.Propagators(
+            turn_off,
+            b_field=self.em_fields.b_field,
+            energetic_ions_var=self.energetic_ions.var,
+        )
 
         # 4. assign variables to propagators
         if "ShearAlfvenCurrentCoupling5D" not in turn_off:
@@ -231,6 +185,35 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
+
+    def post_allocate(self):
+        self._ones = Propagator.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._en_fv = xp.empty(1, dtype=float)
+        self._en_fB = xp.empty(1, dtype=float)
+        self._en_tot = xp.empty(1, dtype=float)
+
+        self._PB = getattr(Propagator.basis_ops, "PB")
+        self._PBb = self._PB.codomain.zeros()
+
+    def _compute_en_fB(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        particles = self.energetic_ions.var.particles
+        self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
+        particles.save_magnetic_energy(self._PBb)
+
+        return (
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 8],
+            )
+            * Ah
+            / Ab
+        )
 
     @classmethod
     def doc_pde(cls):
@@ -317,33 +300,43 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        doc = rf"""**1. propagators_markers.PushGuidingCenterBxEstar:**
+        """Time integration is performed by the following propagators (in sequence):
 
-{propagators_markers.PushGuidingCenterBxEstar.__doc__}
+        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+        2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
+        3. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+        4. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
+        5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
+        6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
+        7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
+        """
+        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-**2. propagators_markers.PushGuidingCenterParallel:**
+    {PushGuidingCenterBxEstar.__doc__}
 
-{propagators_markers.PushGuidingCenterParallel.__doc__}
+    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
 
-**3. propagators_coupling.CurrentCoupling5DGradB:**
+    {PushGuidingCenterParallel.__doc__}
 
-{propagators_coupling.CurrentCoupling5DGradB.__doc__}
+**3. current_coupling_5d_gradb.CurrentCoupling5DGradB:**
 
-**4. propagators_coupling.CurrentCoupling5DCurlb:**
+{CurrentCoupling5DGradB.__doc__}
 
-{propagators_coupling.CurrentCoupling5DCurlb.__doc__}
+**4. current_coupling_5d_curlb.CurrentCoupling5DCurlb:**
 
-**5. propagators_fields.CurrentCoupling5DDensity:**
+{CurrentCoupling5DCurlb.__doc__}
 
-{propagators_fields.CurrentCoupling5DDensity.__doc__}
+**5. CurrentCoupling5DDensity:**
 
-**6. propagators_fields.ShearAlfvenCurrentCoupling5D:**
+{CurrentCoupling5DDensity.__doc__}
 
-{propagators_fields.ShearAlfvenCurrentCoupling5D.__doc__}
+**6. ShearAlfvenCurrentCoupling5D:**
 
-**7. propagators_fields.Magnetosonic:**
+{ShearAlfvenCurrentCoupling5D.__doc__}
 
-{propagators_fields.Magnetosonic.__doc__}
+**7. Magnetosonic:**
+
+{Magnetosonic.__doc__}
 """
         return doc
 
@@ -384,88 +377,3 @@ class LinearMHDDriftkineticCC(StruphyModel):
         - nonlinear hybrid turbulence
         - resistive or viscous MHD closures
         - regimes where gyrophase resolution is required"""
-
-    def allocate_helpers(self, verbose: bool = False):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
-
-        self._en_fv = xp.empty(1, dtype=float)
-        self._en_fB = xp.empty(1, dtype=float)
-        self._en_tot = xp.empty(1, dtype=float)
-
-        self._PB = getattr(Propagator.basis_ops, "PB")
-        self._PBb = self._PB.codomain.zeros()
-
-    def _compute_en_fB(self):
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-        particles = self.energetic_ions.var.particles
-        self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
-        particles.save_magnetic_energy(self._PBb)
-
-        return (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 8],
-            )
-            * Ah
-            / Ab
-        )
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "shearalfen_cc5d.Options" in line:
-                    new_file += [
-                        """model.propagators.shearalfen_cc5d.options = model.propagators.shearalfen_cc5d.Options(
-                        energetic_ions = model.energetic_ions.var,)\n""",
-                    ]
-
-                elif "magnetosonic.Options" in line:
-                    new_file += [
-                        """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "cc5d_density.Options" in line:
-                    new_file += [
-                        """model.propagators.cc5d_density.options = model.propagators.cc5d_density.Options(
-                        energetic_ions = model.energetic_ions.var,
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "cc5d_curlb.Options" in line:
-                    new_file += [
-                        """model.propagators.cc5d_curlb.options = model.propagators.cc5d_curlb.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "cc5d_gradb.Options" in line:
-                    new_file += [
-                        """model.propagators.cc5d_gradb.options = model.propagators.cc5d_gradb.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "push_bxe.Options" in line:
-                    new_file += [
-                        """model.propagators.push_bxe.options = model.propagators.push_bxe.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                elif "push_parallel.Options" in line:
-                    new_file += [
-                        """model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
-                        b_tilde = model.em_fields.b_field,)\n""",
-                    ]
-
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)

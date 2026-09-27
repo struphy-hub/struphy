@@ -1,29 +1,33 @@
 import inspect
 import logging
 from copy import deepcopy
+from typing import Callable
 
 import cunumpy as xp
+from cunumpy import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
-from feectools.fem.tensor import TensorFemSpace
+from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
-from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
+from struphy import equils
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.feec.utilities import LocalRotationMatrix, get_quad_grids
+from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
 from struphy.fields_background.base import MHDequilibrium
-from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.io.options import LiteralOptions
+from struphy.linear_algebra.solver import SolverParameters
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring, info
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
 
@@ -58,6 +62,12 @@ class WeightedMassOperators:
         self._domain = domain
         self._matrix_free = matrix_free
         self._eq_mhd = eq_mhd
+        self._dry_run = False
+
+        if self._eq_mhd is None:
+            self._eq_mhd = equils.HomogenSlab()
+        if not hasattr(self.eq_mhd, "_domain"):
+            self._eq_mhd.domain = self._domain
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -81,6 +91,77 @@ class WeightedMassOperators:
     def matrix_free(self) -> bool:
         """If set to true will not compute the matrix associated with the operators but directly compute the dot product when called."""
         return self._matrix_free
+
+    @property
+    def dry_run(self) -> bool:
+        """If True, mass operators created from now on do not allocate (nor assemble) their
+        stencil matrices; only their sizes are computed. Set temporarily by :meth:`estimate_mem`."""
+        return self._dry_run
+
+    def estimate_mem(
+        self,
+        names: tuple[str] = ("M0", "M1", "M2", "M3", "Mv"),
+        print_report: bool = False,
+    ) -> dict[str, int]:
+        """Estimate the local (per-MPI-rank) memory footprint of mass matrices, in bytes,
+        without allocating them.
+
+        Each requested operator is created exactly as by the corresponding property (same weights,
+        hence the same zero-block detection), but with ``dry_run=True``, so that only the sizes of
+        its stencil matrices are computed, see
+        :attr:`~struphy.feec.mass.WeightedMassOperator.nbytes`. Operators that have already been
+        created (and hence allocated) report their actual size instead; dry-run operators are not
+        kept in the cache.
+
+        Parameters
+        ----------
+        names : tuple[str]
+            Names of the mass operator properties to estimate, e.g. ``("M0", "M1")``.
+
+        print_report : bool
+            Whether to print the breakdown on MPI rank 0.
+
+        Returns
+        -------
+        dict
+            Mapping ``{name: local_bytes}``.
+        """
+        mem = {}
+
+        self._dry_run = True
+        try:
+            for name in names:
+                assert isinstance(getattr(type(self), name, None), property), (
+                    f"'{name}' is not a mass operator property of {type(self).__name__}."
+                )
+                cached = "_" + name
+                was_cached = hasattr(self, cached)
+
+                mem[name] = getattr(self, name).nbytes
+
+                # do not keep a dry-run (unusable) operator in the cache
+                if not was_cached:
+                    delattr(self, cached)
+        finally:
+            self._dry_run = False
+
+        if print_report and (self.derham.comm is None or self.derham.comm.Get_rank() == 0):
+            print("\nESTIMATED MASS MATRIX MEMORY (local, rank 0):")
+            for name, nbytes in mem.items():
+                print(f"  {name}: {nbytes / 1e6:.2f} MB")
+
+        return mem
+
+    def allocated_mem(self) -> dict[str, int]:
+        """Local (per-MPI-rank) memory footprint, in bytes, of the mass matrices that have
+        actually been created so far (i.e. those whose property has been accessed)."""
+        mem = {}
+        for name, method in inspect.getmembers(type(self), predicate=inspect.isdatadescriptor):
+            if isinstance(method, property) and hasattr(self, "_" + name):
+                op = getattr(self, "_" + name)
+                if isinstance(op, WeightedMassOperator):
+                    mem[name] = op.nbytes
+        return mem
 
     def info(self):
         print("The mass matrices of the Derham complex are:")
@@ -189,6 +270,36 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M3p_inv(self):
+        r"""
+        Pressure-weighted mass matrix for 3-forms:
+
+        .. math::
+
+            \mathbb M^{3,p^{-1}}_{ijk,mno} =
+            \int \Lambda^3_{ijk}\,\Lambda^3_{mno}
+            \frac{1}{p_0\sqrt{g}}\,\mathrm d\boldsymbol\eta.
+
+        Here :math:`p_0` is the equilibrium pressure.  This operator is used
+        for the quadratic pressure energy of linear MHD perturbations.
+        """
+        if not hasattr(self, "_M3p_inv"):
+            assert self.eq_mhd is not None, "M3p_inv requires an MHD equilibrium with positive pressure."
+
+            def inv_p0(e1, e2, e3):
+                return 1.0 / self.eq_mhd.p0(e1, e2, e3)
+
+            self._M3p_inv = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=(inv_p0, "1/sqrt_g"),
+                name="M3p_inv",
+                assemble=True,
+            )
+        return self._M3p_inv
+
+    @auto_convert_docstring
+    @property
     def Mv(self):
         r"""
         Standard mass matrix for vector 0-forms (H1vec space) as 3x3 block matrix indexed by :math:`(\mu, \nu)`:
@@ -254,7 +365,7 @@ class WeightedMassOperators:
                 weights=(
                     "Ginv",
                     "sqrt_g",
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas),
                 ),
                 name="M1n",
                 assemble=True,
@@ -282,7 +393,7 @@ class WeightedMassOperators:
                 weights=(
                     "G",
                     "1/sqrt_g",
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas),
                 ),
                 name="M2n",
                 assemble=True,
@@ -310,7 +421,7 @@ class WeightedMassOperators:
                 weights=(
                     "G",
                     "sqrt_g",
-                    "eq_n0",
+                    lambda *etas: self.eq_mhd.n0(*etas),
                 ),
                 name="Mvn",
                 assemble=True,
@@ -338,7 +449,7 @@ class WeightedMassOperators:
                 weights=(
                     "Ginv",
                     "sqrt_g",
-                    "1/eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M1ninv",
                 assemble=True,
@@ -600,46 +711,12 @@ class WeightedMassOperators:
             assert self.eq_mhd is not None, (
                 "M2Bn requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             )
-            a_eq = self.derham.P1(
-                [
-                    self.eq_mhd.a1_1,
-                    self.eq_mhd.a1_2,
-                    self.eq_mhd.a1_3,
-                ],
-            )
-
-            tmp_b2 = self.derham.curl.dot(a_eq)
-            b02fun = self.derham.create_spline_function("b02", "Hdiv")
-            b02fun.vector = tmp_b2
-
-            def b02funx(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[0]
-
-            def b02funy(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[1]
-
-            def b02funz(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[2]
-
+            # The equilibrium field itself, as in M2B: the curl of the projected vector potential (M2B_div0)
+            # loses a uniform field in periodic directions, where the potential is a ramp.
             rot_B = LocalRotationMatrix(
-                b02funx,
-                b02funy,
-                b02funz,
+                self.eq_mhd.b2_1,
+                self.eq_mhd.b2_2,
+                self.eq_mhd.b2_3,
             )
 
             self._M2Bn = self.create_weighted_mass(
@@ -648,7 +725,7 @@ class WeightedMassOperators:
                 weights=(
                     rot_B,
                     "1/sqrt_g",
-                    "eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M2Bn",
                 assemble=True,
@@ -693,7 +770,7 @@ class WeightedMassOperators:
                     rot_B,
                     "Ginv",
                     "sqrt_g",
-                    "1/eq_n0",
+                    lambda *etas: 1 / self.eq_mhd.n0(*etas),
                 ),
                 name="M1Bninv",
                 assemble=True,
@@ -703,31 +780,106 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M1para(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1para"):
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
+
+            self._M1para = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    bb,
+                    "sqrt_g",
+                ),
+                name="M1para",
+                assemble=True,
+            )
+        return self._M1para
+
+    @auto_convert_docstring
+    @property
     def M1perp(self):
         r"""
         Mass matrix
 
         .. math::
 
-            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
         """
         if not hasattr(self, "_M1perp"):
-            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+            self._M1perp = self.M1 - self.M1para
+        return self._M1perp
 
-            self._M1perp = self.create_weighted_mass(
+    @auto_convert_docstring
+    @property
+    def M1para_MHDeq(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\parallel}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} b_0 b_0^\top \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1para_MHDeq"):
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_bv_1, self.eq_mhd.unit_bv_2, self.eq_mhd.unit_bv_3)
+
+            self._M1para_MHDeq = self.create_weighted_mass(
                 "Hcurl",
                 "Hcurl",
                 weights=(
-                    "DFinv",
-                    D,
-                    "DFinv",
+                    bb,
+                    lambda *etas: self.eq_mhd.n0(*etas) / self.eq_mhd.absB0(*etas) ** 2,
                     "sqrt_g",
                 ),
-                name="M1perp",
+                name="M1para_MHDeq",
                 assemble=True,
             )
+        return self._M1para_MHDeq
 
-        return self._M1perp
+    @auto_convert_docstring
+    @property
+    def M1_MHDeq(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} G^{-1} \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1_MHDeq"):
+            self._M1_MHDeq = self.create_weighted_mass(
+                "Hcurl",
+                "Hcurl",
+                weights=(
+                    "Ginv",
+                    lambda *etas: self.eq_mhd.n0(*etas) / self.eq_mhd.absB0(*etas) ** 2,
+                    "sqrt_g",
+                ),
+                name="M1_MHDeq",
+                assemble=True,
+            )
+        return self._M1_MHDeq
+
+    @auto_convert_docstring
+    @property
+    def M1gyro(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,\perp}_{(\mu,ijk), (\nu,mno)} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{\|B_0(\boldsymbol{\eta})\|^2} \vec{\Lambda}^1_{\mu,ijk} \left(G^{-1} - b_0 b_0^\top \right) \vec{\Lambda}^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
+        """
+        if not hasattr(self, "_M1gyro"):
+            self._M1gyro = self.M1_MHDeq - self.M1para_MHDeq
+        return self._M1gyro
 
     @auto_convert_docstring
     @property
@@ -746,7 +898,10 @@ class WeightedMassOperators:
             self._M0ad = self.create_weighted_mass(
                 "H1",
                 "H1",
-                weights=("eq_n0", "sqrt_g"),
+                weights=(
+                    lambda *etas: self.eq_mhd.n0(*etas),
+                    "sqrt_g",
+                ),
                 name="M0ad",
                 assemble=True,
             )
@@ -755,39 +910,29 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
-    def M1gyro(self):
+    def M0ad_withT(self):
         r"""
         Mass matrix
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol{\eta}) \Lambda^1_{\mu,ijk} G^{-1}_{\mu,\nu} \Lambda^1_{\nu,mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta},
+            \mathbb M^0_{ijk, mno} = \int \frac{n^0_{\textnormal{eq}}(\boldsymbol{\eta})}{T^0_{\textnormal{eq}}(\boldsymbol{\eta})} \Lambda^0_{ijk} \Lambda^0_{mno} \sqrt{g} \textnormal{d}\boldsymbol{\eta}.
 
-        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` is an MHD equilibrium density (0-form).
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol{\eta})` and :math:`T^0_{\textnormal{eq}}(\boldsymbol{\eta})` are MHD equilibrium density and electron temperature (0-forms), respectively.
         """
-
-        if not hasattr(self, "_M1gyro"):
-            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
-
-            self._M1gyro = self.create_weighted_mass(
-                "Hcurl",
-                "Hcurl",
+        if not hasattr(self, "_M0ad_withT"):
+            self._M0ad_withT = self.create_weighted_mass(
+                "H1",
+                "H1",
                 weights=(
-                    "eq_n0",
-                    "1/eq_absB0",
-                    "1/eq_absB0",
-                    D,
-                    "Ginv",
-                    D,
+                    lambda *etas: self.eq_mhd.n0(*etas) / self.eq_mhd.t0(*etas),
                     "sqrt_g",
                 ),
-                name="M1gyro",
+                name="M0ad_withT",
                 assemble=True,
             )
 
-            # 1/eq_absB0**2 written twice instead of square
-
-        return self._M1gyro
+        return self._M0ad_withT
 
     @property
     def WMM(self):
@@ -820,6 +965,7 @@ class WeightedMassOperators:
         weights: tuple | list | str | None = None,
         assemble: bool = False,
         transposed: bool = False,
+        dry_run: bool = None,
     ):
         r"""Weighted mass matrix :math:`V^\alpha_h \to V^\beta_h` with given (matrix-valued) weight function :math:`W(\boldsymbol \eta)`:
 
@@ -853,15 +999,11 @@ class WeightedMassOperators:
 
                     Supported tuple entries are:
 
-                    - Strings (predefined names):
-                        ``'G'``, ``'Ginv'``, ``'DFinv'``, ``'DFinvT'``, ``'sqrt_g'``, ``'Identity'``.
-                    - Strings from equilibrium methods:
-                        ``'eq_<method_name>'`` for methods of :class:`~struphy.fields_background.base.MHDequilibrium`.
-                    - Reciprocal strings:
-                        ``'1/sqrt_g'``, ``'1/eq_n0'``, ``'1/eq_absB0'``.
-                    - Nested ``3x3`` Python lists (constant matrix entries).
+                    - Strings (predefined names) for metric and Jacobian-related weights:
+                        ``'G'``, ``'Ginv'``, ``'DFinv'``, ``'DFinvT'``, ``'sqrt_g'``, ``'1/sqrt_g'``, ``'Identity'``.
                     - Callables (including objects such as local rotation matrices) returning
                         either scalar values or ``3x3`` matrix values at quadrature points.
+                    - Nested ``3x3`` Python lists (constant matrix entries).
                     - :class:`~struphy.feec.psydac_derham.SplineFunction` instances.
 
                     Example:
@@ -877,130 +1019,224 @@ class WeightedMassOperators:
         transposed: bool
             Whether to assemble the transposed operator.
 
+        dry_run: bool
+            Whether to create the operator without allocating (and assembling) its stencil matrices,
+            for memory estimation only. If None (default), the value of the ``dry_run`` attribute of
+            this :class:`WeightedMassOperators` object is used, see :meth:`estimate_mem`.
+
         Returns
         -------
         out : A WeightedMassOperator object.
         """
+        if dry_run is None:
+            dry_run = self.dry_run
 
-        assert W_id in self.derham.spline_attributes, (
-            f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
-        )
-        quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
-        quad_grid_wts = self.derham.spline_attributes[W_id].quad_grid_wts
-        quad_grid_spans = self.derham.spline_attributes[W_id].quad_grid_spans
-        quad_grid_bases = self.derham.spline_attributes[W_id].quad_grid_bases
-        logger.debug(f"{len(quad_grid_pts) = }")
-        logger.debug(f"{len(quad_grid_wts) = }")
-        logger.debug(f"{len(quad_grid_spans) = }")
-        logger.debug(f"{len(quad_grid_bases) = }\nfor the weighted mass matrix {name}.")
-
-        weights_values = []
-        integration_grids = []
-        # loop over components of W_id (rows, equal to the number of entries in quad_grid_pts)
-        for component in quad_grid_pts:
-            grids_1d = [pts.flatten() for pts in component]
-            grid_sizes = tuple([len(grid_1d) for grid_1d in grids_1d])
-            logger.debug(f"Initializing {grid_sizes = } for the weighted mass matrix {name}.")
-            integration_grids += [grids_1d]
-
-            # loop over components of V_id (columns)
-            if V_id in ("H1", "L2"):
-                weights_values += [[None]]
-            elif V_id in ("Hcurl", "Hdiv", "H1vec"):
-                weights_values += [[None, None, None]]
-            else:
-                raise ValueError(f"Unknown space identifier {V_id} for the domain of the weighted mass matrix {name}.")
-        logger.debug(f"Initialized {weights_values = } for the weighted mass matrix {name}.")
+        logger.debug(f"\nCreating weighted mass matrix {name} from {V_id} to {W_id} ({dry_run = }).")
 
         spline_functions = {}
         if isinstance(weights, tuple):  # Case 3 (1D tuple)
-            for n, f in enumerate(weights):
-                if isinstance(f, str):
-                    # determine the callable
-                    if "/" in f:
-                        f_components = f.split("/")
-                        if f_components[-1] == "sqrt_g":
-                            f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
-                        elif f_components[-1] == "eq_n0":
-                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.n0(e1, e2, e3)
-                        elif f_components[-1] == "eq_absB0":
-                            f_call = lambda e1, e2, e3: 1.0 / self.eq_mhd.absB0(e1, e2, e3)
-                        else:
-                            raise NotImplementedError(
-                                f"The option {f} is not available for division ('/') yet.",
-                            )
-                    elif "eq_" in f:
-                        f_components = f.split("q_")
-                        f_call = getattr(self.eq_mhd, f_components[-1])
-                    else:
-                        if f == "G":
-                            f_call = lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True)
-                        elif f == "Ginv":
-                            f_call = lambda e1, e2, e3: self.domain.metric_inv(e1, e2, e3, change_out_order=True)
-                        elif f == "DFinv":
-                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
-                        elif f == "DFinvT":
-                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(
-                                e1, e2, e3, change_out_order=True, transposed=True
-                            )
-                        elif f == "sqrt_g":
-                            f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
-                        elif f == "Identity":
+            # save callables in lists for later evaluation at quadrature points
+            f_call_scalars = []
+            f_call_column_vector = None
+            f_call_row_vector = None
+            f_call_matrices = []
 
-                            def f_call(e1, e2, e3):
-                                """Identity callable."""
-                                # to keep C-ordering the (3, 3)-part is in the last indices
-                                out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
-                                out[0, 0] = 1.0
-                                out[1, 1] = 1.0
-                                out[2, 2] = 1.0
-                                return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-                        else:
-                            raise NotImplementedError(
-                                f"The option {f} is not available.",
-                            )
+            for n, f in enumerate(weights):
+                logger.debug(f"Processing weight #{n}")
+                if isinstance(f, str):
+                    # determine the callable and add to list f_call_
+                    logger.debug(f"Processing string weight {f}.")
+                    if f == "G":
+                        f_call = lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True)
+                        f_call_matrices.append(f_call)
+                    elif f == "Ginv":
+                        f_call = lambda e1, e2, e3: self.domain.metric_inv(e1, e2, e3, change_out_order=True)
+                        f_call_matrices.append(f_call)
+                    elif f == "DFinv":
+                        f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
+                        f_call_matrices.append(f_call)
+                    elif f == "DFinvT":
+                        f_call = lambda e1, e2, e3: self.domain.jacobian_inv(
+                            e1, e2, e3, change_out_order=True, transposed=True
+                        )
+                        f_call_matrices.append(f_call)
+                    elif f == "sqrt_g":
+                        f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
+                        f_call_scalars.append(f_call)
+                    elif f == "1/sqrt_g":
+                        f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
+                        f_call_scalars.append(f_call)
+                    elif f == "Identity":
+
+                        def f_call(e1, e2, e3):
+                            """Identity callable."""
+                            # to keep C-ordering the (3, 3)-part is in the last indices
+                            out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
+                            out[0, 0] = 1.0
+                            out[1, 1] = 1.0
+                            out[2, 2] = 1.0
+                            return xp.transpose(out, axes=(2, 3, 4, 0, 1))
+
+                        f_call_matrices.append(f_call)
+                    else:
+                        raise NotImplementedError(
+                            f"The option {f} is not available.",
+                        )
                 elif isinstance(f, list):
                     assert len(f) == 3
+                    logger.debug(f"Processing nested list weight {f}.")
                     for fi in f:
                         assert isinstance(fi, list)
                         assert len(fi) == 3
+
+                    # copy the values of the nested list to avoid any issues with references
+                    values = tuple([tuple([value for value in fi_row]) for fi_row in f])
 
                     def f_call(e1, e2, e3):
                         """Nested list callable."""
                         out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
                         for m in range(3):
                             for n in range(3):
-                                out[m, n] = f[m][n]
+                                logger.debug(f"{values[m][n] = }")
+                                out[m, n] = values[m][n]
                         return xp.transpose(out, axes=(2, 3, 4, 0, 1))
+
+                    f_call_matrices.append(f_call)
                 elif isinstance(f, SplineFunction):
+                    logger.debug(f"Processing SplineFunction weight {f}.")
                     spline_functions[f.name] = f
                     continue
                 else:
-                    assert callable(f)
                     # Input is a a matrix or a Rotation matrix etc.
-                    f_call = f
+                    logger.debug(f"Processing callable weight {f}.")
+                    assert callable(f)
 
-                # evaluate at quadrature points, loop over rows of W_id (components of the codomain)
-                for m, grids_1d in enumerate(integration_grids):
-                    E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(*grids_1d)
-                    tmp = f_call(E1, E2, E3)
-                    logger.debug(f"Evaluated callable with shape {tmp.shape = }")
-                    for n in range(len(weights_values[m])):
-                        if tmp.shape[-2:] == (3, 3):
-                            if weights_values[m][n] is None:
-                                weights_values[m][n] = tmp[:, :, :, m, n]
-                            else:
-                                weights_values[m][n] *= tmp[:, :, :, m, n]
-                        elif tmp.ndim == 3:
-                            if weights_values[m][n] is None:
-                                weights_values[m][n] = tmp
-                            else:
-                                weights_values[m][n] *= tmp
+                    # determine the output dimension of the callable and add to list f_call_
+                    xx, yy, zz = xp.meshgrid(
+                        xp.linspace(0, 1, 1),
+                        xp.linspace(0, 1, 2),
+                        xp.linspace(0, 1, 3),
+                        indexing="ij",
+                    )
+                    out_dim = f(xx, yy, zz).ndim
+                    if out_dim == 3:
+                        f_call_scalars.append(f)
+                    elif out_dim == 4:
+                        if V_id in ("H1", "L2") and W_id in ("Hcurl", "Hdiv", "H1vec"):
+                            f_call_column_vector = f
+                        elif V_id in ("Hcurl", "Hdiv", "H1vec") and W_id in ("H1", "L2"):
+                            f_call_row_vector = f
                         else:
                             raise ValueError(
-                                f"Callable {f_call} has wrong output shape {tmp.shape} for the weighted mass matrix {name}.",
+                                f"Vector weight {f} is only supported for scalar<->vector maps; got {V_id}->{W_id}."
                             )
+                    elif out_dim == 5:
+                        f_call_matrices.append(f)
+                    else:
+                        raise ValueError(
+                            f"Callable {f} has wrong output dimension {out_dim}.",
+                        )
+
+            # check that the dimensions of the callables are compatible with the domain and codomain spaces
+            if f_call_column_vector is not None:
+                assert V_id in ("H1", "L2")
+                assert W_id in ("Hcurl", "Hdiv", "H1vec")
+                assert len(f_call_matrices) == 0
+                assert f_call_row_vector is None
+            if f_call_row_vector is not None:
+                assert V_id in ("Hcurl", "Hdiv", "H1vec")
+                assert W_id in ("H1", "L2")
+                assert len(f_call_matrices) == 0
+                assert f_call_column_vector is None
+            if len(f_call_matrices) > 0:
+                assert V_id in ("Hcurl", "Hdiv", "H1vec")
+                assert W_id in ("Hcurl", "Hdiv", "H1vec")
+                assert f_call_column_vector is None
+                assert f_call_row_vector is None
+
+            # matrix-matrix multiplication of the callables in f_call_matrices to get a single callable
+            if len(f_call_matrices) > 0:
+
+                def f_call_matrix(e1, e2, e3):
+                    """Matrix-matrix multiplication of the callables in f_call_matrices."""
+                    out = f_call_matrices[0](e1, e2, e3)
+                    if len(f_call_matrices) > 1:
+                        for f in f_call_matrices[1:]:
+                            # out = xp.einsum("...ij,...jk->...ik", out, f(e1, e2, e3))
+                            out[:] = out @ f(e1, e2, e3)  # the 3x3 part must be in the last two indices
+                    return out
+
+            # get the evaluation points for the quadrature grid of the codomain space W_id
+            assert W_id in self.derham.spline_attributes, (
+                f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
+            )
+
+            quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
+            logger.debug(f"{len(quad_grid_pts) = }")
+
+            weights_values = []
+            integration_grids = []
+            # loop over components of W_id (rows, equal to the number of entries in quad_grid_pts)
+            for component in quad_grid_pts:
+                grids_1d = [pts.flatten() for pts in component]
+                grid_sizes = tuple([len(grid_1d) for grid_1d in grids_1d])
+                logger.debug(f"Initializing {grid_sizes = }")
+                integration_grids += [grids_1d]
+
+                # loop over components of V_id (columns)
+                if V_id in ("H1", "L2"):
+                    weights_values += [[None]]
+                elif V_id in ("Hcurl", "Hdiv", "H1vec"):
+                    weights_values += [[None, None, None]]
+                else:
+                    raise ValueError(f"Unknown space identifier {V_id} for the domain.")
+            logger.debug(f"Initialized {weights_values = }")
+
+            # evaluate at quadrature points, loop over rows of W_id (components of the codomain)
+            for m, grids_1d in enumerate(integration_grids):
+                logger.debug(f"rows of {W_id}: {m}")
+                E1, E2, E3, _ = Domain.prepare_eval_pts(*grids_1d)
+
+                # matrix or vectors first
+                if len(f_call_matrices) > 0:
+                    tmp = f_call_matrix(E1, E2, E3)
+                    logger.debug(f"Evaluated matrix callable with shape {tmp.shape = }")
+                    logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
+                    for n in range(len(weights_values[m])):
+                        logger.debug(f"columns of {V_id}: {n}")
+                        weights_values[m][n] = tmp[:, :, :, m, n]
+                elif f_call_column_vector is not None:
+                    tmp = f_call_column_vector(E1, E2, E3)
+                    logger.debug(f"Evaluated column vector callable with shape {tmp.shape = }")
+                    logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
+                    for n in range(len(weights_values[m])):
+                        logger.debug(f"columns of {V_id}: {n}")
+                        weights_values[m][n] = tmp[:, :, :, m]
+                elif f_call_row_vector is not None:
+                    tmp = f_call_row_vector(E1, E2, E3)
+                    logger.debug(f"Evaluated row vector callable with shape {tmp.shape = }")
+                    logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
+                    for n in range(len(weights_values[m])):
+                        logger.debug(f"columns of {V_id}: {n}")
+                        weights_values[m][n] = tmp[:, :, :, n]
+
+                # then loop over scalars and multiply with the previous result
+                for f_call in f_call_scalars:
+                    tmp = f_call(E1, E2, E3)
+                    logger.debug(f"Evaluated scalar callable with shape {tmp.shape = }")
+                    logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
+                    for n in range(len(weights_values[m])):
+                        logger.debug(f"columns of {V_id}: {n}")
+                        if weights_values[m][n] is None:
+                            if m == n:
+                                weights_values[m][n] = tmp
+                            else:
+                                continue
+                        else:
+                            weights_values[m][n] *= tmp
+
         else:
+            logger.debug(f"Processing weights of type {type(weights)}.")
             weights_values = weights
 
         out = WeightedMassOperator(
@@ -1016,9 +1252,10 @@ class WeightedMassOperators:
             spline_functions=spline_functions,
             transposed=transposed,
             matrix_free=self.matrix_free,
+            dry_run=dry_run,
         )
 
-        if assemble:
+        if assemble and not dry_run:
             out.assemble()
 
         return out
@@ -1177,6 +1414,14 @@ class WeightedMassOperator(LinOpWithTransp):
 
     matrix_free : bool
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
+
+    dry_run : bool
+        If True, the (potentially large) stencil matrices of the operator are not allocated;
+        only their sizes are computed, see :attr:`nbytes`. The block structure (which blocks are
+        non-zero) is determined in exactly the same way as for a regular operator, but the operator
+        can neither be assembled nor applied. Used to estimate the memory footprint of the FEEC
+        matrices before allocating them, see
+        :meth:`~struphy.feec.mass.WeightedMassOperators.estimate_mem`.
     """
 
     def __init__(
@@ -1194,6 +1439,7 @@ class WeightedMassOperator(LinOpWithTransp):
         transposed: bool = False,
         matrix_free: bool = False,
         nquads: tuple | list = None,
+        dry_run: bool = False,
     ):
         logger.debug(f"{derham = }")
         logger.debug(f"{V = }")
@@ -1218,6 +1464,9 @@ class WeightedMassOperator(LinOpWithTransp):
         self._V = V
         self._W = W
         self._name = name
+        self._dry_run = dry_run
+
+        assert not (dry_run and transposed), "dry_run=True is not supported for transposed operators."
 
         # spline functions that are used as weights in the operator, to be evaluated at quadrature points
         self._spline_functions = spline_functions if spline_functions is not None else {}
@@ -1348,6 +1597,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
+                                dry_run=dry_run,
                             )
                             for Vs in V.spaces
                         ]
@@ -1361,6 +1611,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
+                                dry_run=dry_run,
                             )
                             if i != j
                             else None
@@ -1376,6 +1627,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
+                                dry_run=dry_run,
                             )
                             if i == j
                             else None
@@ -1454,51 +1706,71 @@ class WeightedMassOperator(LinOpWithTransp):
                                     wspace.coeff_space,
                                     backend=PSYDAC_BACKEND_GPYCCEL,
                                     precompiled=True,
+                                    dry_run=dry_run,
                                 ),
                             ]
                         self._weights[-1] += [lambda *etas: 0 * etas[0]]
 
                     else:
-                        if weights_info[a][b] is None:
-                            blocks[-1] += [None]
-                            self._weights[-1] += [None]
+                        # A block can be locally zero on this MPI rank but non-zero on another rank.
+                        # We therefore check whether the block is globally non-zero before deciding
+                        # whether to allocate the corresponding StencilMatrix. All ranks must make
+                        # the same block-allocation decision, otherwise exchange_assembly_data()
+                        # will communicate incompatible block structures.
+                        loc_weight = weights_info[a][b]
 
+                        if loc_weight is None:
+                            mat_w = None
+                            local_nonzero = xp.array(False, dtype=bool)
                         else:
-                            if callable(weights_info[a][b]):
+                            if callable(loc_weight):
                                 PTS = xp.meshgrid(*pts, indexing="ij")
-                                mat_w = weights_info[a][b](*PTS).copy()
-                            elif isinstance(weights_info[a][b], xp.ndarray):
-                                mat_w = weights_info[a][b]
+                                mat_w = loc_weight(*PTS).copy()
+                            elif isinstance(loc_weight, xp.ndarray):
+                                mat_w = loc_weight
+                            else:
+                                raise TypeError(f"Invalid weight type: {type(loc_weight)}")
 
                             logger.debug(f"{mat_w.shape = } and {[pt.size for pt in pts] = }.")
-                            assert mat_w.shape == tuple(
-                                [pt.size for pt in pts],
-                            )
+                            assert mat_w.shape == tuple([pt.size for pt in pts])
+                            local_nonzero = xp.array(bool(xp.any(xp.abs(mat_w) > 1e-14)), dtype=bool)
 
-                            if xp.any(xp.abs(mat_w) > 1e-14):
-                                if self._matrix_free:
-                                    blocks[-1] += [
-                                        StencilMatrixFreeMassOperator(
-                                            self.derham,
-                                            vspace,
-                                            wspace,
-                                            weights=weights_info[a][b],
-                                            nquads=self.nquads,
-                                        ),
-                                    ]
-                                else:
-                                    blocks[-1] += [
-                                        StencilMatrix(
-                                            vspace.coeff_space,
-                                            wspace.coeff_space,
-                                            backend=PSYDAC_BACKEND_GPYCCEL,
-                                            precompiled=True,
-                                        ),
-                                    ]
-                                self._weights[-1] += [weights_info[a][b]]
+                        if self.derham.comm is not None:
+                            # Checks if the block is non zero on at least MPI processes
+                            self.derham.comm.Allreduce(MPI.IN_PLACE, local_nonzero, op=MPI.LOR)
+
+                        if bool(local_nonzero):
+                            if mat_w is None:
+                                # The block is globally non-zero, but this rank has a locally zero weight.
+                                # We still allocate the block and pass a zero local weight array so that
+                                # the local matrix has the same structure as on the other MPI ranks.
+                                mat_w = xp.zeros(tuple([pt.size for pt in pts]), dtype=float)
+
+                            if self._matrix_free:
+                                blocks[-1] += [
+                                    StencilMatrixFreeMassOperator(
+                                        self.derham,
+                                        vspace,
+                                        wspace,
+                                        weights=loc_weight if loc_weight is not None else mat_w,
+                                        nquads=self.nquads,
+                                    )
+                                ]
                             else:
-                                blocks[-1] += [None]
-                                self._weights[-1] += [None]
+                                blocks[-1] += [
+                                    StencilMatrix(
+                                        vspace.coeff_space,
+                                        wspace.coeff_space,
+                                        backend=PSYDAC_BACKEND_GPYCCEL,
+                                        precompiled=True,
+                                        dry_run=dry_run,
+                                    )
+                                ]
+
+                            self._weights[-1] += [loc_weight if loc_weight is not None else mat_w]
+                        else:
+                            blocks[-1] += [None]
+                            self._weights[-1] += [None]
 
             if len(blocks) == len(blocks[0]) == 1:
                 if blocks[0][0] is None:
@@ -1515,6 +1787,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             wspace.coeff_space,
                             backend=PSYDAC_BACKEND_GPYCCEL,
                             precompiled=True,
+                            dry_run=dry_run,
                         )
                 else:
                     self._mat = blocks[0][0]
@@ -1549,6 +1822,14 @@ class WeightedMassOperator(LinOpWithTransp):
         self._V_extraction_op_T = self._V_extraction_op.T
         self._V_boundary_op_T = self._V_boundary_op.T
 
+        if self._dry_run:
+            # memory estimation only (see the nbytes property): skip the composite operators,
+            # the .dot() temporaries and the assembly kernel; none of them is needed for sizing
+            # and all of them would allocate memory.
+            self._domain = self._mat.domain
+            self._codomain = self._mat.codomain
+            return
+
         # TODO: maybe remove since this is done in the .dot() explicitly
         # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
         if self._transposed:
@@ -1571,7 +1852,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # load assembly kernel
         if not self._matrix_free:
-            self._assembly_kernel = Pyccelkernel(
+            self._assembly_kernel = PyccelKernel(
                 getattr(
                     mass_kernels,
                     "kernel_" + str(self._V.ldim) + "d_mat",
@@ -1615,10 +1896,22 @@ class WeightedMassOperator(LinOpWithTransp):
         return self._spline_functions
 
     @property
+    def dry_run(self) -> bool:
+        """Whether the operator was created for memory estimation only, i.e. without allocating
+        its stencil matrices (in which case it can neither be assembled nor applied)."""
+        return self._dry_run
+
+    @property
+    def nbytes(self) -> int:
+        """Local (per-MPI-rank) memory footprint of the stencil matrices of this operator, in bytes.
+        Also available for operators created with ``dry_run=True``, i.e. before/without allocation.
+        Matrix-free operators do not store a matrix and return 0."""
+        return int(getattr(self._mat, "nbytes", 0))
+
+    @property
     def dtype(self):
         return self._dtype
 
-    @property
     def tosparse(self):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
@@ -1634,7 +1927,6 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             raise NotImplementedError()
 
-    @property
     def toarray(self):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
@@ -1812,6 +2104,9 @@ class WeightedMassOperator(LinOpWithTransp):
             Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
         """
+        assert not self._dry_run, (
+            "A dry-run operator has no matrix data and cannot be assembled (memory estimation only)."
+        )
 
         if self._matrix_free:
             if weights is not None:
@@ -1958,13 +2253,24 @@ class WeightedMassOperator(LinOpWithTransp):
                         if self._is_scalar:
                             mat = self._mat
                             if loc_weight is None:
-                                # in case it's none we still need to have zeros weights to call the kernel
+                                # not_weight_zero is global after the MPI reduction. Hence this rank may
+                                # enter the assembly branch even when its own local weight is None.
+                                # In that case we assemble a zero local contribution, but we must still
+                                # provide a correctly shaped array to the pyccel kernel.
                                 mat_w = xp.zeros(
                                     tuple([pt.size for pt in pts]),
                                 )
                         else:
                             mat = self._mat[a, b]
 
+                            # block case: after the MPI Allreduce, this block may be globally
+                            # non-zero even if it is locally zero on this rank.
+                            if mat_w is None:
+                                mat_w = xp.zeros(tuple([pt.size for pt in pts]))
+
+                        # This can happen for block matrices if the block was previously considered
+                        # zero locally, but is now required because it is non-zero on at least one
+                        # MPI rank. The block must exist on all ranks before assembly/exchange.
                         if mat is None:
                             # Maybe in a previous iteration we had more zeros
                             # Can only happen in the Block case
@@ -2147,7 +2453,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = Pyccelkernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
+        kernel = PyccelKernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -2245,14 +2551,14 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = Pyccelkernel(
+        self._dot_kernel = PyccelKernel(
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_matrixfree",
             ),
         )
 
-        self._diag_kernel = Pyccelkernel(
+        self._diag_kernel = PyccelKernel(
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_diag",
@@ -2515,28 +2821,37 @@ class L2Projector:
     mass_ops : struphy.mass.WeighteMassOperators
         Mass operators object, see :ref:`mass_ops`.
 
-    params : dict
-        Keyword arguments for the solver parameters.
+    solver : LiteralOptions.OptsSymmSolver, default="pcg"
+            Symmetric iterative solver used by implicit or explicit operators.
+
+    precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
+        Preconditioner for the mass-matrix block.
+
+    solver_params : SolverParameters, default=None
+            Solver controls; defaults to ``SolverParameters()``.
     """
 
-    def __init__(self, space_id, mass_ops: WeightedMassOperators, **params):
-        from struphy.feec import preconditioner
-
+    def __init__(
+        self,
+        space_id: str,
+        mass_ops: WeightedMassOperators,
+        solver_name: LiteralOptions.OptsSymmSolver = "pcg",
+        precond_name: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner",
+        solver_params: SolverParameters = None,
+    ):
         assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
 
-        params_default = {
-            "type": ("pcg", "MassMatrixPreconditioner"),
-            "tol": 1.0e-14,
-            "maxiter": 500,
-            "info": False,
-            "verbose": False,
-        }
+        # TODO: enable serialization of WeightedMassOperators
+        # self.params = copy.deepcopy(locals())
 
-        set_defaults(params, params_default)
+        # TODO: move L2projector to its own file and avoid circular imports
+        from struphy.feec import preconditioner
+
+        if solver_params is None:
+            solver_params = SolverParameters()
 
         self._space_id = space_id
         self._mass_ops = mass_ops
-        self._params = params
         self._space_key = mass_ops.derham.space_to_form[self.space_id]
         self._space = mass_ops.derham.fem_spaces[self.space_key]
 
@@ -2582,68 +2897,95 @@ class L2Projector:
         self._bases_l = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_bases
 
         # Preconditioner
-        if self.params["type"][1] is None:
+        if precond_name is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.params["type"][1])
+            pc_class = getattr(preconditioner, precond_name)
             pc = pc_class(self.Mmat)
 
         # solver
         self._solver = inverse(
             self.Mmat,
-            self.params["type"][0],
+            solver_name,
             pc=pc,
-            tol=self.params["tol"],
-            maxiter=self.params["maxiter"],
-            verbose=self.params["verbose"],
+            tol=solver_params.tol,
+            maxiter=solver_params.maxiter,
+            verbose=solver_params.verbose,
         )
 
     @property
-    def mass_ops(self):
+    def params(self) -> dict:
+        """Parameters passed to __init__(), as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
+
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
+
+    @property
+    def mass_ops(self) -> WeightedMassOperators:
         """Struphy mass operators object, see :ref:`mass_ops`.."""
         return self._mass_ops
 
     @property
-    def space_id(self):
+    def space_id(self) -> str:
         """The ID of the space (H1, Hcurl, Hdiv, L2 or H1vec)."""
         return self._space_id
 
     @property
-    def space_key(self):
+    def space_key(self) -> str:
         """The key of the space (0, 1, 2, 3 or v)."""
         return self._space_key
 
     @property
-    def space(self):
+    def space(self) -> FemSpace:
         """The Derham finite element space (from ``Derham.fem_spaces``)."""
         return self._space
 
     @property
-    def params(self):
-        """Parameters for the iterative solver."""
-        return self._params
+    def solver(self) -> InverseLinearOperator:
+        """The iterative solver for the mass matrix."""
+        return self._solver
 
     @property
-    def Mmat(self):
+    def Mmat(self) -> WeightedMassOperator:
         """The mass matrix of space."""
         return self._Mmat
 
     @property
-    def quad_grid_pts(self):
+    def quad_grid_pts(self) -> tuple[tuple[xp.ndarray]]:
         """List of quadrature points in each direction for integration over grid cells in format (ni, nq) = (cell, quadrature point)."""
         return self._quad_grid_pts
 
     @property
-    def quad_grid_mesh(self):
+    def quad_grid_mesh(self) -> list[tuple[xp.ndarray]]:
         """Mesh grids of quad_grid_pts."""
         return self._quad_grid_mesh
 
     @property
-    def geom_weights(self):
+    def geom_weights(self) -> list[list[xp.ndarray]]:
         """Geometric coefficients (e.g. Jacobians) evaluated at quad_grid_mesh, stored as list[list] either 1x1 or 3x3."""
         return self._geom_weights
 
-    def solve(self, rhs, out=None):
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    def solve(self, rhs: StencilVector | BlockVector, out=None) -> StencilVector | BlockVector:
         """
         Solves the linear system M * x = rhs, where M is the mass matrix.
 
@@ -2661,16 +3003,23 @@ class L2Projector:
             Output vector (result of linear system).
         """
 
-        assert isinstance(rhs, Vector)
+        assert isinstance(rhs, StencilVector) or isinstance(rhs, BlockVector)
+        assert rhs.space == self.Mmat.domain
 
         if out is None:
-            out = self._solver.dot(rhs)
+            out = self.solver.dot(rhs)
         else:
-            self._solver.dot(rhs, out=out)
+            self.solver.dot(rhs, out=out)
 
         return out
 
-    def get_dofs(self, fun, dofs=None, apply_bc=False, clear=True):
+    def get_dofs(
+        self,
+        fun: Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray],
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+        clear: bool = True,
+    ) -> StencilVector | BlockVector:
         r"""
         Assembles (in 3d) the Stencil-/BlockVector
 
@@ -2688,7 +3037,7 @@ class L2Projector:
 
         Parameters
         ----------
-        fun : callable | list
+        fun : Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray]
             Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
 
         dofs : StencilVector | BlockVector, optional
@@ -2697,16 +3046,21 @@ class L2Projector:
         apply_bc : bool, optional
             Whether to apply essential boundary conditions to degrees of freedom.
 
-        clear : bool
+        clear : bool, optional
             Whether to first set all data to zero before assembly. If False, the new contributions are added to existing ones in vec.
+
+        Returns
+        -------
+        dofs : StencilVector | BlockVector
+             The assembled degrees of freedom, before projection.
         """
 
         # evaluate fun at quad_grid or check array size
         if callable(fun):
-            fun_weights = fun(*self._quad_grid_mesh)
+            fun_weights = fun(*self.quad_grid_mesh)
         elif isinstance(fun, xp.ndarray):
-            assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
+            assert fun.shape == self.quad_grid_mesh[0].shape, (
+                f"Expected shape {self.quad_grid_mesh[0].shape}, got {fun.shape =} instead."
             )
             fun_weights = fun
         else:
@@ -2718,7 +3072,7 @@ class L2Projector:
             ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
             fun_weights = []
             # loop over rows (different meshes)
-            for mesh in self._quad_grid_mesh:
+            for mesh in self.quad_grid_mesh:
                 fun_weights += [[]]
                 # loop over columns (different functions)
                 for f in fun:
@@ -2821,19 +3175,25 @@ class L2Projector:
 
         return dofs
 
-    def __call__(self, fun, out=None, dofs=None, apply_bc=False):
+    def __call__(
+        self,
+        fun: Callable | list[Callable] | tuple[Callable],
+        out: StencilVector | BlockVector = None,
+        dofs: StencilVector | BlockVector = None,
+        apply_bc: bool = False,
+    ) -> StencilVector | BlockVector:
         """
         Applies projector to given callable(s).
 
         Parameters
         ----------
-        fun : callable | list
+        fun : Callable | list[Callable] | tuple[Callable]
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : feectools.linalg.basic.vector, optional
+        out : StencilVector | BlockVector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : feectools.linalg.basic.vector, optional
+        dofs : StencilVector | BlockVector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional
@@ -2845,3 +3205,187 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
+
+
+class AverageOperator(LinOpWithTransp):
+    r"""
+    Class for quadrature operators, performs the average of a `FeecVariable` along a given direction.
+    For example along the :math:`\eta_3` direction, it applies the following linear operator :
+
+    .. math::
+
+        \mathbb M^{\alpha}_{(\mu,ijk),(\nu,mno)} = \delta_{i,m} \delta_{j,n} c_o
+
+    with :math:`c_o=\int_0^1 N_{o}(\eta_3) \textnormal{d} \eta` and :math:`N_{o}` the B-spline function at the place `o`.
+    In other words, it maps a spline function :math:`S_h` to the function obtained by averaging :math:`S_h` along the given direction, i.e. for the example of direction 3:
+
+    .. math::
+
+        S_h(\eta_1, \eta_2, \eta_3) = \sum_{mno} c_{mno} N_m(\eta_1) N_n(\eta_2) N_o(\eta_3) \quad \mapsto \quad \overline S_h(\eta_1, \eta_2, \eta_3) = \sum_{ijk} \overline c_{ij} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,,
+
+    with
+
+    .. math::
+
+        \overline c_{ij} = \sum_o \delta_{i,m} \delta_{j,n} \, c_{mno} \int_0^1 N_{o}(\eta_3) \textnormal{d} \eta_3 .
+
+    Parameters
+    ----------
+    derham : Derham
+        The derham complexe that supports the space used
+
+    space : str
+        Identifier of the space on which the average is performed, either `"H1"`, `"Hcurl"`, `"Hdiv"`, `"L2"`, `"H1vec"`
+
+    direction : int, optional
+        The direction of the space along which the average is performed, either `0`, `1` or `2`.
+
+    transposed : bool, optional
+        Whether to take the transpose of the operator.
+    """
+
+    def __init__(
+        self,
+        derham: Derham,
+        space: str = "H1",
+        direction: int = 2,
+        transposed: bool = False,
+    ):
+
+        if space not in derham.space_to_form:
+            AssertionError("Must match a space of the derham complex")
+        if space != "H1":
+            NotImplementedError()
+        space_id = "V" + derham.space_to_form[space]
+        self._V = getattr(derham, space_id)  # StencilVectorSpace
+        self._domain = getattr(derham, space_id)
+        self._codomain = getattr(derham, space_id)
+        self._pads = self._V.pads  # gets the number of ghost cells
+        self._derham = derham
+        self._dtype = self._domain.dtype
+        self._transposed = transposed
+        if direction == 0:
+            self._directions = (0, 1, 2)
+        elif direction == 1:
+            self._directions = (1, 0, 2)
+        elif direction == 2:
+            self._directions = (2, 0, 1)
+        else:
+            raise ValueError("invalid direction id, must be 0, 1 or 2")
+
+        comm = derham.comm
+        # Selection of ranks for each subcomms regarding their position in the two perpendicular directions to the averaged direction.
+        if not isinstance(comm, (MockComm, type(None))):
+            rank = comm.Get_rank()
+            nprocs = derham.domain_decomposition.nprocs
+            dom_arr = derham.domain_array
+            color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
+            color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
+            color = color1 * nprocs[self._directions[2]] + color2
+            self.subcomm = comm.Split(color=color, key=rank)
+
+        # We allocate memory for the 2D temporary array for each process
+        self._tmp = xp.zeros(
+            (
+                int(self._V.ends[self._directions[1]] - self._V.starts[self._directions[1]] + 1),
+                int(self._V.ends[self._directions[2]] - self._V.starts[self._directions[2]] + 1),
+            )
+        )
+
+        # We allocate memory for the weights (integrals of 1D B-splines)
+        self._weights = xp.zeros(int(self._V.ends[self._directions[0]] - self._V.starts[self._directions[0]] + 1))
+
+        self.allocate()
+
+        # definition of subscripts for function xp.einsum
+        if self._transposed:
+            if self._directions[0] == 0:
+                self._subscripts = ("ijk->jk", "ij,o->oij")
+            if self._directions[0] == 1:
+                self._subscripts = ("ijk->ik", "ij,o->ioj")
+            if self._directions[0] == 2:
+                self._subscripts = ("ijk->ij", "ij,o->ijo")
+        else:
+            if self._directions[0] == 0:
+                self._subscripts = ("ojk,o->jk",)
+            if self._directions[0] == 1:
+                self._subscripts = ("iok,o->ik",)
+            if self._directions[0] == 2:
+                self._subscripts = ("ijo,o->ij",)
+
+        # definition of slices
+        sl_ghost = tuple(slice(p, -p) if p > 0 else slice(None) for p in self._pads)
+        sl_broadcasting = [slice(None), slice(None), slice(None)]
+        sl_broadcasting[self._directions[0]] = None
+        self._slices = (sl_ghost, tuple(sl_broadcasting))
+
+    def allocate(self):
+        """Compute the weights, which are the integrals of 1D B-splines in the averaged direction"""
+        knots = getattr(self.derham.args_derham, "tn" + str(self._directions[0] + 1))
+        degree = self.derham.degree[self._directions[0]]
+
+        i_begin, i_end = self._V.starts[self._directions[0]], self._V.ends[self._directions[0]] + 1
+        if self.derham.bcs[self._directions[0]] is None:
+            i_begin += self.derham.degree[self._directions[0]]
+            i_end += self.derham.degree[self._directions[0]]
+        # General formula for any distribution of knots for the integral of a B-spline function, thus works with periodic and clamped boundary conditions :
+        self._weights[:] = (knots[i_begin + degree + 1 : i_end + degree + 1] - knots[i_begin:i_end]) / (degree + 1)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def derham(self):
+        return self._derham
+
+    @property
+    def nquads(self):
+        if self._nquads is None:
+            return self.derham.nquads
+        else:
+            return self._nquads
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+
+    def dot(self, v, out=None):
+
+        # assert isinstance(v, StencilVector)
+        # assert v.space == self.domain
+
+        v.update_ghost_regions()
+
+        if out is None:
+            out = self.codomain.zeros()
+
+        x = v._data[self._slices[0]]
+        y = out._data[self._slices[0]]
+        if self._transposed:
+            xp.einsum(self._subscripts[0], x, out=self._tmp)
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            xp.einsum(self._subscripts[1], self._tmp, self._weights, out=y)
+        else:
+            xp.einsum(self._subscripts[0], x, self._weights, out=self._tmp)
+            if not isinstance(self.derham.comm, (MockComm, type(None))):
+                self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
+            y[:] = self._tmp[self._slices[1]]
+
+        return out
+
+    def transpose(self, conjugate=False):
+        return AverageOperator(self.derham, self.domain, self._weights, transposed=not self._transposed)

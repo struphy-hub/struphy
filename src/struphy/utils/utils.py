@@ -114,7 +114,7 @@ def check_option(opt, *options):
     opts = []
     for o in options:
         opts.extend(get_args(o))
-    if not isinstance(opt, list):
+    if not isinstance(opt, list | tuple):
         opt = [opt]
     for o in opt:
         assert o in opts, f"Option '{o}' is not in {opts}."
@@ -140,7 +140,7 @@ def subp_run(cmd, cwd="libpath", check=True):
     if cwd == "libpath":
         cwd = STRUPHY_LIBPATH
 
-    logger.info(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
+    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
 
 
@@ -152,6 +152,17 @@ def __dataclass_repr_no_defaults__(obj):
         default_value = obj.__dataclass_fields__[k].default
         if v != default_value:
             out += f"{k}={repr(v)}, "
+    out = out.rstrip(", ") + ")"
+    return out
+
+
+def __dataclass_repr_all_stacked__(obj):
+    out = f"{type(obj).__name__}(\n"
+    for k, v in obj.__dict__.items():
+        if k not in obj.__dataclass_fields__:
+            continue
+        out += " " * 4
+        out += f"{k}={repr(v)},\n"
     out = out.rstrip(", ") + ")"
     return out
 

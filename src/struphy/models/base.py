@@ -33,8 +33,8 @@ from struphy.physics.physics import Units
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.docstring_converter import rst_to_html, rst_to_markdown
-from struphy.utils.utils import all_class_params_are_default, all_subclasses
+from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
 
@@ -80,8 +80,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must specify the dominant plasma species.
     velocity_scale : property
         Must return velocity scale: "alfvén", "cyclotron", "light", or "thermal".
-    allocate_helpers : method
-        Must allocate helper arrays and perform initial solves.
+    post_allocate : method
+        Must perform operations after main allocation and before time stepping.
     Propagators : class
         Must define the propagators used for time integration.
     __init__ : method
@@ -118,8 +118,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
             def velocity_scale(self):
                 return "thermal"
 
-            def allocate_helpers(self, verbose=False):
-                # Initialize helper arrays
+            def post_allocate(self):
+                # Perform operations after main allocation and before time stepping
                 pass
 
             class Propagators:
@@ -157,40 +157,52 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
 
     @abstractmethod
-    def allocate_helpers(self, verbose: bool = False):
-        """Allocate helper arrays and perform initial solves if needed."""
+    def post_allocate(self):
+        """Perform operations after main allocation and before time stepping."""
 
     # --------------
     # Common methods
     # --------------
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}()"
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
 
     def __repr_no_defaults__(self) -> str:
-        return self.__repr__()
+        return __class_with_params_repr_no_defaults__(self)
 
     @property
     def is_default(self):
         return all_class_params_are_default(self)
 
-    def __str__(self):
-        out = f"{self.__class__.__name__}\n"
-        for k, v in self.species.items():
-            out += f"    {k}:\n"
-            out += f"{v}"
-        return out
+    # def __str__(self):
+    #     for k, v in self.__dict__.items():
+    #         logger.info(f"{k + ':':<20}{v}")
+    #     return ""
+
+    # def __str__(self):
+    #     out = f"{self.__class__.__name__}\n"
+    #     for k, v in self.species.items():
+    #         out += f"    {k}:\n"
+    #         out += f"{v}"
+    #     return out
+
+    forced_heading_level = 5
 
     @classmethod
-    def info(cls):
-        doc = "**"
-        doc += (
+    def _info_doc(cls) -> str:
+        summary = (
             rst_to_html(cls.__doc__).split("Parameters")[0].split("<")[0]
             if cls.__doc__
             else """Description not available for this model."""
         )
-        doc += "**"
+        summary = " ".join(summary.split())
+        doc = f"**{summary}**\n"
         doc += rf"""To see detailed information on the model, run the following methods:
-        
+
 .. code-block:: python
 
     {cls.name()}.pde()
@@ -202,16 +214,47 @@ class StruphyModel(metaclass=StruphyModelMeta):
     {cls.name()}.use_cases()
     {cls.name()}.cannot_be_used_for()
 """
-        return display(HTML(rst_to_html(doc)))
+        return doc
+
+    @classmethod
+    def info_html(cls) -> str:
+        return rst_to_html(cls._info_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def info_markdown(cls) -> str:
+        return rst_to_markdown(cls._info_doc())
+
+    @classmethod
+    def info_latex(cls) -> str:
+        return rst_to_latex(cls._info_doc())
+
+    @classmethod
+    def info(cls):
+        return display(HTML(cls.info_html()))
+
+    @classmethod
+    def _pde_doc(cls) -> str:
+        doc_pde = getattr(cls, "doc_pde", None)
+        return doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
+
+    @classmethod
+    def pde_html(cls) -> str:
+        return rst_to_html(cls._pde_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def pde_markdown(cls) -> str:
+        return rst_to_markdown(cls._pde_doc())
+
+    @classmethod
+    def pde_latex(cls) -> str:
+        return rst_to_latex(cls._pde_doc())
 
     @classmethod
     def pde(cls):
-        doc_pde = getattr(cls, "doc_pde", None)
-        doc = doc_pde.__doc__ if doc_pde else """PDE description not available for this model."""
-        return display(HTML(rst_to_html(doc)))
+        return display(HTML(cls.pde_html()))
 
     @classmethod
-    def normalization(cls):
+    def _normalization_doc(cls) -> str:
         doc_normalization = getattr(cls, "doc_normalization", None)
         doc = "**Normalization:**\n"
         doc += (
@@ -219,20 +262,51 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_normalization
             else """Description of normalization not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return doc
 
     @classmethod
-    def scalar_quantities(cls):
+    def normalization_html(cls) -> str:
+        return rst_to_html(cls._normalization_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def normalization_markdown(cls) -> str:
+        return rst_to_markdown(cls._normalization_doc())
+
+    @classmethod
+    def normalization_latex(cls) -> str:
+        return rst_to_latex(cls._normalization_doc())
+
+    @classmethod
+    def normalization(cls):
+        return display(HTML(cls.normalization_html()))
+
+    @classmethod
+    def _scalar_quantities_doc(cls) -> str:
         doc_scalar_quantities = getattr(cls, "doc_scalar_quantities", None)
-        doc = (
+        return (
             doc_scalar_quantities.__doc__
             if doc_scalar_quantities
             else """Description of scalar quantities not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
 
     @classmethod
-    def discretization(cls):
+    def scalar_quantities_html(cls) -> str:
+        return rst_to_html(cls._scalar_quantities_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def scalar_quantities_markdown(cls) -> str:
+        return rst_to_markdown(cls._scalar_quantities_doc())
+
+    @classmethod
+    def scalar_quantities_latex(cls) -> str:
+        return rst_to_latex(cls._scalar_quantities_doc())
+
+    @classmethod
+    def scalar_quantities(cls):
+        return display(HTML(cls.scalar_quantities_html()))
+
+    @classmethod
+    def _discretization_doc(cls) -> str:
         doc_discretization = getattr(cls, "doc_discretization", None)
         doc = "**Discretization (Propagators called in sequence):**\n"
         doc += (
@@ -240,10 +314,26 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_discretization
             else """Description of discretization not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return doc
 
     @classmethod
-    def long_description(cls):
+    def discretization_html(cls) -> str:
+        return rst_to_html(cls._discretization_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def discretization_markdown(cls) -> str:
+        return rst_to_markdown(cls._discretization_doc())
+
+    @classmethod
+    def discretization_latex(cls) -> str:
+        return rst_to_latex(cls._discretization_doc())
+
+    @classmethod
+    def discretization(cls):
+        return display(HTML(cls.discretization_html()))
+
+    @classmethod
+    def _long_description_doc(cls) -> str:
         doc_long_description = getattr(cls, "doc_long_description", None)
         doc = "**Long description:**\n"
         doc += (
@@ -251,24 +341,72 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_long_description
             else """Long description not available for this model."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return doc
 
     @classmethod
-    def examples(cls):
+    def long_description_html(cls) -> str:
+        return rst_to_html(cls._long_description_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def long_description_markdown(cls) -> str:
+        return rst_to_markdown(cls._long_description_doc())
+
+    @classmethod
+    def long_description_latex(cls) -> str:
+        return rst_to_latex(cls._long_description_doc())
+
+    @classmethod
+    def long_description(cls):
+        return display(HTML(cls.long_description_html()))
+
+    @classmethod
+    def _examples_doc(cls) -> str:
         doc_examples = getattr(cls, "doc_examples", None)
         doc = "**Examples:**\n"
         doc += doc_examples.__doc__ if doc_examples else """Examples not available for this model."""
-        return display(HTML(rst_to_html(doc)))
+        return doc
 
     @classmethod
-    def use_cases(cls):
+    def examples_html(cls) -> str:
+        return rst_to_html(cls._examples_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def examples_markdown(cls) -> str:
+        return rst_to_markdown(cls._examples_doc())
+
+    @classmethod
+    def examples_latex(cls) -> str:
+        return rst_to_latex(cls._examples_doc())
+
+    @classmethod
+    def examples(cls):
+        return display(HTML(cls.examples_html()))
+
+    @classmethod
+    def _use_cases_doc(cls) -> str:
         doc_use_cases = getattr(cls, "doc_use_cases", None)
         doc = "**Use cases:**\n"
         doc += doc_use_cases.__doc__ if doc_use_cases else """Description of use cases not available for this model."""
-        return display(HTML(rst_to_html(doc)))
+        return doc
 
     @classmethod
-    def cannot_be_used_for(cls):
+    def use_cases_html(cls) -> str:
+        return rst_to_html(cls._use_cases_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def use_cases_markdown(cls) -> str:
+        return rst_to_markdown(cls._use_cases_doc())
+
+    @classmethod
+    def use_cases_latex(cls) -> str:
+        return rst_to_latex(cls._use_cases_doc())
+
+    @classmethod
+    def use_cases(cls):
+        return display(HTML(cls.use_cases_html()))
+
+    @classmethod
+    def _cannot_be_used_for_doc(cls) -> str:
         doc_cannot_be_used_for = getattr(cls, "doc_cannot_be_used_for", None)
         doc = "**Cannot be used for:**\n"
         doc += (
@@ -276,7 +414,23 @@ class StruphyModel(metaclass=StruphyModelMeta):
             if doc_cannot_be_used_for
             else """Information on scenarios for which the model is not suitable is not available."""
         )
-        return display(HTML(rst_to_html(doc)))
+        return doc
+
+    @classmethod
+    def cannot_be_used_for_html(cls) -> str:
+        return rst_to_html(cls._cannot_be_used_for_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def cannot_be_used_for_markdown(cls) -> str:
+        return rst_to_markdown(cls._cannot_be_used_for_doc())
+
+    @classmethod
+    def cannot_be_used_for_latex(cls) -> str:
+        return rst_to_latex(cls._cannot_be_used_for_doc())
+
+    @classmethod
+    def cannot_be_used_for(cls):
+        return display(HTML(cls.cannot_be_used_for_html()))
 
     @classmethod
     def name(cls) -> str:
@@ -313,9 +467,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
             val = scalar.value[0]
             assert not xp.isnan(val), f"Scalar {key} is {val}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
-        logger.info(sq_str)
+        print(sq_str)
 
-    def setup_equation_params(self, base_units: BaseUnits, verbose=False):
+    def setup_equation_params(self, base_units: BaseUnits):
         """Compute units and set equation parameters for each fluid and kinetic species."""
         self.base_units = base_units
         self.units = Units(base_units)
@@ -331,16 +485,25 @@ class StruphyModel(metaclass=StruphyModelMeta):
             velocity_scale=self.velocity_scale,
             A_bulk=A_bulk,
             Z_bulk=Z_bulk,
-            verbose=verbose,
         )
 
         for _, species in self.fluid_species.items():
             assert isinstance(species, FluidSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
+            species.setup_equation_params(units=self.units)
 
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            species.setup_equation_params(units=self.units, verbose=verbose)
+            species.setup_equation_params(units=self.units)
+
+    def show_equation_params(self):
+        """Print the equation parameters for each species to screen."""
+        for _, species in self.fluid_species.items():
+            assert isinstance(species, FluidSpecies)
+            species.equation_params.show()
+
+        for _, species in self.particle_species.items():
+            assert isinstance(species, ParticleSpecies)
+            species.equation_params.show()
 
     def scalar_quantities_to_file(self, time: float, filepath: str):
         scalar_quantities = self.scalars.dct
@@ -375,7 +538,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
             for propagator in self.prop_list:
                 prop_name = propagator.__class__.__name__
 
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt)
 
         # second order in time
@@ -384,17 +547,17 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
             for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
             propagator = self.prop_list[-1]
             prop_name = type(propagator).__name__
-            with ProfileManager.profile_region("prop: " + prop_name):
+            with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                 propagator(dt)
 
             for propagator in self.prop_list[:-1][::-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
                     propagator(dt / 2)
 
         else:
@@ -446,7 +609,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                         str_dn = f"d{i + 1}"
                         dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
-                for bin_plot in species.binning_plots:
+                for bin_plot in species.saving_params.binning_plots:
                     comps = bin_plot.slice.split("_")
                     components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
 
@@ -463,12 +626,12 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     bin_plot.f[:] = f_slice
                     bin_plot.df[:] = df_slice
 
-                for kd_plot in species.kernel_density_plots:
+                for kd_plot in species.saving_params.kernel_density_plots:
                     h1 = 1 / obj.boxes_per_dim[0]
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
 
-                    ndim = xp.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                    ndim = xp.count_nonzero(xp.array([d > 1 for d in obj.boxes_per_dim]))
                     if ndim == 0:
                         kernel_type = "gaussian_3d"
                     else:
@@ -554,15 +717,19 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 particle_params += "\nloading_params = LoadingParameters()\n"
                 particle_params += "weights_params = WeightsParameters()\n"
                 particle_params += "boundary_params = BoundaryParameters()\n"
+                particle_params += "sorting_params = SortingParameters()\n"
+                particle_params += "saving_params = SavingParameters()\n"
                 particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
                 txt = "weights_params=weights_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = "boundary_params=boundary_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = "sorting_params=sorting_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                txt = "saving_params=saving_params,\n"
+                particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = ")\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                particle_params += f"model.{sn}.set_sorting_boxes()\n"
-                particle_params += f"model.{sn}.set_save_data()\n"
 
             for vn, var in species.variables.items():
                 variables_params += f"model.{sn}.{vn}.save_data = True\n"
@@ -592,12 +759,16 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                         init_pert_pic += "maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                    elif "5Dvperp" in var.space:
+                        init_bckgr_pic += "maxwellian_1 = maxwellians.GyroMaxwellian2Dvperp(n=(1.0, None))\n"
+                        init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2Dvperp(n=(0.1, None))\n"
+                        init_pert_pic += "maxwellian_1pt = maxwellians.GyroMaxwellian2Dvperp(n=(1.0, perturbation))\n"
+                        init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     elif "5D" in var.space:
-                        init_bckgr_pic += "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
-                        init_pert_pic += (
-                            "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
-                        )
+                        init_bckgr_pic += "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None))\n"
+                        init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None))\n"
+                        init_pert_pic += "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation))\n"
                         init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     if "3D" in var.space:
@@ -646,6 +817,7 @@ set_logging_level(logging.WARNING)\n""")
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -661,6 +833,8 @@ set_logging_level(logging.WARNING)\n""")
     KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
+    SortingParameters,
+    SavingParameters,
     maxwellians,
 )\n""")
 
@@ -708,6 +882,9 @@ set_logging_level(logging.WARNING)\n""")
         file.write("\n# Derham options\n")
         file.write(derham)
 
+        file.write("\n# Profiling options\n")
+        file.write("profiling_opts = ProfilingOptions()\n")
+
         file.write("\n# Simulation object\n")
         file.write("""sim = Simulation(
     model=model,
@@ -720,6 +897,7 @@ set_logging_level(logging.WARNING)\n""")
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=profiling_opts,
 )\n""")
 
         if has_pic or has_sph:
@@ -751,7 +929,7 @@ set_logging_level(logging.WARNING)\n""")
             file.write(init_pert_sph)
 
         file.write('\nif __name__ == "__main__":\n')
-        file.write("    sim.run(verbose=False)")
+        file.write("    sim.run()")
 
         file.close()
 
@@ -868,38 +1046,21 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         assert isinstance(new_units, Units)
         self._units = new_units
 
-    # @property
-    # def prop_fields(self):
-    #     """Module :mod:`struphy.propagators.propagators_fields`."""
-    #     return self._prop_fields
+    @property
+    def params(self) -> dict:
+        """Model parameters passed to __init__() of the class, as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
+        return self._params
 
-    # @property
-    # def prop_coupling(self):
-    #     """Module :mod:`struphy.propagators.propagators_coupling`."""
-    #     return self._prop_coupling
-
-    # @property
-    # def prop_markers(self):
-    #     """Module :mod:`struphy.propagators.propagators_markers`."""
-    #     return self._prop_markers
-
-    # @property
-    # def kwargs(self):
-    #     """Dictionary holding the keyword arguments for each propagator specified in :attr:`~propagators_cls`.
-    #     Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments."""
-    #     return self._kwargs
-
-    # @property
-    # def scalar_quantities(self):
-    #     """A dictionary of scalar quantities to be saved during the simulation."""
-    #     if not hasattr(self, "_scalar_quantities"):
-    #         self._scalar_quantities = {}
-    #     return self._scalar_quantities
-
-    # @property
-    # def time_state(self):
-    #     """A pointer to the time variable of the dynamics ('t')."""
-    #     return self._time_state
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
 
 
 class Documentation:

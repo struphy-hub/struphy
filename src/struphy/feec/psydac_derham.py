@@ -4,6 +4,7 @@ import logging
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
+import numpy as np
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -54,6 +55,14 @@ space_to_form = {
 }
 
 logger = logging.getLogger("struphy")
+
+
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for compiled kernel calls."""
+    if hasattr(value, "get"):
+        # This is a CuPy array
+        return value.get()
+    return value
 
 
 class DiscreteDerham:
@@ -507,22 +516,30 @@ class SplineAttributes1D:
 
     @property
     def quad_grid_pts(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid points in each direction for each component of the vector space."""
+        """Tuple of quadrature grid points in each direction for each component of the vector space.
+        The indexing is [global element, local quadrature point].
+        The length of the first dimension is the number of elements (cells)."""
         return self._quad_grid_pts
 
     @property
     def quad_grid_wts(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid weights in each direction for each component of the vector space."""
+        """Tuple of quadrature grid weights in each direction for each component of the vector space.
+        The indexing is [global element, local quadrature point].
+        The length of the first dimension is the number of elements (cells)."""
         return self._quad_grid_wts
 
     @property
     def quad_grid_spans(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid basis function spans in each direction for each component of the vector space."""
+        """Tuple of quadrature grid basis function spans in each direction for each component of the vector space.
+        The span is the index of the last non-vanishing spline on each grid element
+        (cell). The length of the returned array is the number of elements (cells)."""
         return self._quad_grid_spans
 
     @property
     def quad_grid_bases(self) -> tuple[tuple[xp.ndarray]]:
-        """Tuple of quadrature grid basis function values in each direction for each component of the vector space."""
+        """Tuple of quadrature grid basis function values in each direction for each component of the vector space.
+        Indexing is [global element, basis function, derivative, local quadrature point].
+        The length of the first dimension is the number of elements (cells)."""
         return self._quad_grid_bases
 
 
@@ -542,14 +559,14 @@ class Derham:
     grid : TensorProductGrid
         The FEEC grid.
 
+    options: DerhamOptions
+        The options for building the discrete de Rham sequence, including spline degrees, boundary conditions, quadrature options, polar spline options, and projector options.
+
     comm: Intracomm
         MPI communicator (sub_comm if clones are used).
 
     domain : Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    verbose : bool
-        Show info on screen.
 
     Notes
     -----
@@ -567,7 +584,6 @@ class Derham:
         options: DerhamOptions,
         comm: MPI.Intracomm = None,
         domain: Domain = None,
-        verbose=False,
     ):
 
         # inputs
@@ -885,23 +901,22 @@ class Derham:
 
         # collect arguments for kernels
         self._args_derham = DerhamArguments(
-            xp.array(self.degree),
-            self.V0fem.knots[0],
-            self.V0fem.knots[1],
-            self.V0fem.knots[2],
-            xp.array(self.V0.starts),
+            _to_numpy_for_kernel(xp.array(self.degree)),
+            _to_numpy_for_kernel(self.V0fem.knots[0]),
+            _to_numpy_for_kernel(self.V0fem.knots[1]),
+            _to_numpy_for_kernel(self.V0fem.knots[2]),
+            _to_numpy_for_kernel(xp.array(self.V0.starts)),
         )
 
-        if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-            logger.info("\nDERHAM:")
-            logger.info(f"{'number of elements:'.ljust(25)} {num_elements}")
-            logger.info(f"{'spline degrees:'.ljust(25)} {degree}")
-            logger.info(f"{'boundary conditions:'.ljust(25)} {bcs}")
-            logger.info(f"{'GL quad pts (L2):'.ljust(25)} {nquads}")
-            logger.info(f"{'GL quad pts (hist):'.ljust(25)} {nquads_proj}")
-            logger.info(f"{'MPI proc. per dir.:'.ljust(25)} {self.domain_decomposition.nprocs}")
-            logger.info(f"{'use polar splines:'.ljust(25)} {self.polar_splines}")
-            logger.info(f"{'domain on process 0:'.ljust(25)} {self.domain_array[0]}")
+        logger.debug("\nDERHAM:")
+        logger.debug(f"{'number of elements:'.ljust(25)} {num_elements}")
+        logger.debug(f"{'spline degrees:'.ljust(25)} {degree}")
+        logger.debug(f"{'boundary conditions:'.ljust(25)} {bcs}")
+        logger.debug(f"{'GL quad pts (L2):'.ljust(25)} {nquads}")
+        logger.debug(f"{'GL quad pts (hist):'.ljust(25)} {nquads_proj}")
+        logger.debug(f"{'MPI proc. per dir.:'.ljust(25)} {self.domain_decomposition.nprocs}")
+        logger.debug(f"{'use polar splines:'.ljust(25)} {self.polar_splines}")
+        logger.debug(f"{'domain on process 0:'.ljust(25)} {self.domain_array[0]}")
 
     # -----------------------------
     # Input arguments as properties
@@ -1581,7 +1596,6 @@ class Derham:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         """Creat a callable spline function.
 
@@ -1617,7 +1631,6 @@ class Derham:
             perturbations=perturbations,
             domain=domain,
             equil=equil,
-            verbose=verbose,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -2210,7 +2223,6 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         self._name = name
         self._space_id = space_id
@@ -2251,10 +2263,10 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
-        logger.info(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
+        logger.debug(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
-            self.initialize_coeffs(domain=self.domain, equil=self.equil, verbose=verbose)
+            self.initialize_coeffs(domain=self.domain, equil=self.equil)
 
     @property
     def name(self):
@@ -2435,7 +2447,6 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
-        verbose: bool = False,
     ):
         """
         Set the initial conditions for self.vector.
@@ -2468,15 +2479,13 @@ class SplineFunction:
         # start from zero coeffs
         self._vector *= 0.0
 
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"Initializing {self.name} ...")
+        logger.debug(f"Initializing {self.name} ...")
 
         # add backgrounds to initial vector
         if self.backgrounds is not None:
             for fb in self.backgrounds:
                 assert isinstance(fb, FieldsBackground)
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    logger.info(f"Adding background {fb} ...")
+                logger.debug(f"Adding background {fb} ...")
 
                 # special case of const
                 if fb.type == "LogicalConst":
@@ -2530,8 +2539,7 @@ class SplineFunction:
         # add perturbations to coefficient vector
         if self.perturbations is not None:
             for ptb in self.perturbations:
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                    logger.info(f"Adding perturbation {ptb} ...")
+                logger.debug(f"Adding perturbation {ptb} ...")
 
                 # special case of white noise in logical space for different components
                 if isinstance(ptb, Noise):
@@ -3433,7 +3441,9 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
     histopol_loc = space_1d.histopolation_grid[start : end + 2].copy()
 
     # make sure that greville points used for interpolation are in [0, 1]
-    assert xp.all(xp.logical_and(greville_loc >= 0.0, greville_loc <= 1.0))
+    # Use numpy for comparison since greville points are NumPy arrays
+    greville_loc_np = greville_loc.get() if hasattr(greville_loc, "get") else greville_loc
+    assert np.all(np.logical_and(greville_loc_np >= 0.0, greville_loc_np <= 1.0))
 
     # interpolation
     if space_1d.basis == "B":
@@ -3456,12 +3466,17 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
-            xp.round(union_breaks, decimals=14),
-        )
+        # tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
+        #     xp.round(union_breaks, decimals=14),
+        # )
+        # tmp = list(tmp)
+        # tmp.sort()
+        # tmp_a = xp.array(tmp)
 
-        tmp = list(tmp)
-        tmp.sort()
+        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14).tolist()).union(
+            xp.round(union_breaks, decimals=14).tolist()
+        )
+        tmp = sorted(tmp)
         tmp_a = xp.array(tmp)
 
         x_grid = tmp_a[
@@ -3489,7 +3504,13 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             # products of basis functions are integrated exactly
             n_quad = space_1d.degree + 1
 
-        pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+
+        if "cupy" in xp.__name__:
+            import cupy as cp
+
+            pts_loc = cp.array(pts_loc)
+            wts_loc = cp.array(wts_loc)
 
         x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
 

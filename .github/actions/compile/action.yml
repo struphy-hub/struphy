@@ -24,5 +24,4 @@ runs:
           echo "No env specified, installing outside of any env"
         fi
         pyccel --version
-        struphy compile -d -y
         struphy compile -y --language ${{ inputs.language }}

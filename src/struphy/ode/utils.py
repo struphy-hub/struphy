@@ -109,7 +109,11 @@ class ButcherTableau:
         self._a = xp.tri(self.n_stages, k=-1)
         for l, st in enumerate(a):
             assert len(st) == l + 1
-            self._a[l + 1, : l + 1] = st
+
+            self._a[l + 1, : l + 1] = xp.array(st)
+
+        self._a_stage = xp.zeros(self.n_stages)
+        self._a_stage[:-1] = xp.diag(self._a, k=-1)
 
         self._conv_rate = conv_rate
 
@@ -119,6 +123,11 @@ class ButcherTableau:
     def a(self):
         """Characteristic coefficients of the method (see tableau in class docstring)."""
         return self._a
+
+    @property
+    def a_stage(self):
+        """Characteristic coefficients of the method in old 1d format."""
+        return self._a_stage
 
     @property
     def b(self):

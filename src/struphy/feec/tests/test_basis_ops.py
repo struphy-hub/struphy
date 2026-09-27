@@ -379,159 +379,130 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     # ===== operator K3 (V3 --> V3) ============
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        logger.info("\nOperator K (V3 --> V3):")
+    logger.info("\nOperator K (V3 --> V3):")
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10)
 
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10)
 
     # ===== operator Q2 (V2 --> V2) ============
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        logger.info("\nOperator Q2 (V2 --> V2):")
+    logger.info("\nOperator Q2 (V2 --> V2):")
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.Q2.dot(x2_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.Q2.dot(x2_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.Q2.dot(x2_pol_psy, tol=1e-10)
 
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10)
 
     # ===== operator T2 (V2 --> V1) ============
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        logger.info("\nOperator T2 (V2 --> V1):")
+    logger.info("\nOperator T2 (V2 --> V1):")
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.T2.dot(x2_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.T2.dot(x2_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.T2.dot(x2_pol_psy, tol=1e-10)
 
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10)
 
     # ===== operator S2 (V2 --> V2) ============
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        logger.info("\nOperator S2 (V2 --> V2):")
+    logger.info("\nOperator S2 (V2 --> V2):")
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10)
 
     mpi_comm.Barrier()
 
-    if mpi_rank == 0:
-        r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
-    else:
-        r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
+    r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10)
 
 
-def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
+def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
     """
     TODO
     """
 
     import cunumpy as xp
 
-    if verbose:
-        if MPI_COMM is not None:
-            MPI_COMM.Barrier()
+    if MPI_COMM is not None:
+        MPI_COMM.Barrier()
 
-        # logger.info(f'Rank {mpi_rank} | ')
-        # logger.info(f'Rank {mpi_rank} | res_PSY.shape   : {res_PSY.shape}')
-        # logger.info(f'Rank {mpi_rank} | res_PSY[:].shape: {res_PSY[:].shape}')
-        # logger.info(f'Rank {mpi_rank} | res_STR.shape   : {res_STR.shape}')
+    # logger.info(f'Rank {mpi_rank} | ')
+    # logger.info(f'Rank {mpi_rank} | res_PSY.shape   : {res_PSY.shape}')
+    # logger.info(f'Rank {mpi_rank} | res_PSY[:].shape: {res_PSY[:].shape}')
+    # logger.info(f'Rank {mpi_rank} | res_STR.shape   : {res_STR.shape}')
 
-        # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
-        # logger.info([
-        #     res_PSY.starts[0], res_PSY.ends[0] + 1,
-        #     res_PSY.starts[1], res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2], res_PSY.ends[2] + 1,
-        # ])
+    # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
+    # logger.info([
+    #     res_PSY.starts[0], res_PSY.ends[0] + 1,
+    #     res_PSY.starts[1], res_PSY.ends[1] + 1,
+    #     res_PSY.starts[2], res_PSY.ends[2] + 1,
+    # ])
 
-        # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
-        # logger.info([
-        #     res_PSY.starts[0], res_PSY.ends[0] + 1,
-        #     res_PSY.starts[1], res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2], res_PSY.ends[2] + 1,
-        # ])
+    # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
+    # logger.info([
+    #     res_PSY.starts[0], res_PSY.ends[0] + 1,
+    #     res_PSY.starts[1], res_PSY.ends[1] + 1,
+    #     res_PSY.starts[2], res_PSY.ends[2] + 1,
+    # ])
 
-        # if MPI_COMM is not None: MPI_COMM.Barrier()
+    # if MPI_COMM is not None: MPI_COMM.Barrier()
 
-        # logger.info(f'Rank {mpi_rank} | res_PSY (local slice at starts[0]):')
-        # logger.info(res_PSY[
-        #     res_PSY.starts[0],
-        #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        # ])
+    # logger.info(f'Rank {mpi_rank} | res_PSY (local slice at starts[0]):')
+    # logger.info(res_PSY[
+    #     res_PSY.starts[0],
+    #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
+    #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    # ])
 
-        # logger.info(f'Rank {mpi_rank} | res_STR (local slice at starts[0]):')
-        # logger.info(res_STR[
-        #     res_PSY.starts[0],
-        #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        # ])
-        # logger.info(f'Rank {mpi_rank} | ')
+    # logger.info(f'Rank {mpi_rank} | res_STR (local slice at starts[0]):')
+    # logger.info(res_STR[
+    #     res_PSY.starts[0],
+    #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
+    #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    # ])
+    # logger.info(f'Rank {mpi_rank} | ')
 
-        # for n in range(res_PSY.ends[0] + 1):
+    # for n in range(res_PSY.ends[0] + 1):
 
-        #     logger.info(f'Rank {mpi_rank} | dof_PSY (local slice at starts[0] + {n}):')
-        #     logger.info(dof_PSY[
-        #         res_PSY.starts[0] + n,
-        #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        #     ])
+    #     logger.info(f'Rank {mpi_rank} | dof_PSY (local slice at starts[0] + {n}):')
+    #     logger.info(dof_PSY[
+    #         res_PSY.starts[0] + n,
+    #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
+    #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    #     ])
 
-        #     logger.info(f'Rank {mpi_rank} | dof_STR (local slice at starts[0] + {n}):')
-        #     logger.info(dof_STR[
-        #         res_PSY.starts[0] + n,
-        #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        #     ])
-        #     logger.info(f'Rank {mpi_rank} | ')
+    #     logger.info(f'Rank {mpi_rank} | dof_STR (local slice at starts[0] + {n}):')
+    #     logger.info(dof_STR[
+    #         res_PSY.starts[0] + n,
+    #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
+    #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    #     ])
+    #     logger.info(f'Rank {mpi_rank} | ')
 
-        # if MPI_COMM is not None: MPI_COMM.Barrier()
+    # if MPI_COMM is not None: MPI_COMM.Barrier()
 
-        logger.info(
-            f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
-            xp.max(
-                xp.abs(
-                    res_PSY[
-                        res_PSY.starts[0] : res_PSY.ends[0] + 1,
-                        res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                        res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                    ]
-                    - res_STR[
-                        res_PSY.starts[0] : res_PSY.ends[0] + 1,
-                        res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                        res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                    ],
-                ),
+    logger.info(
+        f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
+        xp.max(
+            xp.abs(
+                res_PSY[
+                    res_PSY.starts[0] : res_PSY.ends[0] + 1,
+                    res_PSY.starts[1] : res_PSY.ends[1] + 1,
+                    res_PSY.starts[2] : res_PSY.ends[2] + 1,
+                ]
+                - res_STR[
+                    res_PSY.starts[0] : res_PSY.ends[0] + 1,
+                    res_PSY.starts[1] : res_PSY.ends[1] + 1,
+                    res_PSY.starts[2] : res_PSY.ends[2] + 1,
+                ],
             ),
-        )
+        ),
+    )
 
     if MPI_COMM is not None:
         MPI_COMM.Barrier()

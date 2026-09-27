@@ -149,6 +149,14 @@ class MassMatrixPreconditioner(LinearOperator):
                         ):  # this branch is only entered if comm exists (and thus subcomm has been initialized)
                             if subcomm != MPI.COMM_NULL:
                                 subcomm.Allgather(local_fun, fun)
+                                """gathered = subcomm.gather(local_fun, root=selected_ranks[0])
+                                if rank == selected_ranks[0]:
+                                    if gathered is None:
+                                        raise RuntimeError("MPI gather failed to return data on root rank")
+                                    fun[:] = xp.concatenate(gathered)
+                                    assert fun.size == npts, (
+                                        f"Gathered weight size {fun.size} does not match expected {npts}"
+                                    )"""
                             comm.Bcast(fun, root=selected_ranks[0])
                         else:
                             fun[:] = local_fun
@@ -364,14 +372,14 @@ class MassMatrixPreconditioner(LinearOperator):
         return self._solver
 
     @property
+    def domain(self):
+        """The domain of the linear operator - an element of Vectorspace"""
+        return self._space
+
+    @property
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
 
     @property
     def dtype(self):
@@ -742,6 +750,9 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def solver(self):
         """KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix."""
         return self._solver
+
+    @property
+    def domain(self):
         """The domain of the linear operator - an element of Vectorspace"""
         return self._space
 
@@ -749,11 +760,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
 
     @property
     def dtype(self):
