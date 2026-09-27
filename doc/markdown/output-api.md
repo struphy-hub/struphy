@@ -59,13 +59,15 @@ interpolation or an inverse-coordinate map.
 
 For raw FEEC fields, use the `species/variable` name. With no `eta` coordinates, evaluation uses
 the full simulation grid at cell centres and includes `X`, `Y`, and `Z` coordinates. Providing
-one or two eta coordinates makes a line or plane cut; unspecified directions use `0.5`.
+eta coordinates restricts those directions: a scalar fixes one, an array samples it, and
+unspecified directions stay on the cell-centre grid.
 
 ```python
 import numpy as np
 
 phi = out.evaluate("em_fields/phi", t=-1)  # full 3-D grid
-line = out.evaluate("em_fields/phi", eta1=np.linspace(0, 1, 200), t=-1)
+plane = out.evaluate("em_fields/phi", eta3=0.0, t=-1)  # (eta1, eta2) plane on the cell-centre grid
+line = out.evaluate("em_fields/phi", eta1=np.linspace(0, 1, 200), eta2=0.5, eta3=0.5, t=-1)
 ```
 
 Particle products use the same `species/variable` form. The default is the first matching binned
@@ -211,8 +213,7 @@ Use the native xarray plotting methods after making the intended selection.
 ```python
 out.evaluate("scalars", variables="electric_energy").electric_energy.plot.line(x="t")
 
-rho = out.evaluate("diagnostics/rho_xyz", t=-1)
-rho.isel(eta3=rho.sizes["eta3"] // 2).plot(x="eta1", y="eta2")
+out.evaluate("diagnostics/rho_xyz", t=-1, eta3=0.5, method="nearest").plot(x="eta1", y="eta2")
 ```
 
 xarray squeezes size-one dimensions before plotting, so an array that is 2-D on a grid with one

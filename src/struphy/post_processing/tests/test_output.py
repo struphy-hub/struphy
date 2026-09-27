@@ -126,6 +126,13 @@ def output_with_comm(monkeypatch, path, comm, **kwargs):
     return Output(path, **kwargs)
 
 
+def save_raw_field(run, *names):
+    """Record ``names`` as raw FEEC fields in the primary output, as a real run saves them."""
+    with h5py.File(run.path_out / "data" / "data_proc0.hdf5", "a") as file:
+        for name in names:
+            file["feec/em_fields"].create_dataset(name, data=np.empty(0))
+
+
 @pytest.fixture
 def run(tmp_path):
     return Output(write_tree(str(tmp_path)))
@@ -353,6 +360,7 @@ def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
 
     field = Field()
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"e_field": field}})
+    save_raw_field(run, "e_field")
 
     values = run.evaluate("em_fields/e_field", eta1=0.25, eta2=0.5, eta3=0.75, component=2)
 
@@ -376,6 +384,7 @@ def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
             return value.squeeze() if squeeze_out else value
 
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
+    save_raw_field(run, "phi")
 
     values = run.evaluate("em_fields/phi", eta1=[0.25, 0.5], eta2=range(2), eta3=0.75, t=0)
 
@@ -417,22 +426,29 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
     np.testing.assert_allclose(values.Z[0, 0, :], [3.125, 3.375, 3.625, 3.875])
 
 
-def test_evaluate_raw_spline_field_defaults_omitted_cut_coordinates_to_midpoint(run, monkeypatch):
+def test_evaluate_raw_spline_field_keeps_omitted_directions_on_the_default_grid(run, monkeypatch):
     class Field:
         space_id = "H1"
 
         def __call__(self, eta1, eta2, eta3, *, squeeze_out=False):
-            return np.asarray(eta1)[:, None, None] + eta2 + eta3
+            eta1, eta2, eta3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            return eta1 + 10 * eta2 + 100 * eta3
 
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
+    save_raw_field(run, "phi")
+    run.grid = SimpleNamespace(num_elements=(2, 3, 1))
+    eta1_default, eta2_default, _ = run._default_logical_grid()
 
-    values = run.evaluate("em_fields/phi", eta1=[0.25, 0.75], t=0)
+    plane = run.evaluate("em_fields/phi", t=0, eta3=0)
 
-    assert values.dims == ("t", "eta1")
-    np.testing.assert_allclose(values[0], [1.25, 1.75])
+    assert plane.dims == ("t", "eta1", "eta2")
+    np.testing.assert_allclose(plane.eta1, eta1_default)
+    np.testing.assert_allclose(plane.eta2, eta2_default)
+    np.testing.assert_allclose(plane[0], eta1_default[:, None] + 10 * eta2_default[None, :])
 
 
 def test_evaluate_raw_spline_field_rejects_coordinates_outside_unit_cube(run):
+    save_raw_field(run, "phi")
     with pytest.raises(ValueError, match="logical unit interval"):
         run.evaluate("em_fields/phi", eta1=-0.01, eta2=0.5, eta3=0.5)
 
@@ -455,6 +471,7 @@ def test_evaluate_raw_spline_field_applies_requested_representation(run, monkeyp
             return np.meshgrid(eta1, eta2, eta3, indexing="ij")
 
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"phi": Field()}})
+    save_raw_field(run, "phi")
     monkeypatch.setattr(run, "domain", Domain())
 
     run.evaluate("em_fields/phi", eta1=0.5, eta2=0.5, eta3=0.5, t=0, representation="0")
@@ -486,6 +503,7 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
     field = Field()
     monkeypatch.setattr(run, "domain", domain)
     monkeypatch.setattr(run, "spline_fields", lambda *, t: {"em_fields": {"e_field": field}})
+    save_raw_field(run, "e_field")
 
     source = field(eta1, eta2, eta3)
     for target in ("1", "2", "v", "norm"):
