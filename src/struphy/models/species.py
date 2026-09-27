@@ -1,6 +1,7 @@
 import logging
 import warnings
 from abc import ABCMeta, abstractmethod
+from dataclasses import fields, is_dataclass
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
@@ -18,6 +19,17 @@ from struphy.particles.parameters import (
 from struphy.physics.physics import ConstantsOfNature, Units
 
 logger = logging.getLogger("struphy")
+
+
+def _serialize_parameter(value):
+    """Convert nested parameter dataclasses and sequences to JSON-compatible data."""
+    if is_dataclass(value) and not isinstance(value, type):
+        return {field.name: _serialize_parameter(getattr(value, field.name)) for field in fields(value) if field.init}
+    if isinstance(value, dict):
+        return {key: _serialize_parameter(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_serialize_parameter(item) for item in value]
+    return value
 
 
 class Species(metaclass=ABCMeta):
@@ -73,6 +85,18 @@ class Species(metaclass=ABCMeta):
             out += f"        {k}:".ljust(20)
             out += f"{v}\n"
         return out
+
+    def to_dict(self) -> dict:
+        """Serialize species parameters and its variables."""
+        return {
+            "class": type(self).__name__,
+            "charge_number": self.charge_number,
+            "mass_number": self.mass_number,
+            "alpha": self.alpha,
+            "epsilon": self.epsilon,
+            "kappa": self.kappa,
+            "variables": {name: variable.to_dict() for name, variable in self.variables.items()},
+        }
 
     def init_variables(
         self,
@@ -278,6 +302,20 @@ class ParticleSpecies(Species):
     >>> load_params = LoadingParameters(Np=100000)
     >>> electrons.set_markers(loading_params=load_params)
     """
+
+    def to_dict(self) -> dict:
+        data = super().to_dict()
+        for name in (
+            "loading_params",
+            "weights_params",
+            "boundary_params",
+            "sorting_params",
+            "saving_params",
+            "bufsize",
+        ):
+            if hasattr(self, name):
+                data[name] = _serialize_parameter(getattr(self, name))
+        return data
 
     def set_markers(
         self,

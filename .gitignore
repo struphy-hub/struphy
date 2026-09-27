@@ -114,4 +114,4 @@ pyvenv.cfg
 *profile_output*.txt
 *kernels.txt
 struphy.log
-
+struphy.log.*
