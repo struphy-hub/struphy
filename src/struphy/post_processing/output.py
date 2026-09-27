@@ -354,6 +354,8 @@ class Output:
         products, a ``"species/variable"`` name selects the first matching binned
         product, then density/KDE product, then orbits. Pass ``dataset=`` to select a
         particular discovered product; use ``out.info("species/variable")`` to list them.
+        The full key of a particle product, ``"species/dataset/variable"`` (as :meth:`keys`
+        lists it, e.g. ``"kinetic_ions/e1_v1_density/f"``), selects that product directly.
 
         Supplying an ``eta`` evaluates a raw FEEC spline field directly on that logical
         grid. Each eta can be a scalar, a list, a one-dimensional array, or a ``range``;
@@ -372,8 +374,16 @@ class Output:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
         if "as_numpy" in selectors:
             raise TypeError("evaluate() always returns xarray; call .to_numpy() on its result when needed")
+        if name.count("/") == 2:
+            # the full key of a particle product: "species/dataset/variable"
+            if dataset is not None:
+                raise ValueError("dataset= cannot be combined with a 'species/dataset/variable' name")
+            species, group, variable = name.split("/")
+            name, dataset = f"{species}/{variable}", f"{group}/{variable}"
         if name != "scalars" and name.count("/") != 1:
-            raise ValueError("evaluate() names must use the 'species/variable' form, or be 'scalars'")
+            raise ValueError(
+                "evaluate() names must use the 'species/variable' or 'species/dataset/variable' form, or be 'scalars'"
+            )
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)

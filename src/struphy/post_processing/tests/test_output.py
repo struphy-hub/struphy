@@ -330,6 +330,18 @@ def test_evaluate_scalars_and_particle_defaults(run):
     selected = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
     assert selected.name == "delta_f"
 
+    # the full key selects the same product, with selections as keywords
+    by_key = run.evaluate("kinetic_ions/e1_v1_density/delta_f")
+    xr.testing.assert_identical(by_key, selected)
+    first = float(by_key.eta1[0])
+    xr.testing.assert_identical(
+        run.evaluate("kinetic_ions/e1_v1_density/delta_f", eta1=first), selected.sel(eta1=first)
+    )
+    with pytest.raises(ValueError, match="dataset="):
+        run.evaluate("kinetic_ions/e1_v1_density/f", dataset="e1_v1_density/f")
+    with pytest.raises(KeyError):
+        run.evaluate("kinetic_ions/no_such_density/f")
+
     orbits = run.evaluate("kinetic_ions/orbits")
     assert isinstance(orbits, xr.Dataset) and "weight" in orbits.data_vars
 
