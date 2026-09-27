@@ -315,6 +315,9 @@ class Pusher:
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
                     self._residuals[:] = markers[:, residual_idx]
+                    # markers flagged as done by the boundary conditions (refilled or reflected) are skipped
+                    # by the kernel and keep the residual of the iteration in which they left the domain
+                    self._residuals[markers[:, first_pusher_idx] == -1.0] = -1.0
                     max_res = xp.max(self._residuals)
                     if max_res < 0.0:
                         max_res = None
