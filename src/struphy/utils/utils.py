@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from typing import Literal, get_args
 
+import numpy as np
 import yaml
 from feectools.ddm.mpi import mpi as MPI
 
@@ -131,6 +132,20 @@ class MyDumper(yaml.SafeDumper):
 
     def ignore_aliases(self, data):
         return True
+
+
+def _represent_numpy_scalar(dumper, data):
+    """Represent NumPy scalar values using their native Python value."""
+    return dumper.represent_data(data.item())
+
+
+def _represent_numpy_array(dumper, data):
+    """Represent NumPy arrays as regular YAML sequences."""
+    return dumper.represent_data(data.tolist())
+
+
+MyDumper.add_multi_representer(np.generic, _represent_numpy_scalar)
+MyDumper.add_multi_representer(np.ndarray, _represent_numpy_array)
 
 
 def subp_run(cmd, cwd="libpath", check=True):
