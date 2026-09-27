@@ -1,8 +1,6 @@
 import copy
 import logging
 
-from feectools.linalg.stencil import StencilVector
-
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -10,7 +8,6 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators.base import Propagator
 from struphy.propagators.hasegawa_wakatani_step import HasegawaWakataniStep
 from struphy.propagators.poisson_solve import PoissonSolve
 
@@ -48,8 +45,8 @@ class HasegawaWakatani(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, phi: FEECVariable = None):
-            self.poisson = PoissonSolve()
+        def __init__(self, phi: FEECVariable = None, omega: FEECVariable = None):
+            self.poisson = PoissonSolve(rho=omega)
             self.hw = HasegawaWakataniStep(phi=phi)
 
     ## abstract methods
@@ -67,7 +64,7 @@ class HasegawaWakatani(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(phi=self.em_fields.phi)
+        self.propagators = self.Propagators(phi=self.em_fields.phi, omega=self.plasma.vorticity)
 
         # 4. assign variables to propagators
         self.propagators.poisson.variables.phi = self.em_fields.phi
@@ -84,23 +81,13 @@ class HasegawaWakatani(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def update_rho(self):
-        omega = self.plasma.vorticity.spline.vector
-        self._rho = Propagator.mass_ops.M0.dot(omega, out=self._rho)
-        self._rho.update_ghost_regions()
-        return self._rho
-
     def post_allocate(self):
         """Solve initial Poisson equation.
 
         :meta private:
         """
-        self._rho: StencilVector = Propagator.derham.V0.zeros()
-        self.update_rho()
-
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        self.update_rho()
         self.propagators.poisson(1.0)
 
         logger.info("Done.")

@@ -228,9 +228,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         .. math::
 
-            \int_{\Omega} \nabla \psi^{\top} \cdot \nabla \phi \, \mathrm{d} \mathbf{x} &= \frac{\alpha^2}{\varepsilon} \int_{\Omega} \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \mathrm{d}^3 \mathbf{v} \, \mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
+            \int_{\Omega} \nabla \psi^{\top} \cdot \nabla \phi \, \mathrm{d} \mathbf{x} = \frac{\alpha^2}{\varepsilon} \int_{\Omega} \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \mathrm{d}^3 \mathbf{v} \, \mathrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
             \\[2mm]
-            \mathbf{E}(t=0) &= -\nabla \phi(t=0)
+            \mathbf{E}(t=0) = -\nabla \phi(t=0)
         """
 
     @classmethod
