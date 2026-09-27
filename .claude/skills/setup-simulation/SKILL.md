@@ -142,7 +142,7 @@ out = Output(path_out)
 out.pproc(physical=True)         # optional; products are otherwise processed with defaults on first access
 
 out.scalars.<name>                                     # xarray time series, no post-processing needed
-out.fields.<species>.<variable>                    # dims (t, [component,] e1, e2, e3)
+out.fields.<species>.<variable>                    # dims (t, [component,] eta1, eta2, eta3)
 out.distributions.<species>.<binning_name>.f    # dims (t, <slice dims>)
 out.orbits.<species>                                   # Dataset: one (t, marker) variable per quantity (x, y, z, v1, ..., weight)
 out.model.units                                        # model reconstructed from metadata
@@ -162,7 +162,7 @@ requires the saved run's rank count.
 Products are xarray objects. Use xarray's plotting and selection methods:
 
 ```python
-out.<species>.<binning_name>.f.isel(t=-1).plot(x="e1", y="v1")
+out.<species>.<binning_name>.f.isel(t=-1).plot(x="eta1", y="v1")
 out.scalars.<name>.plot.line(x="t")
 out.<species>.orbits.isel(marker=0)[["x", "y", "z"]].to_dataarray("quantity").plot.line(x="t", hue="quantity")
 ```

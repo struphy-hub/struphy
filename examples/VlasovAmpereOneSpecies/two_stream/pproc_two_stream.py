@@ -36,7 +36,7 @@ def main(path_out=DEFAULT_OUTPUT):
 
     # phase space evolution
     data = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")
-    plot_panels(data, x="e1", y="v1", n_panels=12, ncols=4)
+    plot_panels(data, x="eta1", y="v1", n_panels=12, ncols=4)
     plt.show()
 
 
