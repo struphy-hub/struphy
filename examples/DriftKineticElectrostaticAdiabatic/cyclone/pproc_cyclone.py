@@ -18,9 +18,9 @@ SHOW_EQUIL_PROFILE = False
 # products shown at the last saved time, as (product, physical plane, logical coordinate held fixed)
 SNAPSHOTS = [
     ("kinetic_ions/e1_e2_density/delta_f", "RZ", {}),
-    ("em_fields/phi_xyz", "RZ", {"e3": 0}),
-    ("diagnostics/rho_xyz", "RZ", {"e3": 0}),
-    ("diagnostics/rho_xyz", "XY", {"e2": 0}),
+    ("em_fields/phi_xyz", "RZ", {"eta3": 0}),
+    ("diagnostics/rho_xyz", "RZ", {"eta3": 0}),
+    ("diagnostics/rho_xyz", "XY", {"eta2": 0}),
 ]
 
 

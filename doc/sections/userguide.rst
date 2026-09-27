@@ -526,7 +526,7 @@ and it stays available as ``sim.output``:
     out.domain, out.model.units      # reconstructed from saved metadata
 
 Every product is an :class:`xarray.DataArray` with named dimensions
-(``t``, ``component``, ``e1``, ``e2``, ``e3``, ``v1``, ...), coordinates and units.
+(``t``, ``component``, ``eta1``, ``eta2``, ``eta3``, ``v1``, ...), coordinates and units.
 Arrays are read from disk only when accessed.
 
 Time is in Struphy units, in which the models' analytic results are written; seconds come
@@ -586,10 +586,9 @@ ordinary one- and two-dimensional cases:
 
 .. code-block:: python
 
-    f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")
-    f.isel(t=-1).plot(x="e1", y="v1")
+    out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f", t=-1).plot(x="eta1", y="v1")
     out.evaluate("scalars", variables="en_phi")["en_phi"].plot.line(x="t")
-    out.evaluate("em_fields/phi_xyz").isel(t=-1, e3=0).plot(x="e1", y="e2")
+    out.evaluate("em_fields/phi_xyz", t=-1, eta3=0).plot(x="eta1", y="eta2")
 
 For a comparison across runs, use a Matplotlib axes and plot the labeled arrays
 onto it:
@@ -617,8 +616,8 @@ components) or ``<variable_name>_xyz`` (physical components, with
 
     import matplotlib.pyplot as plt
 
-    e_field = out.evaluate("em_fields/e_field")  # dims (t, component, e1, e2, e3)
-    snapshot = e_field.isel(t=-1, component=0, e2=0, e3=0)
+    # dims (eta1,): last snapshot, first component, along eta1 at eta2 = eta3 = 0
+    snapshot = out.evaluate("em_fields/e_field", t=-1, component=0, eta2=0, eta3=0).squeeze("t")
 
     plt.figure()
     plt.plot(snapshot.X, snapshot)                  # physical x-coordinate along eta1
@@ -637,8 +636,8 @@ perturbation with respect to the background:
 
 .. code-block:: python
 
-    f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")   # dims (t, e1, v1)
-    f.isel(t=-1).plot(x="e1", y="v1")
+    f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f", t=-1)   # dims (t, eta1, v1)
+    f.plot(x="eta1", y="v1")
 
 
 Plotting particle orbits

@@ -33,7 +33,7 @@ def to_si(array: xr.DataArray, units, unit: str | float | None = None, *, label:
 
     Coordinates are converted whenever present: time ``t`` to seconds, the mapped ``X``, ``Y``,
     ``Z`` to meters and the velocities ``v1``, ``v2``, ``v3`` to m/s, each with the matching unit
-    of ``units``. Logical coordinates ``e1``, ``e2``, ``e3`` are dimensionless and unchanged.
+    of ``units``. Logical coordinates ``eta1``, ``eta2``, ``eta3`` are dimensionless and unchanged.
 
     The values are only converted if ``unit`` is given, because a product does not record which
     unit its variable was normalized with. Pass the name of that unit, one of ``x``, ``B``, ``n``,

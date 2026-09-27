@@ -19,8 +19,8 @@ SHOW_EQUIL_PROFILE = False
 SNAPSHOTS = [
     ("kinetic_ions/e1_e2_density/f", "XY", {}),
     ("kinetic_ions/e1_e2_density/delta_f", "XY", {}),
-    ("em_fields/phi_xyz", "XY", {"e3": 0}),
-    ("diagnostics/rho_xyz", "XY", {"e3": 0}),
+    ("em_fields/phi_xyz", "XY", {"eta3": 0}),
+    ("diagnostics/rho_xyz", "XY", {"eta3": 0}),
 ]
 
 

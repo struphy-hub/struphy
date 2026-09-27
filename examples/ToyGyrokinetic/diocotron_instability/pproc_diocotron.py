@@ -95,8 +95,8 @@ def main(paths=(DEFAULT_OUTPUT,)):
     for path in SNAPSHOTS:
         data = product(run, path)
         snapshot = data.isel(t=-1)
-        if "e3" in snapshot.dims:
-            snapshot = snapshot.isel(e3=0)
+        if "eta3" in snapshot.dims:
+            snapshot = snapshot.isel(eta3=0)
         fig, ax = plt.subplots()
         snapshot.plot(x="X", y="Y", ax=ax)
         ax.set(aspect="equal", title=f"{'/'.join(path)}, t = {float(snapshot.t):.3g}")
