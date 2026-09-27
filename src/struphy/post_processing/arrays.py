@@ -13,9 +13,9 @@ logger = logging.getLogger("struphy")
 
 DIM_LABELS = {
     "t": r"$t$",
-    "e1": r"$\eta_1$",
-    "e2": r"$\eta_2$",
-    "e3": r"$\eta_3$",
+    "eta1": r"$\eta_1$",
+    "eta2": r"$\eta_2$",
+    "eta3": r"$\eta_3$",
     "v1": r"$v_1$",
     "v2": r"$v_2$",
     "v3": r"$v_3$",
@@ -198,22 +198,22 @@ def wrap_field_data(
                 for t in times
             ]
         )
-        dims = ("t", "e1", "e2", "e3")
+        dims = ("t", "eta1", "eta2", "eta3")
     else:
         values = np.stack([np.stack([np.asarray(c) for c in values_by_time[t]]) for t in times])
-        dims = ("t", "component", "e1", "e2", "e3")
+        dims = ("t", "component", "eta1", "eta2", "eta3")
     coords: dict = {"t": np.asarray(times) * time_scale}
     if "component" in dims:
         coords["component"] = np.arange(values.shape[1])
     if grids_log is not None:
         for i, grid in enumerate(grids_log, 1):
-            dim = f"e{i}"
+            dim = f"eta{i}"
             if len(grid) == values.shape[dims.index(dim)]:
                 coords[dim] = np.asarray(grid)
-    spatial_shape = tuple(values.shape[dims.index(dim)] for dim in ("e1", "e2", "e3"))
+    spatial_shape = tuple(values.shape[dims.index(dim)] for dim in ("eta1", "eta2", "eta3"))
     if grids_phy is not None and all(np.asarray(grid).shape == spatial_shape for grid in grids_phy):
         for coordinate, grid in zip(("X", "Y", "Z"), grids_phy):
-            coords[coordinate] = (("e1", "e2", "e3"), np.asarray(grid))
+            coords[coordinate] = (("eta1", "eta2", "eta3"), np.asarray(grid))
     return data_array(values, dims, coords, name=name or None, label=name, coord_units={"t": time_unit})
 
 

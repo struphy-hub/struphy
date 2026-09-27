@@ -31,7 +31,7 @@ def _power_spectrum(field, component=0):
     """Space-time power spectrum |F(omega, k)| of a field along z, at the first x and y grid point."""
     if "component" in field.dims:
         field = field.isel(component=component)
-    data = field.isel(e1=0, e2=0).transpose("t", "e3")
+    data = field.isel(eta1=0, eta2=0).transpose("t", "eta3")
     time, z = data.t.values, data.Z.values
     nt, nz = data.shape
     power = (2.0 / nt) * (2.0 / nz) * np.abs(fft2(data.values))[: nt // 2, : nz // 2]
