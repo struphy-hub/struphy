@@ -258,21 +258,30 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
 def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    # Automatic processing is serial only; the multi-rank refusal is tested separately.
     run = output_with_comm(monkeypatch, root, FakeComm())
     calls = []
 
-    def fake_pproc(self, **options):
-        calls.append(options)
+    def fake_process(self, *, parallel, **options):
+        calls.append(dict(parallel=parallel, **options))
         write_manifest(root)
         self._reset()
-        return self
 
-    monkeypatch.setattr(Output, "pproc", fake_pproc)
+    monkeypatch.setattr(Output, "_process", fake_process)
     assert set(run.scalars.data_vars) == {"en_tot"}
     assert calls == [], "scalars come from the raw output"
     assert run.evaluate("em_fields/E").name == "E"
-    assert calls == [{}]
+    assert calls == [
+        dict(
+            parallel=False,
+            step=1,
+            celldivide=1,
+            physical=False,
+            guiding_center=False,
+            classify=False,
+            create_vtk=False,
+            force=False,
+        )
+    ]
 
 
 def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
@@ -526,12 +535,68 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
         assert result.dims == ("t", "component", "eta1", "eta2")
 
 
-def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "size, saved_ranks, parallel", [(1, 1, False), (2, 2, True), (4, 4, True), (2, 1, False), (2, 4, False)]
+)
+def test_first_use_processes_in_parallel_when_the_job_is_as_large_as_the_run(
+    tmp_path, monkeypatch, size, saved_ranks, parallel
+):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    comm = FakeComm(size=2)
-    with pytest.raises(RuntimeError, match="on all ranks"):
-        output_with_comm(monkeypatch, root, comm).fields
+    calls = []
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: write_manifest(root))
+    comm = FakeComm(size=size)
+    run = output_with_comm(monkeypatch, root, comm)
+    run.metadata["mpi_ranks"] = saved_ranks
+    assert tuple(run.fields) == ("em_fields",)
+    assert calls == [parallel]
+    assert comm.barriers == 1  # no rank looks for products before rank 0 has written them
+
+
+@pytest.mark.parametrize("parallel", [True, False])
+def test_evaluate_passes_parallel_on_to_processing(tmp_path, monkeypatch, parallel):
+    root = write_tree(str(tmp_path))
+    os.remove(os.path.join(root, "post_processing", "manifest.json"))
+    calls = []
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: write_manifest(root))
+    run = output_with_comm(monkeypatch, root, FakeComm(size=2))
+    run.metadata["mpi_ranks"] = 2
+    assert run.evaluate("em_fields/E", parallel=parallel).name == "E"
+    assert calls == [parallel]
+
+
+def test_processing_lock_is_exclusive_between_processes(tmp_path):
+    import multiprocessing
+
+    from struphy.post_processing.manifest import processing_lock
+
+    log = tmp_path / "log"
+    context = multiprocessing.get_context("spawn")
+    workers = [context.Process(target=_hold_lock, args=(str(tmp_path), str(log))) for _ in range(3)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(60)
+        assert worker.exitcode == 0
+    lines = log.read_text().split()
+    assert lines == ["enter", "exit"] * 3  # never two holders at once
+    with processing_lock(str(tmp_path)):
+        pass
+
+
+def _hold_lock(path_out, log):
+    import time
+
+    from struphy.post_processing.manifest import processing_lock
+
+    with processing_lock(path_out):
+        with open(log, "a") as stream:
+            stream.write("enter\n")
+        time.sleep(0.3)
+        with open(log, "a") as stream:
+            stream.write("exit\n")
 
 
 def test_processing_options_are_part_of_the_manifest(tmp_path):
@@ -677,7 +742,7 @@ def test_saved_rank_count_does_not_block_serial_implicit_processing(tmp_path, mo
     run.metadata["mpi_ranks"] = 8
     (run.path_pproc / "manifest.json").unlink()
     calls = []
-    monkeypatch.setattr(Output, "pproc", lambda self: calls.append(self.path_out))
+    monkeypatch.setattr(Output, "_process", lambda self, **options: calls.append(self.path_out))
     run._ensure_processed()
     assert calls == [run.path_out]
 
@@ -743,3 +808,13 @@ def test_plot_without_struphy_plots_says_how_to_get_it(run, monkeypatch):
             getattr(run, name)
     with pytest.raises(AttributeError, match="available species"):
         run.not_a_species  # other names keep their own error
+
+
+def test_processing_lock_falls_back_to_an_exclusive_file(tmp_path, monkeypatch):
+    from struphy.post_processing import manifest
+
+    monkeypatch.setattr(manifest, "fcntl", None)
+    held = tmp_path / (manifest.LOCK_NAME + ".held")
+    with manifest.processing_lock(str(tmp_path)):
+        assert held.exists()
+    assert not held.exists()

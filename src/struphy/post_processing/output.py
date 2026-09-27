@@ -39,6 +39,7 @@ from struphy.post_processing.manifest import (
     MANIFEST_SCHEMA_VERSION,
     is_processed,
     normalize_options,
+    processing_lock,
     source_fingerprint,
 )
 from struphy.post_processing.orbits import orbits_tools
@@ -330,7 +331,7 @@ class Output:
         representation: Representation | None = None,
         dataset: str | None = None,
         variables: str | Sequence[str] | None = None,
-        parallel: bool = False,
+        parallel: bool | None = None,
         **coordinates: Any,
     ) -> xr.DataArray | xr.Dataset:
         """Return a named simulation product as an xarray object.
@@ -341,10 +342,10 @@ class Output:
         analysis. ``evaluate("scalars")`` returns an :class:`xarray.Dataset` containing
         all scalar histories; use ``variables=`` to select scalar names.
 
-        Under more than one MPI rank, automatic materialization is disabled unless ``parallel``
-        is set: pass ``parallel=True`` only when calling ``evaluate()`` collectively on every
-        rank, which triggers :meth:`pproc` with ``parallel=True`` on first use. Otherwise call
-        :meth:`pproc` explicitly first.
+        Under MPI, call ``evaluate()`` on every rank as long as the run is not processed yet:
+        processing is collective. It runs in parallel when the job has as many ranks as the saved
+        run, and otherwise serially on rank 0 while the other ranks wait; ``parallel`` forces
+        either, see :meth:`pproc`.
 
         Common selections can be passed directly: ``t`` selects saved snapshots
         by index (an integer, list of integers, or slice); omit it for every
@@ -427,8 +428,8 @@ class Output:
             if representation is not None and not is_raw_spline_field:
                 raise ValueError("representation requires FEEC evaluation")
             if not is_raw_spline_field and name != "scalars":
-                if parallel and not self.is_processed:
-                    self.pproc(parallel=True)
+                if parallel is not None and not self.is_processed:
+                    self.pproc(parallel=parallel)
                 array = self._product(name, dataset=dataset)
         if t is not None:
             if isinstance(t, (int, np.integer)):
@@ -968,14 +969,15 @@ class Output:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = False,
-        parallel: bool = False,
+        parallel: bool | None = None,
         force: bool = False,
     ) -> "Output":
         """Materialize post-processed products; reuse matching existing products.
 
-        Call this on every MPI rank. Serial processing (the default) runs on rank 0 while
-        the other ranks wait. Parallel processing reconstructs the field decomposition
-        and requires the same number of ranks as the saved run.
+        Products are processed on first use with default options, so call this only to choose
+        other options. Under MPI, call it on every rank. Parallel processing reconstructs the
+        field decomposition of the saved run on as many ranks, and rank 0 gathers and writes the
+        products; serial processing runs on rank 0 while the other ranks wait.
 
         Parameters
         ----------
@@ -992,7 +994,8 @@ class Output:
         create_vtk:
             Also write VTK files of the fields.
         parallel:
-            Evaluate fields on all ranks of this output's communicator.
+            Process on all ranks of this output's communicator, which must have as many ranks as
+            the saved run. By default parallel exactly when it has, and more than one.
         force:
             Reprocess even when matching products exist.
 
@@ -1010,12 +1013,31 @@ class Output:
             create_vtk=create_vtk,
             force=force,
         )
+        if parallel is None:
+            parallel = self._processes_in_parallel
         try:
-            if parallel or self.comm.Get_rank() == 0:
-                self._setup_processing(parallel)
-                self._process_raw(**options)
-            if not parallel:
-                self.comm.Barrier()
+            if parallel:
+                self._process(parallel=True, **options)
+            elif self.comm.Get_rank() == 0:
+                with processing_lock(str(self.path_out)):
+                    self._process(parallel=False, **options)
+            # Rank 0 writes the manifest last; no rank may look for products before it has.
+            self.comm.Barrier()
+        finally:
+            self._reset()  # the other ranks load the new products
+        return self
+
+    @property
+    def _processes_in_parallel(self) -> bool:
+        """Whether processing by default uses every rank: those of a job as large as the saved run."""
+        size = self.comm.Get_size()
+        return size > 1 and size == self.mpi_ranks
+
+    def _process(self, *, parallel: bool, **options):
+        """Run one processing pass on this rank (serial) or with every rank (parallel)."""
+        try:
+            self._setup_processing(parallel)
+            self._process_raw(**options)
         finally:
             self._reset()
             for name in (
@@ -1032,7 +1054,6 @@ class Output:
                 "_collect_recv_bufs",
             ):
                 self.__dict__.pop(name, None)
-        return self
 
     def _setup_processing(self, parallel: bool):
         """Prepare the communicator and FEEC reconstruction for this processing run."""
@@ -2033,15 +2054,11 @@ class Output:
     def _ensure_processed(self):
         if self.is_processed:
             return
-        if self.comm.Get_size() > 1:
-            # pproc() is collective (rank 0 works while the rest wait at a Barrier), but evaluate()
-            # is not guaranteed to be called on every rank; auto-triggering pproc() here could hang
-            # ranks that never reach this call instead of failing fast.
-            raise RuntimeError(f"{self.path_out} has no post-processed data; call out.pproc() on all ranks first")
         logger.warning(
             "\nNo post-processed data in %s, processing with default options (call out.pproc(...) to choose them)",
             self.path_out,
         )
+        # Collective under MPI, in parallel when the job is as large as the saved run.
         self.pproc()
 
     def _product_mappings(self) -> dict[str, ProductMapping]:
