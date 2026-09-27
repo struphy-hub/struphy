@@ -38,7 +38,7 @@ def main(path_out=DEFAULT_OUTPUT):
 
     # full f in the e1-v1 plane
     data = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")
-    plot_panels(data, x="e1", y="v1", n_panels=12, ncols=4, title="full-$f$")
+    plot_panels(data, x="eta1", y="v1", n_panels=12, ncols=4, title="full-$f$")
     plt.show()
 
 
