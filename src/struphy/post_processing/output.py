@@ -351,7 +351,10 @@ class Output:
         by index (an integer, list of integers, or slice); omit it for every
         saved timestep. The returned array always retains its ``t`` dimension.
         A float ``t`` selects a time coordinate. Other keyword arguments select
-        named coordinates, for example ``component=2`` or ``eta1=0.5`` (for a product other than a raw FEEC field). For particle
+        named coordinates, for example ``component=2``. For products other than raw FEEC
+        fields (post-processed fields such as ``"em_fields/phi_xyz"``, binned distributions,
+        SPH densities, ...), ``eta1``, ``eta2`` and ``eta3`` select their saved logical
+        coordinates, e.g. ``evaluate("em_fields/phi_xyz", t=-1, eta3=0)``. For particle
         products, a ``"species/variable"`` name selects the first matching binned
         product, then density/KDE product, then orbits. Pass ``dataset=`` to select a
         particular discovered product; use ``out.info("species/variable")`` to list them.
@@ -360,8 +363,10 @@ class Output:
 
         Supplying an ``eta`` evaluates a raw FEEC spline field directly on that logical
         grid. Each eta can be a scalar, a list, a one-dimensional array, or a ``range``;
-        mixed inputs form their tensor-product mesh internally. Omitted directions in a
-        line or plane cut use the logical midpoint, ``0.5``. When ``name`` identifies a
+        mixed inputs form their tensor-product mesh internally. Omitted directions are
+        evaluated at the cell centres of the simulation grid, so
+        ``evaluate("em_fields/phi", t=-1, eta3=0)`` is the ``(eta1, eta2)`` plane at ``eta3=0``,
+        and all three etas are needed for a point. When ``name`` identifies a
         raw FEEC field and all three etas are omitted, the field is evaluated at the
         cell centres of the full simulation grid. This reads coefficients one saved
         snapshot at a time and does not materialize a spatial post-processing product.
@@ -388,9 +393,9 @@ class Output:
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
-        if has_eta and name != "scalars" and (dataset is not None or self._is_kinetic_product(name)):
-            # Only raw FEEC fields can be evaluated anywhere; for particle products (binned
-            # distributions, SPH densities, ...) eta1/eta2/eta3 select their saved logical coordinates.
+        if has_eta and name != "scalars" and (dataset is not None or not self._is_raw_spline_field(name)):
+            # Only raw FEEC fields can be evaluated anywhere; for other products (post-processed fields,
+            # binned distributions, SPH densities, ...) eta1/eta2/eta3 select their saved logical coordinates.
             for direction, value in enumerate(eta, 1):
                 if value is not None:
                     selectors[f"eta{direction}"] = value
@@ -414,7 +419,9 @@ class Output:
         if name == "scalars":
             is_raw_spline_field = False
         elif has_eta:
-            eta = tuple(0.5 if value is None else value for value in eta)
+            if any(value is None for value in eta):
+                defaults = self._default_logical_grid()
+                eta = tuple(default if value is None else value for value, default in zip(eta, defaults))
             array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
             t = None
             method = None
@@ -453,15 +460,6 @@ class Output:
             raise ValueError("method requires a direct coordinate selector")
         return array
 
-    def _is_kinetic_product(self, name: str) -> bool:
-        """Whether ``name`` belongs to a kinetic species of the raw output (and is no FEEC field)."""
-        species = name.split("/")[0]
-        path = self.path_out / "data" / "data_proc0.hdf5"
-        if not path.exists():
-            return False
-        with h5py.File(path) as file:
-            return f"kinetic/{species}" in file and not self._is_raw_spline_field(name)
-
     def _is_raw_spline_field(self, name: str) -> bool:
         """Whether ``name`` is a raw FEEC field saved in the primary output file."""
         try:
@@ -469,6 +467,8 @@ class Output:
         except ValueError:
             return False
         path = self.path_out / "data" / "data_proc0.hdf5"
+        if not path.exists():
+            return False
         with h5py.File(path) as file:
             return f"feec/{species}/{variable}" in file
 
