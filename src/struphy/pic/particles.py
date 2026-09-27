@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import cunumpy as xp
 
@@ -12,6 +13,8 @@ from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
+
+logger = logging.getLogger("struphy")
 
 
 class Particles6D(Particles):
@@ -496,12 +499,12 @@ class Particles5D(Particles):
             return super()._particle_refilling()
 
         weights = self._markers[refilled, self.index["weights"]]
-        self.refill_energy[0] += xp.sum(weights * self._eval_mu_B(self._markers[refilled]))
+        self.refill_energy[0] += self._refill_energy_sum(self._markers[refilled], weights, "before refilling")
 
         super()._particle_refilling()
 
         if self.mpi_comm is None:
-            self.refill_energy[0] -= xp.sum(weights * self._eval_mu_B(self._markers[refilled]))
+            self.refill_energy[0] -= self._refill_energy_sum(self._markers[refilled], weights, "after refilling")
         else:
             self._refilled_ids = xp.concatenate((self.refilled_ids, self._markers[refilled, self.index["ids"]]))
 
@@ -522,7 +525,23 @@ class Particles5D(Particles):
         mine = xp.isin(self._markers[:, self.index["ids"]], ids) & (self._markers[:, 0] != -1.0)
         if xp.any(mine):
             weights = self._markers[mine, self.index["weights"]]
-            self.refill_energy[0] -= xp.sum(weights * self._eval_mu_B(self._markers[mine]))
+            self.refill_energy[0] -= self._refill_energy_sum(self._markers[mine], weights, "after refilling (sorted)")
+
+    def _refill_energy_sum(self, rows, weights, stage):
+        """Sum of ``w * mu * (|B_0| + b_parallel)`` over the given marker rows for :attr:`refill_energy`.
+        Non-finite terms are left out and the corresponding markers are logged, such that a single
+        corrupted marker does not turn the (cumulative) diagnostic into NaN."""
+        mu_B = self._eval_mu_B(rows)
+        terms = weights * mu_B
+        bad = ~xp.isfinite(terms)
+        if xp.any(bad):
+            for row, w, mb in zip(rows[bad], weights[bad], mu_B[bad]):
+                logger.warning(
+                    f"rank {self.mpi_rank}: non-finite refill energy {stage} for marker id={row[self.index['ids']]:.0f}: "
+                    f"eta=({row[0]:.17g}, {row[1]:.17g}, {row[2]:.17g}), v_parallel={row[3]:.17g}, "
+                    f"mu={row[self.mu_idx]:.17g}, weight={w:.17g}, mu*B={mb:.17g}; left out of en_refill",
+                )
+        return xp.sum(terms[~bad])
 
     def _eval_mu_B(self, rows):
         """Evaluate :math:`\\mu (|B_0| + b_\\parallel)` at the positions of a copy of the given marker rows,
