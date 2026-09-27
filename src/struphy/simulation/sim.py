@@ -769,6 +769,7 @@ class Simulation(SimulationBase):
                 desc="Time stepping",
                 unit="step",
             )
+            self.print_progress(0)
             while True:
                 self.Barrier()
 
@@ -873,6 +874,10 @@ class Simulation(SimulationBase):
                     if show_progress_bar:
                         pbar.update(1)
 
+                # [PROGRESS:N] markers for a GUI frontend (only with env.gui)
+                steps_done = int(self.time_state["index"][0]) - start_step
+                self.print_progress(min(100, int(100 * steps_done / max(total_steps, 1))))
+
             pbar.close()
 
             # ===================================================================
@@ -886,6 +891,8 @@ class Simulation(SimulationBase):
 
         if self.env.gui and self.rank == 0:
             print("[STEP:2:done]")
+
+        return self.output
 
     @property
     def output(self) -> Output:

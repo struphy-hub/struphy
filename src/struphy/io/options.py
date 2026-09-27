@@ -349,6 +349,9 @@ class EnvironmentOptions(OptionsBase):
     num_clones: int, optional
         Number of domain clones (default=1)
 
+    gui: bool, optional
+        Print ``[PROGRESS:N]`` / ``[STEP:N:done]`` markers to stdout for a GUI frontend (default=False).
+
     """
 
     out_folders: str = os.getcwd()
@@ -360,6 +363,7 @@ class EnvironmentOptions(OptionsBase):
     save_restart: bool = True
     sort_step: int = 0
     num_clones: int = 1
+    gui: bool = False
 
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
