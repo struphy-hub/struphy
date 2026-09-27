@@ -93,6 +93,14 @@ class Variable(metaclass=ABCMeta):
     def __repr__(self):
         return f"{self.__class__.__name__} ({self.space})"
 
+    def to_dict(self) -> dict:
+        """Serialize the variable's discretization and output settings."""
+        return {
+            "class": type(self).__name__,
+            "space": self.space,
+            "save_data": self.save_data,
+        }
+
     @property
     def backgrounds(self):
         """The static background. Multiple backgrounds can be defined in a list,
@@ -500,6 +508,11 @@ class PICVariable(Variable):
     def space(self) -> LiteralOptions.OptsPICSpace:
         return self._space
 
+    def to_dict(self) -> dict:
+        data = super().to_dict()
+        data["n_as_volume_form"] = self.n_as_volume_form
+        return data
+
     @property
     def particles_class(self) -> Particles:
         return self._particles_class
@@ -770,6 +783,11 @@ class SPHVariable(Variable):
     @property
     def space(self):
         return self._space
+
+    def to_dict(self) -> dict:
+        data = super().to_dict()
+        data["n_as_volume_form"] = self.n_as_volume_form
+        return data
 
     @property
     def particles_class(self) -> Particles:

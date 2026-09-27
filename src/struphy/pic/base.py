@@ -77,6 +77,14 @@ def _to_numpy_for_kernel(value):
     return value
 
 
+ORBIT_POSITIONS = (
+    (0, "x", "$x$", "physical position x"),
+    (1, "y", "$y$", "physical position y"),
+    (2, "z", "$z$", "physical position z"),
+)
+"""Orbit quantities of the position columns, which post-processing maps to physical coordinates."""
+
+
 class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
@@ -427,6 +435,11 @@ class Particles(metaclass=ABCMeta):
         """Labels for the coordinates in the phase space.
         Length must be 3 + vdim, where the first 3 are the spatial coordinates and the last vdim are the velocity coordinates."""
         pass
+
+    orbit_quantities: tuple[tuple[int, str, str, str], ...] = ()
+    """Marker columns saved in the ``orbits`` post-processing product, as
+    ``(column, name, long_name, description)``. The first three are :data:`ORBIT_POSITIONS`;
+    the marker index becomes the ``marker`` coordinate of the product."""
 
     @property
     @abstractmethod

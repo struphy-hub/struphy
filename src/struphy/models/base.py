@@ -1,6 +1,7 @@
 import logging
 import os
 from abc import ABCMeta, abstractmethod
+from dataclasses import fields, is_dataclass
 from textwrap import indent
 
 import cunumpy as xp
@@ -926,16 +927,145 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         return path
 
-    def to_dict(self) -> dict:
-        """Serialize the model configuration to a dictionary."""
-        dct = {"model": self.__class__.__name__}
-        return dct
+    def to_dict(self, *, initial_condition_serializer=None) -> dict:
+        """Serialize the model constructor, variables and propagator options.
+
+        Pass an initial-condition serializer to include each variable's definitions
+        in run metadata. The plain configuration omits them.
+        """
+        params = {}
+        for key, value in self.params.items():
+            if isinstance(value, BaseUnits):
+                value = {"BaseUnits": value.to_dict()}
+            elif not isinstance(value, (bool, int, float, str, tuple, list, type(None))):
+                raise TypeError(f"cannot serialize argument {key}={value!r} of {self.__class__.__name__}")
+            params[key] = value
+        species = {name: item.to_dict() for name, item in self.species.items()}
+        if initial_condition_serializer is not None:
+            for species_name, item in self.species.items():
+                for variable_name, variable in item.variables.items():
+                    definitions = {
+                        "backgrounds": initial_condition_serializer(variable.backgrounds),
+                        "perturbations": initial_condition_serializer(variable.perturbations),
+                    }
+                    if isinstance(variable, PICVariable):
+                        # Reading the property can mutate the variable's state.
+                        definitions["initial_condition"] = initial_condition_serializer(
+                            getattr(variable, "_initial_condition", variable.backgrounds)
+                        )
+                    species[species_name]["variables"][variable_name]["initial_conditions"] = definitions
+        result = {
+            "model": self.__class__.__name__,
+            "params": params,
+            "species": species,
+            "propagator_options": {
+                name: self._serialize_propagator_option(prop.options)
+                for name, prop in vars(self.propagators).items()
+                if isinstance(prop, Propagator)
+            },
+        }
+        if initial_condition_serializer is not None:
+            result["initial_conditions_schema_version"] = 1
+        return result
+
+    def _serialize_propagator_option(self, value):
+        """Convert nested option dataclasses and variable references to JSON data."""
+        if is_dataclass(value) and not isinstance(value, type):
+            return {
+                field.name: self._serialize_propagator_option(getattr(value, field.name))
+                for field in fields(value)
+                if field.init
+            }
+        if isinstance(value, dict):
+            variable_names = {
+                id(variable): f"{species_name}.{variable_name}"
+                for species_name, species in self.species.items()
+                for variable_name, variable in species.variables.items()
+            }
+            return {
+                variable_names[id(key)] if id(key) in variable_names else key: self._serialize_propagator_option(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, (list, tuple)):
+            return [self._serialize_propagator_option(item) for item in value]
+        return value
 
     @classmethod
     def from_dict(cls, dct) -> "StruphyModel":
-        """Deserialize a model configuration from a dictionary."""
-        model_name = dct["model"]
-        return cls.from_name(model_name)
+        """Deserialize a model from :meth:`to_dict`."""
+        from struphy.models.utils import get_model_by_name
+        from struphy.particles.parameters import (
+            BoundaryParameters,
+            LoadingParameters,
+            SavingParameters,
+            SortingParameters,
+            WeightsParameters,
+        )
+
+        params = {}
+        for key, value in dct.get("params", {}).items():
+            if isinstance(value, dict) and set(value) == {"BaseUnits"}:
+                value = BaseUnits.from_dict(value["BaseUnits"])
+            params[key] = value
+        model = get_model_by_name(dct["model"])(**params)
+
+        parameter_types = {
+            "loading_params": LoadingParameters,
+            "weights_params": WeightsParameters,
+            "boundary_params": BoundaryParameters,
+            "sorting_params": SortingParameters,
+            "saving_params": SavingParameters,
+        }
+        for species_name, species_data in dct.get("species", {}).items():
+            species = model.species.get(species_name)
+            if species is None:
+                continue
+            for variable_name, variable_data in species_data.get("variables", {}).items():
+                variable = species.variables.get(variable_name)
+                if variable is None:
+                    continue
+                if "save_data" in variable_data:
+                    variable.save_data = variable_data["save_data"]
+                if isinstance(variable, PICVariable) and "n_as_volume_form" in variable_data:
+                    variable._n_as_volume_form = variable_data["n_as_volume_form"]
+
+            if isinstance(species, ParticleSpecies) and "loading_params" in species_data:
+                marker_params = {
+                    name: parameter_types[name](**species_data[name])
+                    for name in parameter_types
+                    if name in species_data
+                }
+                marker_params["bufsize"] = species_data.get("bufsize", 1.0)
+                species.set_markers(**marker_params)
+
+        def restore_option(value, template):
+            if is_dataclass(template) and isinstance(value, dict):
+                for field in fields(template):
+                    if field.init and field.name in value:
+                        setattr(template, field.name, restore_option(value[field.name], getattr(template, field.name)))
+                return template
+            if isinstance(template, dict) and isinstance(value, dict):
+                restored = {}
+                for key, item in value.items():
+                    restored_key = restore_option(key, key)
+                    restored[restored_key] = restore_option(item, template.get(restored_key))
+                return restored
+            if isinstance(value, list):
+                template_item = template[0] if isinstance(template, (list, tuple)) and template else None
+                return [restore_option(item, template_item) for item in value]
+            if isinstance(value, str) and "." in value:
+                species_name, variable_name = value.split(".", 1)
+                species = model.species.get(species_name)
+                if species is not None and variable_name in species.variables:
+                    return species.variables[variable_name]
+            return value
+
+        for prop_name, options in dct.get("propagator_options", {}).items():
+            propagator = getattr(model.propagators, prop_name, None)
+            if propagator is not None:
+                restore_option(options, propagator.options)
+
+        return model
 
     @classmethod
     def from_name(cls, name: str) -> "StruphyModel":
