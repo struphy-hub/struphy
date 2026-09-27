@@ -242,8 +242,8 @@ class Output:
       ``out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t=-1)``, or
       ``orbits.struphy.plot.poloidal()`` for an orbits Dataset.
 
-    ``help(struphy_plots)`` gives an overview of the package, and ``help()`` on any accessor
-    method (e.g. ``help(phi.struphy.plot.slice)``) its parameters.
+    ``import struphy_plots; help(struphy_plots)`` gives an overview of the package, and ``help()``
+    on any accessor method (e.g. ``help(phi.struphy.plot.slice)``) its parameters.
 
     Parameters
     ----------

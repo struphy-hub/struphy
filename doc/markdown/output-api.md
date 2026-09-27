@@ -240,7 +240,7 @@ phi.struphy.analysis.mode_spectrum()                            # poloidal and t
 out.kinetic_ions.orbits.struphy.plot.poloidal()                 # guiding-center orbits
 ```
 
-`help(struphy_plots)` gives an overview of what the package does, and `help()` on any method,
+`import struphy_plots; help(struphy_plots)` gives an overview of what the package does, and `help()` on any method,
 e.g. `help(phi.struphy.plot.slice)`, its parameters. Its guides and full reference are at
 <https://struphy-hub.github.io/struphy-plots>.
 
