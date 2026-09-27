@@ -42,6 +42,9 @@ def main(paths=(DEFAULT_OUTPUT,)):
     if len(runs) > 1:
         return
 
+    if len(runs) > 1:
+        return
+
     if SHOW_EQUIL_PROFILE:
         run.plot.equilibrium()
 

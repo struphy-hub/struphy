@@ -18,13 +18,13 @@ regardless of the directory from which you launch it. In a notebook, replace
 ``Path(__file__).resolve().parent`` with an explicit directory such as ``Path.cwd()``
 and omit ``params_path=__file__`` from the simulation constructor.
 
-We search for a potential :math:`\phi(x)` satisfying the Poisson equation
+We search for a potential :math:`\phi(x, y)` satisfying the Poisson equation
 
 .. math::
 
     -\Delta \phi = \rho
 
-for given source term :math:`\rho(x)` on a periodic 1D domain.
+for a given source term :math:`\rho(x)` on a doubly periodic 2D domain.
 
 1. Import the API and choose a model.
 
@@ -56,9 +56,8 @@ For periodic boundary conditions we will stabilize via ``options``.
 
 .. code-block:: python
 
-    import numpy as np
-
     Lx = 2.0 * np.pi
+    Ly = 4.0 * np.pi
     mode = 2
     k = mode * 2.0 * np.pi / Lx
     source_amp = k**2 + stab_eps
@@ -86,11 +85,12 @@ For periodic boundary conditions we will stabilize via ``options``.
         grid=grid,
     )
 
-6. Run one step (enough for this stationary solve).
+6. Run the simulation. ``sim.run()`` returns an :class:`~struphy.Output` object,
+   the entry point for all post-processing.
 
 .. code-block:: python
 
-    sim.run(one_time_step=True)
+    out = sim.run()
 
 7. Open the output folder directly. Fields are post-processed when first accessed
    and come as labeled :class:`xarray.DataArray` objects.
@@ -114,7 +114,7 @@ post-processing script can use the same path without importing the parameter fil
     x = phi.X.values
     phi_num = phi.values
     phi_exact = np.cos(k * x)
-    err_max = np.max(np.abs(phi_num - phi_exact))
+    phi_exact_logical = np.cos(Lx * k * eta1)
 
     plt.figure(figsize=(7, 3.8))
     plt.plot(x, phi_exact, "k--", lw=1.8, label="exact")
@@ -127,8 +127,6 @@ post-processing script can use the same path without importing the parameter fil
     plt.tight_layout()
     plt.savefig(path_out / "quickstart_poisson_phi.png", dpi=150)
     plt.show()
-
-    print(f"max error = {err_max:.3e}")
 
 .. figure:: ../pics/quickstart_poisson_phi.png
     :figwidth: 85%
@@ -149,12 +147,13 @@ Full script (save as ``params_poisson.py`` and run with ``python params_poisson.
     model = Poisson()
 
     stab_eps = 1e-8
-    
+
     model.propagators.poisson.options = model.propagators.poisson.Options(
         stab_eps=stab_eps,
     )
 
     Lx = 2.0 * np.pi
+    Ly = 4.0 * np.pi
     mode = 2
     k = mode * 2.0 * np.pi / Lx
     source_amp = k**2 + stab_eps

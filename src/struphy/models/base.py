@@ -1,6 +1,7 @@
 import logging
 import os
 from abc import ABCMeta, abstractmethod
+from dataclasses import fields, is_dataclass
 from textwrap import indent
 
 import cunumpy as xp

@@ -16,6 +16,26 @@ from struphy.utils.mpi_launch import launched_under_mpi
 logger = logging.getLogger("struphy")
 
 
+def _describe_dict_diff(a, b, path: str = "") -> list[str]:
+    """Recursively compare two (nested) dicts/lists and describe every leaf that differs.
+
+    Used to turn a bare ``sim != sim2`` assertion into a readable list of the
+    exact fields that diverged, which is otherwise very hard to track down.
+    """
+    lines = []
+    if isinstance(a, dict) and isinstance(b, dict):
+        for key in sorted(set(a) | set(b), key=str):
+            lines += _describe_dict_diff(a.get(key, "<MISSING>"), b.get(key, "<MISSING>"), f"{path}.{key}")
+    elif isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        if len(a) != len(b):
+            lines.append(f"  length mismatch at {path}: {len(a)} vs {len(b)}")
+        for i, (x, y) in enumerate(zip(a, b)):
+            lines += _describe_dict_diff(x, y, f"{path}[{i}]")
+    elif a != b:
+        lines.append(f"  {path}: {a!r} != {b!r}")
+    return lines
+
+
 # generic function for calling model tests
 def call_test(model: StruphyModel, test_profiling: bool = False):
     model_name = model.name()
@@ -79,7 +99,11 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
 
     sim_dict = sim.to_dict()  # test the to_dict method
     sim2 = Simulation.from_dict(sim_dict)  # test the from_dict method
-    assert sim == sim2, "Simulation to_dict and from_dict methods are not consistent"
+    if sim != sim2:
+        raise AssertionError(
+            f"Simulation to_dict and from_dict methods are not consistent for {model_name}:\n"
+            + "\n".join(_describe_dict_diff(sim_dict, sim2.to_dict()))
+        )
 
     # test the generate_script method
     sim1_script = sim.generate_script()

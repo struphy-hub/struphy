@@ -1,11 +1,14 @@
 # third party imports
 import dataclasses
 import glob
+import hashlib
+import importlib
+import inspect
 import json
 import logging
 import os
 import shutil
-import sysconfig
+import textwrap
 import time
 import warnings
 from pathlib import Path
@@ -52,6 +55,7 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
+from struphy.initial.base import Perturbation
 from struphy.io.output_handling import DataContainer
 from struphy.models import Maxwell
 from struphy.models.base import StruphyModel
@@ -71,7 +75,7 @@ from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.progress import tqdm
-from struphy.utils.utils import dict_to_yaml, ruff_autofix_and_format
+from struphy.utils.utils import ruff_autofix_and_format
 
 logger = logging.getLogger("struphy")
 
@@ -862,23 +866,6 @@ class Simulation(SimulationBase):
 
             self.Barrier()
 
-            if self.rank == 0:
-                # save meta-data
-                meta = {
-                    "platform": sysconfig.get_platform(),
-                    "python version": sysconfig.get_python_version(),
-                    "model name": self.model_name,
-                    "parameter file": self.params_path,
-                    "output folder": self.env.path_out,
-                    "MPI processes": self.comm_size,
-                    "use MPI.COMM_WORLD": self.comm is not None,
-                    "number of domain clones": self.env.num_clones,
-                    "restart": self.env.restart,
-                    "max wall-clock [min]": self.env.max_runtime,
-                    "save interval [steps]": self.env.save_step,
-                    "wall-clock time[min]": (end_time - self.start_time) / 60,
-                }
-                dict_to_yaml(meta, os.path.join(self.env.path_out, "meta.yml"))
             logger.info("Struphy run finished.")
 
             if self.clone_config is not None:
@@ -1656,22 +1643,285 @@ class Simulation(SimulationBase):
             "profiling_opts": vars(self.profiling_opts).copy(),
         }
 
-    def _collect_particle_metadata(self) -> dict:
-        """Collect per-species marker metadata (Np, ppc, ppb) for the current sim."""
-        particle_metadata = {}
-        for species_name, species in self.model.particle_species.items():
-            species_metadata = {}
-            for variable_name, variable in species.variables.items():
-                if isinstance(variable, PICVariable | SPHVariable) and hasattr(variable, "_particles"):
-                    particles = variable.particles
-                    species_metadata[variable_name] = {
-                        "Np": particles.Np,
-                        "ppc": particles.ppc,
-                        "ppb": particles.ppb,
+    @staticmethod
+    def _serialize_function_globals(func, source: str, seen=None) -> dict:
+        """Capture the module-level names a user function needs to be re-executed.
+
+        Default arguments (``def f(x, r=r_minus)``) and body references (``R0``,
+        helper functions) are resolved in the defining module, so the source alone
+        cannot be restored.  Plain values, modules and other top-level functions are
+        recorded; anything else is left out and fails only if it is actually used.
+        """
+        seen = set() if seen is None else seen
+        seen = seen | {id(func)}
+        names = sorted(
+            {
+                node.id
+                for node in ast.walk(ast.parse(source))
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+            }
+        )
+
+        def plain(item):
+            if item is None or isinstance(item, (bool, int, float, str)):
+                return True
+            return isinstance(item, (list, tuple)) and all(plain(each) for each in item)
+
+        referenced = {}
+        for name in names:
+            if name == func.__name__ or name not in func.__globals__:
+                continue
+            item = func.__globals__[name]
+            if inspect.ismodule(item):
+                referenced[name] = {"type": "module", "name": item.__name__}
+            elif plain(item):
+                referenced[name] = {"type": "value", "value": Simulation._serialize_initial_condition(item)}
+            elif inspect.isfunction(item) and id(item) not in seen:
+                serialized = Simulation._serialize_initial_condition(item, _seen=seen)
+                if serialized.get("serialization") != "unsupported":
+                    referenced[name] = serialized
+        return referenced
+
+    @staticmethod
+    def _deserialize_function_globals(referenced: dict) -> dict:
+        """Rebuild the namespace recorded by :meth:`_serialize_function_globals`."""
+        namespace = {}
+        for name, item in referenced.items():
+            if item["type"] == "module":
+                namespace[name] = importlib.import_module(item["name"])
+            elif item["type"] == "value":
+                namespace[name] = Simulation._deserialize_initial_condition(item["value"])
+            else:
+                namespace[name] = Simulation._deserialize_initial_condition(item)
+        return namespace
+
+    @staticmethod
+    def _serialize_initial_condition(value, _seen=None):
+        """Convert initial-condition definitions into JSON-compatible provenance data.
+
+        This deliberately captures constructor parameters rather than evaluated FEEC
+        coefficients or particle data.  It is therefore small and records the setup
+        that produced the initial state.  The representation is not yet used to
+        reconstruct a simulation from output.
+        """
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, dict):
+            return {str(key): Simulation._serialize_initial_condition(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [Simulation._serialize_initial_condition(item) for item in value]
+        if (
+            type(value).__module__
+            not in {
+                "struphy.initial.perturbations",
+                "struphy.kinetic_background.maxwellians",
+                "struphy.kinetic_background.base",
+                "struphy.io.options",
+            }
+            and not inspect.isfunction(value)
+            and (isinstance(value, Perturbation) or callable(value))
+        ):
+            cls = type(value)
+            if "<locals>" in cls.__qualname__:
+                return {
+                    "type": "python_class",
+                    "serialization": "unsupported",
+                    "reason": "nested classes are not supported",
+                }
+            if cls.__module__ == "struphy" or cls.__module__.startswith("struphy."):
+                # Struphy's own classes are importable; re-executing their source would
+                # lose the names their module imports.
+                data = {"type": "python_class", "name": cls.__qualname__, "module": cls.__module__}
+            else:
+                try:
+                    source = textwrap.dedent(inspect.getsource(cls))
+                except (OSError, TypeError):
+                    return {
+                        "type": "python_class",
+                        "serialization": "unsupported",
+                        "reason": "source code is unavailable",
                     }
-            if species_metadata:
-                particle_metadata[species_name] = species_metadata
-        return particle_metadata
+                data = {
+                    "type": "python_class",
+                    "name": cls.__name__,
+                    "source": source,
+                    "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+                }
+            if hasattr(value, "params"):
+                data["params"] = Simulation._serialize_initial_condition(value.params)
+            elif hasattr(value, "__dict__"):
+                data["state"] = Simulation._serialize_initial_condition(vars(value))
+            else:
+                data.update(
+                    {
+                        "serialization": "unsupported",
+                        "reason": "callable objects without instance state are not supported",
+                    }
+                )
+            return data
+        if dataclasses.is_dataclass(value) and not isinstance(value, type):
+            return {
+                "type": type(value).__name__,
+                "params": Simulation._serialize_initial_condition(
+                    {field.name: getattr(value, field.name) for field in dataclasses.fields(value) if field.init}
+                ),
+            }
+        if hasattr(value, "params"):
+            parameters = value.params
+            try:
+                signature = inspect.signature(type(value))
+            except (TypeError, ValueError):
+                signature = None
+            if signature is not None and not any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values()
+            ):
+                parameters = {
+                    name: parameter_value
+                    for name, parameter_value in parameters.items()
+                    if name in signature.parameters
+                }
+            return {
+                "type": type(value).__name__,
+                "params": Simulation._serialize_initial_condition(parameters),
+            }
+        if inspect.isfunction(value):
+            # Top-level functions are fully captured in metadata.  Their source is
+            # self-contained: neither the module name nor a source-file reference is
+            # required to recover it later.
+            if value.__name__ == "<lambda>" or "<locals>" in value.__qualname__ or value.__closure__ is not None:
+                return {
+                    "type": "python_function",
+                    "serialization": "unsupported",
+                    "reason": "lambdas, nested functions, and closures are not supported",
+                }
+            try:
+                source = textwrap.dedent(inspect.getsource(value))
+            except (OSError, TypeError):
+                return {
+                    "type": "python_function",
+                    "serialization": "unsupported",
+                    "reason": "source code is unavailable",
+                }
+            data = {
+                "type": "python_function",
+                "name": value.__name__,
+                "source": source,
+                "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+            }
+            referenced = Simulation._serialize_function_globals(value, source, _seen)
+            if referenced:
+                data["globals"] = referenced
+            return data
+        if callable(value):
+            return {
+                "type": "callable",
+                "serialization": "unsupported",
+                "reason": "only top-level Python functions are currently supported",
+            }
+        # CuPyJSONEncoder handles NumPy/CuPy arrays after this traversal. Keep
+        # other values visible in provenance rather than making metadata writing fail.
+        return value
+
+    @staticmethod
+    def _deserialize_initial_condition(value):
+        """Rebuild one initial-condition definition from metadata."""
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, list):
+            return tuple(Simulation._deserialize_initial_condition(item) for item in value)
+        if (
+            not isinstance(value, dict)
+            or "type" not in value
+            or ("params" not in value and value["type"] not in {"python_function", "python_class", "callable"})
+        ):
+            return {key: Simulation._deserialize_initial_condition(item) for key, item in value.items()}
+
+        kind = value["type"]
+        if kind == "python_function":
+            if value.get("serialization") == "unsupported":
+                raise ValueError(f"Cannot restore initial-condition function: {value['reason']}.")
+            source = value["source"]
+            if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
+                raise ValueError("Initial-condition function source hash does not match its metadata.")
+            import cunumpy as xp
+            import numpy as np
+
+            namespace = {"np": np, "numpy": np, "xp": xp, "cp": xp, "cupy": xp}
+            namespace.update(Simulation._deserialize_function_globals(value.get("globals", {})))
+            exec(source, namespace)  # noqa: S102 -- reconstruct saved Python function
+            return namespace[value["name"]]
+        if kind == "python_class":
+            if value.get("serialization") == "unsupported":
+                raise ValueError(f"Cannot restore initial-condition class: {value['reason']}.")
+            if "module" in value:
+                initial_condition_class = importlib.import_module(value["module"])
+                for part in value["name"].split("."):
+                    initial_condition_class = getattr(initial_condition_class, part)
+            else:
+                source = value["source"]
+                if hashlib.sha256(source.encode()).hexdigest() != value["source_sha256"]:
+                    raise ValueError("Initial-condition class source hash does not match its metadata.")
+                import cunumpy as xp
+                import numpy as np
+
+                namespace = {
+                    "np": np,
+                    "numpy": np,
+                    "xp": xp,
+                    "cp": xp,
+                    "cupy": xp,
+                    "Perturbation": Perturbation,
+                    "dataclass": dataclasses.dataclass,
+                }
+                exec(source, namespace)  # noqa: S102 -- reconstruct saved Python class
+                initial_condition_class = namespace[value["name"]]
+            if "params" in value:
+                return initial_condition_class(**Simulation._deserialize_initial_condition(value["params"]))
+            initial_condition = initial_condition_class.__new__(initial_condition_class)
+            initial_condition.__dict__.update(Simulation._deserialize_initial_condition(value["state"]))
+            return initial_condition
+        if kind == "callable":
+            raise ValueError(f"Cannot restore initial-condition callable: {value['reason']}.")
+        if kind == "FieldsBackground":
+            return FieldsBackground(**Simulation._deserialize_initial_condition(value["params"]))
+
+        from struphy.initial import perturbations
+        from struphy.kinetic_background import base as kinetic_background_base
+        from struphy.kinetic_background import maxwellians
+
+        params = Simulation._deserialize_initial_condition(value["params"])
+        for module in (equils, perturbations, maxwellians, kinetic_background_base):
+            initial_condition_class = getattr(module, kind, None)
+            if initial_condition_class is not None:
+                return initial_condition_class(**params)
+        raise ValueError(f"Unknown initial-condition type '{kind}'.")
+
+    def _restore_initial_conditions(self, metadata: dict):
+        """Attach metadata initial conditions to the reconstructed model variables."""
+        version = metadata.get("model", {}).get("initial_conditions_schema_version", 1)
+        if version != 1:
+            raise ValueError(f"Unsupported initial-conditions metadata schema version: {version}.")
+        model_species = metadata.get("model", {}).get("species", {})
+        definitions = {
+            species_name: {
+                name: variable["initial_conditions"]
+                for name, variable in species.get("variables", {}).items()
+                if "initial_conditions" in variable
+            }
+            for species_name, species in model_species.items()
+        }
+        for species_name, variables in definitions.items():
+            species = self.model.species.get(species_name)
+            if species is None:
+                continue
+            for variable_name, entry in variables.items():
+                variable = species.variables.get(variable_name)
+                if variable is None:
+                    continue
+                variable._backgrounds = self._deserialize_initial_condition(entry["backgrounds"])
+                variable._perturbations = self._deserialize_initial_condition(entry["perturbations"])
+                if isinstance(variable, PICVariable):
+                    variable._initial_condition = self._deserialize_initial_condition(entry["initial_condition"])
 
     def to_run_metadata(self, file_path: str = None, **extra_data) -> str:
         """Snapshot of the reconstructible config (see :meth:`to_dict`) plus run-specific,
@@ -1696,12 +1946,11 @@ class Simulation(SimulationBase):
             The JSON-encoded simulation metadata.
         """
         config = self.to_dict()
+        config["model"] = self.model.to_dict(initial_condition_serializer=self._serialize_initial_condition)
         config.update(
             {
-                "model_name": self.model_name,
                 "mpi_ranks": self.comm_size,
                 "use_mpi_comm_world": self.comm is not None,
-                "particle_species": self._collect_particle_metadata(),
                 **extra_data,
             },
         )
@@ -1738,7 +1987,12 @@ class Simulation(SimulationBase):
 
     @classmethod
     def from_file(cls, file_path: str) -> "SimulationBase":
-        """Deserialize a simulation configuration from a file based on the file extension."""
+        """Deserialize a simulation configuration from a YAML or JSON file.
+
+        Initial conditions in run metadata are restored when present. Embedded
+        Python functions and classes are reconstructed from their saved source.
+        """
+        file_path = os.fspath(file_path)
         if file_path.endswith(".yaml") or file_path.endswith(".yml"):
             with open(file_path, "r") as f:
                 dct = yaml.safe_load(f)
@@ -1747,6 +2001,8 @@ class Simulation(SimulationBase):
                 dct = json.load(f)
         else:
             raise ValueError("Unsupported file format. Use .yaml, .yml or .json.")
+
+        metadata = copy.deepcopy(dct)
 
         # YAML and JSON do not have a native tuple type,
         # so when you load them with PyYAML or json,
@@ -1763,7 +2019,30 @@ class Simulation(SimulationBase):
 
         # Convert lists to tuples for relevant keys
         dct = convert_lists_to_tuples(dct)
-        return cls.from_dict(dct)
+        sim = cls.from_dict(dct)
+        sim._restore_initial_conditions(metadata)
+        return sim
+
+    @classmethod
+    def from_output(cls, path_out: str) -> "Simulation":
+        """Restore the simulation that wrote the output folder ``path_out``.
+
+        The configuration is read from the ``run_metadata.json`` written by :meth:`run`; a copied
+        parameter file is never executed. The metadata holds the options objects and the
+        arguments of the model (and thus its units), which is all that post-processing and
+        plotting need. Initial conditions are restored when present, including
+        embedded Python functions and classes from saved source.
+        Nothing is allocated, and ``env`` points at ``path_out`` even if the folder was moved.
+        """
+        path_out = os.path.abspath(path_out)
+        config_path = os.path.join(path_out, "run_metadata.json")
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"run_metadata.json does not exist in {path_out}; is it a Struphy output folder?")
+        sim = cls.from_file(config_path)
+        sim.env = dataclasses.replace(
+            sim.env, out_folders=os.path.dirname(path_out), sim_folder=os.path.basename(path_out)
+        )
+        return sim
 
     @classmethod
     def from_output(cls, path_out: str) -> "Simulation":
@@ -1880,7 +2159,10 @@ from struphy.models import {self.model.__class__.__name__}
 
         sim_class_def += ")\n"
 
+        # Rebuild from the serialized configuration so post-construction model
+        # settings (particle parameters and propagator options) are preserved.
         script += sim_setup + "\n" + sim_class_def
+        script += f"\n# Restore the complete model configuration\nsim = Simulation.from_dict({self.to_dict()!r})\n"
         if include_main_guard:
             script += """
 if __name__ == "__main__":
