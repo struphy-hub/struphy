@@ -20,15 +20,15 @@ from struphy.post_processing.arrays import (
 def test_data_array_carries_names_coordinates_and_units():
     data = data_array(
         np.ones((3, 4)),
-        ("t", "e1"),
-        {"t": [0, 1, 2], "e1": np.arange(4)},
+        ("t", "eta1"),
+        {"t": [0, 1, 2], "eta1": np.arange(4)},
         name="density",
         label="$n$",
         unit="m^-3",
         coord_units={"t": "s"},
     )
     assert isinstance(data, xr.DataArray)
-    assert data.sel(t=1).dims == ("e1",)
+    assert data.sel(t=1).dims == ("eta1",)
     assert axis_label(data, "t") == "$t$ [s]"
     assert value_label(data) == "$n$ [m^-3]"
 
@@ -54,8 +54,8 @@ def test_field_wrapper_attaches_curvilinear_physical_coordinates():
     physical = np.meshgrid(*logical, indexing="ij")
     raw = {0.0: [np.zeros((2, 3, 4))], 1.0: [np.ones((2, 3, 4))]}
     field = wrap_field_data(raw, logical, grids_phy=physical, name="phi", time_scale=2, time_unit="s")
-    assert field.dims == ("t", "e1", "e2", "e3")
-    assert field.X.dims == ("e1", "e2", "e3")
+    assert field.dims == ("t", "eta1", "eta2", "eta3")
+    assert field.X.dims == ("eta1", "eta2", "eta3")
     np.testing.assert_array_equal(field.t, [0, 2])
     assert field.t.attrs["units"] == "s"
 
@@ -63,14 +63,14 @@ def test_field_wrapper_attaches_curvilinear_physical_coordinates():
 def test_vector_field_has_named_component_dimension():
     component = np.zeros((2, 2, 2))
     field = wrap_field_data({0.0: [component, component, component]}, name="E")
-    assert field.dims == ("t", "component", "e1", "e2", "e3")
-    assert field.isel(component=1).dims == ("t", "e1", "e2", "e3")
+    assert field.dims == ("t", "component", "eta1", "eta2", "eta3")
+    assert field.isel(component=1).dims == ("t", "eta1", "eta2", "eta3")
 
 
 def test_binned_wrapper_keeps_memory_mappable_values():
     values = np.ones((2, 3, 4))
-    data = wrap_binned_data(values, ("e1", "v1"), {"t": [0, 1], "e1": range(3), "v1": range(4)}, name="f")
-    assert data.dims == ("t", "e1", "v1")
+    data = wrap_binned_data(values, ("eta1", "v1"), {"t": [0, 1], "eta1": range(3), "v1": range(4)}, name="f")
+    assert data.dims == ("t", "eta1", "v1")
     assert data.attrs["label"] == "$f$"
 
 

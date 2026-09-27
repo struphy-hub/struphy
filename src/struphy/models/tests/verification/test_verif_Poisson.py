@@ -83,8 +83,8 @@ def test_poisson_1d(do_plot=False):
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        phi = run.fields.em_fields.phi.isel(e2=0, e3=0)
-        source = run.fields.em_fields.source.isel(e2=0, e3=0)
+        phi = run.fields.em_fields.phi.isel(eta2=0, eta3=0)
+        source = run.fields.em_fields.source.isel(eta2=0, eta3=0)
         x = phi.X.values
 
         interval = 2
