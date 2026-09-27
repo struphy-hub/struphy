@@ -6,14 +6,13 @@ import cunumpy as xp
 import h5py
 import yaml
 
-from struphy.io.setup import import_parameters_py
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
 from struphy.utils.progress import tqdm
 
 logger = logging.getLogger("struphy")
 
 
-def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
+def post_process_orbit_guiding_center(domain, equil, path_kinetics_species, species):
     """
     Computes the Cartesian guiding center from saved full-orbit marker orbits (Particles6D) and writes them to a .npy files and to .txt files.
 
@@ -37,8 +36,11 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
 
     Parameters
     ----------
-    path_in : str
-        Absolute path of simulation output folder.
+    domain : Domain
+        Domain of the simulation, for the markers' logical coordinates.
+
+    equil : FluidEquilibriumWithB
+        Equilibrium of the simulation, for the magnetic field at the markers.
 
     path_kinetics_species : str
         Absolute path of where to store the .txt files. Will be saved in path_kinetics_species/guiding_center.
@@ -47,12 +49,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         Name of the species for which the post processing should be performed.
     """
 
-    # import parameters
-    params_in = import_parameters_py(os.path.join(path_in, "parameters.py"))
-
-    # create domain for calculating markers' physical coordinates
-    domain = params_in.domain
-    equil = params_in.equil
+    assert equil is not None, "Guiding centers need an equilibrium with a magnetic field."
 
     # path for orbit data
     path_orbits = os.path.join(path_kinetics_species, "orbits")

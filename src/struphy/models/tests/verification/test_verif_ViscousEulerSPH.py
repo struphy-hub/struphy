@@ -109,17 +109,14 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
-    # post processing
+    # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-
-        # diagnostics
-        sim.load_plotting_data()
-
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values
 
         if do_plot:
             ppb = 8
@@ -243,20 +240,17 @@ def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
-    # post processing
+    # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-
-        # diagnostics
-        sim.load_plotting_data()
-
-        e1_binned = sim.f.euler_fluid.e1_density.grid_e1
-        n_binned = sim.f.euler_fluid.e1_density.delta_f_binned
-        j1_binned = sim.f.euler_fluid.e1_current_1.f_binned
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
+        e1_binned = run.distributions.euler_fluid.e1_density.f.e1.values
+        n_binned = run.distributions.euler_fluid.e1_density.delta_f.values
+        j1_binned = run.distributions.euler_fluid.e1_current_1.f.values
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values
 
         print(f"{e1_binned.shape = }")
         print(f"{n_binned.shape = }")
@@ -452,20 +446,17 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
     )
 
     # run
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
-    # post processing
+    # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-
-        # diagnostics
-        sim.load_plotting_data()
-
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph
-        e1_binned = sim.f.euler_fluid.e1_density.grid_e1
-        n_binned = sim.f.euler_fluid.e1_density.f_binned
-        j1_binned = sim.f.euler_fluid.e1_current_1.f_binned
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values
+        e1_binned = run.distributions.euler_fluid.e1_density.f.e1.values
+        n_binned = run.distributions.euler_fluid.e1_density.f.values
+        j1_binned = run.distributions.euler_fluid.e1_current_1.f.values
         print(f"{e1_binned.shape = }")
         print(f"{n_binned.shape = }")
         print(f"{j1_binned.shape = }")
@@ -667,14 +658,12 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
         derham_opts=None,
     )
 
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-        sim.load_plotting_data()
-
-        e2_grid = sim.f.euler_fluid.e2_current_1.grid_e2  # logical y in [0, 1]
-        j1_binned = sim.f.euler_fluid.e2_current_1.f_binned  # shape (Nt+1, n_bins)
+        e2_grid = run.distributions.euler_fluid.e2_current_1.f.e2.values  # logical y in [0, 1]
+        j1_binned = run.distributions.euler_fluid.e2_current_1.f.values  # shape (Nt+1, n_bins)
 
         import numpy as np
 
@@ -752,10 +741,11 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
             from matplotlib.colors import LinearSegmentedColormap
             from tqdm import tqdm as _tqdm
 
-            orbits = np.asarray(sim.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
-            # attrs for vdim=2: [x, y, z, v1, v2, w, diag, id]
+            orbits = run.orbits.euler_fluid
+            x_orb = orbits.x.values  # (Nt_orb, n_markers)
+            y_orb = orbits.y.values
 
-            Nt_orb = orbits.shape[0]
+            Nt_orb = orbits.sizes["t"]
             t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
 
             # colormap: blue at walls (y=0, y=H), red at channel centre (y=H/2)
@@ -771,11 +761,11 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
             os.makedirs(png_dir, exist_ok=True)
 
             for i, idx in _tqdm(enumerate(snap_inds), total=n_snaps, desc="saving PNGs"):
-                c_val = 1.0 - 2.0 * np.abs(orbits[idx, :, 1] / H - 0.5)
+                c_val = 1.0 - 2.0 * np.abs(y_orb[idx] / H - 0.5)
                 fig_png, ax_png = plt.subplots(figsize=(8, 6))
                 sc_png = ax_png.scatter(
-                    orbits[idx, :, 0],
-                    orbits[idx, :, 1],
+                    x_orb[idx],
+                    y_orb[idx],
                     c=c_val,
                     cmap=cmap_pos,
                     norm=norm,
@@ -796,10 +786,10 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
             # show last snapshot in a new figure
             fig_last, ax_last = plt.subplots(figsize=(8, 6))
             idx_last = snap_inds[-1]
-            c_val_last = 1.0 - 2.0 * np.abs(orbits[idx_last, :, 1] / H - 0.5)
+            c_val_last = 1.0 - 2.0 * np.abs(y_orb[idx_last] / H - 0.5)
             sc_last = ax_last.scatter(
-                orbits[idx_last, :, 0],
-                orbits[idx_last, :, 1],
+                x_orb[idx_last],
+                y_orb[idx_last],
                 c=c_val_last,
                 cmap=cmap_pos,
                 norm=norm,
@@ -929,32 +919,33 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
         derham_opts=None,
     )
 
-    sim.run()
+    run = sim.run()
+    run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        sim.pproc()
-        sim.load_plotting_data()
-
         import numpy as np
 
         dt = time_opts.dt
         Nt = int(time_opts.Tend / dt)
         times = np.linspace(0.0, time_opts.Tend, Nt + 1)
 
-        ee1, ee2, ee3 = sim.n_sph.euler_fluid.view_0.grid_n_sph
-        n_sph = sim.n_sph.euler_fluid.view_0.n_sph  # (Nt+1, pts_e1, pts_e2, 1)
+        density = run.densities.euler_fluid.view_0.n
+        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        n_sph = density.values  # (Nt+1, pts_e1, pts_e2, 1)
 
         X = np.asarray(ee1)[:, :, 0] * r1  # physical x, shape (pts_e1, pts_e2)
         Y = np.asarray(ee2)[:, :, 0] * r2  # physical y, shape (pts_e1, pts_e2)
         n_arr = np.asarray(n_sph)  # (Nt+1, pts_e1, pts_e2, 1)
 
         # orbits needed for both do_plot scatter overlay and create_png
-        orbits = np.asarray(sim.orbits.euler_fluid)  # (Nt_orb, n_markers, n_attrs)
-        Nt_orb = orbits.shape[0]
+        orbits = run.orbits.euler_fluid
+        x_orb = orbits.x.values  # (Nt_orb, n_markers)
+        y_orb = orbits.y.values
+        Nt_orb = orbits.sizes["t"]
         t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
 
         # color each marker by its initial x (gradient across the left column)
-        x_init = orbits[0, :, 0]
+        x_init = x_orb[0]
         c_val = x_init / (r1 / 2)  # 0 = left wall, 1 = dam face
 
         if do_plot:
@@ -970,8 +961,8 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
                 n_2d = n_arr[idx, :, :, 0]
                 im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
                 ax.scatter(
-                    orbits[oidx, :, 0],
-                    orbits[oidx, :, 1],
+                    x_orb[oidx],
+                    y_orb[oidx],
                     c=c_val,
                     cmap="autumn",
                     s=2,
@@ -1011,8 +1002,8 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
                 n_2d = n_arr[n_idx, :, :, 0]
                 im = ax_png.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
                 ax_png.scatter(
-                    orbits[idx, :, 0],
-                    orbits[idx, :, 1],
+                    x_orb[idx],
+                    y_orb[idx],
                     c=c_val,
                     cmap="autumn",
                     s=1,
@@ -1033,8 +1024,8 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
                 plt.close(fig_png)
 
         # sanity: no markers should escape the closed box (allow 1% tolerance)
-        x_all = orbits[:, :, 0]
-        y_all = orbits[:, :, 1]
+        x_all = x_orb
+        y_all = y_orb
         assert np.all(x_all >= -0.01 * r1) and np.all(x_all <= 1.01 * r1), "Markers escaped x-domain in dam break test"
         assert np.all(y_all >= -0.01 * r2) and np.all(y_all <= 1.01 * r2), "Markers escaped y-domain in dam break test"
         logger.info("Dam break domain bounds assertion passed.")
