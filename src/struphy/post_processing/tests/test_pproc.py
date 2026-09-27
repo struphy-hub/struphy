@@ -69,5 +69,30 @@ def test_pproc_mpi(show_plot=False):
     MPI.COMM_WORLD.Barrier()
 
 
+@pytest.mark.mpi(min_size=2)
+def test_products_are_processed_on_first_use_under_mpi():
+    """Without pproc(), a rank that needs products processes them, and never waits for the others."""
+    import shutil
+
+    comm = MPI.COMM_WORLD
+    rank, last = comm.Get_rank(), comm.Get_size() - 1
+    test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
+    sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
+    sim.run(one_time_step=True)
+    if rank == 0:
+        shutil.rmtree(Path(sim.env.path_out) / "post_processing", ignore_errors=True)
+    comm.Barrier()
+
+    # Only the last rank asks; rank 0 goes on without it and would hang at a collective.
+    run = Output(sim.env.path_out)
+    f = np.asarray(run.evaluate("kinetic_ions/f")) if rank == last else None
+    f = comm.bcast(f, root=last)
+    assert run.is_processed
+
+    # Every rank now loads the same products.
+    assert np.array_equal(np.asarray(Output(sim.env.path_out).evaluate("kinetic_ions/f")), f)
+    comm.Barrier()
+
+
 if __name__ == "__main__":
     test_pproc_mpi(show_plot=True)

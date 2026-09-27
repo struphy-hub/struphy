@@ -510,9 +510,9 @@ moved to another location:
 
 This reads the ``run_metadata.json`` written by the simulation. Products are
 materialized with :meth:`~struphy.Output.pproc` on first access, using default
-options; call ``pproc`` explicitly first to choose different options (see
-below), and under MPI call it on every rank, since serial processing runs on
-rank 0 while the other ranks wait.
+options; call ``pproc`` explicitly first only to choose different options (see
+below). This works under MPI as well: the first rank that needs products
+processes the run, and the other ranks that need them wait for it.
 
 The output of a simulation is a :class:`~struphy.Output`. ``sim.run()`` returns it,
 and it stays available as ``sim.output``:
@@ -573,8 +573,8 @@ choose the options, call ``pproc`` first:
 
 All arguments are optional and default to the values shown above. Products that
 were already made from the same raw output with the same options are reused, so a
-plotting script can be re-run cheaply. Under MPI, call ``pproc`` on every rank:
-serial processing runs on rank 0 while the other ranks wait, and
+plotting script can be re-run cheaply. An explicit ``pproc`` under MPI is called
+on every rank: serial processing runs on rank 0 while the other ranks wait, and
 ``parallel=True`` uses the allocated simulation on all ranks.
 
 

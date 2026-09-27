@@ -248,8 +248,19 @@ e.g. `help(phi.struphy.plot.slice)`, its parameters. Its guides and full referen
 
 `Output` always uses `MPI.COMM_WORLD`; no communicator is passed to its constructor.
 
-For serial post-processing under MPI, call `pproc()` on every rank. Rank 0 does the work and the
-other ranks wait at the synchronization barrier.
+Products are processed on first use under MPI too, so a script needs no `pproc()` call:
+
+```python
+out = Output(path)
+phi = out.evaluate("em_fields/phi")  # works on any number of ranks
+```
+
+The first rank (or process) that needs products processes the run serially, holding a lock file
+`.post_processing.lock` in the run folder; any other rank that needs them waits for the lock and
+then loads them. Nothing is collective, so ranks that never ask for products are never waited for.
+
+To choose processing options, call `pproc()` on every rank. Rank 0 does the work and the other
+ranks wait at the synchronization barrier.
 
 ```python
 out.pproc(physical=True)
@@ -262,12 +273,8 @@ world communicator must have the same number of ranks as the run that wrote the 
 out.pproc(parallel=True, physical=True)
 ```
 
-Automatic materialization through `evaluate()` is disabled by default when more than one MPI rank
-is active, because `pproc()` is collective (rank 0 works while the rest wait at a barrier) and
-`evaluate()` is not otherwise guaranteed to be called on every rank; auto-triggering it could hang
-ranks that never reach the call instead of failing fast. Call `pproc()` explicitly first in that
-case, or pass `parallel=True` to `evaluate()` when calling it collectively on every rank; this
-triggers `pproc(parallel=True)` automatically on first use.
+To process in parallel on first use, pass `parallel=True` to `evaluate()` and call it on every
+rank; this triggers `pproc(parallel=True)`.
 
 ```python
 out.evaluate("em_fields/E", parallel=True)
