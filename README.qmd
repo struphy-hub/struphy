@@ -111,6 +111,8 @@ python params_Maxwell.py
 
 The default output is in `sim_1/` in your cwd. You can change the output path via the class `EnvironmentOptions` in the parameter file.
 
+For plots and diagnostics of the output, install [struphy-plots](https://struphy-hub.github.io/struphy-plots) (`pip install struphy-plots`); `Output` loads it automatically, adding `out.plot`, `out.analysis` and `.struphy.plot` on every product.
+
 Parallel simulations are run for example with
 
 ```

@@ -63,6 +63,9 @@ phys = [
     "gvec>=1.1.0, <=1.5.0",
     "desc-opt<=0.17.1",
 ]
+plots = [
+    "struphy-plots",
+]
 dev = [
     "struphy[mpi]",
     "notebook",
