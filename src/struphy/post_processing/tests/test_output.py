@@ -697,3 +697,37 @@ def test_stores_of_schema_version_1_are_read_with_eta_dimensions(tmp_path):
     assert tree["em_fields"].ds.phi.dims == ("t", "eta1", "eta2")
     tree.close()
     assert store.SCHEMA_VERSION == 2
+
+
+def test_output_loads_struphy_plots_when_it_is_installed(tmp_path):
+    """Creating an Output registers out.plot and the .struphy accessor, without an explicit import."""
+    pytest.importorskip("struphy_plots")
+    import subprocess
+    import sys
+
+    path = write_tree(str(tmp_path))
+    script = (
+        "import xarray as xr\n"
+        "from struphy.post_processing.output import Output\n"
+        "assert not hasattr(xr.DataArray, 'struphy'), 'struphy_plots was imported before Output()'\n"
+        f"out = Output({path!r})\n"
+        "assert hasattr(xr.DataArray, 'struphy') and hasattr(xr.Dataset, 'struphy')\n"
+        "assert type(out.plot).__name__ == 'OutputPlots' and type(out.analysis).__name__ == 'OutputAnalysis'\n"
+    )
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_plot_without_struphy_plots_says_how_to_get_it(run, monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "struphy_plots", None)  # as if it were not installed
+    monkeypatch.setitem(output_module._plots, "loaded", False)
+    for name in ("plot", "analysis"):
+        if name in Output.__dict__:  # registered by an earlier import in this session
+            monkeypatch.delattr(Output, name)
+    for name in ("plot", "analysis"):
+        with pytest.raises(AttributeError, match="pip install struphy-plots"):
+            getattr(run, name)
+    with pytest.raises(AttributeError, match="available species"):
+        run.not_a_species  # other names keep their own error
