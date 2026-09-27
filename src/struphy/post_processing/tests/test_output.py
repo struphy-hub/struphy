@@ -133,6 +133,35 @@ def save_raw_field(run, *names):
             file["feec/em_fields"].create_dataset(name, data=np.empty(0))
 
 
+# Environment prefixes through which MPI launchers tell a process which rank of a job it is.
+MPI_LAUNCHER_ENV_PREFIXES = (
+    "OMPI_",
+    "OPAL_",
+    "PMIX_",
+    "PMI_",
+    "PRTE_",
+    "MV2_",
+    "HYDRA_",
+    "I_MPI_",
+    "MPI_LOCALRANKID",
+    "ALPS_",
+    "PALS_",
+)
+
+
+@pytest.fixture
+def outside_mpi_job(monkeypatch):
+    """Let child processes start as independent programs, not as ranks of this test's MPI job.
+
+    Importing struphy initializes MPI. A child that inherits the launcher variables of an
+    ``mpirun`` rank initializes as that same rank, which hangs or corrupts the parent job.
+    """
+    for name in list(os.environ):
+        if name.startswith(MPI_LAUNCHER_ENV_PREFIXES):
+            monkeypatch.delenv(name)
+    monkeypatch.setenv("STRUPHY_MPI", "0")
+
+
 @pytest.fixture
 def run(tmp_path):
     return Output(write_tree(str(tmp_path)))
@@ -573,36 +602,38 @@ def test_evaluate_passes_parallel_on_to_processing(tmp_path, monkeypatch, parall
     assert calls == [parallel]
 
 
-def test_processing_lock_is_exclusive_between_processes(tmp_path):
-    import multiprocessing
+# Holds the lock in a separate program that loads only the manifest module: importing
+# struphy would initialize MPI in the child, which under mpirun makes it join the test's job.
+HOLD_LOCK = """
+import importlib.util, sys, time
 
-    from struphy.post_processing.manifest import processing_lock
+spec = importlib.util.spec_from_file_location("manifest", sys.argv[1])
+manifest = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(manifest)
+with manifest.processing_lock(sys.argv[2]):
+    with open(sys.argv[3], "a") as stream:
+        stream.write("enter\\n")
+    time.sleep(0.3)
+    with open(sys.argv[3], "a") as stream:
+        stream.write("exit\\n")
+"""
+
+
+def test_processing_lock_is_exclusive_between_processes(tmp_path):
+    import subprocess
+    import sys
+
+    from struphy.post_processing import manifest
 
     log = tmp_path / "log"
-    context = multiprocessing.get_context("spawn")
-    workers = [context.Process(target=_hold_lock, args=(str(tmp_path), str(log))) for _ in range(3)]
+    command = [sys.executable, "-c", HOLD_LOCK, manifest.__file__, str(tmp_path), str(log)]
+    workers = [subprocess.Popen(command) for _ in range(3)]
     for worker in workers:
-        worker.start()
-    for worker in workers:
-        worker.join(60)
-        assert worker.exitcode == 0
+        assert worker.wait(60) == 0
     lines = log.read_text().split()
     assert lines == ["enter", "exit"] * 3  # never two holders at once
-    with processing_lock(str(tmp_path)):
+    with manifest.processing_lock(str(tmp_path)):
         pass
-
-
-def _hold_lock(path_out, log):
-    import time
-
-    from struphy.post_processing.manifest import processing_lock
-
-    with processing_lock(path_out):
-        with open(log, "a") as stream:
-            stream.write("enter\n")
-        time.sleep(0.3)
-        with open(log, "a") as stream:
-            stream.write("exit\n")
 
 
 def test_processing_options_are_part_of_the_manifest(tmp_path):
@@ -782,7 +813,7 @@ def test_stores_of_schema_version_1_are_read_with_eta_dimensions(tmp_path):
     assert store.SCHEMA_VERSION == 2
 
 
-def test_output_loads_struphy_plots_when_it_is_installed(tmp_path):
+def test_output_loads_struphy_plots_when_it_is_installed(tmp_path, outside_mpi_job):
     """Creating an Output registers out.plot and the .struphy accessor, without an explicit import."""
     pytest.importorskip("struphy_plots")
     import subprocess
