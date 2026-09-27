@@ -203,7 +203,7 @@ class PushGuidingCenterBxEstar(Propagator):
             if "1st_order" in self.options.algo:
                 # init kernels
                 self.add_init_kernel(
-                    eval_kernels_gc.driftkinetic_hamiltonian,
+                    eval_kernels_gc.driftkinetic_hamiltonian_no_kinetic,
                     first_free_idx,
                     None,
                     (
@@ -242,7 +242,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 if "newton" in self.options.algo:
                     # eval kernels
                     self.add_eval_kernel(
-                        eval_kernels_gc.driftkinetic_hamiltonian,
+                        eval_kernels_gc.driftkinetic_hamiltonian_no_kinetic,
                         first_free_idx + 5,
                         None,
                         (
@@ -256,7 +256,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )
 
                     self.add_eval_kernel(
-                        eval_kernels_gc.driftkinetic_hamiltonian,
+                        eval_kernels_gc.driftkinetic_hamiltonian_no_kinetic,
                         first_free_idx + 6,
                         None,
                         (
@@ -326,7 +326,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 else:
                     # eval kernels
                     self.add_eval_kernel(
-                        eval_kernels_gc.driftkinetic_hamiltonian,
+                        eval_kernels_gc.driftkinetic_hamiltonian_no_kinetic,
                         first_free_idx + 5,
                         None,
                         (
@@ -358,7 +358,7 @@ class PushGuidingCenterBxEstar(Propagator):
             elif "2nd_order" in self.options.algo:
                 # init kernels (evaluate at eta^n and save)
                 self.add_init_kernel(
-                    eval_kernels_gc.driftkinetic_hamiltonian,
+                    eval_kernels_gc.driftkinetic_hamiltonian_no_kinetic,
                     first_free_idx,
                     None,
                     (
@@ -372,7 +372,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                 # eval kernels
                 self.add_eval_kernel(
-                    eval_kernels_gc.driftkinetic_hamiltonian,
+                    eval_kernels_gc.driftkinetic_hamiltonian_no_kinetic,
                     first_free_idx + 1,
                     None,
                     (

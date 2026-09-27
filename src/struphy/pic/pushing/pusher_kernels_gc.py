@@ -728,7 +728,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
             B_dot_b_coeffs,
         )
 
-        H_k = epsilon * v**2 / 2.0 + epsilon * mu * B_dot_b + phi
+        H_k = epsilon * mu * B_dot_b + phi  # v is fixed, kinetic energy is left out (see eval kernels)
 
         # compute grad_H at (n+1, k)
         eval_1form_spline_mpi(
@@ -1193,12 +1193,12 @@ def push_gc_Bstar_discrete_gradient_1st_order(
         markers[ip, 0:3] = eta_n + dt * k
         markers[ip, 3] = v_n + dt * k_v
 
-        # residual
+        # residual; absolute in v (a relative measure fails near bounce points where v -> 0)
         markers[ip, residual_idx] = sqrt(
             (markers[ip, 0] - eta_k[0]) ** 2
             + (markers[ip, 1] - eta_k[1]) ** 2
             + (markers[ip, 2] - eta_k[2]) ** 2
-            + ((markers[ip, 3] - v_k) / v_k) ** 2,
+            + (markers[ip, 3] - v_k) ** 2,
         )
 
 
@@ -1443,12 +1443,12 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
         markers[ip, 0:3] = eta_n + dt * k
         markers[ip, 3] = v_n + dt * k_v
 
-        # residual
+        # residual; absolute in v (a relative measure fails near bounce points where v -> 0)
         markers[ip, residual_idx] = sqrt(
             (markers[ip, 0] - eta_k[0]) ** 2
             + (markers[ip, 1] - eta_k[1]) ** 2
             + (markers[ip, 2] - eta_k[2]) ** 2
-            + ((markers[ip, 3] - v_k) / v_k) ** 2,
+            + (markers[ip, 3] - v_k) ** 2,
         )
 
 
@@ -1771,8 +1771,8 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         markers[ip, 0:3] -= k
         markers[ip, 3] -= k_v
 
-        # residual
-        markers[ip, residual_idx] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + (k_v / v_k) ** 2)
+        # residual; absolute in v (a relative measure fails near bounce points where v -> 0)
+        markers[ip, residual_idx] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + k_v**2)
 
 
 @stack_array("dfm", "e", "u", "b", "b_star", "norm_b1", "curl_norm_b")
