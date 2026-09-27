@@ -251,31 +251,22 @@ e.g. `help(phi.struphy.plot.slice)`, its parameters. Its guides and full referen
 Products are processed on first use under MPI too, so a script needs no `pproc()` call:
 
 ```python
-out = Output(path)
-phi = out.evaluate("em_fields/phi")  # works on any number of ranks
+out = sim.run()                     # or Output(path)
+f = out.evaluate("kinetic_ions/f")  # on every rank
 ```
 
-The first rank (or process) that needs products processes the run serially, holding a lock file
-`.post_processing.lock` in the run folder; any other rank that needs them waits for the lock and
-then loads them. Nothing is collective, so ranks that never ask for products are never waited for.
+Processing is collective: while the run is not processed yet, ask for products on every rank.
+When the job has as many ranks as the simulation, it runs in parallel: each rank reads its own raw
+file and evaluates its part of the domain, and rank 0 gathers the products and writes them.
+Otherwise rank 0 processes the whole run while the other ranks wait. Once processed, products are
+read on any rank independently.
 
-To choose processing options, call `pproc()` on every rank. Rank 0 does the work and the other
-ranks wait at the synchronization barrier.
+`pproc()` chooses processing options, and is called on every rank as well:
 
 ```python
-out.pproc(physical=True)
+out.pproc(physical=True)                  # parallel when the job is as large as the run
+out.pproc(physical=True, parallel=False)  # serial on rank 0
 ```
 
-For parallel post-processing, also call it on every rank and pass `parallel=True`. The current
-world communicator must have the same number of ranks as the run that wrote the raw output.
-
-```python
-out.pproc(parallel=True, physical=True)
-```
-
-To process in parallel on first use, pass `parallel=True` to `evaluate()` and call it on every
-rank; this triggers `pproc(parallel=True)`.
-
-```python
-out.evaluate("em_fields/E", parallel=True)
-```
+`parallel=True` forces parallel processing, which fails unless the job has as many ranks as the
+run. `evaluate(..., parallel=...)` passes it on when it triggers processing.

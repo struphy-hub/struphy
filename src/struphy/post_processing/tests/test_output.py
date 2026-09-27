@@ -270,7 +270,18 @@ def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch
     assert set(run.scalars.data_vars) == {"en_tot"}
     assert calls == [], "scalars come from the raw output"
     assert run.evaluate("em_fields/E").name == "E"
-    assert calls == [dict(parallel=False, create_vtk=False)]
+    assert calls == [
+        dict(
+            parallel=False,
+            step=1,
+            celldivide=1,
+            physical=False,
+            guiding_center=False,
+            classify=False,
+            create_vtk=False,
+            force=False,
+        )
+    ]
 
 
 def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
@@ -512,34 +523,36 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
         assert result.dims == ("t", "component", "eta1", "eta2")
 
 
-@pytest.mark.parametrize("rank", [0, 1])
-def test_products_are_processed_on_first_use_on_any_rank(tmp_path, monkeypatch, rank):
+@pytest.mark.parametrize(
+    "size, saved_ranks, parallel", [(1, 1, False), (2, 2, True), (4, 4, True), (2, 1, False), (2, 4, False)]
+)
+def test_first_use_processes_in_parallel_when_the_job_is_as_large_as_the_run(
+    tmp_path, monkeypatch, size, saved_ranks, parallel
+):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
     calls = []
     monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
-    monkeypatch.setattr(
-        Output, "_process_raw", lambda self, **options: calls.append(options) or write_manifest(root, **options)
-    )
-    comm = FakeComm(rank=rank, size=2)
-    assert tuple(output_with_comm(monkeypatch, root, comm).fields) == ("em_fields",)
-    assert calls == [False, dict(create_vtk=False)]
-    assert comm.barriers == 0  # never collective: other ranks need not ask for products
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: write_manifest(root))
+    comm = FakeComm(size=size)
+    run = output_with_comm(monkeypatch, root, comm)
+    run.metadata["mpi_ranks"] = saved_ranks
+    assert tuple(run.fields) == ("em_fields",)
+    assert calls == [parallel]
+    assert comm.barriers == 1  # no rank looks for products before rank 0 has written them
 
 
-def test_products_written_while_waiting_for_the_lock_are_not_processed_again(tmp_path, monkeypatch):
+@pytest.mark.parametrize("parallel", [True, False])
+def test_evaluate_passes_parallel_on_to_processing(tmp_path, monkeypatch, parallel):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    run = output_with_comm(monkeypatch, root, FakeComm(rank=1, size=2))
-    lock = output_module.processing_lock
-
-    def lock_then_other_process_finishes(path_out):
-        write_manifest(root)
-        return lock(path_out)
-
-    monkeypatch.setattr(output_module, "processing_lock", lock_then_other_process_finishes)
-    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: pytest.fail("processed twice"))
-    assert tuple(run.fields) == ("em_fields",)
+    calls = []
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: write_manifest(root))
+    run = output_with_comm(monkeypatch, root, FakeComm(size=2))
+    run.metadata["mpi_ranks"] = 2
+    assert run.evaluate("em_fields/E", parallel=parallel).name == "E"
+    assert calls == [parallel]
 
 
 def test_processing_lock_is_exclusive_between_processes(tmp_path):

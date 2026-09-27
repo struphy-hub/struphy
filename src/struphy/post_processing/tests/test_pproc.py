@@ -50,7 +50,7 @@ def test_pproc_mpi(show_plot=False):
     run = Output(sim.env.path_out)
 
     # serial pproc
-    run.pproc(create_vtk=True)
+    run.pproc(create_vtk=True, parallel=False)
     if sim.rank == 0:
         serial = do_plotting(run)
 
@@ -70,27 +70,31 @@ def test_pproc_mpi(show_plot=False):
 
 
 @pytest.mark.mpi(min_size=2)
-def test_products_are_processed_on_first_use_under_mpi():
-    """Without pproc(), a rank that needs products processes them, and never waits for the others."""
+def test_products_are_processed_in_parallel_on_first_use():
+    """Without pproc(), evaluate() processes on every rank and gives the serial products."""
     import shutil
 
     comm = MPI.COMM_WORLD
-    rank, last = comm.Get_rank(), comm.Get_size() - 1
     test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
     sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
-    sim.run(one_time_step=True)
-    if rank == 0:
+    out = sim.run(one_time_step=True)
+    if comm.Get_rank() == 0:
         shutil.rmtree(Path(sim.env.path_out) / "post_processing", ignore_errors=True)
     comm.Barrier()
 
-    # Only the last rank asks; rank 0 goes on without it and would hang at a collective.
-    run = Output(sim.env.path_out)
-    f = np.asarray(run.evaluate("kinetic_ions/f")) if rank == last else None
-    f = comm.bcast(f, root=last)
-    assert run.is_processed
+    modes = []
+    setup = Output._setup_processing
+    Output._setup_processing = lambda self, parallel: modes.append(parallel) or setup(self, parallel)
+    try:
+        f = np.asarray(out.evaluate("kinetic_ions/f"))
+        e = np.asarray(out.fields.em_fields.e_field)
+    finally:
+        Output._setup_processing = setup
+    assert modes == [True]
 
-    # Every rank now loads the same products.
-    assert np.array_equal(np.asarray(Output(sim.env.path_out).evaluate("kinetic_ions/f")), f)
+    serial = Output(sim.env.path_out).pproc(parallel=False, force=True)
+    assert np.allclose(np.asarray(serial.evaluate("kinetic_ions/f")), f)
+    assert np.allclose(np.asarray(serial.fields.em_fields.e_field), e)
     comm.Barrier()
 
 
