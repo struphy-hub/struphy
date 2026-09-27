@@ -63,6 +63,9 @@ phys = [
     "gvec>=1.1.0, <=1.5.0",
     "desc-opt<=0.17.1",
 ]
+cuda = [
+    "cupy-cuda12x==13.6.0",
+]
 dev = [
     "struphy[mpi]",
     "notebook",
@@ -137,6 +140,7 @@ struphy = "struphy.console.main:struphy"
 ]
 struphy = [
     "compile_struphy.mk",
+    "**/*.cu",
 ]
 
 [tool.autopep8]
@@ -182,4 +186,5 @@ markers = [
     "hybrid",
     "single",
     "mpi_pic",
+    "needs_host_kernels",
 ]

@@ -627,6 +627,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
 )
 def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
+    import numpy as np
     from feectools.ddm.mpi import mpi as MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
@@ -699,12 +700,14 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy(dt)
 
-    n_mks_load = xp.zeros(size, dtype=int)
+    # MPI communication buffers must be host-resident regardless of the
+    # active array backend (mpi4py has no CuPy awareness here).
+    n_mks_load = np.zeros(size, dtype=int)
 
-    comm.Allgather(xp.array(xp.shape(particles.markers)[0]), n_mks_load)
+    comm.Allgather(np.array(xp.shape(particles.markers)[0]), n_mks_load)
 
-    sendcounts = xp.zeros(size, dtype=int)
-    displacements = xp.zeros(size, dtype=int)
+    sendcounts = np.zeros(size, dtype=int)
+    displacements = np.zeros(size, dtype=int)
     accum_sendcounts = 0.0
 
     for i in range(size):
@@ -712,10 +715,13 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
         displacements[i] = accum_sendcounts
         accum_sendcounts += sendcounts[i]
 
-    all_particles_psy = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
+    all_particles_psy = np.zeros((int(accum_sendcounts) * 3,), dtype=float)
 
     comm.Barrier()
-    comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(
+        np.ascontiguousarray(xp.to_numpy(particles.markers[:, :3])),
+        [all_particles_psy, sendcounts, displacements, MPI.DOUBLE],
+    )
     comm.Barrier()
 
 

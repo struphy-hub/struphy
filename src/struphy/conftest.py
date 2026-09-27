@@ -1,8 +1,16 @@
 import logging
+import os
 
 import pytest
 
 from struphy import set_logging_level
+
+# Tests marked "needs_host_kernels" call a Pyccel kernel that is not yet
+# ported for the CuPy backend (e.g. FEEC mass-matrix/basis-projection
+# assembly, particle-to-grid accumulation). Under ARRAY_BACKEND=cupy they are
+# skipped rather than run to failure, so a GPU CI run reports the state of
+# the actually-ported code paths instead of drowning in known gaps.
+_NEEDS_HOST_KERNELS_SKIP_REASON = "needs_host_kernels: not yet ported to the CuPy backend (ARRAY_BACKEND=cupy)"
 
 
 def set_logging_level_pytest(config):
@@ -23,6 +31,15 @@ def pytest_unconfigure(config):
 
 def pytest_configure(config):
     set_logging_level_pytest(config)
+
+
+def pytest_collection_modifyitems(config, items):
+    if os.environ.get("ARRAY_BACKEND") != "cupy":
+        return
+    skip_host_only = pytest.mark.skip(reason=_NEEDS_HOST_KERNELS_SKIP_REASON)
+    for item in items:
+        if "needs_host_kernels" in item.keywords:
+            item.add_marker(skip_host_only)
 
 
 def pytest_addoption(parser):

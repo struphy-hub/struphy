@@ -20,6 +20,10 @@ from struphy.topology.grids import TensorProductGrid
 logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
 
+# Gyrokinetic Poisson FEEC solve: mass-matrix assembly/preconditioning not
+# yet ported to the CuPy backend.
+pytestmark = pytest.mark.needs_host_kernels
+
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 # plt.rcParams.update({'font.size': 22})

@@ -115,10 +115,12 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     logger.info("Number of particles w/wo holes on each process after sorting : ")
     logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
-    # are all markers in the correct domain?
+    # are all markers in the correct domain? domain_array is host-resident
+    # (fixed decomposition metadata); markers may live on the device under
+    # CuPy, so bring the (tiny) domain bounds to the same backend to compare.
     conds = xp.logical_and(
-        particles.markers[:, :3] > derham.domain_array[rank, 0::3],
-        particles.markers[:, :3] < derham.domain_array[rank, 1::3],
+        particles.markers[:, :3] > xp.asarray(derham.domain_array[rank, 0::3]),
+        particles.markers[:, :3] < xp.asarray(derham.domain_array[rank, 1::3]),
     )
     holes = particles.markers[:, 0] == -1.0
     stay = xp.all(conds, axis=1)

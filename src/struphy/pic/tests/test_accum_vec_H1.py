@@ -1,4 +1,5 @@
 import logging
+import math
 
 import pytest
 from cunumpy import PyccelKernel
@@ -47,6 +48,7 @@ set_logging_level(logging.INFO)
     ],
 )
 @pytest.mark.parametrize("num_clones", [1, 2])
+@pytest.mark.needs_host_kernels
 def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000, show_plot: bool = False):
     r"""Test that AccumulatorVector provides an MC approximation of the L2 projection RHS.
 
@@ -115,7 +117,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
 
     params = {
         "grid": {"num_elements": num_elements},
-        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(num_elements)}}},
+        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / math.prod(num_elements)}}},
     }
 
     grid = TensorProductGrid(num_elements=num_elements)
@@ -328,6 +330,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
         (None, None, None),
     ],
 )
+@pytest.mark.needs_host_kernels
 def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: bool = False):
     r"""Test that AccumulatorVector with kernel :func:`~struphy.pic.accumulation.accum_kernels.div_u_weak_1form`
     provides an MC approximation of the L2 projection RHS into V1 (Hcurl).
