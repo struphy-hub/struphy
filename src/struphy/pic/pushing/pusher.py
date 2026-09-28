@@ -239,8 +239,8 @@ class Pusher:
                         *self._args_kernel,
                     )
 
-                self.particles.apply_kinetic_bc(newton=self._newton)
-                self.particles.update_holes()
+                # kinetic boundary conditions are applied per marker inside the kernel
+                self.particles.finish_kernel_bc(newton=self._newton)
 
                 # update boxes
                 if self._box_comm:
@@ -282,9 +282,7 @@ class Pusher:
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
+                            self.particles.mpi_sort_markers(apply_bc=False)
                     break
 
                 # check for convergence
@@ -292,9 +290,7 @@ class Pusher:
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
+                            self.particles.mpi_sort_markers(apply_bc=False)
 
                     break
 
@@ -306,9 +302,7 @@ class Pusher:
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
             if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(do_test=True)
-            else:
-                self.particles.apply_kinetic_bc()
+                self.particles.mpi_sort_markers(apply_bc=False, do_test=True)
 
     @property
     def particles(self):

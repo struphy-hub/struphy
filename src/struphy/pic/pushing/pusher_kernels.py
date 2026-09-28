@@ -1073,6 +1073,9 @@ def push_hybrid_xp_ap(
         markers[ip, 1] = e2 + dt * (dfinv[1, 0] * rhs[0] + dfinv[1, 1] * rhs[1] + dfinv[1, 2] * rhs[2])
         markers[ip, 2] = e3 + dt * (dfinv[2, 0] * rhs[0] + dfinv[2, 1] * rhs[1] + dfinv[2, 2] * rhs[2])
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
     # fmt: off
     #$ omp end parallel
     # fmt: on
@@ -1985,6 +1988,9 @@ def push_eta_stage(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
     # fmt: off
     #$ omp end parallel
     # fmt: on
@@ -2111,6 +2117,9 @@ def push_pc_eta_stage_Hcurl(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
 def push_pc_eta_stage_Hdiv(
@@ -2233,6 +2242,9 @@ def push_pc_eta_stage_Hdiv(
             + dt * k * a[stage]
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v")
@@ -2359,6 +2371,9 @@ def push_pc_eta_stage_H1vec(
             + dt * k * a[stage]
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
 
 @stack_array("dfm", "df_inv", "v", "df_inv_v", "e_vec")
@@ -2581,6 +2596,9 @@ def push_deterministic_diffusion_stage(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
     # fmt: off
     #$ omp end parallel
     # fmt: on
@@ -2629,6 +2647,9 @@ def push_random_diffusion_stage(
             continue
 
         markers[ip, 0:3] += sqrt(2 * dt * diffusion_coeff) * noise[ip, :]
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
     # fmt: off
     #$ omp end parallel
