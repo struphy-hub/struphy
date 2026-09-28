@@ -637,7 +637,20 @@ class Simulation(SimulationBase):
                 raise NotImplementedError("Restart is not available for a steady-state ion-optics solve.")
             logger.info(f"\nStarting steady-state run for model {self.model_name} on {self.comm_size} ranks ...")
             self._remove_existing_output_files()
-            return self.model.run_steady_state(self)
+            self._setup_folders()
+            self.Barrier()
+            self._output = None
+            with ProfileManager.session(
+                options=self.profiling_opts,
+                deactivate_profiling=not bool(profiling_activated),
+                file_path=self.profiling_opts.file_path or self.profiling_filepath,
+            ):
+                with ProfileManager.profile_region("setup: total"):
+                    self.allocate()
+                    self._write_run_metadata(one_time_step=False, profiling_activated=bool(profiling_activated))
+                with ProfileManager.profile_region("main loop"):
+                    result = self.model.run_steady_state(self)
+            return result
 
         if profiling_activated is None:
             profiling_activated = False

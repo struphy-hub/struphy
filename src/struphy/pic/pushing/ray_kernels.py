@@ -11,7 +11,7 @@ original kernels. The originals are left untouched; time-dependent PIC needs syn
 is about to enter instead of the one it has just left.
 """
 
-from numpy import empty, shape, sqrt, zeros
+from numpy import empty, floor, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 # do not remove; needed to identify dependencies
@@ -20,6 +20,7 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 from struphy.bsplines.evaluation_kernels_3d import eval_1form_spline_mpi, get_spans
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
@@ -237,3 +238,142 @@ def acceleration_magnitude(
         linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
 
         out[ip] = const * sqrt(e_cart[0] ** 2 + e_cart[1] ** 2 + e_cart[2] ** 2)
+
+
+@stack_array("dfm", "dfinv", "dfinvt", "e_form", "e_cart", "eta0", "eta", "eta_eval", "v", "k", "incr")
+def trace_step(
+    dt: float,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    e1_1: "float[:,:,:]",
+    e1_2: "float[:,:,:]",
+    e1_3: "float[:,:,:]",
+    const: "float",
+    a: "float[:]",
+    b: "float[:]",
+    periodic: "int[:]",
+    e_cache: "float[:,:]",
+    state: "int[:]",
+    vec: "float[:,:,:]",
+    deposit: "bool",
+    mode: "int",
+):
+    r"""One fused Strang step of every ray for the fixed-step steady-state trace, with the charge deposit.
+
+    Per valid marker (``markers[ip, 0] != -1``): half kick with the electric field at the current position,
+    an explicit Runge–Kutta drift :math:`\dot{\boldsymbol\eta} = DF^{-1}\mathbf v` with constant velocity
+    (stages inline, tableau ``a`` = sub-diagonal per stage, ``b`` = weights), then the half kick at the new
+    position, and the deposit of the trajectory charge :math:`w_p\,\Delta t` (``vec_fill_b_v0``) there.
+
+    The field at the new position is cached in ``e_cache[ip]`` (``state[ip] = 1``) and reused as the first half
+    kick of the next step, so one field evaluation per step gives exactly the Strang splitting of the separate
+    ``push_v_with_efield`` / ``push_eta_stage`` propagators.
+
+    Boundaries: on ``periodic`` axes the position is wrapped into [0, 1) after every stage. On the other axes a
+    marker whose stage or final position lies outside [0, 1] stops there (like the stage-wise propagator with its
+    boundary check after every stage) with ``state[ip] = 2``, without the second kick and the deposit: the caller
+    applies the kinetic boundary conditions (remove, or reflect), and then calls this kernel with ``mode = 1``,
+    which finishes the pending (reflected) markers only: half kick at the reflected position, field cache and
+    deposit.
+
+    ``mode = 0``: full step; ``mode = 1``: finish pending markers. ``deposit = False`` skips the charge deposit.
+    """
+
+    dfm = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvt = zeros((3, 3), dtype=float)
+    e_form = zeros(3, dtype=float)
+    e_cart = zeros(3, dtype=float)
+    eta0 = zeros(3, dtype=float)
+    eta = zeros(3, dtype=float)
+    eta_eval = zeros(3, dtype=float)
+    v = zeros(3, dtype=float)
+    k = zeros(3, dtype=float)
+    incr = zeros(3, dtype=float)
+
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    weight_idx = args_markers.weight_idx
+
+    n_stages = shape(b)[0]
+
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0:
+            continue
+
+        if mode == 1:
+            if state[ip] != 2:
+                continue
+        else:
+            eta0[:] = markers[ip, 0:3]
+            v[:] = markers[ip, 3:6]
+
+            # first half kick: cached field of the previous step, or a fresh evaluation
+            if state[ip] != 1:
+                evaluation_kernels.df(eta0[0], eta0[1], eta0[2], args_domain, dfm)
+                linalg_kernels.matrix_inv(dfm, dfinv)
+                linalg_kernels.transpose(dfinv, dfinvt)
+                span1, span2, span3 = get_spans(eta0[0], eta0[1], eta0[2], args_derham)
+                eval_1form_spline_mpi(span1, span2, span3, args_derham, e1_1, e1_2, e1_3, e_form)
+                linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
+                e_cache[ip, :] = e_cart
+            v[:] += 0.5 * dt * const * e_cache[ip, :]
+
+            # drift with constant velocity: explicit Runge-Kutta stages inline. As in the stage-wise propagator
+            # (kinetic boundary conditions after every stage), a ray whose stage position leaves the domain stops
+            # there: it is left at that position for the boundary conditions, which keeps the results identical.
+            eta[:] = eta0
+            incr[:] = 0.0
+            outside = False
+            for stage in range(n_stages):
+                for d in range(3):
+                    if periodic[d] == 1:
+                        eta_eval[d] = eta[d] - floor(eta[d])
+                    else:
+                        eta_eval[d] = eta[d]
+                evaluation_kernels.df(eta_eval[0], eta_eval[1], eta_eval[2], args_domain, dfm)
+                linalg_kernels.matrix_inv(dfm, dfinv)
+                linalg_kernels.matrix_vector(dfinv, v, k)
+                incr[:] += dt * b[stage] * k
+                if stage == n_stages - 1:
+                    eta[:] = eta0 + incr
+                else:
+                    eta[:] = eta0 + dt * a[stage] * k
+                for d in range(3):
+                    if periodic[d] == 1:
+                        eta[d] = eta[d] - floor(eta[d])
+                    elif eta[d] < 0.0 or eta[d] > 1.0:
+                        outside = True
+                if outside:
+                    break
+
+            markers[ip, 0:3] = eta
+            markers[ip, 3:6] = v
+            if outside:
+                state[ip] = 2
+                continue
+
+        # second half kick at the new (or reflected) position, cache the field, deposit
+        eta[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+        evaluation_kernels.df(eta[0], eta[1], eta[2], args_domain, dfm)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.transpose(dfinv, dfinvt)
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, e1_1, e1_2, e1_3, e_form)
+        linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
+        v[:] += 0.5 * dt * const * e_cart
+        markers[ip, 3:6] = v
+        e_cache[ip, :] = e_cart
+        state[ip] = 1
+
+        if deposit:
+            particle_to_mat_kernels.vec_fill_b_v0(
+                args_derham,
+                eta[0],
+                eta[1],
+                eta[2],
+                vec,
+                markers[ip, weight_idx] * dt,
+            )

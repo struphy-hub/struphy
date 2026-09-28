@@ -198,3 +198,80 @@ class AdaptiveRayPusher:
         self._push_v(0.5 * self.dt_max)
         self._push_eta(self.dt_max)
         self._push_v(0.5 * self.dt_max)
+
+
+class FixedStepRayTracer:
+    """Fused fixed-step Strang stepping and charge deposit of all rays (serial).
+
+    One call of :func:`~struphy.pic.pushing.ray_kernels.trace_step` per step replaces the two ``PushVinForceField``
+    half kicks, the four ``PushEta`` stage calls with their boundary checks, and the per-step ``AccumulatorVector``
+    deposit. The results are those of the separate propagators (the same kernels' arithmetic, and the field of the
+    second half kick is cached for the first half kick of the next step), see the regression test in
+    ``struphy.models.tests.test_ion_optics_electrostatic``. Measured on the slit extraction (900 rays, 48 x 18
+    elements): about 4x less time per round.
+
+    Parameters
+    ----------
+    particles : Particles
+        Marker array of the rays (serial, rows are not reordered).
+
+    domain, derham : Domain, Derham
+        Mapping and FEEC sequence.
+
+    e_field : BlockVector
+        Coefficients of the electric field 1-form (``E = -grad phi``); the arrays are shared, so updating the vector
+        in place updates the push.
+
+    epsilon : float
+        Species scaling: ``dv/dt = E / epsilon``.
+
+    butcher : ButcherTableau
+        Explicit Runge–Kutta tableau of the drift.
+
+    dt : float
+        Time step.
+    """
+
+    def __init__(self, particles, domain, derham, e_field, epsilon, butcher, dt):
+        self.particles = particles
+        self.dt = float(dt)
+        n_rows = particles.markers.shape[0]
+        self.e_cache = np.zeros((n_rows, 3))
+        self.state = np.zeros(n_rows, dtype=int)
+        periodic = np.array([1 if bc == "periodic" else 0 for bc in particles.bc], dtype=int)
+        self._kernel = PyccelKernel(ray_kernels.trace_step)
+        self._args = (
+            domain.args_domain,
+            derham.args_derham,
+            e_field[0]._data,
+            e_field[1]._data,
+            e_field[2]._data,
+            1.0 / epsilon,
+            np.asarray(butcher.a_stage, dtype=float),
+            np.asarray(butcher.b, dtype=float),
+            periodic,
+            self.e_cache,
+            self.state,
+        )
+        self._no_vec = np.zeros((1, 1, 1))
+
+    def reset(self):
+        """Forget the cached fields; call after (re)launching the rays."""
+        self.state[:] = 0
+
+    def step(self, charge=None):
+        """One Strang step of every ray, with the kinetic boundary conditions applied.
+
+        If ``charge`` (a StencilVector of V0) is given, every ray that is still inside after the step deposits
+        ``weight * dt`` at its new position into ``charge._data`` (raw, without the assembly exchange: call
+        ``charge.exchange_assembly_data()`` and ``charge.update_ghost_regions()`` once at the end of the trace).
+        """
+        vec = self._no_vec if charge is None else charge._data
+        deposit = charge is not None
+        particles = self.particles
+        self._kernel(self.dt, particles.args_markers, *self._args, vec, deposit, 0)
+        particles.apply_kinetic_bc()
+        particles.update_holes()
+        if np.any((self.state == 2) & particles.valid_mks):
+            # rays reflected by the boundary conditions: second half kick and deposit at the reflected position
+            self._kernel(self.dt, particles.args_markers, *self._args, vec, deposit, 1)

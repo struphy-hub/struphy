@@ -34,6 +34,7 @@ class BeamSource(metaclass=ABCMeta):
             raise ValueError("The emission rate must be positive.")
         self.rate = rate
         self.current = current
+        self.seed = seed
         self.rng = np.random.default_rng(seed)
 
     @property
@@ -44,6 +45,10 @@ class BeamSource(metaclass=ABCMeta):
     @abstractmethod
     def sample(self, n: int) -> tuple[np.ndarray, np.ndarray]:
         """Return logical positions ``(n, 3)`` on the emitting surface and physical velocities ``(n, 3)``."""
+
+    def to_dict(self) -> dict:
+        """Constructor arguments (for run metadata); the generator state is not included."""
+        return {"rate": self.rate, "current": self.current, "seed": self.seed}
 
 
 class PlaneSource(BeamSource):
@@ -91,6 +96,16 @@ class PlaneSource(BeamSource):
         self.velocity = np.asarray(velocity, dtype=float)
         self.velocity_spread = np.asarray(velocity_spread, dtype=float)
 
+    def to_dict(self) -> dict:
+        return {
+            **super().to_dict(),
+            "axis": self.axis,
+            "eta_plane": self.eta_plane,
+            "eta_ranges": self.eta_ranges,
+            "velocity": self.velocity.tolist(),
+            "velocity_spread": self.velocity_spread.tolist(),
+        }
+
     def sample(self, n):
         eta = np.empty((n, 3))
         eta[:, self.axis] = self.eta_plane
@@ -114,6 +129,10 @@ class LossTag:
     side: int | None = None
     coordinate: int = 0
     interval: tuple[float, float] | None = None
+
+    def __post_init__(self):
+        if self.interval is not None:
+            object.__setattr__(self, "interval", tuple(float(v) for v in self.interval))
 
 
 class CurrentLedger:
@@ -157,16 +176,20 @@ class CurrentLedger:
         """Classify and book all markers removed since the last update (at ``time``)."""
         self.book(particles.pop_lost_markers(), particles.lost_index, domain, time)
 
-    def book(self, records, index, domain, time: float = 0.0):
-        """Classify and book removal records (rows of ``Particles.lost_markers``, columns ``index``)."""
+    def book(self, records, index, domain, time=0.0):
+        """Classify and book removal records (rows of ``Particles.lost_markers``, columns ``index``).
+
+        ``time`` is the booking time of all records, or one time per record.
+        """
         if len(records) == 0:
             return
+        time = np.broadcast_to(np.asarray(time, dtype=float), (len(records),))
         eta = np.clip(records[:, index["pos"]], 0.0, 1.0)
         x = np.asarray(domain(eta, change_out_order=True, remove_outside=False)).reshape(len(records), 3)
         axis = records[:, index["axis"]].astype(int)
         side = records[:, index["side"]].astype(int)
         weights = records[:, index["weights"]]
-        state = np.column_stack([x, records[:, index["vel"]], weights, np.full(len(records), time)])
+        state = np.column_stack([x, records[:, index["vel"]], weights, time])
         unmatched = np.ones(len(records), dtype=bool)
         for tag in self.tags:
             match = unmatched & (axis == tag.axis)

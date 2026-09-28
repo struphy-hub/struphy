@@ -33,7 +33,7 @@ from struphy.diagnostics.beam_diagnostics import emittance_converged, rms_moment
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.ion_beams import CurrentLedger, PlaneSource
-from struphy.pic.ray_tracing import AdaptiveRayPusher, CellSizeMap, StepControl
+from struphy.pic.ray_tracing import AdaptiveRayPusher, CellSizeMap, FixedStepRayTracer, StepControl
 from struphy.propagators.base import Propagator
 
 
@@ -66,8 +66,11 @@ class SteadyStateOptions:
     seed: int = 0
     relaxation: str = "constant"
     step_control: StepControl | None = None
+    tracer: str = "fused"
 
     def __post_init__(self):
+        if self.tracer not in ("fused", "propagators"):
+            raise ValueError("tracer must be 'fused' or 'propagators'.")
         if (self.source is None) == (self.rays is None):
             raise ValueError("Provide exactly one of source or rays.")
         if self.source is not None:
@@ -312,6 +315,13 @@ class SteadyStateIteration:
         ``"constant"`` (``alpha`` throughout) or ``"adaptive"`` (:class:`AdaptiveRelaxation`, with ``alpha``
         as the initial value). Adaptive damping is the robust choice for plasma extraction.
 
+    tracer : str
+        ``"fused"`` (default): the fixed-step trace uses :class:`~struphy.pic.ray_tracing.FixedStepRayTracer`, one
+        kernel call per step for the Strang step of all rays and their charge deposit, with the exit corrections
+        and the current booking batched per round. ``"propagators"``: the model's ``PushVinForceField`` and
+        ``PushEta`` propagators and an ``AccumulatorVector`` call per step (the reference path, about 4x slower).
+        With ``step_control`` the adaptive per-ray pusher is used in either case.
+
     criterion : str
         ``"emittance"`` (Kalvas 2013, §5.8.2), ``"potential"`` or ``"residual"``. ``"potential"``: the relative
         change of the potential coefficients, ``||phi_k - phi_{k-1}|| / ||phi_k||``, is below ``tol``
@@ -355,6 +365,7 @@ class SteadyStateIteration:
         verbose: bool = False,
         relaxation: str = "constant",
         step_control: StepControl | None = None,
+        tracer: str = "fused",
     ):
         if not 0.0 < alpha <= 1.0:
             raise ValueError("alpha must lie in (0, 1].")
@@ -382,7 +393,11 @@ class SteadyStateIteration:
         if step_control is not None and not isinstance(step_control, StepControl):
             raise TypeError("step_control must be a StepControl.")
         self.step_control = step_control
+        if tracer not in ("fused", "propagators"):
+            raise ValueError("tracer must be 'fused' or 'propagators'.")
+        self.tracer = tracer
         self._ray_pusher = None
+        self._fused = None
         self._adaptive = AdaptiveRelaxation(alpha) if relaxation == "adaptive" else None
         self._last_alpha, self._last_residual = 1.0, np.nan
         self.anderson = int(anderson)
@@ -507,11 +522,22 @@ class SteadyStateIteration:
         return len(changes) >= 2 and changes[-1] < self.tol and changes[-2] < self.tol
 
     def _build_ray_pusher(self):
-        """Create the per-ray adaptive pusher if ``step_control`` is set (no-op otherwise)."""
+        """Create the fused fixed-step tracer, or the per-ray adaptive pusher if ``step_control`` is set."""
         self._ray_pusher = None
-        if self.step_control is None:
-            return
+        self._fused = None
         model, derham = self.model, Propagator.derham
+        if self.step_control is None:
+            if self.tracer == "fused":
+                self._fused = FixedStepRayTracer(
+                    model.ions.var.particles,
+                    Propagator.domain,
+                    derham,
+                    model.em_fields.e_field.spline.vector,
+                    model.ions.equation_params.epsilon,
+                    model.propagators.push_eta.options.butcher,
+                    self.dt,
+                )
+            return
         self._ray_pusher = AdaptiveRayPusher(
             model.ions.var.particles,
             Propagator.domain,
@@ -559,7 +585,7 @@ class SteadyStateIteration:
         particles = model.ions.var.particles
         push_v, push_eta = model.propagators.push_v, model.propagators.push_eta
         dt = self.dt
-        pusher = self._ray_pusher
+        pusher, fused = self._ray_pusher, self._fused
         self._launch(particles)
         ledger = CurrentLedger(self.loss_tags, keep_records=(self.exit_tag,))
         charge = model.em_fields.phi.spline.vector.space.zeros()
@@ -569,6 +595,12 @@ class SteadyStateIteration:
         else:
             step_dt = pusher.choose()
             self._deposit_weighted(charge, 0.5 * step_dt)
+        if fused is not None:
+            # the fused kernel deposits I * dt of every live ray into path_charge (assembled once at the end);
+            # the exit corrections and the current booking are batched per round
+            fused.reset()
+            path_charge = charge.space.zeros()
+            batch = {"eta": [], "weights": [], "records": [], "times": []}
         paths = [] if track else None
         crossings = None if self.planes is None else np.full((len(self.planes[1]), len(self.rays), 6), np.nan)
         previous = particles.markers[: len(self.rays), :6].copy()
@@ -576,7 +608,9 @@ class SteadyStateIteration:
         while particles.n_mks_loc > 0:
             if steps >= self.max_steps:
                 raise RuntimeError(f"{particles.n_mks_loc} rays still inside after {steps} steps; increase max_steps.")
-            if pusher is None:
+            if fused is not None:
+                fused.step(path_charge)
+            elif pusher is None:
                 push_v(0.5 * dt)
                 push_eta(dt)
                 push_v(0.5 * dt)
@@ -585,14 +619,27 @@ class SteadyStateIteration:
             steps += 1
             records = particles.pop_lost_markers()
             if len(records):
-                self._finish_exits(charge, records, particles.lost_index, previous, None if pusher is None else step_dt)
-            ledger.book(records, particles.lost_index, Propagator.domain, time=steps * dt)
+                self._finish_exits(
+                    charge,
+                    records,
+                    particles.lost_index,
+                    previous,
+                    None if pusher is None else step_dt,
+                    queue=None if fused is None else batch,
+                )
+            if fused is None:
+                ledger.book(records, particles.lost_index, Propagator.domain, time=steps * dt)
+            elif len(records):
+                batch["records"].append(records)
+                batch["times"].append(np.full(len(records), steps * dt))
             if crossings is not None:
                 self._record_crossings(particles, previous, crossings)
             else:
                 valid = particles.valid_mks
                 previous[particles.markers[valid, -1].astype(int)] = particles.markers[valid, :6]
-            if pusher is None:
+            if fused is not None:
+                pass
+            elif pusher is None:
                 self._deposit(charge, dt)
             else:
                 # trapezoid rule over each ray's own path: the node between two steps gets half of each
@@ -603,6 +650,20 @@ class SteadyStateIteration:
                 paths.append(self._tracked_positions(particles))
         if track:
             self.trajectories = np.stack(paths)
+        if fused is not None:
+            with ProfileManager.profile_region("ion optics: deposit"):
+                path_charge.exchange_assembly_data()
+                path_charge.update_ghost_regions()
+                charge += path_charge
+            if batch["records"]:
+                with ProfileManager.profile_region("ion optics: finish exits"):
+                    self._deposit_points(charge, np.concatenate(batch["eta"]), np.concatenate(batch["weights"]))
+                ledger.book(
+                    np.concatenate(batch["records"]),
+                    particles.lost_index,
+                    Propagator.domain,
+                    time=np.concatenate(batch["times"]),
+                )
 
         exits = ledger.records[self.exit_tag]
         moments = {}
@@ -637,7 +698,7 @@ class SteadyStateIteration:
         return record, charge
 
     @ProfileManager.profile("ion optics: finish exits")
-    def _finish_exits(self, charge, records, index, previous, step=None):
+    def _finish_exits(self, charge, records, index, previous, step=None, queue=None):
         """Trapezoidal charge of the last, partial step of rays that left during this step.
 
         A ray that crosses the boundary at the fraction ``f`` of the step was inside for
@@ -646,6 +707,8 @@ class SteadyStateIteration:
         field; otherwise the exit step count jumps and the fixed-point map becomes discontinuous.
         The records are moved to the exit point, which also sharpens the exit diagnostics.
         With per-ray steps, ``step`` holds the step each ray has just taken (else the global ``dt``).
+        If ``queue`` is given, the point charges are appended to its ``"eta"`` and ``"weights"`` lists
+        instead of being deposited now.
         """
         ids = records[:, index["ids"]].astype(int)
         axis = records[:, index["axis"]].astype(int)
@@ -660,11 +723,13 @@ class SteadyStateIteration:
         records[:, index["pos"]] = eta_exit
         current = self.rays.current[ids]
         dt = self.dt if step is None else step[ids]
-        self._deposit_points(
-            charge,
-            np.concatenate([eta_prev, eta_exit]),
-            np.concatenate([-(1.0 - fraction) * 0.5 * dt * current, fraction * 0.5 * dt * current]),
-        )
+        eta = np.concatenate([eta_prev, eta_exit])
+        weights = np.concatenate([-(1.0 - fraction) * 0.5 * dt * current, fraction * 0.5 * dt * current])
+        if queue is not None:
+            queue["eta"].append(eta)
+            queue["weights"].append(weights)
+        else:
+            self._deposit_points(charge, eta, weights)
 
     def _deposit_points(self, charge, eta, weights):
         """Add point charges at logical positions ``eta`` to ``charge``, staged in holes of the marker array."""
@@ -672,17 +737,20 @@ class SteadyStateIteration:
         index = particles.index
         valid = particles.valid_mks.copy()
         saved = particles.markers[valid, index["weights"]].copy()
-        holes = np.nonzero(particles.holes)[0][: len(eta)]
-        if len(holes) < len(eta):
+        free = np.nonzero(particles.holes)[0]
+        if len(free) == 0:
             raise RuntimeError("Not enough free rows in the marker array to stage the exit deposit.")
         particles.markers[valid, index["weights"]] = 0.0
-        particles.markers[holes, :] = 0.0
-        particles.markers[holes, index["pos"]] = np.clip(eta, 0.0, 1.0 - 1e-14)
-        particles.markers[holes, index["weights"]] = weights
-        particles.markers[holes, -1] = -3.0
-        self._accumulator()
-        charge += self._accumulator.vectors[0]
-        particles.markers[holes, :] = -1.0
+        for start in range(0, len(eta), len(free)):
+            chunk = slice(start, start + len(free))
+            holes = free[: len(eta[chunk])]
+            particles.markers[holes, :] = 0.0
+            particles.markers[holes, index["pos"]] = np.clip(eta[chunk], 0.0, 1.0 - 1e-14)
+            particles.markers[holes, index["weights"]] = weights[chunk]
+            particles.markers[holes, -1] = -3.0
+            self._accumulator()
+            charge += self._accumulator.vectors[0]
+            particles.markers[holes, :] = -1.0
         particles.markers[valid, index["weights"]] = saved
         particles.update_holes()
 

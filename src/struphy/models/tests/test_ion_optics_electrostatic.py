@@ -580,3 +580,186 @@ def test_ray_kernels_reproduce_the_original_pushers_and_the_step_rule(tmp_path):
         StepControl(courant=0.0)
     with pytest.raises(ValueError):
         StepControl(min_scale=2.0)
+
+
+def _segmented_channel_extraction(tmp_path, tracer, n_rays=48, max_rounds=2):
+    """A small curved-channel steady-state extraction (electrode segments, space charge, remove BCs), not run."""
+    from struphy.geometry.domains import SegmentedElectrodeChannel
+    from struphy.models.ion_optics_steady_state import build_steady_state_simulation
+    from struphy.pic.ion_beams import LossTag, PlaneSource
+
+    x = (0.0, 2.0, 2.5, 3.5, 4.0, 8.0)
+    y = (2.0, 2.0, 1.0, 1.0, 2.0, 2.0)
+    segments = tuple(
+        ElectrodeSegment(side, x0, x1, voltage, name)
+        for side in ("lower", "upper")
+        for x0, x1, voltage, name in ((0.0, 3.0, 0.0, "plasma electrode"), (3.0, 8.0, -1.0, "puller"))
+    )
+    domain = SegmentedElectrodeChannel(
+        length=8.0,
+        width=1.0,
+        lower_profile=(x, tuple(-v for v in y)),
+        upper_profile=(x, y),
+        segments=segments,
+        num_elements=(16, 8),
+        degree=(3, 3),
+    )
+    source = PlaneSource(
+        rate=1.0,
+        current=0.3,
+        axis=0,
+        eta_plane=0.0,
+        eta_ranges=((0.05, 0.95), (0.0, 1.0)),
+        velocity=(0.3, 0.0, 0.0),
+        velocity_spread=(0.0, 0.08, 0.0),
+    )
+    model = IonOpticsElectrostatic(
+        electrode_segments=domain.segments,
+        electrode_length=domain.length,
+        steady_state=SteadyStateOptions(
+            source=source,
+            n_rays=n_rays,
+            dt=0.1,
+            alpha=1.0,
+            loss_tags=(
+                LossTag("electrodes", axis=1),
+                LossTag("outlet", axis=0, side=1),
+                LossTag("plasma", axis=0, side=0),
+            ),
+            criterion="residual",
+            max_rounds=max_rounds,
+            planes=(0, (0.5,)),
+            n_tracked=4,
+            tracer=tracer,
+        ),
+    )
+    return build_steady_state_simulation(
+        tmp_path, f"channel_{tracer}", model, n_rays, domain, (16, 8, 1), (3, 3, 1), ("remove", "remove", "periodic")
+    )
+
+
+def test_fused_ray_tracer_reproduces_the_propagator_steps(tmp_path):
+    """One fused kernel step equals half kick, RK4 drift, half kick of the propagators (rays that stay inside)."""
+    from struphy.pic.ray_tracing import FixedStepRayTracer
+
+    sim = _segmented_channel_extraction(tmp_path, "propagators")
+    sim.allocate()
+    model = sim.model
+    particles = model.ions.var.particles
+    n = 40
+    rng = np.random.default_rng(3)
+    markers = particles.markers
+    markers[:, :] = -1.0
+    markers[:n, :] = 0.0
+    markers[:n, 0] = rng.uniform(0.05, 0.9, n)
+    markers[:n, 1] = rng.uniform(0.02, 0.98, n)
+    markers[:n, 2] = rng.uniform(0.0, 1.0, n)
+    markers[:n, 3] = rng.uniform(0.1, 0.5, n)
+    markers[:n, 4] = rng.uniform(-2.0, 2.0, n)  # a few rays reach the electrodes within the steps
+    markers[:n, 5] = rng.uniform(-0.5, 0.5, n)  # crosses the periodic z faces
+    markers[:n, 6] = 1.0
+    markers[:n, -1] = np.arange(n)
+    particles.update_holes()
+    start = markers.copy()
+    dt, n_steps = 0.1, 5
+
+    for _ in range(n_steps):
+        model.propagators.push_v(0.5 * dt)
+        model.propagators.push_eta(dt)
+        model.propagators.push_v(0.5 * dt)
+    inside = particles.valid_mks[:n]
+    assert 0 < inside.sum() < n  # some rays leave through the electrodes, most stay
+    reference = markers[:n, :6].copy()
+
+    markers[:] = start
+    particles.update_holes()
+    particles.pop_lost_markers()
+    tracer = FixedStepRayTracer(
+        particles,
+        Propagator.domain,
+        Propagator.derham,
+        model.em_fields.e_field.spline.vector,
+        model.ions.equation_params.epsilon,
+        model.propagators.push_eta.options.butcher,
+        dt,
+    )
+    charge = model.em_fields.phi.spline.vector.space.zeros()
+    for _ in range(n_steps):
+        tracer.step(charge)
+    np.testing.assert_array_equal(particles.valid_mks[:n], inside)
+    np.testing.assert_allclose(markers[:n][inside, :6], reference[inside], atol=1e-13, rtol=0)
+    charge.exchange_assembly_data()
+    assert charge.toarray().sum() > 0.0
+
+
+def test_fused_ray_tracer_matches_the_propagator_trace_per_round(tmp_path):
+    """Whole rounds (deposit, exits, currents, diagnostics) agree between the fused and the propagator trace."""
+    results = {}
+    for tracer in ("propagators", "fused"):
+        sim = _segmented_channel_extraction(tmp_path, tracer)
+        sim.run()
+        iteration = sim.model.steady_state_iteration
+        results[tracer] = iteration
+    a, b = results["propagators"], results["fused"]
+    for ra, rb in zip(a.history, b.history):
+        assert ra.steps == rb.steps
+        for name in ra.lost_current:
+            assert ra.lost_current[name] == pytest.approx(rb.lost_current[name], abs=1e-12)
+        assert ra.exit_emittance == pytest.approx(rb.exit_emittance, rel=1e-10)
+        # exit records: same rays, same exit points and velocities (rays stop at the same stage position)
+        ia, ib = np.argsort(ra.exit_records[:, 1]), np.argsort(rb.exit_records[:, 1])
+        np.testing.assert_allclose(ra.exit_records[ia, :6], rb.exit_records[ib, :6], atol=1e-10, rtol=0)
+        np.testing.assert_allclose(ra.plane_crossings, rb.plane_crossings, atol=1e-10, equal_nan=True)
+    ca, cb = a.charge.toarray(), b.charge.toarray()
+    assert np.linalg.norm(ca - cb) < 1e-10 * np.linalg.norm(ca)
+    pa, pb = a.model.em_fields.phi.spline.vector.toarray(), b.model.em_fields.phi.spline.vector.toarray()
+    assert np.linalg.norm(pa - pb) < 1e-10 * np.linalg.norm(pa)
+    np.testing.assert_allclose(a.trajectories, b.trajectories, atol=1e-10, equal_nan=True)
+
+
+def test_ion_optics_model_serializes_to_run_metadata(tmp_path):
+    """Sources, loss tags, electrode segments, plasma and steady-state options survive to_dict/from_dict."""
+    import json
+
+    from struphy.models.base import StruphyModel
+    from struphy.physics.plasma_models import BoltzmannElectrons
+    from struphy.pic.ion_beams import LossTag, PlaneSource
+    from struphy.pic.ray_tracing import StepControl
+
+    units = IonOpticsUnits(length=1e-3, voltage=1e3)
+    plasma = BoltzmannElectrons.from_si(units, 1e16, 5.0, 10.0)
+    segments = (ElectrodeSegment("lower", 0.0, 1.0, 0.0, "a"), ElectrodeSegment("upper", 1.0, 2.0, -0.5, "b"))
+    source = PlaneSource(rate=2.0, current=0.5, axis=0, eta_plane=0.0, velocity=(0.3, 0.0, 0.0), seed=7)
+    options = SteadyStateOptions(
+        source=source,
+        n_rays=16,
+        dt=0.05,
+        loss_tags=(LossTag("outlet", axis=0, side=1), LossTag("wall", axis=1, coordinate=0, interval=(0.0, 1.0))),
+        relaxation="adaptive",
+        step_control=StepControl(courant=0.4),
+        planes=(0, (0.25, 0.75)),
+    )
+    model = IonOpticsElectrostatic(
+        base_units=units.base_units(),
+        electrode_segments=segments,
+        electrode_length=2.0,
+        plasma=plasma,
+        steady_state=options,
+    )
+    data = json.loads(json.dumps(model.to_dict()))
+    clone = StruphyModel.from_dict(data)
+    assert clone.plasma == plasma
+    assert clone.electrode_segments == segments
+    assert clone.steady_state.step_control == options.step_control
+    assert tuple(clone.steady_state.loss_tags) == options.loss_tags
+    assert clone.steady_state.source.to_dict() == source.to_dict()
+    assert clone.ions.equation_params.epsilon == pytest.approx(model.ions.equation_params.epsilon)
+
+    # the time-dependent injection model serializes too (this was the failing case of the run metadata)
+    injected = IonOpticsElectrostatic(
+        electrode_faces=((True, True), (False, False), (False, False)),
+        source=source,
+        loss_tags=(LossTag("outlet", axis=0, side=1),),
+        space_charge=True,
+    )
+    assert StruphyModel.from_dict(json.loads(json.dumps(injected.to_dict()))).ledger.names == injected.ledger.names

@@ -1,9 +1,8 @@
-"""Electrostatic ion-optics test-particle model.
+"""Electrostatic ion-optics model: ions in the field of electrodes, with space charge and a plasma source.
 
-This is the first building block for self-consistent ion optics.  It advances
-an injected ion population in a prescribed electrostatic field; space-charge
-deposition and the nonlinear Poisson iteration are intentionally not part of
-this first milestone.
+The same model class covers the prescribed-field baseline, time-dependent injection with self-consistent
+space charge, and the IBSimu-style steady-state ray-tracing iteration with Boltzmann electrons
+(``steady_state=SteadyStateOptions(...)``). See ``examples/IonOpticsElectrostatic``.
 """
 
 import copy
@@ -42,24 +41,38 @@ from struphy.propagators.push_v_in_force_field import PushVinForceField
 
 
 class IonOpticsElectrostatic(StruphyModel):
-    r"""Ions moving in a prescribed electrostatic field.
+    r"""Ions in the electrostatic field of electrodes, with optional space charge and plasma electrons.
 
-    The model advances
+    The ions follow
 
     .. math::
 
         \dot{\mathbf x} = \mathbf v, \qquad
-        \dot{\mathbf v} = \mathbf E(\mathbf x)/\varepsilon,
+        \dot{\mathbf v} = \mathbf E(\mathbf x)/\varepsilon, \qquad
+        \mathbf E = -\nabla\phi, \qquad
+        -\nabla^2 \phi = \rho_i + \rho_e(\phi),
 
-    with :math:`\mathbf E=-\nabla\phi`.  Initialize ``phi`` through
-    Struphy's normal initial-condition path for whole-face electrodes, or pass
-    ``electrode_segments`` for a channel whose segment voltages define the
-    potential trace directly. The model constructs the FEEC electric field
-    after allocation.
+    with the electrode voltages as Dirichlet data of :math:`\phi` (natural boundary elsewhere),
+    :math:`\rho_i` the deposited ion charge (``space_charge=True`` or the steady-state iteration) and
+    :math:`\rho_e = -\rho_{e0} \exp((\phi - \phi_P)/T_e)` the Boltzmann electrons of a plasma source
+    (``plasma=BoltzmannElectrons(...)``; the Poisson–Boltzmann equation is solved by Newton on a convex energy).
 
-    Pass ``steady_state=SteadyStateOptions(...)`` to solve the self-consistent
-    ray-traced Vlasov--Poisson problem through :meth:`Simulation.run`.  Without
-    it, this is the prescribed-field/time-dependent particle model.
+    Electrodes: initialize ``phi`` through Struphy's initial-condition path for whole-face electrodes
+    (``electrode_faces``), or pass ``electrode_segments`` for a channel whose wall segments carry the voltages
+    (:class:`~struphy.geometry.domains.SegmentedElectrodeChannel`,
+    :class:`~struphy.geometry.axisymmetric.AxisymmetricElectrodeChannel`).
+
+    Three modes of operation, all run through ``Simulation(model=model, ...).run()``:
+
+    * prescribed field: no ``source``, no ``space_charge`` (single-particle baseline);
+    * time-dependent PIC: ``source=PlaneSource(...)`` injects markers every step, ``space_charge=True`` solves
+      Poisson before every step, ``loss_tags`` book the current to each electrode;
+    * steady state: ``steady_state=SteadyStateOptions(...)`` runs the IBSimu-style ray-tracing
+      Vlasov–Poisson iteration (:class:`~struphy.models.ion_optics_steady_state.SteadyStateIteration`), the
+      recommended mode for design work (no marker noise, converges in tens of rounds).
+
+    Units: :class:`~struphy.physics.ion_optics_units.IonOpticsUnits` maps (length, voltage, ion species) to
+    ``base_units`` such that ``phi`` is in the chosen voltage unit and ``epsilon = 1`` for the bulk ion.
     """
 
     @classmethod
@@ -222,6 +235,7 @@ class IonOpticsElectrostatic(StruphyModel):
             verbose=options.verbose,
             relaxation=options.relaxation,
             step_control=options.step_control,
+            tracer=options.tracer,
         )
         self.steady_state_iteration = iteration
         iteration.run()
@@ -565,32 +579,43 @@ class IonOpticsElectrostatic(StruphyModel):
 
     @classmethod
     def doc_normalization(cls):
-        return """The model uses the ion cyclotron normalization associated with ``BaseUnits``."""
+        return """Ion cyclotron normalization of ``BaseUnits``; with ``IonOpticsUnits`` the potential is in the chosen
+        voltage unit, ``epsilon = 1`` for the bulk ion, and the charge unit is ``eps_0 * Phi * L`` so that
+        ``-Laplace(phi) = rho``."""
 
     @classmethod
     def doc_scalar_quantities(cls):
         return """**The following scalars are tracked:**
 
-        - Particle kinetic energy."""
+        - Particle kinetic energy;
+        - with a source or loss tags: injected, live and per-electrode lost charge."""
 
     @classmethod
     def doc_discretization(cls):
-        return """Time integration applies ``PushVinForceField`` followed by ``PushEta``."""
+        return """Potential in H1 with electrode Dirichlet lifting (sparse LU, or CG in parallel); field ``E = -grad phi``
+        in Hcurl. Time-dependent runs: Poisson solve, then ``PushVinForceField`` and ``PushEta`` (Strang or Lie
+        splitting). Steady state: fixed-step Strang ray tracing with trajectory deposition ``I dt``, under-relaxed
+        charge mixing, and the (Poisson–Boltzmann) field solve per round."""
 
     @classmethod
     def doc_long_description(cls):
-        return """A prescribed-field ion-optics baseline. Space charge is deliberately deferred to a later model milestone."""
+        return """Electrode-based ion optics (extraction, acceleration, focusing) with self-consistent space charge,
+        following the workflow of IBSimu (Kalvas 2013): conforming electrode geometry, Laplace/Poisson with electrode
+        constraints, ray tracing with current-carrying trajectories, Boltzmann electrons for positive-ion extraction,
+        and per-electrode current accounting. Verified against analytic lenses, the Child–Langmuir diode, beam
+        envelopes and the Bohm sheath, see ``examples/IonOpticsElectrostatic``."""
 
     @classmethod
     def doc_examples(cls):
-        return """Create the model with ``IonOpticsElectrostatic(base_units=IonOpticsUnits(...).base_units(), electrode_faces=...)``,
-        initialize the electrode potential on ``em_fields.phi`` (e.g. with ``PiecewiseLinearPotential``) and load ``ions.var``.
-        See ``examples/IonOpticsElectrostatic/slit_immersion_lens``."""
+        return """``examples/IonOpticsElectrostatic``: ``slit_immersion_lens`` (prescribed field),
+        ``slit_lens_injection`` and ``child_langmuir_diode`` (time-dependent injection with space charge),
+        ``plasma_extraction`` and ``axisymmetric_extraction`` (steady-state extraction from a plasma)."""
 
     @classmethod
     def doc_use_cases(cls):
-        return """Prescribed-field extraction, acceleration and focusing tests."""
+        return """Design of extraction systems, accelerator columns and lenses in 2D (slit) or cylindrical symmetry."""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
-        return """Self-consistent space charge and internal electrode surfaces are not yet included."""
+        return """Magnetic fields, collisions, internal (embedded) electrodes not representable as mapped walls,
+        and parallel (MPI) steady-state runs are not included."""

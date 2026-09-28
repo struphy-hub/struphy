@@ -106,15 +106,16 @@ def run(
     output_dir,
     case=DEFAULT,
     num_elements=(48, 18),
-    n_rays=900,
+    n_rays=1800,
     dt=0.1,
     alpha=0.2,
-    max_rounds=60,
+    max_rounds=80,
     n_tracked=None,
     relaxation="adaptive",
     criterion="residual",
     tol=1e-3,
     step_control=None,
+    tracer="fused",
 ):
     domain = build_domain(case, num_elements)
     plasma = plasma_model(case)
@@ -145,6 +146,7 @@ def run(
             alpha=alpha,
             relaxation=relaxation,
             step_control=step_control,
+            tracer=tracer,
             loss_tags=(
                 LossTag("plasma electrode", axis=1, coordinate=0, interval=(-np.inf, x_gap)),
                 LossTag("puller", axis=1, coordinate=0, interval=(x_gap, np.inf)),
@@ -227,7 +229,13 @@ def plot_results(iteration, output, case=DEFAULT):
         xy_rays = _map_points(model_domain, eta)
         # transmitted rays in red, a random sample of the lost ones in grey (a strided subset of
         # Sobol points would be correlated in y)
-        last = np.array([xy_rays[np.isfinite(xy_rays[:, j, 0]), j, 0][-1] for j in range(xy_rays.shape[1])])
+        # last stored x of each ray; a ray lost within its first step has no stored position (counted as lost)
+        last = np.array(
+            [
+                xy_rays[np.isfinite(xy_rays[:, j, 0]), j, 0][-1] if np.any(np.isfinite(xy_rays[:, j, 0])) else -np.inf
+                for j in range(xy_rays.shape[1])
+            ]
+        )
         transmitted = np.nonzero(last > case.length - 0.2)[0]
         lost = np.random.default_rng(0).permutation(np.nonzero(last <= case.length - 0.2)[0])[:80]
         for j in lost:

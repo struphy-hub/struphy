@@ -45,6 +45,61 @@ class StruphyModelMeta(ABCMeta):
         return iter(all_subclasses(cls))
 
 
+def serialize_argument(value):
+    """JSON data for a model constructor argument, see :meth:`StruphyModel.to_dict`.
+
+    Plain values, tuples, lists and dicts pass through (recursively); ``BaseUnits`` become
+    ``{"BaseUnits": ...}``; numpy arrays become ``{"__array__": list}``; dataclass instances and objects
+    with a ``to_dict()`` method become ``{"__class__": "module:qualname", "params": {...}}`` and are
+    rebuilt by :func:`deserialize_argument` with ``cls(**params)`` (or ``cls.from_dict(params)`` if defined).
+    """
+    if isinstance(value, BaseUnits):
+        return {"BaseUnits": value.to_dict()}
+    if isinstance(value, (bool, int, float, str, type(None))):
+        return value
+    if isinstance(value, xp.ndarray):
+        return {"__array__": value.tolist()}
+    if isinstance(value, (tuple, list)):
+        return [serialize_argument(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): serialize_argument(item) for key, item in value.items()}
+    if is_dataclass(value) and not isinstance(value, type):
+        params = {field.name: getattr(value, field.name) for field in fields(value) if field.init}
+    elif callable(getattr(value, "to_dict", None)):
+        params = value.to_dict()
+    else:
+        raise TypeError(f"cannot serialize {value!r}")
+    cls = type(value)
+    return {
+        "__class__": f"{cls.__module__}:{cls.__qualname__}",
+        "params": {key: serialize_argument(item) for key, item in params.items()},
+    }
+
+
+def deserialize_argument(value):
+    """Inverse of :func:`serialize_argument`."""
+    if isinstance(value, dict):
+        if set(value) == {"BaseUnits"}:
+            return BaseUnits.from_dict(value["BaseUnits"])
+        if set(value) == {"__array__"}:
+            return xp.array(value["__array__"])
+        if set(value) == {"__class__", "params"}:
+            import importlib
+
+            module_name, qualname = value["__class__"].split(":")
+            cls = importlib.import_module(module_name)
+            for name in qualname.split("."):
+                cls = getattr(cls, name)
+            params = {key: deserialize_argument(item) for key, item in value["params"].items()}
+            if callable(getattr(cls, "from_dict", None)):
+                return cls.from_dict(params)
+            return cls(**params)
+        return {key: deserialize_argument(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [deserialize_argument(item) for item in value]
+    return value
+
+
 class StruphyModel(metaclass=StruphyModelMeta):
     """
     Abstract base class for all Struphy models.
@@ -935,11 +990,10 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         """
         params = {}
         for key, value in self.params.items():
-            if isinstance(value, BaseUnits):
-                value = {"BaseUnits": value.to_dict()}
-            elif not isinstance(value, (bool, int, float, str, tuple, list, type(None))):
-                raise TypeError(f"cannot serialize argument {key}={value!r} of {self.__class__.__name__}")
-            params[key] = value
+            try:
+                params[key] = serialize_argument(value)
+            except TypeError as error:
+                raise TypeError(f"cannot serialize argument {key}={value!r} of {self.__class__.__name__}") from error
         species = {name: item.to_dict() for name, item in self.species.items()}
         if initial_condition_serializer is not None:
             for species_name, item in self.species.items():
@@ -1002,11 +1056,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             WeightsParameters,
         )
 
-        params = {}
-        for key, value in dct.get("params", {}).items():
-            if isinstance(value, dict) and set(value) == {"BaseUnits"}:
-                value = BaseUnits.from_dict(value["BaseUnits"])
-            params[key] = value
+        params = {key: deserialize_argument(value) for key, value in dct.get("params", {}).items()}
         model = get_model_by_name(dct["model"])(**params)
 
         parameter_types = {
