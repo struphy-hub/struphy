@@ -21,9 +21,7 @@ def marker_args():
     markers[0, 8:14] = markers[0, :6]
     markers[0, 11] = 1.0  # Initial parallel velocity.
     markers[1, 0] = -1.0  # A hole must never be written to.
-    return MarkerArguments(
-        markers, np.array([True, False]), 1, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=int)
-    )
+    return MarkerArguments(markers, np.array([True, False]), 1, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=int))
 
 
 @pytest.fixture
