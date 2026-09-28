@@ -65,6 +65,12 @@ class SegmentedElectrodeChannel(PoloidalSplineStraight):
     segments are metadata, not embedded solids: their voltages must be applied
     by a segmented boundary-trace implementation.
 
+    The walls are the profiles interpolated linearly between their nodes. A spline
+    mapping of degree 3 rounds and overshoots their corners (a sharp electrode lip
+    becomes narrower); with ``degree=(1, ...)`` and every profile node on an
+    element boundary (see :meth:`aligned_elements`) the mapped walls are the
+    profiles exactly. :attr:`wall_error` is the largest distance between the two.
+
     Parameters
     ----------
     length, width:
@@ -133,6 +139,51 @@ class SegmentedElectrodeChannel(PoloidalSplineStraight):
         # control points. Here x=0 along the inlet can share an x coordinate
         # while y remains distinct, so this rectangular channel has no pole.
         self.pole = False
+        self.wall_error = self._wall_error()
+
+    def _wall_error(self, samples: int = 4001) -> float:
+        """Largest distance (in y) between the mapped walls and the linearly interpolated profiles."""
+        eta1 = xp.linspace(0.0, 1.0, samples)
+        error = 0.0
+        for eta2, (x_nodes, y_nodes) in ((0.0, self.lower_profile), (1.0, self.upper_profile)):
+            x, y, _ = self(eta1, xp.array([eta2]), xp.array([0.0]), squeeze_out=True)
+            error = max(error, float(xp.max(xp.abs(y - xp.interp(x, x_nodes, y_nodes)))))
+        return error
+
+    @staticmethod
+    def aligned_elements(length: float, profiles, minimum: int = 1, tol: float = 1e-9) -> int:
+        """Smallest number of elements along the channel, at least ``minimum``, that puts every
+        profile node on an element boundary.
+
+        With that many elements and a mapping of degree 1 along the channel, the mapped walls are
+        the piecewise-linear profiles exactly.
+
+        Parameters
+        ----------
+        length : float
+            The channel length.
+        profiles : sequence of (x_nodes, y_nodes)
+            The wall profiles, e.g. ``(lower_profile, upper_profile)``.
+        minimum : int, optional
+            The least number of elements wanted, e.g. for resolution. Default: 1.
+        tol : float, optional
+            Relative tolerance for a node to count as on a boundary. Default: 1e-9.
+
+        Returns
+        -------
+        int
+            The number of elements.
+
+        Raises
+        ------
+        ValueError
+            If no count up to 100000 aligns every node (e.g. irrational node positions).
+        """
+        positions = sorted({float(x) / length for x_nodes, _ in profiles for x in x_nodes})
+        for n in range(max(int(minimum), 1), 100_001):
+            if all(abs(p * n - round(p * n)) <= tol * n for p in positions):
+                return n
+        raise ValueError("no element count up to 100000 puts every profile node on an element boundary.")
 
     def to_dict(self) -> dict:
         """Serialize profile data and electrode metadata without spline arrays."""

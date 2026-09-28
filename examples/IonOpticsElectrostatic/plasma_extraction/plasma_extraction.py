@@ -72,8 +72,20 @@ class Extraction:
 DEFAULT = Extraction()
 
 
-def build_domain(case=DEFAULT, num_elements=(160, 60)):
+def aligned(case, num_elements):
+    """``num_elements`` with at least as many elements along the channel, and every wall corner on an
+    element boundary: with a mapping of degree 1 there, the walls are the profile exactly."""
     x, y = case.profile()
+    n1 = SegmentedElectrodeChannel.aligned_elements(case.length, ((x, -y), (x, y)), minimum=num_elements[0])
+    return (n1, *num_elements[1:])
+
+
+def build_domain(case=DEFAULT, num_elements=(160, 60)):
+    """The channel between the electrode walls, exactly: a mapping of degree 1 along the channel (the
+    walls are piecewise linear) on an element count that puts every wall corner on an element boundary.
+    A cubic mapping would round the corners and narrow the slits (by 15 % on 48 elements)."""
+    x, y = case.profile()
+    num_elements = aligned(case, num_elements)
     gap0, gap1 = case.gap
     v_puller = float(UNITS.potential(-case.extraction_voltage))
     segments = []
@@ -89,7 +101,7 @@ def build_domain(case=DEFAULT, num_elements=(160, 60)):
         upper_profile=(tuple(x), tuple(y)),
         segments=tuple(segments),
         num_elements=num_elements,
-        degree=(3, 3),
+        degree=(1, 1),
     )
 
 
@@ -117,6 +129,7 @@ def run(
     step_control=None,
     tracer="fused",
 ):
+    num_elements = aligned(case, num_elements)  # the field's elements follow the wall corners too
     domain = build_domain(case, num_elements)
     plasma = plasma_model(case)
     # ions leave the plasma with the Bohm speed and the quasi-neutral flux n_0 v_B, over the chamber height
@@ -196,10 +209,11 @@ def plot_results(iteration, output, case=DEFAULT):
         f"puller at −{case.extraction_voltage / 1e3:g} kV"
     )
 
-    # electrodes: fill outside the walls
-    xw, yw = case.profile()
-    xs = np.linspace(0.0, case.length, 400)
-    top = np.interp(xs, xw, yw)
+    # electrodes: fill outside the walls of the simulated domain itself (not the nominal profile), so the
+    # figure shows the geometry the ions and the field saw
+    wall_eta = np.linspace(0.0, 1.0, 1601)
+    xs, top, _ = (np.ravel(v) for v in model_domain(wall_eta, np.array([1.0]), np.array([0.5])))
+    _, bottom, _ = (np.ravel(v) for v in model_domain(wall_eta, np.array([0.0]), np.array([0.5])))
     gap0, gap1 = case.gap
     for sign in (1, -1):
         for (x0, x1), colour, label in (
@@ -209,7 +223,7 @@ def plot_results(iteration, output, case=DEFAULT):
             sel = (xs >= x0) & (xs <= x1)
             ax.fill_between(
                 xs[sel],
-                sign * top[sel],
+                (top if sign > 0 else bottom)[sel],
                 sign * (case.chamber_half_height + 0.4),
                 color=colour,
                 label=label if sign > 0 else None,

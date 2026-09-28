@@ -813,3 +813,21 @@ def test_wall_surface_rays_start_on_the_lip_and_point_inward():
     assert len(both) == 520 and both.current[-1] == pytest.approx(1.0 * (arc_ramp + arc_flat) * 1.5 / 8, rel=3e-2)
     with pytest.raises(ValueError):
         RayBundle.from_wall_surface(domain, "upper", (7.0, 9.0), 4, 1.0, 1.0)
+
+
+def test_segmented_channel_walls_are_exact_with_degree_one_on_aligned_elements():
+    import numpy as np
+
+    from struphy.geometry.domains import SegmentedElectrodeChannel
+
+    x = (0.0, 1.0, 1.5, 2.5, 3.0, 6.0)
+    y = (2.0, 2.0, 0.5, 0.5, 2.0, 2.0)
+    profiles = ((x, tuple(-v for v in y)), (x, y))
+    n = SegmentedElectrodeChannel.aligned_elements(6.0, profiles, minimum=10)
+    assert n == 12  # nodes on multiples of 0.5 = 6 / 12
+    make = lambda degree, n: SegmentedElectrodeChannel(
+        length=6.0, width=1.0, lower_profile=profiles[0], upper_profile=profiles[1], num_elements=(n, 4), degree=degree
+    )
+    assert make((1, 1), n).wall_error < 1e-12
+    assert make((3, 3), n).wall_error > 1e-3  # a cubic spline overshoots the corners
+    assert make((1, 1), 10).wall_error > 1e-3  # corners between element boundaries are cut

@@ -18,3 +18,18 @@ def test_extraction_forms_plasma_and_extracts_beam(tmp_path):
     n_e = -model.plasma.charge_density(phi) / model.plasma.density
     assert n_e[0] > 0.3 and n_e[1] < 1e-3
     assert DEFAULT.extraction_voltage > 0
+
+
+def test_the_domain_walls_are_the_electrode_profile_exactly():
+    """A cubic mapping rounds the lips (the plasma slit came out 15 % narrow on 48 elements); degree 1
+    on elements whose boundaries include every wall corner reproduces the profile."""
+    from plasma_extraction import aligned, build_domain
+
+    domain = build_domain(DEFAULT, (48, 18))
+    assert domain.num_elements[0] == aligned(DEFAULT, (48, 18))[0] == 64
+    assert domain.wall_error < 1e-12
+    x, y = DEFAULT.profile()
+    eta1 = np.linspace(0, 1, 2001)
+    xs, top, _ = (np.ravel(v) for v in domain(eta1, np.array([1.0]), np.array([0.5])))
+    lip = (xs >= DEFAULT.plasma_lip[0]) & (xs <= DEFAULT.plasma_lip[1])
+    assert np.allclose(top[lip], DEFAULT.plasma_aperture) and np.isclose(top.max(), DEFAULT.chamber_half_height)
