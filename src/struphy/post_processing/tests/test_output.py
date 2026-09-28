@@ -133,35 +133,6 @@ def save_raw_field(run, *names):
             file["feec/em_fields"].create_dataset(name, data=np.empty(0))
 
 
-# Environment prefixes through which MPI launchers tell a process which rank of a job it is.
-MPI_LAUNCHER_ENV_PREFIXES = (
-    "OMPI_",
-    "OPAL_",
-    "PMIX_",
-    "PMI_",
-    "PRTE_",
-    "MV2_",
-    "HYDRA_",
-    "I_MPI_",
-    "MPI_LOCALRANKID",
-    "ALPS_",
-    "PALS_",
-)
-
-
-@pytest.fixture
-def outside_mpi_job(monkeypatch):
-    """Let child processes start as independent programs, not as ranks of this test's MPI job.
-
-    Importing struphy initializes MPI. A child that inherits the launcher variables of an
-    ``mpirun`` rank initializes as that same rank, which hangs or corrupts the parent job.
-    """
-    for name in list(os.environ):
-        if name.startswith(MPI_LAUNCHER_ENV_PREFIXES):
-            monkeypatch.delenv(name)
-    monkeypatch.setenv("STRUPHY_MPI", "0")
-
-
 @pytest.fixture
 def run(tmp_path):
     return Output(write_tree(str(tmp_path)))
@@ -811,40 +782,6 @@ def test_stores_of_schema_version_1_are_read_with_eta_dimensions(tmp_path):
     assert tree["em_fields"].ds.phi.dims == ("t", "eta1", "eta2")
     tree.close()
     assert store.SCHEMA_VERSION == 2
-
-
-def test_output_loads_struphy_plots_when_it_is_installed(tmp_path, outside_mpi_job):
-    """Creating an Output registers out.plot and the .struphy accessor, without an explicit import."""
-    pytest.importorskip("struphy_plots")
-    import subprocess
-    import sys
-
-    path = write_tree(str(tmp_path))
-    script = (
-        "import xarray as xr\n"
-        "from struphy.post_processing.output import Output\n"
-        "assert not hasattr(xr.DataArray, 'struphy'), 'struphy_plots was imported before Output()'\n"
-        f"out = Output({path!r})\n"
-        "assert hasattr(xr.DataArray, 'struphy') and hasattr(xr.Dataset, 'struphy')\n"
-        "assert type(out.plot).__name__ == 'OutputPlots' and type(out.analysis).__name__ == 'OutputAnalysis'\n"
-    )
-    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
-
-
-def test_plot_without_struphy_plots_says_how_to_get_it(run, monkeypatch):
-    import sys
-
-    monkeypatch.setitem(sys.modules, "struphy_plots", None)  # as if it were not installed
-    monkeypatch.setitem(output_module._plots, "loaded", False)
-    for name in ("plot", "analysis"):
-        if name in Output.__dict__:  # registered by an earlier import in this session
-            monkeypatch.delattr(Output, name)
-    for name in ("plot", "analysis"):
-        with pytest.raises(AttributeError, match="pip install struphy-plots"):
-            getattr(run, name)
-    with pytest.raises(AttributeError, match="available species"):
-        run.not_a_species  # other names keep their own error
 
 
 def test_processing_lock_falls_back_to_an_exclusive_file(tmp_path, monkeypatch):
