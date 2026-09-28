@@ -183,6 +183,7 @@ class PushVinSPHpressure(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=0.0,
             init_kernels=self.init_kernels,
+            pushes_eta=False,
         )
 
     @profile
