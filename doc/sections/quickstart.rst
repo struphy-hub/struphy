@@ -104,7 +104,7 @@ For periodic boundary conditions we will stabilize via ``options``.
     phi_exact_logical = np.cos(Lx * k * eta1)
 
     phi_1d.plot(ax=axs[0], label="Struphy")  # plot along eta1 (default)
-    phi_1d.plot(x="X", ax=axs[1], label="Struphy")  # plot along physical X
+    phi_1d.plot(ax=axs[1], x="X", label="Struphy")  # plot along physical X
     axs[0].plot(eta1, phi_exact_logical, "k--", lw=1.8, label="exact")
     axs[1].plot(x, phi_exact, "k--", lw=1.8, label="exact")
 
