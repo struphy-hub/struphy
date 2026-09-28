@@ -76,10 +76,7 @@ For periodic boundary conditions we will stabilize via ``options``.
     sim = Simulation(model=model, domain=domain, grid=grid)
 
 6. Run the simulation. ``sim.run()`` returns an :class:`~struphy.Output` object,
-   the entry point for all post-processing. For plots and diagnostics made for Struphy
-   output (``out.plot``, ``out.analysis`` and ``.struphy.plot`` on every product), install
-   the separate package `struphy-plots <https://struphy-hub.github.io/struphy-plots>`_ with
-   ``pip install struphy-plots``; ``Output`` loads it automatically.
+   the entry point for all post-processing.
 
 .. code-block:: python
 

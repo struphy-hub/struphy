@@ -80,8 +80,8 @@ distribution = out.evaluate("kinetic_ions/f")
 delta_f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
 ```
 
-To make a figure, select the dimensions to show and call xarray's native `.plot()` methods, or
-use the plots and diagnostics of the struphy-plots package (see [Plot data](#plot-data)).
+To make a figure, select the dimensions to show and call xarray's native `.plot()` methods (see
+[Plot data](#plot-data)).
 
 ## Analyze and report data
 
@@ -218,32 +218,6 @@ out.evaluate("diagnostics/rho_xyz", t=-1, eta3=0.5, method="nearest").plot(x="et
 
 xarray squeezes size-one dimensions before plotting, so an array that is 2-D on a grid with one
 cell in some direction plots as a line. Select until the array has the dimensions the plot needs.
-
-### Plots and diagnostics with struphy-plots
-
-For plots and diagnostics made for Struphy output, install the separate package
-[struphy-plots](https://struphy-hub.github.io/struphy-plots):
-
-```bash
-pip install struphy-plots        # or: pip install "struphy[plots]"
-```
-
-When it is installed, every `Output` loads it: no import is needed. It adds `out.plot` and
-`out.analysis` for a whole run, and `.struphy.plot`, `.struphy.analysis` and `.struphy.data` on
-every product:
-
-```python
-out.plot.energies()                                             # the energy budget of the run
-phi = out.evaluate("em_fields/phi")
-phi.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0)
-phi.struphy.plot.animation(x="eta1", y="eta2", eta3=0)          # over time
-phi.struphy.analysis.mode_spectrum()                            # poloidal and toroidal mode numbers
-out.kinetic_ions.orbits.struphy.plot.poloidal()                 # guiding-center orbits
-```
-
-`import struphy_plots; help(struphy_plots)` gives an overview of what the package does, and `help()` on any method,
-e.g. `help(phi.struphy.plot.slice)`, its parameters. Its guides and full reference are at
-<https://struphy-hub.github.io/struphy-plots>.
 
 ## MPI post-processing
 
