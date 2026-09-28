@@ -184,7 +184,6 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         put_particles_in_boxes=lambda: events.append("boxes"),
         mpi_sort_markers=sort,
         finish_kernel_bc=lambda **kwargs: events.append("bc"),
-        update_holes=lambda: events.append("holes"),
     )
     pusher = Pusher(
         particles,
@@ -201,4 +200,4 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         field[0] = value
         events.clear()
         pusher(0.1)
-        assert events == ["init", "boxes"] + ["sort", "eval", "boxes", "sort", "push", "bc", "holes", "boxes"] * 4
+        assert events == ["init", "boxes"] + ["sort", "eval", "boxes", "sort", "push", "bc", "boxes"] * 4
