@@ -435,7 +435,12 @@ def add_parser_output(subparsers):
     parser.add_argument("action", choices=("info", "keys", "pproc", "report"))
     parser.add_argument("path", help="simulation output directory")
     parser.add_argument("--physical", action="store_true", help="materialize physical field components")
-    parser.add_argument("--parallel", action="store_true", help="use MPI.COMM_WORLD for parallel pproc")
+    parser.add_argument(
+        "--parallel",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="pproc on all ranks of MPI.COMM_WORLD (default: when as many as the run's)",
+    )
     parser.add_argument("--format", choices=("markdown", "html"), default="markdown", help="report format")
     parser.add_argument("--directory", help="report directory")
 
