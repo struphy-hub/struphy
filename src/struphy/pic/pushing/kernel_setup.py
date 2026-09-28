@@ -1,7 +1,7 @@
 """Explicit setup for kernels that evaluate into particle marker columns."""
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from numbers import Integral, Real
 
 import cunumpy as xp
@@ -30,7 +30,7 @@ class KernelSetup:
     """
 
     kernel: Callable
-    args: tuple = field(default=(), repr=False)
+    args: tuple = ()
     output_indices: tuple[int | None, ...]
     alpha: float | tuple[float, ...] = 0.0
     _output_indices_array: xp.ndarray = field(init=False, repr=False)
