@@ -719,6 +719,72 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     comm.Barrier()
 
 
+@pytest.mark.parametrize("bc", ["periodic", "reflect", "remove"])
+@pytest.mark.parametrize("mapping", [["Cuboid", {}], ["Colella", {"Lx": 2.0, "Ly": 3.0, "alpha": 0.1, "Lz": 4.0}]])
+def test_kinetic_bc_in_kernel(bc, mapping):
+    """The per-marker boundary conditions applied inside push_eta_stage
+    (apply_kinetic_bc_marker) must give the same result as Particles.apply_kinetic_bc."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import BoundaryParameters, LoadingParameters, domains
+    from struphy.ode.utils import ButcherTableau
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing import pusher_kernels
+
+    domain = getattr(domains, mapping[0])(**mapping[1])
+
+    loading_params = LoadingParameters(Np=10000, seed=1234, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
+    particles = Particles6D(
+        comm_world=MPI.COMM_WORLD,
+        loading_params=loading_params,
+        boundary_params=BoundaryParameters(bc=(bc, bc, bc)),
+        domain=domain,
+    )
+    particles.draw_markers()
+    particles.mpi_sort_markers()
+
+    butcher = ButcherTableau("forward_euler")
+    markers = particles.markers
+    first_pusher_idx = particles.first_pusher_idx
+    first_shift_idx = particles.first_shift_idx
+    bc_type = particles.args_markers.bc_type
+    bc_type_kernel = bc_type.copy()
+
+    # large time step such that many markers leave the unit cube
+    markers[:, first_pusher_idx:first_shift_idx] = markers[:, :6]
+    markers[:, first_shift_idx:-2] = 0.0
+    markers_init = markers.copy()
+    n_holes_init = xp.count_nonzero(particles.holes)
+
+    # reference: kernel without boundary conditions, then apply_kinetic_bc in Python
+    bc_type[:] = 3
+    pusher_kernels.push_eta_stage(0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c)
+    n_outside = xp.count_nonzero(xp.logical_or(markers[~particles.holes, :3] > 1.0, markers[~particles.holes, :3] < 0.0))
+    assert n_outside > 0
+    particles.apply_kinetic_bc()
+    markers_ref = markers.copy()
+
+    # boundary conditions inside the kernel
+    markers[:] = markers_init
+    particles.update_holes()
+    n_lost_before = particles.n_lost_markers
+    bc_type[:] = bc_type_kernel
+    pusher_kernels.push_eta_stage(0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c)
+    particles.finish_kernel_bc()
+
+    assert xp.array_equal(markers[:, :first_shift_idx], markers_ref[:, :first_shift_idx])
+    assert xp.all(markers[~particles.holes, :3] >= 0.0)
+    assert xp.all(markers[~particles.holes, :3] <= 1.0)
+    if bc == "periodic":
+        shift_slice = slice(first_shift_idx, first_shift_idx + 3)
+        assert xp.array_equal(markers[:, shift_slice], markers_ref[:, shift_slice])
+    if bc == "remove":
+        n_new_holes = xp.count_nonzero(particles.holes) - n_holes_init
+        assert n_new_holes > 0
+        assert particles.n_lost_markers - n_lost_before == n_new_holes
+
+
 if __name__ == "__main__":
     test_push_vxb_analytic(
         [8, 9, 5],

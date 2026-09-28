@@ -10,6 +10,7 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 # do not remove; needed to identify dependencies
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -186,6 +187,9 @@ def push_gc_bxEstar_explicit_multistage(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
 
 @stack_array("eta_k", "eta_n", "eta_mid", "eta_diff", "grad_H", "grad_I", "unit_b1", "e_field", "Exb", "k")
 def push_gc_bxEstar_discrete_gradient_1st_order(
@@ -339,6 +343,9 @@ def push_gc_bxEstar_discrete_gradient_1st_order(
         markers[ip, residual_idx] = sqrt(
             (markers[ip, 0] - eta_k[0]) ** 2 + (markers[ip, 1] - eta_k[1]) ** 2 + (markers[ip, 2] - eta_k[2]) ** 2,
         )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
 
 @stack_array("dfm", "eta_k", "eta_n", "eta_mid", "eta_diff", "grad_H", "grad_I", "unit_b1", "e_field", "Exb", "k")
@@ -548,6 +555,9 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
         markers[ip, residual_idx] = sqrt(
             (markers[ip, 0] - eta_k[0]) ** 2 + (markers[ip, 1] - eta_k[1]) ** 2 + (markers[ip, 2] - eta_k[2]) ** 2,
         )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
 
 @stack_array(
@@ -827,6 +837,9 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
         # residual
         markers[ip, residual_idx] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2)
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, True)
+
 
 @stack_array("dfm", "e_star", "b2", "b_star", "k")
 def push_gc_Bstar_explicit_multistage(
@@ -1025,6 +1038,9 @@ def push_gc_Bstar_explicit_multistage(
         )
         markers[ip, 3] = markers[ip, first_init_idx + 3] + dt * a[stage] * k_v + last * markers[ip, first_free_idx + 3]
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
 
 @stack_array("eta_k", "eta_n", "eta_mid", "eta_diff", "grad_H", "grad_I", "e_field", "b_star", "k")
 def push_gc_Bstar_discrete_gradient_1st_order(
@@ -1200,6 +1216,9 @@ def push_gc_Bstar_discrete_gradient_1st_order(
             + (markers[ip, 2] - eta_k[2]) ** 2
             + ((markers[ip, 3] - v_k) / v_k) ** 2,
         )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
 
 @stack_array("dfm", "eta_k", "eta_n", "eta_mid", "eta_diff", "grad_H", "grad_I", "e_field", "b2", "b_star", "k")
@@ -1450,6 +1469,9 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
             + (markers[ip, 2] - eta_k[2]) ** 2
             + ((markers[ip, 3] - v_k) / v_k) ** 2,
         )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
 
 @stack_array(
@@ -1773,6 +1795,9 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
 
         # residual
         markers[ip, residual_idx] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + (k_v / v_k) ** 2)
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, True)
 
 
 @stack_array("dfm", "e", "u", "b", "b_star", "norm_b1", "curl_norm_b")
@@ -2387,6 +2412,9 @@ def push_gc_cc_J2_stage_H1vec(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
 
 @stack_array(
     "dfm",
@@ -2585,6 +2613,9 @@ def push_gc_cc_J2_stage_Hdiv(
             - dt * a[stage] * e
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
 
 
 @stack_array(
