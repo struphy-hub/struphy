@@ -185,7 +185,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         sorting_boxes=SimpleNamespace(communicate=True),
         put_particles_in_boxes=lambda: events.append("boxes"),
         mpi_sort_markers=sort,
-        apply_kinetic_bc=lambda **kwargs: events.append("bc"),
+        finish_kernel_bc=lambda **kwargs: events.append("bc"),
         update_holes=lambda: events.append("holes"),
     )
     pusher = Pusher(
