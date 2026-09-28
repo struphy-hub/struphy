@@ -19,6 +19,7 @@ and limitations, and pytest checks.
 | [`convergence_study`](convergence_study) | 10 | Mesh, degree, ray-count and time-step convergence of the lens metrics at 0 and 300 µA/mm |
 | [`bohm_sheath`](bohm_sheath) | 8 | **Plasma extraction building block**: ray-traced ions + Boltzmann electrons (convex Poisson–Boltzmann Newton) reproduce the Bohm sheath |
 | [`plasma_extraction`](plasma_extraction) | 4, 8, 9 | **IBSimu-style slit extraction**: a plasma chamber with the plasma electrode and puller as mapped wall segments; the meniscus and beam come out of the Poisson–Boltzmann iteration |
+| [`surface_emission`](surface_emission) | 8 | **Surface-emitted ions** from the aperture lips (the H⁻ surface-production source, with protons for now), traced together with the plasma-volume rays; outlet current split by origin |
 | [`axisymmetric_lens`](axisymmetric_lens) | 3 | **Cylindrical symmetry**: an (r, z) wedge of revolution checked against the Bessel-series two-tube lens (potential and ray focus) |
 | [`axisymmetric_extraction`](axisymmetric_extraction) | 3, 8 | **Round-aperture extraction** (IBSimu-style, cylindrical): meniscus and beam from the Poisson–Boltzmann iteration |
 

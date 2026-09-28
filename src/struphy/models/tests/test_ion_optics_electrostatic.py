@@ -225,7 +225,7 @@ def test_plane_source_and_current_ledger():
             [1.05, 0.5, 0.5, 1, 0, 0, 0.25, 1, 0.25, 9, 0, 1],  # outlet
         ]
     )
-    index = {"pos": slice(0, 3), "vel": slice(3, 6), "weights": 6, "axis": 10, "side": 11}
+    index = {"pos": slice(0, 3), "vel": slice(3, 6), "weights": 6, "ids": 9, "axis": 10, "side": 11}
     particles = SimpleNamespace(pop_lost_markers=lambda: records, lost_index=index)
     tags = (
         LossTag("upstream", axis=1, coordinate=0, interval=(0.0, 5.0)),
@@ -235,7 +235,7 @@ def test_plane_source_and_current_ledger():
     ledger.update(particles, domains.Cuboid(r1=10.0))
 
     assert ledger.lost_charge == {"upstream": 0.5, "downstream": 0.5, "other": 0.25}
-    np.testing.assert_allclose(ledger.records["other"], [[10.0, 0.5, 0.5, 1.0, 0.0, 0.0, 0.25, 0.0]])
+    np.testing.assert_allclose(ledger.records["other"], [[10.0, 0.5, 0.5, 1.0, 0.0, 0.0, 0.25, 0.0, 9.0]])
     with pytest.raises(ValueError):
         CurrentLedger((LossTag("other", axis=0),))
 
@@ -763,3 +763,53 @@ def test_ion_optics_model_serializes_to_run_metadata(tmp_path):
         space_charge=True,
     )
     assert StruphyModel.from_dict(json.loads(json.dumps(injected.to_dict()))).ledger.names == injected.ledger.names
+
+
+def test_wall_surface_rays_start_on_the_lip_and_point_inward():
+    """Surface-emitted rays: on the chosen wall part, inward along the normal, equal currents summing to j * area."""
+    from struphy.geometry.domains import SegmentedElectrodeChannel
+    from struphy.models.ion_optics_steady_state import RayBundle
+
+    x = (0.0, 2.0, 2.5, 3.5, 4.0, 8.0)
+    y = (2.0, 2.0, 1.0, 1.0, 2.0, 2.0)
+    domain = SegmentedElectrodeChannel(
+        length=8.0,
+        width=1.5,
+        lower_profile=(x, tuple(-v for v in y)),
+        upper_profile=(x, y),
+        segments=(ElectrodeSegment("upper", 0.0, 8.0, 0.0),),
+        num_elements=(32, 8),
+        degree=(3, 3),
+    )
+    for side, sign in (("upper", 1.0), ("lower", -1.0)):
+        rays = RayBundle.from_wall_surface(domain, side, (2.0, 3.5), 512, current_density=2.0, speed=0.3)
+        xyz = np.asarray(domain(rays.eta, change_out_order=True, remove_outside=False)).reshape(-1, 3)
+        assert np.all((xyz[:, 0] >= 2.0) & (xyz[:, 0] <= 3.5))
+        # on the mapped wall (the spline mapping rounds the kinks of the profile by up to 0.05)
+        wall = np.column_stack([rays.eta[:, 0], np.full(len(rays), 1.0 if side == "upper" else 0.0), rays.eta[:, 2]])
+        wall_xyz = np.asarray(domain(wall, change_out_order=True, remove_outside=False)).reshape(-1, 3)
+        np.testing.assert_allclose(xyz[:, :2], wall_xyz[:, :2], atol=1e-5)
+        np.testing.assert_allclose(xyz[:, 1], sign * np.interp(xyz[:, 0], x, y), atol=0.06)
+        # ramp (x in 2-2.5, slope 2) and flat lip (x in 2.5-3.5) as rays: the mixture is uniform in arc length
+        ramp = xyz[:, 0] < 2.5
+        arc_ramp, arc_flat = np.hypot(0.5, 1.0), 1.0
+        assert abs(ramp.mean() - arc_ramp / (arc_ramp + arc_flat)) < 0.03
+        # inward: positive component along the inward wall normal (finite differences of the mapped wall), speed 0.3
+        np.testing.assert_allclose(np.linalg.norm(rays.v, axis=1), 0.3)
+        h = 1e-6
+        ahead = wall.copy()
+        ahead[:, 0] += h
+        tangent = (np.asarray(domain(ahead, change_out_order=True, remove_outside=False)).reshape(-1, 3) - wall_xyz)[
+            :, :2
+        ]
+        tangent /= np.linalg.norm(tangent, axis=1)[:, None]
+        inward = -sign * np.column_stack([-tangent[:, 1], tangent[:, 0]])
+        cos_angle = np.einsum("ij,ij->i", rays.v[:, :2], inward) / 0.3
+        assert np.all(cos_angle > 0.0)
+        assert abs(cos_angle.mean() - np.pi / 4) < 0.03  # mean cos of the 2D Lambert law
+        # total current j * arc length * width
+        np.testing.assert_allclose(rays.current.sum(), 2.0 * (arc_ramp + arc_flat) * 1.5, rtol=3e-2)  # rounded kinks
+    both = rays + RayBundle.from_wall_surface(domain, "upper", (2.0, 3.5), 8, current_density=1.0, speed=0.1)
+    assert len(both) == 520 and both.current[-1] == pytest.approx(1.0 * (arc_ramp + arc_flat) * 1.5 / 8, rel=3e-2)
+    with pytest.raises(ValueError):
+        RayBundle.from_wall_surface(domain, "upper", (7.0, 9.0), 4, 1.0, 1.0)

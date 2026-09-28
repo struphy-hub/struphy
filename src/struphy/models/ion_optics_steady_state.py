@@ -147,6 +147,69 @@ class RayBundle:
     def __len__(self):
         return len(self.eta)
 
+    def __add__(self, other: "RayBundle"):
+        """Concatenate two bundles (e.g. plasma-volume rays plus surface-emitted rays); ray ids follow the order."""
+        return RayBundle(
+            eta=np.concatenate([self.eta, other.eta]),
+            v=np.concatenate([self.v, other.v]),
+            current=np.concatenate([self.current, other.current]),
+        )
+
+    @classmethod
+    def from_wall_surface(
+        cls,
+        domain,
+        side: str,
+        x_range: tuple,
+        n_rays: int,
+        current_density: float,
+        speed: float,
+        angular_spread: float | None = None,
+        seed: int = 0,
+        offset: float = 1e-6,
+    ):
+        """Rays emitted from a wall of a :class:`~struphy.geometry.domains.SegmentedElectrodeChannel`.
+
+        This is the surface-production source of negative-ion extraction (Kalvas 2013, §2.3): ions leave the
+        electrode surface with a fixed speed and a current density ``current_density`` (per unit wall area), here
+        for the part of the ``side`` (``"lower"`` or ``"upper"``) wall with physical ``x`` in ``x_range``, which may
+        include the sloped and the flat parts of an aperture lip. Positions are quasi-random (scrambled Sobol),
+        uniform in arc length along the wall and in the invariant ``z`` direction, so that every ray carries the same
+        current ``current_density * arc_length * width / n_rays``. The velocity is ``speed`` along the inward wall
+        normal, tilted in the (x, y) plane by an angle with the cosine (Lambert) distribution (``angular_spread=None``)
+        or a Gaussian of standard deviation ``angular_spread`` (radians). Rays start ``offset`` inside the wall in the
+        logical coordinate, so that they are not removed before their first step.
+        """
+        if side not in ("lower", "upper"):
+            raise ValueError("side must be 'lower' or 'upper'.")
+        x0, x1 = float(x_range[0]), float(x_range[1])
+        if not 0.0 <= x0 < x1 <= domain.length:
+            raise ValueError("x_range must lie within the channel length.")
+        eta_wall = 1.0 - offset if side == "upper" else offset
+        # arc length along the wall on a fine grid, inverted for uniform sampling
+        fine = np.linspace(x0 / domain.length, x1 / domain.length, 2001)
+        points = np.column_stack([fine, np.full_like(fine, eta_wall), np.full_like(fine, 0.5)])
+        xy = np.asarray(domain(points, change_out_order=True, remove_outside=False)).reshape(-1, 3)[:, :2]
+        arc = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))])
+        sampler = qmc.Sobol(d=3, scramble=True, seed=seed)
+        u = sampler.random(n_rays)
+        eta1 = np.interp(u[:, 0] * arc[-1], arc, fine)
+        eta = np.column_stack([eta1, np.full(n_rays, eta_wall), u[:, 1]])
+        # inward normal from the wall tangent d x / d eta1 (rotated into the channel)
+        jacobian = np.asarray(domain.jacobian(eta, change_out_order=True, remove_outside=False)).reshape(-1, 3, 3)
+        tangent = jacobian[:, :2, 0]
+        tangent /= np.linalg.norm(tangent, axis=1)[:, None]
+        sign = -1.0 if side == "upper" else 1.0
+        normal = sign * np.column_stack([-tangent[:, 1], tangent[:, 0]])
+        if angular_spread is None:
+            theta = np.arcsin(2.0 * u[:, 2] - 1.0)  # cosine law in the plane
+        else:
+            theta = float(angular_spread) * ndtri(np.clip(u[:, 2], 1e-12, 1 - 1e-12))
+        direction = np.cos(theta)[:, None] * normal + np.sin(theta)[:, None] * tangent
+        v = np.column_stack([speed * direction, np.zeros(n_rays)])
+        current = current_density * arc[-1] * domain.width / n_rays
+        return cls(eta=eta, v=v, current=current)
+
     @classmethod
     def from_plane_source(cls, source: PlaneSource, n_rays: int, seed: int = 0):
         """Quasi-random (scrambled Sobol) rays with the distribution of a ``PlaneSource``.

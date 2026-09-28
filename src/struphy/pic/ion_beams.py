@@ -145,8 +145,8 @@ class CurrentLedger:
 
     keep_records : tuple[str]
         Tag names whose removed markers are kept in :attr:`records` as rows
-        ``(x, y, z, vx, vy, vz, weight, time)`` (physical loss point; ``time`` of the
-        booking update), e.g. to get the phase space of the beam leaving through an outlet.
+        ``(x, y, z, vx, vy, vz, weight, time, id)`` (physical loss point; ``time`` of the
+        booking update; marker id), e.g. to get the phase space of the beam leaving through an outlet.
     """
 
     def __init__(self, tags: tuple = (), keep_records: tuple = ()):
@@ -166,7 +166,7 @@ class CurrentLedger:
     @property
     def records(self) -> dict[str, np.ndarray]:
         """Kept loss records per tag, see ``keep_records``."""
-        return {name: np.concatenate(rows) if rows else np.empty((0, 8)) for name, rows in self._kept.items()}
+        return {name: np.concatenate(rows) if rows else np.empty((0, 9)) for name, rows in self._kept.items()}
 
     def book_injection(self, n_markers: int, charge: float):
         self.injected_markers += int(n_markers)
@@ -189,7 +189,7 @@ class CurrentLedger:
         axis = records[:, index["axis"]].astype(int)
         side = records[:, index["side"]].astype(int)
         weights = records[:, index["weights"]]
-        state = np.column_stack([x, records[:, index["vel"]], weights, time])
+        state = np.column_stack([x, records[:, index["vel"]], weights, time, records[:, index["ids"]]])
         unmatched = np.ones(len(records), dtype=bool)
         for tag in self.tags:
             match = unmatched & (axis == tag.axis)
