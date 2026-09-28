@@ -60,26 +60,26 @@ def mpi_comm_world():
 
 
 PLOTS_HINT = (
-    "plots and diagnostics of Struphy output come from the struphy-plots package: "
-    "pip install struphy-plots (or struphy[plots]); see https://struphy-hub.github.io/struphy-plots"
+    "plots and diagnostics of Struphy output come from the plasma-plots package: "
+    "pip install plasma-plots (or struphy[plots]); see https://struphy-hub.github.io/plasma-plots"
 )
 _plots = {"loaded": False}
 
 
-def load_struphy_plots() -> bool:
-    """Load struphy-plots if it is installed, and tell whether it is.
+def load_plasma_plots() -> bool:
+    """Load plasma-plots if it is installed, and tell whether it is.
 
-    Importing ``struphy_plots`` registers ``out.plot``, ``out.analysis`` and the ``.struphy``
+    Importing ``plasma_plots`` registers ``out.plot``, ``out.analysis`` and the ``.plasma``
     accessor on every product. :class:`Output` calls this when it is created, so none of that
-    needs an explicit ``import struphy_plots``. Struphy does not depend on the package.
+    needs an explicit ``import plasma_plots``. Struphy does not depend on the package.
     """
     if not _plots["loaded"]:
         try:
-            import struphy_plots  # noqa: F401  (registers the accessors)
+            import plasma_plots  # noqa: F401  (registers the accessors)
         except ImportError:
             return False
         except Exception as error:  # a broken install must not break reading output
-            logger.warning("struphy-plots is installed but could not be imported: %s", error)
+            logger.warning("plasma-plots is installed but could not be imported: %s", error)
             return False
         _plots["loaded"] = True
     return True
@@ -233,18 +233,18 @@ class Output:
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
     **Plots and diagnostics** of the output live in the separate package
-    `struphy-plots <https://struphy-hub.github.io/struphy-plots>`_ (``pip install struphy-plots``,
+    `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ (``pip install plasma-plots``,
     or ``pip install "struphy[plots]"``). When it is installed, creating an ``Output`` loads it,
     which adds:
 
     * ``out.plot`` and ``out.analysis``: whole-run plots and diagnostics, e.g.
       ``out.plot.energies()``, ``out.analysis.time_fft("em_fields/phi")``;
-    * ``.struphy.plot``, ``.struphy.analysis`` and ``.struphy.data`` on every product, e.g.
-      ``out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t=-1)``, or
-      ``orbits.struphy.plot.poloidal()`` for an orbits Dataset.
+    * ``.plasma.plot``, ``.plasma.analysis`` and ``.plasma.data`` on every product, e.g.
+      ``out.evaluate("em_fields/phi").plasma.plot.slice(x="eta1", y="eta2", t=-1)``, or
+      ``orbits.plasma.plot.poloidal()`` for an orbits Dataset.
 
-    ``import struphy_plots; help(struphy_plots)`` gives an overview of the package, and ``help()``
-    on any accessor method (e.g. ``help(phi.struphy.plot.slice)``) its parameters.
+    ``import plasma_plots; help(plasma_plots)`` gives an overview of the package, and ``help()``
+    on any accessor method (e.g. ``help(phi.plasma.plot.slice)``) its parameters.
 
     Parameters
     ----------
@@ -253,7 +253,7 @@ class Output:
     """
 
     def __init__(self, path_out):
-        load_struphy_plots()  # out.plot, out.analysis and .struphy on every product, if installed
+        load_plasma_plots()  # out.plot, out.analysis and .plasma on every product, if installed
         self.path_out = Path(path_out).resolve()
         self._time_units = "normalized"
         self.comm = mpi_comm_world()
@@ -2106,9 +2106,9 @@ class Output:
         if isinstance(attribute, property):
             attribute.fget(self)  # the property raised AttributeError itself; show its own error
         if name in ("plot", "analysis"):
-            if load_struphy_plots() and name in type(self).__dict__:
+            if load_plasma_plots() and name in type(self).__dict__:
                 return getattr(self, name)
-            raise AttributeError(f"Output has no {name!r} without struphy-plots; {PLOTS_HINT}")
+            raise AttributeError(f"Output has no {name!r} without plasma-plots; {PLOTS_HINT}")
         # the raw output names the species, so an unknown name never starts post-processing
         if name not in self._raw_species():
             raise AttributeError(f"{name!r}; available species: {tuple(sorted(self._raw_species()))}")

@@ -77,9 +77,9 @@ For periodic boundary conditions we will stabilize via ``options``.
 
 6. Run the simulation. ``sim.run()`` returns an :class:`~struphy.Output` object,
    the entry point for all post-processing. For plots and diagnostics made for Struphy
-   output (``out.plot``, ``out.analysis`` and ``.struphy.plot`` on every product), install
-   the separate package `struphy-plots <https://struphy-hub.github.io/struphy-plots>`_ with
-   ``pip install struphy-plots``; ``Output`` loads it automatically.
+   output (``out.plot``, ``out.analysis`` and ``.plasma.plot`` on every product), install
+   the separate package `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ with
+   ``pip install plasma-plots``; ``Output`` loads it automatically.
 
 .. code-block:: python
 
