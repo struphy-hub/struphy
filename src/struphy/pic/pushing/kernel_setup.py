@@ -8,7 +8,7 @@ import cunumpy as xp
 from cunumpy import PyccelKernel
 
 
-@dataclass(frozen=True, kw_only=True, eq=False)
+@dataclass(kw_only=True, eq=False)
 class KernelSetup:
     """A marker evaluation kernel and all of its configuration.
 
@@ -56,14 +56,12 @@ class KernelSetup:
         if not 3 <= len(alpha) <= 6 or any(not 0.0 <= value <= 1.0 for value in alpha):
             raise ValueError("alpha must supply three to six weights between 0 and 1")
         alpha += (0.0,) * (6 - len(alpha))
-        object.__setattr__(self, "output_indices", indices)
-        object.__setattr__(self, "alpha", tuple(float(value) for value in alpha))
-        object.__setattr__(
-            self, "_output_indices_array", xp.array([-1 if i is None else i for i in indices], dtype=int)
-        )
-        object.__setattr__(self, "_alpha_array", xp.array(alpha, dtype=float))
+        self.output_indices = indices
+        self.alpha = tuple(float(value) for value in alpha)
+        self._output_indices_array = xp.array([-1 if i is None else i for i in indices], dtype=int)
+        self._alpha_array = xp.array(alpha, dtype=float)
         if not isinstance(self.kernel, PyccelKernel):
-            object.__setattr__(self, "kernel", PyccelKernel(self.kernel))
+            self.kernel = PyccelKernel(self.kernel)
 
     @property
     def name(self) -> str:
