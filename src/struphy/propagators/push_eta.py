@@ -91,7 +91,12 @@ class PushEta(Propagator):
     @profile
     def allocate(self):
         # get kernel
+        
+        # Old
         kernel = PyccelKernel(pusher_kernels.push_eta_stage)
+
+        # New (returns a PyccelKernel)
+        kernel = pusher_kernels.push_eta_stage.kernel
 
         # define algorithm
         butcher = self.options.butcher

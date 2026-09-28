@@ -2867,6 +2867,7 @@ class Particles(metaclass=ABCMeta):
             valid_mks_for_kernels = self._valid_mks
 
         # arguments for kernels
+        
         self._args_markers = MarkerArguments(
             markers_for_kernels,
             valid_mks_for_kernels,
@@ -2880,6 +2881,9 @@ class Particles(metaclass=ABCMeta):
             _to_numpy_for_kernel(self.first_free_idx),
             _to_numpy_for_kernel(self.mu_idx),
         )
+
+        if "cupy":
+            self._args_markers = transform()
 
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.

@@ -108,7 +108,6 @@ class DerhamArguments:
         self.bd2 = np.empty(int(pn[1]), dtype=float)
         self.bd3 = np.empty(int(pn[2]), dtype=float)
 
-
 class DomainArguments:
     """Holds the mandatory arguments pertaining to :class:`~struphy.geometry.base.Domain` passed to particle pusher kernels.
 
