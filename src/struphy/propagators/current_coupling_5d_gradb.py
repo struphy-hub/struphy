@@ -429,6 +429,23 @@ class CurrentCoupling5DGradB(Propagator):
             self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
             self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv
 
+    def _set_folding_shift(self, particles, alpha: float):
+
+        markers = particles.markers
+        valid = markers[:, 0] != -1.0
+        first_init_idx = particles.args_markers.first_init_idx
+        first_shift_idx = particles.first_shift_idx
+
+        for axis in range(3):
+            if self._periodic[axis]:
+                continue
+
+            eta = markers[valid, axis]
+            target = alpha * eta + (1.0 - alpha) * markers[valid, first_init_idx + axis]
+            folded = xp.mod(target, 2.0)
+            folded = xp.where(folded > 1.0, 2.0 - folded, folded)
+            markers[valid, first_shift_idx + axis] = (folded - target) / alpha
+
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
@@ -440,6 +457,7 @@ class CurrentCoupling5DGradB(Propagator):
         markers = args_markers.markers
         first_init_idx = args_markers.first_init_idx
         first_free_idx = args_markers.first_free_idx
+        first_shift_idx = particles.first_shift_idx
 
         # clear buffer
         markers[:, first_init_idx:-2] = 0.0
@@ -582,6 +600,7 @@ class CurrentCoupling5DGradB(Propagator):
             )
 
             if particles.mpi_comm is not None:
+                self._set_folding_shift(particles, alpha=1.0)
                 particles.mpi_sort_markers(apply_bc=False)
 
             # save en_fB_new
@@ -670,6 +689,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # sorting markers at mid-point
                 if particles.mpi_comm is not None:
+                    self._set_folding_shift(particles, alpha=0.5)
                     particles.mpi_sort_markers(apply_bc=False, alpha=0.5)
 
                 self._accum_kernel_en_fB_mid(
@@ -736,6 +756,7 @@ class CurrentCoupling5DGradB(Propagator):
                 )
 
                 if particles.mpi_comm is not None:
+                    self._set_folding_shift(particles, alpha=1.0)
                     particles.mpi_sort_markers(apply_bc=False)
 
                 # update en_fB_new
@@ -820,8 +841,9 @@ class CurrentCoupling5DGradB(Propagator):
                         particles.mpi_comm.Barrier()
                     break
 
-            # sorting markers
+            # sorting markers (remove the folding shifts first, boundary conditions are applied now)
             if particles.mpi_comm is not None:
+                markers[:, first_shift_idx : first_shift_idx + 3] = 0.0
                 particles.mpi_sort_markers()
             else:
                 particles.apply_kinetic_bc()
