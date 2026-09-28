@@ -33,8 +33,6 @@ class KernelSetup:
     args: tuple = ()
     output_indices: tuple[int | None, ...]
     alpha: float | tuple[float, ...] = 0.0
-    _output_indices_array: xp.ndarray = field(init=False, repr=False)
-    _alpha_array: xp.ndarray = field(init=False, repr=False)
 
     def __post_init__(self):
         if not callable(self.kernel):
@@ -58,8 +56,8 @@ class KernelSetup:
         alpha += (0.0,) * (6 - len(alpha))
         self.output_indices = indices
         self.alpha = tuple(float(value) for value in alpha)
-        self._output_indices_array = xp.array([-1 if i is None else i for i in indices], dtype=int)
-        self._alpha_array = xp.array(alpha, dtype=float)
+        self._output_indices_array: xp.ndarray = xp.array([-1 if i is None else i for i in indices], dtype=int)
+        self._alpha_array: xp.ndarray = xp.array(alpha, dtype=float)
         if not isinstance(self.kernel, PyccelKernel):
             self.kernel = PyccelKernel(self.kernel)
 
