@@ -474,10 +474,11 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_pusher_kernel,
                 )
 
+                # kinetic boundary conditions are applied per marker inside the kernel
+                particles.finish_kernel_bc()
+
                 if particles.mpi_comm is not None:
-                    particles.mpi_sort_markers()
-                else:
-                    particles.apply_kinetic_bc()
+                    particles.mpi_sort_markers(apply_bc=False)
 
                 # solve linear system for updating u coefficients
                 ku = self._A_inv.dot(self._ACC.vectors[0], out=self._ku)
