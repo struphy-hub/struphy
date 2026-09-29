@@ -8,6 +8,10 @@ independent kernels in parallel.
 Usage: ``python dependencies.py /abs/path/to/struphy/.../some_kernels<EXT_SUFFIX>``
 """
 
+import logging
+
+logger = logging.getLogger("struphy")
+
 
 def get_dependencies(pymod_abs=None):
     """Compute all dependencies that contain the string "kernels" of a Struphy module.
@@ -58,6 +62,7 @@ def get_dependencies(pymod_abs=None):
         else:
             return ""
 
+    logger.debug(f"\n{pymod_abs = }")
     pymod_abs = pymod_abs.replace(so_suffix, ".py")
 
     # struphy modules
@@ -66,6 +71,7 @@ def get_dependencies(pymod_abs=None):
     # stem is the directory containing the (innermost) struphy package, e.g. ".../src/"
     ids = [i for i, x in enumerate(splits) if x == "struphy"]
     stem = "/".join(splits[: ids[-1]]) + "/"
+    logger.debug(f"{stem = }")
 
     # dotted name of the module, needed to resolve relative imports
     name = ".".join(splits[ids[-1] :])[: -len(".py")]
@@ -110,6 +116,7 @@ def get_dependencies(pymod_abs=None):
                 base = ".".join(pkg + ([base] if base else []))
             # "from a.b import c" binds a module only if c is a module and not an object in a.b
             mods += [base + "." + alias.name for alias in node.names if is_module(base + "." + alias.name)]
+    logger.debug(f"{mods = }")
 
     # keep only Struphy kernels, convert them to paths of the compiled targets and remove duplicates
     depends = []
@@ -118,6 +125,7 @@ def get_dependencies(pymod_abs=None):
             dep = stem + mod.replace(".", "/") + so_suffix
             if dep not in depends:
                 depends += [dep]
+                logger.debug(f"new dependency: {dep}")
 
     return " ".join(depends)
 
