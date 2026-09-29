@@ -105,6 +105,7 @@ PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 MODELS_INIT_PATH = os.path.join(LIBPATH, "models/__init__.py")
 PROPAGATORS_INIT_PATH = os.path.join(LIBPATH, "propagators/__init__.py")
+DOMAINS_INIT_PATH = os.path.join(LIBPATH, "geometry/domains/__init__.py")
 
 
 def check_omp_flags(file_path, verbose=False):
@@ -1371,6 +1372,16 @@ def construct_propagators_init_file(propagators_dir: str = "src/struphy/propagat
     return construct_package_init_file(propagators_dir, "struphy.propagators", Propagator)
 
 
+def construct_domains_init_file(domains_dir: str = "src/struphy/geometry/domains") -> str:
+    """
+    Constructs __init__.py for all domain files by reading actual class names.
+    Skips __init__.py.
+    """
+    from struphy.geometry.base import Domain
+
+    return construct_package_init_file(domains_dir, "struphy.geometry.domains", Domain)
+
+
 def run_formatting_loop(python_files, linters, iterations, verbose):
     """Repeatedly run the given formatters on `python_files` until they are clean.
 
@@ -1508,7 +1519,12 @@ def struphy_build_init_files(config, verbose, yes=False):
     with open(PROPAGATORS_INIT_PATH, "w", encoding="utf-8") as f:
         f.write(propagators_init)
 
-    python_files = [MODELS_INIT_PATH, PROPAGATORS_INIT_PATH]
+    print(f"Rewriting {DOMAINS_INIT_PATH}")
+    domains_init = construct_domains_init_file()
+    with open(DOMAINS_INIT_PATH, "w", encoding="utf-8") as f:
+        f.write(domains_init)
+
+    python_files = [MODELS_INIT_PATH, PROPAGATORS_INIT_PATH, DOMAINS_INIT_PATH]
 
     confirm_formatting(python_files, linters, yes)
 

@@ -429,6 +429,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 maxiter=self.options.maxiter,
                 tol=self.options.tol,
                 mpi_sort=self.options.mpi_sort,
+                pushes_eta=True,
             )
 
         else:
@@ -468,6 +469,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 alpha_in_kernel=1.0,
                 n_stages=butcher.n_stages,
                 mpi_sort=self.options.mpi_sort,
+                pushes_eta=True,
             )
 
     @profile
