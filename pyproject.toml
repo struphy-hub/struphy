@@ -66,11 +66,9 @@ phys = [
 pproc = [
     "plasma-plots>=0.1.0",
 ]
-plots = [
-    "plasma-plots>=0.1.0",
-]
 dev = [
     "struphy[mpi]",
+    "struphy[pproc]",
     "notebook",
     "autopep8",
     "isort",
@@ -89,6 +87,7 @@ dev = [
 ]
 doc = [
     "struphy[phys]",
+    "struphy[pproc]",
     "jupyter",
     "nbconvert",
     "ipykernel",
@@ -112,6 +111,7 @@ likwid = [
 ]
 all = [
     "struphy[phys]",
+    "struphy[pproc]",
     "struphy[dev]",
     "struphy[mpi]",
     "struphy[doc]",
