@@ -6,7 +6,16 @@ corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.geometry.mappings_kernels as mappings_kernels
+import struphy.geometry.domains.colella.colella_kernels as colella_kernels
+import struphy.geometry.domains.cuboid.cuboid_kernels as cuboid_kernels
+import struphy.geometry.domains.hollow_cylinder.hollow_cylinder_kernels as hollow_cylinder_kernels
+import struphy.geometry.domains.hollow_torus.hollow_torus_kernels as hollow_torus_kernels
+import struphy.geometry.domains.orthogonal.orthogonal_kernels as orthogonal_kernels
+import struphy.geometry.domains.powered_elliptic_cylinder.powered_elliptic_cylinder_kernels as powered_elliptic_cylinder_kernels
+import struphy.geometry.domains.shafranov_dshaped_cylinder.shafranov_dshaped_cylinder_kernels as shafranov_dshaped_cylinder_kernels
+import struphy.geometry.domains.shafranov_shift_cylinder.shafranov_shift_cylinder_kernels as shafranov_shift_cylinder_kernels
+import struphy.geometry.domains.shafranov_sqrt_cylinder.shafranov_sqrt_cylinder_kernels as shafranov_sqrt_cylinder_kernels
+import struphy.geometry.spline_mappings_kernels as spline_mappings_kernels
 
 # do not remove; needed to identify dependencies
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
@@ -36,7 +45,7 @@ def f(
     """
 
     if args.kind_map == 0:
-        mappings_kernels.spline_3d(
+        spline_mappings_kernels.spline_3d(
             eta1,
             eta2,
             eta3,
@@ -48,7 +57,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 1:
-        mappings_kernels.spline_2d_straight(
+        spline_mappings_kernels.spline_2d_straight(
             eta1,
             eta2,
             eta3,
@@ -60,7 +69,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 2:
-        mappings_kernels.spline_2d_torus(
+        spline_mappings_kernels.spline_2d_torus(
             eta1,
             eta2,
             eta3,
@@ -72,7 +81,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 10:
-        mappings_kernels.cuboid(
+        cuboid_kernels.cuboid(
             eta1,
             eta2,
             eta3,
@@ -85,7 +94,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 11:
-        mappings_kernels.orthogonal(
+        orthogonal_kernels.orthogonal(
             eta1,
             eta2,
             eta3,
@@ -96,7 +105,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 12:
-        mappings_kernels.colella(
+        colella_kernels.colella(
             eta1,
             eta2,
             eta3,
@@ -107,7 +116,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 20:
-        mappings_kernels.hollow_cyl(
+        hollow_cylinder_kernels.hollow_cyl(
             eta1,
             eta2,
             eta3,
@@ -118,7 +127,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 21:
-        mappings_kernels.powered_ellipse(
+        powered_elliptic_cylinder_kernels.powered_ellipse(
             eta1,
             eta2,
             eta3,
@@ -129,7 +138,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 22:
-        mappings_kernels.hollow_torus(
+        hollow_torus_kernels.hollow_torus(
             eta1,
             eta2,
             eta3,
@@ -142,7 +151,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 30:
-        mappings_kernels.shafranov_shift(
+        shafranov_shift_cylinder_kernels.shafranov_shift(
             eta1,
             eta2,
             eta3,
@@ -153,7 +162,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 31:
-        mappings_kernels.shafranov_sqrt(
+        shafranov_sqrt_cylinder_kernels.shafranov_sqrt(
             eta1,
             eta2,
             eta3,
@@ -164,7 +173,7 @@ def f(
             f_out,
         )
     elif args.kind_map == 32:
-        mappings_kernels.shafranov_dshaped(
+        shafranov_dshaped_cylinder_kernels.shafranov_dshaped(
             eta1,
             eta2,
             eta3,
@@ -201,7 +210,7 @@ def df(
     """
 
     if args.kind_map == 0:
-        mappings_kernels.spline_3d_df(
+        spline_mappings_kernels.spline_3d_df(
             eta1,
             eta2,
             eta3,
@@ -213,7 +222,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 1:
-        mappings_kernels.spline_2d_straight_df(
+        spline_mappings_kernels.spline_2d_straight_df(
             eta1,
             eta2,
             args.degree,
@@ -224,7 +233,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 2:
-        mappings_kernels.spline_2d_torus_df(
+        spline_mappings_kernels.spline_2d_torus_df(
             eta1,
             eta2,
             eta3,
@@ -236,7 +245,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 10:
-        mappings_kernels.cuboid_df(
+        cuboid_kernels.cuboid_df(
             args.params[0],
             args.params[1],
             args.params[2],
@@ -246,7 +255,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 11:
-        mappings_kernels.orthogonal_df(
+        orthogonal_kernels.orthogonal_df(
             eta1,
             eta2,
             args.params[0],
@@ -256,7 +265,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 12:
-        mappings_kernels.colella_df(
+        colella_kernels.colella_df(
             eta1,
             eta2,
             args.params[0],
@@ -266,7 +275,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 20:
-        mappings_kernels.hollow_cyl_df(
+        hollow_cylinder_kernels.hollow_cyl_df(
             eta1,
             eta2,
             args.params[0],
@@ -276,7 +285,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 21:
-        mappings_kernels.powered_ellipse_df(
+        powered_elliptic_cylinder_kernels.powered_ellipse_df(
             eta1,
             eta2,
             eta3,
@@ -287,7 +296,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 22:
-        mappings_kernels.hollow_torus_df(
+        hollow_torus_kernels.hollow_torus_df(
             eta1,
             eta2,
             eta3,
@@ -300,7 +309,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 30:
-        mappings_kernels.shafranov_shift_df(
+        shafranov_shift_cylinder_kernels.shafranov_shift_df(
             eta1,
             eta2,
             eta3,
@@ -311,7 +320,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 31:
-        mappings_kernels.shafranov_sqrt_df(
+        shafranov_sqrt_cylinder_kernels.shafranov_sqrt_df(
             eta1,
             eta2,
             eta3,
@@ -322,7 +331,7 @@ def df(
             df_out,
         )
     elif args.kind_map == 32:
-        mappings_kernels.shafranov_dshaped_df(
+        shafranov_dshaped_cylinder_kernels.shafranov_dshaped_df(
             eta1,
             eta2,
             eta3,
