@@ -1316,16 +1316,33 @@ def construct_package_init_file(
     class_modules = {}
 
     for file_name in sorted(os.listdir(package_dir)):
-        if file_name.endswith(".py") and file_name not in ("__init__.py", *skip):
+        if file_name in ("__init__.py", *skip):
+            continue
+        if file_name.endswith(".py"):
             module_name = file_name[:-3]  # strip .py
-            module = importlib.import_module(f"{package_name}.{module_name}")
+        elif os.path.isfile(os.path.join(package_dir, file_name, "__init__.py")):
+            module_name = file_name  # sub-package laid out as one directory per class
+        else:
+            continue
+        module = importlib.import_module(f"{package_name}.{module_name}")
 
-            # Loop over all classes in the module
-            for _, cls in inspect.getmembers(module, inspect.isclass):
-                # Only subclasses of base_class defined in this module
-                if issubclass(cls, base_class) and cls.__module__ == module.__name__ and cls != base_class:
-                    class_names.append(cls.__name__)
-                    class_modules[cls.__name__] = f"{package_name}.{module_name}"
+        # Sub-packages resolve their class lazily via __getattr__; inspect.getmembers would
+        # not see it, so go through __all__ (falling back to what getmembers finds).
+        candidates = [getattr(module, n) for n in getattr(module, "__all__", ())]
+        candidates += [cls for _, cls in inspect.getmembers(module, inspect.isclass)]
+
+        # Loop over all classes in the module
+        for cls in candidates:
+            # Only subclasses of base_class defined in this module (or its sub-modules)
+            if (
+                inspect.isclass(cls)
+                and issubclass(cls, base_class)
+                and cls != base_class
+                and (cls.__module__ == module.__name__ or cls.__module__.startswith(module.__name__ + "."))
+                and cls.__name__ not in class_modules
+            ):
+                class_names.append(cls.__name__)
+                class_modules[cls.__name__] = f"{package_name}.{module_name}"
 
     init_content += "import importlib\n"
     init_content += "from typing import TYPE_CHECKING\n\n"
