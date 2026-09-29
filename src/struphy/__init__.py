@@ -5,8 +5,7 @@ import logging.config
 import os
 from typing import TYPE_CHECKING
 
-from struphy.utils.mpi_launch import launched_under_mpi
-
+from feectools.ddm.mpi import launched_under_mpi
 
 class RankZeroFilter(logging.Filter):
     def __init__(self, rank: int):
