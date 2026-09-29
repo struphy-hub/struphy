@@ -11,6 +11,7 @@ from line_profiler import profile
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
 from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
+from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -126,7 +127,6 @@ class PushVinSPHpressure(Propagator):
         particles = self.variables.fluid.particles
 
         first_free_idx = particles.args_markers.first_free_idx
-        comps = (0, 1, 2)
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -150,10 +150,11 @@ class PushVinSPHpressure(Propagator):
         )
 
         self.add_init_kernel(
-            init_kernel,
-            first_free_idx,
-            comps,
-            args_init,
+            KernelSetup(
+                kernel=init_kernel,
+                output_indices=(first_free_idx, first_free_idx + 1, first_free_idx + 2),
+                args=args_init,
+            ),
         )
 
         # pusher kernel

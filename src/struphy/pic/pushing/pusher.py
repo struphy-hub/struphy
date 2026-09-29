@@ -10,13 +10,9 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
+from struphy.pic.pushing.kernel_setup import KernelSetup
 
 logger = logging.getLogger("struphy")
-
-
-def _kernel_name(kernel) -> str:
-    """Name of a pyccelized kernel, which can be a bare pyccel function or a PyccelKernel."""
-    return getattr(kernel, "name", None) or getattr(kernel, "__name__", type(kernel).__name__)
 
 
 class Pusher:
@@ -81,16 +77,13 @@ class Pusher:
         alpha[i]=0 means that evaluation is at the initial positions (time n),
         stored at markers[:, buffer_idx + i].
 
-    init_kernels : dict
-        Keys: initialization kernels for spline/ SPH evaluations at time n (initial state).
-        Values: optional arguments.
+    init_kernels : tuple[KernelSetup, ...]
+        Evaluations at the initial state, executed once per push in tuple order.
+        Each setup specifies the kernel, arguments, and output marker indices.
 
-    eval_kernels : dict
-        Keys: evaluation kernels for splines before the pusher kernel is called.
-        Values: optional arguments and weighting parameters alpha for
-        sorting (before evaluation), according to
-        alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i] for i=0,1,2.
-        alpha must be between 0 and 1, see :meth:`~struphy.pic.base.Particles.mpi_sort_markers`.
+    eval_kernels : tuple[KernelSetup, ...]
+        Evaluations before each pusher stage/iteration. Each setup's alpha
+        weights determine the evaluation state and preceding MPI sort.
 
     n_stages : int
         Number of stages of the pusher (e.g. 4 for RK4)
@@ -126,8 +119,8 @@ class Pusher:
         args_domain: DomainArguments,
         *,
         alpha_in_kernel: float | int | tuple | list,
-        init_kernels: list = [],
-        eval_kernels: list = [],
+        init_kernels: tuple[KernelSetup, ...] = (),
+        eval_kernels: tuple[KernelSetup, ...] = (),
         n_stages: int = 1,
         maxiter: int = 1,
         tol: float = 1.0e-8,
@@ -159,36 +152,17 @@ class Pusher:
         if local_eval_only:
             assert len(eval_kernels) == 0, "eval_kernels evaluate splines, not compatible with local_eval_only=True."
 
-        # prepare and check init_kernels
-        for ker_args in init_kernels:
-            assert len(ker_args) == 4
-            column_nr = ker_args[1]
-            comps = ker_args[2]
-
-            # check marker array column number
-            assert isinstance(comps, xp.ndarray)
-            assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
-            )
-
-        # prepare and check eval_kernels
-        for ker_args in eval_kernels:
-            assert len(ker_args) == 5
-            column_nr = ker_args[2]
-            comps = ker_args[3]
-
-            # check marker array column number
-            assert isinstance(comps, xp.ndarray)
-            assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
-            )
-
-        self._init_kernels = init_kernels
-        self._eval_kernels = eval_kernels
+        self._init_kernels = tuple(init_kernels)
+        self._eval_kernels = tuple(eval_kernels)
+        for setup in self._init_kernels + self._eval_kernels:
+            if not isinstance(setup, KernelSetup):
+                raise TypeError("init_kernels and eval_kernels must contain KernelSetup instances")
+            setup.validate_outputs(particles.n_cols)
+        if any(any(setup.alpha) for setup in self._init_kernels):
+            raise ValueError("init kernels must evaluate the initial state (alpha=0)")
 
         # profiling region names (cached, they are looked up on every call)
         self._region_name = "pusher: " + self.kernel.name
-        self._kernel_region_names = {}
 
         self._residuals = xp.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
@@ -208,13 +182,12 @@ class Pusher:
         with ProfileManager.profile_region(self._region_name):
             self._push(dt)
 
-    def _kernel_region(self, kernel) -> str:
-        """Cached name of the profiling region of an init/eval kernel."""
-        name = self._kernel_region_names.get(id(kernel))
-        if name is None:
-            name = "kernel: " + _kernel_name(kernel)
-            self._kernel_region_names[id(kernel)] = name
-        return name
+    def _evaluate(self, setup: KernelSetup):
+        """Run a configured marker evaluation and communicate its outputs."""
+        with ProfileManager.profile_region("kernel: " + setup.name):
+            setup.evaluate(self.particles.args_markers, self.args_domain)
+        if self._box_comm:
+            self.particles.put_particles_in_boxes()
 
     def _push(self, dt: float):
         """Body of :meth:`__call__`, see there."""
@@ -246,26 +219,9 @@ class Pusher:
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
 
-        # if init_kernels is not empty, do evaluations at initial positions 0:3
-        for ker_args in self.init_kernels:
-            ker = ker_args[0]
-            column_nr = ker_args[1]
-            comps = ker_args[2]
-            add_args = ker_args[3]
-
-            with ProfileManager.profile_region(self._kernel_region(ker)):
-                ker(
-                    xp.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                    column_nr,
-                    comps,
-                    self.particles.args_markers,
-                    self._args_domain,
-                    *add_args,
-                )
-
-            # update boxes
-            if self._box_comm:
-                self.particles.put_particles_in_boxes()
+        # Evaluate the initial state once, before any stage or iteration.
+        for setup in self.init_kernels:
+            self._evaluate(setup)
 
         # markers are sorted on entry and initial positions equal current positions,
         # hence they are sorted for any alpha until the kernel moves them
@@ -288,31 +244,10 @@ class Pusher:
             while True:
                 k += 1
 
-                # if eval_kernels is not empty, do spline evaluations
-                for ker_args in self.eval_kernels:
-                    ker = ker_args[0]
-                    alpha = ker_args[1]
-                    column_nr = ker_args[2]
-                    comps = ker_args[3]
-                    add_args = ker_args[4]
-
+                for setup in self.eval_kernels:
                     # sort according to alpha-weighted average
-                    self._sort_for_alpha(alpha[:3])
-
-                    # evaluate
-                    with ProfileManager.profile_region(self._kernel_region(ker)):
-                        ker(
-                            alpha,
-                            column_nr,
-                            comps,
-                            self.particles.args_markers,
-                            self._args_domain,
-                            *add_args,
-                        )
-
-                    # update boxes
-                    if self._box_comm:
-                        self.particles.put_particles_in_boxes()
+                    self._sort_for_alpha(setup.sorting_alpha)
+                    self._evaluate(setup)
 
                 # sort according to alpha-weighted average
                 self._sort_for_alpha(self._alpha_in_kernel)
@@ -425,13 +360,13 @@ class Pusher:
         return self._kernel
 
     @property
-    def init_kernels(self):
-        """A dict of kernels for initial spline evaluation before iteration."""
+    def init_kernels(self) -> tuple[KernelSetup, ...]:
+        """Ordered setups for evaluations at the initial state."""
         return self._init_kernels
 
     @property
-    def eval_kernels(self):
-        """A dict of kernels for spline evaluation before execution of kernel during iteration."""
+    def eval_kernels(self) -> tuple[KernelSetup, ...]:
+        """Ordered setups for evaluations before each pusher stage/iteration."""
         return self._eval_kernels
 
     @property
