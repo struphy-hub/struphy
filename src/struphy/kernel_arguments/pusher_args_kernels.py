@@ -40,6 +40,11 @@ class MarkerArguments:
 
     mu_idx : int
         Column index of particle magnetic moment.
+
+    bc_type : array[int]
+        Kinetic boundary condition in each logical direction
+        (0: periodic, 1: reflect, 2: remove, 3: refill (handled in Python)),
+        see :func:`~struphy.pic.pushing.pusher_utilities_kernels.apply_kinetic_bc_marker`.
     """
 
     def __init__(
@@ -55,6 +60,7 @@ class MarkerArguments:
         residual_idx: int,
         first_free_idx: int,
         mu_idx: int,
+        bc_type: "int[:]",
     ):
         self.markers = markers
         self.valid_mks = valid_mks
@@ -70,6 +76,7 @@ class MarkerArguments:
         self.residual_idx = residual_idx  # residual in iterative solvers
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
         self.mu_idx = mu_idx  # particle magnetic moment
+        self.bc_type = bc_type  # kinetic boundary conditions per axis
 
 
 class DerhamArguments:

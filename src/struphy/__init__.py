@@ -207,7 +207,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
         WeightsParameters,
     )
     from struphy.api.perturbations import perturbations
-    from struphy.api.post_processing import PlottingData, PostProcessor
+    from struphy.api.post_processing import Output, open_output
     from struphy.api.simulation import Simulation
 
 __all__ = [
@@ -231,8 +231,8 @@ __all__ = [
     "DerhamOptions",
     "FieldsBackground",
     "ButcherTableau",
-    "PostProcessor",
-    "PlottingData",
+    "Output",
+    "open_output",
     "Simulation",
 ]
 

@@ -1924,7 +1924,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         # remove all "dimensions" for point-wise evaluation
         if is_float:
-            assert out.ndim == 0
+            assert out.size == 1  # scipy >= 1.18 returns shape (1,) for a single point
             out = out.item()
 
         # rescale to Struphy units

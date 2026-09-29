@@ -71,6 +71,14 @@ def _to_numpy_for_kernel(value):
     return value
 
 
+ORBIT_POSITIONS = (
+    (0, "x", "$x$", "physical position x"),
+    (1, "y", "$y$", "physical position y"),
+    (2, "z", "$z$", "physical position z"),
+)
+"""Orbit quantities of the position columns, which post-processing maps to physical coordinates."""
+
+
 class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
@@ -309,13 +317,6 @@ class Particles(metaclass=ABCMeta):
 
         assert self.Np >= self.mpi_size
 
-        # create marker array
-        self._bufsize = bufsize
-        self._allocate_marker_array(dry_run=dry_run)
-
-        if dry_run:
-            return
-
         # boundary conditions
         bc = boundary_params.bc
         bc_refill = boundary_params.bc_refill
@@ -335,6 +336,19 @@ class Particles(metaclass=ABCMeta):
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
+
+        # boundary condition type per axis for the per-marker kernel apply_kinetic_bc_marker
+        # (0: periodic, 1: reflect, 2: remove, 3: handled in Python by apply_kinetic_bc)
+        self._bc_in_python = bc_refill is not None
+        bc_codes = {"periodic": 0, "reflect": 1, "remove": 3 if self._bc_in_python else 2}
+        self._bc_type = xp.array([bc_codes.get(b_c, 3) for b_c in bc], dtype=int)
+
+        # create marker array
+        self._bufsize = bufsize
+        self._allocate_marker_array(dry_run=dry_run)
+
+        if dry_run:
+            return
 
         bc_sph = boundary_params.bc_sph
         if bc_sph is None:
@@ -421,6 +435,11 @@ class Particles(metaclass=ABCMeta):
         """Labels for the coordinates in the phase space.
         Length must be 3 + vdim, where the first 3 are the spatial coordinates and the last vdim are the velocity coordinates."""
         pass
+
+    orbit_quantities: tuple[tuple[int, str, str, str], ...] = ()
+    """Marker columns saved in the ``orbits`` post-processing product, as
+    ``(column, name, long_name, description)``. The first three are :data:`ORBIT_POSITIONS`;
+    the marker index becomes the ``marker`` coordinate of the product."""
 
     @property
     @abstractmethod
@@ -1866,6 +1885,26 @@ class Particles(metaclass=ABCMeta):
                 axis,
             )
 
+    def finish_kernel_bc(self, newton=False):
+        """Bookkeeping after a pusher kernel that applied the kinetic boundary conditions per marker
+        (see :func:`~struphy.pic.pushing.pusher_utilities_kernels.apply_kinetic_bc_marker`). Refilling is not done
+        in the kernel and is applied here by :meth:`apply_kinetic_bc`. Markers removed in the
+        kernel have become holes; they are counted as lost markers.
+
+        Parameters
+        ----------
+        newton : bool
+            Whether the shift due to boundary conditions should be computed
+            for a Newton step or for a standard (explicit or Picard) step.
+        """
+        if self._bc_in_python:
+            self.apply_kinetic_bc(newton=newton)
+            self.update_holes()
+        elif self._remove_axes:
+            n_holes_before = xp.count_nonzero(self.holes)
+            self.update_holes()
+            self._n_lost_markers += int(xp.count_nonzero(self.holes) - n_holes_before)
+
     def update_holes(self):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
         and, from it, refresh :attr:`~struphy.pic.base.Particles.valid_mks`.
@@ -2068,7 +2107,6 @@ class Particles(metaclass=ABCMeta):
         """
 
         first_free_idx = self.args_markers.first_free_idx
-        comps = xp.array((0, 1, 2))
 
         self.put_particles_in_boxes()
 
@@ -2076,8 +2114,7 @@ class Particles(metaclass=ABCMeta):
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
+            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2185,11 +2222,9 @@ class Particles(metaclass=ABCMeta):
 
         # 1st kernel
         func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
-        comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
+            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2206,11 +2241,9 @@ class Particles(metaclass=ABCMeta):
 
         # 2nd kernel
         func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
-        comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx + 3,
-            comps=comps,
+            output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2507,6 +2540,7 @@ class Particles(metaclass=ABCMeta):
             _to_numpy_for_kernel(self.residual_idx),
             _to_numpy_for_kernel(self.first_free_idx),
             _to_numpy_for_kernel(self.mu_idx),
+            _to_numpy_for_kernel(self._bc_type),
         )
 
     def _initialize_sorting_boxes(self):
