@@ -108,6 +108,7 @@ def struphy_compile(
     dependencies,
     time_execution,
     yes,
+    jobs=1,
 ):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
@@ -143,6 +144,9 @@ def struphy_compile(
 
     yes : bool
         Whether to say yes to prompt when changing the language.
+
+    jobs : int
+        Number of kernels compiled in parallel (default=1). Kernels that depend on each other are still compiled in order.
     """
 
     import importlib.metadata
@@ -339,8 +343,11 @@ def struphy_compile(
         #     kernel_file,
         #     "-v",
         # ]
+        # make compiles up to `jobs` kernels at once; the prerequisites computed by
+        # dependencies.py (see compile_struphy.mk) ensure that imported kernels are built first
         cmd = [
             "make",
+            f"-j{jobs}",
             "-f",
             "compile_struphy.mk",
             "sources=" + sources,

@@ -34,7 +34,7 @@ all: $(OUTPUTS)
 	@for dep in $^ ; do \
 		echo $$dep ; \
     done
-	pyccel compile -v $(FLAGS) $(FLAGS_openmp) $<
+	pyccel compile $(FLAGS) $(FLAGS_openmp) $<
 	@echo ""
 
 #--------------------------------------
