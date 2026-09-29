@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm
 from matplotlib.colors import Normalize
-import numpy as np
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.geometry.base import Domain
@@ -269,6 +268,7 @@ class KineticBackground(metaclass=ABCMeta):
 
         n_axes_integration = 3 + self.vdim - n_axes_plot
         max_quad_points = max_points
+
         for r in n_eval_pts:
             max_quad_points //= r
 
