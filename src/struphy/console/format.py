@@ -1285,6 +1285,11 @@ def construct_package_init_file(
     per module, by importing each module and collecting the subclasses of `base_class` that
     are defined in it. Preserves the existing module docstring of the `__init__.py`, if any.
 
+    The generated file resolves the classes lazily (PEP 562 module ``__getattr__``), so that
+    ``from package import SomeClass`` only imports the module defining ``SomeClass`` instead of
+    every module in the package. Importing all of them costs a considerable amount of time and
+    is rarely needed. A ``TYPE_CHECKING`` block keeps static analysis and IDEs working.
+
     Parameters
     ----------
     package_dir : str
@@ -1308,22 +1313,61 @@ def construct_package_init_file(
 
     init_content = f'"""{docstring}"""\n\n' if docstring else ""
     class_names = []
+    class_modules = {}
 
     for file_name in sorted(os.listdir(package_dir)):
-        if file_name.endswith(".py") and file_name not in ("__init__.py", *skip):
+        if file_name in ("__init__.py", *skip):
+            continue
+        if file_name.endswith(".py"):
             module_name = file_name[:-3]  # strip .py
-            module = importlib.import_module(f"{package_name}.{module_name}")
+        elif os.path.isfile(os.path.join(package_dir, file_name, "__init__.py")):
+            module_name = file_name  # sub-package laid out as one directory per class
+        else:
+            continue
+        module = importlib.import_module(f"{package_name}.{module_name}")
 
-            # Loop over all classes in the module
-            for _, cls in inspect.getmembers(module, inspect.isclass):
-                # Only subclasses of base_class defined in this module
-                if issubclass(cls, base_class) and cls.__module__ == module.__name__ and cls != base_class:
-                    class_name = cls.__name__
-                    init_content += f"from {package_name}.{module_name} import {class_name}\n"
-                    class_names.append(class_name)
+        # Sub-packages resolve their class lazily via __getattr__; inspect.getmembers would
+        # not see it, so go through __all__ (falling back to what getmembers finds).
+        candidates = [getattr(module, n) for n in getattr(module, "__all__", ())]
+        candidates += [cls for _, cls in inspect.getmembers(module, inspect.isclass)]
 
-    init_content += "\n\n"
-    init_content += f"__all__ = {class_names}\n"
+        # Loop over all classes in the module
+        for cls in candidates:
+            # Only subclasses of base_class defined in this module (or its sub-modules)
+            if (
+                inspect.isclass(cls)
+                and issubclass(cls, base_class)
+                and cls != base_class
+                and (cls.__module__ == module.__name__ or cls.__module__.startswith(module.__name__ + "."))
+                and cls.__name__ not in class_modules
+            ):
+                class_names.append(cls.__name__)
+                class_modules[cls.__name__] = f"{package_name}.{module_name}"
+
+    init_content += "import importlib\n"
+    init_content += "from typing import TYPE_CHECKING\n\n"
+
+    init_content += "# class name -> module defining it, resolved on first access by __getattr__ below\n"
+    init_content += "_LAZY_IMPORTS = {\n"
+    for class_name in class_names:
+        init_content += f'    "{class_name}": "{class_modules[class_name]}",\n'
+    init_content += "}\n\n"
+
+    init_content += "if TYPE_CHECKING:  # static analysis and IDEs see the eager imports\n"
+    for class_name in class_names:
+        init_content += f"    from {class_modules[class_name]} import {class_name}\n"
+    init_content += "\n"
+
+    init_content += f"__all__ = {class_names}\n\n\n"
+    init_content += "def __getattr__(name: str):\n"
+    init_content += "    module_name = _LAZY_IMPORTS.get(name)\n"
+    init_content += "    if module_name is None:\n"
+    init_content += '        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")\n'
+    init_content += "    value = getattr(importlib.import_module(module_name), name)\n"
+    init_content += "    globals()[name] = value  # cache: later lookups bypass __getattr__\n"
+    init_content += "    return value\n\n\n"
+    init_content += "def __dir__():\n"
+    init_content += "    return sorted(set(globals()) | set(_LAZY_IMPORTS))\n"
     return init_content
 
 

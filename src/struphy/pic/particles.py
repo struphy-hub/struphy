@@ -244,7 +244,7 @@ class DeltaFParticles6D(Particles6D):
 class Particles5D(Particles):
     """
     Particles in the 5D guiding-center, drift-kinetic or gyro-kinetic phase space
-    :math:`(\\boldsymbol \\eta, v_\\parallel, \mu) \\in [0, 1]^3 \\times \\mathbb R \\times \\mathbb R_{\\geq 0}`.
+    :math:`(\\boldsymbol \\eta, v_\\parallel, \\mu) \\in [0, 1]^3 \\times \\mathbb R \\times \\mathbb R_{\\geq 0}`.
 
     Each marker carries a logical (curvilinear) position :math:`\\boldsymbol \\eta_p` together with the
     velocity coordinates
