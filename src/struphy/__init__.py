@@ -178,8 +178,8 @@ _LAZY_API = {
     "SortingParameters": "struphy.api.particles",
     "WeightsParameters": "struphy.api.particles",
     "perturbations": "struphy.api.perturbations",
-    "PlottingData": "struphy.api.post_processing",
-    "PostProcessor": "struphy.api.post_processing",
+    "Output": "struphy.api.post_processing",
+    "open_output": "struphy.api.post_processing",
     "Simulation": "struphy.api.simulation",
 }
 
