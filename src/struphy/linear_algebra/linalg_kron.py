@@ -14,8 +14,6 @@ COMMENT: the reshape of a matrix can be viewed as ravel+reshape.
 """
 
 import cunumpy as xp
-from scipy.linalg import solve_circulant
-from scipy.sparse.linalg import splu
 
 
 def kron_matvec_2d(kmat, vec2d):
@@ -315,6 +313,8 @@ def kron_solve_3d(kmat, rhs):
     res : 3d array of size (r0,r1,r2), solution
     """
 
+    from scipy.sparse.linalg import splu
+
     r0, r1, r2 = rhs.shape
 
     res = (
@@ -355,6 +355,9 @@ def kron_fftsolve_3d(cvec, rhs):
         res : 3d array of size (r0,r1,r2), solution
 
     """
+
+    from scipy.linalg import solve_circulant
+
     r0, r1, r2 = rhs.shape
     res = (
         (
@@ -434,6 +437,9 @@ def kron_fftsolve_2d(A_LU, b_vec, rhs):
         res : 3d array of size (r0,r1,r2), solution
 
     """
+
+    from scipy.linalg import solve_circulant
+
     res = solve_circulant(b_vec, A_LU.solve(rhs).T).T
 
     return res.flatten()

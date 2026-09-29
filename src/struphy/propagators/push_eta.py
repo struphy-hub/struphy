@@ -110,7 +110,8 @@ class PushEta(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
             n_stages=butcher.n_stages,
-            mpi_sort="each",
+            pushes_eta=True,
+            local_eval_only=True,
         )
 
     @profile
