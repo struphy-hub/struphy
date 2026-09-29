@@ -61,7 +61,7 @@ def mpi_comm_world():
 
 PLOTS_HINT = (
     "plots and diagnostics of Struphy output come from the plasma-plots package: "
-    "pip install plasma-plots (or struphy[plots]); see https://struphy-hub.github.io/plasma-plots"
+    "pip install plasma-plots (or struphy[pproc]); see https://struphy-hub.github.io/plasma-plots"
 )
 _plots = {"loaded": False}
 
@@ -234,7 +234,7 @@ class Output:
 
     **Plots and diagnostics** of the output live in the separate package
     `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ (``pip install plasma-plots``,
-    or ``pip install "struphy[plots]"``). When it is installed, creating an ``Output`` loads it,
+    or ``pip install "struphy[pproc]"``). When it is installed, creating an ``Output`` loads it,
     which adds:
 
     * ``out.plot`` and ``out.analysis``: whole-run plots and diagnostics, e.g.

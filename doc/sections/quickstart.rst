@@ -79,7 +79,7 @@ For periodic boundary conditions we will stabilize via ``options``.
    the entry point for all post-processing. For plots and diagnostics made for Struphy
    output (``out.plot``, ``out.analysis`` and ``.plasma.plot`` on every product), install
    the separate package `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ with
-   ``pip install plasma-plots``; ``Output`` loads it automatically.
+   ``pip install "struphy[pproc]"``; ``Output`` loads it automatically.
 
 .. code-block:: python
 

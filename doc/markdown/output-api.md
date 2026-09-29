@@ -225,7 +225,7 @@ For plots and diagnostics made for Struphy output, install the separate package
 [plasma-plots](https://struphy-hub.github.io/plasma-plots):
 
 ```bash
-pip install plasma-plots         # or: pip install "struphy[plots]"
+pip install plasma-plots         # or: pip install "struphy[pproc]"
 ```
 
 When it is installed, every `Output` loads it: no import is needed. It adds `out.plot` and
