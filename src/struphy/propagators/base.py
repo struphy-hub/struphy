@@ -17,6 +17,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -141,21 +142,21 @@ class Propagator(metaclass=ABCMeta):
         return diffs
 
     @property
-    def init_kernels(self):
-        r"""List of initialization kernels for evaluation at
+    def init_kernels(self) -> tuple[KernelSetup, ...]:
+        r"""Tuple of initialization kernel setups for evaluation at
         :math:`\boldsymbol \eta^n`
         in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
         """
-        return self._init_kernels
+        return getattr(self, "_init_kernels", ())
 
     @property
-    def eval_kernels(self):
-        r"""List of evaluation kernels for evaluation at
+    def eval_kernels(self) -> tuple[KernelSetup, ...]:
+        r"""Tuple of evaluation kernel setups for evaluation at
         :math:`\alpha_i \eta_{i}^{n+1,k} + (1 - \alpha_i) \eta_{i}^n`
         for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]`,
         in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
         """
-        return self._eval_kernels
+        return getattr(self, "_eval_kernels", ())
 
     @property
     def rank(self):
@@ -244,99 +245,24 @@ class Propagator(metaclass=ABCMeta):
         assert time_state.size == 1
         self._time_state = time_state
 
-    def add_init_kernel(
-        self,
-        kernel,
-        column_nr: int,
-        comps: tuple | int,
-        args_init: tuple,
-    ):
-        """Add an initialization kernel to self.init_kernels.
+    def add_init_kernel(self, setup: KernelSetup):
+        """Register an evaluation at the start of each push.
 
-        Parameters
-        ----------
-        kernel : pyccel func
-            The kernel function.
-
-        column_nr : int
-            The column index at which the result is stored in marker array.
-
-        comps : tuple | int
-            None or (0) for scalar-valued function evaluation.
-            In vector valued case, allows to specify which components to save
-            at column_nr:column_nr + len(comps).
-
-        args_init : tuple
-            The arguments for the kernel function.
+        The setup names the callable, its arguments, and the exact output
+        marker columns. Its evaluation weights must all be zero.
         """
-        if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
-        else:
-            comps = xp.array(comps, dtype=int)
+        if not isinstance(setup, KernelSetup):
+            raise TypeError("init kernels must be KernelSetup instances")
+        if any(setup.alpha):
+            raise ValueError("init kernels must evaluate the initial state (alpha=0)")
+        self._init_kernels = self.init_kernels + (setup,)
 
-        if not hasattr(self, "_init_kernels"):
-            self._init_kernels = []
+    def add_eval_kernel(self, setup: KernelSetup):
+        """Register an evaluation before each pusher stage/iteration.
 
-        self._init_kernels += [
-            (
-                kernel,
-                column_nr,
-                comps,
-                args_init,
-            ),
-        ]
-
-    def add_eval_kernel(
-        self,
-        kernel,
-        column_nr: int,
-        comps: tuple | int,
-        args_eval: tuple,
-        alpha: float | int | tuple | list = 1.0,
-    ):
-        """Add an evaluation kernel to self.eval_kernels.
-
-        Parameters
-        ----------
-        kernel : pyccel func
-            The kernel function.
-
-        column_nr : int
-            The column index at which the result is stored in marker array.
-
-        comps : tuple | int
-            None for scalar-valued function evaluation. In vecotr valued case,
-            allows to specify which components to save
-            at column_nr:column_nr + len(comps).
-
-        args_init : tuple
-            The arguments for the kernel function.
-
-        alpha : float | int | tuple | list
-            Evaluations in kernel are at the weighted average
-            alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i],
-            for i=0,1,2. If float or int or then alpha = [alpha]*dim,
-            where dim is the dimension of the phase space (<=6).
-            alpha[i] must be between 0 and 1.
+        The setup's alpha weights determine both the evaluation state and
+        the preceding MPI sort.
         """
-        if isinstance(alpha, int) or isinstance(alpha, float):
-            alpha = [alpha] * 6
-        alpha = xp.array(alpha)
-
-        if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
-        else:
-            comps = xp.array(comps, dtype=int)
-
-        if not hasattr(self, "_eval_kernels"):
-            self._eval_kernels = []
-
-        self._eval_kernels += [
-            (
-                kernel,
-                alpha,
-                column_nr,
-                comps,
-                args_eval,
-            ),
-        ]
+        if not isinstance(setup, KernelSetup):
+            raise TypeError("eval kernels must be KernelSetup instances")
+        self._eval_kernels = self.eval_kernels + (setup,)
