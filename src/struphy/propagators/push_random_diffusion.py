@@ -130,7 +130,8 @@ class PushRandomDiffusion(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
             n_stages=self._butcher.n_stages,
-            mpi_sort="each",
+            pushes_eta=True,
+            local_eval_only=True,
         )
 
         # self._tmp = self.derham.V1.zeros()
