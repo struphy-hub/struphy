@@ -39,6 +39,7 @@ from struphy.post_processing.manifest import (
     MANIFEST_SCHEMA_VERSION,
     is_processed,
     normalize_options,
+    processing_lock,
     source_fingerprint,
 )
 from struphy.post_processing.orbits import orbits_tools
@@ -56,6 +57,32 @@ Representation = Literal["0", "1", "2", "3", "v", "norm"]
 def mpi_comm_world():
     """The communicator used by output post-processing."""
     return MPI.COMM_WORLD
+
+
+PLOTS_HINT = (
+    "plots and diagnostics of Struphy output come from the plasma-plots package: "
+    "pip install plasma-plots (or struphy[plots]); see https://struphy-hub.github.io/plasma-plots"
+)
+_plots = {"loaded": False}
+
+
+def load_plasma_plots() -> bool:
+    """Load plasma-plots if it is installed, and tell whether it is.
+
+    Importing ``plasma_plots`` registers ``out.plot``, ``out.analysis`` and the ``.plasma``
+    accessor on every product. :class:`Output` calls this when it is created, so none of that
+    needs an explicit ``import plasma_plots``. Struphy does not depend on the package.
+    """
+    if not _plots["loaded"]:
+        try:
+            import plasma_plots  # noqa: F401  (registers the accessors)
+        except ImportError:
+            return False
+        except Exception as error:  # a broken install must not break reading output
+            logger.warning("plasma-plots is installed but could not be imported: %s", error)
+            return False
+        _plots["loaded"] = True
+    return True
 
 
 class ProductMapping(Mapping[str, xr.DataArray]):
@@ -205,6 +232,20 @@ class Output:
       reconstructed lazily from saved metadata. No simulation object is created or retained.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
+    **Plots and diagnostics** of the output live in the separate package
+    `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ (``pip install plasma-plots``,
+    or ``pip install "struphy[plots]"``). When it is installed, creating an ``Output`` loads it,
+    which adds:
+
+    * ``out.plot`` and ``out.analysis``: whole-run plots and diagnostics, e.g.
+      ``out.plot.energies()``, ``out.analysis.time_fft("em_fields/phi")``;
+    * ``.plasma.plot``, ``.plasma.analysis`` and ``.plasma.data`` on every product, e.g.
+      ``out.evaluate("em_fields/phi").plasma.plot.slice(x="eta1", y="eta2", t=-1)``, or
+      ``orbits.plasma.plot.poloidal()`` for an orbits Dataset.
+
+    ``import plasma_plots; help(plasma_plots)`` gives an overview of the package, and ``help()``
+    on any accessor method (e.g. ``help(phi.plasma.plot.slice)``) its parameters.
+
     Parameters
     ----------
     path_out:
@@ -212,6 +253,7 @@ class Output:
     """
 
     def __init__(self, path_out):
+        load_plasma_plots()  # out.plot, out.analysis and .plasma on every product, if installed
         self.path_out = Path(path_out).resolve()
         self._time_units = "normalized"
         self.comm = mpi_comm_world()
@@ -289,7 +331,7 @@ class Output:
         representation: Representation | None = None,
         dataset: str | None = None,
         variables: str | Sequence[str] | None = None,
-        parallel: bool = False,
+        parallel: bool | None = None,
         **coordinates: Any,
     ) -> xr.DataArray | xr.Dataset:
         """Return a named simulation product as an xarray object.
@@ -300,10 +342,10 @@ class Output:
         analysis. ``evaluate("scalars")`` returns an :class:`xarray.Dataset` containing
         all scalar histories; use ``variables=`` to select scalar names.
 
-        Under more than one MPI rank, automatic materialization is disabled unless ``parallel``
-        is set: pass ``parallel=True`` only when calling ``evaluate()`` collectively on every
-        rank, which triggers :meth:`pproc` with ``parallel=True`` on first use. Otherwise call
-        :meth:`pproc` explicitly first.
+        Under MPI, call ``evaluate()`` on every rank as long as the run is not processed yet:
+        processing is collective. It runs in parallel when the job has as many ranks as the saved
+        run, and otherwise serially on rank 0 while the other ranks wait; ``parallel`` forces
+        either, see :meth:`pproc`.
 
         Common selections can be passed directly: ``t`` selects saved snapshots
         by index (an integer, list of integers, or slice); omit it for every
@@ -316,6 +358,8 @@ class Output:
         products, a ``"species/variable"`` name selects the first matching binned
         product, then density/KDE product, then orbits. Pass ``dataset=`` to select a
         particular discovered product; use ``out.info("species/variable")`` to list them.
+        The full key of a particle product, ``"species/dataset/variable"`` (as :meth:`keys`
+        lists it, e.g. ``"kinetic_ions/e1_v1_density/f"``), selects that product directly.
 
         Supplying an ``eta`` evaluates a raw FEEC spline field directly on that logical
         grid. Each eta can be a scalar, a list, a one-dimensional array, or a ``range``;
@@ -336,8 +380,16 @@ class Output:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
         if "as_numpy" in selectors:
             raise TypeError("evaluate() always returns xarray; call .to_numpy() on its result when needed")
+        if name.count("/") == 2:
+            # the full key of a particle product: "species/dataset/variable"
+            if dataset is not None:
+                raise ValueError("dataset= cannot be combined with a 'species/dataset/variable' name")
+            species, group, variable = name.split("/")
+            name, dataset = f"{species}/{variable}", f"{group}/{variable}"
         if name != "scalars" and name.count("/") != 1:
-            raise ValueError("evaluate() names must use the 'species/variable' form, or be 'scalars'")
+            raise ValueError(
+                "evaluate() names must use the 'species/variable' or 'species/dataset/variable' form, or be 'scalars'"
+            )
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
@@ -383,8 +435,8 @@ class Output:
             if representation is not None and not is_raw_spline_field:
                 raise ValueError("representation requires FEEC evaluation")
             if not is_raw_spline_field and name != "scalars":
-                if parallel and not self.is_processed:
-                    self.pproc(parallel=True)
+                if parallel is not None and not self.is_processed:
+                    self.pproc(parallel=parallel)
                 array = self._product(name, dataset=dataset)
         if t is not None:
             if isinstance(t, (int, np.integer)):
@@ -917,14 +969,15 @@ class Output:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = False,
-        parallel: bool = False,
+        parallel: bool | None = None,
         force: bool = False,
     ) -> "Output":
         """Materialize post-processed products; reuse matching existing products.
 
-        Call this on every MPI rank. Serial processing (the default) runs on rank 0 while
-        the other ranks wait. Parallel processing reconstructs the field decomposition
-        and requires the same number of ranks as the saved run.
+        Products are processed on first use with default options, so call this only to choose
+        other options. Under MPI, call it on every rank. Parallel processing reconstructs the
+        field decomposition of the saved run on as many ranks, and rank 0 gathers and writes the
+        products; serial processing runs on rank 0 while the other ranks wait.
 
         Parameters
         ----------
@@ -941,7 +994,8 @@ class Output:
         create_vtk:
             Also write VTK files of the fields.
         parallel:
-            Evaluate fields on all ranks of this output's communicator.
+            Process on all ranks of this output's communicator, which must have as many ranks as
+            the saved run. By default parallel exactly when it has, and more than one.
         force:
             Reprocess even when matching products exist.
 
@@ -959,12 +1013,31 @@ class Output:
             create_vtk=create_vtk,
             force=force,
         )
+        if parallel is None:
+            parallel = self._processes_in_parallel
         try:
-            if parallel or self.comm.Get_rank() == 0:
-                self._setup_processing(parallel)
-                self._process_raw(**options)
-            if not parallel:
-                self.comm.Barrier()
+            if parallel:
+                self._process(parallel=True, **options)
+            elif self.comm.Get_rank() == 0:
+                with processing_lock(str(self.path_out)):
+                    self._process(parallel=False, **options)
+            # Rank 0 writes the manifest last; no rank may look for products before it has.
+            self.comm.Barrier()
+        finally:
+            self._reset()  # the other ranks load the new products
+        return self
+
+    @property
+    def _processes_in_parallel(self) -> bool:
+        """Whether processing by default uses every rank: those of a job as large as the saved run."""
+        size = self.comm.Get_size()
+        return size > 1 and size == self.mpi_ranks
+
+    def _process(self, *, parallel: bool, **options):
+        """Run one processing pass on this rank (serial) or with every rank (parallel)."""
+        try:
+            self._setup_processing(parallel)
+            self._process_raw(**options)
         finally:
             self._reset()
             for name in (
@@ -981,7 +1054,6 @@ class Output:
                 "_collect_recv_bufs",
             ):
                 self.__dict__.pop(name, None)
-        return self
 
     def _setup_processing(self, parallel: bool):
         """Prepare the communicator and FEEC reconstruction for this processing run."""
@@ -1982,15 +2054,11 @@ class Output:
     def _ensure_processed(self):
         if self.is_processed:
             return
-        if self.comm.Get_size() > 1:
-            # pproc() is collective (rank 0 works while the rest wait at a Barrier), but evaluate()
-            # is not guaranteed to be called on every rank; auto-triggering pproc() here could hang
-            # ranks that never reach this call instead of failing fast.
-            raise RuntimeError(f"{self.path_out} has no post-processed data; call out.pproc() on all ranks first")
         logger.warning(
             "\nNo post-processed data in %s, processing with default options (call out.pproc(...) to choose them)",
             self.path_out,
         )
+        # Collective under MPI, in parallel when the job is as large as the saved run.
         self.pproc()
 
     def _product_mappings(self) -> dict[str, ProductMapping]:
@@ -2037,6 +2105,10 @@ class Output:
             attribute.func(self)
         if isinstance(attribute, property):
             attribute.fget(self)  # the property raised AttributeError itself; show its own error
+        if name in ("plot", "analysis"):
+            if load_plasma_plots() and name in type(self).__dict__:
+                return getattr(self, name)
+            raise AttributeError(f"Output has no {name!r} without plasma-plots; {PLOTS_HINT}")
         # the raw output names the species, so an unknown name never starts post-processing
         if name not in self._raw_species():
             raise AttributeError(f"{name!r}; available species: {tuple(sorted(self._raw_species()))}")

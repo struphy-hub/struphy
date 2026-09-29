@@ -80,8 +80,8 @@ distribution = out.evaluate("kinetic_ions/f")
 delta_f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
 ```
 
-To make a figure, select the dimensions to show and call xarray's native `.plot()` methods (see
-[Plot data](#plot-data)).
+To make a figure, select the dimensions to show and call xarray's native `.plot()` methods, or
+use the plots and diagnostics of the plasma-plots package (see [Plot data](#plot-data)).
 
 ## Analyze and report data
 
@@ -219,31 +219,55 @@ out.evaluate("diagnostics/rho_xyz", t=-1, eta3=0.5, method="nearest").plot(x="et
 xarray squeezes size-one dimensions before plotting, so an array that is 2-D on a grid with one
 cell in some direction plots as a line. Select until the array has the dimensions the plot needs.
 
+### Plots and diagnostics with plasma-plots
+
+For plots and diagnostics made for Struphy output, install the separate package
+[plasma-plots](https://struphy-hub.github.io/plasma-plots):
+
+```bash
+pip install plasma-plots         # or: pip install "struphy[plots]"
+```
+
+When it is installed, every `Output` loads it: no import is needed. It adds `out.plot` and
+`out.analysis` for a whole run, and `.plasma.plot`, `.plasma.analysis` and `.plasma.data` on
+every product:
+
+```python
+out.plot.energies()                                             # the energy budget of the run
+phi = out.evaluate("em_fields/phi")
+phi.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0)
+phi.plasma.plot.animation(x="eta1", y="eta2", eta3=0)           # over time
+phi.plasma.analysis.mode_spectrum()                             # poloidal and toroidal mode numbers
+out.kinetic_ions.orbits.plasma.plot.poloidal()                  # guiding-center orbits
+```
+
+`import plasma_plots; help(plasma_plots)` gives an overview of what the package does, and `help()` on any method,
+e.g. `help(phi.plasma.plot.slice)`, its parameters. Its guides and full reference are at
+<https://struphy-hub.github.io/plasma-plots>.
+
 ## MPI post-processing
 
 `Output` always uses `MPI.COMM_WORLD`; no communicator is passed to its constructor.
 
-For serial post-processing under MPI, call `pproc()` on every rank. Rank 0 does the work and the
-other ranks wait at the synchronization barrier.
+Products are processed on first use under MPI too, so a script needs no `pproc()` call:
 
 ```python
-out.pproc(physical=True)
+out = sim.run()                     # or Output(path)
+f = out.evaluate("kinetic_ions/f")  # on every rank
 ```
 
-For parallel post-processing, also call it on every rank and pass `parallel=True`. The current
-world communicator must have the same number of ranks as the run that wrote the raw output.
+Processing is collective: while the run is not processed yet, ask for products on every rank.
+When the job has as many ranks as the simulation, it runs in parallel: each rank reads its own raw
+file and evaluates its part of the domain, and rank 0 gathers the products and writes them.
+Otherwise rank 0 processes the whole run while the other ranks wait. Once processed, products are
+read on any rank independently.
+
+`pproc()` chooses processing options, and is called on every rank as well:
 
 ```python
-out.pproc(parallel=True, physical=True)
+out.pproc(physical=True)                  # parallel when the job is as large as the run
+out.pproc(physical=True, parallel=False)  # serial on rank 0
 ```
 
-Automatic materialization through `evaluate()` is disabled by default when more than one MPI rank
-is active, because `pproc()` is collective (rank 0 works while the rest wait at a barrier) and
-`evaluate()` is not otherwise guaranteed to be called on every rank; auto-triggering it could hang
-ranks that never reach the call instead of failing fast. Call `pproc()` explicitly first in that
-case, or pass `parallel=True` to `evaluate()` when calling it collectively on every rank; this
-triggers `pproc(parallel=True)` automatically on first use.
-
-```python
-out.evaluate("em_fields/E", parallel=True)
-```
+`parallel=True` forces parallel processing, which fails unless the job has as many ranks as the
+run. `evaluate(..., parallel=...)` passes it on when it triggers processing.
