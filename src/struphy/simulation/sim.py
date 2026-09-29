@@ -13,8 +13,8 @@ import shutil
 import textwrap
 import time
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py

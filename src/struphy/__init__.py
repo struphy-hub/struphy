@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from feectools.ddm.mpi import launched_under_mpi
 
+
 class RankZeroFilter(logging.Filter):
     def __init__(self, rank: int):
         super().__init__()

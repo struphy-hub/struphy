@@ -5,13 +5,13 @@ import shutil
 import tempfile
 from types import ModuleType
 
+from feectools.ddm.mpi import launched_under_mpi
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
 from struphy.simulation.sim import Simulation
-from feectools.ddm.mpi import launched_under_mpi
 
 logger = logging.getLogger("struphy")
 
