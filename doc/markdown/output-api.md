@@ -223,27 +223,25 @@ cell in some direction plots as a line. Select until the array has the dimension
 
 `Output` always uses `MPI.COMM_WORLD`; no communicator is passed to its constructor.
 
-For serial post-processing under MPI, call `pproc()` on every rank. Rank 0 does the work and the
-other ranks wait at the synchronization barrier.
+Products are processed on first use under MPI too, so a script needs no `pproc()` call:
 
 ```python
-out.pproc(physical=True)
+out = sim.run()                     # or Output(path)
+f = out.evaluate("kinetic_ions/f")  # on every rank
 ```
 
-For parallel post-processing, also call it on every rank and pass `parallel=True`. The current
-world communicator must have the same number of ranks as the run that wrote the raw output.
+Processing is collective: while the run is not processed yet, ask for products on every rank.
+When the job has as many ranks as the simulation, it runs in parallel: each rank reads its own raw
+file and evaluates its part of the domain, and rank 0 gathers the products and writes them.
+Otherwise rank 0 processes the whole run while the other ranks wait. Once processed, products are
+read on any rank independently.
+
+`pproc()` chooses processing options, and is called on every rank as well:
 
 ```python
-out.pproc(parallel=True, physical=True)
+out.pproc(physical=True)                  # parallel when the job is as large as the run
+out.pproc(physical=True, parallel=False)  # serial on rank 0
 ```
 
-Automatic materialization through `evaluate()` is disabled by default when more than one MPI rank
-is active, because `pproc()` is collective (rank 0 works while the rest wait at a barrier) and
-`evaluate()` is not otherwise guaranteed to be called on every rank; auto-triggering it could hang
-ranks that never reach the call instead of failing fast. Call `pproc()` explicitly first in that
-case, or pass `parallel=True` to `evaluate()` when calling it collectively on every rank; this
-triggers `pproc(parallel=True)` automatically on first use.
-
-```python
-out.evaluate("em_fields/E", parallel=True)
-```
+`parallel=True` forces parallel processing, which fails unless the job has as many ranks as the
+run. `evaluate(..., parallel=...)` passes it on when it triggers processing.

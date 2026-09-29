@@ -50,7 +50,7 @@ def test_pproc_mpi(show_plot=False):
     run = Output(sim.env.path_out)
 
     # serial pproc
-    run.pproc(create_vtk=True)
+    run.pproc(create_vtk=True, parallel=False)
     if sim.rank == 0:
         serial = do_plotting(run)
 
@@ -67,6 +67,35 @@ def test_pproc_mpi(show_plot=False):
             assert np.allclose(expected, actual)
         print("All checks passed for parallel pproc vs serial pproc.")
     MPI.COMM_WORLD.Barrier()
+
+
+@pytest.mark.mpi(min_size=2)
+def test_products_are_processed_in_parallel_on_first_use():
+    """Without pproc(), evaluate() processes on every rank and gives the serial products."""
+    import shutil
+
+    comm = MPI.COMM_WORLD
+    test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
+    sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
+    out = sim.run(one_time_step=True)
+    if comm.Get_rank() == 0:
+        shutil.rmtree(Path(sim.env.path_out) / "post_processing", ignore_errors=True)
+    comm.Barrier()
+
+    modes = []
+    setup = Output._setup_processing
+    Output._setup_processing = lambda self, parallel: modes.append(parallel) or setup(self, parallel)
+    try:
+        f = np.asarray(out.evaluate("kinetic_ions/f"))
+        e = np.asarray(out.fields.em_fields.e_field)
+    finally:
+        Output._setup_processing = setup
+    assert modes == [True]
+
+    serial = Output(sim.env.path_out).pproc(parallel=False, force=True)
+    assert np.allclose(np.asarray(serial.evaluate("kinetic_ions/f")), f)
+    assert np.allclose(np.asarray(serial.fields.em_fields.e_field), e)
+    comm.Barrier()
 
 
 if __name__ == "__main__":
