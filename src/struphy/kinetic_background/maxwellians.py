@@ -2,7 +2,6 @@
 
 import copy
 import logging
-from inspect import signature
 from typing import Callable
 
 import cunumpy as xp
@@ -391,7 +390,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     Uses caching for evaluation of the canonical toroidal momentum in these coordinates.
 
     The distribution is parameterized by the density and thermal speed as functions of the
-    canonical toroidal momentum :math:`\psi_c`:
+    normalized canonical radius :math:`r_c` (see :meth:`psic_to_rc`) of the canonical toroidal momentum :math:`\psi_c`:
 
     .. math::
 
@@ -415,13 +414,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
     .. math::
 
-        F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
+        F(\psi_c, \epsilon, \mu) = \frac{n(r_c)}{(2\pi)^{3/2}v_\text{th}³(r_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(r_c)}\right].
 
     Parameters
     ----------
     n, vth : tuple
         Moments of the canonical Maxwellian as tuples. The first entry defines the background
-        (float for constant background or callable), the second entry defines a Perturbation (can be None).
+        (float for constant background or callable of :math:`r_c`), the second entry defines a Perturbation (can be None).
 
     maxw_params : dict
         Parameters for the kinetic background.
@@ -578,17 +577,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             out += background
         else:
             assert callable(background)
-            sig = signature(background)
-            assert len(sig.parameters) == 1, (
-                f"Background function {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
-            )
 
             cached = self._check_psi_c_cached(*coords)
             logger.debug(f"{'Using cached psi_c' if cached else 'Evaluating psi_c'} for background evaluation.")
 
             if not cached:
                 self.psi_c = self.eval_psic(*coords)
-            out += background(self.psi_c)
+            out += background(self.psic_to_rc(self.psi_c))
 
         # add perturbation
         if add_perturbation is None:
@@ -728,6 +723,20 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         return psi_c
 
     def eval_rc(self, eta1, eta2, eta3, vparallel, mu):
+        r"""Normalized canonical radius :math:`r_c` (see :meth:`psic_to_rc`) at given phase space coordinates.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3, vparallel, mu : numpy.arrays
+            Phase space evaluation points, either all 1d (markers) or all 5d (meshgrid).
+        """
+        if eta1.ndim == 1:
+            psic = self.eval_psic(xp.stack((eta1, eta2, eta3, vparallel, mu), axis=1))
+        else:
+            psic = self.eval_psic(eta1, eta2, eta3, vparallel, mu)
+        return self.psic_to_rc(psic)
+
+    def psic_to_rc(self, psic):
         r""" Square root of radially normalized canonical toroidal momentum.
 
         .. math::
@@ -742,9 +751,6 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
         where :math:`\psi_\text{axis}` and :math:`\psi_\text{edge}` are poloidal magnetic flux function at the center and edge of poloidal plane respectively.
         """
-        # calculate psic
-        psic = self.eval_psic(eta1, eta2, eta3, vparallel, mu)
-
         # calculate rc²
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
