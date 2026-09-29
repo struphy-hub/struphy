@@ -49,6 +49,12 @@ class Pusher:
     * Pusher ``kernel`` and ``eval_kernels`` can perform evaluations at arbitrary weighted averages :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`, for :math:`i=1,2,3`.
     * MPI sorting is done automatically before kernel calls according to the specified values :math:`\alpha_i` for each kernel.
 
+    MPI sorting is skipped whenever it is known to be a no-op: markers are assumed to be sorted
+    according to the domain decomposition on entry, and they stay sorted for any :math:`\alpha`
+    until the pusher kernel has moved them. Pushers with ``pushes_eta=False`` hence never sort.
+    Pushers with ``pushes_eta=True`` always sort at least once after the last stage,
+    such that the above assumption holds for the next pusher.
+
     Parameters
     ----------
     particles : Particles
@@ -90,9 +96,19 @@ class Pusher:
 
     mpi_sort : str
         When to do MPI sorting:
-        * None : no sorting at all.
+        * None : no sorting at all (only allowed for ``pushes_eta=False``, becomes "last" otherwise).
         * each : sort markers after each stage.
         * last : sort markers after last stage.
+
+    pushes_eta : bool
+        Whether the kernel updates the marker positions :math:`\boldsymbol \eta_p`.
+        If False, no MPI sorting is performed at all.
+
+    local_eval_only : bool
+        Set to True if the kernel does not evaluate distributed splines, i.e. it only calls
+        metric coefficients or equilibrium quantities, which are available on every process.
+        Markers then need not be on the right process during the stages;
+        they are sorted only once after the last stage (mpi_sort="last").
     """
 
     def __init__(
@@ -101,6 +117,7 @@ class Pusher:
         kernel: PyccelKernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
+        pushes_eta: bool,
         *,
         alpha_in_kernel: float | int | tuple | list,
         init_kernels: tuple[KernelSetup, ...] = (),
@@ -109,6 +126,7 @@ class Pusher:
         maxiter: int = 1,
         tol: float = 1.0e-8,
         mpi_sort: str = None,
+        local_eval_only: bool = False,
     ):
         self._particles = particles
         assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
@@ -122,7 +140,17 @@ class Pusher:
         self._n_stages = n_stages
         self._maxiter = maxiter
         self._tol = tol
+        self._pushes_eta = pushes_eta
+        self._local_eval_only = local_eval_only
+
+        if not pushes_eta:
+            assert mpi_sort is None, f"{mpi_sort =} makes no sense for a kernel that does not push eta."
+        elif local_eval_only or mpi_sort is None:
+            mpi_sort = "last"
         self._mpi_sort = mpi_sort
+
+        if local_eval_only:
+            assert len(eval_kernels) == 0, "eval_kernels evaluate splines, not compatible with local_eval_only=True."
 
         self._init_kernels = tuple(init_kernels)
         self._eval_kernels = tuple(eval_kernels)
@@ -195,6 +223,10 @@ class Pusher:
         for setup in self.init_kernels:
             self._evaluate(setup)
 
+        # markers are sorted on entry and initial positions equal current positions,
+        # hence they are sorted for any alpha until the kernel moves them
+        self._sorted_for = "any"
+
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
@@ -213,21 +245,12 @@ class Pusher:
                 k += 1
 
                 for setup in self.eval_kernels:
-                    if self.particles.mpi_comm is not None:
-                        self.particles.mpi_sort_markers(
-                            apply_bc=False,
-                            alpha=setup.sorting_alpha,
-                            remove_ghost=False,
-                        )
+                    # sort according to alpha-weighted average
+                    self._sort_for_alpha(setup.sorting_alpha)
                     self._evaluate(setup)
 
                 # sort according to alpha-weighted average
-                if self.particles.mpi_comm is not None:
-                    self.particles.mpi_sort_markers(
-                        apply_bc=False,
-                        alpha=self._alpha_in_kernel,
-                        remove_ghost=False,
-                    )
+                self._sort_for_alpha(self._alpha_in_kernel)
 
                 # push markers
                 with ProfileManager.profile_region("kernel: " + self.kernel.name):
@@ -238,6 +261,10 @@ class Pusher:
                         self._args_domain,
                         *self._args_kernel,
                     )
+
+                # markers have moved
+                if self.pushes_eta:
+                    self._sorted_for = None
 
                 # kinetic boundary conditions are applied per marker inside the kernel
                 self.particles.finish_kernel_bc(newton=self._newton)
@@ -281,16 +308,14 @@ class Pusher:
                         )
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers(apply_bc=False)
+                        self._sort_for_alpha(1.0, remove_ghost=True)
                     break
 
                 # check for convergence
                 if n_not_converged[0] == 0:
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers(apply_bc=False)
+                        self._sort_for_alpha(1.0, remove_ghost=True)
 
                     break
 
@@ -303,6 +328,26 @@ class Pusher:
         if self.mpi_sort == "last":
             if self.particles.mpi_comm is not None:
                 self.particles.mpi_sort_markers(apply_bc=False, do_test=True)
+
+    def _sort_for_alpha(self, alpha: float | int | tuple | list, remove_ghost: bool = False):
+        """MPI sort markers according to the alpha-weighted average of positions,
+        unless they are already sorted accordingly or the kernel does not need it."""
+        if self.particles.mpi_comm is None or self.local_eval_only:
+            return
+
+        if xp.ndim(alpha) == 0:
+            alpha = (alpha, alpha, alpha)
+        alpha = tuple(float(a) for a in alpha)
+
+        if self._sorted_for == "any" or self._sorted_for == alpha:
+            return
+
+        self.particles.mpi_sort_markers(
+            apply_bc=False,
+            alpha=alpha,
+            remove_ghost=remove_ghost,
+        )
+        self._sorted_for = alpha
 
     @property
     def particles(self):
@@ -350,9 +395,19 @@ class Pusher:
         return self._tol
 
     @property
+    def pushes_eta(self):
+        """Whether the kernel updates the marker positions."""
+        return self._pushes_eta
+
+    @property
+    def local_eval_only(self):
+        """Whether the kernel needs no distributed spline evaluations (sorting only after last stage)."""
+        return self._local_eval_only
+
+    @property
     def mpi_sort(self):
         """When to do MPI sorting:
-        * None : no sorting at all.
+        * None : no sorting at all (only for ``pushes_eta=False``).
         * each : sort markers after each stage.
         * last : sort markers after last stage.
         """

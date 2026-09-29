@@ -67,6 +67,7 @@ def main(num_elements: int, degree: int, ppc: int) -> float:
         ),
         domain.args_domain,
         alpha_in_kernel=1.0,
+        pushes_eta=False,
     )
 
     dt = 0.1
