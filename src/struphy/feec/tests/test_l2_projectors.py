@@ -1,4 +1,3 @@
-import inspect
 import logging
 
 import cunumpy as xp
@@ -41,10 +40,9 @@ def test_l2_projectors_mappings(
     # create domain object
     dom_types = []
     dom_classes = []
-    for key, val in inspect.getmembers(domains):
-        if inspect.isclass(val) and val.__module__ == domains.__name__ and "AxisymmMHDequilibrium" not in key:
-            dom_types += [key]
-            dom_classes += [val]
+    for key in domains.__all__:
+        dom_types += [key]
+        dom_classes += [getattr(domains, key)]
 
     # evaluation points
     e1 = xp.linspace(0.0, 1.0, 30)
