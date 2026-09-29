@@ -2110,7 +2110,6 @@ class Particles(metaclass=ABCMeta):
         """
 
         first_free_idx = self.args_markers.first_free_idx
-        comps = xp.array((0, 1, 2))
 
         self.put_particles_in_boxes()
 
@@ -2118,8 +2117,7 @@ class Particles(metaclass=ABCMeta):
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
+            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2227,11 +2225,9 @@ class Particles(metaclass=ABCMeta):
 
         # 1st kernel
         func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
-        comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
+            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2248,11 +2244,9 @@ class Particles(metaclass=ABCMeta):
 
         # 2nd kernel
         func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
-        comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx + 3,
-            comps=comps,
+            output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
