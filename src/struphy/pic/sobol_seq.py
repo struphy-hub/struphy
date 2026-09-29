@@ -20,7 +20,6 @@ from __future__ import division
 import logging
 
 import cunumpy as xp
-from scipy.stats import norm
 
 logger = logging.getLogger("struphy")
 
@@ -146,9 +145,11 @@ def i4_sobol_generate_std_normal(dim_num, n, skip=1):
       Output, real np array of shape (n, dim_num).
     """
 
+    from scipy.special import ndtri
+
     sobols = i4_sobol_generate(dim_num, n, skip)
 
-    normals = norm.ppf(sobols)
+    normals = ndtri(sobols)
 
     return normals
 
