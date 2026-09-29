@@ -1,6 +1,6 @@
 "Initialization routines (initial guess, evaluations) for 5D gyro-center pusher kernels."
 
-from numpy import empty, mod, size
+from numpy import empty, mod
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -25,8 +25,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 @stack_array("eta_k", "eta_n", "eta")
 def driftkinetic_hamiltonian(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
@@ -47,7 +46,7 @@ def driftkinetic_hamiltonian(
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
     :math:`\boldsymbol \eta_p` beforehand.
 
-    The result is saved at ``column_nr`` in markers array for each particle.
+    The result is saved at ``output_indices[0]`` in the marker array; -1 skips the output.
     """
 
     # allocate stack arrays
@@ -102,14 +101,14 @@ def driftkinetic_hamiltonian(
         )
 
         # save
-        markers[ip, column_nr] = epsilon * v**2 / 2.0 + epsilon * mu * B_dot_b + phi
+        if output_indices[0] >= 0:
+            markers[ip, output_indices[0]] = epsilon * v**2 / 2.0 + epsilon * mu * B_dot_b + phi
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def grad_driftkinetic_hamiltonian(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
@@ -141,8 +140,8 @@ def grad_driftkinetic_hamiltonian(
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
     :math:`\boldsymbol \eta_p` beforehand.
 
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
+    Component j is saved at marker column ``output_indices[j]``. Supply three indices;
+    An index of -1 skips that component for every particle.
     """
 
     # allocate stack arrays
@@ -158,9 +157,6 @@ def grad_driftkinetic_hamiltonian(
     mu_idx = args_markers.mu_idx
     first_init_idx = args_markers.first_init_idx
     first_shift_idx = args_markers.first_shift_idx
-
-    # for saving
-    n_comps = size(comps)
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -207,15 +203,15 @@ def grad_driftkinetic_hamiltonian(
             grad_H += e_field
 
         # save
-        for j in range(n_comps):
-            markers[ip, column_nr + j] = grad_H[comps[j]]
+        for j in range(3):
+            if output_indices[j] >= 0:
+                markers[ip, output_indices[j]] = grad_H[j]
 
 
 @stack_array("eta_k", "eta_n", "eta", "dfm")
 def bstar_parallel_3form(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
@@ -234,7 +230,7 @@ def bstar_parallel_3form(
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
     :math:`\boldsymbol \eta_p` beforehand.
 
-    The result is saved at ``column_nr``  in markers array for each particle.
+    The result is saved at ``output_indices[0]`` in the marker array; -1 skips the output.
     """
 
     # allocate stack arrays
@@ -300,14 +296,14 @@ def bstar_parallel_3form(
         b_star_parallel += B_dot_b
         b_star_parallel *= det_df
 
-        markers[ip, column_nr] = b_star_parallel
+        if output_indices[0] >= 0:
+            markers[ip, output_indices[0]] = b_star_parallel
 
 
 @stack_array("eta_k", "eta_n", "eta", "b2", "b_star")
 def bstar_2form(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
@@ -331,8 +327,8 @@ def bstar_2form(
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
     :math:`\boldsymbol \eta_p` beforehand.
 
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
+    Component j is saved at marker column ``output_indices[j]``. Supply three indices;
+    An index of -1 skips that component for every particle.
     """
 
     # allocate stack arrays
@@ -348,9 +344,6 @@ def bstar_2form(
     mu_idx = args_markers.mu_idx
     first_init_idx = args_markers.first_init_idx
     first_shift_idx = args_markers.first_shift_idx
-
-    # for saving
-    n_comps = size(comps)
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -397,15 +390,15 @@ def bstar_2form(
         b_star += b2
 
         # save
-        for j in range(n_comps):
-            markers[ip, column_nr + j] = b_star[comps[j]]
+        for j in range(3):
+            if output_indices[j] >= 0:
+                markers[ip, output_indices[j]] = b_star[j]
 
 
 @stack_array("eta_k", "eta_n", "eta", "unit_b1")
 def unit_b_1form(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
@@ -419,8 +412,8 @@ def unit_b_1form(
     for :math:`i=1,2,3`. Markers must be sorted according to the evaluation point
     :math:`\boldsymbol \eta_p` beforehand.
 
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
-    in markers array for each particle.
+    Component j is saved at marker column ``output_indices[j]``. Supply three indices;
+    An index of -1 skips that component for every particle.
     """
 
     # allocate stack arrays
@@ -435,9 +428,6 @@ def unit_b_1form(
     mu_idx = args_markers.mu_idx
     first_init_idx = args_markers.first_init_idx
     first_shift_idx = args_markers.first_shift_idx
-
-    # for saving
-    n_comps = size(comps)
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -465,5 +455,6 @@ def unit_b_1form(
         )
 
         # save
-        for j in range(n_comps):
-            markers[ip, column_nr + j] = unit_b1[comps[j]]
+        for j in range(3):
+            if output_indices[j] >= 0:
+                markers[ip, output_indices[j]] = unit_b1[j]

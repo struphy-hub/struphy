@@ -29,15 +29,17 @@ dependencies = [
     "feectools >= 0.1.10, <=0.1.10",
     "scipy<=1.18.0",
     "h5py<=3.16.0",
+    "h5netcdf<=1.8.1",
+    "xarray<=2026.2.0",
     "matplotlib<=3.11.0",
     "pyyaml<=6.0.3",
     "vtk<=9.7.0",
     "tqdm<=4.70.0",
     "argcomplete<=3.7.0",
     "ipywidgets<=8.1.8",
-    "plotly<=6.9.0",
-    "pyvista<=0.48.0",
-    "trame<=3.13.0",
+    "plotly<=7.1.0",
+    "pyvista<=0.49.0",
+    "trame<=4.0.0",
     "trame-vtk<=2.11.8",
     "trame-vuetify<=3.2.2",
     "nest_asyncio2<=1.7.2",
@@ -47,7 +49,7 @@ dependencies = [
     "pytest-testmon<=2.2.0",
     "ruff==0.15.0, <=0.16.0",
     "line_profiler<=5.0.2",
-    "scope-profiler >= 0.5.0, <=0.5.0",
+    "scope-profiler>=0.5.0, <=0.7.2",
 ]
 
 [project.license]
@@ -119,7 +121,6 @@ changelog = "https://github.com/struphy-hub/struphy/blob/devel/CHANGELOG.md"
 
 [project.scripts]
 struphy = "struphy.console.main:struphy"
-kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 
 [tool.setuptools.package-data]
 "struphy.fields_background.mhd_equil.eqdsk" = [

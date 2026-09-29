@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 import warnings
@@ -16,6 +15,7 @@ except ModuleNotFoundError:
 
 
 import cunumpy as xp
+import numpy as np
 from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -75,6 +75,14 @@ def _to_numpy_for_kernel(value):
         # This is a CuPy array
         return value.get()
     return value
+
+
+ORBIT_POSITIONS = (
+    (0, "x", "$x$", "physical position x"),
+    (1, "y", "$y$", "physical position y"),
+    (2, "z", "$z$", "physical position z"),
+)
+"""Orbit quantities of the position columns, which post-processing maps to physical coordinates."""
 
 
 class Particles(metaclass=ABCMeta):
@@ -315,13 +323,6 @@ class Particles(metaclass=ABCMeta):
 
         assert self.Np >= self.mpi_size
 
-        # create marker array
-        self._bufsize = bufsize
-        self._allocate_marker_array(dry_run=dry_run)
-
-        if dry_run:
-            return
-
         # boundary conditions
         bc = boundary_params.bc
         bc_refill = boundary_params.bc_refill
@@ -341,6 +342,19 @@ class Particles(metaclass=ABCMeta):
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
+
+        # boundary condition type per axis for the per-marker kernel apply_kinetic_bc_marker
+        # (0: periodic, 1: reflect, 2: remove, 3: handled in Python by apply_kinetic_bc)
+        self._bc_in_python = bc_refill is not None
+        bc_codes = {"periodic": 0, "reflect": 1, "remove": 3 if self._bc_in_python else 2}
+        self._bc_type = xp.array([bc_codes.get(b_c, 3) for b_c in bc], dtype=int)
+
+        # create marker array
+        self._bufsize = bufsize
+        self._allocate_marker_array(dry_run=dry_run)
+
+        if dry_run:
+            return
 
         bc_sph = boundary_params.bc_sph
         if bc_sph is None:
@@ -420,6 +434,18 @@ class Particles(metaclass=ABCMeta):
     def vdim(self):
         """Dimension of the velocity space."""
         pass
+
+    @property
+    @abstractmethod
+    def coordinate_labels(self) -> tuple[str]:
+        """Labels for the coordinates in the phase space.
+        Length must be 3 + vdim, where the first 3 are the spatial coordinates and the last vdim are the velocity coordinates."""
+        pass
+
+    orbit_quantities: tuple[tuple[int, str, str, str], ...] = ()
+    """Marker columns saved in the ``orbits`` post-processing product, as
+    ``(column, name, long_name, description)``. The first three are :data:`ORBIT_POSITIONS`;
+    the marker index becomes the ``marker`` coordinate of the product."""
 
     @property
     @abstractmethod
@@ -1581,7 +1607,7 @@ class Particles(metaclass=ABCMeta):
 
         return f_slice, df_slice
 
-    def show_distribution_function(self, components, bin_edges):
+    def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray], do_plot=False):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging.
@@ -1589,15 +1615,26 @@ class Particles(metaclass=ABCMeta):
         Parameters
         ----------
         components : list[bool]
-            List of length 6 giving the directions in phase space in which to bin.
+            List of length 3+vdim giving the directions in phase space in which to bin.
+            Up to two entries can be True, the rest must be False. The True entries correspond to the axes of the binning.
 
-        bin_edges : list[array]
+        bin_edges : list[np.ndarray]
             List of bin edges (resolution) having the length of True entries in components.
+
+        do_plot : bool
+            Whether to show the plot (default: False).
+
+        Returns
+        -------
+        err : float
+            Maximum relative error between the binned distribution function and the analytic initial condition.
         """
 
         import matplotlib.pyplot as plt
 
-        n_dim = xp.count_nonzero(components)
+        assert len(components) == 3 + self.vdim, f"components must be of length {3 + self.vdim}, is {len(components)}."
+
+        n_dim = np.count_nonzero(components)
 
         assert n_dim == 1 or n_dim == 2, f"Distribution function can only be shown in 1D or 2D slices, not {n_dim}."
 
@@ -1605,27 +1642,73 @@ class Particles(metaclass=ABCMeta):
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
 
-        labels = {
-            0: r"$\eta_1$",
-            1: r"$\eta_2$",
-            2: r"$\eta_3$",
-            3: "$v_1$",
-            4: "$v_2$",
-            5: "$v_3$",
-        }
-        indices = xp.nonzero(components)[0]
+        indices = np.nonzero(components)[0]
 
         if n_dim == 1:
-            plt.plot(bin_centers[0], f_slice)
-            plt.xlabel(labels[indices[0]])
-        else:
-            plt.contourf(bin_centers[0], bin_centers[1], df_slice.T, levels=20)
-            plt.colorbar()
-            # plt.axis('square')
-            plt.xlabel(labels[indices[0]])
-            plt.ylabel(labels[indices[1]])
+            plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
+            i = int(indices[0])
+            resol = bin_centers[0]
+            integrate_resol = [0.5, 0.5, 0.5] + [32] * self.vdim
+            integrate_resol[i] = None
+            if i < 3:
+                v_lim = 5
+            else:
+                v_lim = bin_edges[0][-1]
+            f_init, pts, _, _ = self.f_init.reduced_eval(
+                dim_1=i, v_lim=v_lim, resol=resol, integrate_resol=integrate_resol
+            )
 
-        plt.show()
+            if do_plot:
+                plt.plot(pts, f_init, "r--", label="analytic initial condition")
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel("f")
+                plt.legend()
+        else:
+            i = int(indices[0])
+            j = int(indices[1])
+
+            if do_plot:
+                plt.subplot(1, 2, 1)
+                plt.contourf(bin_centers[0], bin_centers[1], f_slice.T, levels=20)
+                plt.colorbar()
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel(self.coordinate_labels[j])
+                plt.title("Binned f")
+
+            resol = tuple(bin_centers)
+            integrate_resol = [0.5, 0.5, 0.5] + [100] * self.vdim
+            integrate_resol[i] = None
+            integrate_resol[j] = None
+
+            v_lim = [5, 5]
+            if i > 2:
+                v_lim[0] = bin_edges[0][-1]
+            if j > 2:
+                v_lim[1] = bin_edges[1][-1]
+            v_lim = tuple(v_lim)
+
+            f_init, pts1, pts2, _ = self.f_init.reduced_eval(
+                dim_1=i,
+                dim_2=j,
+                v_lim=v_lim,
+                resol=resol,
+                integrate_resol=integrate_resol,
+            )
+
+            if do_plot:
+                plt.subplot(1, 2, 2)
+                plt.contourf(pts1, pts2, f_init.T, levels=20)
+                plt.colorbar()
+                plt.xlabel(self.coordinate_labels[i])
+                plt.ylabel(self.coordinate_labels[j])
+                plt.title("Analytic initial condition")
+
+        if do_plot:
+            plt.show()
+
+        err = np.max(np.abs(f_init - f_slice)) / np.max(f_init)
+
+        return err
 
     @profile
     @ProfileManager.profile("mpi_sort_markers")
@@ -1804,6 +1887,26 @@ class Particles(metaclass=ABCMeta):
                 outside_inds_per_axis[axis],
                 axis,
             )
+
+    def finish_kernel_bc(self, newton=False):
+        """Bookkeeping after a pusher kernel that applied the kinetic boundary conditions per marker
+        (see :func:`~struphy.pic.pushing.pusher_utilities_kernels.apply_kinetic_bc_marker`). Refilling is not done
+        in the kernel and is applied here by :meth:`apply_kinetic_bc`. Markers removed in the
+        kernel have become holes; they are counted as lost markers.
+
+        Parameters
+        ----------
+        newton : bool
+            Whether the shift due to boundary conditions should be computed
+            for a Newton step or for a standard (explicit or Picard) step.
+        """
+        if self._bc_in_python:
+            self.apply_kinetic_bc(newton=newton)
+            self.update_holes()
+        elif self._remove_axes:
+            n_holes_before = xp.count_nonzero(self.holes)
+            self.update_holes()
+            self._n_lost_markers += int(xp.count_nonzero(self.holes) - n_holes_before)
 
     def update_holes(self):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (rows with ``markers[:, 0] == -1``)
@@ -2007,7 +2110,6 @@ class Particles(metaclass=ABCMeta):
         """
 
         first_free_idx = self.args_markers.first_free_idx
-        comps = xp.array((0, 1, 2))
 
         self.put_particles_in_boxes()
 
@@ -2015,8 +2117,7 @@ class Particles(metaclass=ABCMeta):
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
+            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2124,11 +2225,9 @@ class Particles(metaclass=ABCMeta):
 
         # 1st kernel
         func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
-        comps = xp.array((0, 1, 2))
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx,
-            comps=comps,
+            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2145,11 +2244,9 @@ class Particles(metaclass=ABCMeta):
 
         # 2nd kernel
         func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
-        comps = xp.arange(9)
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
-            column_nr=first_free_idx + 3,
-            comps=comps,
+            output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
             args_markers=self.args_markers,
             args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
@@ -2446,6 +2543,7 @@ class Particles(metaclass=ABCMeta):
             _to_numpy_for_kernel(self.residual_idx),
             _to_numpy_for_kernel(self.first_free_idx),
             _to_numpy_for_kernel(self.mu_idx),
+            _to_numpy_for_kernel(self._bc_type),
         )
 
     def _initialize_sorting_boxes(self):

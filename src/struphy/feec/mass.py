@@ -270,6 +270,36 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M3p_inv(self):
+        r"""
+        Pressure-weighted mass matrix for 3-forms:
+
+        .. math::
+
+            \mathbb M^{3,p^{-1}}_{ijk,mno} =
+            \int \Lambda^3_{ijk}\,\Lambda^3_{mno}
+            \frac{1}{p_0\sqrt{g}}\,\mathrm d\boldsymbol\eta.
+
+        Here :math:`p_0` is the equilibrium pressure.  This operator is used
+        for the quadratic pressure energy of linear MHD perturbations.
+        """
+        if not hasattr(self, "_M3p_inv"):
+            assert self.eq_mhd is not None, "M3p_inv requires an MHD equilibrium with positive pressure."
+
+            def inv_p0(e1, e2, e3):
+                return 1.0 / self.eq_mhd.p0(e1, e2, e3)
+
+            self._M3p_inv = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=(inv_p0, "1/sqrt_g"),
+                name="M3p_inv",
+                assemble=True,
+            )
+        return self._M3p_inv
+
+    @auto_convert_docstring
+    @property
     def Mv(self):
         r"""
         Standard mass matrix for vector 0-forms (H1vec space) as 3x3 block matrix indexed by :math:`(\mu, \nu)`:
@@ -681,46 +711,12 @@ class WeightedMassOperators:
             assert self.eq_mhd is not None, (
                 "M2Bn requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             )
-            a_eq = self.derham.P1(
-                [
-                    self.eq_mhd.a1_1,
-                    self.eq_mhd.a1_2,
-                    self.eq_mhd.a1_3,
-                ],
-            )
-
-            tmp_b2 = self.derham.curl.dot(a_eq)
-            b02fun = self.derham.create_spline_function("b02", "Hdiv")
-            b02fun.vector = tmp_b2
-
-            def b02funx(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[0]
-
-            def b02funy(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[1]
-
-            def b02funz(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[2]
-
+            # The equilibrium field itself, as in M2B: the curl of the projected vector potential (M2B_div0)
+            # loses a uniform field in periodic directions, where the potential is a ramp.
             rot_B = LocalRotationMatrix(
-                b02funx,
-                b02funy,
-                b02funz,
+                self.eq_mhd.b2_1,
+                self.eq_mhd.b2_2,
+                self.eq_mhd.b2_3,
             )
 
             self._M2Bn = self.create_weighted_mass(
@@ -2208,7 +2204,9 @@ class WeightedMassOperator(LinOpWithTransp):
                         PTS = xp.meshgrid(*pts, indexing="ij")
                         mat_w = loc_weight(*PTS).copy()
                     elif isinstance(loc_weight, xp.ndarray):
-                        mat_w = loc_weight
+                        # Spline factors below must not modify the stored geometric
+                        # weight: assembly can be repeated as density changes.
+                        mat_w = loc_weight.copy()
                     elif loc_weight is not None:
                         raise TypeError(
                             "weights must be callable or xp.ndarray or None but is {}".format(

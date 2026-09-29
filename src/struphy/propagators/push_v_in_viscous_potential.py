@@ -10,6 +10,7 @@ from line_profiler import profile
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
 from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
+from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -119,10 +120,8 @@ class PushVinViscousPotential(Propagator):
         # init kernel for evaluating density etc. before each time step.
         init_kernel_1 = eval_kernels_sph.sph_mean_velocity_coeffs
         first_free_idx = particles.args_markers.first_free_idx
-        comps = (0, 1, 2)
 
         init_kernel_2 = eval_kernels_sph.sph_viscosity_tensor
-        comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -157,17 +156,29 @@ class PushVinViscousPotential(Propagator):
         )
 
         self.add_init_kernel(
-            init_kernel_1,
-            first_free_idx,
-            comps,
-            args_init_mean,
+            KernelSetup(
+                kernel=init_kernel_1,
+                output_indices=(first_free_idx, first_free_idx + 1, first_free_idx + 2),
+                args=args_init_mean,
+            ),
         )
 
         self.add_init_kernel(
-            init_kernel_2,
-            first_free_idx + 3,
-            comps_tensor,
-            args_init_visc,
+            KernelSetup(
+                kernel=init_kernel_2,
+                output_indices=(
+                    first_free_idx + 3,
+                    first_free_idx + 4,
+                    first_free_idx + 5,
+                    first_free_idx + 6,
+                    first_free_idx + 7,
+                    first_free_idx + 8,
+                    first_free_idx + 9,
+                    first_free_idx + 10,
+                    first_free_idx + 11,
+                ),
+                args=args_init_visc,
+            ),
         )
 
         kernel = PyccelKernel(pusher_kernels_sph.push_v_viscosity)
