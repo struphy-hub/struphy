@@ -190,6 +190,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         PyccelKernel(push),
         (),
         None,
+        pushes_eta=True,
         alpha_in_kernel=1.0,
         init_kernels=(KernelSetup(kernel=initialize, output_indices=(20,), args=(field,)),),
         eval_kernels=(KernelSetup(kernel=evaluate, output_indices=(21,), alpha=0.5),),

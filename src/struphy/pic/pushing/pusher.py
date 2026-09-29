@@ -117,6 +117,7 @@ class Pusher:
         kernel: PyccelKernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
+        pushes_eta: bool,
         *,
         alpha_in_kernel: float | int | tuple | list,
         init_kernels: tuple[KernelSetup, ...] = (),
@@ -125,7 +126,6 @@ class Pusher:
         maxiter: int = 1,
         tol: float = 1.0e-8,
         mpi_sort: str = None,
-        pushes_eta: bool,
         local_eval_only: bool = False,
     ):
         self._particles = particles
