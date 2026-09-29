@@ -29,9 +29,11 @@ from struphy import set_logging_level
 
 set_logging_level(logging.INFO)
 
+# For particles:
+from pathlib import Path
+
 import cunumpy as xp
 
-# For particles:
 from struphy import (
     BaseUnits,
     BinningPlot,
@@ -74,7 +76,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(sim_folder="sim_1", restart=False)
+env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_1", restart=False)
 
 # Time stepping
 time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
@@ -166,7 +168,9 @@ def n_init(etas, r_minus=r_minus, r_plus=r_plus):
 
 
 # Background for kinetic species
-background = maxwellians.GyroMaxwellian2D(n=(0.0, None),)# B0=equil.absB0)
+background = maxwellians.GyroMaxwellian2D(
+    n=(0.0, None),
+)  # B0=equil.absB0)
 model.kinetic_ions.var.add_background(background)
 
 
@@ -177,7 +181,9 @@ eta_plus = (r_plus - domain.params["a1"]) / (domain.params["a2"] - domain.params
 
 # for non linear case amps = (0.5,)
 perturbation = perturbations.ModesCos(amps=(1e-6,), ms=(ms,), perb_domain=((eta_minus, eta_plus), None, None))
-init = maxwellians.GyroMaxwellian2D(n=(n_init, perturbation),)# B0=equil.absB0)
+init = maxwellians.GyroMaxwellian2D(
+    n=(n_init, perturbation),
+)  # B0=equil.absB0)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

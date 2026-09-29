@@ -3,9 +3,11 @@ import shutil
 from pathlib import Path
 
 import pytest
+from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.setup import import_parameters_py
+from struphy.post_processing import output as output_module
 
 logger = logging.getLogger("struphy")
 
@@ -18,7 +20,7 @@ PARAMS_MODULES = sorted(
 
 @pytest.mark.examples
 @pytest.mark.parametrize("params_path", PARAMS_MODULES)
-def test_examples(params_path: Path):
+def test_examples(params_path: Path, monkeypatch):
     """Run a full simulation for each example parameter file found in the examples/ directory.
 
     The test loads the parameter file, runs the simulation, and then
@@ -50,6 +52,9 @@ def test_examples(params_path: Path):
 
     MPI.COMM_WORLD.Barrier()
     if MPI.COMM_WORLD.Get_rank() == 0:
+        # The scripts run on rank 0 alone, so their Output must not synchronize with the other
+        # ranks: its barriers would pair with the Barrier below and desynchronize the ranks.
+        monkeypatch.setattr(output_module, "mpi_comm_world", MockComm)
         if pproc_path.exists():
             pproc_module = import_parameters_py(str(pproc_path), name=pproc_name)
             pproc_module.main()
