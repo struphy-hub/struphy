@@ -510,9 +510,10 @@ moved to another location:
 
 This reads the ``run_metadata.json`` written by the simulation. Products are
 materialized with :meth:`~struphy.Output.pproc` on first access, using default
-options; call ``pproc`` explicitly first to choose different options (see
-below), and under MPI call it on every rank, since serial processing runs on
-rank 0 while the other ranks wait.
+options; call ``pproc`` explicitly first only to choose different options (see
+below). Under MPI, processing is collective, so access products on every rank:
+it runs in parallel when the job has as many ranks as the simulation, and
+otherwise on rank 0 while the other ranks wait.
 
 The output of a simulation is a :class:`~struphy.Output`. ``sim.run()`` returns it,
 and it stays available as ``sim.output``:
@@ -567,15 +568,16 @@ choose the options, call ``pproc`` first:
         guiding_center=False,  # compute guiding-center coordinates for markers
         classify=False,        # classify particles by trapping/passing etc.
         create_vtk=False,      # write VTK files for 3D visualization
-        parallel=False,        # evaluate fields on all MPI ranks
+        parallel=None,         # all MPI ranks; by default when as many as the run's
         force=False,           # reprocess even if matching products exist
     )
 
 All arguments are optional and default to the values shown above. Products that
 were already made from the same raw output with the same options are reused, so a
 plotting script can be re-run cheaply. Under MPI, call ``pproc`` on every rank:
-serial processing runs on rank 0 while the other ranks wait, and
-``parallel=True`` uses the allocated simulation on all ranks.
+parallel processing evaluates each rank's part of the simulation and gathers the
+products on rank 0, which writes them; serial processing runs on rank 0 while the
+other ranks wait.
 
 
 Standard plots and analysis

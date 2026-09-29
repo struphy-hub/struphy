@@ -1,10 +1,18 @@
-"""Manifest fingerprints and processing option comparison."""
+"""Manifest fingerprints, processing option comparison and the processing lock."""
 
 import hashlib
 import json
 import os
+import time
+from contextlib import contextmanager
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
 
 MANIFEST_SCHEMA_VERSION = 1
+LOCK_NAME = ".post_processing.lock"
 
 
 def source_fingerprint(path_out: str) -> str:
@@ -49,3 +57,46 @@ def is_processed(path_out: str, options: dict | None = None) -> bool:
         and manifest.get("source_fingerprint") == source_fingerprint(path_out)
         and (options is None or manifest.get("options") == normalize_options(**options))
     )
+
+
+@contextmanager
+def processing_lock(path_out: str, *, poll: float = 0.2):
+    """Hold the right to post-process ``path_out``, waiting while another process holds it.
+
+    Ranks of one MPI job, or separate scripts, may start processing the same run at once;
+    they take turns here instead of meeting at a collective, so a rank that never asks for
+    products is never waited for. The lock is a POSIX record lock on a file next to the
+    products, which the operating system releases if its holder dies. File systems without
+    such locks (some Lustre or NFS mounts) fall back to creating the file exclusively; a
+    process killed while holding that leaves the file behind, and it must be removed by hand.
+    """
+    path = os.path.join(path_out, LOCK_NAME)
+    with open(path, "a") as stream:
+        if _record_lock(stream):
+            try:
+                yield
+            finally:
+                fcntl.lockf(stream, fcntl.LOCK_UN)
+            return
+    held = path + ".held"
+    while True:
+        try:
+            os.close(os.open(held, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            break
+        except FileExistsError:
+            time.sleep(poll)
+    try:
+        yield
+    finally:
+        os.remove(held)
+
+
+def _record_lock(stream) -> bool:
+    """Take an exclusive POSIX record lock on ``stream``, blocking; False where unsupported."""
+    if fcntl is None:
+        return False
+    try:
+        fcntl.lockf(stream, fcntl.LOCK_EX)
+    except OSError:
+        return False
+    return True
