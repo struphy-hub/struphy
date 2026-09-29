@@ -115,7 +115,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
         density = run.densities.euler_fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
         n_sph = density.values
 
         if do_plot:
@@ -245,11 +245,11 @@ def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
 
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
-        e1_binned = run.distributions.euler_fluid.e1_density.f.e1.values
+        e1_binned = run.distributions.euler_fluid.e1_density.f.eta1.values
         n_binned = run.distributions.euler_fluid.e1_density.delta_f.values
         j1_binned = run.distributions.euler_fluid.e1_current_1.f.values
         density = run.densities.euler_fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
         n_sph = density.values
 
         print(f"{e1_binned.shape = }")
@@ -452,9 +452,9 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
         density = run.densities.euler_fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
         n_sph = density.values
-        e1_binned = run.distributions.euler_fluid.e1_density.f.e1.values
+        e1_binned = run.distributions.euler_fluid.e1_density.f.eta1.values
         n_binned = run.distributions.euler_fluid.e1_density.f.values
         j1_binned = run.distributions.euler_fluid.e1_current_1.f.values
         print(f"{e1_binned.shape = }")
@@ -662,7 +662,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
     run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        e2_grid = run.distributions.euler_fluid.e2_current_1.f.e2.values  # logical y in [0, 1]
+        e2_grid = run.distributions.euler_fluid.e2_current_1.f.eta2.values  # logical y in [0, 1]
         j1_binned = run.distributions.euler_fluid.e2_current_1.f.values  # shape (Nt+1, n_bins)
 
         import numpy as np
@@ -930,7 +930,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
         times = np.linspace(0.0, time_opts.Tend, Nt + 1)
 
         density = run.densities.euler_fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.e1.values, density.e2.values, density.e3.values, indexing="ij")
+        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
         n_sph = density.values  # (Nt+1, pts_e1, pts_e2, 1)
 
         X = np.asarray(ee1)[:, :, 0] * r1  # physical x, shape (pts_e1, pts_e2)
