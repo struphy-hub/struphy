@@ -300,6 +300,8 @@ def struphy_compile(
         #     kernel_file,
         #     "-v",
         # ]
+        # make compiles up to `jobs` kernels at once; the prerequisites computed by
+        # dependencies.py (see compile_struphy.mk) ensure that imported kernels are built first
         cmd = [
             "make",
             f"-j{jobs}",

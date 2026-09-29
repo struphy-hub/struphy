@@ -1,3 +1,11 @@
+"""Tests for parallel kernel compilation (``struphy compile -j N``).
+
+The first group of tests checks the static dependency detection in :mod:`struphy.dependencies`,
+which make relies on to compile kernels in the correct order. The second group checks that the
+number of jobs is passed from the command line and the :class:`struphy.Compiler` class to make.
+None of the tests actually compile kernels.
+"""
+
 import importlib.util
 import os
 import sys
@@ -34,6 +42,7 @@ def find_kernels():
 
 def deps_of(kernel_py):
     """Dependencies of a kernel as a set of .py paths."""
+    # get_dependencies expects and returns paths of compiled targets (.so)
     deps = get_dependencies(kernel_py.replace(".py", SO_SUFFIX))
     return {d.replace(SO_SUFFIX, ".py") for d in deps.split()}
 
@@ -44,6 +53,7 @@ def deps_by_import(kernel_py):
     This is what get_dependencies did before it was made static.
     """
     stem = os.path.dirname(LIBPATH) + "/"
+    # load under a unique name so that the already imported struphy module is not replaced
     spec = importlib.util.spec_from_file_location("_reference_" + os.path.basename(kernel_py)[:-3], kernel_py)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -57,6 +67,7 @@ def deps_by_import(kernel_py):
 @pytest.mark.mpi_skip
 def test_dependencies_static_rules(tmp_path):
     """Only modules bound to a name at module level, with "kernels" in their name, are dependencies."""
+    # fake package tmp_path/struphy/pkg, so that tmp_path acts as the stem of the struphy package
     pkg = tmp_path / "struphy" / "pkg"
     pkg.mkdir(parents=True)
     for name in ("a_kernels", "b_kernels", "d_kernels", "e_kernels", "f_kernels", "g_kernels", "plain", "__init__"):
@@ -142,6 +153,8 @@ def test_compile_passes_jobs_to_make(jobs):
     """struphy_compile calls make with -j<jobs> (default: -j1) for the Struphy kernels."""
     from struphy.console.compile import struphy_compile
 
+    # minimal state with the same language/compiler as requested, so that no prompt is triggered
+
     state = {
         "kernels": ["some_kernels.py"],
         "last_used_language": "fortran",
@@ -150,6 +163,7 @@ def test_compile_passes_jobs_to_make(jobs):
     }
     kwargs = {} if jobs is None else {"jobs": jobs}
 
+    # mock all subprocess calls (psydac-accelerate, make, ...) and the state file
     with (
         mock.patch("struphy.console.compile.subp_run") as subp_run,
         mock.patch("struphy.utils.utils.read_state", return_value=state),
