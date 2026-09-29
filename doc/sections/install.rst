@@ -206,6 +206,12 @@ Install and compile
             struphy compile
             struphy -h
 
+Compiling the kernels can take several minutes. Independent kernels can be compiled in parallel with the ``-j`` (``--jobs``) option::
+
+    struphy compile -j 4
+
+This compiles at most 4 kernels at the same time; kernels that depend on each other are still compiled in the right order. The default is ``-j 1`` (one kernel after the other). Struphy does not choose the number of jobs by itself, so pick a number that suits your machine, for example ``struphy compile -j $(nproc)`` on a compute node. Avoid large values on shared login nodes, since compiling is memory-intensive. In the Python API the same option is available as ``Compiler(jobs=4)`` or ``Compiler().compile(jobs=4)``.
+
 In case you encounter problems during install visit :ref:`trouble_shoot`.
 
 .. _trouble_shoot:
@@ -229,6 +235,7 @@ Compilation problems
 ^^^^^^^^^^^^^^^^^^^^
 
 * If compilation fails, ``struphy compile --delete`` can help to clean up the environment.
+* If a parallel compilation (``struphy compile -j N``) fails or runs out of memory, retry with fewer jobs or with the default ``-j 1``.
 * 
   It can happen that during ``struphy compile`` you encounter::
 
