@@ -4,22 +4,11 @@ import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
-from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
-
-try:
-    from IPython.display import HTML, display
-except ImportError:
-
-    def HTML(data):
-        return data
-
-    def display(*objects, **kwargs):
-        return objects[0] if objects else None
-
 
 from struphy.geometry.base import Domain
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
     __dataclass_repr_no_defaults__,
@@ -1112,6 +1101,8 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
         n_planes : int
             Number of planes to show perpendicular to eta3."""
+
+        from matplotlib import pyplot as plt
 
         import struphy
 

@@ -11,9 +11,6 @@ from typing import TYPE_CHECKING
 
 import cunumpy as xp
 from line_profiler import profile
-from scipy.integrate import odeint, quad
-from scipy.interpolate import RectBivariateSpline, UnivariateSpline
-from scipy.optimize import fsolve, minimize
 
 import struphy
 from struphy.fields_background.base import (
@@ -900,6 +897,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
         # use params setter
         self.params = copy.deepcopy(locals())
 
+        from scipy.integrate import quad
+        from scipy.interpolate import UnivariateSpline
+
         # plasma boundary contour
         ths = xp.linspace(0.0, 2 * xp.pi, 201)
 
@@ -1385,6 +1385,10 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         # use params setter
         self.params = copy.deepcopy(locals())
 
+        from scipy.integrate import odeint
+        from scipy.interpolate import UnivariateSpline
+        from scipy.optimize import fsolve
+
         # plasma boundary contour
         ths = xp.linspace(0.0, 2 * xp.pi, 201)
 
@@ -1673,6 +1677,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     ):
         # use params setter
         self.params = copy.deepcopy(locals())
+
+        from scipy.interpolate import RectBivariateSpline, UnivariateSpline
+        from scipy.optimize import minimize
 
         # default input file
         if file is None:
