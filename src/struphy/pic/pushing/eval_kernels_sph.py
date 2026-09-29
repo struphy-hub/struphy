@@ -1,4 +1,4 @@
-"Initialization routines (initial guess, evaluations) for sph kernel evaluations."
+"""SPH marker evaluations. Output indices are absolute marker columns; -1 skips a component."""
 
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
@@ -15,8 +15,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_pressure_coeffs(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     boxes: "int[:, :]",
@@ -32,9 +31,9 @@ def sph_pressure_coeffs(
 ):
     r"""For each particle, evaluate
 
-    * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` abd stored it at ``markers[:, column_nr]``)
-    * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and stored it at ``markers[:, column_nr + 1]``)
-    * the coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` and stored it at ``markers[:, column_nr + 2]``)
+    * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[:, output_indices[0]]``)
+    * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[:, output_indices[1]]``)
+    * the coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` and store it at ``markers[:, output_indices[2]]``)
 
     where the smoothed SPH density is given by
 
@@ -82,38 +81,40 @@ def sph_pressure_coeffs(
         )
         weight = markers[ip, weight_idx]
         # save
-        markers[ip, column_nr] = n_at_eta
-        markers[ip, column_nr + 1] = weight / n_at_eta
-        markers[ip, column_nr + 2] = weight * n_at_eta ** (gamma - 2)
+        if output_indices[0] >= 0:
+            markers[ip, output_indices[0]] = n_at_eta
+        if output_indices[1] >= 0:
+            markers[ip, output_indices[1]] = weight / n_at_eta
+        if output_indices[2] >= 0:
+            markers[ip, output_indices[2]] = weight * n_at_eta ** (gamma - 2)
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_isotherm_kappa(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
 ):
-    r"""None yet."""
+    """Store a constant isothermal coefficient of one at the requested column."""
 
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    first_diagnostic_idx = args_markers.first_diagnostics_idx
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
 
-        markers[ip, first_diagnostic_idx] = 1.0
+        if output_indices[0] >= 0:
+            markers[ip, output_indices[0]] = 1.0
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_mean_velocity_coeffs(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     boxes: "int[:, :]",
@@ -130,7 +131,7 @@ def sph_mean_velocity_coeffs(
     r"""For each particle, evaluate the smoothed SPH density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store the
     coefficient
 
-    * :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[:, column_nr + k]`` for :math:`k = 0, 1, 2`
+    * :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[:, output_indices[k]]`` for :math:`k = 0, 1, 2`
 
     where the smoothed SPH density is given by
 
@@ -189,9 +190,12 @@ def sph_mean_velocity_coeffs(
         weight = markers[ip, weight_idx]
         velocities = markers[ip, 3:6]
         # save
-        markers[ip, column_nr] = weight / n_at_eta * velocities[0]
-        markers[ip, column_nr + 1] = weight / n_at_eta * velocities[1]
-        markers[ip, column_nr + 2] = weight / n_at_eta * velocities[2]
+        if output_indices[0] >= 0:
+            markers[ip, output_indices[0]] = weight / n_at_eta * velocities[0]
+        if output_indices[1] >= 0:
+            markers[ip, output_indices[1]] = weight / n_at_eta * velocities[1]
+        if output_indices[2] >= 0:
+            markers[ip, output_indices[2]] = weight / n_at_eta * velocities[2]
 
         # logger.info(f"{ip = }, {weight = }, {n_at_eta = }, {velocities[0] = }")
 
@@ -411,8 +415,7 @@ def sph_mean_velocity_coeffs(
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_viscosity_tensor(
     alpha: "float[:]",
-    column_nr: int,
-    comps: "int[:]",
+    output_indices: "int[:]",
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     boxes: "int[:, :]",
@@ -431,7 +434,7 @@ def sph_viscosity_tensor(
     deviatoric strain rate, and store the 9 coefficients
 
     * :math:`- w_i \, \sigma_{jk}(\boldsymbol \eta_i) / \rho^{N,h}(\boldsymbol \eta_i)` at
-      ``markers[:, column_nr + 3*j + k]`` for :math:`j, k = 0, 1, 2`
+      ``markers[:, output_indices[3*j + k]]`` for :math:`j, k = 0, 1, 2`
 
     where the smoothed SPH density is given by
 
@@ -532,4 +535,5 @@ def sph_viscosity_tensor(
 
         for j in range(3):
             for k in range(3):
-                markers[ip, column_nr + 3 * j + k] = d_dev[j, k]
+                if output_indices[3 * j + k] >= 0:
+                    markers[ip, output_indices[3 * j + k]] = d_dev[j, k]
