@@ -498,7 +498,6 @@ class KineticBackground(metaclass=ABCMeta):
             Also plot the density as a colored surface in 3D physical space. Requires domain to be given.
         """
 
-
         if plot_3D:
             assert domain is not None, "To perform a 3D plot you must provide a domain."
 
