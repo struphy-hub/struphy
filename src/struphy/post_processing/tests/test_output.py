@@ -2,6 +2,7 @@
 
 import json
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -557,7 +558,8 @@ def test_first_use_processes_in_parallel_when_the_job_is_as_large_as_the_run(
     run.metadata["mpi_ranks"] = saved_ranks
     assert tuple(run.fields) == ("em_fields",)
     assert calls == [parallel]
-    assert comm.barriers == 1  # no rank looks for products before rank 0 has written them
+    # no rank looks for products before rank 0 has written them, nor processes before it holds the lock
+    assert comm.barriers == (2 if parallel else 1)
 
 
 @pytest.mark.parametrize("parallel", [True, False])
@@ -648,6 +650,32 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
     monkeypatch.setattr(Output, "_process_raw", lambda self, **options: None)
     output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(rank=3, size=4)).pproc(parallel=True)
     assert calls == [True]
+
+
+@pytest.mark.parametrize("parallel", [True, False])
+@pytest.mark.parametrize("rank", [0, 1])
+def test_rank_zero_holds_the_processing_lock_for_the_job(tmp_path, monkeypatch, parallel, rank):
+    events = []
+
+    @contextmanager
+    def fake_lock(path_out):
+        events.append("lock")
+        yield
+        events.append("unlock")
+
+    comm = FakeComm(rank=rank, size=2)
+    comm.Barrier = lambda: events.append("barrier")
+    monkeypatch.setattr(output_module, "processing_lock", fake_lock)
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: None)
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: events.append("process"))
+    output_with_comm(monkeypatch, write_tree(str(tmp_path)), comm).pproc(parallel=parallel)
+
+    if parallel:
+        # every rank processes, and none starts before rank 0 holds the lock
+        held = ["lock", "barrier", "process", "unlock"] if rank == 0 else ["barrier", "process"]
+    else:
+        held = ["lock", "process", "unlock"] if rank == 0 else []
+    assert events == held + ["barrier"]
 
 
 def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
