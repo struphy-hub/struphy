@@ -54,6 +54,49 @@ def count_compiled_kernels(state):
     return count_c, count_f90, list_not_compiled
 
 
+def collect_kernel_files(libpath=STRUPHY_LIBPATH):
+    """Return the sorted list of all Struphy kernel source files (absolute paths) below libpath."""
+    tmp = []
+    for subdir, dirs, files in os.walk(libpath):
+        logger.debug(f"\n{subdir = }")
+        if "__pycache__" in subdir or "__pyccel__" in subdir:
+            continue
+        for file in files:
+            logger.debug(f"{file = }")
+            if "kernels" in file and file.endswith(".py") and "_tmp.py" not in file and "test" not in file:
+                tmp += [os.path.join(subdir, file)]
+    return sorted(tmp)
+
+
+def remove_kernel_artifacts(kernel_py):
+    """Remove the compiled extension module, the pyccel lock file and the __pyccel__ sources
+    belonging to a (possibly no longer existing) kernel source file."""
+    import glob
+    import shutil
+
+    dirname, basename = os.path.split(kernel_py)
+    stem = basename[:-3]
+
+    patterns = [
+        os.path.join(dirname, stem + ".*.so"),
+        os.path.join(dirname, stem + ".*.pyd"),
+        os.path.join(dirname, stem + ".lock"),
+        os.path.join(dirname, stem + "_tmp.py"),
+        os.path.join(dirname, "__pycache__", stem + ".*.pyc"),
+        os.path.join(dirname, "__pyccel__", stem + ".*"),
+        os.path.join(dirname, "__pyccel__", stem + "_tmp.*"),
+        os.path.join(dirname, "__pyccel__", "bind_c_" + stem + "*"),
+        os.path.join(dirname, "__pyccel__", stem + "_wrapper.*"),
+    ]
+    for pattern in patterns:
+        for f in glob.glob(pattern):
+            os.remove(f)
+
+    pyccel_dir = os.path.join(dirname, "__pyccel__")
+    if os.path.isdir(pyccel_dir) and not os.listdir(pyccel_dir):
+        shutil.rmtree(pyccel_dir)
+
+
 def struphy_compile(
     language,
     compiler,
@@ -124,30 +167,30 @@ def struphy_compile(
     # Read struphy state file
     state = utils.read_state()
 
-    # collect kernels
-    if "kernels" not in state:
-        tmp = []
-        for subdir, dirs, files in os.walk(libpath):
-            logger.debug(f"\n{subdir = }")
-            for file in files:
-                logger.debug(f"{file = }")
-                if (
-                    "kernels" in file
-                    and ".py" in file
-                    and "_tmp.py" not in file
-                    and "test" not in file
-                    and "__pycache__" not in subdir
-                    and "__pyccel__" not in subdir
-                ):
-                    tmp += [os.path.join(subdir, file)]
+    # collect kernels (always re-scan: kernel files may have been added, moved or removed since the last run)
+    kernels_now = collect_kernel_files(libpath)
+    kernels_old = state.get("kernels", None)
 
-        state["kernels"] = sorted(tmp)
-
+    if kernels_old is None:
         # set initial compiler infos to None
         state["last_used_language"] = None
         state["last_used_compiler"] = None
         state["last_used_omp"] = None
+    else:
+        removed = sorted(set(kernels_old) - set(kernels_now))
+        added = sorted(set(kernels_now) - set(kernels_old))
+        if removed:
+            print("\nKernel files removed since last compile (deleting stale build artifacts):")
+            for ker in removed:
+                print(f"  {ker}")
+                remove_kernel_artifacts(ker)
+        if added:
+            print("\nNew kernel files detected:")
+            for ker in added:
+                print(f"  {ker}")
 
+    if kernels_old != kernels_now:
+        state["kernels"] = kernels_now
         utils.save_state(state)
     # source files
     sources = " ".join(state["kernels"])
