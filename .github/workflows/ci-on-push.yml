@@ -39,5 +39,17 @@ jobs:
             test-PR-examples.yml \
             test-PR-tutorials.yml \
             struphy-lint.yml; do
-            gh workflow run "$workflow" --ref "$BRANCH"
+            if ! out=$(gh workflow run "$workflow" --ref "$BRANCH" 2>&1); then
+              if echo "$out" | grep -q "not found on the default branch"; then
+                # a workflow added by this PR can only be started once it is on the default branch
+                echo "::warning::$workflow is not on the default branch yet, skipped"
+              else
+                echo "$out"
+                failed="$failed $workflow"
+              fi
+            fi
           done
+          if [ -n "$failed" ]; then
+            echo "::error::could not start:$failed"
+            exit 1
+          fi

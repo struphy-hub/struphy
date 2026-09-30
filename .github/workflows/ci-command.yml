@@ -53,11 +53,23 @@ jobs:
             test-PR-examples.yml \
             test-PR-tutorials.yml \
             struphy-lint.yml; do
-            gh workflow run "$workflow" --ref "$branch"
+            if ! out=$(gh workflow run "$workflow" --ref "$branch" 2>&1); then
+              if echo "$out" | grep -q "not found on the default branch"; then
+                # a workflow added by this PR can only be started once it is on the default branch
+                echo "::warning::$workflow is not on the default branch yet, skipped"
+              else
+                echo "$out"
+                failed="$failed $workflow"
+              fi
+            fi
           done
 
           gh pr edit "$PR" --add-label ci-active
           gh api --method POST "repos/$GH_REPO/issues/comments/$COMMENT_ID/reactions" -f content=rocket > /dev/null
+          if [ -n "$failed" ]; then
+            gh pr comment "$PR" --body "Could not start:$failed"
+            exit 1
+          fi
 
   deactivate-ci:
     if: >-
