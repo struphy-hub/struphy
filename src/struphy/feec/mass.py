@@ -2860,6 +2860,11 @@ class L2Projector:
         # mass matrix
         self._Mmat = getattr(self.mass_ops, "M" + self.space_key)
 
+        # basis extraction operator (tensor-product --> polar dofs) and tensor-product vector for assembly
+        self._extraction_op = self.mass_ops.derham.extraction_ops[self.space_key]
+        if self.mass_ops.derham.polar_splines:
+            self._dofs_tp = self.space.coeff_space.zeros()
+
         # quadrature grid
         self._quad_grid_pts = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_pts
 
@@ -2987,7 +2992,11 @@ class L2Projector:
     def __repr_no_defaults__(self):
         return __class_with_params_repr_no_defaults__(self)
 
-    def solve(self, rhs: StencilVector | BlockVector, out=None) -> StencilVector | BlockVector:
+    def solve(
+        self,
+        rhs: StencilVector | BlockVector | PolarVector,
+        out=None,
+    ) -> StencilVector | BlockVector | PolarVector:
         """
         Solves the linear system M * x = rhs, where M is the mass matrix.
 
@@ -3005,7 +3014,7 @@ class L2Projector:
             Output vector (result of linear system).
         """
 
-        assert isinstance(rhs, StencilVector) or isinstance(rhs, BlockVector)
+        assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
         assert rhs.space == self.Mmat.domain
 
         if out is None:
@@ -3018,12 +3027,12 @@ class L2Projector:
     def get_dofs(
         self,
         fun: Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray],
-        dofs: StencilVector | BlockVector = None,
+        dofs: StencilVector | BlockVector | PolarVector = None,
         apply_bc: bool = False,
         clear: bool = True,
-    ) -> StencilVector | BlockVector:
+    ) -> StencilVector | BlockVector | PolarVector:
         r"""
-        Assembles (in 3d) the Stencil-/BlockVector
+        Assembles (in 3d) the Stencil-/Block-/PolarVector
 
         .. math::
 
@@ -3035,6 +3044,9 @@ class L2Projector:
         Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled
         into :math:`w_\textrm{geom}`, depending on the space of :math:`\alpha`-forms.
 
+        For polar splines, the tensor-product vector is mapped to the polar sub-space with the basis extraction operator
+        (the polar basis functions are linear combinations of the tensor-product ones).
+
         The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
 
         Parameters
@@ -3042,8 +3054,9 @@ class L2Projector:
         fun : Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray]
             Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
 
-        dofs : StencilVector | BlockVector, optional
-            The vector for the output.
+        dofs : StencilVector | BlockVector | PolarVector, optional
+            The vector for the output. Either an element of the domain of the mass matrix (PolarVector for polar splines),
+            or a tensor-product Stencil-/BlockVector, in which case no basis extraction is performed.
 
         apply_bc : bool, optional
             Whether to apply essential boundary conditions to degrees of freedom.
@@ -3053,7 +3066,7 @@ class L2Projector:
 
         Returns
         -------
-        dofs : StencilVector | BlockVector
+        dofs : StencilVector | BlockVector | PolarVector
              The assembled degrees of freedom, before projection.
         """
 
@@ -3090,10 +3103,17 @@ class L2Projector:
 
         # check output vector
         if dofs is None:
-            dofs = self.space.coeff_space.zeros()
+            dofs = self.Mmat.codomain.zeros()
         else:
             assert isinstance(dofs, (StencilVector, BlockVector, PolarVector))
-            assert dofs.space == self.Mmat.codomain
+            assert dofs.space in (self.Mmat.codomain, self.space.coeff_space)
+
+        # for polar splines, assemble into tensor-product vector first
+        is_polar = isinstance(dofs, PolarVector)
+        if is_polar:
+            vec = self._dofs_tp
+        else:
+            vec = dofs
 
         # compute matrix data for kernel, i.e. fun * geom_weight
         tot_weights = []
@@ -3110,13 +3130,11 @@ class L2Projector:
                 tot_weights += [tmp]
 
         # clear data
-        if clear:
-            if isinstance(dofs, StencilVector):
-                dofs._data[:] = 0.0
-            elif isinstance(dofs, PolarVector):
-                dofs.tp._data[:] = 0.0
+        if clear or is_polar:
+            if isinstance(vec, StencilVector):
+                vec._data[:] = 0.0
             else:
-                for block in dofs.blocks:
+                for block in vec.blocks:
                     block._data[:] = 0.0
 
         # loop over components (just one for scalar spaces)
@@ -3133,7 +3151,7 @@ class L2Projector:
             starts = [int(start) for start in fem_space.coeff_space.starts]
             pads = fem_space.coeff_space.pads
 
-            if isinstance(dofs, StencilVector):
+            if isinstance(vec, StencilVector):
                 mass_kernels.kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
@@ -3142,18 +3160,7 @@ class L2Projector:
                     *wts,
                     *basis,
                     mat_w,
-                    dofs._data,
-                )
-            elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs.tp._data,
+                    vec._data,
                 )
             else:
                 mass_kernels.kernel_3d_vec(
@@ -3164,12 +3171,20 @@ class L2Projector:
                     *wts,
                     *basis,
                     mat_w,
-                    dofs[a]._data,
+                    vec[a]._data,
                 )
 
         # exchange assembly data (accumulate ghost regions) and update ghost regions
-        dofs.exchange_assembly_data()
-        dofs.update_ghost_regions()
+        vec.exchange_assembly_data()
+        vec.update_ghost_regions()
+
+        # apply basis extraction operator (tensor-product --> polar)
+        if is_polar:
+            if clear:
+                self._extraction_op.dot(vec, out=dofs)
+            else:
+                dofs += self._extraction_op.dot(vec)
+            dofs.update_ghost_regions()
 
         # apply boundary operator
         if apply_bc:
@@ -3180,10 +3195,10 @@ class L2Projector:
     def __call__(
         self,
         fun: Callable | list[Callable] | tuple[Callable],
-        out: StencilVector | BlockVector = None,
-        dofs: StencilVector | BlockVector = None,
+        out: StencilVector | BlockVector | PolarVector = None,
+        dofs: StencilVector | BlockVector | PolarVector = None,
         apply_bc: bool = False,
-    ) -> StencilVector | BlockVector:
+    ) -> StencilVector | BlockVector | PolarVector:
         """
         Applies projector to given callable(s).
 
@@ -3192,10 +3207,10 @@ class L2Projector:
         fun : Callable | list[Callable] | tuple[Callable]
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : StencilVector | BlockVector, optional
+        out : StencilVector | BlockVector | PolarVector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : StencilVector | BlockVector, optional
+        dofs : StencilVector | BlockVector | PolarVector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional
