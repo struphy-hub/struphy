@@ -136,6 +136,8 @@ class VariationalResistivity(Propagator):
             Physical resistivity coefficient.
         eta_a : float, default=0.0
             Artificial-resistivity coefficient.
+        fast : bool, default=False
+            If ``True`` and ``model="linear_q"``, skip the thermodynamic (energy balance) update.
         """
 
         # specific literals
@@ -150,6 +152,7 @@ class VariationalResistivity(Propagator):
         linearize_current: bool = False
         eta: float = 0.0
         eta_a: float = 0.0
+        fast: bool = False
 
         def __post_init__(self):
             # checks
@@ -184,6 +187,7 @@ class VariationalResistivity(Propagator):
         self._eta_a = self.options.eta_a
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
+        self._fast = self.options.fast
         self._linearize_current = self.options.linearize_current
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
@@ -261,7 +265,7 @@ class VariationalResistivity(Propagator):
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
-        if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
+        if self._model == "linear_p" or (self._model == "linear_q" and self._fast):
             self.update_feec_variables(s=sn, b=bn1)
             return
 
@@ -327,10 +331,10 @@ class VariationalResistivity(Propagator):
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
 
-        tol = self._nonlin_solver["tol"]
+        tol = self._nonlin_solver.tol
         err = tol + 1
 
-        for it in range(self._nonlin_solver["maxiter"]):
+        for it in range(self._nonlin_solver.maxiter):
             if self._model in ["deltaf_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
@@ -416,11 +420,12 @@ class VariationalResistivity(Propagator):
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
-                self.pt3 += incr
+                pt3_vec = self.pt3.spline.vector
+                pt3_vec += incr
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
+        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err =} \n {tol**2 =}",
             )
@@ -474,10 +479,10 @@ class VariationalResistivity(Propagator):
 
         #     self._get_L2dofs_V3(cb_sq_v, dofs=self._linear_form_tot_e)
 
-        #     tol = self._nonlin_solver["tol"]
+        #     tol = self._nonlin_solver.tol
         #     err = tol + 1
 
-        #     for it in range(self._nonlin_solver["maxiter"]):
+        #     for it in range(self._nonlin_solver.maxiter):
         #         self.sf1.vector = self.pt3
 
         #         sf1_values = self.sf1.eval_tp_fixed_loc(

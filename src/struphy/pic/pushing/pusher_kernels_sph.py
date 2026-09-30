@@ -523,7 +523,7 @@ def push_v_sph_pressure_ideal_gas(
     # fmt: on
 
 
-@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
+@stack_array("tmp1")
 def push_v_viscosity(
     dt: float,
     stage: int,
@@ -545,18 +545,21 @@ def push_v_viscosity(
     .. math::
 
         \frac{v_{p,j}^{n+1} - v_{p,j}^n}{\Delta t}
-        = \sum_{i=1}^N
-          \frac{w_i \, \sigma_{jk}(\boldsymbol \eta_i)}{\rho^{N,h}(\boldsymbol \eta_i)} \,
-          \bigl(DF^{-\top} \nabla W_h\bigr)_k(\boldsymbol \eta_p - \boldsymbol \eta_i)\,,
+        = \frac{1}{\sqrt g(\boldsymbol \eta_p)} \sum_{i=1}^N
+          \frac{w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \,
+          (DF^{-1})_{km}(\boldsymbol \eta_i)}{\rho^{N,h}(\boldsymbol \eta_i)} \,
+          (\nabla W_h)_k(\boldsymbol \eta_p - \boldsymbol \eta_i)\,,
 
-    where :math:`\sigma_{jk} = \mu \left[(\partial_k v_j^{N,h} + \partial_j v_k^{N,h}) - \tfrac{2}{3}\delta_{jk}\partial_l v_l^{N,h}\right]`
-    is the deviatoric strain rate, and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
-    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    where :math:`\sigma_{jm} = \mu \left[(\partial_{x_m} v_j^{N,h} + \partial_{x_j} v_m^{N,h}) - \tfrac{2}{3}\delta_{jm}\partial_{x_l} v_l^{N,h}\right]`
+    is the (Cartesian) deviatoric strain rate and :math:`\sqrt g = \det DF`. This is the SPH discretization
+    of the Cartesian divergence :math:`\nabla_x \cdot \sigma` written in logical coordinates (Piola form),
+    :math:`(\nabla_x \cdot \sigma)_j = \frac{1}{\sqrt g} \partial_{\eta_k} \bigl(\sqrt g \, (DF^{-1})_{km} \sigma_{jm}\bigr)`,
+    with the gradient of the smoothing kernel :math:`W_h` chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
 
     This kernel requires the 9 coefficients
 
-    * :math:`w_i \, \sigma_{jk}(\boldsymbol \eta_i) / \rho^{N,h}(\boldsymbol \eta_i)` to be
+    * :math:`- w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
+      / \rho^{N,h}(\boldsymbol \eta_i)` to be
       pre-computed for each particle and stored at ``markers[:, first_free_idx + 3*(j+1) + k]``
       for :math:`j, k = 0, 1, 2`
 
@@ -591,8 +594,6 @@ def push_v_viscosity(
     """
     # allocate arrays
     tmp1 = zeros((3, 3), dtype=float)
-    dfinv = zeros((3, 3), dtype=float)
-    dfinvT = zeros((3, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -601,10 +602,9 @@ def push_v_viscosity(
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[1]
     f_visc = zeros(3, dtype=float)
-    f_visc_cart = zeros(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    #$ omp parallel private(ip, eta1, eta2, eta3, detdf)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -653,21 +653,17 @@ def push_v_viscosity(
                     h3,
                 )
 
-        # push to Cartesian coordinates
-        evaluation_kernels.df_inv(
+        # Cartesian divergence from Piola form: divide by the Jacobian determinant
+        detdf = evaluation_kernels.det_df(
             eta1,
             eta2,
             eta3,
             args_domain,
             tmp1,
-            False,
-            dfinv,
         )
-        linalg_kernels.transpose(dfinv, dfinvT)
-        linalg_kernels.matrix_vector(dfinvT, f_visc, f_visc_cart)
 
         # update velocities
-        markers[ip, 3:6] -= dt * (f_visc_cart)
+        markers[ip, 3:6] -= dt * f_visc / detdf
 
     # fmt: off
     #$ omp end parallel

@@ -109,3 +109,33 @@ def test_kinetic_energy_ignores_magnetic_moment_of_5d_markers():
 
     expected = 0.5 * float(xp.sum(weights * v_par**2))
     assert float(scalar.local_value[0]) == expected
+
+
+class _GuidingCenterMarkers:
+    """Particles5D-like markers: weight in column 5, mu * |B_0| in column 8 (the first diagnostics column)."""
+
+    def __init__(self, Np):
+        self.Np = Np
+        self.markers = xp.zeros((Np + 2, 10), dtype=float)
+        self.markers[:Np, 5] = 1.0 / Np  # the weights carry the 1/Np of the Monte-Carlo estimate
+        self.markers[:Np, 8] = 3.0
+        self.markers[Np:, 5:9] = -1.0  # holes
+        self.holes = xp.zeros(Np + 2, dtype=bool)
+        self.holes[Np:] = True
+
+    def save_magnetic_background_energy(self):
+        pass
+
+
+def test_guiding_center_en_fB_does_not_divide_by_Np():
+    """en_fB = sum_p w_p mu_p |B_0(eta_p)| must not depend on Np, since the weights already include 1/Np."""
+    from types import SimpleNamespace
+
+    from struphy.models.guiding_center import GuidingCenter
+
+    for Np in (4, 400):
+        model = SimpleNamespace(
+            kinetic_ions=SimpleNamespace(var=SimpleNamespace(particles=_GuidingCenterMarkers(Np))),
+        )
+        energy = GuidingCenter._compute_en_fB(model)
+        assert xp.isclose(energy, 3.0), f"en_fB = {energy} for Np = {Np}, expected 3.0"
