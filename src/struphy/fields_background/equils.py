@@ -1880,16 +1880,13 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
     def p_psi(self, psi, der=0):
-        """Pressure profile g = g(psi)."""
+        """Pressure profile p = p(psi) in units Pa (as in the EQDSK file)."""
         out = self._p_i(psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
             assert out.ndim == 0
             out = out.item()
-
-        # rescale to Struphy units
-        out /= self.units.p
 
         return out
 

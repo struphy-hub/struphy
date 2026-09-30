@@ -956,6 +956,31 @@ def assert_vector(result, kind, *etas):
                 assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
 
 
+def test_eqdsk_pressure_units():
+    """EQDSK pressure must be rescaled to Struphy units exactly once (issue #433)."""
+
+    import warnings
+
+    from struphy.io.options import BaseUnits
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        eq_raw = equils.EQDSKequilibrium()
+        # x = 1 m and B = 1 T leave psi unscaled, while units.p = B^2/mu0 is non-trivial
+        eq = equils.EQDSKequilibrium(base_units=BaseUnits())
+    eq.units.derive_units(velocity_scale="alfvén", A_bulk=1, Z_bulk=1)
+    assert not xp.isclose(eq.units.p, 1.0)
+
+    R = xp.array([1.6, 1.7, 1.8, 1.9])
+    Z = xp.array([0.0, 0.05, 0.1, -0.1])
+
+    # pressure in Pa as given in the file
+    p_file = eq_raw.p_xyz(R, 0.0 * R, Z)
+    assert xp.allclose(p_file, eq_raw.p_psi(eq_raw.psi(R, Z)))
+
+    assert xp.allclose(eq.p_xyz(R, 0.0 * R, Z), p_file / eq.units.p)
+
+
 if __name__ == "__main__":
     # test_equils(('AdhocTorusQPsi', {'a': 1.0, 'R0': 3.6}, 'Tokamak', {'xi_param': 'sfl'}))
     test_equils(("HomogenSlab", {}, "Cuboid", {}))
