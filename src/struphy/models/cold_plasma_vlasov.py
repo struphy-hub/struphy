@@ -206,7 +206,7 @@ class ColdPlasmaVlasov(StruphyModel):
         """
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method
+        # use control variate method (reset weights after Poisson solve)
         particles = self.hot_elec.var.particles
         particles.update_weights()
 
@@ -219,6 +219,9 @@ class ColdPlasmaVlasov(StruphyModel):
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
         logger.info("... Done.")
+
+        # reset particle weights
+        particles.weights = particles.weights0.copy()
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
