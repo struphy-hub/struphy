@@ -6,7 +6,7 @@ The work is split into small PRs that can be reviewed and merged one at a time. 
 ## PR checklist
 
 - [ ] **PR 1: Proof of concept** (branch `cuda-kernel-proof-of-concept`)
-  `Kernel` (pyccel/CUDA pair), `CudaKernel`, `CudaMarkerArguments`/`CudaDomainArguments`, one demo kernel pair and a test on both backends. Also adds this document and the `gpu` optional dependency.
+  `Kernel` (pyccel/CUDA pair), `CudaKernel`, `CudaMarkerArguments`/`CudaDomainArguments`, and one test file with a demo kernel pair run on both backends. Also adds this document and the `gpu` optional dependency.
 - [ ] **PR 2: CUDA source files** — `CudaKernel` loads CUDA source from a `<name>_cuda.cu` file next to the pyccel file; `.cu`/`.cuh` files are shipped as package data.
 - [ ] **PR 3: Kernel catalog** — kernels are defined once in the `__init__.py` of the folder that contains them; a missing CUDA kernel raises an error on the GPU backend.
 - [ ] **PR 4: `Pusher` and propagators accept `Kernel`** — replace `PyccelKernel(...)` in the propagators by catalog lookups (no CUDA kernels yet, so no behaviour change on CPU).
@@ -47,9 +47,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 |---|---|
 | `src/struphy/utils/kernel_backends.py` | `is_cuda_backend()`, `CudaKernel` (wraps a `cupy.RawKernel`, compiled lazily, one thread per marker), `Kernel` (pyccel/CUDA pair, `get_kernel()` picks by backend) |
 | `src/struphy/utils/cuda_arguments.py` | `CudaMarkerArguments`, `CudaDomainArguments`: same constructor arguments as the pyccel classes, hold CuPy arrays, flatten them into the CUDA kernel arguments |
-| `src/struphy/pic/pushing/demo_kernels.py` | pyccel `push_eta_linear` |
-| `src/struphy/pic/pushing/demo_cuda.py` | CUDA `push_eta_linear` (source string), the `Kernel` pair and a demo `main()` comparing both backends |
-| `src/struphy/pic/tests/test_kernel_backends.py` | tests on both backends |
+| `src/struphy/pic/tests/test_kernel_backends.py` | the demo kernel pair `push_eta_linear` (pyccel function compiled with `epyccel` at test time, CUDA source string) and tests on both backends |
 
 Things we learned in the proof of concept:
 
@@ -100,7 +98,7 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 - `CudaKernel.from_file(path, name)` reads `<name>_cuda.cu`. The kernel is compiled lazily on first call. CuPy caches compiled kernels on disk (`~/.cupy/kernel_cache`), so the compile cost is paid once per machine.
 - Headers are found through NVRTC include paths (`cupy.RawModule(code=..., options=("-I<struphy src>",))`), so a `.cu` file can `#include "struphy/bsplines/bsplines_kernels.cuh"`.
 - Add `"**/*.cu"` and `"**/*.cuh"` to `[tool.setuptools.package-data]` in `pyproject.toml`.
-- Move the demo kernel's CUDA source from the string in `demo_cuda.py` into `demo_cuda.cu`.
+- Move the test kernel's CUDA source from the string in `test_kernel_backends.py` into a `.cu` file.
 
 ### PR 3: Kernel catalog
 
