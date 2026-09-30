@@ -16,6 +16,7 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.cuda_arguments import CudaDomainArguments
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
@@ -238,7 +239,7 @@ class Domain(metaclass=DomainMeta):
         """Build runtime mapping arguments used by compiled evaluation kernels."""
         return DomainArguments(
             self.kind_map,
-            self.params_numpy,
+            _to_numpy_for_kernel(self.params_numpy),
             _to_numpy_for_kernel(xp.array(self.degree)),
             _to_numpy_for_kernel(self.T[0]),
             _to_numpy_for_kernel(self.T[1]),
@@ -275,7 +276,7 @@ class Domain(metaclass=DomainMeta):
         memo[id(self)] = result
 
         for key, value in self.__dict__.items():
-            if key == "_args_domain":
+            if key in ("_args_domain", "_cuda_args_domain"):
                 continue
             setattr(result, key, copy.deepcopy(value, memo))
 
@@ -285,6 +286,7 @@ class Domain(metaclass=DomainMeta):
     def __getstate__(self):
         state = self.__dict__.copy()
         state.pop("_args_domain", None)
+        state.pop("_cuda_args_domain", None)
         return state
 
     def __setstate__(self, state):
@@ -474,6 +476,26 @@ class Domain(metaclass=DomainMeta):
             raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
 
         return self._args_domain
+
+    @property
+    def cuda_args_domain(self) -> CudaDomainArguments:
+        """CUDA version of :attr:`args_domain`, referencing the device arrays of the domain (CuPy backend only)."""
+        if getattr(self, "_cuda_args_domain", None) is None:
+            self._cuda_args_domain = CudaDomainArguments(
+                self.kind_map,
+                self.params_numpy,
+                xp.array(self.degree),
+                self.T[0],
+                self.T[1],
+                self.T[2],
+                self.indN[0],
+                self.indN[1],
+                self.indN[2],
+                xp.ascontiguousarray(self.cx),
+                xp.ascontiguousarray(self.cy),
+                xp.ascontiguousarray(self.cz),
+            )
+        return self._cuda_args_domain
 
     @property
     def dict_transformations(self):

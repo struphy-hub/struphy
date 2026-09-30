@@ -3,8 +3,9 @@
 Each Struphy kernel has a pyccel version (wrapped in :class:`cunumpy.PyccelKernel`) and,
 optionally, a CUDA version (:class:`CudaKernel`) with a 1:1 corresponding signature.
 :class:`Kernel` holds both and dispatches to the CUDA kernel when the cunumpy backend is
-``"cupy"``, see :func:`is_cuda_backend`. The pyccelized argument classes are transformed
-once (at setup) into their CUDA counterparts by :func:`~struphy.utils.kernel_transform.transform`.
+``"cupy"``, see :func:`is_cuda_backend`. CUDA kernels take the CUDA counterparts of the
+pyccelized argument classes, see :mod:`struphy.utils.cuda_arguments`, which reference the
+owner's device arrays (e.g. ``Particles.cuda_args_markers``, ``Domain.cuda_args_domain``).
 
 Example
 -------
@@ -13,10 +14,9 @@ Example
 ...     cuda_kernel=CudaKernel(PUSH_ETA_LINEAR_SRC, "push_eta_linear"),
 ... )
 >>> catalog.register(kernel)
->>> catalog.get("push_eta_linear")(dt, stage, args_markers, args_domain)  # NumPy backend
->>> # CuPy backend, transform once at setup:
->>> cuda_markers, cuda_domain = transform(args_markers), transform(args_domain)
->>> catalog.get("push_eta_linear")(dt, stage, cuda_markers, cuda_domain)
+>>> push = catalog.get("push_eta_linear")
+>>> push(dt, stage, particles.args_markers, domain.args_domain)  # NumPy backend
+>>> push(dt, stage, particles.cuda_args_markers, domain.cuda_args_domain)  # CuPy backend
 """
 
 import math
@@ -25,7 +25,7 @@ import numpy as np
 from cunumpy import PyccelKernel
 from cunumpy.xp import array_backend
 
-from struphy.utils.kernel_transform import CudaArguments
+from struphy.utils.cuda_arguments import CudaArguments
 
 
 def is_cuda_backend() -> bool:
@@ -36,9 +36,9 @@ def is_cuda_backend() -> bool:
 class CudaKernel:
     """Call a ``cupy.RawKernel`` with the 1:1 corresponding arguments of its pyccel counterpart.
 
-    The pyccelized argument classes (``MarkerArguments`` etc.) must be transformed beforehand
-    (once, at setup) with :func:`~struphy.utils.kernel_transform.transform`; no arrays are
-    converted or copied at call time. Arrays must be CuPy arrays (``cupy`` raises otherwise).
+    Takes the CUDA counterparts of the pyccelized argument classes
+    (:mod:`struphy.utils.cuda_arguments`); no arrays are converted or copied at call time.
+    Arrays must be CuPy arrays (``cupy`` raises otherwise).
 
     Parameters
     ----------

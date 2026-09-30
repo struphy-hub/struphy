@@ -14,13 +14,13 @@ import numpy as np
 from cunumpy import PyccelKernel
 
 from struphy.geometry.domains import Cuboid
-from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
+from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing import demo_kernels
+from struphy.utils.cuda_arguments import CudaMarkerArguments
 from struphy.utils.kernel_backends import CudaKernel, Kernel, catalog, is_cuda_backend
-from struphy.utils.kernel_transform import transform
 
-# Argument order = (dt, stage, CudaMarkerArguments, CudaDomainArguments),
-# see struphy.utils.kernel_transform.
+# Argument order = (dt, stage, CudaMarkerArguments.values, CudaDomainArguments.values),
+# see struphy.utils.cuda_arguments.
 PUSH_ETA_LINEAR_SRC = r"""
 extern "C" __global__
 void push_eta_linear(
@@ -53,17 +53,40 @@ push_eta_linear = catalog.register(
 )
 
 
-def run_push_eta_linear(
-    backend: str,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    dt: float,
-    n_steps: int,
-):
-    """Push markers ``n_steps`` times with :data:`push_eta_linear` on the given cunumpy backend.
+def make_demo_arguments(n_markers: int, seed: int = 0):
+    """Random markers (positions, velocities, some holes) and a Cuboid domain on the active cunumpy backend.
 
-    On the CuPy backend the argument classes are transformed **once** before the time loop;
-    inside the loop only the kernel is called (no host-device transfers).
+    The marker arrays are created on the active backend (on the device for CuPy), as ``Particles`` does;
+    the kernel arguments reference them without copies.
+
+    Returns
+    -------
+    args_markers : MarkerArguments | CudaMarkerArguments
+        Marker arguments for the kernel of the active backend.
+
+    args_domain : DomainArguments | CudaDomainArguments
+        Domain arguments for the kernel of the active backend.
+    """
+    # same random numbers on both backends, such that results can be compared
+    rng = np.random.default_rng(seed)
+    markers = cunumpy.asarray(rng.random((n_markers, 25)))
+    valid_mks = cunumpy.asarray(rng.random(n_markers) > 0.1)
+    bc_type = cunumpy.zeros(3, dtype=int)
+
+    domain = Cuboid()
+    if is_cuda_backend():
+        args_markers = CudaMarkerArguments(markers, valid_mks, n_markers, 3, 6, 7, 8, 14, 17, 18, 4, bc_type)
+        args_domain = domain.cuda_args_domain
+    else:
+        args_markers = MarkerArguments(markers, valid_mks, n_markers, 3, 6, 7, 8, 14, 17, 18, 4, bc_type)
+        args_domain = domain.args_domain
+    return args_markers, args_domain
+
+
+def run_push_eta_linear(args_markers, args_domain, dt: float, n_steps: int):
+    """Push markers ``n_steps`` times with :data:`push_eta_linear` on the active cunumpy backend.
+
+    Inside the time loop only the kernel is called; no arrays are converted or copied.
 
     Returns
     -------
@@ -73,44 +96,17 @@ def run_push_eta_linear(
     time_per_step : float
         Wall-clock time per step in seconds.
     """
-    with cunumpy.use_backend(backend):
-        if is_cuda_backend():
-            args_markers = transform(args_markers)
-            args_domain = transform(args_domain)
+    # warm-up (compiles the CUDA kernel on first call)
+    push_eta_linear(0.0, 0, args_markers, args_domain)
+    cunumpy.synchronize()
 
-        # warm-up (compiles the CUDA kernel on first call)
-        push_eta_linear(0.0, 0, args_markers, args_domain)
-        cunumpy.synchronize()
-
-        t0 = time.perf_counter()
-        for _ in range(n_steps):
-            push_eta_linear(dt, 0, args_markers, args_domain)
-        cunumpy.synchronize()
-        time_per_step = (time.perf_counter() - t0) / n_steps
+    t0 = time.perf_counter()
+    for _ in range(n_steps):
+        push_eta_linear(dt, 0, args_markers, args_domain)
+    cunumpy.synchronize()
+    time_per_step = (time.perf_counter() - t0) / n_steps
 
     return cunumpy.to_numpy(args_markers.markers), time_per_step
-
-
-def make_demo_arguments(n_markers: int, seed: int = 0):
-    """Random markers (positions, velocities, some holes) and a Cuboid domain."""
-    rng = np.random.default_rng(seed)
-    markers = rng.random((n_markers, 25))
-    valid_mks = rng.random(n_markers) > 0.1
-    args_markers = MarkerArguments(
-        markers,
-        valid_mks,
-        n_markers,
-        3,
-        6,
-        7,
-        8,
-        14,
-        17,
-        18,
-        4,
-        np.zeros(3, dtype=int),
-    )
-    return args_markers, Cuboid().args_domain
 
 
 def main():
@@ -125,8 +121,9 @@ def main():
     backends = ["numpy"] + (["cupy"] if cunumpy.cupy_available() else [])
     results = {}
     for backend in backends:
-        args_markers, args_domain = make_demo_arguments(args.n_markers)
-        results[backend] = run_push_eta_linear(backend, args_markers, args_domain, args.dt, args.n_steps)
+        with cunumpy.use_backend(backend):
+            args_markers, args_domain = make_demo_arguments(args.n_markers)
+            results[backend] = run_push_eta_linear(args_markers, args_domain, args.dt, args.n_steps)
         print(
             f"{backend:>5}: {results[backend][1] * 1e3:8.3f} ms/step ({args.n_markers} markers, {args.n_steps} steps)"
         )
