@@ -835,6 +835,25 @@ def test_eqdsk_psi_range_units():
     assert xp.allclose(eq.n_psi(psi_phys / scale), ref.n_psi(psi_phys))
 
 
+@pytest.mark.parametrize("params", [{}, {"a": 0.75, "R0": 3.5, "beta": 0.3}, {"q_kind": 1, "q0": 2.0, "q1": 0.5}])
+def test_sheared_slab_force_balance(params):
+    """ShearedSlab satisfies dp/dx = (j x B)_x (issue #577)."""
+    eq = equils.ShearedSlab(**params)
+
+    x = xp.linspace(0.1, 0.9, 9) * eq.params["a"]
+    h = 1e-6
+    dpdx = (eq.p_x(x + h) - eq.p_x(x - h)) / (2 * h)
+
+    _, by, bz = eq.b_xyz(x, 0 * x, 0 * x)
+    _, jy, jz = eq.j_xyz(x, 0 * x, 0 * x)
+
+    assert xp.allclose(dpdx, jy * bz - jz * by, rtol=0.0, atol=1e-8)
+    # beta is defined at x=0
+    x0 = xp.zeros(1)
+    _, by0, bz0 = eq.b_xyz(x0, x0, x0)
+    assert xp.allclose(eq.p_x(x0), eq.params["beta"] * (by0**2 + bz0**2) / 2)
+
+
 def assert_scalar(result, kind, *etas):
     if kind == "markers":
         markers = etas[0]

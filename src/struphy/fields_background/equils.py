@@ -167,7 +167,7 @@ class ShearedSlab(CartesianMHDequilibrium):
     na : float
         Ion number density at x=a (default: 1.).
     beta : float
-        Plasma beta (ratio of kinematic pressure to B^2/2, default: 0.1).
+        Plasma beta at x=0 (ratio of kinematic pressure to B^2/2, default: 0.1).
     q_kind : int
         Kind of safety factor profile, (0 or 1, default: 0).
     """
@@ -179,7 +179,7 @@ class ShearedSlab(CartesianMHDequilibrium):
 
             \mathbf B(x) &= B_{0} \left( \mathbf e_z + \frac{a}{q(x)R_0}\mathbf e_y\right)\,,\qquad q(x) = q_0 + ( q_1 - q_0 )\frac{x^2}{a^2}\,,
 
-            p(x) &= \beta\frac{B_{0}^2}{2} \left( 1 + \frac{a^2}{q(x)^2 R_0^2} \right) + B_{0}^2 \frac{a^2}{R_0^2} \left( \frac{1}{q_0^2} - \frac{1}{q(x)^2} \right)\,,
+            p(x) &= \beta\frac{B_{0}^2}{2} \left( 1 + \frac{a^2}{q_0^2 R_0^2} \right) + \frac{B_{0}^2}{2} \frac{a^2}{R_0^2} \left( \frac{1}{q_0^2} - \frac{1}{q(x)^2} \right)\,,
 
             n(x) &= n_a + ( 1 - n_a ) \left( 1 - \left(\frac{x}{a}\right)^{n_1} \right)^{n_2} \,.
 
@@ -243,9 +243,11 @@ class ShearedSlab(CartesianMHDequilibrium):
         if xp.all(q >= 100.0):
             pout = self.params["B0"] ** 2 * self.params["beta"] / 2.0 - 0 * x
         else:
-            pout = self.params["B0"] ** 2 * self.params["beta"] / 2.0 * (1 + eps**2 / q**2) + self.params[
+            # force balance p + B^2/2 = const. with beta defined at x=0
+            q0 = self.params["q0"]
+            pout = self.params["B0"] ** 2 * self.params["beta"] / 2.0 * (1 + eps**2 / q0**2) + self.params[
                 "B0"
-            ] ** 2 * eps**2 * (1 / self.params["q0"] ** 2 - 1 / q**2)
+            ] ** 2 * eps**2 / 2.0 * (1 / q0**2 - 1 / q**2)
 
         return pout
 
