@@ -29,8 +29,8 @@ jobs:
           ./cloc $(git ls-files)
 
   struphy_lint_all:
-    # on PRs only with the run-ci label (see .github/workflows/run-ci-command.yml)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-ci')
+    # on PRs only with the ci-active label (see .github/workflows/ci-command.yml)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-active')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo

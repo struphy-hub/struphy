@@ -1,12 +1,13 @@
-name: /run-ci command
+name: /activate-ci and /deactivate-ci commands
 
-# Comment "/run-ci" on a pull request to run the full test workflows for it.
-#
 # The heavy PR workflows (test-PR-*.yml, and the struphy_lint_all job of static_analysis.yml)
-# only run their jobs on PRs that carry the "run-ci" label. This command, available to users
-# with write access, starts them on the PR branch right away (via workflow_dispatch) and adds
-# the label, so later pushes to the PR run them automatically. Remove the label to stop
-# running them on new pushes.
+# only run their jobs on PRs that carry the "ci-active" label. Users with write access can
+# switch them on and off for a PR by commenting:
+#
+#   /activate-ci    start the full workflows on the PR branch right away (via workflow_dispatch)
+#                   and add the "ci-active" label, so every later push runs them too
+#   /deactivate-ci  remove the label; later pushes run only the quick checks again
+#                   (runs that already started keep going)
 #
 # This workflow never checks out or runs code from the pull request.
 
@@ -21,14 +22,14 @@ permissions:
   pull-requests: write
 
 jobs:
-  run-ci:
+  activate-ci:
     if: >-
       github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/run-ci') &&
+      startsWith(github.event.comment.body, '/activate-ci') &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     steps:
-      - name: Start the full test workflows on the PR branch
+      - name: Start the full workflows on the PR branch and add the ci-active label
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -37,7 +38,7 @@ jobs:
         run: |
           head_repo=$(gh pr view "$PR" --json headRepository,headRepositoryOwner -q '.headRepositoryOwner.login + "/" + .headRepository.name')
           if [ "$head_repo" != "$GH_REPO" ]; then
-            gh pr comment "$PR" --body "\`/run-ci\` only works for branches in $GH_REPO; this PR comes from $head_repo."
+            gh pr comment "$PR" --body "\`/activate-ci\` only works for branches in $GH_REPO; this PR comes from $head_repo."
             exit 1
           fi
           branch=$(gh pr view "$PR" --json headRefName -q .headRefName)
@@ -55,5 +56,22 @@ jobs:
             gh workflow run "$workflow" --ref "$branch"
           done
 
-          gh pr edit "$PR" --add-label run-ci
+          gh pr edit "$PR" --add-label ci-active
           gh api --method POST "repos/$GH_REPO/issues/comments/$COMMENT_ID/reactions" -f content=rocket > /dev/null
+
+  deactivate-ci:
+    if: >-
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/deactivate-ci') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove the ci-active label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          gh pr edit "$PR" --remove-label ci-active
+          gh api --method POST "repos/$GH_REPO/issues/comments/$COMMENT_ID/reactions" -f content="+1" > /dev/null
