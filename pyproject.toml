@@ -180,6 +180,7 @@ markers = [
     "fluid",
     "kinetic",
     "hybrid",
+    "toy",
     "single",
     "mpi_pic",
 ]
