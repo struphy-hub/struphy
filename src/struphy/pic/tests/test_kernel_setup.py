@@ -162,11 +162,11 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         markers.markers[0, markers.residual_idx] = 1.0  # Force both iterations.
 
     def sort(**kwargs):
-        events.append("sort")
-        if np.ndim(kwargs["alpha"]):
-            np.testing.assert_equal(kwargs["alpha"], (0.5, 0.5, 0.5))
-        else:
-            assert kwargs["alpha"] == 1.0
+        # Final sort after the last stage uses current positions (no alpha).
+        alpha = kwargs.get("alpha")
+        events.append("sort" if alpha is None else f"sort{alpha[0]}")
+        if alpha is not None:
+            assert alpha in ((0.5, 0.5, 0.5), (1.0, 1.0, 1.0))
 
     particles = SimpleNamespace(
         markers=marker_args.markers,
@@ -190,6 +190,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         PyccelKernel(push),
         (),
         None,
+        pushes_eta=True,
         alpha_in_kernel=1.0,
         init_kernels=(KernelSetup(kernel=initialize, output_indices=(20,), args=(field,)),),
         eval_kernels=(KernelSetup(kernel=evaluate, output_indices=(21,), alpha=0.5),),
@@ -200,4 +201,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         field[0] = value
         events.clear()
         pusher(0.1)
-        assert events == ["init", "boxes"] + ["sort", "eval", "boxes", "sort", "push", "bc", "boxes"] * 4
+        # Markers are sorted on entry, so no sort is needed until the first push moves them.
+        first = ["eval", "boxes", "push", "bc", "boxes"]
+        later = ["sort0.5", "eval", "boxes", "sort1.0", "push", "bc", "boxes"]
+        assert events == ["init", "boxes"] + first + later * 3 + ["sort"]

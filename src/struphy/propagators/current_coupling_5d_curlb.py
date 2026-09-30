@@ -261,6 +261,7 @@ class CurrentCoupling5DCurlb(Propagator):
             args_pusher_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
+            pushes_eta=False,
         )
 
         _BC = -1 / 4 * self._ACC.operators[0]

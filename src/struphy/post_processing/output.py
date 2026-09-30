@@ -977,7 +977,8 @@ class Output:
         Products are processed on first use with default options, so call this only to choose
         other options. Under MPI, call it on every rank. Parallel processing reconstructs the
         field decomposition of the saved run on as many ranks, and rank 0 gathers and writes the
-        products; serial processing runs on rank 0 while the other ranks wait.
+        products; serial processing runs on rank 0 while the other ranks wait. Either way rank 0
+        holds the processing lock of the run meanwhile, so concurrent jobs take turns.
 
         Parameters
         ----------
@@ -1015,11 +1016,18 @@ class Output:
         )
         if parallel is None:
             parallel = self._processes_in_parallel
+        rank = self.comm.Get_rank()
         try:
-            if parallel:
-                self._process(parallel=True, **options)
-            elif self.comm.Get_rank() == 0:
-                with processing_lock(str(self.path_out)):
+            with ExitStack() as lock:
+                # Rank 0 holds the lock for the whole job, serial or parallel, so that no other
+                # job or script removes or rewrites the products while this one processes them.
+                if rank == 0:
+                    lock.enter_context(processing_lock(str(self.path_out)))
+                if parallel:
+                    # No rank may look at or remove products before rank 0 holds the lock.
+                    self.comm.Barrier()
+                    self._process(parallel=True, **options)
+                elif rank == 0:
                     self._process(parallel=False, **options)
             # Rank 0 writes the manifest last; no rank may look for products before it has.
             self.comm.Barrier()

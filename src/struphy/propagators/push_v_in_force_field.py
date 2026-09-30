@@ -145,6 +145,7 @@ class PushVinForceField(Propagator):
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
+            pushes_eta=False,
         )
 
     def __call__(self, dt):

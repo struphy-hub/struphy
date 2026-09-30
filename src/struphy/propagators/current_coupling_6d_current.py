@@ -225,6 +225,7 @@ class CurrentCoupling6DCurrent(Propagator):
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
+            pushes_eta=False,
         )
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)

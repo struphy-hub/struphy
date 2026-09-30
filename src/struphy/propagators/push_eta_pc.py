@@ -158,6 +158,7 @@ class PushEtaPC(Propagator):
             alpha_in_kernel=1.0,
             n_stages=butcher.n_stages,
             mpi_sort="each",
+            pushes_eta=True,
         )
 
     def __call__(self, dt):

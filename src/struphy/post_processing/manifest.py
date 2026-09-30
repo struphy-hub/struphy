@@ -63,9 +63,9 @@ def is_processed(path_out: str, options: dict | None = None) -> bool:
 def processing_lock(path_out: str, *, poll: float = 0.2):
     """Hold the right to post-process ``path_out``, waiting while another process holds it.
 
-    Ranks of one MPI job, or separate scripts, may start processing the same run at once;
-    they take turns here instead of meeting at a collective, so a rank that never asks for
-    products is never waited for. The lock is a POSIX record lock on a file next to the
+    Separate jobs or scripts may start processing the same run at once; they take turns
+    here. Within one MPI job, rank 0 holds the lock on behalf of the job, both when it
+    processes serially and when every rank processes in parallel. The lock is a POSIX record lock on a file next to the
     products, which the operating system releases if its holder dies. File systems without
     such locks (some Lustre or NFS mounts) fall back to creating the file exclusively; a
     process killed while holding that leaves the file behind, and it must be removed by hand.

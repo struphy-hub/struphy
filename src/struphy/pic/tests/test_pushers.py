@@ -107,6 +107,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
         ),
         domain.args_domain,
         alpha_in_kernel=1.0,
+        pushes_eta=False,
     )
 
     # push markers
@@ -226,6 +227,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
         ),
         domain.args_domain,
         alpha_in_kernel=1.0,
+        pushes_eta=False,
     )
 
     # push markers
@@ -345,6 +347,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
         ),
         domain.args_domain,
         alpha_in_kernel=1.0,
+        pushes_eta=False,
     )
 
     # push markers
@@ -464,6 +467,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
         ),
         domain.args_domain,
         alpha_in_kernel=1.0,
+        pushes_eta=False,
     )
 
     # push markers
@@ -592,6 +596,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
         ),
         domain.args_domain,
         alpha_in_kernel=1.0,
+        pushes_eta=False,
     )
 
     # push markers
@@ -692,6 +697,8 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
         domain.args_domain,
         alpha_in_kernel=1.0,
         n_stages=butcher.n_stages,
+        pushes_eta=True,
+        local_eval_only=True,
     )
 
     # push markers
