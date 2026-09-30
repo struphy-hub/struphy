@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - devel
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,6 +29,8 @@ jobs:
           ./cloc $(git ls-files)
 
   struphy_lint_all:
+    # on PRs only with the run-ci label (see .github/workflows/run-ci-command.yml)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-ci')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo

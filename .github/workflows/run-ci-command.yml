@@ -2,10 +2,11 @@ name: /run-ci command
 
 # Comment "/run-ci" on a pull request to run the full test workflows for it.
 #
-# The heavy PR workflows (test-PR-*.yml) only run their jobs on PRs that carry the
-# "run-ci" label. This command, available to users with write access, starts them on the
-# PR branch right away (via workflow_dispatch) and adds the label, so later pushes to the
-# PR run them automatically. Remove the label to stop running them on new pushes.
+# The heavy PR workflows (test-PR-*.yml, and the struphy_lint_all job of static_analysis.yml)
+# only run their jobs on PRs that carry the "run-ci" label. This command, available to users
+# with write access, starts them on the PR branch right away (via workflow_dispatch) and adds
+# the label, so later pushes to the PR run them automatically. Remove the label to stop
+# running them on new pushes.
 #
 # This workflow never checks out or runs code from the pull request.
 
@@ -49,7 +50,8 @@ jobs:
             test-PR-pure-python.yml \
             test-PR-generate-params.yml \
             test-PR-examples.yml \
-            test-PR-tutorials.yml; do
+            test-PR-tutorials.yml \
+            static_analysis.yml; do
             gh workflow run "$workflow" --ref "$branch"
           done
 
