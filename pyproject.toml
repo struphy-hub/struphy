@@ -59,6 +59,9 @@ file = "LICENSE"
 mpi = [
     "mpi4py<=4.1.1",
 ]
+gpu = [
+    "cupy-cuda12x",
+]
 phys = [
     "gvec>=1.1.0, <=1.5.0",
     "desc-opt<=0.17.1",
