@@ -1,5 +1,7 @@
 import copy
 
+from cunumpy import PyccelKernel
+
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
@@ -9,6 +11,8 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 from struphy.propagators.poisson_solve import PoissonSolve
@@ -139,8 +143,20 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             en_tot=electric_energy + magnetic_energy + particle_energy,
         )
 
-        # initial Poisson (not a propagator used in time stepping)
-        self.initial_poisson = PoissonSolve()
+        # initial Poisson (not a propagator used in time stepping);
+        # the source is the delta-f charge density, see LinearVlasovAmpereOneSpecies
+        alpha = self.kinetic_ions.equation_params.alpha
+        epsilon = self.kinetic_ions.equation_params.epsilon
+        particles_to_grid = ParticlesToGrid(
+            self.kinetic_ions.var,
+            "H1",
+            PyccelKernel(accum_kernels.charge_density_0form),
+        )
+
+        self.initial_poisson = PoissonSolve(
+            rho=particles_to_grid,
+            rho_coeffs=alpha**2 / epsilon,
+        )
         self.initial_poisson.variables.phi = self.em_fields.phi
 
     @classmethod
