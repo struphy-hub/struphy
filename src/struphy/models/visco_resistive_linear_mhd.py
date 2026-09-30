@@ -201,9 +201,6 @@ class ViscoResistiveLinearMHD(StruphyModel):
                     new_file += [
                         "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_p')\n",
                     ]
-                elif "pressure.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
                 else:
                     new_file += [line]
 

@@ -667,7 +667,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 logger.info("exiting ...")
                 exit()
         except FileNotFoundError:
-            folder = os.path.join("/", *path.split("/")[:-1])
+            folder = os.path.dirname(path)
             if not prompt:
                 yn = "Y"
             else:
@@ -684,7 +684,12 @@ class StruphyModel(metaclass=StruphyModelMeta):
         particle_params = """\n# -------------------
 # Particle parameters
 # -------------------\n"""
+        init_bckgr_feec = "\n# Background for (some) FEEC variables\n"
+        init_pert_feec = "\n# Perturbations for (some) FEEC variables\n"
         init_bckgr_pic = "\n# Background for kinetic species\n"
+        init_pert_pic = "\n# Perturbations for (some) kinetic species\n"
+        init_bckgr_sph = "\n# Background for (some) sph variables\n"
+        init_pert_sph = "\n# Perturbations for (some) sph variables\n"
         has_feec = False
         has_pic = False
         has_sph = False
@@ -714,8 +719,6 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
                 if isinstance(var, FEECVariable):
                     has_feec = True
-                    init_bckgr_feec = "\n# Background for (some) FEEC variables\n"
-                    init_pert_feec = "\n# Perturbations for (some) FEEC variables\n"
                     if var.space in ("H1", "L2"):
                         init_bckgr_feec += f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
                         init_pert_feec += f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
@@ -729,7 +732,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = "\n# Perturbations for (some) kinetic species\n"
                     init_pert_pic += "perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
                         init_bckgr_pic += "maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
@@ -760,8 +762,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
                 elif isinstance(var, SPHVariable):
                     has_sph = True
-                    init_bckgr_sph = "\n# Background for (some) sph variables\n"
-                    init_pert_sph = "\n# Perturbations for (some) sph variables\n"
                     init_bckgr_sph += "background = equils.ConstantVelocity()\n"
                     init_bckgr_sph += f"model.{sn}.{vn}.add_background(background)\n"
                     init_pert_sph += "perturbation = perturbations.TorusModesCos()\n"

@@ -171,9 +171,6 @@ class ViscousFluid(StruphyModel):
                     new_file += [
                         "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full')\n",
                     ]
-                elif "entropy.add_background" in line:
-                    new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
                 else:
                     new_file += [line]
 

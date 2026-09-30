@@ -179,11 +179,7 @@ class ViscoResistiveMHD_with_p(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "pressure.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
-                else:
-                    new_file += [line]
+                new_file += [line]
 
         with open(params_path, "w") as f:
             for line in new_file:

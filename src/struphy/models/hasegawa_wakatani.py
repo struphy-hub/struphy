@@ -99,7 +99,7 @@ class HasegawaWakatani(StruphyModel):
         with open(params_path, "r") as f:
             for line in f:
                 if "vorticity.add_background" in line:
-                    new_file += ["model.plasma.density.add_background(FieldsBackground())\n"]
+                    pass
                 else:
                     new_file += [line]
 

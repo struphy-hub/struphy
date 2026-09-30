@@ -189,9 +189,6 @@ class ViscoResistiveMHD_with_q(StruphyModel):
                     new_file += [
                         "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q')\n",
                     ]
-                elif "sqrt_p.add_background" in line:
-                    new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
-                    new_file += [line]
                 else:
                     new_file += [line]
 
