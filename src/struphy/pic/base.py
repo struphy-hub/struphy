@@ -2212,9 +2212,10 @@ class Particles(metaclass=ABCMeta):
         -----
         The routine populates intermediate marker columns using two Pyccel
         kernels: `sph_mean_velocity_coeffs` (mean velocity) and
-        `sph_viscosity_tensor` (viscosity tensor components). It then evaluates
-        the necessary derivatives via :meth:`eval_sph` and sums contributions to
-        produce the three divergence components.
+        `sph_viscosity_tensor` (viscosity tensor components in Piola form). It then
+        evaluates the necessary logical derivatives via :meth:`eval_sph`, sums
+        contributions and divides by the Jacobian determinant to produce the three
+        Cartesian divergence components.
         """
 
         first_free_idx = self.args_markers.first_free_idx
@@ -2279,9 +2280,13 @@ class Particles(metaclass=ABCMeta):
                     )
                 ]
 
-        gamma_x = gamma[0][0] + gamma[0][1] + gamma[0][2]
-        gamma_y = gamma[1][0] + gamma[1][1] + gamma[1][2]
-        gamma_z = gamma[2][0] + gamma[2][1] + gamma[2][2]
+        # the stored tensor is in Piola form, divide by the Jacobian determinant at the evaluation points
+        etas = xp.column_stack([xp.ravel(eta1), xp.ravel(eta2), xp.ravel(eta3)])
+        det_df = self.domain.jacobian_det(etas, remove_outside=False).reshape(xp.shape(eta1))
+
+        gamma_x = (gamma[0][0] + gamma[0][1] + gamma[0][2]) / det_df
+        gamma_y = (gamma[1][0] + gamma[1][1] + gamma[1][2]) / det_df
+        gamma_z = (gamma[2][0] + gamma[2][1] + gamma[2][2]) / det_df
 
         return gamma_x, gamma_y, gamma_z
 
