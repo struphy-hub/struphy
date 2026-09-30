@@ -67,8 +67,9 @@ def naive_evaluation_kernel(
     The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
     and in :meth:`~struphy.pic.base.Particles.ker_dct`.
 
-    ATTENTION: The sum is done over all particles in the markers array (ignoring holes), no neighbour search is performed.
+    ATTENTION: The sum is done over all particles in the markers array (ignoring holes and ghost particles), no neighbour search is performed.
     Hence, the cost of this evaluation is :math:`\mathcal{O}(N)` in the number of particles, and it should only be used for testing and verification purposes.
+    Boundaries are always treated as periodic (mirror images held by ghost particles are not included).
 
     Parameters
     ----------
@@ -100,17 +101,17 @@ def naive_evaluation_kernel(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
 
     n_particles = len(markers)
     out = 0.0
     for p in range(n_particles):
-        if not holes[p]:
+        # skip holes and ghost particles (copies of markers already counted, id = -2)
+        if not holes[p] and markers[p, -1] != -2.0:
             r1 = distance(eta1, markers[p, 0], periodic1)
             r2 = distance(eta2, markers[p, 1], periodic2)
             r3 = distance(eta3, markers[p, 2], periodic3)
             out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
-    return out / Np
+    return out
 
 
 def box_based_kernel(

@@ -1560,6 +1560,45 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
     logger.info("Test spline evaluation passed.")
 
 
+@pytest.mark.parametrize(
+    "out_sp_key, in_sp_key",
+    [("0", "0"), ("0", "1"), ("0", "v"), ("1", "0"), ("2", "v")],
+)
+def test_basis_projection_operator_local_none_weights(out_sp_key, in_sp_key):
+    """None weights must be treated as zero blocks (e.g. placeholders in BracketOperator)."""
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=[4, 3, 2])
+    derham_opts = DerhamOptions(degree=[2, 2, 1], local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
+
+    P = derham.projectors[out_sp_key]
+    V = derham.fem_spaces[in_sp_key]
+    n_out = 1 if out_sp_key in ("0", "3") else 3
+    n_in = 1 if in_sp_key in ("0", "3") else 3
+
+    def one(e1, e2, e3):
+        return 1.0 + e1 * e2 * e3
+
+    def zero(e1, e2, e3):
+        return 0.0 * e1
+
+    # weights with None on the off-diagonal, and the same with explicit zero callables
+    weights = [[one if i == j else None for j in range(n_in)] for i in range(n_out)]
+    weights_zero = [[zero if w is None else w for w in row] for row in weights]
+
+    op = BasisProjectionOperatorLocal(P, V, weights)
+    op_zero = BasisProjectionOperatorLocal(P, V, weights_zero)
+    op_none = BasisProjectionOperatorLocal(P, V, [[None] * n_in for _ in range(n_out)])
+
+    x = op.domain.zeros()
+    for blk in getattr(x, "blocks", [x]):
+        blk._data[:] = xp.random.rand(*blk._data.shape)
+
+    assert xp.allclose(op.dot(x).toarray(), op_zero.dot(x).toarray(), atol=1e-14)
+    assert xp.allclose(op_none.dot(x).toarray(), 0.0, atol=1e-14)
+
+
 if __name__ == "__main__":
     num_elements = [14, 16, 18]
     degree = [5, 4, 3]
