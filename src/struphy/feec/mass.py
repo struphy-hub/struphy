@@ -2649,8 +2649,8 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(
             self._derham,
-            self._codomain,
-            self._domain,
+            self._W,
+            self._V,
             self._weights,
             nquads=self._nquads,
         )
