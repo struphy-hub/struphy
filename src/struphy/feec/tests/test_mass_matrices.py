@@ -1280,6 +1280,50 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     logger.info(f"Rank {mpi_rank} | All tests passed!")
 
 
+@pytest.mark.parametrize("num_elements", [(8, 6, 4)])
+@pytest.mark.parametrize("degree", [(1, 2, 1), (2, 1, 2)])
+@pytest.mark.parametrize("bcs", [(None, None, None), (("dirichlet", "dirichlet"), None, None)])
+def test_matrix_free_diagonal(num_elements, degree, bcs):
+    """Compare the diagonal of matrix-free mass operators with the one of the assembled operators
+    (also under MPI), and check that matrix-free operators without weights can be applied."""
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    mpi_comm = MPI.COMM_WORLD
+
+    domain = domains.Colella()
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham = Derham(grid, DerhamOptions(degree=degree, bcs=bcs), comm=mpi_comm, domain=domain)
+
+    mass_ops_free = WeightedMassOperators(derham, domain, matrix_free=True)
+    mass_ops_mat = WeightedMassOperators(derham, domain, matrix_free=False)
+
+    def local_diag(diag):
+        if hasattr(diag, "blocks"):
+            return [diag.blocks[i][i]._data for i in range(len(diag.blocks))]
+        return [diag._data]
+
+    for name in ("M0", "M1"):
+        diag_free = local_diag(getattr(mass_ops_free, name).matrix.diagonal())
+        diag_mat = local_diag(getattr(mass_ops_mat, name).matrix.diagonal())
+        for d_free, d_mat in zip(diag_free, diag_mat):
+            assert xp.allclose(d_free, d_mat, rtol=1e-12, atol=0.0)
+
+    # matrix-free operator without weights is zero
+    op = mass_ops_free.create_weighted_mass("H1", "H1", weights=None)
+    v = op.domain.zeros()
+    v._data[:] = 1.0
+    assert xp.all(op.dot(v).toarray() == 0.0)
+    assert xp.all(op.matrix.diagonal()._data == 0.0)
+
+
 @pytest.mark.parametrize("num_elements", [[12, 13, 14]])
 @pytest.mark.parametrize("mpi_mask", [(False, False, True), (True, False, True)])
 @pytest.mark.parametrize("degree", [[2, 2, 3], [1, 1, 1], [1, 4, 2]])
