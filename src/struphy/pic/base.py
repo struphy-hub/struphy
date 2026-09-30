@@ -56,7 +56,6 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import CudaMarkerArguments
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -940,26 +939,6 @@ class Particles(metaclass=ABCMeta):
     def args_markers(self) -> MarkerArguments:
         """Collection of mandatory arguments for pusher kernels."""
         return self._args_markers
-
-    @property
-    def cuda_args_markers(self) -> CudaMarkerArguments:
-        """CUDA version of :attr:`args_markers`, referencing the device arrays of the markers (CuPy backend only)."""
-        if getattr(self, "_cuda_args_markers", None) is None:
-            self._cuda_args_markers = CudaMarkerArguments(
-                self.markers,
-                self.valid_mks,
-                self.Np,
-                self.vdim,
-                self.index["weights"],
-                self.first_diagnostics_idx,
-                self.first_pusher_idx,
-                self.first_shift_idx,
-                self.residual_idx,
-                self.first_free_idx,
-                self.mu_idx,
-                self._bc_type,
-            )
-        return self._cuda_args_markers
 
     # -------------------------------------------
     # Initial condition and background -> weights
@@ -2548,8 +2527,7 @@ class Particles(metaclass=ABCMeta):
         self._n_lost_markers = 0
         self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
 
-        # arguments for kernels (the CUDA version is built on first access, see cuda_args_markers)
-        self._cuda_args_markers = None
+        # arguments for kernels
         self._args_markers = MarkerArguments(
             _to_numpy_for_kernel(self.markers),
             _to_numpy_for_kernel(self.valid_mks),

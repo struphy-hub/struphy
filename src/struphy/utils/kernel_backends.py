@@ -1,31 +1,10 @@
-"""Pairs of pyccel and CUDA kernels, selected at runtime from the cunumpy backend.
-
-Each Struphy kernel has a pyccel version (wrapped in :class:`cunumpy.PyccelKernel`) and,
-optionally, a CUDA version (:class:`CudaKernel`) with a 1:1 corresponding signature.
-:class:`Kernel` holds both and dispatches to the CUDA kernel when the cunumpy backend is
-``"cupy"``, see :func:`is_cuda_backend`. CUDA kernels take the CUDA counterparts of the
-pyccelized argument classes, see :mod:`struphy.utils.cuda_arguments`, which reference the
-owner's device arrays (e.g. ``Particles.cuda_args_markers``, ``Domain.cuda_args_domain``).
-
-Example
--------
->>> kernel = Kernel(
-...     pyccel_kernel=PyccelKernel(demo_kernels.push_eta_linear),
-...     cuda_kernel=CudaKernel(PUSH_ETA_LINEAR_SRC, "push_eta_linear"),
-... )
->>> catalog.register(kernel)
->>> push = catalog.get("push_eta_linear")
->>> push(dt, stage, particles.args_markers, domain.args_domain)  # NumPy backend
->>> push(dt, stage, particles.cuda_args_markers, domain.cuda_args_domain)  # CuPy backend
-"""
+"""Pairs of pyccel and CUDA kernels, selected at runtime from the cunumpy backend."""
 
 import math
 
 import numpy as np
 from cunumpy import PyccelKernel
 from cunumpy.xp import array_backend
-
-from struphy.utils.cuda_arguments import CudaArguments
 
 
 def is_cuda_backend() -> bool:
@@ -34,141 +13,55 @@ def is_cuda_backend() -> bool:
 
 
 class CudaKernel:
-    """Call a ``cupy.RawKernel`` with the 1:1 corresponding arguments of its pyccel counterpart.
+    """A ``cupy.RawKernel`` called with the 1:1 corresponding arguments of its pyccel counterpart.
 
-    Takes the CUDA counterparts of the pyccelized argument classes
-    (:mod:`struphy.utils.cuda_arguments`); no arrays are converted or copied at call time.
-    Arrays must be CuPy arrays (``cupy`` raises otherwise).
-
-    Parameters
-    ----------
-    source : str
-        CUDA C source code containing an ``extern "C" __global__`` function ``name``.
-
-    name : str
-        Name of the kernel function in ``source``.
-
-    block_size : int
-        Number of threads per block.
+    Argument classes must already be the CUDA versions (:mod:`struphy.utils.cuda_arguments`);
+    no arrays are converted or copied at call time. One thread is launched per marker.
     """
 
     def __init__(self, source: str, name: str, block_size: int = 128):
+        self.name = name
         self._source = source
-        self._name = name
         self._block_size = block_size
         self._raw_kernel = None
 
-    def __repr__(self):
-        return f"CudaKernel(name={self.name!r}, block_size={self._block_size})"
-
-    @property
-    def name(self) -> str:
-        """Name of the CUDA kernel."""
-        return self._name
-
-    @property
-    def raw_kernel(self):
-        """The compiled ``cupy.RawKernel`` (compiled lazily on first access)."""
+    def __call__(self, *args):
         if self._raw_kernel is None:
             import cupy as cp
 
-            self._raw_kernel = cp.RawKernel(self._source, self._name)
-        return self._raw_kernel
+            self._raw_kernel = cp.RawKernel(self._source, self.name)
 
-    def __call__(self, *args):
         values = []
         n_threads = None
         for arg in args:
-            if isinstance(arg, CudaArguments):
+            if hasattr(arg, "values"):
                 values += arg.values
-                if n_threads is None:
-                    n_threads = arg.n_threads
+                n_threads = n_threads or getattr(arg, "n_markers", None)
+            elif isinstance(arg, bool):
+                values.append(np.bool_(arg))
+            elif isinstance(arg, int):
+                values.append(np.int32(arg))
+            elif isinstance(arg, float):
+                values.append(np.float64(arg))
             else:
-                values.append(_cuda_scalar(arg))
+                values.append(arg)
 
         if n_threads is None:
-            raise ValueError(f"{self.name}: no argument defines the number of CUDA threads (e.g. CudaMarkerArguments).")
+            raise ValueError(f"{self.name}: no CudaMarkerArguments passed, cannot set the number of threads.")
 
-        grid = (max(1, math.ceil(n_threads / self._block_size)),)
-        self.raw_kernel(grid, (self._block_size,), tuple(values))
-
-
-def _cuda_scalar(arg):
-    """Python scalars as NumPy scalars with the C type of the kernel signature (int -> int, float -> double)."""
-    if isinstance(arg, bool):
-        return np.bool_(arg)
-    if isinstance(arg, int):
-        return np.int32(arg)
-    if isinstance(arg, float):
-        return np.float64(arg)
-    return arg
+        grid = (math.ceil(n_threads / self._block_size),)
+        self._raw_kernel(grid, (self._block_size,), tuple(values))
 
 
 class Kernel:
-    """A pyccel kernel and its 1:1 corresponding CUDA kernel.
+    """A pyccel kernel and its CUDA counterpart; calls the one matching the cunumpy backend."""
 
-    Parameters
-    ----------
-    pyccel_kernel : PyccelKernel
-        The pyccel kernel, used on the NumPy backend (and on CuPy if there is no CUDA kernel).
-
-    cuda_kernel : CudaKernel | None
-        The CUDA kernel, used on the CuPy backend.
-    """
-
-    def __init__(self, pyccel_kernel: PyccelKernel, cuda_kernel: CudaKernel | None = None):
-        assert isinstance(pyccel_kernel, PyccelKernel), f"{pyccel_kernel} is not of type PyccelKernel"
-        assert cuda_kernel is None or isinstance(cuda_kernel, CudaKernel), f"{cuda_kernel} is not of type CudaKernel"
-        self._pyccel_kernel = pyccel_kernel
-        self._cuda_kernel = cuda_kernel
-
-    def __repr__(self):
-        return f"Kernel(pyccel_kernel={self.pyccel_kernel!r}, cuda_kernel={self.cuda_kernel!r})"
-
-    @property
-    def pyccel_kernel(self) -> PyccelKernel:
-        return self._pyccel_kernel
-
-    @property
-    def cuda_kernel(self) -> CudaKernel | None:
-        return self._cuda_kernel
-
-    @property
-    def name(self) -> str:
-        return self.pyccel_kernel.name
+    def __init__(self, pyccel_kernel: PyccelKernel, cuda_kernel: CudaKernel):
+        self.pyccel_kernel = pyccel_kernel
+        self.cuda_kernel = cuda_kernel
 
     def get_kernel(self) -> PyccelKernel | CudaKernel:
-        """The kernel for the active cunumpy backend."""
-        if is_cuda_backend() and self.cuda_kernel is not None:
-            return self.cuda_kernel
-        return self.pyccel_kernel
+        return self.cuda_kernel if is_cuda_backend() else self.pyccel_kernel
 
-    def __call__(self, *args, **kwargs):
-        return self.get_kernel()(*args, **kwargs)
-
-
-class KernelCatalog:
-    """Registry of :class:`Kernel` objects by name."""
-
-    def __init__(self):
-        self._kernels: dict[str, Kernel] = {}
-
-    def register(self, kernel: Kernel, name: str | None = None) -> Kernel:
-        """Register ``kernel`` under ``name`` (default: name of the pyccel kernel)."""
-        name = kernel.name if name is None else name
-        assert name not in self._kernels, f"Kernel {name!r} is already registered."
-        self._kernels[name] = kernel
-        return kernel
-
-    def get(self, name: str) -> Kernel:
-        return self._kernels[name]
-
-    def __contains__(self, name: str) -> bool:
-        return name in self._kernels
-
-    @property
-    def names(self) -> list[str]:
-        return list(self._kernels)
-
-
-catalog = KernelCatalog()
+    def __call__(self, *args):
+        return self.get_kernel()(*args)
