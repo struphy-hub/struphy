@@ -875,6 +875,37 @@ def test_transform():
             assert domain.transform(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (3,) + mat_x.shape
 
 
+@pytest.mark.parametrize("poc", [1, 2, 4])
+def test_hollow_cyl_df_finite_difference(poc):
+    """Compares the HollowCylinder Jacobian kernel with central finite differences of the mapping kernel."""
+
+    import numpy as np
+
+    from struphy.geometry.domains.hollow_cylinder.hollow_cylinder_kernels import hollow_cyl, hollow_cyl_df
+
+    a1, a2, lz = 0.2, 1.0, 4.0
+    h = 1e-6
+    rng = np.random.default_rng(0)
+
+    for _ in range(10):
+        eta = rng.random(3)
+
+        df = np.zeros((3, 3))
+        hollow_cyl_df(eta[0], eta[1], a1, a2, lz, float(poc), df)
+
+        df_fd = np.zeros((3, 3))
+        for j in range(3):
+            f_p, f_m = np.zeros(3), np.zeros(3)
+            eta_p, eta_m = eta.copy(), eta.copy()
+            eta_p[j] += h
+            eta_m[j] -= h
+            hollow_cyl(*eta_p, a1, a2, lz, float(poc), f_p)
+            hollow_cyl(*eta_m, a1, a2, lz, float(poc), f_m)
+            df_fd[:, j] = (f_p - f_m) / (2 * h)
+
+        assert np.allclose(df, df_fd, atol=1e-7)
+
+
 # def test_transform():
 #    """ Tests transformation of p-forms.
 #    """
