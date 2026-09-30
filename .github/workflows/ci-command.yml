@@ -1,13 +1,17 @@
 name: /activate-ci and /deactivate-ci commands
 
-# The heavy workflows (test-PR-*.yml and struphy-lint.yml) are not triggered by pull_request
-# events. Users with write access can switch them on and off for a PR by commenting:
+# The heavy PR jobs (test-PR-*.yml and struphy_lint_all in static_analysis.yml) only run on PRs
+# that carry the "ci-active" label; until then their required checks stay "Expected". Users with
+# write access can switch them on and off for a PR by commenting:
 #
-#   /activate-ci    start the full workflows on the PR branch right away (via workflow_dispatch)
-#                   and add the "ci-active" label, so every later push runs them too
-#                   (ci-on-push.yml; keep the list of workflows in sync with it)
-#   /deactivate-ci  remove the label; later pushes run only the quick checks again
-#                   (runs that already started keep going)
+#   /activate-ci    add the "ci-active" label: the full CI runs now and on every later push
+#   /deactivate-ci  remove the label: later pushes run only the quick checks again
+#
+# Adding or removing the label by hand does the same.
+#
+# A label added with the built-in GITHUB_TOKEN does not trigger other workflows. If the repository
+# secret CI_COMMAND_TOKEN (a token with write access to pull requests) is set, /activate-ci uses it
+# and the full CI starts immediately; otherwise it starts with the next push to the PR.
 #
 # This workflow never checks out or runs code from the pull request.
 
@@ -16,8 +20,6 @@ on:
     types: [created]
 
 permissions:
-  actions: write
-  contents: read
   issues: write
   pull-requests: write
 
@@ -29,46 +31,18 @@ jobs:
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     steps:
-      - name: Start the full workflows on the PR branch and add the ci-active label
+      - name: Add the ci-active label
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.CI_COMMAND_TOKEN || github.token }}
+          HAS_CI_COMMAND_TOKEN: ${{ secrets.CI_COMMAND_TOKEN != '' }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.issue.number }}
           COMMENT_ID: ${{ github.event.comment.id }}
         run: |
-          head_repo=$(gh pr view "$PR" --json headRepository,headRepositoryOwner -q '.headRepositoryOwner.login + "/" + .headRepository.name')
-          if [ "$head_repo" != "$GH_REPO" ]; then
-            gh pr comment "$PR" --body "\`/activate-ci\` only works for branches in $GH_REPO; this PR comes from $head_repo."
-            exit 1
-          fi
-          branch=$(gh pr view "$PR" --json headRefName -q .headRefName)
-
-          for workflow in \
-            test-PR-unit.yml \
-            test-PR-unit-mpi.yml \
-            test-PR-models.yml \
-            test-PR-models-clones.yml \
-            test-PR-pure-python.yml \
-            test-PR-generate-params.yml \
-            test-PR-examples.yml \
-            test-PR-tutorials.yml \
-            struphy-lint.yml; do
-            if ! out=$(gh workflow run "$workflow" --ref "$branch" 2>&1); then
-              if echo "$out" | grep -q "not found on the default branch"; then
-                # a workflow added by this PR can only be started once it is on the default branch
-                echo "::warning::$workflow is not on the default branch yet, skipped"
-              else
-                echo "$out"
-                failed="$failed $workflow"
-              fi
-            fi
-          done
-
           gh pr edit "$PR" --add-label ci-active
           gh api --method POST "repos/$GH_REPO/issues/comments/$COMMENT_ID/reactions" -f content=rocket > /dev/null
-          if [ -n "$failed" ]; then
-            gh pr comment "$PR" --body "Could not start:$failed"
-            exit 1
+          if [ "$HAS_CI_COMMAND_TOKEN" != "true" ]; then
+            gh pr comment "$PR" --body "Added \`ci-active\`: the full CI runs on the next push to this PR. (To start it right away, remove and re-add the label by hand, or set the \`CI_COMMAND_TOKEN\` secret so \`/activate-ci\` starts it immediately.)"
           fi
 
   deactivate-ci:

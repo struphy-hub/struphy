@@ -1,19 +1,27 @@
 name: PR - unit tests serial in Container
 
-# Started on PRs only on request: see .github/workflows/ci-command.yml (/activate-ci)
-# and ci-on-push.yml (every push to a PR with the ci-active label).
 on:
+  pull_request:
+    branches:
+      - devel
+    # labeled: adding the ci-active label starts the full CI (see ci-command.yml)
+    types: [opened, synchronize, reopened, labeled]
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # adding an unrelated label must not cancel a run in progress
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ci-active' && format('-{0}', github.event.label.name) || '' }}
   cancel-in-progress: true
 
 jobs:
   unit-test-serial:
+    # on PRs only with the ci-active label (see ci-command.yml); a skipped job gets another name,
+    # because a skipped job would otherwise count as a passed required check
+    name: ${{ (github.event_name != 'pull_request' || (contains(github.event.pull_request.labels.*.name, 'ci-active') && (github.event.action != 'labeled' || github.event.label.name == 'ci-active'))) && 'unit-test-serial' || 'unit-test-serial (skipped, see /activate-ci)' }}
+    if: github.event_name != 'pull_request' || (contains(github.event.pull_request.labels.*.name, 'ci-active') && (github.event.action != 'labeled' || github.event.label.name == 'ci-active'))
     uses: ./.github/workflows/reusable-unit-testing.yml
     with:
       os: ubuntu-latest

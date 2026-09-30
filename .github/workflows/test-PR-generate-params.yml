@@ -1,15 +1,19 @@
 name: PR - build, install and generate params
 
-# Started on PRs only on request: see .github/workflows/ci-command.yml (/activate-ci)
-# and ci-on-push.yml (every push to a PR with the ci-active label).
 on:
+  pull_request:
+    branches:
+      - devel
+    # labeled: adding the ci-active label starts the full CI (see ci-command.yml)
+    types: [opened, synchronize, reopened, labeled]
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # adding an unrelated label must not cancel a run in progress
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ci-active' && format('-{0}', github.event.label.name) || '' }}
   cancel-in-progress: true
 
 defaults:
@@ -21,6 +25,10 @@ permissions:
 
 jobs:
   test-in-container-with-reqs:
+    # on PRs only with the ci-active label (see ci-command.yml); a skipped job gets another name,
+    # because a skipped job would otherwise count as a passed required check
+    name: ${{ (github.event_name != 'pull_request' || (contains(github.event.pull_request.labels.*.name, 'ci-active') && (github.event.action != 'labeled' || github.event.label.name == 'ci-active'))) && 'test-in-container-with-reqs' || 'test-in-container-with-reqs (skipped, see /activate-ci)' }}
+    if: github.event_name != 'pull_request' || (contains(github.event.pull_request.labels.*.name, 'ci-active') && (github.event.action != 'labeled' || github.event.label.name == 'ci-active'))
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
