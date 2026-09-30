@@ -4042,142 +4042,72 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             elif self._z_p_proc == rank:
                 self._y_p_z_p_proc = self._y_p_proc
 
-        # set empty corners
+        # set empty corners: across a non-periodic domain boundary in one direction
+        # (face neighbour == rank) the corner neighbour is the edge neighbour in the
+        # two remaining directions (the edges have been completed above)
         if self._x_m_y_m_z_m_proc is None:
             if self._x_m_proc == rank:
-                if self._y_m_proc == rank:
-                    self._x_m_y_m_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_m_y_m_z_m_proc = self._y_m_proc
+                self._x_m_y_m_z_m_proc = self._y_m_z_m_proc
             elif self._y_m_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_m_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_m_y_m_z_m_proc = self._x_m_proc
+                self._x_m_y_m_z_m_proc = self._x_m_z_m_proc
             elif self._z_m_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_m_z_m_proc = self._y_m_proc
-                elif self._y_m_proc == rank:
-                    self._x_m_y_m_z_m_proc = self._x_m_proc
+                self._x_m_y_m_z_m_proc = self._x_m_y_m_proc
 
         if self._x_m_y_m_z_p_proc is None:
             if self._x_m_proc == rank:
-                if self._y_m_proc == rank:
-                    self._x_m_y_m_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_m_y_m_z_p_proc = self._y_m_proc
+                self._x_m_y_m_z_p_proc = self._y_m_z_p_proc
             elif self._y_m_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_m_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_m_y_m_z_p_proc = self._x_m_proc
+                self._x_m_y_m_z_p_proc = self._x_m_z_p_proc
             elif self._z_p_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_m_z_p_proc = self._y_m_proc
-                elif self._y_m_proc == rank:
-                    self._x_m_y_m_z_p_proc = self._x_m_proc
+                self._x_m_y_m_z_p_proc = self._x_m_y_m_proc
 
         if self._x_m_y_p_z_m_proc is None:
             if self._x_m_proc == rank:
-                if self._y_p_proc == rank:
-                    self._x_m_y_p_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_m_y_p_z_m_proc = self._y_p_proc
+                self._x_m_y_p_z_m_proc = self._y_p_z_m_proc
             elif self._y_p_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_p_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_m_y_p_z_m_proc = self._x_m_proc
+                self._x_m_y_p_z_m_proc = self._x_m_z_m_proc
             elif self._z_m_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_p_z_m_proc = self._y_p_proc
-                elif self._y_p_proc == rank:
-                    self._x_m_y_p_z_m_proc = self._x_m_proc
+                self._x_m_y_p_z_m_proc = self._x_m_y_p_proc
 
         if self._x_m_y_p_z_p_proc is None:
             if self._x_m_proc == rank:
-                if self._y_p_proc == rank:
-                    self._x_m_y_p_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_m_y_p_z_p_proc = self._y_p_proc
+                self._x_m_y_p_z_p_proc = self._y_p_z_p_proc
             elif self._y_p_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_p_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_m_y_p_z_p_proc = self._x_m_proc
+                self._x_m_y_p_z_p_proc = self._x_m_z_p_proc
             elif self._z_p_proc == rank:
-                if self._x_m_proc == rank:
-                    self._x_m_y_p_z_p_proc = self._y_p_proc
-                elif self._y_p_proc == rank:
-                    self._x_m_y_p_z_p_proc = self._x_m_proc
+                self._x_m_y_p_z_p_proc = self._x_m_y_p_proc
 
         if self._x_p_y_m_z_m_proc is None:
             if self._x_p_proc == rank:
-                if self._y_m_proc == rank:
-                    self._x_p_y_m_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_p_y_m_z_m_proc = self._y_m_proc
+                self._x_p_y_m_z_m_proc = self._y_m_z_m_proc
             elif self._y_m_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_m_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_p_y_m_z_m_proc = self._x_p_proc
+                self._x_p_y_m_z_m_proc = self._x_p_z_m_proc
             elif self._z_m_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_m_z_m_proc = self._y_m_proc
-                elif self._y_m_proc == rank:
-                    self._x_p_y_m_z_m_proc = self._x_p_proc
+                self._x_p_y_m_z_m_proc = self._x_p_y_m_proc
 
         if self._x_p_y_m_z_p_proc is None:
             if self._x_p_proc == rank:
-                if self._y_m_proc == rank:
-                    self._x_p_y_m_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_p_y_m_z_p_proc = self._y_m_proc
+                self._x_p_y_m_z_p_proc = self._y_m_z_p_proc
             elif self._y_m_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_m_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_p_y_m_z_p_proc = self._x_p_proc
+                self._x_p_y_m_z_p_proc = self._x_p_z_p_proc
             elif self._z_p_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_m_z_p_proc = self._y_m_proc
-                elif self._y_m_proc == rank:
-                    self._x_p_y_m_z_p_proc = self._x_p_proc
+                self._x_p_y_m_z_p_proc = self._x_p_y_m_proc
 
         if self._x_p_y_p_z_m_proc is None:
             if self._x_p_proc == rank:
-                if self._y_p_proc == rank:
-                    self._x_p_y_p_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_p_y_p_z_m_proc = self._y_p_proc
+                self._x_p_y_p_z_m_proc = self._y_p_z_m_proc
             elif self._y_p_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_p_z_m_proc = self._z_m_proc
-                elif self._z_m_proc == rank:
-                    self._x_p_y_p_z_m_proc = self._x_p_proc
+                self._x_p_y_p_z_m_proc = self._x_p_z_m_proc
             elif self._z_m_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_p_z_m_proc = self._y_p_proc
-                elif self._y_p_proc == rank:
-                    self._x_p_y_p_z_m_proc = self._x_p_proc
+                self._x_p_y_p_z_m_proc = self._x_p_y_p_proc
 
         if self._x_p_y_p_z_p_proc is None:
             if self._x_p_proc == rank:
-                if self._y_p_proc == rank:
-                    self._x_p_y_p_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_p_y_p_z_p_proc = self._y_p_proc
+                self._x_p_y_p_z_p_proc = self._y_p_z_p_proc
             elif self._y_p_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_p_z_p_proc = self._z_p_proc
-                elif self._z_p_proc == rank:
-                    self._x_p_y_p_z_p_proc = self._x_p_proc
+                self._x_p_y_p_z_p_proc = self._x_p_z_p_proc
             elif self._z_p_proc == rank:
-                if self._x_p_proc == rank:
-                    self._x_p_y_p_z_p_proc = self._y_p_proc
-                elif self._y_p_proc == rank:
-                    self._x_p_y_p_z_p_proc = self._x_p_proc
+                self._x_p_y_p_z_p_proc = self._x_p_y_p_proc
 
     @profile
     def _communicate_boxes(self):
