@@ -21,11 +21,6 @@ Field solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
-.. automodule:: struphy.propagators.adiabatic_phi
-    :members:
-    :exclude-members: options, allocate
-    :show-inheritance:
-
 Linear MHD solvers
 ^^^^^^^^^^^^^^^^^^
 

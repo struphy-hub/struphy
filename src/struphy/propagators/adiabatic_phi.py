@@ -61,7 +61,20 @@ class AdiabaticPhi(Propagator):
 
     **params : dict
         Parameters for the iterative solver (see ``__init__`` for details).
+
+    Note
+    ----
+    Not available: this propagator has not been ported to the current Propagator API
+    (``Variables``, ``Options`` and ``allocate`` are missing, and ``__call__`` relies on
+    attributes and methods that no longer exist).
     """
+
+    def __new__(cls, *args, **kwargs):
+        raise NotImplementedError(
+            "AdiabaticPhi has not been ported to the current Propagator API "
+            "(missing Variables, Options and allocate; __call__ uses the non-existent "
+            "'_lin_solver' and 'feec_vars_update')."
+        )
 
     def __init__(
         self,
