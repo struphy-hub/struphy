@@ -149,6 +149,17 @@ def make_arguments(n_markers: int, seed: int = 0):
     return args_markers, args_domain
 
 
+def kernel_args(dt: float, stage: int, args_markers, args_domain) -> tuple:
+    """Kernel arguments in the format of the kernel of the active backend (built once, before the calls).
+
+    For CUDA, the flat tuple of a ``cupy.RawKernel``: NumPy scalars with the C types of the signature
+    followed by the flattened argument classes.
+    """
+    if not is_cuda_backend():
+        return dt, stage, args_markers, args_domain
+    return np.float64(dt), np.int32(stage), *args_markers.values, *args_domain.values
+
+
 def expected_push(markers, valid_mks, dt, n_steps=1):
     out = markers.copy()
     for _ in range(n_steps):
@@ -182,8 +193,9 @@ def test_push_eta_linear(kernel, backend, n_markers):
         markers = args_markers.markers
         valid = cunumpy.to_numpy(args_markers.valid_mks)
         before = cunumpy.to_numpy(markers).copy()
+        args = kernel_args(dt, 0, args_markers, args_domain)
 
-        kernel(dt, 0, args_markers, args_domain)
+        kernel(*args, n_threads=n_markers)
 
         after = cunumpy.to_numpy(markers)
         assert np.allclose(after, expected_push(before, valid, dt), rtol=1e-14, atol=0.0)
@@ -200,8 +212,9 @@ def test_pyccel_cuda_agree(kernel):
             args_markers, args_domain = make_arguments(n_markers, seed=1)
             if backend == "numpy":
                 expected = expected_push(args_markers.markers, args_markers.valid_mks, dt, n_steps)
+            args = kernel_args(dt, 0, args_markers, args_domain)
             for _ in range(n_steps):
-                kernel(dt, 0, args_markers, args_domain)
+                kernel(*args, n_threads=n_markers)
             results[backend] = cunumpy.to_numpy(args_markers.markers)
 
     # not bitwise equal: nvcc contracts x + dt * v into fused multiply-adds by default
@@ -216,9 +229,10 @@ def test_cuda_kernel_updates_device_array_in_place(kernel):
         args_markers, args_domain = make_arguments(1000)
         markers = args_markers.markers
         ptr = markers.data.ptr
+        args = kernel_args(0.1, 0, args_markers, args_domain)
 
         for _ in range(10):
-            kernel(0.1, 0, args_markers, args_domain)
+            kernel(*args, n_threads=1000)
 
         assert args_markers.markers is markers
         assert markers.data.ptr == ptr
@@ -227,11 +241,11 @@ def test_cuda_kernel_updates_device_array_in_place(kernel):
 
 @requires_cupy
 def test_cuda_scalar_arguments():
-    """Python scalars and the flattened argument classes arrive in the CUDA kernel with the right types and order."""
+    """The scalars and the flattened argument classes arrive in the CUDA kernel with the right types and order."""
     write_scalars = CudaKernel(WRITE_SCALARS_SRC, "write_scalars")
     with cunumpy.use_backend("cupy"):
         args_markers, args_domain = make_arguments(10)
-        write_scalars(0.25, 3, args_markers, args_domain)
+        write_scalars(*kernel_args(0.25, 3, args_markers, args_domain), n_threads=10)
 
         row = cunumpy.to_numpy(args_markers.markers)[0, :6]
         first_pusher_idx, mu_idx = MARKER_INDICES[3], MARKER_INDICES[7]
@@ -274,13 +288,22 @@ def test_cuda_arguments_reject_host_and_bad_arrays():
 
 
 @requires_cupy
-def test_cuda_kernel_rejects_pyccel_arguments(kernel):
-    """Passing the pyccel argument classes to the CUDA kernel fails instead of copying."""
+def test_cuda_kernel_does_not_convert_arguments(kernel):
+    """Arguments are passed to the RawKernel as they are: host data or the argument objects themselves fail."""
     with cunumpy.use_backend("numpy"):
         host_markers, host_domain = make_arguments(10)
     with cunumpy.use_backend("cupy"):
         cuda_markers, cuda_domain = make_arguments(10)
-        with pytest.raises(ValueError, match="CudaMarkerArguments"):
-            kernel(0.1, 0, host_markers, cuda_domain)
         with pytest.raises(TypeError):
-            kernel(0.1, 0, cuda_markers, host_domain)
+            kernel(np.float64(0.1), np.int32(0), cuda_markers, cuda_domain, n_threads=10)
+        with pytest.raises(TypeError):
+            kernel(
+                np.float64(0.1),
+                np.int32(0),
+                host_markers.markers,
+                *cuda_markers.values[1:],
+                *cuda_domain.values,
+                n_threads=10,
+            )
+        with pytest.raises(ValueError, match="n_threads"):
+            kernel(*kernel_args(0.1, 0, cuda_markers, cuda_domain))
