@@ -60,6 +60,21 @@ def test_mass_ops_estimate_mem_matches_allocation(derham):
     assert mass_ops.estimate_mem(names=("M1",))["M1"] == allocated["M1"]
 
 
+def test_mass_ops_estimate_mem_leaves_no_dry_run_pieces(derham):
+    """Composite operators (M1perp = M1 - M1para) create several dry-run operators; none of
+    them may stay in the cache, even if the estimate itself fails."""
+    mass_ops = WeightedMassOperators(derham, domains.Cuboid())
+    attrs_before = set(vars(mass_ops))
+
+    # a sum of mass operators has no nbytes (yet)
+    with pytest.raises(AttributeError):
+        mass_ops.estimate_mem(names=("M1perp",))
+
+    assert set(vars(mass_ops)) == attrs_before
+    assert mass_ops.allocated_mem() == {}
+    assert not mass_ops.dry_run
+
+
 def test_mass_ops_zero_blocks_are_not_counted(derham):
     """On a Cartesian domain the metric is diagonal, so M1 must be a 3x3 block matrix with
     only 3 non-zero blocks -- the estimate has to see that, too."""
