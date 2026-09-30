@@ -188,6 +188,31 @@ def test_prepare_arg():
     assert Domain.prepare_arg([A1, A2, A3], markers).shape == shape_vector
 
 
+@pytest.mark.parametrize("sfl, pol_period", [(False, 1), (False, 2), (True, 1)])
+def test_hollow_torus_inverse_map(sfl, pol_period):
+    """HollowTorus.inverse_map must invert the mapping, also on the midplane z = 0."""
+
+    import cunumpy as xp
+
+    from struphy.geometry.domains import HollowTorus
+
+    domain = HollowTorus(sfl=sfl, pol_period=pol_period)
+
+    xp.random.seed(1234)
+    etas = xp.random.rand(50, 3)
+    # eta2 = 0 and eta2 = 0.5 lie on the midplane
+    etas[:10, 1] = 0.0
+    etas[10:20, 1] = 0.5
+
+    x, y, z = domain(etas, remove_outside=False)
+    e1, e2, e3 = domain.inverse_map(x, y, z)
+
+    assert xp.allclose(domain(xp.stack([e1, e2, e3], axis=1), remove_outside=False), xp.stack([x, y, z]))
+    assert xp.allclose(e1, etas[:, 0])
+    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[:, 1]), 1 - xp.abs(e2 - etas[:, 1])), 0.0)
+    assert xp.allclose(e3, etas[:, 2])
+
+
 @pytest.mark.parametrize(
     "mapping",
     [
