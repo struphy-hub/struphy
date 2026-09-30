@@ -669,7 +669,7 @@ class VariationalQBEvolve(Propagator):
         qn12 += qn1
         qn12 *= 0.5
         if self._linearize:
-            wq = self.mass_ops.M3.dot(qn12 - self._extracted_q2, out=self._linear_form_dl_dq)
+            wq = self.mass_ops.M3.dot(qn12 - self._extracted_q3, out=self._linear_form_dl_dq)
         else:
             wq = self.mass_ops.M3.dot(qn12, out=self._linear_form_dl_dq)
         wq *= -2 / (self._gamma - 1)
