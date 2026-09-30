@@ -227,7 +227,7 @@ def test_cuda_kernel_updates_device_array_in_place(kernel):
 
 @requires_cupy
 def test_cuda_scalar_arguments():
-    """Python scalars and the flattened argument classes arrive in the CUDA kernel with the right types and order."""
+    """Python scalars (not cast) and the flattened argument classes arrive in the CUDA kernel correctly and in order."""
     write_scalars = CudaKernel(WRITE_SCALARS_SRC, "write_scalars")
     with cunumpy.use_backend("cupy"):
         args_markers, args_domain = make_arguments(10)

@@ -45,7 +45,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 
 | File | Content |
 |---|---|
-| `src/struphy/utils/kernel_backends.py` | `is_cuda_backend()`, `CudaKernel` (wraps a `cupy.RawKernel`, compiled lazily; flattens the argument classes and casts Python scalars at each call, takes `n_threads`), `Kernel` (pyccel/CUDA pair, `get_kernel()` picks by backend) |
+| `src/struphy/utils/kernel_backends.py` | `is_cuda_backend()`, `CudaKernel` (wraps a `cupy.RawKernel`, compiled lazily; replaces the argument classes by their `values` at each call, takes `n_threads`), `Kernel` (pyccel/CUDA pair, `get_kernel()` picks by backend) |
 | `src/struphy/utils/cuda_arguments.py` | `CudaMarkerArguments`, `CudaDomainArguments`: same constructor arguments as the pyccel classes, hold CuPy arrays, flatten them into the CUDA kernel arguments |
 | `src/struphy/pic/tests/test_kernel_backends.py` | the demo kernel pair `push_eta_linear` (pyccel function compiled with `epyccel` at test time, CUDA source string) and tests on both backends |
 
@@ -54,7 +54,8 @@ Things we learned in the proof of concept:
 - The pyccel-compiled argument classes (`MarkerArguments`, `DomainArguments`, `DerhamArguments`) hold references to their owner's arrays, but only accept **NumPy** arrays. Hence the CUDA counterparts in `cuda_arguments.py`.
 - Today, `Particles` builds `args_markers` from `_to_numpy_for_kernel(self.markers)`, i.e. from a **host copy** when the backend is CuPy. The same holds for `Domain` and `Derham`.
 - `Particles6D` and `Derham` cannot be created on the CuPy backend yet (PR 6, PR 7). `Domain` (e.g. `Cuboid`) can, and all its arrays are already CuPy arrays.
-- `cupy.RawKernel` accepts only device arrays (host arrays raise) and does **not** check the kernel signature. Python `int`s are passed as 64-bit integers, so `CudaKernel` casts Python scalars to the C types of the signature (`int` → `np.int32`, `float` → `np.float64`) and flattens the argument classes at each call. This costs about 1 µs per call, compared to about 70 µs for launching the kernel; arrays are never converted.
+- `cupy.RawKernel` accepts only device arrays (host arrays raise) and does **not** check the kernel signature. Each argument is read with the size declared in the signature, so Python `int`/`float` arrive correctly in `int`/`double` parameters, but a wrongly typed scalar (e.g. an integer for a `double`, or a value that overflows an `int`) gives a wrong value **without an error**. Casting Python scalars in `CudaKernel` does not prevent this, so it is not done; see the follow-up in [Open questions](#open-questions).
+- Flattening the argument classes at each call (joining their `values`) costs well under 1 µs, compared to about 70 µs for launching the kernel.
 - `struphy compile` compiles every `.py` file whose name contains `kernels`. Non-pyccel modules must not contain `kernels` in their name; `.cu` files are ignored by it.
 - On an H100, the demo kernel pushes 10⁶ markers in about 0.13 ms per step.
 
@@ -178,6 +179,8 @@ Port the kernels in the order the target models need them, so that complete mode
 - Regression tests on the CPU (`pic/tests/test_pushers.py`, `pic/tests/test_kernel_setup.py`, ...) must pass in every PR.
 
 ## Open questions
+
+- **Scalar types.** Scalars are not checked against the kernel signature (see [Current state](#current-state-pr-1)). `CudaKernel` could read the parameter types from the `extern "C"` signature once, when it is created, and cast each scalar to its declared type or raise if it does not fit (e.g. a Python `float` for an `int`, or an overflowing integer). This could go together with PR 8.
 
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here.
 - **MPI + GPUs.** One GPU per MPI rank (`cunumpy.set_device(rank % n_gpus)`), and GPU-aware MPI for the marker exchange, so markers do not go through the host.

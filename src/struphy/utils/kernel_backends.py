@@ -10,7 +10,6 @@ the number of threads ``n_threads``. No arrays are converted or copied at call t
 
 import math
 
-import numpy as np
 from cunumpy import PyccelKernel
 from cunumpy.xp import array_backend
 
@@ -29,11 +28,10 @@ def is_cuda_backend() -> bool:
 class CudaKernel:
     """A ``cupy.RawKernel``, the CUDA counterpart of a pyccel kernel.
 
-    The kernel is compiled on the first call. The arguments are flattened into the arguments of the
-    ``cupy.RawKernel`` at each call: the CUDA argument classes are replaced by their ``values``, and
-    Python scalars are cast to the C types of the kernel signature (``bool`` -> ``bool``, ``int`` -> ``int``,
-    ``float`` -> ``double``). This costs about a microsecond per call. Arrays are passed as they are and
-    must be CuPy arrays (``cupy`` raises otherwise); they are never converted or copied.
+    The kernel is compiled on the first call. At each call, the CUDA argument classes are replaced by their
+    ``values``; all other arguments are passed to the ``cupy.RawKernel`` as they are. Arrays must be CuPy
+    arrays (``cupy`` raises otherwise); they are never converted or copied. Python ``int`` and ``float``
+    arrive correctly in ``int`` and ``double`` parameters; scalars are not checked against the kernel signature.
 
     Parameters
     ----------
@@ -74,12 +72,6 @@ class CudaKernel:
         for arg in args:
             if hasattr(arg, "values"):
                 values += arg.values
-            elif isinstance(arg, bool):
-                values.append(np.bool_(arg))
-            elif isinstance(arg, int):
-                values.append(np.int32(arg))
-            elif isinstance(arg, float):
-                values.append(np.float64(arg))
             else:
                 values.append(arg)
 
