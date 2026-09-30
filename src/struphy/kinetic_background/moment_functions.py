@@ -41,7 +41,7 @@ class ITPA_density:
         val = 0.0
 
         if self._c[2] == 0.0:
-            val = self._c[3] - 0 * eta1
+            val = self._n0 * self._c[3] - 0 * eta1
         else:
             val = (
                 self._n0
