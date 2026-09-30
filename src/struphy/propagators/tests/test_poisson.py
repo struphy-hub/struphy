@@ -429,6 +429,67 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     assert error < 0.0086
 
 
+def test_poisson_accum_full_f_background_1d():
+    """Full-f accumulator: the neutralising background must enter the rhs as (n0, Lambda^0)_L2 (issue #427)."""
+    from types import SimpleNamespace
+
+    from feectools.linalg.stencil import StencilVector
+
+    domain = domains.Cuboid(l1=0.0, r1=4.0, l2=0.0, r2=2.0, l3=0.0, r3=3.0)
+    derham = Derham(TensorProductGrid(num_elements=(16, 1, 1)), DerhamOptions(degree=(2, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    # neutral plasma: f = f0
+    backgr = Maxwellian3D(n=(1.0, None))
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=(derham.domain_array, derham.domain_decomposition.nprocs),
+        loading_params=LoadingParameters(ppc=1000, seed=765),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(),
+        domain=domain,
+        background=backgr,
+        initial_condition=Maxwellian3D(n=(1.0, None)),
+    )
+    particles.draw_markers()
+    particles.initialize_weights()
+
+    pic_var = PICVariable(space="Particles6D")
+    pic_var._particles = particles
+    pic_var._species = SimpleNamespace(charge_number=1)
+    rho = ParticlesToGrid(pic_var, "H1", PyccelKernel(charge_density_0form))
+
+    _phi = FEECVariable(space="H1")
+    _phi.allocate(derham=derham, domain=domain)
+
+    poisson_solver = PoissonSolve(rho=rho)
+    poisson_solver.variables.phi = _phi
+    poisson_solver.options = poisson_solver.Options(
+        stab_eps=1e-6,
+        solver="pcg",
+        precond="MassMatrixPreconditioner",
+        solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
+    )
+    poisson_solver.allocate()
+
+    # background source equals the L2 dofs of -n0 (no additional mass matrix)
+    bg = poisson_solver.sources[1]
+    assert isinstance(bg, StencilVector)
+    expected = L2Projector("H1", mass_ops).get_dofs(lambda e1, e2, e3: -backgr.n(e1, e2, e3), apply_bc=True)
+    assert xp.allclose(bg.toarray(), expected.toarray())
+
+    # neutral plasma gives (almost) zero potential
+    poisson_solver(1.0)
+    e1 = xp.linspace(0.0, 1.0, 50)
+    num_values = domain.push(_phi.spline, e1, 0.0, 0.0, kind="0")
+    logger.info(f"{xp.max(xp.abs(num_values))=}")
+    assert xp.max(xp.abs(num_values)) < 0.1
+
+
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("num_elements", [[64, 64, 1]])
 @pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
