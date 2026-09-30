@@ -1379,6 +1379,45 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     logger.info("BasisProjectionOperatorLocal test passed.")
 
 
+@pytest.mark.parametrize("transposed", [False, True])
+@pytest.mark.parametrize("out_sp_key, in_sp_key", [("0", "0"), ("0", "1"), ("1", "0")])
+def test_basis_projection_operator_local_update_weights(out_sp_key, in_sp_key, transposed):
+    """After update_weights, dot must match a freshly built operator with the new weights."""
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=[6, 4, 1])
+    derham_opts = DerhamOptions(degree=[2, 2, 1], bcs=(None, None, None), local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
+
+    def f1(e1, e2, e3):
+        return 1.0 + 0.0 * e1
+
+    def f2(e1, e2, e3):
+        return xp.sin(2.0 * xp.pi * e1) + xp.cos(2.0 * xp.pi * e2) + 2.0
+
+    def weights(f):
+        if out_sp_key == "1":
+            return [[f], [f], [f]]
+        elif in_sp_key == "1":
+            return [[f, f, f]]
+        return [[f]]
+
+    P = derham.projectors[out_sp_key]
+    V = derham.fem_spaces[in_sp_key]
+
+    op = BasisProjectionOperatorLocal(P, V, weights(f1), transposed=transposed)
+    op_ref = BasisProjectionOperatorLocal(P, V, weights(f2), transposed=transposed)
+    op.update_weights(weights(f2))
+
+    v = op.domain.zeros()
+    rng = xp.random.default_rng(0)
+    for block in v.blocks if hasattr(v, "blocks") else [v]:
+        block._data[:] = rng.random(block._data.shape)
+    v.update_ghost_regions()
+
+    assert xp.allclose(op.dot(v).toarray(), op_ref.dot(v).toarray(), atol=1e-13, rtol=0.0)
+
+
 # Works only in one processor
 def aux_test_spline_evaluation(num_elements, plist, bcs):
     # get global communicator

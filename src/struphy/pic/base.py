@@ -1180,7 +1180,7 @@ class Particles(metaclass=ABCMeta):
         logger.debug(f"{'mpi_dims_mask:':<25}{self.mpi_dims_mask}")
 
         if self.loading == "external":
-            self._load_external()
+            self._load_external(n_mks_load_loc, n_mks_load_cum_sum)
         elif self.loading == "restart":
             self._load_restart()
         elif self.loading == "tesselation":
@@ -1233,10 +1233,17 @@ class Particles(metaclass=ABCMeta):
                 # make sure all particles are loaded
                 assert self.Np == int(num_loaded_particles_glob), f"{self.Np =}, {int(num_loaded_particles_glob) =}"
 
-                # set new n_mks_load
+                # set new n_mks_load and Np_per_clone
                 self.gather_scalar_in_subcomm_array(num_loaded_particles_loc, out=self.n_mks_load)
+                self.gather_scalar_in_intercomm_array(int(xp.sum(self.n_mks_load)), out=self.Np_per_clone)
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
                 n_mks_load_cum_sum = xp.cumsum(self.n_mks_load)
+
+                # recompute first marker ID from the actual number of loaded markers
+                Np_per_clone_cum_sum = xp.cumsum(self.Np_per_clone)
+                _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (
+                    n_mks_load_cum_sum - self.n_mks_load
+                )[self._mpi_rank]
 
                 # set new holes in markers array to -1
                 self._markers[num_loaded_particles_loc:] = -1.0
@@ -1256,16 +1263,20 @@ class Particles(metaclass=ABCMeta):
                     '"sobol_antithetic" requires vdim=3 at the moment.',
                 )
 
+                # each sobol point yields 64 symmetric markers; round up and truncate the last group
+                n_sobol = -(-self.n_mks_load // 64)
                 temp_markers = sobol_seq.i4_sobol_generate(
                     3 + self.vdim,
-                    n_mks_load_loc // 64,
-                    1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] // 64,
+                    n_sobol[self._mpi_rank],
+                    1000 + (xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank],
                 )
 
+                temp_symmetric = xp.zeros((64 * n_sobol[self._mpi_rank], 3 + self.vdim), dtype=float)
                 sampling_kernels.set_particles_symmetric_3d_3v(
                     temp_markers,
-                    self.markers,
+                    temp_symmetric,
                 )
+                self._markers[:n_mks_load_loc, : 3 + self.vdim] = temp_symmetric[:n_mks_load_loc]
 
             # 4. Wrong specification
             else:
