@@ -938,8 +938,7 @@ def kernel_3d_diag(
     starts1, starts2, starts3 : int
         Starting index on the current rank, in direction 1, 2 and 3.
     pads1, pads2, pads3 : int
-        Padding (=spline degree) for ghost regions, in direction 1, 2 and 3 (unused for data, which is a
-        StencilDiagonalMatrix and therefore has no padding, but kept for a uniform kernel signature).
+        Padding (=spline degree) for ghost regions, in direction 1, 2 and 3.
     w1, w2, w3 : "float[:,:]"
         Quadrature weights in direction 1, 2 and 3. The indexing is [global element, quadrature point].
     bi1, bi2, bi3 : "float[:,:,:,:]"
@@ -949,8 +948,9 @@ def kernel_3d_diag(
         Function under the integral evaluated at quadrature points (flattened in each direction).
         The indexing is [flattened quad. point dir. 1, flattened quad. point dir. 2, flattened quad. point dir. 3].
     data : "float[:,:,:]"
-        _data array of StencilDiagonalMatrix to store the results. Periodic wrap-around (index -= nb) is applied
-        when a local index runs beyond the array bounds, since there are no ghost regions on this matrix type.
+        _data array of a StencilVector (with ghost regions) to store the results. Contributions to entries owned
+        by other processes (or periodic images) are written to the ghost regions and must be added to their
+        owners afterwards with exchange_assembly_data().
     """
 
     ne1 = spans1.size
@@ -960,8 +960,6 @@ def kernel_3d_diag(
     nq1 = shape(w1)[1]
     nq2 = shape(w2)[1]
     nq3 = shape(w3)[1]
-
-    nb1, nb2, nb3 = data.shape
 
     tmp_bi1 = np.zeros(nq1)
     tmp_bi2 = np.zeros(nq2)
@@ -999,19 +997,9 @@ def kernel_3d_diag(
                             i_global3 = spans3[iel3] - pi3 + il3
 
                             # local spline indices (- starts --> can be negative, will therefore be written to ghost regions)
-                            i_local1 = i_global1 - starts1
-                            i_local2 = i_global2 - starts2
-                            i_local3 = i_global3 - starts3
-
-                            # Periodic case : last basis function are the first ones (no ghost regions on DiagonalStencilMatrix)
-                            if i_local1 >= nb1:
-                                i_local1 -= nb1
-
-                            if i_local2 >= nb2:
-                                i_local2 -= nb2
-
-                            if i_local3 >= nb3:
-                                i_local3 -= nb3
+                            i_local1 = i_global1 - starts1 + pads1
+                            i_local2 = i_global2 - starts2 + pads2
+                            i_local3 = i_global3 - starts3 + pads3
 
                             value = 0.0
 
@@ -1024,7 +1012,6 @@ def kernel_3d_diag(
 
                                         value += wvol * bi * bi
 
-                            # No padding on StencilDiagonalMatrix
                             data[i_local1, i_local2, i_local3] += value
 
 
