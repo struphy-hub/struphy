@@ -52,6 +52,28 @@ def test_domain_pickle_roundtrip(mapping):
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
 
+def test_spline_default():
+    """Spline() with default arguments should use the control points of the default GVEC equilibrium."""
+
+    pytest.importorskip("gvec")
+
+    import cunumpy as xp
+
+    from struphy.fields_background.equils import GVECequilibrium
+    from struphy.geometry.base import Spline
+
+    domain = Spline()
+    ref = GVECequilibrium().domain
+
+    assert xp.allclose(domain.cx, ref.cx)
+    assert xp.allclose(domain.cy, ref.cy)
+    assert xp.allclose(domain.cz, ref.cz)
+
+    markers = xp.array([[0.3, 0.5, 0.7]])
+    assert xp.allclose(domain(markers), ref(markers))
+    assert xp.allclose(domain.jacobian_det(markers), ref.jacobian_det(markers))
+
+
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
