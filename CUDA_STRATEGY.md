@@ -110,7 +110,7 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
   ```
 
 - The error should come as early as possible: propagators/pushers call `get_kernel()` when they are set up, not only at the first time step. Then a GPU run fails right away instead of after the initialization.
-- A small overview, e.g. `struphy compile --status` also printing "CUDA kernels: 3 of 60", helps to see what is left to port.
+- `catalog.missing_cuda` lists the kernels without a CUDA version. Later, a small overview, e.g. `struphy compile --status` also printing "CUDA kernels: 3 of 60", helps to see what is left to port.
 
 ### PR 4: `Pusher` and propagators use `Kernel`
 
