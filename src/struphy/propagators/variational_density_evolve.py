@@ -537,6 +537,10 @@ class VariationalDensityEvolve(Propagator):
         self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
 
         if self._model == "barotropic":
+            # discrete gradient of rho*U(rho) = rho**2/2: (rho^n + rho^{n+1})/2
+            self.rhof.vector = rhon
+            self.rhof1.vector = rhon1
+
             rhof_values = self.rhof.eval_tp_fixed_loc(
                 self.integration_grid_spans,
                 self.integration_grid_bd,
