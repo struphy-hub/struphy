@@ -1442,6 +1442,49 @@ def test_average_operator_transpose(bcs):
         assert xp.isclose(lhs, rhs, rtol=1e-12, atol=0.0)
 
 
+@pytest.mark.parametrize("dim_reduce", [0, 1, 2])
+def test_mass_preconditioner_array_weights_mpi(dim_reduce):
+    """Preconditioner with array weights must not depend on the MPI decomposition
+    (num_elements not divisible by the number of processes)."""
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy.feec.mass import WeightedMassOperator
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    grid = TensorProductGrid(num_elements=[7, 5, 4])
+    derham_opts = DerhamOptions(degree=[2, 2, 1], bcs=(None, None, None))
+
+    out = []
+    for comm in (MPI.COMM_WORLD, None):
+        derham = Derham(grid, derham_opts, comm=comm)
+        pts = [p.flatten() for p in derham.spline_attributes["H1"].quad_grid_pts[0]]
+        e1, e2, e3 = xp.meshgrid(*pts, indexing="ij")
+        weight = 1.0 + e1 + 2.0 * e2**2 + 3.0 * e3**3 + e1 * e2 * e3
+
+        M = WeightedMassOperator(
+            derham,
+            derham.V0fem,
+            derham.V0fem,
+            V_boundary_op=derham.boundary_ops["0"],
+            W_boundary_op=derham.boundary_ops["0"],
+            weights_info=[[weight]],
+        )
+        M.assemble()
+
+        _, v = create_equal_random_arrays(derham.V0fem, seed=1234)
+        out += [MassMatrixPreconditioner(M, dim_reduce=dim_reduce).dot(v)]
+
+    s, e = out[0].space.starts, out[0].space.ends
+    sl = tuple(slice(si, ei + 1) for si, ei in zip(s, e))
+    assert xp.allclose(out[0][sl], out[1][sl], rtol=1e-12, atol=1e-14)
+
+
 if __name__ == "__main__":
     # test_mass(
     #    num_elements=(32, 32, 32),
