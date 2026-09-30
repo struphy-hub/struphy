@@ -285,9 +285,9 @@ class ImplicitDiffusion(Propagator):
                 if not rhs.particles.control_variate and rhs.space_id == "H1":
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
                     f0e = -rho.pic_variable.species.charge_number * rhs.particles.f0
-                    rho_eh = FEECVariable(space="H1")
-                    rho_eh.allocate(derham=Propagator.derham, domain=Propagator.domain)
-                    rho_eh.spline.vector = l2_proj.get_dofs(f0e.n)
+                    # neutralising background: get_dofs already returns (n0, Lambda^0)_L2,
+                    # i.e. the weak-form rhs, so it is added as a StencilVector (no extra M0)
+                    rho_eh = l2_proj.get_dofs(f0e.n, apply_bc=True)
                     return [rhs, rho_eh]
 
             elif isinstance(rho, Callable):
