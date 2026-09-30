@@ -11,12 +11,17 @@ import pytest
 
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
     Output,
+    SavingParameters,
     Simulation,
     Time,
+    domains,
     equils,
+    grids,
     maxwellians,
     perturbations,
 )
@@ -391,3 +396,34 @@ def test_processing_from_moved_output(tmp_path):
     assert Output(moved).time_opts.dt == 0.123
     assert processor.pproc(create_vtk=False)
     assert is_processed(moved)
+
+
+@pytest.mark.parametrize("n_markers", [0, 1e-6])
+def test_kinetic_run_without_saved_markers_runs_and_processes(tmp_path, n_markers):
+    model = VlasovAmpereOneSpecies(with_B0=False)
+    binplot = BinningPlot(slice="e1_v1", n_bins=(8, 8), ranges=((0.0, 1.0), (-5.0, 5.0)))
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=5, seed=1234),
+        saving_params=SavingParameters(n_markers=n_markers, binning_plots=(binplot,)),
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+    model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
+        time_opts=Time(dt=0.05, Tend=0.05),
+        domain=domains.Cuboid(r1=12.56),
+        grid=grids.TensorProductGrid(num_elements=(8, 1, 1)),
+        derham_opts=DerhamOptions(degree=(2, 1, 1)),
+    )
+    sim.run()
+
+    with h5py.File(os.path.join(sim.env.path_out, "data", "data_proc0.hdf5"), "r") as data:
+        assert "markers" not in data["kinetic/kinetic_ions"]
+
+    out = Output(sim.env.path_out)
+    assert out.pproc(create_vtk=False)
+    assert "kinetic_ions" not in out.orbit_catalog
+    assert np.asarray(out.evaluate("kinetic_ions/f")).shape == (2, 8, 8)
