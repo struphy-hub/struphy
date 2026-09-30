@@ -34,7 +34,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 
 ## Principles
 
-- **1:1 correspondence.** Each CUDA kernel has the same name and the same arguments (in the same order) as its pyccel kernel. For the CUDA kernel, the argument classes are flattened (`CudaMarkerArguments.values` etc.), and the caller also passes the number of threads (`n_threads`).
+- **1:1 correspondence.** Each CUDA kernel has the same name and the same arguments (in the same order) as its pyccel kernel. The CUDA kernel takes the CUDA versions of the argument classes, plus the number of threads (`n_threads`).
 - **The backend decides.** The cunumpy backend (`ARRAY_BACKEND=cupy` or `cunumpy.set_backend("cupy")`) selects the CUDA kernels; with NumPy the pyccel kernels run as today.
 - **No conversions at call time.** When a kernel is called, its arguments are already in the right format. There are no host/device copies per kernel call.
 - **Data already lives on the GPU.** On the CuPy backend, `xp` is `cupy`, so markers, spline coefficients etc. are CuPy arrays from the start. The CUDA argument objects only collect *references* to these arrays and raise if they get host arrays.
@@ -45,7 +45,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 
 | File | Content |
 |---|---|
-| `src/struphy/utils/kernel_backends.py` | `is_cuda_backend()`, `CudaKernel` (wraps a `cupy.RawKernel`, compiled lazily; arguments are passed as they are, plus `n_threads`), `Kernel` (pyccel/CUDA pair, `get_kernel()` picks by backend) |
+| `src/struphy/utils/kernel_backends.py` | `is_cuda_backend()`, `CudaKernel` (wraps a `cupy.RawKernel`, compiled lazily; flattens the argument classes and casts Python scalars at each call, takes `n_threads`), `Kernel` (pyccel/CUDA pair, `get_kernel()` picks by backend) |
 | `src/struphy/utils/cuda_arguments.py` | `CudaMarkerArguments`, `CudaDomainArguments`: same constructor arguments as the pyccel classes, hold CuPy arrays, flatten them into the CUDA kernel arguments |
 | `src/struphy/pic/tests/test_kernel_backends.py` | the demo kernel pair `push_eta_linear` (pyccel function compiled with `epyccel` at test time, CUDA source string) and tests on both backends |
 
@@ -54,7 +54,7 @@ Things we learned in the proof of concept:
 - The pyccel-compiled argument classes (`MarkerArguments`, `DomainArguments`, `DerhamArguments`) hold references to their owner's arrays, but only accept **NumPy** arrays. Hence the CUDA counterparts in `cuda_arguments.py`.
 - Today, `Particles` builds `args_markers` from `_to_numpy_for_kernel(self.markers)`, i.e. from a **host copy** when the backend is CuPy. The same holds for `Domain` and `Derham`.
 - `Particles6D` and `Derham` cannot be created on the CuPy backend yet (PR 6, PR 7). `Domain` (e.g. `Cuboid`) can, and all its arrays are already CuPy arrays.
-- `cupy.RawKernel` accepts only device arrays (host arrays raise) and does **not** check the kernel signature. Python `int`s are passed as 64-bit integers, so the caller passes NumPy scalars of the C type in the signature (`np.int32` for `int`, `np.float64` for `double`). `CudaKernel` does not convert anything; the flat argument tuple is built once, at setup.
+- `cupy.RawKernel` accepts only device arrays (host arrays raise) and does **not** check the kernel signature. Python `int`s are passed as 64-bit integers, so `CudaKernel` casts Python scalars to the C types of the signature (`int` → `np.int32`, `float` → `np.float64`) and flattens the argument classes at each call. This costs about 1 µs per call, compared to about 70 µs for launching the kernel; arrays are never converted.
 - `struphy compile` compiles every `.py` file whose name contains `kernels`. Non-pyccel modules must not contain `kernels` in their name; `.cu` files are ignored by it.
 - On an H100, the demo kernel pushes 10⁶ markers in about 0.13 ms per step.
 

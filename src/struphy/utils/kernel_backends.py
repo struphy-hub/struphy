@@ -3,16 +3,14 @@
 A :class:`Kernel` holds a pyccel kernel and its 1:1 corresponding CUDA kernel (:class:`CudaKernel`)
 and calls the one matching the active cunumpy backend, see :func:`is_cuda_backend`.
 
-The arguments must already be in the format of the kernel that is called; nothing is converted
-at call time. For the CUDA kernel, this is the flat tuple of a ``cupy.RawKernel``: CuPy arrays and
-NumPy scalars of the C types in the kernel signature (e.g. ``np.float64`` for ``double``,
-``np.int32`` for ``int``). The argument classes are flattened with
-:attr:`~struphy.utils.cuda_arguments.CudaMarkerArguments.values` etc. This tuple is meant to be
-built once, at setup, not before every call.
+Both kernels are called with the same arguments; the CUDA kernel takes the CUDA versions of the
+argument classes (:mod:`struphy.utils.cuda_arguments`), which reference arrays on the device, and
+the number of threads ``n_threads``. No arrays are converted or copied at call time.
 """
 
 import math
 
+import numpy as np
 from cunumpy import PyccelKernel
 from cunumpy.xp import array_backend
 
@@ -31,7 +29,11 @@ def is_cuda_backend() -> bool:
 class CudaKernel:
     """A ``cupy.RawKernel``, the CUDA counterpart of a pyccel kernel.
 
-    The kernel is compiled on the first call. Arguments are passed to the ``cupy.RawKernel`` as they are.
+    The kernel is compiled on the first call. The arguments are flattened into the arguments of the
+    ``cupy.RawKernel`` at each call: the CUDA argument classes are replaced by their ``values``, and
+    Python scalars are cast to the C types of the kernel signature (``bool`` -> ``bool``, ``int`` -> ``int``,
+    ``float`` -> ``double``). This costs about a microsecond per call. Arrays are passed as they are and
+    must be CuPy arrays (``cupy`` raises otherwise); they are never converted or copied.
 
     Parameters
     ----------
@@ -57,8 +59,8 @@ class CudaKernel:
         Parameters
         ----------
         *args
-            Kernel arguments in the format of a ``cupy.RawKernel``: CuPy arrays and NumPy scalars
-            with the C types of the kernel signature.
+            The arguments of the pyccel kernel, with the CUDA versions of the argument classes
+            (:mod:`struphy.utils.cuda_arguments`), CuPy arrays and Python or NumPy scalars.
 
         n_threads : int
             Number of threads to launch (e.g. number of markers); rounded up to a multiple of the block size.
@@ -68,8 +70,21 @@ class CudaKernel:
 
             self._raw_kernel = cp.RawKernel(self._source, self.name)
 
+        values = []
+        for arg in args:
+            if hasattr(arg, "values"):
+                values += arg.values
+            elif isinstance(arg, bool):
+                values.append(np.bool_(arg))
+            elif isinstance(arg, int):
+                values.append(np.int32(arg))
+            elif isinstance(arg, float):
+                values.append(np.float64(arg))
+            else:
+                values.append(arg)
+
         grid = (math.ceil(n_threads / self._block_size),)
-        self._raw_kernel(grid, (self._block_size,), args)
+        self._raw_kernel(grid, (self._block_size,), tuple(values))
 
 
 class Kernel:
@@ -98,7 +113,7 @@ class Kernel:
         Parameters
         ----------
         *args
-            Kernel arguments, already in the format of the kernel for the active backend.
+            Kernel arguments; on the CuPy backend with the CUDA versions of the argument classes.
 
         n_threads : int | None
             Number of CUDA threads; required on the CuPy backend, ignored on the NumPy backend.
