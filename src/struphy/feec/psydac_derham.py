@@ -2476,6 +2476,11 @@ class SplineFunction:
         if isinstance(self.perturbations, Perturbation):
             self._perturbations = [self.perturbations]
 
+        # fall back to domain/equilibrium given at instantiation
+        domain = self.domain
+        if equil is None:
+            equil = self.equil
+
         # start from zero coeffs
         self._vector *= 0.0
 
@@ -2631,15 +2636,57 @@ class SplineFunction:
 
     def initialize_coeffs_from_restart_file(self, file, key):
         """
-        TODO
+        Set self.vector from the restart data in the hdf5 file.
+
+        The restart data holds the tensor-product coefficients self.vector_stencil (E^T applied to self.vector).
+        In case of a PolarVector, the tp part is read from the outer rings and the polar coeffs are recovered
+        from the inner "polar rings" with the (exact) left inverse of E^T.
         """
-        if isinstance(self.vector, StencilVector):
-            self.vector._data[:] = file[key][-1]
+        is_polar = isinstance(self.vector, PolarVector)
+        vec = self._vector_stencil if is_polar else self._vector
+
+        if isinstance(vec, StencilVector):
+            vec._data[:] = file[key][-1]
         else:
             for n in range(3):
-                self.vector[n]._data[:] = file[key + "/" + str(n + 1)][-1]
+                vec[n]._data[:] = file[key + "/" + str(n + 1)][-1]
+
+        if is_polar:
+            self._restart_extraction_op().dot(vec, out=self._vector)
 
         self._vector.update_ghost_regions()
+
+    def _restart_extraction_op(self):
+        """PolarExtractionOperator mapping self.vector_stencil back to self.vector (left inverse of self.ET)."""
+        from scipy.sparse import csr_matrix
+
+        E = self.derham.extraction_ops[self.space_key]
+        W = self.vector.space
+        n_comps = W.n_comps
+
+        # stack blocks of E (polar coeffs x polar rings); incompatible blocks (None) are zero
+        rows = xp.cumsum([0] + list(W.n_polar))
+        cols = xp.cumsum([0] + [n_r * n_2 for n_r, n_2 in zip(W.n_rings, W.n2)])
+        E_full = xp.zeros((rows[-1], cols[-1]), dtype=float)
+        for m in range(n_comps):
+            for n in range(n_comps):
+                if E.blocks_ten_to_pol[m][n] is not None:
+                    E_full[rows[m] : rows[m + 1], cols[n] : cols[n + 1]] = E.blocks_ten_to_pol[m][n].toarray()
+
+        # E^T has full column rank, hence pinv(E^T) @ E^T = identity on polar coeffs
+        L_full = xp.linalg.pinv(E_full.T)
+
+        blocks = [
+            [
+                None
+                if E.blocks_ten_to_pol[m][n] is None
+                else csr_matrix(L_full[rows[m] : rows[m + 1], cols[n] : cols[n + 1]])
+                for n in range(n_comps)
+            ]
+            for m in range(n_comps)
+        ]
+
+        return PolarExtractionOperator(self.space, W, blocks_ten_to_pol=blocks)
 
     def eval_tp_fixed_loc(self, spans, bases, out=None):
         """Spline evaluation on pre-defined grid.
@@ -2693,9 +2740,11 @@ class SplineFunction:
                 assert [span.size for span in spans] == [base.shape[0] for base in bases[i]]
 
                 if out_is_none:
-                    out += xp.empty(
-                        [span.size for span in spans],
-                        dtype=float,
+                    out.append(
+                        xp.empty(
+                            [span.size for span in spans],
+                            dtype=float,
+                        ),
                     )
                 else:
                     assert out[i].shape == tuple(
