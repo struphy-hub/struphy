@@ -1180,7 +1180,7 @@ class Particles(metaclass=ABCMeta):
         logger.debug(f"{'mpi_dims_mask:':<25}{self.mpi_dims_mask}")
 
         if self.loading == "external":
-            self._load_external()
+            self._load_external(n_mks_load_loc, n_mks_load_cum_sum)
         elif self.loading == "restart":
             self._load_restart()
         elif self.loading == "tesselation":
