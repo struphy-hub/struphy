@@ -1,9 +1,8 @@
 name: PR - unit tests with MPI in Container
 
+# Started on PRs only on request: see .github/workflows/ci-command.yml (/activate-ci)
+# and ci-on-push.yml (every push to a PR with the ci-active label).
 on:
-  pull_request:
-    branches:
-      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -19,8 +18,6 @@ defaults:
 
 jobs:
   unit-test-with-mpi:
-    # on PRs only with the ci-active label (see .github/workflows/ci-command.yml)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-active')
     name: Unit tests (${{ matrix.n-procs }} ranks)
     uses: ./.github/workflows/reusable-unit-testing.yml
     strategy:
@@ -34,8 +31,6 @@ jobs:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
 
   pic-mpi-tests:
-    # on PRs only with the ci-active label (see .github/workflows/ci-command.yml)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-active')
     name: Marked PIC MPI tests (${{ matrix.n-procs }} ranks)
     runs-on: ubuntu-latest
     strategy:

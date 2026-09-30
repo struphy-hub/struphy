@@ -1,9 +1,8 @@
 name: PR - unit tests serial in Container
 
+# Started on PRs only on request: see .github/workflows/ci-command.yml (/activate-ci)
+# and ci-on-push.yml (every push to a PR with the ci-active label).
 on:
-  pull_request:
-    branches:
-      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -15,8 +14,6 @@ concurrency:
 
 jobs:
   unit-test-serial:
-    # on PRs only with the ci-active label (see .github/workflows/ci-command.yml)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-active')
     uses: ./.github/workflows/reusable-unit-testing.yml
     with:
       os: ubuntu-latest

@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - devel
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,39 +26,6 @@ jobs:
           chmod +x cloc
           ./cloc --version
           ./cloc $(git ls-files)
-
-  struphy_lint_all:
-    # on PRs only with the ci-active label (see .github/workflows/ci-command.yml)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-active')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: true  # This is crucial!
-          fetch-depth: 5
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      # You can test your matrix by printing the current Python version
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
-
-      - name: Install prerequisites (Ubuntu)
-        uses: ./.github/actions/install/ubuntu-latest
-
-      - name: Install struphy
-        uses: ./.github/actions/install/install-struphy-editable
-
-      - name: Reinstall feectools from submodule
-        uses: ./.github/actions/install/feectools-submodule
-
-      - name: Lint the repo
-        run: |
-          struphy lint all --output-format plain --verbose
 
   # black:
   #   runs-on: ubuntu-latest

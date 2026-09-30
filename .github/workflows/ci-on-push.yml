@@ -1,0 +1,43 @@
+name: Full CI for PRs with ci-active
+
+# The heavy workflows are not triggered by pull_request events. For a PR carrying the
+# "ci-active" label (added by /activate-ci, see ci-command.yml, or by hand), this workflow
+# starts them on the PR branch on every push, and when the label is added by hand.
+# Keep the list of workflows in sync with ci-command.yml.
+
+on:
+  pull_request:
+    branches:
+      - devel
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  start-full-ci:
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'ci-active') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'ci-active') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start the full workflows on the PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          for workflow in \
+            test-PR-unit.yml \
+            test-PR-unit-mpi.yml \
+            test-PR-models.yml \
+            test-PR-models-clones.yml \
+            test-PR-pure-python.yml \
+            test-PR-generate-params.yml \
+            test-PR-examples.yml \
+            test-PR-tutorials.yml \
+            struphy-lint.yml; do
+            gh workflow run "$workflow" --ref "$BRANCH"
+          done

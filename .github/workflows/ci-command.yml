@@ -1,11 +1,11 @@
 name: /activate-ci and /deactivate-ci commands
 
-# The heavy PR workflows (test-PR-*.yml, and the struphy_lint_all job of static_analysis.yml)
-# only run their jobs on PRs that carry the "ci-active" label. Users with write access can
-# switch them on and off for a PR by commenting:
+# The heavy workflows (test-PR-*.yml and struphy-lint.yml) are not triggered by pull_request
+# events. Users with write access can switch them on and off for a PR by commenting:
 #
 #   /activate-ci    start the full workflows on the PR branch right away (via workflow_dispatch)
 #                   and add the "ci-active" label, so every later push runs them too
+#                   (ci-on-push.yml; keep the list of workflows in sync with it)
 #   /deactivate-ci  remove the label; later pushes run only the quick checks again
 #                   (runs that already started keep going)
 #
@@ -52,7 +52,7 @@ jobs:
             test-PR-generate-params.yml \
             test-PR-examples.yml \
             test-PR-tutorials.yml \
-            static_analysis.yml; do
+            struphy-lint.yml; do
             gh workflow run "$workflow" --ref "$branch"
           done
 

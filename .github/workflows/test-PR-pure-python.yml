@@ -1,9 +1,8 @@
 name: PR - pure Python tests in Container
 
+# Started on PRs only on request: see .github/workflows/ci-command.yml (/activate-ci)
+# and ci-on-push.yml (every push to a PR with the ci-active label).
 on:
-  pull_request:
-    branches:
-      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -22,8 +21,6 @@ permissions:
 
 jobs:
   model-tests-in-container-with-reqs:
-    # on PRs only with the ci-active label (see .github/workflows/ci-command.yml)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-active')
     runs-on: ubuntu-latest
 
     container:
