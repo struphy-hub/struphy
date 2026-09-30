@@ -979,14 +979,6 @@ def test_transform():
 #        assert a.shape == mat_x.shape
 
 
-if __name__ == "__main__":
-    # test_prepare_arg()
-    test_evaluation_mappings("DESCunit")
-    # test_pullback()
-    # test_pushforward()
-    # test_transform()
-
-
 requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
 
 
@@ -1001,9 +993,24 @@ def test_cuda_args_domain_needs_device_arrays():
 
 
 @requires_cupy
-@pytest.mark.parametrize("mapping", ["Cuboid", "HollowTorus", "IGAPolarCylinder"])
+def test_cuda_args_domain_independent_of_active_backend():
+    """A domain created on the CuPy backend holds device arrays; its CUDA arguments can be built on either backend."""
+    from struphy import domains
+
+    with cunumpy.use_backend("cupy"):
+        domain = domains.Cuboid()
+    with cunumpy.use_backend("numpy"):
+        args = domain.cuda_args_domain
+    assert args.values[3] is domain.T[0]
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "HollowTorus", "Colella"])
 def test_cuda_args_domain(mapping):
-    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments."""
+    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments.
+
+    Only analytic mappings: spline mappings (e.g. IGAPolarCylinder) cannot be created on the CuPy backend yet.
+    """
     from struphy import domains
     from struphy.utils.cuda_arguments import CudaDomainArguments
 
@@ -1036,7 +1043,7 @@ def test_cuda_args_domain(mapping):
 
 
 @requires_cupy
-@pytest.mark.parametrize("mapping", ["Cuboid", "IGAPolarCylinder"])
+@pytest.mark.parametrize("mapping", ["Cuboid", "Colella"])
 def test_domain_deepcopy_and_pickle_on_cupy(mapping):
     """Deepcopy and unpickling on the CuPy backend rebuild both the pyccel and the CUDA arguments."""
     from struphy import domains
@@ -1051,3 +1058,11 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             other_cuda = other.cuda_args_domain
             assert other_cuda is not cuda_args
             assert other_cuda.values[3] is other.T[0]
+
+
+if __name__ == "__main__":
+    # test_prepare_arg()
+    test_evaluation_mappings("DESCunit")
+    # test_pullback()
+    # test_pushforward()
+    # test_transform()

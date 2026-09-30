@@ -133,7 +133,7 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 - Arrays that already have the dtype and layout the CUDA kernels expect (`float64`/`int64`, C-contiguous) are referenced, not copied, e.g. the knot vectors `T` and `indN`. Otherwise one device copy is made when the arguments are built (e.g. `degree`, which is a tuple, or broadcast control points), never at kernel call time.
 - Like `args_domain`, the CUDA arguments are rebuilt after a deepcopy or unpickling (they are dropped in `__deepcopy__`/`__getstate__` and built again on first access).
 - Fix: `__init__` and the rebuild after deepcopy/unpickling now use the same builder, `_build_args_domain`, which converts **all** arrays to NumPy for the pyccel `DomainArguments`. Before, the rebuild passed `params_numpy` without conversion, so a deepcopy of a domain on the CuPy backend failed.
-- Spline mappings whose control points are passed in as NumPy arrays on the CuPy backend still hold host arrays, so `cuda_args_domain` raises for them. Converting user input to `xp` in the `Spline` classes is left for when the first spline mapping is needed on the GPU.
+- Spline mappings (e.g. `IGAPolarCylinder`) cannot be created on the CuPy backend yet: `interp_mapping` passes CuPy arrays to `scipy.sparse.csc_matrix`. So `cuda_args_domain` is only available for analytic mappings for now; making the spline mappings work on the GPU is left for when the first one is needed there.
 - The pushers still receive `domain.args_domain` from the propagators; switching them to `cuda_args_domain` on the GPU comes with PR 6/7 and PR 11.
 
 ### PR 8: Argument structs in shared headers

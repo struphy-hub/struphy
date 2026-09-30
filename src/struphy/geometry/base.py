@@ -246,18 +246,21 @@ class Domain(metaclass=DomainMeta):
         otherwise a device copy with the right dtype and layout is made once, here. Host arrays raise.
         """
 
+        # cupy (not xp): the arrays are on the device, whichever backend is active now
+        import cupy as cp
+
         def device(arr, dtype):
             if not hasattr(arr, "__cuda_array_interface__"):
                 raise TypeError(
                     f"{self.__class__.__name__}: CUDA domain arguments need CuPy arrays, got {type(arr)}; "
                     "create the domain on the CuPy backend."
                 )
-            return xp.ascontiguousarray(arr, dtype=dtype)
+            return cp.ascontiguousarray(arr, dtype=dtype)
 
         return CudaDomainArguments(
             self.kind_map,
             device(self.params_numpy, np.float64),
-            device(xp.array(self.degree), np.int64),
+            cp.asarray(self.degree, dtype=np.int64),  # a tuple, not an array of the domain
             *(device(t, np.float64) for t in self.T),
             *(device(ind, np.int64) for ind in self.indN),
             *(device(c, np.float64) for c in (self.cx, self.cy, self.cz)),
