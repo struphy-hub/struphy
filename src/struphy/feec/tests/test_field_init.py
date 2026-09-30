@@ -121,6 +121,12 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 logger.info(f"Attention: {with_gvec =}, GVEC not tested here !!")
                 continue
 
+            if "CurrentSheet" in key:
+                # its localized current (width delta, periodic box) is not resolved on this coarse grid;
+                # J = curl B is checked in fields_background/tests/test_mhd_equils.py::test_current_sheet_curl_b
+                logger.info("Attention: CurrentSheet not tested here !!")
+                continue
+
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
