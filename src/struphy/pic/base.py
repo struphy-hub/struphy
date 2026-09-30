@@ -3061,13 +3061,15 @@ class Particles(metaclass=ABCMeta):
             bcount = cp.bincount(indices)
 
         max_in_box = xp.max(bcount)
-        if max_in_box > self._sorting_boxes.boxes.shape[1]:
-            warnings.warn(
-                f'Strong load imbalance detected in sorting boxes: \
+        # the last column must stay -1 (terminator for the box readers), hence >=
+        if max_in_box >= self._sorting_boxes.boxes.shape[1]:
+            msg = f'Strong load imbalance detected in sorting boxes: \
 max number of markers in a box ({max_in_box}) on rank {self.mpi_rank} \
-exceeds the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}). \
-Increasing the value of "box_bufsize" in the markers parameters for the next run.',
-            )
+does not fit into the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}, last column is reserved). \
+Increase the value of "box_bufsize" in the markers parameters for the next run.'
+            if self.mpi_comm is None:
+                raise RuntimeError(msg)
+            warnings.warn(msg)
             self.mpi_comm.Abort()
 
         assign_particles_to_boxes(
