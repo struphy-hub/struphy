@@ -81,7 +81,8 @@ class VariationalMomentumAdvection(Propagator):
         Parameters
         ----------
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver for mass-matrix related solves.
+            Linear solver for mass-matrix related solves
+            (the non-symmetric Jacobian is always solved with "gmres").
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
@@ -132,8 +133,9 @@ class VariationalMomentumAdvection(Propagator):
         pc = MassMatrixDiagonalPreconditioner(self._Mrho)
         self._Mrho_inv = inverse(
             self._Mrho,
-            "pcg",
-            pc=pc,
+            self.options.solver,
+            # "cg" takes no preconditioner
+            **({"pc": pc} if self.options.solver == "pcg" else {}),
             tol=1e-16,
             maxiter=500,
             recycle=True,
@@ -282,8 +284,9 @@ class VariationalMomentumAdvection(Propagator):
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
-            "pcg",
-            pc=self.pc_Mv,
+            self.options.solver,
+            # "cg" takes no preconditioner
+            **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
             tol=1e-16,
             maxiter=1000,
             verbose=False,
