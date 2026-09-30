@@ -19,6 +19,8 @@ defaults:
 
 jobs:
   unit-test-with-mpi:
+    # on PRs only with the run-ci label (see .github/workflows/run-ci-command.yml)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-ci')
     name: Unit tests (${{ matrix.n-procs }} ranks)
     uses: ./.github/workflows/reusable-unit-testing.yml
     strategy:
@@ -32,6 +34,8 @@ jobs:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
 
   pic-mpi-tests:
+    # on PRs only with the run-ci label (see .github/workflows/run-ci-command.yml)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-ci')
     name: Marked PIC MPI tests (${{ matrix.n-procs }} ranks)
     runs-on: ubuntu-latest
     strategy:

@@ -22,6 +22,8 @@ permissions:
 
 jobs:
   model-tests-in-container-with-struphy:
+    # on PRs only with the run-ci label (see .github/workflows/run-ci-command.yml)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-ci')
     runs-on: ubuntu-latest
 
     container:
