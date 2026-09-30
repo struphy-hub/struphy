@@ -978,6 +978,42 @@ def test_transform():
 #        assert a.shape == mat_x.shape
 
 
+def test_evaluation_kwargs():
+    """identity_map on meshgrids, a_kwargs on the marker path and gradB_cart squeeze_out (#591)."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+    from struphy.fields_background.equils import HomogenSlab
+
+    domain = domains.Cuboid()
+    e = xp.linspace(0.1, 0.9, 4)
+    markers = xp.random.rand(7, 3)
+
+    # identity map has the same shape as the mapping F
+    assert domain(e, e, e, identity_map=True).shape == (3, 4, 4, 4)
+    assert domain(markers, identity_map=True).shape == (3, 7)
+
+    # a_kwargs are passed to callables on the marker path
+    def fun(e1, e2, e3, scale=1.0):
+        return scale * xp.exp(e1) * xp.sin(e2)
+
+    for coordinates in ("logical", "physical"):
+        ref = domain.pull(fun, markers, kind="0", coordinates=coordinates)
+        out = domain.pull(fun, markers, kind="0", coordinates=coordinates, a_kwargs={"scale": 2.0})
+        assert xp.allclose(out, 2.0 * ref)
+
+        ref = domain.pull([fun, fun, fun], markers, kind="v", coordinates=coordinates)
+        out = domain.pull([fun, fun, fun], markers, kind="v", coordinates=coordinates, a_kwargs={"scale": 3.0})
+        assert xp.allclose(out, 3.0 * ref)
+
+    # returned coordinates of gradB_cart respect squeeze_out
+    equil = HomogenSlab()
+    equil.domain = domain
+    gradB, xyz = equil.gradB_cart(e, 0.5, 0.5, squeeze_out=True)
+    assert gradB.shape == xyz.shape == (3, 4)
+
+
 if __name__ == "__main__":
     # test_prepare_arg()
     test_evaluation_mappings("DESCunit")
