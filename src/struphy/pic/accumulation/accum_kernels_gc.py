@@ -684,6 +684,10 @@ def cc_lin_mhd_5d_gradB(
         grad_PB1, grad_PB2, grad_PB3 : array[float]
             FE coefficients c_ijk of gradient of parallel magnetic field as a 1-form.
 
+        grad_PBeq1, grad_PBeq2, grad_PBeq3 : array[float]
+            FE coefficients c_ijk of gradient of equilibrium parallel magnetic field as a 1-form;
+            added to grad_PB for all u-spaces.
+
     Note
     ----
         The above parameter list contains only the model specific input arguments.
@@ -784,6 +788,9 @@ def cc_lin_mhd_5d_gradB(
         norm_b_prod[2, 0] = -norm_b1[1]
         norm_b_prod[2, 1] = +norm_b1[0]
 
+        # full gradient of the parallel magnetic field (perturbation + equilibrium)
+        grad_PB += grad_PBeq
+
         if basis_u == 0:
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
@@ -796,8 +803,6 @@ def cc_lin_mhd_5d_gradB(
             )
 
         elif basis_u == 2:
-            grad_PB += grad_PBeq
-
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
