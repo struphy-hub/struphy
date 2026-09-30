@@ -373,3 +373,52 @@ def test_kernel_without_cuda_version():
     if cunumpy.cupy_available():
         with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="push_eta_linear"):
             kernel.get_kernel()
+
+
+def make_pusher(kernel):
+    """Pusher for push_eta_stage (forward Euler) on 100 particles in a Cuboid."""
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import LoadingParameters
+    from struphy.ode.utils import ButcherTableau
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing.pusher import Pusher
+
+    domain = Cuboid()
+    loading_params = LoadingParameters(Np=100, seed=1234, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
+    particles = Particles6D(comm_world=MPI.COMM_WORLD, loading_params=loading_params, domain=domain)
+    particles.draw_markers()
+    butcher = ButcherTableau("forward_euler")
+    return lambda: Pusher(
+        particles,
+        kernel,
+        (butcher.a_stage, butcher.b, butcher.c),
+        domain.args_domain,
+        pushes_eta=True,
+        alpha_in_kernel=1.0,
+        n_stages=butcher.n_stages,
+        local_eval_only=True,
+    )
+
+
+@pytest.mark.parametrize("wrap", [False, True])
+def test_pusher_accepts_kernel(wrap):
+    """Pusher takes a PyccelKernel (wrapped into a Kernel) or a Kernel, and runs the pyccel kernel on NumPy."""
+    from struphy.pic.pushing import pusher_kernels
+
+    pyccel_kernel = PyccelKernel(pusher_kernels.push_eta_stage)
+    with cunumpy.use_backend("numpy"):
+        pusher = make_pusher(Kernel(pyccel_kernel) if wrap else pyccel_kernel)()
+        assert pusher.kernel is pyccel_kernel
+        pusher(0.1)
+
+
+@requires_cupy
+def test_pusher_without_cuda_kernel_fails_at_setup():
+    """On the CuPy backend, a pusher whose kernel has no CUDA version fails when it is created, not in the time loop."""
+    from struphy.pic.pushing import pusher_kernels
+
+    with cunumpy.use_backend("numpy"):
+        create_pusher = make_pusher(PyccelKernel(pusher_kernels.push_eta_stage))
+    with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="push_eta_stage"):
+        create_pusher()
