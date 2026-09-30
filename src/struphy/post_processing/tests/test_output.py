@@ -861,3 +861,28 @@ def test_processing_lock_falls_back_to_an_exclusive_file(tmp_path, monkeypatch):
     with manifest.processing_lock(str(tmp_path)):
         assert held.exists()
     assert not held.exists()
+
+
+def test_particle_processing_checks_saved_data_per_species(tmp_path, monkeypatch):
+    root = write_tree(str(tmp_path))
+    with h5py.File(os.path.join(root, "data", "data_proc0.hdf5"), "a") as file:
+        del file["kinetic"]
+        file.create_group("kinetic/with_data/markers")
+        file.create_group("kinetic/with_data/f")
+        file.create_group("kinetic/with_data/n_sph")
+        file.create_group("kinetic/without_data")
+    run = Output(root)
+    variable = SimpleNamespace(space="Particles6D")
+    species = {name: SimpleNamespace(variables={"var": variable}) for name in ("with_data", "without_data")}
+    run.__dict__["model"] = SimpleNamespace(species=species)
+
+    calls = []
+    monkeypatch.setattr(Output, "_process_fields", lambda self, **kwargs: None)
+    for kind in ("markers", "f", "n_sph"):
+        monkeypatch.setattr(
+            Output,
+            f"_post_process_{kind}",
+            lambda self, path, step, kind=kind, **kwargs: calls.append((os.path.basename(path), kind)),
+        )
+    run._process(parallel=False, force=True)
+    assert calls == [("with_data", "markers"), ("with_data", "f"), ("with_data", "n_sph")]
