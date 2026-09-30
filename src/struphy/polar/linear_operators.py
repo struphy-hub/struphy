@@ -693,10 +693,12 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
             polar_space.comm.Allreduce(MPI.IN_PLACE, res, op=MPI.SUM)
 
         # write result to output polar vector (in-place)
+        # (only the rank owning the first eta_1 coeffs holds the "first tp ring", see PolarDerhamSpace)
         if map_to_tp:
-            s1, s2, s3 = out_starts[m]
-            e1, e2, e3 = out_ends[m]
-            out_tp[m][n_rings_out[m], s2 : e2 + 1, s3 : e3 + 1] = res[s2 : e2 + 1, s3 : e3 + 1]
+            if out_starts[m][0] == 0:
+                s1, s2, s3 = out_starts[m]
+                e1, e2, e3 = out_ends[m]
+                out_tp[m][n_rings_out[m], s2 : e2 + 1, s3 : e3 + 1] = res[s2 : e2 + 1, s3 : e3 + 1]
         else:
             out.pol[m][:, :] = res
 

@@ -1213,12 +1213,13 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         self._weights = weights
 
-        # assemble tensor-product dof matrix
+        # assemble tensor-product dof matrix (in place, self._mat is referenced by self._operator)
         self._mat = self.assemble()
 
         # only need to update the transposed in case where it's needed
+        # (in place, so that self._operator, which references self._mat_T, sees the new weights)
         if self._transposed:
-            self._mat_T = self._mat.T
+            self._mat_T = self._mat.transpose(out=self._mat_T)
 
     def assemble(self):
         """
