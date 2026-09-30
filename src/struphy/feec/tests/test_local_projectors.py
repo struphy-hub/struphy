@@ -1521,6 +1521,19 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
     logger.info("Test spline evaluation passed.")
 
 
+@pytest.mark.parametrize("Nel, p", [(2, 2), (3, 3), (5, 2)])
+def test_get_one_spline_periodic_partition_of_unity(Nel, p):
+    """For periodic Nel == p, one spline index appears twice per point; get_one_spline must sum the contributions."""
+    from feectools.fem.splines import SplineSpace
+
+    space = SplineSpace(degree=p, grid=xp.linspace(0.0, 1.0, Nel + 1), periodic=True)
+    pts = xp.linspace(0.0, 1.0, 11, endpoint=False).reshape(-1, 1) + 0.013
+    spans, values = get_span_and_basis(pts, space)
+    eval_indices, values = get_values_and_indices_splines(space.nbasis, space.degree, space.periodic, spans, values)
+    total = sum(get_one_spline(a, values, eval_indices) for a in range(space.nbasis))
+    assert xp.allclose(total, 1.0, atol=1e-14)
+
+
 if __name__ == "__main__":
     num_elements = [14, 16, 18]
     degree = [5, 4, 3]
