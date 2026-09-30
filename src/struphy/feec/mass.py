@@ -3265,6 +3265,8 @@ class AverageOperator(LinOpWithTransp):
         self._pads = self._V.pads  # gets the number of ghost cells
         self._derham = derham
         self._dtype = self._domain.dtype
+        self._space = space
+        self._direction = direction
         self._transposed = transposed
         if direction == 0:
             self._directions = (0, 1, 2)
@@ -3390,4 +3392,4 @@ class AverageOperator(LinOpWithTransp):
         return out
 
     def transpose(self, conjugate=False):
-        return AverageOperator(self.derham, self.domain, self._weights, transposed=not self._transposed)
+        return AverageOperator(self.derham, self._space, self._direction, transposed=not self._transposed)
