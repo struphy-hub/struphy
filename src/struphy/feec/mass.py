@@ -3255,9 +3255,9 @@ class AverageOperator(LinOpWithTransp):
     ):
 
         if space not in derham.space_to_form:
-            AssertionError("Must match a space of the derham complex")
+            raise AssertionError("Must match a space of the derham complex")
         if space != "H1":
-            NotImplementedError()
+            raise NotImplementedError("AverageOperator is only implemented for space H1")
         space_id = "V" + derham.space_to_form[space]
         self._V = getattr(derham, space_id)  # StencilVectorSpace
         self._domain = getattr(derham, space_id)
