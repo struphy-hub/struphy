@@ -52,9 +52,11 @@ def test_domain_pickle_roundtrip(mapping):
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
 
-def test_spline_default():
+def test_spline_default(with_gvec=False):
     """Spline() with default arguments should use the control points of the default GVEC equilibrium."""
 
+    if not with_gvec:
+        pytest.skip("GVEC not tested here (with_gvec=False), like the other GVEC tests")
     pytest.importorskip("gvec")
 
     import cunumpy as xp
