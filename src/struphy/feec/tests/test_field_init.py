@@ -1380,6 +1380,62 @@ def test_noise_init(num_elements, degree, bcs, space, direction):
     )
 
 
+def test_init_uses_own_domain_and_equil():
+    """initialize_coeffs() without domain/equil must use the ones given at instantiation."""
+    import cunumpy as xp
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.fields_background.equils import HomogenSlab
+    from struphy.geometry.domains import Cuboid
+    from struphy.initial.perturbations import ModesSin
+    from struphy.io.options import DerhamOptions, FieldsBackground
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = Cuboid(r1=2.0, r2=3.0)
+    equil = HomogenSlab()
+    equil.domain = domain
+    derham = Derham(TensorProductGrid(num_elements=[8, 4, 2]), DerhamOptions(degree=[2, 1, 1]))
+
+    def ptb():
+        return ModesSin(ls=[1], amps=[1.0], given_in_basis="physical")
+
+    def bckgr():
+        return FieldsBackground(type="FluidEquilibrium", variable="absB0")
+
+    ref = derham.create_spline_function(
+        "ref", "H1", backgrounds=bckgr(), perturbations=ptb(), domain=domain, equil=equil
+    )
+
+    field = derham.create_spline_function("field", "H1", domain=domain, equil=equil)
+    field.initialize_coeffs(backgrounds=bckgr(), perturbations=ptb())
+
+    assert xp.allclose(field.vector.toarray(), ref.vector.toarray())
+
+
+def test_eval_tp_fixed_loc_vector_without_out():
+    """eval_tp_fixed_loc of a vector-valued field allocates a list of 3 arrays if out=None."""
+    import cunumpy as xp
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(TensorProductGrid(num_elements=[8, 4, 2]), DerhamOptions(degree=[2, 1, 1]))
+    field = derham.create_spline_function("field", "H1vec")
+    for n, comp in enumerate(field.vector.blocks):
+        comp._data[:] = n + 1.0
+    field.vector.update_ghost_regions()
+
+    grid = [grid_1d.flatten() for grid_1d in derham.V3splines.quad_grid_pts[0]]
+    spans, bn, bd = derham.prepare_eval_tp_fixed(grid)
+    out = field.eval_tp_fixed_loc(spans, [bn, bn, bn])
+
+    assert isinstance(out, list) and len(out) == 3
+    for n in range(3):
+        assert out[n].shape == tuple(span.size for span in spans)
+        assert xp.allclose(out[n], n + 1.0)
+
+
 if __name__ == "__main__":
     # test_bckgr_init_const([8, 10, 12], [1, 2, 3], [False, False, True], [
     #     'H1', 'Hcurl', 'Hdiv'], [True, True, False])
