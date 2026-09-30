@@ -2,6 +2,7 @@ import copy
 import logging
 import pickle
 
+import cunumpy
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -984,3 +985,69 @@ if __name__ == "__main__":
     # test_pullback()
     # test_pushforward()
     # test_transform()
+
+
+requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
+
+
+def test_cuda_args_domain_needs_device_arrays():
+    """On the NumPy backend the domain arrays are host arrays, which are never copied to the device."""
+    from struphy import domains
+
+    with cunumpy.use_backend("numpy"):
+        domain = domains.Cuboid()
+        with pytest.raises(TypeError, match="CuPy arrays"):
+            domain.cuda_args_domain
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "HollowTorus", "IGAPolarCylinder"])
+def test_cuda_args_domain(mapping):
+    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments."""
+    from struphy import domains
+    from struphy.utils.cuda_arguments import CudaDomainArguments
+
+    with cunumpy.use_backend("cupy"):
+        domain = getattr(domains, mapping)()
+        args = domain.cuda_args_domain
+        assert isinstance(args, CudaDomainArguments)
+        assert domain.cuda_args_domain is args  # built once
+
+        kind_map, params, degree, t1, t2, t3, ind1, ind2, ind3, cx, cy, cz = args.values
+        assert int(kind_map) == domain.kind_map
+        # no copies of arrays that already have the right dtype and layout
+        assert t1 is domain.T[0] and ind3 is domain.indN[2]
+
+        host = domain.args_domain
+        for dev, ref in (
+            (params, host.params),
+            (degree, host.degree),
+            (t1, host.t1),
+            (t2, host.t2),
+            (t3, host.t3),
+            (ind1, host.ind1),
+            (ind2, host.ind2),
+            (ind3, host.ind3),
+            (cx, host.cx),
+            (cy, host.cy),
+            (cz, host.cz),
+        ):
+            assert (cunumpy.to_numpy(dev) == ref).all()
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "IGAPolarCylinder"])
+def test_domain_deepcopy_and_pickle_on_cupy(mapping):
+    """Deepcopy and unpickling on the CuPy backend rebuild both the pyccel and the CUDA arguments."""
+    from struphy import domains
+
+    with cunumpy.use_backend("cupy"):
+        domain = getattr(domains, mapping)()
+        cuda_args = domain.cuda_args_domain
+
+        for other in (copy.deepcopy(domain), pickle.loads(pickle.dumps(domain, protocol=pickle.HIGHEST_PROTOCOL))):
+            assert other.args_domain.kind_map == domain.args_domain.kind_map
+            assert (other.args_domain.params == domain.args_domain.params).all()
+            other_cuda = other.cuda_args_domain
+            assert other_cuda is not cuda_args
+            assert other_cuda.values[3] is other.T[0]

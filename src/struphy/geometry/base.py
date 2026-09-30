@@ -16,6 +16,7 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.cuda_arguments import CudaDomainArguments
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
@@ -219,7 +220,11 @@ class Domain(metaclass=DomainMeta):
             "tran": dict_tran,
         }
 
-        self._args_domain = DomainArguments(
+        self._args_domain = self._build_args_domain()
+
+    def _build_args_domain(self):
+        """Build runtime mapping arguments used by compiled evaluation kernels (host copies on the CuPy backend)."""
+        return DomainArguments(
             self.kind_map,
             _to_numpy_for_kernel(self.params_numpy),
             _to_numpy_for_kernel(xp.array(self.degree)),
@@ -234,21 +239,28 @@ class Domain(metaclass=DomainMeta):
             _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
         )
 
-    def _build_args_domain(self):
-        """Build runtime mapping arguments used by compiled evaluation kernels."""
-        return DomainArguments(
+    def _build_cuda_args_domain(self) -> CudaDomainArguments:
+        """Build the CUDA kernel arguments from the domain's own (device) arrays.
+
+        Arrays that already have the dtype and layout the CUDA kernels expect are referenced, not copied;
+        otherwise a device copy with the right dtype and layout is made once, here. Host arrays raise.
+        """
+
+        def device(arr, dtype):
+            if not hasattr(arr, "__cuda_array_interface__"):
+                raise TypeError(
+                    f"{self.__class__.__name__}: CUDA domain arguments need CuPy arrays, got {type(arr)}; "
+                    "create the domain on the CuPy backend."
+                )
+            return xp.ascontiguousarray(arr, dtype=dtype)
+
+        return CudaDomainArguments(
             self.kind_map,
-            self.params_numpy,
-            _to_numpy_for_kernel(xp.array(self.degree)),
-            _to_numpy_for_kernel(self.T[0]),
-            _to_numpy_for_kernel(self.T[1]),
-            _to_numpy_for_kernel(self.T[2]),
-            _to_numpy_for_kernel(self.indN[0]),
-            _to_numpy_for_kernel(self.indN[1]),
-            _to_numpy_for_kernel(self.indN[2]),
-            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
+            device(self.params_numpy, np.float64),
+            device(xp.array(self.degree), np.int64),
+            *(device(t, np.float64) for t in self.T),
+            *(device(ind, np.int64) for ind in self.indN),
+            *(device(c, np.float64) for c in (self.cx, self.cy, self.cz)),
         )
 
     def _can_build_args_domain(self):
@@ -264,6 +276,8 @@ class Domain(metaclass=DomainMeta):
         return all(hasattr(self, attr) for attr in required_attrs)
 
     def _rebuild_args_domain(self):
+        # built lazily on first access, see cuda_args_domain
+        self._cuda_args_domain = None
         if self._can_build_args_domain():
             self._args_domain = self._build_args_domain()
         else:
@@ -275,7 +289,7 @@ class Domain(metaclass=DomainMeta):
         memo[id(self)] = result
 
         for key, value in self.__dict__.items():
-            if key == "_args_domain":
+            if key in ("_args_domain", "_cuda_args_domain"):
                 continue
             setattr(result, key, copy.deepcopy(value, memo))
 
@@ -285,6 +299,7 @@ class Domain(metaclass=DomainMeta):
     def __getstate__(self):
         state = self.__dict__.copy()
         state.pop("_args_domain", None)
+        state.pop("_cuda_args_domain", None)
         return state
 
     def __setstate__(self, state):
@@ -474,6 +489,19 @@ class Domain(metaclass=DomainMeta):
             raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
 
         return self._args_domain
+
+    @property
+    def cuda_args_domain(self) -> CudaDomainArguments:
+        """CUDA version of :attr:`args_domain`, referencing the domain's arrays on the device.
+
+        Built on first access (never on the NumPy backend, where it raises TypeError), and rebuilt
+        after a deepcopy or unpickling, like :attr:`args_domain`.
+        """
+        if getattr(self, "_cuda_args_domain", None) is None:
+            if not self._can_build_args_domain():
+                raise AttributeError("CudaDomainArguments are not available because the domain state is incomplete.")
+            self._cuda_args_domain = self._build_cuda_args_domain()
+        return self._cuda_args_domain
 
     @property
     def dict_transformations(self):
