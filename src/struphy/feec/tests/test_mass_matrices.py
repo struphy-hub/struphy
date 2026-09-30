@@ -1408,6 +1408,40 @@ def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False)
             plt.show()
 
 
+@pytest.mark.parametrize("bcs", [(None, None, None), (("free", "dirichlet"), None, ("dirichlet", "dirichlet"))])
+def test_average_operator_transpose(bcs):
+    """Check that AverageOperator.T can be built and satisfies <A x, y> = <x, A.T y>."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.mass import AverageOperator
+    from struphy.feec.psydac_derham import Derham
+
+    comm = MPI.COMM_WORLD
+    derham = Derham(
+        grids.TensorProductGrid([5, 6, 7], (False, False, True)),
+        DerhamOptions([2, 1, 3], bcs),
+        comm=(comm if comm.Get_size() > 1 else None),
+        domain=domains.Cuboid(),
+    )
+
+    x = derham.V0.zeros()
+    y = derham.V0.zeros()
+    x._data[:] = xp.random.random(x._data.shape)
+    y._data[:] = xp.random.random(y._data.shape)
+
+    for dir in range(3):
+        av_op = AverageOperator(derham, "H1", dir)
+        av_op_T = av_op.T
+        assert av_op_T._transposed
+        assert not av_op_T.T._transposed
+
+        lhs = av_op.dot(x).inner(y)
+        rhs = x.inner(av_op_T.dot(y))
+        assert xp.isclose(lhs, rhs, rtol=1e-12, atol=0.0)
+
+
 if __name__ == "__main__":
     # test_mass(
     #    num_elements=(32, 32, 32),
