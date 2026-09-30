@@ -817,6 +817,24 @@ def test_equils(equil_domain_pair):
     )
 
 
+def test_eqdsk_psi_range_units():
+    """Both ends of the EQDSK psi_range are rescaled to Struphy units (issue #434)."""
+    from struphy.io.options import BaseUnits
+
+    x_unit, B_unit = 2.0, 3.0
+    scale = B_unit * x_unit**2
+
+    ref = equils.EQDSKequilibrium()
+    eq = equils.EQDSKequilibrium(base_units=BaseUnits(x=x_unit, B=B_unit))
+
+    assert xp.allclose(xp.array(eq.psi_range) * scale, ref.psi_range, rtol=1e-6)
+
+    psi_phys = xp.linspace(ref.psi_range[0], ref.psi_range[1], 7)
+    assert xp.allclose(eq.q_psi(psi_phys / scale), ref.q_psi(psi_phys))
+    assert xp.allclose(eq.g_psi(psi_phys / scale), ref.g_psi(psi_phys))
+    assert xp.allclose(eq.n_psi(psi_phys / scale), ref.n_psi(psi_phys))
+
+
 def assert_scalar(result, kind, *etas):
     if kind == "markers":
         markers = etas[0]
