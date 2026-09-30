@@ -2418,6 +2418,9 @@ def push_weights_with_efield_lin_va(
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
+    # total number of markers (weights are w_p = delta f_p / (N * s_0))
+    n_markers_tot = args_markers.Np
+
     # fmt: off
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
@@ -2466,13 +2469,13 @@ def push_weights_with_efield_lin_va(
             e_vec,
         )
 
-        # w_{n+1} = w_n + dt / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
+        # w_{n+1} = w_n + kappa * dt / (2 * N * s_0 * v_th^2) * f_0 * ( DF^{-1} v_p ) \cdot ( e_{n+1} + e_n )
         update = (
             (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2])
             * f0_values[ip]
             * kappa
             * dt
-            / (2 * markers[ip, 7] * vth**2)
+            / (2 * n_markers_tot * markers[ip, 7] * vth**2)
         )
         markers[ip, 6] += update
 
