@@ -130,6 +130,53 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     )
 
 
+@pytest.mark.parametrize("loading", ["pseudo_random", "sobol_standard", "sobol_antithetic"])
+def test_marker_ids(loading, Np=1000):
+    """Asserts that marker IDs are unique and contiguous across processes after drawing,
+    and that no marker is left at the origin (``sobol_antithetic`` with Np not divisible by 64)."""
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import LoadingParameters, domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.pic.particles import Particles6D
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=[8, 5, 3])
+    derham = Derham(grid, DerhamOptions(degree=[1, 1, 1]), comm=comm)
+    domain_decomp = (derham.domain_array, derham.domain_decomposition.nprocs)
+
+    loading_params = LoadingParameters(
+        Np=Np,
+        seed=1234,
+        loading=loading,
+        moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
+    )
+
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=domain_decomp,
+        loading_params=loading_params,
+        domain=domains.Cuboid(),
+    )
+
+    particles.draw_markers(sort=False)
+
+    valid = particles.markers[~particles.holes]
+    ids = valid[:, -1]
+    n_at_origin = int(xp.sum(xp.all(valid[:, :3] == 0.0, axis=1)))
+    if particles.mpi_size > 1:
+        ids = xp.concatenate(particles.mpi_comm.allgather(ids))
+        n_at_origin = particles.mpi_comm.allreduce(n_at_origin)
+
+    assert xp.array_equal(xp.sort(ids), xp.arange(Np, dtype=float))
+    assert n_at_origin == 0
+
+
 if __name__ == "__main__":
     # test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
     #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
