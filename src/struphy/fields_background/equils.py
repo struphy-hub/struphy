@@ -1774,8 +1774,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         )
 
         # set on-axis and boundary fluxes
+        # (psi_edge is read from file in Weber/rad; rescale like self.psi())
         self._psi0 = self._psi_i_min["fun"]
-        self._psi1 = psi_edge
+        self._psi1 = psi_edge / (self.units.B * self.units.x**2)
 
         # interpolate toroidal field function, pressure profile and q-profile on unifrom flux grid from axis to boundary
         flux_grid = xp.linspace(self._psi0, self._psi1, g_profile.size)
