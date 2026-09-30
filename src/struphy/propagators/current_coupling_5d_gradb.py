@@ -129,7 +129,9 @@ class CurrentCoupling5DGradB(Propagator):
             ``algo="explicit"``, defaults to ``ButcherTableau()``.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
-            FEEC space used for the unknown ``u`` variable.
+            FEEC space used for the unknown ``u`` variable. ``"Hdiv"`` and
+            ``"H1vec"`` are supported for ``algo="explicit"``, only ``"Hdiv"``
+            for ``algo="discrete_gradient"``.
 
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used for mass-matrix inversions.
@@ -174,6 +176,17 @@ class CurrentCoupling5DGradB(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
+
+            # supported u_space per algorithm (pusher kernels exist only for these)
+            if self.algo == "explicit":
+                supported_u_spaces = ("Hdiv", "H1vec")
+            else:
+                supported_u_spaces = ("Hdiv",)
+            if self.u_space not in supported_u_spaces:
+                raise ValueError(
+                    f"{self.u_space = } is not supported by CurrentCoupling5DGradB with {self.algo = }, "
+                    f"choose from {supported_u_spaces}.",
+                )
 
             # defaults
             if self.algo == "explicit" and self.butcher is None:
@@ -288,7 +301,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
             else:
                 raise ValueError(
-                    f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec.',
+                    f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
                 )
 
             # temp fix due to refactoring of ButcherTableau:
