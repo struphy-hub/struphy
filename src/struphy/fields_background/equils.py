@@ -3238,34 +3238,33 @@ class CurrentSheet(CartesianMHDequilibrium):
         # use params setter
         self.params = copy.deepcopy(locals())
 
-    # ===============================================================
-    #           profiles for a straight tokamak equilibrium
-    # ===============================================================
-
     def plot_profiles(self, n_pts=501):
-        """Plots radial profiles."""
+        """Plots profiles across the current sheet, z in [-5 delta, 5 delta]."""
 
         import matplotlib.pyplot as plt
 
-        r = xp.linspace(0.0, self.params["a"], n_pts)
+        z = xp.linspace(-5 * self.params["delta"], 5 * self.params["delta"], n_pts)
+        x = 0 * z
+
+        bx, by, bz = self.b_xyz(x, x, z)
 
         fig, ax = plt.subplots(1, 3)
 
         fig.set_figheight(3)
         fig.set_figwidth(12)
 
-        ax[0].plot(r, self.q_r(r))
-        ax[0].set_xlabel("r")
-        ax[0].set_ylabel("q")
+        ax[0].plot(z, bx, label="$B_x$")
+        ax[0].plot(z, by, label="$B_y$")
+        ax[0].set_xlabel("z")
+        ax[0].set_ylabel("B")
+        ax[0].legend()
 
-        ax[0].plot(r, xp.ones(r.size), "k--")
-
-        ax[1].plot(r, self.p_r(r))
-        ax[1].set_xlabel("r")
+        ax[1].plot(z, self.p_xyz(x, x, z))
+        ax[1].set_xlabel("z")
         ax[1].set_ylabel("p")
 
-        ax[2].plot(r, self.n_r(r))
-        ax[2].set_xlabel("r")
+        ax[2].plot(z, self.n_xyz(x, x, z))
+        ax[2].set_xlabel("z")
         ax[2].set_ylabel("n")
 
         plt.subplots_adjust(wspace=0.4)

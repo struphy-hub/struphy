@@ -835,6 +835,26 @@ def test_eqdsk_psi_range_units():
     assert xp.allclose(eq.n_psi(psi_phys / scale), ref.n_psi(psi_phys))
 
 
+def test_current_sheet_plot_profiles(monkeypatch):
+    """CurrentSheet.plot_profiles plots its own profiles across the sheet (issue #572)."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+
+    eq = equils.CurrentSheet(delta=0.2, amp=2.0)
+    eq.plot_profiles(n_pts=11)
+
+    ax = plt.gcf().axes
+    z = ax[0].lines[1].get_xdata()
+    assert xp.allclose(ax[0].lines[1].get_ydata(), 2.0 * xp.tanh(z / 0.2))
+    assert xp.allclose(ax[1].lines[0].get_ydata(), 5 / 2)
+    assert xp.allclose(ax[2].lines[0].get_ydata(), 1.0)
+    plt.close("all")
+
+
 def assert_scalar(result, kind, *etas):
     if kind == "markers":
         markers = etas[0]
