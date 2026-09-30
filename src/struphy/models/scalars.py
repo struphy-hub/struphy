@@ -7,6 +7,7 @@ from feectools.ddm.mpi import mpi as MPI
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import space_to_form
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.pic.particles import Particles5D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.docstring_converter import auto_convert_docstring
@@ -292,15 +293,22 @@ class KineticEnergyPIC(PICScalar):
     velocity of particle :math:`i`. The marker weights already carry the :math:`1/N_p` of the Monte-Carlo
     estimate (:meth:`~struphy.pic.base.Particles.initialize_weights` sets
     :math:`w_i = f_i / (s_i N_p)`), so the sum must not be divided by :math:`N_p` again.
+
+    For :class:`~struphy.pic.particles.Particles5D` the velocity coordinates are :math:`(v_\parallel, \mu)`,
+    so only the parallel kinetic energy :math:`v_i^2 = v_{\parallel,i}^2` is summed; the magnetic-moment
+    part :math:`\mu_i |B_0|` is tracked by a separate scalar in the models (e.g. ``en_fB``).
     """
 
     def _local_update(self):
         # `particles.velocities` and `.weights` are fancy-indexed copies of the marker array, not views,
         # so they must be read at every update: a cached copy keeps the state of the first call forever.
-        # TODO: velocities need to be redefined for Particles5d? Put magnetic moment as COM.
         particles = self.variables[0].particles
         velocities = particles.velocities
         weights = particles.weights
+
+        # Particles5D velocities are (v_par, mu): mu is not a velocity, only v_par contributes here.
+        if isinstance(particles, Particles5D):
+            velocities = velocities[:, :1]
 
         energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
