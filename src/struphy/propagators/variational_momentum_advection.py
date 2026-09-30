@@ -213,10 +213,7 @@ class VariationalMomentumAdvection(Propagator):
                 pc_diff = self._Mrho_inv.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self.inv_derivative._info,
-                )
+                logger.info(f"information on the linear solver : {self.inv_derivative._info}")
             un1 -= update
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
