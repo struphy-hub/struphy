@@ -1442,6 +1442,62 @@ def test_average_operator_transpose(bcs):
         assert xp.isclose(lhs, rhs, rtol=1e-12, atol=0.0)
 
 
+def test_transpose_and_copy():
+    """WeightedMassOperator.T and .copy() must work without a name, keep spline weights
+    and transpose the data of accumulation-type (symm/asym) matrices (#501)."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    xp.random.seed(1234)
+
+    grid = TensorProductGrid(num_elements=(3, 4, 2))
+    derham = Derham(grid, DerhamOptions(degree=(1, 2, 1), bcs=(None, None, None)))
+    mass_ops = WeightedMassOperators(derham, domains.Colella())
+
+    rho = derham.create_spline_function("rho", "H1")
+    rho.vector._data[:] = 1.0 + xp.random.rand(*rho.vector._data.shape)
+    rho.vector.update_ghost_regions()
+
+    # density-weighted operator without name
+    Mn = mass_ops.create_weighted_mass("Hcurl", "Hdiv", weights=("DFinv", "sqrt_g", rho), assemble=True)
+    Mn_arr = Mn.toarray()
+
+    MnT = Mn.T
+    assert xp.allclose(MnT.toarray(), Mn_arr.T, atol=1e-14)
+    MnT.assemble()
+    assert xp.allclose(MnT.toarray(), Mn_arr.T, atol=1e-14)
+    assert xp.allclose(MnT.T.toarray(), Mn_arr, atol=1e-14)
+
+    Mn_copy = Mn.copy()
+    Mn_copy.assemble()
+    assert xp.allclose(Mn_copy.toarray(), Mn_arr, atol=1e-14)
+
+    # accumulation-type matrices are filled directly (here: with the data of a non-symmetric mass matrix)
+    weights = [[(lambda e1, e2, e3, c=3 * m + n: 1.0 + c * e1 + e2 * e3**2) for n in range(3)] for m in range(3)]
+    F = mass_ops.create_weighted_mass("Hcurl", "Hcurl", name="F", weights=weights, assemble=True)
+
+    for symmetry, sign in (("symm", 1.0), ("asym", -1.0)):
+        A = mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=symmetry)
+        for a, b in ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)):
+            if A.matrix[a, b] is not None:
+                A.matrix[a, b]._data[:] = F.matrix[a, b]._data
+            if a != b:
+                A.matrix[a, b].transpose(out=A.matrix[b, a])
+                A.matrix[b, a] *= sign
+
+        A_arr = A.toarray()
+        assert xp.max(xp.abs(A_arr)) > 0.1
+        assert xp.allclose(A.T.toarray(), A_arr.T, atol=1e-14)
+        if symmetry == "asym":
+            assert xp.allclose(A.T.toarray(), -A_arr, atol=1e-14)
+
+
 if __name__ == "__main__":
     # test_mass(
     #    num_elements=(32, 32, 32),

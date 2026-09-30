@@ -2046,39 +2046,40 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             weights = self._weights
 
-        if self._symmetry is None:
-            M = WeightedMassOperator(
-                self.derham,
-                self._V,
-                self._W,
-                name=self.name + "T",
-                V_extraction_op=self._V_extraction_op,
-                W_extraction_op=self._W_extraction_op,
-                V_boundary_op=self._V_boundary_op,
-                W_boundary_op=self._W_boundary_op,
-                weights_info=weights,
-                transposed=not self._transposed,
-                matrix_free=self._matrix_free,
-            )
+        name = self.name + "T" if self.name is not None else None
 
-            M.assemble()
+        M = WeightedMassOperator(
+            self.derham,
+            self._V,
+            self._W,
+            name=name,
+            V_extraction_op=self._V_extraction_op,
+            W_extraction_op=self._W_extraction_op,
+            V_boundary_op=self._V_boundary_op,
+            W_boundary_op=self._W_boundary_op,
+            weights_info=weights if self._symmetry is None else self._symmetry,
+            spline_functions=self._spline_functions,
+            transposed=not self._transposed,
+            matrix_free=self._matrix_free,
+            nquads=self._nquads,
+        )
 
+        # weights of M in its own (transposed) block order
+        M._weights = [[self._weights[n][m] for n in range(len(self._weights))] for m in range(len(self._weights[0]))]
+
+        if self._matrix_free:
+            if self._symmetry is not None:
+                M.assemble(weights=M._weights)
         else:
-            M = WeightedMassOperator(
-                self.derham,
-                self._V,
-                self._W,
-                name=self.name + "T",
-                V_extraction_op=self._V_extraction_op,
-                W_extraction_op=self._W_extraction_op,
-                V_boundary_op=self._V_boundary_op,
-                W_boundary_op=self._W_boundary_op,
-                weights_info=self._symmetry,
-                transposed=not self._transposed,
-                matrix_free=self._matrix_free,
-            )
+            # transpose the assembled data instead of re-assembling from the weights: the data need not
+            # stem from self._weights (e.g. accumulation matrices, which are filled by the particles)
+            self._mat.transpose(out=M._mat)
 
-            M.assemble(weights=weights)
+            # remove blocks of M that are zero in self
+            if isinstance(self._mat, BlockLinearOperator):
+                for a, b in M._mat.nonzero_block_indices:
+                    if self._mat[b, a] is None:
+                        M._mat[a, b] = None
 
         return M
 
@@ -2342,14 +2343,19 @@ class WeightedMassOperator(LinOpWithTransp):
                 self.derham,
                 V=self._V,
                 W=self._W,
+                name=self.name,
                 V_extraction_op=self._V_extraction_op,
                 W_extraction_op=self._W_extraction_op,
                 V_boundary_op=self._V_boundary_op,
                 W_boundary_op=self._W_boundary_op,
                 weights_info=self._weights_info,
+                spline_functions=self._spline_functions,
                 transposed=self._transposed,
                 matrix_free=self._matrix_free,
+                nquads=self._nquads,
             )
+            # current weights (they may have been changed by assemble(weights=...))
+            out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
         return out
