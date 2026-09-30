@@ -1720,7 +1720,7 @@ class Output:
             quantities = cls.orbit_quantities
             break
 
-        log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
+        log_nt = int(xp.log10(max(int((nt - 1) / step), 1))) + 1
 
         # directory for .txt files and marker columns which will be saved (marker index last)
         path_orbits = os.path.join(path_kinetic_species, "orbits")

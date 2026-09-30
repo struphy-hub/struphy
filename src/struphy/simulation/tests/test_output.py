@@ -73,6 +73,16 @@ def test_constructing_a_simulation_writes_nothing(tmp_path):
     assert sim.derham is None
 
 
+@pytest.mark.parametrize("include_defaults", [False, True])
+@pytest.mark.parametrize("none_opts", [("grid",), ("derham_opts",), ("grid", "derham_opts")])
+def test_generate_script_without_derham(tmp_path, none_opts, include_defaults):
+    sim = make_sim(tmp_path, **{name: None for name in none_opts})
+    namespace = {}
+    exec(sim.generate_script(include_defaults=include_defaults), namespace)
+    for name in none_opts:
+        assert getattr(namespace["sim"], name) is None
+
+
 def test_output_is_the_run_of_the_current_output_folder(tmp_path):
     sim = make_sim(tmp_path)
     run = sim.output

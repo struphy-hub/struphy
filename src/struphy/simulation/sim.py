@@ -2012,10 +2012,16 @@ from struphy.models import {self.model.__class__.__name__}
             sim_setup += f"domain = domains.{self.domain.__repr__()}\n"
             sim_class_def += "domain=domain,"
 
-            sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
+            if self.grid is None:
+                sim_setup += "grid = None\n"
+            else:
+                sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
             sim_class_def += "grid=grid,"
 
-            sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
+            if self.derham_opts is None:
+                sim_setup += "derham_opts = None\n"
+            else:
+                sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
             sim_class_def += "derham_opts=derham_opts,"
 
             sim_setup += f"profiling_opts = {self.profiling_opts.__repr__()}\n"
@@ -2036,10 +2042,17 @@ from struphy.models import {self.model.__class__.__name__}
             if not self.domain.is_default:
                 sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
                 sim_class_def += "domain=domain,"
-            if not self.grid.is_default:
+            # None (no FEEC Derham) is not the constructor default, so pass it explicitly
+            if self.grid is None:
+                sim_setup += "grid = None\n"
+                sim_class_def += "grid=grid,"
+            elif not self.grid.is_default:
                 sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
                 sim_class_def += "grid=grid,"
-            if not self.derham_opts.is_default:
+            if self.derham_opts is None:
+                sim_setup += "derham_opts = None\n"
+                sim_class_def += "derham_opts=derham_opts,"
+            elif not self.derham_opts.is_default:
                 sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
                 sim_class_def += "derham_opts=derham_opts,"
             if self.profiling_opts != ProfilingOptions():
