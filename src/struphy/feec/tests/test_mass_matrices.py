@@ -558,6 +558,54 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free, ma
     assert xp.all(xp.isclose(M1B1.toarray(), M1B2.toarray())), "Mass matrices for B1 and B2 are not equal."
 
 
+@pytest.mark.parametrize(
+    "V_id, W_id, weights",
+    [("H1", "L2", ("sqrt_g",)), ("Hcurl", "Hdiv", ("DFinv", "sqrt_g"))],
+)
+def test_matrix_free_transpose(V_id, W_id, weights):
+    """Matrix-free mass operators must agree with the assembled ones for M, M.T and transposed=True."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    xp.random.seed(1234)
+
+    grid = TensorProductGrid(num_elements=(3, 3, 2))
+    derham = Derham(grid, DerhamOptions(degree=(1, 1, 1), bcs=(None, None, None)))
+    domain = domains.Colella()
+
+    M_ref = WeightedMassOperators(derham, domain).create_weighted_mass(
+        V_id, W_id, name="M", weights=weights, assemble=True
+    )
+    mass_ops_mf = WeightedMassOperators(derham, domain, matrix_free=True)
+    M_mf = mass_ops_mf.create_weighted_mass(V_id, W_id, name="M", weights=weights, assemble=True)
+    Mt_mf = mass_ops_mf.create_weighted_mass(V_id, W_id, name="Mt", weights=weights, assemble=True, transposed=True)
+
+    def random_vector(space):
+        v = space.zeros()
+        for block in getattr(v, "blocks", (v,)):
+            block._data[:] = xp.random.rand(*block._data.shape)
+        v.update_ghost_regions()
+        return v
+
+    x = random_vector(M_ref.domain)
+    y = random_vector(M_ref.codomain)
+
+    Mx = M_ref.dot(x)
+    MTy = M_ref.T.dot(y)
+
+    assert xp.allclose(M_mf.dot(x).toarray(), Mx.toarray(), atol=1e-12)
+    assert xp.allclose(M_mf.T.dot(y).toarray(), MTy.toarray(), atol=1e-12)
+    assert xp.allclose(M_mf.T.T.dot(x).toarray(), Mx.toarray(), atol=1e-12)
+    assert xp.allclose(Mt_mf.dot(y).toarray(), MTy.toarray(), atol=1e-12)
+    assert xp.isclose(M_mf.dot(x).inner(y), x.inner(M_mf.T.dot(y)), rtol=1e-12)
+
+
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
 @pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
