@@ -8,6 +8,7 @@ from cunumpy import PyccelKernel
 
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
+from struphy.pic import sph_smoothing_kernels
 from struphy.pic.pushing import eval_kernels_gc, eval_kernels_sph
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.pusher import Pusher
@@ -88,12 +89,17 @@ def test_sph_vector_destinations(marker_args, kernel):
 
 
 def test_sph_tensor_destinations(marker_args):
-    marker_args.markers[0, 18:21] = (1.0, 2.0, 3.0)
-    boxes = np.array([[0, -1], [-1, -1]])
+    # Second particle at eta1 + 0.2 (inside h = 0.5) with the same velocity coefficients.
+    marker_args.markers[1] = marker_args.markers[0]
+    marker_args.markers[1, 0] = 0.6
+    marker_args.markers[:, 18:21] = (1.0, 2.0, 3.0)
+    marker_args.valid_mks[1] = True
+    boxes = np.array([[0, 1, -1], [-1, -1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
     neighbours[0, 0] = 0
-    # The linear 1D kernel uses its right derivative at zero: 1 / h**2.
+    # Self-gradient of the linear 1D kernel vanishes; the neighbour contributes -+1 / h**2 = -+4.
     gradient = np.array([[4.0, 0.0, 0.0], [8.0, 0.0, 0.0], [12.0, 0.0, 0.0]])
+    density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
     indices = (30, 29, 28, 27, None, 25, 24, 23, 22)
     setup = KernelSetup(
         kernel=eval_kernels_sph.sph_viscosity_tensor,
@@ -103,12 +109,28 @@ def test_sph_tensor_destinations(marker_args):
     before = marker_args.markers.copy()
     setup.evaluate(marker_args, Cuboid().args_domain)
     symmetric = (gradient + gradient.T) / 2.0
-    tensor = -3.0 * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
+    tensor = -2.0 * 3.0 * (2.0 / density) * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
     reference = before.copy()
     for value, index in zip(tensor.flat, indices):
         if index is not None:
             reference[0, index] = value
+            reference[1, index] = -value
     np.testing.assert_allclose(marker_args.markers, reference)
+
+
+# Each gradient component must vanish where its own coordinate is zero (no self-force, issue #437).
+ZERO_GRADIENT_CASES = [
+    (n + k, point)
+    for n in (100, 110, 120, 340, 350, 360, 670, 680, 690, 700)
+    for k in (1, 2, 3)
+    for point in ((0.0, 0.0, 0.0), (0.0, 0.1, 0.05), (0.1, 0.0, 0.05), (0.1, 0.05, 0.0))
+    if point[k - 1] == 0.0 and (n != 690 or not any(point))
+]
+
+
+@pytest.mark.parametrize("kernel_type,point", ZERO_GRADIENT_CASES)
+def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
+    assert sph_smoothing_kernels.smoothing_kernel(kernel_type, *point, 0.3, 0.25, 0.2) == 0.0
 
 
 @pytest.mark.parametrize("indices", [(), (1, 2), (-1,), (True,), (1.5,), (None,), (1, 1, 2)])
