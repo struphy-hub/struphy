@@ -35,7 +35,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 ## Principles
 
 - **1:1 correspondence.** Each CUDA kernel has the same name and the same arguments (in the same order) as its pyccel kernel. The CUDA kernel takes the CUDA versions of the argument classes, plus the number of threads (`n_threads`).
-- **The backend decides.** The cunumpy backend (`ARRAY_BACKEND=cupy` or `cunumpy.set_backend("cupy")`) selects the CUDA kernels; with NumPy the pyccel kernels run as today.
+- **The backend decides.** The cunumpy backend (`ARRAY_BACKEND=cupy` or `cunumpy.set_backend("cupy")`, queried with `cunumpy.get_backend()`, cunumpy ≥ 0.2.0) selects the CUDA kernels; with NumPy the pyccel kernels run as today.
 - **No conversions at call time.** When a kernel is called, its arguments are already in the right format. There are no host/device copies per kernel call.
 - **Data already lives on the GPU.** On the CuPy backend, `xp` is `cupy`, so markers, spline coefficients etc. are CuPy arrays from the start. The CUDA argument objects only collect *references* to these arrays and raise if they get host arrays.
 - **No silent CPU fallback on the GPU.** A kernel without a CUDA version raises an error on the GPU backend. Falling back would mean copying data to the host and back at every call.
