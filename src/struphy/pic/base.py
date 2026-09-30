@@ -1213,10 +1213,7 @@ class Particles(metaclass=ABCMeta):
                     num_to_add_glob = min(chunk_size, int(self.Np) - num_loaded_particles_glob)
                     temp = xp.random.rand(num_to_add_glob, 3 + self.vdim)
                     # check which particles are on the current process domain
-                    is_on_proc_domain = xp.logical_and(
-                        temp[:, :3] > self.domain_array[self.mpi_rank, 0::3],
-                        temp[:, :3] < self.domain_array[self.mpi_rank, 1::3],
-                    )
+                    is_on_proc_domain = self._is_on_domain_of_rank(temp[:, :3], self.mpi_rank)
                     valid_idx = xp.nonzero(xp.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
                     valid_particles = xp.array_split(valid_particles, self.num_clones)[self.clone_id]
@@ -1777,12 +1774,12 @@ class Particles(metaclass=ABCMeta):
 
         # check if all markers are on the right process after sorting
         if do_test:
-            all_on_right_proc = xp.all(
-                xp.logical_and(
-                    self.positions > self.domain_array[self.mpi_rank, 0::3],
-                    self.positions < self.domain_array[self.mpi_rank, 1::3],
-                ),
-            )
+            # eta = 1 is sorted like eta = 0 in periodic directions (see _sendrecv_determine_mtbs)
+            etas = self.positions
+            for axis in self._periodic_axes:
+                etas[:, axis] %= 1.0
+
+            all_on_right_proc = xp.all(self._is_on_domain_of_rank(etas, self.mpi_rank))
 
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
@@ -4345,6 +4342,33 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
     ### MPI comm for domain decomposition ###
 
+    def _is_on_domain_of_rank(self, etas, rank):
+        """
+        Check which logical positions lie on the domain of a given process.
+
+        Uses the half-open interval [left, right) in each direction, so that a position
+        exactly on a boundary between two processes belongs to exactly one of them.
+        The right end eta = 1 of the unit cube is included in the last process.
+
+        Parameters
+        ----------
+            etas : array[float]
+                Logical positions of shape (n, 3).
+
+            rank : int
+                Process rank (row index of domain_array).
+
+        Returns
+        -------
+            is_on_domain : array[bool]
+                Array of shape (n, 3), True where the position lies in the process domain in that direction.
+        """
+        left = self.domain_array[rank, 0::3]
+        right = self.domain_array[rank, 1::3]
+        # include eta = 1 in the last process: shift its right boundary to the next float
+        right = xp.where(right == 1.0, xp.nextafter(right, 2.0), right)
+        return xp.logical_and(etas >= left, etas < right)
+
     def _sendrecv_determine_mtbs(
         self,
         alpha: list | tuple | xp.ndarray = (1.0, 1.0, 1.0),
@@ -4374,18 +4398,22 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         assert alpha.size == 3
         assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        xp.mod(
+        self._sorting_etas[:] = (
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
-            + (1.0 - alpha) * self.markers[:, bi : bi + 3],
-            1.0,
-            out=self._sorting_etas,
+            + (1.0 - alpha) * self.markers[:, bi : bi + 3]
         )
 
+        # for non-periodic axes, eta = 1 is the right end of the domain and must not be wrapped to eta = 0
+        non_periodic_axes = [axis for axis in range(3) if axis not in self._periodic_axes]
+        at_right_end = {axis: self._sorting_etas[:, axis] == 1.0 for axis in non_periodic_axes}
+
+        xp.mod(self._sorting_etas, 1.0, out=self._sorting_etas)
+
+        for axis, mask in at_right_end.items():
+            self._sorting_etas[mask, axis] = 1.0
+
         # check which particles are on the current process domain
-        self._is_on_proc_domain = xp.logical_and(
-            self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
-            self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
-        )
+        self._is_on_proc_domain = self._is_on_domain_of_rank(self._sorting_etas, self.mpi_rank)
 
         # to stay on the current process, all three columns must be True.
         # Reducing over a size-3 trailing axis of an array with many rows is slow
@@ -4505,10 +4533,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             etas_remaining = etas_to_send[remaining]
             still_remaining = xp.ones(remaining.shape[0], dtype=bool)
             for i in rank_group:
-                conds = xp.logical_and(
-                    etas_remaining > self.domain_array[i, 0::3],
-                    etas_remaining < self.domain_array[i, 1::3],
-                )
+                conds = self._is_on_domain_of_rank(etas_remaining, i)
 
                 matched_local = xp.nonzero(xp.all(conds, axis=1))[0]
                 matched = remaining[matched_local]
