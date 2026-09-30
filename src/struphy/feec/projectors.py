@@ -2111,11 +2111,11 @@ class ProjectorPreconditioner(LinearOperator):
 
         self._transposed = transposed
 
-        # save inter-/histopolation matrix to be inverted
+        # save inter-/histopolation matrix to be inverted (with boundary operators if apply_bc=True)
         if transposed:
-            self._I = projector.IT
+            self._I = projector.I0T if apply_bc else projector.IT
         else:
-            self._I = projector.I
+            self._I = projector.I0 if apply_bc else projector.I
 
         self._is_composed = isinstance(self._I, ComposedLinearOperator)
 
@@ -2215,7 +2215,8 @@ class ProjectorPreconditioner(LinearOperator):
         else:
             if out is None:
                 out = self.solver.dot(rhs)
-            self.solver.dot(rhs, out=out)
+            else:
+                self.solver.dot(rhs, out=out)
         return out
 
     def dot(self, v, out=None):
