@@ -1,5 +1,6 @@
 """Marker destinations and execution ordering for configured evaluations."""
 
+import inspect
 from types import SimpleNamespace
 
 import numpy as np
@@ -9,7 +10,7 @@ from cunumpy import PyccelKernel
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
 from struphy.pic import sph_smoothing_kernels
-from struphy.pic.pushing import eval_kernels_gc, eval_kernels_sph
+from struphy.pic.pushing import eval_kernels_gc, eval_kernels_sph, pusher_kernels_gc
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
@@ -131,6 +132,28 @@ ZERO_GRADIENT_CASES = [
 @pytest.mark.parametrize("kernel_type,point", ZERO_GRADIENT_CASES)
 def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
     assert sph_smoothing_kernels.smoothing_kernel(kernel_type, *point, 0.3, 0.25, 0.2) == 0.0
+
+
+@pytest.mark.parametrize(
+    "kernel_name",
+    [
+        "push_gc_Bstar_discrete_gradient_1st_order",
+        "push_gc_Bstar_discrete_gradient_2nd_order",
+        "push_gc_Bstar_discrete_gradient_1st_order_newton",
+    ],
+)
+def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel_name):
+    # A marker at rest (v = mu = 0, no E-field) stays put; the residual must be 0, not NaN (issue #589).
+    kernel = getattr(pusher_kernels_gc, kernel_name)
+    markers = np.zeros((1, 40))
+    markers[0, :3] = (0.4, 0.3, 0.2)
+    markers[0, 8:11] = markers[0, :3]
+    markers[0, 18] = markers[0, 21] = 1.0  # B*_parallel and B* = (0, 0, 1) at time n.
+    args_markers = MarkerArguments(markers, np.array([True]), 1, 2, 5, 6, 8, 12, 16, 17, 4, np.zeros(3, dtype=int))
+    n_fields = len(inspect.signature(kernel).parameters) - 7
+    kernel(0.1, 0, args_markers, Cuboid().args_domain, derham_args, 1.0, *(coefficients(1.0),) * n_fields, False)
+    assert markers[0, 16] == 0.0
+    np.testing.assert_array_equal(markers[0, :4], (0.4, 0.3, 0.2, 0.0))
 
 
 @pytest.mark.parametrize("indices", [(), (1, 2), (-1,), (True,), (1.5,), (None,), (1, 1, 2)])
