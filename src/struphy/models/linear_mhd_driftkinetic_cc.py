@@ -208,8 +208,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         particles.save_magnetic_energy(self._PBb)
 
         return (
-            particles.markers[~particles.holes, 5].dot(
-                particles.markers[~particles.holes, 8],
+            particles.markers[particles.valid_mks, 5].dot(
+                particles.markers[particles.valid_mks, 8],
             )
             * Ah
             / Ab

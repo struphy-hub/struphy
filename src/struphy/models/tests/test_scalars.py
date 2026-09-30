@@ -109,3 +109,51 @@ def test_kinetic_energy_ignores_magnetic_moment_of_5d_markers():
 
     expected = 0.5 * float(xp.sum(weights * v_par**2))
     assert float(scalar.local_value[0]) == expected
+
+
+class _MarkersWithGhosts:
+    """Particles5D-like markers (weight in column 5, mu * |B| in column 8), plus holes and ghost copies of the first markers."""
+
+    def __init__(self, n_valid, n_ghosts):
+        n_rows = n_valid + n_ghosts + 2
+        self.Np = n_valid
+        self.markers = xp.zeros((n_rows, 10), dtype=float)
+        self.markers[:n_valid, 5] = xp.linspace(0.5, 1.5, n_valid)
+        self.markers[:n_valid, 8] = 3.0
+        self.markers[n_valid : n_valid + n_ghosts] = self.markers[:n_ghosts]
+        self.markers[n_valid : n_valid + n_ghosts, -1] = -2.0  # ghosts
+        self.markers[n_valid + n_ghosts :, :-1] = -1.0  # holes
+        self.holes = self.markers[:, 0] == -1.0
+        self.valid_mks = ~xp.logical_or(self.holes, self.markers[:, -1] == -2.0)
+
+    def save_magnetic_background_energy(self):
+        pass
+
+    def save_magnetic_energy(self, PBb):
+        pass
+
+
+def test_en_fB_ignores_ghost_markers():
+    """Ghost markers are copies of markers owned by a neighbouring process and must not enter en_fB."""
+    from types import SimpleNamespace
+
+    from struphy.models.guiding_center import GuidingCenter
+    from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
+
+    def _models(particles):
+        var = SimpleNamespace(particles=particles, species=SimpleNamespace(mass_number=1.0))
+        gc = SimpleNamespace(kinetic_ions=SimpleNamespace(var=var))
+        cc = SimpleNamespace(
+            mhd=SimpleNamespace(mass_number=1.0),
+            energetic_ions=SimpleNamespace(var=var),
+            _PB=SimpleNamespace(dot=lambda v: None),
+            em_fields=SimpleNamespace(b_field=SimpleNamespace(spline=SimpleNamespace(vector=None))),
+        )
+        return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc}
+
+    with_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=3))
+    without_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=0))
+    for model_class in (GuidingCenter, LinearMHDDriftkineticCC):
+        energy = model_class._compute_en_fB(with_ghosts[model_class])
+        expected = model_class._compute_en_fB(without_ghosts[model_class])
+        assert xp.isclose(energy, expected), f"{model_class.__name__}: en_fB = {energy} with ghosts, {expected} without"
