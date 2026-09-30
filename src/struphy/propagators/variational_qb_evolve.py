@@ -243,6 +243,7 @@ class VariationalQBEvolve(Propagator):
         else:
             self._bt2 = self.bt2.spline.vector
 
+        self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
         self._info = self._nonlin_solver.info and (self.rank == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
