@@ -203,7 +203,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def _compute_en_particle_magnetic(self):
         particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
-        return 1 / particles.Np * xp.sum(particles.markers_wo_holes_and_ghost[:, 8])
+        # The weights (column 5) already carry the 1/N_p of the Monte-Carlo estimate, see KineticEnergyPIC.
+        markers = particles.markers_wo_holes_and_ghost
+        return markers[:, 5].dot(markers[:, 8])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
