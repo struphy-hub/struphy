@@ -12,8 +12,8 @@ import importlib
 import math
 from pathlib import Path
 
+import cunumpy
 from cunumpy import PyccelKernel
-from cunumpy.xp import array_backend
 
 
 def is_cuda_backend() -> bool:
@@ -24,7 +24,7 @@ def is_cuda_backend() -> bool:
     bool
         True if the backend is ``"cupy"``, False if it is ``"numpy"``.
     """
-    return array_backend.backend == "cupy"
+    return cunumpy.get_backend() == "cupy"
 
 
 class CudaKernel:
