@@ -526,6 +526,36 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
         MPI_COMM.Barrier()
 
 
+@pytest.mark.parametrize("bcs", [(("dirichlet", "dirichlet"), ("dirichlet", "free"), None)])
+def test_projector_solve_apply_bc(bcs):
+    """Tensor-product case: CommutingProjector.solve(apply_bc=True) must solve I0 * x = B * rhs exactly (#584)."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    grid = TensorProductGrid(num_elements=[5, 6, 4])
+    derham = Derham(grid, DerhamOptions(degree=[2, 2, 1], bcs=bcs), comm=MPI.COMM_WORLD)
+
+    for sp_id, sp_key in [("H1", "0"), ("Hcurl", "1"), ("Hdiv", "2"), ("L2", "3"), ("H1vec", "v")]:
+        P = derham.projectors[sp_key]
+        rhs = create_equal_random_arrays(derham.fem_spaces[sp_id], seed=123)[1]
+
+        x = P.solve(rhs, apply_bc=True)
+        r = P.I0.dot(x) - P.boundary_op.dot(rhs)
+        assert xp.sqrt(r.inner(r)) < 1e-12
+
+        # preconditioner with out=None and out given must agree
+        for pc in [P.pc0, P.pc0T]:
+            y = pc.codomain.zeros()
+            pc.dot(rhs, out=y)
+            d = pc.dot(rhs) - y
+            assert xp.sqrt(d.inner(d)) == 0.0
+            
+            
 @pytest.mark.parametrize("num_elements", [[6, 9, 2]])
 @pytest.mark.parametrize("degree", [[2, 2, 1]])
 def test_coordinate_ops_polar(num_elements, degree):

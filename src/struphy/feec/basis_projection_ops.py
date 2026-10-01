@@ -1843,25 +1843,6 @@ class BasisProjectionOperator(LinOpWithTransp):
         if out is None:
             out = self.codomain.zeros()
 
-            if self.transposed:
-                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                out = self.dof_operator.dot(
-                    self._P.solve(
-                        v,
-                        True,
-                        apply_bc=True,
-                    ),
-                )
-            else:
-                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                out = self._P.solve(
-                    self.dof_operator.dot(
-                        v,
-                    ),
-                    False,
-                    apply_bc=True,
-                )
-
         assert isinstance(out, Vector)
         assert out.space == self.codomain
 
