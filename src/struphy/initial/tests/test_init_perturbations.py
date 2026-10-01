@@ -357,6 +357,34 @@ def test_itpa_density_c2_limit():
         val_small = cls(n0=n0, c=(c[0], c[1], 1e-8, c[3]))(eta1)
         assert xp.allclose(val0, n0 * c[3])
         assert xp.allclose(val0, val_small)
+        
+        
+def test_modes_pfuns_per_mode_params():
+    """Each mode's profile function must use its own parameters (no late binding in the loop)."""
+
+    import cunumpy as xp
+
+    from struphy.initial.perturbations import ModesSin, TorusModesCos, TorusModesSin
+
+    e = 0.25
+    pars = ((0.3, 0.1), (0.7, 0.2))
+    for cls in (TorusModesSin, TorusModesCos):
+        pert = cls(ms=(0, 0), ns=(0, 0), amps=(1.0, 1.0), pfuns=("sin", "sin"), pfun_params=(1, 2))
+        assert xp.allclose([f(e) for f in pert._pfuns], [xp.sin(xp.pi * e), xp.sin(2 * xp.pi * e)])
+
+        pert = cls(ms=(0, 0), ns=(0, 0), amps=(1.0, 1.0), pfuns=("exp", "d_exp"), pfun_params=pars)
+        (a0, s0), (a1, s1) = pars
+        exp0 = xp.exp(-((e - a0) ** 2) / (2 * s0**2)) / xp.sqrt(2 * xp.pi * s0**2)
+        d_exp1 = -(e - a1) / s1**2 * xp.exp(-((e - a1) ** 2) / (2 * s1**2)) / xp.sqrt(2 * xp.pi * s1**2)
+        assert xp.allclose([f(e) for f in pert._pfuns], [exp0, d_exp1])
+
+        pert = cls(ms=(0, 0), ns=(0, 0), amps=(1.0, 1.0), pfuns=("exp", "exp"), pfun_params=pars)
+        assert not xp.isclose(pert._pfuns[0](e), pert._pfuns[1](e))
+
+    z = 0.6
+    pert = ModesSin(ls=(1, 1), amps=(1.0, 1.0), pfuns=("localize", "localize"), pfuns_params=(0.1, 0.5))
+    expected = [xp.tanh((z - 0.5) / d) / xp.cosh((z - 0.5) / d) for d in (0.1, 0.5)]
+    assert xp.allclose([f(z) for f in pert.pfuns], expected)
 
 
 if __name__ == "__main__":

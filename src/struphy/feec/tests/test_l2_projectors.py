@@ -279,6 +279,57 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
         plt.show()
 
 
+@pytest.mark.parametrize("num_elements", [[6, 9, 2]])
+@pytest.mark.parametrize("degree", [[2, 2, 1]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None), (("free", "dirichlet"), None, None)])
+def test_l2_projectors_polar(num_elements, degree, bcs):
+    """L2-projecting a polar spline function (sampled at the quadrature points) must reproduce its coefficients."""
+    from struphy.linear_algebra.solver import SolverParameters
+    from struphy.polar.basic import PolarVector
+
+    comm = MPI.COMM_WORLD
+
+    domain = domains.IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], a=1.0, Lz=3.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    xp.random.seed(1234)
+    for sp_id, sp_key in derham.space_to_form.items():
+        # random polar spline function
+        tp = derham.coeff_spaces[sp_key].zeros()
+        for block in [tp] if sp_id in ("H1", "L2") else tp.blocks:
+            block._data[:] = xp.random.rand(*block._data.shape)
+        field = derham.create_spline_function("fh", sp_id)
+        field.vector.tp = tp
+        # polar coefficients are replicated on all processes, hence must be identical
+        pol = [xp.random.rand(*pol.shape) for pol in field.vector.pol]
+        for pol_i in pol:
+            comm.Bcast(pol_i, root=0)
+        field.vector.pol = pol
+        field.vector = derham.boundary_ops[sp_key].dot(field.vector)
+        field.vector.update_ghost_regions()
+
+        # sample at the (process-local) quadrature points
+        pts = derham.spline_attributes[sp_key].quad_grid_pts[0]
+        vals = field(*[pt.flatten() for pt in pts], local=True)
+
+        P_L2 = L2Projector(sp_id, mass_ops, solver_params=SolverParameters(tol=1e-13, maxiter=3000))
+
+        # dofs are the tensor-product dofs mapped with the basis extraction operator
+        dofs = P_L2.get_dofs(vals, apply_bc=True)
+        assert isinstance(dofs, PolarVector)
+        dofs_tp = P_L2.get_dofs(vals, dofs=derham.coeff_spaces[sp_key].zeros())
+        dofs_ref = derham.boundary_ops[sp_key].dot(derham.extraction_ops[sp_key].dot(dofs_tp))
+        assert xp.allclose(dofs.toarray(True), dofs_ref.toarray(True), atol=1e-14)
+
+        coeffs = P_L2.solve(dofs)
+        err = xp.max(xp.abs(coeffs.toarray(True) - field.vector.toarray(True)))
+        logger.info(f"{sp_id =}, {err =}")
+        assert err < 1e-8
+
+
 if __name__ == "__main__":
     from struphy import set_logging_level
 
