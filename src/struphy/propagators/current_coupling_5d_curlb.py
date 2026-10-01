@@ -286,7 +286,8 @@ class CurrentCoupling5DCurlb(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self.b_tilde.spline.vector
+        if self.b_tilde is not None:
+            b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         self._ACC(
