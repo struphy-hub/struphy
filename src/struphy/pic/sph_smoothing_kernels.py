@@ -67,8 +67,11 @@ def grad_linear_uni(
     if abs(x / h) <= 1.0:
         if x > 0.0:
             return -(1 / h**2)
-        else:
+        elif x < 0.0:
             return 1 / h**2
+        else:
+            # kink at x=0: use the symmetric value 0 (no self-force)
+            return 0.0
     else:
         return 0.0
 
@@ -443,7 +446,8 @@ def grad_linear_isotropic_3d_1(
     if r / h > 1.0:
         return 0.0
     elif r == 0.0:
-        return -1 / h / (1.0471975512 * h**3)
+        # cusp at r=0: use the symmetric value 0 (no self-force)
+        return 0.0
     else:
         return -r1 / (r * h) / (1.0471975512 * h**3)
 
@@ -465,7 +469,8 @@ def grad_linear_isotropic_3d_2(
     if r / h > 1.0:
         return 0.0
     elif r == 0.0:
-        return -1 / h / (1.0471975512 * h**3)
+        # cusp at r=0: use the symmetric value 0 (no self-force)
+        return 0.0
     else:
         return -r2 / (r * h) / (1.0471975512 * h**3)
 
@@ -487,7 +492,8 @@ def grad_linear_isotropic_3d_3(
     if r / h > 1.0:
         return 0.0
     elif r == 0.0:
-        return -1 / h / (1.0471975512 * h**3)
+        # cusp at r=0: use the symmetric value 0 (no self-force)
+        return 0.0
     else:
         return -r3 / (r * h) / (1.0471975512 * h**3)
 
