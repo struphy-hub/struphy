@@ -12,7 +12,7 @@ The work is split into small PRs that can be reviewed and merged one at a time. 
 - [x] **PR 4: `Pusher` accepts `Kernel`** — the kernel for the active backend is chosen once, when the pusher is created; a plain `PyccelKernel` is wrapped, so the propagators do not change (no behaviour change on CPU).
 - [x] **PR 5: `Domain` on the GPU** — domain arguments are selected and stored at domain construction; CUDA arguments reference device arrays, and deepcopy/unpickling rebuilds the arguments from the copied or restored arrays.
 - [x] **PR 6: `Particles` on the GPU** — `Particles` can be created on the CuPy backend, and `Particles.cuda_args_markers` provides the CUDA argument bundle.
-- [x] **PR 7: `Derham` on the GPU** — `Derham` can be created on the CuPy backend, plus `Derham.cuda_args_derham`. Needs the companion feectools changes (branch `cupy-derham`), which keep the spline-space construction data on the host.
+- [x] **PR 7: `Derham` on the GPU** — `Derham` can be created on the CuPy backend, plus `Derham.cuda_args_derham`. Needs feectools on the CuPy backend (struphy-hub/feectools#85).
 - [x] **PR 8: Shared CUDA header for the argument classes** — one struct per argument class in `kernel_arguments/pusher_args.cuh`, passed by value, instead of long flat kernel signatures.
 - [ ] **PR 9: One folder per kernel, starting with `pic/pushing`** — pure refactor, no behaviour change.
 - [ ] **PR 10: Device versions of helper kernels** — B-spline evaluation, mapping evaluation (per domain), small linear algebra, as `__device__` functions in `.cuh` headers.
@@ -128,7 +128,7 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 - The CUDA argument objects hold references. If an owner reallocates an array (today the markers are allocated once), it must rebuild its CUDA arguments at the same place, exactly like for the pyccel arguments.
 - First these classes must be creatable on the CuPy backend at all:
   - `Particles`: wrap Python lists in `xp.array` before reductions, and use host buffers for scalar MPI gathers (`pic/base.py`).
-  - `Derham`: feectools moved its host data (knots, grids, collocation matrices) to CuPy before calling pyccel kernels (see PR 7 below).
+  - `Derham`: feectools and struphy moved host data (knots, grids, collocation matrices) to CuPy before calling pyccel kernels (see PR 7 below).
   - `Domain`: deepcopy and unpickling on CuPy failed (see PR 5 below).
 
 ### PR 5: `Domain` on the GPU (complete)
@@ -148,15 +148,15 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 
 ### PR 7: `Derham` on the GPU (complete)
 
-- feectools (and the struphy code that builds `Derham`) followed `xp` everywhere, so on CuPy the knots, quadrature grids, collocation matrices and decomposition metadata became device arrays and then reached pyccel kernels, SciPy or MPI, which only take host arrays. The rule is now: **data that describes the spline spaces is host data on every backend**. Only the coefficients (`StencilVector` data) and stencil matrices live on the device.
-  - feectools, branch `cupy-derham` (separate PR, must be merged and released first): `core/bsplines.py` takes and returns NumPy arrays (CuPy inputs are copied to the host once), and so do the 1D interpolation/histopolation matrices and their factorizations (`fem/splines.py`, `BandedSolver`). Decomposition metadata (`ddm/cart.py`, `ddm/partition.py`), MPI counts and shapes in `linalg/kron.py`, and `compute_diag_len` in `linalg/stencil.py` are NumPy too. `StencilMatrix._tocoo_no_pads` had a duplicated kernel call on the CuPy data (merge leftover) and now builds the SciPy matrix from one host copy.
-  - struphy: the projection and quadrature grids of `Derham` (`get_pts_and_wts`, ...) and `spline_types_pyccel` are NumPy. `domain_array`, `index_array(_N/_D)` and `neighbours` are gathered with NumPy MPI buffers and then converted with `xp.asarray`, so they are device arrays on CuPy like `Particles.domain_array`.
+- feectools and the struphy code that builds `Derham` followed `xp` everywhere. So on CuPy, the knots, quadrature grids and decomposition metadata became device arrays and then reached pyccel kernels, SciPy or MPI, which only take host arrays.
+  - feectools: struphy-hub/feectools#85, the first of the feectools CUDA PRs, makes feectools run on the CuPy backend. It must be merged, and the submodule or the feectools version bumped, before `Derham` can be created on CuPy.
+  - struphy: data that describes the spline spaces is host data on every backend. Only the coefficients (`StencilVector` data) and stencil matrices live on the device. The projection and quadrature grids of `Derham` (`get_pts_and_wts`, ...) and `spline_types_pyccel` are NumPy. `domain_array`, `index_array(_N/_D)` and `neighbours` are gathered with NumPy MPI buffers and then converted with `xp.asarray`, so they are device arrays on CuPy like `Particles.domain_array`.
 - `Derham.args_derham` is built from the host knots, degrees and starts on both backends. `Derham.cuda_args_derham` lazily builds `CudaDerhamArguments` with one device copy of these small arrays. On NumPy it raises (host arrays are never copied to the device). The pyccel scratch arrays (`bn1`, ..., `bd3`) are not part of it; they become per-thread local arrays in CUDA (PR 10).
 - Not supported on CuPy yet:
   - Local projectors (`DerhamOptions.local_projectors=True`) raise `NotImplementedError` when the `Derham` is created. `CommutingProjectorLocal` builds its data with `xp` and calls pyccel kernels on it, like `Derham` did.
   - Polar splines need a spline mapping, which cannot be created on CuPy yet (see PR 5).
   - Field evaluation (`SplineFunction.__call__`, ...) still calls pyccel kernels with the coefficients, which are device arrays on CuPy. It needs CUDA evaluation kernels (PR 10+).
-- Tests: `feec/tests/test_derham_gpu.py`. Without a GPU, a strict host stand-in for CuPy (rejects host/device mixing, cannot run kernels; not part of the repository) was used to create `Derham` on the "CuPy" backend with 1, 2 and 4 MPI processes and compare it with NumPy.
+- Tests: `feec/tests/test_derham_gpu.py`. Without a GPU, a strict host stand-in for CuPy (rejects host/device mixing, cannot run kernels; not part of the repository) was used, on top of struphy-hub/feectools#85. With it, a `Derham` created on the "CuPy" backend matches the NumPy one on 1, 2 and 4 MPI processes.
 
 ### PR 8: Argument structs in a shared header (complete)
 
