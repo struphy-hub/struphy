@@ -56,7 +56,7 @@ def split_command(command):
         # ["params", "Maxwell", "-f", "params_Maxwell.yml"],
         # Test cases for 'profile' sub-command
         ["profile", "sim_1"],
-        ["profile", "sim_2", "--replace"],
+        ["profile", "sim_2", "--prefix", "prop:"],
         ["profile", "sim_3", "--n-lines", "10"],
         ["profile", "sim_1", "--savefig", "profile_output.png"],
         # Test cases for 'test' sub-command

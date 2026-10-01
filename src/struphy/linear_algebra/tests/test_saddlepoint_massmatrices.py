@@ -357,6 +357,48 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
         compare_arrays(x2, x_uzawa[1].toarray(), mpi_rank, atol=1e-5)
 
 
+@pytest.mark.mpi_skip
+def test_saddlepointsolver_uzawa_small():
+    """Uzawa variant on small dense matrices: Apre=None, numpy initial guesses and preconditioned Schur complement."""
+
+    import cunumpy as xp
+
+    from struphy.linear_algebra.saddle_point import SaddlePointSolver
+
+    rng = xp.random.default_rng(0)
+    n, m = 12, 5
+
+    def spd(k):
+        Q = rng.standard_normal((k, k))
+        return Q @ Q.T + k * xp.eye(k)
+
+    A = [spd(n), spd(n)]
+    B = [rng.standard_normal((m, n)), rng.standard_normal((m, n))]
+    F = [rng.standard_normal(n), rng.standard_normal(n)]
+    Apre = [1.3 * xp.diag(xp.diag(A[0])), 0.7 * xp.diag(xp.diag(A[1]))]
+
+    # no preconditioner given
+    solver = SaddlePointSolver(A=A, B=B, F=F, Apre=None, tol=1e-10, max_iter=2000)
+    u, ue, p, info, _, _ = solver(P_init=xp.zeros(m))
+    assert info["success"]
+    assert xp.allclose(A[0] @ u + B[0].T @ p, F[0])
+    assert xp.allclose(A[1] @ ue + B[1].T @ p, F[1])
+    assert xp.linalg.norm(B[0] @ u + B[1] @ ue) < 1e-10
+
+    # numpy initial guess for U only
+    solver = SaddlePointSolver(A=A, B=B, F=F, Apre=Apre, tol=1e-10, max_iter=2000)
+    info = solver(U_init=xp.zeros(n))[3]
+    assert info["success"]
+
+    # the preconditioned Schur complement must equal B A^{-1} B^T
+    solver_pre = SaddlePointSolver(A=A, B=B, F=F, Apre=Apre, preconditioner=True, tol=1e-10, max_iter=2000)
+    S = B[0] @ xp.linalg.inv(A[0]) @ B[0].T + B[1] @ xp.linalg.inv(A[1]) @ B[1].T
+    assert xp.allclose(solver_pre._Precnp, S)
+    info_pre = solver_pre(xp.zeros(n), xp.zeros(n), xp.zeros(m))[3]
+    assert info_pre["success"]
+    assert info_pre["niter"] == info["niter"]
+
+
 def _plot_residual_norms(residual_norms):
     import matplotlib
 
