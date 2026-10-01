@@ -74,11 +74,11 @@ class TensorCommutingProjector:
         boundary_op=None,
     ):
         self._projector_tensor = projector_tensor
+        self._space = projector_tensor.space
         if boundary_op is not None:
             self._boundary_op = boundary_op
         else:
             self._boundary_op = IdentityOperator(self.space.coeff_space)
-        self._space = projector_tensor.space
 
         # TODO: delete these:
         self._dofs_extraction_op = IdentityOperator(

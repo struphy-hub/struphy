@@ -1480,6 +1480,8 @@ def test_average_operator_transpose(bcs):
         av_op_T = av_op.T
         assert av_op_T._transposed
         assert not av_op_T.T._transposed
+        assert av_op.nquads == av_op_T.nquads == derham.nquads
+        assert AverageOperator(derham, "H1", dir, nquads=[2, 2, 2]).T.nquads == [2, 2, 2]
 
         lhs = av_op.dot(x).inner(y)
         rhs = x.inner(av_op_T.dot(y))
