@@ -560,8 +560,8 @@ def test_transposed_update_weights_drops_zero_blocks():
         ]
     )
     assert np.allclose(op_T.dot(x).toarray(), ref_T.dot(x).toarray(), atol=1e-12)
-    
-    
+
+
 @pytest.mark.parametrize("bcs", [(("dirichlet", "dirichlet"), ("dirichlet", "free"), None)])
 def test_projector_solve_apply_bc(bcs):
     """Tensor-product case: CommutingProjector.solve(apply_bc=True) must solve I0 * x = B * rhs exactly (#584)."""
@@ -590,8 +590,8 @@ def test_projector_solve_apply_bc(bcs):
             pc.dot(rhs, out=y)
             d = pc.dot(rhs) - y
             assert xp.sqrt(d.inner(d)) == 0.0
-            
-            
+
+
 @pytest.mark.parametrize("num_elements", [[6, 9, 2]])
 @pytest.mark.parametrize("degree", [[2, 2, 1]])
 def test_coordinate_ops_polar(num_elements, degree):
