@@ -294,7 +294,7 @@ def push_vxb_implicit(
     first_init_idx = args_markers.first_init_idx
 
     # fmt: off
-    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp parallel firstprivate(b_prod) private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -1233,7 +1233,7 @@ def push_eta_stage(
         last = 0.0
 
     # fmt: off
-    #$ omp parallel private(ip, v, dfm, dfinv, k)
+    #$ omp parallel private(ip, e1, e2, e3, v, dfm, dfinv, k)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -1819,7 +1819,7 @@ def push_deterministic_diffusion_stage(
     pi_du_value = empty(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(ip, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
+    #$ omp parallel private(ip, e1, e2, e3, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, tmp1, tmp2, tmp3, ginv)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
