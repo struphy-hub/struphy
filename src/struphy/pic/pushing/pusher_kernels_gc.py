@@ -1209,12 +1209,16 @@ def push_gc_Bstar_discrete_gradient_1st_order(
         markers[ip, 0:3] = eta_n + dt * k
         markers[ip, 3] = v_n + dt * k_v
 
-        # residual
+        # residual (relative in v, absolute if v_k == 0)
+        v_scale = abs(v_k)
+        if v_scale == 0.0:
+            v_scale = 1.0
+
         markers[ip, residual_idx] = sqrt(
             (markers[ip, 0] - eta_k[0]) ** 2
             + (markers[ip, 1] - eta_k[1]) ** 2
             + (markers[ip, 2] - eta_k[2]) ** 2
-            + ((markers[ip, 3] - v_k) / v_k) ** 2,
+            + ((markers[ip, 3] - v_k) / v_scale) ** 2,
         )
 
         # apply kinetic boundary conditions
@@ -1462,12 +1466,16 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
         markers[ip, 0:3] = eta_n + dt * k
         markers[ip, 3] = v_n + dt * k_v
 
-        # residual
+        # residual (relative in v, absolute if v_k == 0)
+        v_scale = abs(v_k)
+        if v_scale == 0.0:
+            v_scale = 1.0
+
         markers[ip, residual_idx] = sqrt(
             (markers[ip, 0] - eta_k[0]) ** 2
             + (markers[ip, 1] - eta_k[1]) ** 2
             + (markers[ip, 2] - eta_k[2]) ** 2
-            + ((markers[ip, 3] - v_k) / v_k) ** 2,
+            + ((markers[ip, 3] - v_k) / v_scale) ** 2,
         )
 
         # apply kinetic boundary conditions
@@ -1793,8 +1801,12 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         markers[ip, 0:3] -= k
         markers[ip, 3] -= k_v
 
-        # residual
-        markers[ip, residual_idx] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + (k_v / v_k) ** 2)
+        # residual (relative in v, absolute if v_k == 0)
+        v_scale = abs(v_k)
+        if v_scale == 0.0:
+            v_scale = 1.0
+
+        markers[ip, residual_idx] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + (k_v / v_scale) ** 2)
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, True)
