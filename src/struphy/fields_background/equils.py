@@ -3228,6 +3228,8 @@ class CurrentSheet(CartesianMHDequilibrium):
 
             B_x &= \sqrt{(1 - B_y^2)} \,,
 
+            \mathbf J &= \nabla \times \mathbf B = -\frac{1}{\delta} (B_x^2, B_x B_y, 0) \,,
+
             p &= p_0 = 5/2\,,
 
             n &= n_0 = 1 \,.
@@ -3290,12 +3292,16 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         return bxs, bys, bz
 
-    # equilibrium current, set to 0
+    # equilibrium current (curl of B, force-free: j = -sech(z/delta)/delta * B)
     def j_xyz(self, x, y, z):
         """Current density."""
 
-        jx = 0 * x
-        jy = 0 * x
+        delta = self.params["delta"]
+        by = xp.tanh(z / delta)
+        bx = xp.sqrt(1 - by**2)
+
+        jx = -self.params["amp"] * bx**2 / delta
+        jy = -self.params["amp"] * bx * by / delta
         jz = 0 * x
 
         return jx, jy, jz
