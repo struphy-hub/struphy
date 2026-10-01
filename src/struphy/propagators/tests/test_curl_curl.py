@@ -417,6 +417,53 @@ def test_convergence_2d(
         assert -m > (p + 1 - tolerance)
 
 
+def test_callable_source():
+    """A tuple/list of three callables as source must give the same solution as the projected FEECVariable."""
+    sigma = 1.5
+    E_exact = lambda e: xp.sin(2 * xp.pi * e)
+    j_exact = (
+        lambda x, y, z: 0 * x,
+        lambda x, y, z: 0 * y,
+        lambda x, y, z: (4 * xp.pi**2 - sigma) * E_exact(x),
+    )
+
+    grid = TensorProductGrid(num_elements=(16, 1, 1))
+    derham = Derham(grid=grid, options=DerhamOptions(degree=(3, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham=derham, domain=domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    e1 = xp.linspace(0.0, 1.0, 33)
+    ee1, ee2, ee3 = xp.meshgrid(e1, 0.0, 0.0, indexing="ij")
+    E_analytical = xp.array([0 * ee1, 0 * ee1, E_exact(ee1)])
+
+    def solve(j, j_coeffs=None):
+        _e = FEECVariable(space="Hcurl")
+        _e.allocate(derham=derham, domain=domain)
+        curlcurl_solver = CurlCurlSolve(j=j, j_coeffs=j_coeffs)
+        curlcurl_solver.variables.e = _e
+        curlcurl_solver.options = curlcurl_solver.Options(
+            sigma=sigma,
+            solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
+        )
+        curlcurl_solver.allocate()
+        curlcurl_solver(1.0)
+        return xp.array(_e.spline(ee1, ee2, ee3))
+
+    for j, j_coeffs, factor in [
+        (j_exact, None, 1.0),
+        (list(j_exact), None, 1.0),
+        ([j_exact], [2.0], 2.0),
+    ]:
+        E_calculated = solve(j, j_coeffs)
+        assert xp.max(xp.abs(E_calculated - factor * E_analytical)) < 1e-3
+
+    with pytest.raises(TypeError):
+        solve(j_exact[:2])
+
+
 if __name__ == "__main__":
     # test_convergence_1d(bc_type="dirichlet", direction="1", show_plot=True)
     test_convergence_2d(bc_type="dirichlet", direction="1", show_plot=True)
