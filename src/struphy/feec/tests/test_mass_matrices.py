@@ -1517,7 +1517,7 @@ def test_average_operator_subcomm():
         expected = sorted(r for r, k in enumerate(all_keys) if k == key)
         members = sorted(av_op.subcomm.allgather(comm.Get_rank()))
         assert members == expected
-        
+
 
 @pytest.mark.parametrize("dim_reduce", [0, 1, 2])
 def test_mass_preconditioner_array_weights_mpi(dim_reduce):
