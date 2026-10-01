@@ -119,11 +119,11 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 
 - `Pusher` takes a `Kernel` or, as before, a `PyccelKernel` (wrapped into a `Kernel` without CUDA version). It calls `get_kernel()` once in its constructor, so on the CuPy backend a pusher whose kernel has no CUDA version fails when it is created, not in the time loop. Since no pusher kernel has a CUDA version yet, this is the case for all pushers.
 - The propagators do not change. They switch to catalog lookups once the kernels are split into folders (PR 9).
-- Still to do (PR 11): on the GPU, the pusher must pass `particles.cuda_args_markers`, device arrays in `args_kernel`, and the domain's already backend-selected `domain.args_domain`. This choice is made once, together with the kernel, so that a CUDA kernel is never called with pyccel arguments or vice versa.
+- The pusher already passes the backend-selected `particles.args_markers` and `domain.args_domain`. PR 11 still needs to provide device arrays in `args_kernel` and the CUDA implementation of the first real pusher kernel.
 
 ### PR 5–7: Owners build their CUDA arguments
 
-- `Particles`, `Domain` and `Derham` own the arrays, so they build CUDA argument objects from their own `xp` arrays. `Particles.cuda_args_markers` is separate from the host `args_markers`; `Domain.args_domain` is selected once at construction. The pyccel argument bundles remain available for existing direct Pyccel calls.
+- `Particles`, `Domain` and `Derham` own the arrays, so they build CUDA argument objects from their own `xp` arrays. `Particles.args_markers` and `Domain.args_domain` are selected once at construction; private host bundles remain available for existing direct Pyccel calls.
 - The CUDA argument objects hold references. If an owner reallocates an array (today the markers are allocated once), it must rebuild its CUDA arguments at the same place, exactly like for the pyccel arguments.
 - First these classes must be creatable on the CuPy backend at all:
   - `Particles`: wrap Python lists in `xp.array` before reductions, and use host buffers for scalar MPI gathers (`pic/base.py`).
@@ -141,7 +141,7 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 ### PR 6: `Particles` on the GPU (complete)
 
 - Particle arrays, validity masks, and boundary-condition codes are allocated through `cunumpy`, so they live on CuPy when the CuPy backend is active.
-- `cuda_args_markers` lazily builds `CudaMarkerArguments` from those device arrays. The existing `args_markers` remains the host argument bundle for current Pyccel kernel calls.
+- `args_markers` is built as `CudaMarkerArguments` from device arrays on CuPy, or as `MarkerArguments` on NumPy. A private host bundle remains for direct Pyccel calls.
 - Domain decomposition now wraps the Python `nprocs` list with `xp.array` before calling `xp.prod`. Scalar MPI gathers use small NumPy buffers and copy the results back to the active array backend, avoiding unsupported CuPy buffers in MPI calls.
 - Full GPU particle pushing still depends on CUDA versions of the required kernels.
 
@@ -188,9 +188,11 @@ The pusher kernels call helpers from other pyccel modules: B-spline evaluation (
 - Parity test: same markers, both backends, results agree to round-off (`rtol ~ 1e-13`).
 - End-to-end: run a propagator that only needs this kernel with `ARRAY_BACKEND=cupy`, and check that no host/device transfers happen inside the time loop (e.g. with `nsys` or by counting CuPy memory copies).
 
-### PR 12+: Port kernels one by one
+### PR 12+: Port kernels and particle boundary handling
 
 For each kernel: add `<name>_cuda.cu`, a parity test is added automatically by the catalog (every kernel with a CUDA version is run on both backends with the same inputs), and the kernel is removed from the "missing" list.
+
+- Port particle kinetic boundary handling to CUDA, including the `reflect` helper currently called from `Particles.apply_kinetic_bc`. The CUDA path must use `Particles.args_markers` and `Domain.args_domain`; remove the temporary direct-Pyccel use of `Domain._pyccel_args_domain` from this path once reflection runs in a CUDA kernel.
 
 ## Porting order
 

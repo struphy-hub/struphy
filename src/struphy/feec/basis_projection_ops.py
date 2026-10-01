@@ -1843,25 +1843,6 @@ class BasisProjectionOperator(LinOpWithTransp):
         if out is None:
             out = self.codomain.zeros()
 
-            if self.transposed:
-                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                out = self.dof_operator.dot(
-                    self._P.solve(
-                        v,
-                        True,
-                        apply_bc=True,
-                    ),
-                )
-            else:
-                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                out = self._P.solve(
-                    self.dof_operator.dot(
-                        v,
-                    ),
-                    False,
-                    apply_bc=True,
-                )
-
         assert isinstance(out, Vector)
         assert out.space == self.codomain
 
@@ -1912,6 +1893,11 @@ class BasisProjectionOperator(LinOpWithTransp):
         # only need to update the transposed in case where it's needed
         # (no need to recreate a new ComposedOperator)
         if self._transposed:
+            # transpose(out=...) only visits existing blocks: remove transposed blocks whose weight became zero
+            if not self._is_scalar:
+                for j, i in self._dof_mat_T.nonzero_block_indices:
+                    if self._dof_mat[i, j] is None:
+                        self._dof_mat_T[j, i] = None
             self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
     def assemble(self, weights=None):

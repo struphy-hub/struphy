@@ -123,13 +123,17 @@ def check_omp_flags(file_path, verbose=False):
     """
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            if verbose:
-                for iline, line in enumerate(f):
-                    if line.lstrip().startswith("# $"):
-                        print(f"Error on line {iline}: {line}")
-            return all(not line.lstrip().startswith("# $") for line in f)
+            lines = f.readlines()
     except (IOError, FileNotFoundError) as e:
         raise ValueError(f"Error reading file: {e}")
+
+    passes = True
+    for iline, line in enumerate(lines, start=1):
+        if line.lstrip().startswith("# $"):
+            passes = False
+            if verbose:
+                print(f"Error on line {iline}: {line}")
+    return passes
 
 
 def check_ssort(file_path, verbose=False):
@@ -195,15 +199,20 @@ def check_ruff(file_path, verbose=False):
 
         if result.returncode == 0:
             returncodes.append(0)
+        elif command[1] != "format" or result.returncode != 1:
+            # Lint errors (e.g. unsorted imports) or ruff failures
+            returncodes.append(result.returncode)
         else:
             # Default to no error
             returncode = 0
             for line in result.stdout.decode("utf-8").split("\n"):
                 # Skip empty lines and filename headers
-                if not line or line.startswith("+++ "):
+                if not line or line.startswith(("+++ ", "--- ")):
                     continue
-                # Check for lines with actual changes
-                if line.startswith("+ ") and not line[1:].lstrip().startswith("# $"):
+                # Check for lines with actual changes, ignoring the OpenMP flags "#$" -> "# $"
+                if line.startswith("+") and not line[1:].lstrip().startswith("# $"):
+                    returncode = 1
+                if line.startswith("-") and not line[1:].lstrip().startswith("#$"):
                     returncode = 1
             returncodes.append(returncode)
 

@@ -1943,6 +1943,10 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             out = self.g_psi(self.psi(R, Z, dR=0, dZ=0), der=1) * self.psi(R, Z, dR=1, dZ=0)
         elif dR == 0 and dZ == 1:
             out = self.g_psi(self.psi(R, Z, dR=0, dZ=0), der=1) * self.psi(R, Z, dR=0, dZ=1)
+        else:
+            raise NotImplementedError(
+                "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
+            )
 
         # rescale to Struphy units
         out /= self.units.B * self.units.x

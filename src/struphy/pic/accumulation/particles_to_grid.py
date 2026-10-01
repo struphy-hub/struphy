@@ -227,7 +227,7 @@ class Accumulator:
         # accumulate into matrix (and vector) with markers
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
-                self.particles.args_markers,
+                self.particles._pyccel_args_markers,
                 self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
@@ -555,7 +555,7 @@ class AccumulatorVector:
         # accumulate into matrix (and vector) with markers
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
-                self.particles.args_markers,
+                self.particles._pyccel_args_markers,
                 self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
