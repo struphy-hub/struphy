@@ -435,7 +435,11 @@ class VariationalDensityEvolve(Propagator):
         self._rhof_values = xp.zeros(grid_shape, dtype=float)
 
         # Other mass matrices for newton solve
-        self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
+        if self._model == "barotropic":
+            # constant second derivative of the internal energy, must be set before building the Jacobian
+            self._M_drho = -self.mass_ops.M3 / 2.0
+        else:
+            self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
 
         Jacs = BlockVectorSpace(
             self.derham.Vvpol,
@@ -537,6 +541,10 @@ class VariationalDensityEvolve(Propagator):
         self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
 
         if self._model == "barotropic":
+            # discrete gradient of rho*U(rho) = rho**2/2: (rho^n + rho^{n+1})/2
+            self.rhof.vector = rhon
+            self.rhof1.vector = rhon1
+
             rhof_values = self.rhof.eval_tp_fixed_loc(
                 self.integration_grid_spans,
                 self.integration_grid_bd,
@@ -591,7 +599,8 @@ class VariationalDensityEvolve(Propagator):
         self._kinetic_evaluator.assemble_M_un1(un1)
 
         if self._model == "barotropic":
-            self._M_drho = -self.mass_ops.M3 / 2.0
+            # self._M_drho is constant (-M3/2), set in allocate
+            pass
 
         elif self._model == "full":
             self._energy_evaluator.evaluate_discrete_d2e_drho2_grid(rhon, rhon1, sn, out=self._tmp_int_grid)

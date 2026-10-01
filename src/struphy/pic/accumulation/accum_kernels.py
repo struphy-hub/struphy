@@ -936,7 +936,7 @@ def pc_lin_mhd_6d_full(
         linalg_kernels.matrix_matrix(df_inv, df_inv_t, tmp1)
         linalg_kernels.matrix_vector(df_inv, v, tmp_v)
 
-        weight = markers[ip, 8]
+        weight = markers[ip, 6]
 
         filling_m[:, :] = weight * tmp1 * ep_scale
         filling_v[:] = weight * tmp_v * ep_scale

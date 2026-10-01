@@ -1697,7 +1697,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     if weights_info is None:
                         if self._matrix_free:
                             blocks[-1] += [
-                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, self.nquads),
+                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, nquads=self.nquads),
                             ]
                         else:
                             blocks[-1] += [
@@ -2046,39 +2046,40 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             weights = self._weights
 
-        if self._symmetry is None:
-            M = WeightedMassOperator(
-                self.derham,
-                self._V,
-                self._W,
-                name=self.name + "T",
-                V_extraction_op=self._V_extraction_op,
-                W_extraction_op=self._W_extraction_op,
-                V_boundary_op=self._V_boundary_op,
-                W_boundary_op=self._W_boundary_op,
-                weights_info=weights,
-                transposed=not self._transposed,
-                matrix_free=self._matrix_free,
-            )
+        name = self.name + "T" if self.name is not None else None
 
-            M.assemble()
+        M = WeightedMassOperator(
+            self.derham,
+            self._V,
+            self._W,
+            name=name,
+            V_extraction_op=self._V_extraction_op,
+            W_extraction_op=self._W_extraction_op,
+            V_boundary_op=self._V_boundary_op,
+            W_boundary_op=self._W_boundary_op,
+            weights_info=weights if self._symmetry is None else self._symmetry,
+            spline_functions=self._spline_functions,
+            transposed=not self._transposed,
+            matrix_free=self._matrix_free,
+            nquads=self._nquads,
+        )
 
+        # weights of M in its own (transposed) block order
+        M._weights = [[self._weights[n][m] for n in range(len(self._weights))] for m in range(len(self._weights[0]))]
+
+        if self._matrix_free:
+            if self._symmetry is not None:
+                M.assemble(weights=M._weights)
         else:
-            M = WeightedMassOperator(
-                self.derham,
-                self._V,
-                self._W,
-                name=self.name + "T",
-                V_extraction_op=self._V_extraction_op,
-                W_extraction_op=self._W_extraction_op,
-                V_boundary_op=self._V_boundary_op,
-                W_boundary_op=self._W_boundary_op,
-                weights_info=self._symmetry,
-                transposed=not self._transposed,
-                matrix_free=self._matrix_free,
-            )
+            # transpose the assembled data instead of re-assembling from the weights: the data need not
+            # stem from self._weights (e.g. accumulation matrices, which are filled by the particles)
+            self._mat.transpose(out=M._mat)
 
-            M.assemble(weights=weights)
+            # remove blocks of M that are zero in self
+            if isinstance(self._mat, BlockLinearOperator):
+                for a, b in M._mat.nonzero_block_indices:
+                    if self._mat[b, a] is None:
+                        M._mat[a, b] = None
 
         return M
 
@@ -2342,14 +2343,19 @@ class WeightedMassOperator(LinOpWithTransp):
                 self.derham,
                 V=self._V,
                 W=self._W,
+                name=self.name,
                 V_extraction_op=self._V_extraction_op,
                 W_extraction_op=self._W_extraction_op,
                 V_boundary_op=self._V_boundary_op,
                 W_boundary_op=self._W_boundary_op,
                 weights_info=self._weights_info,
+                spline_functions=self._spline_functions,
                 transposed=self._transposed,
                 matrix_free=self._matrix_free,
+                nquads=self._nquads,
             )
+            # current weights (they may have been changed by assemble(weights=...))
+            out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
         return out
@@ -2567,8 +2573,8 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             ),
         )
 
-        shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
-        self._diag_tmp = xp.zeros((shape))
+        # temporary with ghost regions for the diagonal (contributions to other processes are exchanged)
+        self._diag_tmp = W.coeff_space.zeros()
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
@@ -2649,8 +2655,8 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(
             self._derham,
-            self._codomain,
-            self._domain,
+            self._W,
+            self._V,
             self._weights,
             nquads=self._nquads,
         )
@@ -2769,18 +2775,24 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         elif isinstance(self._weights, xp.ndarray):
             mat_w = self._weights
 
-        diag = self._diag_tmp
-        diag[:] = 0.0
-        self._diag_kernel(
-            *self._codomain_spans,
-            *self._W.degree,
-            *self._codomain_starts,
-            *self._codomain_pads,
-            *self._wts,
-            *self._codomain_basis,
-            mat_w,
-            diag,
-        )
+        diag_tmp = self._diag_tmp
+        diag_tmp._data[:] = 0.0
+        if self._weights is not None:
+            self._diag_kernel(
+                *self._codomain_spans,
+                *self._W.degree,
+                *self._codomain_starts,
+                *self._codomain_pads,
+                *self._wts,
+                *self._codomain_basis,
+                mat_w,
+                diag_tmp._data,
+            )
+            diag_tmp.exchange_assembly_data()
+
+        # entries owned by this process (without ghost regions)
+        idx = tuple(slice(p * m, -p * m) if p != 0 else slice(None) for p, m in zip(W.pads, W.shifts))
+        diag = diag_tmp._data[idx]
 
         data = out._data if out else None
 
@@ -3265,6 +3277,8 @@ class AverageOperator(LinOpWithTransp):
         self._pads = self._V.pads  # gets the number of ghost cells
         self._derham = derham
         self._dtype = self._domain.dtype
+        self._space = space
+        self._direction = direction
         self._transposed = transposed
         if direction == 0:
             self._directions = (0, 1, 2)
@@ -3390,4 +3404,4 @@ class AverageOperator(LinOpWithTransp):
         return out
 
     def transpose(self, conjugate=False):
-        return AverageOperator(self.derham, self.domain, self._weights, transposed=not self._transposed)
+        return AverageOperator(self.derham, self._space, self._direction, transposed=not self._transposed)
