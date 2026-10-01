@@ -2820,8 +2820,9 @@ class SplineFunction:
         if len(etas) == 1:
             marker_evaluation = True
             is_sparse_meshgrid = False
-            markers = etas[0]
-            assert markers.ndim == 2
+            assert etas[0].ndim == 2
+            # copy positions, such that flagging does not modify the caller's array
+            markers = xp.array(etas[0][:, :3], dtype=float)
             self._flag_pts_not_on_proc(markers)
             tmp_shape = markers.shape[0]
         # 3D meshgrid evaluation
@@ -2986,10 +2987,10 @@ class SplineFunction:
                 tmp[:] = 0.0
 
                 if squeeze_out:
-                    out[-1] = xp.squeeze(out[-1])
+                    out[n] = xp.squeeze(out[n])
 
-                if out[-1].ndim == 0:
-                    out[-1] = out[-1].item()
+                if out[n].ndim == 0:
+                    out[n] = out[n].item()
 
         return out
 
@@ -3031,10 +3032,12 @@ class SplineFunction:
         if len(etas) == 1:
             markers = etas[0]
 
-            # check which particles are on the current process domain
+            # check which particles are on the current process domain;
+            # intervals are half-open [start, end) such that points on internal breaks are counted once
+            ends = dom_arr[rank, 1::3]
             is_on_proc_domain = xp.logical_and(
                 markers[:, :3] >= dom_arr[rank, 0::3],
-                markers[:, :3] <= dom_arr[rank, 1::3],
+                xp.where(ends == 1.0, markers[:, :3] <= ends, markers[:, :3] < ends),
             )
             on_proc = xp.all(is_on_proc_domain, axis=1)
 
