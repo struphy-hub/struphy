@@ -142,6 +142,8 @@ class VariationalViscosity(Propagator):
             Artificial-viscosity coefficient.
         alpha : float, default=0.0
             Optional linear damping/regularization parameter.
+        fast : bool, default=False
+            If ``True`` and ``model="linear_q"``, skip the thermodynamic (energy balance) update.
         """
 
         # specific literals
@@ -156,6 +158,7 @@ class VariationalViscosity(Propagator):
         mu: float = 0.0
         mu_a: float = 0.0
         alpha: float = 0.0
+        fast: bool = False
 
         def __post_init__(self):
             # checks
@@ -188,6 +191,7 @@ class VariationalViscosity(Propagator):
         self._gamma = self.options.gamma
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
+        self._fast = self.options.fast
         self._mu_a = self.options.mu_a
         self._alpha = self.options.alpha
         self._mu = self.options.mu
@@ -273,7 +277,7 @@ class VariationalViscosity(Propagator):
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
-        if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
+        if self._model == "linear_p" or (self._model == "linear_q" and self._fast):
             self.update_feec_variables(s=sn, u=un1)
             return
 
@@ -281,7 +285,7 @@ class VariationalViscosity(Propagator):
         # 1) Pointwize energy change
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
-        rho = self.rho
+        rho = self.rho.spline.vector
         if self._model in ["deltaf_q", "linear_q"]:
             self.sf.vector = self.pt3.spline.vector
         else:
@@ -334,10 +338,10 @@ class VariationalViscosity(Propagator):
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
 
-        tol = self._nonlin_solver["tol"]
+        tol = self._nonlin_solver.tol
         err = tol + 1
 
-        for it in range(self._nonlin_solver["maxiter"]):
+        for it in range(self._nonlin_solver.maxiter):
             if self._model in ["deltaf_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
@@ -425,11 +429,12 @@ class VariationalViscosity(Propagator):
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
-                self.pt3 += incr
+                pt3_vec = self.pt3.spline.vector
+                pt3_vec += incr
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
+        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err =} \n {tol**2 =}",
             )
