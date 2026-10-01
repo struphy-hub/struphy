@@ -1893,6 +1893,11 @@ class BasisProjectionOperator(LinOpWithTransp):
         # only need to update the transposed in case where it's needed
         # (no need to recreate a new ComposedOperator)
         if self._transposed:
+            # transpose(out=...) only visits existing blocks: remove transposed blocks whose weight became zero
+            if not self._is_scalar:
+                for j, i in self._dof_mat_T.nonzero_block_indices:
+                    if self._dof_mat[i, j] is None:
+                        self._dof_mat_T[j, i] = None
             self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
     def assemble(self, weights=None):
