@@ -326,7 +326,7 @@ class Particles5D(Particles):
     def epsilon(self):
         """Normalization parameter :math:`\\epsilon` (from :attr:`equation_params`) entering the
         guiding-center equations of motion, e.g. the canonical toroidal momentum evaluation."""
-        return self._epsilon
+        return self.equation_params.epsilon
 
     @property
     def derham(self):
@@ -594,7 +594,7 @@ class Particles5Dvperp(Particles):
     def epsilon(self):
         """Normalization parameter :math:`\\epsilon` (from :attr:`equation_params`) entering the
         guiding-center equations of motion, e.g. the canonical toroidal momentum evaluation."""
-        return self._epsilon
+        return self.equation_params.epsilon
 
     @property
     def derham(self):
