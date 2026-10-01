@@ -487,7 +487,8 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
     # if MPI_COMM is not None: MPI_COMM.Barrier()
 
     logger.info(
-        f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
+        "Rank %s | Maximum absolute diference (result):\n%s",
+        mpi_rank,
         xp.max(
             xp.abs(
                 res_PSY[
