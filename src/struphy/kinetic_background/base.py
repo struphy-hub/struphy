@@ -565,12 +565,7 @@ class KineticBackground(metaclass=ABCMeta):
     def __rmul__(self, a):
         return ScalarMultiplyKineticBackground(self, a)
 
-    def __div__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
-        assert a != 0, "Cannot divide by zero!"
-        return ScalarMultiplyKineticBackground(self, 1 / a)
-
-    def __rdiv__(self, a):
+    def __truediv__(self, a):
         assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
         assert a != 0, "Cannot divide by zero!"
         return ScalarMultiplyKineticBackground(self, 1 / a)

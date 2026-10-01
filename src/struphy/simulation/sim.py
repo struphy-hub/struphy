@@ -931,7 +931,7 @@ class Simulation(SimulationBase):
         units_affix["mass"] = " kg"
         units_affix["charge"] = " C"
         units_affix["density"] = " m⁻³"
-        units_affix["pressure"] = " bar"
+        units_affix["pressure"] = " Pa"
         units_affix["kBT"] = " keV"
         units_affix["v_A"] = " m/s"
         units_affix["v_th"] = " m/s"

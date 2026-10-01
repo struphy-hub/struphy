@@ -140,6 +140,8 @@ struphy = "struphy.console.main:struphy"
 ]
 struphy = [
     "compile_struphy.mk",
+    "**/*.cu",
+    "**/*.cuh",
 ]
 
 [tool.autopep8]

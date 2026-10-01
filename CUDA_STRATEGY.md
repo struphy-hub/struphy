@@ -96,10 +96,9 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 
 ### PR 2: CUDA source files
 
-- `CudaKernel.from_file(path, name)` reads `<name>_cuda.cu`. The kernel is compiled lazily on first call. CuPy caches compiled kernels on disk (`~/.cupy/kernel_cache`), so the compile cost is paid once per machine.
-- Headers are found through NVRTC include paths (`cupy.RawModule(code=..., options=("-I<struphy src>",))`), so a `.cu` file can `#include "struphy/bsplines/bsplines_kernels.cuh"`.
+- `CudaKernel.from_file(path)` reads `<name>_cuda.cu`; the kernel name is taken from the file name. The kernel is compiled lazily on first call. CuPy caches compiled kernels on disk (`~/.cupy/kernel_cache`), so the compile cost is paid once per machine.
 - Add `"**/*.cu"` and `"**/*.cuh"` to `[tool.setuptools.package-data]` in `pyproject.toml`.
-- Move the test kernel's CUDA source from the string in `test_kernel_backends.py` into a `.cu` file.
+- Later (PR 10), when the first shared header is needed: headers are found through NVRTC include paths (`cupy.RawModule(code=..., options=("-I<struphy src>",))`), so a `.cu` file can `#include "struphy/bsplines/bsplines_kernels.cuh"`.
 
 ### PR 3: Kernel catalog
 
@@ -111,7 +110,7 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
   ```
 
 - The error should come as early as possible: propagators/pushers call `get_kernel()` when they are set up, not only at the first time step. Then a GPU run fails right away instead of after the initialization.
-- A small overview, e.g. `struphy compile --status` also printing "CUDA kernels: 3 of 60", helps to see what is left to port.
+- `catalog.missing_cuda` lists the kernels without a CUDA version. Later, a small overview, e.g. `struphy compile --status` also printing "CUDA kernels: 3 of 60", helps to see what is left to port.
 
 ### PR 4: `Pusher` and propagators use `Kernel`
 

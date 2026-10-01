@@ -16,7 +16,7 @@ from cunumpy import PyccelKernel
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 from struphy.utils.cuda_arguments import CudaDomainArguments, CudaMarkerArguments
-from struphy.utils.kernel_backends import CudaKernel, Kernel, is_cuda_backend
+from struphy.utils.kernel_backends import CudaKernel, Kernel, KernelCatalog, is_cuda_backend
 
 requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
 
@@ -286,3 +286,90 @@ def test_cuda_kernel_rejects_host_arrays(kernel):
             kernel(0.1, 0, cuda_markers, host_domain, n_threads=10)
         with pytest.raises(ValueError, match="n_threads"):
             kernel(0.1, 0, cuda_markers, cuda_domain)
+
+
+@requires_cupy
+def test_cuda_kernel_from_file(kernel, tmp_path):
+    """CUDA kernels can be loaded from <name>_cuda.cu files; the name is taken from the file name."""
+    path = tmp_path / "push_eta_linear_cuda.cu"
+    path.write_text(PUSH_ETA_LINEAR_SRC)
+    cuda_kernel = CudaKernel.from_file(path)
+    assert cuda_kernel.name == "push_eta_linear"
+
+    results = {}
+    for backend in ("numpy", "cupy"):
+        with cunumpy.use_backend(backend):
+            args_markers, args_domain = make_arguments(1000)
+            if backend == "cupy":
+                cuda_kernel(0.1, 0, args_markers, args_domain, n_threads=1000)
+            else:
+                kernel.pyccel_kernel(0.1, 0, args_markers, args_domain)
+            results[backend] = cunumpy.to_numpy(args_markers.markers)
+    assert np.allclose(results["cupy"], results["numpy"], rtol=1e-14, atol=0.0)
+
+    with pytest.raises(AssertionError, match="naming convention"):
+        CudaKernel.from_file(tmp_path / "push_eta_linear.cu")
+
+
+@pytest.fixture
+def catalog_package(tmp_path, monkeypatch):
+    """A package with one folder per kernel: push_a has a CUDA version, push_b has not.
+
+    The pyccel kernels are not compiled here (PyccelKernel also wraps plain Python functions).
+    """
+    root = tmp_path / "poc_catalog_pkg"
+    header = "from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments\n\n\n"
+    src = inspect.getsource(push_eta_linear)
+    for name, cuda in (("push_a", True), ("push_b", False)):
+        (root / name).mkdir(parents=True)
+        (root / name / "__init__.py").write_text("")
+        (root / name / f"{name}_kernels.py").write_text(header + src.replace("push_eta_linear", name))
+        if cuda:
+            (root / name / f"{name}_cuda.cu").write_text(PUSH_ETA_LINEAR_SRC.replace("push_eta_linear", name))
+    (root / "not_a_kernel").mkdir()
+    (root / "__init__.py").write_text(
+        "from struphy.utils.kernel_backends import KernelCatalog\n\ncatalog = KernelCatalog.from_package(__name__)\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    yield importlib.import_module("poc_catalog_pkg").catalog
+    for mod in [m for m in sys.modules if m.startswith("poc_catalog_pkg")]:
+        del sys.modules[mod]
+
+
+def test_catalog_discovers_kernels(catalog_package):
+    catalog = catalog_package
+    assert catalog.names == ["push_a", "push_b"]
+    assert "push_a" in catalog and "not_a_kernel" not in catalog
+    assert catalog.missing_cuda == ["push_b"]
+    assert catalog["push_a"].name == "push_a"
+    assert catalog["push_a"].cuda_kernel.name == "push_a"
+    assert catalog["push_b"].cuda_path.name == "push_b_cuda.cu"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_catalog_kernels_run(catalog_package, backend):
+    """The kernels from the catalog push on both backends; a missing CUDA kernel raises on the GPU."""
+    dt = 0.1
+    with cunumpy.use_backend(backend):
+        args_markers, args_domain = make_arguments(10)
+        valid = cunumpy.to_numpy(args_markers.valid_mks)
+        expected = expected_push(cunumpy.to_numpy(args_markers.markers), valid, dt)
+
+        catalog_package["push_a"](dt, 0, args_markers, args_domain, n_threads=10)
+        assert np.allclose(cunumpy.to_numpy(args_markers.markers), expected, rtol=1e-14, atol=0.0)
+
+        if backend == "numpy":
+            catalog_package["push_b"](dt, 0, args_markers, args_domain, n_threads=10)
+        else:
+            with pytest.raises(NotImplementedError, match="No CUDA version of kernel 'push_b'.*push_b_cuda.cu"):
+                catalog_package["push_b"](dt, 0, args_markers, args_domain, n_threads=10)
+
+
+def test_kernel_without_cuda_version():
+    kernel = Kernel(PyccelKernel(push_eta_linear))
+    assert kernel.name == "push_eta_linear"
+    with cunumpy.use_backend("numpy"):
+        assert kernel.get_kernel() is kernel.pyccel_kernel
+    if cunumpy.cupy_available():
+        with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="push_eta_linear"):
+            kernel.get_kernel()
