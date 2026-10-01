@@ -331,6 +331,7 @@ class PressureCoupling6D(Propagator):
             self._domain = derham.Vv
             self._codomain = derham.Vv
             self._MAT = MAT
+            self._transposed = transposed
 
             self._vector = BlockVector(derham.Vv)
             self._temp = BlockVector(derham.V1)
@@ -360,7 +361,7 @@ class PressureCoupling6D(Propagator):
             return self._transposed
 
         def transpose(self):
-            return self.GT_MAT_G(self._derham, self._MAT, True)
+            return PressureCoupling6D.GT_MAT_G(self._derham, self._MAT, not self._transposed)
 
         def dot(self, v, out=None):
             """dot product between GT_MAT_G and v.
