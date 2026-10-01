@@ -1180,7 +1180,7 @@ class Particles(metaclass=ABCMeta):
         logger.debug(f"{'mpi_dims_mask:':<25}{self.mpi_dims_mask}")
 
         if self.loading == "external":
-            self._load_external()
+            self._load_external(n_mks_load_loc, n_mks_load_cum_sum)
         elif self.loading == "restart":
             self._load_restart()
         elif self.loading == "tesselation":
@@ -1213,10 +1213,7 @@ class Particles(metaclass=ABCMeta):
                     num_to_add_glob = min(chunk_size, int(self.Np) - num_loaded_particles_glob)
                     temp = xp.random.rand(num_to_add_glob, 3 + self.vdim)
                     # check which particles are on the current process domain
-                    is_on_proc_domain = xp.logical_and(
-                        temp[:, :3] > self.domain_array[self.mpi_rank, 0::3],
-                        temp[:, :3] < self.domain_array[self.mpi_rank, 1::3],
-                    )
+                    is_on_proc_domain = self._is_on_domain_of_rank(temp[:, :3], self.mpi_rank)
                     valid_idx = xp.nonzero(xp.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
                     valid_particles = xp.array_split(valid_particles, self.num_clones)[self.clone_id]
@@ -1233,10 +1230,17 @@ class Particles(metaclass=ABCMeta):
                 # make sure all particles are loaded
                 assert self.Np == int(num_loaded_particles_glob), f"{self.Np =}, {int(num_loaded_particles_glob) =}"
 
-                # set new n_mks_load
+                # set new n_mks_load and Np_per_clone
                 self.gather_scalar_in_subcomm_array(num_loaded_particles_loc, out=self.n_mks_load)
+                self.gather_scalar_in_intercomm_array(int(xp.sum(self.n_mks_load)), out=self.Np_per_clone)
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
                 n_mks_load_cum_sum = xp.cumsum(self.n_mks_load)
+
+                # recompute first marker ID from the actual number of loaded markers
+                Np_per_clone_cum_sum = xp.cumsum(self.Np_per_clone)
+                _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (
+                    n_mks_load_cum_sum - self.n_mks_load
+                )[self._mpi_rank]
 
                 # set new holes in markers array to -1
                 self._markers[num_loaded_particles_loc:] = -1.0
@@ -1256,16 +1260,20 @@ class Particles(metaclass=ABCMeta):
                     '"sobol_antithetic" requires vdim=3 at the moment.',
                 )
 
+                # each sobol point yields 64 symmetric markers; round up and truncate the last group
+                n_sobol = -(-self.n_mks_load // 64)
                 temp_markers = sobol_seq.i4_sobol_generate(
                     3 + self.vdim,
-                    n_mks_load_loc // 64,
-                    1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] // 64,
+                    n_sobol[self._mpi_rank],
+                    1000 + (xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank],
                 )
 
+                temp_symmetric = xp.zeros((64 * n_sobol[self._mpi_rank], 3 + self.vdim), dtype=float)
                 sampling_kernels.set_particles_symmetric_3d_3v(
                     temp_markers,
-                    self.markers,
+                    temp_symmetric,
                 )
+                self._markers[:n_mks_load_loc, : 3 + self.vdim] = temp_symmetric[:n_mks_load_loc]
 
             # 4. Wrong specification
             else:
@@ -1777,12 +1785,12 @@ class Particles(metaclass=ABCMeta):
 
         # check if all markers are on the right process after sorting
         if do_test:
-            all_on_right_proc = xp.all(
-                xp.logical_and(
-                    self.positions > self.domain_array[self.mpi_rank, 0::3],
-                    self.positions < self.domain_array[self.mpi_rank, 1::3],
-                ),
-            )
+            # eta = 1 is sorted like eta = 0 in periodic directions (see _sendrecv_determine_mtbs)
+            etas = self.positions
+            for axis in self._periodic_axes:
+                etas[:, axis] %= 1.0
+
+            all_on_right_proc = xp.all(self._is_on_domain_of_rank(etas, self.mpi_rank))
 
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
@@ -2217,9 +2225,10 @@ class Particles(metaclass=ABCMeta):
         -----
         The routine populates intermediate marker columns using two Pyccel
         kernels: `sph_mean_velocity_coeffs` (mean velocity) and
-        `sph_viscosity_tensor` (viscosity tensor components). It then evaluates
-        the necessary derivatives via :meth:`eval_sph` and sums contributions to
-        produce the three divergence components.
+        `sph_viscosity_tensor` (viscosity tensor components in Piola form). It then
+        evaluates the necessary logical derivatives via :meth:`eval_sph`, sums
+        contributions and divides by the Jacobian determinant to produce the three
+        Cartesian divergence components.
         """
 
         first_free_idx = self.args_markers.first_free_idx
@@ -2284,9 +2293,13 @@ class Particles(metaclass=ABCMeta):
                     )
                 ]
 
-        gamma_x = gamma[0][0] + gamma[0][1] + gamma[0][2]
-        gamma_y = gamma[1][0] + gamma[1][1] + gamma[1][2]
-        gamma_z = gamma[2][0] + gamma[2][1] + gamma[2][2]
+        # the stored tensor is in Piola form, divide by the Jacobian determinant at the evaluation points
+        etas = xp.column_stack([xp.ravel(eta1), xp.ravel(eta2), xp.ravel(eta3)])
+        det_df = self.domain.jacobian_det(etas, remove_outside=False).reshape(xp.shape(eta1))
+
+        gamma_x = (gamma[0][0] + gamma[0][1] + gamma[0][2]) / det_df
+        gamma_y = (gamma[1][0] + gamma[1][1] + gamma[1][2]) / det_df
+        gamma_z = (gamma[2][0] + gamma[2][1] + gamma[2][2]) / det_df
 
         return gamma_x, gamma_y, gamma_z
 
@@ -3066,13 +3079,15 @@ class Particles(metaclass=ABCMeta):
             bcount = cp.bincount(indices)
 
         max_in_box = xp.max(bcount)
-        if max_in_box > self._sorting_boxes.boxes.shape[1]:
-            warnings.warn(
-                f'Strong load imbalance detected in sorting boxes: \
+        # the last column must stay -1 (terminator for the box readers), hence >=
+        if max_in_box >= self._sorting_boxes.boxes.shape[1]:
+            msg = f'Strong load imbalance detected in sorting boxes: \
 max number of markers in a box ({max_in_box}) on rank {self.mpi_rank} \
-exceeds the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}). \
-Increasing the value of "box_bufsize" in the markers parameters for the next run.',
-            )
+does not fit into the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}, last column is reserved). \
+Increase the value of "box_bufsize" in the markers parameters for the next run.'
+            if self.mpi_comm is None:
+                raise RuntimeError(msg)
+            warnings.warn(msg)
             self.mpi_comm.Abort()
 
         assign_particles_to_boxes(
@@ -4285,6 +4300,33 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
     ### MPI comm for domain decomposition ###
 
+    def _is_on_domain_of_rank(self, etas, rank):
+        """
+        Check which logical positions lie on the domain of a given process.
+
+        Uses the half-open interval [left, right) in each direction, so that a position
+        exactly on a boundary between two processes belongs to exactly one of them.
+        The right end eta = 1 of the unit cube is included in the last process.
+
+        Parameters
+        ----------
+            etas : array[float]
+                Logical positions of shape (n, 3).
+
+            rank : int
+                Process rank (row index of domain_array).
+
+        Returns
+        -------
+            is_on_domain : array[bool]
+                Array of shape (n, 3), True where the position lies in the process domain in that direction.
+        """
+        left = self.domain_array[rank, 0::3]
+        right = self.domain_array[rank, 1::3]
+        # include eta = 1 in the last process: shift its right boundary to the next float
+        right = xp.where(right == 1.0, xp.nextafter(right, 2.0), right)
+        return xp.logical_and(etas >= left, etas < right)
+
     def _sendrecv_determine_mtbs(
         self,
         alpha: list | tuple | xp.ndarray = (1.0, 1.0, 1.0),
@@ -4314,18 +4356,22 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         assert alpha.size == 3
         assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        xp.mod(
+        self._sorting_etas[:] = (
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
-            + (1.0 - alpha) * self.markers[:, bi : bi + 3],
-            1.0,
-            out=self._sorting_etas,
+            + (1.0 - alpha) * self.markers[:, bi : bi + 3]
         )
 
+        # for non-periodic axes, eta = 1 is the right end of the domain and must not be wrapped to eta = 0
+        non_periodic_axes = [axis for axis in range(3) if axis not in self._periodic_axes]
+        at_right_end = {axis: self._sorting_etas[:, axis] == 1.0 for axis in non_periodic_axes}
+
+        xp.mod(self._sorting_etas, 1.0, out=self._sorting_etas)
+
+        for axis, mask in at_right_end.items():
+            self._sorting_etas[mask, axis] = 1.0
+
         # check which particles are on the current process domain
-        self._is_on_proc_domain = xp.logical_and(
-            self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
-            self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
-        )
+        self._is_on_proc_domain = self._is_on_domain_of_rank(self._sorting_etas, self.mpi_rank)
 
         # to stay on the current process, all three columns must be True.
         # Reducing over a size-3 trailing axis of an array with many rows is slow
@@ -4445,10 +4491,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             etas_remaining = etas_to_send[remaining]
             still_remaining = xp.ones(remaining.shape[0], dtype=bool)
             for i in rank_group:
-                conds = xp.logical_and(
-                    etas_remaining > self.domain_array[i, 0::3],
-                    etas_remaining < self.domain_array[i, 1::3],
-                )
+                conds = self._is_on_domain_of_rank(etas_remaining, i)
 
                 matched_local = xp.nonzero(xp.all(conds, axis=1))[0]
                 matched = remaining[matched_local]

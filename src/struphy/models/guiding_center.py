@@ -116,11 +116,9 @@ class GuidingCenter(StruphyModel):
     def _compute_en_fB(self):
         particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
-        energy = (
-            particles.markers[particles.valid_mks, 5].dot(
-                particles.markers[particles.valid_mks, 8],
-            )
-            / particles.Np
+        # The weights (column 5) already carry the 1/N_p of the Monte-Carlo estimate, see KineticEnergyPIC.
+        energy = particles.markers[~particles.valid_mks, 5].dot(
+            particles.markers[~particles.valid_mks, 8],
         )
         return energy
 
