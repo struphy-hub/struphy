@@ -303,13 +303,17 @@ def test_l2_projectors_polar(num_elements, degree, bcs):
             block._data[:] = xp.random.rand(*block._data.shape)
         field = derham.create_spline_function("fh", sp_id)
         field.vector.tp = tp
-        field.vector.pol = [xp.random.rand(*pol.shape) for pol in field.vector.pol]
+        # polar coefficients are replicated on all processes, hence must be identical
+        pol = [xp.random.rand(*pol.shape) for pol in field.vector.pol]
+        for pol_i in pol:
+            comm.Bcast(pol_i, root=0)
+        field.vector.pol = pol
         field.vector = derham.boundary_ops[sp_key].dot(field.vector)
         field.vector.update_ghost_regions()
 
-        # sample at quadrature points
+        # sample at the (process-local) quadrature points
         pts = derham.spline_attributes[sp_key].quad_grid_pts[0]
-        vals = field(*[pt.flatten() for pt in pts])
+        vals = field(*[pt.flatten() for pt in pts], local=True)
 
         P_L2 = L2Projector(sp_id, mass_ops, solver_params=SolverParameters(tol=1e-13, maxiter=3000))
 
