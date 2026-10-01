@@ -11,8 +11,8 @@ The work is split into small PRs that can be reviewed and merged one at a time. 
 - [x] **PR 3: Kernel catalog** — kernels are defined once in the `__init__.py` of the folder that contains them; a missing CUDA kernel raises an error on the GPU backend.
 - [x] **PR 4: `Pusher` accepts `Kernel`** — the kernel for the active backend is chosen once, when the pusher is created; a plain `PyccelKernel` is wrapped, so the propagators do not change (no behaviour change on CPU).
 - [x] **PR 5: `Domain` on the GPU** — domain arguments are selected and stored at domain construction; CUDA arguments reference device arrays, and deepcopy/unpickling rebuilds the arguments from the copied or restored arrays.
-- [x] **PR 6: `Particles` on the GPU** — `Particles` can be created on the CuPy backend, and `Particles.cuda_args_markers` provides the CUDA argument bundle.
-- [x] **PR 7: `Derham` on the GPU** — `Derham` can be created on the CuPy backend, plus `Derham.cuda_args_derham`. Needs feectools on the CuPy backend (struphy-hub/feectools#85).
+- [x] **PR 6: `Particles` on the GPU** — `Particles` can be created on the CuPy backend, and `Particles.args_markers` is selected as the CUDA or Pyccel argument bundle at construction.
+- [x] **PR 7: `Derham` on the GPU** — `Derham` can be created on the CuPy backend, plus `Derham.cuda_args_derham`.
 - [ ] **PR 8: Shared CUDA headers for the argument classes** — one `.cuh` per argument class instead of long flat kernel signatures.
 - [ ] **PR 9: One folder per kernel, starting with `pic/pushing`** — pure refactor, no behaviour change.
 - [ ] **PR 10: Device versions of helper kernels** — B-spline evaluation, mapping evaluation (per domain), small linear algebra, as `__device__` functions in `.cuh` headers.
@@ -48,14 +48,13 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 | `src/struphy/utils/kernel_backends.py` | `is_cuda_backend()`, `CudaKernel` (wraps a `cupy.RawKernel`, compiled lazily; expands `Argument.get_cuda_args()` and takes `n_threads`), `Kernel` and `KernelCatalog` for backend selection and discovery |
 | `src/struphy/utils/cuda_arguments.py` | `Argument` contract plus `CudaMarkerArguments`, `CudaDerhamArguments` and `CudaDomainArguments`; CUDA arrays are stored individually and returned in signature order by `get_cuda_args()` |
 | `src/struphy/geometry/base.py` | `Domain.args_domain` is selected once at construction; CUDA domains use device arrays, while direct Pyccel geometry calls retain a host argument bundle |
-| `src/struphy/pic/base.py` | `Particles` arrays are allocated by the active `cunumpy` backend; `cuda_args_markers` lazily packages device arrays for CUDA kernels |
-| `src/struphy/feec/psydac_derham.py` | `Derham` can be created on the CuPy backend; spline-space data stays on the host, `cuda_args_derham` lazily holds device copies of degrees, knots and starts |
+| `src/struphy/pic/base.py` | `Particles` arrays and `args_markers` use the backend selected at construction; direct Pyccel methods retain a private host bundle |
 | `src/struphy/pic/tests/test_kernel_backends.py` | the demo kernel pair `push_eta_linear` (pyccel function compiled with `epyccel` at test time, CUDA source string) and tests on both backends |
 
 Things we learned in the proof of concept:
 
 - The pyccel-compiled argument classes (`MarkerArguments`, `DomainArguments`, `DerhamArguments`) hold references to their owner's arrays, but only accept **NumPy** arrays. Hence the CUDA counterparts in `cuda_arguments.py`.
-- `Particles.args_markers` remains the host bundle used by existing Pyccel calls. `Particles.cuda_args_markers` references the CuPy marker, validity, and boundary-condition arrays for CUDA calls. Likewise `Derham.args_derham` stays the host bundle and `Derham.cuda_args_derham` holds the CUDA one.
+- `Particles.args_markers` is the CUDA or Pyccel bundle selected at construction. Existing direct Pyccel methods use a private host bundle. `Derham` still needs its CUDA creation work (PR 7).
 - `Domain.args_domain` returns the argument type selected at domain construction; on CuPy it is a `CudaDomainArguments` object. Direct Pyccel methods on `Domain` use a separate internal host bundle.
 - `cupy.RawKernel` accepts only device arrays (host arrays raise) and does **not** check the kernel signature. Each argument is read with the size declared in the signature, so Python `int`/`float` arrive correctly in `int`/`double` parameters, but a wrongly typed scalar (e.g. an integer for a `double`, or a value that overflows an `int`) gives a wrong value **without an error**. Casting Python scalars in `CudaKernel` does not prevent this, so it is not done; see the follow-up in [Open questions](#open-questions).
 - Flattening the argument classes at each call (joining their `values`) costs well under 1 µs, compared to about 70 µs for launching the kernel.
