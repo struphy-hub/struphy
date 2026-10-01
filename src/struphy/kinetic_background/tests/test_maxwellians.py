@@ -1749,6 +1749,37 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     )
 
 
+def test_moment_factors_and_division():
+    """Tests the moment_factors setters and division of a background by a scalar."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, GyroMaxwellian2Dvperp, Maxwellian3D
+
+    e = xp.linspace(0.0, 1.0, 5)
+    v = xp.full_like(e, 0.3)
+
+    for f0, n_v in [
+        (Maxwellian3D(n=(2.0, None)), 3),
+        (GyroMaxwellian2D(n=(2.0, None)), 2),
+        (GyroMaxwellian2Dvperp(n=(2.0, None)), 2),
+    ]:
+        # scalar division
+        f_half = f0 / 2.0
+        assert xp.allclose(f_half.n(e, e, e), 1.0)
+        assert xp.allclose(f_half(e, e, e, *[v] * n_v), f0(e, e, e, *[v] * n_v) / 2.0)
+
+        # setter merges the given factors
+        f0.moment_factors = {"n": 3.0, "vth": [2.0] * n_v}
+        assert f0.moment_factors["u"] == [1.0] * n_v
+        assert xp.allclose(f0.n(e, e, e), 6.0)
+        assert all(xp.allclose(vth, 2.0) for vth in f0.vth(e, e, e))
+
+        with pytest.raises(AssertionError):
+            f0.moment_factors = {"u": [1.0] * (n_v + 1)}
+        with pytest.raises(AssertionError):
+            f0.moment_factors = {"T": 1.0}
+
+
 if __name__ == "__main__":
     # test_maxwellian_3d_uniform(num_elements=[64, 1, 1], show_plot=True)
     # test_maxwellian_3d_perturbed(num_elements=[64, 1, 1], show_plot=True)
