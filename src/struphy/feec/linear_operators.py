@@ -55,6 +55,8 @@ class LinOpWithTransp(LinearOperator):
             comm = self.domain.spaces[0].cart.comm
         elif isinstance(self.domain, StencilVectorSpace):
             comm = self.domain.cart.comm
+        else:
+            raise Exception("Function toarray_struphy() only supports Stencil Vectors or Block Vectors.")
 
         if comm is None:
             rank = 0
