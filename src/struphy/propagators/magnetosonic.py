@@ -88,10 +88,13 @@ class Magnetosonic(Propagator):
         ----------
         b_field : FEECVariable, default=None
             Magnetic 2-form (``"Hdiv"`` space) providing the equilibrium magnetic field.
-            If ``None``, an empty ``FEECVariable(space="Hdiv")`` is created internally.
+            If ``None``, an empty ``FEECVariable(space="Hdiv")`` is created and allocated internally.
+            Otherwise the given variable is treated as shared (e.g. the model's ``em_fields.b_field``)
+            and must already be allocated when :meth:`allocate` is called; it is not re-allocated.
         """
         self.variables = self.Variables()
         self.b_field = b_field if b_field is not None else FEECVariable(space="Hdiv")
+        self._allocate_b_field = b_field is None
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -176,7 +179,9 @@ class Magnetosonic(Propagator):
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
-        self.b_field.allocate(self.derham, self.domain)
+        # only allocate the private default; a shared b_field is allocated (with initial conditions) by the model
+        if self._allocate_b_field:
+            self.b_field.allocate(self.derham, self.domain)
         self._b = self.b_field.spline.vector
 
         # preconditioner
