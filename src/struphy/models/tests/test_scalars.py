@@ -158,13 +158,14 @@ class _MarkersWithGhosts:
         self.markers[n_valid + n_ghosts :, :-1] = -1.0  # holes
         self.holes = self.markers[:, 0] == -1.0
         self.valid_mks = ~xp.logical_or(self.holes, self.markers[:, -1] == -2.0)
-        
+
     def save_magnetic_background_energy(self):
-            pass
-        
+        pass
+
     def save_magnetic_energy(self, PBb):
-            pass
-        
+        pass
+
+
 class _GuidingCenterMarkers:
     """Particles5D-like markers: weight in column 5, mu * |B_0| in column 8 (the first diagnostics column)."""
 
@@ -177,7 +178,7 @@ class _GuidingCenterMarkers:
         self.holes = xp.zeros(Np + 2, dtype=bool)
         self.holes[Np:] = True
 
-    
+
 def test_en_fB_ignores_ghost_markers():
     """Ghost markers are copies of markers owned by a neighbouring process and must not enter en_fB."""
     from types import SimpleNamespace
@@ -202,6 +203,7 @@ def test_en_fB_ignores_ghost_markers():
         energy = model_class._compute_en_fB(with_ghosts[model_class])
         expected = model_class._compute_en_fB(without_ghosts[model_class])
         assert xp.isclose(energy, expected), f"{model_class.__name__}: en_fB = {energy} with ghosts, {expected} without"
+
 
 def test_guiding_center_en_fB_does_not_divide_by_Np():
     """en_fB = sum_p w_p mu_p |B_0(eta_p)| must not depend on Np, since the weights already include 1/Np."""
