@@ -1135,26 +1135,18 @@ def test_cuda_args_domain(mapping):
         assert isinstance(args, CudaDomainArguments)
         assert domain.args_domain is args  # built once
 
-        kind_map, params, degree, t1, t2, t3, ind1, ind2, ind3, cx, cy, cz = args.values
-        assert int(kind_map) == domain.kind_map
+        assert args.kind_map == domain.kind_map
         # no copies of arrays that already have the right dtype and layout
-        assert t1 is domain.T[0] and ind3 is domain.indN[2]
+        assert args.t1 is domain.T[0] and args.ind3 is domain.indN[2]
 
+        # the struct holds the device addresses of these arrays
+        (struct,) = args.get_cuda_args()
+        assert struct["kind_map"] == domain.kind_map
         host = domain._pyccel_args_domain
-        for dev, ref in (
-            (params, host.params),
-            (degree, host.degree),
-            (t1, host.t1),
-            (t2, host.t2),
-            (t3, host.t3),
-            (ind1, host.ind1),
-            (ind2, host.ind2),
-            (ind3, host.ind3),
-            (cx, host.cx),
-            (cy, host.cy),
-            (cz, host.cz),
-        ):
-            assert (cunumpy.to_numpy(dev) == ref).all()
+        for name in ("params", "degree", "t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz"):
+            dev = getattr(args, name)
+            assert struct[name] == dev.data.ptr, name
+            assert (cunumpy.to_numpy(dev) == getattr(host, name)).all(), name
 
 
 @requires_cupy
@@ -1172,7 +1164,8 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             assert (other.args_domain.params == domain.args_domain.params).all()
             other_cuda = other.args_domain
             assert other_cuda is not cuda_args
-            assert other_cuda.values[3] is other.T[0]
+            assert other_cuda.t1 is other.T[0]
+            assert other_cuda.get_cuda_args()[0]["t1"] == other.T[0].data.ptr
 
 
 if __name__ == "__main__":
