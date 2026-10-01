@@ -221,9 +221,9 @@ class Domain(metaclass=DomainMeta):
         }
 
         self._args_backend = xp.get_backend()
-        self._make_args_domain()
+        self._initialize_domain_args()
 
-    def _build_args_domain(self):
+    def _build_pyccel_domain_args(self):
         """Build runtime mapping arguments used by compiled evaluation kernels (host copies on the CuPy backend)."""
         return DomainArguments(
             self.kind_map,
@@ -240,7 +240,7 @@ class Domain(metaclass=DomainMeta):
             _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
         )
 
-    def _build_cuda_args_domain(self) -> CudaDomainArguments:
+    def _build_cuda_domain_args(self) -> CudaDomainArguments:
         """Build the CUDA kernel arguments from the domain's own (device) arrays.
 
         Arrays that already have the dtype and layout the CUDA kernels expect are referenced, not copied;
@@ -279,13 +279,13 @@ class Domain(metaclass=DomainMeta):
         )
         return all(hasattr(self, attr) for attr in required_attrs)
 
-    def _make_args_domain(self):
+    def _initialize_domain_args(self):
         self._args_domain = None
         self._pyccel_args_domain = None
         if self._can_build_args_domain():
-            self._pyccel_args_domain = self._build_args_domain()
+            self._pyccel_args_domain = self._build_pyccel_domain_args()
             if self._args_backend == "cupy":
-                self._args_domain = self._build_cuda_args_domain()
+                self._args_domain = self._build_cuda_domain_args()
             else:
                 self._args_domain = self._pyccel_args_domain
 
@@ -299,7 +299,7 @@ class Domain(metaclass=DomainMeta):
                 continue
             setattr(result, key, copy.deepcopy(value, memo))
 
-        result._make_args_domain()
+        result._initialize_domain_args()
         return result
 
     def __getstate__(self):
@@ -314,7 +314,7 @@ class Domain(metaclass=DomainMeta):
             arrays = (getattr(self, "_cx", None), getattr(self, "_cy", None), getattr(self, "_cz", None))
             self._args_backend = "cupy" if any(hasattr(arr, "__cuda_array_interface__") for arr in arrays) else "numpy"
         self._args_domain = None
-        self._make_args_domain()
+        self._initialize_domain_args()
 
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
