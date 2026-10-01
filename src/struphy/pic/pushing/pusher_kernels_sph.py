@@ -109,7 +109,7 @@ def push_v_sph_pressure(
     n_cols = shape(markers)[1]
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    #$ omp parallel firstprivate(grad_u) private(ip, eta1, eta2, eta3, n_at_eta, loc_box, sum2, sum4, sum6, grad_u_cart, tmp1, dfinv, dfinvT)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -361,7 +361,7 @@ def push_v_sph_pressure_ideal_gas(
     gamma = 5 / 3
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    #$ omp parallel firstprivate(grad_u) private(ip, eta1, eta2, eta3, n_at_eta, loc_box, sum2, sum4, sum6, grad_u_cart, tmp1, dfinv, dfinvT)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -604,7 +604,7 @@ def push_v_viscosity(
     f_visc = zeros(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, detdf)
+    #$ omp parallel private(ip, eta1, eta2, eta3, loc_box, j, k, coeff_idx, f_visc, f_visc_cart, tmp1, dfinv, dfinvT)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):

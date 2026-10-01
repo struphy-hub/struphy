@@ -294,7 +294,7 @@ def push_vxb_implicit(
     first_init_idx = args_markers.first_init_idx
 
     # fmt: off
-    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp parallel firstprivate(b_prod) private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -1233,7 +1233,7 @@ def push_eta_stage(
         last = 0.0
 
     # fmt: off
-    #$ omp parallel private(ip, v, dfm, dfinv, k)
+    #$ omp parallel private(ip, e1, e2, e3, v, dfm, dfinv, k)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -1701,6 +1701,9 @@ def push_weights_with_efield_lin_va(
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
+    # total number of markers (weights are w_p = delta f_p / (N * s_0))
+    n_markers_tot = args_markers.Np
+
     # fmt: off
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
@@ -1749,13 +1752,13 @@ def push_weights_with_efield_lin_va(
             e_vec,
         )
 
-        # w_{n+1} = w_n + dt / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
+        # w_{n+1} = w_n + kappa * dt / (2 * N * s_0 * v_th^2) * f_0 * ( DF^{-1} v_p ) \cdot ( e_{n+1} + e_n )
         update = (
             (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2])
             * f0_values[ip]
             * kappa
             * dt
-            / (2 * markers[ip, 7] * vth**2)
+            / (2 * n_markers_tot * markers[ip, 7] * vth**2)
         )
         markers[ip, 6] += update
 
@@ -1816,7 +1819,7 @@ def push_deterministic_diffusion_stage(
     pi_du_value = empty(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(ip, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
+    #$ omp parallel private(ip, e1, e2, e3, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, tmp1, tmp2, tmp3, ginv)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
