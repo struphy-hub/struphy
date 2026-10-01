@@ -9,7 +9,7 @@ The work is split into small PRs that can be reviewed and merged one at a time. 
   `Kernel` (pyccel/CUDA pair), `CudaKernel`, `CudaMarkerArguments`/`CudaDomainArguments`, and one test file with a demo kernel pair run on both backends. Also adds this document and the `gpu` optional dependency.
 - [ ] **PR 2: CUDA source files** — `CudaKernel` loads CUDA source from a `<name>_cuda.cu` file next to the pyccel file; `.cu`/`.cuh` files are shipped as package data.
 - [ ] **PR 3: Kernel catalog** — kernels are defined once in the `__init__.py` of the folder that contains them; a missing CUDA kernel raises an error on the GPU backend.
-- [ ] **PR 4: `Pusher` and propagators accept `Kernel`** — replace `PyccelKernel(...)` in the propagators by catalog lookups (no CUDA kernels yet, so no behaviour change on CPU).
+- [ ] **PR 4: `Pusher` accepts `Kernel`** — the kernel for the active backend is chosen once, when the pusher is created; a plain `PyccelKernel` is wrapped, so the propagators do not change (no behaviour change on CPU).
 - [ ] **PR 5: `Domain` on the GPU** — `Domain.cuda_args_domain`, plus the separate fix for `Domain` deepcopy on the CuPy backend (`_build_args_domain` passes `params_numpy` without `_to_numpy_for_kernel`).
 - [ ] **PR 6: `Particles` on the GPU** — `Particles` can be created on the CuPy backend (e.g. `xp.prod` on Python lists in `pic/base.py`), plus `Particles.cuda_args_markers`.
 - [ ] **PR 7: `Derham` on the GPU** — `Derham` can be created on the CuPy backend, plus `Derham.cuda_args_derham`.
@@ -112,10 +112,11 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 - The error should come as early as possible: propagators/pushers call `get_kernel()` when they are set up, not only at the first time step. Then a GPU run fails right away instead of after the initialization.
 - `catalog.missing_cuda` lists the kernels without a CUDA version. Later, a small overview, e.g. `struphy compile --status` also printing "CUDA kernels: 3 of 60", helps to see what is left to port.
 
-### PR 4: `Pusher` and propagators use `Kernel`
+### PR 4: `Pusher` accepts `Kernel`
 
-- `Pusher` currently asserts `isinstance(kernel, PyccelKernel)` (`pic/pushing/pusher.py`). Allow `Kernel` there and use `kernel.name` for profiling as today.
-- On the GPU, the pusher passes the CUDA argument objects (`particles.cuda_args_markers`, `domain.cuda_args_domain`, ...) instead of the pyccel ones. The choice is made once when the pusher is set up, together with the kernel. This avoids calling a CUDA kernel with pyccel arguments or vice versa.
+- `Pusher` takes a `Kernel` or, as before, a `PyccelKernel` (wrapped into a `Kernel` without CUDA version). It calls `get_kernel()` once in its constructor, so on the CuPy backend a pusher whose kernel has no CUDA version fails when it is created, not in the time loop. Since no pusher kernel has a CUDA version yet, this is the case for all pushers.
+- The propagators do not change. They switch to catalog lookups once the kernels are split into folders (PR 9).
+- Still to do (with PR 5–7 and PR 11): on the GPU, the pusher must pass the CUDA argument objects (`particles.cuda_args_markers`, `domain.cuda_args_domain`, device arrays in `args_kernel`) instead of the pyccel ones. This choice is made once, together with the kernel, so that a CUDA kernel is never called with pyccel arguments or vice versa.
 
 ### PR 5–7: Owners build their CUDA arguments
 
