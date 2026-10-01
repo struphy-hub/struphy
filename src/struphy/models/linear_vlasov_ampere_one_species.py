@@ -207,14 +207,15 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords.T)
 
-        # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
+        # alpha^2 * v_th^2 * N / 2 * sum_p s_0 * w_p^2 / f_{0,p}  (weights are w_p = delta f_p / (N * s_{0,p}))
         alpha = self.kinetic_ions.equation_params.alpha
         vth = self._f0.params["vth1"][0]
 
         self._tmp[0] = (
             alpha**2
             * vth**2
-            / (2 * particles.Np)
+            * particles.Np
+            / 2
             * xp.dot(
                 particles.weights**2,  # w_p^2
                 particles.sampling_density_values / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}

@@ -974,6 +974,57 @@ def assert_vector(result, kind, *etas):
                 assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
 
 
+def test_eqdsk_pressure_units():
+    """EQDSK pressure must be rescaled to Struphy units exactly once (issue #433)."""
+
+    import warnings
+
+    from struphy.io.options import BaseUnits
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        eq_raw = equils.EQDSKequilibrium()
+        # x = 1 m and B = 1 T leave psi unscaled, while units.p = B^2/mu0 is non-trivial
+        eq = equils.EQDSKequilibrium(base_units=BaseUnits())
+    eq.units.derive_units(velocity_scale="alfvén", A_bulk=1, Z_bulk=1)
+    assert not xp.isclose(eq.units.p, 1.0)
+
+    R = xp.array([1.6, 1.7, 1.8, 1.9])
+    Z = xp.array([0.0, 0.05, 0.1, -0.1])
+
+    # pressure in Pa as given in the file
+    p_file = eq_raw.p_xyz(R, 0.0 * R, Z)
+    assert xp.allclose(p_file, eq_raw.p_psi(eq_raw.psi(R, Z)))
+
+    assert xp.allclose(eq.p_xyz(R, 0.0 * R, Z), p_file / eq.units.p)
+
+
 if __name__ == "__main__":
     # test_equils(('AdhocTorusQPsi', {'a': 1.0, 'R0': 3.6}, 'Tokamak', {'xi_param': 'sfl'}))
     test_equils(("HomogenSlab", {}, "Cuboid", {}))
+
+
+@pytest.mark.parametrize("delta, amp", [(0.1, 1.0), (0.3, 2.5)])
+def test_current_sheet_curl_b(delta, amp):
+    """Check that CurrentSheet.j_xyz equals curl B (central finite differences in z)."""
+
+    equil = equils.CurrentSheet(delta=delta, amp=amp)
+
+    x = xp.linspace(0.0, 1.0, 5)
+    y = xp.linspace(0.0, 1.0, 5)
+    z = xp.linspace(-3 * delta, 3 * delta, 41)
+    x, y, z = xp.meshgrid(x, y, z, indexing="ij")
+
+    h = 1e-6
+    bx_p, by_p, _ = equil.b_xyz(x, y, z + h)
+    bx_m, by_m, _ = equil.b_xyz(x, y, z - h)
+
+    # B depends on z only: curl B = (-dBy/dz, dBx/dz, 0)
+    jx_fd = -(by_p - by_m) / (2 * h)
+    jy_fd = (bx_p - bx_m) / (2 * h)
+
+    jx, jy, jz = equil.j_xyz(x, y, z)
+
+    assert xp.allclose(jx, jx_fd, rtol=1e-6, atol=1e-6 * amp / delta)
+    assert xp.allclose(jy, jy_fd, rtol=1e-6, atol=1e-6 * amp / delta)
+    assert xp.allclose(jz, 0.0)
