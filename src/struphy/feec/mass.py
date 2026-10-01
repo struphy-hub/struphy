@@ -128,22 +128,21 @@ class WeightedMassOperators:
         """
         mem = {}
 
+        cached_before = set(vars(self))
         self._dry_run = True
         try:
             for name in names:
                 assert isinstance(getattr(type(self), name, None), property), (
                     f"'{name}' is not a mass operator property of {type(self).__name__}."
                 )
-                cached = "_" + name
-                was_cached = hasattr(self, cached)
-
                 mem[name] = getattr(self, name).nbytes
-
-                # do not keep a dry-run (unusable) operator in the cache
-                if not was_cached:
-                    delattr(self, cached)
         finally:
             self._dry_run = False
+
+            # do not keep dry-run (unusable) operators in the cache, including the pieces
+            # created for composite operators (e.g. M1 and M1para for M1perp)
+            for attr in set(vars(self)) - cached_before:
+                delattr(self, attr)
 
         if print_report and (self.derham.comm is None or self.derham.comm.Get_rank() == 0):
             print("\nESTIMATED MASS MATRIX MEMORY (local, rank 0):")
@@ -3271,6 +3270,9 @@ class AverageOperator(LinOpWithTransp):
 
     transposed : bool, optional
         Whether to take the transpose of the operator.
+
+    nquads : list[int], optional
+        Number of quadrature points in each direction. If not given, those of the derham complex are used.
     """
 
     def __init__(
@@ -3279,6 +3281,7 @@ class AverageOperator(LinOpWithTransp):
         space: str = "H1",
         direction: int = 2,
         transposed: bool = False,
+        nquads: list[int] | None = None,
     ):
 
         if space not in derham.space_to_form:
@@ -3295,6 +3298,7 @@ class AverageOperator(LinOpWithTransp):
         self._space = space
         self._direction = direction
         self._transposed = transposed
+        self._nquads = nquads
         if direction == 0:
             self._directions = (0, 1, 2)
         elif direction == 1:
@@ -3419,4 +3423,6 @@ class AverageOperator(LinOpWithTransp):
         return out
 
     def transpose(self, conjugate=False):
-        return AverageOperator(self.derham, self._space, self._direction, transposed=not self._transposed)
+        return AverageOperator(
+            self.derham, self._space, self._direction, transposed=not self._transposed, nquads=self._nquads
+        )
