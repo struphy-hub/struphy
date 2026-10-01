@@ -187,6 +187,9 @@ def linear_vlasov_ampere(
     # get number of markers
     n_markers = shape(markers)[0]
 
+    # total number of markers (weights are w_p = delta f_p / (N * s_0))
+    n_markers_tot = args_markers.Np
+
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, filling_m, filling_v)
     # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
@@ -219,9 +222,9 @@ def linear_vlasov_ampere(
         # compute DF^{-1} v
         linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
-        # filling_m = alpha^2 * kappa^2 * f0 / (s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
+        # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
         linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
-        filling_m[:, :] *= f0_values[ip] / markers[ip, 7]
+        filling_m[:, :] *= f0_values[ip] / (markers[ip, 7] * n_markers_tot)
 
         # filling_v = alpha^2 * kappa * w_p * DL^{-1} * v_p
         filling_v[:] = markers[ip, 6] * df_inv_v
