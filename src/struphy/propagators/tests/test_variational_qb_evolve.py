@@ -9,8 +9,9 @@ set_logging_level(logging.WARNING)
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("linearize", [False, True])
-def test_variational_qb_evolve_step(linearize: bool):
-    """One step of VariationalQBEvolve on a tiny grid, with and without linearization."""
+@pytest.mark.parametrize("info", [False, True])
+def test_variational_qb_evolve_step(linearize: bool, info: bool):
+    """One step of VariationalQBEvolve on a tiny grid, with and without linearization and solver info."""
 
     from struphy import DerhamOptions, FieldsBackground, Simulation, domains, equils, grids, perturbations
     from struphy.linear_algebra.solver import NonlinearSolverParameters
@@ -28,7 +29,7 @@ def test_variational_qb_evolve_step(linearize: bool):
     prop = model.propagators.variat_qb
     prop.options = prop.Options(
         model="linear_q",
-        nonlin_solver=NonlinearSolverParameters(linearize=linearize, maxiter=5),
+        nonlin_solver=NonlinearSolverParameters(linearize=linearize, maxiter=5, info=info),
     )
 
     model.mhd.density.add_background(FieldsBackground())
@@ -40,4 +41,4 @@ def test_variational_qb_evolve_step(linearize: bool):
 
 
 if __name__ == "__main__":
-    test_variational_qb_evolve_step(linearize=True)
+    test_variational_qb_evolve_step(linearize=True, info=True)

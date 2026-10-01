@@ -1119,7 +1119,7 @@ class Domain(metaclass=DomainMeta):
             if transposed:
                 out = xp.transpose(out, axes=(1, 0, 2, 3, 4))
 
-            if which == 0:
+            if which == 0 or which == -1:
                 out = out[:, 0, :, :, :]
                 if change_out_order:
                     out = xp.transpose(out, axes=(1, 2, 3, 0))
@@ -1229,11 +1229,13 @@ class Domain(metaclass=DomainMeta):
                             remove_outside=remove_outside,
                             identity_map=True,
                         ),
+                        a_kwargs=a_kwargs,
                     )
                 else:
                     A = Domain.prepare_arg(
                         a,
                         self(markers, change_out_order=True, remove_outside=remove_outside),
+                        a_kwargs=a_kwargs,
                     )
 
             elif isinstance(a, (list, tuple)):
@@ -1247,11 +1249,13 @@ class Domain(metaclass=DomainMeta):
                                 remove_outside=remove_outside,
                                 identity_map=True,
                             ),
+                            a_kwargs=a_kwargs,
                         )
                     else:
                         A = Domain.prepare_arg(
                             a,
                             self(markers, change_out_order=True, remove_outside=remove_outside),
+                            a_kwargs=a_kwargs,
                         )
                 else:
                     A = Domain.prepare_arg(a, markers)
@@ -2223,9 +2227,9 @@ class Spline(Domain):
 
     def __init__(
         self,
-        num_elements: tuple[int] = (8, 24, 6),
-        degree: tuple[int] = (2, 3, 1),
-        spl_kind: tuple[bool] = (False, True, True),
+        num_elements: tuple[int] = (16, 16, 16),
+        degree: tuple[int] = (3, 3, 3),
+        spl_kind: tuple[bool] = (False, True, False),
         cx: xp.ndarray | None = None,
         cy: xp.ndarray | None = None,
         cz: xp.ndarray | None = None,
@@ -2233,13 +2237,14 @@ class Spline(Domain):
         self.kind_map = 0
 
         # get default control points from default GVEC equilibrium
+        # (default num_elements, degree and spl_kind match those of GVECunit with default GVECequilibrium)
         if cx is None or cy is None or cz is None:
             from struphy.fields_background.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
             cx = mhd_equil.domain.cx
-            cx = mhd_equil.domain.cy
-            cx = mhd_equil.domain.cz
+            cy = mhd_equil.domain.cy
+            cz = mhd_equil.domain.cz
         # assign control points
         self._cx = cx
         self._cy = cy

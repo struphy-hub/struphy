@@ -99,8 +99,9 @@ class Maxwellian3D(Maxwellian):
         return self._moment_factors
 
     @moment_factors.setter
-    def moment_factors(self, **kwargs):
-        for kw, arg in kwargs.items():
+    def moment_factors(self, new_factors: dict):
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
             if kw in {"u", "vth"}:
                 assert len(arg) == 3
             self._moment_factors[kw] = arg
@@ -231,8 +232,9 @@ class GyroMaxwellian2D(Maxwellian):
         return self._moment_factors
 
     @moment_factors.setter
-    def moment_factors(self, **kwargs):
-        for kw, arg in kwargs.items():
+    def moment_factors(self, new_factors: dict):
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
             if kw in {"u", "vth"}:
                 assert len(arg) == 2
             self._moment_factors[kw] = arg
@@ -359,8 +361,9 @@ class GyroMaxwellian2Dvperp(Maxwellian):
         return self._moment_factors
 
     @moment_factors.setter
-    def moment_factors(self, **kwargs):
-        for kw, arg in kwargs:
+    def moment_factors(self, new_factors: dict):
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
             if kw in {"u", "vth"}:
                 assert len(arg) == 2
             self._moment_factors[kw] = arg
@@ -509,6 +512,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         """Epsilon parameter in the canonical toroidal momentum."""
         return self._epsilon
 
+    @GyroMaxwellian2D.moment_factors.setter
+    def moment_factors(self, new_factors: dict):
+        # n and vth are scalar factors here (no u)
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
+            self._moment_factors[kw] = arg
+
     def _evaluate_moment(
         self,
         eta1,
@@ -614,32 +624,35 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     def _check_psi_c_cached(self, *coords):
         """Check if psi_c has been cached for the given coordinates."""
         cached = False
-        if hasattr(self, "psi_c"):
-            if self.psi_c is not None:
-                if self.psi_c.shape == coords[0].shape:
-                    if len(coords) == 1:
-                        test_coords = coords[0][self.test_mask]
-                        cached_psi_c = self.eval_psic(test_coords)
-                        cached = xp.allclose(self.psi_c[self.test_mask], cached_psi_c)
+        if getattr(self, "psi_c", None) is not None:
+            # markers: coords[0] is (n_markers, 5) and psi_c is (n_markers,); meshgrid: all have the same 5d shape
+            shape = coords[0].shape[:1] if len(coords) == 1 else coords[0].shape
+            if self.psi_c.shape == shape and self.psi_c.size > 0:
+                # compare the cached values with a fresh evaluation at a few test points
+                size = self.psi_c.size
+                test_idx = xp.unique(xp.array([0, size // 3, 2 * size // 3, size - 1]))
+                if len(coords) == 1:
+                    test_coords = coords[0][test_idx]
                 else:
-                    if len(coords) == 1:
-                        self.test_mask = xp.zeros_like(coords[0], dtype=bool)
-                        n_markers = coords[0].shape[0]
-                        self.test_mask[0] = True
-                        self.test_mask[-1] = True
-                        self.test_mask[1 * n_markers // 3] = True
-                        self.test_mask[2 * n_markers // 3] = True
+                    test_coords = xp.stack([c.reshape(-1)[test_idx] for c in coords], axis=1)
+                # do not use the cache buffers here, self.psi_c may point to them
+                cached_psi_c = self.eval_psic(test_coords, use_cbufs=False)
+                cached = xp.allclose(self.psi_c.reshape(-1)[test_idx], cached_psi_c)
         return cached
 
-    def eval_psic(self, *coords):
-        r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
+    def eval_psic(self, *coords, use_cbufs: bool = True):
+        r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities.
+
+        If ``use_cbufs`` is ``False``, the cache buffers are not used (and not overwritten) for marker evaluation."""
+
+        cbufs = self.cbufs if use_cbufs else None
 
         a1 = self.equil.domain.params["a1"]
         B0 = self.equil.params["B0"]
         R0 = self.equil.params["R0"]
 
         if len(coords) == 1:
-            if self.cbufs is None:
+            if use_cbufs and self.cbufs is None:
                 logger.warning(
                     f"Initialize {self.__class__.__name__} with `cache_size` for faster psi_c evaluation for markers!"
                 )
@@ -647,14 +660,14 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             vparallel = coords[0][:, 3]
             mu = coords[0][:, 4]
             n_markers = etas.shape[0]
-            if self.cbufs is None:
+            if cbufs is None:
                 absB0 = self.equil.absB0(etas)
                 x, y, z = self.equil.domain(etas)
             else:
-                absB0 = self.cbufs["absB0"][:n_markers]
-                x = self.cbufs["x"][:n_markers]
-                y = self.cbufs["y"][:n_markers]
-                z = self.cbufs["z"][:n_markers]
+                absB0 = cbufs["absB0"][:n_markers]
+                x = cbufs["x"][:n_markers]
+                y = cbufs["y"][:n_markers]
+                z = cbufs["z"][:n_markers]
                 absB0[:] = self.equil.absB0(etas)
                 x[:], y[:], z[:] = self.equil.domain(etas)
         else:
@@ -669,7 +682,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             vparallel = coords[3]
             mu = coords[4]
 
-        if self.cbufs is None or len(coords) != 1:
+        if cbufs is None or len(coords) != 1:
             R, P, Z = self.equil.inverse_map(x, y, z)
             psi = self.equil.psi(R, Z)
             if len(coords) != 1:
@@ -689,14 +702,14 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             )
             psi_c += correction
         else:
-            R = self.cbufs["R"][:n_markers]
-            P = self.cbufs["P"][:n_markers]
-            Z = self.cbufs["Z"][:n_markers]
-            psi = self.cbufs["psi"][:n_markers]
-            energy = self.cbufs["energy"][:n_markers]
-            psi_c = self.cbufs["psic"][:n_markers]
-            positive_mask = self.cbufs["positive_mask"][:n_markers]
-            correction = self.cbufs["correction"][:n_markers]
+            R = cbufs["R"][:n_markers]
+            P = cbufs["P"][:n_markers]
+            Z = cbufs["Z"][:n_markers]
+            psi = cbufs["psi"][:n_markers]
+            energy = cbufs["energy"][:n_markers]
+            psi_c = cbufs["psic"][:n_markers]
+            positive_mask = cbufs["positive_mask"][:n_markers]
+            correction = cbufs["correction"][:n_markers]
 
             R[:], P[:], Z[:] = self.equil.inverse_map(x, y, z)
             psi[:] = self.equil.psi(R, Z)

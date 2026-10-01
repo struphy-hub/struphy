@@ -11,22 +11,30 @@ import pytest
 
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
     Output,
+    SavingParameters,
     Simulation,
     Time,
+    domains,
     equils,
+    grids,
     maxwellians,
     perturbations,
 )
 from struphy.initial.base import Perturbation
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies
+from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, PressureLessSPH, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
-from struphy.particles.parameters import LoadingParameters
+from struphy.particles.parameters import LoadingParameters, SortingParameters
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.post_processing.manifest import is_processed
+
+# output metadata and serialization tests; tmp_path differs per rank, so they are serial-only
+pytestmark = pytest.mark.mpi_skip
 
 
 def user_density_profile(eta1, eta2, eta3):
@@ -71,6 +79,16 @@ def test_constructing_a_simulation_writes_nothing(tmp_path):
     sim = make_sim(tmp_path)
     assert not os.path.exists(sim.env.path_out)
     assert sim.derham is None
+
+
+@pytest.mark.parametrize("include_defaults", [False, True])
+@pytest.mark.parametrize("none_opts", [("grid",), ("derham_opts",), ("grid", "derham_opts")])
+def test_generate_script_without_derham(tmp_path, none_opts, include_defaults):
+    sim = make_sim(tmp_path, **{name: None for name in none_opts})
+    namespace = {}
+    exec(sim.generate_script(include_defaults=include_defaults), namespace)
+    for name in none_opts:
+        assert getattr(namespace["sim"], name) is None
 
 
 def test_output_is_the_run_of_the_current_output_folder(tmp_path):
@@ -310,6 +328,41 @@ def test_versioned_initial_conditions_round_trip_allocates_and_runs_one_step(tmp
     restored.run(one_time_step=True)
 
 
+def test_restart_restores_sph_markers(tmp_path, monkeypatch):
+    sim = Simulation(
+        model=PressureLessSPH(),
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
+        time_opts=Time(dt=0.02, Tend=0.02),
+        domain=domains.Cuboid(),
+        equil=equils.HomogenSlab(),
+        grid=grids.TensorProductGrid(num_elements=(4, 4, 1)),
+    )
+    sim.model.cold_fluid.set_markers(loading_params=LoadingParameters(Np=100), sorting_params=SortingParameters())
+    sim.model.propagators.push_eta.options = sim.model.propagators.push_eta.Options()
+    sim.model.propagators.push_v.phi = sim.equil.p0
+    sim.model.propagators.push_v.options = sim.model.propagators.push_v.Options()
+    sim.model.cold_fluid.var.add_background(equils.ConstantVelocity(ux=1.0, uy=0.5))
+    sim.run()
+
+    with h5py.File(sim.data.file_path, "r") as file:
+        saved = file["restart/cold_fluid"][-1]
+
+    restored = {}
+    initialize_from_restart = Simulation._initialize_from_restart
+
+    def spy(self, data):
+        initialize_from_restart(self, data)
+        restored["markers"] = self.model.cold_fluid.var.particles.markers.copy()
+
+    monkeypatch.setattr(Simulation, "_initialize_from_restart", spy)
+    sim.env.restart = True
+    sim.time_opts.Tend += sim.time_opts.dt
+    sim.run()
+
+    valid = saved[:, 0] != -1.0
+    assert np.array_equal(restored["markers"][valid, :6], saved[valid, :6])
+
+
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
     sim = Simulation(model=Poisson(), env=EnvironmentOptions(out_folders=str(tmp_path)))
     variable = sim.model.em_fields.source
@@ -391,3 +444,34 @@ def test_processing_from_moved_output(tmp_path):
     assert Output(moved).time_opts.dt == 0.123
     assert processor.pproc(create_vtk=False)
     assert is_processed(moved)
+
+
+@pytest.mark.parametrize("n_markers", [0, 1e-6])
+def test_kinetic_run_without_saved_markers_runs_and_processes(tmp_path, n_markers):
+    model = VlasovAmpereOneSpecies(with_B0=False)
+    binplot = BinningPlot(slice="e1_v1", n_bins=(8, 8), ranges=((0.0, 1.0), (-5.0, 5.0)))
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=5, seed=1234),
+        saving_params=SavingParameters(n_markers=n_markers, binning_plots=(binplot,)),
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+    model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
+        time_opts=Time(dt=0.05, Tend=0.05),
+        domain=domains.Cuboid(r1=12.56),
+        grid=grids.TensorProductGrid(num_elements=(8, 1, 1)),
+        derham_opts=DerhamOptions(degree=(2, 1, 1)),
+    )
+    sim.run()
+
+    with h5py.File(os.path.join(sim.env.path_out, "data", "data_proc0.hdf5"), "r") as data:
+        assert "markers" not in data["kinetic/kinetic_ions"]
+
+    out = Output(sim.env.path_out)
+    assert out.pproc(create_vtk=False)
+    assert "kinetic_ions" not in out.orbit_catalog
+    assert np.asarray(out.evaluate("kinetic_ions/f")).shape == (2, 8, 8)

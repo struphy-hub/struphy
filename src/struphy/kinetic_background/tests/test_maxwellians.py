@@ -806,6 +806,32 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana =}"
 
 
+@pytest.mark.parametrize("B0", [5.0, lambda etas: 1.0 + etas[:, 0] + 0.5 * etas[:, 2]])
+@pytest.mark.parametrize("volume_form", [False, True])
+def test_gyro_maxwellian_2d_B0_meshgrid(B0, volume_form):
+    """Meshgrid and flat evaluation of GyroMaxwellian2D must agree for scalar and callable B0."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+
+    maxwellian = GyroMaxwellian2D(B0=B0, volume_form=volume_form)
+
+    meshgrids = xp.meshgrid(
+        xp.linspace(0.1, 0.9, 3),
+        xp.linspace(0.2, 0.8, 2),
+        xp.linspace(0.0, 1.0, 4),
+        xp.linspace(-2.0, 2.0, 5),
+        xp.linspace(0.0, 1.5, 6),
+        indexing="ij",
+    )
+
+    res_mesh = maxwellian(*meshgrids)
+    res_flat = maxwellian(*[m.flatten() for m in meshgrids])
+
+    assert res_mesh.shape == meshgrids[0].shape
+    assert xp.allclose(res_mesh.flatten(), res_flat, atol=1e-14)
+
+
 @pytest.mark.parametrize("num_elements", [[6, 1, 1]])
 def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     """Tests the GyroMaxwellian2D class for perturbations."""
@@ -1617,6 +1643,8 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
 
     # calling again with the same markers must hit the internal psi_c cache
     # and still return the (correct) result
+    markers = xp.concatenate((eta1[:, None], eta2[:, None], eta3[:, None], v_para[:, None], mu[:, None]), axis=1)
+    assert maxwellian_nc._check_psi_c_cached(markers)
     res_cached = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
     assert xp.allclose(res_cached, res_ana, atol=10e-10), f"{res_cached=},\n {res_ana=}"
 
@@ -1692,6 +1720,14 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     assert xp.allclose(res_nocache, res_ana_c, atol=10e-10), f"{res_nocache=},\n {res_ana_c=}"
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_cache=}"
 
+    # a cache hit must not overwrite the buffer that the cached psi_c points to
+    markers_c = xp.concatenate(
+        (eta1_c[:, None], eta2_c[:, None], eta3_c[:, None], v_para_c[:, None], mu_c[:, None]), axis=1
+    )
+    assert maxwellian_cache._check_psi_c_cached(markers_c)
+    res_cache = maxwellian_cache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+    assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_ana_c=}"
+
     def _time_eval(maxwellian, n_reps=5):
         """Best-of-n_reps wall time for a full psi_c evaluation. Markers are
         redrawn on every rep so the psi_c *result* cache (see
@@ -1721,6 +1757,37 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
         f"no cache={t_nocache * 1e3:.2f} ms, with cache={t_cache * 1e3:.2f} ms, "
         f"speedup={speedup:.2f}x"
     )
+
+
+def test_moment_factors_and_division():
+    """Tests the moment_factors setters and division of a background by a scalar."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, GyroMaxwellian2Dvperp, Maxwellian3D
+
+    e = xp.linspace(0.0, 1.0, 5)
+    v = xp.full_like(e, 0.3)
+
+    for f0, n_v in [
+        (Maxwellian3D(n=(2.0, None)), 3),
+        (GyroMaxwellian2D(n=(2.0, None)), 2),
+        (GyroMaxwellian2Dvperp(n=(2.0, None)), 2),
+    ]:
+        # scalar division
+        f_half = f0 / 2.0
+        assert xp.allclose(f_half.n(e, e, e), 1.0)
+        assert xp.allclose(f_half(e, e, e, *[v] * n_v), f0(e, e, e, *[v] * n_v) / 2.0)
+
+        # setter merges the given factors
+        f0.moment_factors = {"n": 3.0, "vth": [2.0] * n_v}
+        assert f0.moment_factors["u"] == [1.0] * n_v
+        assert xp.allclose(f0.n(e, e, e), 6.0)
+        assert all(xp.allclose(vth, 2.0) for vth in f0.vth(e, e, e))
+
+        with pytest.raises(AssertionError):
+            f0.moment_factors = {"u": [1.0] * (n_v + 1)}
+        with pytest.raises(AssertionError):
+            f0.moment_factors = {"T": 1.0}
 
 
 if __name__ == "__main__":

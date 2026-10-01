@@ -59,6 +59,32 @@ def mpi_comm_world():
     return MPI.COMM_WORLD
 
 
+PLOTS_HINT = (
+    "plots and diagnostics of Struphy output come from the plasma-plots package: "
+    "pip install plasma-plots (or struphy[pproc]); see https://struphy-hub.github.io/plasma-plots"
+)
+_plots = {"loaded": False}
+
+
+def load_plasma_plots() -> bool:
+    """Load plasma-plots if it is installed, and tell whether it is.
+
+    Importing ``plasma_plots`` registers ``out.plot``, ``out.analysis`` and the ``.plasma``
+    accessor on every product. :class:`Output` calls this when it is created, so none of that
+    needs an explicit ``import plasma_plots``. Struphy does not depend on the package.
+    """
+    if not _plots["loaded"]:
+        try:
+            import plasma_plots  # noqa: F401  (registers the accessors)
+        except ImportError:
+            return False
+        except Exception as error:  # a broken install must not break reading output
+            logger.warning("plasma-plots is installed but could not be imported: %s", error)
+            return False
+        _plots["loaded"] = True
+    return True
+
+
 class ProductMapping(Mapping[str, xr.DataArray]):
     """A discoverable mapping whose products are loaded on first access."""
 
@@ -206,6 +232,20 @@ class Output:
       reconstructed lazily from saved metadata. No simulation object is created or retained.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
+    **Plots and diagnostics** of the output live in the separate package
+    `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ (``pip install plasma-plots``,
+    or ``pip install "struphy[pproc]"``). When it is installed, creating an ``Output`` loads it,
+    which adds:
+
+    * ``out.plot`` and ``out.analysis``: whole-run plots and diagnostics, e.g.
+      ``out.plot.energies()``, ``out.analysis.time_fft("em_fields/phi")``;
+    * ``.plasma.plot``, ``.plasma.analysis`` and ``.plasma.data`` on every product, e.g.
+      ``out.evaluate("em_fields/phi").plasma.plot.slice(x="eta1", y="eta2", t=-1)``, or
+      ``orbits.plasma.plot.poloidal()`` for an orbits Dataset.
+
+    ``import plasma_plots; help(plasma_plots)`` gives an overview of the package, and ``help()``
+    on any accessor method (e.g. ``help(phi.plasma.plot.slice)``) its parameters.
+
     Parameters
     ----------
     path_out:
@@ -213,6 +253,7 @@ class Output:
     """
 
     def __init__(self, path_out):
+        load_plasma_plots()  # out.plot, out.analysis and .plasma on every product, if installed
         self.path_out = Path(path_out).resolve()
         self._time_units = "normalized"
         self.comm = mpi_comm_world()
@@ -317,6 +358,8 @@ class Output:
         products, a ``"species/variable"`` name selects the first matching binned
         product, then density/KDE product, then orbits. Pass ``dataset=`` to select a
         particular discovered product; use ``out.info("species/variable")`` to list them.
+        The full key of a particle product, ``"species/dataset/variable"`` (as :meth:`keys`
+        lists it, e.g. ``"kinetic_ions/e1_v1_density/f"``), selects that product directly.
 
         Supplying an ``eta`` evaluates a raw FEEC spline field directly on that logical
         grid. Each eta can be a scalar, a list, a one-dimensional array, or a ``range``;
@@ -337,8 +380,16 @@ class Output:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
         if "as_numpy" in selectors:
             raise TypeError("evaluate() always returns xarray; call .to_numpy() on its result when needed")
+        if name.count("/") == 2:
+            # the full key of a particle product: "species/dataset/variable"
+            if dataset is not None:
+                raise ValueError("dataset= cannot be combined with a 'species/dataset/variable' name")
+            species, group, variable = name.split("/")
+            name, dataset = f"{species}/{variable}", f"{group}/{variable}"
         if name != "scalars" and name.count("/") != 1:
-            raise ValueError("evaluate() names must use the 'species/variable' form, or be 'scalars'")
+            raise ValueError(
+                "evaluate() names must use the 'species/variable' or 'species/dataset/variable' form, or be 'scalars'"
+            )
 
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
@@ -873,10 +924,14 @@ class Output:
 
     @cached_property
     def equil(self):
-        """Saved equilibrium, if present."""
-        from struphy.fields_background.base import FluidEquilibrium
+        """Saved equilibrium, if present, linked to the saved domain (as in :class:`~struphy.Simulation`)."""
+        from struphy.fields_background.base import FluidEquilibrium, NumericalMHDequilibrium
 
-        return self._restore("equil", FluidEquilibrium)
+        equil = self._restore("equil", FluidEquilibrium)
+        # a numerical equilibrium dictates the domain itself
+        if equil is not None and not isinstance(equil, NumericalMHDequilibrium):
+            equil.domain = self.domain
+        return equil
 
     @cached_property
     def grid(self):
@@ -1720,7 +1775,7 @@ class Output:
             quantities = cls.orbit_quantities
             break
 
-        log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
+        log_nt = int(xp.log10(max(int((nt - 1) / step), 1))) + 1
 
         # directory for .txt files and marker columns which will be saved (marker index last)
         path_orbits = os.path.join(path_kinetic_species, "orbits")
@@ -2056,6 +2111,10 @@ class Output:
             attribute.func(self)
         if isinstance(attribute, property):
             attribute.fget(self)  # the property raised AttributeError itself; show its own error
+        if name in ("plot", "analysis"):
+            if load_plasma_plots() and name in type(self).__dict__:
+                return getattr(self, name)
+            raise AttributeError(f"Output has no {name!r} without plasma-plots; {PLOTS_HINT}")
         # the raw output names the species, so an unknown name never starts post-processing
         if name not in self._raw_species():
             raise AttributeError(f"{name!r}; available species: {tuple(sorted(self._raw_species()))}")

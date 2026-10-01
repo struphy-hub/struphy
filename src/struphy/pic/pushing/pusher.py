@@ -11,6 +11,7 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.utils.kernel_backends import CudaKernel, Kernel
 
 logger = logging.getLogger("struphy")
 
@@ -60,8 +61,9 @@ class Pusher:
     particles : Particles
         Particles object holding the markers to push.
 
-    kernel : pyccelized function
-        The pusher kernel.
+    kernel : PyccelKernel | Kernel
+        The pusher kernel. A :class:`~struphy.utils.kernel_backends.Kernel` also holds its CUDA version;
+        on the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     args_kernel : tuple
         Optional arguments passed to the kernel.
@@ -114,7 +116,7 @@ class Pusher:
     def __init__(
         self,
         particles: Particles,
-        kernel: PyccelKernel,
+        kernel: PyccelKernel | Kernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
         pushes_eta: bool,
@@ -128,9 +130,14 @@ class Pusher:
         mpi_sort: str = None,
         local_eval_only: bool = False,
     ):
+        # choose the kernel for the active backend once; on the CuPy backend this raises
+        # if there is no CUDA version (yet), see CUDA_STRATEGY.md
+        if isinstance(kernel, PyccelKernel):
+            kernel = Kernel(kernel)
+        assert isinstance(kernel, Kernel), f"{kernel} is not of type Kernel or PyccelKernel"
+        self._kernel = kernel.get_kernel()
+
         self._particles = particles
-        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
-        self._kernel = kernel
         self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
         self._args_domain = args_domain
@@ -355,8 +362,8 @@ class Pusher:
         return self._particles
 
     @property
-    def kernel(self):
-        """The pyccelized pusher kernel."""
+    def kernel(self) -> PyccelKernel | CudaKernel:
+        """The pusher kernel for the active backend (pyccel or CUDA)."""
         return self._kernel
 
     @property
