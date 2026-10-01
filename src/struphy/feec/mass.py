@@ -1697,7 +1697,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     if weights_info is None:
                         if self._matrix_free:
                             blocks[-1] += [
-                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, self.nquads),
+                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, nquads=self.nquads),
                             ]
                         else:
                             blocks[-1] += [
@@ -2567,8 +2567,8 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             ),
         )
 
-        shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
-        self._diag_tmp = xp.zeros((shape))
+        # temporary with ghost regions for the diagonal (contributions to other processes are exchanged)
+        self._diag_tmp = W.coeff_space.zeros()
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
@@ -2769,18 +2769,24 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         elif isinstance(self._weights, xp.ndarray):
             mat_w = self._weights
 
-        diag = self._diag_tmp
-        diag[:] = 0.0
-        self._diag_kernel(
-            *self._codomain_spans,
-            *self._W.degree,
-            *self._codomain_starts,
-            *self._codomain_pads,
-            *self._wts,
-            *self._codomain_basis,
-            mat_w,
-            diag,
-        )
+        diag_tmp = self._diag_tmp
+        diag_tmp._data[:] = 0.0
+        if self._weights is not None:
+            self._diag_kernel(
+                *self._codomain_spans,
+                *self._W.degree,
+                *self._codomain_starts,
+                *self._codomain_pads,
+                *self._wts,
+                *self._codomain_basis,
+                mat_w,
+                diag_tmp._data,
+            )
+            diag_tmp.exchange_assembly_data()
+
+        # entries owned by this process (without ghost regions)
+        idx = tuple(slice(p * m, -p * m) if p != 0 else slice(None) for p, m in zip(W.pads, W.shifts))
+        diag = diag_tmp._data[idx]
 
         data = out._data if out else None
 
