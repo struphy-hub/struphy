@@ -38,7 +38,18 @@ class FaradayExtended(Propagator):
 
         **params : dict
             Solver- and/or other parameters for this splitting step.
+
+    Note
+    ----
+    Not available: this propagator has not been ported to the current Propagator, Accumulator
+    and solver APIs, and the kernels ``hybrid_fA_Arelated`` and ``hybrid_curlA`` are missing.
     """
+
+    def __new__(cls, *args, **kwargs):
+        raise NotImplementedError(
+            "FaradayExtended has not been ported to the current Propagator/Accumulator/solver APIs "
+            "(missing Variables, Options and allocate, and the kernels 'hybrid_fA_Arelated' and 'hybrid_curlA')."
+        )
 
     def __init__(self, a, **params):
         assert isinstance(a, (BlockVector, PolarVector))
