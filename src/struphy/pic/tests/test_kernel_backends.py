@@ -136,17 +136,7 @@ def make_arguments(n_markers: int, seed: int = 0):
         return args_markers, domain.args_domain
 
     args_markers = CudaMarkerArguments(markers, valid_mks, n_markers, *MARKER_INDICES, bc_type)
-    args_domain = CudaDomainArguments(
-        domain.kind_map,
-        domain.params_numpy,
-        cunumpy.asarray(domain.degree),
-        *domain.T,
-        *domain.indN,
-        domain.cx,
-        domain.cy,
-        domain.cz,
-    )
-    return args_markers, args_domain
+    return args_markers, domain.args_domain
 
 
 def expected_push(markers, valid_mks, dt, n_steps=1):
@@ -242,16 +232,8 @@ def test_cuda_scalar_arguments():
 def test_cuda_domain_arguments_reference_domain_arrays():
     with cunumpy.use_backend("cupy"):
         domain = Cuboid()
-        args = CudaDomainArguments(
-            domain.kind_map,
-            domain.params_numpy,
-            cunumpy.asarray(domain.degree),
-            *domain.T,
-            *domain.indN,
-            domain.cx,
-            domain.cy,
-            domain.cz,
-        )
+        args = domain.args_domain
+        assert isinstance(args, CudaDomainArguments)
         assert len(args.values) == 12
         assert args.values[3] is domain.T[0] and args.values[8] is domain.indN[2] and args.values[9] is domain.cx
 
