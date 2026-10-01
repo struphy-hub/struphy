@@ -155,6 +155,8 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
     stands for the first root where 
     :math:`\Omega_i = |\mathbf B_0|/\epsilon` is the cyclotron frequency 
     with :math:`\epsilon = 1/(\hat \Omega_i \hat t)`.
+    The roots :math:`\omega = \sqrt{x}` of the cubic are returned in ascending order as the slow magnetosonic,
+    shear Alfvén and fast magnetosonic branches, and :math:`\omega = \omega_0` as the compressional Alfvén branch.
     """
 
     def __init__(self, B0x=0.0, B0y=0.0, B0z=1.0, p0=0.1, n0=1.0, gamma=5 / 3, eps=0.1):
@@ -201,7 +203,7 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
 
         # auxiliary functions
         def omega_0(k):
-            return vA**2 * k**2 * cos_theta
+            return vA**2 * k**2 * cos_theta / Omega_i
 
         def b(k):
             return -(cS**2 + vA**2) * k**2 - vA**2 * k**2 * cos_theta**2 - omega_0(k) ** 2
@@ -221,18 +223,17 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
                 - 27.0 * d(k) ** 2
             )
 
-        # solve
-        out = xp.zeros((k.size, 4), dtype=complex)
+        # solve the cubic for x = omega^2 (roots are sorted in ascending order: slow, shear Alfvén, fast)
+        out = xp.zeros((k.size, 3), dtype=complex)
         for i, ki in enumerate(k):
-            p0 = Polynomial([-(omega_0(ki) ** 2), 1.0])
-            p1 = Polynomial([d(ki), c(ki), b(ki), 1.0])
-            poly = p0 * p1
-            out[i] = poly.roots()
+            out[i] = Polynomial([d(ki), c(ki), b(ki), 1.0]).roots()
+
+        out = xp.sqrt(out)
 
         self._branches["slow magnetosonic"] = out[:, 0]
         self._branches["shear Alfvén"] = out[:, 1]
         self._branches["fast magnetosonic"] = out[:, 2]
-        self._branches["compressional Alfvén"] = out[:, 3]
+        self._branches["compressional Alfvén"] = xp.abs(omega_0(k)).astype(complex)
 
         return self.branches
 
