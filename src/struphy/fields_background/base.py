@@ -1559,13 +1559,18 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
                     dZ=1,
                 )
                 + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=2)
+                + self.g_tor(R, Z) * self.g_tor(R, Z, dR=1)
             )
             / RabsB
             / R
         )
         gradBP = 0.0
         gradBZ = (
-            (self.psi(R, Z, dZ=1) * self.psi(R, Z, dZ=2) + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=1, dZ=1))
+            (
+                self.psi(R, Z, dZ=1) * self.psi(R, Z, dZ=2)
+                + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=1, dZ=1)
+                + self.g_tor(R, Z) * self.g_tor(R, Z, dZ=1)
+            )
             / RabsB
             / R
         )
