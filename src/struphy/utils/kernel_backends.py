@@ -8,6 +8,7 @@ argument classes (:mod:`struphy.utils.cuda_arguments`), which reference arrays o
 the number of threads ``n_threads``. No arrays are converted or copied at call time.
 """
 
+import importlib
 import math
 from pathlib import Path
 
@@ -116,17 +117,43 @@ class Kernel:
     pyccel_kernel : PyccelKernel
         The pyccel kernel, called on the NumPy backend.
 
-    cuda_kernel : CudaKernel
-        The CUDA kernel, called on the CuPy backend.
+    cuda_kernel : CudaKernel | None
+        The CUDA kernel, called on the CuPy backend; None if it has not been ported yet
+        (then the kernel cannot run on the CuPy backend).
+
+    cuda_path : Path | None
+        Where the CUDA kernel is expected, used in the error message if it is missing.
     """
 
-    def __init__(self, pyccel_kernel: PyccelKernel, cuda_kernel: CudaKernel):
+    def __init__(
+        self,
+        pyccel_kernel: PyccelKernel,
+        cuda_kernel: CudaKernel | None = None,
+        cuda_path: Path | None = None,
+    ):
         self.pyccel_kernel = pyccel_kernel
         self.cuda_kernel = cuda_kernel
+        self.cuda_path = cuda_path
+
+    @property
+    def name(self) -> str:
+        """Name of the kernel (the name of the pyccel kernel)."""
+        return self.pyccel_kernel.name
 
     def get_kernel(self) -> PyccelKernel | CudaKernel:
-        """The kernel for the active cunumpy backend."""
-        return self.cuda_kernel if is_cuda_backend() else self.pyccel_kernel
+        """The kernel for the active cunumpy backend.
+
+        Raises
+        ------
+        NotImplementedError
+            On the CuPy backend, if there is no CUDA version of the kernel.
+        """
+        if not is_cuda_backend():
+            return self.pyccel_kernel
+        if self.cuda_kernel is None:
+            expected = "" if self.cuda_path is None else f" (expected {self.cuda_path})"
+            raise NotImplementedError(f"No CUDA version of kernel {self.name!r}{expected}.")
+        return self.cuda_kernel
 
     def __call__(self, *args, n_threads: int | None = None):
         """Call the kernel for the active cunumpy backend.
@@ -139,8 +166,68 @@ class Kernel:
         n_threads : int | None
             Number of CUDA threads; required on the CuPy backend, ignored on the NumPy backend.
         """
-        if is_cuda_backend():
-            if n_threads is None:
-                raise ValueError(f"{self.cuda_kernel.name}: n_threads is required on the CuPy backend.")
-            return self.cuda_kernel(*args, n_threads=n_threads)
-        return self.pyccel_kernel(*args)
+        kernel = self.get_kernel()
+        if not is_cuda_backend():
+            return kernel(*args)
+        if n_threads is None:
+            raise ValueError(f"{kernel.name}: n_threads is required on the CuPy backend.")
+        return kernel(*args, n_threads=n_threads)
+
+
+class KernelCatalog:
+    """The kernels of a package with one folder per kernel.
+
+    For each subfolder ``<name>`` containing ``<name>_kernels.py`` (pyccel), the function ``<name>`` in that
+    module is the pyccel kernel, and ``<name>_cuda.cu`` in the same folder, if present, is the CUDA kernel::
+
+        catalog = KernelCatalog.from_package(__name__)  # in the __init__.py of the package
+        kernel = catalog["push_eta_stage"]
+
+    Parameters
+    ----------
+    kernels : dict[str, Kernel]
+        The kernels by name.
+    """
+
+    def __init__(self, kernels: dict[str, Kernel]):
+        self._kernels = kernels
+
+    @classmethod
+    def from_package(cls, package: str) -> "KernelCatalog":
+        """Collect the kernels in the subfolders of a package.
+
+        Parameters
+        ----------
+        package : str
+            Full name of the package, e.g. ``__name__`` in its ``__init__.py``.
+
+        Returns
+        -------
+        KernelCatalog
+            One :class:`Kernel` per subfolder ``<name>`` with a file ``<name>_kernels.py``.
+        """
+        root = Path(importlib.import_module(package).__file__).parent
+        kernels = {}
+        for folder in sorted(p for p in root.iterdir() if (p / f"{p.name}_kernels.py").is_file()):
+            name = folder.name
+            module = importlib.import_module(f"{package}.{name}.{name}_kernels")
+            cuda_path = folder / f"{name}_cuda.cu"
+            cuda_kernel = CudaKernel.from_file(cuda_path) if cuda_path.is_file() else None
+            kernels[name] = Kernel(PyccelKernel(getattr(module, name)), cuda_kernel, cuda_path)
+        return cls(kernels)
+
+    def __getitem__(self, name: str) -> Kernel:
+        return self._kernels[name]
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._kernels
+
+    @property
+    def names(self) -> list[str]:
+        """Names of all kernels."""
+        return list(self._kernels)
+
+    @property
+    def missing_cuda(self) -> list[str]:
+        """Names of the kernels without a CUDA version."""
+        return [name for name, kernel in self._kernels.items() if kernel.cuda_kernel is None]
