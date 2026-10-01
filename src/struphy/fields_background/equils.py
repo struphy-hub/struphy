@@ -1147,8 +1147,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
                         * (1 / self.q_r(r) ** 2 - 1 / self.params["q1"] ** 2)
                     )
 
-            # alternative profile
-            elif self.params["q_kind"] == 1:
+            # alternative profiles (interpolated)
+            elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
                 pout = self._p_i(r)
 
                 # remove all "dimensions" for point-wise evaluation
@@ -1587,6 +1587,8 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
             d2r_dZ2 = (r - Z * dr_dZ) / r**2
 
+            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
+
             if dR == 1 and dZ == 0:
                 out = self.psi_r(r, der=1) * dr_dR
             elif dR == 0 and dZ == 1:
@@ -1595,9 +1597,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                 out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
             elif dR == 0 and dZ == 2:
                 out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2
+            elif dR == 1 and dZ == 1:
+                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + self.psi_r(r, der=1) * d2r_dRdZ
             else:
                 raise NotImplementedError(
-                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0) and (dR=0, dZ=2) possible!",
+                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
                 )
 
         return out
@@ -1881,16 +1885,13 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
     def p_psi(self, psi, der=0):
-        """Pressure profile g = g(psi)."""
+        """Pressure profile p = p(psi) in units Pa (as in the EQDSK file)."""
         out = self._p_i(psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
             assert out.ndim == 0
             out = out.item()
-
-        # rescale to Struphy units
-        out /= self.units.p
 
         return out
 
@@ -3081,7 +3082,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
 
         .. math::
 
-            \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
+            \psi=-a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
 
         for the given constants.
 
@@ -3101,7 +3102,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
         self.params = copy.deepcopy(locals())
 
         self._psi0 = 0.0
-        self._psi1 = self.params["a"] * self.params["R0"] * self.params["Bp"] * 0.5
+        self._psi1 = self.psi(self.params["R0"] + self.params["a"], 0.0)
 
     # ===============================================================
     #           abstract properties
@@ -3231,6 +3232,8 @@ class CurrentSheet(CartesianMHDequilibrium):
 
             B_x &= \sqrt{(1 - B_y^2)} \,,
 
+            \mathbf J &= \nabla \times \mathbf B = -\frac{1}{\delta} (B_x^2, B_x B_y, 0) \,,
+
             p &= p_0 = 5/2\,,
 
             n &= n_0 = 1 \,.
@@ -3242,34 +3245,33 @@ class CurrentSheet(CartesianMHDequilibrium):
         # use params setter
         self.params = copy.deepcopy(locals())
 
-    # ===============================================================
-    #           profiles for a straight tokamak equilibrium
-    # ===============================================================
-
     def plot_profiles(self, n_pts=501):
-        """Plots radial profiles."""
+        """Plots profiles across the current sheet, z in [-5 delta, 5 delta]."""
 
         import matplotlib.pyplot as plt
 
-        r = xp.linspace(0.0, self.params["a"], n_pts)
+        z = xp.linspace(-5 * self.params["delta"], 5 * self.params["delta"], n_pts)
+        x = 0 * z
+
+        bx, by, bz = self.b_xyz(x, x, z)
 
         fig, ax = plt.subplots(1, 3)
 
         fig.set_figheight(3)
         fig.set_figwidth(12)
 
-        ax[0].plot(r, self.q_r(r))
-        ax[0].set_xlabel("r")
-        ax[0].set_ylabel("q")
+        ax[0].plot(z, bx, label="$B_x$")
+        ax[0].plot(z, by, label="$B_y$")
+        ax[0].set_xlabel("z")
+        ax[0].set_ylabel("B")
+        ax[0].legend()
 
-        ax[0].plot(r, xp.ones(r.size), "k--")
-
-        ax[1].plot(r, self.p_r(r))
-        ax[1].set_xlabel("r")
+        ax[1].plot(z, self.p_xyz(x, x, z))
+        ax[1].set_xlabel("z")
         ax[1].set_ylabel("p")
 
-        ax[2].plot(r, self.n_r(r))
-        ax[2].set_xlabel("r")
+        ax[2].plot(z, self.n_xyz(x, x, z))
+        ax[2].set_xlabel("z")
         ax[2].set_ylabel("n")
 
         plt.subplots_adjust(wspace=0.4)
@@ -3293,12 +3295,16 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         return bxs, bys, bz
 
-    # equilibrium current, set to 0
+    # equilibrium current (curl of B, force-free: j = -sech(z/delta)/delta * B)
     def j_xyz(self, x, y, z):
         """Current density."""
 
-        jx = 0 * x
-        jy = 0 * x
+        delta = self.params["delta"]
+        by = xp.tanh(z / delta)
+        bx = xp.sqrt(1 - by**2)
+
+        jx = -self.params["amp"] * bx**2 / delta
+        jy = -self.params["amp"] * bx * by / delta
         jz = 0 * x
 
         return jx, jy, jz
@@ -3387,7 +3393,7 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
         return self._n_xyz(x, y, z)
 
 
-class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
+class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium, CartesianFluidEquilibriumWithB):
     """Generic Cartesian fluid equilibrium with magnetic field and callable fields.
 
     This class extends GenericCartesianFluidEquilibrium to include magnetic field
@@ -3417,10 +3423,10 @@ class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
         b_xyz: callable = None,
         gradB_xyz: callable = None,
     ):
-        # use params setter
-        self.params = copy.deepcopy(locals())
-
         super().__init__(u_xyz=u_xyz, p_xyz=p_xyz, n_xyz=n_xyz)
+
+        # use params setter (after super().__init__, which would overwrite it)
+        self.params = copy.deepcopy(locals())
 
         if b_xyz is None:
             b_xyz = lambda x, y, z: (0.0 * x, 0.0 * x, 0.0 * x)
