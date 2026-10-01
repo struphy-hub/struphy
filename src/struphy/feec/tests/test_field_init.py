@@ -124,7 +124,7 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
             if "Generic" in key:
                 logger.info(f"Attention: {key} has no meaningful default fields, not tested here !!")
                 continue
-            
+
             if "CurrentSheet" in key:
                 # its localized current (width delta, periodic box) is not resolved on this coarse grid;
                 # J = curl B is checked in fields_background/tests/test_mhd_equils.py::test_current_sheet_curl_b

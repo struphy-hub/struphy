@@ -1829,6 +1829,11 @@ class Particles(metaclass=ABCMeta):
             self._markers[self._is_outside, :-1] = -1.0
             self._n_lost_markers += len(xp.nonzero(self._is_outside)[0])
 
+            # removed markers are holes now and refilled markers have moved: refresh both,
+            # such that a marker outside on several axes is only counted (and refilled) once
+            self.update_holes()
+            self._eta_bc_buf[outside_inds] = self.markers[outside_inds, :3]
+
         if self._periodic_axes:
             self._eta_bc_buf[:] = self.markers[:, :3]
 
@@ -3744,12 +3749,13 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # Initialize send and receive commands
         reqs = []
         recvbufs = []
+        send_reqs = []
         for i, (data, N_recv) in enumerate(zip(self._send_list_box, list(self._recv_info_box))):
             if i == self.mpi_comm.Get_rank():
                 reqs += [None]
                 recvbufs += [None]
             else:
-                self.mpi_comm.Isend(data, dest=i, tag=self.mpi_comm.Get_rank())
+                send_reqs += [self.mpi_comm.Isend(data, dest=i, tag=self.mpi_comm.Get_rank())]
 
                 recvbufs += [xp.zeros((N_recv, self._markers.shape[1]), dtype=float)]
                 reqs += [self.mpi_comm.Irecv(recvbufs[-1], source=i, tag=i)]
@@ -3778,6 +3784,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
                         test_reqs.pop()
                         reqs[i] = None
+
+        # the send buffers must not be reused before the sends have completed
+        for req in send_reqs:
+            req.Wait()
 
         self._Barrier()
 
@@ -4534,12 +4544,13 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         first_hole = xp.cumsum(recv_info) - recv_info
 
         # Initialize send and receive commands
+        send_reqs = []
         for i, (data, N_recv) in enumerate(zip(self._send_list, list(recv_info))):
             if i == self.mpi_rank:
                 self._reqs[i] = None
                 self._recvbufs[i] = None
             else:
-                self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank)
+                send_reqs += [self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank)]
 
                 self._recvbufs[i] = xp.zeros((N_recv, self.markers.shape[1]), dtype=float)
                 self._reqs[i] = self.mpi_comm.Irecv(self._recvbufs[i], source=i, tag=i)
@@ -4567,6 +4578,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
                         test_reqs.pop()
                         self._reqs[i] = None
+
+        # the send buffers must not be reused before the sends have completed
+        for req in send_reqs:
+            req.Wait()
 
 
 class Tesselation:
