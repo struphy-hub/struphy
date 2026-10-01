@@ -15,7 +15,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -245,7 +245,7 @@ class EfieldWeightsCoupling(Propagator):
 
         self._pusher = Pusher(
             particles,
-            PyccelKernel(pusher_kernels.push_weights_with_efield_lin_va),
+            catalog["push_weights_with_efield_lin_va"],
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,

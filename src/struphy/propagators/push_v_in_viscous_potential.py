@@ -4,12 +4,11 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
-from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
@@ -118,10 +117,10 @@ class PushVinViscousPotential(Propagator):
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.
-        init_kernel_1 = eval_kernels_sph.sph_mean_velocity_coeffs
+        init_kernel_1 = catalog["sph_mean_velocity_coeffs"]
         first_free_idx = particles.args_markers.first_free_idx
 
-        init_kernel_2 = eval_kernels_sph.sph_viscosity_tensor
+        init_kernel_2 = catalog["sph_viscosity_tensor"]
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -181,7 +180,7 @@ class PushVinViscousPotential(Propagator):
             ),
         )
 
-        kernel = PyccelKernel(pusher_kernels_sph.push_v_viscosity)
+        kernel = catalog["push_v_viscosity"]
 
         args_kernel = (
             boxes,

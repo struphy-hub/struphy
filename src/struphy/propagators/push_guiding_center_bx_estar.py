@@ -4,13 +4,12 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels_gc
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
@@ -42,9 +41,9 @@ class PushGuidingCenterBxEstar(Propagator):
     Available algorithms:
 
     - Explicit from :class:`~struphy.ode.utils.ButcherTableau`
-    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
-    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
-    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
+    - :func:`~struphy.pic.pushing.kernels.push_gc_bxEstar_discrete_gradient_1st_order.push_gc_bxEstar_discrete_gradient_1st_order_kernels.push_gc_bxEstar_discrete_gradient_1st_order`
+    - :func:`~struphy.pic.pushing.kernels.push_gc_bxEstar_dg_1st_order_newton.push_gc_bxEstar_dg_1st_order_newton_kernels.push_gc_bxEstar_dg_1st_order_newton`
+    - :func:`~struphy.pic.pushing.kernels.push_gc_bxEstar_discrete_gradient_2nd_order.push_gc_bxEstar_discrete_gradient_2nd_order_kernels.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
 
     class Variables:
@@ -205,7 +204,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 # init kernels
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        kernel=catalog["driftkinetic_hamiltonian"],
                         output_indices=(first_free_idx,),
                         args=(
                             self.derham.args_derham,
@@ -219,7 +218,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.bstar_parallel_3form,
+                        kernel=catalog["bstar_parallel_3form"],
                         output_indices=(first_free_idx + 1,),
                         args=(
                             self.derham.args_derham,
@@ -232,7 +231,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.unit_b_1form,
+                        kernel=catalog["unit_b_1form"],
                         output_indices=(first_free_idx + 2, first_free_idx + 3, first_free_idx + 4),
                         args=(
                             self.derham.args_derham,
@@ -247,7 +246,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     # eval kernels
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            kernel=catalog["driftkinetic_hamiltonian"],
                             output_indices=(first_free_idx + 5,),
                             args=(
                                 self.derham.args_derham,
@@ -262,7 +261,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            kernel=catalog["driftkinetic_hamiltonian"],
                             output_indices=(first_free_idx + 6,),
                             args=(
                                 self.derham.args_derham,
@@ -277,7 +276,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                            kernel=catalog["grad_driftkinetic_hamiltonian"],
                             output_indices=(first_free_idx + 7, None, None),
                             args=(
                                 self.derham.args_derham,
@@ -296,7 +295,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                            kernel=catalog["grad_driftkinetic_hamiltonian"],
                             output_indices=(first_free_idx + 8, first_free_idx + 9, None),
                             args=(
                                 self.derham.args_derham,
@@ -314,7 +313,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton)
+                    kernel = catalog["push_gc_bxEstar_dg_1st_order_newton"]
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -335,7 +334,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     # eval kernels
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            kernel=catalog["driftkinetic_hamiltonian"],
                             output_indices=(first_free_idx + 5,),
                             args=(
                                 self.derham.args_derham,
@@ -349,7 +348,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )  # evaluate at eta^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order)
+                    kernel = catalog["push_gc_bxEstar_discrete_gradient_1st_order"]
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -368,7 +367,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 # init kernels (evaluate at eta^n and save)
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        kernel=catalog["driftkinetic_hamiltonian"],
                         output_indices=(first_free_idx,),
                         args=(
                             self.derham.args_derham,
@@ -383,7 +382,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 # eval kernels
                 self.add_eval_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        kernel=catalog["driftkinetic_hamiltonian"],
                         output_indices=(first_free_idx + 1,),
                         args=(
                             self.derham.args_derham,
@@ -397,7 +396,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 )  # evaluate at eta^{n+1,k} and save)
 
                 # pusher kernel
-                kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order)
+                kernel = catalog["push_gc_bxEstar_discrete_gradient_2nd_order"]
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -439,7 +438,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
 
-            kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
+            kernel = catalog["push_gc_bxEstar_explicit_multistage"]
 
             args_kernel = (
                 self.derham.args_derham,

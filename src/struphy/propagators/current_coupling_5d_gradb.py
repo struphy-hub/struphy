@@ -19,7 +19,7 @@ from struphy.pic import utilities_kernels
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.pushing import pusher_kernels_gc
+from struphy.pic.pushing.kernels import catalog
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -296,9 +296,9 @@ class CurrentCoupling5DGradB(Propagator):
 
             # define Pusher
             if self.options.u_space == "Hdiv":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+                self._pusher_kernel = catalog["push_gc_cc_J2_stage_Hdiv"].get_kernel()
             elif self.options.u_space == "H1vec":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+                self._pusher_kernel = catalog["push_gc_cc_J2_stage_H1vec"].get_kernel()
             else:
                 raise ValueError(
                     f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -443,8 +443,8 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[2]._data,
             )
 
-            self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
-            self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv
+            self._pusher_kernel_init = catalog["push_gc_cc_J2_dg_init_Hdiv"].get_kernel()
+            self._pusher_kernel = catalog["push_gc_cc_J2_dg_Hdiv"].get_kernel()
 
     def __call__(self, dt):
         # current FE coeffs
