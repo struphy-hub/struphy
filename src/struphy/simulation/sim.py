@@ -1544,10 +1544,13 @@ class Simulation(SimulationBase):
                             key=key_restart,
                         )
 
-                    # initialize pic variables
-                    elif isinstance(subval, PICVariable):
+                    # initialize pic and sph variables
+                    elif isinstance(subval, (PICVariable, SPHVariable)):
                         key_restart = os.path.join("restart", species)
                         subval.particles._markers[:, :] = file[key_restart][-1, :, :]
+                        # refresh the cached hole/ghost masks for the restored rows
+                        subval.particles.update_holes()
+                        subval.particles._update_ghost_particles()
 
                         if MPI.COMM_WORLD.Get_size() > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
