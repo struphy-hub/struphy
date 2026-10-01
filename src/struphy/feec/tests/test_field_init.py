@@ -121,6 +121,16 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 logger.info(f"Attention: {with_gvec =}, GVEC not tested here !!")
                 continue
 
+            if "Generic" in key:
+                logger.info(f"Attention: {key} has no meaningful default fields, not tested here !!")
+                continue
+            
+            if "CurrentSheet" in key:
+                # its localized current (width delta, periodic box) is not resolved on this coarse grid;
+                # J = curl B is checked in fields_background/tests/test_mhd_equils.py::test_current_sheet_curl_b
+                logger.info("Attention: CurrentSheet not tested here !!")
+                continue
+
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
@@ -1449,5 +1459,5 @@ if __name__ == "__main__":
     #     ],
     #     show_plot=False,
     # )
-    test_sincos_init_const([1, 32, 32], [1, 3, 3], None, show_plot=True)
-    test_noise_init([4, 8, 6], [1, 1, 1], None, "Hcurl", "e1")
+    test_sincos_init_const([1, 32, 32], [1, 3, 3], show_plot=True)
+    test_noise_init([4, 8, 6], [1, 1, 1], (None, None, None), "Hcurl", "e1")

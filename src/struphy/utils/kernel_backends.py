@@ -14,6 +14,8 @@ from pathlib import Path
 import cunumpy
 from cunumpy import PyccelKernel
 
+from struphy.utils.cuda_arguments import Argument
+
 
 def is_cuda_backend() -> bool:
     """Whether the active cunumpy backend is CuPy.
@@ -97,8 +99,8 @@ class CudaKernel:
 
         values = []
         for arg in args:
-            if hasattr(arg, "values"):
-                values += arg.values
+            if isinstance(arg, Argument):
+                values.extend(arg.get_cuda_args())
             else:
                 values.append(arg)
 
