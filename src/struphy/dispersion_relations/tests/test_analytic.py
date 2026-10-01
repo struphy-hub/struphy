@@ -5,8 +5,8 @@ from struphy.dispersion_relations.analytic import ExtendedMHDhomogenSlab, MHDhom
 
 # analytic dispersion relations are pure numpy, no parallel code involved
 pytestmark = pytest.mark.mpi_skip
-    
-    
+
+
 @pytest.mark.parametrize("name", ["ColdPlasma1D", "CurrentCoupling6DParallel", "PressureCouplingFull6DParallel"])
 def test_call_with_defaults(name):
     """All branches are computed and stored when called with default parameters."""
@@ -58,8 +58,8 @@ def test_current_coupling_limits():
     # Newton iteration must stop after max_it iterations (returns initial guess B0 * k)
     omegas = CurrentCoupling6DParallel()(k[:1], max_it=0)
     assert xp.allclose(omegas["shear_Alfvén_R"], k[:1])
-    
-    
+
+
 @pytest.mark.parametrize("B0", [(0.0, 0.0, 1.0), (0.0, 1.0, 1.0)])
 def test_extended_mhd_homogen_slab(B0):
     """Compare with ideal MHD for eps -> 0 and check that the Hall term splits the shear Alfvén branch."""

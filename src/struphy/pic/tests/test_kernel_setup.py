@@ -1,6 +1,5 @@
 """Marker destinations and execution ordering for configured evaluations."""
 
-import inspect
 from types import SimpleNamespace
 
 import numpy as np
@@ -135,14 +134,14 @@ def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
 
 
 @pytest.mark.parametrize(
-    "kernel_name",
+    "kernel_name,n_fields",
     [
-        "push_gc_Bstar_discrete_gradient_1st_order",
-        "push_gc_Bstar_discrete_gradient_2nd_order",
-        "push_gc_Bstar_discrete_gradient_1st_order_newton",
+        ("push_gc_Bstar_discrete_gradient_1st_order", 6),
+        ("push_gc_Bstar_discrete_gradient_2nd_order", 14),
+        ("push_gc_Bstar_discrete_gradient_1st_order_newton", 8),
     ],
 )
-def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel_name):
+def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel_name, n_fields):
     # A marker at rest (v = mu = 0, no E-field) stays put; the residual must be 0, not NaN (issue #589).
     kernel = getattr(pusher_kernels_gc, kernel_name)
     markers = np.zeros((1, 40))
@@ -150,12 +149,11 @@ def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel_name
     markers[0, 8:11] = markers[0, :3]
     markers[0, 18] = markers[0, 21] = 1.0  # B*_parallel and B* = (0, 0, 1) at time n.
     args_markers = MarkerArguments(markers, np.array([True]), 1, 2, 5, 6, 8, 12, 16, 17, 4, np.zeros(3, dtype=int))
-    n_fields = len(inspect.signature(kernel).parameters) - 7
     kernel(0.1, 0, args_markers, Cuboid().args_domain, derham_args, 1.0, *(coefficients(1.0),) * n_fields, False)
     assert markers[0, 16] == 0.0
     np.testing.assert_array_equal(markers[0, :4], (0.4, 0.3, 0.2, 0.0))
-    
-    
+
+
 def test_sph_tensor_mapped_domain(marker_args):
     # On a mapped domain the strain uses Cartesian derivatives (grad_eta @ DF^{-1}) and the
     # stored columns are in Piola form det(DF) * tensor @ DF^{-T}.

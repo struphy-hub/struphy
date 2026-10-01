@@ -1527,7 +1527,7 @@ def test_mass_preconditioner_array_weights_mpi(dim_reduce):
     s, e = out[0].space.starts, out[0].space.ends
     sl = tuple(slice(si, ei + 1) for si, ei in zip(s, e))
     assert xp.allclose(out[0][sl], out[1][sl], rtol=1e-12, atol=1e-14)
-    
+
 
 def test_transpose_and_copy():
     """WeightedMassOperator.T and .copy() must work without a name, keep spline weights
