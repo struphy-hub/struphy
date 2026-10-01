@@ -1571,8 +1571,8 @@ def test_get_one_spline_periodic_partition_of_unity(Nel, p):
     eval_indices, values = get_values_and_indices_splines(space.nbasis, space.degree, space.periodic, spans, values)
     total = sum(get_one_spline(a, values, eval_indices) for a in range(space.nbasis))
     assert xp.allclose(total, 1.0, atol=1e-14)
-    
-    
+
+
 @pytest.mark.parametrize(
     "out_sp_key, in_sp_key",
     [("0", "0"), ("0", "1"), ("0", "v"), ("1", "0"), ("2", "v")],

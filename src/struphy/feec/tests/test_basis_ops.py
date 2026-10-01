@@ -526,6 +526,42 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
         MPI_COMM.Barrier()
 
 
+def test_transposed_update_weights_drops_zero_blocks():
+    """Transposed operator must drop blocks whose weight becomes zero in update_weights (#585)."""
+    import numpy as np
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.basis_projection_ops import BasisProjectionOperator
+    from struphy.feec.psydac_derham import Derham
+
+    derham = Derham(
+        grids.TensorProductGrid(num_elements=(4, 3, 1)),
+        DerhamOptions(degree=(2, 1, 1)),
+        comm=MPI.COMM_WORLD,
+        domain=domains.Cuboid(),
+    )
+
+    def weights(c):
+        return [[(lambda e1, e2, e3, m=m, n=n: (1.0 if m == n else c) + 0 * e1) for n in range(3)] for m in range(3)]
+
+    P, V = derham.projectors["v"], derham.fem_spaces["v"]
+    op_T = BasisProjectionOperator(P, V, weights(0.5), transposed=True)
+    op_T.update_weights(weights(0.0))
+    ref_T = BasisProjectionOperator(P, V, weights(0.0), transposed=True)
+
+    assert sorted(op_T._dof_mat_T.nonzero_block_indices) == [(0, 0), (1, 1), (2, 2)]
+
+    x = P(
+        [
+            lambda e1, e2, e3: np.sin(2 * np.pi * e1),
+            lambda e1, e2, e3: 1.0 + e2,
+            lambda e1, e2, e3: np.cos(np.pi * e1),
+        ]
+    )
+    assert np.allclose(op_T.dot(x).toarray(), ref_T.dot(x).toarray(), atol=1e-12)
+
+
 @pytest.mark.parametrize("bcs", [(("dirichlet", "dirichlet"), ("dirichlet", "free"), None)])
 def test_projector_solve_apply_bc(bcs):
     """Tensor-product case: CommutingProjector.solve(apply_bc=True) must solve I0 * x = B * rhs exactly (#584)."""
@@ -554,8 +590,8 @@ def test_projector_solve_apply_bc(bcs):
             pc.dot(rhs, out=y)
             d = pc.dot(rhs) - y
             assert xp.sqrt(d.inner(d)) == 0.0
-            
-            
+
+
 @pytest.mark.parametrize("num_elements", [[6, 9, 2]])
 @pytest.mark.parametrize("degree", [[2, 2, 1]])
 def test_coordinate_ops_polar(num_elements, degree):
