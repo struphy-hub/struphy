@@ -586,7 +586,7 @@ class FluidEquilibriumWithB(FluidEquilibrium):
             a_kwargs={"squeeze_out": False},
             squeeze_out=squeeze_out,
         )
-        return gradB_out, self.domain(*etas)
+        return gradB_out, self.domain(*etas, squeeze_out=squeeze_out)
 
     def a1(self, *etas, squeeze_out=False):
         """1-form components of vector potential on logical cube [0, 1]^3."""
