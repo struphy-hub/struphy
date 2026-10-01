@@ -1488,6 +1488,37 @@ def test_average_operator_transpose(bcs):
         assert xp.isclose(lhs, rhs, rtol=1e-12, atol=0.0)
 
 
+def test_average_operator_subcomm():
+    """Check that the AverageOperator subcomm of each rank holds exactly the ranks of its perpendicular block.
+    Nel=98 is a case where the colour from the domain breaks was wrong for 2 processes per direction."""
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.mass import AverageOperator
+    from struphy.feec.psydac_derham import Derham
+
+    comm = MPI.COMM_WORLD
+    if comm.Get_size() == 1:
+        return
+
+    derham = Derham(
+        grids.TensorProductGrid([98, 2, 98], (True, False, True)),
+        DerhamOptions([1, 1, 1], (None, None, None)),
+        comm=comm,
+        domain=domains.Cuboid(),
+    )
+    coords = derham.domain_decomposition.coords
+
+    for dir in range(3):
+        av_op = AverageOperator(derham, "H1", dir)
+        perp = [d for d in range(3) if d != dir]
+        key = tuple(int(coords[d]) for d in perp)
+        all_keys = comm.allgather(key)
+        expected = sorted(r for r, k in enumerate(all_keys) if k == key)
+        members = sorted(av_op.subcomm.allgather(comm.Get_rank()))
+        assert members == expected
+        
+
 @pytest.mark.parametrize("dim_reduce", [0, 1, 2])
 def test_mass_preconditioner_array_weights_mpi(dim_reduce):
     """Preconditioner with array weights must not depend on the MPI decomposition

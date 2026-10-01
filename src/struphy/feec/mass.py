@@ -3313,9 +3313,9 @@ class AverageOperator(LinOpWithTransp):
         if not isinstance(comm, (MockComm, type(None))):
             rank = comm.Get_rank()
             nprocs = derham.domain_decomposition.nprocs
-            dom_arr = derham.domain_array
-            color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
-            color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
+            coords = derham.domain_decomposition.coords
+            color1 = int(coords[self._directions[1]])
+            color2 = int(coords[self._directions[2]])
             color = color1 * nprocs[self._directions[2]] + color2
             self.subcomm = comm.Split(color=color, key=rank)
 
