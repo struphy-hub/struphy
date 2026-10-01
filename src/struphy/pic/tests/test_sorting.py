@@ -153,6 +153,47 @@ def test_sorting(num_elements, degree, bcs, mapping, Np):
     assert all(box_markers[i] <= box_markers[i + 1] for i in range(len(box_markers) - 1))
 
 
+@pytest.mark.parametrize("bc", ["periodic", "remove"])
+@pytest.mark.mpi
+@pytest.mark.mpi_pic
+def test_mpi_sort_markers_on_rank_boundary(bc):
+    """Markers exactly on a process boundary (or on eta = 0, 1) must be kept and sent to exactly one process."""
+    mpi_comm = MPI.COMM_WORLD
+
+    particles = Particles6D(
+        comm_world=mpi_comm,
+        loading_params=LoadingParameters(Np=1000, seed=1234),
+        boundary_params=BoundaryParameters(bc=(bc, bc, bc)),
+    )
+    particles.draw_markers(sort=False)
+    particles.mpi_sort_markers()
+
+    # one tagged marker (tag in v1) for each process boundary in eta1, eta2 and eta3
+    dom = particles.domain_array
+    boundaries = [sorted(set(dom[:, 3 * n].tolist()) | set(dom[:, 3 * n + 1].tolist())) for n in range(3)]
+    special = [(e, 0.3, 0.7) for e in boundaries[0]]
+    special += [(0.3, e, 0.7) for e in boundaries[1]]
+    special += [(0.3, 0.7, e) for e in boundaries[2]]
+    tags = 1000.0 + xp.arange(len(special))
+
+    if mpi_comm.Get_rank() == 0:
+        rows = xp.nonzero(particles.holes)[0][: len(special)]
+        particles.markers[rows] = 0.0
+        particles.markers[rows, :3] = xp.array(special)
+        particles.markers[rows, 3] = tags
+        particles.update_holes()
+
+    n_before = mpi_comm.allreduce(particles.n_mks_loc)
+    particles.mpi_sort_markers(do_test=True)
+    n_after = mpi_comm.allreduce(particles.n_mks_loc)
+    assert n_after == n_before
+
+    v1 = particles.markers[particles.valid_mks, 3]
+    for tag, eta in zip(tags, special):
+        n_found = mpi_comm.allreduce(int(xp.count_nonzero(v1 == tag)))
+        assert n_found == 1, f"marker at {eta} found on {n_found} processes"
+
+
 if __name__ == "__main__":
     test_flattening_roundtrip(8, 8, 8, "c_ordering")
     # test_sorting(

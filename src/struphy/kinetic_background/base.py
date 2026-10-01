@@ -565,12 +565,7 @@ class KineticBackground(metaclass=ABCMeta):
     def __rmul__(self, a):
         return ScalarMultiplyKineticBackground(self, a)
 
-    def __div__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
-        assert a != 0, "Cannot divide by zero!"
-        return ScalarMultiplyKineticBackground(self, 1 / a)
-
-    def __rdiv__(self, a):
+    def __truediv__(self, a):
         assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
         assert a != 0, "Cannot divide by zero!"
         return ScalarMultiplyKineticBackground(self, 1 / a)
@@ -915,11 +910,12 @@ class Maxwellian(KineticBackground):
 
             # local field strength, needed by the "mu" velocity-Gaussian type
             B0 = 2.0
-            if self.gauss_types[i] == "mu" and xp.ndim(args[0]) == 1:
+            if self.gauss_types[i] == "mu":
                 B0_param = self.params.get("B0", 2.0)
                 if callable(B0_param):
-                    etas = xp.concatenate([a[:, None] for a in args[:3]], axis=1)
-                    B0 = B0_param(etas)
+                    # callable expects flat (N, 3) positions; reshape back for meshgrid input
+                    etas = xp.concatenate([xp.ravel(a)[:, None] for a in args[:3]], axis=1)
+                    B0 = xp.reshape(B0_param(etas), shape0)
                 else:
                     B0 = B0_param
 
