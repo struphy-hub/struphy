@@ -296,6 +296,52 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
         logger.info("------------- Test passed ---------------------------")
 
 
+@pytest.mark.parametrize("num_elements", [[8, 3, 2], [8, 6, 2]])
+def test_polar_adjoints_small_nel2(num_elements):
+    """<A x, y> = <x, A^T y> for polar extraction operators and derivatives,
+    including Nel2 = 3 where n_polar == n2 for H1 and H1vec."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+
+    degree = [2, 2, 1]
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+
+    fem_spaces = {"0": derham.V0fem, "1": derham.V1fem, "2": derham.V2fem, "3": derham.V3fem, "v": derham.Vvfem}
+
+    xp.random.seed(1607)
+
+    def rand_pol(space, seed):
+        v = PolarVector(space)
+        v.tp = create_equal_random_arrays(fem_spaces[derham.space_to_form[space.space_id]], seed=seed)[1]
+        v.pol = [xp.random.rand(*pol.shape) for pol in v.pol]
+        return v
+
+    for form, V_fem in fem_spaces.items():
+        E = derham.extraction_ops[form]
+        x = create_equal_random_arrays(V_fem, seed=123)[1]
+        y = rand_pol(E.codomain, 456)
+        lhs = E.dot(x).dot(y)
+        rhs = x.inner(E.transpose().dot(y))
+        assert xp.isclose(lhs, rhs, rtol=1e-12), (form, lhs, rhs)
+
+    for op in (derham.grad, derham.curl, derham.div):
+        x = rand_pol(op.domain, 123)
+        y = rand_pol(op.codomain, 456)
+        lhs = op.dot(x).dot(y)
+        rhs = x.dot(op.transpose().dot(y))
+        assert xp.isclose(lhs, rhs, rtol=1e-12), (lhs, rhs)
+
+
 @pytest.mark.parametrize("num_elements", [[6, 12, 7]])
 @pytest.mark.parametrize("degree", [[4, 3, 2]])
 @pytest.mark.parametrize(
@@ -404,6 +450,54 @@ def test_projectors(num_elements, degree, bcs):
     if rank == 0:
         logger.info("Test passed for PI_3 polar projector")
         logger.info("")
+
+
+@pytest.mark.parametrize("space_id", ["H1", "Hcurl", "Hdiv", "L2", "H1vec"])
+def test_restart_polar(space_id, tmp_path):
+    """Write restart data (vector_stencil) like Simulation does and re-initialize a polar SplineFunction from it."""
+    import cunumpy as xp
+    import h5py
+    from feectools.linalg.stencil import StencilVector
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+
+    num_elements, degree = [6, 9, 4], [2, 2, 1]
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, domain=domain)
+
+    # random polar field
+    rng = xp.random.default_rng(1234)
+    f = derham.create_spline_function("f", space_id)
+    assert isinstance(f.vector, PolarVector)
+    f.vector.pol = [rng.random(a.shape) for a in f.vector.pol]
+    tps = [f.vector.tp] if isinstance(f.vector.tp, StencilVector) else f.vector.tp.blocks
+    for tp in tps:
+        tp._data[:] = rng.random(tp._data.shape)
+    f.vector.set_tp_coeffs_to_zero()
+    f.vector.update_ghost_regions()
+    f.extract_coeffs()
+
+    # save restart data
+    key = "restart/em_fields/f"
+    with h5py.File(tmp_path / "data.hdf5", "w") as file:
+        if isinstance(f.vector_stencil, StencilVector):
+            file.create_dataset(key, data=f.vector_stencil._data[None])
+        else:
+            for n in range(3):
+                file.create_dataset(key + "/" + str(n + 1), data=f.vector_stencil[n]._data[None])
+
+    # restart
+    g = derham.create_spline_function("g", space_id)
+    with h5py.File(tmp_path / "data.hdf5", "r") as file:
+        g.initialize_coeffs_from_restart_file(file, key)
+
+    assert xp.allclose(g.vector.toarray(), f.vector.toarray(), atol=1e-12)
 
 
 if __name__ == "__main__":
