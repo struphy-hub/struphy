@@ -286,3 +286,26 @@ def test_cuda_kernel_rejects_host_arrays(kernel):
             kernel(0.1, 0, cuda_markers, host_domain, n_threads=10)
         with pytest.raises(ValueError, match="n_threads"):
             kernel(0.1, 0, cuda_markers, cuda_domain)
+
+
+@requires_cupy
+def test_cuda_kernel_from_file(kernel, tmp_path):
+    """CUDA kernels can be loaded from <name>_cuda.cu files; the name is taken from the file name."""
+    path = tmp_path / "push_eta_linear_cuda.cu"
+    path.write_text(PUSH_ETA_LINEAR_SRC)
+    cuda_kernel = CudaKernel.from_file(path)
+    assert cuda_kernel.name == "push_eta_linear"
+
+    results = {}
+    for backend in ("numpy", "cupy"):
+        with cunumpy.use_backend(backend):
+            args_markers, args_domain = make_arguments(1000)
+            if backend == "cupy":
+                cuda_kernel(0.1, 0, args_markers, args_domain, n_threads=1000)
+            else:
+                kernel.pyccel_kernel(0.1, 0, args_markers, args_domain)
+            results[backend] = cunumpy.to_numpy(args_markers.markers)
+    assert np.allclose(results["cupy"], results["numpy"], rtol=1e-14, atol=0.0)
+
+    with pytest.raises(AssertionError, match="naming convention"):
+        CudaKernel.from_file(tmp_path / "push_eta_linear.cu")

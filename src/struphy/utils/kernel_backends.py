@@ -9,6 +9,7 @@ the number of threads ``n_threads``. No arrays are converted or copied at call t
 """
 
 import math
+from pathlib import Path
 
 import cunumpy
 from cunumpy import PyccelKernel
@@ -52,6 +53,32 @@ class CudaKernel:
         self._source = source
         self._block_size = block_size
         self._raw_kernel = None
+
+    @classmethod
+    def from_file(cls, path: str | Path, name: str | None = None, block_size: int = 128) -> "CudaKernel":
+        """Load the CUDA source from a ``<name>_cuda.cu`` file.
+
+        Parameters
+        ----------
+        path : str | Path
+            Path of the ``.cu`` file.
+
+        name : str | None
+            Name of the kernel function; defaults to the file name without ``_cuda.cu``.
+
+        block_size : int
+            Number of threads per block.
+
+        Returns
+        -------
+        CudaKernel
+            The (not yet compiled) CUDA kernel.
+        """
+        path = Path(path)
+        if name is None:
+            assert path.name.endswith("_cuda.cu"), f"{path.name} does not follow the naming convention <name>_cuda.cu"
+            name = path.name[: -len("_cuda.cu")]
+        return cls(path.read_text(), name, block_size=block_size)
 
     def __call__(self, *args, n_threads: int):
         """Launch the kernel.
