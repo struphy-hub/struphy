@@ -73,8 +73,9 @@ class ImplicitDiffusion(Propagator):
     rho_coeffs : float or list, default=None
         Multiplicative coefficient(s) for ``rho`` sources.
         If a scalar is provided, it is applied to a single source.
-        If a sequence is provided, its length must match the number of
-        collected sources.
+        If a sequence is provided, it has one entry per entry of ``rho``
+        (the neutralising background of a full-f accumulator gets the coefficient
+        of its accumulator), or one entry per collected source.
         If ``None``, all coefficients default to ``1.0``.
 
     diagnostic : FEECVariable, default=None
@@ -298,32 +299,29 @@ class ImplicitDiffusion(Propagator):
 
             return [rhs]
 
-        rho = self.rho
-        if isinstance(rho, list):
-            self._sources = []
-            for n, r in enumerate(rho):
-                tmp = verify_rhs(r)
-                if len(tmp) == 2 and self.rho_coeffs is not None:
-                    assert isinstance(self.rho_coeffs, list), "If rho is a list, rho_coeffs must be a list too."
-                    if len(self.rho_coeffs) < len(rho):
-                        self.rho_coeffs.insert(n + 1, self.rho_coeffs[n])
-                self._sources += tmp
-        else:
-            tmp = verify_rhs(rho)
-            if len(tmp) == 2 and self.rho_coeffs is not None:
-                if not isinstance(self.rho_coeffs, (list, tuple)):
-                    self.rho_coeffs = [self.rho_coeffs, self.rho_coeffs]
-            self._sources = tmp
+        rho_list = self.rho if isinstance(self.rho, list) else [self.rho]
 
-        # coeffs of rhs
-        if self.rho_coeffs is not None:
-            if isinstance(self.rho_coeffs, (list, tuple)):
-                self._coeffs = self.rho_coeffs
-            else:
-                self._coeffs = [self.rho_coeffs]
-            assert len(self._coeffs) == len(self._sources)
+        # coeffs given by the user (copied, the user's list is not modified)
+        if self.rho_coeffs is None:
+            user_coeffs = [1.0 for r in rho_list]
+        elif isinstance(self.rho_coeffs, (list, tuple)):
+            user_coeffs = list(self.rho_coeffs)
         else:
-            self._coeffs = [1.0 for src in self.sources]
+            user_coeffs = [self.rho_coeffs]
+
+        # collect sources; a full-f accumulator adds a background source after itself
+        sources_per_rho = [verify_rhs(r) for r in rho_list]
+        self._sources = [src for tmp in sources_per_rho for src in tmp]
+
+        # coeffs of rhs: one per entry of rho (duplicated for the background source),
+        # or already one per collected source
+        if len(user_coeffs) == len(rho_list):
+            self._coeffs = [c for c, tmp in zip(user_coeffs, sources_per_rho) for src in tmp]
+        else:
+            self._coeffs = user_coeffs
+        assert len(self._coeffs) == len(self._sources), (
+            f"Got {len(user_coeffs)} rho_coeffs for {len(rho_list)} entries of rho ({len(self._sources)} sources)."
+        )
 
         # initial guess and solver params
         self._x0 = self.options.x0

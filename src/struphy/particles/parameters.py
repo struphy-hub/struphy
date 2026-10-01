@@ -80,7 +80,7 @@ class LoadingParameters:
     specific_markers: tuple[tuple] = None
     set_zero_velocity: tuple[bool] = (False, False, False)
     n_quad: int = 1
-    dir_exrernal: str = None
+    dir_external: str = None
     dir_particles: str = None
     dir_particles_abs: str = None
     restart_key: str = None

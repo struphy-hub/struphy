@@ -86,12 +86,18 @@ class HollowTorus(Domain):
         """Analytical inverse map of HollowTorus"""
 
         mr = xp.sqrt(x**2 + y**2) - self.params["R0"]
+        r = xp.sqrt(mr**2 + z**2)
 
         eta3 = xp.arctan2(-y, x) % (2 * xp.pi / self.params["tor_period"]) / (2 * xp.pi) * self.params["tor_period"]
-        eta2 = xp.arctan2(z, mr) % (2 * xp.pi / self.params["pol_period"]) / (2 * xp.pi / self.params["pol_period"])
-        eta1 = (z / xp.sin(2 * xp.pi * eta2 / self.params["pol_period"]) - self.params["a1"]) / (
-            self.params["a2"] - self.params["a1"]
-        )
+        eta1 = (r - self.params["a1"]) / (self.params["a2"] - self.params["a1"])
+
+        if self.params["sfl"]:
+            # invert theta = 2*arctan(sqrt((1 + eps)/(1 - eps)) * tan(pi*eta2)) with eps = r/R0
+            theta = xp.arctan2(z, mr) % (2 * xp.pi)
+            g = xp.sqrt((1 + r / self.params["R0"]) / (1 - r / self.params["R0"]))
+            eta2 = xp.arctan2(xp.sin(theta / 2), g * xp.cos(theta / 2)) / xp.pi % 1.0
+        else:
+            eta2 = xp.arctan2(z, mr) % (2 * xp.pi / self.params["pol_period"]) / (2 * xp.pi / self.params["pol_period"])
 
         if bounded:
             eta1[eta1 > 1] = 1.0
