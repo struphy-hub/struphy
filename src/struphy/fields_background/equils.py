@@ -1147,8 +1147,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
                         * (1 / self.q_r(r) ** 2 - 1 / self.params["q1"] ** 2)
                     )
 
-            # alternative profile
-            elif self.params["q_kind"] == 1:
+            # alternative profiles (interpolated)
+            elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
                 pout = self._p_i(r)
 
                 # remove all "dimensions" for point-wise evaluation
@@ -1587,6 +1587,8 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
             d2r_dZ2 = (r - Z * dr_dZ) / r**2
 
+            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
+
             if dR == 1 and dZ == 0:
                 out = self.psi_r(r, der=1) * dr_dR
             elif dR == 0 and dZ == 1:
@@ -1595,9 +1597,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                 out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
             elif dR == 0 and dZ == 2:
                 out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2
+            elif dR == 1 and dZ == 1:
+                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + self.psi_r(r, der=1) * d2r_dRdZ
             else:
                 raise NotImplementedError(
-                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0) and (dR=0, dZ=2) possible!",
+                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
                 )
 
         return out
@@ -1881,16 +1885,13 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
     def p_psi(self, psi, der=0):
-        """Pressure profile g = g(psi)."""
+        """Pressure profile p = p(psi) in units Pa (as in the EQDSK file)."""
         out = self._p_i(psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
             assert out.ndim == 0
             out = out.item()
-
-        # rescale to Struphy units
-        out /= self.units.p
 
         return out
 
@@ -3077,7 +3078,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
 
         .. math::
 
-            \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
+            \psi=-a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
 
         for the given constants.
 
@@ -3097,7 +3098,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
         self.params = copy.deepcopy(locals())
 
         self._psi0 = 0.0
-        self._psi1 = self.params["a"] * self.params["R0"] * self.params["Bp"] * 0.5
+        self._psi1 = self.psi(self.params["R0"] + self.params["a"], 0.0)
 
     # ===============================================================
     #           abstract properties
