@@ -4,7 +4,7 @@ from typing import Callable, Literal
 
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
@@ -80,7 +80,7 @@ class CurlCurlSolve(Propagator):
 
             - ``None``: zero source.
             - ``FEECVariable`` in ``"Hcurl"``.
-            - ``tuple`` of three ``Callable``s to be projected to ``"Hcurl"`` via
+            - ``tuple`` (or ``list``) of three ``Callable``s to be projected to ``"Hcurl"`` via
               ``L2Projector``.
             - ``AccumulatorVector``.
             - a ``list`` containing any mix of the entries above.
@@ -188,7 +188,11 @@ class CurlCurlSolve(Propagator):
         e = self.variables.e.spline.vector
 
         # collect rhs
-        def verify_rhs(j) -> StencilVector | FEECVariable | AccumulatorVector:
+        def is_callable_triple(j) -> bool:
+            """True if j is a tuple/list of three callables (components of a 1-form)."""
+            return isinstance(j, (tuple, list)) and len(j) == 3 and all(callable(ji) for ji in j)
+
+        def verify_rhs(j) -> Vector | FEECVariable | AccumulatorVector:
             """Perform preliminary operations on j to compute the rhs and return the result."""
             if j is None:
                 rhs = e.space.zeros()
@@ -197,13 +201,7 @@ class CurlCurlSolve(Propagator):
                 rhs = j
             elif isinstance(j, AccumulatorVector):
                 rhs = j
-            elif isinstance(j, tuple[Callable, Callable, Callable]):
-                assert (
-                    len(
-                        j,
-                    )
-                    == 3
-                )
+            elif is_callable_triple(j):
                 rhs = L2Projector("Hcurl", self.mass_ops).get_dofs(j, apply_bc=True)
             else:
                 raise TypeError(f"{type(j) =} is not accepted.")
@@ -211,7 +209,7 @@ class CurlCurlSolve(Propagator):
             return rhs
 
         j = self.j
-        if isinstance(j, list):
+        if isinstance(j, list) and not is_callable_triple(j):
             self._sources = []
             for ji in j:
                 self._sources += [verify_rhs(ji)]
@@ -274,7 +272,7 @@ class CurlCurlSolve(Propagator):
         self._tmp_src = e.space.zeros()
 
     @property
-    def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
+    def sources(self) -> list[Vector | FEECVariable | AccumulatorVector]:
         """
         Right-hand side of the equation (sources).
         """
@@ -312,7 +310,7 @@ class CurlCurlSolve(Propagator):
         # compute rhs
         self._rhs *= 0.0
         for src, coeff in zip(self.sources, self.coeffs):
-            if isinstance(src, StencilVector):
+            if isinstance(src, Vector):
                 self._rhs += coeff * src
             elif isinstance(src, FEECVariable):
                 v = src.spline.vector
