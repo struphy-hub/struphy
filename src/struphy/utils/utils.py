@@ -30,13 +30,13 @@ def read_state(libpath=STRUPHY_LIBPATH):
     dict
         A dictionary containing the parsed YAML content of the 'state.yml' file.
         If the file is not found or there is an error parsing the YAML file,
-        an empty dictionary is returned.
+        an empty dictionary is returned. An empty file also gives an empty dictionary.
     """
 
     state_file = os.path.join(libpath, "state.yml")
     try:
         with open(state_file, "r") as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
+            state = yaml.load(f, Loader=yaml.FullLoader) or {}
     except FileNotFoundError as e:
         logger.info(f"The state file '{state_file}' was not found. Creating a new one.")
         state = {}
@@ -87,10 +87,25 @@ def print_all_attr(obj):
             logger.info(f"{k:<26}{v}")
 
 
+def _replace_atomically(write, output: str):
+    """Call write(file) on a temporary file next to output, then move it to output.
+
+    Concurrent readers (e.g. several ranks running the CLI) then see either the
+    old or the new file, never a partially written one."""
+    tmp = f"{output}.{os.getpid()}.{os.urandom(4).hex()}.tmp"
+    try:
+        with open(tmp, "w") as file:
+            write(file)
+        os.replace(tmp, output)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
 def dict_to_yaml(dictionary: dict, output: str):
     """Write dictionary to file and save in output."""
-    with open(output, "w") as file:
-        yaml.dump(
+    _replace_atomically(
+        lambda file: yaml.dump(
             dictionary,
             file,
             Dumper=MyDumper,
@@ -98,15 +113,15 @@ def dict_to_yaml(dictionary: dict, output: str):
             sort_keys=False,
             indent=4,
             line_break="\n",
-        )
+        ),
+        output,
+    )
     # logger.info(f"dict written to {output}.")
 
 
 def kernels_to_txt(kernels: list, output: str):
     """Write state[kernels] to .txt file for pyccel make."""
-    with open(output, "w") as file:
-        for ker in kernels:
-            file.write(f"{ker}\n")
+    _replace_atomically(lambda file: file.writelines(f"{ker}\n" for ker in kernels), output)
     # logger.info(f"kernels written to {output}.")
 
 
