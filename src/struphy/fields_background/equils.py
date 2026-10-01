@@ -1147,8 +1147,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
                         * (1 / self.q_r(r) ** 2 - 1 / self.params["q1"] ** 2)
                     )
 
-            # alternative profile
-            elif self.params["q_kind"] == 1:
+            # alternative profiles (interpolated)
+            elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
                 pout = self._p_i(r)
 
                 # remove all "dimensions" for point-wise evaluation
@@ -1587,6 +1587,8 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
             d2r_dZ2 = (r - Z * dr_dZ) / r**2
 
+            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
+
             if dR == 1 and dZ == 0:
                 out = self.psi_r(r, der=1) * dr_dR
             elif dR == 0 and dZ == 1:
@@ -1595,9 +1597,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                 out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
             elif dR == 0 and dZ == 2:
                 out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2
+            elif dR == 1 and dZ == 1:
+                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + self.psi_r(r, der=1) * d2r_dRdZ
             else:
                 raise NotImplementedError(
-                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0) and (dR=0, dZ=2) possible!",
+                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
                 )
 
         return out
@@ -1774,8 +1778,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         )
 
         # set on-axis and boundary fluxes
+        # (psi_edge is read from file in Weber/rad; rescale like self.psi())
         self._psi0 = self._psi_i_min["fun"]
-        self._psi1 = psi_edge
+        self._psi1 = psi_edge / (self.units.B * self.units.x**2)
 
         # interpolate toroidal field function, pressure profile and q-profile on unifrom flux grid from axis to boundary
         flux_grid = xp.linspace(self._psi0, self._psi1, g_profile.size)
@@ -1880,16 +1885,13 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
     def p_psi(self, psi, der=0):
-        """Pressure profile g = g(psi)."""
+        """Pressure profile p = p(psi) in units Pa (as in the EQDSK file)."""
         out = self._p_i(psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
             assert out.ndim == 0
             out = out.item()
-
-        # rescale to Struphy units
-        out /= self.units.p
 
         return out
 
@@ -3076,7 +3078,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
 
         .. math::
 
-            \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
+            \psi=-a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
 
         for the given constants.
 
@@ -3096,7 +3098,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
         self.params = copy.deepcopy(locals())
 
         self._psi0 = 0.0
-        self._psi1 = self.params["a"] * self.params["R0"] * self.params["Bp"] * 0.5
+        self._psi1 = self.psi(self.params["R0"] + self.params["a"], 0.0)
 
     # ===============================================================
     #           abstract properties
@@ -3226,6 +3228,8 @@ class CurrentSheet(CartesianMHDequilibrium):
 
             B_x &= \sqrt{(1 - B_y^2)} \,,
 
+            \mathbf J &= \nabla \times \mathbf B = -\frac{1}{\delta} (B_x^2, B_x B_y, 0) \,,
+
             p &= p_0 = 5/2\,,
 
             n &= n_0 = 1 \,.
@@ -3288,12 +3292,16 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         return bxs, bys, bz
 
-    # equilibrium current, set to 0
+    # equilibrium current (curl of B, force-free: j = -sech(z/delta)/delta * B)
     def j_xyz(self, x, y, z):
         """Current density."""
 
-        jx = 0 * x
-        jy = 0 * x
+        delta = self.params["delta"]
+        by = xp.tanh(z / delta)
+        bx = xp.sqrt(1 - by**2)
+
+        jx = -self.params["amp"] * bx**2 / delta
+        jy = -self.params["amp"] * bx * by / delta
         jz = 0 * x
 
         return jx, jy, jz

@@ -2278,7 +2278,7 @@ def push_gc_cc_J2_stage_H1vec(
     # containers for fields
     tmp = empty((3, 3), dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    norm_b_prod = empty((3, 3), dtype=float)
+    norm_b_prod = zeros((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
     bb = empty(3, dtype=float)

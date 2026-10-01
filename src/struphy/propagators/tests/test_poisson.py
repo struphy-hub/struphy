@@ -429,6 +429,135 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     assert error < 0.0086
 
 
+def test_poisson_accum_full_f_background_1d():
+    """Full-f accumulator: the neutralising background must enter the rhs as (n0, Lambda^0)_L2 (issue #427)."""
+    from types import SimpleNamespace
+
+    from feectools.linalg.stencil import StencilVector
+
+    domain = domains.Cuboid(l1=0.0, r1=4.0, l2=0.0, r2=2.0, l3=0.0, r3=3.0)
+    derham = Derham(TensorProductGrid(num_elements=(16, 1, 1)), DerhamOptions(degree=(2, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    # neutral plasma: f = f0
+    backgr = Maxwellian3D(n=(1.0, None))
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=(derham.domain_array, derham.domain_decomposition.nprocs),
+        loading_params=LoadingParameters(ppc=1000, seed=765),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(),
+        domain=domain,
+        background=backgr,
+        initial_condition=Maxwellian3D(n=(1.0, None)),
+    )
+    particles.draw_markers()
+    particles.initialize_weights()
+
+    pic_var = PICVariable(space="Particles6D")
+    pic_var._particles = particles
+    pic_var._species = SimpleNamespace(charge_number=1)
+    rho = ParticlesToGrid(pic_var, "H1", PyccelKernel(charge_density_0form))
+
+    _phi = FEECVariable(space="H1")
+    _phi.allocate(derham=derham, domain=domain)
+
+    poisson_solver = PoissonSolve(rho=rho)
+    poisson_solver.variables.phi = _phi
+    poisson_solver.options = poisson_solver.Options(
+        stab_eps=1e-6,
+        solver="pcg",
+        precond="MassMatrixPreconditioner",
+        solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
+    )
+    poisson_solver.allocate()
+
+    # background source equals the L2 dofs of -n0 (no additional mass matrix)
+    bg = poisson_solver.sources[1]
+    assert isinstance(bg, StencilVector)
+    expected = L2Projector("H1", mass_ops).get_dofs(lambda e1, e2, e3: -backgr.n(e1, e2, e3), apply_bc=True)
+    assert xp.allclose(bg.toarray(), expected.toarray())
+
+    # neutral plasma gives (almost) zero potential
+    poisson_solver(1.0)
+    e1 = xp.linspace(0.0, 1.0, 50)
+    num_values = domain.push(_phi.spline, e1, 0.0, 0.0, kind="0")
+    logger.info(f"{xp.max(xp.abs(num_values))=}")
+    assert xp.max(xp.abs(num_values)) < 0.1
+
+
+@pytest.mark.parametrize("full_f", [False, True])
+def test_poisson_rho_coeffs_1d(full_f):
+    """rho_coeffs with one entry per rho, also when a full-f accumulator adds a background source (issue #506)."""
+    from types import SimpleNamespace
+
+    domain = domains.Cuboid(l1=0.0, r1=4.0, l2=0.0, r2=2.0, l3=0.0, r3=3.0)
+    derham = Derham(TensorProductGrid(num_elements=(16, 1, 1)), DerhamOptions(degree=(2, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=(derham.domain_array, derham.domain_decomposition.nprocs),
+        loading_params=LoadingParameters(ppc=200, seed=765),
+        weights_params=WeightsParameters(control_variate=not full_f),
+        boundary_params=BoundaryParameters(),
+        domain=domain,
+        background=Maxwellian3D(n=(1.0, None)),
+        initial_condition=Maxwellian3D(n=(2.0, None)),
+    )
+    particles.draw_markers()
+    particles.initialize_weights()
+
+    pic_var = PICVariable(space="Particles6D")
+    pic_var._particles = particles
+    pic_var._species = SimpleNamespace(charge_number=1)
+    rho_pic = ParticlesToGrid(pic_var, "H1", PyccelKernel(charge_density_0form))
+
+    def rho_ext(e1, e2, e3):
+        return xp.sin(xp.pi * e1 / 2.0)
+
+    def solve(rho, rho_coeffs):
+        _phi = FEECVariable(space="H1")
+        _phi.allocate(derham=derham, domain=domain)
+        poisson_solver = PoissonSolve(rho=rho, rho_coeffs=rho_coeffs)
+        poisson_solver.variables.phi = _phi
+        poisson_solver.options = poisson_solver.Options(
+            stab_eps=1e-6,
+            solver="pcg",
+            solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
+        )
+        poisson_solver.allocate()
+        assert len(poisson_solver.coeffs) == len(poisson_solver.sources)
+        poisson_solver(1.0)
+        return _phi.spline.vector.toarray()
+
+    phi_pic = solve(rho_pic, None)
+    phi_ext = solve(rho_ext, None)
+    expected = 3.0 * phi_pic - 2.0 * phi_ext
+    scale = xp.max(xp.abs(expected))
+
+    # single rho with a one-element list
+    assert xp.allclose(solve(rho_pic, [3.0]), 3.0 * phi_pic, rtol=0.0, atol=1e-8 * scale)
+
+    # one coefficient per entry of rho, in either order; the user's list is not modified
+    coeffs = [3.0, -2.0]
+    assert xp.allclose(solve([rho_pic, rho_ext], coeffs), expected, rtol=0.0, atol=1e-8 * scale)
+    assert coeffs == [3.0, -2.0]
+    assert xp.allclose(solve([rho_ext, rho_pic], (-2.0, 3.0)), expected, rtol=0.0, atol=1e-8 * scale)
+
+    # one coefficient per collected source
+    coeffs = [3.0, 3.0, -2.0] if full_f else [3.0, -2.0]
+    assert xp.allclose(solve([rho_pic, rho_ext], coeffs), expected, rtol=0.0, atol=1e-8 * scale)
+
+
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("num_elements", [[64, 64, 1]])
 @pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])
