@@ -673,7 +673,6 @@ class PICVariable(Variable):
             comm_world=comm_world,
             clone_config=clone_config,
             domain_decomp=domain_decomp,
-            name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
@@ -966,7 +965,6 @@ class SPHVariable(Variable):
         dummy_particles: ParticlesSPH = ParticlesSPH(
             comm_world=comm_world,
             domain_decomp=domain_decomp,
-            name=self.species.__class__.__name__,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
