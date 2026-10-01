@@ -88,6 +88,6 @@ class RatGUI(CoilMagneticField):
         # compute (R, Z, phi) corrdinates from (x, y, z), for example:
         R = xp.sqrt(x**2 + y**2)
         Z = z
-        phi = -xp.arctan2(y / x)
+        phi = -xp.arctan2(y, x)
 
         return self.bfield_RZphi(R, Z, phi)
