@@ -214,12 +214,12 @@ class PolarExtractionOperator(LinOpWithTransp):
 
             # 2. map "first tp ring" to "polar rings" + "first tp ring"
             if self.blocks_ten_to_ten is not None:
-                dot_parts_of_polar(self.blocks_ten_to_ten, self.blocks_e3, v, out)
+                dot_parts_of_polar(self.blocks_ten_to_ten, self.blocks_e3, v, out, map_from_tp=True)
 
             # 3. map polar coeffs to "polar rings"
             if self.blocks_ten_to_pol is not None:
                 out2 = out.space.zeros()
-                dot_parts_of_polar(self.blocks_ten_to_pol, self.blocks_e3, v, out2)
+                dot_parts_of_polar(self.blocks_ten_to_pol, self.blocks_e3, v, out2, map_from_tp=False)
 
                 # add contributions to "polar rings"
                 out += out2
@@ -240,11 +240,11 @@ class PolarExtractionOperator(LinOpWithTransp):
 
             # 2. map from "polar rings" to polar coeffs
             if self.blocks_ten_to_pol is not None:
-                dot_inner_tp_rings(self.blocks_ten_to_pol, self.blocks_e3, v, out)
+                dot_inner_tp_rings(self.blocks_ten_to_pol, self.blocks_e3, v, out, map_to_tp=False)
 
             # 3. map to "polar rings" + "first tp ring" to "first tp ring"
             if self.blocks_ten_to_ten is not None:
-                dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out)
+                dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out, map_to_tp=True)
 
         return out
 
@@ -545,12 +545,12 @@ class PolarLinearOperator(LinOpWithTransp):
         # transposed operator
         if self.transposed:
             # 3. "first tp ring" to polar
-            dot_inner_tp_rings(self.blocks_pol_to_ten, self.blocks_e3, v.tp, out2)
+            dot_inner_tp_rings(self.blocks_pol_to_ten, self.blocks_e3, v.tp, out2, map_to_tp=False)
 
         # "standard" operator
         else:
             # 3. polar to "first tp ring"
-            dot_parts_of_polar(self.blocks_pol_to_ten, self.blocks_e3, v, out2.tp)
+            dot_parts_of_polar(self.blocks_pol_to_ten, self.blocks_e3, v, out2.tp, map_from_tp=False)
 
         # sum up contributions
         out += out2
@@ -584,12 +584,12 @@ class PolarLinearOperator(LinOpWithTransp):
         )
 
 
-def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
+def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out, map_to_tp):
     """
     Maps either
 
-        a) "polar rings" of v to polar coeffs of out (blocks[m][:].shape[0] = n_polar[m] polar coeffs),
-        b) "polar rings" + "first tp ring" of v to "first tp ring" of out (blocks[m][:].shape[0] = n2),
+        a) "polar rings" of v to polar coeffs of out (blocks[m][:].shape[0] = n_polar[m] polar coeffs, map_to_tp=False),
+        b) "polar rings" + "first tp ring" of v to "first tp ring" of out (blocks[m][:].shape[0] = n2, map_to_tp=True),
 
     and performs a Kronecker product in eta_3 dirction (k-indices). For notation see Fig. below.
 
@@ -612,7 +612,7 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
     Parameters
     ----------
     blocks_e1_e2 : list
-        2D nested list with matrices that map inner tp rings to polar coeffs or "first tp ring" depending on shape.
+        2D nested list with matrices that map inner tp rings to polar coeffs or "first tp ring".
 
     blocks_e3 : list
         2D nested list with matrices that solely act along eta_3 direction.
@@ -622,6 +622,10 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
 
     out : PolarVector
         Output vector that is written to.
+
+    map_to_tp : bool
+        Whether to map to "first tp ring" (True) or to polar coeffs (False) of out.
+        Cannot be inferred from block shapes, since n_polar[m] == n2 is possible for small Nel2.
     """
 
     assert isinstance(blocks_e1_e2, list)
@@ -670,9 +674,6 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
     out_ends = [polar_space.ends] if is_scalar_out else polar_space.ends
     out_tp = [out.tp] if is_scalar_out else out.tp
 
-    # determine if mapped to polar coeffs or "first tp ring"
-    map_to_tp = True if n_rows[0] == n2 else False
-
     # loop over codomain components
     for m, (row_e1_e2, row_e3) in enumerate(zip(blocks_e1_e2, blocks_e3)):
         res = xp.zeros((n_rows[m], n3_out[m]), dtype=float)
@@ -703,12 +704,12 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
             out.pol[m][:, :] = res
 
 
-def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
+def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out, map_from_tp):
     """
     Maps either
 
-        a) polar coeffs of v to "polar rings" of out (blocks[:][n].shape[1] = n_polar[n] polar coeffs),
-        b) "first tp ring" of v to "polar rings" + "first tp ring" of out (blocks[:][n].shape[1] = n2),
+        a) polar coeffs of v to "polar rings" of out (blocks[:][n].shape[1] = n_polar[n] polar coeffs, map_from_tp=False),
+        b) "first tp ring" of v to "polar rings" + "first tp ring" of out (blocks[:][n].shape[1] = n2, map_from_tp=True),
 
     and performs a Kronecker product in eta_3 dirction (k-indices). For notation see Fig. below.
 
@@ -731,16 +732,20 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
     Parameters
     ----------
     blocks_e1_e2 : list
-        2D nested list with matrices that map polar coeffs or "first tp ring" to inner to rings depending on shape.
+        2D nested list with matrices that map polar coeffs or "first tp ring" to inner tp rings.
 
     blocks_e3 : list
         2D nested list with matrices that solely act along eta_3 direction.
 
-    v : StencilVector | BlockVector
+    v : PolarVector
         Input vector.
 
-    out : PolarVector
+    out : StencilVector | BlockVector
         Output vector that is written to.
+
+    map_from_tp : bool
+        Whether to map from "first tp ring" (True) or from polar coeffs (False) of v.
+        Cannot be inferred from block shapes, since n_polar[n] == n2 is possible for small Nel2.
     """
 
     assert isinstance(blocks_e1_e2, list)
@@ -788,9 +793,6 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
     out_starts = [out.space.starts] if is_scalar_out else out.space.starts
     out_ends = [out.space.ends] if is_scalar_out else out.space.ends
     out_vec = [out] if is_scalar_out else out
-
-    # determine if mapped from polar coeffs or "first tp ring"
-    map_from_tp = True if n_cols[0] == n2 else False
 
     # loop over codomain components
     for m, (row_e1_e2, row_e3) in enumerate(zip(blocks_e1_e2, blocks_e3)):
