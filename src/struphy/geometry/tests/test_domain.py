@@ -1090,26 +1090,33 @@ def test_hollow_cyl_df_finite_difference(poc):
 requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
 
 
-def test_cuda_args_domain_needs_device_arrays():
-    """On the NumPy backend the domain arrays are host arrays, which are never copied to the device."""
+def test_args_domain_selects_backend():
+    """The argument object follows the active backend."""
     from struphy import domains
+    from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
     with cunumpy.use_backend("numpy"):
         domain = domains.Cuboid()
-        with pytest.raises(TypeError, match="CuPy arrays"):
-            domain.cuda_args_domain
+        args = domain.args_domain
+        assert isinstance(args, DomainArguments)
+    if cunumpy.cupy_available():
+        with cunumpy.use_backend("cupy"):
+            assert domain.args_domain is args
 
 
 @requires_cupy
-def test_cuda_args_domain_independent_of_active_backend():
-    """A domain created on the CuPy backend holds device arrays; its CUDA arguments can be built on either backend."""
+def test_args_domain_backend_is_fixed_at_creation():
+    """Changing the active backend does not change a domain's argument object."""
     from struphy import domains
+    from struphy.utils.cuda_arguments import CudaDomainArguments
 
     with cunumpy.use_backend("cupy"):
         domain = domains.Cuboid()
+        cuda_args = domain.args_domain
+        assert isinstance(cuda_args, CudaDomainArguments)
     with cunumpy.use_backend("numpy"):
-        args = domain.cuda_args_domain
-    assert args.values[3] is domain.T[0]
+        args = domain.args_domain
+        assert args is cuda_args
 
 
 @requires_cupy
@@ -1124,16 +1131,16 @@ def test_cuda_args_domain(mapping):
 
     with cunumpy.use_backend("cupy"):
         domain = getattr(domains, mapping)()
-        args = domain.cuda_args_domain
+        args = domain.args_domain
         assert isinstance(args, CudaDomainArguments)
-        assert domain.cuda_args_domain is args  # built once
+        assert domain.args_domain is args  # built once
 
         kind_map, params, degree, t1, t2, t3, ind1, ind2, ind3, cx, cy, cz = args.values
         assert int(kind_map) == domain.kind_map
         # no copies of arrays that already have the right dtype and layout
         assert t1 is domain.T[0] and ind3 is domain.indN[2]
 
-        host = domain.args_domain
+        host = domain._pyccel_args_domain
         for dev, ref in (
             (params, host.params),
             (degree, host.degree),
@@ -1158,12 +1165,12 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
 
     with cunumpy.use_backend("cupy"):
         domain = getattr(domains, mapping)()
-        cuda_args = domain.cuda_args_domain
+        cuda_args = domain.args_domain
 
         for other in (copy.deepcopy(domain), pickle.loads(pickle.dumps(domain, protocol=pickle.HIGHEST_PROTOCOL))):
             assert other.args_domain.kind_map == domain.args_domain.kind_map
             assert (other.args_domain.params == domain.args_domain.params).all()
-            other_cuda = other.cuda_args_domain
+            other_cuda = other.args_domain
             assert other_cuda is not cuda_args
             assert other_cuda.values[3] is other.T[0]
 

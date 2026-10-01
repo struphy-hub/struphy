@@ -220,7 +220,8 @@ class Domain(metaclass=DomainMeta):
             "tran": dict_tran,
         }
 
-        self._args_domain = self._build_args_domain()
+        self._args_backend = xp.get_backend()
+        self._make_args_domain()
 
     def _build_args_domain(self):
         """Build runtime mapping arguments used by compiled evaluation kernels (host copies on the CuPy backend)."""
@@ -278,13 +279,15 @@ class Domain(metaclass=DomainMeta):
         )
         return all(hasattr(self, attr) for attr in required_attrs)
 
-    def _rebuild_args_domain(self):
-        # built lazily on first access, see cuda_args_domain
-        self._cuda_args_domain = None
+    def _make_args_domain(self):
+        self._args_domain = None
+        self._pyccel_args_domain = None
         if self._can_build_args_domain():
-            self._args_domain = self._build_args_domain()
-        else:
-            self._args_domain = None
+            self._pyccel_args_domain = self._build_args_domain()
+            if self._args_backend == "cupy":
+                self._args_domain = self._build_cuda_args_domain()
+            else:
+                self._args_domain = self._pyccel_args_domain
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -292,23 +295,26 @@ class Domain(metaclass=DomainMeta):
         memo[id(self)] = result
 
         for key, value in self.__dict__.items():
-            if key in ("_args_domain", "_cuda_args_domain"):
+            if key in ("_args_domain", "_pyccel_args_domain"):
                 continue
             setattr(result, key, copy.deepcopy(value, memo))
 
-        result._rebuild_args_domain()
+        result._make_args_domain()
         return result
 
     def __getstate__(self):
         state = self.__dict__.copy()
         state.pop("_args_domain", None)
-        state.pop("_cuda_args_domain", None)
+        state.pop("_pyccel_args_domain", None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        if "_args_backend" not in self.__dict__:
+            arrays = (getattr(self, "_cx", None), getattr(self, "_cy", None), getattr(self, "_cz", None))
+            self._args_backend = "cupy" if any(hasattr(arr, "__cuda_array_interface__") for arr in arrays) else "numpy"
         self._args_domain = None
-        self._rebuild_args_domain()
+        self._make_args_domain()
 
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
@@ -484,27 +490,10 @@ class Domain(metaclass=DomainMeta):
 
     @property
     def args_domain(self):
-        """Object for all parameters needed for evaluation of metric coefficients."""
-        if getattr(self, "_args_domain", None) is None:
-            self._rebuild_args_domain()
-
+        """Arguments for the backend selected when this domain was created."""
         if self._args_domain is None:
             raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
-
         return self._args_domain
-
-    @property
-    def cuda_args_domain(self) -> CudaDomainArguments:
-        """CUDA version of :attr:`args_domain`, referencing the domain's arrays on the device.
-
-        Built on first access (never on the NumPy backend, where it raises TypeError), and rebuilt
-        after a deepcopy or unpickling, like :attr:`args_domain`.
-        """
-        if getattr(self, "_cuda_args_domain", None) is None:
-            if not self._can_build_args_domain():
-                raise AttributeError("CudaDomainArguments are not available because the domain state is incomplete.")
-            self._cuda_args_domain = self._build_cuda_args_domain()
-        return self._cuda_args_domain
 
     @property
     def dict_transformations(self):
@@ -1092,7 +1081,7 @@ class Domain(metaclass=DomainMeta):
             n_inside = kernel(
                 markers,
                 which,
-                self.args_domain,
+                self._pyccel_args_domain,
                 out,
                 remove_outside,
                 avoid_round_off,
@@ -1138,7 +1127,7 @@ class Domain(metaclass=DomainMeta):
                 E2,
                 E3,
                 which,
-                self.args_domain,
+                self._pyccel_args_domain,
                 out,
                 is_sparse_meshgrid,
                 avoid_round_off,
@@ -1308,7 +1297,7 @@ class Domain(metaclass=DomainMeta):
                 _to_numpy_for_kernel(markers),
                 _to_numpy_for_kernel(self._transformation_ids[which]),
                 _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
+                _to_numpy_for_kernel(self._pyccel_args_domain),
                 out_np,
                 _to_numpy_for_kernel(remove_outside),
             )
@@ -1370,7 +1359,7 @@ class Domain(metaclass=DomainMeta):
                 _to_numpy_for_kernel(E3),
                 _to_numpy_for_kernel(self._transformation_ids[which]),
                 _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
+                _to_numpy_for_kernel(self._pyccel_args_domain),
                 _to_numpy_for_kernel(is_sparse_meshgrid),
                 out_np,
             )
