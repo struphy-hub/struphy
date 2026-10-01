@@ -339,6 +339,26 @@ def test_init_modes(num_elements, degree, bcs, mapping, combine_comps=None, do_p
         plt.show()
 
 
+def test_itpa_density_c2_limit():
+    """ITPA density with c[2] == 0 must equal the c[2] -> 0 limit of the general formula, n0 * c[3]."""
+
+    import cunumpy as xp
+
+    from struphy.initial.perturbations import ITPA_density as ITPA_pert
+    from struphy.kinetic_background.moment_functions import ITPA_density as ITPA_moment
+
+    n0 = 0.00720655
+    c = (0.491230, 0.298228, 0.198739, 0.521298)
+    eta1 = xp.linspace(0.0, 1.0, 11)
+    eta1 = eta1[xp.abs(eta1 - c[0]) > 0.05]
+
+    for cls in (ITPA_pert, ITPA_moment):
+        val0 = cls(n0=n0, c=(c[0], c[1], 0.0, c[3]))(eta1)
+        val_small = cls(n0=n0, c=(c[0], c[1], 1e-8, c[3]))(eta1)
+        assert xp.allclose(val0, n0 * c[3])
+        assert xp.allclose(val0, val_small)
+        
+        
 def test_modes_pfuns_per_mode_params():
     """Each mode's profile function must use its own parameters (no late binding in the loop)."""
 
