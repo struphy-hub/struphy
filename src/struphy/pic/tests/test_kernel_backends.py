@@ -465,6 +465,21 @@ def test_kernel_without_cuda_version():
             kernel.get_kernel()
 
 
+def test_pushing_catalog():
+    """Every folder in pic/pushing/kernels is one kernel of the catalog, named like its pyccel function."""
+    import struphy.pic.pushing.kernels as package
+
+    catalog = package.catalog
+    folders = sorted(p.name for p in Path(package.__file__).parent.iterdir() if (p / "__init__.py").is_file())
+    assert catalog.names == folders
+    assert len(folders) == 43
+    for name in catalog.names:
+        # pyccel's Fortran wrapper module bind_c_<name>_kernels must fit Fortran's 63-character limit for names
+        assert len(f"bind_c_{name}_kernels") <= 63, f"kernel name {name!r} is too long for Fortran"
+        assert catalog[name].name == name
+        assert catalog[name].cuda_path == Path(package.__file__).parent / name / f"{name}_cuda.cu"
+
+
 def make_pusher(kernel):
     """Pusher for push_eta_stage (forward Euler) on 100 particles in a Cuboid."""
     from feectools.ddm.mpi import mpi as MPI
@@ -494,9 +509,9 @@ def make_pusher(kernel):
 @pytest.mark.parametrize("wrap", [False, True])
 def test_pusher_accepts_kernel(wrap):
     """Pusher takes a PyccelKernel (wrapped into a Kernel) or a Kernel, and runs the pyccel kernel on NumPy."""
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
 
-    pyccel_kernel = PyccelKernel(pusher_kernels.push_eta_stage)
+    pyccel_kernel = catalog["push_eta_stage"].pyccel_kernel
     with cunumpy.use_backend("numpy"):
         pusher = make_pusher(Kernel(pyccel_kernel) if wrap else pyccel_kernel)()
         assert pusher.kernel is pyccel_kernel
@@ -506,9 +521,9 @@ def test_pusher_accepts_kernel(wrap):
 @requires_cupy
 def test_pusher_without_cuda_kernel_fails_at_setup():
     """On the CuPy backend, a pusher whose kernel has no CUDA version fails when it is created, not in the time loop."""
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
 
     with cunumpy.use_backend("numpy"):
-        create_pusher = make_pusher(PyccelKernel(pusher_kernels.push_eta_stage))
+        create_pusher = make_pusher(catalog["push_eta_stage"].pyccel_kernel)
     with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="push_eta_stage"):
         create_pusher()
