@@ -1438,8 +1438,9 @@ class Simulation(SimulationBase):
                     data.add_data({key_spec_restart: obj.markers})
 
                 # marker data
-                key_mks = os.path.join(key_spec, "markers")
-                data.add_data({key_mks: var.saved_markers})
+                if var.n_to_save > 0:
+                    key_mks = os.path.join(key_spec, "markers")
+                    data.add_data({key_mks: var.saved_markers})
 
                 # binning plot data
                 for bin_plot in species.saving_params.binning_plots:
