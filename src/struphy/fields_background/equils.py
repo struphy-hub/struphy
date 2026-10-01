@@ -1885,16 +1885,13 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
     def p_psi(self, psi, der=0):
-        """Pressure profile g = g(psi)."""
+        """Pressure profile p = p(psi) in units Pa (as in the EQDSK file)."""
         out = self._p_i(psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
             assert out.ndim == 0
             out = out.item()
-
-        # rescale to Struphy units
-        out /= self.units.p
 
         return out
 
@@ -3231,6 +3228,8 @@ class CurrentSheet(CartesianMHDequilibrium):
 
             B_x &= \sqrt{(1 - B_y^2)} \,,
 
+            \mathbf J &= \nabla \times \mathbf B = -\frac{1}{\delta} (B_x^2, B_x B_y, 0) \,,
+
             p &= p_0 = 5/2\,,
 
             n &= n_0 = 1 \,.
@@ -3293,12 +3292,16 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         return bxs, bys, bz
 
-    # equilibrium current, set to 0
+    # equilibrium current (curl of B, force-free: j = -sech(z/delta)/delta * B)
     def j_xyz(self, x, y, z):
         """Current density."""
 
-        jx = 0 * x
-        jy = 0 * x
+        delta = self.params["delta"]
+        by = xp.tanh(z / delta)
+        bx = xp.sqrt(1 - by**2)
+
+        jx = -self.params["amp"] * bx**2 / delta
+        jy = -self.params["amp"] * bx * by / delta
         jz = 0 * x
 
         return jx, jy, jz
@@ -3387,7 +3390,7 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
         return self._n_xyz(x, y, z)
 
 
-class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
+class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium, CartesianFluidEquilibriumWithB):
     """Generic Cartesian fluid equilibrium with magnetic field and callable fields.
 
     This class extends GenericCartesianFluidEquilibrium to include magnetic field
@@ -3417,10 +3420,10 @@ class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
         b_xyz: callable = None,
         gradB_xyz: callable = None,
     ):
-        # use params setter
-        self.params = copy.deepcopy(locals())
-
         super().__init__(u_xyz=u_xyz, p_xyz=p_xyz, n_xyz=n_xyz)
+
+        # use params setter (after super().__init__, which would overwrite it)
+        self.params = copy.deepcopy(locals())
 
         if b_xyz is None:
             b_xyz = lambda x, y, z: (0.0 * x, 0.0 * x, 0.0 * x)
