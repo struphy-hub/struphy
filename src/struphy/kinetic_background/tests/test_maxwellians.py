@@ -806,6 +806,32 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana =}"
 
 
+@pytest.mark.parametrize("B0", [5.0, lambda etas: 1.0 + etas[:, 0] + 0.5 * etas[:, 2]])
+@pytest.mark.parametrize("volume_form", [False, True])
+def test_gyro_maxwellian_2d_B0_meshgrid(B0, volume_form):
+    """Meshgrid and flat evaluation of GyroMaxwellian2D must agree for scalar and callable B0."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+
+    maxwellian = GyroMaxwellian2D(B0=B0, volume_form=volume_form)
+
+    meshgrids = xp.meshgrid(
+        xp.linspace(0.1, 0.9, 3),
+        xp.linspace(0.2, 0.8, 2),
+        xp.linspace(0.0, 1.0, 4),
+        xp.linspace(-2.0, 2.0, 5),
+        xp.linspace(0.0, 1.5, 6),
+        indexing="ij",
+    )
+
+    res_mesh = maxwellian(*meshgrids)
+    res_flat = maxwellian(*[m.flatten() for m in meshgrids])
+
+    assert res_mesh.shape == meshgrids[0].shape
+    assert xp.allclose(res_mesh.flatten(), res_flat, atol=1e-14)
+
+
 @pytest.mark.parametrize("num_elements", [[6, 1, 1]])
 def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     """Tests the GyroMaxwellian2D class for perturbations."""
@@ -1721,6 +1747,37 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
         f"no cache={t_nocache * 1e3:.2f} ms, with cache={t_cache * 1e3:.2f} ms, "
         f"speedup={speedup:.2f}x"
     )
+
+
+def test_moment_factors_and_division():
+    """Tests the moment_factors setters and division of a background by a scalar."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, GyroMaxwellian2Dvperp, Maxwellian3D
+
+    e = xp.linspace(0.0, 1.0, 5)
+    v = xp.full_like(e, 0.3)
+
+    for f0, n_v in [
+        (Maxwellian3D(n=(2.0, None)), 3),
+        (GyroMaxwellian2D(n=(2.0, None)), 2),
+        (GyroMaxwellian2Dvperp(n=(2.0, None)), 2),
+    ]:
+        # scalar division
+        f_half = f0 / 2.0
+        assert xp.allclose(f_half.n(e, e, e), 1.0)
+        assert xp.allclose(f_half(e, e, e, *[v] * n_v), f0(e, e, e, *[v] * n_v) / 2.0)
+
+        # setter merges the given factors
+        f0.moment_factors = {"n": 3.0, "vth": [2.0] * n_v}
+        assert f0.moment_factors["u"] == [1.0] * n_v
+        assert xp.allclose(f0.n(e, e, e), 6.0)
+        assert all(xp.allclose(vth, 2.0) for vth in f0.vth(e, e, e))
+
+        with pytest.raises(AssertionError):
+            f0.moment_factors = {"u": [1.0] * (n_v + 1)}
+        with pytest.raises(AssertionError):
+            f0.moment_factors = {"T": 1.0}
 
 
 if __name__ == "__main__":

@@ -302,10 +302,7 @@ class VariationalMagFieldEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
-                )
+                logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
             bn1 -= incr[1]
 
@@ -356,7 +353,7 @@ class VariationalMagFieldEvolve(Propagator):
             # initialize the jacobian differently if linear model
             self._create_Pib0()
 
-            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
