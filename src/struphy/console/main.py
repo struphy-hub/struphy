@@ -310,7 +310,7 @@ def add_parser_params(subparsers, list_models, model_message):
         "--check-file",
         type=str,
         metavar="FILE",
-        help="check if the parameters in the .yml file are valid",
+        help="check that the .py parameter file FILE runs and defines a Simulation of MODEL",
     )
 
     parser_params.add_argument(
@@ -325,7 +325,7 @@ def add_parser_profile(subparsers):
     parser_profile = subparsers.add_parser(
         "profile",
         help="profile finished runs",
-        description="Compare profiling data of finished Struphy runs. For each function in a predefined filter, displays: ncalls, tottime, percall and cumtime.",
+        description="Show the profiling data (profiling_data.h5) of finished Struphy runs, written by sim.run(profiling_activated=True). For each timing region, displays: calls, total time, mean time per call and share of the run; with several runs, also compares their total times. For more, use Output.profile in Python or the scope-profiler command.",
     )
 
     parser_profile.add_argument(
@@ -333,18 +333,12 @@ def add_parser_profile(subparsers):
         type=str,
         nargs="+",
         metavar="DIR",
-        help="simulation ouput folders",
-    )
-
-    parser_profile.add_argument(
-        "--replace",
-        help="replace module names with class names for better info",
-        action="store_true",
+        help="simulation output folders",
     )
 
     parser_profile.add_argument(
         "--all",
-        help="display the 50 most expensive function calls, without applying the predefined filter",
+        help="display all regions, not only the N most expensive ones",
         action="store_true",
     )
 
@@ -352,15 +346,15 @@ def add_parser_profile(subparsers):
         "--n-lines",
         type=int,
         metavar="N",
-        help="plot the N most time consuming calls in profiling analysis (default=6)",
-        default=6,
+        help="display (and plot) the N most time consuming regions (default=20)",
+        default=20,
     )
 
     parser_profile.add_argument(
-        "--print-callers",
+        "--prefix",
         type=str,
         metavar="STR",
-        help="string STR that identifies functions for which to print callers (default=None)",
+        help="only display regions whose name starts with STR, e.g. 'prop:' or 'kernel:' (default=None)",
         default=None,
     )
 
@@ -368,7 +362,7 @@ def add_parser_profile(subparsers):
         "--savefig",
         type=str,
         metavar="NAME",
-        help="save (and dont display) the profile figure under NAME, relative to current output path.",
+        help="save a bar plot of the total time of the displayed regions under NAME, relative to the current directory.",
     )
 
 
