@@ -2251,6 +2251,7 @@ class CoordinateProjector(LinearOperator):
             else:
                 out = self.codomain.zeros()
             out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             if out is not None:
                 assert out.space == self._codomain
@@ -2269,7 +2270,8 @@ class CoordinateProjector(LinearOperator):
         assert v.space == self._domain
         assert out.space == self._codomain
         if isinstance(self.domain, PolarDerhamSpace):
-            out += v.tp.blocks[self.dir]
+            out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             out += v.blocks[self.dir]
 
@@ -2353,6 +2355,7 @@ class CoordinateInclusion(LinearOperator):
             else:
                 out = self._codomain.zeros()
             out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
 
         else:
             if out is not None:
@@ -2370,7 +2373,11 @@ class CoordinateInclusion(LinearOperator):
     def idot(self, v: StencilVector | PolarVector, out: BlockVector | PolarVector):
         assert v.space == self._domain
         assert out.space == self._codomain
-        out._blocks[self.dir] += v
+        if isinstance(self.domain, PolarDerhamSpace):
+            out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
+        else:
+            out._blocks[self.dir] += v
 
 
 def find_relative_col(col, row, Nbasis, periodic):
