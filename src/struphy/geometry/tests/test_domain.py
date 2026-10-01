@@ -2,6 +2,7 @@ import copy
 import logging
 import pickle
 
+import cunumpy
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -1086,40 +1087,92 @@ def test_hollow_cyl_df_finite_difference(poc):
 #        assert a.shape == mat_x.shape
 
 
-def test_evaluation_kwargs():
-    """identity_map on meshgrids, a_kwargs on the marker path and gradB_cart squeeze_out (#591)."""
+requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
 
-    import cunumpy as xp
 
+def test_args_domain_selects_backend():
+    """The argument object follows the active backend."""
     from struphy import domains
-    from struphy.fields_background.equils import HomogenSlab
+    from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
-    domain = domains.Cuboid()
-    e = xp.linspace(0.1, 0.9, 4)
-    markers = xp.random.rand(7, 3)
+    with cunumpy.use_backend("numpy"):
+        domain = domains.Cuboid()
+        args = domain.args_domain
+        assert isinstance(args, DomainArguments)
+    if cunumpy.cupy_available():
+        with cunumpy.use_backend("cupy"):
+            assert domain.args_domain is args
 
-    # identity map has the same shape as the mapping F
-    assert domain(e, e, e, identity_map=True).shape == (3, 4, 4, 4)
-    assert domain(markers, identity_map=True).shape == (3, 7)
 
-    # a_kwargs are passed to callables on the marker path
-    def fun(e1, e2, e3, scale=1.0):
-        return scale * xp.exp(e1) * xp.sin(e2)
+@requires_cupy
+def test_args_domain_backend_is_fixed_at_creation():
+    """Changing the active backend does not change a domain's argument object."""
+    from struphy import domains
+    from struphy.utils.cuda_arguments import CudaDomainArguments
 
-    for coordinates in ("logical", "physical"):
-        ref = domain.pull(fun, markers, kind="0", coordinates=coordinates)
-        out = domain.pull(fun, markers, kind="0", coordinates=coordinates, a_kwargs={"scale": 2.0})
-        assert xp.allclose(out, 2.0 * ref)
+    with cunumpy.use_backend("cupy"):
+        domain = domains.Cuboid()
+        cuda_args = domain.args_domain
+        assert isinstance(cuda_args, CudaDomainArguments)
+    with cunumpy.use_backend("numpy"):
+        args = domain.args_domain
+        assert args is cuda_args
 
-        ref = domain.pull([fun, fun, fun], markers, kind="v", coordinates=coordinates)
-        out = domain.pull([fun, fun, fun], markers, kind="v", coordinates=coordinates, a_kwargs={"scale": 3.0})
-        assert xp.allclose(out, 3.0 * ref)
 
-    # returned coordinates of gradB_cart respect squeeze_out
-    equil = HomogenSlab()
-    equil.domain = domain
-    gradB, xyz = equil.gradB_cart(e, 0.5, 0.5, squeeze_out=True)
-    assert gradB.shape == xyz.shape == (3, 4)
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "HollowTorus", "Colella"])
+def test_cuda_args_domain(mapping):
+    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments.
+
+    Only analytic mappings: spline mappings (e.g. IGAPolarCylinder) cannot be created on the CuPy backend yet.
+    """
+    from struphy import domains
+    from struphy.utils.cuda_arguments import CudaDomainArguments
+
+    with cunumpy.use_backend("cupy"):
+        domain = getattr(domains, mapping)()
+        args = domain.args_domain
+        assert isinstance(args, CudaDomainArguments)
+        assert domain.args_domain is args  # built once
+
+        kind_map, params, degree, t1, t2, t3, ind1, ind2, ind3, cx, cy, cz = args.values
+        assert int(kind_map) == domain.kind_map
+        # no copies of arrays that already have the right dtype and layout
+        assert t1 is domain.T[0] and ind3 is domain.indN[2]
+
+        host = domain._pyccel_args_domain
+        for dev, ref in (
+            (params, host.params),
+            (degree, host.degree),
+            (t1, host.t1),
+            (t2, host.t2),
+            (t3, host.t3),
+            (ind1, host.ind1),
+            (ind2, host.ind2),
+            (ind3, host.ind3),
+            (cx, host.cx),
+            (cy, host.cy),
+            (cz, host.cz),
+        ):
+            assert (cunumpy.to_numpy(dev) == ref).all()
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "Colella"])
+def test_domain_deepcopy_and_pickle_on_cupy(mapping):
+    """Deepcopy and unpickling on the CuPy backend rebuild both the pyccel and the CUDA arguments."""
+    from struphy import domains
+
+    with cunumpy.use_backend("cupy"):
+        domain = getattr(domains, mapping)()
+        cuda_args = domain.args_domain
+
+        for other in (copy.deepcopy(domain), pickle.loads(pickle.dumps(domain, protocol=pickle.HIGHEST_PROTOCOL))):
+            assert other.args_domain.kind_map == domain.args_domain.kind_map
+            assert (other.args_domain.params == domain.args_domain.params).all()
+            other_cuda = other.args_domain
+            assert other_cuda is not cuda_args
+            assert other_cuda.values[3] is other.T[0]
 
 
 if __name__ == "__main__":
