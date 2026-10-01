@@ -357,8 +357,8 @@ def test_itpa_density_c2_limit():
         val_small = cls(n0=n0, c=(c[0], c[1], 1e-8, c[3]))(eta1)
         assert xp.allclose(val0, n0 * c[3])
         assert xp.allclose(val0, val_small)
-        
-        
+
+
 def test_modes_pfuns_per_mode_params():
     """Each mode's profile function must use its own parameters (no late binding in the loop)."""
 

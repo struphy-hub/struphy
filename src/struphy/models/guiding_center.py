@@ -117,8 +117,8 @@ class GuidingCenter(StruphyModel):
         particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
         # The weights (column 5) already carry the 1/N_p of the Monte-Carlo estimate, see KineticEnergyPIC.
-        energy = particles.markers[~particles.holes, 5].dot(
-            particles.markers[~particles.holes, 8],
+        energy = particles.markers[~particles.valid_mks, 5].dot(
+            particles.markers[~particles.valid_mks, 8],
         )
         return energy
 
