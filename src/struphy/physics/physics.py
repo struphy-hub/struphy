@@ -137,7 +137,7 @@ class Units:
             "keV",
             " m/s",
             " s",
-            " bar",
+            " Pa",
             " kg/m³",
             " A/m²",
         )
