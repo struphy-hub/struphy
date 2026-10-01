@@ -53,6 +53,7 @@ class MassMatrixPreconditioner(LinearOperator):
         self._codomain = mass_operator.codomain
         self._domain = mass_operator.domain
         self._apply_bc = apply_bc
+        self._dim_reduce = dim_reduce
 
         # 3d Kronecker stencil matrices and solvers
         solverblocks = []
@@ -392,7 +393,7 @@ class MassMatrixPreconditioner(LinearOperator):
         """
         Returns the transposed operator.
         """
-        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc, self._dim_reduce)
 
     @profile
     def solve(self, rhs, out=None):
@@ -719,7 +720,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         # Need to assemble the logical mass matrix to extract the coefficients
         fun = [
-            [lambda e1, e2, e3: xp.ones_like(e1, dtype=float) if i == j else None for j in range(3)] for i in range(3)
+            [(lambda e1, e2, e3: xp.ones_like(e1, dtype=float)) if i == j else None for j in range(3)] for i in range(3)
         ]
         log_M = WeightedMassOperator(
             self._mass_operator.derham,
@@ -792,7 +793,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         """
         Returns the transposed operator.
         """
-        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+        return MassMatrixDiagonalPreconditioner(self._mass_operator.transpose(), self._apply_bc)
 
     def _solve_no_bc(self, rhs, out):
         r"""
