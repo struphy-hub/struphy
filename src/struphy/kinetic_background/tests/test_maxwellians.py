@@ -806,6 +806,32 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana =}"
 
 
+@pytest.mark.parametrize("B0", [5.0, lambda etas: 1.0 + etas[:, 0] + 0.5 * etas[:, 2]])
+@pytest.mark.parametrize("volume_form", [False, True])
+def test_gyro_maxwellian_2d_B0_meshgrid(B0, volume_form):
+    """Meshgrid and flat evaluation of GyroMaxwellian2D must agree for scalar and callable B0."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+
+    maxwellian = GyroMaxwellian2D(B0=B0, volume_form=volume_form)
+
+    meshgrids = xp.meshgrid(
+        xp.linspace(0.1, 0.9, 3),
+        xp.linspace(0.2, 0.8, 2),
+        xp.linspace(0.0, 1.0, 4),
+        xp.linspace(-2.0, 2.0, 5),
+        xp.linspace(0.0, 1.5, 6),
+        indexing="ij",
+    )
+
+    res_mesh = maxwellian(*meshgrids)
+    res_flat = maxwellian(*[m.flatten() for m in meshgrids])
+
+    assert res_mesh.shape == meshgrids[0].shape
+    assert xp.allclose(res_mesh.flatten(), res_flat, atol=1e-14)
+
+
 @pytest.mark.parametrize("num_elements", [[6, 1, 1]])
 def test_maxwellian_2d_perturbed(num_elements, show_plot=False):
     """Tests the GyroMaxwellian2D class for perturbations."""
