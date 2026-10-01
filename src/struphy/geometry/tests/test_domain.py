@@ -53,6 +53,30 @@ def test_domain_pickle_roundtrip(mapping):
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
 
+def test_spline_default(with_gvec=False):
+    """Spline() with default arguments should use the control points of the default GVEC equilibrium."""
+
+    if not with_gvec:
+        pytest.skip("GVEC not tested here (with_gvec=False), like the other GVEC tests")
+    pytest.importorskip("gvec")
+
+    import cunumpy as xp
+
+    from struphy.fields_background.equils import GVECequilibrium
+    from struphy.geometry.base import Spline
+
+    domain = Spline()
+    ref = GVECequilibrium().domain
+
+    assert xp.allclose(domain.cx, ref.cx)
+    assert xp.allclose(domain.cy, ref.cy)
+    assert xp.allclose(domain.cz, ref.cz)
+
+    markers = xp.array([[0.3, 0.5, 0.7]])
+    assert xp.allclose(domain(markers), ref(markers))
+    assert xp.allclose(domain.jacobian_det(markers), ref.jacobian_det(markers))
+
+
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
@@ -187,6 +211,31 @@ def test_prepare_arg():
     assert Domain.prepare_arg(A, markers).shape == shape_vector
     assert Domain.prepare_arg((A1, A2, A3), markers).shape == shape_vector
     assert Domain.prepare_arg([A1, A2, A3], markers).shape == shape_vector
+
+
+@pytest.mark.parametrize("sfl, pol_period", [(False, 1), (False, 2), (True, 1)])
+def test_hollow_torus_inverse_map(sfl, pol_period):
+    """HollowTorus.inverse_map must invert the mapping, also on the midplane z = 0."""
+
+    import cunumpy as xp
+
+    from struphy.geometry.domains import HollowTorus
+
+    domain = HollowTorus(sfl=sfl, pol_period=pol_period)
+
+    xp.random.seed(1234)
+    etas = xp.random.rand(50, 3)
+    # eta2 = 0 and eta2 = 0.5 lie on the midplane
+    etas[:10, 1] = 0.0
+    etas[10:20, 1] = 0.5
+
+    x, y, z = domain(etas, remove_outside=False)
+    e1, e2, e3 = domain.inverse_map(x, y, z)
+
+    assert xp.allclose(domain(xp.stack([e1, e2, e3], axis=1), remove_outside=False), xp.stack([x, y, z]))
+    assert xp.allclose(e1, etas[:, 0])
+    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[:, 1]), 1 - xp.abs(e2 - etas[:, 1])), 0.0)
+    assert xp.allclose(e3, etas[:, 2])
 
 
 @pytest.mark.parametrize(
