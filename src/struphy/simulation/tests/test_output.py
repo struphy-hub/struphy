@@ -28,6 +28,9 @@ from struphy.particles.parameters import LoadingParameters
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.post_processing.manifest import is_processed
 
+# output metadata and serialization tests; tmp_path differs per rank, so they are serial-only
+pytestmark = pytest.mark.mpi_skip
+
 
 def user_density_profile(eta1, eta2, eta3):
     return 1.0 + eta1 * 0.0 + eta2 * 0.0 + eta3 * 0.0

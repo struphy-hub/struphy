@@ -1,5 +1,8 @@
 import pytest
 
+# analytic dispersion relations are pure numpy, no parallel code involved
+pytestmark = pytest.mark.mpi_skip
+
 
 @pytest.mark.parametrize("name", ["ColdPlasma1D", "CurrentCoupling6DParallel", "PressureCouplingFull6DParallel"])
 def test_call_with_defaults(name):
