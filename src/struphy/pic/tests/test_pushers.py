@@ -798,6 +798,37 @@ def test_kinetic_bc_in_kernel(bc, mapping):
         assert particles.n_lost_markers - n_lost_before == n_new_holes
 
 
+def test_kinetic_bc_remove_counts_each_marker_once():
+    """A marker outside the unit cube on several "remove" axes is lost (and counted) only once."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import BoundaryParameters, LoadingParameters, domains
+    from struphy.pic.particles import Particles6D
+
+    particles = Particles6D(
+        comm_world=MPI.COMM_WORLD,
+        loading_params=LoadingParameters(Np=100, seed=1234, spatial="uniform"),
+        boundary_params=BoundaryParameters(bc=("remove", "remove", "remove")),
+        domain=domains.Cuboid(),
+    )
+    particles.draw_markers()
+    particles.update_holes()
+
+    valid = xp.nonzero(particles.valid_mks)[0]
+    n_valid = valid.size
+    particles.markers[valid[0], :3] = [1.5, -0.5, 0.5]  # outside on two axes
+    particles.markers[valid[1], :3] = [1.5, 1.5, 1.5]  # outside on all three axes
+    particles.markers[valid[2], :3] = [0.5, 0.5, -0.1]  # outside on one axis
+
+    n_lost_before = particles.n_lost_markers
+    particles.apply_kinetic_bc()
+    particles.update_holes()
+
+    assert particles.n_lost_markers - n_lost_before == 3
+    assert xp.count_nonzero(particles.valid_mks) == n_valid - 3
+
+
 if __name__ == "__main__":
     test_push_vxb_analytic(
         [8, 9, 5],
