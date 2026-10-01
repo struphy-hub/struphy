@@ -14,7 +14,7 @@ The work is split into small PRs that can be reviewed and merged one at a time. 
 - [x] **PR 6: `Particles` on the GPU** — `Particles` can be created on the CuPy backend, and `Particles.args_markers` is selected as the CUDA or Pyccel argument bundle at construction.
 - [x] **PR 7: `Derham` on the GPU** — `Derham` can be created on the CuPy backend, plus `Derham.cuda_args_derham`.
 - [x] **PR 8: Shared CUDA header for the argument classes** — one struct per argument class in `kernel_arguments/pusher_args.cuh`, passed by value, instead of long flat kernel signatures.
-- [ ] **PR 9: One folder per kernel, starting with `pic/pushing`** — pure refactor, no behaviour change.
+- [x] **PR 9: One folder per kernel, starting with `pic/pushing`** — pure refactor, no behaviour change; the propagators take their pusher and evaluation kernels from `struphy.pic.pushing.kernels.catalog`.
 - [ ] **PR 10: Device versions of helper kernels** — B-spline evaluation, mapping evaluation (per domain), small linear algebra, as `__device__` functions in `.cuh` headers.
 - [ ] **PR 11: First real CUDA kernel** — `push_eta_stage` with a pyccel/CUDA parity test and an end-to-end run on the GPU.
 - [ ] **PR 12+: Port kernels one by one**, in the order they are needed by the models we want on the GPU (see [Porting order](#porting-order)).
@@ -41,7 +41,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 - **No silent CPU fallback on the GPU.** A kernel without a CUDA version raises an error on the GPU backend. Falling back would mean copying data to the host and back at every call.
 - **Small steps.** Every PR keeps the CPU code path working and tested.
 
-## Current state (PR 8)
+## Current state (PR 9)
 
 | File | Content |
 |---|---|
@@ -50,6 +50,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 | `src/struphy/kernel_arguments/pusher_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs` and `DomainArgs` that CUDA kernels take in place of the pyccel argument classes |
 | `src/struphy/geometry/base.py` | `Domain.args_domain` is selected once at construction; CUDA domains use device arrays, while direct Pyccel geometry calls retain a host argument bundle |
 | `src/struphy/pic/base.py` | `Particles` arrays and `args_markers` use the backend selected at construction; direct Pyccel methods retain a private host bundle |
+| `src/struphy/pic/pushing/kernels/` | the 43 pusher and marker evaluation kernels of `pic/pushing`, one folder each, and their `catalog` (none has a CUDA version yet) |
 | `src/struphy/pic/tests/test_kernel_backends.py` | the demo kernel pair `push_eta_linear` (pyccel function compiled with `epyccel` at test time, CUDA source string) and tests on both backends |
 
 Things we learned in the proof of concept:
@@ -118,7 +119,7 @@ kernel = catalog["push_eta_stage"]  # Kernel: pyccel or CUDA depending on the ba
 ### PR 4: `Pusher` accepts `Kernel`
 
 - `Pusher` takes a `Kernel` or, as before, a `PyccelKernel` (wrapped into a `Kernel` without CUDA version). It calls `get_kernel()` once in its constructor, so on the CuPy backend a pusher whose kernel has no CUDA version fails when it is created, not in the time loop. Since no pusher kernel has a CUDA version yet, this is the case for all pushers.
-- The propagators do not change. They switch to catalog lookups once the kernels are split into folders (PR 9).
+- The propagators do not change. They switched to catalog lookups in PR 9.
 - The pusher already passes the backend-selected `particles.args_markers` and `domain.args_domain`. PR 11 still needs to provide device arrays in `args_kernel` and the CUDA implementation of the first real pusher kernel.
 
 ### PR 5–7: Owners build their CUDA arguments
@@ -168,14 +169,17 @@ Before, every CUDA kernel repeated the full flat signature (26 parameters for ma
 - Tests: the header is parsed and compared with `fields` (names, C types, order) without a GPU; on a GPU, an NVRTC-compiled kernel reports `sizeof` and the member offsets, which are compared with the dtype. The demo kernels use the structs. On the host, `offsetof`/`sizeof` from a C++ compiler agree with the dtypes (x86-64/arm64 lay these structs out like CUDA).
 - Fixed along the way: the GPU-only tests still used the `values` attribute that was replaced by `get_cuda_args()`.
 
-### PR 9: One folder per kernel
+### PR 9: One folder per kernel (complete)
 
-- Start with `pic/pushing` (`pusher_kernels.py`: 19 kernels, `pusher_kernels_gc.py`: 15, `pusher_kernels_sph.py`: 3, `eval_kernels_gc.py`: 5), later `pic/accumulation` (`accum_kernels.py`: 8, `accum_kernels_gc.py`: 8), then the remaining modules as needed.
-- Pure refactor: move each kernel into `<name>/<name>_kernels.py`, update the imports at the call sites and in tests. No CUDA code in this PR.
-- Things to check:
-  - pyccel dependencies between kernel modules are found through imports (`# do not remove; needed to identify dependencies`); the new modules must keep these imports.
-  - Many small pyccel modules instead of a few large ones: compile time with `struphy compile -j N`, and the import time of many `.so` files.
-  - A re-export module for the old import paths must not have `kernels` in its name, otherwise `struphy compile` tries to compile it.
+- The 43 kernels of `pic/pushing` (`pusher_kernels.py`: 16, `pusher_kernels_gc.py`: 15, `pusher_kernels_sph.py`: 3, `eval_kernels_gc.py`: 5, `eval_kernels_sph.py`: 4) are now in `pic/pushing/kernels/<name>/<name>_kernels.py`; the five old modules are removed. The function bodies are unchanged (checked by comparing the ASTs with the old modules).
+- `pusher_utilities_kernels.py` stays a shared module: it holds helpers called by the kernels (boundary conditions), not kernels. It gets its device version in PR 10.
+- Each new module imports only what its kernel uses, plus `pusher_args_kernels` as a module (`# do not remove; needed to identify dependencies`): `dependencies.py` only sees imported modules, not the argument classes imported from them.
+- Call sites use the catalog: `catalog["push_eta_stage"]` is passed to `Pusher`, and `KernelSetup` now also accepts a `Kernel`, resolved with `get_kernel()` when the setup is created (as in `Pusher`). `CurrentCoupling5DGradB` calls its pusher kernels itself; it resolves them once with `get_kernel()`. `Particles` runs the SPH evaluation kernels with keyword arguments on its host bundle; it uses `catalog[...].pyccel_kernel`, as before.
+- No re-export modules for the old import paths: such a module must not have `kernels` in its name (otherwise `struphy compile` tries to compile it), so the old paths could not be kept anyway. Code outside struphy that imports e.g. `struphy.pic.pushing.pusher_kernels` has to switch to the catalog.
+- Kernel names can have at most 48 characters: with the Fortran backend, pyccel names the wrapper module `bind_c_<name>_kernels`, and Fortran names have at most 63 characters. Hence `push_gc_bxEstar_discrete_gradient_1st_order_newton` was renamed to `push_gc_bxEstar_dg_1st_order_newton` (the only kernel that was too long); `test_pushing_catalog` checks the length.
+- `struphy compile` finds the new files by itself (it rescans the kernel files at every run and deletes the build artifacts of removed ones).
+- Import time: loading the catalog (43 compiled modules) takes about 75 ms on an M-series Mac, once per process.
+- Later: `pic/accumulation` (`accum_kernels.py`: 8, `accum_kernels_gc.py`: 8), then the remaining modules as needed.
 
 ### PR 10: Device helper functions
 
@@ -202,9 +206,9 @@ For each kernel: add `<name>_cuda.cu`, a parity test is added automatically by t
 Port the kernels in the order the target models need them, so that complete models can run on the GPU as early as possible. Proposed:
 
 1. `push_eta_stage` (PR 11) and the helpers it needs.
-2. The remaining 6D full-orbit pushers (`pusher_kernels.py`), e.g. `push_vxb_analytic`, `push_v_with_efield`.
+2. The remaining 6D full-orbit pushers (formerly `pusher_kernels.py`), e.g. `push_vxb_analytic`, `push_v_with_efield`.
 3. The accumulation kernels these models need (`accum_kernels.py`). Note: accumulation writes to shared grid arrays from many threads, so it needs atomics or a sort-then-reduce strategy. This is a design question of its own.
-4. Guiding-center pushers and evaluations (`pusher_kernels_gc.py`, `eval_kernels_gc.py`, `accum_kernels_gc.py`).
+4. Guiding-center pushers and evaluations (`push_gc_*`, the evaluation kernels formerly in `eval_kernels_gc.py`, and `accum_kernels_gc.py`).
 5. SPH kernels.
 
 ## Testing
@@ -215,7 +219,7 @@ Port the kernels in the order the target models need them, so that complete mode
 
 ## Open questions
 
-- **Scalar types.** Since PR 8 the members of the argument structs are checked when they are packed. Scalars passed directly to a kernel (e.g. `dt`, `stage`) are still not checked against the kernel signature (see [Current state](#current-state-pr-8)). `CudaKernel` could read the parameter types from the `extern "C"` signature once, when it is created, and cast each scalar to its declared type or raise if it does not fit (e.g. a Python `float` for an `int`, or an overflowing integer).
+- **Scalar types.** Since PR 8 the members of the argument structs are checked when they are packed. Scalars passed directly to a kernel (e.g. `dt`, `stage`) are still not checked against the kernel signature (see [Current state](#current-state-pr-9)). `CudaKernel` could read the parameter types from the `extern "C"` signature once, when it is created, and cast each scalar to its declared type or raise if it does not fit (e.g. a Python `float` for an `int`, or an overflowing integer).
 
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here.
 - **MPI + GPUs.** One GPU per MPI rank (`cunumpy.set_device(rank % n_gpus)`), and GPU-aware MPI for the marker exchange, so markers do not go through the host.

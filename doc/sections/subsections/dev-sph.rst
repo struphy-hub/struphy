@@ -7,11 +7,11 @@ SPH
 Pusher kernels
 ^^^^^^^^^^^^^^
 
-.. automodule:: struphy.pic.pushing.pusher_kernels_sph
-    :members:
-    :special-members:
-    :show-inheritance:
-    :exclude-members: __in
+.. autofunction:: struphy.pic.pushing.kernels.push_v_sph_pressure.push_v_sph_pressure_kernels.push_v_sph_pressure
+
+.. autofunction:: struphy.pic.pushing.kernels.push_v_sph_pressure_ideal_gas.push_v_sph_pressure_ideal_gas_kernels.push_v_sph_pressure_ideal_gas
+
+.. autofunction:: struphy.pic.pushing.kernels.push_v_viscosity.push_v_viscosity_kernels.push_v_viscosity
 
 
 .. _coeff_kernels_sph:
@@ -19,11 +19,13 @@ Pusher kernels
 Coefficient kernels
 ^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.pic.pushing.eval_kernels_sph
-    :members:
-    :special-members:
-    :show-inheritance:
-    :exclude-members: __init__
+.. autofunction:: struphy.pic.pushing.kernels.sph_pressure_coeffs.sph_pressure_coeffs_kernels.sph_pressure_coeffs
+
+.. autofunction:: struphy.pic.pushing.kernels.sph_isotherm_kappa.sph_isotherm_kappa_kernels.sph_isotherm_kappa
+
+.. autofunction:: struphy.pic.pushing.kernels.sph_mean_velocity_coeffs.sph_mean_velocity_coeffs_kernels.sph_mean_velocity_coeffs
+
+.. autofunction:: struphy.pic.pushing.kernels.sph_viscosity_tensor.sph_viscosity_tensor_kernels.sph_viscosity_tensor
 
 
 .. _eval_kernels_sph:
