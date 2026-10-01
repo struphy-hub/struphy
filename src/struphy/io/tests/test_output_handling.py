@@ -7,6 +7,9 @@ import pytest
 
 from struphy.io.output_handling import DataContainer
 
+# serial h5py I/O of the DataContainer, no parallel code involved
+pytestmark = pytest.mark.mpi_skip
+
 
 def container(tmp_path):
     os.makedirs(tmp_path / "data", exist_ok=True)

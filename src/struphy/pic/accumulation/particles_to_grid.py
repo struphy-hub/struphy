@@ -196,9 +196,9 @@ class Accumulator:
         # initialize filter
         self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
-    def __call__(self, *optional_args, **args_control):
+    def __call__(self, *optional_args):
         """
-        Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
+        Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel.
 
         Parameters
         ----------
@@ -210,19 +210,15 @@ class Accumulator:
             which are prepared automatically (spline bases info, mapping info, data arrays).
             Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
             Entries must be pyccel-conform types.
-
-        args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
         with ProfileManager.profile_region(self._region_name):
-            self._accumulate(*optional_args, **args_control)
+            self._accumulate(*optional_args)
 
-    def _accumulate(self, *optional_args, **args_control):
+    def _accumulate(self, *optional_args):
         """Body of :meth:`__call__`, see there."""
 
         # flags for break
         vec_finished = False
-        mat_finished = False
 
         # reset data
         for dat in self._args_data:
@@ -262,23 +258,6 @@ class Accumulator:
                         op=MPI.SUM,
                     )
 
-        # add analytical contribution (control variate) to vector
-        if "control_vec" in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(
-                args_control["control_vec"],
-                dofs=self._vectors[0],
-                clear=False,
-            )
-            vec_finished = True
-
-        # add analytical contribution (control variate) to matrix and finish
-        if "control_mat" in args_control:
-            self._operators[0].assemble(
-                weights=args_control["control_mat"],
-                clear=False,
-            )
-            mat_finished = True
-
         # finish vector: accumulate ghost regions and update ghost regions
         if not vec_finished:
             with ProfileManager.profile_region(self._comm_region_name):
@@ -287,48 +266,47 @@ class Accumulator:
                     vec.update_ghost_regions()
 
         # finish matrix: accumulate ghost regions, update ghost regions and copy data for symmetric/antisymmetric block matrices
-        if not mat_finished:
-            with ProfileManager.profile_region(self._comm_region_name):
-                for op in self._operators:
-                    op.matrix.exchange_assembly_data()
-                    op.matrix.update_ghost_regions()
+        with ProfileManager.profile_region(self._comm_region_name):
+            for op in self._operators:
+                op.matrix.exchange_assembly_data()
+                op.matrix.update_ghost_regions()
 
-            if self.symmetry == "symm":
-                self._operators[0].matrix[0, 1].transpose(
-                    out=self._operators[0].matrix[1, 0],
-                )
-                self._operators[0].matrix[0, 2].transpose(
-                    out=self._operators[0].matrix[2, 0],
-                )
-                self._operators[0].matrix[1, 2].transpose(
-                    out=self._operators[0].matrix[2, 1],
-                )
+        if self.symmetry == "symm":
+            self._operators[0].matrix[0, 1].transpose(
+                out=self._operators[0].matrix[1, 0],
+            )
+            self._operators[0].matrix[0, 2].transpose(
+                out=self._operators[0].matrix[2, 0],
+            )
+            self._operators[0].matrix[1, 2].transpose(
+                out=self._operators[0].matrix[2, 1],
+            )
 
-            elif self.symmetry == "asym":
-                self._operators[0].matrix[0, 1].transpose(
-                    out=self._operators[0].matrix[1, 0],
-                )
-                self._operators[0].matrix[1, 0] *= -1
-                self._operators[0].matrix[0, 2].transpose(
-                    out=self._operators[0].matrix[2, 0],
-                )
-                self._operators[0].matrix[2, 0] *= -1
-                self._operators[0].matrix[1, 2].transpose(
-                    out=self._operators[0].matrix[2, 1],
-                )
-                self._operators[0].matrix[2, 1] *= -1
+        elif self.symmetry == "asym":
+            self._operators[0].matrix[0, 1].transpose(
+                out=self._operators[0].matrix[1, 0],
+            )
+            self._operators[0].matrix[1, 0] *= -1
+            self._operators[0].matrix[0, 2].transpose(
+                out=self._operators[0].matrix[2, 0],
+            )
+            self._operators[0].matrix[2, 0] *= -1
+            self._operators[0].matrix[1, 2].transpose(
+                out=self._operators[0].matrix[2, 1],
+            )
+            self._operators[0].matrix[2, 1] *= -1
 
-            elif self.symmetry == "pressure":
-                for i in range(6):
-                    self._operators[i].matrix[0, 1].transpose(
-                        out=self._operators[i].matrix[1, 0],
-                    )
-                    self._operators[i].matrix[0, 2].transpose(
-                        out=self._operators[i].matrix[2, 0],
-                    )
-                    self._operators[i].matrix[1, 2].transpose(
-                        out=self._operators[i].matrix[2, 1],
-                    )
+        elif self.symmetry == "pressure":
+            for i in range(6):
+                self._operators[i].matrix[0, 1].transpose(
+                    out=self._operators[i].matrix[1, 0],
+                )
+                self._operators[i].matrix[0, 2].transpose(
+                    out=self._operators[i].matrix[2, 0],
+                )
+                self._operators[i].matrix[1, 2].transpose(
+                    out=self._operators[i].matrix[2, 1],
+                )
 
     @property
     def particles(self):
@@ -385,14 +363,6 @@ class Accumulator:
     def accfilter(self):
         """Callable filters"""
         return self._accfilter
-
-    def init_control_variate(self, mass_ops):
-        """Set up the use of noise reduction by control variate."""
-
-        from struphy.feec.mass import L2Projector
-
-        # L2 projector for dofs
-        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
     def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
         r"""1D plot of the spline field corresponding to the accumulated vector.
@@ -557,10 +527,9 @@ class AccumulatorVector:
         # initialize filter
         self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
-    def __call__(self, *optional_args, **args_control):
+    def __call__(self, *optional_args):
         """
-        Performs the accumulation into the vector by calling the chosen accumulation kernel
-        and additional analytical contributions (control variate, optional).
+        Performs the accumulation into the vector by calling the chosen accumulation kernel.
 
         Parameters
         ----------
@@ -569,16 +538,11 @@ class AccumulatorVector:
             which are prepared automatically (spline bases info, mapping info, data arrays).
             Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
             Entries must be pyccel-conform types.
-
-        args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step.
-            Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
-            Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
         with ProfileManager.profile_region(self._region_name):
-            self._accumulate(*optional_args, **args_control)
+            self._accumulate(*optional_args)
 
-    def _accumulate(self, *optional_args, **args_control):
+    def _accumulate(self, *optional_args):
         """Body of :meth:`__call__`, see there."""
 
         # flags for break
@@ -621,15 +585,6 @@ class AccumulatorVector:
                         data_array,
                         op=MPI.SUM,
                     )
-
-        # add analytical contribution (control variate) to vector
-        if "control_vec" in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(
-                args_control["control_vec"],
-                dofs=self._vectors[0],
-                clear=False,
-            )
-            vec_finished = True
 
         # finish vector: accumulate ghost regions and update ghost regions
         if not vec_finished:
@@ -683,14 +638,6 @@ class AccumulatorVector:
     def accfilter(self):
         """Callable filters"""
         return self._accfilter
-
-    def init_control_variate(self, mass_ops):
-        """Set up the use of noise reduction by control variate."""
-
-        from struphy.feec.mass import L2Projector
-
-        # L2 projector for dofs
-        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
     def show_accumulated_spline_field(self, mass_ops, eta_direction=(True, False, False), save_L2=False):
         r"""1 or 2D plot of the spline field corresponding to the accumulated vector.
