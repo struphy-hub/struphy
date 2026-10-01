@@ -211,14 +211,14 @@ class Simulation(SimulationBase):
 
     def show_propagator_options(self):
         # Display propagator options and intial conditions:
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             print("\nPROPAGATOR OPTIONS:")
             for prop in self.model.prop_list:
                 assert isinstance(prop, Propagator)
                 print(prop)
 
     def show_initial_conditions(self):
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             print("\nINITIAL CONDITIONS:")
             for species in self.model.species.values():
                 assert isinstance(species, Species)
@@ -308,7 +308,7 @@ class Simulation(SimulationBase):
             )
 
         if self.clone_config is None:
-            derham_comm = MPI.COMM_WORLD
+            derham_comm = self.comm
         else:
             derham_comm = self.clone_config.sub_comm
 
@@ -596,7 +596,7 @@ class Simulation(SimulationBase):
         """
 
         # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
-        # use MPI.COMM_WORLD as communicator when storing the outputs
+        # use the simulation communicator when storing the outputs
 
         self.data = DataContainer(self.env.path_out, comm=self.comm)
 
@@ -1003,6 +1003,7 @@ class Simulation(SimulationBase):
         grid: grids.TensorProductGrid = None,
         derham_opts: DerhamOptions = None,
         profiling_opts: ProfilingOptions = None,
+        comm: MPI.Intracomm = None,
     ):
         """Spawn a sister simulation with parameters that default to the current instance.
         This can be used to quickly generate multiple similar simulations."""
@@ -1024,6 +1025,8 @@ class Simulation(SimulationBase):
             derham_opts = self.derham_opts
         if profiling_opts is None:
             profiling_opts = self.profiling_opts
+        if comm is None:
+            comm = self.comm
 
         sister = Simulation(
             model=model,
@@ -1035,6 +1038,7 @@ class Simulation(SimulationBase):
             grid=grid,
             derham_opts=derham_opts,
             profiling_opts=profiling_opts,
+            comm=comm,
         )
         return sister
 
@@ -1046,7 +1050,7 @@ class Simulation(SimulationBase):
         """
         Setup output folders.
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             # create output folder if it does not exit
             if not os.path.exists(self.env.path_out):
                 os.makedirs(self.env.path_out, exist_ok=True)
@@ -1060,7 +1064,7 @@ class Simulation(SimulationBase):
     def _remove_existing_output_files(self):
         """Removes post_processing/, meta.txt and profile_tmp.
         If not restart, also removes existing hdf5 and png files in output folder."""
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             # remove post_processing folder
             folder = os.path.join(self.env.path_out, "post_processing")
             if os.path.exists(folder):
@@ -1141,7 +1145,7 @@ class Simulation(SimulationBase):
 
         # create discrete derham sequence
         if self.clone_config is None:
-            derham_comm = MPI.COMM_WORLD
+            derham_comm = self.comm
         else:
             derham_comm = self.clone_config.sub_comm
 
@@ -1438,8 +1442,9 @@ class Simulation(SimulationBase):
                     data.add_data({key_spec_restart: obj.markers})
 
                 # marker data
-                key_mks = os.path.join(key_spec, "markers")
-                data.add_data({key_mks: var.saved_markers})
+                if var.n_to_save > 0:
+                    key_mks = os.path.join(key_spec, "markers")
+                    data.add_data({key_mks: var.saved_markers})
 
                 # binning plot data
                 for bin_plot in species.saving_params.binning_plots:
@@ -1552,7 +1557,7 @@ class Simulation(SimulationBase):
                         subval.particles.update_holes()
                         subval.particles._update_ghost_particles()
 
-                        if MPI.COMM_WORLD.Get_size() > 1:
+                        if self.comm_size > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
 
     def to_dict(self) -> dict:
