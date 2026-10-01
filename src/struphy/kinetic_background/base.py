@@ -417,10 +417,10 @@ class KineticBackground(metaclass=ABCMeta):
         elif dim == "v3":
             axe_to_plot = 5
         else:
-            AssertionError("dim argument must match an exiting dimension")
+            raise AssertionError("dim argument must match an existing dimension")
 
-        if axe_to_plot - 3 > self.vdim:
-            AssertionError("Coordinate " + dim + " does not exist with this background")
+        if axe_to_plot - 3 >= self.vdim:
+            raise AssertionError("Coordinate " + dim + " does not exist with this background")
 
         if axe_to_plot == 3:  # Cartesian and v_parallel
             v_left = -v_lim

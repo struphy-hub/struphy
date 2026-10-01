@@ -1643,6 +1643,8 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
 
     # calling again with the same markers must hit the internal psi_c cache
     # and still return the (correct) result
+    markers = xp.concatenate((eta1[:, None], eta2[:, None], eta3[:, None], v_para[:, None], mu[:, None]), axis=1)
+    assert maxwellian_nc._check_psi_c_cached(markers)
     res_cached = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
     assert xp.allclose(res_cached, res_ana, atol=10e-10), f"{res_cached=},\n {res_ana=}"
 
@@ -1717,6 +1719,14 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
 
     assert xp.allclose(res_nocache, res_ana_c, atol=10e-10), f"{res_nocache=},\n {res_ana_c=}"
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_cache=}"
+
+    # a cache hit must not overwrite the buffer that the cached psi_c points to
+    markers_c = xp.concatenate(
+        (eta1_c[:, None], eta2_c[:, None], eta3_c[:, None], v_para_c[:, None], mu_c[:, None]), axis=1
+    )
+    assert maxwellian_cache._check_psi_c_cached(markers_c)
+    res_cache = maxwellian_cache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
+    assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_ana_c=}"
 
     def _time_eval(maxwellian, n_reps=5):
         """Best-of-n_reps wall time for a full psi_c evaluation. Markers are

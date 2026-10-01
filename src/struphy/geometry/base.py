@@ -1139,7 +1139,7 @@ class Domain(metaclass=DomainMeta):
             if transposed:
                 out = xp.transpose(out, axes=(1, 0, 2, 3, 4))
 
-            if which == 0:
+            if which == 0 or which == -1:
                 out = out[:, 0, :, :, :]
                 if change_out_order:
                     out = xp.transpose(out, axes=(1, 2, 3, 0))
@@ -1249,11 +1249,13 @@ class Domain(metaclass=DomainMeta):
                             remove_outside=remove_outside,
                             identity_map=True,
                         ),
+                        a_kwargs=a_kwargs,
                     )
                 else:
                     A = Domain.prepare_arg(
                         a,
                         self(markers, change_out_order=True, remove_outside=remove_outside),
+                        a_kwargs=a_kwargs,
                     )
 
             elif isinstance(a, (list, tuple)):
@@ -1267,11 +1269,13 @@ class Domain(metaclass=DomainMeta):
                                 remove_outside=remove_outside,
                                 identity_map=True,
                             ),
+                            a_kwargs=a_kwargs,
                         )
                     else:
                         A = Domain.prepare_arg(
                             a,
                             self(markers, change_out_order=True, remove_outside=remove_outside),
+                            a_kwargs=a_kwargs,
                         )
                 else:
                     A = Domain.prepare_arg(a, markers)
