@@ -356,7 +356,7 @@ class VariationalMagFieldEvolve(Propagator):
             # initialize the jacobian differently if linear model
             self._create_Pib0()
 
-            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
