@@ -3,6 +3,7 @@ import os
 import shutil
 
 import cunumpy as xp
+import h5py
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import (
@@ -125,5 +126,87 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
         shutil.rmtree(test_folder)
 
 
+def test_energy_conservation(exit_before_run: bool = False):
+    """The field-weights coupling must conserve the total energy ``en_E + en_w``.
+
+    With only :class:`~struphy.propagators.push_eta.PushEta` and
+    :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling` (no B0, no E0),
+    the Crank-Nicolson step conserves ``en_tot`` up to the solver tolerance, provided the weight
+    update, the accumulated matrix, the E-field source and ``en_w`` all use the same weight
+    convention :math:`w_p = \\delta f_p / (s_{0,p} N_p)`. At :math:`t=0` the perturbation energy is
+    :math:`\\alpha^2 v_{th}^2 / 2 \\int \\delta f^2 / f_0 \\, \\textrm{d}x \\textrm{d}v = A^2 r_1 / 4`.
+    """
+    amplitude = 0.1
+    r1 = 12.56
+
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False, with_E0=False)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="energy_conservation")
+
+    time_opts = Time(dt=0.1, Tend=0.3)
+
+    domain = domains.Cuboid(r1=r1)
+    grid = grids.TensorProductGrid(num_elements=(16, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=100, seed=1234),
+        weights_params=WeightsParameters(),
+        boundary_params=BoundaryParameters(),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_Eweights.options = model.propagators.coupling_Eweights.Options()
+    model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0", stab_eps=1e-6)
+
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    perturbation = perturbations.ModesCos(ls=(1,), amps=(amplitude,))
+    model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, perturbation)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=time_opts,
+        domain=domain,
+        grid=grid,
+        derham_opts=derham_opts,
+    )
+
+    if exit_before_run:
+        logger.info("Exiting before running simulation.")
+        return sim
+
+    sim.run()
+
+    comm = MPI.COMM_WORLD
+
+    if comm.Get_rank() == 0:
+        with h5py.File(os.path.join(env.path_out, "data", "data_proc0.hdf5"), "r") as f:
+            en_E = f["scalar"]["en_E"][()]
+            en_w = f["scalar"]["en_w"][()]
+            en_tot = f["scalar"]["en_tot"][()]
+
+        # 1. initial perturbation energy (was off by a factor Np^2)
+        en_w_exact = amplitude**2 * r1 / 4.0
+        rel_error = abs(en_w[0] - en_w_exact) / en_w_exact
+        assert rel_error < 0.05, f"Initial perturbation energy failed: {en_w[0] =} vs. {en_w_exact =}."
+
+        # 2. energy is exchanged between field and particles ...
+        assert abs(en_E[-1] - en_E[0]) > 1e-3 * en_tot[0]
+
+        # 3. ... and the total is conserved
+        drift = float(xp.max(xp.abs(en_tot - en_tot[0])) / en_tot[0])
+        assert drift < 1e-6, f"Total energy not conserved: {en_tot =}, {drift =}."
+        logger.info(f"Assertion for energy conservation passed ({rel_error =}, {drift =}).")
+
+        shutil.rmtree(test_folder)
+
+
 if __name__ == "__main__":
     test_delta_f_initial_condition()
+    test_energy_conservation()

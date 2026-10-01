@@ -924,10 +924,14 @@ class Output:
 
     @cached_property
     def equil(self):
-        """Saved equilibrium, if present."""
-        from struphy.fields_background.base import FluidEquilibrium
+        """Saved equilibrium, if present, linked to the saved domain (as in :class:`~struphy.Simulation`)."""
+        from struphy.fields_background.base import FluidEquilibrium, NumericalMHDequilibrium
 
-        return self._restore("equil", FluidEquilibrium)
+        equil = self._restore("equil", FluidEquilibrium)
+        # a numerical equilibrium dictates the domain itself
+        if equil is not None and not isinstance(equil, NumericalMHDequilibrium):
+            equil.domain = self.domain
+        return equil
 
     @cached_property
     def grid(self):

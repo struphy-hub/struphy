@@ -364,171 +364,6 @@ def push_vxb_implicit(
     # fmt: on
 
 
-@stack_array(
-    "dfm",
-    "dfinv",
-    "dfinv_t",
-    "rot_temp",
-    "b_form",
-    "b_cart",
-    "b_norm",
-    "v",
-    "vperp",
-    "vxb_norm",
-    "b_normxvperp",
-    "bn1",
-    "bn2",
-    "bn3",
-    "bd1",
-    "bd2",
-    "bd3",
-)
-def push_pxb_analytic(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    b2_1: "float[:,:,:]",
-    b2_2: "float[:,:,:]",
-    b2_3: "float[:,:,:]",
-    a1_1: "float[:,:,:]",
-    a1_2: "float[:,:,:]",
-    a1_3: "float[:,:,:]",
-):
-    r"""Solves exactly the rotation
-
-    .. math::
-
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
-
-    for each marker :math:`p` in markers array, with fixed rotation vector.
-
-    Parameters
-    ----------
-        b2_1, b2_2, b2_3: array[float]
-            3d array of FE coeffs of B-field as 2-form.
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinv_t = empty((3, 3), dtype=float)
-
-    rot_temp = empty(3, dtype=float)
-
-    # allocate for field evaluations (2-form components, Cartesian components and normalized Cartesian components)
-    b_form = empty(3, dtype=float)
-    b_cart = empty(3, dtype=float)
-    b_norm = empty(3, dtype=float)
-
-    a_form = empty(3, dtype=float)
-
-    # particle velocity
-    v = empty(3, dtype=float)
-
-    # perpendicular velocity, v x b_norm and b_norm x vperp
-    vperp = empty(3, dtype=float)
-    vxb_norm = empty(3, dtype=float)
-    b_normxvperp = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-
-    # fmt: off
-    #$ omp parallel private (ip, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
-    #$ omp for
-    # fmt: on
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            e1,
-            e2,
-            e3,
-            args_domain,
-            dfm,
-        )
-
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
-
-        # magnetic field: 2-form components
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            b2_1,
-            b2_2,
-            b2_3,
-            b_form,
-        )
-
-        # vector potential: 1-form components
-        eval_1form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            a1_1,
-            a1_2,
-            a1_3,
-            a_form,
-        )
-
-        rot_temp[0] = dfinv_t[0, 0] * a_form[0] + dfinv_t[0, 1] * a_form[1] + dfinv_t[0, 2] * a_form[2]
-        rot_temp[1] = dfinv_t[1, 0] * a_form[0] + dfinv_t[1, 1] * a_form[1] + dfinv_t[1, 2] * a_form[2]
-        rot_temp[2] = dfinv_t[2, 0] * a_form[0] + dfinv_t[2, 1] * a_form[1] + dfinv_t[2, 2] * a_form[2]
-
-        v[0] = v[0] - rot_temp[0]
-        v[1] = v[1] - rot_temp[1]
-        v[2] = v[2] - rot_temp[2]
-
-        # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
-        b_cart[:] = b_cart / det_df
-
-        # normalized magnetic field direction
-        b_abs = sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
-
-        if b_abs != 0.0:
-            b_norm[:] = b_cart / b_abs
-        else:
-            b_norm[:] = b_cart
-
-        # parallel velocity v.b_norm
-        vpar = linalg_kernels.scalar_dot(v, b_norm)
-
-        # first component of perpendicular velocity
-        linalg_kernels.cross(v, b_norm, vxb_norm)
-        linalg_kernels.cross(b_norm, vxb_norm, vperp)
-
-        # second component of perpendicular velocity
-        linalg_kernels.cross(b_norm, vperp, b_normxvperp)
-
-        # analytic rotation
-        markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp + rot_temp
-
-    # fmt: off
-    #$ omp end parallel
-    # fmt: on
-
-
 @stack_array("dfm", "b_form", "u_form", "b_cart", "u_cart", "e_cart")
 def push_bxu_Hdiv(
     dt: float,
@@ -1866,6 +1701,9 @@ def push_weights_with_efield_lin_va(
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
+    # total number of markers (weights are w_p = delta f_p / (N * s_0))
+    n_markers_tot = args_markers.Np
+
     # fmt: off
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
@@ -1914,13 +1752,13 @@ def push_weights_with_efield_lin_va(
             e_vec,
         )
 
-        # w_{n+1} = w_n + dt / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
+        # w_{n+1} = w_n + kappa * dt / (2 * N * s_0 * v_th^2) * f_0 * ( DF^{-1} v_p ) \cdot ( e_{n+1} + e_n )
         update = (
             (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2])
             * f0_values[ip]
             * kappa
             * dt
-            / (2 * markers[ip, 7] * vth**2)
+            / (2 * n_markers_tot * markers[ip, 7] * vth**2)
         )
         markers[ip, 6] += update
 

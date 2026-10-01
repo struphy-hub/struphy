@@ -932,6 +932,11 @@ class BasisProjectionOperators:
         return out
 
 
+def _zero_weight(e1, e2, e3):
+    """Zero weight function, used in place of None weights in BasisProjectionOperatorLocal."""
+    return xp.zeros_like(e1)
+
+
 class BasisProjectionOperatorLocal(LinOpWithTransp):
     r"""
     Class for assembling basis projection operators in 3d, based on local projectors.
@@ -960,6 +965,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
     weights : list
         Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+        A None entry is treated as a zero weight (zero block).
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
         Extraction operator to polar sub-space of V.
@@ -1230,7 +1236,9 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         # get the needed data :
         V = self._V
         P = self._P
-        weights = self._weights
+
+        # None entries denote zero blocks (as in BasisProjectionOperator); the local projector needs callables
+        weights = [[_zero_weight if w is None else w for w in row] for row in self._weights]
 
         # We determine where we have B-splines and where D-splines.
         if self._V_name == "H1":
@@ -2243,6 +2251,7 @@ class CoordinateProjector(LinearOperator):
             else:
                 out = self.codomain.zeros()
             out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             if out is not None:
                 assert out.space == self._codomain
@@ -2261,7 +2270,8 @@ class CoordinateProjector(LinearOperator):
         assert v.space == self._domain
         assert out.space == self._codomain
         if isinstance(self.domain, PolarDerhamSpace):
-            out += v.tp.blocks[self.dir]
+            out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             out += v.blocks[self.dir]
 
@@ -2345,6 +2355,7 @@ class CoordinateInclusion(LinearOperator):
             else:
                 out = self._codomain.zeros()
             out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
 
         else:
             if out is not None:
@@ -2362,7 +2373,11 @@ class CoordinateInclusion(LinearOperator):
     def idot(self, v: StencilVector | PolarVector, out: BlockVector | PolarVector):
         assert v.space == self._domain
         assert out.space == self._codomain
-        out._blocks[self.dir] += v
+        if isinstance(self.domain, PolarDerhamSpace):
+            out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
+        else:
+            out._blocks[self.dir] += v
 
 
 def find_relative_col(col, row, Nbasis, periodic):
