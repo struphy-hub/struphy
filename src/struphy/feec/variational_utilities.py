@@ -1045,6 +1045,9 @@ class InternalEnergyEvaluator:
         rhof1_values = self.eval_3form(rhon1, out=self._rhof1_values)
         sf_values = self.eval_3form(sn, out=self._sf_values)
 
+        if out is None:
+            out = xp.zeros_like(rhof_values)
+
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
         delta_rho_values *= 0.0
@@ -1120,6 +1123,9 @@ class InternalEnergyEvaluator:
         sf_values = self.eval_3form(sn, out=self._sf_values)
         sf1_values = self.eval_3form(sn1, out=self._sf1_values)
         rhof_values = self.eval_3form(rhon, out=self._rhof_values)
+
+        if out is None:
+            out = xp.zeros_like(rhof_values)
 
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
@@ -1197,6 +1203,9 @@ class InternalEnergyEvaluator:
         rhof1_values = self.eval_3form(rhon1, out=self._rhof1_values)
         sf_values = self.eval_3form(sn, out=self._sf_values)
 
+        if out is None:
+            out = xp.zeros_like(rhof_values)
+
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
         delta_rho_values *= 0.0
@@ -1258,6 +1267,9 @@ class InternalEnergyEvaluator:
         sf_values = self.eval_3form(sn, out=self._sf_values)
         sf1_values = self.eval_3form(sn1, out=self._sf1_values)
 
+        if out is None:
+            out = xp.zeros_like(rhof_values)
+
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
         delta_s_values *= 0.0
@@ -1312,6 +1324,8 @@ class InternalEnergyEvaluator:
         # -metric *(eta*(de_rho_s1*delta_s_values-e_rho_s1+e_rho_s)/(delta_s_values**2+1e-40) + (1-eta)*d2e_rho_s1)
         out += d2e_rho_s1
         out *= -1.0
+
+        return out
 
     def eval_3form(self, coeffs, out=None):
         """Evaluate the 3 form with FE coefficient coeffs on the grid"""

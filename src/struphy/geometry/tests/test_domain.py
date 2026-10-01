@@ -52,6 +52,30 @@ def test_domain_pickle_roundtrip(mapping):
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
 
+def test_spline_default(with_gvec=False):
+    """Spline() with default arguments should use the control points of the default GVEC equilibrium."""
+
+    if not with_gvec:
+        pytest.skip("GVEC not tested here (with_gvec=False), like the other GVEC tests")
+    pytest.importorskip("gvec")
+
+    import cunumpy as xp
+
+    from struphy.fields_background.equils import GVECequilibrium
+    from struphy.geometry.base import Spline
+
+    domain = Spline()
+    ref = GVECequilibrium().domain
+
+    assert xp.allclose(domain.cx, ref.cx)
+    assert xp.allclose(domain.cy, ref.cy)
+    assert xp.allclose(domain.cz, ref.cz)
+
+    markers = xp.array([[0.3, 0.5, 0.7]])
+    assert xp.allclose(domain(markers), ref(markers))
+    assert xp.allclose(domain.jacobian_det(markers), ref.jacobian_det(markers))
+
+
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
@@ -186,6 +210,31 @@ def test_prepare_arg():
     assert Domain.prepare_arg(A, markers).shape == shape_vector
     assert Domain.prepare_arg((A1, A2, A3), markers).shape == shape_vector
     assert Domain.prepare_arg([A1, A2, A3], markers).shape == shape_vector
+
+
+@pytest.mark.parametrize("sfl, pol_period", [(False, 1), (False, 2), (True, 1)])
+def test_hollow_torus_inverse_map(sfl, pol_period):
+    """HollowTorus.inverse_map must invert the mapping, also on the midplane z = 0."""
+
+    import cunumpy as xp
+
+    from struphy.geometry.domains import HollowTorus
+
+    domain = HollowTorus(sfl=sfl, pol_period=pol_period)
+
+    xp.random.seed(1234)
+    etas = xp.random.rand(50, 3)
+    # eta2 = 0 and eta2 = 0.5 lie on the midplane
+    etas[:10, 1] = 0.0
+    etas[10:20, 1] = 0.5
+
+    x, y, z = domain(etas, remove_outside=False)
+    e1, e2, e3 = domain.inverse_map(x, y, z)
+
+    assert xp.allclose(domain(xp.stack([e1, e2, e3], axis=1), remove_outside=False), xp.stack([x, y, z]))
+    assert xp.allclose(e1, etas[:, 0])
+    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[:, 1]), 1 - xp.abs(e2 - etas[:, 1])), 0.0)
+    assert xp.allclose(e3, etas[:, 2])
 
 
 @pytest.mark.parametrize(
@@ -372,6 +421,34 @@ def test_evaluation_mappings(mapping):
     assert domain.jacobian_det(mat_x, mat_y, mat_z).shape == () + mat_x.shape
     assert domain.metric(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
     assert domain.metric_inv(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
+
+
+@pytest.mark.parametrize("s", [0.5, 1.0, 2.0])
+def test_powered_ellipse_df_finite_difference(s):
+    """Jacobian kernel of PoweredEllipticCylinder must match finite differences of the mapping (issue #424)."""
+
+    import numpy as np
+
+    from struphy.geometry.domains.powered_elliptic_cylinder import powered_elliptic_cylinder_kernels as kernels
+
+    rx, ry, lz = 1.0, 2.0, 6.0
+    h = 1e-6
+    eta = np.array([0.3, 0.2, 0.7])
+
+    df = np.zeros((3, 3))
+    kernels.powered_ellipse_df(*eta, rx, ry, lz, s, df)
+
+    df_fd = np.zeros((3, 3))
+    for j in range(3):
+        fp, fm = np.zeros(3), np.zeros(3)
+        eta_p, eta_m = eta.copy(), eta.copy()
+        eta_p[j] += h
+        eta_m[j] -= h
+        kernels.powered_ellipse(*eta_p, rx, ry, lz, s, fp)
+        kernels.powered_ellipse(*eta_m, rx, ry, lz, s, fm)
+        df_fd[:, j] = (fp - fm) / (2 * h)
+
+    assert np.allclose(df, df_fd, rtol=1e-6, atol=1e-8)
 
 
 def test_pullback():
@@ -875,6 +952,37 @@ def test_transform():
             assert domain.transform(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (3,) + mat_x.shape
 
 
+@pytest.mark.parametrize("poc", [1, 2, 4])
+def test_hollow_cyl_df_finite_difference(poc):
+    """Compares the HollowCylinder Jacobian kernel with central finite differences of the mapping kernel."""
+
+    import numpy as np
+
+    from struphy.geometry.domains.hollow_cylinder.hollow_cylinder_kernels import hollow_cyl, hollow_cyl_df
+
+    a1, a2, lz = 0.2, 1.0, 4.0
+    h = 1e-6
+    rng = np.random.default_rng(0)
+
+    for _ in range(10):
+        eta = rng.random(3)
+
+        df = np.zeros((3, 3))
+        hollow_cyl_df(eta[0], eta[1], a1, a2, lz, float(poc), df)
+
+        df_fd = np.zeros((3, 3))
+        for j in range(3):
+            f_p, f_m = np.zeros(3), np.zeros(3)
+            eta_p, eta_m = eta.copy(), eta.copy()
+            eta_p[j] += h
+            eta_m[j] -= h
+            hollow_cyl(*eta_p, a1, a2, lz, float(poc), f_p)
+            hollow_cyl(*eta_m, a1, a2, lz, float(poc), f_m)
+            df_fd[:, j] = (f_p - f_m) / (2 * h)
+
+        assert np.allclose(df, df_fd, atol=1e-7)
+
+
 # def test_transform():
 #    """ Tests transformation of p-forms.
 #    """
@@ -976,6 +1084,42 @@ def test_transform():
 #        a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
 #        #logger.info('matrix transformation, shape:', a.shape)
 #        assert a.shape == mat_x.shape
+
+
+def test_evaluation_kwargs():
+    """identity_map on meshgrids, a_kwargs on the marker path and gradB_cart squeeze_out (#591)."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+    from struphy.fields_background.equils import HomogenSlab
+
+    domain = domains.Cuboid()
+    e = xp.linspace(0.1, 0.9, 4)
+    markers = xp.random.rand(7, 3)
+
+    # identity map has the same shape as the mapping F
+    assert domain(e, e, e, identity_map=True).shape == (3, 4, 4, 4)
+    assert domain(markers, identity_map=True).shape == (3, 7)
+
+    # a_kwargs are passed to callables on the marker path
+    def fun(e1, e2, e3, scale=1.0):
+        return scale * xp.exp(e1) * xp.sin(e2)
+
+    for coordinates in ("logical", "physical"):
+        ref = domain.pull(fun, markers, kind="0", coordinates=coordinates)
+        out = domain.pull(fun, markers, kind="0", coordinates=coordinates, a_kwargs={"scale": 2.0})
+        assert xp.allclose(out, 2.0 * ref)
+
+        ref = domain.pull([fun, fun, fun], markers, kind="v", coordinates=coordinates)
+        out = domain.pull([fun, fun, fun], markers, kind="v", coordinates=coordinates, a_kwargs={"scale": 3.0})
+        assert xp.allclose(out, 3.0 * ref)
+
+    # returned coordinates of gradB_cart respect squeeze_out
+    equil = HomogenSlab()
+    equil.domain = domain
+    gradB, xyz = equil.gradB_cart(e, 0.5, 0.5, squeeze_out=True)
+    assert gradB.shape == xyz.shape == (3, 4)
 
 
 if __name__ == "__main__":

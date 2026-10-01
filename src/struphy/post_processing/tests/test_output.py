@@ -134,6 +134,35 @@ def save_raw_field(run, *names):
             file["feec/em_fields"].create_dataset(name, data=np.empty(0))
 
 
+# Environment prefixes through which MPI launchers tell a process which rank of a job it is.
+MPI_LAUNCHER_ENV_PREFIXES = (
+    "OMPI_",
+    "OPAL_",
+    "PMIX_",
+    "PMI_",
+    "PRTE_",
+    "MV2_",
+    "HYDRA_",
+    "I_MPI_",
+    "MPI_LOCALRANKID",
+    "ALPS_",
+    "PALS_",
+)
+
+
+@pytest.fixture
+def outside_mpi_job(monkeypatch):
+    """Let child processes start as independent programs, not as ranks of this test's MPI job.
+
+    Importing struphy initializes MPI. A child that inherits the launcher variables of an
+    ``mpirun`` rank initializes as that same rank, which hangs or corrupts the parent job.
+    """
+    for name in list(os.environ):
+        if name.startswith(MPI_LAUNCHER_ENV_PREFIXES):
+            monkeypatch.delenv(name)
+    monkeypatch.setenv("STRUPHY_MPI", "0")
+
+
 @pytest.fixture
 def run(tmp_path):
     return Output(write_tree(str(tmp_path)))
@@ -346,6 +375,18 @@ def test_evaluate_scalars_and_particle_defaults(run):
 
     selected = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
     assert selected.name == "delta_f"
+
+    # the full key selects the same product, with selections as keywords
+    by_key = run.evaluate("kinetic_ions/e1_v1_density/delta_f")
+    xr.testing.assert_identical(by_key, selected)
+    first = float(by_key.eta1[0])
+    xr.testing.assert_identical(
+        run.evaluate("kinetic_ions/e1_v1_density/delta_f", eta1=first), selected.sel(eta1=first)
+    )
+    with pytest.raises(ValueError, match="dataset="):
+        run.evaluate("kinetic_ions/e1_v1_density/f", dataset="e1_v1_density/f")
+    with pytest.raises(KeyError):
+        run.evaluate("kinetic_ions/no_such_density/f")
 
     orbits = run.evaluate("kinetic_ions/orbits")
     assert isinstance(orbits, xr.Dataset) and "weight" in orbits.data_vars
