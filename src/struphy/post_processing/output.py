@@ -1134,22 +1134,16 @@ class Output:
                 self._pproc_exist_fields = False
 
             if "kinetic" in file.keys():
-                self._pproc_exist_particles = {"markers": False, "f": False, "n_sph": False}
+                # per-species flags for saved markers, distribution function and sph density
+                self._pproc_exist_particles = {}
                 self._pproc_kinetic_species = []
                 self._pproc_kinetic_kinds = []
                 for name in file["kinetic"].keys():
                     self._pproc_kinetic_species += [name]
                     self._pproc_kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
-
-                    # check for saved markers
-                    if "markers" in file["kinetic"][name]:
-                        self._pproc_exist_particles["markers"] = True
-                    # check for saved distribution function
-                    if "f" in file["kinetic"][name]:
-                        self._pproc_exist_particles["f"] = True
-                    # check for saved sph density
-                    if "n_sph" in file["kinetic"][name]:
-                        self._pproc_exist_particles["n_sph"] = True
+                    self._pproc_exist_particles[name] = {
+                        key: key in file["kinetic"][name] for key in ("markers", "f", "n_sph")
+                    }
             else:
                 self._pproc_exist_particles = None
 
@@ -1302,7 +1296,7 @@ class Output:
             self._pproc_comm.Barrier()
 
             # markers
-            if self._pproc_exist_particles["markers"]:
+            if self._pproc_exist_particles[species]["markers"]:
                 self._post_process_markers(
                     path_kinetics_species,
                     step,
@@ -1318,7 +1312,7 @@ class Output:
                     orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
 
             # distribution function
-            if self._pproc_exist_particles["f"]:
+            if self._pproc_exist_particles[species]["f"]:
                 if self._pproc_kinetic_kinds[n] == "DeltaFParticles6D":
                     compute_bckgr = True
                 else:
@@ -1331,7 +1325,7 @@ class Output:
                 )
 
             # sph density
-            if self._pproc_exist_particles["n_sph"]:
+            if self._pproc_exist_particles[species]["n_sph"]:
                 self._post_process_n_sph(
                     path_kinetics_species,
                     step,
