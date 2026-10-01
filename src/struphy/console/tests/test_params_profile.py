@@ -7,6 +7,9 @@ import pytest
 from struphy.console.params import struphy_params
 from struphy.console.profile import struphy_profile
 
+# console commands, no parallel code involved; tmp_path differs per rank
+pytestmark = pytest.mark.mpi_skip
+
 
 def test_params_check_file(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
