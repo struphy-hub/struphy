@@ -16,15 +16,17 @@ from struphy import (
     Output,
     Simulation,
     Time,
+    domains,
     equils,
+    grids,
     maxwellians,
     perturbations,
 )
 from struphy.initial.base import Perturbation
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies
+from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, PressureLessSPH, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
-from struphy.particles.parameters import LoadingParameters
+from struphy.particles.parameters import LoadingParameters, SortingParameters
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.post_processing.manifest import is_processed
 
@@ -308,6 +310,41 @@ def test_versioned_initial_conditions_round_trip_allocates_and_runs_one_step(tmp
     assert restored.model.mhd.velocity.backgrounds == sim.model.mhd.velocity.backgrounds
     assert restored._deserialize_initial_condition(sim.equil.to_dict()) == sim.equil
     restored.run(one_time_step=True)
+
+
+def test_restart_restores_sph_markers(tmp_path, monkeypatch):
+    sim = Simulation(
+        model=PressureLessSPH(),
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
+        time_opts=Time(dt=0.02, Tend=0.02),
+        domain=domains.Cuboid(),
+        equil=equils.HomogenSlab(),
+        grid=grids.TensorProductGrid(num_elements=(4, 4, 1)),
+    )
+    sim.model.cold_fluid.set_markers(loading_params=LoadingParameters(Np=100), sorting_params=SortingParameters())
+    sim.model.propagators.push_eta.options = sim.model.propagators.push_eta.Options()
+    sim.model.propagators.push_v.phi = sim.equil.p0
+    sim.model.propagators.push_v.options = sim.model.propagators.push_v.Options()
+    sim.model.cold_fluid.var.add_background(equils.ConstantVelocity(ux=1.0, uy=0.5))
+    sim.run()
+
+    with h5py.File(sim.data.file_path, "r") as file:
+        saved = file["restart/cold_fluid"][-1]
+
+    restored = {}
+    initialize_from_restart = Simulation._initialize_from_restart
+
+    def spy(self, data):
+        initialize_from_restart(self, data)
+        restored["markers"] = self.model.cold_fluid.var.particles.markers.copy()
+
+    monkeypatch.setattr(Simulation, "_initialize_from_restart", spy)
+    sim.env.restart = True
+    sim.time_opts.Tend += sim.time_opts.dt
+    sim.run()
+
+    valid = saved[:, 0] != -1.0
+    assert np.array_equal(restored["markers"][valid, :6], saved[valid, :6])
 
 
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
