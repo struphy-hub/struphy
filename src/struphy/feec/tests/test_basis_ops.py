@@ -487,7 +487,8 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
     # if MPI_COMM is not None: MPI_COMM.Barrier()
 
     logger.info(
-        f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
+        "Rank %s | Maximum absolute diference (result):\n%s",
+        mpi_rank,
         xp.max(
             xp.abs(
                 res_PSY[
@@ -523,6 +524,64 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
 
     if MPI_COMM is not None:
         MPI_COMM.Barrier()
+
+
+@pytest.mark.parametrize("num_elements", [[6, 9, 2]])
+@pytest.mark.parametrize("degree", [[2, 2, 1]])
+def test_coordinate_ops_polar(num_elements, degree):
+    """CoordinateProjector/CoordinateInclusion between polar H1vec and H1 spaces (tensor-product and polar parts)."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import domains
+    from struphy.feec.basis_projection_ops import CoordinateInclusion, CoordinateProjector
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = domains.IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], a=1.0, Lz=3.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+
+    def random_polar_vector(space, seed):
+        xp.random.seed(seed)
+        tp = space.parent_space.zeros()
+        for block in tp.blocks if space.n_comps == 3 else [tp]:
+            block._data[:] = xp.random.rand(*block._data.shape)
+        v = space.zeros()
+        v.tp = tp
+        v.pol = [xp.random.rand(*pol.shape) for pol in v.pol]
+        v.update_ghost_regions()
+        return v
+
+    Vv, V0 = derham.Vvpol, derham.V0pol
+    v = random_polar_vector(Vv, 1234)
+    w = random_polar_vector(V0, 5678)
+
+    for mu in range(3):
+        P = CoordinateProjector(mu, Vv, V0)
+        I = CoordinateInclusion(mu, Vv, V0)
+
+        # projection picks the mu-th component (polar and tensor-product parts)
+        Pv = P.dot(v)
+        assert xp.all(Pv.pol[0] == v.pol[mu])
+        assert xp.all(Pv.tp.toarray() == v.tp[mu].toarray())
+        out = V0.zeros()
+        P.idot(v, out)
+        assert xp.all(out.toarray() == Pv.toarray())
+
+        # inclusion writes into the mu-th component only
+        Iw = I.dot(w)
+        for n in range(3):
+            assert xp.all(Iw.pol[n] == (w.pol[0] if n == mu else 0.0))
+        out = Vv.zeros()
+        I.idot(w, out)
+        assert xp.all(out.toarray() == Iw.toarray())
+
+        # inclusion is the transpose of the projection
+        assert xp.isclose(Pv.dot(w), v.dot(Iw))
+        assert xp.all(P.T.dot(w).toarray() == Iw.toarray())
 
 
 if __name__ == "__main__":

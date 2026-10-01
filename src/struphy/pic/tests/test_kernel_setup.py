@@ -154,6 +154,36 @@ def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel_name
     kernel(0.1, 0, args_markers, Cuboid().args_domain, derham_args, 1.0, *(coefficients(1.0),) * n_fields, False)
     assert markers[0, 16] == 0.0
     np.testing.assert_array_equal(markers[0, :4], (0.4, 0.3, 0.2, 0.0))
+    
+    
+def test_sph_tensor_mapped_domain(marker_args):
+    # On a mapped domain the strain uses Cartesian derivatives (grad_eta @ DF^{-1}) and the
+    # stored columns are in Piola form det(DF) * tensor @ DF^{-T}.
+    # Only the neighbour at eta1 + 0.2 carries velocity coefficients, so the result does not
+    # depend on the kernel gradient at zero; its linear 1D kernel gradient is 1 / h**2 = 4.
+    marker_args.markers[1] = marker_args.markers[0]
+    marker_args.markers[1, 0] = 0.6
+    marker_args.markers[1, 18:21] = (1.0, 2.0, 3.0)
+    marker_args.valid_mks[1] = True
+    boxes = np.array([[0, 1, -1], [-1, -1, -1]])
+    neighbours = np.ones((1, 27), dtype=int)
+    neighbours[0, 0] = 0
+    domain = Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=3.0, l3=0.0, r3=0.5)
+    jac = np.diag([2.0, 3.0, 0.5])
+    jac_inv = np.linalg.inv(jac)
+    gradient = np.array([[4.0, 0.0, 0.0], [8.0, 0.0, 0.0], [12.0, 0.0, 0.0]]) @ jac_inv
+    density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
+    indices = tuple(range(22, 31))
+    setup = KernelSetup(
+        kernel=eval_kernels_sph.sph_viscosity_tensor,
+        output_indices=indices,
+        args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
+    )
+    setup.evaluate(marker_args, domain.args_domain)
+    symmetric = (gradient + gradient.T) / 2.0
+    tensor = -2.0 * 3.0 * (2.0 / density) * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
+    piola = np.linalg.det(jac) * tensor @ jac_inv.T
+    np.testing.assert_allclose(marker_args.markers[0, 22:31], piola.flat)
 
 
 @pytest.mark.parametrize("indices", [(), (1, 2), (-1,), (True,), (1.5,), (None,), (1, 1, 2)])
