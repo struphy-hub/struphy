@@ -932,6 +932,11 @@ class BasisProjectionOperators:
         return out
 
 
+def _zero_weight(e1, e2, e3):
+    """Zero weight function, used in place of None weights in BasisProjectionOperatorLocal."""
+    return xp.zeros_like(e1)
+
+
 class BasisProjectionOperatorLocal(LinOpWithTransp):
     r"""
     Class for assembling basis projection operators in 3d, based on local projectors.
@@ -960,6 +965,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
     weights : list
         Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+        A None entry is treated as a zero weight (zero block).
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
         Extraction operator to polar sub-space of V.
@@ -1213,12 +1219,13 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         self._weights = weights
 
-        # assemble tensor-product dof matrix
+        # assemble tensor-product dof matrix (in place, self._mat is referenced by self._operator)
         self._mat = self.assemble()
 
         # only need to update the transposed in case where it's needed
+        # (in place, so that self._operator, which references self._mat_T, sees the new weights)
         if self._transposed:
-            self._mat_T = self._mat.T
+            self._mat_T = self._mat.transpose(out=self._mat_T)
 
     def assemble(self):
         """
@@ -1229,7 +1236,9 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         # get the needed data :
         V = self._V
         P = self._P
-        weights = self._weights
+
+        # None entries denote zero blocks (as in BasisProjectionOperator); the local projector needs callables
+        weights = [[_zero_weight if w is None else w for w in row] for row in self._weights]
 
         # We determine where we have B-splines and where D-splines.
         if self._V_name == "H1":
