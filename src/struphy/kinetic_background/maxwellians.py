@@ -99,8 +99,9 @@ class Maxwellian3D(Maxwellian):
         return self._moment_factors
 
     @moment_factors.setter
-    def moment_factors(self, **kwargs):
-        for kw, arg in kwargs.items():
+    def moment_factors(self, new_factors: dict):
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
             if kw in {"u", "vth"}:
                 assert len(arg) == 3
             self._moment_factors[kw] = arg
@@ -231,8 +232,9 @@ class GyroMaxwellian2D(Maxwellian):
         return self._moment_factors
 
     @moment_factors.setter
-    def moment_factors(self, **kwargs):
-        for kw, arg in kwargs.items():
+    def moment_factors(self, new_factors: dict):
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
             if kw in {"u", "vth"}:
                 assert len(arg) == 2
             self._moment_factors[kw] = arg
@@ -359,8 +361,9 @@ class GyroMaxwellian2Dvperp(Maxwellian):
         return self._moment_factors
 
     @moment_factors.setter
-    def moment_factors(self, **kwargs):
-        for kw, arg in kwargs:
+    def moment_factors(self, new_factors: dict):
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
             if kw in {"u", "vth"}:
                 assert len(arg) == 2
             self._moment_factors[kw] = arg
@@ -508,6 +511,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     def epsilon(self) -> float:
         """Epsilon parameter in the canonical toroidal momentum."""
         return self._epsilon
+
+    @GyroMaxwellian2D.moment_factors.setter
+    def moment_factors(self, new_factors: dict):
+        # n and vth are scalar factors here (no u)
+        for kw, arg in new_factors.items():
+            assert kw in self._moment_factors, f"Unknown moment factor {kw}."
+            self._moment_factors[kw] = arg
 
     def _evaluate_moment(
         self,
