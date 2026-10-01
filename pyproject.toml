@@ -66,8 +66,12 @@ phys = [
     "gvec>=1.1.0, <=1.5.0",
     "desc-opt<=0.17.1",
 ]
+pproc = [
+    "plasma-plots>=0.1.0",
+]
 dev = [
     "struphy[mpi]",
+    "struphy[pproc]",
     "notebook",
     "autopep8",
     "isort",
@@ -86,6 +90,7 @@ dev = [
 ]
 doc = [
     "struphy[phys]",
+    "struphy[pproc]",
     "jupyter",
     "nbconvert",
     "ipykernel",
@@ -109,6 +114,7 @@ likwid = [
 ]
 all = [
     "struphy[phys]",
+    "struphy[pproc]",
     "struphy[dev]",
     "struphy[mpi]",
     "struphy[doc]",

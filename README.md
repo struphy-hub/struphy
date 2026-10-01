@@ -50,6 +50,8 @@ This will create `params_Maxwell.py` in your current working directory (cwd). Yo
 
 The default output is in `sim_1/` in your cwd. You can change the output path via the class `EnvironmentOptions` in the parameter file.
 
+For plots and diagnostics of the output, install [plasma-plots](https://struphy-hub.github.io/plasma-plots) with `pip install "struphy[pproc]"`; `Output` loads it automatically, adding `out.plot`, `out.analysis` and `.plasma.plot` on every product.
+
 Parallel simulations are run for example with
 
     pip install -U mpi4py
