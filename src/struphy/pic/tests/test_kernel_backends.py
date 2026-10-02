@@ -15,9 +15,9 @@ import numpy as np
 import pytest
 from cunumpy import PyccelKernel
 
+import struphy
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
-import struphy
 from struphy.utils.cuda_arguments import (
     C_TYPES,
     CudaDerhamArguments,
