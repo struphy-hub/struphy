@@ -6,6 +6,9 @@ and calls the one matching the active cunumpy backend, see :func:`is_cuda_backen
 Both kernels are called with the same arguments; the CUDA kernel takes the CUDA versions of the
 argument classes (:mod:`struphy.utils.cuda_arguments`), which reference arrays on the device, and
 the number of threads ``n_threads``. No arrays are converted or copied at call time.
+
+CUDA sources can include struphy headers relative to the parent folder of the ``struphy`` package,
+e.g. ``#include "struphy/kernel_arguments/pusher_args.cuh"`` for the argument structs.
 """
 
 import importlib
@@ -16,6 +19,9 @@ import cunumpy
 from cunumpy import PyccelKernel
 
 from struphy.utils.cuda_arguments import Argument
+
+INCLUDE_DIR = Path(__file__).resolve().parents[2]
+"""NVRTC include path of the CUDA kernels: the folder that contains the ``struphy`` package."""
 
 
 def is_cuda_backend() -> bool:
@@ -32,8 +38,9 @@ def is_cuda_backend() -> bool:
 class CudaKernel:
     """A ``cupy.RawKernel``, the CUDA counterpart of a pyccel kernel.
 
-    The kernel is compiled on the first call. At each call, the CUDA argument classes are replaced by their
-    ``values``; all other arguments are passed to the ``cupy.RawKernel`` as they are. Arrays must be CuPy
+    The kernel is compiled on the first call, with :data:`INCLUDE_DIR` on the include path. At each call, the
+    CUDA argument classes are replaced by their structs; all other arguments are passed to the ``cupy.RawKernel``
+    as they are. Arrays must be CuPy
     arrays (``cupy`` raises otherwise); they are never converted or copied. Python ``int`` and ``float``
     arrive correctly in ``int`` and ``double`` parameters; scalars are not checked against the kernel signature.
 
@@ -96,7 +103,7 @@ class CudaKernel:
         if self._raw_kernel is None:
             import cupy as cp
 
-            self._raw_kernel = cp.RawKernel(self._source, self.name)
+            self._raw_kernel = cp.RawKernel(self._source, self.name, options=(f"-I{INCLUDE_DIR}",))
 
         values = []
         for arg in args:
