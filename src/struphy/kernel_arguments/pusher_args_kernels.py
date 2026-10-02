@@ -1,5 +1,7 @@
 # from numpy import copy
-from numpy import empty
+# NOTE: This file must use ONLY numpy for pyccel compilation compatibility.
+# Backend conversion (NumPy/CuPy) happens at the Python wrapper level.
+import numpy as np
 
 
 class MarkerArguments:
@@ -35,6 +37,14 @@ class MarkerArguments:
 
     first_free_idx : int
         First index for storing auxiliary quantities for each particle.
+
+    mu_idx : int
+        Column index of particle magnetic moment.
+
+    bc_type : array[int]
+        Kinetic boundary condition in each logical direction
+        (0: periodic, 1: reflect, 2: remove, 3: refill (handled in Python)),
+        see :func:`~struphy.pic.pushing.pusher_utilities_kernels.apply_kinetic_bc_marker`.
     """
 
     def __init__(
@@ -49,6 +59,8 @@ class MarkerArguments:
         first_shift_idx: int,
         residual_idx: int,
         first_free_idx: int,
+        mu_idx: int,
+        bc_type: "int[:]",
     ):
         self.markers = markers
         self.valid_mks = valid_mks
@@ -63,11 +75,8 @@ class MarkerArguments:
         self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
         self.residual_idx = residual_idx  # residual in iterative solvers
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
-
-        # only used for Particles5D
-        self.energy_idx = 8  # particle energy
-        self.mu_idx = 9  # particle magnetic moment
-        self.toroidalmom_idx = 10  # particle toroidal momentum
+        self.mu_idx = mu_idx  # particle magnetic moment
+        self.bc_type = bc_type  # kinetic boundary conditions per axis
 
 
 class DerhamArguments:
@@ -99,12 +108,12 @@ class DerhamArguments:
         self.tn3 = tn3
         self.starts = starts
 
-        self.bn1 = empty(pn[0] + 1, dtype=float)
-        self.bn2 = empty(pn[1] + 1, dtype=float)
-        self.bn3 = empty(pn[2] + 1, dtype=float)
-        self.bd1 = empty(pn[0], dtype=float)
-        self.bd2 = empty(pn[1], dtype=float)
-        self.bd3 = empty(pn[2], dtype=float)
+        self.bn1 = np.empty(int(pn[0] + 1), dtype=float)
+        self.bn2 = np.empty(int(pn[1] + 1), dtype=float)
+        self.bn3 = np.empty(int(pn[2] + 1), dtype=float)
+        self.bd1 = np.empty(int(pn[0]), dtype=float)
+        self.bd2 = np.empty(int(pn[1]), dtype=float)
+        self.bd3 = np.empty(int(pn[2]), dtype=float)
 
 
 class DomainArguments:
@@ -118,14 +127,14 @@ class DomainArguments:
     params : array[float]
         Mapping parameters of :class:`~struphy.geometry.base.Domain`.
 
-    p : array[int]
+    degree : array[int]
         Spline degrees of :class:`~struphy.geometry.base.Domain`.
 
     t1, t2, t3 : array[float]
         Knot sequences of :class:`~struphy.geometry.base.Domain`.
 
     ind1, ind2, ind3 : array[float]
-        Indices of non-vanishing splines in format (number of mapping grid cells, p + 1) of :class:`~struphy.geometry.base.Domain`.
+        Indices of non-vanishing splines in format (number of mapping grid cells, degree + 1) of :class:`~struphy.geometry.base.Domain`.
 
     cx, cy, cz : array[float]
         Spline coefficients (control points) of :class:`~struphy.geometry.base.Domain`.
@@ -135,7 +144,7 @@ class DomainArguments:
         self,
         kind_map: int,
         params: "float[:]",
-        p: "int[:]",
+        degree: "int[:]",
         t1: "float[:]",
         t2: "float[:]",
         t3: "float[:]",
@@ -148,7 +157,7 @@ class DomainArguments:
     ):
         self.kind_map = kind_map
         self.params = params
-        self.p = p
+        self.degree = degree
         self.t1 = t1
         self.t2 = t2
         self.t3 = t3

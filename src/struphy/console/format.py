@@ -73,7 +73,10 @@ generate_html_table_from_combined_data(combined_data, sort_descending=True)
 
 import ast
 import fileinput
+import importlib
+import inspect
 import json
+import logging
 import os
 import re
 import shutil
@@ -86,6 +89,9 @@ from collections import defaultdict
 from tabulate import tabulate
 
 import struphy
+from struphy.models.base import StruphyModel
+
+logger = logging.getLogger("struphy")
 
 LIBPATH = struphy.__path__[0]
 
@@ -99,6 +105,7 @@ PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 MODELS_INIT_PATH = os.path.join(LIBPATH, "models/__init__.py")
 PROPAGATORS_INIT_PATH = os.path.join(LIBPATH, "propagators/__init__.py")
+DOMAINS_INIT_PATH = os.path.join(LIBPATH, "geometry/domains/__init__.py")
 
 
 def check_omp_flags(file_path, verbose=False):
@@ -115,14 +122,18 @@ def check_omp_flags(file_path, verbose=False):
         True if no incorrect OpenMP-like flags (`# $`) are found, False otherwise.
     """
     try:
-        with open(file_path, "r") as f:
-            if verbose:
-                for iline, line in enumerate(f):
-                    if line.lstrip().startswith("# $"):
-                        print(f"Error on line {iline}: {line}")
-            return all(not line.lstrip().startswith("# $") for line in f)
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
     except (IOError, FileNotFoundError) as e:
         raise ValueError(f"Error reading file: {e}")
+
+    passes = True
+    for iline, line in enumerate(lines, start=1):
+        if line.lstrip().startswith("# $"):
+            passes = False
+            if verbose:
+                print(f"Error on line {iline}: {line}")
+    return passes
 
 
 def check_ssort(file_path, verbose=False):
@@ -148,8 +159,8 @@ def check_ssort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -183,20 +194,25 @@ def check_ruff(file_path, verbose=False):
             stderr=subprocess.PIPE,
         )
         if verbose:
-            print("stdout:", result.stdout.decode("utf-8"))
-            print("stderr:", result.stderr.decode("utf-8"))
+            print(f"stdout: {result.stdout.decode('utf-8')}")
+            print(f"stderr: {result.stderr.decode('utf-8')}")
 
         if result.returncode == 0:
             returncodes.append(0)
+        elif command[1] != "format" or result.returncode != 1:
+            # Lint errors (e.g. unsorted imports) or ruff failures
+            returncodes.append(result.returncode)
         else:
             # Default to no error
             returncode = 0
             for line in result.stdout.decode("utf-8").split("\n"):
                 # Skip empty lines and filename headers
-                if not line or line.startswith("+++ "):
+                if not line or line.startswith(("+++ ", "--- ")):
                     continue
-                # Check for lines with actual changes
-                if line.startswith("+ ") and not line[1:].lstrip().startswith("# $"):
+                # Check for lines with actual changes, ignoring the OpenMP flags "#$" -> "# $"
+                if line.startswith("+") and not line[1:].lstrip().startswith("# $"):
+                    returncode = 1
+                if line.startswith("-") and not line[1:].lstrip().startswith("#$"):
                     returncode = 1
             returncodes.append(returncode)
 
@@ -226,8 +242,8 @@ def check_isort(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -256,8 +272,8 @@ def check_autopep8(file_path, verbose=False):
     )
     # If there's any output, autopep8 suggests changes, so it doesn't pass
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.stdout == b""
 
 
@@ -285,8 +301,8 @@ def check_flake8(file_path, verbose=False):
         stderr=subprocess.PIPE,
     )
     if verbose:
-        print("stdout:", result.stdout.decode("utf-8"))
-        print("stderr:", result.stderr.decode("utf-8"))
+        print(f"stdout: {result.stdout.decode('utf-8')}")
+        print(f"stderr: {result.stderr.decode('utf-8')}")
     return result.returncode == 0
 
 
@@ -390,7 +406,7 @@ def check_trailing_commas(file_path, verbose=False):
         return True
 
 
-def parse_path(directory):
+def parse_path(directory, verbose: bool = False):
     """Traverse a directory to find Python files, excluding '__XYZ__.py'.
 
     Parameters
@@ -409,10 +425,12 @@ def parse_path(directory):
         for filename in files:
             if re.search(r"__\w+__", root):
                 continue
-            if (filename.endswith(".py") or filename.endswith(".ipynb")) and not re.search(r"__\w+__", filename):
+            # Dunder files (e.g. '__main__.py') are excluded, but '__init__.py' is kept
+            # so that it still gets linted/formatted.
+            is_dunder_file = re.match(r"^__\w+__\.py$", filename) and filename != "__init__.py"
+            if (filename.endswith(".py") or filename.endswith(".ipynb")) and not is_dunder_file:
                 file_path = os.path.join(root, filename)
                 python_files.append(file_path)
-    # exit()
     return python_files
 
 
@@ -484,9 +502,7 @@ def get_python_files(input_type, path=None):
 
         # python_files = [f for f in files if f.endswith(".py") and os.path.isfile(f)]
         python_files = [
-            os.path.join(repopath, f)
-            for f in files
-            if (f.endswith(".py") or f.endswith(".ipynb")) and os.path.isfile(os.path.join(repopath, f))
+            os.path.join(repopath, f) for f in files if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
         ]
 
         if not python_files:
@@ -555,7 +571,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
     """
 
     try:
-        with open(json_file_path, "r") as file:
+        with open(json_file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
 
         if not isinstance(data, list):
@@ -811,7 +827,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
                 # Read the file and extract the code snippet
                 if os.path.exists(filename) and row is not None:
-                    with open(filename, "r") as source_file:
+                    with open(filename, "r", encoding="utf-8") as source_file:
                         lines = source_file.readlines()
                         total_lines = len(lines)
                         # Adjust indices for zero-based indexing
@@ -881,7 +897,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         html_content.extend(["</body>", "</html>"])
 
         # Write the HTML content to the output file
-        with open(html_output_path, "w") as html_file:
+        with open(html_output_path, "w", encoding="utf-8") as html_file:
             html_file.write("\n".join(html_content))
 
         print(f"HTML report generated at {html_output_path}")
@@ -1137,13 +1153,14 @@ def struphy_lint(config, verbose):
     if len(python_files) == 0:
         sys.exit(0)
 
-    print(
-        tabulate(
-            [[file] for file in python_files],
-            headers=[f"The following files will be linted with {linters}"],
-        ),
-    )
-    print("\n")
+    if verbose:
+        print(
+            tabulate(
+                [[file] for file in python_files],
+                headers=[f"The following files will be linted with {linters}"],
+            ),
+        )
+        print("\n")
 
     if output_format == "report":
         generate_report(python_files, linters=linters, verbose=verbose)
@@ -1155,7 +1172,7 @@ def struphy_lint(config, verbose):
     # Check if all ci_linters are included in linters
     if all(ci_linter in linters for ci_linter in ci_linters):
         print(f"Passes CI if {ci_linters} passes")
-        print("-" * 40)
+        print("-" * 41)
         check_ci_pass = True
     else:
         skipped_ci_linters = [ci_linter for ci_linter in ci_linters if ci_linter not in linters]
@@ -1262,61 +1279,191 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                 subprocess.run(command, check=False)
 
             # Loop over each line and replace '# $' with '#$' in place
-            for line in fileinput.input(python_file, inplace=True):
+            for line in fileinput.input(python_file, inplace=True, encoding="utf-8"):
                 if line.lstrip().startswith("# $"):
                     print(line.replace("# $", "#$"), end="")
                 else:
                     print(line, end="")
 
 
-def construct_models_init_file() -> str:
+def construct_package_init_file(
+    package_dir: str, package_name: str, base_class: type, skip: tuple = ("base.py",)
+) -> str:
     """
-    Constructs the content for the __init__.py file for the models module.
+    Constructs the content of an `__init__.py` file for a package laid out with one class
+    per module, by importing each module and collecting the subclasses of `base_class` that
+    are defined in it. Preserves the existing module docstring of the `__init__.py`, if any.
 
-    Returns:
-        str: The content for the __init__.py file as a string.
+    The generated file resolves the classes lazily (PEP 562 module ``__getattr__``), so that
+    ``from package import SomeClass`` only imports the module defining ``SomeClass`` instead of
+    every module in the package. Importing all of them costs a considerable amount of time and
+    is rarely needed. A ``TYPE_CHECKING`` block keeps static analysis and IDEs working.
+
+    Parameters
+    ----------
+    package_dir : str
+        Path to the package directory (e.g. "src/struphy/models").
+
+    package_name : str
+        Dotted import path of the package (e.g. "struphy.models").
+
+    base_class : type
+        Only classes that are (strict) subclasses of `base_class`, and defined directly in
+        the module being scanned, are collected.
+
+    skip : tuple, optional
+        Module filenames to skip in addition to `__init__.py` (default=("base.py",)).
     """
-    import struphy.models.fluid as fluid
-    import struphy.models.hybrid as hybrid
-    import struphy.models.kinetic as kinetic
-    import struphy.models.toy as toy
-    from struphy.models.base import StruphyModel
+    existing_init_path = os.path.join(package_dir, "__init__.py")
+    docstring = None
+    if os.path.isfile(existing_init_path):
+        with open(existing_init_path, "r", encoding="utf-8") as f:
+            docstring = ast.get_docstring(ast.parse(f.read()), clean=False)
 
-    models_init = ""
+    init_content = f'"""{docstring}"""\n\n' if docstring else ""
+    class_names = []
+    class_modules = {}
 
-    model_names = []
-    for model_type in [toy, fluid, hybrid, kinetic]:
-        for _, cls in model_type.__dict__.items():
-            if isinstance(cls, type) and issubclass(cls, StruphyModel) and cls != StruphyModel:
-                model_names.append(cls.__name__)
-                models_init += f"from {model_type.__name__} import {cls.__name__}\n"
-    models_init += "\n\n"
-    models_init += f"__all__ = {model_names}\n"
-    return models_init
+    for file_name in sorted(os.listdir(package_dir)):
+        if file_name in ("__init__.py", *skip):
+            continue
+        if file_name.endswith(".py"):
+            module_name = file_name[:-3]  # strip .py
+        elif os.path.isfile(os.path.join(package_dir, file_name, "__init__.py")):
+            module_name = file_name  # sub-package laid out as one directory per class
+        else:
+            continue
+        module = importlib.import_module(f"{package_name}.{module_name}")
+
+        # Sub-packages resolve their class lazily via __getattr__; inspect.getmembers would
+        # not see it, so go through __all__ (falling back to what getmembers finds).
+        candidates = [getattr(module, n) for n in getattr(module, "__all__", ())]
+        candidates += [cls for _, cls in inspect.getmembers(module, inspect.isclass)]
+
+        # Loop over all classes in the module
+        for cls in candidates:
+            # Only subclasses of base_class defined in this module (or its sub-modules)
+            if (
+                inspect.isclass(cls)
+                and issubclass(cls, base_class)
+                and cls != base_class
+                and (cls.__module__ == module.__name__ or cls.__module__.startswith(module.__name__ + "."))
+                and cls.__name__ not in class_modules
+            ):
+                class_names.append(cls.__name__)
+                class_modules[cls.__name__] = f"{package_name}.{module_name}"
+
+    init_content += "import importlib\n"
+    init_content += "from typing import TYPE_CHECKING\n\n"
+
+    init_content += "# class name -> module defining it, resolved on first access by __getattr__ below\n"
+    init_content += "_LAZY_IMPORTS = {\n"
+    for class_name in class_names:
+        init_content += f'    "{class_name}": "{class_modules[class_name]}",\n'
+    init_content += "}\n\n"
+
+    init_content += "if TYPE_CHECKING:  # static analysis and IDEs see the eager imports\n"
+    for class_name in class_names:
+        init_content += f"    from {class_modules[class_name]} import {class_name}\n"
+    init_content += "\n"
+
+    init_content += f"__all__ = {class_names}\n\n\n"
+    init_content += "def __getattr__(name: str):\n"
+    init_content += "    module_name = _LAZY_IMPORTS.get(name)\n"
+    init_content += "    if module_name is None:\n"
+    init_content += '        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")\n'
+    init_content += "    value = getattr(importlib.import_module(module_name), name)\n"
+    init_content += "    globals()[name] = value  # cache: later lookups bypass __getattr__\n"
+    init_content += "    return value\n\n\n"
+    init_content += "def __dir__():\n"
+    init_content += "    return sorted(set(globals()) | set(_LAZY_IMPORTS))\n"
+    return init_content
 
 
-def construct_propagators_init_file() -> str:
+def construct_models_init_file(models_dir: str = "src/struphy/models") -> str:
     """
-    Constructs the content for the __init__.py file for the propagators module.
-
-    Returns:
-        str: The content for the __init__.py file as a string.
+    Constructs __init__.py for all generated model files by reading actual class names.
+    Skips base.py and __init__.py.
     """
-    import struphy.propagators.propagators_coupling as propagators_coupling
-    import struphy.propagators.propagators_fields as propagators_fields
-    import struphy.propagators.propagators_markers as propagators_markers
+    return construct_package_init_file(models_dir, "struphy.models", StruphyModel)
+
+
+def construct_propagators_init_file(propagators_dir: str = "src/struphy/propagators") -> str:
+    """
+    Constructs __init__.py for all generated propagator files by reading actual class names.
+    Skips base.py and __init__.py.
+    """
     from struphy.propagators.base import Propagator
 
-    propagators_init = ""
-    propagators_names = []
-    for model_type in [propagators_coupling, propagators_fields, propagators_markers]:
-        for _, cls in model_type.__dict__.items():
-            if isinstance(cls, type) and issubclass(cls, Propagator) and cls != Propagator:
-                propagators_names.append(cls.__name__)
-                propagators_init += f"from {model_type.__name__} import {cls.__name__}\n"
-    propagators_init += "\n\n"
-    propagators_init += f"__all__ = {propagators_names}\n"
-    return propagators_init
+    return construct_package_init_file(propagators_dir, "struphy.propagators", Propagator)
+
+
+def construct_domains_init_file(domains_dir: str = "src/struphy/geometry/domains") -> str:
+    """
+    Constructs __init__.py for all domain files by reading actual class names.
+    Skips __init__.py.
+    """
+    from struphy.geometry.base import Domain
+
+    return construct_package_init_file(domains_dir, "struphy.geometry.domains", Domain)
+
+
+def run_formatting_loop(python_files, linters, iterations, verbose):
+    """Repeatedly run the given formatters on `python_files` until they are clean.
+
+    Parameters
+    ----------
+    python_files : list
+        List of Python file paths to format.
+
+    linters : list
+        List of formatter names to apply.
+
+    iterations : int
+        Maximum number of times to apply formatting.
+
+    verbose : bool
+        If True, enables detailed output, showing each command and iteration.
+    """
+
+    flags = {
+        "autopep8": ["--in-place"],
+        "isort": [],
+        "add-trailing-comma": ["--exit-zero-even-if-changed"],
+        "ruff": [["check", "--fix", "--select", "I"], ["format"]],
+        "ssort": [],
+    }
+
+    # Skip linting with add-trailing-comma since it disagrees with autopep8
+    skip_linters = ["add-trailing-comma"]
+
+    for iteration in range(iterations):
+        if verbose:
+            print(f"Iteration {iteration + 1}: Running formatters...")
+
+        run_linters_on_files(
+            linters,
+            python_files,
+            flags,
+            verbose,
+        )
+
+        # Check if any files still require changes
+        if not files_require_formatting(
+            python_files,
+            [lint for lint in linters if lint not in skip_linters],
+        ):
+            print("All files are properly formatted.")
+            break
+    else:
+        if verbose:
+            print(
+                "Max iterations reached. The following files may still require manual checks:",
+            )
+            for file_path in python_files:
+                if files_require_formatting([file_path], linters):
+                    print(f" - {file_path}")
+            print("Contact Max about this")
 
 
 def struphy_format(config, verbose, yes=False):
@@ -1327,7 +1474,7 @@ def struphy_format(config, verbose, yes=False):
     config : dict
         Configuration dictionary containing the following keys:
             - input_type : str, optional
-                The type of files to format ('all', 'path', 'staged', 'branch', or '__init__.py'). Defaults to 'all'.
+                The type of files to format ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
             - path : str, optional
                 Directory or file path where files will be formatted.
             - linters : list
@@ -1351,21 +1498,7 @@ def struphy_format(config, verbose, yes=False):
     if input_type is None and path is not None:
         input_type = "path"
 
-    if input_type == "__init__.py":
-        print(f"Rewriting {PROPAGATORS_INIT_PATH}")
-        propagators_init = construct_propagators_init_file()
-        with open(PROPAGATORS_INIT_PATH, "w") as f:
-            f.write(propagators_init)
-
-        print(f"Rewriting {MODELS_INIT_PATH}")
-        models_init = construct_models_init_file()
-        with open(MODELS_INIT_PATH, "w") as f:
-            f.write(models_init)
-
-        python_files = [PROPAGATORS_INIT_PATH, MODELS_INIT_PATH]
-        input_type = "path"
-    else:
-        python_files = get_python_files(input_type, path)
+    python_files = get_python_files(input_type, path)
 
     if len(python_files) == 0:
         print("No Python files to format.")
@@ -1373,44 +1506,52 @@ def struphy_format(config, verbose, yes=False):
 
     confirm_formatting(python_files, linters, yes)
 
-    flags = {
-        "autopep8": ["--in-place"],
-        "isort": [],
-        "add-trailing-comma": ["--exit-zero-even-if-changed"],
-        "ruff": [["check", "--fix", "--select", "I"], ["format"]],
-        "ssort": [],
-    }
+    run_formatting_loop(python_files, linters, iterations, verbose)
 
-    # Skip linting with add-trailing-comma since it disagrees with autopep8
-    skip_linters = ["add-trailing-comma"]
 
-    if python_files:
-        for iteration in range(iterations):
-            if verbose:
-                print(f"Iteration {iteration + 1}: Running formatters...")
+def struphy_build_init_files(config, verbose, yes=False):
+    """Regenerate the auto-generated `__init__.py` files and format them.
 
-            run_linters_on_files(
-                linters,
-                python_files,
-                flags,
-                verbose,
-            )
+    This (re-)writes `struphy/models/__init__.py` and `struphy/propagators/__init__.py`
+    based on the `StruphyModel`/`Propagator` subclasses found in those packages,
+    preserving each file's existing module docstring, and then formats the result.
 
-            # Check if any files still require changes
-            if not files_require_formatting(
-                python_files,
-                [lint for lint in linters if lint not in skip_linters],
-            ):
-                print("All files are properly formatted.")
-                break
-        else:
-            if verbose:
-                print(
-                    "Max iterations reached. The following files may still require manual checks:",
-                )
-                for file_path in python_files:
-                    if files_require_formatting([file_path], linters):
-                        print(f" - {file_path}")
-                print("Contact Max about this")
-    else:
-        print("No Python files to format.")
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary containing the following keys:
+            - linters : list
+                List of formatter names to apply.
+            - iterations : int, optional
+                Maximum number of times to apply formatting (default=5).
+
+    verbose : bool
+        If True, enables detailed output, showing each command and iteration.
+
+    yes : bool, optional
+        If True, skips the confirmation prompt before formatting.
+    """
+
+    linters = config.get("linters", ["ruff"])
+    iterations = config.get("iterations", 5)
+
+    print(f"Rewriting {MODELS_INIT_PATH}")
+    models_init = construct_models_init_file()
+    with open(MODELS_INIT_PATH, "w", encoding="utf-8") as f:
+        f.write(models_init)
+
+    print(f"Rewriting {PROPAGATORS_INIT_PATH}")
+    propagators_init = construct_propagators_init_file()
+    with open(PROPAGATORS_INIT_PATH, "w", encoding="utf-8") as f:
+        f.write(propagators_init)
+
+    print(f"Rewriting {DOMAINS_INIT_PATH}")
+    domains_init = construct_domains_init_file()
+    with open(DOMAINS_INIT_PATH, "w", encoding="utf-8") as f:
+        f.write(domains_init)
+
+    python_files = [MODELS_INIT_PATH, PROPAGATORS_INIT_PATH, DOMAINS_INIT_PATH]
+
+    confirm_formatting(python_files, linters, yes)
+
+    run_formatting_loop(python_files, linters, iterations, verbose)

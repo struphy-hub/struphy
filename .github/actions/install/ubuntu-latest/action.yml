@@ -1,5 +1,7 @@
 name: "Install ubuntu prereqs"
 
+description: 
+
 runs:
   using: composite
   steps:
@@ -19,3 +21,4 @@ runs:
         sudo apt install -y pandoc
         sudo apt install -y libnetcdf-dev
         sudo apt install -y g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-dev libnetcdff-dev
+        sudo apt install -y libosmesa6 libosmesa6-dev libegl-mesa0

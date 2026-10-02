@@ -1,0 +1,86 @@
+name: PR - build, install and generate params
+
+on:
+  pull_request:
+    branches:
+      - devel
+  schedule:
+    # run at 1 a.m. on Sunday
+    - cron: "0 1 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  test-in-container-with-reqs:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+    steps:
+
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: fetch origin devel (for submodule-diff action)
+        run: |
+          pwd 
+          ls -a
+          git config --global --add safe.directory /__w/struphy/struphy
+          git fetch --no-tags origin devel:refs/remotes/origin/devel
+          git rev-parse --verify origin/devel
+
+      - name: Build Struphy 
+        run: |
+          ls 
+          python3 -m venv struphy_env
+          source struphy_env/bin/activate
+          pip install -U pip
+          pip install -U build
+          python3 -m build
+          ls
+          ls dist/
+
+      - name: Install Struphy (according to README, but from .whl)
+        run: |
+          source struphy_env/bin/activate
+          ls
+          ls dist/
+          pip install dist/*.whl
+          pip list
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+
+      - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: struphy_env
+
+      - name: Generate params
+        shell: bash
+        run: |
+          source struphy_env/bin/activate
+          struphy params Maxwell -y
+          struphy params VlasovAmpereOneSpecies -y
+
+
+      

@@ -1,17 +1,23 @@
+import logging
+
 import cunumpy as xp
-from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.ddm.cart import CartDecomposition, DomainDecomposition
-from psydac.fem.tensor import TensorFemSpace
-from psydac.linalg.basic import ComposedLinearOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator
-from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
-from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
-from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
+from feectools.api.essential_bc import apply_essential_bc_stencil
+from feectools.ddm.cart import CartDecomposition, DomainDecomposition
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
+from feectools.fem.tensor import TensorFemSpace
+from feectools.linalg.basic import ComposedLinearOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator
+from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
+from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
+from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
+from line_profiler import profile
 from scipy import sparse
-from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
+
+logger = logging.getLogger("struphy")
 
 
 class MassMatrixPreconditioner(LinearOperator):
@@ -47,6 +53,7 @@ class MassMatrixPreconditioner(LinearOperator):
         self._codomain = mass_operator.codomain
         self._domain = mass_operator.domain
         self._apply_bc = apply_bc
+        self._dim_reduce = dim_reduce
 
         # 3d Kronecker stencil matrices and solvers
         solverblocks = []
@@ -75,6 +82,26 @@ class MassMatrixPreconditioner(LinearOperator):
             apply_bc = False
             bc = None
 
+        # define subcomm to gather 1d weight info along dim_reduce
+        derham = mass_operator.derham
+        logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
+        comm = derham.comm
+        dom_dec = derham.domain_decomposition
+        gather_weights = not isinstance(comm, (MockComm, type(None)))
+        if gather_weights:
+            rank = comm.Get_rank()
+            # in the directions other than dim_reduce, the weight is taken at the global mid point;
+            # select the ranks owning the mid element there (exactly one rank per slab along dim_reduce)
+            is_selected = all(
+                dom_dec.starts[i] <= derham.num_elements[i] // 2 <= dom_dec.ends[i]
+                for i in range(n_dims)
+                if i != dim_reduce
+            )
+            color = 0 if is_selected else MPI.UNDEFINED
+            subcomm = comm.Split(color=color, key=rank)
+            root = comm.allreduce(rank if is_selected else comm.Get_size(), op=MPI.MIN)
+            logger.debug(f"Rank {rank} selected for gathering 1d weight info in dimension {dim_reduce}: {is_selected}")
+
         # loop over components
         for c in range(n_comps):
             # 1d mass matrices and solvers
@@ -101,12 +128,39 @@ class MassMatrixPreconditioner(LinearOperator):
                             )
                     elif isinstance(loc_weights, xp.ndarray):
                         s = loc_weights.shape
+                        logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
+                        npts = derham.num_elements[d] * derham.nquads[d]
+                        fun = xp.zeros(npts, dtype=float)
+                        # local index of the global mid quadrature point in the other directions
+                        # (clipped on non-selected ranks, which receive the gathered weight below)
+                        mid = [0] * n_dims
+                        for i in range(n_dims):
+                            if i != d:
+                                nq_i = s[i] // dom_dec.local_ncells[i]
+                                mid_i = (derham.num_elements[i] * nq_i) // 2 - dom_dec.starts[i] * nq_i
+                                mid[i] = min(max(mid_i, 0), s[i] - 1)
                         if d == 0:
-                            fun = loc_weights[:, s[1] // 2, s[2] // 2]
+                            local_fun = loc_weights[:, mid[1], mid[2]]
                         elif d == 1:
-                            fun = loc_weights[s[0] // 2, :, s[2] // 2]
+                            local_fun = loc_weights[mid[0], :, mid[2]]
                         elif d == 2:
-                            fun = loc_weights[s[0] // 2, s[1] // 2, :]
+                            local_fun = loc_weights[mid[0], mid[1], :]
+                        local_fun = xp.ascontiguousarray(local_fun, dtype=float)
+                        logger.debug(
+                            f"{fun.size = } for component {c} and direction {d} before gathering on all processes."
+                        )
+                        if gather_weights:
+                            # local sizes differ if num_elements[d] is not divisible by the number of processes
+                            if subcomm != MPI.COMM_NULL:
+                                counts = subcomm.allgather(local_fun.size)
+                                displs = [sum(counts[:j]) for j in range(len(counts))]
+                                subcomm.Allgatherv(local_fun, [fun, counts, displs, MPI.DOUBLE])
+                            comm.Bcast(fun, root=root)
+                        else:
+                            fun[:] = local_fun
+                        logger.debug(
+                            f"{fun.shape = } for component {c} and direction {d} after gathering on all processes."
+                        )
                     elif loc_weights is None:
                         fun = lambda e: xp.ones(e.size, dtype=float)
                     else:
@@ -118,16 +172,13 @@ class MassMatrixPreconditioner(LinearOperator):
                     fun = [[lambda e: xp.ones(e.size, dtype=float)]]
 
                 # get 1D FEM space (serial, not distributed) and quadrature order
-                femspace_1d = femspaces[c].spaces[d]
-                qu_order_1d = [mass_operator.derham.nquads[d]]
+                if femspaces[c].spaces[d].basis == "B":
+                    femspace_1d_tensor = mass_operator.derham.H1_1d_serial[d]
+                else:
+                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]
 
-                # assemble 1d weighted mass matrix
-                domain_decompos_1d = DomainDecomposition(
-                    [femspace_1d.ncells],
-                    [femspace_1d.periodic],
-                )
-                femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                # femspace_1d_tensor.nquads = [qu_order_1d] # TODO: This should not be here!
+                domain_decompos_1d = femspace_1d_tensor.domain_decomposition
+                qu_order_1d = (mass_operator.derham.nquads[d],)
 
                 M = WeightedMassOperator(
                     mass_operator.derham,
@@ -136,13 +187,13 @@ class MassMatrixPreconditioner(LinearOperator):
                     weights_info=fun,
                     nquads=qu_order_1d,
                 )
-                M.assemble(verbose=False)
+                M.assemble()
                 M = M.matrix
 
                 # apply boundary conditions
                 if apply_bc:
                     if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
-                        if femspace_1d.basis == "B":
+                        if femspaces[c].spaces[d].basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
                                     M,
@@ -319,14 +370,14 @@ class MassMatrixPreconditioner(LinearOperator):
         return self._solver
 
     @property
+    def domain(self):
+        """The domain of the linear operator - an element of Vectorspace"""
+        return self._space
+
+    @property
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
 
     @property
     def dtype(self):
@@ -342,23 +393,24 @@ class MassMatrixPreconditioner(LinearOperator):
         """
         Returns the transposed operator.
         """
-        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc, self._dim_reduce)
 
+    @profile
     def solve(self, rhs, out=None):
         """
         Computes (B * E * M^(-1) * E^T * B^T) * rhs as an approximation for an inverse mass matrix.
 
         Parameters
         ----------
-        rhs : psydac.linalg.basic.Vector
+        rhs : feectools.linalg.basic.Vector
             The right-hand side vector.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output vector will be written into this vector in-place.
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The result of (B * E * M^(-1) * E^T * B^T) * rhs.
         """
 
@@ -485,16 +537,13 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 fun = [[lambda e: xp.ones(e.size, dtype=float)]]
 
                 # get 1D FEM space (serial, not distributed) and quadrature order
-                femspace_1d = femspaces[c].spaces[d]
-                qu_order_1d = [self._mass_operator.derham.nquads[d]]
-                # assemble 1d weighted mass matrix
-                domain_decompos_1d = DomainDecomposition(
-                    [femspace_1d.ncells],
-                    [femspace_1d.periodic],
-                )
-                femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                # femspace_1d_tensor.nquads = [qu_order_1d]
-                # femspace_1d_tensor.nquads = self._mass_operator.derham.nquads
+                if femspaces[c].spaces[d].basis == "B":
+                    femspace_1d_tensor = mass_operator.derham.H1_1d_serial[d]
+                else:
+                    femspace_1d_tensor = mass_operator.derham.L2_1d_serial[d]
+
+                domain_decompos_1d = femspace_1d_tensor.domain_decomposition
+                qu_order_1d = (mass_operator.derham.nquads[d],)
 
                 M = WeightedMassOperator(
                     self._mass_operator.derham,
@@ -503,13 +552,13 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                     weights_info=fun,
                     nquads=qu_order_1d,
                 )
-                M.assemble(verbose=False)
+                M.assemble()
                 M = M.matrix
 
                 # apply boundary conditions
                 if apply_bc:
                     if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
-                        if femspace_1d.basis == "B":
+                        if femspaces[c].spaces[d].basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
                                     M,
@@ -671,7 +720,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         # Need to assemble the logical mass matrix to extract the coefficients
         fun = [
-            [lambda e1, e2, e3: xp.ones_like(e1, dtype=float) if i == j else None for j in range(3)] for i in range(3)
+            [(lambda e1, e2, e3: xp.ones_like(e1, dtype=float)) if i == j else None for j in range(3)] for i in range(3)
         ]
         log_M = WeightedMassOperator(
             self._mass_operator.derham,
@@ -679,7 +728,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             self._femspace,
             weights_info=fun,
         )
-        log_M.assemble(verbose=False)
+        log_M.assemble()
         self._logM_srqt_diag = log_M.matrix.diagonal(sqrt=True)
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True)
 
@@ -699,6 +748,9 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def solver(self):
         """KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix."""
         return self._solver
+
+    @property
+    def domain(self):
         """The domain of the linear operator - an element of Vectorspace"""
         return self._space
 
@@ -706,11 +758,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._domain
 
     @property
     def dtype(self):
@@ -746,7 +793,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         """
         Returns the transposed operator.
         """
-        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+        return MassMatrixDiagonalPreconditioner(self._mass_operator.transpose(), self._apply_bc)
 
     def _solve_no_bc(self, rhs, out):
         r"""
@@ -756,15 +803,15 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         Parameters
         ----------
-        rhs : psydac.linalg.basic.Vector
+        rhs : feectools.linalg.basic.Vector
             The right-hand side vector.
 
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The output vector will be written into this vector in-place.
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The result of M^(-1) * rhs.
         """
 
@@ -780,6 +827,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         return out
 
+    @profile
     def solve(self, rhs, out=None):
         r"""
         Computes :math:`(B * E * M^{-1} * E^T * B^T) * rhs` as an approximation for an inverse mass matrix,
@@ -874,7 +922,7 @@ class FFTSolver(BandedSolver):
     def space(self):
         return self._space
 
-    # ...
+    @profile
     def solve(self, rhs, out=None, transposed=False):
         """
         Solves for the given right-hand side.
@@ -894,6 +942,8 @@ class FFTSolver(BandedSolver):
             If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
 
+        from scipy.linalg import solve_circulant
+
         assert rhs.T.shape[0] == self._column.size
 
         if out is None:
@@ -907,7 +957,7 @@ class FFTSolver(BandedSolver):
                 out[:] = solve_circulant(self._column, rhs.T).T
             except xp.linalg.LinAlgError:
                 eps = 1e-4
-                print(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
+                logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
                 self._column[0] *= 1.0 + eps
                 out[:] = solve_circulant(self._column, rhs.T).T
 

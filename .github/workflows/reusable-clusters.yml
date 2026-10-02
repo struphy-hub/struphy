@@ -1,0 +1,37 @@
+name: Reusable workflow for testing
+
+on:
+  workflow_call:
+    inputs:
+      runner_tags:
+        description: JSON array of runner labels
+        required: true
+        type: string
+
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.ref }}
+#   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    # environment: protected
+    runs-on: ${{ fromJSON(inputs.runner_tags) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        compile-language: ["fortran", "c"]
+        # test-type: ["unit", "model", "verification"]
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install and run tests
+        run: |
+          bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
+        # "${{ matrix.test-type }}"

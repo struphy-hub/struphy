@@ -1,20 +1,24 @@
+import logging
 from time import time
 
 import cunumpy as xp
 import pytest
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
+from struphy import BoundaryParameters, LoadingParameters, SortingParameters, WeightsParameters, domains
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry import domains
+from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.topology.grids import TensorProductGrid
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("nx", [8, 70])
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening_1(nx, ny, nz, algo):
+def test_flattening_fortran(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -34,7 +38,7 @@ def test_flattening_1(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening_2(nx, ny, nz, algo):
+def test_flattening_c(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -54,7 +58,7 @@ def test_flattening_2(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening_3(nx, ny, nz, algo):
+def test_flattening_roundtrip(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -70,11 +74,16 @@ def test_flattening_3(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
+@pytest.mark.parametrize("num_elements", [[18, 19, 20]])
+@pytest.mark.parametrize("degree", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, False, True], [False, True, False], [True, False, True], [True, True, False]],
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), None),
+        (None, None, ("free", "free")),
+    ],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -93,7 +102,8 @@ def test_flattening_3(nx, ny, nz, algo):
     ],
 )
 @pytest.mark.parametrize("Np", [10000])
-def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
+@pytest.mark.mpi_pic
+def test_sorting(num_elements, degree, bcs, mapping, Np):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
@@ -105,20 +115,28 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     domain = domain_class(**dom_params)
 
     # DeRham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
+
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=mpi_comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
     domain_decomp = (domain_array, nprocs)
 
     loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
-    boxes_per_dim = (3, 3, 6)
+    # The marked MPI test runs with 1-4 ranks.
+    # Use box counts divisible by the process-grid dimensions selected
+    # for both 3 and 4 ranks.
+    boxes_per_dim = (6, 6, 6)
+
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     particles = Particles6D(
         comm_world=mpi_comm,
         loading_params=loading_params,
         domain_decomp=domain_decomp,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
     )
 
     particles.draw_markers(sort=False)
@@ -129,14 +147,55 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     time_end = time()
     time_sorting = time_end - time_start
 
-    print("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
+    logger.info("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
 
     box_markers = particles.markers[:, -2]
     assert all(box_markers[i] <= box_markers[i + 1] for i in range(len(box_markers) - 1))
 
 
+@pytest.mark.parametrize("bc", ["periodic", "remove"])
+@pytest.mark.mpi
+@pytest.mark.mpi_pic
+def test_mpi_sort_markers_on_rank_boundary(bc):
+    """Markers exactly on a process boundary (or on eta = 0, 1) must be kept and sent to exactly one process."""
+    mpi_comm = MPI.COMM_WORLD
+
+    particles = Particles6D(
+        comm_world=mpi_comm,
+        loading_params=LoadingParameters(Np=1000, seed=1234),
+        boundary_params=BoundaryParameters(bc=(bc, bc, bc)),
+    )
+    particles.draw_markers(sort=False)
+    particles.mpi_sort_markers()
+
+    # one tagged marker (tag in v1) for each process boundary in eta1, eta2 and eta3
+    dom = particles.domain_array
+    boundaries = [sorted(set(dom[:, 3 * n].tolist()) | set(dom[:, 3 * n + 1].tolist())) for n in range(3)]
+    special = [(e, 0.3, 0.7) for e in boundaries[0]]
+    special += [(0.3, e, 0.7) for e in boundaries[1]]
+    special += [(0.3, 0.7, e) for e in boundaries[2]]
+    tags = 1000.0 + xp.arange(len(special))
+
+    if mpi_comm.Get_rank() == 0:
+        rows = xp.nonzero(particles.holes)[0][: len(special)]
+        particles.markers[rows] = 0.0
+        particles.markers[rows, :3] = xp.array(special)
+        particles.markers[rows, 3] = tags
+        particles.update_holes()
+
+    n_before = mpi_comm.allreduce(particles.n_mks_loc)
+    particles.mpi_sort_markers(do_test=True)
+    n_after = mpi_comm.allreduce(particles.n_mks_loc)
+    assert n_after == n_before
+
+    v1 = particles.markers[particles.valid_mks, 3]
+    for tag, eta in zip(tags, special):
+        n_found = mpi_comm.allreduce(int(xp.count_nonzero(v1 == tag)))
+        assert n_found == 1, f"marker at {eta} found on {n_found} processes"
+
+
 if __name__ == "__main__":
-    test_flattening_1(8, 8, 8, "c_orderwding")
+    test_flattening_roundtrip(8, 8, 8, "c_ordering")
     # test_sorting(
     #     [8, 9, 10],
     #     [2, 3, 4],

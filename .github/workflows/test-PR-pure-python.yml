@@ -1,0 +1,195 @@
+name: PR - pure Python tests in Container
+
+on:
+  pull_request:
+    branches:
+      - devel
+  schedule:
+    # run at 1 a.m. on Sunday
+    - cron: "0 1 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  model-tests-in-container-with-reqs:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: fetch origin devel
+        run: |
+          pwd 
+          ls -a
+          git config --global --add safe.directory /__w/struphy/struphy
+          git fetch --no-tags origin devel:refs/remotes/origin/devel
+          git rev-parse --verify origin/devel
+
+      - name: Check .testmondata 1
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Setup cache for testmon
+        uses: actions/cache@v4
+        with:
+          path: |
+            .testmondata-pure-python
+            .testmondata-pure-python-mpi
+          key: testmon-pure-python-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          restore-keys: |
+            testmon-pure-python-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-pure-python-${{ github.ref_name }}
+            testmon-pure-python-devel
+            testmon-pure-python-
+
+      - name: Check .testmondata 2
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Install Struphy
+        uses: ./.github/actions/install/install-struphy
+        with:
+          env-name: env
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+
+      - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: env
+
+      - name: Uncompile Struphy
+        shell: bash
+        run: |
+          source env/bin/activate
+          struphy compile -d
+          struphy compile --status
+      
+      - name: MPI run check
+        shell: bash
+        run: |
+            source env/bin/activate
+            mpirun --version
+            mpirun --oversubscribe -n 1 python -c "from mpi4py import MPI; print('rank:', MPI.COMM_WORLD.rank); print('size:', MPI.COMM_WORLD.size)"
+      
+      # - name: Pytest-MPI plugin check
+      #   shell: bash
+      #   run: |
+      #     source env/bin/activate
+      #     pytest --trace-config | grep mpi || true
+
+      - name: Pytest with collect-only
+        shell: bash
+        run: |
+          source env/bin/activate
+          cd src/struphy
+          mpirun --oversubscribe -n 1 pytest --collect-only -q
+      
+      - name: Manual LinearMHD test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          source env/bin/activate
+          struphy compile --status
+          mpirun --oversubscribe -n 1 pytest -m single -xvs --with-mpi --model-name LinearMHD $STRUPHY_PATH
+
+      - name: LinearMHD test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          source env/bin/activate
+          struphy compile --status
+          pytest -m single -xvs --model-name LinearMHD $STRUPHY_PATH
+
+      - name: Vlasov test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          source env/bin/activate
+          pytest -m single -xvs --model-name Vlasov $STRUPHY_PATH
+
+      - name: GuidingCenter test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          source env/bin/activate
+          pytest -m single -xvs --model-name GuidingCenter $STRUPHY_PATH 
+
+      - name: VlasovAmpere test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          source env/bin/activate
+          pytest -m single -xvs --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
+
+      - name: ViscousEulerSPH test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          source env/bin/activate
+          pytest -m single -xvs --model-name ViscousEulerSPH $STRUPHY_PATH 
+
+      - name: Vlasov test MPI
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
+        # init .testmondata with non-MPI call
+        run: |
+          source env/bin/activate
+          mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell $STRUPHY_PATH
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Vlasov $STRUPHY_PATH
+
+      - name: GuidingCenter test MPI
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
+        run: |
+          source env/bin/activate
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name GuidingCenter $STRUPHY_PATH
+
+      - name: VlasovAmpere test MPI
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
+        run: |
+          source env/bin/activate
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
+
+      - name: ViscousEulerSPH test MPI
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
+        run: |
+          source env/bin/activate
+          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name ViscousEulerSPH  $STRUPHY_PATH 

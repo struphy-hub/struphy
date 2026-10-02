@@ -3,96 +3,247 @@
 Quickstart
 ==========
 
-Get familiar with Struphy objects using the notebook :ref:`tutorials`.
-What follows is an introduction to the CLI (command line interface) of Struphy.
-For a more in-depth manual please go to :ref:`userguide`.
+Struphy is a Python API for solving PDEs with structure-preserving discretizations.
+This quickstart shows how to solve a simple problem with minimal input: a 1D Poisson solve.
 
-Get help on Struphy console commands::
+For interactive tutorials (no local install), use `mybinder <https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main>`_.
+For more examples, see :ref:`userguide` and the :ref:`tutorial collection <tutorials>`.
 
-    struphy -h
+Solve Poisson In A Few Steps
+----------------------------
 
-Check if kernels are compiled::
+Make sure that Struphy is installed and compiled (see :ref:`install_modes`).
+Save the code below as ``params_poisson.py``. By default, output is written to
+``sim_1/`` in the directory from which you launch the script (change this with
+:class:`~struphy.EnvironmentOptions`).
 
-    struphy compile
+We search for a potential :math:`\phi(x, y)` satisfying the Poisson equation
 
-Check the current I/O paths::
+.. math::
 
-    struphy -p
+    -\Delta \phi = \rho
 
-Set the I/O paths to the current working directory::
+for a given source term :math:`\rho(x)` on a doubly periodic 2D domain.
 
-    struphy --set-i .
-    struphy --set-o .
+1. Import the API and choose a model.
 
-Get a list of available Struphy models::
+.. code-block:: python
 
-    struphy run -h
+    import numpy as np
+    from matplotlib import pyplot as plt
 
-Let us generate default parameters for the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
+    from struphy import Simulation, domains, grids, perturbations
+    from struphy.models import Poisson
 
-    struphy params VlasovMaxwellOneSpecies
+2. Create the :class:`~struphy.models.poisson.Poisson` model.
 
-After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwellOneSpecies.yml`` is created
-in the current input path (cwd). Let us rename it for convenience::
+.. code-block:: python
 
-    mv params_VlasovMaxwellOneSpecies.yml test.yml
+    model = Poisson()
 
-We can now run a simulation with these parameters and save the data to ``my_first_sim/``::
+3. This model features the Propagator :class:`~struphy.propagators.poisson_solve.PoissonSolve` under ``propagators.poisson``. 
+For periodic boundary conditions we will stabilize via ``options``.
 
-    struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+.. code-block:: python
 
-The produced data is in the expected folder in the current output path (cwd)::
+    stab_eps = 1e-8
 
-    ls my_first_sim/ 
+    model.propagators.poisson.options = model.propagators.poisson.Options(
+        stab_eps=stab_eps,
+    )
 
-Let us post-process the raw simulation data::
+4. Add a manufactured term :math:`\rho(x) = (k^2 + \epsilon)\cos(kx)` to the ``source`` variable.
 
-    struphy pproc my_first_sim
+.. code-block:: python
 
-The results of post-processing are stored under ``my_first_sim/post_processing/``. In particular, 
-the data of the FEEC-fields is stored under::
+    Lx = 2.0 * np.pi
+    Ly = 4.0 * np.pi
+    mode = 2
+    k = mode * 2.0 * np.pi / Lx
+    source_amp = k**2 + stab_eps
 
-    ls my_first_sim/post_processing/fields_data/
+    fun = perturbations.ModesCos(ls=(mode,), amps=(source_amp,))
 
-and the data of the kinetic particles is stored under::
+    model.em_fields.source.add_perturbation(fun)
 
-    ls my_first_sim/post_processing/kinetic_data/
+5. Build domain and grid, then instantiate a simulation.
 
-Check out Tutorial 08 in :ref:`tutorials`
-for a deeper discussion on Struphy data and post processing.
+.. code-block:: python
 
-Our first simulation ran for just three time steps. Let us change the end-time of the simulation by opening the parameter file::
+    domain = domains.Cuboid(r1=Lx, l2=-Ly / 2, r2=Ly / 2)
+    grid = grids.TensorProductGrid(num_elements=(64, 64, 1))
 
-    vi test.yml
+    sim = Simulation(model=model, domain=domain, grid=grid)
 
-and setting ``time/Tend`` to ``0.1``. Save, quit and run again, but this time on 2 MPI processes, 
-and saving to a different folder::
+6. Run the simulation. ``sim.run()`` returns an :class:`~struphy.Output` object,
+   the entry point for all post-processing. For plots and diagnostics made for Struphy
+   output (``out.plot``, ``out.analysis`` and ``.plasma.plot`` on every product), install
+   the separate package `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ with
+   ``pip install "struphy[pproc]"``; ``Output`` loads it automatically.
 
-    struphy run VlasovMaxwellOneSpecies -i test.yml -o another_sim --mpi 2
+.. code-block:: python
 
-This time we ran for 20 time steps. The physical time unit of the run can be known via::
+    out = sim.run()
 
-    struphy units VlasovMaxwellOneSpecies -i test.yml
+7. Evaluate the potential on a line along :math:`\eta_1` and compare to the exact solution.
+   ``out.evaluate()`` takes a ``"species/variable"`` name, evaluates the saved spline
+   field on the given logical coordinates, and returns a labeled :class:`xarray.DataArray`.
+   Scalars fix a direction (here :math:`\eta_2 = \eta_3 = 0.5`); omitted directions stay
+   on the cell centres of the simulation grid. ``t=-1`` selects the last saved snapshot. The array also carries the physical
+   coordinates ``X, Y, Z`` so that xarray's ``.plot()`` can use either coordinate system.
 
-For completeness, let us post-process the data of the second run::
+.. code-block:: python
 
-    struphy pproc another_sim
+    fig, axs = plt.subplots(1, 2, figsize=(12, 4))
 
-Let us now double the number of markers used in the simulation:: 
+    eta1 = np.linspace(0, 1, 100)
+    phi_1d = out.evaluate("em_fields/phi", eta1=eta1, eta2=0.5, eta3=0.5, t=-1)
 
-    vi test.yml
+    x = phi_1d["X"]
+    phi_exact = np.cos(k * x)
+    phi_exact_logical = np.cos(Lx * k * eta1)
 
-by changing ``kinetic/electrons/markers/ppc`` from 10 to 20, and then running::
+    phi_1d.plot(ax=axs[0], label="Struphy")  # plot along eta1 (default)
+    phi_1d.plot(ax=axs[1], x="X", label="Struphy")  # plot along physical X
+    axs[0].plot(eta1, phi_exact_logical, "k--", lw=1.8, label="exact")
+    axs[1].plot(x, phi_exact, "k--", lw=1.8, label="exact")
 
-    struphy run VlasovMaxwellOneSpecies -i test.yml -o sim_20 --mpi 2
+    for ax in axs:
+        ax.legend()
+        ax.grid(alpha=0.3)
+    fig.savefig("quickstart_poisson_phi.png", dpi=150)
+    plt.show()
 
-Finally, each Struphy model has some specific options to it, which in the case of ``VlasovMaxwellOneSpecies`` can be inspected via::
+.. figure:: ../pics/quickstart_poisson_phi.png
+    :figwidth: 85%
+    :alt: Poisson quickstart comparison of exact and numerical solution
 
-    struphy params VlasovMaxwellOneSpecies --options
+    Exact (dashed) and Struphy solutions from Step 7, along :math:`\eta_1` (left) and :math:`x` (right).
 
-These options can be set in the parameter file. They usually refer to different types of solvers or solution methods.
+8. Evaluate on a 2D logical grid and plot in physical coordinates.
 
-If you want to learn more about using Struphy, please check out the :ref:`userguide`
-as well as the :ref:`tutorials`.
+.. code-block:: python
+
+    eta = np.linspace(0, 1, 100)
+    phi_2d = out.evaluate("em_fields/phi", eta1=eta, eta2=eta, t=-1)
+    phi_2d.plot(x="X", y="Y")
+    plt.show()
+
+``out`` can also be created later from the output folder alone, e.g. in a separate
+post-processing script, via ``out = Output("sim_1")``; the model, domain and numerical
+options are reconstructed from ``run_metadata.json``.
+
+Full script (save as ``params_poisson.py`` and run with ``python params_poisson.py``):
+
+.. code-block:: python
+
+    import numpy as np
+    from matplotlib import pyplot as plt
+
+    from struphy import Simulation, domains, grids, perturbations
+    from struphy.models import Poisson
+
+    model = Poisson()
+
+    stab_eps = 1e-8
+
+    model.propagators.poisson.options = model.propagators.poisson.Options(
+        stab_eps=stab_eps,
+    )
+
+    Lx = 2.0 * np.pi
+    Ly = 4.0 * np.pi
+    mode = 2
+    k = mode * 2.0 * np.pi / Lx
+    source_amp = k**2 + stab_eps
+
+    fun = perturbations.ModesCos(ls=(mode,), amps=(source_amp,))
+
+    model.em_fields.source.add_perturbation(fun)
+
+    domain = domains.Cuboid(r1=Lx, l2=-Ly / 2, r2=Ly / 2)
+    grid = grids.TensorProductGrid(num_elements=(64, 64, 1))
+
+    sim = Simulation(model=model, domain=domain, grid=grid)
+
+    if __name__ == "__main__":
+        # sim.run() returns an Output object for post-processing
+        out = sim.run()
+
+        # out.evaluate() evaluates a saved field on logical coordinates (eta1, eta2, eta3)
+        # and returns a labeled xarray.DataArray; scalar etas fix a direction, omitted etas stay
+        # on the simulation grid's cell centres, t=-1 selects the last snapshot. Physical coordinates X, Y, Z are attached.
+        fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+
+        eta1 = np.linspace(0, 1, 100)
+        phi_1d = out.evaluate("em_fields/phi", eta1=eta1, eta2=0.5, eta3=0.5, t=-1)
+
+        x = phi_1d["X"]
+        phi_exact = np.cos(k * x)
+        phi_exact_logical = np.cos(Lx * k * eta1)
+
+        # xarray plotting: along eta1 by default, or along any attached coordinate
+        phi_1d.plot(ax=axs[0], label="Struphy")
+        phi_1d.plot(x="X", ax=axs[1], label="Struphy")
+        axs[0].plot(eta1, phi_exact_logical, "k--", lw=1.8, label="exact")
+        axs[1].plot(x, phi_exact, "k--", lw=1.8, label="exact")
+
+        for ax in axs:
+            ax.legend()
+            ax.grid(alpha=0.3)
+        fig.savefig("quickstart_poisson_phi.png", dpi=150)
+        plt.show()
+
+        # 2D evaluation on a logical tensor-product grid, plotted in physical coordinates
+        eta = np.linspace(0, 1, 100)
+        phi_2d = out.evaluate("em_fields/phi", eta1=eta, eta2=eta, t=-1)
+        phi_2d.plot(x="X", y="Y")
+        plt.show()
+
+
+Same Workflow For All Models
+----------------------------
+
+The same Simulation API is reused across models. For example, replace :class:`~struphy.models.poisson.Poisson` with :class:`~struphy.models.maxwell.Maxwell`:
+
+.. code-block:: python
+
+    from pathlib import Path
+
+    from struphy import EnvironmentOptions, Simulation, perturbations
+    from struphy.models import Maxwell
+
+    model = Maxwell()
+    model.em_fields.e_field.add_perturbation(
+        perturbations.ModesCos(ls=(1,), amps=(1e-2,), comp=1)
+    )
+
+    env = EnvironmentOptions(sim_folder="sim_data")
+    sim = Simulation(model=model, env=env, params_path=__file__)
+    if __name__ == "__main__":
+        sim.run()
+
+Check :ref:`models` for more models and their specific options.
+
+Generate A Default Parameter File
+---------------------------------
+
+You can generate a ready-to-edit parameter file for any model from the CLI:
+
+.. code-block:: bash
+
+    struphy params Poisson
+
+This writes ``params_Poisson.py`` in your current directory. You can open and edit it, then run with:
+
+.. code-block:: bash
+
+    python params_Poisson.py
+
+As all data structures in Struphy are written for MPI, you can run the same script with ``mpirun`` to use multiple processes:
+
+.. code-block:: bash
+
+    mpirun -n 4 python params_Poisson.py
 
             

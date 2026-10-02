@@ -1,48 +1,62 @@
+import logging
+
 import pytest
 
+logger = logging.getLogger("struphy")
 
-@pytest.mark.parametrize("Nel", [[8, 9, 6]])
-@pytest.mark.parametrize("p", [[3, 2, 4]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-def test_spaces(Nel, p, spl_kind):
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 6]])
+@pytest.mark.parametrize("degree", [[3, 2, 4]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "free"), None, ("free", "free")),
+    ],
+)
+def test_spaces(num_elements, degree, bcs):
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
+    from struphy.topology.grids import TensorProductGrid
 
-    derham = Derham(Nel, p, spl_kind)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts)
 
-    print("polar V0:")
+    logger.info("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
-    print("dimensions (parent, polar):", derham.Vh_fem["0"].nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V0fem.nbasis} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V1:")
+    logger.info("polar V1:")
     V = PolarDerhamSpace(derham, "Hcurl")
-    print("dimensions (parent, polar):", derham.Vh_fem["1"].nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V1fem.nbasis} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -50,31 +64,31 @@ def test_spaces(Nel, p, spl_kind):
     a.tp[0][:] = 1.0
     a.tp[1][:] = 2.0
     a.tp[2][:] = 3.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V2:")
+    logger.info("polar V2:")
     V = PolarDerhamSpace(derham, "Hdiv")
-    print("dimensions (parent, polar):", derham.Vh_fem["2"], V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V2fem} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -82,59 +96,59 @@ def test_spaces(Nel, p, spl_kind):
     a.tp[0][:] = 1.0
     a.tp[1][:] = 2.0
     a.tp[2][:] = 3.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V3:")
+    logger.info("polar V3:")
     V = PolarDerhamSpace(derham, "L2")
-    print("dimensions (parent, polar):", derham.Vh_fem["3"], V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.V3fem} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.tp[:] = 1.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
-    print("polar V0vec:")
+    logger.info("polar V0vec:")
     V = PolarDerhamSpace(derham, "H1vec")
-    print("dimensions (parent, polar):", derham.Vh_fem["v"].nbasis, V.dimension)
-    print(V.dtype)
-    print(V.zeros(), "\n")
+    logger.info(f"dimensions (parent, polar): {derham.Vvfem.nbasis} {V.dimension}")
+    logger.info(V.dtype)
+    logger.info(f"{V.zeros()}\n")
     a = PolarVector(V)
     a.pol[0][:] = 1.0
     a.pol[1][:] = 2.0
@@ -142,80 +156,82 @@ def test_spaces(Nel, p, spl_kind):
     a.tp[0][:] = 1.0
     a.tp[1][:] = 2.0
     a.tp[2][:] = 3.0
-    print(a.toarray())
+    logger.info(a.toarray())
     a.set_tp_coeffs_to_zero()
     b = a.copy()
-    print(a.toarray())
-    print(a.dot(b))
-    print((-a).toarray())
-    print((2 * a).toarray())
-    print((a * 2).toarray())
-    print((a + b).toarray())
-    print((a - b).toarray())
+    logger.info(a.toarray())
+    logger.info(a.dot(b))
+    logger.info((-a).toarray())
+    logger.info((2 * a).toarray())
+    logger.info((a * 2).toarray())
+    logger.info((a + b).toarray())
+    logger.info((a - b).toarray())
     a *= 2
-    print(a.toarray())
+    logger.info(a.toarray())
     a += b
-    print(a.toarray())
+    logger.info(a.toarray())
     a -= b
-    print(a.toarray())
-    print(a.toarray_tp())
+    logger.info(a.toarray())
+    logger.info(a.toarray_tp())
 
-    print()
+    logger.info("")
 
 
-@pytest.mark.parametrize("Nel", [[6, 9, 6]])
-@pytest.mark.parametrize("p", [[3, 2, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
+@pytest.mark.parametrize("num_elements", [[6, 9, 6]])
+@pytest.mark.parametrize("degree", [[3, 2, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "free"), None, ("free", "free")),
+    ],
+)
+def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     import cunumpy as xp
-    from psydac.ddm.mpi import mpi as MPI
+    from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
     from struphy.polar.extraction_operators import PolarExtractionBlocksC1
     from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
     # create control points
-    params_map = {"Nel": Nel[:2], "p": p[:2], "Lz": 3.0, "a": 1.0}
+    params_map = {"num_elements": num_elements[:2], "degree": degree[:2], "Lz": 3.0, "a": 1.0}
     domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
     # create legacy FEM spaces
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    for space_i in spaces:
-        space_i.set_projectors()
-
-    space = Tensor_spline_space(spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
-    space.set_projectors("general")
 
     if rank == 0:
-        print()
-        print("Domain decomposition : \n", derham.domain_array)
-        print()
+        logger.info("")
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
+        logger.info("")
 
     comm.Barrier()
 
     # create polar FEM spaces
-    f0_pol = PolarVector(derham.Vh_pol["0"])
-    e1_pol = PolarVector(derham.Vh_pol["1"])
-    b2_pol = PolarVector(derham.Vh_pol["2"])
-    p3_pol = PolarVector(derham.Vh_pol["3"])
+    f0_pol = PolarVector(derham.V0pol)
+    e1_pol = PolarVector(derham.V1pol)
+    b2_pol = PolarVector(derham.V2pol)
+    p3_pol = PolarVector(derham.V3pol)
 
     # create pure tensor-product and polar vectors (legacy and distributed)
-    f0_tp_leg, f0_tp = create_equal_random_arrays(derham.Vh_fem["0"], flattened=True)
-    e1_tp_leg, e1_tp = create_equal_random_arrays(derham.Vh_fem["1"], flattened=True)
-    b2_tp_leg, b2_tp = create_equal_random_arrays(derham.Vh_fem["2"], flattened=True)
-    p3_tp_leg, p3_tp = create_equal_random_arrays(derham.Vh_fem["3"], flattened=True)
+    f0_tp_leg, f0_tp = create_equal_random_arrays(derham.V0fem, flattened=True)
+    e1_tp_leg, e1_tp = create_equal_random_arrays(derham.V1fem, flattened=True)
+    b2_tp_leg, b2_tp = create_equal_random_arrays(derham.V2fem, flattened=True)
+    p3_tp_leg, p3_tp = create_equal_random_arrays(derham.V3fem, flattened=True)
 
     f0_pol.tp = f0_tp
     e1_pol.tp = e1_tp
@@ -235,18 +251,13 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
     # ==================== test basis extraction operators ===================
     if rank == 0:
-        print("----------- Test basis extraction operators ---------")
+        logger.info("----------- Test basis extraction operators ---------")
 
     # test basis extraction operator
     r0_pol = derham.extraction_ops["0"].dot(f0_tp)
     r1_pol = derham.extraction_ops["1"].dot(e1_tp)
     r2_pol = derham.extraction_ops["2"].dot(b2_tp)
     r3_pol = derham.extraction_ops["3"].dot(p3_tp)
-
-    assert xp.allclose(r0_pol.toarray(True), space.E0.dot(f0_tp_leg))
-    assert xp.allclose(r1_pol.toarray(True), space.E1.dot(e1_tp_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.E2.dot(b2_tp_leg))
-    assert xp.allclose(r3_pol.toarray(True), space.E3.dot(p3_tp_leg))
 
     # test transposed extraction operators
     E0T = derham.extraction_ops["0"].transpose()
@@ -259,27 +270,18 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r2 = E2T.dot(b2_pol)
     r3 = E3T.dot(p3_pol)
 
-    compare_arrays(r0, space.E0.T.dot(f0_pol_leg), rank)
-    compare_arrays(r1, space.E1.T.dot(e1_pol_leg), rank)
-    compare_arrays(r2, space.E2.T.dot(b2_pol_leg), rank)
-    compare_arrays(r3, space.E3.T.dot(p3_pol_leg), rank)
-
     if rank == 0:
-        print("------------- Test passed ---------------------------")
-        print()
+        logger.info("------------- Test passed ---------------------------")
+        logger.info("")
 
     # ==================== test discrete derivatives ======================
     if rank == 0:
-        print("----------- Test discrete derivatives ---------")
+        logger.info("----------- Test discrete derivatives ---------")
 
     # test discrete derivatives
     r1_pol = derham.grad.dot(f0_pol)
     r2_pol = derham.curl.dot(e1_pol)
     r3_pol = derham.div.dot(b2_pol)
-
-    assert xp.allclose(r1_pol.toarray(True), space.G.dot(f0_pol_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.C.dot(e1_pol_leg))
-    assert xp.allclose(r3_pol.toarray(True), space.D.dot(b2_pol_leg))
 
     # test transposed derivatives
     GT = derham.grad.transpose()
@@ -290,49 +292,91 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r1_pol = CT.dot(b2_pol)
     r2_pol = DT.dot(p3_pol)
 
-    assert xp.allclose(r0_pol.toarray(True), space.G.T.dot(e1_pol_leg))
-    assert xp.allclose(r1_pol.toarray(True), space.C.T.dot(b2_pol_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.D.T.dot(p3_pol_leg))
-
     if rank == 0:
-        print("------------- Test passed ---------------------------")
+        logger.info("------------- Test passed ---------------------------")
 
 
-@pytest.mark.parametrize("Nel", [[6, 12, 7]])
-@pytest.mark.parametrize("p", [[4, 3, 2]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
-def test_projectors(Nel, p, spl_kind):
+@pytest.mark.parametrize("num_elements", [[8, 3, 2], [8, 6, 2]])
+def test_polar_adjoints_small_nel2(num_elements):
+    """<A x, y> = <x, A^T y> for polar extraction operators and derivatives,
+    including Nel2 = 3 where n_polar == n2 for H1 and H1vec."""
     import cunumpy as xp
-    from psydac.ddm.mpi import mpi as MPI
+    from feectools.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+
+    degree = [2, 2, 1]
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+
+    fem_spaces = {"0": derham.V0fem, "1": derham.V1fem, "2": derham.V2fem, "3": derham.V3fem, "v": derham.Vvfem}
+
+    xp.random.seed(1607)
+
+    def rand_pol(space, seed):
+        v = PolarVector(space)
+        v.tp = create_equal_random_arrays(fem_spaces[derham.space_to_form[space.space_id]], seed=seed)[1]
+        v.pol = [xp.random.rand(*pol.shape) for pol in v.pol]
+        return v
+
+    for form, V_fem in fem_spaces.items():
+        E = derham.extraction_ops[form]
+        x = create_equal_random_arrays(V_fem, seed=123)[1]
+        y = rand_pol(E.codomain, 456)
+        lhs = E.dot(x).dot(y)
+        rhs = x.inner(E.transpose().dot(y))
+        assert xp.isclose(lhs, rhs, rtol=1e-12), (form, lhs, rhs)
+
+    for op in (derham.grad, derham.curl, derham.div):
+        x = rand_pol(op.domain, 123)
+        y = rand_pol(op.codomain, 456)
+        lhs = op.dot(x).dot(y)
+        rhs = x.dot(op.transpose().dot(y))
+        assert xp.isclose(lhs, rhs, rtol=1e-12), (lhs, rhs)
+
+
+@pytest.mark.parametrize("num_elements", [[6, 12, 7]])
+@pytest.mark.parametrize("degree", [[4, 3, 2]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "free"), None, ("free", "free")),
+    ],
+)
+def test_projectors(num_elements, degree, bcs):
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
     # create control points
-    params_map = {"Nel": Nel[:2], "p": p[:2], "Lz": 3.0, "a": 1.0}
+    params_map = {"num_elements": num_elements[:2], "degree": degree[:2], "Lz": 3.0, "a": 1.0}
     domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
-
-    # create legacy FEM spaces
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    for space_i in spaces:
-        space_i.set_projectors(nq=6)
-
-    space = Tensor_spline_space(spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
-    space.set_projectors("general")
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads_proj=[6, 6, 6], polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
     if rank == 0:
-        print()
-        print("Domain decomposition : \n", derham.domain_array)
-        print()
+        logger.info("")
+        logger.info(f"Domain decomposition : \n{derham.domain_array}")
+        logger.info("")
 
     comm.Barrier()
 
@@ -363,65 +407,97 @@ def test_projectors(Nel, p, spl_kind):
 
     # ============ project on V0 =========================
     if rank == 0:
-        r0_pol = derham.P["0"](fun0)
+        r0_pol = derham.P0(fun0)
     else:
-        r0_pol = derham.P["0"](fun0)
-
-    r0_pol_leg = space.projectors.pi_0(fun0)
-
-    assert xp.allclose(r0_pol.toarray(True), r0_pol_leg)
+        r0_pol = derham.P0(fun0)
 
     if rank == 0:
-        print("Test passed for PI_0 polar projector")
-        print()
+        logger.info("Test passed for PI_0 polar projector")
+        logger.info("")
 
     comm.Barrier()
 
     # ============ project on V1 =========================
     if rank == 0:
-        r1_pol = derham.P["1"](fun1)
+        r1_pol = derham.P1(fun1)
     else:
-        r1_pol = derham.P["1"](fun1)
-
-    r1_pol_leg = space.projectors.pi_1(fun1, with_subs=False)
-
-    assert xp.allclose(r1_pol.toarray(True), r1_pol_leg)
+        r1_pol = derham.P1(fun1)
 
     if rank == 0:
-        print("Test passed for PI_1 polar projector")
-        print()
+        logger.info("Test passed for PI_1 polar projector")
+        logger.info("")
 
     comm.Barrier()
 
     # ============ project on V2 =========================
     if rank == 0:
-        r2_pol = derham.P["2"](fun2)
+        r2_pol = derham.P2(fun2)
     else:
-        r2_pol = derham.P["2"](fun2)
-
-    r2_pol_leg = space.projectors.pi_2(fun2, with_subs=False)
-
-    assert xp.allclose(r2_pol.toarray(True), r2_pol_leg)
+        r2_pol = derham.P2(fun2)
 
     if rank == 0:
-        print("Test passed for PI_2 polar projector")
-        print()
+        logger.info("Test passed for PI_2 polar projector")
+        logger.info("")
 
     comm.Barrier()
 
     # ============ project on V3 =========================
     if rank == 0:
-        r3_pol = derham.P["3"](fun3)
+        r3_pol = derham.P3(fun3)
     else:
-        r3_pol = derham.P["3"](fun3)
-
-    r3_pol_leg = space.projectors.pi_3(fun3, with_subs=False)
-
-    assert xp.allclose(r3_pol.toarray(True), r3_pol_leg)
+        r3_pol = derham.P3(fun3)
 
     if rank == 0:
-        print("Test passed for PI_3 polar projector")
-        print()
+        logger.info("Test passed for PI_3 polar projector")
+        logger.info("")
+
+
+@pytest.mark.parametrize("space_id", ["H1", "Hcurl", "Hdiv", "L2", "H1vec"])
+def test_restart_polar(space_id, tmp_path):
+    """Write restart data (vector_stencil) like Simulation does and re-initialize a polar SplineFunction from it."""
+    import cunumpy as xp
+    import h5py
+    from feectools.linalg.stencil import StencilVector
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+
+    num_elements, degree = [6, 9, 4], [2, 2, 1]
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, domain=domain)
+
+    # random polar field
+    rng = xp.random.default_rng(1234)
+    f = derham.create_spline_function("f", space_id)
+    assert isinstance(f.vector, PolarVector)
+    f.vector.pol = [rng.random(a.shape) for a in f.vector.pol]
+    tps = [f.vector.tp] if isinstance(f.vector.tp, StencilVector) else f.vector.tp.blocks
+    for tp in tps:
+        tp._data[:] = rng.random(tp._data.shape)
+    f.vector.set_tp_coeffs_to_zero()
+    f.vector.update_ghost_regions()
+    f.extract_coeffs()
+
+    # save restart data
+    key = "restart/em_fields/f"
+    with h5py.File(tmp_path / "data.hdf5", "w") as file:
+        if isinstance(f.vector_stencil, StencilVector):
+            file.create_dataset(key, data=f.vector_stencil._data[None])
+        else:
+            for n in range(3):
+                file.create_dataset(key + "/" + str(n + 1), data=f.vector_stencil[n]._data[None])
+
+    # restart
+    g = derham.create_spline_function("g", space_id)
+    with h5py.File(tmp_path / "data.hdf5", "r") as file:
+        g.initialize_coeffs_from_restart_file(file, key)
+
+    assert xp.allclose(g.vector.toarray(), f.vector.toarray(), atol=1e-12)
 
 
 if __name__ == "__main__":

@@ -1,22 +1,51 @@
 # coding: utf-8
 "Base classes for mapped domains (single patch)."
 
+import copy
+import inspect
+import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
 import h5py
+import numpy as np
+from cunumpy import PyccelKernel
 from scipy.sparse import csc_matrix, kron
-from scipy.sparse.linalg import splu, spsolve
 
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.cuda_arguments import CudaDomainArguments
+from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.ipython_compat import HTML, display
+from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
+
+logger = logging.getLogger("struphy")
 
 
-class Domain(metaclass=ABCMeta):
-    r"""Base class for mapped domains (single patch).
+def _to_numpy_for_kernel(value):
+    """Convert CuPy arrays to NumPy for passing to compiled kernels."""
+    if hasattr(value, "get"):  # CuPy array
+        return value.get()
+    return value
 
+
+class DomainMeta(ABCMeta):
+    def __iter__(cls):
+        return iter(all_subclasses(cls))
+
+
+class Domain(metaclass=DomainMeta):
+    r"""
+    Abstract base class for parametric domains in plasma simulations (single patch).
+
+    The Domain class represents a computational domain through a parametric mapping from a logical unit cube
+    to a physical region. This supports both analytical mappings (cylindrical, toroidal, Shafranov) and
+    spline-based isogeometric analysis (IGA) mappings.
+
+    Mathematical Background
+    -----------------------
     The (physical) domain :math:`\Omega \subset \mathbb R^3` is an open subset of :math:`\mathbb R^3`,
     defined by a diffeomorphism
 
@@ -26,49 +55,120 @@ class Domain(metaclass=ABCMeta):
 
     mapping points :math:`\boldsymbol{\eta} \in (0, 1)^3 = \hat\Omega` of the (logical)
     unit cube to physical points :math:`\mathbf x \in \Omega`.
-    The corresponding Jacobain matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`,
-    its volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`
-    and the metric tensor :math:`G:\hat\Omega \to \mathbb R^{3\times 3}` are defined by
+
+    The corresponding Jacobian matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`,
+    volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`, and metric tensor
+    :math:`G:\hat\Omega \to \mathbb R^{3\times 3}` are defined by
 
     .. math::
 
         DF_{i,j} = \frac{\partial F_i}{\partial \eta_j}\,,\qquad \sqrt g = |\textnormal{det}(DF)|\,,\qquad G = DF^\top DF\,.
 
     Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
+
+    Attributes
+    ----------
+    kind_map : int
+        Mapping type identifier:
+        - 0-9: Spline (IGA) mappings
+        - 10-19: Analytical mappings with cubic domain boundary
+        - 20-29: Cylinder and torus analytical mappings
+        - 30-39: Shafranov mappings (tokamak equilibrium)
+    params : dict
+        Mapping parameters as a dictionary for reference.
+    params_numpy : ndarray
+        Mapping parameters as a 1D numpy array for efficient computation.
+    pole : bool
+        Whether the mapping has one polar singularity point.
+    periodic_eta3 : bool
+        Whether the domain is periodic in the :math:`\eta_3` direction.
+    cx, cy, cz : ndarray
+        Control points for spline mapping components :math:`F_x`, :math:`F_y`, :math:`F_z` (3D arrays).
+    num_elements : tuple[int]
+        Number of elements in each logical direction (for spline mappings).
+    degree : tuple[int]
+        B-spline degree in each direction (for spline mappings).
+    spl_kind : tuple[bool]
+        Spline type in each direction: True for periodic, False for clamped (for spline mappings).
+    NbaseN : list[int]
+        Number of basis functions in each direction.
+    T : list[ndarray]
+        Knot vectors for each direction.
+    indN : list[ndarray]
+        Global indices of non-vanishing splines per element.
+
+    Methods
+    -------
+    __call__(*etas, change_out_order, squeeze_out, remove_outside, identity_map)
+        Evaluate the physical coordinates from logical coordinates using mapping F.
+    jacobian(*etas, transposed, change_out_order, squeeze_out, remove_outside)
+        Evaluate the Jacobian matrix DF at logical coordinates.
+    jacobian_det(*etas, squeeze_out, remove_outside)
+        Evaluate the Jacobian determinant (volume element) at logical coordinates.
+    jacobian_inv(*etas, transposed, change_out_order, squeeze_out, remove_outside)
+        Evaluate the inverse Jacobian matrix at logical coordinates.
+    metric_tensor(*etas, change_out_order, squeeze_out, remove_outside)
+        Evaluate the metric tensor G = DF^T * DF.
+    pull_back_0form(field, *etas, remove_outside)
+        Pull back scalar fields (0-forms) from physical to logical space.
+    push_forward_1form(field, *etas, remove_outside)
+        Push forward vector fields (1-forms) from logical to physical space.
+    transform(input_field, trans_type, *etas, remove_outside)
+        General transformation between different field representations.
+
+    Notes
+    -----
+    This is an abstract base class. Concrete implementations should be created in the
+    `struphy.geometry.domains` module and specify the mapping via the `kind_map` property
+    and mapping parameters.
+
+    The logical coordinates (eta1, eta2, eta3) must lie in (0, 1)^3. Points outside this
+    range are typically flagged with value -1 in outputs, or optionally removed.
+
+    Examples
+    --------
+    Concrete domain implementations can be created and used as follows:
+
+    >>> domain = Cuboid()  # Simple cubic domain
+    >>> x = domain(0.5, 0.5, 0.5)  # Evaluate mapping at logical coordinates
+    >>> J = domain.jacobian(0.5, 0.5, 0.5)  # Evaluate Jacobian matrix
+    >>> detJ = domain.jacobian_det(0.5, 0.5, 0.5)  # Volume element
     """
 
     def __init__(
         self,
-        Nel: tuple[int] = None,
-        p: tuple[int] = None,
+        num_elements: tuple[int] = None,
+        degree: tuple[int] = None,
         spl_kind: tuple[bool] = None,
     ):
-        if Nel is None or p is None or spl_kind is None:
-            assert self.kind_map >= 10, "Spline mappings must define Nel, p and spl_kind."
-            Nel = (1, 1, 1)
-            p = (1, 1, 1)
+        if num_elements is None or degree is None or spl_kind is None:
+            assert self.kind_map >= 10, "Spline mappings must define num_elements, degree and spl_kind."
+            num_elements = (1, 1, 1)
+            degree = (1, 1, 1)
             spl_kind = (True, True, True)
 
         # create IGA attributes
-        self._Nel = Nel
-        self._p = p
+        self._num_elements = num_elements
+        self._degree = degree
         self._spl_kind = spl_kind
 
-        self._NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
+        self._NbaseN = [
+            num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
+        ]
 
-        el_b = [xp.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+        el_b = [xp.linspace(0.0, 1.0, num_elements + 1) for num_elements in num_elements]
 
-        self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
+        self._T = [bsp.make_knots(el_b, degree, kind) for el_b, degree, kind in zip(el_b, degree, spl_kind)]
 
         self._indN = [
-            (xp.indices((Nel, p + 1))[1] + xp.arange(Nel)[:, None]) % NbaseN
-            for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)
+            (xp.indices((num_elements, degree + 1))[1] + xp.arange(num_elements)[:, None]) % NbaseN
+            for num_elements, degree, NbaseN in zip(num_elements, degree, self._NbaseN)
         ]
 
         # extend to 3d for 2d IGA mappings
         if 0 < self.kind_map < 10:
-            self._Nel = (*self._Nel, 0)
-            self._p = (*self._p, 0)
+            self._num_elements = (*self._num_elements, 0)
+            self._degree = (*self._degree, 0)
             self._NbaseN = self._NbaseN + [0]
 
             self._T = self._T + [xp.zeros((1,), dtype=float)]
@@ -109,6 +209,9 @@ class Domain(metaclass=ABCMeta):
             "v_to_2": 16,
             "1_to_v": 17,
             "2_to_v": 18,
+            "1_to_norm": 19,
+            "2_to_norm": 20,
+            "v_to_norm": 21,
         }
 
         self._dict_transformations = {
@@ -117,20 +220,159 @@ class Domain(metaclass=ABCMeta):
             "tran": dict_tran,
         }
 
-        self._args_domain = DomainArguments(
+        self._args_backend = xp.get_backend()
+        self._initialize_domain_args()
+
+    def _build_pyccel_domain_args(self):
+        """Build runtime mapping arguments used by compiled evaluation kernels (host copies on the CuPy backend)."""
+        return DomainArguments(
             self.kind_map,
-            self.params_numpy,
-            xp.array(self.p),
-            self.T[0],
-            self.T[1],
-            self.T[2],
-            self.indN[0],
-            self.indN[1],
-            self.indN[2],
-            self.cx.copy(),  # make sure we don't have stride = 0
-            self.cy.copy(),  # make sure we don't have stride = 0
-            self.cz.copy(),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.params_numpy),
+            _to_numpy_for_kernel(xp.array(self.degree)),
+            _to_numpy_for_kernel(self.T[0]),
+            _to_numpy_for_kernel(self.T[1]),
+            _to_numpy_for_kernel(self.T[2]),
+            _to_numpy_for_kernel(self.indN[0]),
+            _to_numpy_for_kernel(self.indN[1]),
+            _to_numpy_for_kernel(self.indN[2]),
+            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
+            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
         )
+
+    def _build_cuda_domain_args(self) -> CudaDomainArguments:
+        """Build the CUDA kernel arguments from the domain's own (device) arrays.
+
+        Arrays that already have the dtype and layout the CUDA kernels expect are referenced, not copied;
+        otherwise a device copy with the right dtype and layout is made once, here. Host arrays raise.
+        """
+
+        # cupy (not xp): the arrays are on the device, whichever backend is active now
+        import cupy as cp
+
+        def device(arr, dtype):
+            if not hasattr(arr, "__cuda_array_interface__"):
+                raise TypeError(
+                    f"{self.__class__.__name__}: CUDA domain arguments need CuPy arrays, got {type(arr)}; "
+                    "create the domain on the CuPy backend."
+                )
+            return cp.ascontiguousarray(arr, dtype=dtype)
+
+        return CudaDomainArguments(
+            self.kind_map,
+            device(self.params_numpy, np.float64),
+            cp.asarray(self.degree, dtype=np.int64),  # a tuple, not an array of the domain
+            *(device(t, np.float64) for t in self.T),
+            *(device(ind, np.int64) for ind in self.indN),
+            *(device(c, np.float64) for c in (self.cx, self.cy, self.cz)),
+        )
+
+    def _can_build_args_domain(self):
+        required_attrs = (
+            "_kind_map",
+            "_degree",
+            "_T",
+            "_indN",
+            "_cx",
+            "_cy",
+            "_cz",
+        )
+        return all(hasattr(self, attr) for attr in required_attrs)
+
+    def _initialize_domain_args(self):
+        self._args_domain = None
+        self._pyccel_args_domain = None
+        if self._can_build_args_domain():
+            self._pyccel_args_domain = self._build_pyccel_domain_args()
+            if self._args_backend == "cupy":
+                self._args_domain = self._build_cuda_domain_args()
+            else:
+                self._args_domain = self._pyccel_args_domain
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+
+        for key, value in self.__dict__.items():
+            if key in ("_args_domain", "_pyccel_args_domain"):
+                continue
+            setattr(result, key, copy.deepcopy(value, memo))
+
+        result._initialize_domain_args()
+        return result
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_args_domain", None)
+        state.pop("_pyccel_args_domain", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if "_args_backend" not in self.__dict__:
+            arrays = (getattr(self, "_cx", None), getattr(self, "_cy", None), getattr(self, "_cz", None))
+            self._args_backend = "cupy" if any(hasattr(arr, "__cuda_array_interface__") for arr in arrays) else "numpy"
+        self._args_domain = None
+        self._initialize_domain_args()
+
+    def __repr__(self):
+        out = f"{self.__class__.__name__}(\n"
+        for k, v in self.params.items():
+            out += " " * 4
+            out += f"{k}={v},\n"
+        out += ")"
+        return out
+
+    def __repr_no_defaults__(self):
+        return __class_with_params_repr_no_defaults__(self)
+
+    @property
+    def is_default(self):
+        return all_class_params_are_default(self)
+
+    forced_heading_level = 5
+
+    @classmethod
+    def _doc_text(cls) -> str:
+        return cls.__doc__ if cls.__doc__ else "Description not available for this domain."
+
+    @classmethod
+    def doc_html(cls) -> str:
+        return rst_to_html(cls._doc_text(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def doc_markdown(cls) -> str:
+        return rst_to_markdown(cls._doc_text())
+
+    @classmethod
+    def doc_latex(cls) -> str:
+        return rst_to_latex(cls._doc_text())
+
+    @classmethod
+    def doc(cls):
+        return display(HTML(cls.doc_html()))
+
+    @classmethod
+    def _mapping_doc(cls) -> str:
+        doc_mapping = getattr(cls, "doc_mapping", None)
+        return doc_mapping.__doc__ if doc_mapping else "Mapping description not available for this domain."
+
+    @classmethod
+    def mapping_html(cls) -> str:
+        return rst_to_html(cls._mapping_doc(), forced_heading_level=cls.forced_heading_level)
+
+    @classmethod
+    def mapping_markdown(cls) -> str:
+        return rst_to_markdown(cls._mapping_doc())
+
+    @classmethod
+    def mapping_latex(cls) -> str:
+        return rst_to_latex(cls._mapping_doc())
+
+    @classmethod
+    def mapping(cls):
+        return display(HTML(cls.mapping_html()))
 
     @property
     def kind_map(self) -> int:
@@ -217,14 +459,14 @@ class Domain(metaclass=ABCMeta):
         return self._cz
 
     @property
-    def Nel(self):
+    def num_elements(self):
         """List of number of elements in each direction."""
-        return self._Nel
+        return self._num_elements
 
     @property
-    def p(self):
+    def degree(self):
         """List of spline degrees in each direction."""
-        return self._p
+        return self._degree
 
     @property
     def spl_kind(self):
@@ -248,7 +490,9 @@ class Domain(metaclass=ABCMeta):
 
     @property
     def args_domain(self):
-        """Object for all parameters needed for evaluation of metric coefficients."""
+        """Arguments for the backend selected when this domain was created."""
+        if self._args_domain is None:
+            raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
         return self._args_domain
 
     @property
@@ -589,6 +833,27 @@ class Domain(metaclass=ABCMeta):
         -------
         out : ndarray | float
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
+            The shape depends on ``kind``, on whether markers or tensor-product points were passed, and on
+            ``change_out_order``/``squeeze_out``:
+
+            - ``kind in ('0', '3')`` (scalar p-form): no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for scalar kinds.
+
+            - ``kind in ('1', '2', 'v')`` (vector-valued p-form, 3 components): a leading/trailing axis of
+              size 3 holds the components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
         """
 
         return self._pull_push_transform(
@@ -650,6 +915,27 @@ class Domain(metaclass=ABCMeta):
         -------
         out : ndarray | float
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
+            The shape depends on ``kind``, on whether markers or tensor-product points were passed, and on
+            ``change_out_order``/``squeeze_out``:
+
+            - ``kind in ('0', '3')`` (scalar field): no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for scalar kinds.
+
+            - ``kind in ('1', '2', 'v')`` (vector field, 3 components): a leading/trailing axis of size 3
+              holds the Cartesian components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
         """
 
         return self._pull_push_transform(
@@ -709,11 +995,33 @@ class Domain(metaclass=ABCMeta):
         Returns
         -------
         out : ndarray | float
-            Transformed p-form evaluated at given logical coordinates.
+            Transformed p-form/vector field evaluated at given logical coordinates. The shape depends on
+            ``kind``, on whether markers or tensor-product points were passed, and on
+            ``change_out_order``/``squeeze_out``:
+
+            - ``kind in ('0_to_3', '3_to_0')`` (scalar-to-scalar): no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for these kinds.
+
+            - All other ``kind`` values (e.g. ``'1_to_2'``, ``'2_to_1'``, ``'norm_to_v'``, ``'v_to_1'``, ...)
+              produce a vector-valued result with 3 components: a leading/trailing axis of size 3 holds the
+              components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
 
         Notes
         -----
-        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v' and '2_to_v'.
+        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v', '2_to_v', '1_to_norm', '2_to_norm' and 'v_to_norm'.
         """
 
         return self._pull_push_transform(
@@ -769,11 +1077,11 @@ class Domain(metaclass=ABCMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-
-            n_inside = evaluation_kernels.kernel_evaluate_pic(
+            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate_pic)
+            n_inside = kernel(
                 markers,
                 which,
-                self.args_domain,
+                self._pyccel_args_domain,
                 out,
                 remove_outside,
                 avoid_round_off,
@@ -813,12 +1121,13 @@ class Domain(metaclass=ABCMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            evaluation_kernels.kernel_evaluate(
+            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate)
+            kernel(
                 E1,
                 E2,
                 E3,
                 which,
-                self.args_domain,
+                self._pyccel_args_domain,
                 out,
                 is_sparse_meshgrid,
                 avoid_round_off,
@@ -830,7 +1139,7 @@ class Domain(metaclass=ABCMeta):
             if transposed:
                 out = xp.transpose(out, axes=(1, 0, 2, 3, 4))
 
-            if which == 0:
+            if which == 0 or which == -1:
                 out = out[:, 0, :, :, :]
                 if change_out_order:
                     out = xp.transpose(out, axes=(1, 2, 3, 0))
@@ -855,7 +1164,8 @@ class Domain(metaclass=ABCMeta):
 
     # ================================
     def _pull_push_transform(self, which, a, kind_fun, *etas, flat_eval=False, **kwargs):
-        """Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
+        """Shared implementation behind :meth:`pull`, :meth:`push` and :meth:`transform`.
+        Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
 
         Parameters
         ----------
@@ -883,8 +1193,29 @@ class Domain(metaclass=ABCMeta):
         Returns
         -------
         out : ndarray | float
-            4D or 2D (for flat eval) array holding the metric coefficient (first index),
-            evaluated at the given logical coordinates (last three indices).
+            Transformed/pulled/pushed field evaluated at the given logical coordinates. The shape depends on
+            ``kind_int = self.dict_transformations[which][kind_fun]``, on whether markers or tensor-product
+            points were passed, and on ``change_out_order``/``squeeze_out`` (see ``kwargs``):
+
+            - ``kind_int < 10`` (scalar-valued result, e.g. kinds ``'0'``, ``'3'``, ``'0_to_3'``, ``'3_to_0'``):
+              no component axis is added.
+
+              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+                with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
+                removed points outside :math:`(0, 1)^3`, else ``n == N``.
+              - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
+                ``(n1, n2, n3)``): ``out`` has shape ``(n1, n2, n3)``, with singleton axes removed if
+                ``squeeze_out=True``. If every axis is singleton and ``squeeze_out=True``, ``out`` is a plain
+                ``float`` instead of an array. ``change_out_order`` has no effect for these kinds.
+
+            - ``kind_int >= 10`` (vector-valued result, 3 components, e.g. kinds ``'1'``, ``'2'``, ``'v'``,
+              ``'1_to_2'``, ``'norm_to_v'``, ...): a leading/trailing axis of size 3 holds the components.
+
+              - Markers / flat eval: ``out`` has shape ``(3, n)`` by default, or ``(n, 3)`` if
+                ``change_out_order=True``.
+              - Tensor-product eval: ``out`` has shape ``(3, n1, n2, n3)`` by default, or
+                ``(n1, n2, n3, 3)`` if ``change_out_order=True``; singleton axes among ``n1, n2, n3`` are
+                removed if ``squeeze_out=True`` (the component axis of size 3 is never squeezed away).
         """
 
         # set default values
@@ -918,11 +1249,13 @@ class Domain(metaclass=ABCMeta):
                             remove_outside=remove_outside,
                             identity_map=True,
                         ),
+                        a_kwargs=a_kwargs,
                     )
                 else:
                     A = Domain.prepare_arg(
                         a,
                         self(markers, change_out_order=True, remove_outside=remove_outside),
+                        a_kwargs=a_kwargs,
                     )
 
             elif isinstance(a, (list, tuple)):
@@ -936,11 +1269,13 @@ class Domain(metaclass=ABCMeta):
                                 remove_outside=remove_outside,
                                 identity_map=True,
                             ),
+                            a_kwargs=a_kwargs,
                         )
                     else:
                         A = Domain.prepare_arg(
                             a,
                             self(markers, change_out_order=True, remove_outside=remove_outside),
+                            a_kwargs=a_kwargs,
                         )
                 else:
                     A = Domain.prepare_arg(a, markers)
@@ -955,20 +1290,24 @@ class Domain(metaclass=ABCMeta):
                 A_has_holes = False
 
             # call evaluation kernel
-            out = xp.empty((markers.shape[0], 3), dtype=float)
+            # Always create output as NumPy since compiled kernels require NumPy arrays
+            out_np = np.empty((markers.shape[0], 3), dtype=float)
 
             # make sure we don't have stride = 0
             A = A.copy()
 
             n_inside = transform_kernels.kernel_pullpush_pic(
-                A,
-                markers,
-                self._transformation_ids[which],
-                kind_int,
-                self.args_domain,
-                out,
-                remove_outside,
+                _to_numpy_for_kernel(A),
+                _to_numpy_for_kernel(markers),
+                _to_numpy_for_kernel(self._transformation_ids[which]),
+                _to_numpy_for_kernel(kind_int),
+                _to_numpy_for_kernel(self._pyccel_args_domain),
+                out_np,
+                _to_numpy_for_kernel(remove_outside),
             )
+
+            # Convert back to current backend if needed
+            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(1, 0))
@@ -1012,21 +1351,25 @@ class Domain(metaclass=ABCMeta):
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
             # call evaluation kernel
-            out = xp.empty(
+            # Always create output as NumPy since compiled kernels require NumPy arrays
+            out_np = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
             transform_kernels.kernel_pullpush(
-                A,
-                E1,
-                E2,
-                E3,
-                self._transformation_ids[which],
-                kind_int,
-                self.args_domain,
-                is_sparse_meshgrid,
-                out,
+                _to_numpy_for_kernel(A),
+                _to_numpy_for_kernel(E1),
+                _to_numpy_for_kernel(E2),
+                _to_numpy_for_kernel(E3),
+                _to_numpy_for_kernel(self._transformation_ids[which]),
+                _to_numpy_for_kernel(kind_int),
+                _to_numpy_for_kernel(self._pyccel_args_domain),
+                _to_numpy_for_kernel(is_sparse_meshgrid),
+                out_np,
             )
+
+            # Convert back to current backend if needed
+            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(3, 0, 1, 2))
@@ -1287,9 +1630,9 @@ class Domain(metaclass=ABCMeta):
 
                 elif isinstance(component, xp.ndarray):
                     if flat_eval:
-                        assert component.ndim == 1, print(f"{component.ndim =}")
+                        assert component.ndim == 1, logger.info(f"{component.ndim =}")
                     else:
-                        assert component.ndim == 3, print(f"{component.ndim =}")
+                        assert component.ndim == 3, logger.info(f"{component.ndim =}")
 
                     a_out += [component]
 
@@ -1364,6 +1707,111 @@ class Domain(metaclass=ABCMeta):
         for k, v in self.params.items():
             params_numpy.append(v)
         return xp.array(params_numpy)
+
+    def create_geometry_mesh(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+    ):
+        """Create a PyVista mesh with geometry
+
+        Returns
+        -------
+        pyvista.StructuredGrid
+        """
+
+        grids_log = [
+            xp.linspace(1e-6, 1.0, nx),
+            xp.linspace(0.0, 1.0, ny),
+            xp.linspace(0.0, 1.0, nz),
+        ]
+
+        tmp = self(*grids_log)
+        grids_phy = [tmp[0], tmp[1], tmp[2]]
+
+        # Create PyVista structured grid
+        from pyvista import StructuredGrid
+
+        mesh = StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
+
+        return mesh
+
+    def outer_boundary_mesh(
+        self,
+        n2: int = 40,
+        n3: int = 80,
+        eta1: float = 1.0,
+    ):
+        """Sample the domain's boundary surface at a fixed radial coordinate.
+
+        Useful for showing the outer flux surface (or, for cube-like
+        mappings, any fixed-``eta1`` cross-section) as spatial context next
+        to other data -- e.g. particle trajectories or field quantities --
+        without the PyVista/VTK dependency of :meth:`create_geometry_mesh`
+        and :meth:`export_geometry`.
+
+        Parameters
+        ----------
+        n2 : int
+            Number of sample points in the second logical coordinate.
+        n3 : int
+            Number of sample points in the third logical coordinate.
+        eta1 : float
+            The (fixed) first logical coordinate to sample the surface at;
+            1.0 (default) gives the outer boundary, 0.0 the magnetic axis
+            (or inner boundary, for a hollow domain).
+
+        Returns
+        -------
+        x, y, z : numpy.ndarray
+            Physical coordinates of the sampled surface, each of shape
+            ``(n2, n3)``.
+        """
+        eta2 = xp.linspace(0.0, 1.0, n2)
+        eta3 = xp.linspace(0.0, 1.0, n3)
+        return self(eta1, eta2, eta3, squeeze_out=True)
+
+    def show_3d(
+        self,
+        nx: int = 32,
+        ny: int = 32,
+        nz: int = 32,
+    ):
+        """Show the 3D geometry using PyVista."""
+        from pyvista import Plotter
+
+        mesh = self.create_geometry_mesh(nx, ny, nz)
+        plotter = Plotter()
+        plotter.add_mesh(mesh, show_edges=True)
+        plotter.show()
+
+    def export_geometry(self, filename: str):
+        """Save the geometry to a VTK file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file to save the geometry to. Supported formats include .vts, .vtk, .vtp
+        """
+        from vtk import vtkGeometryFilter, vtkXMLPolyDataWriter
+
+        mesh = self.create_geometry_mesh()
+        if filename.endswith(".vts"):
+            mesh.save(filename, binary=True)
+        elif filename.endswith(".vtp"):
+            # Extract the external surface (Geometry Filter)
+            geom_filter = vtkGeometryFilter()
+            geom_filter.SetInputData(mesh)
+            geom_filter.Update()
+
+            # Write as PolyData (.vtp)
+            writer = vtkXMLPolyDataWriter()
+            writer.SetFileName(filename)
+            writer.SetInputData(geom_filter.GetOutput())
+            writer.Write()
+        else:
+            raise ValueError("Unsupported file format. Supported formats are .vts, .vtk, .vtp")
 
     def show(
         self,
@@ -1752,6 +2200,36 @@ class Domain(metaclass=ABCMeta):
         else:
             plt.show()
 
+    def to_dict(self) -> dict:
+        params = {}
+        for key, value in self.params.items():
+            # params may hold e.g. a FluidEquilibrium object (not JSON serializable on its own)
+            if hasattr(value, "to_dict") and callable(value.to_dict):
+                params[key] = value.to_dict()
+            else:
+                params[key] = value
+        return {
+            "type": self.__class__.__name__,
+            "params": params,
+        }
+
+    @classmethod
+    def from_dict(cls, dct):
+        from struphy.fields_background.base import FluidEquilibrium
+        from struphy.geometry.utilities import get_domain_by_name
+
+        name = dct["type"]
+        domain_cls = get_domain_by_name(name)
+        params = dict(dct["params"])
+        for key, value in params.items():
+            if isinstance(value, dict) and "type" in value and "params" in value:
+                params[key] = FluidEquilibrium.from_dict(value)
+        return domain_cls(**params)
+
+    def __eq__(self, other: "Domain") -> bool:
+        assert isinstance(other, Domain), f"Cannot compare Domain with {type(other)}."
+        return self.to_dict() == other.to_dict()
+
 
 class Spline(Domain):
     r"""3D IGA spline mapping.
@@ -1769,24 +2247,24 @@ class Spline(Domain):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24, 6),
-        p: tuple[int] = (2, 3, 1),
-        spl_kind: tuple[bool] = (False, True, True),
-        cx: xp.ndarray = None,
-        cy: xp.ndarray = None,
-        cz: xp.ndarray = None,
+        num_elements: tuple[int] = (16, 16, 16),
+        degree: tuple[int] = (3, 3, 3),
+        spl_kind: tuple[bool] = (False, True, False),
+        cx: xp.ndarray | None = None,
+        cy: xp.ndarray | None = None,
+        cz: xp.ndarray | None = None,
     ):
         self.kind_map = 0
 
         # get default control points from default GVEC equilibrium
+        # (default num_elements, degree and spl_kind match those of GVECunit with default GVECequilibrium)
         if cx is None or cy is None or cz is None:
             from struphy.fields_background.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
             cx = mhd_equil.domain.cx
-            cx = mhd_equil.domain.cy
-            cx = mhd_equil.domain.cz
-
+            cy = mhd_equil.domain.cy
+            cz = mhd_equil.domain.cz
         # assign control points
         self._cx = cx
         self._cy = cy
@@ -1798,7 +2276,7 @@ class Spline(Domain):
         assert self.cz.ndim == 3
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple([Nel[n] + (not spl_kind[n]) * p[n] for n in range(3)])
+        expected_shape = tuple([num_elements[n] + (not spl_kind[n]) * degree[n] for n in range(3)])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -1813,7 +2291,7 @@ class Spline(Domain):
         self.periodic_eta3 = spl_kind[-1]
 
         # base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind)
 
 
 class PoloidalSpline(Domain):
@@ -1833,8 +2311,8 @@ class PoloidalSpline(Domain):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
         cx: xp.ndarray = None,
         cy: xp.ndarray = None,
@@ -1848,7 +2326,7 @@ class PoloidalSpline(Domain):
             def Y(eta1, eta2):
                 return eta1 * xp.sin(2 * xp.pi * eta2)
 
-            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
+            cx, cy = interp_mapping(num_elements, degree, spl_kind, X, Y)
 
             # make sure that control points at pole are all the same (eta1=0 there)
             cx[0] = 3.0
@@ -1863,7 +2341,7 @@ class PoloidalSpline(Domain):
         assert self.cy.ndim == 2
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple([Nel[n] + (not spl_kind[n]) * p[n] for n in range(2)])
+        expected_shape = tuple([num_elements[n] + (not spl_kind[n]) * degree[n] for n in range(2)])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -1880,7 +2358,7 @@ class PoloidalSpline(Domain):
         self._cz = xp.zeros((1, 1, 1), dtype=float)
 
         # init base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind)
 
 
 class PoloidalSplineStraight(PoloidalSpline):
@@ -1899,8 +2377,8 @@ class PoloidalSplineStraight(PoloidalSpline):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
         cx: xp.ndarray = None,
         cy: xp.ndarray = None,
@@ -1917,7 +2395,7 @@ class PoloidalSplineStraight(PoloidalSpline):
             def Y(eta1, eta2):
                 return eta1 * xp.sin(2 * xp.pi * eta2)
 
-            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
+            cx, cy = interp_mapping(num_elements, degree, spl_kind, X, Y)
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 0.0
@@ -1927,7 +2405,7 @@ class PoloidalSplineStraight(PoloidalSpline):
         self.periodic_eta3 = False
 
         # init base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy)
+        super().__init__(num_elements=num_elements, degree=degree, spl_kind=spl_kind, cx=cx, cy=cy)
 
 
 class PoloidalSplineTorus(PoloidalSpline):
@@ -1945,10 +2423,10 @@ class PoloidalSplineTorus(PoloidalSpline):
 
     Parameters
     ----------
-    Nel : tuple[int]
+    num_elements : tuple[int]
         Number of elements in each poloidal direction.
 
-    p : tuple[int]
+    degree : tuple[int]
         Spline degree in each poloidal direction.
 
     spl_kind : tuple[bool]
@@ -1964,8 +2442,8 @@ class PoloidalSplineTorus(PoloidalSpline):
 
     def __init__(
         self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
+        num_elements: tuple[int] = (8, 24),
+        degree: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
         cx: xp.ndarray = None,
         cy: xp.ndarray = None,
@@ -1985,7 +2463,7 @@ class PoloidalSplineTorus(PoloidalSpline):
             def Y(eta1, eta2):
                 return eta1 * xp.sin(2 * xp.pi * eta2)
 
-            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
+            cx, cy = interp_mapping(num_elements, degree, spl_kind, X, Y)
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 3.0
@@ -1993,20 +2471,20 @@ class PoloidalSplineTorus(PoloidalSpline):
 
         # init base class
         super().__init__(
-            Nel=Nel,
-            p=p,
+            num_elements=num_elements,
+            degree=degree,
             spl_kind=spl_kind,
             cx=cx,
             cy=cy,
         )
 
 
-def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
+def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
     r"""Interpolates the mapping :math:`F: (0, 1)^3 \to \mathbb R^3` on the given spline space.
 
     Parameters
     -----------
-    Nel, p, spl_kind : array-like
+    num_elements, degree, spl_kind : array-like
         Defining the spline space.
 
     X, Y : callable
@@ -2021,23 +2499,30 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         The control points.
     """
 
+    from scipy.sparse.linalg import splu, spsolve
+
     # number of basis functions
-    NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
+    NbaseN = [
+        num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
+    ]
 
     # element boundaries
-    el_b = [xp.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+    el_b = [xp.linspace(0.0, 1.0, num_elements + 1) for num_elements in num_elements]
 
     # spline knot vectors
-    T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
+    T = [bsp.make_knots(el_b, degree, kind) for el_b, degree, kind in zip(el_b, degree, spl_kind)]
 
     # greville points
-    I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
+    I_pts = [bsp.greville(T, degree, kind) for T, degree, kind in zip(T, degree, spl_kind)]
 
     # 1D interpolation matrices
-    I_mat = [csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind)) for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
+    I_mat = [
+        csc_matrix(bsp.collocation_matrix(T, degree, I_pts, kind))
+        for T, degree, I_pts, kind in zip(T, degree, I_pts, spl_kind)
+    ]
 
     # 2D interpolation
-    if len(Nel) == 2:
+    if len(num_elements) == 2:
         I = kron(I_mat[0], I_mat[1], format="csc")
 
         I_pts = xp.meshgrid(I_pts[0], I_pts[1], indexing="ij")
@@ -2054,7 +2539,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return cx, cy
 
     # 3D interpolation
-    elif len(Nel) == 3:
+    elif len(num_elements) == 3:
         I_LU = [splu(mat) for mat in I_mat]
 
         x_size = X(I_pts[0], I_pts[1], I_pts[2])
@@ -2068,12 +2553,12 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return cx, cy, cz
 
     else:
-        print("wrong number of elements")
+        logger.info("wrong number of elements")
 
         return 0.0
 
 
-def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.ndarray):
+def spline_interpolation_nd(degree: list, spl_kind: list, grids_1d: list, values: xp.ndarray):
     """n-dimensional tensor-product spline interpolation with discrete input.
 
     The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
@@ -2081,7 +2566,7 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
 
     Parameters
     -----------
-    p : list[int]
+    degree : list[int]
         Spline degree.
 
     grids_1d : list[array]
@@ -2105,11 +2590,13 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
         Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
     """
 
+    from scipy.sparse.linalg import splu
+
     T = []
     indN = []
     I_mat = []
     I_LU = []
-    for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, p, spl_kind):
+    for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, degree, spl_kind):
         assert isinstance(x_grid, xp.ndarray)
         assert sh == x_grid.size
         assert (
@@ -2137,7 +2624,7 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
                 )
                 < 1e-14
             ), "Interpolation points must include x=1 for clamped interpolation."
-            # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
+            # dimension of the 1d spline spaces: dim = breaks.size - 1 + degree = x_grid.size
             if p_i == 1:
                 breaks = x_grid
             elif p_i % 2 == 0:
@@ -2167,11 +2654,11 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
         assert I.shape[0] == I.shape[1]
 
     # solve system
-    if len(p) == 1:
+    if len(degree) == 1:
         return I_LU[0].solve(values), T, indN
-    if len(p) == 2:
+    if len(degree) == 2:
         return linalg_kron.kron_lusolve_2d(I_LU, values), T, indN
-    elif len(p) == 3:
+    elif len(degree) == 3:
         return linalg_kron.kron_lusolve_3d(I_LU, values), T, indN
     else:
         raise AssertionError("Only dimensions < 4 are supported.")

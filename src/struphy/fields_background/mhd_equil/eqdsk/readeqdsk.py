@@ -1,9 +1,4 @@
 #!/usr/bin/env python
-
-import re
-
-import numpy
-
 """
 @brief G-Eqdsk reader class
 @version $Id$
@@ -12,6 +7,13 @@ See LICENSE file for conditions of use.
 The official document describing g-eqdsk files:
 http://fusion.gat.com/conferences/snowmass/working/mfe/physics/p3/equilibria/g_eqdsk_s.pdf
 """
+
+import logging
+import re
+
+import numpy
+
+logger = logging.getLogger("struphy")
 
 
 class Geqdsk:
@@ -39,7 +41,7 @@ class Geqdsk:
         self.data["case"] = m.group(1), "Identification character string"
         self.data["nw"] = int(m.group(2)), "Number of horizontal R grid points"
         self.data["nh"] = int(m.group(3)), "Number of vertical Z grid points"
-        # print('nw, nh=', self.data['nw'][0], self.data['nh'][0])
+        # logger.info('nw, nh=', self.data['nw'][0], self.data['nh'][0])
 
         if data_type == 0:
             fltsPat = r"^\s*([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)\s*$"
@@ -112,7 +114,7 @@ class Geqdsk:
 
         line = lines[counter]
         m = re.search(r"^\s*(\d+)\s+(\d+)", line)
-        # print(line)
+        # logger.info(line)
         nbbbs = int(m.group(1))
         limitr = int(m.group(2))
         self.data["nbbbs"] = nbbbs, "Number of boundary points"
@@ -202,24 +204,24 @@ def main():
     geq.openFile(options.filename)
 
     if options.inquire:
-        print(geq.getAllVars())
+        logger.info(geq.getAllVars())
 
     if options.all:
-        print(geq.getAll())
+        logger.info(geq.getAll())
 
     vs = geq.getAllVars()
     if options.vars != "*":
         vs = options.vars.split(",")
 
     for v in vs:
-        print("%s: %s" % (v, str(geq.get(v))))
+        logger.info(f"{v}: {geq.get(v)}")
 
     if options.plot:
         from matplotlib import pylab
 
         if options.vars == "*":
             options.vars = geq.getAllVars()
-            print(options.vars)
+            logger.info(options.vars)
         else:
             vs = options.vars.split(",")
             options.vars = vs

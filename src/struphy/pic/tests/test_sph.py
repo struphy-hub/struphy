@@ -1,14 +1,26 @@
+import logging
+
 import cunumpy as xp
 import pytest
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
-from psydac.ddm.mpi import MockComm
-from psydac.ddm.mpi import mpi as MPI
 
+from struphy import (
+    BinningPlot,
+    BoundaryParameters,
+    LoadingParameters,
+    SortingParameters,
+    WeightsParameters,
+    domains,
+    equils,
+    perturbations,
+)
 from struphy.fields_background.equils import ConstantVelocity
-from struphy.geometry import domains
-from struphy.initial import perturbations
+from struphy.geometry.base import Domain
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+
+logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
@@ -49,6 +61,7 @@ def test_sph_evaluation_1d(
         if derivative == 0:
             ppb = 1000
         else:
+            # return  # skip non-tesselation test for derivative in 1D
             ppb = 20000
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
@@ -64,12 +77,13 @@ def test_sph_evaluation_1d(
         fun_exact = lambda e1, e2, e3: -2 * xp.pi * xp.sin(2 * xp.pi * e1)
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=1.0,
         domain=domain,
         background=background,
@@ -82,7 +96,7 @@ def test_sph_evaluation_1d(
     eta2 = xp.array([0.0])
     eta3 = xp.array([0.0])
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -111,9 +125,9 @@ def test_sph_evaluation_1d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 8))
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -186,6 +200,7 @@ def test_sph_evaluation_2d(
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # eval points
     eta1 = xp.linspace(0, 1.0, eval_pts)
@@ -197,16 +212,15 @@ def test_sph_evaluation_2d(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=1.0,
         domain=domain,
         background=background,
         perturbations=pert,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -235,9 +249,9 @@ def test_sph_evaluation_2d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {bc_y =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {bc_y =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 24))
             plt.subplot(2, 1, 1)
@@ -306,6 +320,7 @@ def test_sph_evaluation_3d(
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, bc_z))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # eval points
     eta1 = xp.linspace(0, 1.0, eval_pts)
@@ -317,15 +332,14 @@ def test_sph_evaluation_3d(
         comm_world=comm,
         loading_params=loading_params,
         boundary_params=boundary_params,
-        boxes_per_dim=boxes_per_dim,
+        sorting_params=sorting_params,
         bufsize=2.0,
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
     )
 
-    particles.draw_markers(sort=False, verbose=False)
+    particles.draw_markers(sort=False)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -354,28 +368,28 @@ def test_sph_evaluation_3d(
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval))
 
     if rank == 0:
-        print(f"\n{boxes_per_dim =}")
-        print(f"{kernel =}, {derivative =}")
-        print(f"{bc_x =}, {bc_y =}, {bc_z =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
+        logger.info(f"\n{boxes_per_dim =}")
+        logger.info(f"{kernel =}, {derivative =}")
+        logger.info(f"{bc_x =}, {bc_y =}, {bc_z =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
-            print(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] =}")
-            print(f"{ee1[5, 5, 5] =}, {ee2[5, 5, 5] =}, {ee3[5, 5, 5] =}")
-            print(f"{all_eval[5, 5, 5] =}")
+            logger.info(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] =}")
+            logger.info(f"{ee1[5, 5, 5] =}, {ee2[5, 5, 5] =}, {ee3[5, 5, 5] =}")
+            logger.info(f"{all_eval[5, 5, 5] =}")
 
-            print(f"\n{ee1[4, 4, 4] =}, {ee2[4, 4, 4] =}, {ee3[4, 4, 4] =}")
-            print(f"{all_eval[4, 4, 4] =}")
+            logger.info(f"\n{ee1[4, 4, 4] =}, {ee2[4, 4, 4] =}, {ee3[4, 4, 4] =}")
+            logger.info(f"{all_eval[4, 4, 4] =}")
 
-            print(f"\n{ee1[3, 3, 3] =}, {ee2[3, 3, 3] =}, {ee3[3, 3, 3] =}")
-            print(f"{all_eval[3, 3, 3] =}")
+            logger.info(f"\n{ee1[3, 3, 3] =}, {ee2[3, 3, 3] =}, {ee3[3, 3, 3] =}")
+            logger.info(f"{all_eval[3, 3, 3] =}")
 
-            print(f"\n{ee1[2, 2, 2] =}, {ee2[2, 2, 2] =}, {ee3[2, 2, 2] =}")
-            print(f"{all_eval[2, 2, 2] =}")
+            logger.info(f"\n{ee1[2, 2, 2] =}, {ee2[2, 2, 2] =}, {ee3[2, 2, 2] =}")
+            logger.info(f"{all_eval[2, 2, 2] =}")
 
-            print(f"\n{ee1[1, 1, 1] =}, {ee2[1, 1, 1] =}, {ee3[1, 1, 1] =}")
-            print(f"{all_eval[1, 1, 1] =}")
+            logger.info(f"\n{ee1[1, 1, 1] =}, {ee2[1, 1, 1] =}, {ee3[1, 1, 1] =}")
+            logger.info(f"{all_eval[1, 1, 1] =}")
 
-            print(f"\n{ee1[0, 0, 0] =}, {ee2[0, 0, 0] =}, {ee3[0, 0, 0] =}")
-            print(f"{all_eval[0, 0, 0] =}")
+            logger.info(f"\n{ee1[0, 0, 0] =}, {ee2[0, 0, 0] =}, {ee3[0, 0, 0] =}")
+            logger.info(f"{all_eval[0, 0, 0] =}")
             # plt.figure(figsize=(12, 24))
             # plt.subplot(2, 1, 1)
             # plt.pcolor(ee1[0, :, :], ee2[0, :, :], fun_exact(ee1, ee2, ee3)[0, :, :])
@@ -436,6 +450,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # loop
     err_vec = []
@@ -449,16 +464,15 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
             comm_world=comm,
             loading_params=loading_params,
             boundary_params=boundary_params,
-            boxes_per_dim=boxes_per_dim,
+            sorting_params=sorting_params,
             bufsize=1.0,
             domain=domain,
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -483,7 +497,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
 
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
         err_vec += [diff]
-        print(f"{Np =}, {ppb =}, {diff =}")
+        logger.info(f"{Np =}, {ppb =}, {diff =}")
 
     if tesselation:
         fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
@@ -501,7 +515,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if tesselation:
         assert fit[0] < 2e-3
@@ -532,6 +546,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         ppb = 160
         loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
     else:
+        # return  # skip non-tesselation test for h-convergence in 1D
         Np = 160000
         ppb = None
         loading_params = LoadingParameters(Np=Np, ppb=ppb, seed=1607)
@@ -557,6 +572,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     # loop
     h_vec = [((2**k) * 10**-3 * 0.25) for k in range(2, 12)]
@@ -566,16 +582,15 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
             comm_world=comm,
             loading_params=loading_params,
             boundary_params=boundary_params,
-            boxes_per_dim=boxes_per_dim,
+            sorting_params=sorting_params,
             bufsize=1.0,
             domain=domain,
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -600,7 +615,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         # error in max-norm
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
-        print(f"{h1 =}, {diff =}")
+        logger.info(f"{h1 =}, {diff =}")
 
         if tesselation and h1 < 0.256:
             assert diff < 0.036
@@ -621,7 +636,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         # plt.savefig("Convergence_SPH")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
@@ -649,6 +664,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
         ppbs = [4, 8, 16, 32, 64]
         Nps = [None] * len(ppbs)
     else:
+        # return  # skip non-tesselation test for convergence in 1D
         Nps = [(2**k) * 10**3 for k in range(-2, 9)]
         ppbs = [None] * len(Nps)
 
@@ -673,6 +689,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim)
 
     h_arr = [((2**k) * 10**-3 * 0.25) for k in range(2, 12)]
     err_vec = []
@@ -688,16 +705,15 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
                 comm_world=comm,
                 loading_params=loading_params,
                 boundary_params=boundary_params,
-                boxes_per_dim=boxes_per_dim,
+                sorting_params=sorting_params,
                 bufsize=1.0,
                 domain=domain,
                 background=background,
                 perturbations=pert,
                 n_as_volume_form=True,
-                verbose=False,
             )
 
-            particles.draw_markers(sort=False, verbose=False)
+            particles.draw_markers(sort=False)
             if comm is not None:
                 particles.mpi_sort_markers()
             particles.initialize_weights()
@@ -718,7 +734,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             err_vec[-1] += [diff]
 
             if rank == 0:
-                print(f"{Np =}, {ppb =}, {diff =}")
+                logger.info(f"{Np =}, {ppb =}, {diff =}")
                 # if show_plot:
                 #     plt.figure()
                 #     plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -756,7 +772,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
         plt.show()
 
     if rank == 0:
-        print(f"\n{tesselation =}, {bc_x =}, {err_min =}")
+        logger.info(f"\n{tesselation =}, {bc_x =}, {err_min =}")
 
     if tesselation:
         if bc_x == "periodic":
@@ -831,6 +847,10 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
     # boundary conditions
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
 
     err_vec = []
     for Np, ppb in zip(Nps, ppbs):
@@ -843,19 +863,17 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             comm_world=comm,
             loading_params=loading_params,
             boundary_params=boundary_params,
-            boxes_per_dim=boxes_per_dim,
+            sorting_params=sorting_params,
             bufsize=1.0,
-            box_bufsize=4.0,
             domain=domain,
             background=background,
             perturbations=pert,
             n_as_volume_form=True,
-            verbose=False,
         )
         if rank == 0:
-            print(f"{particles.domain_array}")
+            logger.info(f"{particles.domain_array}")
 
-        particles.draw_markers(sort=False, verbose=False)
+        particles.draw_markers(sort=False)
         if comm is not None:
             particles.mpi_sort_markers()
         particles.initialize_weights()
@@ -879,7 +897,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             assert diff < 0.06
 
         if rank == 0:
-            print(f"{Np =}, {ppb =}, {diff =}")
+            logger.info(f"{Np =}, {ppb =}, {diff =}")
             if show_plot:
                 fig, ax = plt.subplots()
                 d = ax.pcolor(ee1.squeeze(), ee2.squeeze(), all_eval.squeeze(), label="eval_sph", vmin=1.0, vmax=2.0)
@@ -905,24 +923,814 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
     if rank == 0:
-        print(f"\n{bc_x =}, {tesselation =}, {fit[0] =}")
+        logger.info(f"\n{bc_x =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
 
 
-if __name__ == "__main__":
-    test_sph_evaluation_1d(
-        (24, 1, 1),
-        "trigonometric_1d",
-        # "gaussian_1d",
-        1,
-        # "periodic",
-        "mirror",
-        16,
-        tesselation=False,
-        show_plot=True,
+@pytest.mark.parametrize("boxes_per_dim", [(12, 1, 1)])
+@pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
+@pytest.mark.parametrize("derivative", [0, 1])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11, 16])
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_sph_velocity_evaluation(
+    boxes_per_dim,
+    kernel,
+    derivative,
+    bc_x,
+    eval_pts,
+    tesselation,
+    show_plot=False,
+):
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 10
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
+    else:
+        ppb = 400
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    # test velocity profile
+    Lx = dom_params["r1"] - dom_params["l1"]
+
+    def u_xyz(x, y, z):
+        ux = xp.cos(2 * xp.pi / Lx * x)
+        uy = 0.0 * x
+        uz = 0.0 * x
+        return (ux, uy, uz)
+
+    def du_xyz(x, y, z):
+        ux = -2 * xp.pi / Lx * xp.sin(2 * xp.pi / Lx * x)
+        uy = 0.0 * x
+        uz = 0.0 * x
+        return (ux, uy, uz)
+
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
     )
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        bufsize=2.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+    )
+
+    eta1 = xp.linspace(0, 1.0, eval_pts)
+    eta2 = xp.array([0.0])
+    eta3 = xp.array([0.0])
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    particles.draw_markers(sort=False)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+
+    e1_bins = xp.linspace(0, 1.0, 200, endpoint=True)
+    dv = e1_bins[1] - e1_bins[0]
+
+    binned_res, r2 = particles.binning([True, False, False, False, False, False], [e1_bins], "current_1")
+
+    v1_plot = e1_bins[:-1] + dv / 2
+
+    if show_plot:
+        plt.plot(v1_plot, binned_res, "r*", label="From binning")
+        plt.title(r"Full-$f$: Maxwellian in $v_1$-direction")
+        plt.xlabel(r"$v_1$")
+        plt.ylabel(r"$f(v_1)$")
+        plt.legend()
+        # plt.savefig("Binning_v1.png")
+
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    v1, v2, v3 = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=derivative,
+    )
+
+    if derivative == 0:
+        v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
+    else:
+        v1_e, v2_e, v3_e = du_xyz(ee1, ee2, ee3)
+
+    if comm is not None:
+        all_velo1 = xp.zeros_like(v1)
+        all_velo2 = xp.zeros_like(v2)
+        all_velo3 = xp.zeros_like(v3)
+        comm.Allreduce(v1, all_velo1, op=MPI.SUM)
+        comm.Allreduce(v2, all_velo2, op=MPI.SUM)
+        comm.Allreduce(v3, all_velo3, op=MPI.SUM)
+    else:
+        all_velo1, all_velo2, all_velo3 = v1, v2, v3
+
+    err_ux = xp.max(xp.abs(all_velo1 - v1_e)) / xp.max(xp.abs(v1_e))
+    err_uy = xp.max(xp.abs(all_velo2 - v2_e)) / xp.max(xp.abs(v2_e))
+    err_uz = xp.max(xp.abs(all_velo3 - v3_e)) / xp.max(xp.abs(v3_e))
+
+    if rank == 0:
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }, {derivative = }")
+        logger.info(f"{bc_x = }, {eval_pts = }, {tesselation = }")
+        logger.info(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}, uz={err_uz:.3e}")
+
+        if show_plot:
+            plt.figure(figsize=(12, 6))
+            plt.plot(ee1.squeeze(), v1_e.squeeze(), label="exact vx")
+            plt.plot(ee1.squeeze(), all_velo1.squeeze(), "--.", label="SPH vx")
+            plt.xlabel("e1")
+            plt.ylabel("Velocity (vx)")
+            plt.legend()
+            plt.grid(True)
+            # plt.savefig("image_test.png")
+            plt.show()
+
+    if tesselation:
+        assert err_ux < 2.5e-2
+    else:
+        assert err_ux < 1.84e-1
+
+
+@pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
+@pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"])
+@pytest.mark.parametrize("derivative", [0, 1, 2])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11])
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_sph_velocity_evaluation_2d(
+    boxes_per_dim,
+    kernel,
+    derivative,
+    bc_x,
+    bc_y,
+    eval_pts,
+    tesselation,
+    show_plot=False,
+):
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    dom_type = "Cuboid"
+    l1 = 0.0
+    r1 = 2.0
+    l2 = 0.0
+    r2 = 3.0
+    dom_params = {"l1": l1, "r1": r1, "l2": l2, "r2": r2, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain: Domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 50
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
+    else:
+        ppb = 400
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    Lx = r1 - l1
+    Ly = r2 - l2
+
+    # analytic 2D velocity field:
+    # u_x = cos(2π e1) * cos(2π e2)
+    # u_y = sin(2π e1) * sin(2π e2)
+    # u_z = 0
+    def u_xyz(x, y, z):
+        ux = xp.cos(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
+        uy = xp.cos(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
+        uz = 0.0 * z
+        return (ux, uy, uz)
+
+    def du_deta1(eta1, eta2, eta3):
+        du1 = (
+            -2
+            * xp.pi
+            / Lx
+            * xp.sin(2 * xp.pi * eta1 + 2 * xp.pi * l1 / Lx)
+            * xp.cos(2 * xp.pi * eta2 + 2 * xp.pi * l2 / Ly)
+        )
+        du2 = (
+            -2
+            * xp.pi
+            / Ly
+            * xp.sin(2 * xp.pi * eta1 + 2 * xp.pi * l1 / Lx)
+            * xp.cos(2 * xp.pi * eta2 + 2 * xp.pi * l2 / Ly)
+        )
+        du3 = 0.0 * z
+        return (du1, du2, du3)
+
+    def du_deta2(eta1, eta2, eta3):
+        du1 = (
+            -2
+            * xp.pi
+            / Lx
+            * xp.cos(2 * xp.pi * l1 / Lx + 2 * xp.pi * eta1)
+            * xp.sin(2 * xp.pi * l2 / Ly + 2 * xp.pi * eta2)
+        )
+        du2 = (
+            -2
+            * xp.pi
+            / Ly
+            * xp.cos(2 * xp.pi * eta1 + 2 * xp.pi * l1 / Lx)
+            * xp.sin(2 * xp.pi * l2 / Ly + 2 * xp.pi * eta2)
+        )
+        du3 = 0.0 * z
+        return (du1, du2, du3)
+
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        bufsize=2.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+    )
+
+    # evaluation grids
+    eta1 = xp.linspace(0, 1.0, eval_pts)
+    eta2 = xp.linspace(0, 1.0, eval_pts)
+    eta3 = xp.array([0.0])
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    x = xp.linspace(l1, r1, eval_pts)
+    y = xp.linspace(l2, r2, eval_pts)
+    z = xp.array([0.0])
+    xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
+
+    # initialize particles
+    particles.draw_markers(sort=False)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+
+    # evaluate velocity (and derivatives) via SPH
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    v_log = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=derivative,
+    )
+    v1, v2, v3 = v_log
+
+    if derivative == 0:
+        # push-forward of vector field velocity
+        v1, v2, v3 = domain.push(v_log, ee1, ee2, ee3, kind="v")
+        v1_e, v2_e, v3_e = background.u_xyz(xx, yy, zz)
+    elif derivative == 1:
+        v1_e, v2_e, v3_e = du_deta1(ee1, ee2, ee3)  # du_dx(xx, yy, zz)
+    else:  # derivative == 2
+        v1_e, v2_e, v3_e = du_deta2(ee1, ee2, ee3)  # du_dy(xx, yy, zz)
+
+    if comm is not None:
+        all_velo1 = xp.zeros_like(v1)
+        all_velo2 = xp.zeros_like(v2)
+        all_velo3 = xp.zeros_like(v3)
+        comm.Allreduce(v1, all_velo1, op=MPI.SUM)
+        comm.Allreduce(v2, all_velo2, op=MPI.SUM)
+        comm.Allreduce(v3, all_velo3, op=MPI.SUM)
+    else:
+        all_velo1, all_velo2, all_velo3 = v1, v2, v3
+
+    def abs_err(num, exact):
+        max_exact = xp.max(xp.abs(exact))
+
+        return xp.max(xp.abs(num - exact)) / max_exact
+
+    if derivative == 0:
+        err_ux = abs_err(all_velo1, v1_e)
+        err_uy = abs_err(all_velo2, v2_e)
+    elif derivative == 1:
+        err_ux = abs_err(all_velo1, v1_e)
+        err_uy = abs_err(all_velo2, v2_e)
+    elif derivative == 2:
+        err_ux = abs_err(all_velo1, v1_e)
+        err_uy = abs_err(all_velo2, v2_e)
+
+    if rank == 0:
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }, {derivative = }")
+        logger.info(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        logger.info(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}")
+
+        if show_plot:
+            plt.figure(figsize=(12, 24))
+            # --- vx plots ---
+            plt.subplot(3, 2, 1)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), v1_e.squeeze())
+            plt.title("Exact v₁ (uₓ)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 3)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_velo1.squeeze())
+            plt.title("SPH v₁ (uₓ)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 5)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_velo1 - v1_e).squeeze())
+            plt.title("Error v₁ (uₓ)")
+            plt.colorbar()
+
+            # --- vy plots ---
+            plt.subplot(3, 2, 2)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), v2_e.squeeze())
+            plt.title("Exact v₂ (u_y)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 4)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_velo2.squeeze())
+            plt.title("SPH v₂ (u_y)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 6)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_velo2 - v2_e).squeeze())
+            plt.title("Error v₂ (u_y)")
+            plt.colorbar()
+
+            plt.tight_layout()
+            # plt.savefig("image_test_2d.png")
+            plt.show()
+
+            plt.figure(figsize=(8, 8))
+            plt.quiver(
+                ee1.squeeze(),
+                ee2.squeeze(),
+                all_velo1.squeeze(),
+                all_velo2.squeeze(),
+                scale=30,
+                pivot="mid",
+                color="blue",
+            )
+            plt.title("SPH Velocity Field (v₁, v₂)")
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.axis("equal")
+            plt.tight_layout()
+            # plt.savefig("image_test_2d_quiver.png")
+            plt.show()
+
+    # tolerances: conservative values aligned with your 2D density thresholds
+    if tesselation:
+        assert err_ux < 1.55e-2
+        assert err_uy < 1.55e-2
+    elif derivative == 0:
+        assert err_ux < 0.09
+        assert err_uy < 0.09
+    elif derivative == 1:
+        assert err_ux < 0.632
+        assert err_uy < 0.632
+    else:
+        assert err_ux < 0.52
+        assert err_uy < 0.52
+
+    # ensure z-component is negligible (absolute)
+    # assert err_uz_abs < 1e-6
+
+
+@pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
+@pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"]))
+@pytest.mark.parametrize("bc_x", ["periodic"])
+@pytest.mark.parametrize("bc_y", ["periodic"])
+@pytest.mark.parametrize("eval_pts", [11])
+@pytest.mark.parametrize("tesselation", [True])
+def test_sph_viscosity_evaluation_2d(
+    boxes_per_dim,
+    kernel,
+    bc_x,
+    bc_y,
+    eval_pts,
+    tesselation,
+    show_plot=False,
+):
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    dom_type = "Cuboid"
+    l1 = 0.0
+    r1 = 1.0
+    l2 = 0.0
+    r2 = 1.0
+    dom_params = {"l1": l1, "r1": r1, "l2": l2, "r2": r2, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain: Domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 50
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
+    else:
+        ppb = 2000
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    Lx = r1 - l1
+    Ly = r2 - l2
+
+    # -----------------------------
+    # 1. velocity field
+    # -----------------------------
+    def u_xyz(x, y, z):
+        """
+        Compute the 3D Taylor-Green vortex velocity at points x, y, z.
+        u = [sin(x)cos(y)cos(z), -cos(x)sin(y)cos(z), 0]
+        """
+        u_x = xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+        u_y = xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+        u_z = xp.zeros_like(x)
+
+        return u_x, u_y, u_z
+
+    # -----------------------------
+    # 2. Divergence of pi
+    # -----------------------------
+    mu = 1e-3
+
+    def div_pi_analytic(x, y, z, mu=None):
+        """
+        Returns:
+            div_Pi_x, div_Pi_y, div_Pi_z
+        """
+
+        div_x = mu * (
+            (28 / 3) * xp.pi**2 * xp.sin(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+            - (4 * xp.pi**2 / 3) * xp.sin(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+        )
+        div_y = mu * (
+            (28 / 3) * xp.pi**2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
+            + (4 * xp.pi**2 / 3) * xp.cos(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
+        )
+        div_z = mu * xp.zeros_like(x)
+
+        return div_x, div_y, div_z
+
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        box_bufsize=4.0,
+    )
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        bufsize=2.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+    )
+
+    # initialize particles
+    particles.draw_markers(sort=False)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+
+    # evaluation grids
+    eta1 = xp.linspace(0, 1.0, eval_pts)
+    eta2 = xp.linspace(0, 1.0, eval_pts)
+    eta3 = xp.array([0.0])
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    x = xp.linspace(l1, r1, eval_pts)
+    y = xp.linspace(l2, r2, eval_pts)
+    z = xp.array([0.0])
+    xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
+
+    # exact values
+    density_exact = background.n_xyz(xx, yy, zz)
+    vx_exact, vy_exact, _ = background.u_xyz(xx, yy, zz)
+
+    # evaluate density
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    density = particles.eval_density(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+    )
+    if rank == 0:
+        logger.info(f"{density.shape = }")
+        logger.info(f"{xp.min(density) = }, {xp.max(density) = }")
+
+    if show_plot:
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), density.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
+        plt.title("density sph")
+        plt.colorbar()
+        plt.subplot(1, 2, 2)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), density_exact.squeeze(), vmin=xp.min(density), vmax=xp.max(density))
+        plt.title("density exact")
+        plt.colorbar()
+        # plt.savefig("density")
+        plt.show()
+
+    # evaluate velocity
+    vx, vy, vz = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+    )
+    if rank == 0:
+        logger.info(f"{vx.shape = }, {vy.shape = }")
+        logger.info(f"{xp.min(vx) = }, {xp.max(vx) = }")
+        logger.info(f"{xp.min(vy) = }, {xp.max(vy) = }")
+
+    if show_plot:
+        plt.figure(figsize=(10, 8))
+
+        plt.subplot(2, 2, 1)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vx.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
+        plt.title("vx sph")
+        plt.colorbar()
+
+        plt.subplot(2, 2, 3)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vx_exact.squeeze(), vmin=xp.min(vx), vmax=xp.max(vx))
+        plt.title("vx exact")
+        plt.colorbar()
+
+        plt.subplot(2, 2, 2)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vy.squeeze())
+        plt.title("vy sph")
+        plt.colorbar()
+
+        plt.subplot(2, 2, 4)
+        plt.pcolor(xx.squeeze(), yy.squeeze(), vy_exact.squeeze(), vmin=xp.min(vy), vmax=xp.max(vy))
+        plt.title("vy exact")
+        plt.colorbar()
+
+        plt.show()
+        # plt.savefig("velocity")
+
+    # evaluate div of viscosity tensor (numerically)
+    div_viscosity = particles.eval_div_viscosity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        mu=mu,
+        kernel_type=kernel,
+    )
+    gamma_x = div_viscosity[0]
+    gamma_y = div_viscosity[1]
+    gamma_z = div_viscosity[2]
+
+    div_pi_exact = div_pi_analytic(xx, yy, zz, mu=mu)
+    div_pi_x = div_pi_exact[0]
+    div_pi_y = div_pi_exact[1]
+    div_pi_z = div_pi_exact[2]
+
+    if comm is not None:
+        all_div_x = xp.zeros_like(gamma_x)
+        all_div_y = xp.zeros_like(gamma_y)
+        all_div_z = xp.zeros_like(gamma_z)
+
+        comm.Allreduce(gamma_x, all_div_x, op=MPI.SUM)
+        comm.Allreduce(gamma_y, all_div_y, op=MPI.SUM)
+        comm.Allreduce(gamma_z, all_div_z, op=MPI.SUM)
+    else:
+        all_div_x, all_div_y, all_div_z = gamma_x, gamma_y, gamma_z
+
+    def abs_err(num, exact):
+        max_exact = xp.max(xp.abs(exact))
+        return xp.max(xp.abs(num - exact)) / max_exact
+
+    # compute errors
+    err_div_x = abs_err(all_div_x, div_pi_x)
+    err_div_y = abs_err(all_div_y, div_pi_y)
+    # err_div_z = abs_err(all_div_z, div_pi_z)
+
+    if rank == 0:
+        logger.info(f"\n{boxes_per_dim = }")
+        logger.info(f"{kernel = }")
+        logger.info(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        logger.info(f"Divergence of viscosity errors: gx={err_div_x:.3e}, gy={err_div_y:.3e}")
+        # , gz={err_div_z:.3e}
+
+    if show_plot:
+        # --- gamma_x and gamma_y plots ---
+        plt.figure(figsize=(18, 18))
+
+        # gamma_x plots
+        plt.subplot(3, 3, 1)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_x.squeeze())
+        plt.title("Exact div_viscosity_x")
+        plt.colorbar()
+        # plt.savefig("Exact div_viscosity_x")
+
+        plt.subplot(3, 3, 4)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_x.squeeze())
+        plt.title("SPH div_viscosity_x")
+        plt.colorbar()
+        # plt.savefig("SPH div_viscosity_x")
+        plt.subplot(3, 3, 7)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_x - div_pi_x).squeeze())
+        plt.title("Error div_viscosity_x")
+        plt.colorbar()
+        # plt.savefig("Error div_viscosity_x")
+
+        # gamma_y plots
+        plt.subplot(3, 3, 2)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_y.squeeze())
+        plt.title("Exact div_viscosity_y")
+        plt.colorbar()
+        # plt.savefig("Exact div_viscosity_y")
+
+        plt.subplot(3, 3, 5)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_y.squeeze())
+        plt.title("SPH div_viscosity_y")
+        plt.colorbar()
+        # plt.savefig("SPH div_viscosity_y")
+
+        plt.subplot(3, 3, 8)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_y - div_pi_y).squeeze())
+        plt.title("Error div_viscosity_y")
+        plt.colorbar()
+
+        # gamma_z plots
+        plt.subplot(3, 3, 3)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), div_pi_z.squeeze())
+        plt.title("Exact div_viscosity_z")
+        plt.colorbar()
+
+        plt.subplot(3, 3, 6)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_div_z.squeeze())
+        plt.title("SPH div_viscosity_z")
+        plt.colorbar()
+
+        plt.subplot(3, 3, 9)
+        plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_div_z - div_pi_z).squeeze())
+        plt.title("Error div_viscosity_z")
+        plt.colorbar()
+
+        plt.tight_layout()
+        # plt.savefig("div_viscosity_2d_all.png")
+        plt.show()
+        # plt.savefig("viscosity_2d_all")
+        # else:
+        #    assert err_div_x <  5.8e-01
+        #    assert err_div_y < 5.9e-01
+
+        # ------------------------------
+        # Convergence study
+        # # ------------------------------
+        # if rank == 0:
+        #     ppb_list = [1, 5, 10, 15, 25]
+        #     errors = []
+
+        #     for ppb_val in ppb_list:
+        #         loading_params = LoadingParameters(
+        #             ppb=ppb_val, seed=223, loading="tesselation" if tesselation else None
+        #         )
+
+        #         particles = ParticlesSPH(
+        #             comm_world=comm,
+        #             loading_params=loading_params,
+        #             boundary_params=boundary_params,
+        #             boxes_per_dim=boxes_per_dim,
+        #             bufsize=2.0,
+        #             box_bufsize=4.0,
+        #             domain=domain,
+        #             background=background,
+        #             n_as_volume_form=True,
+        #         )
+
+        #         particles.draw_markers(sort=False)
+        #         if comm is not None:
+        #             particles.mpi_sort_markers()
+        #         particles.initialize_weights()
+
+        #         div_viscosity = particles.eval_div_viscosity(
+        #             ee1,
+        #             ee2,
+        #             ee3,
+        #             h1=h1,
+        #             h2=h2,
+        #             h3=h3,
+        #             kernel_type=kernel,
+        #         )
+
+        #         gamma_x = div_viscosity[0]
+        #         err = abs_err(gamma_x, div_pi_x)
+        #         errors.append(float(err))
+
+        #     ppb_arr = xp.array(ppb_list)
+        #     errors = xp.array(errors)
+
+        #     coeffs = xp.polyfit(xp.log(ppb_arr), xp.log(errors), 1)
+        #     order = coeffs[0]
+
+        #     logger.info("\nSampling convergence study")
+        #     logger.info("ppb:", ppb_arr)
+        #     logger.info("errors:", errors)
+        #     logger.info(f"Observed scaling ≈ ppb^{order:.3f}")
+
+        #     plt.figure()
+        #     plt.loglog(ppb_arr, errors, "o-")
+        #     plt.xlabel("ppb")
+        #     plt.ylabel("Relative error")
+        #     plt.savefig("ppb_convergence")
+
+    if tesselation:
+        assert err_div_x < 3.5e-2
+        assert err_div_y < 3.5e-2
+
+    # test_sph_velocity_evaluation_2d(
+    #     (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
+    # )
+
+    # test_sph_velocity_evaluation(
+    #    (12, 1, 1),
+    #    "gaussian_1d",
+    #    1,
+    #    "periodic",
+    #   11,
+    #    tesselation=False,
+    #    show_plot=True,
+    # )
+
+    # test_sph_evaluation_1d(
+    #     (24, 1, 1),
+    #     "trigonometric_1d",
+    #     # "gaussian_1d",
+    #     1,
+    #     # "periodic",
+    #     "mirror",
+    #     16,
+    #     tesselation=False,
+    #     show_plot=True,
+    # )
 
     # test_sph_evaluation_2d(
     #     (12, 12, 1),
@@ -948,7 +1756,7 @@ if __name__ == "__main__":
     # )
 
     # for nb in range(4, 25):
-    #     print(f"\n{nb = }")
+    #     logger.info(f"\n{nb = }")
     # test_evaluation_SPH_Np_convergence_1d((12,1,1), "fixed", eval_pts=16, tesselation=False, show_plot=True)
     # test_evaluation_SPH_h_convergence_1d((12,1,1), "periodic", eval_pts=16, tesselation=True, show_plot=True)
     # test_evaluation_mc_Np_and_h_convergence_1d((12,1,1),"mirror", eval_pts=16, tesselation = False,  show_plot=True)
@@ -957,3 +1765,425 @@ if __name__ == "__main__":
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
+
+
+@pytest.mark.parametrize("tesselation", [False, True])
+@pytest.mark.parametrize("direction", ["x", "y", "z"])
+def test_sph_no_slip_boundary_1d(
+    tesselation,
+    direction,
+    show_plot=False,
+):
+    import sys
+
+    import numpy
+
+    numpy.set_printoptions(threshold=sys.maxsize, linewidth=200, precision=3, suppress=True)
+
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    dom_type = "Cuboid"
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 4
+        loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+    else:
+        ppb = 200
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    if direction == "x":
+
+        def u_xyz(x, y, z):
+            return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
+    elif direction == "y":
+
+        def u_xyz(x, y, z):
+            return (xp.zeros_like(x), xp.ones_like(x), xp.zeros_like(x))
+    else:
+
+        def u_xyz(x, y, z):
+            return (xp.zeros_like(x), xp.zeros_like(x), xp.ones_like(x))
+
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+    if direction == "x":
+        kernel = "gaussian_1d"
+        boxes_per_dim = (12, 1, 1)
+        boundary_params = BoundaryParameters(bc_sph=("noslip", "periodic", "periodic"))
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
+    elif direction == "y":
+        kernel = "gaussian_2d"
+        boxes_per_dim = (1, 12, 1)
+        boundary_params = BoundaryParameters(bc_sph=("periodic", "noslip", "periodic"))
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
+    else:
+        kernel = "gaussian_3d"
+        boxes_per_dim = (1, 1, 12)
+        boundary_params = BoundaryParameters(bc_sph=("periodic", "periodic", "noslip"))
+        sorting_params = SortingParameters(
+            boxes_per_dim=boxes_per_dim,
+            box_bufsize=2.0,
+        )
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        bufsize=1.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+    )
+
+    particles.draw_markers(sort=False)
+    if rank == 0:
+        ghost_inds = xp.where(particles.ghost_particles)[0]
+        logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
+        if len(ghost_inds) > 0:
+            logger.info(f"First 10 ghost eta1: {particles.markers[ghost_inds[:10], 0]}")
+    particles.initialize_weights()
+
+    if direction == "x":
+        eta1 = xp.linspace(0.0, 1.0, 100)
+        eta2 = xp.array([0.5])
+        eta3 = xp.array([0.5])
+    elif direction == "y":
+        eta1 = xp.array([0.5])
+        eta2 = xp.linspace(0.0, 1.0, 100)
+        eta3 = xp.array([0.5])
+    else:
+        eta1 = xp.array([0.5])
+        eta2 = xp.array([0.5])
+        eta3 = xp.linspace(0.0, 1.0, 100)
+
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    v1, v2, v3 = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+    )
+
+    # if rank == 0 and len(ghost_inds) > 0:
+    #     logger.info("Ghost coefficients after eval:", particles.markers[ghost_inds[:10], particles.first_free_idx])
+    #     logger.info("Ghost positions after eval:", particles.markers[ghost_inds[:10], 0])
+
+    if comm is not None:
+        all_v1 = xp.zeros_like(v1)
+        all_v2 = xp.zeros_like(v2)
+        all_v3 = xp.zeros_like(v3)
+        comm.Allreduce(v1, all_v1, op=MPI.SUM)
+        comm.Allreduce(v2, all_v2, op=MPI.SUM)
+        comm.Allreduce(v3, all_v3, op=MPI.SUM)
+    else:
+        all_v1, all_v2, all_v3 = v1, v2, v3
+
+    v1_squeezed = all_v1.squeeze()
+    v2_squeezed = all_v2.squeeze()
+    v3_squeezed = all_v3.squeeze()
+
+    v_wall_left = (v1_squeezed[0], v2_squeezed[0], v3_squeezed[0])
+    v_wall_right = (v1_squeezed[-1], v2_squeezed[-1], v3_squeezed[-1])
+
+    v_interior = (v1_squeezed[1:-1], v2_squeezed[1:-1], v3_squeezed[1:-1])
+
+    if rank == 0:
+        logger.info("\nVelocity at interior points:")
+        for idx, eta in enumerate(eta1[2:]):
+            logger.info(
+                f"eta1 = {eta:.8f}, v_x = {v1_squeezed[2 + idx]:.6f}, v_y = {v2_squeezed[2 + idx]:.6f}, v_z = {v3_squeezed[2 + idx]:.6f}"
+            )
+
+            logger.info(
+                f"\nLeft wall (eta1={eta1[0]}): v_x={v1_squeezed[0]:.6f}, v_y={v2_squeezed[0]:.6f}, v_z={v3_squeezed[0]:.6f}"
+            )
+            logger.info(
+                f"Right wall (eta1={eta1[-1]}): v_x={v1_squeezed[-1]:.6f}, v_y={v2_squeezed[-1]:.6f}, v_z={v3_squeezed[-1]:.6f}"
+            )
+
+    if rank == 0 and show_plot:
+        if direction == "x":
+            x_plot = eta1.squeeze()
+            xlabel = r"$\eta_1$"
+        elif direction == "y":
+            x_plot = eta2.squeeze()
+            xlabel = r"$\eta_2$"
+        else:  # direction == "z"
+            x_plot = eta3.squeeze()
+            xlabel = r"$\eta_3$"
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(x_plot, v1_squeezed, "o-", label="$v_x$")
+        plt.plot(x_plot, v2_squeezed, "s-", label="$v_y$")
+        plt.plot(x_plot, v3_squeezed, "d-", label="$v_z$")
+        plt.axhline(0, color="k", linestyle="--", linewidth=0.5)
+        plt.axhline(1, color="gray", linestyle="--", linewidth=0.5)
+        plt.xlabel(xlabel)
+        plt.ylabel("velocity")
+        plt.title(f"No-slip test ({direction}-direction, {kernel}, tesselation={tesselation})")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+        # plt.savefig("bc_sph")
+
+    if tesselation:
+        tol_wall = 3e-3
+        tol_interior = 5e-2
+    else:
+        tol_wall = 3e-3
+        tol_interior = 1.6e-1
+
+    for comp, name in zip([0, 1, 2], ["x", "y", "z"]):
+        val_left = [v_wall_left[0], v_wall_left[1], v_wall_left[2]][comp]
+        val_right = [v_wall_right[0], v_wall_right[1], v_wall_right[2]][comp]
+        assert xp.abs(val_left) < tol_wall, f"Left wall {name}-velocity not zero: {val_left}"
+        assert xp.abs(val_right) < tol_wall, f"Right wall {name}-velocity not zero: {val_right}"
+
+    if direction == "x":
+        interior_vals = v_interior[0]
+
+    elif direction == "y":
+        interior_vals = v_interior[1]
+
+    else:
+        interior_vals = v_interior[2]
+
+    assert xp.abs(interior_vals[0]) < 0.5, f"Interior velocity on the left too large: {xp.abs(interior_vals[0])}"
+    assert xp.abs(interior_vals[-1]) < 0.5, f"Interior velocity on the right too large: {xp.abs(interior_vals[-1])}"
+    logger.info(interior_vals)
+    rel_error = xp.max(xp.abs(interior_vals[7:-7] - 1.0)) / 1.0
+    logger.info(f"{rel_error=}")
+    assert rel_error < tol_interior, f"Interior {direction}-velocity error too large: {rel_error}"
+
+
+@pytest.mark.parametrize("tesselation", [True])
+@pytest.mark.parametrize("boxes_per_dim", [(8, 8, 1)])
+def test_sph_no_slip_boundary_2d(
+    tesselation,
+    boxes_per_dim,
+    show_plot=False,
+):
+    """2D no-slip boundary test: periodic x, noslip y, MPI decomposition in x.
+
+    With 2 MPI procs decomposing in x, both procs own the full y domain,
+    so both must handle y_m (y=0) and y_p (y=1) walls. This test checks
+    the symmetry of the no-slip BC between the two walls.
+    """
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain = domains.Cuboid(**dom_params)
+
+    ppb = 16
+    if tesselation:
+        loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+    else:
+        loading_params = LoadingParameters(ppb=ppb, seed=42)
+
+    def u_xyz(x, y, z):
+        return (xp.ones_like(x), xp.zeros_like(x), xp.zeros_like(x))
+
+    background = equils.GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+
+    kernel = "gaussian_2d"
+    boundary_params = BoundaryParameters(bc_sph=("periodic", "noslip", "periodic"))
+    # dims_mask=(True, True, False) forces MPI decomposition in x when using 2 procs,
+    # so both procs own the full y range and must handle both y walls.
+    sorting_params = SortingParameters(
+        boxes_per_dim=boxes_per_dim,
+        dims_mask=(True, True, False),
+        box_bufsize=2.0,
+    )
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        sorting_params=sorting_params,
+        bufsize=3.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+    )
+
+    particles.draw_markers(sort=False)
+    particles.initialize_weights()
+
+    n_x = 8
+    n_y = 50
+    eta1 = xp.linspace(0.0, 1.0, n_x)
+    eta2 = xp.linspace(0.0, 1.0, n_y)
+    eta3 = xp.array([0.5])
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    h1 = 1.0 / boxes_per_dim[0]
+    h2 = 1.0 / boxes_per_dim[1]
+    h3 = 1.0 / boxes_per_dim[2]
+
+    v1, v2, v3 = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=0,
+    )
+
+    if comm is not None:
+        all_v1 = xp.zeros_like(v1)
+        comm.Allreduce(v1, all_v1, op=MPI.SUM)
+    else:
+        all_v1 = v1
+
+    # Average over x (uniform in x by periodicity)
+    v1_avg = xp.mean(all_v1[:, :, 0], axis=0)  # shape (n_y,)
+
+    v_wall_bottom = float(v1_avg[0])  # y=0 (eta_2=0)
+    v_wall_top = float(v1_avg[-1])  # y=1 (eta_2=1)
+    v_interior = v1_avg[5:-5]
+
+    if rank == 0:
+        logger.info(f"\n2D no-slip (boxes={boxes_per_dim}): v at y=0: {v_wall_bottom:.4f}, y=1: {v_wall_top:.4f}")
+        logger.info(f"Interior v range: [{float(xp.min(v_interior)):.4f}, {float(xp.max(v_interior)):.4f}]")
+
+    if show_plot and rank == 0:
+        eta2_plot = xp.linspace(0.0, 1.0, n_y)
+        plt.figure(figsize=(7, 5))
+        plt.plot(eta2_plot, v1_avg, "o-", label=r"$v_x$ (SPH avg over $x$)")
+        plt.axhline(0, color="k", linestyle="--", linewidth=0.8)
+        plt.axhline(1, color="gray", linestyle="--", linewidth=0.8)
+        plt.xlabel(r"$\eta_2$ (y)")
+        plt.ylabel(r"$v_x$")
+        plt.title(f"No-slip 2D test: boxes={boxes_per_dim}, periodic x / noslip y")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+    tol_wall = 5e-2
+    tol_interior = 1e-1
+
+    if rank == 0:
+        assert abs(v_wall_bottom) < tol_wall, f"Bottom wall (y=0) velocity not zero: {v_wall_bottom:.4f}"
+        assert abs(v_wall_top) < tol_wall, f"Top wall (y=1) velocity not zero: {v_wall_top:.4f}"
+        rel_error = float(xp.max(xp.abs(v_interior - 1.0)))
+        assert rel_error < tol_interior, f"Interior x-velocity error too large: {rel_error:.4f}"
+
+
+def _make_sph_particles_1d(bc_x, comm, mode="ModesSin"):
+    """Small 1D ParticlesSPH setup (8 boxes, 8 markers per box) with drawn markers and weights."""
+    domain = domains.Cuboid()
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
+    pert = {"n": getattr(perturbations, mode)(ls=(1,), amps=(0.5,))}
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=LoadingParameters(ppb=8, seed=1607, loading="tesselation"),
+        boundary_params=BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic")),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1)),
+        bufsize=1.0,
+        domain=domain,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
+    )
+    particles.draw_markers(sort=False)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+    return particles
+
+
+@pytest.mark.parametrize("bc_x", ["periodic", "fixed"])
+def test_sph_naive_vs_box_evaluation(bc_x):
+    """The naive evaluation (fast=False) must agree with the box-based one: no extra 1/Np and no ghost double-counting."""
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+    else:
+        comm = MPI.COMM_WORLD
+
+    particles = _make_sph_particles_1d(bc_x, comm)
+
+    eta1 = xp.linspace(0.0, 1.0, 17)
+    ee1, ee2, ee3 = xp.meshgrid(eta1, xp.array([0.0]), xp.array([0.0]), indexing="ij")
+    kw = dict(h1=1 / 8, h2=1.0, h3=1.0, kernel_type="trigonometric_1d")
+
+    box = particles.eval_density(ee1, ee2, ee3, fast=True, **kw)
+    naive = particles.eval_density(ee1, ee2, ee3, fast=False, **kw)
+
+    if comm is not None:
+        box_all, naive_all = xp.zeros_like(box), xp.zeros_like(naive)
+        comm.Allreduce(box, box_all, op=MPI.SUM)
+        comm.Allreduce(naive, naive_all, op=MPI.SUM)
+        box, naive = box_all, naive_all
+
+    assert xp.allclose(naive, box, rtol=1e-12, atol=1e-12)
+
+
+def test_sph_full_box_row_detected():
+    """A box holding as many markers as the box array has columns has no -1 terminator and must be rejected."""
+    if not isinstance(MPI.COMM_WORLD, MockComm):
+        return  # error path calls Abort() under MPI
+
+    particles = _make_sph_particles_1d("periodic", None)
+    particles.put_particles_in_boxes()
+    max_in_box = int(xp.max(xp.bincount(xp.int64(particles.markers_wo_holes[:, -2]))))
+
+    # one spare column: fits, the -1 terminator is kept
+    n_boxes = particles.sorting_boxes.boxes.shape[0]
+    particles.sorting_boxes._boxes = xp.full((n_boxes, max_in_box + 1), -1, dtype=int)
+    particles.put_particles_in_boxes()
+
+    # no spare column: the fullest box row would have no terminator
+    particles.sorting_boxes._boxes = xp.full((n_boxes, max_in_box), -1, dtype=int)
+    with pytest.raises(RuntimeError, match="box_bufsize"):
+        particles.put_particles_in_boxes()
+
+
+if __name__ == "__main__":
+    # test_sph_no_slip_boundary_1d(
+    #     tesselation=False,
+    #     direction="x",
+    #     show_plot=True,
+    # )
+    # test_sph_viscosity_evaluation_2d(
+    #     (12, 12, 1), "gaussian_2d", "periodic", "periodic", 11, tesselation=True, show_plot=True
+    # )
+    # test_sph_evaluation_1d((24, 1, 1), "trigonometric_1d", 0, "periodic", 11, tesselation=False, show_plot=True)
+    test_sph_no_slip_boundary_2d(
+        tesselation=True,
+        boxes_per_dim=(8, 8, 1),
+        show_plot=True,
+    )

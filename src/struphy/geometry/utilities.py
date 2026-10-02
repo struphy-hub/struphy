@@ -1,23 +1,37 @@
 # from __future__ import annotations
 "Domain-related utility functions."
 
+import logging
 from typing import Callable
 
 import cunumpy as xp
 import numpy as np
 
 # from typing import TYPE_CHECKING
-from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
-from scipy.sparse.linalg import splu
 
 from struphy.bsplines import bsplines as bsp
 
 # if TYPE_CHECKING:
 from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
-from struphy.io.options import GivenInBasis
+from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
+
+logger = logging.getLogger("struphy")
+
+
+def get_domain_by_name(domain_name: str) -> type["Domain"]:
+    from struphy.geometry import domains
+
+    try:
+        domain_class: type["Domain"] = getattr(domains, domain_name)
+        if not issubclass(domain_class, Domain):
+            raise TypeError(f"{domain_name} is not a Domain subclass.")
+        else:
+            return domain_class
+    except AttributeError:
+        raise ModuleNotFoundError(f"{domain_name} not found in domains.")
 
 
 def field_line_tracing(
@@ -26,11 +40,11 @@ def field_line_tracing(
     psi_axis_Z,
     psi0,
     psi1,
-    Nel,
-    p,
+    num_elements,
+    degree,
     psi_power=1,
     xi_param="equal_angle",
-    Nel_pre=(64, 256),
+    num_elements_pre=(64, 256),
     p_pre=(3, 3),
     r0=0.3,
 ):
@@ -56,7 +70,7 @@ def field_line_tracing(
 
     All :math:`\xi`-parametrizations other than ``equal_angle`` involve a two step procedure:
 
-        1. First, a flux-aligned mapping with parameters ``Nel_pre``, ``p_pre`` is constructed with ``xi=equal angle``.
+        1. First, a flux-aligned mapping with parameters ``num_elements_pre``, ``p_pre`` is constructed with ``xi=equal angle``.
         2. Second, a mapping with lower resolution is constructed with the desired :math:`\xi`-parametrization.
 
     The field-line tracing algorithm for the ``equal_angle``-parametrization is as follows:
@@ -106,10 +120,10 @@ def field_line_tracing(
     psi1 : float
         Value of the outermost flux surface of the mapping.
 
-    Nel : list[int]
+    num_elements : list[int]
         Number of elements to be used for spline inerpolation.
 
-    p : list[int]
+    degree : list[int]
         Spline degrees for spline interpolation.
 
     psi_power : int, optional
@@ -118,7 +132,7 @@ def field_line_tracing(
     xi_param : str
         Which angular (xi) parametrization.
 
-    Nel_pre : tuple | list, optional
+    num_elements_pre : tuple | list, optional
         Number of elements to be used for the pre-mapping.
 
     p_pre : tuple | list, optional
@@ -136,12 +150,15 @@ def field_line_tracing(
         Control points (2d) of flux aligned spline mapping (Z-component).
     """
 
+    from scipy.optimize import newton, root
+    from scipy.sparse.linalg import splu
+
     # for equal_angle one mapping is enough
     if xi_param == "equal_angle":
-        ns, nx = Nel
-        ps, px = p
+        ns, nx = num_elements
+        ps, px = degree
     else:
-        ns, nx = Nel_pre
+        ns, nx = num_elements_pre
         ps, px = p_pre
 
     # spline knots
@@ -152,7 +169,7 @@ def field_line_tracing(
     s_gr = bsp.greville(Ts, ps, False)
     x_gr = bsp.greville(Tx, px, True)
 
-    if p[1] % 2 == 1:
+    if px % 2 == 1:
         assert x_gr[0] == 0.0
 
     # collocation matrices
@@ -172,6 +189,8 @@ def field_line_tracing(
 
     R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
     Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+
+    r_flux_surface = None
 
     # function whose root must be found
     for j, x in enumerate(x_gr):
@@ -217,14 +236,16 @@ def field_line_tracing(
 
     # for all other parametrizations continue
     else:
-        print("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
+        logger.info("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
 
         # create temporary domain
-        domain_eq_angle = PoloidalSplineTorus(Nel=Nel_pre, p=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle)
+        domain_eq_angle = PoloidalSplineTorus(
+            num_elements=num_elements_pre, degree=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle
+        )
 
         # create new interpolation data
-        ns, nx = Nel
-        ps, px = p
+        ns, nx = num_elements
+        ps, px = degree
 
         # spline knots
         Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
@@ -234,7 +255,7 @@ def field_line_tracing(
         s_gr = bsp.greville(Ts, ps, False)
         x_gr = bsp.greville(Tx, px, True)
 
-        if p[1] % 2 == 1:
+        if px % 2 == 1:
             assert x_gr[0] == 0.0
 
         # collocation matrices
@@ -261,7 +282,7 @@ def field_line_tracing(
             xis_extended = xp.array([0.0] + list(xis) + [1.0])
 
             # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val
-            _RZ = domain_eq_angle(s_val, xis_extended, 0.0)
+            _RZ = domain_eq_angle(s_val, xis_extended, 0.0, squeeze_out=True)
 
             _R = _RZ[0]
             _Z = _RZ[2]
@@ -315,15 +336,15 @@ def field_line_tracing(
 
             # add zero angle for odd degree
             if px % 2 == 1:
-                R[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0)[0]
-                Z[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0)[2]
+                R[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
+                Z[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
 
-                R[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0)[0]
-                Z[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0)[2]
+                R[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[0]
+                Z[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[2]
 
             else:
-                R[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0)[0]
-                Z[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0)[2]
+                R[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
+                Z[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
 
         # get control points
         cR = kron_lusolve_2d(ILUs, R)
@@ -345,7 +366,7 @@ class TransformedPformComponent:
     fun : Callable | list
         Callable function (components). Has to be length three for vector-valued funnctions,.
 
-    given_in_basis : GivenInBasis
+    given_in_basis : LiteralOptions.GivenInBasis
         In which basis fun is represented: either a p-form,
         then '0' or '3' for scalar
         and 'v', '1' or '2' for vector-valued,
@@ -366,7 +387,7 @@ class TransformedPformComponent:
     def __init__(
         self,
         fun: Callable | list,
-        given_in_basis: GivenInBasis,
+        given_in_basis: LiteralOptions.GivenInBasis,
         out_form: str,
         comp: int = 0,
         domain: Domain = None,

@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_kinetic_background_magics(show_plot=False):
     """Test the magic commands __sum__, __mul__ and __sub__
     of the Maxwellian base class."""
@@ -6,10 +9,10 @@ def test_kinetic_background_magics(show_plot=False):
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
-    Nel = [32, 1, 1]
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
+    num_elements = [32, 1, 1]
+    e1 = xp.linspace(0.0, 1.0, num_elements[0])
+    e2 = xp.linspace(0.0, 1.0, num_elements[1])
+    e3 = xp.linspace(0.0, 1.0, num_elements[2])
     v1 = xp.linspace(-7.0, 7.0, 128)
 
     m1_params = {"n": 0.5, "u1": 3.0}
@@ -84,5 +87,80 @@ def test_kinetic_background_magics(show_plot=False):
         plt.show()
 
 
+@pytest.mark.mpi_skip
+def test_plotting_function(show=False):
+
+    import cunumpy as xp
+
+    from struphy import domains, equils, maxwellians
+
+    equil = equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0)
+    equil.domain = domains.Cuboid()
+
+    # definition of test functions
+    l, m, n = 3, 4, 5
+
+    def n_init(*etas):
+        if len(etas) == 1:
+            e1, e2, e3 = etas[0][:, 0], etas[0][:, 1], etas[0][:, 1]
+        else:
+            assert len(etas) == 3
+            e1, e2, e3 = etas[0], etas[1], etas[2]
+        return 1 + 0.5 * xp.cos(2 * xp.pi * e1 * l) * xp.cos(2 * xp.pi * e2 * m) * xp.cos(2 * xp.pi * e3 * n)
+
+    def vth(*etas):
+        if len(etas) == 1:
+            e1, e2, e3 = etas[0][:, 0], etas[0][:, 1], etas[0][:, 1]
+        else:
+            assert len(etas) == 3
+            e1, e2, e3 = etas[0], etas[1], etas[2]
+        return 1 + 0.2 * xp.cos(2 * xp.pi * e1 * l) * xp.cos(2 * xp.pi * e2 * m) * xp.cos(2 * xp.pi * e3 * n)
+
+    # Testing with GyroMaxwellian2Dvperp:
+    if show:
+        background = maxwellians.GyroMaxwellian2Dvperp(
+            n=(n_init, None), vth_para=(vth, None), vth_perp=(vth, None), equil=equil
+        )
+        background.plot("e1")
+        background.plot("e2")
+        background.plot("e3")
+        background.plot("v1")
+        background.plot("v2")
+        background.plot("e1", "e2")
+        background.plot("e1", "e2", domain=domains.HollowCylinder(), proj_axis=("x", "y"))
+        background.plot("e1", "e2", domain=domains.HollowTorus(), proj_axis=("y", "z"))
+        background.plot("e1", "e2", domain=domains.HollowTorus(), proj_axis=("x", "z"), plot_3D=True)
+        background.plot("e2", "e3", domain=domains.HollowTorus(), proj_axis=("y", "z"), plot_3D=True)
+        background.plot("v1", "v2")
+        # background.plot("v1", "v2", use_mu=True)
+
+        # Testing with Maxwellian3D:
+        background = maxwellians.Maxwellian3D(n=(n_init, None), vth1=(vth, None), vth2=(vth, None), vth3=(vth, None))
+        background.plot("v1", "v2")
+        background.plot("v1", "v3")
+        background.plot("e1", "v3")
+
+
+@pytest.mark.mpi_skip
+def test_get_plot_pts_invalid_dim():
+    """Invalid or non-existing dimensions must raise."""
+
+    from struphy import maxwellians
+
+    background = maxwellians.GyroMaxwellian2D()
+    assert background.vdim == 2
+
+    axe, pts = background._get_plot_pts("v2", v_lim=3.0, resol=8)
+    assert axe == 4
+    assert pts.size == 8
+
+    with pytest.raises(AssertionError):
+        background._get_plot_pts("v3", v_lim=3.0, resol=8)
+
+    with pytest.raises(AssertionError):
+        background._get_plot_pts("x", v_lim=3.0, resol=8)
+
+
 if __name__ == "__main__":
-    test_kinetic_background_magics(show_plot=True)
+    # test_kinetic_background_magics(show_plot=True)
+    test_plotting_function(show=True)

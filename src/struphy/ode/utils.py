@@ -3,22 +3,22 @@ from typing import Literal, get_args
 
 import cunumpy as xp
 
-OptsButcher = Literal[
-    "rk4",
-    "forward_euler",
-    "heun2",
-    "rk2",
-    "heun3",
-    "3/8 rule",
-]
+from struphy.io.options import LiteralOptions
 
 
 @dataclass
 class ButcherTableau:
     r"""
-    Butcher tableau for explicit s-stage Runge-Kutta methods.
+    Butcher tableau for explicit s-stage Runge–Kutta methods.
 
-    The Butcher tableau has the form
+    Encodes the coefficients of an explicit Run–Kutta method in the
+    standard Butcher tableau form::
+
+        c | a
+        --+-----
+          | b
+
+    The tableau image is also included in the project documentation:
 
     .. image:: ../../pics/butcher_tableau.png
         :align: center
@@ -26,11 +26,43 @@ class ButcherTableau:
 
     Parameters
     ----------
-    algo : OptsButcher
-        Name of the RK method.
+    algo : LiteralOptions.OptsButcher, optional
+        Identifier of the RK method to use. Supported identifiers are
+        defined by :class:`struphy.io.options.LiteralOptions.OptsButcher`.
+        Defaults to ``"rk4"``.
+
+    Attributes
+    ----------
+    a : cunumpy.ndarray, shape (s, s)
+        Strictly lower-triangular matrix of stage coefficients (``a_ij``).
+    b : cunumpy.ndarray, shape (s,)
+        Weights used to combine stage derivatives into the final update.
+    c : cunumpy.ndarray, shape (s,)
+        Stage nodes (time fractions) corresponding to each row of ``a``.
+    n_stages : int
+        Number of stages ``s`` of the Run--Kutta method.
+    conv_rate : int
+        Formal order of convergence of the method.
+
+    Notes
+    -----
+    - Arrays are stored using the project's array module ``cunumpy`` (imported
+      as ``xp``) so they behave like numpy arrays but can be swapped for other
+      array backends if configured.
+    - Only explicit (strictly lower-triangular ``a``) Run--Kutta methods
+      are supported. Passing an unsupported ``algo`` raises
+      :class:`NotImplementedError`.
+
+    Examples
+    --------
+    >>> bt = ButcherTableau("rk4")
+    >>> bt.n_stages
+    4
+    >>> bt.b  # doctest: +SKIP
+    array([1/6, 1/3, 1/3, 1/6])
     """
 
-    algo: OptsButcher = "rk4"
+    algo: LiteralOptions.OptsButcher = "rk4"
 
     def __post_init__(self):
         # choose algorithm
@@ -77,16 +109,39 @@ class ButcherTableau:
         self._a = xp.tri(self.n_stages, k=-1)
         for l, st in enumerate(a):
             assert len(st) == l + 1
-            self._a[l + 1, : l + 1] = st
+
+            self._a[l + 1, : l + 1] = xp.array(st)
+
+        self._a_stage = xp.zeros(self.n_stages)
+        self._a_stage[:-1] = xp.diag(self._a, k=-1)
+
+        # the 1d a_stage format can only represent tableaux with a purely sub-diagonal a
+        self._has_a_stage = bool(xp.all(xp.tril(self._a, k=-2) == 0.0))
 
         self._conv_rate = conv_rate
 
-    __available_methods__ = get_args(OptsButcher)
+    __available_methods__ = get_args(LiteralOptions.OptsButcher)
 
     @property
     def a(self):
         """Characteristic coefficients of the method (see tableau in class docstring)."""
         return self._a
+
+    @property
+    def a_stage(self):
+        """Sub-diagonal of ``a`` (old 1d format), as used by the ``*_stage`` particle pusher kernels.
+
+        These kernels only keep the current stage vector ``k_i`` and a running sum of ``b_i * k_i``,
+        so they can only represent tableaux where ``a`` is non-zero on the first sub-diagonal only.
+        For other tableaux (e.g. ``"3/8 rule"``) a :class:`NotImplementedError` is raised instead of
+        silently dropping the coefficients below the sub-diagonal."""
+        if not self._has_a_stage:
+            raise NotImplementedError(
+                f"Butcher tableau '{self.algo}' has non-zero entries below the sub-diagonal of a, "
+                "which cannot be represented in the 1d a_stage format used by the particle pusher kernels. "
+                f"Choose one of {[m for m in self.__available_methods__ if ButcherTableau(m)._has_a_stage]}.",
+            )
+        return self._a_stage
 
     @property
     def b(self):

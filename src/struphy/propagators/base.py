@@ -1,20 +1,26 @@
 "Propagator base class."
 
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector
+from scope_profiler import ProfileManager
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
-from struphy.io.options import check_option
+from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 class Propagator(metaclass=ABCMeta):
@@ -22,9 +28,7 @@ class Propagator(metaclass=ABCMeta):
 
     Note
     ----
-    All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
-    in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
-    Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
+    All Struphy propagators are subclasses of ``Propagator`` and must be added under ``struphy/propagators/``.
     """
 
     @abstractmethod
@@ -49,8 +53,13 @@ class Propagator(metaclass=ABCMeta):
         self.variables = self.Variables()
 
     @abstractmethod
-    @dataclass
-    class Options:
+    @dataclass(repr=False)
+    class Options(OptionsBase):
+        """Template for configuration options of a propagator.
+
+        Subclasses should override this to define specific propagator options.
+        """
+
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
@@ -71,11 +80,8 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     def options(self, new):
         assert isinstance(new, self.Options)
-        if True:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
         self._options = new
+        logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @abstractmethod
     def allocate(self):
@@ -92,6 +98,20 @@ class Propagator(metaclass=ABCMeta):
             Time step size.
         """
 
+    @property
+    def _solve_region(self) -> str:
+        """Name of the profiling region for the linear solve(s) of this propagator."""
+        if not hasattr(self, "_solve_region_name"):
+            self._solve_region_name = "solve: " + self.__class__.__name__
+        return self._solve_region_name
+
+    def show_options(self):
+        """Print the options of the propagator."""
+        logger.info(f"\nOptions for propagator '{self.__class__.__name__}':")
+        for k, v in self.options.__dict__.items():
+            logger.info(f"    {k + ':':<20}{v}")
+
+    @ProfileManager.profile("update_feec_variables")
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
         update feec coefficients and update ghost regions.
@@ -122,21 +142,21 @@ class Propagator(metaclass=ABCMeta):
         return diffs
 
     @property
-    def init_kernels(self):
-        r"""List of initialization kernels for evaluation at
+    def init_kernels(self) -> tuple[KernelSetup, ...]:
+        r"""Tuple of initialization kernel setups for evaluation at
         :math:`\boldsymbol \eta^n`
         in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
         """
-        return self._init_kernels
+        return getattr(self, "_init_kernels", ())
 
     @property
-    def eval_kernels(self):
-        r"""List of evaluation kernels for evaluation at
+    def eval_kernels(self) -> tuple[KernelSetup, ...]:
+        r"""Tuple of evaluation kernel setups for evaluation at
         :math:`\alpha_i \eta_{i}^{n+1,k} + (1 - \alpha_i) \eta_{i}^n`
         for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]`,
         in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
         """
-        return self._eval_kernels
+        return getattr(self, "_eval_kernels", ())
 
     @property
     def rank(self):
@@ -144,7 +164,7 @@ class Propagator(metaclass=ABCMeta):
         return self._rank
 
     @property
-    def derham(self):
+    def derham(self) -> Derham:
         """Derham spaces and projectors."""
         assert hasattr(
             self,
@@ -154,40 +174,44 @@ class Propagator(metaclass=ABCMeta):
         return self._derham
 
     @derham.setter
-    def derham(self, derham):
+    def derham(self, derham: Derham):
+        assert isinstance(derham, Derham)
         self._derham = derham
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """Domain object that characterizes the mapping from the logical to the physical domain."""
         assert hasattr(self, "_domain"), "Domain for analytical MHD equilibrium not set. Please do obj.domain = ..."
         assert isinstance(self._domain, Domain)
         return self._domain
 
     @domain.setter
-    def domain(self, domain):
+    def domain(self, domain: Domain):
+        assert isinstance(domain, Domain)
         self._domain = domain
 
     @property
-    def mass_ops(self):
+    def mass_ops(self) -> WeightedMassOperators:
         """Weighted mass operators."""
         assert hasattr(self, "_mass_ops"), "Weighted mass operators not set. Please do obj.mass_ops = ..."
         assert isinstance(self._mass_ops, WeightedMassOperators)
         return self._mass_ops
 
     @mass_ops.setter
-    def mass_ops(self, mass_ops):
+    def mass_ops(self, mass_ops: WeightedMassOperators):
+        assert isinstance(mass_ops, WeightedMassOperators)
         self._mass_ops = mass_ops
 
     @property
-    def basis_ops(self):
+    def basis_ops(self) -> BasisProjectionOperators:
         """Basis projection operators."""
         assert hasattr(self, "_basis_ops"), "Basis projection operators not set. Please do obj.basis_ops = ..."
         assert isinstance(self._basis_ops, BasisProjectionOperators)
         return self._basis_ops
 
     @basis_ops.setter
-    def basis_ops(self, basis_ops):
+    def basis_ops(self, basis_ops: BasisProjectionOperators):
+        assert isinstance(basis_ops, BasisProjectionOperators)
         self._basis_ops = basis_ops
 
     @property
@@ -197,10 +221,11 @@ class Propagator(metaclass=ABCMeta):
             self,
             "_projected_equil",
         ), "Projected MHD equilibrium not set."
+        assert isinstance(self._projected_equil, ProjectedFluidEquilibriumWithB)
         return self._projected_equil
 
     @projected_equil.setter
-    def projected_equil(self, new):
+    def projected_equil(self, new: ProjectedFluidEquilibriumWithB):
         assert isinstance(new, ProjectedFluidEquilibriumWithB)
         self._projected_equil = new
 
@@ -220,99 +245,24 @@ class Propagator(metaclass=ABCMeta):
         assert time_state.size == 1
         self._time_state = time_state
 
-    def add_init_kernel(
-        self,
-        kernel,
-        column_nr: int,
-        comps: tuple | int,
-        args_init: tuple,
-    ):
-        """Add an initialization kernel to self.init_kernels.
+    def add_init_kernel(self, setup: KernelSetup):
+        """Register an evaluation at the start of each push.
 
-        Parameters
-        ----------
-        kernel : pyccel func
-            The kernel function.
-
-        column_nr : int
-            The column index at which the result is stored in marker array.
-
-        comps : tuple | int
-            None or (0) for scalar-valued function evaluation.
-            In vector valued case, allows to specify which components to save
-            at column_nr:column_nr + len(comps).
-
-        args_init : tuple
-            The arguments for the kernel function.
+        The setup names the callable, its arguments, and the exact output
+        marker columns. Its evaluation weights must all be zero.
         """
-        if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
-        else:
-            comps = xp.array(comps, dtype=int)
+        if not isinstance(setup, KernelSetup):
+            raise TypeError("init kernels must be KernelSetup instances")
+        if any(setup.alpha):
+            raise ValueError("init kernels must evaluate the initial state (alpha=0)")
+        self._init_kernels = self.init_kernels + (setup,)
 
-        if not hasattr(self, "_init_kernels"):
-            self._init_kernels = []
+    def add_eval_kernel(self, setup: KernelSetup):
+        """Register an evaluation before each pusher stage/iteration.
 
-        self._init_kernels += [
-            (
-                kernel,
-                column_nr,
-                comps,
-                args_init,
-            ),
-        ]
-
-    def add_eval_kernel(
-        self,
-        kernel,
-        column_nr: int,
-        comps: tuple | int,
-        args_eval: tuple,
-        alpha: float | int | tuple | list = 1.0,
-    ):
-        """Add an evaluation kernel to self.eval_kernels.
-
-        Parameters
-        ----------
-        kernel : pyccel func
-            The kernel function.
-
-        column_nr : int
-            The column index at which the result is stored in marker array.
-
-        comps : tuple | int
-            None for scalar-valued function evaluation. In vecotr valued case,
-            allows to specify which components to save
-            at column_nr:column_nr + len(comps).
-
-        args_init : tuple
-            The arguments for the kernel function.
-
-        alpha : float | int | tuple | list
-            Evaluations in kernel are at the weighted average
-            alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i],
-            for i=0,1,2. If float or int or then alpha = [alpha]*dim,
-            where dim is the dimension of the phase space (<=6).
-            alpha[i] must be between 0 and 1.
+        The setup's alpha weights determine both the evaluation state and
+        the preceding MPI sort.
         """
-        if isinstance(alpha, int) or isinstance(alpha, float):
-            alpha = [alpha] * 6
-        alpha = xp.array(alpha)
-
-        if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
-        else:
-            comps = xp.array(comps, dtype=int)
-
-        if not hasattr(self, "_eval_kernels"):
-            self._eval_kernels = []
-
-        self._eval_kernels += [
-            (
-                kernel,
-                alpha,
-                column_nr,
-                comps,
-                args_eval,
-            ),
-        ]
+        if not isinstance(setup, KernelSetup):
+            raise TypeError("eval kernels must be KernelSetup instances")
+        self._eval_kernels = self.eval_kernels + (setup,)

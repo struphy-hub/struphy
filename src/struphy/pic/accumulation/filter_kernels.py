@@ -9,7 +9,7 @@ def apply_three_point_filter_3d(
     vec: "float[:,:,:]",
     dir: "int",
     form: "int",
-    Nel: "int[:]",
+    num_elements: "int[:]",
     spl_kind: "bool[:]",
     pn: "int[:]",
     starts: "int[:]",
@@ -75,12 +75,12 @@ def apply_three_point_filter_3d(
 
     for i in range(3):
         if spl_kind[i]:
-            top[i] = Nel[i] - 1
+            top[i] = num_elements[i] - 1
         else:
             if isDspline[i] == 1:
-                top[i] = Nel[i] + pn[i] - 2
+                top[i] = num_elements[i] + pn[i] - 2
             else:
-                top[i] = Nel[i] + pn[i] - 1
+                top[i] = num_elements[i] + pn[i] - 1
 
     for i in range(3):
         if starts[i] == 0:

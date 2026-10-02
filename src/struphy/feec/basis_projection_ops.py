@@ -1,21 +1,28 @@
+import logging
+
 import cunumpy as xp
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.ddm.mpi import mpi as MPI
-from psydac.fem.basic import FemSpace
-from psydac.fem.tensor import TensorFemSpace
-from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
+import numpy as np
+from cunumpy import PyccelKernel
+from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.ddm.mpi import mpi as MPI
+from feectools.fem.basic import FemSpace
+from feectools.fem.tensor import TensorFemSpace
+from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
-from struphy.feec.utilities import RotationMatrix
+from struphy.feec.psydac_derham import Derham, get_pts_and_wts, get_span_and_basis
+from struphy.feec.utilities import LocalRotationMatrix
+from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.docstring_converter import auto_convert_docstring
+
+logger = logging.getLogger("struphy")
 
 
 class BasisProjectionOperators:
@@ -30,9 +37,6 @@ class BasisProjectionOperators:
     domain : :ref:`avail_mappings`
         Mapping from logical unit cube to physical domain and corresponding metric coefficients.
 
-    verbose : bool
-        Show info on screen.
-
     **weights : dict
         Objects to access callables that can serve as weight functions.
 
@@ -43,27 +47,25 @@ class BasisProjectionOperators:
     - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, verbose=True, **weights):
+    def __init__(self, derham, domain, **weights):
         self._derham = derham
         self._domain = domain
         self._weights = weights
-        self._verbose = verbose
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
-        if xp.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                print(
-                    f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).',
-                )
+        if any([degree == 1 and num_elements > 1 for degree, num_elements in zip(derham.degree, derham.num_elements)]):
+            logger.warning(
+                f'WARNING: Class "BasisProjectionOperators" called with degree={derham.degree} (interpolation of piece-wise constants should be avoided).',
+            )
 
     @property
-    def derham(self):
+    def derham(self) -> Derham:
         """Discrete de Rham sequence on the logical unit cube."""
         return self._derham
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """Mapping from the logical unit cube to the physical domain with corresponding metric coefficients."""
         return self._domain
 
@@ -73,14 +75,9 @@ class BasisProjectionOperators:
         return self._weights
 
     @property
-    def rank(self):
+    def rank(self) -> int:
         """MPI rank, is 0 if no communicator."""
         return self._rank
-
-    @property
-    def verbose(self):
-        """Bool: show info on screen."""
-        return self._verbose
 
     # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
     def DF(self, e1, e2, e3):
@@ -141,12 +138,14 @@ class BasisProjectionOperators:
         if not hasattr(self, "_K3"):
             fun = [
                 [
-                    lambda e1, e2, e3: self.weights["eq_mhd"].p3(
-                        e1,
-                        e2,
-                        e3,
-                    )
-                    / self.sqrt_g(e1, e2, e3),
+                    lambda e1, e2, e3: (
+                        self.weights["eq_mhd"].p3(
+                            e1,
+                            e2,
+                            e3,
+                        )
+                        / self.sqrt_g(e1, e2, e3)
+                    ),
                 ],
             ]
             self._K3 = self.create_basis_op(
@@ -199,8 +198,9 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].n3(e1, e2, e3)
-                        * self.Ginv(e1, e2, e3)[:, :, :, m, n],
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].n3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]
+                        ),
                     ]
 
             self._Q1 = self.create_basis_op(
@@ -227,14 +227,16 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].n3(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        / self.sqrt_g(e1, e2, e3)
-                        if m == n
-                        else 0 * e1,
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].n3(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            / self.sqrt_g(e1, e2, e3)
+                            if m == n
+                            else 0 * e1
+                        ),
                     ]
 
             self._Q2 = self.create_basis_op(
@@ -257,12 +259,14 @@ class BasisProjectionOperators:
         if not hasattr(self, "_Q3"):
             fun = [
                 [
-                    lambda e1, e2, e3: self.weights["eq_mhd"].n3(
-                        e1,
-                        e2,
-                        e3,
-                    )
-                    / self.sqrt_g(e1, e2, e3),
+                    lambda e1, e2, e3: (
+                        self.weights["eq_mhd"].n3(
+                            e1,
+                            e2,
+                            e3,
+                        )
+                        / self.sqrt_g(e1, e2, e3)
+                    ),
                 ],
             ]
             self._Q3 = self.create_basis_op(
@@ -291,7 +295,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium magnetic field (2-form).
         """
         if not hasattr(self, "_Tv"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -332,7 +336,7 @@ class BasisProjectionOperators:
 
         """
         if not hasattr(self, "_T1"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -372,7 +376,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium magnetic field (2-form).
         """
         if not hasattr(self, "_T2"):
-            rot_B = RotationMatrix(
+            rot_B = LocalRotationMatrix(
                 self.weights["eq_mhd"].b2_1,
                 self.weights["eq_mhd"].b2_2,
                 self.weights["eq_mhd"].b2_3,
@@ -435,8 +439,9 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p3(e1, e2, e3)
-                        * self.Ginv(e1, e2, e3)[:, :, :, m, n],
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].p3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]
+                        ),
                     ]
 
             self._S1 = self.create_basis_op(
@@ -463,14 +468,16 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p3(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        / self.sqrt_g(e1, e2, e3)
-                        if m == n
-                        else 0 * e1,
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].p3(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            / self.sqrt_g(e1, e2, e3)
+                            if m == n
+                            else 0 * e1
+                        ),
                     ]
 
             self._S2 = self.create_basis_op(
@@ -548,13 +555,15 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p0(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        * self.G(e1, e2, e3)[:, :, :, m, n]
-                        / self.sqrt_g(e1, e2, e3),
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].p0(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            * self.G(e1, e2, e3)[:, :, :, m, n]
+                            / self.sqrt_g(e1, e2, e3)
+                        ),
                     ]
 
             self._S21p = self.create_basis_op(
@@ -709,14 +718,16 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].n3(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        / self.sqrt_g(e1, e2, e3)
-                        if m == n
-                        else 0 * e1,
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].n3(
+                                e1,
+                                e2,
+                                e3,
+                            )
+                            / self.sqrt_g(e1, e2, e3)
+                            if m == n
+                            else 0 * e1
+                        ),
                     ]
 
             self._W1 = self.create_basis_op(
@@ -746,7 +757,7 @@ class BasisProjectionOperators:
         """
 
         if not hasattr(self, "_R1"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights["eq_mhd"].j2_1,
                 self.weights["eq_mhd"].j2_2,
                 self.weights["eq_mhd"].j2_3,
@@ -786,7 +797,7 @@ class BasisProjectionOperators:
         where :math:`\epsilon_{\mu \alpha \beta}` stands for the Levi-Civita tensor and :math:`J^2_{\textnormal{eq}, \alpha}` is the :math:`\alpha`-component of the MHD equilibrium current density (2-form).
         """
         if not hasattr(self, "_R2"):
-            rot_J = RotationMatrix(
+            rot_J = LocalRotationMatrix(
                 self.weights["eq_mhd"].j2_1,
                 self.weights["eq_mhd"].j2_2,
                 self.weights["eq_mhd"].j2_3,
@@ -891,40 +902,39 @@ class BasisProjectionOperators:
             else:
                 assert len(row) == 3
 
-        V_form = self.derham.space_to_form[V_id]
-        W_form = self.derham.space_to_form[W_id]
-
         if self.derham.with_local_projectors:
             out = BasisProjectionOperatorLocal(
-                self.derham.P[W_form],
-                self.derham.Vh_fem[V_form],
+                self.derham.projectors[W_id],
+                self.derham.fem_spaces[V_id],
                 fun,
-                self.derham.extraction_ops[V_form],
-                self.derham.boundary_ops[V_form],
-                self.derham.extraction_ops[W_form],
-                self.derham.boundary_ops[W_form],
+                self.derham.extraction_ops[V_id],
+                self.derham.boundary_ops[V_id],
+                self.derham.extraction_ops[W_id],
+                self.derham.boundary_ops[W_id],
                 transposed=False,
             )
         else:
             out = BasisProjectionOperator(
-                self.derham.P[W_form],
-                self.derham.Vh_fem[V_form],
+                self.derham.projectors[W_id],
+                self.derham.fem_spaces[V_id],
                 fun,
-                V_extraction_op=self.derham.extraction_ops[V_form],
-                V_boundary_op=self.derham.boundary_ops[V_form],
+                V_extraction_op=self.derham.extraction_ops[V_id],
+                V_boundary_op=self.derham.boundary_ops[V_id],
                 transposed=False,
                 polar_shift=self.domain.pole,
             )
 
         if assemble:
-            if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-                print(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
-            out.assemble(verbose=self.verbose)
-
-        if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
-            print("Done.")
+            logger.debug(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+            out.assemble()
+            logger.debug("Done.")
 
         return out
+
+
+def _zero_weight(e1, e2, e3):
+    """Zero weight function, used in place of None weights in BasisProjectionOperatorLocal."""
+    return xp.zeros_like(e1)
 
 
 class BasisProjectionOperatorLocal(LinOpWithTransp):
@@ -950,11 +960,12 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
     P : struphy.feec.projectors.CommutingProjectorLocal
         Local commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
 
-    V : psydac.fem.basic.FemSpace
+    V : feectools.fem.basic.FemSpace
         Finite element spline space (domain, input space).
 
     weights : list
         Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+        A None entry is treated as a zero weight (zero block).
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
         Extraction operator to polar sub-space of V.
@@ -1051,11 +1062,11 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         if isinstance(V, TensorFemSpace):
             self._Vspaces = [V.coeff_space]
             self._V1ds = [V.spaces]
-            self._VNbasis = xp.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
+            self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
         else:
             self._Vspaces = V.coeff_space
             self._V1ds = [comp.spaces for comp in V.spaces]
-            self._VNbasis = xp.array(
+            self._VNbasis = np.array(
                 [
                     [self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis],
                     [
@@ -1083,7 +1094,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         self._ends = self._P._ends
         self._pds = self._P._pds
         # Degree of the B-splines
-        self._p = self._P._p
+        self._degree = self._P._degree
 
         # ============= create and assemble the Basis Projection Operator matrix =======
         if self._is_scalar:
@@ -1158,15 +1169,15 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Vector the operator shall be applied to.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
 
         Returns
         -------
-         out : psydac.linalg.basic.Vector
+         out : feectools.linalg.basic.Vector
             The output (codomain) vector.
         """
 
@@ -1208,14 +1219,15 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         self._weights = weights
 
-        # assemble tensor-product dof matrix
+        # assemble tensor-product dof matrix (in place, self._mat is referenced by self._operator)
         self._mat = self.assemble()
 
         # only need to update the transposed in case where it's needed
+        # (in place, so that self._operator, which references self._mat_T, sees the new weights)
         if self._transposed:
-            self._mat_T = self._mat.T
+            self._mat_T = self._mat.transpose(out=self._mat_T)
 
-    def assemble(self, verbose=False):
+    def assemble(self):
         """
         Assembles the BasisProjectionOperatorLocal. And
         store it in self._mat.
@@ -1224,7 +1236,9 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         # get the needed data :
         V = self._V
         P = self._P
-        weights = self._weights
+
+        # None entries denote zero blocks (as in BasisProjectionOperator); the local projector needs callables
+        weights = [[_zero_weight if w is None else w for w in row] for row in self._weights]
 
         # We determine where we have B-splines and where D-splines.
         if self._V_name == "H1":
@@ -1282,7 +1296,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                             self._ends,
                             self._pds,
                             self._periodic,
-                            self._p,
+                            self._degree,
                             xp.array([col0, col1, col2]),
                             self._VNbasis,
                             self._mat._data,
@@ -1357,7 +1371,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                 self._ends,
                                 self._pds,
                                 self._periodic,
-                                self._p,
+                                self._degree,
                                 xp.array(
                                     [
                                         col0,
@@ -1437,7 +1451,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                 self._ends[h],
                                 self._pds[h],
                                 self._periodic,
-                                self._p,
+                                self._degree,
                                 xp.array(
                                     [
                                         col0,
@@ -1538,7 +1552,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                     self._ends[h],
                                     self._pds[h],
                                     self._periodic,
-                                    self._p,
+                                    self._degree,
                                     xp.array(
                                         [
                                             col0,
@@ -1576,6 +1590,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         return self._mat
 
 
+@auto_convert_docstring
 class BasisProjectionOperator(LinOpWithTransp):
     r"""
     Class for assembling basis projection operators in 3d.
@@ -1584,7 +1599,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
     .. math::
 
-        \mathcal P_{(\mu, ijk),(\nu, mno)} = \hat \Pi^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^\alpha_{\nu, mno} \right)\,,
+        \mathcal{P}_{(\mu, ijk),(\nu, mno)} = \hat{\Pi}^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^{\alpha}_{\nu, mno} \right)\,,
 
     where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and
     :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
@@ -1609,7 +1624,7 @@ class BasisProjectionOperator(LinOpWithTransp):
     P : struphy.feec.projectors.Projector
         Global commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
 
-    V : psydac.fem.basic.FemSpace
+    V : feectools.fem.basic.FemSpace
         Finite element spline space (domain, input space).
 
     weights : list
@@ -1798,16 +1813,16 @@ class BasisProjectionOperator(LinOpWithTransp):
         """The degrees of freedom operator as composite linear operator containing polar extraction and boundary operators."""
         return self._dof_operator
 
-    def dot(self, v, out=None, tol=1e-14, maxiter=1000, verbose=False):
+    def dot(self, v, out=None, tol=1e-14, maxiter=1000):
         """
         Applies the basis projection operator to the FE coefficients v.
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Vector the operator shall be applied to.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
 
         tol : float, optional
@@ -1816,12 +1831,9 @@ class BasisProjectionOperator(LinOpWithTransp):
         maxiter : int, optional
             Maximum number of iterations in iterative solve (only used in polar case).
 
-        verbose : bool, optional
-            Whether to print some information in each iteration in iterative solve (only used in polar case).
-
         Returns
         -------
-         out : psydac.linalg.basic.Vector
+         out : feectools.linalg.basic.Vector
             The output (codomain) vector.
         """
 
@@ -1830,25 +1842,6 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         if out is None:
             out = self.codomain.zeros()
-
-            if self.transposed:
-                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                out = self.dof_operator.dot(
-                    self._P.solve(
-                        v,
-                        True,
-                        apply_bc=True,
-                    ),
-                )
-            else:
-                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                out = self._P.solve(
-                    self.dof_operator.dot(
-                        v,
-                    ),
-                    False,
-                    apply_bc=True,
-                )
 
         assert isinstance(out, Vector)
         assert out.space == self.codomain
@@ -1900,9 +1893,14 @@ class BasisProjectionOperator(LinOpWithTransp):
         # only need to update the transposed in case where it's needed
         # (no need to recreate a new ComposedOperator)
         if self._transposed:
+            # transpose(out=...) only visits existing blocks: remove transposed blocks whose weight became zero
+            if not self._is_scalar:
+                for j, i in self._dof_mat_T.nonzero_block_indices:
+                    if self._dof_mat[i, j] is None:
+                        self._dof_mat_T[j, i] = None
             self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
-    def assemble(self, weights=None, verbose=False):
+    def assemble(self, weights=None):
         """
         Assembles the tensor-product DOF matrix sigma_i(weights[i,j]*Lambda_j), where i=(i1, i2, ...)
         and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d). And
@@ -1945,13 +1943,13 @@ class BasisProjectionOperator(LinOpWithTransp):
 
             # input vector space (domain), column of block
             for j, (Vspace, V1d, loc_weight) in enumerate(zip(_Vspaces, _V1ds, weight_line)):
-                _starts_in = xp.array(Vspace.starts)
-                _ends_in = xp.array(Vspace.ends)
-                _pads_in = xp.array(Vspace.pads)
+                _starts_in = np.array(Vspace.starts)
+                _ends_in = np.array(Vspace.ends)
+                _pads_in = np.array(Vspace.pads)
 
-                _starts_out = xp.array(Wspace.starts)
-                _ends_out = xp.array(Wspace.ends)
-                _pads_out = xp.array(Wspace.pads)
+                _starts_out = np.array(Wspace.starts)
+                _ends_out = np.array(Wspace.ends)
+                _pads_out = np.array(Wspace.pads)
 
                 # use cached information if asked
                 if self._use_cache:
@@ -2039,15 +2037,14 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = Pyccelkernel(
+                    kernel = PyccelKernel(
                         getattr(
                             basis_projection_kernels,
                             "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
                         ),
                     )
 
-                    if rank == 0 and verbose:
-                        print(f"Assemble block {i, j}")
+                    logger.debug(f"Assemble block {i, j}")
                     kernel(
                         dofs_mat._data,
                         _starts_in,
@@ -2111,7 +2108,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         Knot span indices in each direction in format (n, nq).
 
     bases : 3-tuple of 3d float arrays
-        Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+        Values of degree + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
 
     subs : 3-tuple of 1f int arrays
         Sub-interval indices (either 0 or 1). This index is 1 if an element has to be split for exact integration (even spline degree).
@@ -2143,25 +2140,25 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         spans += [s_i]
         bases += [b_i]
 
-    # print("#################################################")
-    # print("#################################################")
-    # print("W1d[0]:")
-    # print(W1d[0])
-    # print("W1d[1]:")
-    # print(W1d[1])
-    # print("W1d[2]:")
-    # print(W1d[2])
-    # print("pts :")
-    # print(pts)
-    # print("#################################################")
-    # print("#################################################")
+    # logger.info("#################################################")
+    # logger.info("#################################################")
+    # logger.info("W1d[0]:")
+    # logger.info(W1d[0])
+    # logger.info("W1d[1]:")
+    # logger.info(W1d[1])
+    # logger.info("W1d[2]:")
+    # logger.info(W1d[2])
+    # logger.info("pts :")
+    # logger.info(pts)
+    # logger.info("#################################################")
+    # logger.info("#################################################")
 
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 
 
 class CoordinateProjector(LinearOperator):
     r"""
-    Class of projectors on one component of a :class:`~psydac.linalg.block.BlockVectorSpace`.
+    Class of projectors on one component of a :class:`~feectools.linalg.block.BlockVectorSpace`.
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
@@ -2240,6 +2237,7 @@ class CoordinateProjector(LinearOperator):
             else:
                 out = self.codomain.zeros()
             out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             if out is not None:
                 assert out.space == self._codomain
@@ -2258,14 +2256,15 @@ class CoordinateProjector(LinearOperator):
         assert v.space == self._domain
         assert out.space == self._codomain
         if isinstance(self.domain, PolarDerhamSpace):
-            out += v.tp.blocks[self.dir]
+            out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             out += v.blocks[self.dir]
 
 
 class CoordinateInclusion(LinearOperator):
     r"""
-    Class of inclusion operator from one component of a :class:`~psydac.linalg.block.BlockVectorSpace`.
+    Class of inclusion operator from one component of a :class:`~feectools.linalg.block.BlockVectorSpace`.
     Represent the canonical inclusion on the :math:`\mu`-th component :
 
     .. math::
@@ -2342,6 +2341,7 @@ class CoordinateInclusion(LinearOperator):
             else:
                 out = self._codomain.zeros()
             out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
 
         else:
             if out is not None:
@@ -2359,7 +2359,11 @@ class CoordinateInclusion(LinearOperator):
     def idot(self, v: StencilVector | PolarVector, out: BlockVector | PolarVector):
         assert v.space == self._domain
         assert out.space == self._codomain
-        out._blocks[self.dir] += v
+        if isinstance(self.domain, PolarDerhamSpace):
+            out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
+        else:
+            out._blocks[self.dir] += v
 
 
 def find_relative_col(col, row, Nbasis, periodic):

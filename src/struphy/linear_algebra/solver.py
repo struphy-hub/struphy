@@ -1,6 +1,9 @@
+import logging
 from dataclasses import dataclass
 
-from struphy.io.options import OptsNonlinearSolver
+from struphy.io.options import LiteralOptions
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -10,8 +13,12 @@ class SolverParameters:
     tol: float = 1e-8
     maxiter: int = 3000
     info: bool = False
-    verbose: bool = False
     recycle: bool = True
+
+    def __post_init__(self):
+        self.verbose = False
+        if logger.level <= logging.DEBUG:
+            self.verbose = True
 
 
 @dataclass
@@ -21,8 +28,12 @@ class DiscreteGradientSolverParameters:
     relaxation_factor: float = 0.5
     tol: float = 1e-12
     maxiter: int = 20
-    verbose: bool = False
     info: bool = False
+
+    def __post_init__(self):
+        self.verbose = False
+        if logger.level <= logging.DEBUG:
+            self.verbose = True
 
 
 @dataclass
@@ -32,6 +43,10 @@ class NonlinearSolverParameters:
     tol: float = 1e-8
     maxiter: int = 100
     info: bool = False
-    verbose: bool = False
-    type: OptsNonlinearSolver = "Picard"
+    type: LiteralOptions.OptsNonlinearSolver = "Picard"
     linearize: bool = False
+
+    def __post_init__(self):
+        self.verbose = False
+        if logger.level <= logging.DEBUG:
+            self.verbose = True

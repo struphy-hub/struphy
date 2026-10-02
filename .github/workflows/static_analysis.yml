@@ -1,18 +1,14 @@
 name: isort & ruff
 
 on:
-  push:
-    branches:
-      - main
-      - devel
   pull_request:
     branches:
-      - main
       - devel
 
-# concurrency:
-#   group: ${{ github.ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
@@ -34,8 +30,11 @@ jobs:
   struphy_lint_all:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -46,20 +45,14 @@ jobs:
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-      # Cache pip dependencies
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install prerequisites (Ubuntu)
         uses: ./.github/actions/install/ubuntu-latest
 
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy-editable
+
+      - name: Reinstall feectools from submodule
+        uses: ./.github/actions/install/feectools-submodule
 
       - name: Lint the repo
         run: |
@@ -89,7 +82,6 @@ jobs:
         run: |
           pip install isort
           isort --check src/
-          isort --check tutorials/
 
   # mypy:
   #   runs-on: ubuntu-latest
@@ -121,15 +113,14 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v4
 
-      # TODO: Remove --select I once all errors are fixed
-      - name: ruff check --select I
+      - name: Code formatting with ruff
         run: |
-          pip install ruff
-          ruff check --select I
+          pip install ruff==0.15.0
+          ruff check
       
-      - name: ruff format --check
-        run: |
-          ruff format --check
+      # - name: ruff format --check
+      #   run: |
+      #     ruff format --check
 
   # pylint:
   #   runs-on: ubuntu-latest

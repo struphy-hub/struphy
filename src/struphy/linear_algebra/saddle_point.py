@@ -1,13 +1,17 @@
+import logging
 from typing import Union
 
 import cunumpy as xp
 import scipy as sc
-from psydac.linalg.basic import LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.direct_solvers import SparseSolver
-from psydac.linalg.solvers import inverse
+from feectools.linalg.basic import LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.direct_solvers import SparseSolver
+from feectools.linalg.solvers import inverse
+from scope_profiler import ProfileManager
 
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
+
+logger = logging.getLogger("struphy")
 
 
 class SaddlePointSolver:
@@ -27,7 +31,7 @@ class SaddlePointSolver:
             f \cr 0
         } \right)
 
-    using either the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f` or using on of the solvers given in :mod:`psydac.linalg.solvers`. The prefered solver is GMRES.
+    using either the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f` or using on of the solvers given in :mod:`feectools.linalg.solvers`. The prefered solver is GMRES.
     The decission which variant to use is given by the type of A. If A is of type list of xp.ndarrays or sc.sparse.csr_matrices, then this class uses the Uzawa algorithm.
     If A is of type LinearOperator or BlockLinearOperator, a solver is used for the inverse.
     Using the Uzawa algorithm, solution is given by:
@@ -44,8 +48,8 @@ class SaddlePointSolver:
         Either the entries on the diagonals of block A are given as list of xp.ndarray or sc.sparse.csr_matrix.
         Alternative: Give whole matrice A as LinearOperator or BlockLinearOperator.
         list: Uzawa algorithm is used.
-        LinearOperator: A solver given in :mod:`psydac.linalg.solvers` is used. Specified by solver_name.
-        BlockLinearOperator: A solver given in :mod:`psydac.linalg.solvers` is used. Specified by solver_name.
+        LinearOperator: A solver given in :mod:`feectools.linalg.solvers` is used. Specified by solver_name.
+        BlockLinearOperator: A solver given in :mod:`feectools.linalg.solvers` is used. Specified by solver_name.
 
     B : list, LinearOperator or BlockLinearOperator
         Lower left block.
@@ -94,7 +98,7 @@ class SaddlePointSolver:
         max_iter: int = 1000,
         **solver_params,
     ):
-        assert type(A) == type(B)
+        assert type(A) is type(B)
         if isinstance(A, list):
             self._variant = "Uzawa"
             for i in A:
@@ -103,12 +107,13 @@ class SaddlePointSolver:
                 assert isinstance(i, xp.ndarray) or isinstance(i, sc.sparse.csr_matrix)
             for i in F:
                 assert isinstance(i, xp.ndarray) or isinstance(i, sc.sparse.csr_matrix)
-            for i in Apre:
-                assert (
-                    isinstance(i, xp.ndarray)
-                    or isinstance(i, sc.sparse.csr_matrix)
-                    or isinstance(i, sc.sparse.csr_array)
-                )
+            if Apre is not None:
+                for i in Apre:
+                    assert (
+                        isinstance(i, xp.ndarray)
+                        or isinstance(i, sc.sparse.csr_matrix)
+                        or isinstance(i, sc.sparse.csr_array)
+                    )
             assert method_to_solve in ("SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse")
             assert A[0].shape[0] == B[0].shape[1]
             assert A[0].shape[1] == B[0].shape[1]
@@ -125,7 +130,7 @@ class SaddlePointSolver:
             assert A.domain == B.domain
             assert A.codomain == B.domain
             self._solver_name = solver_name
-            if solver_params["pc"] is None:
+            if "pc" in solver_params and solver_params["pc"] is None:
                 solver_params.pop("pc")
 
         # operators
@@ -137,12 +142,8 @@ class SaddlePointSolver:
         self._max_iter = max_iter
         self._spectralanalysis = spectralanalysis
         self._dimension = dimension
-        self._verbose = solver_params["verbose"]
 
         if self._variant == "Inverse_Solver":
-            self._BT = B.transpose()
-
-            # initialize solver with dummy matrix A
             self._block_domainM = BlockVectorSpace(self._A.domain, self._B.transpose().domain)
             self._block_codomainM = self._block_domainM
             self._blocks = [[self._A, self._B.T], [self._B, None]]
@@ -234,22 +235,24 @@ class SaddlePointSolver:
     def Apre(self, a):
         if self._variant == "Uzawa":
             need_update = True
-            A0_old, A1_old = self._Apre
-            A0_new, A1_new = a
-            if self._method_to_solve in ("ScipySparse", "SparseSolver"):
-                same_A0 = (A0_old != A0_new).nnz == 0
-                same_A1 = (A1_old != A1_new).nnz == 0
-            else:
-                same_A0 = xp.allclose(A0_old, A0_new, atol=1e-10)
-                same_A1 = xp.allclose(A1_old, A1_new, atol=1e-10)
-            if same_A0 and same_A1:
-                need_update = False
+            if self._Apre is not None and a is not None:
+                A0_old, A1_old = self._Apre
+                A0_new, A1_new = a
+                if self._method_to_solve in ("ScipySparse", "SparseSolver"):
+                    same_A0 = (A0_old != A0_new).nnz == 0
+                    same_A1 = (A1_old != A1_new).nnz == 0
+                else:
+                    same_A0 = xp.allclose(A0_old, A0_new, atol=1e-10)
+                    same_A1 = xp.allclose(A1_old, A1_new, atol=1e-10)
+                if same_A0 and same_A1:
+                    need_update = False
             self._Apre = a
             if need_update:
                 self._setup_inverses()
         elif self._variant == "Inverse_Solver":
             self._Apre = a
 
+    @ProfileManager.profile("solve: SaddlePointSolver")
     def __call__(self, U_init=None, Ue_init=None, P_init=None, out=None):
         """
         Solves the saddle-point problem using the Uzawa algorithm.
@@ -309,23 +312,16 @@ class SaddlePointSolver:
             else:
                 self._spectralresult = []
 
-            # Initialize P to zero or given initial guess
-            if isinstance(U_init, xp.ndarray) or isinstance(U_init, sc.sparse.csr.csr_matrix):
-                self._Pnp = P_init if P_init is not None else self._P
-                self._Unp = U_init if U_init is not None else self._U
-                self._Uenp = Ue_init if U_init is not None else self._Ue
+            # Initialize P, U and Ue to the given initial guesses or keep the previous solution
+            self._Pnp = self._to_numpy(P_init, self._Pnp)
+            self._Unp = self._to_numpy(U_init, self._Unp)
+            self._Uenp = self._to_numpy(Ue_init, self._Uenp)
 
-            else:
-                self._Pnp = P_init.toarray() if P_init is not None else self._Pnp
-                self._Unp = U_init.toarray() if U_init is not None else self._Unp
-                self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
-
-            if self._verbose:
-                print("Uzawa solver:")
-                print("+---------+---------------------+")
-                print("+ Iter. # | L2-norm of residual |")
-                print("+---------+---------------------+")
-                template = "| {:7d} | {:19.2e} |"
+            logger.debug("Uzawa solver:")
+            logger.debug("+---------+---------------------+")
+            logger.debug("+ Iter. # | L2-norm of residual |")
+            logger.debug("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
 
             for iteration in range(self._max_iter):
                 # Step 1: Compute velocity U by solving A U = -Bᵀ P + F -A Un
@@ -358,12 +354,11 @@ class SaddlePointSolver:
                 self._residual_norms.append(residual_normR1)  # Store residual norm
                 # Check for convergence based on residual norm
                 if residual_norm < self._tol:
-                    if self._verbose:
-                        print(template.format(iteration + 1, residual_norm))
-                        print("+---------+---------------------+")
+                    logger.debug(template.format(iteration + 1, residual_norm))
+                    logger.debug("+---------+---------------------+")
                     info["success"] = True
                     info["niter"] = iteration + 1
-                    if self._verbose:
+                    if logger.level <= logging.DEBUG:
                         _plot_residual_norms(self._residual_norms)
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
@@ -373,18 +368,26 @@ class SaddlePointSolver:
                 # alpha = ((self._Precnp.dot(R)).dot(R)) / ((self._Precnp.dot(R)).dot(self._Precnp.dot(R)))
                 self._Pnp += alpha.real * R.real
 
-                if self._verbose:
-                    print(template.format(iteration + 1, residual_norm))
+                logger.debug(template.format(iteration + 1, residual_norm))
 
-            if self._verbose:
-                print("+---------+---------------------+")
+            logger.debug("+---------+---------------------+")
 
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
-            if self._verbose:
+            if logger.level <= logging.DEBUG:
                 _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
+
+    @staticmethod
+    def _to_numpy(v, default):
+        """Return the initial guess v as numpy array (feectools Vectors are converted), or default if v is None."""
+        if v is None:
+            return default
+        elif isinstance(v, xp.ndarray) or isinstance(v, sc.sparse.csr_matrix):
+            return v
+        else:
+            return v.toarray()
 
     def _setup_inverses(self):
         A0 = self._A[0]
@@ -435,8 +438,14 @@ class SaddlePointSolver:
             else:
                 self._Aenpinv = self._compute_inverse(A1, which="A[1]")
 
-        # Precompute Schur complement
-        self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
+        # Precompute Schur complement B A^{-1} B^T (with preconditioning, A^{-1} = (Apre^{-1} A)^{-1} Apre^{-1})
+        if self._preconditioner:
+            self._Precnp = (
+                self._B1np @ self._Anpinv @ self._A11npinv @ self._B1np.T
+                + self._B2np @ self._Aenpinv @ self._A22npinv @ self._B2np.T
+            )
+        else:
+            self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
 
     def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
         # try:
@@ -451,9 +460,9 @@ class SaddlePointSolver:
             if not xp.allclose(I_approx, I_exact, atol=1e-6):
                 diff = I_approx - I_exact
                 max_abs = xp.abs(diff).max()
-                print(f"{name} inverse is NOT valid anymore. Max diff: {max_abs:.2e}")
+                logger.info(f"{name} inverse is NOT valid anymore. Max diff: {max_abs:.2e}")
                 return False
-            print(f"{name} inverse is still valid.")
+            logger.info(f"{name} inverse is still valid.")
             return True
         elif self._method_to_solve == "ScipySparse":
             I_exact = sc.sparse.identity(I_approx.shape[0], format=I_approx.format)
@@ -461,15 +470,15 @@ class SaddlePointSolver:
             max_abs = xp.abs(diff.data).max() if diff.nnz > 0 else 0.0
 
             if max_abs > 1e-6:
-                print(f"{name} inverse is NOT valid anymore.")
-                print(f"Max absolute difference: {max_abs:.2e}")
-                print(f"Number of differing entries: {diff.nnz}")
+                logger.info(f"{name} inverse is NOT valid anymore.")
+                logger.info(f"Max absolute difference: {max_abs:.2e}")
+                logger.info(f"Number of differing entries: {diff.nnz}")
                 return False
-            print(f"{name} inverse is still valid.")
+            logger.info(f"{name} inverse is still valid.")
             return True
 
     def _compute_inverse(self, mat, which="matrix"):
-        print(f"Computing inverse for {which} using method {self._method_to_solve}")
+        logger.info(f"Computing inverse for {which} using method {self._method_to_solve}")
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
             return xp.linalg.inv(mat)
         elif self._method_to_solve == "ScipySparse":
@@ -495,12 +504,12 @@ class SaddlePointSolver:
         minbeforeA11 = min(eigvalsA11_before)
         specA11_bef = maxbeforeA11 / minbeforeA11
         specA11_bef_abs = maxbeforeA11_abs / minbeforeA11_abs
-        # print(f'{maxbeforeA11 = }')
-        # print(f'{maxbeforeA11_abs = }')
-        # print(f'{minbeforeA11_abs = }')
-        # print(f'{minbeforeA11 = }')
-        # print(f'{specA11_bef = }')
-        print(f"{specA11_bef_abs =}")
+        # logger.info(f'{maxbeforeA11 = }')
+        # logger.info(f'{maxbeforeA11_abs = }')
+        # logger.info(f'{minbeforeA11_abs = }')
+        # logger.info(f'{minbeforeA11 = }')
+        # logger.info(f'{specA11_bef = }')
+        logger.info(f"{specA11_bef_abs =}")
 
         # A22 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -515,13 +524,13 @@ class SaddlePointSolver:
         minbeforeA22 = min(eigvalsA22_before)
         specA22_bef = maxbeforeA22 / minbeforeA22
         specA22_bef_abs = maxbeforeA22_abs / minbeforeA22_abs
-        # print(f'{maxbeforeA22 = }')
-        # print(f'{maxbeforeA22_abs = }')
-        # print(f'{minbeforeA22_abs = }')
-        # print(f'{minbeforeA22 = }')
-        # print(f'{specA22_bef = }')
-        print(f"{specA22_bef_abs =}")
-        print(f"{condA22_before =}")
+        # logger.info(f'{maxbeforeA22 = }')
+        # logger.info(f'{maxbeforeA22_abs = }')
+        # logger.info(f'{minbeforeA22_abs = }')
+        # logger.info(f'{minbeforeA22 = }')
+        # logger.info(f'{specA22_bef = }')
+        logger.info(f"{specA22_bef_abs =}")
+        logger.info(f"{condA22_before =}")
 
         if self._preconditioner:
             # A11 after preconditioning with its inverse
@@ -535,12 +544,12 @@ class SaddlePointSolver:
             minafterA11_abs_prec = xp.min(xp.abs(eigvalsA11_after_prec))
             specA11_aft_prec = maxafterA11_prec / minafterA11_prec
             specA11_aft_abs_prec = maxafterA11_abs_prec / minafterA11_abs_prec
-            # print(f'{maxafterA11_prec = }')
-            # print(f'{maxafterA11_abs_prec = }')
-            # print(f'{minafterA11_abs_prec = }')
-            # print(f'{minafterA11_prec = }')
-            # print(f'{specA11_aft_prec = }')
-            print(f"{specA11_aft_abs_prec =}")
+            # logger.info(f'{maxafterA11_prec = }')
+            # logger.info(f'{maxafterA11_abs_prec = }')
+            # logger.info(f'{minafterA11_abs_prec = }')
+            # logger.info(f'{minafterA11_prec = }')
+            # logger.info(f'{specA11_aft_prec = }')
+            logger.info(f"{specA11_aft_abs_prec =}")
 
             # A22 after preconditioning with its inverse
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -555,12 +564,12 @@ class SaddlePointSolver:
             minafterA22_abs_prec = xp.min(xp.abs(eigvalsA22_after_prec))
             specA22_aft_prec = maxafterA22_prec / minafterA22_prec
             specA22_aft_abs_prec = maxafterA22_abs_prec / minafterA22_abs_prec
-            # print(f'{maxafterA22_prec = }')
-            # print(f'{maxafterA22_abs_prec = }')
-            # print(f'{minafterA22_abs_prec = }')
-            # print(f'{minafterA22_prec = }')
-            # print(f'{specA22_aft_prec = }')
-            print(f"{specA22_aft_abs_prec =}")
+            # logger.info(f'{maxafterA22_prec = }')
+            # logger.info(f'{maxafterA22_abs_prec = }')
+            # logger.info(f'{minafterA22_abs_prec = }')
+            # logger.info(f'{minafterA22_prec = }')
+            # logger.info(f'{specA22_aft_prec = }')
+            logger.info(f"{specA22_aft_abs_prec =}")
 
             return condA22_before, specA22_bef_abs, condA11_before, condA22_after, specA22_aft_abs_prec
 

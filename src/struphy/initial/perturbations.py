@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 "Analytical perturbations."
 
+import copy
+import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-import scipy
-import scipy.special
 
 from struphy.initial.base import Perturbation
-from struphy.io.options import GivenInBasis, NoiseDirections, check_option
+from struphy.io.options import LiteralOptions
+from struphy.utils.utils import check_option
+
+logger = logging.getLogger("struphy")
 
 
 @dataclass
@@ -27,16 +30,19 @@ class Noise(Perturbation):
         Seed for the random number generator.
     """
 
-    direction: NoiseDirections = "e3"
+    direction: LiteralOptions.NoiseDirections = "e3"
     amp: float = 0.0001
     seed: int = None
     comp: int = 0
-    given_in_basis: GivenInBasis = "0"
+    given_in_basis: LiteralOptions.GivenInBasis = None
 
     def __post_init__(
         self,
     ):
-        check_option(self.direction, NoiseDirections)
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        check_option(self.direction, LiteralOptions.NoiseDirections)
 
     def __call__(self):
         pass
@@ -44,25 +50,6 @@ class Noise(Perturbation):
 
 class ModesSin(Perturbation):
     r"""Sinusoidal function in 3D.
-
-    .. math::
-
-        u(x, y, z) =  \sum_{s} \chi_s(z) A_s \sin \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z + \theta_s \right) \,.
-
-    where :math:`\chi_s(z)` is one of
-
-    .. math::
-
-        \chi_s(z) = \left\{
-        \begin{aligned}
-        1\,,
-        \\[2mm]
-         \tanh((z - 0.5)/\delta)/\cosh((z - 0.5)/\delta)\,,
-        \end{aligned}
-        \right.
-
-    Can be used in logical space (use 'given_in_basis'), where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
-    and :math:`L_x=L_y=L_z=1.0` (default).
 
     Parameters
     ----------
@@ -99,6 +86,29 @@ class ModesSin(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(x, y, z) =  \sum_{s} \chi_s(z) A_s \sin \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z + \theta_s \right) \,.
+
+        where :math:`\chi_s(z)` is one of
+
+        .. math::
+
+            \chi_s(z) = \left\{
+            \begin{aligned}
+            1\,,
+            \\[2mm]
+             \tanh((z - 0.5)/\delta)/\cosh((z - 0.5)/\delta)\,,
+            \end{aligned}
+            \right.
+
+        Can be used in logical space (use 'given_in_basis'), where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
+        and :math:`L_x=L_y=L_z=1.0` (default).
+        """
+
     def __init__(
         self,
         ls: tuple[int] = None,
@@ -111,9 +121,12 @@ class ModesSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -162,25 +175,26 @@ class ModesSin(Perturbation):
         else:
             assert len(pfuns_params) == n_modes
 
-        self._pfuns = []
+        self.pfuns = []
         for pfun, params in zip(pfuns, pfuns_params):
             if pfun == "Id":
-                self._pfuns += [lambda eta3: 1.0]
+                self.pfuns += [lambda eta3: 1.0]
             elif pfun == "localize":
-                self._pfuns += [
-                    lambda eta3: xp.tanh((eta3 - 0.5) / params) / xp.cosh((eta3 - 0.5) / params),
+                self.pfuns += [
+                    lambda eta3, p=params: xp.tanh((eta3 - 0.5) / p) / xp.cosh((eta3 - 0.5) / p),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
-        self._ls = ls
-        self._ms = ms
-        self._ns = ns
-        self._amps = amps
-        self._Lx = Lx
-        self._Ly = Ly
-        self._Lz = Lz
-        self._theta = theta
+        self.ls = tuple(ls)
+        self.ms = tuple(ms)
+        self.ns = tuple(ns)
+        self.amps = tuple(amps)
+        self.Lx = Lx
+        self.Ly = Ly
+        self.Lz = Lz
+        self.theta = tuple(theta)
+        self.pfuns = tuple(self.pfuns)
 
         # use the setters
         self.given_in_basis = given_in_basis
@@ -189,15 +203,12 @@ class ModesSin(Perturbation):
     def __call__(self, x, y, z):
         val = 0.0
 
-        for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
+        for amp, l, m, n, t, pfun in zip(self.amps, self.ls, self.ms, self.ns, self.theta, self.pfuns):
             val += (
                 amp
                 * pfun(z)
                 * xp.sin(
-                    l * 2.0 * xp.pi / self._Lx * x
-                    + m * 2.0 * xp.pi / self._Ly * y
-                    + n * 2.0 * xp.pi / self._Lz * z
-                    + t,
+                    l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z + t,
                 )
             )
 
@@ -206,13 +217,6 @@ class ModesSin(Perturbation):
 
 class ModesCos(Perturbation):
     r"""Cosinusoidal function in 3D.
-
-    .. math::
-
-        u(x, y, z) = \sum_{s} A_s \cos \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
-
-    Can be used in logical space (use 'given_in_basis'), where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
-    and :math:`L_x=L_y=L_z=1.0` (default).
 
     Parameters
     ----------
@@ -236,7 +240,22 @@ class ModesCos(Perturbation):
 
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
+
+    perb_domain : tuple[tuple[float]]
+        Subdomain in which the pertrubation is applied to: ((x_min, x_max), (y_min, y_max), (z_min, z_max)).
+        None means apply perturbation to all domain in that direction
     """
+
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(x, y, z) = \sum_{s} A_s \cos \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
+
+        Can be used in logical space (use 'given_in_basis'), where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
+        and :math:`L_x=L_y=L_z=1.0` (default).
+        """
 
     def __init__(
         self,
@@ -247,9 +266,13 @@ class ModesCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
+        perb_domain: tuple[tuple[float]] = (None, None, None),
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -280,26 +303,41 @@ class ModesCos(Perturbation):
         else:
             assert len(amps) == n_modes
 
-        self._ls = ls
-        self._ms = ms
-        self._ns = ns
-        self._amps = amps
-        self._Lx = Lx
-        self._Ly = Ly
-        self._Lz = Lz
+        self.ls = tuple(ls)
+        self.ms = tuple(ms)
+        self.ns = tuple(ns)
+        self.amps = tuple(amps)
+        self.Lx = Lx
+        self.Ly = Ly
+        self.Lz = Lz
 
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
+        self.perb_domain = perb_domain
 
     def __call__(self, x, y, z):
-        val = 0.0
 
-        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp * xp.cos(
-                l * 2.0 * xp.pi / self._Lx * x + m * 2.0 * xp.pi / self._Ly * y + n * 2.0 * xp.pi / self._Lz * z,
-            )
-        # print( "Cos max value", val.max())
+        if self.perb_domain != (None, None, None):
+            val = xp.zeros_like(x)
+            # find mask of particles within the sub domain
+            mask = super()._mask_subdomain(x, y, z, perb_domain=self.perb_domain)
+
+            # apply perturbation iff perb_domain not specified or (x,y,z) is within perb_domain
+            for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
+                val[mask] += amp * xp.cos(
+                    l * 2.0 * xp.pi / self.Lx * x[mask]
+                    + m * 2.0 * xp.pi / self.Ly * y[mask]
+                    + n * 2.0 * xp.pi / self.Lz * z[mask],
+                )
+        else:
+            val = 0.0
+            for amp, l, m, n in zip(self.amps, self.ls, self.ms, self.ns):
+                val += amp * xp.cos(
+                    l * 2.0 * xp.pi / self.Lx * x + m * 2.0 * xp.pi / self.Ly * y + n * 2.0 * xp.pi / self.Lz * z,
+                )
+
+        # logger.info( "Cos max value", val.max())
         return val
 
 
@@ -320,6 +358,9 @@ class CoaxialWaveguideElectric_r(Perturbation):
     """
 
     def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._m = m
         self._r1 = a1
         self._r2 = a2
@@ -331,6 +372,8 @@ class CoaxialWaveguideElectric_r(Perturbation):
         self.comp = 0
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -362,6 +405,9 @@ class CoaxialWaveguideElectric_theta(Perturbation):
     """
 
     def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._m = m
         self._r1 = a1
         self._r2 = a2
@@ -373,6 +419,8 @@ class CoaxialWaveguideElectric_theta(Perturbation):
         self.comp = 1
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -401,6 +449,9 @@ class CoaxialWaveguideMagnetic(Perturbation):
     """
 
     def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._m = m
         self._r1 = a1
         self._r2 = a2
@@ -412,6 +463,8 @@ class CoaxialWaveguideMagnetic(Perturbation):
         self.comp = 2
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -424,17 +477,19 @@ class CoaxialWaveguideMagnetic(Perturbation):
 
 
 class ModesCosCos(Perturbation):
-    r"""
+    r"""Product of cosine modes in x and y, modulated by an optional localizing profile in z."""
 
-    .. math::
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z)
-        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
-        \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+            u(x, y, z) = \sum_s A_s \, \chi_s(z)
+            \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+            \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
-    where :math:`\chi_s(z)` can be either 1 or localized in z.
-
-    """
+        where :math:`\chi_s(z)` can be either 1 or localized in z.
+        """
 
     def __init__(
         self,
@@ -448,9 +503,12 @@ class ModesCosCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -530,16 +588,19 @@ class ModesCosCos(Perturbation):
 
 
 class ModesSinSin(Perturbation):
-    r"""
+    r"""Product of sine modes in x and y, modulated by an optional localizing profile in z."""
 
-    .. math::
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z)
-        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
-        \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+            u(x, y, z) = \sum_s A_s \, \chi_s(z)
+            \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+            \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
-    where :math:`\chi_s(z)` can be either 1 or localized in z.
-    """
+        where :math:`\chi_s(z)` can be either 1 or localized in z.
+        """
 
     def __init__(
         self,
@@ -553,9 +614,12 @@ class ModesSinSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -635,16 +699,19 @@ class ModesSinSin(Perturbation):
 
 
 class ModesSinCos(Perturbation):
-    r"""
+    r"""Product of a sine mode in x and a cosine mode in y, modulated by an optional localizing profile in z."""
 
-    .. math::
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z)
-        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
-        \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+            u(x, y, z) = \sum_s A_s \, \chi_s(z)
+            \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+            \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
-    where :math:`\chi_s(z)` can be either 1 or localized in z.
-    """
+        where :math:`\chi_s(z)` can be either 1 or localized in z.
+        """
 
     def __init__(
         self,
@@ -658,9 +725,12 @@ class ModesSinCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         # number of modes
         if ls is not None:
             n_modes = len(ls)
@@ -742,16 +812,19 @@ class ModesSinCos(Perturbation):
 
 
 class ModesCosSin(Perturbation):
-    r"""
+    r"""Product of a cosine mode in x and a sine mode in y, modulated by an optional localizing profile in z."""
 
-    .. math::
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z)
-        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
-        \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+            u(x, y, z) = \sum_s A_s \, \chi_s(z)
+            \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+            \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
-    where :math:`\chi_s(z)` can be either 1 or localized in z.
-    """
+        where :math:`\chi_s(z)` can be either 1 or localized in z.
+        """
 
     def __init__(
         self,
@@ -765,9 +838,12 @@ class ModesCosSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         # number of modes
         if ls is not None:
             n_modes = len(ls)
@@ -851,26 +927,6 @@ class ModesCosSin(Perturbation):
 class TorusModesSin(Perturbation):
     r"""Sinusoidal function in the periodic coordinates of a Torus.
 
-    .. math::
-
-        u(\eta_1, \eta_2, \eta_3) = \sum_{s} \chi_s(\eta_1) A_s \sin(m_s\,2\pi \eta_2 + n_s\,2\pi \eta_3) \,,
-
-    where :math:`\chi_s(\eta_1)` is one of
-
-    .. math::
-
-        \chi_s(\eta_1) = \left\{
-        \begin{aligned}
-        &\sin(l_s\pi\eta_1)\,,
-        \\[2mm]
-        &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
-        \\[2mm]
-        & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
-        \end{aligned}
-        \right.
-
-    Can ony be used in logical space (use 'given_in_basis').
-
     Parameters
     ----------
     ms : tuple | list[int]
@@ -895,6 +951,30 @@ class TorusModesSin(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(\eta_1, \eta_2, \eta_3) = \sum_{s} \chi_s(\eta_1) A_s \sin(m_s\,2\pi \eta_2 + n_s\,2\pi \eta_3) \,,
+
+        where :math:`\chi_s(\eta_1)` is one of
+
+        .. math::
+
+            \chi_s(\eta_1) = \left\{
+            \begin{aligned}
+            &\sin(l_s\pi\eta_1)\,,
+            \\[2mm]
+            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            \\[2mm]
+            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            \end{aligned}
+            \right.
+
+        Can ony be used in logical space (use 'given_in_basis').
+        """
+
     def __init__(
         self,
         ms=None,
@@ -902,10 +982,14 @@ class TorusModesSin(Perturbation):
         amps=(1e-4,),
         pfuns=("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis
 
         if ms is not None:
             n_modes = len(ms)
@@ -946,18 +1030,21 @@ class TorusModesSin(Perturbation):
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
+                self._pfuns += [lambda eta1, ls=ls: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1, p=params: (
+                        xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2)) / xp.sqrt(2 * xp.pi * p[1] ** 2)
+                    ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -(eta1 - params[0])
-                    / params[1] ** 2
-                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1, p=params: (
+                        -(eta1 - p[0])
+                        / p[1] ** 2
+                        * xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * p[1] ** 2)
+                    ),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -983,26 +1070,6 @@ class TorusModesSin(Perturbation):
 class TorusModesCos(Perturbation):
     r"""Cosinusoidal function in the periodic coordinates of a Torus.
 
-    .. math::
-
-        u(\eta_1, \eta_2, \eta_3) = \sum_{s} \chi_s(\eta_1) A_s \cos(m_s\,2\pi \eta_2 + n_s\,2\pi \eta_3) \,,
-
-    where :math:`\chi_s(\eta_1)` is one of
-
-    .. math::
-
-        \chi_s(\eta_1) = \left\{
-        \begin{aligned}
-        &\sin(\pi\eta_1)\,,
-        \\[2mm]
-        &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
-        \\[2mm]
-        & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
-        \end{aligned}
-        \right.
-
-    Can only be used in logical space (use 'given_in_basis').
-
     Parameters
     ----------
     ms : tuple[int]
@@ -1027,6 +1094,30 @@ class TorusModesCos(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(\eta_1, \eta_2, \eta_3) = \sum_{s} \chi_s(\eta_1) A_s \cos(m_s\,2\pi \eta_2 + n_s\,2\pi \eta_3) \,,
+
+        where :math:`\chi_s(\eta_1)` is one of
+
+        .. math::
+
+            \chi_s(\eta_1) = \left\{
+            \begin{aligned}
+            &\sin(\pi\eta_1)\,,
+            \\[2mm]
+            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            \\[2mm]
+            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            \end{aligned}
+            \right.
+
+        Can only be used in logical space (use 'given_in_basis').
+        """
+
     def __init__(
         self,
         ms: tuple = (2,),
@@ -1034,10 +1125,14 @@ class TorusModesCos(Perturbation):
         amps: tuple = (0.1,),
         pfuns: tuple = ("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis
 
         if ms is not None:
             n_modes = len(ms)
@@ -1078,20 +1173,23 @@ class TorusModesCos(Perturbation):
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
+                self._pfuns += [lambda eta1, ls=ls: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "cos":
                 self._pfuns += [lambda eta1: xp.cos(xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1, p=params: (
+                        xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2)) / xp.sqrt(2 * xp.pi * p[1] ** 2)
+                    ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -(eta1 - params[0])
-                    / params[1] ** 2
-                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
+                    lambda eta1, p=params: (
+                        -(eta1 - p[0])
+                        / p[1] ** 2
+                        * xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * p[1] ** 2)
+                    ),
                 ]
             else:
                 raise ValueError(
@@ -1119,12 +1217,6 @@ class TorusModesCos(Perturbation):
 class Shear_x(Perturbation):
     r"""Double shear layer in eta1 (-1 in outer regions, 1 in inner regions).
 
-    .. math::
-
-        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,.
-
-    Can only be used in logical space.
-
     Parameters
     ----------
     amps : float
@@ -1140,14 +1232,28 @@ class Shear_x(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,.
+
+        Can only be used in logical space.
+        """
+
     def __init__(
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1165,12 +1271,6 @@ class Shear_x(Perturbation):
 class Shear_y(Perturbation):
     r"""Double shear layer in eta2 (-1 in outer regions, 1 in inner regions).
 
-    .. math::
-
-        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_2 - 0.25)/\delta) + \tanh((\eta_2 - 0.75)/\delta) - 1) \,.
-
-    Can only be used in logical space.
-
     Parameters
     ----------
     amps : float
@@ -1186,14 +1286,28 @@ class Shear_y(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_2 - 0.25)/\delta) + \tanh((\eta_2 - 0.75)/\delta) - 1) \,.
+
+        Can only be used in logical space.
+        """
+
     def __init__(
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1211,12 +1325,6 @@ class Shear_y(Perturbation):
 class Shear_z(Perturbation):
     r"""Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
 
-    .. math::
-
-        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,.
-
-    Can only be used in logical space.
-
     Parameters
     ----------
     amps : float
@@ -1232,14 +1340,28 @@ class Shear_z(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,.
+
+        Can only be used in logical space.
+        """
+
     def __init__(
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1257,12 +1379,6 @@ class Shear_z(Perturbation):
 class Erf_z(Perturbation):
     r"""Shear layer in eta3 (-1 in lower regions, 1 in upper regions).
 
-    .. math::
-
-        u(\eta_1, \eta_2, \eta_3) = A \, erf((\eta_3 - 0.5)/\delta) \,.
-
-    Can only be used in logical space.
-
     Parameters
     ----------
     amp : float
@@ -1278,14 +1394,28 @@ class Erf_z(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(\eta_1, \eta_2, \eta_3) = A \, erf((\eta_3 - 0.5)/\delta) \,.
+
+        Can only be used in logical space.
+        """
+
     def __init__(
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: LiteralOptions.GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1304,30 +1434,6 @@ class Erf_z(Perturbation):
 
 class RestelliAnalyticSolutionVelocity(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
-
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \nu \omega \,, 
-        \\[2mm]
-        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution is given by:
-
-    .. math::
-        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
 
     Parameters
     ----------
@@ -1352,6 +1458,34 @@ class RestelliAnalyticSolutionVelocity(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \nu \omega \,, 
+            \\[2mm]
+            \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution is given by:
+
+        .. math::
+            \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+        """
+
     def __init__(
         self,
         a=1.0,
@@ -1362,6 +1496,9 @@ class RestelliAnalyticSolutionVelocity(Perturbation):
         beta=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1411,30 +1548,6 @@ class RestelliAnalyticSolutionVelocity(Perturbation):
 class RestelliAnalyticSolutionVelocity_2(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \nu \omega \,, 
-        \\[2mm]
-        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution is given by:
-
-    .. math::
-        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
     Parameters
     ----------
     a : float
@@ -1458,6 +1571,34 @@ class RestelliAnalyticSolutionVelocity_2(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \nu \omega \,, 
+            \\[2mm]
+            \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution is given by:
+
+        .. math::
+            \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+        """
+
     def __init__(
         self,
         a=1.0,
@@ -1468,6 +1609,9 @@ class RestelliAnalyticSolutionVelocity_2(Perturbation):
         beta=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1517,30 +1661,6 @@ class RestelliAnalyticSolutionVelocity_2(Perturbation):
 class RestelliAnalyticSolutionVelocity_3(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \nu \omega \,, 
-        \\[2mm]
-        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution is given by:
-
-    .. math::
-        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
     Parameters
     ----------
     a : float
@@ -1564,6 +1684,34 @@ class RestelliAnalyticSolutionVelocity_3(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \nu \omega \,, 
+            \\[2mm]
+            \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution is given by:
+
+        .. math::
+            \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+        """
+
     def __init__(
         self,
         a=1.0,
@@ -1574,6 +1722,9 @@ class RestelliAnalyticSolutionVelocity_3(Perturbation):
         beta=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1623,30 +1774,6 @@ class RestelliAnalyticSolutionVelocity_3(Perturbation):
 class RestelliAnalyticSolutionPotential(Perturbation):
     r"""Analytic solution :math:`\phi` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \nu \omega \,, 
-        \\[2mm]
-        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution is given by:
-
-    .. math::
-        \phi = \frac{1}{2} a B_0 \alpha \left( \frac{(R-R_0)^2+z^2}{a^2} - \frac{2}{3} \right)
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
     Parameters
     ----------
     a : float
@@ -1668,7 +1795,38 @@ class RestelliAnalyticSolutionPotential(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \nu \omega \,, 
+            \\[2mm]
+            \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution is given by:
+
+        .. math::
+            \phi = \frac{1}{2} a B_0 \alpha \left( \frac{(R-R_0)^2+z^2}{a^2} - \frac{2}{3} \right)
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+        """
+
     def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1691,25 +1849,6 @@ class RestelliAnalyticSolutionPotential(Perturbation):
 class ManufacturedSolutionVelocity(Perturbation):
     r"""Analytic solutions :math:`u` and :math:`u_e` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution in 1D is given by:
-
-    .. math::
-        u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
-        u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
-    
-    The solution in 2D is given by:
-
-    .. math::
-        u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
-        u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
-        
     Parameters
     ----------
     species : string
@@ -1724,6 +1863,29 @@ class ManufacturedSolutionVelocity(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution in 1D is given by:
+
+        .. math::
+            u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
+            u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
+
+        The solution in 2D is given by:
+
+        .. math::
+            u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
+            u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
+        """
+
     def __init__(
         self,
         species="Ions",
@@ -1731,6 +1893,9 @@ class ManufacturedSolutionVelocity(Perturbation):
         b0=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._b = b0
         self._species = species
         self._dimension = dimension
@@ -1800,31 +1965,6 @@ class ManufacturedSolutionVelocity(Perturbation):
 class ManufacturedSolutionPotential(Perturbation):
     r"""Analytic solution :math:`\phi` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
-        \\[2mm]
-        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution in 1D is given by:
-
-    .. math::
-        \phi =  sin(2\pi x) \,.
-        
-    The solution in 2D is given by:
-
-    .. math::
-        \phi =  cos(2\pi x) + sin(2\pi y) \,.
-        
     Parameters
     ----------
     dimension: string
@@ -1833,7 +1973,39 @@ class ManufacturedSolutionPotential(Perturbation):
         Magnetic field (default: 1.0).
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+            \\[2mm]
+            f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution in 1D is given by:
+
+        .. math::
+            \phi =  sin(2\pi x) \,.
+
+        The solution in 2D is given by:
+
+        .. math::
+            \phi =  cos(2\pi x) + sin(2\pi y) \,.
+        """
+
     def __init__(self, dimension="1D", b0=1.0):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._ab = b0
         self._dimension = dimension
 
@@ -1854,25 +2026,6 @@ class ManufacturedSolutionPotential(Perturbation):
 class ManufacturedSolutionVelocity_2(Perturbation):
     r"""Analytic solutions :math:`u` and :math:`u_e` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution in 1D is given by:
-
-    .. math::
-        u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
-        u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
-    
-    The solution in 2D is given by:
-
-    .. math::
-        u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
-        u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
-        
     Parameters
     ----------
     species : string
@@ -1885,6 +2038,29 @@ class ManufacturedSolutionVelocity_2(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution in 1D is given by:
+
+        .. math::
+            u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
+            u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
+
+        The solution in 2D is given by:
+
+        .. math::
+            u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
+            u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
+        """
+
     def __init__(
         self,
         species="Ions",
@@ -1892,6 +2068,9 @@ class ManufacturedSolutionVelocity_2(Perturbation):
         b0=1.0,
         comp: int = 0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._b = b0
         self._species = species
         self._dimension = dimension
@@ -1961,27 +2140,31 @@ class ManufacturedSolutionVelocity_2(Perturbation):
 class ITPA_density(Perturbation):
     r"""ITPA radial density profile in `A. Könies et al. 2018  <https://iopscience.iop.org/article/10.1088/1741-4326/aae4e6>`_
 
-    .. math::
+    Parameters
+    ----------
+    n0 : float
+        ITPA profile density
 
-        n(\eta_1) = n_0*c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+    c : tuple | list
+        4 ITPA profile coefficients
     """
+
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            n(\eta_1) = n_0*c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+        """
 
     def __init__(
         self,
         n0: float = 0.00720655,
         c: tuple = (0.491230, 0.298228, 0.198739, 0.521298),
-        given_in_basis: GivenInBasis = "0",
         comp: int = 0,
     ):
-        """
-        Parameters
-        ----------
-        n0 : float
-            ITPA profile density
-
-        c : tuple | list
-            4 ITPA profile coefficients
-        """
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
 
         assert len(c) == 4
 
@@ -1996,7 +2179,7 @@ class ITPA_density(Perturbation):
         val = 0.0
 
         if self._c[2] == 0.0:
-            val = self._c[3] - 0 * eta1
+            val = self._n0 * self._c[3] - 0 * eta1
         else:
             val = (
                 self._n0
@@ -2011,34 +2194,6 @@ class ITPA_density(Perturbation):
 
 class TokamakManufacturedSolutionVelocity(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
-
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
-                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
-                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
-        \\[2mm]
-        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
-                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
-                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution is given by:
-
-    .. math::
-        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
 
     Parameters
     ----------
@@ -2063,6 +2218,38 @@ class TokamakManufacturedSolutionVelocity(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                     \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                    \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+            \\[2mm]
+            f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                     -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                    -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution is given by:
+
+        .. math::
+            \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+        """
+
     def __init__(
         self,
         comp=0,
@@ -2073,6 +2260,9 @@ class TokamakManufacturedSolutionVelocity(Perturbation):
         alpha=0.1,
         beta=1.0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -2116,34 +2306,6 @@ class TokamakManufacturedSolutionVelocity(Perturbation):
 class TokamakManufacturedSolutionVelocity_1(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
-                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
-                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
-        \\[2mm]
-        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
-                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
-                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution is given by:
-
-    .. math::
-        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
     Parameters
     ----------
     comp : string
@@ -2167,6 +2329,38 @@ class TokamakManufacturedSolutionVelocity_1(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                     \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                    \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+            \\[2mm]
+            f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                     -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                    -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution is given by:
+
+        .. math::
+            \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+        """
+
     def __init__(
         self,
         comp=0,
@@ -2177,6 +2371,9 @@ class TokamakManufacturedSolutionVelocity_1(Perturbation):
         alpha=0.1,
         beta=1.0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -2220,34 +2417,6 @@ class TokamakManufacturedSolutionVelocity_1(Perturbation):
 class TokamakManufacturedSolutionVelocity_2(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
-    .. math::
-
-        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
-        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
-        \nabla \cdot (u-u_e) = 0 \,.
-
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
-                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
-                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
-        \\[2mm]
-        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
-                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
-                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
-    Can only be defined in Cartesian coordinates. 
-    The solution is given by:
-
-    .. math::
-        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
-        \\[2mm]
-        R = \sqrt{x^2 + y^2} \,.
-
     Parameters
     ----------
     comp : string
@@ -2271,6 +2440,38 @@ class TokamakManufacturedSolutionVelocity_2(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+            0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+            \nabla \cdot (u-u_e) = 0 \,.
+
+        where :math:`f` is defined as follows: 
+
+        .. math::
+
+            f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                     \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                    \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+            \\[2mm]
+            f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                     -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                    -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+
+        Can only be defined in Cartesian coordinates. 
+        The solution is given by:
+
+        .. math::
+            \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+            \\[2mm]
+            R = \sqrt{x^2 + y^2} \,.
+        """
+
     def __init__(
         self,
         comp=0,
@@ -2281,6 +2482,9 @@ class TokamakManufacturedSolutionVelocity_2(Perturbation):
         alpha=0.1,
         beta=1.0,
     ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
         self._comp = comp
         self._a = a
         self._R0 = R0

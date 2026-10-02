@@ -9,36 +9,22 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
+
 import os
-import shutil
+import sys
 
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
-
-def copy_tutorials(app):
-    src = os.path.abspath("../tutorials")
-    dst = os.path.abspath("source/tutorials")
-
-    # Remove existing target directory if it exists
-    if os.path.exists(dst):
-        shutil.rmtree(dst)
-
-    shutil.copytree(src, dst)
-
-
-def setup(app):
-    app.connect("builder-inited", copy_tutorials)
-
+sys.path.insert(0, os.path.abspath("_ext"))
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
 
 # -- Project information -----------------------------------------------------
+import importlib.metadata
+
+__version__ = importlib.metadata.version("struphy")
 
 project = "struphy"
-copyright = "2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
+copyright = "2019-2026 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
 author = "Struphy dev team | Max Planck Institute for Plasma Physics"
 version = __version__
 
@@ -62,15 +48,41 @@ extensions = [
     "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx_design",
+    "sphinx_copybutton",
+    "rst_docstring",  # Custom extension to use __doc_rst__
+    "sphinx_collections",
 ]
 
-nbsphinx_execute = "auto"
+
+def _struphy_is_compiled():
+    """Whether `struphy compile` has been run (state.yml exists in the installed package)."""
+    try:
+        from struphy.utils.utils import STRUPHY_LIBPATH
+    except ImportError:
+        return False
+    return os.path.isfile(os.path.join(STRUPHY_LIBPATH, "state.yml"))
+
+
+# Notebooks are slow to run and many depend on compiled Struphy kernels,
+# so only execute them when Struphy has been compiled; otherwise reuse stored outputs.
+nbsphinx_execute = "auto" if _struphy_is_compiled() else "never"
+# nbsphinx_kernel_name = "local-env"  # This is just for Stefan's local machine, where the system kernel does not work.
 
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
 napoleon_use_admonition_for_references = True
 napoleon_use_ivar = True
 napoleon_attr_annotations = False
+
+# Set path to outside sources for sphinxcontrib-collections.
+collections = {
+    "notebooks": {
+        "driver": "copy_folder",
+        "source": "../tutorials/",
+        "target": "tutorials/",
+        "ignore": ["*.py", ".sh"],
+    }
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -79,6 +91,9 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+# mock imports
+# autodoc_mock_imports = ["mpi4py"]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -98,9 +113,15 @@ html_theme_options = {
     "header_links_before_dropdown": 8,
     "primary_sidebar_end": ["sidebar-ethical-ads"],
     "external_links": [
-        {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},
-        {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
-        {"name": "Struphy RocketChat", "url": "https://chat.gwdg.de/channel/struphy-developers"},
+        {"name": "Struphy repo", "url": "https://github.com/struphy-hub/struphy"},
+        {
+            "name": "Struphy LinkedIn",
+            "url": "https://www.linkedin.com/company/struphy/",
+        },
+        {
+            "name": "Struphy MatrixChat",
+            "url": "https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de",
+        },
     ],
 }
 
@@ -139,9 +160,21 @@ html_logo = "dog-cartoon-struphy.jpg"
 # }
 
 # inheritance diagrams
-inheritance_graph_attrs = dict(rankdir="LR", ratio="auto", size='"4.0, 20.0"', fontsize="8", resolution=300.0)
+inheritance_graph_attrs = dict(
+    rankdir="LR",
+    ratio="auto",
+    size='"4.0, 20.0"',
+    fontsize="8",
+    resolution=300.0,
+)
 
-inheritance_node_attrs = dict(shape="ellipse", fontsize="8", height=0.25, color="maroon4", style="filled")
+inheritance_node_attrs = dict(
+    shape="ellipse",
+    fontsize="8",
+    height=0.25,
+    color="maroon4",
+    style="filled",
+)
 
 # markdown parsing
 myst_enable_extensions = [

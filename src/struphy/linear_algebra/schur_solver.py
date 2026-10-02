@@ -1,6 +1,8 @@
-from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.solvers import inverse
+from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector
+from feectools.linalg.solvers import inverse
+from line_profiler import profile
+from scope_profiler import ProfileManager
 
 from struphy.linear_algebra.solver import SolverParameters
 
@@ -42,7 +44,7 @@ class SchurSolver:
         Product from [[A B], [C Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -76,7 +78,7 @@ class SchurSolver:
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
 
-        kwargs = solver_params.__dict__
+        kwargs = solver_params.__dict__.copy()
         kwargs.pop("info")
         if precond is not None:
             kwargs["pc"] = precond
@@ -106,26 +108,28 @@ class SchurSolver:
         """Product from [[A B], [C Id]]."""
         self._BC = bc
 
+    @profile
+    @ProfileManager.profile("solve: SchurSolver")
     def __call__(self, xn, Byn, dt, out=None):
         """Solves the 2x2 block matrix linear system.
 
         Parameters
         ----------
-        xn : psydac.linalg.basic.Vector
+        xn : feectools.linalg.basic.Vector
             Solution from previous time step.
 
-        Byn : psydac.linalg.basic.Vector
+        Byn : feectools.linalg.basic.Vector
             The product B*yn.
 
         dt : float
             Time step size.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the converged solution will be written into this vector (in-place).
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             Converged solution.
 
         info : dict
@@ -195,7 +199,7 @@ class SchurSolverFull:
         Matrix [[A B], [C Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -225,20 +229,22 @@ class SchurSolverFull:
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
 
+    @profile
+    @ProfileManager.profile("solve: SchurSolverFull")
     def dot(self, v, out=None):
         """Solves the 2x2 block matrix linear system.
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Left hand side of the system.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the converged solution will be written into this vector (in-place).
 
         Returns
         -------
-        out : psydac.linalg.block.BLockVector
+        out : feectools.linalg.block.BLockVector
             Converged solution.
 
         info : dict
@@ -305,7 +311,7 @@ class SchurSolverFull3:
         Matrix [[A B D], [C Id 0], [E 0 Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -342,20 +348,22 @@ class SchurSolverFull3:
         self._rhs = self._A.codomain.zeros()
         self._rhs2 = self._A.codomain.zeros()
 
+    @profile
+    @ProfileManager.profile("solve: SchurSolverFull3")
     def dot(self, v, out=None):
         """Solves the 3x3 block matrix linear system.
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             Left hand side of the system.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the converged solution will be written into this vector (in-place).
 
         Returns
         -------
-        out : psydac.linalg.block.BLockVector
+        out : feectools.linalg.block.BLockVector
             Converged solution.
 
         info : dict

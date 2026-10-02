@@ -138,7 +138,7 @@ stages:
   parallel:
     matrix:
       - LANGUAGE: "fortran"
-        OMP: ["", "--omp-pic"]
+        OMP: ["", "--openmp"]
       # - LANGUAGE: "c"
       #   OMP: [""]
 
@@ -146,7 +146,7 @@ stages:
   parallel:
     matrix:
       - LANGUAGE: "fortran"
-        OMP: [""] #, "--omp-pic"] # TODO: Enable when unit tests are working with --omp-pic!
+        OMP: [""] #, "--openmp"] # TODO: Enable when unit tests are working with --openmp!
       - LANGUAGE: "c"
         OMP: [""]
 
@@ -397,17 +397,13 @@ stages:
     - pip install -U build
     - python3 -m build
   inspect_struphy:
-    - struphy -p
     - struphy -h
-    - struphy --refresh-models
     - struphy run -h
   unit_tests:
     - struphy compile --status
-    - struphy --refresh-models
     - struphy test unit
   unit_tests_mpi:
     - struphy compile --status
-    - struphy --refresh-models
     - struphy test unit --mpi 2
   model_tests:
     - struphy compile --status
@@ -424,7 +420,6 @@ stages:
     - struphy test verification --mpi 4 --nclones 2
     - struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
   quickstart_tests:
-    - struphy -p
     - struphy -h
     - struphy params VlasovAmpereOneSpecies 
     - ls -1a
@@ -1162,6 +1157,6 @@ release_job:
     assets:
       links:
         - name: 'Documentation'
-          url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
+          url: 'https://struphy-hub.github.io/struphy/index.html'
         - name: 'PyPI'
           url: 'https://pypi.org/project/struphy/'

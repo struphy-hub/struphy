@@ -1,9 +1,22 @@
+import logging
+
 import pytest
 
+pytestmark = pytest.mark.mpi_pic
 
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[1, 2, 3]])
-@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
+logger = logging.getLogger("struphy")
+
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 10]])
+@pytest.mark.parametrize("degree", [[1, 2, 3]])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), ("free", "free"), None),
+        (("free", "free"), None, ("free", "free")),
+        (None, ("free", "free"), ("free", "free")),
+    ],
+)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -32,16 +45,17 @@ import pytest
         ],
     ],
 )
-def test_draw(Nel, p, spl_kind, mapping, ppc=10):
+def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
     import cunumpy as xp
-    from psydac.ddm.mpi import mpi as MPI
+    from feectools.ddm.mpi import mpi as MPI
 
+    from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
+    from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
-    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -53,16 +67,18 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid, derham_opts, comm=comm)
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
     domain_decomp = (domain_array, nprocs)
 
     if rank == 0:
-        print()
-        print("Domain decomposition according to : ")
-        print(derham.domain_array)
+        logger.info("")
+        logger.info("Domain decomposition according to : ")
+        logger.info(derham.domain_array)
 
     # create particles
     loading_params = LoadingParameters(
@@ -84,26 +100,20 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     # test weights
     particles.initialize_weights()
     _w0 = particles.weights
-    print("Test weights:")
-    print(f"rank {rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
+    logger.info("Test weights:")
+    logger.info(f"rank {rank}: {_w0.shape} {xp.min(_w0)} {xp.max(_w0)}")
 
     comm.Barrier()
-    print("Number of particles w/wo holes on each process before sorting : ")
-    print(
-        "Rank",
-        rank,
-        ":",
-        particles.n_mks_loc,
-        particles.markers.shape[0],
-    )
+    logger.info("Number of particles w/wo holes on each process before sorting : ")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # sort particles according to domain decomposition
     comm.Barrier()
     particles.mpi_sort_markers(do_test=True)
 
     comm.Barrier()
-    print("Number of particles w/wo holes on each process after sorting : ")
-    print("Rank", rank, ":", particles.n_mks_loc, particles.markers.shape[0])
+    logger.info("Number of particles w/wo holes on each process after sorting : ")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
 
     # are all markers in the correct domain?
     conds = xp.logical_and(
@@ -118,6 +128,53 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     assert error_mks.size == 0, (
         f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}"
     )
+
+
+@pytest.mark.parametrize("loading", ["pseudo_random", "sobol_standard", "sobol_antithetic"])
+def test_marker_ids(loading, Np=1000):
+    """Asserts that marker IDs are unique and contiguous across processes after drawing,
+    and that no marker is left at the origin (``sobol_antithetic`` with Np not divisible by 64)."""
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import LoadingParameters, domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.pic.particles import Particles6D
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=[8, 5, 3])
+    derham = Derham(grid, DerhamOptions(degree=[1, 1, 1]), comm=comm)
+    domain_decomp = (derham.domain_array, derham.domain_decomposition.nprocs)
+
+    loading_params = LoadingParameters(
+        Np=Np,
+        seed=1234,
+        loading=loading,
+        moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
+    )
+
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=domain_decomp,
+        loading_params=loading_params,
+        domain=domains.Cuboid(),
+    )
+
+    particles.draw_markers(sort=False)
+
+    valid = particles.markers[~particles.holes]
+    ids = valid[:, -1]
+    n_at_origin = int(xp.sum(xp.all(valid[:, :3] == 0.0, axis=1)))
+    if particles.mpi_size > 1:
+        ids = xp.concatenate(particles.mpi_comm.allgather(ids))
+        n_at_origin = particles.mpi_comm.allreduce(n_at_origin)
+
+    assert xp.array_equal(xp.sort(ids), xp.arange(Np, dtype=float))
+    assert n_at_origin == 0
 
 
 if __name__ == "__main__":

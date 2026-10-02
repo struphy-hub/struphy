@@ -43,6 +43,9 @@ RUN echo "Installing additional tools..." \
     && export CXX=`which g++` \
     && zypper clean --all
 
+# for .show_3d methods (pyvista)
+RUN zypper install -y Mesa-libEGL-devel
+
 # Allow mpirun to run as root (for OpenMPI)
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1

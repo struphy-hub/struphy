@@ -1,27 +1,121 @@
-import sys
+import logging
+import os
+import sysconfig
 
-from struphy.utils.utils import subp_run
+from struphy.utils.utils import STRUPHY_LIBPATH, subp_run
+
+logger = logging.getLogger("struphy")
+from struphy import set_logging_level
+
+set_logging_level(logging.WARNING)
+so_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+
+
+def count_compiled_kernels(state):
+    """Count the number of compiled kernels in the state dictionary."""
+    count_c = 0
+    count_f90 = 0
+    list_not_compiled = [s for s in state["kernels"]]
+    for subdir, _, files in os.walk(STRUPHY_LIBPATH):
+        # logger.info(f'{subdir = }')
+        if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
+            dir_stem = "/".join(subdir.split("/")[:-1])
+            # logger.info(f'{dir_stem = }')
+            for file in files:
+                if file[-2:] == ".c" and "wrapper" not in file and "bind_c_" not in file:
+                    stem = file[:-2]
+                    is_c = True
+                elif file[-4:] == ".f90" and "wrapper" not in file and "bind_c_" not in file:
+                    stem = file[:-4]
+                    is_c = False
+                else:
+                    continue
+
+                py_file = stem + ".py"
+                matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
+                # logger.info(f'{matches = }')
+                matching = None
+                for match in matches:
+                    py_ker = match.split("/")[-1]
+                    if py_ker == py_file:
+                        matching = match
+                if matching is None:
+                    continue
+                matching_so = matching.replace(".py", so_suffix)
+                # logger.info(f'{matching_so = }')
+                if os.path.isfile(matching_so):
+                    if is_c and state["last_used_language"] == "c":
+                        count_c += 1
+                    elif not is_c and state["last_used_language"] == "fortran":
+                        count_f90 += 1
+                    if matching in list_not_compiled:
+                        list_not_compiled.remove(matching)
+
+    return count_c, count_f90, list_not_compiled
+
+
+def collect_kernel_files(libpath=STRUPHY_LIBPATH):
+    """Return the sorted list of all Struphy kernel source files (absolute paths) below libpath."""
+    tmp = []
+    for subdir, dirs, files in os.walk(libpath):
+        logger.debug(f"\n{subdir = }")
+        if "__pycache__" in subdir or "__pyccel__" in subdir:
+            continue
+        for file in files:
+            logger.debug(f"{file = }")
+            if "kernels" in file and file.endswith(".py") and "_tmp.py" not in file and "test" not in file:
+                tmp += [os.path.join(subdir, file)]
+    return sorted(tmp)
+
+
+def remove_kernel_artifacts(kernel_py):
+    """Remove the compiled extension module, the pyccel lock file and the __pyccel__ sources
+    belonging to a (possibly no longer existing) kernel source file."""
+    import glob
+    import shutil
+
+    dirname, basename = os.path.split(kernel_py)
+    stem = basename[:-3]
+
+    patterns = [
+        os.path.join(dirname, stem + ".*.so"),
+        os.path.join(dirname, stem + ".*.pyd"),
+        os.path.join(dirname, stem + ".lock"),
+        os.path.join(dirname, stem + "_tmp.py"),
+        os.path.join(dirname, "__pycache__", stem + ".*.pyc"),
+        os.path.join(dirname, "__pyccel__", stem + ".*"),
+        os.path.join(dirname, "__pyccel__", stem + "_tmp.*"),
+        os.path.join(dirname, "__pyccel__", "bind_c_" + stem + "*"),
+        os.path.join(dirname, "__pyccel__", stem + "_wrapper.*"),
+    ]
+    for pattern in patterns:
+        for f in glob.glob(pattern):
+            os.remove(f)
+
+    pyccel_dir = os.path.join(dirname, "__pyccel__")
+    if os.path.isdir(pyccel_dir) and not os.listdir(pyccel_dir):
+        shutil.rmtree(pyccel_dir)
 
 
 def struphy_compile(
     language,
     compiler,
     compiler_config,
-    omp_pic,
-    omp_feec,
+    openmp,
     delete,
     status,
     verbose,
     dependencies,
     time_execution,
     yes,
+    jobs=1,
 ):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
     Parameters
     ----------
     language : str
-        Either "c" (default) or "fortran".
+        Either "fortran" (default) or "c".
 
     compiler : str
         Either "GNU" (default), "intel", "PGI", "nvidia", or "LLVM"
@@ -30,11 +124,8 @@ def struphy_compile(
     compiler_config : str
         Path to a JSON compiler file.
 
-    omp_pic : bool
-        Whether to compile PIC kernels with OpenMP (default=False).
-
-    omp_feec : bool
-        WHether to compile FEEC kernels with OpenMP (default=False).
+    openmp : bool
+        Whether to compile all kernels with OpenMP (default=False).
 
     delete : bool
         If True, deletes generated Fortran/C files and .so files (default=False).
@@ -53,13 +144,14 @@ def struphy_compile(
 
     yes : bool
         Whether to say yes to prompt when changing the language.
+
+    jobs : int
+        Number of kernels compiled in parallel (default=1). Kernels that depend on each other are still compiled in order.
     """
 
     import importlib.metadata
     import importlib.util
-    import os
     import re
-    import sysconfig
 
     import pyccel
 
@@ -67,7 +159,7 @@ def struphy_compile(
     import struphy.dependencies as depmod
     import struphy.utils.utils as utils
 
-    libpath = struphy.__path__[0]
+    libpath = STRUPHY_LIBPATH
 
     so_suffix = sysconfig.get_config_var("EXT_SUFFIX")
 
@@ -79,27 +171,30 @@ def struphy_compile(
     # Read struphy state file
     state = utils.read_state()
 
-    # collect kernels
-    if "kernels" not in state:
-        state["kernels"] = []
-        for subdir, dirs, files in os.walk(libpath):
-            for file in files:
-                if (
-                    "kernels" in file
-                    and ".py" in file
-                    and "_tmp.py" not in file
-                    and "test" not in file
-                    and "legacy" not in subdir
-                    and "__pycache__" not in subdir
-                ):
-                    state["kernels"] += [os.path.join(subdir, file)]
+    # collect kernels (always re-scan: kernel files may have been added, moved or removed since the last run)
+    kernels_now = collect_kernel_files(libpath)
+    kernels_old = state.get("kernels", None)
 
+    if kernels_old is None:
         # set initial compiler infos to None
         state["last_used_language"] = None
         state["last_used_compiler"] = None
-        state["last_used_omp_pic"] = None
-        state["last_used_omp_feec"] = None
+        state["last_used_omp"] = None
+    else:
+        removed = sorted(set(kernels_old) - set(kernels_now))
+        added = sorted(set(kernels_now) - set(kernels_old))
+        if removed:
+            print("\nKernel files removed since last compile (deleting stale build artifacts):")
+            for ker in removed:
+                print(f"  {ker}")
+                remove_kernel_artifacts(ker)
+        if added:
+            print("\nNew kernel files detected:")
+            for ker in added:
+                print(f"  {ker}")
 
+    if kernels_old != kernels_now:
+        state["kernels"] = kernels_now
         utils.save_state(state)
     # source files
     sources = " ".join(state["kernels"])
@@ -108,6 +203,11 @@ def struphy_compile(
     if delete:
         # (change dir not to be in source path)
         print("\nDeleting .f90/.c and .so files ...")
+        # TODO: for using pyccel clean in the future
+        # cmd = [
+        #     "pyccel",
+        #     "clean",
+        # ]
         cmd = [
             "make",
             "clean",
@@ -132,42 +232,7 @@ def struphy_compile(
 
     elif status:
         # update status
-        count_c = 0
-        count_f90 = 0
-        list_not_compiled = [s for s in state["kernels"]]
-        for subdir, _, files in os.walk(libpath):
-            # print(f'{subdir = }')
-            if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
-                dir_stem = "/".join(subdir.split("/")[:-1])
-                # print(f'{dir_stem = }')
-                for file in files:
-                    if file[-2:] == ".c" and "wrapper" not in file and "bind_c_" not in file:
-                        stem = file[:-2]
-                        is_c = True
-                    elif file[-4:] == ".f90" and "wrapper" not in file and "bind_c_" not in file:
-                        stem = file[:-4]
-                        is_c = False
-                    else:
-                        continue
-
-                    py_file = stem + ".py"
-                    matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
-                    # print(f'{matches = }')
-                    matching = None
-                    for match in matches:
-                        py_ker = match.split("/")[-1]
-                        if py_ker == py_file:
-                            matching = match
-                    matching_so = matching.replace(".py", so_suffix)
-                    # print(f'{matching_so = }')
-                    if os.path.isfile(matching_so):
-                        if is_c and state["last_used_language"] == "c":
-                            count_c += 1
-                        elif not is_c and state["last_used_language"] == "fortran":
-                            count_f90 += 1
-                        if matching in list_not_compiled:
-                            list_not_compiled.remove(matching)
-
+        count_c, count_f90, list_not_compiled = count_compiled_kernels(state)
         n_kernels = len(state["kernels"])
         print("")
         print(f"{count_c} of {n_kernels} Struphy kernels are compiled with language C.")
@@ -176,7 +241,7 @@ def struphy_compile(
         )
         print(f"{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).")
         print(
-            f"\ncompiler={state['last_used_compiler']}\nflags_omp_pic={state['last_used_omp_pic']}\nflags_omp_feec={state['last_used_omp_feec']}",
+            f"\ncompiler={state['last_used_compiler']}\nflags_omp={state.get('last_used_omp')}",
         )
         if len(list_not_compiled) > 0:
             print("\nPure Python kernels (not compiled) are:")
@@ -203,12 +268,9 @@ def struphy_compile(
 
     else:
         # struphy and psydac (change dir not to be in source path)
-        flag_omp_pic = ""
-        flag_omp_feec = ""
-        if omp_pic:
-            flag_omp_pic = " --openmp"
-        if omp_feec:
-            flag_omp_feec = " --openmp"
+        flag_omp = ""
+        if openmp:
+            flag_omp = " --openmp"
 
         # pyccel flags
         flags = "--language=" + language
@@ -242,64 +304,9 @@ def struphy_compile(
 
         state["last_used_language"] = language
         state["last_used_compiler"] = compiler
-        state["last_used_omp_pic"] = flag_omp_pic
-        state["last_used_omp_feec"] = flag_omp_feec
+        state["last_used_omp"] = flag_omp
 
         utils.save_state(state)
-
-        # install psydac from wheel if not there
-        source_install = False
-        for req in importlib.metadata.distribution("struphy").requires:
-            if "psydac" in req:
-                source_install = True
-
-        struphy_ver = importlib.metadata.version("struphy")
-
-        try:
-            import psydac
-
-            psydac_ver = importlib.metadata.version("psydac")
-            psydac_installed = True
-        except:
-            psydac_installed = False
-
-        if source_install:
-            if psydac_installed:
-                # only install (from .whl) if psydac not up-to-date
-                if psydac_ver < struphy_ver:
-                    print(
-                        f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n",
-                    )
-                    sys.exit(1)
-            else:
-                print("Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
-                sys.exit(1)
-
-        else:
-            install_psydac = False
-            if psydac_installed:
-                # only install (from .whl) if psydac not up-to-date
-                if ".".join(psydac_ver.split(".")[:3]) != ".".join(struphy_ver.split(".")[:3]):
-                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is required.\n")
-                    install_psydac = True
-            else:
-                install_psydac = True
-
-            if install_psydac:
-                for filename in os.listdir(libpath):
-                    if re.match("psydac-", filename):
-                        psydac_file = filename
-
-                cmd = ["pip", "uninstall", "-y", "psydac"]
-                subp_run(cmd)
-                print("\nInstalling Psydac ...")
-                cmd = [
-                    "pip",
-                    "install",
-                    os.path.join(libpath, psydac_file),
-                ]
-                subp_run(cmd)
-                print("Done.")
 
         # Compile psydac kernels, note that this is a special function call in psydac-for-struphy.
         # Otherwise, psydac only allows for recompiling the kernels when installed in editable mode.
@@ -327,14 +334,25 @@ def struphy_compile(
 
         # compilation
         print("\nCompiling Struphy kernels ...")
+        kernel_file = os.path.join(libpath, "kernels.txt")
+        # TODO: for using pyccel make in the future
+        # cmd = [
+        #     "pyccel",
+        #     "make",
+        #     "-d",
+        #     kernel_file,
+        #     "-v",
+        # ]
+        # make compiles up to `jobs` kernels at once; the prerequisites computed by
+        # dependencies.py (see compile_struphy.mk) ensure that imported kernels are built first
         cmd = [
             "make",
+            f"-j{jobs}",
             "-f",
             "compile_struphy.mk",
             "sources=" + sources,
             "flags=" + flags,
-            "flags_openmp_pic=" + flag_omp_pic,
-            "flags_openmp_mhd=" + flag_omp_feec,
+            "flags_openmp=" + flag_omp,
         ]
         subp_run(cmd)
         print("Done.")
@@ -343,13 +361,5 @@ def struphy_compile(
             "struphy",
             "compile",
             "--status",
-        ]
-        subp_run(cmd)
-
-        # collect available models
-        print("")
-        cmd = [
-            "struphy",
-            "--refresh-models",
         ]
         subp_run(cmd)

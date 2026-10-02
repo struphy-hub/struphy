@@ -31,8 +31,11 @@ RUN apt install -y libopenmpi-dev openmpi-bin \
     && apt install -y libomp-dev libomp5 
 
 RUN apt install -y git \
-    && apt install -y pandoc graphviz \
+    && apt install -y pandoc graphviz sqlite3 \
     && bash -c "source ~/.bashrc" 
+
+# for .show_3d methods (pyvista)
+RUN apt install -y libosmesa6 libosmesa6-dev libegl-mesa0
 
 # for gvec
 RUN apt install -y g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-dev libnetcdff-dev \

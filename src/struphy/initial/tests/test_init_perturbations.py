@@ -1,13 +1,16 @@
 import inspect
+import logging
 from copy import deepcopy
 
 import pytest
 
+logger = logging.getLogger("struphy")
+
 
 # @pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
-@pytest.mark.parametrize("Nel", [[16, 16, 16]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("num_elements", [[16, 16, 16]])
+@pytest.mark.parametrize("degree", [[2, 3, 4]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None)])
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -17,19 +20,20 @@ import pytest
         ["HollowTorus", {"tor_period": 1}],
     ],
 )
-def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
+def test_init_modes(num_elements, degree, bcs, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
     import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
-    from psydac.ddm.mpi import mpi as MPI
 
+    from struphy import domains, perturbations
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
+    from struphy.io.options import DerhamOptions
     from struphy.models.variables import FEECVariable
+    from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -40,7 +44,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     assert isinstance(domain, Domain)
 
     # Derham
-    derham = Derham(Nel, p, spl_kind, comm=comm)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
+    derham = Derham(grid=grid, options=derham_opts, comm=comm)
 
     fields = {}
     for space, form in derham.space_to_form.items():
@@ -80,7 +86,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     for key, val in inspect.getmembers(perturbations):
         if inspect.isclass(val) and val.__module__ == perturbations.__name__:
-            print(key, val)
+            logger.info(f"{key} {val}")
 
             if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
                 continue
@@ -112,13 +118,13 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             continue
 
                         if "Modes" in key and fun_form == "physical":
-                            perturbation._Lx = Lx
-                            perturbation._Ly = Ly
-                            perturbation._Lz = Lz
+                            perturbation.Lx = Lx
+                            perturbation.Ly = Ly
+                            perturbation.Lz = Lz
                         else:
-                            perturbation._Lx = 1.0
-                            perturbation._Ly = 1.0
-                            perturbation._Lz = 1.0
+                            perturbation.Lx = 1.0
+                            perturbation.Ly = 1.0
+                            perturbation.Lz = 1.0
                         # use the setter
                         perturbation.given_in_basis = fun_form
 
@@ -140,7 +146,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             fun_vals_xyz = domain.push(perturbation, eee1, eee2, eee3, kind=fun_form)
 
                         error = xp.max(xp.abs(field_vals_xyz - fun_vals_xyz)) / xp.max(xp.abs(fun_vals_xyz))
-                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
+                        logger.info(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:
@@ -208,13 +214,13 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             continue
 
                         if "Modes" in key and fun_form == "physical":
-                            perturbation._Lx = Lx
-                            perturbation._Ly = Ly
-                            perturbation._Lz = Lz
+                            perturbation.Lx = Lx
+                            perturbation.Ly = Ly
+                            perturbation.Lz = Lz
                         else:
-                            perturbation._Lx = 1.0
-                            perturbation._Ly = 1.0
-                            perturbation._Lz = 1.0
+                            perturbation.Lx = 1.0
+                            perturbation.Ly = 1.0
+                            perturbation.Lz = 1.0
                         perturbation_0 = perturbation
                         perturbation_1 = deepcopy(perturbation)
                         perturbation_2 = deepcopy(perturbation)
@@ -289,7 +295,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         for fi, funi in zip(f_xyz, fun_xyz_vec):
                             error += xp.max(xp.abs(fi - funi)) / xp.max(xp.abs(funi))
                         error /= 3.0
-                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
+                        logger.info(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:
@@ -333,10 +339,58 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
         plt.show()
 
 
+def test_itpa_density_c2_limit():
+    """ITPA density with c[2] == 0 must equal the c[2] -> 0 limit of the general formula, n0 * c[3]."""
+
+    import cunumpy as xp
+
+    from struphy.initial.perturbations import ITPA_density as ITPA_pert
+    from struphy.kinetic_background.moment_functions import ITPA_density as ITPA_moment
+
+    n0 = 0.00720655
+    c = (0.491230, 0.298228, 0.198739, 0.521298)
+    eta1 = xp.linspace(0.0, 1.0, 11)
+    eta1 = eta1[xp.abs(eta1 - c[0]) > 0.05]
+
+    for cls in (ITPA_pert, ITPA_moment):
+        val0 = cls(n0=n0, c=(c[0], c[1], 0.0, c[3]))(eta1)
+        val_small = cls(n0=n0, c=(c[0], c[1], 1e-8, c[3]))(eta1)
+        assert xp.allclose(val0, n0 * c[3])
+        assert xp.allclose(val0, val_small)
+
+
+def test_modes_pfuns_per_mode_params():
+    """Each mode's profile function must use its own parameters (no late binding in the loop)."""
+
+    import cunumpy as xp
+
+    from struphy.initial.perturbations import ModesSin, TorusModesCos, TorusModesSin
+
+    e = 0.25
+    pars = ((0.3, 0.1), (0.7, 0.2))
+    for cls in (TorusModesSin, TorusModesCos):
+        pert = cls(ms=(0, 0), ns=(0, 0), amps=(1.0, 1.0), pfuns=("sin", "sin"), pfun_params=(1, 2))
+        assert xp.allclose([f(e) for f in pert._pfuns], [xp.sin(xp.pi * e), xp.sin(2 * xp.pi * e)])
+
+        pert = cls(ms=(0, 0), ns=(0, 0), amps=(1.0, 1.0), pfuns=("exp", "d_exp"), pfun_params=pars)
+        (a0, s0), (a1, s1) = pars
+        exp0 = xp.exp(-((e - a0) ** 2) / (2 * s0**2)) / xp.sqrt(2 * xp.pi * s0**2)
+        d_exp1 = -(e - a1) / s1**2 * xp.exp(-((e - a1) ** 2) / (2 * s1**2)) / xp.sqrt(2 * xp.pi * s1**2)
+        assert xp.allclose([f(e) for f in pert._pfuns], [exp0, d_exp1])
+
+        pert = cls(ms=(0, 0), ns=(0, 0), amps=(1.0, 1.0), pfuns=("exp", "exp"), pfun_params=pars)
+        assert not xp.isclose(pert._pfuns[0](e), pert._pfuns[1](e))
+
+    z = 0.6
+    pert = ModesSin(ls=(1, 1), amps=(1.0, 1.0), pfuns=("localize", "localize"), pfuns_params=(0.1, 0.5))
+    expected = [xp.tanh((z - 0.5) / d) / xp.cosh((z - 0.5) / d) for d in (0.1, 0.5)]
+    assert xp.allclose([f(z) for f in pert.pfuns], expected)
+
+
 if __name__ == "__main__":
     # mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
     mapping = ["HollowCylinder", {"a1": 0.1}]
     # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 5., 'l3': 0., 'r3': 6.}]
-    test_init_modes([16, 16, 16], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=False)
+    # test_init_modes([16, 16, 16], [2, 3, 4], (("free", "free"), None, None), mapping, combine_comps=None, do_plot=False)
     # mapping = ["HollowTorus", {"tor_period": 1}]
-    # test_init_modes([16, 14, 14], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=True)
+    test_init_modes([16, 14, 14], [2, 3, 4], (("free", "free"), None, None), mapping, combine_comps=None, do_plot=True)

@@ -67,8 +67,11 @@ def grad_linear_uni(
     if abs(x / h) <= 1.0:
         if x > 0.0:
             return -(1 / h**2)
-        else:
+        elif x < 0.0:
             return 1 / h**2
+        else:
+            # kink at x=0: use the symmetric value 0 (no self-force)
+            return 0.0
     else:
         return 0.0
 
@@ -443,7 +446,8 @@ def grad_linear_isotropic_3d_1(
     if r / h > 1.0:
         return 0.0
     elif r == 0.0:
-        return -1 / h / (1.0471975512 * h**3)
+        # cusp at r=0: use the symmetric value 0 (no self-force)
+        return 0.0
     else:
         return -r1 / (r * h) / (1.0471975512 * h**3)
 
@@ -465,7 +469,8 @@ def grad_linear_isotropic_3d_2(
     if r / h > 1.0:
         return 0.0
     elif r == 0.0:
-        return -1 / h / (1.0471975512 * h**3)
+        # cusp at r=0: use the symmetric value 0 (no self-force)
+        return 0.0
     else:
         return -r2 / (r * h) / (1.0471975512 * h**3)
 
@@ -487,7 +492,8 @@ def grad_linear_isotropic_3d_3(
     if r / h > 1.0:
         return 0.0
     elif r == 0.0:
-        return -1 / h / (1.0471975512 * h**3)
+        # cusp at r=0: use the symmetric value 0 (no self-force)
+        return 0.0
     else:
         return -r3 / (r * h) / (1.0471975512 * h**3)
 
@@ -581,16 +587,28 @@ def smoothing_kernel(
         out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 101:
         out = grad_trigonometric_1d(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 102:
+        out = 0.0
+    elif kernel_type == 103:
+        out = 0.0
 
     elif kernel_type == 110:
         out = gaussian_1d(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 111:
         out = grad_gaussian_1d(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 112:
+        out = 0.0
+    elif kernel_type == 113:
+        out = 0.0
 
     elif kernel_type == 120:
         out = linear_1d(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 121:
         out = grad_linear_1d(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 122:
+        out = 0.0
+    elif kernel_type == 123:
+        out = 0.0
 
     # 2d kernels
     elif kernel_type == 340:
@@ -599,6 +617,8 @@ def smoothing_kernel(
         out = grad_trigonometric_2d_1(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 342:
         out = grad_trigonometric_2d_2(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 343:
+        out = 0.0
 
     elif kernel_type == 350:
         out = gaussian_2d(r1, r2, r3, h1, h2, h3)
@@ -606,6 +626,8 @@ def smoothing_kernel(
         out = grad_gaussian_2d_1(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 352:
         out = grad_gaussian_2d_2(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 353:
+        out = 0.0
 
     elif kernel_type == 360:
         out = linear_2d(r1, r2, r3, h1, h2, h3)
@@ -613,6 +635,8 @@ def smoothing_kernel(
         out = grad_linear_2d_1(r1, r2, r3, h1, h2, h3)
     elif kernel_type == 362:
         out = grad_linear_2d_2(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 363:
+        out = 0.0
 
     # 3d kernels
     elif kernel_type == 670:

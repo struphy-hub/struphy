@@ -1,5 +1,7 @@
 "Analytic dispersion relations."
 
+import logging
+
 import cunumpy as xp
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
@@ -7,6 +9,8 @@ from scipy.optimize import fsolve
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.equils import set_defaults
+
+logger = logging.getLogger("struphy")
 
 
 class Maxwell1D(DispersionRelations1D):
@@ -20,7 +24,7 @@ class Maxwell1D(DispersionRelations1D):
     Parameters
     ----------
     c : float
-        Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.toy.Maxwell`.
+        Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.Maxwell`.
     """
 
     def __init__(self, c=1.0):
@@ -49,7 +53,7 @@ class Maxwell1D(DispersionRelations1D):
 class MHDhomogenSlab(DispersionRelations1D):
     r"""
     Dispersion relation for linear MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)`
-    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearMHD`):
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.linear_mhd.LinearMHD`):
 
     .. math::
 
@@ -127,7 +131,7 @@ class MHDhomogenSlab(DispersionRelations1D):
 class ExtendedMHDhomogenSlab(DispersionRelations1D):
     r"""
     Dispersion relation for linear extended MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)` 
-    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearExtendedMHD`).
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.linear_extended_mhd.LinearExtendedMHD`).
     The linear mode analysis is performed on the following system:
 
     .. math::
@@ -151,6 +155,8 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
     stands for the first root where 
     :math:`\Omega_i = |\mathbf B_0|/\epsilon` is the cyclotron frequency 
     with :math:`\epsilon = 1/(\hat \Omega_i \hat t)`.
+    The roots :math:`\omega = \sqrt{x}` of the cubic are returned in ascending order as the slow magnetosonic,
+    shear Alfvén and fast magnetosonic branches, and :math:`\omega = \omega_0` as the compressional Alfvén branch.
     """
 
     def __init__(self, B0x=0.0, B0y=0.0, B0z=1.0, p0=0.1, n0=1.0, gamma=5 / 3, eps=0.1):
@@ -197,7 +203,7 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
 
         # auxiliary functions
         def omega_0(k):
-            return vA**2 * k**2 * cos_theta
+            return vA**2 * k**2 * cos_theta / Omega_i
 
         def b(k):
             return -(cS**2 + vA**2) * k**2 - vA**2 * k**2 * cos_theta**2 - omega_0(k) ** 2
@@ -217,18 +223,17 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
                 - 27.0 * d(k) ** 2
             )
 
-        # solve
-        out = xp.zeros((k.size, 4), dtype=complex)
+        # solve the cubic for x = omega^2 (roots are sorted in ascending order: slow, shear Alfvén, fast)
+        out = xp.zeros((k.size, 3), dtype=complex)
         for i, ki in enumerate(k):
-            p0 = Polynomial([-(omega_0(ki) ** 2), 1.0])
-            p1 = Polynomial([d(ki), c(ki), b(ki), 1.0])
-            poly = p0 * p1
-            out[i] = poly.roots()
+            out[i] = Polynomial([d(ki), c(ki), b(ki), 1.0]).roots()
+
+        out = xp.sqrt(out)
 
         self._branches["slow magnetosonic"] = out[:, 0]
         self._branches["shear Alfvén"] = out[:, 1]
         self._branches["fast magnetosonic"] = out[:, 2]
-        self._branches["compressional Alfvén"] = out[:, 3]
+        self._branches["compressional Alfvén"] = xp.abs(omega_0(k)).astype(complex)
 
         return self.branches
 
@@ -299,7 +304,7 @@ class FluidSlabITG(DispersionRelations1D):
             * self.params["vstar"]
             / self.params["vi"]
         )
-        print(f"{ky_crit =}")
+        logger.info(f"{ky_crit =}")
         self._k_crit["analytic threshold"] = ky_crit
 
         # auxiliary functions
@@ -344,12 +349,12 @@ class ColdPlasma1D(DispersionRelations1D):
 
         params_all = set_defaults(params, params_default)
 
-        super().__init__("ion-cyclotron wave", "electron-cyclotron wave", "L-wave", "R-wave", **params)
+        super().__init__("ion-cyclotron wave", "electron-cyclotron wave", "L-wave", "R-wave", **params_all)
 
     def __call__(self, kvec):
         # One complex array for each branch
         tmps = []
-        for n in range(self.nbranches):
+        for n in range(len(self.branches)):
             tmps += [xp.zeros_like(kvec, dtype=complex)]
 
         ########### Model specific part ##############################
@@ -359,7 +364,7 @@ class ColdPlasma1D(DispersionRelations1D):
             theta = xp.pi / 2
         else:
             theta = xp.arctan(xp.sqrt(self.params["B0x"] ** 2 + self.params["B0y"] ** 2) / self.params["B0z"])
-        print(theta)
+        logger.info(theta)
         cos2 = xp.cos(theta) ** 2
 
         neq = self.params["n0"]
@@ -417,11 +422,10 @@ class ColdPlasma1D(DispersionRelations1D):
         ##############################################################
 
         # fill output dictionary
-        dict_disp = {}
         for name, tmp in zip(self.branches, tmps):
-            dict_disp[name] = tmp
+            self._branches[name] = tmp
 
-        return dict_disp
+        return self.branches
 
 
 class CurrentCoupling6DParallel(DispersionRelations1D):
@@ -525,13 +529,13 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
         # One complex array for each branch
         tmps = []
-        for _ in range(self.nbranches):
+        for _ in range(len(self.branches)):
             tmps += [xp.zeros_like(k, dtype=complex)]
 
         ########### Model specific part ##############################
 
         # sound waves
-        tmps[2][:] = self.params["gamma"] * self.params["p0"] * k
+        tmps[2][:] = xp.sqrt(self.params["gamma"] * self.params["p0"]) * k
 
         # solve dispersion relation for R-/L-waves for fixed k with Newton method
         for i, ki in enumerate(k):
@@ -550,7 +554,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
                 Dr, Di = self.D_RL(wR, ki, +1)
 
-                while xp.abs(Dr + Di * 1j) > tol or counter == max_it:
+                while xp.abs(Dr + Di * 1j) > tol and counter < max_it:
                     # derivative
                     Drp, Dip = self.D_RL(wR, ki, +1, 1)
 
@@ -566,7 +570,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
                 Dr, Di = self.D_RL(wL, ki, -1)
 
-                while xp.abs(Dr + Di * 1j) > tol or counter == max_it:
+                while xp.abs(Dr + Di * 1j) > tol and counter < max_it:
                     # derivative
                     Drp, Dip = self.D_RL(wL, ki, -1, 1)
 
@@ -590,11 +594,10 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
         ##############################################################
 
         # fill output dictionary
-        omegas = {}
         for name, tmp in zip(self.branches, tmps):
-            omegas[name] = tmp
+            self._branches[name] = tmp
 
-        return omegas
+        return self.branches
 
     def D_RL(self, w, k, pol, der=0):
         r"""
@@ -705,10 +708,24 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
     where :math:`\xi_0 = \frac{\omega / k_\parallel - u_0}{\hat{v}_\parallel}, \quad \xi_\pm = \frac{(\omega \pm \omega_c) / k_\parallel - u_0}{\hat{v}_\parallel}, \quad a_0 = \frac{u_0}{\hat{v}_\parallel}`
     and :math:`Z(\xi) = \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{e^{- t^2}}{t - \xi} dt = i \sqrt{\pi} e^{- \xi^2} ( 1 + \text{erf}(i\xi))` is the plasma dispersion function.
 
+    Parameters
+    ----------
+    **params
+        Keyword arguments that characterize the dispersion relation.
+            * B0x, B0y, B0z : float
+                Magnetic field components (default: 0., 0., 1.).
+            * n0 : float
+                Plasma number density (default: 1.).
+
     """
 
-    def __init__(self, params):
-        super().__init__("shear Alfvén_R", "shear Alfvén_L", "sonic", **params)
+    def __init__(self, **params):
+        # set default parameters
+        params_default = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "n0": 1.0}
+
+        params_all = set_defaults(params, params_default)
+
+        super().__init__("shear Alfvén_R", "shear Alfvén_L", "sonic", **params_all)
 
     def __call__(self, k, tol=1e-10):
         """
@@ -730,7 +747,7 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
         # One complex array for each branch
         tmps = []
-        for n in range(self.nbranches):
+        for n in range(len(self.branches)):
             tmps += [xp.zeros_like(k, dtype=complex)]
 
         ########### Model specific part ##############################
@@ -762,11 +779,10 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         ##############################################################
 
         # fill output dictionary
-        omegas = {}
         for name, tmp in zip(self.branches, tmps):
-            omegas[name] = tmp
+            self._branches[name] = tmp
 
-        return omegas
+        return self.branches
 
     def D_RL(self, w, k, pol):
         r"""

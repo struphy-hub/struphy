@@ -1,19 +1,38 @@
 name: "Compile kernels with pyccel"
 
+description: 
+
+inputs:
+  language:
+    required: false
+    default: fortran
+  env-name:
+    required: false
+    default: ""
+  jobs:
+    description: "Number of kernels to compile in parallel (default: number of CPU cores, at most 8)"
+    required: false
+    default: ""
+
 runs:
   using: composite
   steps:
-    - name: Checkout pyccel version
-      shell: bash
-      run: |
-        pyccel --version
-
     - name: Compile kernels
       shell: bash
       run: |
-        struphy compile --status
-        struphy compile -y --language ${{ matrix.compile-language }} || (
-          echo "Initial compile failed. Removing compiled kernels and trying again..." &&
-          struphy compile -d -y &&
-          struphy compile -y --language ${{ matrix.compile-language }}
-        )
+        if [ -n "${{ inputs.env-name }}" ] ; then
+          echo "Using env: ${{ inputs.env-name }}"
+          python3 -m venv ${{ inputs.env-name }}
+          source ${{ inputs.env-name }}/bin/activate
+        else
+          echo "No env specified, installing outside of any env"
+        fi
+        pyccel --version
+        JOBS="${{ inputs.jobs }}"
+        if [ -z "$JOBS" ]; then
+          # getconf works on Linux and macOS (nproc does not exist on macOS)
+          JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+          if [ "$JOBS" -gt 8 ]; then JOBS=8; fi
+        fi
+        echo "Compiling with $JOBS parallel jobs"
+        struphy compile -y --language ${{ inputs.language }} -j "$JOBS"

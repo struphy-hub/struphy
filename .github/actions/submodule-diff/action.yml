@@ -1,0 +1,38 @@
+name: Get diff in submodule to decide testing
+
+description: ""
+
+inputs:
+  submod-name:
+    description: "Name of the submodule to check for changes"
+    required: false
+    default: feectools
+  start-dir:
+    description: "Directory where the first step should run"
+    required: false
+    default: .
+
+runs:
+  using: composite
+  steps:
+    - name: Check for changes in submodule
+      shell: bash
+      # the following compares the base branch (usually devel) to the current head of the feature branch (I verified)!
+      run: |
+        pwd
+        cd ${{ inputs.start-dir }}
+        pwd
+        if git rev-parse --verify origin/devel &>/dev/null; then
+          DIFF_BASE="origin/devel"
+        elif git rev-parse --verify HEAD~1 &>/dev/null; then
+          DIFF_BASE="HEAD~1"
+        else
+          echo "Error: neither origin/devel nor HEAD~1 is available" && exit 1
+        fi
+        echo "Using diff base: $DIFF_BASE"
+        git diff --name-only "$DIFF_BASE" HEAD
+        if git diff --name-only "$DIFF_BASE" HEAD -- ${{ inputs.submod-name }} | grep -q .; then
+          echo "SUBMOD_CHANGED=true" >> $GITHUB_ENV
+          echo "SUBMOD_NAME=${{ inputs.submod-name }}" >> $GITHUB_ENV
+          exit 0
+        fi
