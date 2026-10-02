@@ -899,12 +899,19 @@ class Derham:
         self._neighbours = self._get_neighbours()
 
         # collect arguments for kernels (the knots of feectools are host arrays on every array backend)
-        self._args_derham = DerhamArguments(
+        self._pyccel_args_derham = DerhamArguments(
             np.array(self.degree),
             *self.V0fem.knots,
             np.array(self.V0.starts),
         )
-        self._cuda_args_derham = None
+        if is_cuda_backend():
+            self._args_derham = CudaDerhamArguments(
+                xp.asarray(self._pyccel_args_derham.pn),
+                *(xp.asarray(t) for t in self.V0fem.knots),
+                xp.asarray(self._pyccel_args_derham.starts),
+            )
+        else:
+            self._args_derham = self._pyccel_args_derham
 
         logger.debug("\nDERHAM:")
         logger.debug(f"{'number of elements:'.ljust(25)} {num_elements}")
@@ -1475,20 +1482,9 @@ class Derham:
         return self._div_bcfree
 
     @property
-    def args_derham(self):
-        """Collection of mandatory arguments for pusher kernels."""
+    def args_derham(self) -> DerhamArguments | CudaDerhamArguments:
+        """Mandatory pusher kernel arguments for the backend used at initialization."""
         return self._args_derham
-
-    @property
-    def cuda_args_derham(self) -> CudaDerhamArguments:
-        """CUDA arguments for particle kernels; holds device copies of the spline degrees, knots and start indices."""
-        if self._cuda_args_derham is None:
-            self._cuda_args_derham = CudaDerhamArguments(
-                xp.asarray(self.args_derham.pn),
-                *(xp.asarray(t) for t in self.V0fem.knots),
-                xp.asarray(self.args_derham.starts),
-            )
-        return self._cuda_args_derham
 
     # --------------------------
     #      methods:
