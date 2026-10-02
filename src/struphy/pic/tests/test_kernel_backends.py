@@ -6,16 +6,24 @@ skips test files); its CUDA counterpart is :data:`PUSH_ETA_LINEAR_SRC`. See ``CU
 
 import importlib
 import inspect
+import re
 import sys
+from pathlib import Path
 
 import cunumpy
 import numpy as np
 import pytest
 from cunumpy import PyccelKernel
 
+import struphy
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
-from struphy.utils.cuda_arguments import CudaDomainArguments, CudaMarkerArguments
+from struphy.utils.cuda_arguments import (
+    C_TYPES,
+    CudaDerhamArguments,
+    CudaDomainArguments,
+    CudaMarkerArguments,
+)
 from struphy.utils.kernel_backends import CudaKernel, Kernel, KernelCatalog, is_cuda_backend
 
 requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
@@ -51,49 +59,79 @@ def push_eta_linear(
         markers[ip, 2] += dt * markers[ip, 5]
 
 
-# Arguments: (dt, stage, CudaMarkerArguments, CudaDomainArguments), see struphy.utils.cuda_arguments.
-CUDA_ARGS = r"""
-    double dt, int stage,
-    double* markers, bool* valid_mks, int n_markers, int n_cols,
-    int Np, int vdim, int weight_idx, int first_diagnostics_idx, int first_init_idx,
-    int first_shift_idx, int residual_idx, int first_free_idx, int mu_idx, long long* bc_type,
-    int kind_map, double* params, long long* degree,
-    double* t1, double* t2, double* t3,
-    long long* ind1, long long* ind2, long long* ind3,
-    double* cx, double* cy, double* cz
-"""
+# Same arguments as the pyccel kernel; the argument classes are the structs of pusher_args.cuh.
+PUSH_ETA_LINEAR_SRC = r"""
+#include "struphy/kernel_arguments/pusher_args.cuh"
 
-PUSH_ETA_LINEAR_SRC = f"""
 extern "C" __global__
-void push_eta_linear({CUDA_ARGS})
-{{
+void push_eta_linear(double dt, int stage, MarkerArgs args_markers, DomainArgs args_domain)
+{
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
 
     // only do something if particle is valid (i.e. not a hole or ghost)
-    if (ip >= n_markers || !valid_mks[ip]) return;
+    if (ip >= args_markers.n_markers || !args_markers.valid_mks[ip]) return;
 
-    double* mk = markers + (long long)ip * n_cols;
+    double* mk = args_markers.markers + (long long)ip * args_markers.n_cols;
     mk[0] += dt * mk[3];
     mk[1] += dt * mk[4];
     mk[2] += dt * mk[5];
-}}
+}
 """
 
-# writes the scalar arguments into the markers, to check that they arrive with the right types
-WRITE_SCALARS_SRC = f"""
-extern "C" __global__
-void write_scalars({CUDA_ARGS})
-{{
-    int ip = blockDim.x * blockIdx.x + threadIdx.x;
-    if (ip >= n_markers) return;
+# writes scalar arguments and struct members into the markers, to check that they arrive with the right types
+WRITE_SCALARS_SRC = r"""
+#include "struphy/kernel_arguments/pusher_args.cuh"
 
-    double* mk = markers + (long long)ip * n_cols;
+extern "C" __global__
+void write_scalars(double dt, int stage, MarkerArgs args_markers, DomainArgs args_domain)
+{
+    int ip = blockDim.x * blockIdx.x + threadIdx.x;
+    if (ip >= args_markers.n_markers) return;
+
+    double* mk = args_markers.markers + (long long)ip * args_markers.n_cols;
     mk[0] = dt;
     mk[1] = stage;
-    mk[2] = n_cols;
-    mk[3] = first_init_idx;
-    mk[4] = mu_idx;
-    mk[5] = kind_map;
+    mk[2] = args_markers.n_cols;
+    mk[3] = args_markers.first_init_idx;
+    mk[4] = args_markers.mu_idx;
+    mk[5] = args_domain.kind_map;
+    mk[6] = args_markers.bc_type[2];
+    mk[7] = args_domain.t3[1];
+}
+"""
+
+STRUCT_CLASSES = [CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments]
+HEADER = Path(struphy.__file__).parent / "kernel_arguments" / "pusher_args.cuh"
+
+
+def header_structs() -> dict:
+    """The structs of pusher_args.cuh, as {name: ((C type, member), ...)} in declaration order."""
+    text = re.sub(r"//[^\n]*", "", HEADER.read_text())
+    structs = {}
+    for name, body in re.findall(r"struct\s+(\w+)\s*\{(.*?)\};", text, flags=re.S):
+        members = re.findall(r"([A-Za-z_][\w ]*?\s*\**)\s*(\w+)\s*;", body)
+        structs[name] = tuple(
+            (" ".join(ctype.replace("*", " *").split()).replace(" *", "*"), m) for ctype, m in members
+        )
+    return structs
+
+
+def layout_kernel_source(cls) -> str:
+    """CUDA kernel writing sizeof and (offsetof, sizeof) of each member of the struct of cls into an int64 array."""
+    # NVRTC has no standard headers (no offsetof), so offsets are taken from a local struct
+    lines = [f"{cls.struct_name} s;", f"out[0] = sizeof({cls.struct_name});"]
+    for i, (_, name) in enumerate(cls.fields):
+        lines.append(f"out[{2 * i + 1}] = (char*)&s.{name} - (char*)&s;")
+        lines.append(f"out[{2 * i + 2}] = sizeof(s.{name});")
+    body = "\n    ".join(lines)
+    return f"""
+#include "struphy/kernel_arguments/pusher_args.cuh"
+
+extern "C" __global__
+void struct_layout(long long* out)
+{{
+    if (blockDim.x * blockIdx.x + threadIdx.x != 0) return;
+    {body}
 }}
 """
 
@@ -212,30 +250,100 @@ def test_cuda_kernel_updates_device_array_in_place(kernel):
 
         assert args_markers.markers is markers
         assert markers.data.ptr == ptr
-        assert args_markers.values[0] is markers
+        assert args_markers.get_cuda_args()[0]["markers"] == ptr
 
 
 @requires_cupy
 def test_cuda_scalar_arguments():
-    """Python scalars (not cast) and the flattened argument classes arrive in the CUDA kernel correctly and in order."""
+    """Python scalars (not cast) and the struct members arrive in the CUDA kernel correctly and in order."""
     write_scalars = CudaKernel(WRITE_SCALARS_SRC, "write_scalars")
     with cunumpy.use_backend("cupy"):
         args_markers, args_domain = make_arguments(10)
+        args_markers.bc_type[2] = 7  # read through the pointer in the struct
         write_scalars(0.25, 3, args_markers, args_domain, n_threads=10)
 
-        row = cunumpy.to_numpy(args_markers.markers)[0, :6]
+        row = cunumpy.to_numpy(args_markers.markers)[0, :8]
         first_pusher_idx, mu_idx = MARKER_INDICES[3], MARKER_INDICES[7]
-        assert np.array_equal(row, [0.25, 3, N_COLS, first_pusher_idx, mu_idx, Cuboid().kind_map])
+        t3 = cunumpy.to_numpy(args_domain.t3)[1]
+        assert np.array_equal(row, [0.25, 3, N_COLS, first_pusher_idx, mu_idx, Cuboid().kind_map, 7, t3])
 
 
 @requires_cupy
 def test_cuda_domain_arguments_reference_domain_arrays():
+    """The struct holds the device addresses of the domain's own arrays."""
     with cunumpy.use_backend("cupy"):
         domain = Cuboid()
         args = domain.args_domain
         assert isinstance(args, CudaDomainArguments)
-        assert len(args.values) == 12
-        assert args.values[3] is domain.T[0] and args.values[8] is domain.indN[2] and args.values[9] is domain.cx
+        (struct,) = args.get_cuda_args()
+        assert struct["kind_map"] == domain.kind_map
+        assert struct["t1"] == domain.T[0].data.ptr and struct["ind3"] == domain.indN[2].data.ptr
+        assert struct["cx"] == domain.cx.data.ptr
+
+
+def test_cuda_argument_structs_match_header():
+    """The fields of the CUDA argument classes are the members of the structs in pusher_args.cuh (names, C types, order)."""
+    structs = header_structs()
+    assert sorted(structs) == sorted(cls.struct_name for cls in STRUCT_CLASSES)
+    for cls in STRUCT_CLASSES:
+        assert structs[cls.struct_name] == cls.fields, cls.struct_name
+        assert all(ctype in C_TYPES for ctype, _ in cls.fields)
+
+
+def test_cuda_struct_members_are_pyccel_attributes():
+    """1:1 correspondence: the struct members are named like the attributes of the pyccel argument classes.
+
+    Only ``n_cols`` is CUDA-specific: pyccel kernels take it from ``markers.shape[1]``.
+    """
+    text = (Path(struphy.__file__).parent / "kernel_arguments" / "pusher_args_kernels.py").read_text()
+    for cls in STRUCT_CLASSES:
+        for _, name in cls.fields:
+            assert f"self.{name} =" in text or name == "n_cols", f"{cls.struct_name}.{name}"
+
+
+@requires_cupy
+@pytest.mark.parametrize("cls", STRUCT_CLASSES, ids=lambda cls: cls.struct_name)
+def test_cuda_struct_layout(cls):
+    """The NumPy dtype of each struct has the memory layout NVRTC gives the C struct (size, offsets, member sizes)."""
+    with cunumpy.use_backend("cupy"):
+        out = cunumpy.zeros(2 * len(cls.fields) + 1, dtype=np.int64)
+        CudaKernel(layout_kernel_source(cls), "struct_layout")(out, n_threads=1)
+        layout = cunumpy.to_numpy(out)
+    dtype = cls.struct_dtype()
+    expected = [dtype.itemsize]
+    for _, name in cls.fields:
+        field_dtype, offset = dtype.fields[name][:2]
+        expected += [offset, field_dtype.itemsize]
+    assert layout.tolist() == expected
+
+
+@requires_cupy
+def test_cuda_struct_follows_copies():
+    """Deepcopies and unpickled copies repack the struct with the addresses of their own arrays."""
+    import copy
+    import pickle
+
+    with cunumpy.use_backend("cupy"):
+        args_markers, _ = make_arguments(10)
+        for other in (copy.deepcopy(args_markers), pickle.loads(pickle.dumps(args_markers))):
+            assert other.markers is not args_markers.markers
+            (struct,) = other.get_cuda_args()
+            assert struct["markers"] == other.markers.data.ptr and struct["bc_type"] == other.bc_type.data.ptr
+            assert struct["mu_idx"] == args_markers.mu_idx
+
+
+@requires_cupy
+def test_cuda_struct_scalars_are_checked():
+    """Scalars are checked when the struct is packed: no silent truncation or wrap-around in the kernel."""
+    import cupy as cp
+
+    markers, valid_mks, bc_type = cp.zeros((10, N_COLS)), cp.ones(10, dtype=bool), cp.zeros(3, dtype=int)
+    indices = list(MARKER_INDICES)
+    with pytest.raises(TypeError):
+        CudaMarkerArguments(markers, valid_mks, 10.0, *indices, bc_type)
+    with pytest.raises(OverflowError, match="Np"):
+        CudaMarkerArguments(markers, valid_mks, 2**31, *indices, bc_type)
+    CudaMarkerArguments(markers, valid_mks, np.int64(10), *indices, bc_type)  # NumPy integers are fine
 
 
 @requires_cupy
