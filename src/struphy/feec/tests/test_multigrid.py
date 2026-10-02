@@ -15,7 +15,7 @@ from psydac.linalg.solvers import inverse
 from struphy.feec import preconditioner
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
 from psydac.fem.projectors import knot_insertion_projection_operator
-from struphy.feec.linear_operators import LinOpWithTransp
+from feectools.linalg.basic import LinearOperator
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from struphy.feec.mass import WeightedMassOperators
@@ -278,7 +278,7 @@ def remove_padding(fem_space, v):
     return v_array
 
 
-class RestrictionOperator(LinOpWithTransp):
+class RestrictionOperator(LinearOperator):
     """
     Linear operator which operates between vector spaces of the same kind but different resolutions.
 
@@ -545,7 +545,7 @@ class RestrictionOperator(LinOpWithTransp):
         return out
     
 
-class ExtensionOperator(LinOpWithTransp):
+class ExtensionOperator(LinearOperator):
     """
     Linear operator which operates between vector spaces of the same kind but different resolutions.
 

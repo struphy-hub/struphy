@@ -9,7 +9,7 @@ from struphy.feec.psydac_derham import Derham
 from psydac.linalg.solvers import inverse
 from psydac.linalg.basic  import Vector
 from psydac.fem.projectors import knot_insertion_projection_operator
-from struphy.feec.linear_operators import LinOpWithTransp
+from feectools.linalg.basic import LinearOperator
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from struphy.feec.mass import WeightedMassOperators
@@ -19,7 +19,7 @@ from struphy.feec.utilities import create_equal_random_arrays
 
 def build_operator(expr: str, namespace: dict):
     """
-    Build a composite LinOpWithTransp (or scalar * LinOpWithTransp expression) 
+    Build a composite LinearOperator (or scalar * LinearOperator expression) 
     from a string expression.
 
     Parameters
@@ -31,7 +31,7 @@ def build_operator(expr: str, namespace: dict):
         
         The expression can contain:
             - scalars (e.g., epsilon, mu, ...)
-            - LinOpWithTransp objects (already supporting +, -, *, @)
+            - LinearOperator objects (already supporting +, -, *, @)
             - parentheses to control precedence
 
     namespace : dict
@@ -49,9 +49,9 @@ def build_operator(expr: str, namespace: dict):
 
     Returns
     -------
-    LinOpWithTransp
+    LinearOperator
         A composite operator built according to the expression. The returned 
-        object supports `.dot(v)` and any other functionality of LinOpWithTransp.
+        object supports `.dot(v)` and any other functionality of LinearOperator.
 
     Raises
     ------
@@ -222,7 +222,7 @@ class MultiGridSolver:
             
             The expression can contain:
                 - scalars (e.g., epsilon, mu, ...)
-                - LinOpWithTransp objects (already supporting +, -, *, @)
+                - LinearOperator objects (already supporting +, -, *, @)
                 - parentheses to control precedence
 
         namespace : dict
@@ -308,7 +308,7 @@ class MultiGridSolver:
             self.E.append(self.R[level].transpose())
             
         
-    class RestrictionOperator(LinOpWithTransp):
+    class RestrictionOperator(LinearOperator):
         """
         Linear operator which operates between vector spaces of the same kind but different resolutions.
 
@@ -577,7 +577,7 @@ class MultiGridSolver:
             return out
         
 
-    class ExtensionOperator(LinOpWithTransp):
+    class ExtensionOperator(LinearOperator):
         """
         Linear operator which operates between vector spaces of the same kind but different resolutions.
 
