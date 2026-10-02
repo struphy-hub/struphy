@@ -2343,7 +2343,9 @@ class Particles(metaclass=ABCMeta):
         _tmp[self.mpi_rank] = scalar
 
         if self.mpi_comm is not None:
-            gathered = np.empty(self.mpi_size, dtype=int)
+            # own entry set beforehand: the serial MockComm's Allgather does not write to the buffer
+            gathered = np.zeros(self.mpi_size, dtype=int)
+            gathered[self.mpi_rank] = scalar
             self.mpi_comm.Allgather(
                 np.array([scalar], dtype=int),
                 gathered,
@@ -2373,7 +2375,9 @@ class Particles(metaclass=ABCMeta):
         _tmp[self.clone_id] = scalar
 
         if self.clone_config is not None:
-            gathered = np.empty(self.num_clones, dtype=int)
+            # own entry set beforehand: the serial MockComm's Allgather does not write to the buffer
+            gathered = np.zeros(self.num_clones, dtype=int)
+            gathered[self.clone_id] = scalar
             self.clone_config.inter_comm.Allgather(
                 np.array([scalar], dtype=int),
                 gathered,
