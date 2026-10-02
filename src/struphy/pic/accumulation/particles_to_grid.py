@@ -228,7 +228,7 @@ class Accumulator:
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
                 self.particles._pyccel_args_markers,
-                self.derham.args_derham,
+                self.derham._pyccel_args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
@@ -556,7 +556,7 @@ class AccumulatorVector:
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
                 self.particles._pyccel_args_markers,
-                self.derham.args_derham,
+                self.derham._pyccel_args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
