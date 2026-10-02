@@ -67,7 +67,7 @@ phys = [
     "desc-opt<=0.17.1",
 ]
 pproc = [
-    "plasma-plots>=0.1.0",
+    "plasma-plots>=0.1.1",
 ]
 dev = [
     "struphy[mpi]",
