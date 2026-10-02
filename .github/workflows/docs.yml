@@ -1,4 +1,4 @@
-name: Deploy docs to GitHub Pages
+name: Test documentation build
 
 on:
   push:
@@ -10,20 +10,15 @@ defaults:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
   packages: read
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "docs-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build-docs:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -54,18 +49,3 @@ jobs:
         run: |
           cd doc
           make html
-
-      - name: Setup Pages
-        if: github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
-
-      - name: Upload built docs
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: doc/_build/html/
-
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        id: deployment
-        uses: actions/deploy-pages@v4
