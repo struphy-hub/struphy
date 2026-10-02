@@ -128,14 +128,6 @@ class PolarExtractionOperator(LinearOperator):
         return self._dtype
 
     @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    @property
     def transposed(self):
         return self._transposed
 
@@ -410,14 +402,6 @@ class PolarLinearOperator(LinearOperator):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     @property
     def transposed(self):

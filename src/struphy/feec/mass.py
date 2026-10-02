@@ -2643,9 +2643,6 @@ class StencilMatrixFreeMassOperator(LinearOperator):
         """Discrete de Rham sequence on the logical unit cube."""
         return self._derham
 
-    def tosparse(self):
-        return self.toarray(is_sparse=True)
-
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(
             self._derham,
@@ -3383,14 +3380,6 @@ class AverageOperator(LinearOperator):
             return self.derham.nquads
         else:
             return self._nquads
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def dot(self, v, out=None):
 

@@ -1796,14 +1796,6 @@ class BasisProjectionOperator(LinearOperator):
         return self._dtype
 
     @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    @property
     def transposed(self):
         """If the transposed operator is in play."""
         return self._transposed
@@ -2213,14 +2205,6 @@ class CoordinateProjector(LinearOperator):
         """Datatype of the operator."""
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return CoordinateInclusion(self.dir, self._domain, self._codomain)
 
@@ -2319,14 +2303,6 @@ class CoordinateInclusion(LinearOperator):
     def dtype(self):
         """Datatype of the operator."""
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         return CoordinateProjector(self.dir, self._codomain, self._domain)

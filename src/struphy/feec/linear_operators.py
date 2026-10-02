@@ -154,9 +154,6 @@ class BoundaryOperator(LinearOperator):
     def dtype(self):
         return self._dtype
 
-    def tosparse(self):
-        return self.toarray(is_sparse=True)
-
     @property
     def bc(self):
         return self._bc

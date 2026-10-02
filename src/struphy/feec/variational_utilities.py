@@ -230,14 +230,6 @@ class BracketOperator(LinearOperator):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def update_u(self, newu):
         assert isinstance(newu, Vector)
         assert newu.space == self.domain
@@ -407,14 +399,6 @@ class L2_transport_operator(LinearOperator):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
@@ -588,14 +572,6 @@ class Hdiv0_transport_operator(LinearOperator):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         return Hdiv0_transport_operator(self._derham, not self._transposed, weights=self._weights)
@@ -778,14 +754,6 @@ class Pressure_transport_operator(LinearOperator):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         return Pressure_transport_operator(

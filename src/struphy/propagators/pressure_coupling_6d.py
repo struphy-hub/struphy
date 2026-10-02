@@ -349,14 +349,6 @@ class PressureCoupling6D(Propagator):
             return self._derham.Vv.dtype
 
         @property
-        def tosparse(self):
-            raise NotImplementedError()
-
-        @property
-        def toarray(self):
-            raise NotImplementedError()
-
-        @property
         def transposed(self):
             return self._transposed
 
