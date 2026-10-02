@@ -56,7 +56,7 @@ _skip_tutorials = os.environ.get("STRUPHY_DOCS_SKIP_TUTORIALS") == "1"
 if not _skip_tutorials:
     extensions.append("sphinx_collections")
 else:
-    tags.add("skip_tutorials")
+    tags.add("skip_tutorials")  # noqa: F821 - injected by Sphinx
 
 
 def _struphy_is_compiled():
