@@ -2,9 +2,6 @@ name: Deploy docs to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
-
   workflow_dispatch:
 
 defaults:
@@ -34,7 +31,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install prerequisites (Ubuntu)
         uses: ./.github/actions/install/ubuntu-latest
@@ -52,18 +49,23 @@ jobs:
         uses: ./.github/actions/compile
 
       - name: Build Sphinx docs
+        env:
+          STRUPHY_DOCS_SKIP_TUTORIALS: "1"
         run: |
           cd doc
           make html
 
       - name: Setup Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
 
       - name: Upload built docs
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: doc/_build/html/
 
       - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v4

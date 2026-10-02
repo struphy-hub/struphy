@@ -30,19 +30,22 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/api_guide
    sections/models
    sections/propagators
-   sections/tutorials
    sections/numerics
    sections/domains
    sections/fluid-equils
    sections/kinetic-equils
    sections/perturbations
-   sections/dev_guide
    sections/dev_reference
 
+.. only:: not skip_tutorials
+
+   .. toctree::
+      :hidden:
+
+      sections/tutorials
+      sections/dev_guide
 
 
 
 
    
-
-
