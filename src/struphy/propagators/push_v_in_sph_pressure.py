@@ -9,8 +9,8 @@ from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
-from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
