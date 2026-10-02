@@ -17,7 +17,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -190,10 +190,10 @@ class PressureCoupling6D(Propagator):
         # Call the accumulation and Pusher class
         if self.options.use_perp_model:
             accum_ker = PyccelKernel(accum_kernels.pc_lin_mhd_6d)
-            pusher_ker = PyccelKernel(pusher_kernels.push_pc_GXu)
+            pusher_ker = catalog["push_pc_GXu"]
         else:
             accum_ker = PyccelKernel(accum_kernels.pc_lin_mhd_6d_full)
-            pusher_ker = PyccelKernel(pusher_kernels.push_pc_GXu_full)
+            pusher_ker = catalog["push_pc_GXu_full"]
 
         # define Accumulator and arguments
         self._ACC = Accumulator(

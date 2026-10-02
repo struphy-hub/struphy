@@ -39,7 +39,7 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing import eval_kernels_sph
+from struphy.pic.pushing.kernels import catalog as pushing_catalog
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
@@ -2115,7 +2115,7 @@ class Particles(metaclass=ABCMeta):
         Notes
         -----
         This method first computes SPH coefficients by calling
-        `eval_kernels_sph.sph_mean_velocity_coeffs` (via a Pyccel kernel) to
+        the Pyccel kernel `sph_mean_velocity_coeffs` to
         assemble mean-velocity coefficients into the markers array, then calls
         :meth:`eval_sph` for each velocity component.
         """
@@ -2124,7 +2124,7 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = pushing_catalog["sph_mean_velocity_coeffs"].pyccel_kernel
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -2236,7 +2236,7 @@ class Particles(metaclass=ABCMeta):
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
+        func = pushing_catalog["sph_mean_velocity_coeffs"].pyccel_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
@@ -2255,7 +2255,7 @@ class Particles(metaclass=ABCMeta):
         )
 
         # 2nd kernel
-        func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
+        func = pushing_catalog["sph_viscosity_tensor"].pyccel_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),

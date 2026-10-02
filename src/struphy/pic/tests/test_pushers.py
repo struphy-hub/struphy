@@ -1,7 +1,6 @@
 import logging
 
 import pytest
-from cunumpy import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -40,7 +39,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.topology.grids import TensorProductGrid
 
@@ -98,7 +97,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
 
     pusher_psy = Pusher_psy(
         particles,
-        PyccelKernel(pusher_kernels.push_vxb_analytic),
+        catalog["push_vxb_analytic"],
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -150,7 +149,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.topology.grids import TensorProductGrid
 
@@ -214,7 +213,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        PyccelKernel(pusher_kernels.push_bxu_Hdiv),
+        catalog["push_bxu_Hdiv"],
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -270,7 +269,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.topology.grids import TensorProductGrid
 
@@ -334,7 +333,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        PyccelKernel(pusher_kernels.push_bxu_Hcurl),
+        catalog["push_bxu_Hcurl"],
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -390,7 +389,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.topology.grids import TensorProductGrid
 
@@ -454,7 +453,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        PyccelKernel(pusher_kernels.push_bxu_H1vec),
+        catalog["push_bxu_H1vec"],
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -510,7 +509,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.io.options import DerhamOptions
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.topology.grids import TensorProductGrid
 
@@ -581,7 +580,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
 
     pusher_psy = Pusher_psy(
         particles,
-        PyccelKernel(pusher_kernels.push_bxu_Hdiv_pauli),
+        catalog["push_bxu_Hdiv_pauli"],
         (
             derham.args_derham,
             *derham.degree,
@@ -640,7 +639,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     from struphy.io.options import DerhamOptions
     from struphy.ode.utils import ButcherTableau
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.topology.grids import TensorProductGrid
 
@@ -692,7 +691,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        PyccelKernel(pusher_kernels.push_eta_stage),
+        catalog["push_eta_stage"],
         (butcher.a_stage, butcher.b, butcher.c),
         domain.args_domain,
         alpha_in_kernel=1.0,
@@ -737,7 +736,7 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     from struphy import BoundaryParameters, LoadingParameters, domains
     from struphy.ode.utils import ButcherTableau
     from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.kernels import catalog
 
     domain = getattr(domains, mapping[0])(**mapping[1])
 
@@ -766,9 +765,7 @@ def test_kinetic_bc_in_kernel(bc, mapping):
 
     # reference: kernel without boundary conditions, then apply_kinetic_bc in Python
     bc_type[:] = 3
-    pusher_kernels.push_eta_stage(
-        0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c
-    )
+    catalog["push_eta_stage"](0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c)
     n_outside = xp.count_nonzero(
         xp.logical_or(markers[~particles.holes, :3] > 1.0, markers[~particles.holes, :3] < 0.0)
     )
@@ -781,9 +778,7 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     particles.update_holes()
     n_lost_before = particles.n_lost_markers
     bc_type[:] = bc_type_kernel
-    pusher_kernels.push_eta_stage(
-        0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c
-    )
+    catalog["push_eta_stage"](0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c)
     particles.finish_kernel_bc()
 
     assert xp.array_equal(markers[:, :first_shift_idx], markers_ref[:, :first_shift_idx])

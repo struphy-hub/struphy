@@ -5,13 +5,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import SPHVariable
-from struphy.pic.pushing import eval_kernels_sph, pusher_kernels_sph
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -122,7 +121,7 @@ class PushVinSPHpressure(Propagator):
     @profile
     def allocate(self):
         # init kernel for evaluating density etc. before each time step.
-        init_kernel = eval_kernels_sph.sph_pressure_coeffs
+        init_kernel = catalog["sph_pressure_coeffs"]
 
         particles = self.variables.fluid.particles
 
@@ -159,9 +158,9 @@ class PushVinSPHpressure(Propagator):
 
         # pusher kernel
         if self.options.thermodynamics == "isothermal":
-            kernel = PyccelKernel(pusher_kernels_sph.push_v_sph_pressure)
+            kernel = catalog["push_v_sph_pressure"]
         elif self.options.thermodynamics == "polytropic":
-            kernel = PyccelKernel(pusher_kernels_sph.push_v_sph_pressure_ideal_gas)
+            kernel = catalog["push_v_sph_pressure_ideal_gas"]
 
         gravity = xp.array(self.options.gravity, dtype=float)
 
