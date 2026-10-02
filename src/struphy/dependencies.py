@@ -19,13 +19,11 @@ def get_dependencies(pymod_abs=None):
     The dependencies are found by statically parsing the module source with :mod:`ast`;
     the module is never imported or executed. A module counts as a dependency if
 
-    * it is bound to a name at module level (also inside ``if``/``try``/``with`` blocks,
+    * it is imported at module level (also inside ``if``/``try``/``with`` blocks,
       but not inside functions or classes), e.g. ``import struphy.x.a_kernels as a_kernels``,
-      ``from struphy.x import a_kernels`` or ``from . import a_kernels``, and
+      ``from struphy.x import a_kernels``, ``from . import a_kernels`` or
+      ``from struphy.x.a_kernels import some_function``, and
     * its dotted name starts with "struphy" and contains "kernels".
-
-    This reproduces the result of the former import-based implementation, which collected
-    all module-type attributes of the imported module.
 
     Parameters
     ----------
@@ -114,8 +112,13 @@ def get_dependencies(pymod_abs=None):
                 # e.g. in struphy.a.b "from . import x" gives struphy.a.x, "from ..c import x" gives struphy.c.x
                 pkg = name.split(".")[: -node.level]
                 base = ".".join(pkg + ([base] if base else []))
-            # "from a.b import c" binds a module only if c is a module and not an object in a.b
-            mods += [base + "." + alias.name for alias in node.names if is_module(base + "." + alias.name)]
+            # "from a.b import c" binds the module a.b.c if c is a module, otherwise c is an object in a.b,
+            # which makes a.b a dependency as well (e.g. "from struphy.x.a_kernels import some_function")
+            for alias in node.names:
+                if is_module(base + "." + alias.name):
+                    mods += [base + "." + alias.name]
+                elif base:
+                    mods += [base]
     logger.debug(f"{mods = }")
 
     # keep only Struphy kernels, convert them to paths of the compiled targets and remove duplicates

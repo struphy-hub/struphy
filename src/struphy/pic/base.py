@@ -56,6 +56,7 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.cuda_arguments import CudaMarkerArguments
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -218,7 +219,7 @@ class Particles(metaclass=ABCMeta):
         equation_params: dict = None,
         dry_run: bool = False,
     ):
-
+        self._args_backend = xp.get_backend()
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
@@ -936,8 +937,8 @@ class Particles(metaclass=ABCMeta):
             self.markers[~self.holes, self.f_jacobian_coords_index] = new
 
     @property
-    def args_markers(self) -> MarkerArguments:
-        """Collection of mandatory arguments for pusher kernels."""
+    def args_markers(self) -> MarkerArguments | CudaMarkerArguments:
+        """Arguments for marker kernels, selected when this particle object is created."""
         return self._args_markers
 
     # -------------------------------------------
@@ -1893,7 +1894,7 @@ class Particles(metaclass=ABCMeta):
             # flip velocity
             reflect(
                 self.markers,
-                self.domain.args_domain,
+                self.domain._pyccel_args_domain,
                 outside_inds_per_axis[axis],
                 axis,
             )
@@ -2128,8 +2129,8 @@ class Particles(metaclass=ABCMeta):
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            args_markers=self.args_markers,
-            args_domain=self.domain.args_domain,
+            args_markers=self._pyccel_args_markers,
+            args_domain=self.domain._pyccel_args_domain,
             boxes=self.sorting_boxes.boxes,
             neighbours=self.sorting_boxes.neighbours,
             holes=self.holes,
@@ -2239,8 +2240,8 @@ class Particles(metaclass=ABCMeta):
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            args_markers=self.args_markers,
-            args_domain=self.domain.args_domain,
+            args_markers=self._pyccel_args_markers,
+            args_domain=self.domain._pyccel_args_domain,
             boxes=self.sorting_boxes.boxes,
             neighbours=self.sorting_boxes.neighbours,
             holes=self.holes,
@@ -2258,8 +2259,8 @@ class Particles(metaclass=ABCMeta):
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
-            args_markers=self.args_markers,
-            args_domain=self.domain.args_domain,
+            args_markers=self._pyccel_args_markers,
+            args_domain=self.domain._pyccel_args_domain,
             boxes=self.sorting_boxes.boxes,
             neighbours=self.sorting_boxes.neighbours,
             holes=self.holes,
@@ -2342,10 +2343,14 @@ class Particles(metaclass=ABCMeta):
         _tmp[self.mpi_rank] = scalar
 
         if self.mpi_comm is not None:
+            # own entry set beforehand: the serial MockComm's Allgather does not write to the buffer
+            gathered = np.zeros(self.mpi_size, dtype=int)
+            gathered[self.mpi_rank] = scalar
             self.mpi_comm.Allgather(
-                _tmp[self.mpi_rank],
-                _tmp,
+                np.array([scalar], dtype=int),
+                gathered,
             )
+            _tmp[:] = xp.asarray(gathered)
 
         return _tmp
 
@@ -2370,10 +2375,14 @@ class Particles(metaclass=ABCMeta):
         _tmp[self.clone_id] = scalar
 
         if self.clone_config is not None:
+            # own entry set beforehand: the serial MockComm's Allgather does not write to the buffer
+            gathered = np.zeros(self.num_clones, dtype=int)
+            gathered[self.clone_id] = scalar
             self.clone_config.inter_comm.Allgather(
-                _tmp[self.clone_id],
-                _tmp,
+                np.array([scalar], dtype=int),
+                gathered,
             )
+            _tmp[:] = xp.asarray(gathered)
 
         return _tmp
 
@@ -2436,7 +2445,7 @@ class Particles(metaclass=ABCMeta):
                 mm = (mm + 1) % 3
             nprocs[mm] *= fac
 
-        assert xp.prod(nprocs) == self.mpi_size
+        assert xp.prod(xp.array(nprocs)) == self.mpi_size
 
         # domain decomposition
         breaks = [xp.linspace(0.0, 1.0, nproc + 1) for nproc in nprocs]
@@ -2546,7 +2555,7 @@ class Particles(metaclass=ABCMeta):
         self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
 
         # arguments for kernels
-        self._args_markers = MarkerArguments(
+        self._pyccel_args_markers = MarkerArguments(
             _to_numpy_for_kernel(self.markers),
             _to_numpy_for_kernel(self.valid_mks),
             _to_numpy_for_kernel(self.Np),
@@ -2560,6 +2569,23 @@ class Particles(metaclass=ABCMeta):
             _to_numpy_for_kernel(self.mu_idx),
             _to_numpy_for_kernel(self._bc_type),
         )
+        if self._args_backend == "cupy":
+            self._args_markers = CudaMarkerArguments(
+                self.markers,
+                self.valid_mks,
+                self.Np,
+                self.vdim,
+                self.index["weights"],
+                self.first_diagnostics_idx,
+                self.first_pusher_idx,
+                self.first_shift_idx,
+                self.residual_idx,
+                self.first_free_idx,
+                self.mu_idx,
+                self._bc_type,
+            )
+        else:
+            self._args_markers = self._pyccel_args_markers
 
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.
@@ -4254,7 +4280,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 func = PyccelKernel(box_based_evaluation_meshgrid)
 
             func(
-                self.args_markers,
+                self._pyccel_args_markers,
                 eta1,
                 eta2,
                 eta3,
@@ -4281,7 +4307,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             elif len(_shp) == 3:
                 func = PyccelKernel(naive_evaluation_meshgrid)
             func(
-                self.args_markers,
+                self._pyccel_args_markers,
                 eta1,
                 eta2,
                 eta3,
