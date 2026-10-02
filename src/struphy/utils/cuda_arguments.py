@@ -257,6 +257,35 @@ class CudaDerhamArguments(Argument):
         self._pack()
 
 
+class CudaDerhamArguments(Argument):
+    """CUDA version of :class:`~struphy.kernel_arguments.pusher_args_kernels.DerhamArguments`.
+
+    CUDA signature of :meth:`get_cuda_args`: ``long long* pn, double* tn1, double* tn2, double* tn3, long long* starts``
+
+    The scratch arrays of the pyccel class (``bn1``, ..., ``bd3``) are not part of it; CUDA kernels use
+    per-thread local arrays instead.
+
+    Parameters
+    ----------
+    pn : cupy.ndarray[int]
+        Spline degrees of :class:`~struphy.feec.psydac_derham.Derham` (int64).
+
+    tn1, tn2, tn3 : cupy.ndarray[float]
+        Knot sequences of :class:`~struphy.feec.psydac_derham.Derham`.
+
+    starts : cupy.ndarray[int]
+        Start indices (current MPI process) of :class:`~struphy.feec.psydac_derham.Derham` (int64).
+    """
+
+    def __init__(self, pn, tn1, tn2, tn3, starts):
+        self.pn = _cupy_array("pn", pn, np.int64)
+        self.tn1, self.tn2, self.tn3 = (_cupy_array("tn", t, np.float64) for t in (tn1, tn2, tn3))
+        self.starts = _cupy_array("starts", starts, np.int64)
+
+    def get_cuda_args(self) -> tuple:
+        return (self.pn, self.tn1, self.tn2, self.tn3, self.starts)
+
+
 class CudaDomainArguments(Argument):
     """CUDA version of :class:`~struphy.kernel_arguments.pusher_args_kernels.DomainArguments`.
 

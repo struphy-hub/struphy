@@ -24,18 +24,24 @@ def make_derham(bcs=(None, None, None), local_projectors=False):
     return Derham(TensorProductGrid(num_elements=(8, 6, 4)), options, comm=MPI.COMM_WORLD)
 
 
-def test_cuda_args_derham_needs_device_arrays():
-    """On the NumPy backend the Derham arrays are host arrays, which are never copied to the device."""
+def test_args_derham_on_numpy():
+    """On the NumPy backend the general arguments are the Pyccel host arguments."""
+    from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
+
     with cunumpy.use_backend("numpy"):
         derham = make_derham()
-        with pytest.raises(TypeError, match="CuPy array"):
-            derham.cuda_args_derham
+        assert isinstance(derham.args_derham, DerhamArguments)
+        assert derham.args_derham is derham._pyccel_args_derham
+        for name in ("pn", "tn1", "tn2", "tn3", "starts"):
+            assert isinstance(getattr(derham.args_derham, name), np.ndarray), name
 
 
 @requires_cupy
 @pytest.mark.parametrize("bcs", [(None, None, None), (("dirichlet", "free"), None, ("free", "dirichlet"))])
 def test_derham_on_cupy(bcs):
     """Same decomposition and kernel arguments on both backends, and CUDA arguments holding device copies."""
+    from struphy.utils.cuda_arguments import CudaDerhamArguments
+
     derhams = {}
     for backend in ("numpy", "cupy"):
         with cunumpy.use_backend(backend):
@@ -48,11 +54,14 @@ def test_derham_on_cupy(bcs):
 
     # the pyccel arguments are host arrays on both backends (feectools knots are host arrays)
     for name in ("pn", "tn1", "tn2", "tn3", "starts"):
-        assert np.array_equal(getattr(device.args_derham, name), getattr(host.args_derham, name)), name
+        assert isinstance(getattr(device._pyccel_args_derham, name), np.ndarray), name
+        assert np.array_equal(getattr(device._pyccel_args_derham, name), getattr(host._pyccel_args_derham, name)), name
 
-    with cunumpy.use_backend("cupy"):
-        args = device.cuda_args_derham
-        assert device.cuda_args_derham is args  # built once
+    # Arguments keep the construction backend even when accessed from the NumPy backend.
+    with cunumpy.use_backend("numpy"):
+        args = device.args_derham
+        assert isinstance(args, CudaDerhamArguments)
+        assert device.args_derham is args
         expected = (host.args_derham.pn, *host.V0fem.knots, host.args_derham.starts)
         for name, value in zip(("pn", "tn1", "tn2", "tn3", "starts"), expected):
             assert cunumpy.is_gpu(getattr(args, name)), name
