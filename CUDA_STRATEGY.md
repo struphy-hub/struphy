@@ -233,3 +233,13 @@ Port the kernels in the order the target models need them, so that complete mode
 - **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. `xp.mpi_is_cuda_aware()` detects it; the exchange in `Particles.mpi_sort_markers` has to be checked for host staging buffers.
 - **Single-source alternatives.** Hand-written CUDA stays the default. Generating whole kernels from the Python source (`cupyx.jit`, numba-cuda, or a pyccel CUDA backend) is worth a look before the guiding-center kernels (the largest ones) are ported. Those tools take flat arguments, which `fields` also provides.
 - **Spline mappings and polar splines on the GPU** (PR 5/7 leftovers): needed once a model with an IGA mapping is run on the GPU.
+
+## PR 10 implementation notes
+
+Device headers now provide Cuboid Jacobians, matrix inversion/vector products,
+spline span and N/D basis evaluation (degrees 1–8), and per-marker boundary
+conditions. `DerhamArgs` carries knot lengths because raw device pointers have
+no shape. Argument construction checks spline degrees and the current device.
+GPU parity tests cover non-block-aligned batches, domain endpoints, and mixed
+boundaries. H100 struct and helper validation is still required; the development
+workspace is macOS and has no CUDA device.
