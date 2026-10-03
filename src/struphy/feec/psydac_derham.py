@@ -2774,6 +2774,26 @@ class SplineFunction:
 
         return out
 
+    def _evaluate_cuda(self, coeff, kind, starts, points, out):
+        """Evaluate device coefficients using shared per-thread spline helpers."""
+        from pathlib import Path
+        from struphy.utils.kernel_backends import CudaKernel
+
+        if not hasattr(self, "_cuda_eval"):
+            self._cuda_eval = CudaKernel.from_file(Path(__file__).parents[1] / "bsplines" / "evaluate_spline_cuda.cu")
+            self._cuda_eval_args = {}
+        # Grid metadata is immutable; transfer it once for each component space.
+        key = tuple(int(v) for v in starts)
+        if key not in self._cuda_eval_args:
+            self._cuda_eval_args[key] = CudaDerhamArguments(
+                xp.asarray(self.derham.degree, dtype=xp.int64),
+                *(xp.asarray(t) for t in self.derham.V0fem.knots),
+                xp.asarray(key, dtype=xp.int64),
+            )
+        coordinates = tuple(xp.ascontiguousarray(e).reshape(-1) for e in xp.broadcast_arrays(*points))
+        self._cuda_eval(self._cuda_eval_args[key], coeff, *coordinates,
+                        *(int(v) for v in kind), out, out.size, n_threads=out.size)
+
     def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
         """
         Evaluates the spline function on the global domain, unless local=True,
@@ -2849,7 +2869,10 @@ class SplineFunction:
             kind = self.derham.spline_attributes[self.space_key].spline_types_pyccel[0]
             logger.debug(f"{self.space_id = }, {kind = }")
 
-            if is_sparse_meshgrid:
+            if is_cuda_backend():
+                points = tuple(markers[:, j] for j in range(3)) if marker_evaluation else (E1, E2, E3)
+                self._evaluate_cuda(self._vector_stencil._data, kind, self.starts, points, tmp)
+            elif is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
                 eval_3d.eval_spline_mpi_sparse_meshgrid(
                     E1,
@@ -2921,7 +2944,10 @@ class SplineFunction:
                 out = []
             for n, kind in enumerate(self.derham.spline_attributes[self.space_key].spline_types_pyccel):
                 logger.debug(f"{self.space_id = }, {kind = }")
-                if is_sparse_meshgrid:
+                if is_cuda_backend():
+                    points = tuple(markers[:, j] for j in range(3)) if marker_evaluation else (E1, E2, E3)
+                    self._evaluate_cuda(self._vector_stencil[n]._data, kind, self.starts[n], points, tmp)
+                elif is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_sparse_meshgrid(
                         E1,

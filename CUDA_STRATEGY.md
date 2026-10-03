@@ -209,13 +209,24 @@ Until then, pieces of cunumpy that are independent of the dispatch classes can b
 
 ## Porting order
 
-Port the kernels in the order the target models need them, so that complete models can run on the GPU as early as possible. Proposed:
+The first target is **Vlasov** (`models/vlasov.py`), with `PushEta` and both
+`PushVxB` algorithms. Its complete pusher set is `push_eta_stage`,
+`push_vxb_analytic`, and `push_vxb_implicit`. CUDA support initially uses Cuboid
+mappings and spline degrees 1–8. GPU execution is to be tested by the maintainer
+before merging.
 
-1. `push_eta_stage` (PR 11) and the helpers it needs (PR 10).
-2. The remaining 6D full-orbit pushers (formerly `pusher_kernels.py`), e.g. `push_vxb_analytic`, `push_v_with_efield`, and their mapping and spline helpers.
-3. The accumulation kernels these models need (`accum_kernels.py`), after the accumulation design step above.
-4. Guiding-center pushers and evaluations (`push_gc_*`, the evaluation kernels formerly in `eval_kernels_gc.py`, and `accum_kernels_gc.py`).
-5. SPH kernels (box sorting on the device first).
+Next, in order:
+
+1. Extend Vlasov to additional analytic mappings, then spline mappings; validate
+   multi-rank device execution and boundary handling on the GPU.
+2. Vlasov–Ampere and Vlasov–Maxwell: `push_v_with_efield`,
+   `charge_density_0form`, and `vlasov_maxwell` accumulation. First split
+   accumulation into a catalog and implement fp64 atomics into stencil storage;
+   measure collisions and summation error before considering sort/reduce.
+3. Linear Vlasov variants: weight pushers and `linear_vlasov_ampere` accumulation.
+4. Remaining 6D current/pressure coupling pushers and accumulators.
+5. Guiding-center pushers, evaluations, and accumulation.
+6. SPH kernels, after device box sorting.
 
 ## Testing
 
@@ -255,3 +266,12 @@ cover holes, boundary particles, Euler/RK4 and periodic/reflect/remove boundarie
 The single-rank pusher test guards host array conversions after warmup.
 H100 execution and the two-rank no-transfer requirement remain unverified;
 existing MPI sorting still synchronizes dynamic counts with the host.
+
+## PR 12 implementation notes
+
+Scoped to the Vlasov model: both magnetic rotation algorithms now have CUDA
+versions, using tensor-product N/D spline evaluation and strided coefficient
+views. The reflection path in Particles uses device marker/domain arguments.
+SplineFunction has device evaluation for marker and meshgrid point sets.
+Accumulation is deliberately left for the next Vlasov–Ampere/Maxwell step.
+GPU tests are provided but not run here, at the maintainer's request.

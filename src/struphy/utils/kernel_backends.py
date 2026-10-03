@@ -13,6 +13,9 @@ e.g. ``#include "struphy/kernel_arguments/pusher_args.cuh"`` for the argument st
 
 import importlib
 import math
+import re
+
+import numpy as np
 from pathlib import Path
 
 import cunumpy
@@ -61,6 +64,8 @@ class CudaKernel:
         self._source = source
         self._block_size = block_size
         self._raw_kernel = None
+        signature = re.search(r"void\s+" + re.escape(name) + r"\s*\((.*?)\)", source, re.S)
+        self._view_indices = {i for i, arg in enumerate(signature.group(1).split(",")) if "Array3D<double>" in arg} if signature else set()
 
     @classmethod
     def from_file(cls, path: str | Path, name: str | None = None, block_size: int = 128) -> "CudaKernel":
@@ -110,8 +115,20 @@ class CudaKernel:
             self._raw_kernel = cp.RawKernel(self._source, self.name, options=(f"-I{INCLUDE_DIR}",))
 
         values = []
-        for arg in args:
-            if isinstance(arg, Argument):
+        for index, arg in enumerate(args):
+            if index in self._view_indices:
+                import cupy as cp
+
+                if not isinstance(arg, cp.ndarray) or arg.ndim != 3 or arg.dtype != np.float64:
+                    raise TypeError("Array3D<double> requires a three-dimensional float64 device array")
+                if arg.device.id != cp.cuda.runtime.getDevice():
+                    raise ValueError("Array view must be on the current CUDA device")
+                view = np.zeros((), dtype=np.dtype([("data", np.uint64), ("shape", np.int64, 3), ("strides", np.int64, 3)], align=True))
+                view["data"] = arg.data.ptr
+                view["shape"] = arg.shape
+                view["strides"] = tuple(s // arg.itemsize for s in arg.strides)
+                values.append(view[()])
+            elif isinstance(arg, Argument):
                 values.extend(arg.get_cuda_args())
             else:
                 values.append(arg)

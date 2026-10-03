@@ -1892,12 +1892,18 @@ class Particles(metaclass=ABCMeta):
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
             # flip velocity
-            reflect(
-                self.markers,
-                self.domain._pyccel_args_domain,
-                outside_inds_per_axis[axis],
-                axis,
-            )
+            if self._args_backend == "cupy":
+                if self.domain.args_domain.kind_map != 10:
+                    raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")
+                if not hasattr(self, "_cuda_reflect"):
+                    from pathlib import Path
+                    from struphy.utils.kernel_backends import CudaKernel
+
+                    self._cuda_reflect = CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu")
+                indices = outside_inds_per_axis[axis]
+                self._cuda_reflect(self.args_markers, self.domain.args_domain, indices, axis, len(indices), n_threads=len(indices))
+            else:
+                reflect(self.markers, self.domain.args_domain, outside_inds_per_axis[axis], axis)
 
     def finish_kernel_bc(self, newton=False):
         """Bookkeeping after a pusher kernel that applied the kinetic boundary conditions per marker
