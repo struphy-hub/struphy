@@ -1258,14 +1258,18 @@ class WeightedMassOperators:
         grid_bound = len(spline_functions) > 0 or (
             isinstance(weights, list) and any(isinstance(w, xp.ndarray) for row in weights for w in row)
         )
-        out._creation_info = None if grid_bound else {
-            "V_id": V_id,
-            "W_id": W_id,
-            "name": name,
-            "weights": weights,
-            "transposed": transposed,
-            "is_transpose": False,
-        }
+        out._creation_info = (
+            None
+            if grid_bound
+            else {
+                "V_id": V_id,
+                "W_id": W_id,
+                "name": name,
+                "weights": weights,
+                "transposed": transposed,
+                "is_transpose": False,
+            }
+        )
 
         if assemble and not dry_run:
             out.assemble()

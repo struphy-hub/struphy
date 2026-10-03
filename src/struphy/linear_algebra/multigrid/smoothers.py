@@ -338,7 +338,9 @@ class DiagonalComputer:
 
         for n, (db, eb) in enumerate(zip(d_blocks, e_blocks)):
             V = eb.space
-            colors = [_n_colors(int(npts), 2 * w + 1, bool(per)) for npts, w, per in zip(V.npts, self._widths, V.periods)]
+            colors = [
+                _n_colors(int(npts), 2 * w + 1, bool(per)) for npts, w, per in zip(V.npts, self._widths, V.periods)
+            ]
             glob = [np.arange(s, e + 1) for s, e in zip(V.starts, V.ends)]
             idx = _owned_slice(eb)
             for color in np.ndindex(*colors):

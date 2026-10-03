@@ -786,7 +786,6 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         assert error2 < err_lim
 
 
-
 @pytest.mark.parametrize("degree", [[2, 2, 1], [3, 3, 1]])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 def test_poisson_2d_multigrid(degree, bc_type):

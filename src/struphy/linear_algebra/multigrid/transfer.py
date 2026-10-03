@@ -113,7 +113,9 @@ class _KronTransfer:
 
     def __init__(self, mats: list[spa.csr_matrix], W: StencilVectorSpace):
         self._mats = mats
-        self._out_slice = tuple(slice(p * m, p * m + e - s + 1) for p, m, s, e in zip(W.pads, W.shifts, W.starts, W.ends))
+        self._out_slice = tuple(
+            slice(p * m, p * m + e - s + 1) for p, m, s, e in zip(W.pads, W.shifts, W.starts, W.ends)
+        )
 
     def dot(self, v: StencilVector, out: StencilVector) -> None:
         if not v.ghost_regions_in_sync:

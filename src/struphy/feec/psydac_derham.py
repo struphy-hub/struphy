@@ -1571,7 +1571,9 @@ class Derham:
                 )
                 if domain_decomposition.comm is not None and comm is not None:
                     # (comm is None in the decomposition when feectools runs with MockMPI)
-                    assert domain_decomposition.comm == comm, "domain_decomposition must be built on the Derham communicator."
+                    assert domain_decomposition.comm == comm, (
+                        "domain_decomposition must be built on the Derham communicator."
+                    )
                 self._domain_decomposition = domain_decomposition
 
             _derham = self._discretize_derham(
