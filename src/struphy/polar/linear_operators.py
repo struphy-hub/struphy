@@ -1,15 +1,15 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from scipy.sparse import csr_matrix, identity
 
-from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.linear_algebra.linalg_kron import kron_matvec_2d
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
 
-class PolarExtractionOperator(LinOpWithTransp):
+class PolarExtractionOperator(LinearOperator):
     """
     Linear operator mapping from Stencil-/BlockVectorSpace (V) to PolarDerhamSpace (W).
 
@@ -126,14 +126,6 @@ class PolarExtractionOperator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     @property
     def transposed(self):
@@ -279,7 +271,7 @@ class PolarExtractionOperator(LinOpWithTransp):
         )
 
 
-class PolarLinearOperator(LinOpWithTransp):
+class PolarLinearOperator(LinearOperator):
     """
     Linear operator mapping from PolarDerhamSpace (V) to PolarDerhamSpace (W).
 
@@ -314,7 +306,7 @@ class PolarLinearOperator(LinOpWithTransp):
     W : PolarDerhamSpace
         Codomain of the operator (always corresponding to the case transposed=False).
 
-    tp_operator : LinOpWithTransp
+    tp_operator : LinearOperator
         Standard (stencil) linear operator on the outer tp zone.
 
     blocks_pol_to_ten : list
@@ -410,14 +402,6 @@ class PolarLinearOperator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     @property
     def transposed(self):

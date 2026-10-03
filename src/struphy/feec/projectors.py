@@ -2158,12 +2158,6 @@ class ProjectorPreconditioner(LinearOperator):
     def dtype(self):
         return self._dtype
 
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.

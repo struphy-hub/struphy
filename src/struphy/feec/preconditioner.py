@@ -383,12 +383,6 @@ class MassMatrixPreconditioner(LinearOperator):
     def dtype(self):
         return self._dtype
 
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
@@ -782,12 +776,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         else:
             self._M = mass_operator.M
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True, out=self._M_invsrqt_diag)
-
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         """

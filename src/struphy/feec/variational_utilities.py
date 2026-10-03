@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 
 import cunumpy as xp
-from feectools.linalg.basic import IdentityOperator, Vector
+from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 
@@ -12,13 +12,12 @@ from struphy.feec.basis_projection_ops import (
     BasisProjectionOperatorLocal,
     CoordinateProjector,
 )
-from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
 
 logger = logging.getLogger("struphy")
 
 
-class BracketOperator(LinOpWithTransp):
+class BracketOperator(LinearOperator):
     r"""The linear map :math:`\mathbb R^{3N_0} \to \mathbb R^{3N_0}`,
 
     .. math::
@@ -231,14 +230,6 @@ class BracketOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def update_u(self, newu):
         assert isinstance(newu, Vector)
         assert newu.space == self.domain
@@ -304,7 +295,7 @@ class BracketOperator(LinOpWithTransp):
         return out
 
 
-class L2_transport_operator(LinOpWithTransp):
+class L2_transport_operator(LinearOperator):
     r"""
     Operator
 
@@ -409,14 +400,6 @@ class L2_transport_operator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
@@ -459,7 +442,7 @@ class L2_transport_operator(LinOpWithTransp):
         self.Proj.update_weights(self._weights)
 
 
-class Hdiv0_transport_operator(LinOpWithTransp):
+class Hdiv0_transport_operator(LinearOperator):
     r"""
     Operator
 
@@ -590,14 +573,6 @@ class Hdiv0_transport_operator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return Hdiv0_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
@@ -641,7 +616,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         self.Proj.update_weights(self._weights)
 
 
-class Pressure_transport_operator(LinOpWithTransp):
+class Pressure_transport_operator(LinearOperator):
     r"""
     Operator
 
@@ -779,14 +754,6 @@ class Pressure_transport_operator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         return Pressure_transport_operator(

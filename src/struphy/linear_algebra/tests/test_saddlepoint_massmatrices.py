@@ -19,7 +19,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     import cunumpy as xp
     import scipy as sc
     from feectools.ddm.mpi import mpi as MPI
-    from feectools.linalg.basic import IdentityOperator
+    from feectools.linalg.basic import IdentityOperator, LinearOperator
     from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 
     from struphy import domains, perturbations
@@ -115,7 +115,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
             if derham.with_local_projectors:
                 S21np = S21.toarray
             else:
-                S21np = S21.toarray_struphy()
+                S21np = LinearOperator.toarray(S21)
             M2Bnp = M2R._mat.toarray()
             x1np = x1.toarray()
             x2np = x2.toarray()
@@ -129,7 +129,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
             if derham.with_local_projectors:
                 S21np = S21.tosparse
             else:
-                S21np = S21.toarray_struphy(is_sparse=True)
+                S21np = LinearOperator.toarray(S21, is_sparse=True)
             M2Bnp = M2R._mat.tosparse()
             x1np = x1.toarray()
             x2np = x2.toarray()
@@ -241,7 +241,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
         compare_arrays(d1, d2, mpi_rank, atol=1e-5)
         TestA11composed = M2np / dt + Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np
         TestA11 = M2 / dt + nu * D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21
-        # TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray_struphy()
+        # TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray()
         # TestA11npdot = TestA11np.dot(x1.toarray())
         TestA11composeddot = TestA11composed.dot(x1.toarray())
         TestA11dot = TestA11.dot(x1)
