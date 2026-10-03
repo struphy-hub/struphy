@@ -25,6 +25,7 @@ def test_toarray_struphy(num_elements, degree, bcs, mapping):
 
     import cunumpy as xp
     from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.basic import LinearOperator
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -65,11 +66,11 @@ def test_toarray_struphy(num_elements, degree, bcs, mapping):
 
     # ========= test toarray_struphy =================
     # Get the matrix form of the linear operators M0 to M3
-    M0arr = M0.toarray_struphy()
+    M0arr = LinearOperator.toarray(M0)
     logger.info("M0 done.")
-    M1arr = M1.toarray_struphy()
-    M2arr = M2.toarray_struphy()
-    M3arr = M3.toarray_struphy()
+    M1arr = LinearOperator.toarray(M1)
+    M2arr = LinearOperator.toarray(M2)
+    M3arr = LinearOperator.toarray(M3)
 
     v0arr = v0arr[0].flatten()
     v1arr = []
@@ -96,10 +97,10 @@ def test_toarray_struphy(num_elements, degree, bcs, mapping):
     IM2 = xp.zeros([M2.codomain.dimension, M2.domain.dimension], dtype=M2.dtype)
     IM3 = xp.zeros([M3.codomain.dimension, M3.domain.dimension], dtype=M3.dtype)
 
-    M0.toarray_struphy(out=IM0)
-    M1.toarray_struphy(out=IM1)
-    M2.toarray_struphy(out=IM2)
-    M3.toarray_struphy(out=IM3)
+    LinearOperator.toarray(M0, out=IM0)
+    LinearOperator.toarray(M1, out=IM1)
+    LinearOperator.toarray(M2, out=IM2)
+    LinearOperator.toarray(M3, out=IM3)
 
     compare_arrays(M0.dot(v0), xp.matmul(IM0, v0arr), rank)
     compare_arrays(M1.dot(v1), xp.matmul(IM1, v1arr), rank)

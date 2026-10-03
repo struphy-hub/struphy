@@ -17,7 +17,7 @@ from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, Stenc
 
 from struphy import equils
 from struphy.feec import mass_kernels
-from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
 from struphy.fields_background.base import MHDequilibrium
@@ -1346,7 +1346,7 @@ class WeightedMassOperators:
             )
 
 
-class WeightedMassOperator(LinOpWithTransp):
+class WeightedMassOperator(LinearOperator):
     r"""
     Class for assembling weighted mass matrices in 3d.
 
@@ -2391,7 +2391,7 @@ class WeightedMassOperator(LinOpWithTransp):
             return self
 
         else:
-            return LinOpWithTransp.__sub__(self, M)
+            return LinearOperator.__sub__(self, M)
 
     def eval_quad(self, W, coeffs, out=None):
         """
@@ -2522,7 +2522,7 @@ class WeightedMassOperator(LinOpWithTransp):
         return info(self, use_rst=use_rst)
 
 
-class StencilMatrixFreeMassOperator(LinOpWithTransp):
+class StencilMatrixFreeMassOperator(LinearOperator):
     r"""Class implementing matrix-free weighted mass operators between StencilVectorSpaces.
 
     The result of the dot product with a spline function :math:`S_h` is computed as
@@ -2642,14 +2642,6 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
     def derham(self):
         """Discrete de Rham sequence on the logical unit cube."""
         return self._derham
-
-    @property
-    def tosparse(self):
-        return self.toarray_struphy(is_sparse=True)
-
-    @property
-    def toarray(self):
-        return self.toarray_struphy(is_sparse=False)
 
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(
@@ -3235,7 +3227,7 @@ class L2Projector:
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
 
 
-class AverageOperator(LinOpWithTransp):
+class AverageOperator(LinearOperator):
     r"""
     Class for quadrature operators, performs the average of a `FeecVariable` along a given direction.
     For example along the :math:`\eta_3` direction, it applies the following linear operator :
@@ -3388,14 +3380,6 @@ class AverageOperator(LinOpWithTransp):
             return self.derham.nquads
         else:
             return self._nquads
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def dot(self, v, out=None):
 
