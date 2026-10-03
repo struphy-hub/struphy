@@ -50,8 +50,13 @@ extensions = [
     "sphinx_design",
     "sphinx_copybutton",
     "rst_docstring",  # Custom extension to use __doc_rst__
-    "sphinx_collections",
 ]
+
+_skip_tutorials = os.environ.get("STRUPHY_DOCS_SKIP_TUTORIALS") == "1"
+if not _skip_tutorials:
+    extensions.append("sphinx_collections")
+else:
+    tags.add("skip_tutorials")  # noqa: F821 - injected by Sphinx
 
 
 def _struphy_is_compiled():
@@ -75,14 +80,15 @@ napoleon_use_ivar = True
 napoleon_attr_annotations = False
 
 # Set path to outside sources for sphinxcontrib-collections.
-collections = {
-    "notebooks": {
-        "driver": "copy_folder",
-        "source": "../tutorials/",
-        "target": "tutorials/",
-        "ignore": ["*.py", ".sh"],
+if not _skip_tutorials:
+    collections = {
+        "notebooks": {
+            "driver": "copy_folder",
+            "source": "../tutorials/",
+            "target": "tutorials/",
+            "ignore": ["*.py", ".sh"],
+        }
     }
-}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -91,6 +97,8 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+if _skip_tutorials:
+    exclude_patterns.extend(["sections/tutorials.rst", "sections/dev_guide.rst"])
 
 # mock imports
 # autodoc_mock_imports = ["mpi4py"]
