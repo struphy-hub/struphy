@@ -1569,7 +1569,9 @@ class Derham:
                 assert tuple(domain_decomposition.periods) == tuple(spl_kind), (
                     f"{domain_decomposition.periods = } does not match {spl_kind = }."
                 )
-                assert domain_decomposition.comm is comm, "domain_decomposition must be built on the Derham communicator."
+                if domain_decomposition.comm is not None and comm is not None:
+                    # (comm is None in the decomposition when feectools runs with MockMPI)
+                    assert domain_decomposition.comm == comm, "domain_decomposition must be built on the Derham communicator."
                 self._domain_decomposition = domain_decomposition
 
             _derham = self._discretize_derham(
