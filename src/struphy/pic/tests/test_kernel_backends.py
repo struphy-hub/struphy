@@ -497,7 +497,7 @@ def make_pusher(kernel):
     return lambda: Pusher(
         particles,
         kernel,
-        (butcher.a_stage, butcher.b, butcher.c),
+        (butcher.a_stage, butcher.b, butcher.c, butcher.n_stages),
         domain.args_domain,
         pushes_eta=True,
         alpha_in_kernel=1.0,
