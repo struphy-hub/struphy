@@ -1098,7 +1098,7 @@ def test_args_domain_selects_backend():
     with cunumpy.use_backend("numpy"):
         domain = domains.Cuboid()
         args = domain.args_domain
-        assert isinstance(args, DomainArguments)
+        assert isinstance(args.__host_args__(), DomainArguments)
     if cunumpy.cupy_available():
         with cunumpy.use_backend("cupy"):
             assert domain.args_domain is args
@@ -1140,9 +1140,9 @@ def test_cuda_args_domain(mapping):
         assert args.t1 is domain.T[0] and args.ind3 is domain.indN[2]
 
         # the struct holds the device addresses of these arrays
-        (struct,) = args.get_cuda_args()
+        (struct,) = args.__cuda_args__()
         assert struct["kind_map"] == domain.kind_map
-        host = domain._pyccel_args_domain
+        host = domain.args_domain.__host_args__()
         for name in ("params", "degree", "t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz"):
             dev = getattr(args, name)
             assert struct[name] == dev.data.ptr, name
@@ -1165,7 +1165,7 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             other_cuda = other.args_domain
             assert other_cuda is not cuda_args
             assert other_cuda.t1 is other.T[0]
-            assert other_cuda.get_cuda_args()[0]["t1"] == other.T[0].data.ptr
+            assert other_cuda.__cuda_args__()[0]["t1"] == other.T[0].data.ptr
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@ Each folder ``<name>`` contains the pyccel kernel ``<name>_kernels.py`` and, onc
     kernel = catalog["push_eta_stage"]
 """
 
-from struphy.utils.kernel_backends import KernelCatalog
+from cunumpy.kernels import KernelCatalog
 
-catalog = KernelCatalog.from_package(__name__)
+from struphy.utils.cuda_arguments import CUDA_STRUCTS
+
+catalog = KernelCatalog.from_package(__name__, structs=CUDA_STRUCTS)

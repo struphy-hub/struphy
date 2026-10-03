@@ -1,7 +1,7 @@
 import copy
 from dataclasses import dataclass
 
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 from struphy.io.options import BaseUnits, LiteralOptions, OptionsBase
 from struphy.models.base import StruphyModel

@@ -44,8 +44,7 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.cuda_arguments import CudaDerhamArguments
-from struphy.utils.kernel_backends import is_cuda_backend
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaDerhamArguments
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -603,7 +602,7 @@ class Derham:
         polar_splines = options.polar_splines
         # local commuting projectors
         local_projectors = options.local_projectors
-        if local_projectors and is_cuda_backend():
+        if local_projectors and (xp.get_backend() == "cupy"):
             raise NotImplementedError(
                 "Local projectors (DerhamOptions.local_projectors=True) are not supported on the CuPy backend yet."
             )
@@ -899,19 +898,11 @@ class Derham:
         self._neighbours = self._get_neighbours()
 
         # collect arguments for kernels (the knots of feectools are host arrays on every array backend)
-        self._pyccel_args_derham = DerhamArguments(
-            np.array(self.degree),
-            *self.V0fem.knots,
-            np.array(self.V0.starts),
+        self._args_derham = CudaDerhamArguments(
+            xp.asarray(self.degree, dtype=xp.int64),
+            *(xp.asarray(t) for t in self.V0fem.knots),
+            xp.asarray(self.V0.starts, dtype=xp.int64),
         )
-        if is_cuda_backend():
-            self._args_derham = CudaDerhamArguments(
-                xp.asarray(self._pyccel_args_derham.pn),
-                *(xp.asarray(t) for t in self.V0fem.knots),
-                xp.asarray(self._pyccel_args_derham.starts),
-            )
-        else:
-            self._args_derham = self._pyccel_args_derham
 
         logger.debug("\nDERHAM:")
         logger.debug(f"{'number of elements:'.ljust(25)} {num_elements}")
@@ -2777,10 +2768,13 @@ class SplineFunction:
     def _evaluate_cuda(self, coeff, kind, starts, points, out):
         """Evaluate device coefficients using shared per-thread spline helpers."""
         from pathlib import Path
-        from struphy.utils.kernel_backends import CudaKernel
+
+        from cunumpy.cuda import CudaKernel
 
         if not hasattr(self, "_cuda_eval"):
-            self._cuda_eval = CudaKernel.from_file(Path(__file__).parents[1] / "bsplines" / "evaluate_spline_cuda.cu")
+            self._cuda_eval = CudaKernel.from_file(
+                Path(__file__).parents[1] / "bsplines" / "evaluate_spline_cuda.cu", **CUDA_OPTIONS
+            )
             self._cuda_eval_args = {}
         # Grid metadata is immutable; transfer it once for each component space.
         key = tuple(int(v) for v in starts)
@@ -2791,8 +2785,9 @@ class SplineFunction:
                 xp.asarray(key, dtype=xp.int64),
             )
         coordinates = tuple(xp.ascontiguousarray(e).reshape(-1) for e in xp.broadcast_arrays(*points))
-        self._cuda_eval(self._cuda_eval_args[key], coeff, *coordinates,
-                        *(int(v) for v in kind), out, out.size, n_threads=out.size)
+        self._cuda_eval(
+            self._cuda_eval_args[key], coeff, *coordinates, *(int(v) for v in kind), out, out.size, n_threads=out.size
+        )
 
     def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
         """
@@ -2869,7 +2864,7 @@ class SplineFunction:
             kind = self.derham.spline_attributes[self.space_key].spline_types_pyccel[0]
             logger.debug(f"{self.space_id = }, {kind = }")
 
-            if is_cuda_backend():
+            if xp.get_backend() == "cupy":
                 points = tuple(markers[:, j] for j in range(3)) if marker_evaluation else (E1, E2, E3)
                 self._evaluate_cuda(self._vector_stencil._data, kind, self.starts, points, tmp)
             elif is_sparse_meshgrid:
@@ -2944,7 +2939,7 @@ class SplineFunction:
                 out = []
             for n, kind in enumerate(self.derham.spline_attributes[self.space_key].spline_types_pyccel):
                 logger.debug(f"{self.space_id = }, {kind = }")
-                if is_cuda_backend():
+                if xp.get_backend() == "cupy":
                     points = tuple(markers[:, j] for j in range(3)) if marker_evaluation else (E1, E2, E3)
                     self._evaluate_cuda(self._vector_stencil[n]._data, kind, self.starts[n], points, tmp)
                 elif is_sparse_meshgrid:

@@ -1,7 +1,7 @@
 import copy
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.feec.mass import AverageOperator, L2Projector

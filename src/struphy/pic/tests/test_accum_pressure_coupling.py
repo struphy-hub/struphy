@@ -1,5 +1,5 @@
 import pytest
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 
 @pytest.mark.parametrize("kernel_name", ["pc_lin_mhd_6d_full", "pc_lin_mhd_6d"])

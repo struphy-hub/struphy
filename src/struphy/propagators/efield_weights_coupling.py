@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner

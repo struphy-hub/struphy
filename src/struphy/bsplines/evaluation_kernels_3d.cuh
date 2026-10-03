@@ -17,7 +17,7 @@ __device__ inline void get_spans(double x, double y, double z, const DerhamArgs&
 }
 }
 
-#include "struphy/kernel_arguments/array_view.cuh"
+#include "cunumpy/array_view.cuh"
 namespace struphy_cuda {
 __device__ inline double eval_spline(const DerhamArgs& a, const SplineScratch& s, Array3D<double> c, int k0, int k1, int k2) {
     int kind[3]={k0,k1,k2};

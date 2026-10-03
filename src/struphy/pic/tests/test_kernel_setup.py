@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments

@@ -2,7 +2,7 @@ import copy
 import logging
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import BaseUnits

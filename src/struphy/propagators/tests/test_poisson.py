@@ -3,7 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import (

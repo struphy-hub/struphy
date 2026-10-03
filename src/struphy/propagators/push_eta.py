@@ -1,10 +1,9 @@
 "Only particle variables are updated."
 
 import logging
-
-import cunumpy as xp
 from dataclasses import dataclass
 
+import cunumpy as xp
 from line_profiler import profile
 
 from struphy.io.options import OptionsBase
