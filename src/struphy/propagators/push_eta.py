@@ -1,6 +1,8 @@
 "Only particle variables are updated."
 
 import logging
+
+import cunumpy as xp
 from dataclasses import dataclass
 
 from line_profiler import profile
@@ -97,9 +99,10 @@ class PushEta(Propagator):
         # temp fix due to refactoring of ButcherTableau:
 
         args_kernel = (
-            butcher.a_stage,
-            butcher.b,
-            butcher.c,
+            xp.asarray(butcher.a_stage),
+            xp.asarray(butcher.b),
+            xp.asarray(butcher.c),
+            butcher.n_stages,
         )
 
         self._pusher = Pusher(
