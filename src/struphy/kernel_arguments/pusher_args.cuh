@@ -38,6 +38,9 @@ struct DerhamArgs {
     double* tn2;
     double* tn3;
     long long* starts;  // (3,)
+    int nt1;
+    int nt2;
+    int nt3;
 };
 
 // CUDA version of DomainArguments (struphy.utils.cuda_arguments.CudaDomainArguments).
@@ -55,3 +58,6 @@ struct DomainArgs {
     double* cy;
     double* cz;
 };
+
+// Use 64-bit row offsets for large marker buffers.
+#define MARKER(args, ip, j) ((args).markers[(long long)(ip) * (args).n_cols + (j)])

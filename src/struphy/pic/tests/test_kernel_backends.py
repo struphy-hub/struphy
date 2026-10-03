@@ -293,12 +293,12 @@ def test_cuda_argument_structs_match_header():
 def test_cuda_struct_members_are_pyccel_attributes():
     """1:1 correspondence: the struct members are named like the attributes of the pyccel argument classes.
 
-    Only ``n_cols`` is CUDA-specific: pyccel kernels take it from ``markers.shape[1]``.
+    Array lengths are CUDA-specific: pyccel kernels read array shapes directly.
     """
     text = (Path(struphy.__file__).parent / "kernel_arguments" / "pusher_args_kernels.py").read_text()
     for cls in STRUCT_CLASSES:
         for _, name in cls.fields:
-            assert f"self.{name} =" in text or name == "n_cols", f"{cls.struct_name}.{name}"
+            assert f"self.{name} =" in text or name in {"n_cols", "nt1", "nt2", "nt3"}, f"{cls.struct_name}.{name}"
 
 
 @requires_cupy
