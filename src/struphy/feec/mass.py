@@ -1254,6 +1254,23 @@ class WeightedMassOperators:
             dry_run=dry_run,
         )
 
+        # weights given at quadrature points or as spline functions are bound to this Derham
+        grid_bound = len(spline_functions) > 0 or (
+            isinstance(weights, list) and any(isinstance(w, xp.ndarray) for row in weights for w in row)
+        )
+        out._creation_info = (
+            None
+            if grid_bound
+            else {
+                "V_id": V_id,
+                "W_id": W_id,
+                "name": name,
+                "weights": weights,
+                "transposed": transposed,
+                "is_transpose": False,
+            }
+        )
+
         if assemble and not dry_run:
             out.assemble()
 
@@ -1464,6 +1481,9 @@ class WeightedMassOperator(LinearOperator):
         self._W = W
         self._name = name
         self._dry_run = dry_run
+
+        # recipe for re-creating the operator with WeightedMassOperators.create_weighted_mass, see to_dict()
+        self._creation_info: dict | None = None
 
         assert not (dry_run and transposed), "dry_run=True is not supported for transposed operators."
 
@@ -2066,6 +2086,9 @@ class WeightedMassOperator(LinearOperator):
         # weights of M in its own (transposed) block order
         M._weights = [[self._weights[n][m] for n in range(len(self._weights))] for m in range(len(self._weights[0]))]
 
+        if self._creation_info is not None:
+            M._creation_info = dict(self._creation_info, is_transpose=not self._creation_info["is_transpose"])
+
         if self._matrix_free:
             if self._symmetry is not None:
                 M.assemble(weights=M._weights)
@@ -2107,6 +2130,9 @@ class WeightedMassOperator(LinearOperator):
         assert not self._dry_run, (
             "A dry-run operator has no matrix data and cannot be assembled (memory estimation only)."
         )
+        if weights is not None or not clear:
+            # the data no longer stems from the creation recipe
+            self._creation_info = None
 
         if self._matrix_free:
             if weights is not None:
@@ -2325,6 +2351,64 @@ class WeightedMassOperator(LinearOperator):
 
             logger.debug("Done.")
 
+    @property
+    def is_reconstructible(self) -> bool:
+        """Whether the operator can be re-created from :meth:`to_dict` (e.g. on another Derham).
+
+        True for operators created by :meth:`WeightedMassOperators.create_weighted_mass` (and their transposes)
+        whose data has not been modified afterwards (by ``assemble(weights=...)``, in-place arithmetic, ...).
+        """
+        return self._creation_info is not None
+
+    def to_dict(self) -> dict:
+        """Recipe for re-creating the operator with :meth:`WeightedMassOperators.create_weighted_mass`.
+
+        The weights are stored as given at creation. The dictionary is JSON serializable if they are
+        strings (``'Ginv'``, ``'sqrt_g'``, ...) or nested lists of numbers; callables are kept as objects.
+        Re-create the operator (on any Derham) with :meth:`from_dict`.
+        """
+        if self._creation_info is None:
+            raise ValueError(
+                f"WeightedMassOperator {self.name!r} cannot be serialized: it was not created by "
+                "WeightedMassOperators.create_weighted_mass or its data was modified afterwards."
+            )
+        params = dict(self._creation_info)
+        if isinstance(params["weights"], tuple):
+            params["weights"] = list(params["weights"])
+        return {
+            "type": self.__class__.__name__,
+            "params": params,
+        }
+
+    @classmethod
+    def from_dict(cls, dct: dict, mass_ops: "WeightedMassOperators") -> "WeightedMassOperator":
+        """Re-create a :class:`WeightedMassOperator` from :meth:`to_dict` with the given collection.
+
+        Parameters
+        ----------
+        dct : dict
+            Output of :meth:`to_dict`.
+
+        mass_ops : WeightedMassOperators
+            Collection providing the Derham, domain and matrix_free option of the new operator.
+        """
+        assert dct["type"] == cls.__name__
+        params = dct["params"]
+        name = params["name"]
+        weights = params["weights"]
+        if isinstance(weights, list) and not (len(weights) > 0 and isinstance(weights[0], list)):
+            weights = tuple(weights)
+
+        out = mass_ops.create_weighted_mass(
+            params["V_id"],
+            params["W_id"],
+            name=name,
+            weights=weights,
+            assemble=True,
+            transposed=params["transposed"],
+        )
+        return out.T if params["is_transpose"] else out
+
     def copy(self, out=None):
         """Create a copy of self, that can potentially be stored in a given WeightedMassOperator.
 
@@ -2361,6 +2445,7 @@ class WeightedMassOperator(LinearOperator):
 
     def __imul__(self, a):
         self._mat *= a
+        self._creation_info = None
         return self
 
     def __iadd__(self, M):
@@ -2368,10 +2453,12 @@ class WeightedMassOperator(LinearOperator):
         assert M.codomain is self.codomain
 
         if isinstance(M, WeightedMassOperator):
+            self._creation_info = None
             self._mat += M._mat
             return self
 
         elif isinstance(M, LinearOperator):
+            self._creation_info = None
             self._mat += M
             return self
 
@@ -2383,10 +2470,12 @@ class WeightedMassOperator(LinearOperator):
         assert M.codomain is self.codomain
 
         if isinstance(M, WeightedMassOperator):
+            self._creation_info = None
             self._mat -= M._mat
             return self
 
         elif isinstance(M, LinearOperator):
+            self._creation_info = None
             self._mat -= M
             return self
 

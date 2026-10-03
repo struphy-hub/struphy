@@ -786,6 +786,102 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         assert error2 < err_lim
 
 
+@pytest.mark.parametrize("degree", [[2, 2, 1], [3, 3, 1]])
+@pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
+def test_poisson_2d_multigrid(degree, bc_type):
+    """PoissonSolve with precond="MultiGrid" agrees with the unpreconditioned solve, in few iterations."""
+    from mpi4py import MPI as MPI4PY
+
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+
+    domain = domains.Colella(Lx=4.0, Ly=2.0, alpha=0.1, Lz=1.0)
+    bcs = {
+        "periodic": (None, None, None),
+        "dirichlet": (("dirichlet", "dirichlet"), None, None),
+        "neumann": (("free", "free"), None, None),
+    }[bc_type]
+    derham = Derham(TensorProductGrid(num_elements=[32, 32, 1]), DerhamOptions(degree=degree, bcs=bcs), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return xp.cos(2 * xp.pi * e1) * xp.sin(2 * xp.pi * e2) + 0.3 * xp.sin(4 * xp.pi * e2)
+
+    phis = []
+    infos = []
+    for precond in ["MassMatrixPreconditioner", "MultiGrid"]:
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        solver = PoissonSolve(rho=rho)
+        solver.variables.phi = phi
+        solver.options = solver.Options(
+            stab_eps=1e-8,
+            solver="pcg",
+            precond=precond,
+            # the Jacobi smoother is robust w.r.t. the mapping (the default mass smoother is robust w.r.t. the degree);
+            # no null space: the system is regularized by stab_eps
+            multigrid=MultiGridOptions(smoother_precond="jacobi"),
+            solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
+        )
+        solver.allocate()
+        solver(1.0)
+        phis.append(phi.spline.vector.toarray())
+        infos.append(solver._solver._info)
+
+    # global coefficient arrays (toarray only fills the local part)
+    phis = [MPI4PY.COMM_WORLD.allreduce(p, op=MPI4PY.SUM) for p in phis]
+    if bc_type != "dirichlet":
+        # solutions are defined up to a constant (the stabilization is tiny)
+        phis = [p - xp.mean(p) for p in phis]
+    assert xp.max(xp.abs(phis[0] - phis[1])) < 1e-6 * xp.max(xp.abs(phis[0]))
+    assert infos[1]["niter"] <= 25
+    assert infos[1]["niter"] < infos[0]["niter"]
+
+
+def test_implicit_diffusion_multigrid_dt():
+    """With divide_by_dt, the multigrid preconditioner follows changes of dt."""
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+    from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+
+    domain = domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[32, 16, 1]),
+        DerhamOptions(degree=[2, 2, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    phi = FEECVariable(space="H1")
+    phi.allocate(derham=derham, domain=domain)
+    phi.spline.vector = derham.P0(lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2))
+
+    prop = ImplicitDiffusion()
+    prop.variables.phi = phi
+    prop.options = prop.Options(
+        sigma_1=1.0,
+        sigma_2=1.0,
+        sigma_3=0.0,
+        divide_by_dt=True,
+        precond="MultiGrid",
+        multigrid=MultiGridOptions(),
+        solver_params=SolverParameters(tol=1e-12, maxiter=100, recycle=False),
+    )
+    prop.allocate()
+
+    for dt in [0.1, 0.1, 0.01]:
+        rhs = (1.0 / dt) * mass_ops.M0.dot(phi.spline.vector)
+        prop(dt)
+        A = (1.0 / dt) * mass_ops.M0 + derham.grad.T @ mass_ops.M1 @ derham.grad
+        r = rhs - A.dot(phi.spline.vector)
+        assert xp.sqrt(r.inner(r)) < 1e-9 * xp.sqrt(rhs.inner(rhs))
+        assert prop._solver._info["niter"] <= 15
+
+
 if __name__ == "__main__":
     # direction = 0
     # bc_type = "dirichlet"
