@@ -22,7 +22,7 @@ from struphy.utils.utils import check_option
 logger = logging.getLogger("struphy")
 
 
-class ColdPlasmaPerturbation(Propagator):
+class ColdPlasmaPerturbationCompact(Propagator):
     r""":ref:`FEEC <gempic>` discretization of a linearized cold plasma fluid system perturbed by a source of frequency :math:`\omega`.
     The state variables are the first-order components of the oscillations in electron density, electron velocity, electric field and magnetic field.
     Their oscillation-average counterparts (making up the plasma bulk) are passed as parameters of the solver.
@@ -457,18 +457,19 @@ class ColdPlasmaPerturbation(Propagator):
                 assemble = True,
             )
         
-        # if not isinstance(self._options.rhobar,float):
-        #     _M1rhopreconditioner = MassMatrixPreconditioner(self._M1rho)
+        if not isinstance(self._options.rhobar,float):
+            _M1rhopreconditioner = MassMatrixPreconditioner(self._M1rho)
             
-        #     self._M1rho_inv = inverse(
-        #         self._M1rho,
-        #         "pcg",
-        #         pc=_M1rhopreconditioner,
-        #         tol=1e-12,
-        #         maxiter=self._options.solver_params.maxiter,
-        #         verbose=False,
-        #         recycle=self._options.solver_params.recycle,
-        #     )
+            self._M1rho_inv = inverse(
+                self._M1rho,
+                "pcg",
+                pc=_M1rhopreconditioner,
+                tol=1e-12,
+                maxiter=self._options.solver_params.maxiter,
+                verbose=False,
+                recycle=self._options.solver_params.recycle,
+            )
+
 
         self._M1nurho: WeightedMassOperators = None
 
@@ -595,6 +596,15 @@ class ColdPlasmaPerturbation(Propagator):
 
         self._Acurlcurl = self._options.c1 * self._curl.T @ self._M2 @ self._curl - (self._options.omega**2) * self._options.c0 * self._M1
 
+        self._Acurlcurl_inv = inverse(
+            self._Acurlcurl,
+            "gmres",
+            tol=self.options.solver_params.tol,
+            maxiter=self.options.solver_params.maxiter,
+            verbose=self.options.solver_params.verbose,
+            recycle=self.options.solver_params.recycle,
+        )
+
         # self._divPi = - self._curl.T @ self._M2mu @ self._curl \
         #             - 2/3 * self._P12.T @ self._div.T @ self._M3mu @ self._div @ self._P12 \
         #                 + 2 * self._O1.T @ self._grad.T @ self._M1mu @ self._grad @ self._O1 \
@@ -612,15 +622,15 @@ class ColdPlasmaPerturbation(Propagator):
         self._space_block2 = BlockVectorSpace(self._V1squared, self._V2squared)
 
         self._source = BlockVector(self._V1squared, blocks=[self._zerovectorV1, self._options.omega * self._M1.dot(self._j)])
-        self._zerovectorV2squared = BlockVector(self._V2squared, blocks=[self._zerovectorV2, self._zerovectorV2])
-        self._block_source = BlockVector(self._space_block2, blocks=[self._source, self._zerovectorV2squared])
+        # self._zerovectorV2squared = BlockVector(self._V2squared, blocks=[self._zerovectorV2, self._zerovectorV2])
+        # self._block_source = BlockVector(self._space_block2, blocks=[self._source, self._zerovectorV2squared])
 
         self._block_M0 = BlockLinearOperator(
             self._V0squared, self._V0squared, blocks=[[None, - self._M0], [self._M0, None]]
         )
 
-        self._block_M1 = BlockLinearOperator(
-            self._V1squared, self._V1squared, blocks=[[None, - self._M1], [self._M1, None]]
+        self._block_M0inv = BlockLinearOperator(
+            self._V0squared, self._V0squared, blocks=[[None, self._M0inv], [- self._M0inv, None]]
         )
 
         self._block_Divergence = BlockLinearOperator(
@@ -643,8 +653,8 @@ class ColdPlasmaPerturbation(Propagator):
             self._V1squared, self._V1squared, blocks=[[self._Acurlcurl, None], [None, self._Acurlcurl]]
         )
 
-        self._block_M1rho = BlockLinearOperator(
-            self._V1squared, self._V1squared, blocks=[[self._M1rho, None], [None, self._M1rho]]
+        self._block_R = BlockLinearOperator(
+            self._V1squared, self._V1squared, blocks=[[self._M1rho / self._options.mass, None], [None, self._M1rho / self._options.mass]]
         )
 
         self._block_iM1rho = BlockLinearOperator(
@@ -664,36 +674,49 @@ class ColdPlasmaPerturbation(Propagator):
         )
 
         # constru
-        self._block_A = BlockLinearOperator(
-            self._space_block1, self._space_block1,
-            blocks=[[self._options.omega * self._block_M0, self._block_Divergence], [self._block_P, self._block_Q]]
+
+        self._block_A = self._block_Q - self._block_P @ self._block_M0inv @ self._block_Divergence / self._options.omega
+
+        self._block_B = self._block_R
+
+        self._block_C = self._block_Acurlcurl
+
+        self._block_D = self._options.omega * self._block_iM1rho / self._options.mass
+
+        self._block_Cinv = BlockLinearOperator(
+            self._V1squared, self._V1squared, blocks=[[self._Acurlcurl_inv, None], [None, self._Acurlcurl_inv]]
         )
 
-        self._block_B = BlockLinearOperator(
-            self._space_block2, self._space_block1,
-            blocks=[[None, None], [self._block_M1rho / self._options.mass, None]]
-        )
+        # self._block_A = BlockLinearOperator(
+        #     self._space_block1, self._space_block1,
+        #     blocks=[[self._options.omega * self._block_M0, self._block_Divergence], [self._block_P, self._block_Q]]
+        # )
 
-        self._block_D = BlockLinearOperator(
-            self._space_block1, self._space_block2,
-            blocks=[[None, self._options.omega * self._block_iM1rho / self.options.mass], [None, None]]
-        )
+        # self._block_B = BlockLinearOperator(
+        #     self._space_block2, self._space_block1,
+        #     blocks=[[None, None], [self._block_M1rho / self._options.mass, None]]
+        # )
 
-        self._block_C = BlockLinearOperator(
-            self._space_block2, self._space_block2,
-            blocks=[[self._block_Acurlcurl, None],
-            [self._block_curl, - self._options.omega * self._block_ImV2]]
-        )
+        # self._block_D = BlockLinearOperator(
+        #     self._space_block1, self._space_block2,
+        #     blocks=[[None, self._options.omega * self._block_iM1rho / self.options.mass], [None, None]]
+        # )
 
-        self._block_Cinv = inverse(
-            self._block_C,
-            "gmres",
-            x0=None,
-            tol=self._options.solver_params.tol,
-            maxiter=self._options.solver_params.maxiter,
-            verbose = True,
-            recycle = self._options.solver_params.recycle,
-        )
+        # self._block_C = BlockLinearOperator(
+        #     self._space_block2, self._space_block2,
+        #     blocks=[[self._block_Acurlcurl, None],
+        #     [self._block_curl, - self._options.omega * self._block_ImV2]]
+        # )
+
+        # self._block_Cinv = inverse(
+        #     self._block_C,
+        #     "gmres",
+        #     x0=None,
+        #     tol=self._options.solver_params.tol,
+        #     maxiter=self._options.solver_params.maxiter,
+        #     verbose = True,
+        #     recycle = self._options.solver_params.recycle,
+        # )
 
         self._block_A_schur = self._block_A - self._block_B @ self._block_Cinv @ self._block_D
 
@@ -714,21 +737,31 @@ class ColdPlasmaPerturbation(Propagator):
 
     def __call__(self, dt):
 
-        tmp_z = self._block_Cinv.solve(self._block_source)
+        # tmp_z = self._block_Cinv.solve(self._block_source)
+
+        tmp_z = self._block_Cinv.dot(self._source)
 
         rhs_x1 = - self._block_B.dot(tmp_z)
 
         tmp_x1 = self._block_A_schur_inv.solve(rhs_x1)
 
-        tmp_x2 = tmp_z - self._block_Cinv.solve(self._block_D.dot(tmp_x1))
+        tmp_x2 = tmp_z - self._block_Cinv.dot(self._block_D.dot(tmp_x1))
 
-        comp_rho = tmp_x1[0]
+        comp_u = tmp_x1
 
-        comp_u = tmp_x1[1]
+        comp_E = tmp_x2
 
-        comp_E = tmp_x2[0]
+        comp_rho = - self._block_M0inv @ self._block_Divergence.dot(comp_u) / self._options.omega
 
-        comp_B = tmp_x2[1]
+        comp_B = - self._block_ImV2 @ self._block_curl.dot(comp_E) / self._options.omega
+
+        # comp_rho = tmp_x1[0]
+
+        # comp_u = tmp_x1[1]
+
+        # comp_E = tmp_x2[0]
+
+        # comp_B = tmp_x2[1]
 
         # --- update FEEC variables ---
         self.update_feec_variables(
@@ -736,4 +769,3 @@ class ColdPlasmaPerturbation(Propagator):
             usin=comp_u[1], ucos=comp_u[0],
             Esin=comp_E[1], Ecos=comp_E[0],
             Bsin=comp_B[1], Bcos=comp_B[0])
-
