@@ -3,7 +3,6 @@ import json
 import numpy as np
 import pytest
 from feectools.ddm.mpi import mpi as MPI
-from mpi4py import MPI as MPI4PY
 
 from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
@@ -33,9 +32,12 @@ def _derham(num_elements, degree, bcs):
 
 
 def _max_diff(a, b):
-    comm = MPI4PY.COMM_WORLD
-    err = comm.allreduce(np.max(np.abs((a - b).toarray())), op=MPI4PY.MAX)
-    ref = comm.allreduce(np.max(np.abs(b.toarray())), op=MPI4PY.MAX)
+    comm = MPI.COMM_WORLD
+    err = np.max(np.abs((a - b).toarray()))
+    ref = np.max(np.abs(b.toarray()))
+    if comm.Get_size() > 1:
+        err = comm.allreduce(err, op=MPI.MAX)
+        ref = comm.allreduce(ref, op=MPI.MAX)
     return err / ref
 
 

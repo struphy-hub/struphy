@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 from feectools.ddm.mpi import mpi as MPI
-from mpi4py import MPI as MPI4PY
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
@@ -76,7 +75,7 @@ def test_hierarchy(num_elements, degree, bcs):
 def test_transfer(bcs, space_id):
     r"""Restriction is the transpose of the prolongation, and P is the exact embedding: R M_h P = M_H."""
     h, domain = _hierarchy((16, 8, 8), (3, 2, 1), bcs, max_levels=3)
-    comm = MPI4PY.COMM_WORLD
+    comm = MPI.COMM_WORLD
     form = h[0].space_to_form[space_id]
 
     for l in range(h.n_levels - 1):
@@ -92,8 +91,11 @@ def test_transfer(bcs, space_id):
         MH = getattr(WeightedMassOperators(h[l + 1], domain), "M" + form)
         a = R.dot(Mh.dot(P.dot(u)))
         b = MH.dot(u)
-        err = comm.allreduce(np.max(np.abs((a - b).toarray())), op=MPI4PY.MAX)
-        ref = comm.allreduce(np.max(np.abs(b.toarray())), op=MPI4PY.MAX)
+        err = np.max(np.abs((a - b).toarray()))
+        ref = np.max(np.abs(b.toarray()))
+        if comm.Get_size() > 1:
+            err = comm.allreduce(err, op=MPI.MAX)
+            ref = comm.allreduce(ref, op=MPI.MAX)
         assert err < 1e-12 * ref
 
 

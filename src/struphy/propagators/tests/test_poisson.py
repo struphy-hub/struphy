@@ -790,8 +790,6 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 def test_poisson_2d_multigrid(degree, bc_type):
     """PoissonSolve with precond="MultiGrid" agrees with the unpreconditioned solve, in few iterations."""
-    from mpi4py import MPI as MPI4PY
-
     from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
 
     domain = domains.Colella(Lx=4.0, Ly=2.0, alpha=0.1, Lz=1.0)
@@ -831,7 +829,8 @@ def test_poisson_2d_multigrid(degree, bc_type):
         infos.append(solver._solver._info)
 
     # global coefficient arrays (toarray only fills the local part)
-    phis = [MPI4PY.COMM_WORLD.allreduce(p, op=MPI4PY.SUM) for p in phis]
+    if comm.Get_size() > 1:
+        phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
     if bc_type != "dirichlet":
         # solutions are defined up to a constant (the stabilization is tiny)
         phis = [p - xp.mean(p) for p in phis]
