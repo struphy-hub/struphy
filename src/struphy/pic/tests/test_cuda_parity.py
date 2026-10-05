@@ -86,6 +86,7 @@ def test_device_pusher_time_loop(monkeypatch):
             pytest.skip("Single-rank transfer guard; multi-rank exchange needs CUDA-aware MPI")
         pusher(0.001)  # warm up NVRTC and CuPy operations
         before = cp.asnumpy(pusher.particles.markers).copy()
+        valid_mks = cp.asnumpy(pusher.particles.valid_mks).copy()
         original = cp.asarray
 
         def device_only(value, *args, **kwargs):
@@ -97,7 +98,12 @@ def test_device_pusher_time_loop(monkeypatch):
             for _ in range(5):
                 pusher(0.001)
         after = cp.asnumpy(pusher.particles.markers)
-        np.testing.assert_allclose(after[:, :3], (before[:, :3] + 0.005 * before[:, 3:6]) % 1.0, atol=1e-13)
+        np.testing.assert_allclose(
+            after[valid_mks, :3],
+            (before[valid_mks, :3] + 0.005 * before[valid_mks, 3:6]) % 1.0,
+            atol=1e-13,
+        )
+        np.testing.assert_array_equal(after[~valid_mks], before[~valid_mks])
 
 
 def test_vlasov_kernel_coverage():

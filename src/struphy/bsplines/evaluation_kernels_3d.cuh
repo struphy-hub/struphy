@@ -41,12 +41,15 @@ namespace struphy_cuda {
 __device__ inline double eval_spline(const DerhamArgs& a, const SplineScratch& s, Array3D<double> c, int k0, int k1, int k2) {
     int kind[3]={k0,k1,k2};
     const double* basis[3];
-    for(int j=0;j<3;++j) basis[j]=kind[j]?s.bd[j]:s.bn[j];
+    const double* bn[3] = {s.bn1, s.bn2, s.bn3};
+    const double* bd[3] = {s.bd1, s.bd2, s.bd3};
+    const int spans[3] = {s.span1, s.span2, s.span3};
+    for(int j=0;j<3;++j) basis[j]=kind[j]?bd[j]:bn[j];
     double out=0.;
     for(int i=0;i<=a.pn[0]-k0;++i)
         for(int j=0;j<=a.pn[1]-k1;++j)
             for(int k=0;k<=a.pn[2]-k2;++k)
-                out+=c(s.spans[0]+i-a.starts[0],s.spans[1]+j-a.starts[1],s.spans[2]+k-a.starts[2])*basis[0][i]*basis[1][j]*basis[2][k];
+                out+=c(spans[0]+i-a.starts[0],spans[1]+j-a.starts[1],spans[2]+k-a.starts[2])*basis[0][i]*basis[1][j]*basis[2][k];
     return out;
 }
 __device__ inline void eval_form(const DerhamArgs& a, const SplineScratch& s, Array3D<double> c0, Array3D<double> c1, Array3D<double> c2, int form, double* out) {
