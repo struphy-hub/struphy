@@ -22,15 +22,15 @@ extern "C" __global__ void charge_density_0form(MarkerArgs args_markers, DerhamA
     int weight_idx = args_markers.weight_idx;
 
     // only do something if particle is a "true" particle (i.e. not a hole)
-    if (MARKER(args_markers, ip, 0) == -1.) return;
+    if (args_markers.markers(ip, 0) == -1.) return;
 
     // marker positions
-    double eta1 = MARKER(args_markers, ip, 0);
-    double eta2 = MARKER(args_markers, ip, 1);
-    double eta3 = MARKER(args_markers, ip, 2);
+    double eta1 = args_markers.markers(ip, 0);
+    double eta2 = args_markers.markers(ip, 1);
+    double eta3 = args_markers.markers(ip, 2);
 
     // filling is just the weights
-    double filling = MARKER(args_markers, ip, weight_idx);
+    double filling = args_markers.markers(ip, weight_idx);
 
     struphy_cuda::vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling);
 }

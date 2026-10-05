@@ -30,9 +30,9 @@ extern "C" __global__ void push_v_with_efield(double dt, int stage, MarkerArgs a
     // only do something if particle is valid (i.e. not a hole or ghost)
     if (!args_markers.valid_mks[ip]) return;
 
-    double eta1 = MARKER(args_markers, ip, 0);
-    double eta2 = MARKER(args_markers, ip, 1);
-    double eta3 = MARKER(args_markers, ip, 2);
+    double eta1 = args_markers.markers(ip, 0);
+    double eta2 = args_markers.markers(ip, 1);
+    double eta3 = args_markers.markers(ip, 2);
     double dfm[9], dfinv[9], dfinvt[9], e_form[3], e_cart[3];
 
     // evaluate Jacobian, result in dfm
@@ -54,5 +54,5 @@ extern "C" __global__ void push_v_with_efield(double dt, int stage, MarkerArgs a
     struphy_cuda::matrix_vector(dfinvt, e_form, e_cart);
 
     // update velocities
-    for (int j = 0; j < 3; ++j) MARKER(args_markers, ip, 3 + j) += dt * const_factor * e_cart[j];
+    for (int j = 0; j < 3; ++j) args_markers.markers(ip, 3 + j) += dt * const_factor * e_cart[j];
 }
