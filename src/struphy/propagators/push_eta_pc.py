@@ -3,13 +3,12 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -125,11 +124,11 @@ class PushEtaPC(Propagator):
 
         # get kernell:
         if self.options.u_space == "Hcurl":
-            kernel = PyccelKernel(pusher_kernels.push_pc_eta_stage_Hcurl)
+            kernel = catalog["push_pc_eta_stage_Hcurl"]
         elif self.options.u_space == "Hdiv":
-            kernel = PyccelKernel(pusher_kernels.push_pc_eta_stage_Hdiv)
+            kernel = catalog["push_pc_eta_stage_Hdiv"]
         elif self.options.u_space == "H1vec":
-            kernel = PyccelKernel(pusher_kernels.push_pc_eta_stage_H1vec)
+            kernel = catalog["push_pc_eta_stage_H1vec"]
         else:
             raise ValueError(
                 f'{self.options.u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',

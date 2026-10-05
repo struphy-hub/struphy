@@ -7,6 +7,8 @@ from numbers import Integral, Real
 import cunumpy as xp
 from cunumpy import PyccelKernel
 
+from struphy.utils.kernel_backends import Kernel
+
 
 @dataclass(kw_only=True, eq=False)
 class KernelSetup:
@@ -29,7 +31,7 @@ class KernelSetup:
     At this boundary, a skipped output is represented by the integer -1.
     """
 
-    kernel: Callable
+    kernel: Kernel | Callable
     args: tuple = ()
     output_indices: tuple[int | None, ...]
     alpha: float | tuple[float, ...] = 0.0
@@ -58,7 +60,10 @@ class KernelSetup:
         self.alpha = tuple(float(value) for value in alpha)
         self._output_indices_array: xp.ndarray = xp.array([-1 if i is None else i for i in indices], dtype=int)
         self._alpha_array: xp.ndarray = xp.array(alpha, dtype=float)
-        if not isinstance(self.kernel, PyccelKernel):
+        if isinstance(self.kernel, Kernel):
+            # on the CuPy backend this raises if there is no CUDA version (yet), see CUDA_STRATEGY.md
+            self.kernel = self.kernel.get_kernel()
+        elif not isinstance(self.kernel, PyccelKernel):
             self.kernel = PyccelKernel(self.kernel)
 
     @property

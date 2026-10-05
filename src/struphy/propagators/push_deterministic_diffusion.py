@@ -11,7 +11,7 @@ from struphy.models.variables import PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -139,7 +139,7 @@ class PushDeterministicDiffusion(Propagator):
 
         self._pusher = Pusher(
             particles,
-            PyccelKernel(pusher_kernels.push_deterministic_diffusion_stage),
+            catalog["push_deterministic_diffusion_stage"],
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
