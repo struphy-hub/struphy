@@ -33,10 +33,9 @@ class CudaMarkerArguments(PyccelStructArguments):
 
     struct_name = "MarkerArgs"
     fields = (
-        ("markers", "double*"),
+        ("markers", "Array2D<double>"),
         ("valid_mks", "bool*"),
         ("n_markers", "int"),
-        ("n_cols", "int"),
         ("Np", "int"),
         ("vdim", "int"),
         ("weight_idx", "int"),
@@ -80,9 +79,10 @@ class CudaMarkerArguments(PyccelStructArguments):
         bc_type,
     ):
         self.markers = _kernel_array("markers", markers, np.float64)
+        if markers.ndim != 2:
+            raise TypeError("markers must be a two-dimensional array.")
         self.valid_mks = _kernel_array("valid_mks", valid_mks, np.bool_)
         self.n_markers = markers.shape[0]
-        self.n_cols = markers.shape[1]
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
@@ -180,21 +180,4 @@ def prepare_kernel(kernel) -> Kernel:
 
 def write_pusher_header(path):
     """Generate the committed ABI header from the cunumpy field definitions."""
-    source = write_cuda_header(path, CUDA_STRUCTS, guard="STRUPHY_PUSHER_ARGS_CUH")
-    source += (
-        "\n"
-        + """// Access column j of marker row ip. The logical (n_markers, n_cols) array is
-// stored row-major behind a flat double* pointer, so its index is ip * n_cols + j.
-// This macro keeps that indexing calculation consistent across CUDA kernels.
-// Cast ip BEFORE multiplying to use 64-bit arithmetic: the row offset can
-// exceed the range of a 32-bit int for large marker buffers.
-// The expansion is an array element, so it supports both reads and writes:
-//     double x = MARKER(args, ip, 0);
-//     MARKER(args, ip, 0) = x + dx;
-// Parentheses preserve operator precedence when arguments are expressions.
-// args is evaluated twice; pass a struct variable without side effects.
-#define MARKER(args, ip, j) ((args).markers[(long long)(ip) * (args).n_cols + (j)])
-"""
-    )
-    Path(path).write_text(source)
-    return source
+    return write_cuda_header(path, CUDA_STRUCTS, guard="STRUPHY_PUSHER_ARGS_CUH")

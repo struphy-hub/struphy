@@ -41,7 +41,7 @@ from struphy.particles.parameters import (
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
 from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
-from struphy.pic.pushing.pusher_utilities_kernels import reflect
+from struphy.pic.pushing.pusher_utilities import reflect
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -57,7 +57,7 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaMarkerArguments
+from struphy.utils.cuda_arguments import CudaMarkerArguments
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -1893,23 +1893,7 @@ class Particles(metaclass=ABCMeta):
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
             # flip velocity
-            if self._args_backend == "cupy":
-                if self.domain.args_domain.kind_map != 10:
-                    raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")
-                if not hasattr(self, "_cuda_reflect"):
-                    from pathlib import Path
-
-                    from cunumpy.cuda import CudaKernel
-
-                    self._cuda_reflect = CudaKernel.from_file(
-                        Path(__file__).parent / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS
-                    )
-                indices = outside_inds_per_axis[axis]
-                self._cuda_reflect(
-                    self.args_markers, self.domain.args_domain, indices, axis, len(indices), n_threads=len(indices)
-                )
-            else:
-                PyccelKernel(reflect)(self.markers, self.domain.args_domain, outside_inds_per_axis[axis], axis)
+            reflect(self.markers, self.domain.args_domain, outside_inds_per_axis[axis], axis)
 
     def finish_kernel_bc(self, newton=False):
         """Bookkeeping after a pusher kernel that applied the kinetic boundary conditions per marker

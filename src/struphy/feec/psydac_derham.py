@@ -26,7 +26,7 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
-from struphy.bsplines import evaluation_kernels_3d as eval_3d
+from struphy.bsplines import evaluation as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
@@ -44,7 +44,7 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaDerhamArguments
+from struphy.utils.cuda_arguments import CudaDerhamArguments
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -2791,29 +2791,24 @@ class SplineFunction:
 
         return out
 
-    def _evaluate_cuda(self, coeff, kind, starts, points, out):
-        """Evaluate device coefficients using shared per-thread spline helpers."""
-        from pathlib import Path
-
-        from cunumpy.cuda import CudaKernel
-
-        if not hasattr(self, "_cuda_eval"):
-            self._cuda_eval = CudaKernel.from_file(
-                Path(__file__).parents[1] / "bsplines" / "evaluate_spline_cuda.cu", **CUDA_OPTIONS
+    def _evaluation_metadata(self):
+        """Cache immutable spline metadata on the active backend, once per component."""
+        backend = xp.get_backend()
+        if not hasattr(self, "_eval_metadata"):
+            self._eval_metadata = {}
+        if backend not in self._eval_metadata:
+            degree = np.asarray(self.derham.degree, dtype=np.int64)
+            if backend == "cupy" and np.any((degree < 1) | (degree > 8)):
+                raise ValueError("CUDA spline degrees must be between 1 and 8.")
+            pn = xp.asarray(degree)
+            knots = tuple(xp.asarray(t, dtype=float) for t in self.derham.V0fem.knots)
+            starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
+            kinds = self.derham.spline_attributes[self.space_key].spline_types_pyccel
+            self._eval_metadata[backend] = tuple(
+                (xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
+                for kind, start in zip(kinds, starts)
             )
-            self._cuda_eval_args = {}
-        # Grid metadata is immutable; transfer it once for each component space.
-        key = tuple(int(v) for v in starts)
-        if key not in self._cuda_eval_args:
-            self._cuda_eval_args[key] = CudaDerhamArguments(
-                xp.asarray(self.derham.degree, dtype=xp.int64),
-                *(xp.asarray(t) for t in self.derham.V0fem.knots),
-                xp.asarray(key, dtype=xp.int64),
-            )
-        coordinates = tuple(xp.ascontiguousarray(e).reshape(-1) for e in xp.broadcast_arrays(*points))
-        self._cuda_eval(
-            self._cuda_eval_args[key], coeff, *coordinates, *(int(v) for v in kind), out, out.size, n_threads=out.size
-        )
+        return self._eval_metadata[backend]
 
     def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
         """
@@ -2850,8 +2845,7 @@ class SplineFunction:
         # extract coefficients and update ghost regions
         self.extract_coeffs(update_ghost_regions=True)
 
-        # get knot vectors
-        T1, T2, T3 = self.derham.V0fem.knots
+        metadata = self._evaluation_metadata()
 
         # marker evaluation
         if len(etas) == 1:
@@ -2861,7 +2855,7 @@ class SplineFunction:
             # copy positions, such that flagging does not modify the caller's array
             markers = xp.array(etas[0][:, :3], dtype=float)
             self._flag_pts_not_on_proc(markers)
-            tmp_shape = markers.shape[0]
+            tmp_shape = (markers.shape[0],)
         # 3D meshgrid evaluation
         else:
             marker_evaluation = False
@@ -2890,36 +2884,25 @@ class SplineFunction:
             kind = self.derham.spline_attributes[self.space_key].spline_types_pyccel[0]
             logger.debug(f"{self.space_id = }, {kind = }")
 
-            if xp.get_backend() == "cupy":
-                points = tuple(markers[:, j] for j in range(3)) if marker_evaluation else (E1, E2, E3)
-                self._evaluate_cuda(self._vector_stencil._data, kind, self.starts, points, tmp)
-            elif is_sparse_meshgrid:
+            if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
                 eval_3d.eval_spline_mpi_sparse_meshgrid(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *metadata[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             elif marker_evaluation:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
                 eval_3d.eval_spline_mpi_markers(
                     markers,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *metadata[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             else:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
@@ -2928,13 +2911,9 @@ class SplineFunction:
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *metadata[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
 
             if self.derham.comm is not None:
@@ -2965,36 +2944,25 @@ class SplineFunction:
                 out = []
             for n, kind in enumerate(self.derham.spline_attributes[self.space_key].spline_types_pyccel):
                 logger.debug(f"{self.space_id = }, {kind = }")
-                if xp.get_backend() == "cupy":
-                    points = tuple(markers[:, j] for j in range(3)) if marker_evaluation else (E1, E2, E3)
-                    self._evaluate_cuda(self._vector_stencil[n]._data, kind, self.starts[n], points, tmp)
-                elif is_sparse_meshgrid:
+                if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_sparse_meshgrid(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *metadata[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 elif marker_evaluation:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_markers(
                         markers,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *metadata[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
@@ -3003,13 +2971,9 @@ class SplineFunction:
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *metadata[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
 
                 if self.derham.comm is not None:
