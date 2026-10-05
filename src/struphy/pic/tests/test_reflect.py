@@ -48,11 +48,16 @@ def test_reflect_rejects_wrong_index_dtype(dtype):
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_particle_boundary_reflection(backend):
-    from struphy.pic.pushing.kernels import catalog
-    from struphy.pic.tests.test_kernel_backends import make_pusher
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import LoadingParameters
+    from struphy.pic.particles import Particles6D
 
     with xp.use_backend(backend):
-        particles = make_pusher(catalog["push_eta_stage"])().particles
+        domain = Cuboid()
+        loading = LoadingParameters(Np=100, seed=1234, moments=(0., 0., 0., 1., 1., 1.), spatial="uniform")
+        particles = Particles6D(comm_world=MPI.COMM_WORLD, loading_params=loading, domain=domain)
+        particles.draw_markers()
         particles._periodic_axes = ()
         particles._remove_axes = ()
         particles._reflect_axes = (0, 1, 2)
