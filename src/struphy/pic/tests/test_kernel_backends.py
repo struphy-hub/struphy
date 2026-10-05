@@ -110,7 +110,7 @@ def test_device_bundle_copies_rebuild():
         m, _ = make_arguments(10)
         for other in (copy.deepcopy(m), pickle.loads(pickle.dumps(m))):
             assert other.markers is not m.markers
-            assert other.packed["markers"] == other.markers.data.ptr
+            assert other.packed["markers"]["data"] == other.markers.data.ptr
         with pytest.raises(RuntimeError, match="device array"):
             m.__host_args__()
 
@@ -120,7 +120,10 @@ def test_device_replacement_repacked():
     with cunumpy.use_backend("cupy"):
         m, _ = make_arguments(10)
         m.markers = m.markers.copy()
-        assert m.packed["markers"] == m.markers.data.ptr
+        view = m.packed["markers"]
+        assert view["data"] == m.markers.data.ptr
+        assert tuple(view["shape"]) == m.markers.shape
+        assert tuple(view["strides"]) == tuple(s // m.markers.itemsize for s in m.markers.strides)
 
 
 @requires_cupy

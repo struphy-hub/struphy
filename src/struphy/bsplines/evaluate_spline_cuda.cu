@@ -1,44 +1,64 @@
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 
-/**
- * Evaluate a distributed tensor-product spline at points, as in evaluation_kernels_3d.eval_spline_mpi_markers.
- *
- * One thread per point. Used by SplineFunction on the CuPy backend for marker and meshgrid evaluation.
- *
- * @param args_derham Spline degrees pn (1 to 8), knots tn1/tn2/tn3 and start indices of the component space;
- *        pyccel takes pn, tn1, tn2, tn3 and starts as separate arguments.
- * @param _data Spline coefficients of the current process (the _data of a StencilVector), any strides.
- * @param eta1 First coordinates of the points (n_points entries); -1 flags a point outside the process domain.
- * @param eta2 Second coordinates of the points.
- * @param eta3 Third coordinates of the points.
- * @param kind1 Kind of basis along the first axis, kind[0] in pyccel: 0 = N-spline, 1 = D-spline.
- * @param kind2 Kind of basis along the second axis, kind[1] in pyccel.
- * @param kind3 Kind of basis along the third axis, kind[2] in pyccel.
- * @param values Output spline values (n_points entries); 0 for flagged points.
- * @param n_points Number of points; CUDA-only, a raw device pointer carries no length.
- */
-extern "C" __global__ void evaluate_spline(DerhamArgs args_derham, Array3D<double> _data, const double* eta1,
-                                           const double* eta2, const double* eta3, int kind1, int kind2, int kind3,
-                                           double* values, int n_points) {
-    // CUDA-only: the point of this thread replaces the pyccel loop variable
-    int ip = blockDim.x * blockIdx.x + threadIdx.x;
-    if (ip >= n_points) return;
-
-    // point not in process domain
-    if (eta1[ip] == -1. || eta2[ip] == -1. || eta3[ip] == -1.) {
-        values[ip] = 0.;
-        return;
-    }
-
-    // get spline values at eta; CUDA-only scratch holds bn1, ..., bd3 and the spans
+// Shared point evaluation. The public kernels below take the same arguments,
+// in the same order, as evaluation_kernels_3d.py. Array views carry dimensions
+// and strides without extra CUDA-only parameters or coordinate copies.
+__device__ inline double evaluate_point(double e1, double e2, double e3,
+                                        Array3D<double> data, const long long* kind,
+                                        long long* pn, Array1D<double> tn1,
+                                        Array1D<double> tn2, Array1D<double> tn3,
+                                        long long* starts) {
     struphy_cuda::SplineScratch scratch;
-    struphy_cuda::get_spans(eta1[ip], eta2[ip], eta3[ip], args_derham, scratch);
+    scratch.span1 = struphy_cuda::find_span(tn1.data, tn1.shape[0], pn[0], e1, tn1.strides[0]);
+    scratch.span2 = struphy_cuda::find_span(tn2.data, tn2.shape[0], pn[1], e2, tn2.strides[0]);
+    scratch.span3 = struphy_cuda::find_span(tn3.data, tn3.shape[0], pn[2], e3, tn3.strides[0]);
+    struphy_cuda::b_d_splines_slim(tn1.data, pn[0], e1, scratch.span1, scratch.bn1, scratch.bd1, tn1.strides[0]);
+    struphy_cuda::b_d_splines_slim(tn2.data, pn[1], e2, scratch.span2, scratch.bn2, scratch.bd2, tn2.strides[0]);
+    struphy_cuda::b_d_splines_slim(tn3.data, pn[2], e3, scratch.span3, scratch.bn3, scratch.bd3, tn3.strides[0]);
+    const double* b1 = kind[0] == 0 ? scratch.bn1 : scratch.bd1;
+    const double* b2 = kind[1] == 0 ? scratch.bn2 : scratch.bd2;
+    const double* b3 = kind[2] == 0 ? scratch.bn3 : scratch.bd3;
+    return struphy_cuda::eval_spline_mpi_kernel(
+        pn[0] - kind[0], pn[1] - kind[1], pn[2] - kind[2], b1, b2, b3,
+        scratch.span1, scratch.span2, scratch.span3, data, starts);
+}
 
-    const double* b1 = kind1 == 0 ? scratch.bn1 : scratch.bd1;
-    const double* b2 = kind2 == 0 ? scratch.bn2 : scratch.bd2;
-    const double* b3 = kind3 == 0 ? scratch.bn3 : scratch.bd3;
+extern "C" __global__ void eval_spline_mpi_markers(
+    Array2D<double> markers, Array3D<double> _data, const long long* kind,
+    long long* pn, Array1D<double> tn1, Array1D<double> tn2, Array1D<double> tn3,
+    long long* starts, Array1D<double> values) {
+    long long ip = (long long)blockDim.x * blockIdx.x + threadIdx.x;
+    if (ip >= markers.shape[0] || markers(ip, 0) == -1.) return;
+    values(ip) = evaluate_point(markers(ip, 0), markers(ip, 1), markers(ip, 2),
+                                _data, kind, pn, tn1, tn2, tn3, starts);
+}
 
-    values[ip] = struphy_cuda::eval_spline_mpi_kernel(args_derham.pn[0] - kind1, args_derham.pn[1] - kind2,
-                                                      args_derham.pn[2] - kind3, b1, b2, b3, scratch.span1,
-                                                      scratch.span2, scratch.span3, _data, args_derham.starts);
+extern "C" __global__ void eval_spline_mpi_matrix(
+    Array3D<double> eta1, Array3D<double> eta2, Array3D<double> eta3,
+    Array3D<double> _data, const long long* kind, long long* pn,
+    Array1D<double> tn1, Array1D<double> tn2, Array1D<double> tn3,
+    long long* starts, Array3D<double> values) {
+    long long ip = (long long)blockDim.x * blockIdx.x + threadIdx.x;
+    if (ip >= values.shape[0] * values.shape[1] * values.shape[2]) return;
+    long long k = ip % values.shape[2];
+    long long j = (ip / values.shape[2]) % values.shape[1];
+    long long i = ip / (values.shape[1] * values.shape[2]);
+    double e1 = eta1(i, j, k), e2 = eta2(i, j, k), e3 = eta3(i, j, k);
+    if (e1 == -1. || e2 == -1. || e3 == -1.) return;
+    values(i, j, k) = evaluate_point(e1, e2, e3, _data, kind, pn, tn1, tn2, tn3, starts);
+}
+
+extern "C" __global__ void eval_spline_mpi_sparse_meshgrid(
+    Array3D<double> eta1, Array3D<double> eta2, Array3D<double> eta3,
+    Array3D<double> _data, const long long* kind, long long* pn,
+    Array1D<double> tn1, Array1D<double> tn2, Array1D<double> tn3,
+    long long* starts, Array3D<double> values) {
+    long long ip = (long long)blockDim.x * blockIdx.x + threadIdx.x;
+    if (ip >= values.shape[0] * values.shape[1] * values.shape[2]) return;
+    long long k = ip % values.shape[2];
+    long long j = (ip / values.shape[2]) % values.shape[1];
+    long long i = ip / (values.shape[1] * values.shape[2]);
+    double e1 = eta1(i, 0, 0), e2 = eta2(0, j, 0), e3 = eta3(0, 0, k);
+    if (e1 == -1. || e2 == -1. || e3 == -1.) return;
+    values(i, j, k) = evaluate_point(e1, e2, e3, _data, kind, pn, tn1, tn2, tn3, starts);
 }
