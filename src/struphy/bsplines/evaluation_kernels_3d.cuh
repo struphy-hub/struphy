@@ -38,26 +38,86 @@ __device__ inline void get_spans(double eta1, double eta2, double eta3,
 
 #include "cunumpy/array_view.cuh"
 namespace struphy_cuda {
-__device__ inline double eval_spline(const DerhamArgs& a, const SplineScratch& s, Array3D<double> c, int k0, int k1, int k2) {
-    int kind[3]={k0,k1,k2};
-    const double* basis[3];
-    const double* bn[3] = {s.bn1, s.bn2, s.bn3};
-    const double* bd[3] = {s.bd1, s.bd2, s.bd3};
-    const int spans[3] = {s.span1, s.span2, s.span3};
-    for(int j=0;j<3;++j) basis[j]=kind[j]?bd[j]:bn[j];
-    double out=0.;
-    for(int i=0;i<=a.pn[0]-k0;++i)
-        for(int j=0;j<=a.pn[1]-k1;++j)
-            for(int k=0;k<=a.pn[2]-k2;++k)
-                out+=c(spans[0]+i-a.starts[0],spans[1]+j-a.starts[1],spans[2]+k-a.starts[2])*basis[0][i]*basis[1][j]*basis[2][k];
-    return out;
-}
-__device__ inline void eval_form(const DerhamArgs& a, const SplineScratch& s, Array3D<double> c0, Array3D<double> c1, Array3D<double> c2, int form, double* out) {
-    Array3D<double> c[3]={c0,c1,c2};
-    for(int j=0;j<3;++j) {
-        int k[3];
-        for(int axis=0;axis<3;++axis) k[axis]=form==1?(axis==j):(axis!=j);
-        out[j]=eval_spline(a,s,c[j],k[0],k[1],k[2]);
+/**
+ * Sum the non-zero contributions of a distributed spline, as in evaluation_kernels_3d.eval_spline_mpi_kernel.
+ *
+ * @param p1 Degree of the univariate splines along the first axis.
+ * @param p2 Degree of the univariate splines along the second axis.
+ * @param p3 Degree of the univariate splines along the third axis.
+ * @param basis1 The p1 + 1 non-zero basis values along the first axis.
+ * @param basis2 The p2 + 1 non-zero basis values along the second axis.
+ * @param basis3 The p3 + 1 non-zero basis values along the third axis.
+ * @param span1 Knot span index along the first axis.
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param _data Spline coefficients of the current process (the _data of a StencilVector), any strides.
+ * @param starts Start indices of the current process (three entries).
+ * @return spline_value, the value of the tensor-product spline.
+ */
+__device__ inline double eval_spline_mpi_kernel(int p1, int p2, int p3, const double* basis1, const double* basis2,
+                                                const double* basis3, int span1, int span2, int span3,
+                                                Array3D<double> _data, const long long* starts) {
+    double spline_value = 0.;
+    for (int il1 = 0; il1 <= p1; ++il1) {
+        long long i1 = span1 + il1 - starts[0];
+        for (int il2 = 0; il2 <= p2; ++il2) {
+            long long i2 = span2 + il2 - starts[1];
+            for (int il3 = 0; il3 <= p3; ++il3) {
+                long long i3 = span3 + il3 - starts[2];
+                spline_value += _data(i1, i2, i3) * basis1[il1] * basis2[il2] * basis3[il3];
+            }
+        }
     }
+    return spline_value;
+}
+
+/**
+ * Evaluate the three components of a 1-form spline, as in evaluation_kernels_3d.eval_1form_spline_mpi.
+ *
+ * @param span1 Knot span index along the first axis (from get_spans).
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param args_derham Spline degrees and start indices.
+ * @param scratch N- and D-spline values from get_spans; pyccel reads them from args_derham.bn1, ..., bd3.
+ * @param form_coeffs_1 Coefficients of the first component (D N N).
+ * @param form_coeffs_2 Coefficients of the second component (N D N).
+ * @param form_coeffs_3 Coefficients of the third component (N N D).
+ * @param out Output buffer for the three components.
+ */
+__device__ inline void eval_1form_spline_mpi(int span1, int span2, int span3, const DerhamArgs& args_derham,
+                                             const SplineScratch& scratch, Array3D<double> form_coeffs_1,
+                                             Array3D<double> form_coeffs_2, Array3D<double> form_coeffs_3,
+                                             double* out) {
+    out[0] = eval_spline_mpi_kernel(args_derham.pn[0] - 1, args_derham.pn[1], args_derham.pn[2], scratch.bd1,
+                                    scratch.bn2, scratch.bn3, span1, span2, span3, form_coeffs_1, args_derham.starts);
+    out[1] = eval_spline_mpi_kernel(args_derham.pn[0], args_derham.pn[1] - 1, args_derham.pn[2], scratch.bn1,
+                                    scratch.bd2, scratch.bn3, span1, span2, span3, form_coeffs_2, args_derham.starts);
+    out[2] = eval_spline_mpi_kernel(args_derham.pn[0], args_derham.pn[1], args_derham.pn[2] - 1, scratch.bn1,
+                                    scratch.bn2, scratch.bd3, span1, span2, span3, form_coeffs_3, args_derham.starts);
+}
+
+/**
+ * Evaluate the three components of a 2-form spline, as in evaluation_kernels_3d.eval_2form_spline_mpi.
+ *
+ * @param span1 Knot span index along the first axis (from get_spans).
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param args_derham Spline degrees and start indices.
+ * @param scratch N- and D-spline values from get_spans; pyccel reads them from args_derham.bn1, ..., bd3.
+ * @param form_coeffs_1 Coefficients of the first component (N D D).
+ * @param form_coeffs_2 Coefficients of the second component (D N D).
+ * @param form_coeffs_3 Coefficients of the third component (D D N).
+ * @param out Output buffer for the three components.
+ */
+__device__ inline void eval_2form_spline_mpi(int span1, int span2, int span3, const DerhamArgs& args_derham,
+                                             const SplineScratch& scratch, Array3D<double> form_coeffs_1,
+                                             Array3D<double> form_coeffs_2, Array3D<double> form_coeffs_3,
+                                             double* out) {
+    out[0] = eval_spline_mpi_kernel(args_derham.pn[0], args_derham.pn[1] - 1, args_derham.pn[2] - 1, scratch.bn1,
+                                    scratch.bd2, scratch.bd3, span1, span2, span3, form_coeffs_1, args_derham.starts);
+    out[1] = eval_spline_mpi_kernel(args_derham.pn[0] - 1, args_derham.pn[1], args_derham.pn[2] - 1, scratch.bd1,
+                                    scratch.bn2, scratch.bd3, span1, span2, span3, form_coeffs_2, args_derham.starts);
+    out[2] = eval_spline_mpi_kernel(args_derham.pn[0] - 1, args_derham.pn[1] - 1, args_derham.pn[2], scratch.bd1,
+                                    scratch.bd2, scratch.bn3, span1, span2, span3, form_coeffs_3, args_derham.starts);
 }
 }
