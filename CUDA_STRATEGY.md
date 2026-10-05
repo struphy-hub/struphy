@@ -38,7 +38,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 ## Principles
 
 - **1:1 correspondence.** Each CUDA kernel has the same name and the same arguments (in the same order) as its pyccel kernel. The CUDA kernel takes the CUDA versions of the argument classes, plus the number of threads (`n_threads`).
-- **The backend decides.** The cunumpy backend (`ARRAY_BACKEND=cupy` or `cunumpy.set_backend("cupy")`, queried with `cunumpy.get_backend()`) selects the CUDA kernels; with NumPy the pyccel kernels run as today.
+- **The backend decides.** The cunumpy backend (`CUNUMPY_BACKEND=cupy` or `cunumpy.set_backend("cupy")`, queried with `cunumpy.get_backend()`) selects the CUDA kernels; with NumPy the pyccel kernels run as today.
 - **No conversions at call time.** When a kernel is called, its arguments are already in the right format. There are no host/device copies per kernel call.
 - **Data already lives on the GPU.** On the CuPy backend, `xp` is `cupy`, so markers, spline coefficients etc. are CuPy arrays from the start. The CUDA argument objects only collect *references* to these arrays and raise if they get host arrays.
 - **No silent CPU fallback on the GPU.** A kernel without a CUDA version raises an error on the GPU backend. Falling back would mean copying data to the host and back at every call.
@@ -168,7 +168,7 @@ The pusher kernels call helpers from other pyccel modules: B-spline evaluation (
 - Write `push_eta_stage_cuda.cu`, using the device helpers from PR 10; one thread per marker, `if (ip >= args_markers.n_markers) return;`.
 - Parity: same markers on both backends, results agree to round-off (`rtol ~ 1e-13`). The test is written once against the catalog: it parametrizes over every kernel that has a CUDA version (`[n for n in catalog.names if n not in catalog.missing_cuda]`), builds the arguments with a per-kernel factory, runs the pyccel and the CUDA kernel, and compares every array argument. Later kernels then only add their factory.
 - `Pusher` on the CuPy backend passes `n_threads=particles.markers.shape[0]` and device arrays in `args_kernel` (the Butcher tableau arrays `a_stage`, `b`, `c` are tiny NumPy arrays today; `PushEta` makes device copies once at setup).
-- End-to-end: run `PushEta` (a propagator that only needs this kernel) with `ARRAY_BACKEND=cupy` on 1 and 2 ranks, and check that no host/device transfers happen inside the time loop: `nsys profile` (look for `cudaMemcpy` between the kernel launches) or monkeypatch `cupy.ndarray.get`/`cupy.asarray` to count calls during the loop.
+- End-to-end: run `PushEta` (a propagator that only needs this kernel) with `CUNUMPY_BACKEND=cupy` on 1 and 2 ranks, and check that no host/device transfers happen inside the time loop: `nsys profile` (look for `cudaMemcpy` between the kernel launches) or monkeypatch `cupy.ndarray.get`/`cupy.asarray` to count calls during the loop.
 
 ### PR 12+: Port kernels and particle boundary handling
 
@@ -197,7 +197,7 @@ cunumpy 0.5.0 contains equivalents of everything struphy built in PRs 1–8, wit
 
 Steps (status in PR 13):
 
-1. Release cunumpy 0.5.0 on PyPI and pin it in `pyproject.toml`. **Open:** `pyproject.toml` pins a cunumpy git commit until the release; replace it by `cunumpy>=0.5.0, <0.6` before merging.
+1. Release cunumpy 0.5.0 on PyPI and pin it in `pyproject.toml`. **Open:** `pyproject.toml` pins the cunumpy `devel` branch until the release; replace it by `cunumpy>=0.5.0, <0.6` before merging.
 2. Delete `utils/kernel_backends.py`; the catalog `__init__.py` files, `Pusher` and `KernelSetup` use the cunumpy classes. **Done.**
 3. The three argument classes subclass `PyccelStructArguments` and provide `__host_args__()`, becoming the single `args_*` object of their owner on both backends; the `_pyccel_args_*` bundles and the backend branches that select between them are gone. The pyccel class stays a plain compiled class built from the same arrays (it cannot inherit from anything). **Done.**
 4. `pusher_args.cuh` is generated from the Python `fields` (`write_pusher_header()`); `test_generated_header` asserts the committed header equals the generated one. **Done.** The markers stay `double*` with the `MARKER` macro; spline coefficients use `Array3D<double>` from `cunumpy/array_view.cuh`, which replaces struphy's own `array_view.cuh`.

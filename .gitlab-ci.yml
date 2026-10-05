@@ -549,7 +549,7 @@ test_cupy:
     # Test numpy backend
     - python3 src/struphy/utils/cupy_vs_numpy.py
     # Test cupy backend
-    - export ARRAY_BACKEND=cupy
+    - export CUNUMPY_BACKEND=cupy
     - python3 src/struphy/utils/cupy_vs_numpy.py
 
 install_tests:
