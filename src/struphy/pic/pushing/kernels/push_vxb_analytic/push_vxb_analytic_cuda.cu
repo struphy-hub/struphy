@@ -1,4 +1,4 @@
-#include <math.h>
+// NVRTC provides the device math functions without a host math.h header.
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
