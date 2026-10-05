@@ -292,6 +292,13 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
     assert run.with_time_units("physical").model.to_dict() == run.model.to_dict()
 
 
+def test_evaluate_raises_without_raw_data(tmp_path):
+    root = write_tree(str(tmp_path))
+    os.remove(os.path.join(root, "data", "data_proc0.hdf5"))
+    with pytest.raises(FileNotFoundError, match="No simulation data"):
+        Output(root).evaluate("em_fields/E")
+
+
 def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))

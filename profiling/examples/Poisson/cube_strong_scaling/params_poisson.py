@@ -135,11 +135,29 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 
 if __name__ == "__main__":
-    run = sim.run(profiling_activated=True, one_time_step=True)
-    run.pproc(create_vtk=True, parallel=True)
+    
+    # switches for debugging and testing
+    estimate_mem = False
+    run = True
+    pproc = True
+    save_figs = True
+    
+    if estimate_mem:
+        sim.estimate_mem(print_report=True)
+        exit() 
 
+    if run:
+        out = sim.run(profiling_activated=True, one_time_step=True)
+    else:
+        # use this for working with existing sim data from a previous run
+        out = sim.output
+    
+    if pproc:
+        out.pproc(create_vtk=True, parallel=True)
+
+    from matplotlib import pyplot as plt
+    
     def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
-        from matplotlib import pyplot as plt
 
         fig = plt.figure(figsize=(16, 12))
 
@@ -232,15 +250,17 @@ if __name__ == "__main__":
 
         return fig
 
-    if sim.comm.rank == 0:
-        rhs_data = run.evaluate("em_fields/source_log")
+    if sim.rank == 0:
+        # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
+        # cell centres of the simulation grid (serial Derham, safe on rank 0 only).
+        rhs_data = out.evaluate("em_fields/source", t=0).isel(t=0)
         print(rhs_data)
-        rhs = rhs_data.isel(t=0).values
+        rhs = rhs_data.values
 
-        phi_data = run.evaluate("em_fields/phi_log")
+        phi_data = out.evaluate("em_fields/phi", t=-1).isel(t=0)
         print(phi_data)
-        phi = phi_data.isel(t=-1).values
-        x, y, z = run.grids_phy
+        phi = phi_data.values
+        x, y, z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))
 
         slice_pt_x = x.shape[0] // 2
         slice_pt_y = y.shape[1] // 2
@@ -264,10 +284,10 @@ if __name__ == "__main__":
 
         import os
 
-        # `path_out` is the run's output folder; `sim_folder` alone is a bare name
-        # resolved against the CWD. The profiling packaging picks these files up from
-        # here and uploads them as `results-run<id>`.
-        results_dir = os.path.join(sim.env.path_out, "results")
+        # `out.path_out` is the out's (absolute) output folder; `sim_folder` alone is a bare
+        # name resolved against the CWD. The profiling packaging picks these files up from
+        # here and uploads them as `results-out<id>`.
+        results_dir = os.path.join(out.path_out, "results")
         os.makedirs(results_dir, exist_ok=True)
 
         np.save(os.path.join(results_dir, "rel_err_rhs.npy"), rel_err_rhs)
@@ -275,5 +295,8 @@ if __name__ == "__main__":
         np.save(os.path.join(results_dir, "resolution.npy"), sim.grid.num_elements)
         np.save(os.path.join(results_dir, "spline_degree.npy"), sim.derham_opts.degree)
 
-        fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
-        fig_phi.savefig(os.path.join(results_dir, "phi_slices.png"))
+        if save_figs:
+            fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
+            fig_phi.savefig(os.path.join(results_dir, "phi_slices.png"))
+        else:
+            plt.show()

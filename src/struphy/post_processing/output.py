@@ -374,7 +374,15 @@ class Output:
         after spline evaluation: one of ``"0"``, ``"1"``, ``"2"``, ``"3"``, ``"v"``, or
         ``"norm"``. The input representation is inferred from the field's FEEC space.
         Scalars default to ``"0"`` and vectors to ``"norm"``.
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``path_out`` holds no raw simulation data (``data/data_proc0.hdf5``).
         """
+        if not (self.path_out / "data" / "data_proc0.hdf5").exists():
+            raise FileNotFoundError(f"No simulation data to process in {self.path_out}")
+
         selectors = dict(coordinates)
         if "physical" in selectors:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
