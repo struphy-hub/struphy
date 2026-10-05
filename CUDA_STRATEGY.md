@@ -279,16 +279,21 @@ existing MPI sorting still synchronizes dynamic counts with the host.
 
 Scoped to the Vlasov model: both magnetic rotation algorithms now have CUDA
 versions, using tensor-product N/D spline evaluation and strided coefficient
-views. Particles calls the same `reflect(markers, args_domain, outside_inds, axis)`
-wrapper on both backends (issue #675). CUDA receives marker and integer-index
-array views, so it needs neither a marker argument bundle nor a separate index
-count. The wrapper retains the Cuboid-only CUDA mapping check.
-SplineFunction dispatches marker, dense-grid and sparse-grid evaluation through
-three `Kernel` pairs with the existing Pyccel argument lists on both backends.
+views. Reflection and spline evaluation are called like every other kernel: the
+owning class builds a `Kernel(PyccelKernel(...), CudaKernel.from_file(...))` pair in
+its `__init__` and calls it with the same arguments on both backends.
+`Particles` builds the `reflect` pair when a direction has reflecting boundaries
+and calls it as `reflect(markers, args_domain, outside_inds, axis)` (issue #675);
+CUDA receives marker and integer-index array views, so it needs neither a marker
+argument bundle nor a separate index count. The Cuboid-only check of the CUDA
+version is done once, when the particles are created.
+`SplineFunction` builds the `eval_spline_mpi_markers`, `eval_spline_mpi_matrix` and
+`eval_spline_mpi_sparse_meshgrid` pairs and, once per component, the arguments
+`(kind, pn, tn1, tn2, tn3, starts)` as arrays of the active backend, which both
+versions take unchanged; spline degrees outside 1–8 are rejected there on CuPy.
 CUDA array views carry coordinate, coefficient and output shapes/strides;
 sparse grids are evaluated directly without broadcasting or flattening coordinates.
-Immutable metadata is cached on the active backend per component. The
-`_evaluate_cuda` helper and its separate CUDA argument convention are removed
+The `_evaluate_cuda` helper and its separate CUDA argument convention are removed
 (issue #674).
 Accumulation is deliberately left for the next Vlasov–Ampere/Maxwell step.
 GPU tests are provided but not run here, at the maintainer's request.

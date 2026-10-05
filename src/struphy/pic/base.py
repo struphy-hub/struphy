@@ -2,6 +2,7 @@ import logging
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
@@ -39,8 +40,8 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.pushing import pusher_utilities_kernels
 from struphy.pic.pushing.kernels import catalog as pushing_catalog
-from struphy.pic.pushing.pusher_utilities import reflect
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -57,6 +58,7 @@ from struphy.pic.sph_eval_kernels import (
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.cuda_arguments import CudaMarkerArguments
+from struphy.utils.kernel_backends import CudaKernel, Kernel
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -337,6 +339,15 @@ class Particles(metaclass=ABCMeta):
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
+
+        # velocity reflection kernel, pyccel or CUDA depending on the backend (see CUDA_STRATEGY.md)
+        if self._reflect_axes:
+            self._reflect = Kernel(
+                PyccelKernel(pusher_utilities_kernels.reflect),
+                CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu"),
+            )
+            if self._args_backend == "cupy" and domain.args_domain.kind_map != 10:
+                raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")
 
         # boundary condition type per axis for the per-marker kernel apply_kinetic_bc_marker
         # (0: periodic, 1: reflect, 2: remove, 3: handled in Python by apply_kinetic_bc)
@@ -1892,7 +1903,8 @@ class Particles(metaclass=ABCMeta):
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
             # flip velocity
-            reflect(self.markers, self.domain.args_domain, outside_inds_per_axis[axis], axis)
+            outside_inds = outside_inds_per_axis[axis]
+            self._reflect(self.markers, self.domain.args_domain, outside_inds, axis, n_threads=len(outside_inds))
 
     def finish_kernel_bc(self, newton=False):
         """Bookkeeping after a pusher kernel that applied the kinetic boundary conditions per marker
