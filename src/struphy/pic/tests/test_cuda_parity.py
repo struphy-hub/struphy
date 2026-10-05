@@ -15,9 +15,9 @@ def eta_arguments(bc, method):
     markers = rng.random((129, 25))
     markers[:, 3:6] = rng.uniform(-2, 2, (129, 3))
     markers[:, 8:14] = markers[:, :6]
-    markers[:, 18:21] = 0.
-    markers[0, 8] = -1.
-    markers[1, -1] = -2.
+    markers[:, 18:21] = 0.0
+    markers[0, 8] = -1.0
+    markers[1, -1] = -2.0
     m.markers[:] = xp.asarray(markers)
     m.bc_type[:] = xp.asarray(bc, dtype=np.int64)
     butcher = ButcherTableau(method)
@@ -35,7 +35,7 @@ def field_arguments(bc, method, electric=False):
     a = cls(xp.asarray(degree), *(xp.asarray(t) for t in knots), xp.zeros(3, dtype=np.int64))
     rng = np.random.default_rng(11)
     coeffs = tuple(xp.asarray(rng.normal(size=(18, 20, 16))) for _ in range(3))
-    return (m, d, a, *coeffs, .7) if electric else (m, d, a, *coeffs)
+    return (m, d, a, *coeffs, 0.7) if electric else (m, d, a, *coeffs)
 
 
 FACTORIES = {
@@ -60,9 +60,15 @@ def test_catalog_parity(name, bc, method):
         with xp.use_backend(backend):
             args = FACTORIES[name](bc, method)
             for stage in range(args[-1] if name == "push_eta_stage" else 1):
-                catalog[name](.2, stage, *args, n_threads=129)
+                catalog[name](0.2, stage, *args, n_threads=129)
             # Compare the mutable bundle and every explicit array argument.
-            results.append([xp.to_numpy(a).copy() for a in (args[0].markers, args[0].valid_mks, args[0].bc_type, *args[2:]) if hasattr(a, "shape")])
+            results.append(
+                [
+                    xp.to_numpy(a).copy()
+                    for a in (args[0].markers, args[0].valid_mks, args[0].bc_type, *args[2:])
+                    if hasattr(a, "shape")
+                ]
+            )
     for host, device in zip(*results):
         np.testing.assert_allclose(host, device, rtol=1e-13, atol=1e-14)
 
@@ -71,13 +77,14 @@ def test_catalog_parity(name, bc, method):
 def test_device_pusher_time_loop(monkeypatch):
     """Single-rank device push; setup and result inspection are outside the guard."""
     import cupy as cp
+
     from struphy.pic.tests.test_kernel_backends import make_pusher
 
     with xp.use_backend("cupy"):
         pusher = make_pusher(catalog["push_eta_stage"])()
         if pusher.particles.mpi_size != 1:
             pytest.skip("Single-rank transfer guard; multi-rank exchange needs CUDA-aware MPI")
-        pusher(.001)  # warm up NVRTC and CuPy operations
+        pusher(0.001)  # warm up NVRTC and CuPy operations
         before = cp.asnumpy(pusher.particles.markers).copy()
         original = cp.asarray
 
@@ -88,9 +95,9 @@ def test_device_pusher_time_loop(monkeypatch):
         with monkeypatch.context() as patch:
             patch.setattr(cp, "asarray", device_only)
             for _ in range(5):
-                pusher(.001)
+                pusher(0.001)
         after = cp.asnumpy(pusher.particles.markers)
-        np.testing.assert_allclose(after[:, :3], (before[:, :3] + .005 * before[:, 3:6]) % 1., atol=1e-13)
+        np.testing.assert_allclose(after[:, :3], (before[:, :3] + 0.005 * before[:, 3:6]) % 1.0, atol=1e-13)
 
 
 def test_vlasov_kernel_coverage():

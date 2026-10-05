@@ -2777,6 +2777,7 @@ class SplineFunction:
     def _evaluate_cuda(self, coeff, kind, starts, points, out):
         """Evaluate device coefficients using shared per-thread spline helpers."""
         from pathlib import Path
+
         from struphy.utils.kernel_backends import CudaKernel
 
         if not hasattr(self, "_cuda_eval"):
@@ -2791,8 +2792,9 @@ class SplineFunction:
                 xp.asarray(key, dtype=xp.int64),
             )
         coordinates = tuple(xp.ascontiguousarray(e).reshape(-1) for e in xp.broadcast_arrays(*points))
-        self._cuda_eval(self._cuda_eval_args[key], coeff, *coordinates,
-                        *(int(v) for v in kind), out, out.size, n_threads=out.size)
+        self._cuda_eval(
+            self._cuda_eval_args[key], coeff, *coordinates, *(int(v) for v in kind), out, out.size, n_threads=out.size
+        )
 
     def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
         """

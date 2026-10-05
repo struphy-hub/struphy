@@ -1897,11 +1897,14 @@ class Particles(metaclass=ABCMeta):
                     raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")
                 if not hasattr(self, "_cuda_reflect"):
                     from pathlib import Path
+
                     from struphy.utils.kernel_backends import CudaKernel
 
                     self._cuda_reflect = CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu")
                 indices = outside_inds_per_axis[axis]
-                self._cuda_reflect(self.args_markers, self.domain.args_domain, indices, axis, len(indices), n_threads=len(indices))
+                self._cuda_reflect(
+                    self.args_markers, self.domain.args_domain, indices, axis, len(indices), n_threads=len(indices)
+                )
             else:
                 reflect(self.markers, self.domain.args_domain, outside_inds_per_axis[axis], axis)
 

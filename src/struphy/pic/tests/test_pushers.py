@@ -765,7 +765,9 @@ def test_kinetic_bc_in_kernel(bc, mapping):
 
     # reference: kernel without boundary conditions, then apply_kinetic_bc in Python
     bc_type[:] = 3
-    catalog["push_eta_stage"](0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c, butcher.n_stages)
+    catalog["push_eta_stage"](
+        0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c, butcher.n_stages
+    )
     n_outside = xp.count_nonzero(
         xp.logical_or(markers[~particles.holes, :3] > 1.0, markers[~particles.holes, :3] < 0.0)
     )
@@ -778,7 +780,9 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     particles.update_holes()
     n_lost_before = particles.n_lost_markers
     bc_type[:] = bc_type_kernel
-    catalog["push_eta_stage"](0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c, butcher.n_stages)
+    catalog["push_eta_stage"](
+        0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c, butcher.n_stages
+    )
     particles.finish_kernel_bc()
 
     assert xp.array_equal(markers[:, :first_shift_idx], markers_ref[:, :first_shift_idx])
