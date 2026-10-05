@@ -115,6 +115,10 @@ def _cupy_array(name: str, arr, dtype):
         raise TypeError(f"{name} must be a CuPy array, got {type(arr)}.")
     if arr.dtype != dtype or not arr.flags.c_contiguous:
         raise TypeError(f"{name} must be a C-contiguous array of dtype {np.dtype(dtype)}.")
+    import cupy as cp
+
+    if arr.device.id != cp.cuda.runtime.getDevice():
+        raise ValueError(f"{name} must be on the current CUDA device.")
     return arr
 
 
@@ -248,12 +252,18 @@ class CudaDerhamArguments(Argument):
         ("double*", "tn2"),
         ("double*", "tn3"),
         ("long long*", "starts"),
+        ("int", "nt1"),
+        ("int", "nt2"),
+        ("int", "nt3"),
     )
 
     def __init__(self, pn, tn1, tn2, tn3, starts):
         self.pn = _cupy_array("pn", pn, np.int64)
+        if bool(((pn < 1) | (pn > 8)).any()):
+            raise ValueError("CUDA spline degrees must be between 1 and 8.")
         self.tn1, self.tn2, self.tn3 = (_cupy_array("tn", t, np.float64) for t in (tn1, tn2, tn3))
         self.starts = _cupy_array("starts", starts, np.int64)
+        self.nt1, self.nt2, self.nt3 = len(tn1), len(tn2), len(tn3)
         self._pack()
 
 

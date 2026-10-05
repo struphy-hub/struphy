@@ -38,6 +38,9 @@ struct DerhamArgs {
     double* tn2;
     double* tn3;
     long long* starts;  // (3,)
+    int nt1;
+    int nt2;
+    int nt3;
 };
 
 // CUDA version of DomainArguments (struphy.utils.cuda_arguments.CudaDomainArguments).
@@ -55,3 +58,15 @@ struct DomainArgs {
     double* cy;
     double* cz;
 };
+
+// Access column j of marker row ip. The logical (n_markers, n_cols) array is
+// stored row-major behind a flat double* pointer, so its index is ip * n_cols + j.
+// This macro keeps that indexing calculation consistent across CUDA kernels.
+// Cast ip BEFORE multiplying to use 64-bit arithmetic: the row offset can
+// exceed the range of a 32-bit int for large marker buffers.
+// The expansion is an array element, so it supports both reads and writes:
+//     double x = MARKER(args, ip, 0);
+//     MARKER(args, ip, 0) = x + dx;
+// Parentheses preserve operator precedence when arguments are expressions.
+// args is evaluated twice; pass a struct variable without side effects.
+#define MARKER(args, ip, j) ((args).markers[(long long)(ip) * (args).n_cols + (j)])
