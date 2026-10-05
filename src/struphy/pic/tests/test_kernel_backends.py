@@ -66,10 +66,11 @@ def test_generated_header(tmp_path):
 
 
 def test_catalog_signatures():
-    from struphy.pic.pushing.kernels import catalog
+    from struphy.pic.tests.test_cuda_parity import CATALOGS
 
-    catalog.check_signatures()
-    assert len(catalog) == 43
+    for catalog in CATALOGS.values():
+        catalog.check_signatures()
+    assert [len(catalog) for catalog in CATALOGS.values()] == [43, 16]
 
 
 def same_buffer(a, b):
@@ -137,17 +138,18 @@ def test_scalar_types_checked():
 
 @pytest.mark.parametrize("wrap", [False, True])
 def test_pusher_accepts_kernel(wrap):
-    from struphy.pic.pushing.kernels import catalog
+    from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
 
     with cunumpy.use_backend("numpy"):
-        host = catalog["push_eta_stage"].host_kernel
+        host = push_eta_stage.host_kernel
         pusher = make_pusher(Kernel(host) if wrap else host)()
         pusher(0.001)
 
 
 @requires_cupy
 def test_missing_cuda_rejected_at_setup():
-    from struphy.pic.pushing.kernels import catalog
+    from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
+    from struphy.utils.cuda_arguments import prepare_kernel
 
     with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError):
-        catalog["push_gc_cc_J1_Hdiv"].get_kernel()
+        prepare_kernel(push_gc_cc_J1_Hdiv)

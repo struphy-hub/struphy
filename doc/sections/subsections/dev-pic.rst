@@ -51,11 +51,11 @@ run before every stage/iteration, after sorting particles using their spatial
 For example, register a vector evaluation with three explicit output columns::
 
     from struphy.pic.pushing.kernel_setup import KernelSetup
-    from struphy.pic.pushing.kernels import catalog
+    from struphy.pic.pushing.kernels.unit_b_1form import unit_b_1form
 
     self.add_init_kernel(
         KernelSetup(
-            kernel=catalog["unit_b_1form"],
+            kernel=unit_b_1form,
             args=(self.derham.args_derham, b1, b2, b3),
             output_indices=(first_free_idx, first_free_idx + 1, first_free_idx + 2),
         )

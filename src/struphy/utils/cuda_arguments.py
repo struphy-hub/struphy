@@ -6,9 +6,10 @@ copy/pickle handling. The compiled host classes remain plain pyccel classes.
 
 from pathlib import Path
 
+import cunumpy as xp
 import numpy as np
 from cunumpy.cuda import write_cuda_header
-from cunumpy.kernels import PyccelStructArguments
+from cunumpy.kernels import Kernel, PyccelStructArguments
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
@@ -160,6 +161,21 @@ class CudaDomainArguments(PyccelStructArguments):
 CUDA_STRUCTS = tuple(cls.struct for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments))
 CUDA_INCLUDE_DIR = Path(__file__).resolve().parents[2]
 CUDA_OPTIONS = {"structs": CUDA_STRUCTS, "include_dirs": (CUDA_INCLUDE_DIR,)}
+
+
+def prepare_kernel(kernel) -> Kernel:
+    """The kernel as a :class:`cunumpy.kernels.Kernel`, checked for the active backend at setup.
+
+    A plain function or ``PyccelKernel`` becomes a ``Kernel`` without CUDA version. On the CuPy backend, a kernel
+    without CUDA version raises here, at setup, not in the time loop, and the CUDA kernel is compiled now.
+    """
+    if not isinstance(kernel, Kernel):
+        kernel = Kernel(kernel)
+    if xp.cupy_backend:
+        if not kernel.has_cuda:
+            raise NotImplementedError(f"No CUDA version of kernel {kernel.name!r} (expected {kernel.cuda_path}).")
+        kernel.compile()
+    return kernel
 
 
 def write_pusher_header(path):

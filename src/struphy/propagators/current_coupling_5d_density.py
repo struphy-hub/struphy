@@ -11,7 +11,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.kernels import catalog as accum_catalog
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D import cc_lin_mhd_5d_D
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -168,7 +168,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._ACC = Accumulator(
             self.energetic_ions.particles,
             self.options.u_space,
-            accum_catalog["cc_lin_mhd_5d_D"],
+            cc_lin_mhd_5d_D,
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,

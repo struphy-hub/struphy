@@ -39,7 +39,8 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.kernels import catalog as pushing_catalog
+from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
+from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
@@ -2135,7 +2136,7 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        func = pushing_catalog["sph_mean_velocity_coeffs"].host_kernel
+        func = sph_mean_velocity_coeffs.host_kernel
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -2247,7 +2248,7 @@ class Particles(metaclass=ABCMeta):
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = pushing_catalog["sph_mean_velocity_coeffs"].host_kernel
+        func = sph_mean_velocity_coeffs.host_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
@@ -2266,7 +2267,7 @@ class Particles(metaclass=ABCMeta):
         )
 
         # 2nd kernel
-        func = pushing_catalog["sph_viscosity_tensor"].host_kernel
+        func = sph_viscosity_tensor.host_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),

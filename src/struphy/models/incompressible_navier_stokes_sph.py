@@ -9,7 +9,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, SPHVariable
-from struphy.pic.accumulation.kernels import catalog as accum_catalog
+from struphy.pic.accumulation.kernels.div_u_weak_1form import div_u_weak_1form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_solve import PoissonSolve
@@ -110,7 +110,7 @@ class IncompressibleNavierStokesSPH(StruphyModel):
         ptg = ParticlesToGrid(
             self.fluid.density,
             "Hcurl",
-            accum_catalog["div_u_weak_1form"],
+            div_u_weak_1form,
         )
         self.propagators = self.Propagators(
             ptg=ptg,
