@@ -19,6 +19,9 @@ C_TYPES = {
     "double*": np.uint64,
     "bool*": np.uint64,
     "long long*": np.uint64,
+    "Array2D<double>": np.dtype(
+        [("data", np.uint64), ("shape", np.int64, 2), ("strides", np.int64, 2)], align=True
+    ),
 }
 
 
@@ -51,7 +54,7 @@ class Argument(ABC):
         )
 
     def _pack(self):
-        """Pack the members into the struct; pointer members hold the device address of the array attribute.
+        """Pack scalars, device pointers and array views into the struct without copying array data.
 
         Scalars are checked against the C type of their member: a non-integer for an ``int`` or a value that
         does not fit raises, instead of arriving in the kernel truncated or wrapped around.
@@ -59,7 +62,11 @@ class Argument(ABC):
         struct = np.zeros((), dtype=self.struct_dtype())
         for ctype, name in self.fields:
             value = getattr(self, name)
-            if ctype.endswith("*"):
+            if ctype == "Array2D<double>":
+                struct[name]["data"] = value.data.ptr
+                struct[name]["shape"] = value.shape
+                struct[name]["strides"] = tuple(s // value.itemsize for s in value.strides)
+            elif ctype.endswith("*"):
                 struct[name] = value.data.ptr
             elif ctype == "int":
                 value = operator.index(value)  # raises TypeError for floats
@@ -179,10 +186,9 @@ class CudaMarkerArguments(Argument):
 
     struct_name = "MarkerArgs"
     fields = (
-        ("double*", "markers"),
+        ("Array2D<double>", "markers"),
         ("bool*", "valid_mks"),
         ("int", "n_markers"),
-        ("int", "n_cols"),
         ("int", "Np"),
         ("int", "vdim"),
         ("int", "weight_idx"),
@@ -211,9 +217,10 @@ class CudaMarkerArguments(Argument):
         bc_type,
     ):
         self.markers = _cupy_array("markers", markers, np.float64)
+        if markers.ndim != 2:
+            raise TypeError("markers must be a two-dimensional array.")
         self.valid_mks = _cupy_array("valid_mks", valid_mks, np.bool_)
         self.n_markers = markers.shape[0]
-        self.n_cols = markers.shape[1]
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx

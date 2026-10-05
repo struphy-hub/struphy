@@ -71,10 +71,10 @@ void push_eta_linear(double dt, int stage, MarkerArgs args_markers, DomainArgs a
     // only do something if particle is valid (i.e. not a hole or ghost)
     if (ip >= args_markers.n_markers || !args_markers.valid_mks[ip]) return;
 
-    double* mk = args_markers.markers + (long long)ip * args_markers.n_cols;
-    mk[0] += dt * mk[3];
-    mk[1] += dt * mk[4];
-    mk[2] += dt * mk[5];
+    auto markers = args_markers.markers;
+    markers(ip, 0) += dt * markers(ip, 3);
+    markers(ip, 1) += dt * markers(ip, 4);
+    markers(ip, 2) += dt * markers(ip, 5);
 }
 """
 
@@ -88,15 +88,15 @@ void write_scalars(double dt, int stage, MarkerArgs args_markers, DomainArgs arg
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     if (ip >= args_markers.n_markers) return;
 
-    double* mk = args_markers.markers + (long long)ip * args_markers.n_cols;
-    mk[0] = dt;
-    mk[1] = stage;
-    mk[2] = args_markers.n_cols;
-    mk[3] = args_markers.first_init_idx;
-    mk[4] = args_markers.mu_idx;
-    mk[5] = args_domain.kind_map;
-    mk[6] = args_markers.bc_type[2];
-    mk[7] = args_domain.t3[1];
+    auto markers = args_markers.markers;
+    markers(ip, 0) = dt;
+    markers(ip, 1) = stage;
+    markers(ip, 2) = args_markers.markers.shape[1];
+    markers(ip, 3) = args_markers.first_init_idx;
+    markers(ip, 4) = args_markers.mu_idx;
+    markers(ip, 5) = args_domain.kind_map;
+    markers(ip, 6) = args_markers.bc_type[2];
+    markers(ip, 7) = args_domain.t3[1];
 }
 """
 
@@ -109,7 +109,7 @@ def header_structs() -> dict:
     text = re.sub(r"//[^\n]*", "", HEADER.read_text())
     structs = {}
     for name, body in re.findall(r"struct\s+(\w+)\s*\{(.*?)\};", text, flags=re.S):
-        members = re.findall(r"([A-Za-z_][\w ]*?\s*\**)\s*(\w+)\s*;", body)
+        members = re.findall(r"([A-Za-z_][\w <>]*?\s*\**)\s*(\w+)\s*;", body)
         structs[name] = tuple(
             (" ".join(ctype.replace("*", " *").split()).replace(" *", "*"), m) for ctype, m in members
         )
@@ -238,19 +238,26 @@ def test_pyccel_cuda_agree(kernel):
 
 
 @requires_cupy
-def test_cuda_kernel_updates_device_array_in_place(kernel):
+def test_cuda_kernel_updates_device_array_in_place():
     """The CUDA kernel works on the very array created on the device; nothing is replaced or copied."""
+    kernel = CudaKernel(PUSH_ETA_LINEAR_SRC, "push_eta_linear")
     with cunumpy.use_backend("cupy"):
         args_markers, args_domain = make_arguments(1000)
         markers = args_markers.markers
         ptr = markers.data.ptr
+        expected = markers.copy()
+        expected[args_markers.valid_mks, :3] += expected[args_markers.valid_mks, 3:6]
 
         for _ in range(10):
             kernel(0.1, 0, args_markers, args_domain, n_threads=1000)
 
         assert args_markers.markers is markers
         assert markers.data.ptr == ptr
-        assert args_markers.get_cuda_args()[0]["markers"] == ptr
+        view = args_markers.get_cuda_args()[0]["markers"]
+        assert view["data"] == ptr
+        assert tuple(view["shape"]) == markers.shape
+        assert tuple(view["strides"]) == tuple(s // markers.itemsize for s in markers.strides)
+        assert cunumpy.allclose(markers, expected, rtol=1e-13, atol=0.0)
 
 
 @requires_cupy
@@ -298,7 +305,7 @@ def test_cuda_struct_members_are_pyccel_attributes():
     text = (Path(struphy.__file__).parent / "kernel_arguments" / "pusher_args_kernels.py").read_text()
     for cls in STRUCT_CLASSES:
         for _, name in cls.fields:
-            assert f"self.{name} =" in text or name in {"n_cols", "nt1", "nt2", "nt3"}, f"{cls.struct_name}.{name}"
+            assert f"self.{name} =" in text or name in {"nt1", "nt2", "nt3"}, f"{cls.struct_name}.{name}"
 
 
 @requires_cupy
@@ -328,7 +335,7 @@ def test_cuda_struct_follows_copies():
         for other in (copy.deepcopy(args_markers), pickle.loads(pickle.dumps(args_markers))):
             assert other.markers is not args_markers.markers
             (struct,) = other.get_cuda_args()
-            assert struct["markers"] == other.markers.data.ptr and struct["bc_type"] == other.bc_type.data.ptr
+            assert struct["markers"]["data"] == other.markers.data.ptr and struct["bc_type"] == other.bc_type.data.ptr
             assert struct["mu_idx"] == args_markers.mu_idx
 
 
@@ -356,7 +363,9 @@ def test_cuda_arguments_reject_host_and_bad_arrays():
     bc_type = cp.zeros(3, dtype=int)
 
     CudaMarkerArguments(markers, valid_mks, 10, *MARKER_INDICES, bc_type)  # ok
-    for bad_markers in (markers.get(), markers.astype(np.float32), cp.zeros((N_COLS, 10)).T):
+    for bad_markers in (
+        markers.get(), markers.astype(np.float32), cp.zeros((N_COLS, 10)).T, cp.zeros(10), cp.zeros((2, 3, 4))
+    ):
         with pytest.raises(TypeError):
             CudaMarkerArguments(bad_markers, valid_mks, 10, *MARKER_INDICES, bc_type)
     with pytest.raises(TypeError):
