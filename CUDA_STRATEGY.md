@@ -89,9 +89,17 @@ Conventions:
 - The folder name, the pyccel function name, the CUDA `extern "C" __global__` function name and the catalog key are all the same.
 - The pyccel file is `<name>_kernels.py` (so `struphy compile` picks it up); the CUDA file is `<name>_cuda.cu`.
 - Shared CUDA code (device helper functions, argument structs) lives in `.cuh` headers next to the pyccel module it mirrors, e.g. `bsplines/bsplines_kernels.cuh` for `bsplines/bsplines_kernels.py`. A `.cu` file includes them relative to the source root, e.g. `#include "struphy/kernel_arguments/pusher_args.cuh"`.
+- Every function in a `.cu` or `.cuh` file has a documentation comment (`/** ... */`, the C++ equivalent of a docstring) immediately above its definition. Identify the pyccel counterpart and explain the operation, parameters, outputs or return value, array shapes/layouts, and any CUDA-specific limits or storage requirements. Document CUDA-only helpers by identifying the pyccel calculation they extract.
+- CUDA parameter, local variable and scratch-field names exactly match the corresponding pyccel names, including spelling and capitalization (e.g. `eta1`, `args_markers`, `args_domain`, `args_derham`, `df_out`, `dfm`, `dfinv`, `v_logical`, `tn`, `pn`, `pd`, `il`, `det_a`, `span1`, `bn1`, `bd1`). Do not abbreviate them to `x`, `m`, `d`, `a`, or `out` when the pyccel counterpart uses a different name. Additional CUDA-only variables or arguments, such as pointer lengths, thread indices or per-thread scratch storage, must have descriptive names and documented purposes.
 - Kernels read the markers array only through the macro `MARKER(args, ip, j)`, to be added to `pusher_args.cuh` in PR 10 (`args.markers[ip * args.n_cols + j]`). If the layout of `MarkerArgs.markers` changes later (strided view, struct of arrays), only the macro changes.
 
 The geometry domains already follow a similar layout (`geometry/domains/cuboid/cuboid_kernels.py`), which can be extended with `cuboid_cuda.cuh` for the device version of the mapping.
+
+Required in every CUDA porting branch (PR 10, PR 11 and PR 12+), before review:
+
+- [ ] Document every added or modified `.cu`/`.cuh` function following the conventions above.
+- [ ] Compare parameter, local variable and scratch-field names against the pyccel source; match every corresponding name and document CUDA-only additions.
+- [ ] Update callers when helper signatures or scratch fields change, and run the affected pyccel/CUDA parity tests with fresh header compilation.
 
 Usage at a call site (e.g. in a propagator):
 
