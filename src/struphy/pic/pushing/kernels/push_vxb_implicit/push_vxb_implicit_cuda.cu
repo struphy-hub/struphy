@@ -30,16 +30,16 @@ extern "C" __global__ void push_vxb_implicit(double dt, int stage, MarkerArgs ar
     int first_init_idx = args_markers.first_init_idx;
 
     // check if marker is a hole
-    if (MARKER(args_markers, ip, first_init_idx) == -1.) return;
+    if (args_markers.markers(ip, first_init_idx) == -1.) return;
 
-    double e1 = MARKER(args_markers, ip, 0);
-    double e2 = MARKER(args_markers, ip, 1);
-    double e3 = MARKER(args_markers, ip, 2);
+    double e1 = args_markers.markers(ip, 0);
+    double e2 = args_markers.markers(ip, 1);
+    double e3 = args_markers.markers(ip, 2);
     double v[3], dfm[9], b_form[3], b_cart[3], vec[3], res[3];
     double identity[9] = {1., 0., 0., 0., 1., 0., 0., 0., 1.};
     double b_prod[9] = {0., 0., 0., 0., 0., 0., 0., 0., 0.};
     double rhs[9], lhs[9], lhs_inv[9];
-    for (int j = 0; j < 3; ++j) v[j] = MARKER(args_markers, ip, 3 + j);
+    for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
 
     // evaluate Jacobian, result in dfm
     struphy_cuda::df(e1, e2, e3, args_domain, dfm);
@@ -78,5 +78,5 @@ extern "C" __global__ void push_vxb_implicit(double dt, int stage, MarkerArgs ar
     struphy_cuda::matrix_vector(rhs, v, vec);
     struphy_cuda::matrix_vector(lhs_inv, vec, res);
 
-    for (int j = 0; j < 3; ++j) MARKER(args_markers, ip, 3 + j) = res[j];
+    for (int j = 0; j < 3; ++j) args_markers.markers(ip, 3 + j) = res[j];
 }
