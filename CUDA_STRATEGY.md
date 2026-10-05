@@ -20,6 +20,7 @@ Progress is tracked in struphy-hub/struphy#650.
 - [ ] **PR 10: Device versions of helper kernels** — B-spline evaluation, mapping evaluation (per domain), small linear algebra, boundary conditions, as `__device__` functions in `.cuh` headers, each tested against its pyccel version. Starts with an H100 run of the PR 8 struct tests.
 - [ ] **PR 11: First real CUDA kernel** — `push_eta_stage` with a pyccel/CUDA parity test and an end-to-end run on the GPU without host/device transfers in the time loop.
 - [ ] **PR 12+: Port kernels one by one**, in the order they are needed by the models we want on the GPU (see [Porting order](#porting-order)). Accumulation needs its own design step first.
+- [ ] **PR 14: Accumulation catalog and first Vlasov–Ampère kernels** — `pic/accumulation` is split into one folder per kernel with its own `catalog`; `Accumulator`/`AccumulatorVector` take catalog kernels and launch the CUDA version with one thread per marker row. CUDA versions of `push_v_with_efield`, `push_weights_with_efield_lin_va` and `charge_density_0form` (atomic fp64 adds). All CUDA kernels are checked against pyccel without a GPU by CPU emulation. `vlasov_maxwell` and `linear_vlasov_ampere` wait for 6D array views in cunumpy.
 - [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
 
@@ -207,24 +208,79 @@ What this buys, beyond less code in struphy: scalar checks against the kernel si
 
 ## Porting order
 
-The first target is **Vlasov** (`models/vlasov.py`), with `PushEta` and both
-`PushVxB` algorithms. Its complete pusher set is `push_eta_stage`,
-`push_vxb_analytic`, and `push_vxb_implicit`. CUDA support initially uses Cuboid
-mappings and spline degrees 1–8. GPU execution is to be tested by the maintainer
-before merging.
+Kernels are ported in the order that completes one model after the other on the GPU. Each step
+lists only the kernels it adds; P = pusher, A = accumulation, E = marker evaluation. Status:
+done (✓), in this PR (PR 14), blocked (⏸).
 
-Next, in order:
+**Step 0 – Vlasov** (PRs 11–12, ✓): `push_eta_stage`, `push_vxb_analytic`, `push_vxb_implicit`, `reflect`.
 
-1. Extend Vlasov to additional analytic mappings, then spline mappings; validate
-   multi-rank device execution and boundary handling on the GPU.
-2. Vlasov–Ampere and Vlasov–Maxwell: `push_v_with_efield`,
-   `charge_density_0form`, and `vlasov_maxwell` accumulation. First split
-   accumulation into a catalog and implement fp64 atomics into stencil storage;
-   measure collisions and summation error before considering sort/reduce.
-3. Linear Vlasov variants: weight pushers and `linear_vlasov_ampere` accumulation.
-4. Remaining 6D current/pressure coupling pushers and accumulators.
-5. Guiding-center pushers, evaluations, and accumulation.
-6. SPH kernels, after device box sorting.
+**Step 1 – Vlasov–Ampère, Vlasov–Maxwell, ColdPlasmaVlasov**
+
+| # | Kernel | Type | Used by | Status |
+|---|---|---|---|---|
+| 1 | `push_v_with_efield` | P | `VlasovAmpereCoupling`, `PushVinForceField` | PR 14 |
+| 2 | `charge_density_0form` | A (vector) | initial Poisson solve of these models | PR 14 |
+| 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | ⏸ 6D views |
+
+**Step 2 – LinearVlasovAmpère/Maxwell (δf)**
+
+| # | Kernel | Type | Used by | Status |
+|---|---|---|---|---|
+| 4 | `push_weights_with_efield_lin_va` | P | `EfieldWeightsCoupling` | PR 14 |
+| 5 | `linear_vlasov_ampere` | A (matrix + vector) | `EfieldWeightsCoupling` | ⏸ 6D views |
+
+**Step 3 – Guiding center: ToyDrift, then DriftKineticElectrostaticAdiabatic.** The default
+algorithm is `discrete_gradient_1st_order`; its chain comes first.
+
+| # | Kernel | Type |
+|---|---|---|
+| 6 | `driftkinetic_hamiltonian` | E |
+| 7 | `bstar_parallel_3form` | E |
+| 8 | `unit_b_1form` | E |
+| 9 | `push_gc_bxEstar_discrete_gradient_1st_order` | P |
+| 10 | `gc_density_0form` | A (vector) — ToyDrift complete |
+| 11 | `bstar_2form` | E |
+| 12 | `push_gc_Bstar_discrete_gradient_1st_order` | P — DKEA complete |
+| 13 | `grad_driftkinetic_hamiltonian` | E (Newton variants) |
+| 14–15 | `push_gc_bxEstar_dg_1st_order_newton`, `push_gc_Bstar_discrete_gradient_1st_order_newton` | P |
+| 16–17 | `push_gc_bxEstar_discrete_gradient_2nd_order`, `push_gc_Bstar_discrete_gradient_2nd_order` | P |
+| 18–19 | `push_gc_bxEstar_explicit_multistage`, `push_gc_Bstar_explicit_multistage` | P |
+
+These are the largest kernels; evaluate code generation (see [Open questions](#open-questions)) before porting 13–19 by hand.
+
+**Step 4 – Hybrid MHD–kinetic 6D (current and pressure coupling)**
+
+| # | Kernel | Used by |
+|---|---|---|
+| 20 | `cc_lin_mhd_6d_1` (A) | `CurrentCoupling6DDensity` |
+| 21–23 | `push_bxu_Hcurl`, `push_bxu_Hdiv`, `push_bxu_H1vec` (P) | `CurrentCoupling6DCurrent` |
+| 24 | `cc_lin_mhd_6d_2` (A) | `CurrentCoupling6DCurrent` |
+| 25–27 | `push_pc_eta_stage_Hcurl`, `push_pc_eta_stage_Hdiv`, `push_pc_eta_stage_H1vec` (P) | `PushEtaPC` |
+| 28–29 | `push_pc_GXu` (P), `pc_lin_mhd_6d` (A) | `PressureCoupling6D` |
+| 30–31 | `push_pc_GXu_full` (P), `pc_lin_mhd_6d_full` (A) | `PressureCoupling6D` (full) |
+
+The three spaces (H1vec/Hcurl/Hdiv) differ only in the basis; port one, then the other two.
+
+**Step 5 – Hybrid 5D**
+
+| # | Kernel |
+|---|---|
+| 32 | `gc_mag_density_0form` (A) |
+| 33 | `cc_lin_mhd_5d_D` (A) |
+| 34–36 | `cc_lin_mhd_5d_curlb` (A), `push_gc_cc_J1_Hdiv`, `push_gc_cc_J1_H1vec` (P) |
+| 37–39 | `cc_lin_mhd_5d_gradB` (A), `push_gc_cc_J2_stage_Hdiv`, `push_gc_cc_J2_stage_H1vec` (P) |
+| 40–43 | `cc_lin_mhd_5d_gradB_dg_init`, `cc_lin_mhd_5d_gradB_dg` (A), `push_gc_cc_J2_dg_init_Hdiv`, `push_gc_cc_J2_dg_Hdiv` (P) |
+| 44 | `cc_lin_mhd_5d_M` (A) |
+
+**Step 6 – Diffusion and SPH (last)**: `push_random_diffusion_stage` (needs device RNG),
+`push_deterministic_diffusion_stage`; then, after box sorting runs on the device,
+`sph_pressure_coeffs`, `sph_mean_velocity_coeffs`, `sph_viscosity_tensor`, `sph_isotherm_kappa`,
+`push_v_sph_pressure`, `push_v_sph_pressure_ideal_gas`, `push_v_viscosity`, `div_u_weak_1form`.
+
+Infrastructure that gates the steps, independent of the kernels: mappings other than Cuboid (every
+CUDA kernel rejects other mappings at setup), multi-rank marker sorting without host round trips,
+and array views with more than 4 dimensions in cunumpy (all matrix accumulations write 6D stencil
+matrix data).
 
 ## Testing
 
@@ -286,3 +342,24 @@ same buffer on every access, so tests compare data pointers, not object identity
 `from cunumpy import PyccelKernel` is deprecated in cunumpy 0.5 (removed in 0.6); all imports use
 `cunumpy.kernels`. GPU tests are provided but not run here (no CUDA device on the development
 machine).
+
+## PR 14 implementation notes
+
+`accum_kernels.py` and `accum_kernels_gc.py` are split into `pic/accumulation/kernels/<name>/`
+(16 kernels) with a catalog, like `pic/pushing` in PR 9; models and propagators take
+`accum_catalog["<name>"]`. `Accumulator` and `AccumulatorVector` select the kernel once, as
+`Pusher` does, and launch CUDA kernels with one thread per marker row (the pyccel loop runs over
+all rows and skips holes). The CUDA fillers (`filler_kernels.cuh`) add with `cunumpy_atomic_add`;
+the summation order differs from the serial loop, so GPU parity uses `rtol=1e-12`.
+`push_v_with_efield`'s last parameter is renamed from `const` (a C++ keyword) to `const_factor`;
+callers pass it positionally.
+
+Without a GPU, `test_cuda_emulation.py` compiles each CUDA kernel as C++ (cunumpy's
+`emulate_cuda_kernel`) and compares it with pyccel. cunumpy's emulator does not take struct
+parameters, so `pic/tests/cuda_emulation.py` emulates a generated wrapper that takes the struct
+fields one by one and rebuilds the structs. Emulation runs threads serially, so it does not test
+races; with Cuboid's diagonal Jacobian it cannot catch a transposed `DF`.
+
+Blocked: `vlasov_maxwell` and `linear_vlasov_ampere` accumulate into 6D stencil matrix data, and
+cunumpy's views stop at `Array4D`. Adding `Array5D`/`Array6D` in cunumpy unblocks every matrix
+accumulation. GPU tests are provided but not run here.
