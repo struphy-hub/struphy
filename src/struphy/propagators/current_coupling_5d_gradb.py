@@ -321,7 +321,6 @@ class CurrentCoupling5DGradB(Propagator):
             self._grad_PB_b = self.derham.grad.codomain.zeros()
             self._u_old = self.variables.u.spline.vector.space.zeros()
             self._u_new = self.variables.u.spline.vector.space.zeros()
-            self._u_diff = self.variables.u.spline.vector.space.zeros()
             self._u_mid = self.variables.u.spline.vector.space.zeros()
             self._M2n_dot_u = self.variables.u.spline.vector.space.zeros()
             self._ku = self.variables.u.spline.vector.space.zeros()
@@ -639,10 +638,6 @@ class CurrentCoupling5DGradB(Propagator):
                 # save u^{n+1, k}
                 u_old = u_new.copy(out=self._u_old)
 
-                u_diff = u_old.copy(out=self._u_diff)
-                u_diff -= un
-                u_diff.update_ghost_regions()
-
                 u_mid = u_old.copy(out=self._u_mid)
                 u_mid += un
                 u_mid /= 2.0
@@ -651,23 +646,11 @@ class CurrentCoupling5DGradB(Propagator):
                 # save H^{n+1, k}
                 markers[~holes, first_free_idx : first_free_idx + 3] = markers[~holes, 0:3]
 
-                # calculate denominator ||z^{n+1, k} - z^n||^2
-                sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
-
+                # calculate denominator ||H^{n+1, k} - H^n||^2
+                # (correction only in eta: en_U is quadratic in u, so its mid-point gradient is already exact)
                 sum_H_diff_loc = xp.sum(
                     (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2,
                 )
-
-                buffer_array = xp.array([sum_u_diff_loc])
-
-                if particles.mpi_comm is not None:
-                    particles.mpi_comm.Allreduce(
-                        MPI.IN_PLACE,
-                        buffer_array,
-                        op=MPI.SUM,
-                    )
-
-                denominator = buffer_array[0]
 
                 buffer_array = xp.array([sum_H_diff_loc])
 
@@ -685,7 +668,7 @@ class CurrentCoupling5DGradB(Propagator):
                         op=MPI.SUM,
                     )
 
-                denominator += buffer_array[0]
+                denominator = buffer_array[0]
 
                 # sorting markers at mid-point
                 if particles.mpi_comm is not None:
