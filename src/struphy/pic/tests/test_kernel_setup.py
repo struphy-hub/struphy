@@ -9,8 +9,8 @@ from cunumpy import PyccelKernel
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
 from struphy.pic import sph_smoothing_kernels
-from struphy.pic.pushing import eval_kernels_gc, eval_kernels_sph, pusher_kernels_gc
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -53,7 +53,7 @@ def test_guiding_center_destinations(marker_args, derham_args, kernel_name, valu
         args += (True,)
     indices = (30,) if len(expected) == 1 else (30, None, 24)
     setup = KernelSetup(
-        kernel=getattr(eval_kernels_gc, kernel_name),
+        kernel=catalog[kernel_name],
         output_indices=indices,
         args=args,
         alpha=(1.0, 0.0, 0.5, 0.5),
@@ -67,13 +67,13 @@ def test_guiding_center_destinations(marker_args, derham_args, kernel_name, valu
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
-@pytest.mark.parametrize("kernel", [eval_kernels_sph.sph_pressure_coeffs, eval_kernels_sph.sph_mean_velocity_coeffs])
-def test_sph_vector_destinations(marker_args, kernel):
+@pytest.mark.parametrize("kernel_name", ["sph_pressure_coeffs", "sph_mean_velocity_coeffs"])
+def test_sph_vector_destinations(marker_args, kernel_name):
     boxes = np.array([[0, -1], [-1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
     neighbours[0, 0] = 0
     setup = KernelSetup(
-        kernel=kernel,
+        kernel=catalog[kernel_name],
         output_indices=(30, None, 24),
         args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5),
     )
@@ -81,7 +81,7 @@ def test_sph_vector_destinations(marker_args, kernel):
     setup.evaluate(marker_args, Cuboid().args_domain)
     reference = before.copy()
     # One particle: density = weight * W(0) = 2 * (1 / h) = 4.
-    if kernel is eval_kernels_sph.sph_pressure_coeffs:
+    if kernel_name == "sph_pressure_coeffs":
         reference[0, 30], reference[0, 24] = 4.0, 2.0 * 4.0 ** (-1.0 / 3.0)
     else:
         reference[0, 30], reference[0, 24] = 1.0, 3.0
@@ -102,7 +102,7 @@ def test_sph_tensor_destinations(marker_args):
     density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
     indices = (30, 29, 28, 27, None, 25, 24, 23, 22)
     setup = KernelSetup(
-        kernel=eval_kernels_sph.sph_viscosity_tensor,
+        kernel=catalog["sph_viscosity_tensor"],
         output_indices=indices,
         args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
     )
@@ -143,7 +143,7 @@ def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
 )
 def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel_name, n_fields):
     # A marker at rest (v = mu = 0, no E-field) stays put; the residual must be 0, not NaN (issue #589).
-    kernel = getattr(pusher_kernels_gc, kernel_name)
+    kernel = catalog[kernel_name]
     markers = np.zeros((1, 40))
     markers[0, :3] = (0.4, 0.3, 0.2)
     markers[0, 8:11] = markers[0, :3]
@@ -173,7 +173,7 @@ def test_sph_tensor_mapped_domain(marker_args):
     density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
     indices = tuple(range(22, 31))
     setup = KernelSetup(
-        kernel=eval_kernels_sph.sph_viscosity_tensor,
+        kernel=catalog["sph_viscosity_tensor"],
         output_indices=indices,
         args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
     )

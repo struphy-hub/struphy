@@ -15,7 +15,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing import pusher_kernels_gc
+from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -235,9 +235,9 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # define Pusher
         if self.options.u_space == "Hdiv":
-            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
+            pusher_kernel = catalog["push_gc_cc_J1_Hdiv"]
         elif self.options.u_space == "H1vec":
-            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
+            pusher_kernel = catalog["push_gc_cc_J1_H1vec"]
         else:
             raise ValueError(
                 f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',

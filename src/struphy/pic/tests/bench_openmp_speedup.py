@@ -1,6 +1,6 @@
 """
 Standalone benchmark (not a pytest test) that measures the OpenMP speedup of
-``struphy.pic.pushing.pusher_kernels.push_vxb_analytic`` as a function of the
+``struphy.pic.pushing.kernels.push_vxb_analytic.push_vxb_analytic_kernels.push_vxb_analytic`` as a function of the
 number of OpenMP threads.
 
 Reuses the same worker subprocess as :mod:`test_pusher_openmp_speedup`, so the

@@ -33,8 +33,8 @@ class Pusher:
     for any :class:`~struphy.ode.utils.ButcherTableau`
     as well as iterative nonlinear methods.
 
-    The particle push is performed via accelerated :mod:`~struphy.pic.pushing.pusher_kernels`
-    or :mod:`~struphy.pic.pushing.pusher_kernels_gc` for guiding-center models.
+    The particle push is performed via an accelerated kernel from :mod:`struphy.pic.pushing.kernels`,
+    e.g. ``catalog["push_eta_stage"]``.
 
     Notes
     -----
