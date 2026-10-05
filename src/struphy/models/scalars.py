@@ -66,10 +66,7 @@ class SumOfScalars(Scalar):
         for scalar in self.variables:
             scalar.update()
 
-        self.value[0] = sum(
-            scalar.value[0]
-            for scalar in self.variables
-        )
+        self.value[0] = sum(scalar.value[0] for scalar in self.variables)
 
     def update(self):
         """

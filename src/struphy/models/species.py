@@ -223,7 +223,7 @@ class Species(metaclass=ABCMeta):
         def omega_p(self) -> float:
             """Plasma frequency scale of the species (defined in terms of units)."""
             return self._omega_p
-        
+
         @property
         def omega_c(self) -> float:
             """Cyclotron frequency scale of the species (defined in terms of units)."""
@@ -233,12 +233,12 @@ class Species(metaclass=ABCMeta):
         def alpha(self) -> float:
             """The ratio of plasma frequency to cyclotron frequency, Omega_p / Omega_c (default = None)."""
             return self._alpha
-    
+
         @property
         def epsilon(self) -> float:
             """The normalized cyclotron period, 1/(Omega_c * time_unit), default = None."""
             return self._epsilon
-    
+
         @property
         def kappa(self) -> float:
             """The normalized plasma frequency, Omega_p * time_unit (default = None)."""
