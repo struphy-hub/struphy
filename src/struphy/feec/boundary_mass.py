@@ -4,11 +4,11 @@ from typing import Callable
 import cunumpy as xp
 from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
-from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.geometry.base import Domain
@@ -94,7 +94,7 @@ class BoundaryIntegralOperators:
         return self._S1
 
 
-class BoundaryMassOperator(LinOpWithTransp):
+class BoundaryMassOperator(LinearOperator):
     """
     Base class for boundary mass operators (surface integrals over the six
     faces of the logical cube), assembled analogously to WeightedMassOperators

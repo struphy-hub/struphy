@@ -4,11 +4,11 @@ import logging
 from dataclasses import dataclass
 
 from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
 
 from struphy.feec import preconditioner
-from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
@@ -308,7 +308,7 @@ class PressureCoupling6D(Propagator):
             logger.info(f"Maxdiff u1 for StepPressurecoupling: {diffs['u']}")
             logger.info("")
 
-    class GT_MAT_G(LinOpWithTransp):
+    class GT_MAT_G(LinearOperator):
         r"""
         Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}`
         where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
@@ -346,14 +346,6 @@ class PressureCoupling6D(Propagator):
         @property
         def dtype(self):
             return self._derham.Vv.dtype
-
-        @property
-        def tosparse(self):
-            raise NotImplementedError()
-
-        @property
-        def toarray(self):
-            raise NotImplementedError()
 
         @property
         def transposed(self):

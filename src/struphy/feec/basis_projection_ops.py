@@ -12,7 +12,7 @@ from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 
 from struphy.feec import basis_projection_kernels
-from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.feec.psydac_derham import Derham, get_pts_and_wts, get_span_and_basis
@@ -937,7 +937,7 @@ def _zero_weight(e1, e2, e3):
     return xp.zeros_like(e1)
 
 
-class BasisProjectionOperatorLocal(LinOpWithTransp):
+class BasisProjectionOperatorLocal(LinearOperator):
     r"""
     Class for assembling basis projection operators in 3d, based on local projectors.
 
@@ -1591,7 +1591,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
 
 @auto_convert_docstring
-class BasisProjectionOperator(LinOpWithTransp):
+class BasisProjectionOperator(LinearOperator):
     r"""
     Class for assembling basis projection operators in 3d.
 
@@ -1794,14 +1794,6 @@ class BasisProjectionOperator(LinOpWithTransp):
     def dtype(self):
         """Datatype of the operator."""
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     @property
     def transposed(self):
@@ -2213,14 +2205,6 @@ class CoordinateProjector(LinearOperator):
         """Datatype of the operator."""
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return CoordinateInclusion(self.dir, self._domain, self._codomain)
 
@@ -2319,14 +2303,6 @@ class CoordinateInclusion(LinearOperator):
     def dtype(self):
         """Datatype of the operator."""
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         return CoordinateProjector(self.dir, self._codomain, self._domain)
