@@ -2441,6 +2441,12 @@ class WeightedMassOperator(LinearOperator):
             out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
+        
+        if self._creation_info is None:
+            out._creation_info = None
+        else:
+            out._creation_info = dict(self._creation_info) # to create a separate dictionary
+        
         return out
 
     def __imul__(self, a):
