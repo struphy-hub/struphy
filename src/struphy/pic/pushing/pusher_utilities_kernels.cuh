@@ -7,7 +7,7 @@ namespace struphy_cuda {
  * Reflect one marker's velocity using the Pyccel boundary helper's calculation.
  *
  * @param ip Marker row index.
- * @param args_markers Marker buffer and row layout.
+ * @param markers Marker array view.
  * @param args_domain Mapping arguments for the Jacobian at the reflected position.
  * @param axis Logical velocity component to reverse (0, 1 or 2).
  *
@@ -16,17 +16,17 @@ namespace struphy_cuda {
  * v_logical retain the Pyccel names. Pull the velocity back to logical
  * coordinates, reverse its axis component, then push it forward again.
  */
-__device__ inline void reflect_velocity(int ip, const MarkerArgs& args_markers,
+__device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
                                        const DomainArgs& args_domain, int axis) {
     double dfm[9], dfinv[9], v[3], v_logical[3];
-    df(args_markers.markers(ip, 0), args_markers.markers(ip, 1), args_markers.markers(ip, 2),
+    df(markers(ip, 0), markers(ip, 1), markers(ip, 2),
        args_domain, dfm);
     matrix_inv(dfm, dfinv);
-    for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
+    for (int j = 0; j < 3; ++j) v[j] = markers(ip, 3 + j);
     matrix_vector(dfinv, v, v_logical);
     v_logical[axis] *= -1.;
     matrix_vector(dfm, v_logical, v);
-    for (int j = 0; j < 3; ++j) args_markers.markers(ip, 3 + j) = v[j];
+    for (int j = 0; j < 3; ++j) markers(ip, 3 + j) = v[j];
 }
 
 /**
@@ -94,7 +94,7 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
     if (n_reflected == 0) return;
     args_markers.markers(ip, first_init_idx) = -1.;
     for (int axis = 0; axis < 3; ++axis) {
-        if (reflected[axis]) reflect_velocity(ip, args_markers, args_domain, axis);
+        if (reflected[axis]) reflect_velocity(ip, args_markers.markers, args_domain, axis);
     }
 }
 }
