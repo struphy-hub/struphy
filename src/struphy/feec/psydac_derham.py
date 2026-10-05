@@ -563,6 +563,11 @@ class Derham:
     domain : Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
+    domain_decomposition : DomainDecomposition, optional
+        Prescribed MPI decomposition of the elements, e.g. ``fine_derham.domain_decomposition.coarsen(...)``
+        for an aligned multigrid level. Must match ``grid.num_elements`` and the periodicity from ``options.bcs``,
+        and be built on ``comm``. If None (default), it is computed from ``comm`` and ``grid.mpi_dims_mask``.
+
     Notes
     -----
     The underlying base sequence is
@@ -579,6 +584,8 @@ class Derham:
         options: DerhamOptions,
         comm: MPI.Intracomm = None,
         domain: Domain = None,
+        *,
+        domain_decomposition: DomainDecomposition | None = None,
     ):
 
         # inputs
@@ -680,6 +687,7 @@ class Derham:
             comm=self.comm,
             mpi_dims_mask=mpi_dims_mask,
             use_feectools=use_feectools,
+            domain_decomposition=domain_decomposition,
         )
 
         # FEM spaces
@@ -1520,6 +1528,7 @@ class Derham:
         comm=None,
         mpi_dims_mask: tuple[bool, bool, bool] = None,
         use_feectools: bool = True,
+        domain_decomposition: DomainDecomposition | None = None,
     ) -> DiscreteDerham:
         """Return a discrete Derham complex. Allows for the use of tiny-feectools.
 
@@ -1543,12 +1552,29 @@ class Derham:
 
         use_feectools: bool
             Use slimmed-down fork `feectools` of Psydac.
+
+        domain_decomposition : DomainDecomposition, optional
+            Prescribed decomposition of the elements; if None, it is computed from ``comm`` and ``mpi_dims_mask``.
         """
 
         if use_feectools:
-            self._domain_decomposition = DomainDecomposition(
-                num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask
-            )
+            if domain_decomposition is None:
+                self._domain_decomposition = DomainDecomposition(
+                    num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask
+                )
+            else:
+                assert tuple(domain_decomposition.ncells) == tuple(num_elements), (
+                    f"{domain_decomposition.ncells = } does not match {num_elements = }."
+                )
+                assert tuple(domain_decomposition.periods) == tuple(spl_kind), (
+                    f"{domain_decomposition.periods = } does not match {spl_kind = }."
+                )
+                if domain_decomposition.comm is not None and comm is not None:
+                    # (comm is None in the decomposition when feectools runs with MockMPI)
+                    assert domain_decomposition.comm == comm, (
+                        "domain_decomposition must be built on the Derham communicator."
+                    )
+                self._domain_decomposition = domain_decomposition
 
             _derham = self._discretize_derham(
                 num_elements,

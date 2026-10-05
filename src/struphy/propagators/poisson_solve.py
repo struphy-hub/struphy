@@ -5,6 +5,7 @@ from typing import Callable, Literal
 from feectools.linalg.stencil import StencilVector
 
 from struphy.io.options import LiteralOptions, OptionsBase
+from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
@@ -66,10 +67,14 @@ class PoissonSolve(ImplicitDiffusion):
             Name of the symmetric iterative solver passed to
             :func:`psydac.linalg.solvers.inverse`.
 
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Name of the preconditioner configuration.
-            Currently this class inherits the same behavior as
-            :class:`ImplicitDiffusion`, where ``pc=None`` is used internally.
+        precond : LiteralOptions.OptsDiffusionPrecond, default="MassMatrixPreconditioner"
+            Name of the preconditioner configuration, see :class:`ImplicitDiffusion`
+            (``"MultiGrid"`` for geometric multigrid).
+
+        multigrid : MultiGridOptions, default=None
+            Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
+            For periodic or Neumann boundary conditions with ``stab_eps = 0``, use
+            ``MultiGridOptions(nullspace="constants")``.
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -96,7 +101,8 @@ class PoissonSolve(ImplicitDiffusion):
         diffusion_mat: OptsDiffusionMat = "M1"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsDiffusionPrecond = "MassMatrixPreconditioner"
+        multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
@@ -105,11 +111,15 @@ class PoissonSolve(ImplicitDiffusion):
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
-            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
+            if self.precond == "MultiGrid":
+                assert self.solver == "pcg", "precond='MultiGrid' requires solver='pcg'."
 
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
+            if self.multigrid is None:
+                self.multigrid = MultiGridOptions()
 
             # Poisson solve (-> set some params of parent class)
             self.sigma_1 = self.stab_eps
