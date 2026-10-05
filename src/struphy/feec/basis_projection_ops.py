@@ -1851,6 +1851,56 @@ class BasisProjectionOperator(LinearOperator):
 
         return out
 
+    @property
+    def is_reconstructible(self) -> bool:
+        """Whether the operator can be re-created from :meth:`to_dict` (e.g. on another Derham).
+
+        False if a weight is given as values at the projection points (an array bound to the current Derham).
+        """
+        return not any(isinstance(w, xp.ndarray) for row in self._weights for w in row)
+
+    def to_dict(self) -> dict:
+        """Recipe for re-creating the operator with :meth:`from_dict` (on any Derham).
+
+        Weights are stored as given (callables are kept as objects, hence the dictionary is in general not JSON serializable).
+        """
+        if not self.is_reconstructible:
+            raise ValueError("BasisProjectionOperator with weights given as arrays cannot be serialized.")
+        V_id, W_id = (
+            (self._codomain_symbolic_name, self._domain_symbolic_name)
+            if self._transposed
+            else (self._domain_symbolic_name, self._codomain_symbolic_name)
+        )
+        return {
+            "type": self.__class__.__name__,
+            "params": {
+                "V_id": V_id,
+                "W_id": W_id,
+                "weights": [list(row) for row in self._weights],
+                "transposed": self._transposed,
+                "polar_shift": self._polar_shift,
+                "use_cache": self._use_cache,
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, dct: dict, derham: Derham) -> "BasisProjectionOperator":
+        """Re-create a :class:`BasisProjectionOperator` from :meth:`to_dict` on the given Derham,
+        with the Derham's (global) commuting projector, extraction and boundary operators."""
+        assert dct["type"] == cls.__name__
+        params = dct["params"]
+        V_id, W_id = params["V_id"], params["W_id"]
+        return cls(
+            derham.projectors[W_id],
+            derham.fem_spaces[V_id],
+            [list(row) for row in params["weights"]],
+            V_extraction_op=derham.extraction_ops[V_id],
+            V_boundary_op=derham.boundary_ops[V_id],
+            transposed=params["transposed"],
+            polar_shift=params["polar_shift"],
+            use_cache=params["use_cache"],
+        )
+
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
