@@ -127,3 +127,79 @@ def test_span_with_cunumpy_wrapper(degree):
         n_threads=len(points),
     )
     np.testing.assert_array_equal(out.get(), [splines.find_span(knots, degree, x) for x in points])
+
+
+@requires_cupy
+def test_cuboid_helpers():
+    """The CUDA mapping signatures and Jacobian dispatcher mirror Pyccel."""
+    import cupy as cp
+
+    from struphy.geometry.domains.cuboid.cuboid_kernels import cuboid, cuboid_df
+
+    source = r"""
+#include "struphy/geometry/evaluation_kernels.cuh"
+extern "C" __global__ void evaluate(const double* eta, const double* params, double* out) {
+    struphy_cuda::cuboid(eta[0], eta[1], eta[2], params[0], params[1], params[2],
+                        params[3], params[4], params[5], out);
+    struphy_cuda::cuboid_df(params[0], params[1], params[2],
+                           params[3], params[4], params[5], out + 3);
+    DomainArgs args = {};
+    args.kind_map = 10;
+    args.params = const_cast<double*>(params);
+    struphy_cuda::df(eta[0], eta[1], eta[2], args, out + 12);
+}
+"""
+    eta = np.array([0.2, 0.4, 0.8])
+    params = np.array([-2.0, 3.0, 1.0, 7.0, -5.0, -1.0])
+    out = cp.empty(21)
+    CudaKernel(source, "evaluate", **CUDA_OPTIONS)(cp.asarray(eta), cp.asarray(params), out, n_threads=1)
+    f_out = np.empty(3)
+    df_out = np.empty((3, 3))
+    cuboid(*eta, *params, f_out)
+    cuboid_df(*params, df_out)
+    np.testing.assert_allclose(out.get(), np.r_[f_out, df_out.ravel(), df_out.ravel()], rtol=1e-13)
+
+
+@requires_cupy
+def test_get_spans_helper():
+    """Named scratch fields retain the Pyccel spans and spline values per thread."""
+    import cupy as cp
+
+    from struphy.utils.cuda_arguments import CudaDerhamArguments
+
+    pn = np.array([1, 3, 8], dtype=np.int64)
+    knots = [np.r_[np.zeros(p), np.linspace(0, 1, 11), np.ones(p)] for p in pn]
+    points = np.random.default_rng(3).uniform(-0.01, 1.01, (129, 3))
+    source = r"""
+#include "struphy/bsplines/evaluation_kernels_3d.cuh"
+extern "C" __global__ void evaluate(const double* eta, DerhamArgs args_derham, double* out, int n) {
+    int ip = blockDim.x * blockIdx.x + threadIdx.x;
+    if (ip >= n) return;
+    struphy_cuda::SplineScratch scratch;
+    struphy_cuda::get_spans(eta[3*ip], eta[3*ip+1], eta[3*ip+2], args_derham, scratch);
+    const int spans[3] = {scratch.span1, scratch.span2, scratch.span3};
+    const double* bn[3] = {scratch.bn1, scratch.bn2, scratch.bn3};
+    const double* bd[3] = {scratch.bd1, scratch.bd2, scratch.bd3};
+    // Each axis occupies 18 columns: span, up to 9 B-values, up to 8 D-values.
+    for (int axis = 0; axis < 3; ++axis) {
+        double* row = out + ip*54 + axis*18;
+        row[0] = spans[axis];
+        for (int j = 0; j <= args_derham.pn[axis]; ++j) row[1+j] = bn[axis][j];
+        for (int j = 0; j < args_derham.pn[axis]; ++j) row[10+j] = bd[axis][j];
+    }
+}
+"""
+    args_derham = CudaDerhamArguments(cp.asarray(pn), *(cp.asarray(tn) for tn in knots), cp.zeros(3, dtype=cp.int64))
+    out = cp.zeros((len(points), 3, 18))
+    CudaKernel(source, "evaluate", **CUDA_OPTIONS)(
+        cp.asarray(points), args_derham, out, len(points), n_threads=len(points)
+    )
+    expected = np.zeros(out.shape)
+    for ip, eta in enumerate(points):
+        for axis, (tn, p) in enumerate(zip(knots, pn)):
+            span = splines.find_span(tn, p, eta[axis])
+            expected[ip, axis, 0] = span
+            splines.b_d_splines_slim(
+                tn, p, eta[axis], span, expected[ip, axis, 1 : p + 2], expected[ip, axis, 10 : 10 + p]
+            )
+    np.testing.assert_allclose(out.get(), expected, rtol=1e-13, atol=1e-13)
