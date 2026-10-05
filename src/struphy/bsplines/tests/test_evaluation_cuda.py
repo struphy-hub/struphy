@@ -1,12 +1,17 @@
 """Shared spline-evaluation signatures and CUDA view indexing."""
 
 from itertools import product
+from pathlib import Path
 
 import cunumpy as xp
 import numpy as np
 import pytest
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 
-from struphy.bsplines import evaluation
+import struphy
+from struphy.bsplines import evaluation_kernels_3d
+from struphy.utils.cuda_arguments import CUDA_OPTIONS
 
 requires_cupy = pytest.mark.skipif(not xp.cupy_available(), reason="CuPy/GPU not available")
 
@@ -17,7 +22,13 @@ requires_cupy = pytest.mark.skipif(not xp.cupy_available(), reason="CuPy/GPU not
 @pytest.mark.parametrize("empty", [False, True])
 def test_evaluation_parity(mode, kind, empty):
     """Identical arguments, strided data/output, flagged points and nonzero starts."""
-    kernel = getattr(evaluation, "eval_spline_mpi_" + mode)
+    name = "eval_spline_mpi_" + mode
+    kernel = Kernel(
+        PyccelKernel(getattr(evaluation_kernels_3d, name)),
+        CudaKernel.from_file(
+            Path(struphy.__file__).parent / "bsplines" / "evaluate_spline_cuda.cu", name=name, **CUDA_OPTIONS
+        ),
+    )
     rng = np.random.default_rng(34)
     coeff = rng.normal(size=(32, 36, 40))
     degree = np.array([2, 3, 1], dtype=np.int64)
