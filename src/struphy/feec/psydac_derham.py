@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import logging
+from pathlib import Path
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 import numpy as np
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -26,7 +29,7 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
-from struphy.bsplines import evaluation as eval_3d
+from struphy.bsplines import evaluation_kernels_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
@@ -44,7 +47,7 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.cuda_arguments import CudaDerhamArguments
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaDerhamArguments, prepare_kernel
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -2287,6 +2290,32 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
+        # evaluation kernels, pyccel or CUDA depending on the backend, checked at setup (see CUDA_STRATEGY.md)
+        evaluate_spline_cuda = Path(__file__).parents[1] / "bsplines" / "evaluate_spline_cuda.cu"
+        self._eval_spline_mpi_markers, self._eval_spline_mpi_matrix, self._eval_spline_mpi_sparse_meshgrid = (
+            prepare_kernel(
+                Kernel(
+                    PyccelKernel(getattr(evaluation_kernels_3d, name)),
+                    CudaKernel.from_file(evaluate_spline_cuda, name=name, **CUDA_OPTIONS),
+                )
+            )
+            for name in ("eval_spline_mpi_markers", "eval_spline_mpi_matrix", "eval_spline_mpi_sparse_meshgrid")
+        )
+
+        # arguments of the evaluation kernels, one (kind, pn, tn1, tn2, tn3, starts) per component,
+        # on the backend of the coefficients and the same for both kernel versions
+        degree = np.asarray(derham.degree, dtype=np.int64)
+        if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
+            raise ValueError("CUDA spline degrees must be between 1 and 8.")
+        pn = xp.asarray(degree)
+        knots = tuple(xp.asarray(t, dtype=float) for t in derham.V0fem.knots)
+        starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
+        kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
+        self._args_eval = tuple(
+            (xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
+            for kind, start in zip(kinds, starts)
+        )
+
         logger.debug(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
@@ -2791,25 +2820,6 @@ class SplineFunction:
 
         return out
 
-    def _evaluation_metadata(self):
-        """Cache immutable spline metadata on the active backend, once per component."""
-        backend = xp.get_backend()
-        if not hasattr(self, "_eval_metadata"):
-            self._eval_metadata = {}
-        if backend not in self._eval_metadata:
-            degree = np.asarray(self.derham.degree, dtype=np.int64)
-            if backend == "cupy" and np.any((degree < 1) | (degree > 8)):
-                raise ValueError("CUDA spline degrees must be between 1 and 8.")
-            pn = xp.asarray(degree)
-            knots = tuple(xp.asarray(t, dtype=float) for t in self.derham.V0fem.knots)
-            starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
-            kinds = self.derham.spline_attributes[self.space_key].spline_types_pyccel
-            self._eval_metadata[backend] = tuple(
-                (xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
-                for kind, start in zip(kinds, starts)
-            )
-        return self._eval_metadata[backend]
-
     def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
         """
         Evaluates the spline function on the global domain, unless local=True,
@@ -2844,8 +2854,6 @@ class SplineFunction:
 
         # extract coefficients and update ghost regions
         self.extract_coeffs(update_ghost_regions=True)
-
-        metadata = self._evaluation_metadata()
 
         # marker evaluation
         if len(etas) == 1:
@@ -2886,32 +2894,32 @@ class SplineFunction:
 
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_sparse_meshgrid(
+                self._eval_spline_mpi_sparse_meshgrid(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    *metadata[0],
+                    *self._args_eval[0],
                     tmp,
                     n_threads=tmp.size,
                 )
             elif marker_evaluation:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_markers(
+                self._eval_spline_mpi_markers(
                     markers,
                     self._vector_stencil._data,
-                    *metadata[0],
+                    *self._args_eval[0],
                     tmp,
                     n_threads=tmp.size,
                 )
             else:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_matrix(
+                self._eval_spline_mpi_matrix(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    *metadata[0],
+                    *self._args_eval[0],
                     tmp,
                     n_threads=tmp.size,
                 )
@@ -2946,32 +2954,32 @@ class SplineFunction:
                 logger.debug(f"{self.space_id = }, {kind = }")
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_sparse_meshgrid(
+                    self._eval_spline_mpi_sparse_meshgrid(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        *metadata[n],
+                        *self._args_eval[n],
                         tmp,
                         n_threads=tmp.size,
                     )
                 elif marker_evaluation:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_markers(
+                    self._eval_spline_mpi_markers(
                         markers,
                         self._vector_stencil[n]._data,
-                        *metadata[n],
+                        *self._args_eval[n],
                         tmp,
                         n_threads=tmp.size,
                     )
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_matrix(
+                    self._eval_spline_mpi_matrix(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        *metadata[n],
+                        *self._args_eval[n],
                         tmp,
                         n_threads=tmp.size,
                     )

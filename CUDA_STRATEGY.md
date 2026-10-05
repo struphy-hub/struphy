@@ -334,16 +334,21 @@ existing MPI sorting still synchronizes dynamic counts with the host.
 
 Scoped to the Vlasov model: both magnetic rotation algorithms now have CUDA
 versions, using tensor-product N/D spline evaluation and strided coefficient
-views. Particles calls the same `reflect(markers, args_domain, outside_inds, axis)`
-wrapper on both backends (issue #675). CUDA receives marker and integer-index
-array views, so it needs neither a marker argument bundle nor a separate index
-count. The wrapper retains the Cuboid-only CUDA mapping check.
-SplineFunction dispatches marker, dense-grid and sparse-grid evaluation through
-three `Kernel` pairs with the existing Pyccel argument lists on both backends.
+views. Reflection and spline evaluation are called like every other kernel: the
+owning class builds a `Kernel(PyccelKernel(...), CudaKernel.from_file(...))` pair in
+its `__init__` and calls it with the same arguments on both backends.
+`Particles` builds the `reflect` pair when a direction has reflecting boundaries
+and calls it as `reflect(markers, args_domain, outside_inds, axis)` (issue #675);
+CUDA receives marker and integer-index array views, so it needs neither a marker
+argument bundle nor a separate index count. The Cuboid-only check of the CUDA
+version is done once, when the particles are created.
+`SplineFunction` builds the `eval_spline_mpi_markers`, `eval_spline_mpi_matrix` and
+`eval_spline_mpi_sparse_meshgrid` pairs and, once per component, the arguments
+`(kind, pn, tn1, tn2, tn3, starts)` as arrays of the active backend, which both
+versions take unchanged; spline degrees outside 1–8 are rejected there on CuPy.
 CUDA array views carry coordinate, coefficient and output shapes/strides;
 sparse grids are evaluated directly without broadcasting or flattening coordinates.
-Immutable metadata is cached on the active backend per component. The
-`_evaluate_cuda` helper and its separate CUDA argument convention are removed
+The `_evaluate_cuda` helper and its separate CUDA argument convention are removed
 (issue #674).
 Accumulation is deliberately left for the next Vlasov–Ampere/Maxwell step.
 GPU tests are provided but not run here, at the maintainer's request.
@@ -388,8 +393,8 @@ The kernels are plain imports now. Each of the 59 kernel folders declares its ke
 `__init__.py` with `Kernel.from_folder(__name__, structs=CUDA_STRUCTS)`; importing one kernel no longer
 imports all 43 compiled modules of a package. `kernels/__init__.py` is documentation only.
 
-A `Kernel` calls the version of the active backend itself, so `Pusher`, `KernelSetup` and the
-accumulators keep the `Kernel` and call it. `prepare_kernel()` (in `utils/cuda_arguments.py`) checks it
+A `Kernel` calls the version of the active backend itself, so `Pusher`, `KernelSetup`, the
+accumulators, `SplineFunction` (spline evaluation) and `Particles` (reflection) keep the `Kernel` and call it. `prepare_kernel()` (in `utils/cuda_arguments.py`) checks it
 at setup instead of `get_kernel()`: on CuPy a kernel without CUDA version raises there, and the CUDA kernel
 is compiled. Launch sizes are not passed any more where cunumpy infers them: the first array of a pusher
 or accumulation call is `args_markers.markers`, so one thread per marker row. `KernelSetup` passes
