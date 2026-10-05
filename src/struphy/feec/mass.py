@@ -17,7 +17,7 @@ from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, Stenc
 
 from struphy import equils
 from struphy.feec import mass_kernels
-from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
 from struphy.fields_background.base import MHDequilibrium
@@ -128,22 +128,21 @@ class WeightedMassOperators:
         """
         mem = {}
 
+        cached_before = set(vars(self))
         self._dry_run = True
         try:
             for name in names:
                 assert isinstance(getattr(type(self), name, None), property), (
                     f"'{name}' is not a mass operator property of {type(self).__name__}."
                 )
-                cached = "_" + name
-                was_cached = hasattr(self, cached)
-
                 mem[name] = getattr(self, name).nbytes
-
-                # do not keep a dry-run (unusable) operator in the cache
-                if not was_cached:
-                    delattr(self, cached)
         finally:
             self._dry_run = False
+
+            # do not keep dry-run (unusable) operators in the cache, including the pieces
+            # created for composite operators (e.g. M1 and M1para for M1perp)
+            for attr in set(vars(self)) - cached_before:
+                delattr(self, attr)
 
         if print_report and (self.derham.comm is None or self.derham.comm.Get_rank() == 0):
             print("\nESTIMATED MASS MATRIX MEMORY (local, rank 0):")
@@ -711,46 +710,12 @@ class WeightedMassOperators:
             assert self.eq_mhd is not None, (
                 "M2Bn requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
             )
-            a_eq = self.derham.P1(
-                [
-                    self.eq_mhd.a1_1,
-                    self.eq_mhd.a1_2,
-                    self.eq_mhd.a1_3,
-                ],
-            )
-
-            tmp_b2 = self.derham.curl.dot(a_eq)
-            b02fun = self.derham.create_spline_function("b02", "Hdiv")
-            b02fun.vector = tmp_b2
-
-            def b02funx(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[0]
-
-            def b02funy(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[1]
-
-            def b02funz(x, y, z):
-                return b02fun(
-                    x,
-                    y,
-                    z,
-                    local=True,
-                )[2]
-
+            # The equilibrium field itself, as in M2B: the curl of the projected vector potential (M2B_div0)
+            # loses a uniform field in periodic directions, where the potential is a ramp.
             rot_B = LocalRotationMatrix(
-                b02funx,
-                b02funy,
-                b02funz,
+                self.eq_mhd.b2_1,
+                self.eq_mhd.b2_2,
+                self.eq_mhd.b2_3,
             )
 
             self._M2Bn = self.create_weighted_mass(
@@ -1381,7 +1346,7 @@ class WeightedMassOperators:
             )
 
 
-class WeightedMassOperator(LinOpWithTransp):
+class WeightedMassOperator(LinearOperator):
     r"""
     Class for assembling weighted mass matrices in 3d.
 
@@ -1731,7 +1696,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     if weights_info is None:
                         if self._matrix_free:
                             blocks[-1] += [
-                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, self.nquads),
+                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, nquads=self.nquads),
                             ]
                         else:
                             blocks[-1] += [
@@ -2080,39 +2045,40 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             weights = self._weights
 
-        if self._symmetry is None:
-            M = WeightedMassOperator(
-                self.derham,
-                self._V,
-                self._W,
-                name=self.name + "T",
-                V_extraction_op=self._V_extraction_op,
-                W_extraction_op=self._W_extraction_op,
-                V_boundary_op=self._V_boundary_op,
-                W_boundary_op=self._W_boundary_op,
-                weights_info=weights,
-                transposed=not self._transposed,
-                matrix_free=self._matrix_free,
-            )
+        name = self.name + "T" if self.name is not None else None
 
-            M.assemble()
+        M = WeightedMassOperator(
+            self.derham,
+            self._V,
+            self._W,
+            name=name,
+            V_extraction_op=self._V_extraction_op,
+            W_extraction_op=self._W_extraction_op,
+            V_boundary_op=self._V_boundary_op,
+            W_boundary_op=self._W_boundary_op,
+            weights_info=weights if self._symmetry is None else self._symmetry,
+            spline_functions=self._spline_functions,
+            transposed=not self._transposed,
+            matrix_free=self._matrix_free,
+            nquads=self._nquads,
+        )
 
+        # weights of M in its own (transposed) block order
+        M._weights = [[self._weights[n][m] for n in range(len(self._weights))] for m in range(len(self._weights[0]))]
+
+        if self._matrix_free:
+            if self._symmetry is not None:
+                M.assemble(weights=M._weights)
         else:
-            M = WeightedMassOperator(
-                self.derham,
-                self._V,
-                self._W,
-                name=self.name + "T",
-                V_extraction_op=self._V_extraction_op,
-                W_extraction_op=self._W_extraction_op,
-                V_boundary_op=self._V_boundary_op,
-                W_boundary_op=self._W_boundary_op,
-                weights_info=self._symmetry,
-                transposed=not self._transposed,
-                matrix_free=self._matrix_free,
-            )
+            # transpose the assembled data instead of re-assembling from the weights: the data need not
+            # stem from self._weights (e.g. accumulation matrices, which are filled by the particles)
+            self._mat.transpose(out=M._mat)
 
-            M.assemble(weights=weights)
+            # remove blocks of M that are zero in self
+            if isinstance(self._mat, BlockLinearOperator):
+                for a, b in M._mat.nonzero_block_indices:
+                    if self._mat[b, a] is None:
+                        M._mat[a, b] = None
 
         return M
 
@@ -2238,7 +2204,9 @@ class WeightedMassOperator(LinOpWithTransp):
                         PTS = xp.meshgrid(*pts, indexing="ij")
                         mat_w = loc_weight(*PTS).copy()
                     elif isinstance(loc_weight, xp.ndarray):
-                        mat_w = loc_weight
+                        # Spline factors below must not modify the stored geometric
+                        # weight: assembly can be repeated as density changes.
+                        mat_w = loc_weight.copy()
                     elif loc_weight is not None:
                         raise TypeError(
                             "weights must be callable or xp.ndarray or None but is {}".format(
@@ -2374,14 +2342,19 @@ class WeightedMassOperator(LinOpWithTransp):
                 self.derham,
                 V=self._V,
                 W=self._W,
+                name=self.name,
                 V_extraction_op=self._V_extraction_op,
                 W_extraction_op=self._W_extraction_op,
                 V_boundary_op=self._V_boundary_op,
                 W_boundary_op=self._W_boundary_op,
                 weights_info=self._weights_info,
+                spline_functions=self._spline_functions,
                 transposed=self._transposed,
                 matrix_free=self._matrix_free,
+                nquads=self._nquads,
             )
+            # current weights (they may have been changed by assemble(weights=...))
+            out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
         return out
@@ -2418,7 +2391,7 @@ class WeightedMassOperator(LinOpWithTransp):
             return self
 
         else:
-            return LinOpWithTransp.__sub__(self, M)
+            return LinearOperator.__sub__(self, M)
 
     def eval_quad(self, W, coeffs, out=None):
         """
@@ -2549,7 +2522,7 @@ class WeightedMassOperator(LinOpWithTransp):
         return info(self, use_rst=use_rst)
 
 
-class StencilMatrixFreeMassOperator(LinOpWithTransp):
+class StencilMatrixFreeMassOperator(LinearOperator):
     r"""Class implementing matrix-free weighted mass operators between StencilVectorSpaces.
 
     The result of the dot product with a spline function :math:`S_h` is computed as
@@ -2599,8 +2572,8 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             ),
         )
 
-        shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
-        self._diag_tmp = xp.zeros((shape))
+        # temporary with ghost regions for the diagonal (contributions to other processes are exchanged)
+        self._diag_tmp = W.coeff_space.zeros()
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
@@ -2670,19 +2643,11 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         """Discrete de Rham sequence on the logical unit cube."""
         return self._derham
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(
             self._derham,
-            self._codomain,
-            self._domain,
+            self._W,
+            self._V,
             self._weights,
             nquads=self._nquads,
         )
@@ -2801,18 +2766,24 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         elif isinstance(self._weights, xp.ndarray):
             mat_w = self._weights
 
-        diag = self._diag_tmp
-        diag[:] = 0.0
-        self._diag_kernel(
-            *self._codomain_spans,
-            *self._W.degree,
-            *self._codomain_starts,
-            *self._codomain_pads,
-            *self._wts,
-            *self._codomain_basis,
-            mat_w,
-            diag,
-        )
+        diag_tmp = self._diag_tmp
+        diag_tmp._data[:] = 0.0
+        if self._weights is not None:
+            self._diag_kernel(
+                *self._codomain_spans,
+                *self._W.degree,
+                *self._codomain_starts,
+                *self._codomain_pads,
+                *self._wts,
+                *self._codomain_basis,
+                mat_w,
+                diag_tmp._data,
+            )
+            diag_tmp.exchange_assembly_data()
+
+        # entries owned by this process (without ghost regions)
+        idx = tuple(slice(p * m, -p * m) if p != 0 else slice(None) for p, m in zip(W.pads, W.shifts))
+        diag = diag_tmp._data[idx]
 
         data = out._data if out else None
 
@@ -2891,6 +2862,11 @@ class L2Projector:
 
         # mass matrix
         self._Mmat = getattr(self.mass_ops, "M" + self.space_key)
+
+        # basis extraction operator (tensor-product --> polar dofs) and tensor-product vector for assembly
+        self._extraction_op = self.mass_ops.derham.extraction_ops[self.space_key]
+        if self.mass_ops.derham.polar_splines:
+            self._dofs_tp = self.space.coeff_space.zeros()
 
         # quadrature grid
         self._quad_grid_pts = self.mass_ops.derham.spline_attributes[self.space_key].quad_grid_pts
@@ -3019,7 +2995,11 @@ class L2Projector:
     def __repr_no_defaults__(self):
         return __class_with_params_repr_no_defaults__(self)
 
-    def solve(self, rhs: StencilVector | BlockVector, out=None) -> StencilVector | BlockVector:
+    def solve(
+        self,
+        rhs: StencilVector | BlockVector | PolarVector,
+        out=None,
+    ) -> StencilVector | BlockVector | PolarVector:
         """
         Solves the linear system M * x = rhs, where M is the mass matrix.
 
@@ -3037,7 +3017,7 @@ class L2Projector:
             Output vector (result of linear system).
         """
 
-        assert isinstance(rhs, StencilVector) or isinstance(rhs, BlockVector)
+        assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
         assert rhs.space == self.Mmat.domain
 
         if out is None:
@@ -3050,12 +3030,12 @@ class L2Projector:
     def get_dofs(
         self,
         fun: Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray],
-        dofs: StencilVector | BlockVector = None,
+        dofs: StencilVector | BlockVector | PolarVector = None,
         apply_bc: bool = False,
         clear: bool = True,
-    ) -> StencilVector | BlockVector:
+    ) -> StencilVector | BlockVector | PolarVector:
         r"""
-        Assembles (in 3d) the Stencil-/BlockVector
+        Assembles (in 3d) the Stencil-/Block-/PolarVector
 
         .. math::
 
@@ -3067,6 +3047,9 @@ class L2Projector:
         Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled
         into :math:`w_\textrm{geom}`, depending on the space of :math:`\alpha`-forms.
 
+        For polar splines, the tensor-product vector is mapped to the polar sub-space with the basis extraction operator
+        (the polar basis functions are linear combinations of the tensor-product ones).
+
         The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
 
         Parameters
@@ -3074,8 +3057,9 @@ class L2Projector:
         fun : Callable | xp.ndarray | list[Callable | xp.ndarray] | tuple[Callable | xp.ndarray]
             Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
 
-        dofs : StencilVector | BlockVector, optional
-            The vector for the output.
+        dofs : StencilVector | BlockVector | PolarVector, optional
+            The vector for the output. Either an element of the domain of the mass matrix (PolarVector for polar splines),
+            or a tensor-product Stencil-/BlockVector, in which case no basis extraction is performed.
 
         apply_bc : bool, optional
             Whether to apply essential boundary conditions to degrees of freedom.
@@ -3085,7 +3069,7 @@ class L2Projector:
 
         Returns
         -------
-        dofs : StencilVector | BlockVector
+        dofs : StencilVector | BlockVector | PolarVector
              The assembled degrees of freedom, before projection.
         """
 
@@ -3122,10 +3106,17 @@ class L2Projector:
 
         # check output vector
         if dofs is None:
-            dofs = self.space.coeff_space.zeros()
+            dofs = self.Mmat.codomain.zeros()
         else:
             assert isinstance(dofs, (StencilVector, BlockVector, PolarVector))
-            assert dofs.space == self.Mmat.codomain
+            assert dofs.space in (self.Mmat.codomain, self.space.coeff_space)
+
+        # for polar splines, assemble into tensor-product vector first
+        is_polar = isinstance(dofs, PolarVector)
+        if is_polar:
+            vec = self._dofs_tp
+        else:
+            vec = dofs
 
         # compute matrix data for kernel, i.e. fun * geom_weight
         tot_weights = []
@@ -3142,13 +3133,11 @@ class L2Projector:
                 tot_weights += [tmp]
 
         # clear data
-        if clear:
-            if isinstance(dofs, StencilVector):
-                dofs._data[:] = 0.0
-            elif isinstance(dofs, PolarVector):
-                dofs.tp._data[:] = 0.0
+        if clear or is_polar:
+            if isinstance(vec, StencilVector):
+                vec._data[:] = 0.0
             else:
-                for block in dofs.blocks:
+                for block in vec.blocks:
                     block._data[:] = 0.0
 
         # loop over components (just one for scalar spaces)
@@ -3165,7 +3154,7 @@ class L2Projector:
             starts = [int(start) for start in fem_space.coeff_space.starts]
             pads = fem_space.coeff_space.pads
 
-            if isinstance(dofs, StencilVector):
+            if isinstance(vec, StencilVector):
                 mass_kernels.kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
@@ -3174,18 +3163,7 @@ class L2Projector:
                     *wts,
                     *basis,
                     mat_w,
-                    dofs._data,
-                )
-            elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(
-                    *spans,
-                    *fem_space.degree,
-                    *starts,
-                    *pads,
-                    *wts,
-                    *basis,
-                    mat_w,
-                    dofs.tp._data,
+                    vec._data,
                 )
             else:
                 mass_kernels.kernel_3d_vec(
@@ -3196,12 +3174,20 @@ class L2Projector:
                     *wts,
                     *basis,
                     mat_w,
-                    dofs[a]._data,
+                    vec[a]._data,
                 )
 
         # exchange assembly data (accumulate ghost regions) and update ghost regions
-        dofs.exchange_assembly_data()
-        dofs.update_ghost_regions()
+        vec.exchange_assembly_data()
+        vec.update_ghost_regions()
+
+        # apply basis extraction operator (tensor-product --> polar)
+        if is_polar:
+            if clear:
+                self._extraction_op.dot(vec, out=dofs)
+            else:
+                dofs += self._extraction_op.dot(vec)
+            dofs.update_ghost_regions()
 
         # apply boundary operator
         if apply_bc:
@@ -3212,10 +3198,10 @@ class L2Projector:
     def __call__(
         self,
         fun: Callable | list[Callable] | tuple[Callable],
-        out: StencilVector | BlockVector = None,
-        dofs: StencilVector | BlockVector = None,
+        out: StencilVector | BlockVector | PolarVector = None,
+        dofs: StencilVector | BlockVector | PolarVector = None,
         apply_bc: bool = False,
-    ) -> StencilVector | BlockVector:
+    ) -> StencilVector | BlockVector | PolarVector:
         """
         Applies projector to given callable(s).
 
@@ -3224,10 +3210,10 @@ class L2Projector:
         fun : Callable | list[Callable] | tuple[Callable]
             The function to be projected. List of three callables for vector-valued functions.
 
-        out : StencilVector | BlockVector, optional
+        out : StencilVector | BlockVector | PolarVector, optional
             If given, the result will be written into this vector in-place.
 
-        dofs : StencilVector | BlockVector, optional
+        dofs : StencilVector | BlockVector | PolarVector, optional
             If given, the dofs will be written into this vector in-place.
 
         apply_bc : bool, optional
@@ -3241,7 +3227,7 @@ class L2Projector:
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
 
 
-class AverageOperator(LinOpWithTransp):
+class AverageOperator(LinearOperator):
     r"""
     Class for quadrature operators, performs the average of a `FeecVariable` along a given direction.
     For example along the :math:`\eta_3` direction, it applies the following linear operator :
@@ -3276,6 +3262,9 @@ class AverageOperator(LinOpWithTransp):
 
     transposed : bool, optional
         Whether to take the transpose of the operator.
+
+    nquads : list[int], optional
+        Number of quadrature points in each direction. If not given, those of the derham complex are used.
     """
 
     def __init__(
@@ -3284,12 +3273,13 @@ class AverageOperator(LinOpWithTransp):
         space: str = "H1",
         direction: int = 2,
         transposed: bool = False,
+        nquads: list[int] | None = None,
     ):
 
         if space not in derham.space_to_form:
-            AssertionError("Must match a space of the derham complex")
+            raise AssertionError("Must match a space of the derham complex")
         if space != "H1":
-            NotImplementedError()
+            raise NotImplementedError("AverageOperator is only implemented for space H1")
         space_id = "V" + derham.space_to_form[space]
         self._V = getattr(derham, space_id)  # StencilVectorSpace
         self._domain = getattr(derham, space_id)
@@ -3297,7 +3287,10 @@ class AverageOperator(LinOpWithTransp):
         self._pads = self._V.pads  # gets the number of ghost cells
         self._derham = derham
         self._dtype = self._domain.dtype
+        self._space = space
+        self._direction = direction
         self._transposed = transposed
+        self._nquads = nquads
         if direction == 0:
             self._directions = (0, 1, 2)
         elif direction == 1:
@@ -3312,9 +3305,9 @@ class AverageOperator(LinOpWithTransp):
         if not isinstance(comm, (MockComm, type(None))):
             rank = comm.Get_rank()
             nprocs = derham.domain_decomposition.nprocs
-            dom_arr = derham.domain_array
-            color1 = int(dom_arr[rank, 3 * self._directions[1]] * nprocs[self._directions[1]])
-            color2 = int(dom_arr[rank, 3 * self._directions[2]] * nprocs[self._directions[2]])
+            coords = derham.domain_decomposition.coords
+            color1 = int(coords[self._directions[1]])
+            color2 = int(coords[self._directions[2]])
             color = color1 * nprocs[self._directions[2]] + color2
             self.subcomm = comm.Split(color=color, key=rank)
 
@@ -3388,14 +3381,6 @@ class AverageOperator(LinOpWithTransp):
         else:
             return self._nquads
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def dot(self, v, out=None):
 
         # assert isinstance(v, StencilVector)
@@ -3422,4 +3407,6 @@ class AverageOperator(LinOpWithTransp):
         return out
 
     def transpose(self, conjugate=False):
-        return AverageOperator(self.derham, self.domain, self._weights, transposed=not self._transposed)
+        return AverageOperator(
+            self.derham, self._space, self._direction, transposed=not self._transposed, nquads=self._nquads
+        )

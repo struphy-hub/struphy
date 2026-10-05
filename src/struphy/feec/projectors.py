@@ -74,11 +74,11 @@ class TensorCommutingProjector:
         boundary_op=None,
     ):
         self._projector_tensor = projector_tensor
+        self._space = projector_tensor.space
         if boundary_op is not None:
             self._boundary_op = boundary_op
         else:
             self._boundary_op = IdentityOperator(self.space.coeff_space)
-        self._space = projector_tensor.space
 
         # TODO: delete these:
         self._dofs_extraction_op = IdentityOperator(
@@ -2111,11 +2111,11 @@ class ProjectorPreconditioner(LinearOperator):
 
         self._transposed = transposed
 
-        # save inter-/histopolation matrix to be inverted
+        # save inter-/histopolation matrix to be inverted (with boundary operators if apply_bc=True)
         if transposed:
-            self._I = projector.IT
+            self._I = projector.I0T if apply_bc else projector.IT
         else:
-            self._I = projector.I
+            self._I = projector.I0 if apply_bc else projector.I
 
         self._is_composed = isinstance(self._I, ComposedLinearOperator)
 
@@ -2157,12 +2157,6 @@ class ProjectorPreconditioner(LinearOperator):
     @property
     def dtype(self):
         return self._dtype
-
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         """
@@ -2215,7 +2209,8 @@ class ProjectorPreconditioner(LinearOperator):
         else:
             if out is None:
                 out = self.solver.dot(rhs)
-            self.solver.dot(rhs, out=out)
+            else:
+                self.solver.dot(rhs, out=out)
         return out
 
     def dot(self, v, out=None):

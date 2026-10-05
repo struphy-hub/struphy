@@ -163,7 +163,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     @property
     def options(self) -> Options:
-        assert hasattr(self, "_options"), "Options not set."
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
         return self._options
 
     @options.setter
@@ -413,18 +414,23 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._ue.vector = self.variables.ue.spline.vector
 
         # --- rebuild system matrix if dt changed ---
-        if dt != self._dt:  #  TODO change uzawa A11 block too
+        if dt != self._dt:
             self._dt = dt
+            _A11_dt = self._A11_v0 + self._M2_v0 / dt
             _A = BlockLinearOperator(
                 self._block_domain_v0,
                 self._block_codomain_v0,
-                blocks=[[self._A11_v0 + self._M2_v0 / dt, None], [None, self._A22_v0]],
+                blocks=[[_A11_dt, None], [None, self._A22_v0]],
             )
 
             _M = BlockLinearOperator(
                 self._block_domain_M, self._block_domain_M, blocks=[[_A, self._B_v0.T], [self._B_v0, None]]
             )
             self._Minv.linop = _M
+
+            # the Uzawa solver works with its own A11 block (and inverse), update it too
+            if self.options.solver in get_args(LiteralOptions.OptsSaddlePointSolver):
+                self._Minv.update_A11(_A11_dt)
 
         # --- assemble RHS in unconstrained space, then zero boundary DOFs ---
         # ion:      F1 = rhs_u + M2/dt * u - (A11 + M2/dt) * u'

@@ -6,24 +6,23 @@ import cunumpy as xp
 import h5py
 import yaml
 
-from struphy.io.setup import import_parameters_py
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
 from struphy.utils.progress import tqdm
 
 logger = logging.getLogger("struphy")
 
 
-def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
+def post_process_orbit_guiding_center(domain, equil, path_kinetics_species, species):
     """
     Computes the Cartesian guiding center from saved full-orbit marker orbits (Particles6D) and writes them to a .npy files and to .txt files.
 
     * ``.npy`` files :
 
-      ===== ===== =============== ========== ====== ============
-      index | 0 | | 1 | 2 | | 3 |     4        5         6
-      ===== ===== =============== ========== ====== ============
-      value  ID    guiding_center v_parallel v_perp magn. moment
-      ===== ===== =============== ========== ====== ============
+      ===== ===== =============== ========== ====== ============ ======
+      index | 0 | | 1 | 2 | | 3 |     4        5         6          7
+      ===== ===== =============== ========== ====== ============ ======
+      value  ID    guiding_center v_parallel v_perp magn. moment weight
+      ===== ===== =============== ========== ====== ============ ======
 
     * ``.txt`` files :
 
@@ -37,8 +36,11 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
 
     Parameters
     ----------
-    path_in : str
-        Absolute path of simulation output folder.
+    domain : Domain
+        Domain of the simulation, for the markers' logical coordinates.
+
+    equil : FluidEquilibriumWithB
+        Equilibrium of the simulation, for the magnetic field at the markers.
 
     path_kinetics_species : str
         Absolute path of where to store the .txt files. Will be saved in path_kinetics_species/guiding_center.
@@ -47,12 +49,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         Name of the species for which the post processing should be performed.
     """
 
-    # import parameters
-    params_in = import_parameters_py(os.path.join(path_in, "parameters.py"))
-
-    # create domain for calculating markers' physical coordinates
-    domain = params_in.domain
-    equil = params_in.equil
+    assert equil is not None, "Guiding centers need an equilibrium with a magnetic field."
 
     # path for orbit data
     path_orbits = os.path.join(path_kinetics_species, "orbits")
@@ -80,8 +77,9 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         shutil.rmtree(path_gc)
         os.mkdir(path_gc)
 
-    # temporary marker array
-    temp = xp.empty((n_markers, 7), dtype=float)
+    # temporary marker array, with the columns saved by post_process_markers (orbit quantities, marker ID last)
+    n_cols = xp.load(os.path.join(path_orbits, npy_files_list[0])).shape[1]
+    temp = xp.empty((n_markers, n_cols), dtype=float)
     etas = xp.empty((n_markers, 3), dtype=float)
     B_cart = xp.empty((n_markers, 3), dtype=float)
     lost_particles_mask = xp.empty(n_markers, dtype=bool)
@@ -98,11 +96,8 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         file_npy = os.path.join(path_gc, npy_files_list[n])
         file_txt = os.path.join(path_gc, npy_files_list[n][:-4] + ".txt")
 
-        # call .npy file
+        # call .npy file (marker ID is already in the last column)
         temp[:, :] = xp.load(os.path.join(path_orbits, npy_files_list[n]))
-
-        # move ids to last column and save
-        temp = xp.roll(temp, -1, axis=1)
 
         # sorting out lost particles
         lost_particles_mask = xp.all(temp[:, :-1] == 0, axis=1)
@@ -114,15 +109,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         )
 
         # eval cartesian magnetic filed at marker positions
-        B_cart[~lost_particles_mask, :] = equil.b_cart(
-            *xp.concatenate(
-                (
-                    etas[:, 0][:, None],
-                    etas[:, 1][:, None],
-                    etas[:, 2][:, None],
-                ),
-            ),
-        )[0].T
+        B_cart[~lost_particles_mask, :] = equil.b_cart(etas[~lost_particles_mask])[0].T
 
         # calculate guiding center positions
         calculate_guiding_center_from_6d(temp, B_cart)
@@ -138,16 +125,16 @@ def post_process_orbit_classification(path_kinetics_species, species):
     """
     Classify guiding center orbits as "passing", "trapped" or "lost".
 
-    Classification data (0 for "passing", 1 for "trapped" and -1 for "lost") is added at the last column(7)
+    Classification data (0 for "passing", 1 for "trapped" and -1 for "lost") is added at the last column(8)
     of .npy files in a directory "kinetic_data/<name_of_species>/guiding_center/".
 
     ``.npy`` files :
 
-    ===== ===== =============== ========== ====== ============ ==============
-    index | 0 | | 1 | 2 | | 3 |     4        5         6             7
-    ===== ===== =============== ========== ====== ============ ==============
-    value  ID    guiding_center v_parallel v_perp magn. moment classification
-    ===== ===== =============== ========== ====== ============ ==============
+    ===== ===== =============== ========== ====== ============ ====== ==============
+    index | 0 | | 1 | 2 | | 3 |     4        5         6          7          8
+    ===== ===== =============== ========== ====== ============ ====== ==============
+    value  ID    guiding_center v_parallel v_perp magn. moment weight classification
+    ===== ===== =============== ========== ====== ============ ====== ==============
 
     Parameters
     ----------
@@ -178,8 +165,9 @@ def post_process_orbit_classification(path_kinetics_species, species):
     # re-ordering npy_files
     npy_files_list = sorted(npy_files_list)
 
-    # temporary marker array
-    temp = xp.empty((n_markers, 8), dtype=float)
+    # temporary marker array, with the columns saved by post_process_orbit_guiding_center plus classification
+    n_cols = xp.load(os.path.join(path_gc, npy_files_list[0])).shape[1]
+    temp = xp.empty((n_markers, n_cols + 1), dtype=float)
     v_parallel = xp.empty(n_markers, dtype=float)
     trapped_particle_mask = xp.empty(n_markers, dtype=bool)
     lost_particle_mask = xp.empty(n_markers, dtype=bool)
@@ -197,7 +185,7 @@ def post_process_orbit_classification(path_kinetics_species, species):
 
         # initial time step
         if n == 0:
-            v_init = temp[:, 4]
+            v_init = temp[:, 4].copy()
             xp.save(file_npy, temp)
             continue
 

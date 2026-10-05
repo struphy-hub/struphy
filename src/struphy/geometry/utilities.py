@@ -8,9 +8,7 @@ import cunumpy as xp
 import numpy as np
 
 # from typing import TYPE_CHECKING
-from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
-from scipy.sparse.linalg import splu
 
 from struphy.bsplines import bsplines as bsp
 
@@ -151,6 +149,9 @@ def field_line_tracing(
     cZ : xp.ndarray
         Control points (2d) of flux aligned spline mapping (Z-component).
     """
+
+    from scipy.optimize import newton, root
+    from scipy.sparse.linalg import splu
 
     # for equal_angle one mapping is enough
     if xi_param == "equal_angle":

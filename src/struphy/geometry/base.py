@@ -10,26 +10,15 @@ import cunumpy as xp
 import h5py
 import numpy as np
 from cunumpy import PyccelKernel
-from pyvista import Plotter, StructuredGrid
 from scipy.sparse import csc_matrix, kron
-from scipy.sparse.linalg import splu, spsolve
-
-try:
-    from IPython.display import HTML, display
-except ImportError:
-
-    def HTML(data):
-        return data
-
-    def display(*objects, **kwargs):
-        return objects[0] if objects else None
-
 
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.cuda_arguments import CudaDomainArguments
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
@@ -220,6 +209,9 @@ class Domain(metaclass=DomainMeta):
             "v_to_2": 16,
             "1_to_v": 17,
             "2_to_v": 18,
+            "1_to_norm": 19,
+            "2_to_norm": 20,
+            "v_to_norm": 21,
         }
 
         self._dict_transformations = {
@@ -228,7 +220,12 @@ class Domain(metaclass=DomainMeta):
             "tran": dict_tran,
         }
 
-        self._args_domain = DomainArguments(
+        self._args_backend = xp.get_backend()
+        self._initialize_domain_args()
+
+    def _build_pyccel_domain_args(self):
+        """Build runtime mapping arguments used by compiled evaluation kernels (host copies on the CuPy backend)."""
+        return DomainArguments(
             self.kind_map,
             _to_numpy_for_kernel(self.params_numpy),
             _to_numpy_for_kernel(xp.array(self.degree)),
@@ -243,21 +240,31 @@ class Domain(metaclass=DomainMeta):
             _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
         )
 
-    def _build_args_domain(self):
-        """Build runtime mapping arguments used by compiled evaluation kernels."""
-        return DomainArguments(
+    def _build_cuda_domain_args(self) -> CudaDomainArguments:
+        """Build the CUDA kernel arguments from the domain's own (device) arrays.
+
+        Arrays that already have the dtype and layout the CUDA kernels expect are referenced, not copied;
+        otherwise a device copy with the right dtype and layout is made once, here. Host arrays raise.
+        """
+
+        # cupy (not xp): the arrays are on the device, whichever backend is active now
+        import cupy as cp
+
+        def device(arr, dtype):
+            if not hasattr(arr, "__cuda_array_interface__"):
+                raise TypeError(
+                    f"{self.__class__.__name__}: CUDA domain arguments need CuPy arrays, got {type(arr)}; "
+                    "create the domain on the CuPy backend."
+                )
+            return cp.ascontiguousarray(arr, dtype=dtype)
+
+        return CudaDomainArguments(
             self.kind_map,
-            self.params_numpy,
-            _to_numpy_for_kernel(xp.array(self.degree)),
-            _to_numpy_for_kernel(self.T[0]),
-            _to_numpy_for_kernel(self.T[1]),
-            _to_numpy_for_kernel(self.T[2]),
-            _to_numpy_for_kernel(self.indN[0]),
-            _to_numpy_for_kernel(self.indN[1]),
-            _to_numpy_for_kernel(self.indN[2]),
-            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
+            device(self.params_numpy, np.float64),
+            cp.asarray(self.degree, dtype=np.int64),  # a tuple, not an array of the domain
+            *(device(t, np.float64) for t in self.T),
+            *(device(ind, np.int64) for ind in self.indN),
+            *(device(c, np.float64) for c in (self.cx, self.cy, self.cz)),
         )
 
     def _can_build_args_domain(self):
@@ -272,11 +279,15 @@ class Domain(metaclass=DomainMeta):
         )
         return all(hasattr(self, attr) for attr in required_attrs)
 
-    def _rebuild_args_domain(self):
+    def _initialize_domain_args(self):
+        self._args_domain = None
+        self._pyccel_args_domain = None
         if self._can_build_args_domain():
-            self._args_domain = self._build_args_domain()
-        else:
-            self._args_domain = None
+            self._pyccel_args_domain = self._build_pyccel_domain_args()
+            if self._args_backend == "cupy":
+                self._args_domain = self._build_cuda_domain_args()
+            else:
+                self._args_domain = self._pyccel_args_domain
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -284,22 +295,26 @@ class Domain(metaclass=DomainMeta):
         memo[id(self)] = result
 
         for key, value in self.__dict__.items():
-            if key == "_args_domain":
+            if key in ("_args_domain", "_pyccel_args_domain"):
                 continue
             setattr(result, key, copy.deepcopy(value, memo))
 
-        result._rebuild_args_domain()
+        result._initialize_domain_args()
         return result
 
     def __getstate__(self):
         state = self.__dict__.copy()
         state.pop("_args_domain", None)
+        state.pop("_pyccel_args_domain", None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        if "_args_backend" not in self.__dict__:
+            arrays = (getattr(self, "_cx", None), getattr(self, "_cy", None), getattr(self, "_cz", None))
+            self._args_backend = "cupy" if any(hasattr(arr, "__cuda_array_interface__") for arr in arrays) else "numpy"
         self._args_domain = None
-        self._rebuild_args_domain()
+        self._initialize_domain_args()
 
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
@@ -475,13 +490,9 @@ class Domain(metaclass=DomainMeta):
 
     @property
     def args_domain(self):
-        """Object for all parameters needed for evaluation of metric coefficients."""
-        if getattr(self, "_args_domain", None) is None:
-            self._rebuild_args_domain()
-
+        """Arguments for the backend selected when this domain was created."""
         if self._args_domain is None:
             raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
-
         return self._args_domain
 
     @property
@@ -1010,7 +1021,7 @@ class Domain(metaclass=DomainMeta):
 
         Notes
         -----
-        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v' and '2_to_v'.
+        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v', '2_to_v', '1_to_norm', '2_to_norm' and 'v_to_norm'.
         """
 
         return self._pull_push_transform(
@@ -1070,7 +1081,7 @@ class Domain(metaclass=DomainMeta):
             n_inside = kernel(
                 markers,
                 which,
-                self.args_domain,
+                self._pyccel_args_domain,
                 out,
                 remove_outside,
                 avoid_round_off,
@@ -1116,7 +1127,7 @@ class Domain(metaclass=DomainMeta):
                 E2,
                 E3,
                 which,
-                self.args_domain,
+                self._pyccel_args_domain,
                 out,
                 is_sparse_meshgrid,
                 avoid_round_off,
@@ -1128,7 +1139,7 @@ class Domain(metaclass=DomainMeta):
             if transposed:
                 out = xp.transpose(out, axes=(1, 0, 2, 3, 4))
 
-            if which == 0:
+            if which == 0 or which == -1:
                 out = out[:, 0, :, :, :]
                 if change_out_order:
                     out = xp.transpose(out, axes=(1, 2, 3, 0))
@@ -1238,11 +1249,13 @@ class Domain(metaclass=DomainMeta):
                             remove_outside=remove_outside,
                             identity_map=True,
                         ),
+                        a_kwargs=a_kwargs,
                     )
                 else:
                     A = Domain.prepare_arg(
                         a,
                         self(markers, change_out_order=True, remove_outside=remove_outside),
+                        a_kwargs=a_kwargs,
                     )
 
             elif isinstance(a, (list, tuple)):
@@ -1256,11 +1269,13 @@ class Domain(metaclass=DomainMeta):
                                 remove_outside=remove_outside,
                                 identity_map=True,
                             ),
+                            a_kwargs=a_kwargs,
                         )
                     else:
                         A = Domain.prepare_arg(
                             a,
                             self(markers, change_out_order=True, remove_outside=remove_outside),
+                            a_kwargs=a_kwargs,
                         )
                 else:
                     A = Domain.prepare_arg(a, markers)
@@ -1286,7 +1301,7 @@ class Domain(metaclass=DomainMeta):
                 _to_numpy_for_kernel(markers),
                 _to_numpy_for_kernel(self._transformation_ids[which]),
                 _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
+                _to_numpy_for_kernel(self._pyccel_args_domain),
                 out_np,
                 _to_numpy_for_kernel(remove_outside),
             )
@@ -1348,7 +1363,7 @@ class Domain(metaclass=DomainMeta):
                 _to_numpy_for_kernel(E3),
                 _to_numpy_for_kernel(self._transformation_ids[which]),
                 _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
+                _to_numpy_for_kernel(self._pyccel_args_domain),
                 _to_numpy_for_kernel(is_sparse_meshgrid),
                 out_np,
             )
@@ -1716,9 +1731,46 @@ class Domain(metaclass=DomainMeta):
         grids_phy = [tmp[0], tmp[1], tmp[2]]
 
         # Create PyVista structured grid
+        from pyvista import StructuredGrid
+
         mesh = StructuredGrid(grids_phy[0], grids_phy[1], grids_phy[2])
 
         return mesh
+
+    def outer_boundary_mesh(
+        self,
+        n2: int = 40,
+        n3: int = 80,
+        eta1: float = 1.0,
+    ):
+        """Sample the domain's boundary surface at a fixed radial coordinate.
+
+        Useful for showing the outer flux surface (or, for cube-like
+        mappings, any fixed-``eta1`` cross-section) as spatial context next
+        to other data -- e.g. particle trajectories or field quantities --
+        without the PyVista/VTK dependency of :meth:`create_geometry_mesh`
+        and :meth:`export_geometry`.
+
+        Parameters
+        ----------
+        n2 : int
+            Number of sample points in the second logical coordinate.
+        n3 : int
+            Number of sample points in the third logical coordinate.
+        eta1 : float
+            The (fixed) first logical coordinate to sample the surface at;
+            1.0 (default) gives the outer boundary, 0.0 the magnetic axis
+            (or inner boundary, for a hollow domain).
+
+        Returns
+        -------
+        x, y, z : numpy.ndarray
+            Physical coordinates of the sampled surface, each of shape
+            ``(n2, n3)``.
+        """
+        eta2 = xp.linspace(0.0, 1.0, n2)
+        eta3 = xp.linspace(0.0, 1.0, n3)
+        return self(eta1, eta2, eta3, squeeze_out=True)
 
     def show_3d(
         self,
@@ -1727,6 +1779,8 @@ class Domain(metaclass=DomainMeta):
         nz: int = 32,
     ):
         """Show the 3D geometry using PyVista."""
+        from pyvista import Plotter
+
         mesh = self.create_geometry_mesh(nx, ny, nz)
         plotter = Plotter()
         plotter.add_mesh(mesh, show_edges=True)
@@ -2193,9 +2247,9 @@ class Spline(Domain):
 
     def __init__(
         self,
-        num_elements: tuple[int] = (8, 24, 6),
-        degree: tuple[int] = (2, 3, 1),
-        spl_kind: tuple[bool] = (False, True, True),
+        num_elements: tuple[int] = (16, 16, 16),
+        degree: tuple[int] = (3, 3, 3),
+        spl_kind: tuple[bool] = (False, True, False),
         cx: xp.ndarray | None = None,
         cy: xp.ndarray | None = None,
         cz: xp.ndarray | None = None,
@@ -2203,13 +2257,14 @@ class Spline(Domain):
         self.kind_map = 0
 
         # get default control points from default GVEC equilibrium
+        # (default num_elements, degree and spl_kind match those of GVECunit with default GVECequilibrium)
         if cx is None or cy is None or cz is None:
             from struphy.fields_background.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
             cx = mhd_equil.domain.cx
-            cx = mhd_equil.domain.cy
-            cx = mhd_equil.domain.cz
+            cy = mhd_equil.domain.cy
+            cz = mhd_equil.domain.cz
         # assign control points
         self._cx = cx
         self._cy = cy
@@ -2444,6 +2499,8 @@ def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
         The control points.
     """
 
+    from scipy.sparse.linalg import splu, spsolve
+
     # number of basis functions
     NbaseN = [
         num_elements + degree - kind * degree for num_elements, degree, kind in zip(num_elements, degree, spl_kind)
@@ -2532,6 +2589,8 @@ def spline_interpolation_nd(degree: list, spl_kind: list, grids_1d: list, values
     indN : list[array]
         Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
     """
+
+    from scipy.sparse.linalg import splu
 
     T = []
     indN = []

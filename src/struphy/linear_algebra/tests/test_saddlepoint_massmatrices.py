@@ -19,7 +19,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
     import cunumpy as xp
     import scipy as sc
     from feectools.ddm.mpi import mpi as MPI
-    from feectools.linalg.basic import IdentityOperator
+    from feectools.linalg.basic import IdentityOperator, LinearOperator
     from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 
     from struphy import domains, perturbations
@@ -115,7 +115,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
             if derham.with_local_projectors:
                 S21np = S21.toarray
             else:
-                S21np = S21.toarray_struphy()
+                S21np = LinearOperator.toarray(S21)
             M2Bnp = M2R._mat.toarray()
             x1np = x1.toarray()
             x2np = x2.toarray()
@@ -129,7 +129,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
             if derham.with_local_projectors:
                 S21np = S21.tosparse
             else:
-                S21np = S21.toarray_struphy(is_sparse=True)
+                S21np = LinearOperator.toarray(S21, is_sparse=True)
             M2Bnp = M2R._mat.tosparse()
             x1np = x1.toarray()
             x2np = x2.toarray()
@@ -241,7 +241,7 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
         compare_arrays(d1, d2, mpi_rank, atol=1e-5)
         TestA11composed = M2np / dt + Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np
         TestA11 = M2 / dt + nu * D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21
-        # TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray_struphy()
+        # TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray()
         # TestA11npdot = TestA11np.dot(x1.toarray())
         TestA11composeddot = TestA11composed.dot(x1.toarray())
         TestA11dot = TestA11.dot(x1)
@@ -355,6 +355,48 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
         compare_arrays(y1_rdm, y_uzawa.toarray(), mpi_rank, atol=1e-5)
         compare_arrays(x1, x_uzawa[0].toarray(), mpi_rank, atol=1e-5)
         compare_arrays(x2, x_uzawa[1].toarray(), mpi_rank, atol=1e-5)
+
+
+@pytest.mark.mpi_skip
+def test_saddlepointsolver_uzawa_small():
+    """Uzawa variant on small dense matrices: Apre=None, numpy initial guesses and preconditioned Schur complement."""
+
+    import cunumpy as xp
+
+    from struphy.linear_algebra.saddle_point import SaddlePointSolver
+
+    rng = xp.random.default_rng(0)
+    n, m = 12, 5
+
+    def spd(k):
+        Q = rng.standard_normal((k, k))
+        return Q @ Q.T + k * xp.eye(k)
+
+    A = [spd(n), spd(n)]
+    B = [rng.standard_normal((m, n)), rng.standard_normal((m, n))]
+    F = [rng.standard_normal(n), rng.standard_normal(n)]
+    Apre = [1.3 * xp.diag(xp.diag(A[0])), 0.7 * xp.diag(xp.diag(A[1]))]
+
+    # no preconditioner given
+    solver = SaddlePointSolver(A=A, B=B, F=F, Apre=None, tol=1e-10, max_iter=2000)
+    u, ue, p, info, _, _ = solver(P_init=xp.zeros(m))
+    assert info["success"]
+    assert xp.allclose(A[0] @ u + B[0].T @ p, F[0])
+    assert xp.allclose(A[1] @ ue + B[1].T @ p, F[1])
+    assert xp.linalg.norm(B[0] @ u + B[1] @ ue) < 1e-10
+
+    # numpy initial guess for U only
+    solver = SaddlePointSolver(A=A, B=B, F=F, Apre=Apre, tol=1e-10, max_iter=2000)
+    info = solver(U_init=xp.zeros(n))[3]
+    assert info["success"]
+
+    # the preconditioned Schur complement must equal B A^{-1} B^T
+    solver_pre = SaddlePointSolver(A=A, B=B, F=F, Apre=Apre, preconditioner=True, tol=1e-10, max_iter=2000)
+    S = B[0] @ xp.linalg.inv(A[0]) @ B[0].T + B[1] @ xp.linalg.inv(A[1]) @ B[1].T
+    assert xp.allclose(solver_pre._Precnp, S)
+    info_pre = solver_pre(xp.zeros(n), xp.zeros(n), xp.zeros(m))[3]
+    assert info_pre["success"]
+    assert info_pre["niter"] == info["niter"]
 
 
 def _plot_residual_norms(residual_norms):

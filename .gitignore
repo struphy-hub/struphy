@@ -73,12 +73,15 @@ __epyccel__/
 *.h5py
 *.vts
 *acquisition.lock
+.post_processing.lock*
 .testmondata*
 .output*
 
 # Default simulations and diagnostics
 my_diagnostics
 my_struphy_sims
+struphy_verification_tests/
+struphy_examples/
 /diagnostics.sh
 /run_STRUPHY*.sh
 logs
@@ -112,3 +115,4 @@ pyvenv.cfg
 *profile_output*.txt
 *kernels.txt
 struphy.log
+struphy.log.*

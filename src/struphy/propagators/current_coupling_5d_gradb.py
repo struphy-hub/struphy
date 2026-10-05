@@ -129,7 +129,9 @@ class CurrentCoupling5DGradB(Propagator):
             ``algo="explicit"``, defaults to ``ButcherTableau()``.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
-            FEEC space used for the unknown ``u`` variable.
+            FEEC space used for the unknown ``u`` variable. ``"Hdiv"`` and
+            ``"H1vec"`` are supported for ``algo="explicit"``, only ``"Hdiv"``
+            for ``algo="discrete_gradient"``.
 
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used for mass-matrix inversions.
@@ -174,6 +176,17 @@ class CurrentCoupling5DGradB(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
+
+            # supported u_space per algorithm (pusher kernels exist only for these)
+            if self.algo == "explicit":
+                supported_u_spaces = ("Hdiv", "H1vec")
+            else:
+                supported_u_spaces = ("Hdiv",)
+            if self.u_space not in supported_u_spaces:
+                raise ValueError(
+                    f"{self.u_space = } is not supported by CurrentCoupling5DGradB with {self.algo = }, "
+                    f"choose from {supported_u_spaces}.",
+                )
 
             # defaults
             if self.algo == "explicit" and self.butcher is None:
@@ -288,7 +301,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
             else:
                 raise ValueError(
-                    f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec.',
+                    f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
                 )
 
             # temp fix due to refactoring of ButcherTableau:
@@ -327,6 +340,12 @@ class CurrentCoupling5DGradB(Propagator):
             self._ku = self.variables.u.spline.vector.space.zeros()
             self._u_temp = self.variables.u.spline.vector.space.zeros()
 
+            # magnetic perturbation (zero if not given)
+            if self.b_tilde is None:
+                b_tilde = self._b2.space.zeros()
+            else:
+                b_tilde = self.b_tilde.spline.vector
+
             # Call the accumulation and Pusher class
             accum_kernel_init = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init
             accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg
@@ -335,9 +354,9 @@ class CurrentCoupling5DGradB(Propagator):
             self._args_accum_kernel = (
                 epsilon,
                 self.options.ep_scale,
-                self.b_tilde.spline.vector[0]._data,
-                self.b_tilde.spline.vector[1]._data,
-                self.b_tilde.spline.vector[2]._data,
+                b_tilde[0]._data,
+                b_tilde[1]._data,
+                b_tilde[2]._data,
                 self._b2[0]._data,
                 self._b2[1]._data,
                 self._b2[2]._data,
@@ -448,13 +467,15 @@ class CurrentCoupling5DGradB(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self.b_tilde.spline.vector
+        if self.b_tilde is not None:
+            b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         if self.options.algo == "explicit":
-            PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
-            grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
-            grad_PB_b.update_ghost_regions()
+            if self.b_tilde is not None:
+                PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
+                grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
+                grad_PB_b.update_ghost_regions()
 
             # save old u
             u_new = un.copy(out=self._u_new)
@@ -474,10 +495,11 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_pusher_kernel,
                 )
 
+                # kinetic boundary conditions are applied per marker inside the kernel
+                particles.finish_kernel_bc()
+
                 if particles.mpi_comm is not None:
-                    particles.mpi_sort_markers()
-                else:
-                    particles.apply_kinetic_bc()
+                    particles.mpi_sort_markers(apply_bc=False)
 
                 # solve linear system for updating u coefficients
                 ku = self._A_inv.dot(self._ACC.vectors[0], out=self._ku)
@@ -522,10 +544,12 @@ class CurrentCoupling5DGradB(Propagator):
             alpha = self.options.dg_solver_params.relaxation_factor
 
             # eval parallel tilde b and its gradient
-            PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
-            PB_b.update_ghost_regions()
-            grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
-            grad_PB_b.update_ghost_regions()
+            PB_b = self._PB_b
+            if self.b_tilde is not None:
+                PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
+                PB_b.update_ghost_regions()
+                grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
+                grad_PB_b.update_ghost_regions()
 
             # save old u
             u_old = un.copy(out=self._u_old)

@@ -105,6 +105,7 @@ PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 MODELS_INIT_PATH = os.path.join(LIBPATH, "models/__init__.py")
 PROPAGATORS_INIT_PATH = os.path.join(LIBPATH, "propagators/__init__.py")
+DOMAINS_INIT_PATH = os.path.join(LIBPATH, "geometry/domains/__init__.py")
 
 
 def check_omp_flags(file_path, verbose=False):
@@ -122,13 +123,17 @@ def check_omp_flags(file_path, verbose=False):
     """
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            if verbose:
-                for iline, line in enumerate(f):
-                    if line.lstrip().startswith("# $"):
-                        print(f"Error on line {iline}: {line}")
-            return all(not line.lstrip().startswith("# $") for line in f)
+            lines = f.readlines()
     except (IOError, FileNotFoundError) as e:
         raise ValueError(f"Error reading file: {e}")
+
+    passes = True
+    for iline, line in enumerate(lines, start=1):
+        if line.lstrip().startswith("# $"):
+            passes = False
+            if verbose:
+                print(f"Error on line {iline}: {line}")
+    return passes
 
 
 def check_ssort(file_path, verbose=False):
@@ -194,15 +199,20 @@ def check_ruff(file_path, verbose=False):
 
         if result.returncode == 0:
             returncodes.append(0)
+        elif command[1] != "format" or result.returncode != 1:
+            # Lint errors (e.g. unsorted imports) or ruff failures
+            returncodes.append(result.returncode)
         else:
             # Default to no error
             returncode = 0
             for line in result.stdout.decode("utf-8").split("\n"):
                 # Skip empty lines and filename headers
-                if not line or line.startswith("+++ "):
+                if not line or line.startswith(("+++ ", "--- ")):
                     continue
-                # Check for lines with actual changes
-                if line.startswith("+ ") and not line[1:].lstrip().startswith("# $"):
+                # Check for lines with actual changes, ignoring the OpenMP flags "#$" -> "# $"
+                if line.startswith("+") and not line[1:].lstrip().startswith("# $"):
+                    returncode = 1
+                if line.startswith("-") and not line[1:].lstrip().startswith("#$"):
                     returncode = 1
             returncodes.append(returncode)
 
@@ -1284,6 +1294,11 @@ def construct_package_init_file(
     per module, by importing each module and collecting the subclasses of `base_class` that
     are defined in it. Preserves the existing module docstring of the `__init__.py`, if any.
 
+    The generated file resolves the classes lazily (PEP 562 module ``__getattr__``), so that
+    ``from package import SomeClass`` only imports the module defining ``SomeClass`` instead of
+    every module in the package. Importing all of them costs a considerable amount of time and
+    is rarely needed. A ``TYPE_CHECKING`` block keeps static analysis and IDEs working.
+
     Parameters
     ----------
     package_dir : str
@@ -1307,22 +1322,61 @@ def construct_package_init_file(
 
     init_content = f'"""{docstring}"""\n\n' if docstring else ""
     class_names = []
+    class_modules = {}
 
     for file_name in sorted(os.listdir(package_dir)):
-        if file_name.endswith(".py") and file_name not in ("__init__.py", *skip):
+        if file_name in ("__init__.py", *skip):
+            continue
+        if file_name.endswith(".py"):
             module_name = file_name[:-3]  # strip .py
-            module = importlib.import_module(f"{package_name}.{module_name}")
+        elif os.path.isfile(os.path.join(package_dir, file_name, "__init__.py")):
+            module_name = file_name  # sub-package laid out as one directory per class
+        else:
+            continue
+        module = importlib.import_module(f"{package_name}.{module_name}")
 
-            # Loop over all classes in the module
-            for _, cls in inspect.getmembers(module, inspect.isclass):
-                # Only subclasses of base_class defined in this module
-                if issubclass(cls, base_class) and cls.__module__ == module.__name__ and cls != base_class:
-                    class_name = cls.__name__
-                    init_content += f"from {package_name}.{module_name} import {class_name}\n"
-                    class_names.append(class_name)
+        # Sub-packages resolve their class lazily via __getattr__; inspect.getmembers would
+        # not see it, so go through __all__ (falling back to what getmembers finds).
+        candidates = [getattr(module, n) for n in getattr(module, "__all__", ())]
+        candidates += [cls for _, cls in inspect.getmembers(module, inspect.isclass)]
 
-    init_content += "\n\n"
-    init_content += f"__all__ = {class_names}\n"
+        # Loop over all classes in the module
+        for cls in candidates:
+            # Only subclasses of base_class defined in this module (or its sub-modules)
+            if (
+                inspect.isclass(cls)
+                and issubclass(cls, base_class)
+                and cls != base_class
+                and (cls.__module__ == module.__name__ or cls.__module__.startswith(module.__name__ + "."))
+                and cls.__name__ not in class_modules
+            ):
+                class_names.append(cls.__name__)
+                class_modules[cls.__name__] = f"{package_name}.{module_name}"
+
+    init_content += "import importlib\n"
+    init_content += "from typing import TYPE_CHECKING\n\n"
+
+    init_content += "# class name -> module defining it, resolved on first access by __getattr__ below\n"
+    init_content += "_LAZY_IMPORTS = {\n"
+    for class_name in class_names:
+        init_content += f'    "{class_name}": "{class_modules[class_name]}",\n'
+    init_content += "}\n\n"
+
+    init_content += "if TYPE_CHECKING:  # static analysis and IDEs see the eager imports\n"
+    for class_name in class_names:
+        init_content += f"    from {class_modules[class_name]} import {class_name}\n"
+    init_content += "\n"
+
+    init_content += f"__all__ = {class_names}\n\n\n"
+    init_content += "def __getattr__(name: str):\n"
+    init_content += "    module_name = _LAZY_IMPORTS.get(name)\n"
+    init_content += "    if module_name is None:\n"
+    init_content += '        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")\n'
+    init_content += "    value = getattr(importlib.import_module(module_name), name)\n"
+    init_content += "    globals()[name] = value  # cache: later lookups bypass __getattr__\n"
+    init_content += "    return value\n\n\n"
+    init_content += "def __dir__():\n"
+    init_content += "    return sorted(set(globals()) | set(_LAZY_IMPORTS))\n"
     return init_content
 
 
@@ -1342,6 +1396,16 @@ def construct_propagators_init_file(propagators_dir: str = "src/struphy/propagat
     from struphy.propagators.base import Propagator
 
     return construct_package_init_file(propagators_dir, "struphy.propagators", Propagator)
+
+
+def construct_domains_init_file(domains_dir: str = "src/struphy/geometry/domains") -> str:
+    """
+    Constructs __init__.py for all domain files by reading actual class names.
+    Skips __init__.py.
+    """
+    from struphy.geometry.base import Domain
+
+    return construct_package_init_file(domains_dir, "struphy.geometry.domains", Domain)
 
 
 def run_formatting_loop(python_files, linters, iterations, verbose):
@@ -1481,7 +1545,12 @@ def struphy_build_init_files(config, verbose, yes=False):
     with open(PROPAGATORS_INIT_PATH, "w", encoding="utf-8") as f:
         f.write(propagators_init)
 
-    python_files = [MODELS_INIT_PATH, PROPAGATORS_INIT_PATH]
+    print(f"Rewriting {DOMAINS_INIT_PATH}")
+    domains_init = construct_domains_init_file()
+    with open(DOMAINS_INIT_PATH, "w", encoding="utf-8") as f:
+        f.write(domains_init)
+
+    python_files = [MODELS_INIT_PATH, PROPAGATORS_INIT_PATH, DOMAINS_INIT_PATH]
 
     confirm_formatting(python_files, linters, yes)
 

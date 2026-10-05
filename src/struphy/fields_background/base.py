@@ -4,22 +4,11 @@ import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
-from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
-
-try:
-    from IPython.display import HTML, display
-except ImportError:
-
-    def HTML(data):
-        return data
-
-    def display(*objects, **kwargs):
-        return objects[0] if objects else None
-
 
 from struphy.geometry.base import Domain
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
+from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import (
     __class_with_params_repr_no_defaults__,
     __dataclass_repr_no_defaults__,
@@ -597,7 +586,7 @@ class FluidEquilibriumWithB(FluidEquilibrium):
             a_kwargs={"squeeze_out": False},
             squeeze_out=squeeze_out,
         )
-        return gradB_out, self.domain(*etas)
+        return gradB_out, self.domain(*etas, squeeze_out=squeeze_out)
 
     def a1(self, *etas, squeeze_out=False):
         """1-form components of vector potential on logical cube [0, 1]^3."""
@@ -1113,6 +1102,8 @@ class MHDequilibrium(FluidEquilibriumWithB):
         n_planes : int
             Number of planes to show perpendicular to eta3."""
 
+        from matplotlib import pyplot as plt
+
         import struphy
 
         torus_mappings = (
@@ -1568,13 +1559,18 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
                     dZ=1,
                 )
                 + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=2)
+                + self.g_tor(R, Z) * self.g_tor(R, Z, dR=1)
             )
             / RabsB
             / R
         )
         gradBP = 0.0
         gradBZ = (
-            (self.psi(R, Z, dZ=1) * self.psi(R, Z, dZ=2) + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=1, dZ=1))
+            (
+                self.psi(R, Z, dZ=1) * self.psi(R, Z, dZ=2)
+                + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=1, dZ=1)
+                + self.g_tor(R, Z) * self.g_tor(R, Z, dZ=1)
+            )
             / RabsB
             / R
         )

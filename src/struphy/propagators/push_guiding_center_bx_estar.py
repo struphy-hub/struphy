@@ -11,6 +11,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels_gc
+from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -203,106 +204,113 @@ class PushGuidingCenterBxEstar(Propagator):
             if "1st_order" in self.options.algo:
                 # init kernels
                 self.add_init_kernel(
-                    eval_kernels_gc.driftkinetic_hamiltonian,
-                    first_free_idx,
-                    None,
-                    (
-                        self.derham.args_derham,
-                        self._epsilon,
-                        self._B_dot_b._data,
-                        self._phi._data,
-                        self._evaluate_e_field,
+                    KernelSetup(
+                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        output_indices=(first_free_idx,),
+                        args=(
+                            self.derham.args_derham,
+                            self._epsilon,
+                            self._B_dot_b._data,
+                            self._phi._data,
+                            self._evaluate_e_field,
+                        ),
                     ),
                 )
 
                 self.add_init_kernel(
-                    eval_kernels_gc.bstar_parallel_3form,
-                    first_free_idx + 1,
-                    None,
-                    (
-                        self.derham.args_derham,
-                        self._epsilon,
-                        self._B_dot_b._data,
-                        curl_unit_b_dot_b0._data,
+                    KernelSetup(
+                        kernel=eval_kernels_gc.bstar_parallel_3form,
+                        output_indices=(first_free_idx + 1,),
+                        args=(
+                            self.derham.args_derham,
+                            self._epsilon,
+                            self._B_dot_b._data,
+                            curl_unit_b_dot_b0._data,
+                        ),
                     ),
                 )
 
                 self.add_init_kernel(
-                    eval_kernels_gc.unit_b_1form,
-                    first_free_idx + 2,
-                    (0, 1, 2),
-                    (
-                        self.derham.args_derham,
-                        unit_b1[0]._data,
-                        unit_b1[1]._data,
-                        unit_b1[2]._data,
+                    KernelSetup(
+                        kernel=eval_kernels_gc.unit_b_1form,
+                        output_indices=(first_free_idx + 2, first_free_idx + 3, first_free_idx + 4),
+                        args=(
+                            self.derham.args_derham,
+                            unit_b1[0]._data,
+                            unit_b1[1]._data,
+                            unit_b1[2]._data,
+                        ),
                     ),
                 )
 
                 if "newton" in self.options.algo:
                     # eval kernels
                     self.add_eval_kernel(
-                        eval_kernels_gc.driftkinetic_hamiltonian,
-                        first_free_idx + 5,
-                        None,
-                        (
-                            self.derham.args_derham,
-                            self._epsilon,
-                            self._B_dot_b._data,
-                            self._phi._data,
-                            self._evaluate_e_field,
+                        KernelSetup(
+                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            output_indices=(first_free_idx + 5,),
+                            args=(
+                                self.derham.args_derham,
+                                self._epsilon,
+                                self._B_dot_b._data,
+                                self._phi._data,
+                                self._evaluate_e_field,
+                            ),
+                            alpha=(1.0, 0.0, 0.0, 0.0),
                         ),
-                        alpha=(1.0, 0.0, 0.0, 0.0),
                     )
 
                     self.add_eval_kernel(
-                        eval_kernels_gc.driftkinetic_hamiltonian,
-                        first_free_idx + 6,
-                        None,
-                        (
-                            self.derham.args_derham,
-                            self._epsilon,
-                            self._B_dot_b._data,
-                            self._phi._data,
-                            self._evaluate_e_field,
+                        KernelSetup(
+                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            output_indices=(first_free_idx + 6,),
+                            args=(
+                                self.derham.args_derham,
+                                self._epsilon,
+                                self._B_dot_b._data,
+                                self._phi._data,
+                                self._evaluate_e_field,
+                            ),
+                            alpha=(1.0, 1.0, 0.0, 0.0),
                         ),
-                        alpha=(1.0, 1.0, 0.0, 0.0),
                     )
 
                     self.add_eval_kernel(
-                        eval_kernels_gc.grad_driftkinetic_hamiltonian,
-                        first_free_idx + 7,
-                        (0,),
-                        (
-                            self.derham.args_derham,
-                            self._epsilon,
-                            self._grad_b_full[0]._data,
-                            self._grad_b_full[1]._data,
-                            self._grad_b_full[2]._data,
-                            self._e_field[0]._data,
-                            self._e_field[1]._data,
-                            self._e_field[2]._data,
-                            self._evaluate_e_field,
+                        KernelSetup(
+                            kernel=eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                            output_indices=(first_free_idx + 7, None, None),
+                            args=(
+                                self.derham.args_derham,
+                                self._epsilon,
+                                self._grad_b_full[0]._data,
+                                self._grad_b_full[1]._data,
+                                self._grad_b_full[2]._data,
+                                self._e_field[0]._data,
+                                self._e_field[1]._data,
+                                self._e_field[2]._data,
+                                self._evaluate_e_field,
+                            ),
+                            alpha=(1.0, 0.0, 0.0, 0.0),
                         ),
-                        alpha=(1.0, 0.0, 0.0, 0.0),
                     )
 
                     self.add_eval_kernel(
-                        eval_kernels_gc.grad_driftkinetic_hamiltonian,
-                        first_free_idx + 8,
-                        (0, 1),
-                        (
-                            self.derham.args_derham,
-                            self._epsilon,
-                            self._grad_b_full[0]._data,
-                            self._grad_b_full[1]._data,
-                            self._grad_b_full[2]._data,
-                            self._e_field[0]._data,
-                            self._e_field[1]._data,
-                            self._e_field[2]._data,
-                            self._evaluate_e_field,
+                        KernelSetup(
+                            kernel=eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                            output_indices=(first_free_idx + 8, first_free_idx + 9, None),
+                            args=(
+                                self.derham.args_derham,
+                                self._epsilon,
+                                self._grad_b_full[0]._data,
+                                self._grad_b_full[1]._data,
+                                self._grad_b_full[2]._data,
+                                self._e_field[0]._data,
+                                self._e_field[1]._data,
+                                self._e_field[2]._data,
+                                self._evaluate_e_field,
+                            ),
+                            alpha=(1.0, 1.0, 0.0, 0.0),
                         ),
-                        alpha=(1.0, 1.0, 0.0, 0.0),
                     )
 
                     # pusher kernel
@@ -326,17 +334,18 @@ class PushGuidingCenterBxEstar(Propagator):
                 else:
                     # eval kernels
                     self.add_eval_kernel(
-                        eval_kernels_gc.driftkinetic_hamiltonian,
-                        first_free_idx + 5,
-                        None,
-                        (
-                            self.derham.args_derham,
-                            self._epsilon,
-                            self._B_dot_b._data,
-                            self._phi._data,
-                            self._evaluate_e_field,
+                        KernelSetup(
+                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            output_indices=(first_free_idx + 5,),
+                            args=(
+                                self.derham.args_derham,
+                                self._epsilon,
+                                self._B_dot_b._data,
+                                self._phi._data,
+                                self._evaluate_e_field,
+                            ),
+                            alpha=(1.0, 1.0, 1.0, 0.0),
                         ),
-                        alpha=(1.0, 1.0, 1.0, 0.0),
                     )  # evaluate at eta^{n+1,k} and save
 
                     # pusher kernel
@@ -358,31 +367,33 @@ class PushGuidingCenterBxEstar(Propagator):
             elif "2nd_order" in self.options.algo:
                 # init kernels (evaluate at eta^n and save)
                 self.add_init_kernel(
-                    eval_kernels_gc.driftkinetic_hamiltonian,
-                    first_free_idx,
-                    None,
-                    (
-                        self.derham.args_derham,
-                        self._epsilon,
-                        self._B_dot_b._data,
-                        self._phi._data,
-                        self._evaluate_e_field,
+                    KernelSetup(
+                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        output_indices=(first_free_idx,),
+                        args=(
+                            self.derham.args_derham,
+                            self._epsilon,
+                            self._B_dot_b._data,
+                            self._phi._data,
+                            self._evaluate_e_field,
+                        ),
                     ),
                 )
 
                 # eval kernels
                 self.add_eval_kernel(
-                    eval_kernels_gc.driftkinetic_hamiltonian,
-                    first_free_idx + 1,
-                    None,
-                    (
-                        self.derham.args_derham,
-                        self._epsilon,
-                        self._B_dot_b._data,
-                        self._phi._data,
-                        self._evaluate_e_field,
+                    KernelSetup(
+                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        output_indices=(first_free_idx + 1,),
+                        args=(
+                            self.derham.args_derham,
+                            self._epsilon,
+                            self._B_dot_b._data,
+                            self._phi._data,
+                            self._evaluate_e_field,
+                        ),
+                        alpha=(1.0, 1.0, 1.0, 0.0),
                     ),
-                    alpha=(1.0, 1.0, 1.0, 0.0),
                 )  # evaluate at eta^{n+1,k} and save)
 
                 # pusher kernel
@@ -418,6 +429,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 maxiter=self.options.maxiter,
                 tol=self.options.tol,
                 mpi_sort=self.options.mpi_sort,
+                pushes_eta=True,
             )
 
         else:
@@ -457,6 +469,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 alpha_in_kernel=1.0,
                 n_stages=butcher.n_stages,
                 mpi_sort=self.options.mpi_sort,
+                pushes_eta=True,
             )
 
     @profile

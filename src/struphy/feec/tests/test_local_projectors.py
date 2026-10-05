@@ -1379,6 +1379,45 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     logger.info("BasisProjectionOperatorLocal test passed.")
 
 
+@pytest.mark.parametrize("transposed", [False, True])
+@pytest.mark.parametrize("out_sp_key, in_sp_key", [("0", "0"), ("0", "1"), ("1", "0")])
+def test_basis_projection_operator_local_update_weights(out_sp_key, in_sp_key, transposed):
+    """After update_weights, dot must match a freshly built operator with the new weights."""
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=[6, 4, 1])
+    derham_opts = DerhamOptions(degree=[2, 2, 1], bcs=(None, None, None), local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
+
+    def f1(e1, e2, e3):
+        return 1.0 + 0.0 * e1
+
+    def f2(e1, e2, e3):
+        return xp.sin(2.0 * xp.pi * e1) + xp.cos(2.0 * xp.pi * e2) + 2.0
+
+    def weights(f):
+        if out_sp_key == "1":
+            return [[f], [f], [f]]
+        elif in_sp_key == "1":
+            return [[f, f, f]]
+        return [[f]]
+
+    P = derham.projectors[out_sp_key]
+    V = derham.fem_spaces[in_sp_key]
+
+    op = BasisProjectionOperatorLocal(P, V, weights(f1), transposed=transposed)
+    op_ref = BasisProjectionOperatorLocal(P, V, weights(f2), transposed=transposed)
+    op.update_weights(weights(f2))
+
+    v = op.domain.zeros()
+    rng = xp.random.default_rng(0)
+    for block in v.blocks if hasattr(v, "blocks") else [v]:
+        block._data[:] = rng.random(block._data.shape)
+    v.update_ghost_regions()
+
+    assert xp.allclose(op.dot(v).toarray(), op_ref.dot(v).toarray(), atol=1e-13, rtol=0.0)
+
+
 # Works only in one processor
 def aux_test_spline_evaluation(num_elements, plist, bcs):
     # get global communicator
@@ -1519,6 +1558,58 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
     logger.info(f"{maxerrorD =}")
     assert maxerrorD < 10.0**-13
     logger.info("Test spline evaluation passed.")
+
+
+@pytest.mark.parametrize("Nel, p", [(2, 2), (3, 3), (5, 2)])
+def test_get_one_spline_periodic_partition_of_unity(Nel, p):
+    """For periodic Nel == p, one spline index appears twice per point; get_one_spline must sum the contributions."""
+    from feectools.fem.splines import SplineSpace
+
+    space = SplineSpace(degree=p, grid=xp.linspace(0.0, 1.0, Nel + 1), periodic=True)
+    pts = xp.linspace(0.0, 1.0, 11, endpoint=False).reshape(-1, 1) + 0.013
+    spans, values = get_span_and_basis(pts, space)
+    eval_indices, values = get_values_and_indices_splines(space.nbasis, space.degree, space.periodic, spans, values)
+    total = sum(get_one_spline(a, values, eval_indices) for a in range(space.nbasis))
+    assert xp.allclose(total, 1.0, atol=1e-14)
+
+
+@pytest.mark.parametrize(
+    "out_sp_key, in_sp_key",
+    [("0", "0"), ("0", "1"), ("0", "v"), ("1", "0"), ("2", "v")],
+)
+def test_basis_projection_operator_local_none_weights(out_sp_key, in_sp_key):
+    """None weights must be treated as zero blocks (e.g. placeholders in BracketOperator)."""
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=[4, 3, 2])
+    derham_opts = DerhamOptions(degree=[2, 2, 1], local_projectors=True)
+    derham = Derham(grid, derham_opts, comm=comm)
+
+    P = derham.projectors[out_sp_key]
+    V = derham.fem_spaces[in_sp_key]
+    n_out = 1 if out_sp_key in ("0", "3") else 3
+    n_in = 1 if in_sp_key in ("0", "3") else 3
+
+    def one(e1, e2, e3):
+        return 1.0 + e1 * e2 * e3
+
+    def zero(e1, e2, e3):
+        return 0.0 * e1
+
+    # weights with None on the off-diagonal, and the same with explicit zero callables
+    weights = [[one if i == j else None for j in range(n_in)] for i in range(n_out)]
+    weights_zero = [[zero if w is None else w for w in row] for row in weights]
+
+    op = BasisProjectionOperatorLocal(P, V, weights)
+    op_zero = BasisProjectionOperatorLocal(P, V, weights_zero)
+    op_none = BasisProjectionOperatorLocal(P, V, [[None] * n_in for _ in range(n_out)])
+
+    x = op.domain.zeros()
+    for blk in getattr(x, "blocks", [x]):
+        blk._data[:] = xp.random.rand(*blk._data.shape)
+
+    assert xp.allclose(op.dot(x).toarray(), op_zero.dot(x).toarray(), atol=1e-14)
+    assert xp.allclose(op_none.dot(x).toarray(), 0.0, atol=1e-14)
 
 
 if __name__ == "__main__":

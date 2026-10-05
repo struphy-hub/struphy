@@ -71,7 +71,9 @@ class PushRandomDiffusion(Propagator):
         ----------
         butcher : ButcherTableau, default=None
             Butcher tableau used for explicit integration.
-            If ``None``, defaults to ``ButcherTableau()``.
+            If ``None``, defaults to ``ButcherTableau("forward_euler")``
+            (Euler-Maruyama). The noise is additive and constant within a step,
+            so multi-stage tableaux give statistically the same result at a higher cost.
 
         bc_type : tuple, default=("periodic", "periodic", "periodic")
             Boundary-condition types per logical coordinate.
@@ -88,7 +90,7 @@ class PushRandomDiffusion(Propagator):
         def __post_init__(self):
             # defaults
             if self.butcher is None:
-                self.butcher = ButcherTableau()
+                self.butcher = ButcherTableau("forward_euler")
 
     @property
     def options(self) -> Options:
@@ -130,7 +132,8 @@ class PushRandomDiffusion(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
             n_stages=self._butcher.n_stages,
-            mpi_sort="each",
+            pushes_eta=True,
+            local_eval_only=True,
         )
 
         # self._tmp = self.derham.V1.zeros()

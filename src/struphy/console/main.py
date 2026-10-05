@@ -88,6 +88,9 @@ def struphy():
     # 6. "format" and "lint" sub-commands
     add_parser_format(subparsers)
 
+    # 7. output inspection and post-processing
+    add_parser_output(subparsers)
+
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -130,6 +133,7 @@ def struphy():
         "params": ("struphy.console.params", "struphy_params"),
         "profile": ("struphy.console.profile", "struphy_profile"),
         "test": ("struphy.console.test", "struphy_test"),
+        "output": ("struphy.console.output", "struphy_output"),
     }
 
     # import struphy.console.MODULE.FUNC_NAME as func
@@ -140,6 +144,7 @@ def struphy():
         raise ValueError(f"Unknown command: {args.command}")
 
     # transform parser Namespace object to dictionary and remove "command" key
+    is_output = args.command == "output"
     kwargs = vars(args)
     for key in [
         "command",
@@ -149,12 +154,13 @@ def struphy():
         "hybrid",
         # These options are stored in kwargs.config
         "input_type",
-        "path",
         "linters",
         "iterations",
         "output_format",
     ]:
         kwargs.pop(key, None)
+    if not is_output:
+        kwargs.pop("path", None)
 
     # start sub-command function with all parameters of that function
     # for k, v in kwargs.items():
@@ -265,6 +271,15 @@ def add_parser_compile(
     )
 
     parser_compile.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        metavar="N",
+        help="number of kernels to compile in parallel (default=1)",
+        default=1,
+    )
+
+    parser_compile.add_argument(
         "-y",
         "--yes",
         help="say yes to prompt when changing the language",
@@ -295,7 +310,7 @@ def add_parser_params(subparsers, list_models, model_message):
         "--check-file",
         type=str,
         metavar="FILE",
-        help="check if the parameters in the .yml file are valid",
+        help="check that the .py parameter file FILE runs and defines a Simulation of MODEL",
     )
 
     parser_params.add_argument(
@@ -310,7 +325,7 @@ def add_parser_profile(subparsers):
     parser_profile = subparsers.add_parser(
         "profile",
         help="profile finished runs",
-        description="Compare profiling data of finished Struphy runs. For each function in a predefined filter, displays: ncalls, tottime, percall and cumtime.",
+        description="Show the profiling data (profiling_data.h5) of finished Struphy runs, written by sim.run(profiling_activated=True). For each timing region, displays: calls, total time, mean time per call and share of the run; with several runs, also compares their total times. For more, use Output.profile in Python or the scope-profiler command.",
     )
 
     parser_profile.add_argument(
@@ -318,18 +333,12 @@ def add_parser_profile(subparsers):
         type=str,
         nargs="+",
         metavar="DIR",
-        help="simulation ouput folders",
-    )
-
-    parser_profile.add_argument(
-        "--replace",
-        help="replace module names with class names for better info",
-        action="store_true",
+        help="simulation output folders",
     )
 
     parser_profile.add_argument(
         "--all",
-        help="display the 50 most expensive function calls, without applying the predefined filter",
+        help="display all regions, not only the N most expensive ones",
         action="store_true",
     )
 
@@ -337,15 +346,15 @@ def add_parser_profile(subparsers):
         "--n-lines",
         type=int,
         metavar="N",
-        help="plot the N most time consuming calls in profiling analysis (default=6)",
-        default=6,
+        help="display (and plot) the N most time consuming regions (default=20)",
+        default=20,
     )
 
     parser_profile.add_argument(
-        "--print-callers",
+        "--prefix",
         type=str,
         metavar="STR",
-        help="string STR that identifies functions for which to print callers (default=None)",
+        help="only display regions whose name starts with STR, e.g. 'prop:' or 'kernel:' (default=None)",
         default=None,
     )
 
@@ -353,7 +362,7 @@ def add_parser_profile(subparsers):
         "--savefig",
         type=str,
         metavar="NAME",
-        help="save (and dont display) the profile figure under NAME, relative to current output path.",
+        help="save a bar plot of the total time of the displayed regions under NAME, relative to the current directory.",
     )
 
 
@@ -423,6 +432,22 @@ def add_parser_likwid_profile(subparsers):
         )
 
 
+def add_parser_output(subparsers):
+    """Add the lightweight command-line interface for completed simulation output."""
+    parser = subparsers.add_parser("output", help="inspect, process, or report a simulation output")
+    parser.add_argument("action", choices=("info", "keys", "pproc", "report"))
+    parser.add_argument("path", help="simulation output directory")
+    parser.add_argument("--physical", action="store_true", help="materialize physical field components")
+    parser.add_argument(
+        "--parallel",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="pproc on all ranks of MPI.COMM_WORLD (default: when as many as the run's)",
+    )
+    parser.add_argument("--format", choices=("markdown", "html"), default="markdown", help="report format")
+    parser.add_argument("--directory", help="report directory")
+
+
 def add_parser_test(subparsers, list_models):
     try:
         import pytest_mpi
@@ -445,10 +470,10 @@ def add_parser_test(subparsers, list_models):
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["verification"],
+            choices=list_models + ["models", "unit", "fluid", "kinetic", "hybrid", "toy", "verification"],
             metavar="GROUP",
             help='can be either:\na) a model name \
-                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid" for testing just a sub-group) \
+                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "verification" for running all verification tests \
                                     \nd) "unit" for performing unit tests',
         )

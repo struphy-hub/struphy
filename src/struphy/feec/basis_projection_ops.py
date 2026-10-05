@@ -12,7 +12,7 @@ from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 
 from struphy.feec import basis_projection_kernels
-from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
+from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.feec.psydac_derham import Derham, get_pts_and_wts, get_span_and_basis
@@ -932,7 +932,12 @@ class BasisProjectionOperators:
         return out
 
 
-class BasisProjectionOperatorLocal(LinOpWithTransp):
+def _zero_weight(e1, e2, e3):
+    """Zero weight function, used in place of None weights in BasisProjectionOperatorLocal."""
+    return xp.zeros_like(e1)
+
+
+class BasisProjectionOperatorLocal(LinearOperator):
     r"""
     Class for assembling basis projection operators in 3d, based on local projectors.
 
@@ -960,6 +965,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
     weights : list
         Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+        A None entry is treated as a zero weight (zero block).
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
         Extraction operator to polar sub-space of V.
@@ -1213,12 +1219,13 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         self._weights = weights
 
-        # assemble tensor-product dof matrix
+        # assemble tensor-product dof matrix (in place, self._mat is referenced by self._operator)
         self._mat = self.assemble()
 
         # only need to update the transposed in case where it's needed
+        # (in place, so that self._operator, which references self._mat_T, sees the new weights)
         if self._transposed:
-            self._mat_T = self._mat.T
+            self._mat_T = self._mat.transpose(out=self._mat_T)
 
     def assemble(self):
         """
@@ -1229,7 +1236,9 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         # get the needed data :
         V = self._V
         P = self._P
-        weights = self._weights
+
+        # None entries denote zero blocks (as in BasisProjectionOperator); the local projector needs callables
+        weights = [[_zero_weight if w is None else w for w in row] for row in self._weights]
 
         # We determine where we have B-splines and where D-splines.
         if self._V_name == "H1":
@@ -1582,7 +1591,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
 
 @auto_convert_docstring
-class BasisProjectionOperator(LinOpWithTransp):
+class BasisProjectionOperator(LinearOperator):
     r"""
     Class for assembling basis projection operators in 3d.
 
@@ -1787,14 +1796,6 @@ class BasisProjectionOperator(LinOpWithTransp):
         return self._dtype
 
     @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
-    @property
     def transposed(self):
         """If the transposed operator is in play."""
         return self._transposed
@@ -1833,25 +1834,6 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         if out is None:
             out = self.codomain.zeros()
-
-            if self.transposed:
-                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                out = self.dof_operator.dot(
-                    self._P.solve(
-                        v,
-                        True,
-                        apply_bc=True,
-                    ),
-                )
-            else:
-                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                out = self._P.solve(
-                    self.dof_operator.dot(
-                        v,
-                    ),
-                    False,
-                    apply_bc=True,
-                )
 
         assert isinstance(out, Vector)
         assert out.space == self.codomain
@@ -1903,6 +1885,11 @@ class BasisProjectionOperator(LinOpWithTransp):
         # only need to update the transposed in case where it's needed
         # (no need to recreate a new ComposedOperator)
         if self._transposed:
+            # transpose(out=...) only visits existing blocks: remove transposed blocks whose weight became zero
+            if not self._is_scalar:
+                for j, i in self._dof_mat_T.nonzero_block_indices:
+                    if self._dof_mat[i, j] is None:
+                        self._dof_mat_T[j, i] = None
             self._dof_mat_T = self._dof_mat.transpose(out=self._dof_mat_T)
 
     def assemble(self, weights=None):
@@ -2218,14 +2205,6 @@ class CoordinateProjector(LinearOperator):
         """Datatype of the operator."""
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return CoordinateInclusion(self.dir, self._domain, self._codomain)
 
@@ -2242,6 +2221,7 @@ class CoordinateProjector(LinearOperator):
             else:
                 out = self.codomain.zeros()
             out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             if out is not None:
                 assert out.space == self._codomain
@@ -2260,7 +2240,8 @@ class CoordinateProjector(LinearOperator):
         assert v.space == self._domain
         assert out.space == self._codomain
         if isinstance(self.domain, PolarDerhamSpace):
-            out += v.tp.blocks[self.dir]
+            out._tp += v.tp.blocks[self.dir]
+            out._pol[0] += v.pol[self.dir]
         else:
             out += v.blocks[self.dir]
 
@@ -2323,14 +2304,6 @@ class CoordinateInclusion(LinearOperator):
         """Datatype of the operator."""
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return CoordinateProjector(self.dir, self._codomain, self._domain)
 
@@ -2344,6 +2317,7 @@ class CoordinateInclusion(LinearOperator):
             else:
                 out = self._codomain.zeros()
             out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
 
         else:
             if out is not None:
@@ -2361,7 +2335,11 @@ class CoordinateInclusion(LinearOperator):
     def idot(self, v: StencilVector | PolarVector, out: BlockVector | PolarVector):
         assert v.space == self._domain
         assert out.space == self._codomain
-        out._blocks[self.dir] += v
+        if isinstance(self.domain, PolarDerhamSpace):
+            out._tp._blocks[self.dir] += v.tp
+            out._pol[self.dir] += v.pol[0]
+        else:
+            out._blocks[self.dir] += v
 
 
 def find_relative_col(col, row, Nbasis, periodic):

@@ -185,6 +185,7 @@ class VlasovAmpereCoupling(Propagator):
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
+            pushes_eta=False,
         )
 
     @profile
@@ -223,7 +224,7 @@ class VlasovAmpereCoupling(Propagator):
             self.variables.ions.particles.update_weights()
 
         # write new coeffs into self.variables
-        (max_de,) = self.update_feec_variables(e=self._e_tmp)
+        max_de = self.update_feec_variables(e=self._e_tmp)["e"]
 
         # Print out max differences for weights and e-field
         if self._info:

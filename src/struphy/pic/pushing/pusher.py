@@ -10,13 +10,10 @@ from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
+from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.utils.kernel_backends import CudaKernel, Kernel
 
 logger = logging.getLogger("struphy")
-
-
-def _kernel_name(kernel) -> str:
-    """Name of a pyccelized kernel, which can be a bare pyccel function or a PyccelKernel."""
-    return getattr(kernel, "name", None) or getattr(kernel, "__name__", type(kernel).__name__)
 
 
 class Pusher:
@@ -53,13 +50,20 @@ class Pusher:
     * Pusher ``kernel`` and ``eval_kernels`` can perform evaluations at arbitrary weighted averages :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`, for :math:`i=1,2,3`.
     * MPI sorting is done automatically before kernel calls according to the specified values :math:`\alpha_i` for each kernel.
 
+    MPI sorting is skipped whenever it is known to be a no-op: markers are assumed to be sorted
+    according to the domain decomposition on entry, and they stay sorted for any :math:`\alpha`
+    until the pusher kernel has moved them. Pushers with ``pushes_eta=False`` hence never sort.
+    Pushers with ``pushes_eta=True`` always sort at least once after the last stage,
+    such that the above assumption holds for the next pusher.
+
     Parameters
     ----------
     particles : Particles
         Particles object holding the markers to push.
 
-    kernel : pyccelized function
-        The pusher kernel.
+    kernel : PyccelKernel | Kernel
+        The pusher kernel. A :class:`~struphy.utils.kernel_backends.Kernel` also holds its CUDA version;
+        on the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     args_kernel : tuple
         Optional arguments passed to the kernel.
@@ -75,16 +79,13 @@ class Pusher:
         alpha[i]=0 means that evaluation is at the initial positions (time n),
         stored at markers[:, buffer_idx + i].
 
-    init_kernels : dict
-        Keys: initialization kernels for spline/ SPH evaluations at time n (initial state).
-        Values: optional arguments.
+    init_kernels : tuple[KernelSetup, ...]
+        Evaluations at the initial state, executed once per push in tuple order.
+        Each setup specifies the kernel, arguments, and output marker indices.
 
-    eval_kernels : dict
-        Keys: evaluation kernels for splines before the pusher kernel is called.
-        Values: optional arguments and weighting parameters alpha for
-        sorting (before evaluation), according to
-        alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i] for i=0,1,2.
-        alpha must be between 0 and 1, see :meth:`~struphy.pic.base.Particles.mpi_sort_markers`.
+    eval_kernels : tuple[KernelSetup, ...]
+        Evaluations before each pusher stage/iteration. Each setup's alpha
+        weights determine the evaluation state and preceding MPI sort.
 
     n_stages : int
         Number of stages of the pusher (e.g. 4 for RK4)
@@ -97,29 +98,46 @@ class Pusher:
 
     mpi_sort : str
         When to do MPI sorting:
-        * None : no sorting at all.
+        * None : no sorting at all (only allowed for ``pushes_eta=False``, becomes "last" otherwise).
         * each : sort markers after each stage.
         * last : sort markers after last stage.
+
+    pushes_eta : bool
+        Whether the kernel updates the marker positions :math:`\boldsymbol \eta_p`.
+        If False, no MPI sorting is performed at all.
+
+    local_eval_only : bool
+        Set to True if the kernel does not evaluate distributed splines, i.e. it only calls
+        metric coefficients or equilibrium quantities, which are available on every process.
+        Markers then need not be on the right process during the stages;
+        they are sorted only once after the last stage (mpi_sort="last").
     """
 
     def __init__(
         self,
         particles: Particles,
-        kernel: PyccelKernel,
+        kernel: PyccelKernel | Kernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
+        pushes_eta: bool,
         *,
         alpha_in_kernel: float | int | tuple | list,
-        init_kernels: list = [],
-        eval_kernels: list = [],
+        init_kernels: tuple[KernelSetup, ...] = (),
+        eval_kernels: tuple[KernelSetup, ...] = (),
         n_stages: int = 1,
         maxiter: int = 1,
         tol: float = 1.0e-8,
         mpi_sort: str = None,
+        local_eval_only: bool = False,
     ):
+        # choose the kernel for the active backend once; on the CuPy backend this raises
+        # if there is no CUDA version (yet), see CUDA_STRATEGY.md
+        if isinstance(kernel, PyccelKernel):
+            kernel = Kernel(kernel)
+        assert isinstance(kernel, Kernel), f"{kernel} is not of type Kernel or PyccelKernel"
+        self._kernel = kernel.get_kernel()
+
         self._particles = particles
-        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
-        self._kernel = kernel
         self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
         self._args_domain = args_domain
@@ -129,38 +147,29 @@ class Pusher:
         self._n_stages = n_stages
         self._maxiter = maxiter
         self._tol = tol
+        self._pushes_eta = pushes_eta
+        self._local_eval_only = local_eval_only
+
+        if not pushes_eta:
+            assert mpi_sort is None, f"{mpi_sort =} makes no sense for a kernel that does not push eta."
+        elif local_eval_only or mpi_sort is None:
+            mpi_sort = "last"
         self._mpi_sort = mpi_sort
 
-        # prepare and check init_kernels
-        for ker_args in init_kernels:
-            assert len(ker_args) == 4
-            column_nr = ker_args[1]
-            comps = ker_args[2]
+        if local_eval_only:
+            assert len(eval_kernels) == 0, "eval_kernels evaluate splines, not compatible with local_eval_only=True."
 
-            # check marker array column number
-            assert isinstance(comps, xp.ndarray)
-            assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
-            )
-
-        # prepare and check eval_kernels
-        for ker_args in eval_kernels:
-            assert len(ker_args) == 5
-            column_nr = ker_args[2]
-            comps = ker_args[3]
-
-            # check marker array column number
-            assert isinstance(comps, xp.ndarray)
-            assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
-            )
-
-        self._init_kernels = init_kernels
-        self._eval_kernels = eval_kernels
+        self._init_kernels = tuple(init_kernels)
+        self._eval_kernels = tuple(eval_kernels)
+        for setup in self._init_kernels + self._eval_kernels:
+            if not isinstance(setup, KernelSetup):
+                raise TypeError("init_kernels and eval_kernels must contain KernelSetup instances")
+            setup.validate_outputs(particles.n_cols)
+        if any(any(setup.alpha) for setup in self._init_kernels):
+            raise ValueError("init kernels must evaluate the initial state (alpha=0)")
 
         # profiling region names (cached, they are looked up on every call)
         self._region_name = "pusher: " + self.kernel.name
-        self._kernel_region_names = {}
 
         self._residuals = xp.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
@@ -180,13 +189,12 @@ class Pusher:
         with ProfileManager.profile_region(self._region_name):
             self._push(dt)
 
-    def _kernel_region(self, kernel) -> str:
-        """Cached name of the profiling region of an init/eval kernel."""
-        name = self._kernel_region_names.get(id(kernel))
-        if name is None:
-            name = "kernel: " + _kernel_name(kernel)
-            self._kernel_region_names[id(kernel)] = name
-        return name
+    def _evaluate(self, setup: KernelSetup):
+        """Run a configured marker evaluation and communicate its outputs."""
+        with ProfileManager.profile_region("kernel: " + setup.name):
+            setup.evaluate(self.particles.args_markers, self.args_domain)
+        if self._box_comm:
+            self.particles.put_particles_in_boxes()
 
     def _push(self, dt: float):
         """Body of :meth:`__call__`, see there."""
@@ -218,26 +226,13 @@ class Pusher:
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
 
-        # if init_kernels is not empty, do evaluations at initial positions 0:3
-        for ker_args in self.init_kernels:
-            ker = ker_args[0]
-            column_nr = ker_args[1]
-            comps = ker_args[2]
-            add_args = ker_args[3]
+        # Evaluate the initial state once, before any stage or iteration.
+        for setup in self.init_kernels:
+            self._evaluate(setup)
 
-            with ProfileManager.profile_region(self._kernel_region(ker)):
-                ker(
-                    xp.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                    column_nr,
-                    comps,
-                    self.particles.args_markers,
-                    self._args_domain,
-                    *add_args,
-                )
-
-            # update boxes
-            if self._box_comm:
-                self.particles.put_particles_in_boxes()
+        # markers are sorted on entry and initial positions equal current positions,
+        # hence they are sorted for any alpha until the kernel moves them
+        self._sorted_for = "any"
 
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
@@ -256,44 +251,13 @@ class Pusher:
             while True:
                 k += 1
 
-                # if eval_kernels is not empty, do spline evaluations
-                for ker_args in self.eval_kernels:
-                    ker = ker_args[0]
-                    alpha = ker_args[1]
-                    column_nr = ker_args[2]
-                    comps = ker_args[3]
-                    add_args = ker_args[4]
-
+                for setup in self.eval_kernels:
                     # sort according to alpha-weighted average
-                    if self.particles.mpi_comm is not None:
-                        self.particles.mpi_sort_markers(
-                            apply_bc=False,
-                            alpha=alpha[:3],
-                            remove_ghost=False,
-                        )
-
-                    # evaluate
-                    with ProfileManager.profile_region(self._kernel_region(ker)):
-                        ker(
-                            alpha,
-                            column_nr,
-                            comps,
-                            self.particles.args_markers,
-                            self._args_domain,
-                            *add_args,
-                        )
-
-                    # update boxes
-                    if self._box_comm:
-                        self.particles.put_particles_in_boxes()
+                    self._sort_for_alpha(setup.sorting_alpha)
+                    self._evaluate(setup)
 
                 # sort according to alpha-weighted average
-                if self.particles.mpi_comm is not None:
-                    self.particles.mpi_sort_markers(
-                        apply_bc=False,
-                        alpha=self._alpha_in_kernel,
-                        remove_ghost=False,
-                    )
+                self._sort_for_alpha(self._alpha_in_kernel)
 
                 # push markers
                 with ProfileManager.profile_region("kernel: " + self.kernel.name):
@@ -305,8 +269,12 @@ class Pusher:
                         *self._args_kernel,
                     )
 
-                self.particles.apply_kinetic_bc(newton=self._newton)
-                self.particles.update_holes()
+                # markers have moved
+                if self.pushes_eta:
+                    self._sorted_for = None
+
+                # kinetic boundary conditions are applied per marker inside the kernel
+                self.particles.finish_kernel_bc(newton=self._newton)
 
                 # update boxes
                 if self._box_comm:
@@ -347,20 +315,14 @@ class Pusher:
                         )
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
+                        self._sort_for_alpha(1.0, remove_ghost=True)
                     break
 
                 # check for convergence
                 if n_not_converged[0] == 0:
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
+                        self._sort_for_alpha(1.0, remove_ghost=True)
 
                     break
 
@@ -372,9 +334,27 @@ class Pusher:
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
             if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(do_test=True)
-            else:
-                self.particles.apply_kinetic_bc()
+                self.particles.mpi_sort_markers(apply_bc=False, do_test=True)
+
+    def _sort_for_alpha(self, alpha: float | int | tuple | list, remove_ghost: bool = False):
+        """MPI sort markers according to the alpha-weighted average of positions,
+        unless they are already sorted accordingly or the kernel does not need it."""
+        if self.particles.mpi_comm is None or self.local_eval_only:
+            return
+
+        if xp.ndim(alpha) == 0:
+            alpha = (alpha, alpha, alpha)
+        alpha = tuple(float(a) for a in alpha)
+
+        if self._sorted_for == "any" or self._sorted_for == alpha:
+            return
+
+        self.particles.mpi_sort_markers(
+            apply_bc=False,
+            alpha=alpha,
+            remove_ghost=remove_ghost,
+        )
+        self._sorted_for = alpha
 
     @property
     def particles(self):
@@ -382,18 +362,18 @@ class Pusher:
         return self._particles
 
     @property
-    def kernel(self):
-        """The pyccelized pusher kernel."""
+    def kernel(self) -> PyccelKernel | CudaKernel:
+        """The pusher kernel for the active backend (pyccel or CUDA)."""
         return self._kernel
 
     @property
-    def init_kernels(self):
-        """A dict of kernels for initial spline evaluation before iteration."""
+    def init_kernels(self) -> tuple[KernelSetup, ...]:
+        """Ordered setups for evaluations at the initial state."""
         return self._init_kernels
 
     @property
-    def eval_kernels(self):
-        """A dict of kernels for spline evaluation before execution of kernel during iteration."""
+    def eval_kernels(self) -> tuple[KernelSetup, ...]:
+        """Ordered setups for evaluations before each pusher stage/iteration."""
         return self._eval_kernels
 
     @property
@@ -422,9 +402,19 @@ class Pusher:
         return self._tol
 
     @property
+    def pushes_eta(self):
+        """Whether the kernel updates the marker positions."""
+        return self._pushes_eta
+
+    @property
+    def local_eval_only(self):
+        """Whether the kernel needs no distributed spline evaluations (sorting only after last stage)."""
+        return self._local_eval_only
+
+    @property
     def mpi_sort(self):
         """When to do MPI sorting:
-        * None : no sorting at all.
+        * None : no sorting at all (only for ``pushes_eta=False``).
         * each : sort markers after each stage.
         * last : sort markers after last stage.
         """

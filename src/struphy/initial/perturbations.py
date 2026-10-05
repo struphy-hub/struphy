@@ -6,8 +6,6 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-import scipy
-import scipy.special
 
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
@@ -183,7 +181,7 @@ class ModesSin(Perturbation):
                 self.pfuns += [lambda eta3: 1.0]
             elif pfun == "localize":
                 self.pfuns += [
-                    lambda eta3: xp.tanh((eta3 - 0.5) / params) / xp.cosh((eta3 - 0.5) / params),
+                    lambda eta3, p=params: xp.tanh((eta3 - 0.5) / p) / xp.cosh((eta3 - 0.5) / p),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -374,6 +372,8 @@ class CoaxialWaveguideElectric_r(Perturbation):
         self.comp = 0
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -419,6 +419,8 @@ class CoaxialWaveguideElectric_theta(Perturbation):
         self.comp = 1
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -461,6 +463,8 @@ class CoaxialWaveguideMagnetic(Perturbation):
         self.comp = 2
 
     def __call__(self, eta1, eta2, eta3):
+        import scipy.special
+
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
         theta = eta2 * 2.0 * xp.pi
@@ -1026,20 +1030,20 @@ class TorusModesSin(Perturbation):
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
+                self._pfuns += [lambda eta1, ls=ls: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2)) / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        -(eta1 - params[0])
-                        / params[1] ** 2
-                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        -(eta1 - p[0])
+                        / p[1] ** 2
+                        * xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             else:
@@ -1169,22 +1173,22 @@ class TorusModesCos(Perturbation):
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
+                self._pfuns += [lambda eta1, ls=ls: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "cos":
                 self._pfuns += [lambda eta1: xp.cos(xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2)) / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        -(eta1 - params[0])
-                        / params[1] ** 2
-                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        -(eta1 - p[0])
+                        / p[1] ** 2
+                        * xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             else:
@@ -2175,7 +2179,7 @@ class ITPA_density(Perturbation):
         val = 0.0
 
         if self._c[2] == 0.0:
-            val = self._c[3] - 0 * eta1
+            val = self._n0 * self._c[3] - 0 * eta1
         else:
             val = (
                 self._n0

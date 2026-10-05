@@ -243,6 +243,7 @@ class VariationalQBEvolve(Propagator):
         else:
             self._bt2 = self.bt2.spline.vector
 
+        self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
         self._info = self._nonlin_solver.info and (self.rank == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
@@ -457,10 +458,7 @@ class VariationalQBEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
-                )
+                logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
             bn1 -= incr[1]
             qn1 -= incr[2]
@@ -669,7 +667,7 @@ class VariationalQBEvolve(Propagator):
         qn12 += qn1
         qn12 *= 0.5
         if self._linearize:
-            wq = self.mass_ops.M3.dot(qn12 - self._extracted_q2, out=self._linear_form_dl_dq)
+            wq = self.mass_ops.M3.dot(qn12 - self._extracted_q3, out=self._linear_form_dl_dq)
         else:
             wq = self.mass_ops.M3.dot(qn12, out=self._linear_form_dl_dq)
         wq *= -2 / (self._gamma - 1)

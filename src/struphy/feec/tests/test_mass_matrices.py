@@ -558,6 +558,54 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free, ma
     assert xp.all(xp.isclose(M1B1.toarray(), M1B2.toarray())), "Mass matrices for B1 and B2 are not equal."
 
 
+@pytest.mark.parametrize(
+    "V_id, W_id, weights",
+    [("H1", "L2", ("sqrt_g",)), ("Hcurl", "Hdiv", ("DFinv", "sqrt_g"))],
+)
+def test_matrix_free_transpose(V_id, W_id, weights):
+    """Matrix-free mass operators must agree with the assembled ones for M, M.T and transposed=True."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    xp.random.seed(1234)
+
+    grid = TensorProductGrid(num_elements=(3, 3, 2))
+    derham = Derham(grid, DerhamOptions(degree=(1, 1, 1), bcs=(None, None, None)))
+    domain = domains.Colella()
+
+    M_ref = WeightedMassOperators(derham, domain).create_weighted_mass(
+        V_id, W_id, name="M", weights=weights, assemble=True
+    )
+    mass_ops_mf = WeightedMassOperators(derham, domain, matrix_free=True)
+    M_mf = mass_ops_mf.create_weighted_mass(V_id, W_id, name="M", weights=weights, assemble=True)
+    Mt_mf = mass_ops_mf.create_weighted_mass(V_id, W_id, name="Mt", weights=weights, assemble=True, transposed=True)
+
+    def random_vector(space):
+        v = space.zeros()
+        for block in getattr(v, "blocks", (v,)):
+            block._data[:] = xp.random.rand(*block._data.shape)
+        v.update_ghost_regions()
+        return v
+
+    x = random_vector(M_ref.domain)
+    y = random_vector(M_ref.codomain)
+
+    Mx = M_ref.dot(x)
+    MTy = M_ref.T.dot(y)
+
+    assert xp.allclose(M_mf.dot(x).toarray(), Mx.toarray(), atol=1e-12)
+    assert xp.allclose(M_mf.T.dot(y).toarray(), MTy.toarray(), atol=1e-12)
+    assert xp.allclose(M_mf.T.T.dot(x).toarray(), Mx.toarray(), atol=1e-12)
+    assert xp.allclose(Mt_mf.dot(y).toarray(), MTy.toarray(), atol=1e-12)
+    assert xp.isclose(M_mf.dot(x).inner(y), x.inner(M_mf.T.dot(y)), rtol=1e-12)
+
+
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])
 @pytest.mark.parametrize("degree", [[2, 2, 3]])
 @pytest.mark.parametrize(
@@ -1280,6 +1328,50 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     logger.info(f"Rank {mpi_rank} | All tests passed!")
 
 
+@pytest.mark.parametrize("num_elements", [(8, 6, 4)])
+@pytest.mark.parametrize("degree", [(1, 2, 1), (2, 1, 2)])
+@pytest.mark.parametrize("bcs", [(None, None, None), (("dirichlet", "dirichlet"), None, None)])
+def test_matrix_free_diagonal(num_elements, degree, bcs):
+    """Compare the diagonal of matrix-free mass operators with the one of the assembled operators
+    (also under MPI), and check that matrix-free operators without weights can be applied."""
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    mpi_comm = MPI.COMM_WORLD
+
+    domain = domains.Colella()
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham = Derham(grid, DerhamOptions(degree=degree, bcs=bcs), comm=mpi_comm, domain=domain)
+
+    mass_ops_free = WeightedMassOperators(derham, domain, matrix_free=True)
+    mass_ops_mat = WeightedMassOperators(derham, domain, matrix_free=False)
+
+    def local_diag(diag):
+        if hasattr(diag, "blocks"):
+            return [diag.blocks[i][i]._data for i in range(len(diag.blocks))]
+        return [diag._data]
+
+    for name in ("M0", "M1"):
+        diag_free = local_diag(getattr(mass_ops_free, name).matrix.diagonal())
+        diag_mat = local_diag(getattr(mass_ops_mat, name).matrix.diagonal())
+        for d_free, d_mat in zip(diag_free, diag_mat):
+            assert xp.allclose(d_free, d_mat, rtol=1e-12, atol=0.0)
+
+    # matrix-free operator without weights is zero
+    op = mass_ops_free.create_weighted_mass("H1", "H1", weights=None)
+    v = op.domain.zeros()
+    v._data[:] = 1.0
+    assert xp.all(op.dot(v).toarray() == 0.0)
+    assert xp.all(op.matrix.diagonal()._data == 0.0)
+
+
 @pytest.mark.parametrize("num_elements", [[12, 13, 14]])
 @pytest.mark.parametrize("mpi_mask", [(False, False, True), (True, False, True)])
 @pytest.mark.parametrize("degree", [[2, 2, 3], [1, 1, 1], [1, 4, 2]])
@@ -1358,6 +1450,172 @@ def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False)
             plt.xlabel("eta_" + str(xlabel))
             plt.ylabel("eta_" + str(ylabel))
             plt.show()
+
+
+@pytest.mark.parametrize("bcs", [(None, None, None), (("free", "dirichlet"), None, ("dirichlet", "dirichlet"))])
+def test_average_operator_transpose(bcs):
+    """Check that AverageOperator.T can be built and satisfies <A x, y> = <x, A.T y>."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.mass import AverageOperator
+    from struphy.feec.psydac_derham import Derham
+
+    comm = MPI.COMM_WORLD
+    derham = Derham(
+        grids.TensorProductGrid([5, 6, 7], (False, False, True)),
+        DerhamOptions([2, 1, 3], bcs),
+        comm=(comm if comm.Get_size() > 1 else None),
+        domain=domains.Cuboid(),
+    )
+
+    x = derham.V0.zeros()
+    y = derham.V0.zeros()
+    x._data[:] = xp.random.random(x._data.shape)
+    y._data[:] = xp.random.random(y._data.shape)
+
+    for dir in range(3):
+        av_op = AverageOperator(derham, "H1", dir)
+        av_op_T = av_op.T
+        assert av_op_T._transposed
+        assert not av_op_T.T._transposed
+        assert av_op.nquads == av_op_T.nquads == derham.nquads
+        assert AverageOperator(derham, "H1", dir, nquads=[2, 2, 2]).T.nquads == [2, 2, 2]
+
+        lhs = av_op.dot(x).inner(y)
+        rhs = x.inner(av_op_T.dot(y))
+        assert xp.isclose(lhs, rhs, rtol=1e-12, atol=0.0)
+
+
+def test_average_operator_subcomm():
+    """Check that the AverageOperator subcomm of each rank holds exactly the ranks of its perpendicular block.
+    Nel=98 is a case where the colour from the domain breaks was wrong for 2 processes per direction."""
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.mass import AverageOperator
+    from struphy.feec.psydac_derham import Derham
+
+    comm = MPI.COMM_WORLD
+    if comm.Get_size() == 1:
+        return
+
+    derham = Derham(
+        grids.TensorProductGrid([98, 2, 98], (True, False, True)),
+        DerhamOptions([1, 1, 1], (None, None, None)),
+        comm=comm,
+        domain=domains.Cuboid(),
+    )
+    coords = derham.domain_decomposition.coords
+
+    for dir in range(3):
+        av_op = AverageOperator(derham, "H1", dir)
+        perp = [d for d in range(3) if d != dir]
+        key = tuple(int(coords[d]) for d in perp)
+        all_keys = comm.allgather(key)
+        expected = sorted(r for r, k in enumerate(all_keys) if k == key)
+        members = sorted(av_op.subcomm.allgather(comm.Get_rank()))
+        assert members == expected
+
+
+@pytest.mark.parametrize("dim_reduce", [0, 1, 2])
+def test_mass_preconditioner_array_weights_mpi(dim_reduce):
+    """Preconditioner with array weights must not depend on the MPI decomposition
+    (num_elements not divisible by the number of processes)."""
+
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy.feec.mass import WeightedMassOperator
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    grid = TensorProductGrid(num_elements=[7, 5, 4])
+    derham_opts = DerhamOptions(degree=[2, 2, 1], bcs=(None, None, None))
+
+    out = []
+    for comm in (MPI.COMM_WORLD, None):
+        derham = Derham(grid, derham_opts, comm=comm)
+        pts = [p.flatten() for p in derham.spline_attributes["H1"].quad_grid_pts[0]]
+        e1, e2, e3 = xp.meshgrid(*pts, indexing="ij")
+        weight = 1.0 + e1 + 2.0 * e2**2 + 3.0 * e3**3 + e1 * e2 * e3
+
+        M = WeightedMassOperator(
+            derham,
+            derham.V0fem,
+            derham.V0fem,
+            V_boundary_op=derham.boundary_ops["0"],
+            W_boundary_op=derham.boundary_ops["0"],
+            weights_info=[[weight]],
+        )
+        M.assemble()
+
+        _, v = create_equal_random_arrays(derham.V0fem, seed=1234)
+        out += [MassMatrixPreconditioner(M, dim_reduce=dim_reduce).dot(v)]
+
+    s, e = out[0].space.starts, out[0].space.ends
+    sl = tuple(slice(si, ei + 1) for si, ei in zip(s, e))
+    assert xp.allclose(out[0][sl], out[1][sl], rtol=1e-12, atol=1e-14)
+
+
+def test_transpose_and_copy():
+    """WeightedMassOperator.T and .copy() must work without a name, keep spline weights
+    and transpose the data of accumulation-type (symm/asym) matrices (#501)."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    xp.random.seed(1234)
+
+    grid = TensorProductGrid(num_elements=(3, 4, 2))
+    derham = Derham(grid, DerhamOptions(degree=(1, 2, 1), bcs=(None, None, None)))
+    mass_ops = WeightedMassOperators(derham, domains.Colella())
+
+    rho = derham.create_spline_function("rho", "H1")
+    rho.vector._data[:] = 1.0 + xp.random.rand(*rho.vector._data.shape)
+    rho.vector.update_ghost_regions()
+
+    # density-weighted operator without name
+    Mn = mass_ops.create_weighted_mass("Hcurl", "Hdiv", weights=("DFinv", "sqrt_g", rho), assemble=True)
+    Mn_arr = Mn.toarray()
+
+    MnT = Mn.T
+    assert xp.allclose(MnT.toarray(), Mn_arr.T, atol=1e-14)
+    MnT.assemble()
+    assert xp.allclose(MnT.toarray(), Mn_arr.T, atol=1e-14)
+    assert xp.allclose(MnT.T.toarray(), Mn_arr, atol=1e-14)
+
+    Mn_copy = Mn.copy()
+    Mn_copy.assemble()
+    assert xp.allclose(Mn_copy.toarray(), Mn_arr, atol=1e-14)
+
+    # accumulation-type matrices are filled directly (here: with the data of a non-symmetric mass matrix)
+    weights = [[(lambda e1, e2, e3, c=3 * m + n: 1.0 + c * e1 + e2 * e3**2) for n in range(3)] for m in range(3)]
+    F = mass_ops.create_weighted_mass("Hcurl", "Hcurl", name="F", weights=weights, assemble=True)
+
+    for symmetry, sign in (("symm", 1.0), ("asym", -1.0)):
+        A = mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=symmetry)
+        for a, b in ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)):
+            if A.matrix[a, b] is not None:
+                A.matrix[a, b]._data[:] = F.matrix[a, b]._data
+            if a != b:
+                A.matrix[a, b].transpose(out=A.matrix[b, a])
+                A.matrix[b, a] *= sign
+
+        A_arr = A.toarray()
+        assert xp.max(xp.abs(A_arr)) > 0.1
+        assert xp.allclose(A.T.toarray(), A_arr.T, atol=1e-14)
+        if symmetry == "asym":
+            assert xp.allclose(A.T.toarray(), -A_arr, atol=1e-14)
 
 
 if __name__ == "__main__":

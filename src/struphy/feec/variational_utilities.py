@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 
 import cunumpy as xp
-from feectools.linalg.basic import IdentityOperator, Vector
+from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 
@@ -12,13 +12,12 @@ from struphy.feec.basis_projection_ops import (
     BasisProjectionOperatorLocal,
     CoordinateProjector,
 )
-from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
 
 logger = logging.getLogger("struphy")
 
 
-class BracketOperator(LinOpWithTransp):
+class BracketOperator(LinearOperator):
     r"""The linear map :math:`\mathbb R^{3N_0} \to \mathbb R^{3N_0}`,
 
     .. math::
@@ -231,14 +230,6 @@ class BracketOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def update_u(self, newu):
         assert isinstance(newu, Vector)
         assert newu.space == self.domain
@@ -304,7 +295,7 @@ class BracketOperator(LinOpWithTransp):
         return out
 
 
-class L2_transport_operator(LinOpWithTransp):
+class L2_transport_operator(LinearOperator):
     r"""
     Operator
 
@@ -409,14 +400,6 @@ class L2_transport_operator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
@@ -459,7 +442,7 @@ class L2_transport_operator(LinOpWithTransp):
         self.Proj.update_weights(self._weights)
 
 
-class Hdiv0_transport_operator(LinOpWithTransp):
+class Hdiv0_transport_operator(LinearOperator):
     r"""
     Operator
 
@@ -590,14 +573,6 @@ class Hdiv0_transport_operator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         return Hdiv0_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
@@ -641,7 +616,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         self.Proj.update_weights(self._weights)
 
 
-class Pressure_transport_operator(LinOpWithTransp):
+class Pressure_transport_operator(LinearOperator):
     r"""
     Operator
 
@@ -779,14 +754,6 @@ class Pressure_transport_operator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
-
-    @property
-    def toarray(self):
-        raise NotImplementedError()
 
     def transpose(self, conjugate=False):
         return Pressure_transport_operator(
@@ -1045,6 +1012,9 @@ class InternalEnergyEvaluator:
         rhof1_values = self.eval_3form(rhon1, out=self._rhof1_values)
         sf_values = self.eval_3form(sn, out=self._sf_values)
 
+        if out is None:
+            out = xp.zeros_like(rhof_values)
+
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
         delta_rho_values *= 0.0
@@ -1120,6 +1090,9 @@ class InternalEnergyEvaluator:
         sf_values = self.eval_3form(sn, out=self._sf_values)
         sf1_values = self.eval_3form(sn1, out=self._sf1_values)
         rhof_values = self.eval_3form(rhon, out=self._rhof_values)
+
+        if out is None:
+            out = xp.zeros_like(rhof_values)
 
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
@@ -1197,6 +1170,9 @@ class InternalEnergyEvaluator:
         rhof1_values = self.eval_3form(rhon1, out=self._rhof1_values)
         sf_values = self.eval_3form(sn, out=self._sf_values)
 
+        if out is None:
+            out = xp.zeros_like(rhof_values)
+
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
         delta_rho_values *= 0.0
@@ -1258,6 +1234,9 @@ class InternalEnergyEvaluator:
         sf_values = self.eval_3form(sn, out=self._sf_values)
         sf1_values = self.eval_3form(sn1, out=self._sf1_values)
 
+        if out is None:
+            out = xp.zeros_like(rhof_values)
+
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
         delta_s_values *= 0.0
@@ -1312,6 +1291,8 @@ class InternalEnergyEvaluator:
         # -metric *(eta*(de_rho_s1*delta_s_values-e_rho_s1+e_rho_s)/(delta_s_values**2+1e-40) + (1-eta)*d2e_rho_s1)
         out += d2e_rho_s1
         out *= -1.0
+
+        return out
 
     def eval_3form(self, coeffs, out=None):
         """Evaluate the 3 form with FE coefficient coeffs on the grid"""

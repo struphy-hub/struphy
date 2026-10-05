@@ -13,7 +13,6 @@ from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
 from line_profiler import profile
 from scipy import sparse
-from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
@@ -54,6 +53,7 @@ class MassMatrixPreconditioner(LinearOperator):
         self._codomain = mass_operator.codomain
         self._domain = mass_operator.domain
         self._apply_bc = apply_bc
+        self._dim_reduce = dim_reduce
 
         # 3d Kronecker stencil matrices and solvers
         solverblocks = []
@@ -86,24 +86,21 @@ class MassMatrixPreconditioner(LinearOperator):
         derham = mass_operator.derham
         logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
         comm = derham.comm
-        if not isinstance(comm, (MockComm, type(None))):
+        dom_dec = derham.domain_decomposition
+        gather_weights = not isinstance(comm, (MockComm, type(None)))
+        if gather_weights:
             rank = comm.Get_rank()
-            dom_arr = derham.domain_array
-            selected_ranks = []
-            left = 0.0
-            right = 1.0
-            for i, arr in enumerate(dom_arr):
-                left_i = arr[3 * dim_reduce]
-                right_i = arr[3 * dim_reduce + 1]
-                if left_i != left or right_i != right:
-                    selected_ranks.append(i)
-                    left = left_i
-                    right = right_i
-
-            logger.debug(f"Selected ranks for gathering 1d weight info in dimension {dim_reduce}: {selected_ranks}")
-            logger.debug(f"{dom_arr = }")
-            color = 0 if rank in selected_ranks else MPI.UNDEFINED
+            # in the directions other than dim_reduce, the weight is taken at the global mid point;
+            # select the ranks owning the mid element there (exactly one rank per slab along dim_reduce)
+            is_selected = all(
+                dom_dec.starts[i] <= derham.num_elements[i] // 2 <= dom_dec.ends[i]
+                for i in range(n_dims)
+                if i != dim_reduce
+            )
+            color = 0 if is_selected else MPI.UNDEFINED
             subcomm = comm.Split(color=color, key=rank)
+            root = comm.allreduce(rank if is_selected else comm.Get_size(), op=MPI.MIN)
+            logger.debug(f"Rank {rank} selected for gathering 1d weight info in dimension {dim_reduce}: {is_selected}")
 
         # loop over components
         for c in range(n_comps):
@@ -134,30 +131,31 @@ class MassMatrixPreconditioner(LinearOperator):
                         logger.debug(f"{loc_weights.shape = } for component {c} and direction {d}.")
                         npts = derham.num_elements[d] * derham.nquads[d]
                         fun = xp.zeros(npts, dtype=float)
+                        # local index of the global mid quadrature point in the other directions
+                        # (clipped on non-selected ranks, which receive the gathered weight below)
+                        mid = [0] * n_dims
+                        for i in range(n_dims):
+                            if i != d:
+                                nq_i = s[i] // dom_dec.local_ncells[i]
+                                mid_i = (derham.num_elements[i] * nq_i) // 2 - dom_dec.starts[i] * nq_i
+                                mid[i] = min(max(mid_i, 0), s[i] - 1)
                         if d == 0:
-                            local_fun = loc_weights[:, s[1] // 2, s[2] // 2]
+                            local_fun = loc_weights[:, mid[1], mid[2]]
                         elif d == 1:
-                            local_fun = loc_weights[s[0] // 2, :, s[2] // 2]
+                            local_fun = loc_weights[mid[0], :, mid[2]]
                         elif d == 2:
-                            local_fun = loc_weights[s[0] // 2, s[1] // 2, :]
-                        local_fun = xp.ascontiguousarray(local_fun)
+                            local_fun = loc_weights[mid[0], mid[1], :]
+                        local_fun = xp.ascontiguousarray(local_fun, dtype=float)
                         logger.debug(
                             f"{fun.size = } for component {c} and direction {d} before gathering on all processes."
                         )
-                        if (
-                            local_fun.size < npts
-                        ):  # this branch is only entered if comm exists (and thus subcomm has been initialized)
+                        if gather_weights:
+                            # local sizes differ if num_elements[d] is not divisible by the number of processes
                             if subcomm != MPI.COMM_NULL:
-                                subcomm.Allgather(local_fun, fun)
-                                """gathered = subcomm.gather(local_fun, root=selected_ranks[0])
-                                if rank == selected_ranks[0]:
-                                    if gathered is None:
-                                        raise RuntimeError("MPI gather failed to return data on root rank")
-                                    fun[:] = xp.concatenate(gathered)
-                                    assert fun.size == npts, (
-                                        f"Gathered weight size {fun.size} does not match expected {npts}"
-                                    )"""
-                            comm.Bcast(fun, root=selected_ranks[0])
+                                counts = subcomm.allgather(local_fun.size)
+                                displs = [sum(counts[:j]) for j in range(len(counts))]
+                                subcomm.Allgatherv(local_fun, [fun, counts, displs, MPI.DOUBLE])
+                            comm.Bcast(fun, root=root)
                         else:
                             fun[:] = local_fun
                         logger.debug(
@@ -385,17 +383,11 @@ class MassMatrixPreconditioner(LinearOperator):
     def dtype(self):
         return self._dtype
 
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
-        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc, self._dim_reduce)
 
     @profile
     def solve(self, rhs, out=None):
@@ -722,7 +714,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         # Need to assemble the logical mass matrix to extract the coefficients
         fun = [
-            [lambda e1, e2, e3: xp.ones_like(e1, dtype=float) if i == j else None for j in range(3)] for i in range(3)
+            [(lambda e1, e2, e3: xp.ones_like(e1, dtype=float)) if i == j else None for j in range(3)] for i in range(3)
         ]
         log_M = WeightedMassOperator(
             self._mass_operator.derham,
@@ -785,17 +777,11 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             self._M = mass_operator.M
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True, out=self._M_invsrqt_diag)
 
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
-
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
-        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+        return MassMatrixDiagonalPreconditioner(self._mass_operator.transpose(), self._apply_bc)
 
     def _solve_no_bc(self, rhs, out):
         r"""
@@ -943,6 +929,8 @@ class FFTSolver(BandedSolver):
         transposed : bool
             If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
+
+        from scipy.linalg import solve_circulant
 
         assert rhs.T.shape[0] == self._column.size
 

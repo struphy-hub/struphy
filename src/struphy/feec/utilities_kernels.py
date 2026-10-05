@@ -181,7 +181,7 @@ def hybrid_weight(
                                 df_out[0, 0] * df_out[0, 1] + df_out[1, 0] * df_out[1, 1] + df_out[2, 0] * df_out[2, 1]
                             )
                             G[0, 2] = (
-                                df_out[0, 0] * df_out[0, 2] + df_out[1, 0] * df_out[1, 2] + df_out[2, 2] * df_out[2, 2]
+                                df_out[0, 0] * df_out[0, 2] + df_out[1, 0] * df_out[1, 2] + df_out[2, 0] * df_out[2, 2]
                             )
 
                             G[1, 1] = (

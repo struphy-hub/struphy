@@ -117,7 +117,8 @@ class CurrentCoupling5DCurlb(Propagator):
             accumulation kernel.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
-            FEEC space used for the unknown ``u`` variable.
+            FEEC space used for the unknown ``u`` variable. Only ``"Hdiv"`` and
+            ``"H1vec"`` are supported.
 
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used by :class:`SchurSolver`.
@@ -148,6 +149,12 @@ class CurrentCoupling5DCurlb(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
+
+            # the accumulation kernel cc_lin_mhd_5d_curlb only has H1vec and Hdiv branches
+            if self.u_space not in ("Hdiv", "H1vec"):
+                raise ValueError(
+                    f'{self.u_space = } is not supported by CurrentCoupling5DCurlb, choose from "Hdiv" or "H1vec".',
+                )
 
             # defaults
             if self.solver_params is None:
@@ -227,15 +234,13 @@ class CurrentCoupling5DCurlb(Propagator):
         )
 
         # define Pusher
-        if self.options.u_space == "Hcurl":
-            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
-        elif self.options.u_space == "Hdiv":
+        if self.options.u_space == "Hdiv":
             pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
         elif self.options.u_space == "H1vec":
             pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
         else:
             raise ValueError(
-                f'{self.options.u_space  =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
             )
 
         args_pusher_kernel = (
@@ -261,6 +266,7 @@ class CurrentCoupling5DCurlb(Propagator):
             args_pusher_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
+            pushes_eta=False,
         )
 
         _BC = -1 / 4 * self._ACC.operators[0]
@@ -280,7 +286,8 @@ class CurrentCoupling5DCurlb(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self.b_tilde.spline.vector
+        if self.b_tilde is not None:
+            b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         self._ACC(

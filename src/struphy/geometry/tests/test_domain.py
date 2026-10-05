@@ -2,6 +2,7 @@ import copy
 import logging
 import pickle
 
+import cunumpy
 import pytest
 
 logger = logging.getLogger("struphy")
@@ -50,6 +51,30 @@ def test_domain_pickle_roundtrip(mapping):
     markers = xp.array([[0.3, 0.5, 0.7]])
     assert xp.allclose(domain(markers), restored(markers))
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
+
+
+def test_spline_default(with_gvec=False):
+    """Spline() with default arguments should use the control points of the default GVEC equilibrium."""
+
+    if not with_gvec:
+        pytest.skip("GVEC not tested here (with_gvec=False), like the other GVEC tests")
+    pytest.importorskip("gvec")
+
+    import cunumpy as xp
+
+    from struphy.fields_background.equils import GVECequilibrium
+    from struphy.geometry.base import Spline
+
+    domain = Spline()
+    ref = GVECequilibrium().domain
+
+    assert xp.allclose(domain.cx, ref.cx)
+    assert xp.allclose(domain.cy, ref.cy)
+    assert xp.allclose(domain.cz, ref.cz)
+
+    markers = xp.array([[0.3, 0.5, 0.7]])
+    assert xp.allclose(domain(markers), ref(markers))
+    assert xp.allclose(domain.jacobian_det(markers), ref.jacobian_det(markers))
 
 
 def test_prepare_arg():
@@ -186,6 +211,31 @@ def test_prepare_arg():
     assert Domain.prepare_arg(A, markers).shape == shape_vector
     assert Domain.prepare_arg((A1, A2, A3), markers).shape == shape_vector
     assert Domain.prepare_arg([A1, A2, A3], markers).shape == shape_vector
+
+
+@pytest.mark.parametrize("sfl, pol_period", [(False, 1), (False, 2), (True, 1)])
+def test_hollow_torus_inverse_map(sfl, pol_period):
+    """HollowTorus.inverse_map must invert the mapping, also on the midplane z = 0."""
+
+    import cunumpy as xp
+
+    from struphy.geometry.domains import HollowTorus
+
+    domain = HollowTorus(sfl=sfl, pol_period=pol_period)
+
+    xp.random.seed(1234)
+    etas = xp.random.rand(50, 3)
+    # eta2 = 0 and eta2 = 0.5 lie on the midplane
+    etas[:10, 1] = 0.0
+    etas[10:20, 1] = 0.5
+
+    x, y, z = domain(etas, remove_outside=False)
+    e1, e2, e3 = domain.inverse_map(x, y, z)
+
+    assert xp.allclose(domain(xp.stack([e1, e2, e3], axis=1), remove_outside=False), xp.stack([x, y, z]))
+    assert xp.allclose(e1, etas[:, 0])
+    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[:, 1]), 1 - xp.abs(e2 - etas[:, 1])), 0.0)
+    assert xp.allclose(e3, etas[:, 2])
 
 
 @pytest.mark.parametrize(
@@ -372,6 +422,34 @@ def test_evaluation_mappings(mapping):
     assert domain.jacobian_det(mat_x, mat_y, mat_z).shape == () + mat_x.shape
     assert domain.metric(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
     assert domain.metric_inv(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
+
+
+@pytest.mark.parametrize("s", [0.5, 1.0, 2.0])
+def test_powered_ellipse_df_finite_difference(s):
+    """Jacobian kernel of PoweredEllipticCylinder must match finite differences of the mapping (issue #424)."""
+
+    import numpy as np
+
+    from struphy.geometry.domains.powered_elliptic_cylinder import powered_elliptic_cylinder_kernels as kernels
+
+    rx, ry, lz = 1.0, 2.0, 6.0
+    h = 1e-6
+    eta = np.array([0.3, 0.2, 0.7])
+
+    df = np.zeros((3, 3))
+    kernels.powered_ellipse_df(*eta, rx, ry, lz, s, df)
+
+    df_fd = np.zeros((3, 3))
+    for j in range(3):
+        fp, fm = np.zeros(3), np.zeros(3)
+        eta_p, eta_m = eta.copy(), eta.copy()
+        eta_p[j] += h
+        eta_m[j] -= h
+        kernels.powered_ellipse(*eta_p, rx, ry, lz, s, fp)
+        kernels.powered_ellipse(*eta_m, rx, ry, lz, s, fm)
+        df_fd[:, j] = (fp - fm) / (2 * h)
+
+    assert np.allclose(df, df_fd, rtol=1e-6, atol=1e-8)
 
 
 def test_pullback():
@@ -875,6 +953,37 @@ def test_transform():
             assert domain.transform(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (3,) + mat_x.shape
 
 
+@pytest.mark.parametrize("poc", [1, 2, 4])
+def test_hollow_cyl_df_finite_difference(poc):
+    """Compares the HollowCylinder Jacobian kernel with central finite differences of the mapping kernel."""
+
+    import numpy as np
+
+    from struphy.geometry.domains.hollow_cylinder.hollow_cylinder_kernels import hollow_cyl, hollow_cyl_df
+
+    a1, a2, lz = 0.2, 1.0, 4.0
+    h = 1e-6
+    rng = np.random.default_rng(0)
+
+    for _ in range(10):
+        eta = rng.random(3)
+
+        df = np.zeros((3, 3))
+        hollow_cyl_df(eta[0], eta[1], a1, a2, lz, float(poc), df)
+
+        df_fd = np.zeros((3, 3))
+        for j in range(3):
+            f_p, f_m = np.zeros(3), np.zeros(3)
+            eta_p, eta_m = eta.copy(), eta.copy()
+            eta_p[j] += h
+            eta_m[j] -= h
+            hollow_cyl(*eta_p, a1, a2, lz, float(poc), f_p)
+            hollow_cyl(*eta_m, a1, a2, lz, float(poc), f_m)
+            df_fd[:, j] = (f_p - f_m) / (2 * h)
+
+        assert np.allclose(df, df_fd, atol=1e-7)
+
+
 # def test_transform():
 #    """ Tests transformation of p-forms.
 #    """
@@ -976,6 +1085,87 @@ def test_transform():
 #        a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
 #        #logger.info('matrix transformation, shape:', a.shape)
 #        assert a.shape == mat_x.shape
+
+
+requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
+
+
+def test_args_domain_selects_backend():
+    """The argument object follows the active backend."""
+    from struphy import domains
+    from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
+
+    with cunumpy.use_backend("numpy"):
+        domain = domains.Cuboid()
+        args = domain.args_domain
+        assert isinstance(args, DomainArguments)
+    if cunumpy.cupy_available():
+        with cunumpy.use_backend("cupy"):
+            assert domain.args_domain is args
+
+
+@requires_cupy
+def test_args_domain_backend_is_fixed_at_creation():
+    """Changing the active backend does not change a domain's argument object."""
+    from struphy import domains
+    from struphy.utils.cuda_arguments import CudaDomainArguments
+
+    with cunumpy.use_backend("cupy"):
+        domain = domains.Cuboid()
+        cuda_args = domain.args_domain
+        assert isinstance(cuda_args, CudaDomainArguments)
+    with cunumpy.use_backend("numpy"):
+        args = domain.args_domain
+        assert args is cuda_args
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "HollowTorus", "Colella"])
+def test_cuda_args_domain(mapping):
+    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments.
+
+    Only analytic mappings: spline mappings (e.g. IGAPolarCylinder) cannot be created on the CuPy backend yet.
+    """
+    from struphy import domains
+    from struphy.utils.cuda_arguments import CudaDomainArguments
+
+    with cunumpy.use_backend("cupy"):
+        domain = getattr(domains, mapping)()
+        args = domain.args_domain
+        assert isinstance(args, CudaDomainArguments)
+        assert domain.args_domain is args  # built once
+
+        assert args.kind_map == domain.kind_map
+        # no copies of arrays that already have the right dtype and layout
+        assert args.t1 is domain.T[0] and args.ind3 is domain.indN[2]
+
+        # the struct holds the device addresses of these arrays
+        (struct,) = args.get_cuda_args()
+        assert struct["kind_map"] == domain.kind_map
+        host = domain._pyccel_args_domain
+        for name in ("params", "degree", "t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz"):
+            dev = getattr(args, name)
+            assert struct[name] == dev.data.ptr, name
+            assert (cunumpy.to_numpy(dev) == getattr(host, name)).all(), name
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "Colella"])
+def test_domain_deepcopy_and_pickle_on_cupy(mapping):
+    """Deepcopy and unpickling on the CuPy backend rebuild both the pyccel and the CUDA arguments."""
+    from struphy import domains
+
+    with cunumpy.use_backend("cupy"):
+        domain = getattr(domains, mapping)()
+        cuda_args = domain.args_domain
+
+        for other in (copy.deepcopy(domain), pickle.loads(pickle.dumps(domain, protocol=pickle.HIGHEST_PROTOCOL))):
+            assert other.args_domain.kind_map == domain.args_domain.kind_map
+            assert (other.args_domain.params == domain.args_domain.params).all()
+            other_cuda = other.args_domain
+            assert other_cuda is not cuda_args
+            assert other_cuda.t1 is other.T[0]
+            assert other_cuda.get_cuda_args()[0]["t1"] == other.T[0].data.ptr
 
 
 if __name__ == "__main__":

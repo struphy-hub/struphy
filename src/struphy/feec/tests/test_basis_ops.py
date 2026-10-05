@@ -487,7 +487,8 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
     # if MPI_COMM is not None: MPI_COMM.Barrier()
 
     logger.info(
-        f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
+        "Rank %s | Maximum absolute diference (result):\n%s",
+        mpi_rank,
         xp.max(
             xp.abs(
                 res_PSY[
@@ -523,6 +524,130 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
 
     if MPI_COMM is not None:
         MPI_COMM.Barrier()
+
+
+def test_transposed_update_weights_drops_zero_blocks():
+    """Transposed operator must drop blocks whose weight becomes zero in update_weights (#585)."""
+    import numpy as np
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import DerhamOptions, domains, grids
+    from struphy.feec.basis_projection_ops import BasisProjectionOperator
+    from struphy.feec.psydac_derham import Derham
+
+    derham = Derham(
+        grids.TensorProductGrid(num_elements=(4, 3, 1)),
+        DerhamOptions(degree=(2, 1, 1)),
+        comm=MPI.COMM_WORLD,
+        domain=domains.Cuboid(),
+    )
+
+    def weights(c):
+        return [[(lambda e1, e2, e3, m=m, n=n: (1.0 if m == n else c) + 0 * e1) for n in range(3)] for m in range(3)]
+
+    P, V = derham.projectors["v"], derham.fem_spaces["v"]
+    op_T = BasisProjectionOperator(P, V, weights(0.5), transposed=True)
+    op_T.update_weights(weights(0.0))
+    ref_T = BasisProjectionOperator(P, V, weights(0.0), transposed=True)
+
+    assert sorted(op_T._dof_mat_T.nonzero_block_indices) == [(0, 0), (1, 1), (2, 2)]
+
+    x = P(
+        [
+            lambda e1, e2, e3: np.sin(2 * np.pi * e1),
+            lambda e1, e2, e3: 1.0 + e2,
+            lambda e1, e2, e3: np.cos(np.pi * e1),
+        ]
+    )
+    assert np.allclose(op_T.dot(x).toarray(), ref_T.dot(x).toarray(), atol=1e-12)
+
+
+@pytest.mark.parametrize("bcs", [(("dirichlet", "dirichlet"), ("dirichlet", "free"), None)])
+def test_projector_solve_apply_bc(bcs):
+    """Tensor-product case: CommutingProjector.solve(apply_bc=True) must solve I0 * x = B * rhs exactly (#584)."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    grid = TensorProductGrid(num_elements=[5, 6, 4])
+    derham = Derham(grid, DerhamOptions(degree=[2, 2, 1], bcs=bcs), comm=MPI.COMM_WORLD)
+
+    for sp_id, sp_key in [("H1", "0"), ("Hcurl", "1"), ("Hdiv", "2"), ("L2", "3"), ("H1vec", "v")]:
+        P = derham.projectors[sp_key]
+        rhs = create_equal_random_arrays(derham.fem_spaces[sp_id], seed=123)[1]
+
+        x = P.solve(rhs, apply_bc=True)
+        r = P.I0.dot(x) - P.boundary_op.dot(rhs)
+        assert xp.sqrt(r.inner(r)) < 1e-12
+
+        # preconditioner with out=None and out given must agree
+        for pc in [P.pc0, P.pc0T]:
+            y = pc.codomain.zeros()
+            pc.dot(rhs, out=y)
+            d = pc.dot(rhs) - y
+            assert xp.sqrt(d.inner(d)) == 0.0
+
+
+@pytest.mark.parametrize("num_elements", [[6, 9, 2]])
+@pytest.mark.parametrize("degree", [[2, 2, 1]])
+def test_coordinate_ops_polar(num_elements, degree):
+    """CoordinateProjector/CoordinateInclusion between polar H1vec and H1 spaces (tensor-product and polar parts)."""
+    import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import domains
+    from struphy.feec.basis_projection_ops import CoordinateInclusion, CoordinateProjector
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = domains.IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], a=1.0, Lz=3.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+
+    def random_polar_vector(space, seed):
+        xp.random.seed(seed)
+        tp = space.parent_space.zeros()
+        for block in tp.blocks if space.n_comps == 3 else [tp]:
+            block._data[:] = xp.random.rand(*block._data.shape)
+        v = space.zeros()
+        v.tp = tp
+        v.pol = [xp.random.rand(*pol.shape) for pol in v.pol]
+        v.update_ghost_regions()
+        return v
+
+    Vv, V0 = derham.Vvpol, derham.V0pol
+    v = random_polar_vector(Vv, 1234)
+    w = random_polar_vector(V0, 5678)
+
+    for mu in range(3):
+        P = CoordinateProjector(mu, Vv, V0)
+        I = CoordinateInclusion(mu, Vv, V0)
+
+        # projection picks the mu-th component (polar and tensor-product parts)
+        Pv = P.dot(v)
+        assert xp.all(Pv.pol[0] == v.pol[mu])
+        assert xp.all(Pv.tp.toarray() == v.tp[mu].toarray())
+        out = V0.zeros()
+        P.idot(v, out)
+        assert xp.all(out.toarray() == Pv.toarray())
+
+        # inclusion writes into the mu-th component only
+        Iw = I.dot(w)
+        for n in range(3):
+            assert xp.all(Iw.pol[n] == (w.pol[0] if n == mu else 0.0))
+        out = Vv.zeros()
+        I.idot(w, out)
+        assert xp.all(out.toarray() == Iw.toarray())
+
+        # inclusion is the transpose of the projection
+        assert xp.isclose(Pv.dot(w), v.dot(Iw))
+        assert xp.all(P.T.dot(w).toarray() == Iw.toarray())
 
 
 if __name__ == "__main__":
