@@ -27,6 +27,7 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     import cunumpy as xp
     from feectools.ddm.mpi import MockComm
     from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.basic import LinearOperator
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -79,13 +80,13 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
 
     # ========= test toarray_struphy =================
 
-    M0arr = M0.toarray_struphy(is_sparse=True, format="csr")
-    M1arr = M1.toarray_struphy(is_sparse=True, format="csc")
-    M2arr = M2.toarray_struphy(is_sparse=True, format="bsr")
-    M3arr = M3.toarray_struphy(is_sparse=True, format="lil")
-    M0arrad = M0.toarray_struphy(is_sparse=True, format="dok")
-    M1arrad = M1.toarray_struphy(is_sparse=True, format="coo")
-    M2arrad = M2.toarray_struphy(is_sparse=True, format="dia")
+    M0arr = LinearOperator.toarray(M0, is_sparse=True, format="csr")
+    M1arr = LinearOperator.toarray(M1, is_sparse=True, format="csc")
+    M2arr = LinearOperator.toarray(M2, is_sparse=True, format="bsr")
+    M3arr = LinearOperator.toarray(M3, is_sparse=True, format="lil")
+    M0arrad = LinearOperator.toarray(M0, is_sparse=True, format="dok")
+    M1arrad = LinearOperator.toarray(M1, is_sparse=True, format="coo")
+    M2arrad = LinearOperator.toarray(M2, is_sparse=True, format="dia")
 
     v0_local = M0.dot(v0).toarray()
     if isinstance(comm, MockComm):
