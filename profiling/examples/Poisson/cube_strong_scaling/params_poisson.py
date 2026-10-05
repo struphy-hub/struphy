@@ -135,28 +135,27 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 
 if __name__ == "__main__":
-    
     # switches for debugging and testing
     estimate_mem = False
     run = True
     pproc = True
     save_figs = True
-    
+
     if estimate_mem:
         sim.estimate_mem(print_report=True)
-        exit() 
+        exit()
 
     if run:
         out = sim.run(profiling_activated=True, one_time_step=True)
     else:
         # use this for working with existing sim data from a previous run
         out = sim.output
-    
+
     if pproc:
         out.pproc(create_vtk=True, parallel=True)
 
     from matplotlib import pyplot as plt
-    
+
     def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
 
         fig = plt.figure(figsize=(16, 12))
@@ -253,11 +252,11 @@ if __name__ == "__main__":
     if sim.rank == 0:
         # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
         # cell centres of the simulation grid (serial Derham, safe on rank 0 only).
-        rhs_data = out.evaluate("em_fields/source", t=0).isel(t=0)
+        rhs_data = out.evaluate("em_fields/source", t=0)
         print(rhs_data)
         rhs = rhs_data.values
 
-        phi_data = out.evaluate("em_fields/phi", t=-1).isel(t=0)
+        phi_data = out.evaluate("em_fields/phi", t=-1)
         print(phi_data)
         phi = phi_data.values
         x, y, z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))

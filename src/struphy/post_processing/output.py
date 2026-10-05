@@ -349,8 +349,9 @@ class Output:
 
         Common selections can be passed directly: ``t`` selects saved snapshots
         by index (an integer, list of integers, or slice); omit it for every
-        saved timestep. The returned array always retains its ``t`` dimension.
-        A float ``t`` selects a time coordinate. Other keyword arguments select
+        saved timestep. A float ``t`` selects a time coordinate. A single snapshot (an integer
+        or float ``t``) drops the ``t`` dimension and keeps the time as a scalar ``t``
+        coordinate; lists and slices keep the dimension. Other keyword arguments select
         named coordinates, for example ``component=2``. For products other than raw FEEC
         fields (post-processed fields such as ``"em_fields/phi_xyz"``, binned distributions,
         SPH densities, ...), ``eta1``, ``eta2`` and ``eta3`` select their saved logical
@@ -433,6 +434,9 @@ class Output:
         elif variables is not None:
             raise ValueError("variables= is only valid with evaluate('scalars')")
 
+        # A single snapshot drops the t dimension, as in xarray's own isel/sel.
+        single_t = isinstance(t, (int, np.integer, float, np.floating))
+
         # --- Raw FEEC fields: evaluate the saved splines on a logical grid ---
         # The time selection happens during evaluation, so t and method are consumed here.
         is_raw_spline_field = not has_eta and dataset is None and self._is_raw_spline_field(name)
@@ -444,6 +448,8 @@ class Output:
                 defaults = self._default_logical_grid()
                 eta = tuple(default if value is None else value for value, default in zip(eta, defaults))
             array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
+            if single_t:
+                array = array.isel(t=0, drop=drop)
             t = None
             method = None
         elif is_raw_spline_field:
@@ -451,6 +457,8 @@ class Output:
             array = self._evaluate_spline_field(
                 name, *self._default_logical_grid(), t=t, method=method, representation=representation
             )
+            if single_t:
+                array = array.isel(t=0, drop=drop)
             t = None
             method = None
 
@@ -463,10 +471,10 @@ class Output:
                     self.pproc(parallel=parallel)
                 array = self._product(name, dataset=dataset)
 
-        # --- Time selection; integers are wrapped in a list so that the t dimension is kept ---
+        # --- Time selection ---
         if t is not None:
             if isinstance(t, (int, np.integer)):
-                array = array.isel(t=[int(t)], drop=drop)
+                array = array.isel(t=int(t), drop=drop)
             elif isinstance(t, slice):
                 array = array.isel(t=t, drop=drop)
             elif isinstance(t, (list, tuple, np.ndarray)):
@@ -475,7 +483,7 @@ class Output:
                 array = array.isel(t=list(t), drop=drop)
             elif isinstance(t, (float, np.floating)):
                 # a time value, matched with the other coordinate selectors below
-                selectors["t"] = [float(t)]
+                selectors["t"] = float(t)
             else:
                 raise TypeError("t must be a saved-snapshot index, index sequence, slice, or float time coordinate")
 
