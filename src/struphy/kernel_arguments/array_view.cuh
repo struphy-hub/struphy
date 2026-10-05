@@ -1,6 +1,14 @@
 #pragma once
 // ABI-compatible with cunumpy array views; replaced by its header on migration.
 // Shapes and strides use 64-bit integers; strides are measured in elements.
+template<class T> struct Array1D {
+    T* data;
+    long long shape[1], strides[1];
+    __device__ inline T& operator()(long long i) const {
+        return data[i*strides[0]];
+    }
+};
+
 template<class T> struct Array2D {
     T* data;
     long long shape[2], strides[2];

@@ -64,11 +64,12 @@ class CudaKernel:
         self._block_size = block_size
         self._raw_kernel = None
         signature = re.search(r"void\s+" + re.escape(name) + r"\s*\((.*?)\)", source, re.S)
-        self._view_indices = (
-            {i for i, arg in enumerate(signature.group(1).split(",")) if "Array3D<double>" in arg}
-            if signature
-            else set()
-        )
+        self._view_dimensions = {}
+        if signature:
+            for i, arg in enumerate(signature.group(1).split(",")):
+                view = re.search(r"Array([123])D<double>", arg)
+                if view:
+                    self._view_dimensions[i] = int(view.group(1))
 
     @classmethod
     def from_file(cls, path: str | Path, name: str | None = None, block_size: int = 128) -> "CudaKernel":
@@ -119,16 +120,19 @@ class CudaKernel:
 
         values = []
         for index, arg in enumerate(args):
-            if index in self._view_indices:
+            if index in self._view_dimensions:
                 import cupy as cp
 
-                if not isinstance(arg, cp.ndarray) or arg.ndim != 3 or arg.dtype != np.float64:
-                    raise TypeError("Array3D<double> requires a three-dimensional float64 device array")
+                ndim = self._view_dimensions[index]
+                if not isinstance(arg, cp.ndarray) or arg.ndim != ndim or arg.dtype != np.float64:
+                    raise TypeError(f"Array{ndim}D<double> requires a {ndim}-dimensional float64 device array")
                 if arg.device.id != cp.cuda.runtime.getDevice():
                     raise ValueError("Array view must be on the current CUDA device")
                 view = np.zeros(
                     (),
-                    dtype=np.dtype([("data", np.uint64), ("shape", np.int64, 3), ("strides", np.int64, 3)], align=True),
+                    dtype=np.dtype(
+                        [("data", np.uint64), ("shape", np.int64, ndim), ("strides", np.int64, ndim)], align=True
+                    ),
                 )
                 view["data"] = arg.data.ptr
                 view["shape"] = arg.shape

@@ -280,6 +280,12 @@ existing MPI sorting still synchronizes dynamic counts with the host.
 Scoped to the Vlasov model: both magnetic rotation algorithms now have CUDA
 versions, using tensor-product N/D spline evaluation and strided coefficient
 views. The reflection path in Particles uses device marker/domain arguments.
-SplineFunction has device evaluation for marker and meshgrid point sets.
+SplineFunction dispatches marker, dense-grid and sparse-grid evaluation through
+three `Kernel` pairs with the existing Pyccel argument lists on both backends.
+CUDA array views carry coordinate, coefficient and output shapes/strides;
+sparse grids are evaluated directly without broadcasting or flattening coordinates.
+Immutable metadata is cached on the active backend per component. The
+`_evaluate_cuda` helper and its separate CUDA argument convention are removed
+(issue #674).
 Accumulation is deliberately left for the next Vlasov–Ampere/Maxwell step.
 GPU tests are provided but not run here, at the maintainer's request.
