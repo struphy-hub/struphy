@@ -100,6 +100,10 @@ class CudaKernel:
         n_threads : int
             Number of threads to launch (e.g. number of markers); rounded up to a multiple of the block size.
         """
+        if n_threads < 0:
+            raise ValueError("n_threads must be nonnegative")
+        if n_threads == 0:
+            return
         if self._raw_kernel is None:
             import cupy as cp
 

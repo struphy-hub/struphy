@@ -252,6 +252,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         n_mks_loc=1,
         Np=1,
         mpi_rank=0,
+        mpi_size=2,
         mpi_comm=SimpleNamespace(Allreduce=lambda *args, **kwargs: None),
         sorting_boxes=SimpleNamespace(communicate=True),
         put_particles_in_boxes=lambda: events.append("boxes"),

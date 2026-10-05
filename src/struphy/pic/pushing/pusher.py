@@ -136,6 +136,9 @@ class Pusher:
             kernel = Kernel(kernel)
         assert isinstance(kernel, Kernel), f"{kernel} is not of type Kernel or PyccelKernel"
         self._kernel = kernel.get_kernel()
+        self._cuda = isinstance(self._kernel, CudaKernel)
+        if self._cuda and args_domain.kind_map != 10:
+            raise NotImplementedError("CUDA pushers currently support only Cuboid mappings.")
 
         self._particles = particles
         self._newton = "newton" in kernel.name
@@ -237,8 +240,9 @@ class Pusher:
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = xp.empty(1, dtype=int)
-            n_not_converged[0] = self.particles.n_mks_loc
+            if self.maxiter > 1:
+                n_not_converged = xp.empty(1, dtype=int)
+                n_not_converged[0] = self.particles.n_mks_loc
             k = 0
 
             if self.maxiter > 1:
@@ -247,7 +251,8 @@ class Pusher:
                     f"rank {rank}: {k =}, tol: {self._tol}, {n_not_converged[0] =}, {max_res =}",
                 )
 
-            n_not_converged[0] = self.particles.Np
+            if self.maxiter > 1:
+                n_not_converged[0] = self.particles.Np
             while True:
                 k += 1
 
@@ -267,6 +272,7 @@ class Pusher:
                         self.particles.args_markers,
                         self._args_domain,
                         *self._args_kernel,
+                        **({"n_threads": markers.shape[0]} if self._cuda else {}),
                     )
 
                 # markers have moved
@@ -333,8 +339,8 @@ class Pusher:
 
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
-            if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(apply_bc=False, do_test=True)
+            if self.particles.mpi_comm is not None and self.particles.mpi_size > 1:
+                self.particles.mpi_sort_markers(apply_bc=False, do_test=not self._cuda)
 
     def _sort_for_alpha(self, alpha: float | int | tuple | list, remove_ghost: bool = False):
         """MPI sort markers according to the alpha-weighted average of positions,

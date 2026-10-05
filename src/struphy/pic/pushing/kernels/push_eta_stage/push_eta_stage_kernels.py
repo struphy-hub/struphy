@@ -1,6 +1,6 @@
 "Pusher kernel for full orbit (6D) particles."
 
-from numpy import empty, shape
+from numpy import empty
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
@@ -19,6 +19,7 @@ def push_eta_stage(
     a: "float[:]",
     b: "float[:]",
     c: "float[:]",
+    n_stages: int,
 ):
     r"""Single stage of a s-stage Runge-Kutta solve of
 
@@ -44,9 +45,6 @@ def push_eta_stage(
     n_markers = args_markers.n_markers
     first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
-
-    # get number of stages
-    n_stages = shape(b)[0]
 
     if stage == n_stages - 1:
         last = 1.0

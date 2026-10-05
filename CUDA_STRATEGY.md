@@ -251,3 +251,15 @@ no shape. Argument construction checks spline degrees and the current device.
 GPU parity tests cover non-block-aligned batches, domain endpoints, and mixed
 boundaries. H100 struct and helper validation is still required; the development
 workspace is macOS and has no CUDA device.
+
+## PR 11 implementation notes
+
+`push_eta_stage` now has a CUDA implementation for Cuboid. Both signatures take
+an explicit final `n_stages` argument because a raw CUDA tableau pointer has no
+length. PushEta prepares tableau arrays once; Pusher passes the current marker
+count at launch and rejects unsupported mappings during setup. Empty launches
+are no-ops. Catalog parity tests require a factory for every ported kernel and
+cover holes, boundary particles, Euler/RK4 and periodic/reflect/remove boundaries.
+The single-rank pusher test guards host array conversions after warmup.
+H100 execution and the two-rank no-transfer requirement remain unverified;
+existing MPI sorting still synchronizes dynamic counts with the host.
