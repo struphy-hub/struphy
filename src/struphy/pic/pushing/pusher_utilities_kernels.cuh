@@ -1,37 +1,100 @@
 #pragma once
-#include <math.h>
+// NVRTC provides the device math function floor without a host math.h header.
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
 namespace struphy_cuda {
-__device__ inline void reflect_velocity(int ip, const MarkerArgs& m, const DomainArgs& d, int axis) {
-    double jac[9], inv[9], v[3], logical[3], out[3];
-    df(MARKER(m,ip,0),MARKER(m,ip,1),MARKER(m,ip,2),d,jac);
-    matrix_inv(jac,inv);
-    for(int j=0;j<3;++j) v[j]=MARKER(m,ip,3+j);
-    matrix_vector(inv,v,logical); logical[axis]*=-1.; matrix_vector(jac,logical,out);
-    for(int j=0;j<3;++j) MARKER(m,ip,3+j)=out[j];
+/**
+ * Reflect one marker's velocity using the Pyccel boundary helper's calculation.
+ *
+ * @param ip Marker row index.
+ * @param args_markers Marker buffer and row layout.
+ * @param args_domain Mapping arguments for the Jacobian at the reflected position.
+ * @param axis Logical velocity component to reverse (0, 1 or 2).
+ *
+ * This CUDA-only helper extracts the velocity reflection from
+ * pusher_utilities_kernels.apply_kinetic_bc_marker. dfm, dfinv, v and
+ * v_logical retain the Pyccel names. Pull the velocity back to logical
+ * coordinates, reverse its axis component, then push it forward again.
+ */
+__device__ inline void reflect_velocity(int ip, const MarkerArgs& args_markers,
+                                       const DomainArgs& args_domain, int axis) {
+    double dfm[9], dfinv[9], v[3], v_logical[3];
+    df(MARKER(args_markers, ip, 0), MARKER(args_markers, ip, 1), MARKER(args_markers, ip, 2),
+       args_domain, dfm);
+    matrix_inv(dfm, dfinv);
+    for (int j = 0; j < 3; ++j) v[j] = MARKER(args_markers, ip, 3 + j);
+    matrix_vector(dfinv, v, v_logical);
+    v_logical[axis] *= -1.;
+    matrix_vector(dfm, v_logical, v);
+    for (int j = 0; j < 3; ++j) MARKER(args_markers, ip, 3 + j) = v[j];
 }
-__device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& m, const DomainArgs& d, bool newton) {
-    for(int axis=0;axis<3;++axis) if(m.bc_type[axis]==2 && (MARKER(m,ip,axis)>1. || MARKER(m,ip,axis)<0.)) {
-        for(int j=0;j<m.n_cols-1;++j) MARKER(m,ip,j)=-1.;
-        return;
-    }
-    bool reflected[3]={false,false,false};
-    for(int axis=0;axis<3;++axis) {
-        double& x=MARKER(m,ip,axis);
-        if(m.bc_type[axis]==0) {
-            double shift=x>1.?1.:(x<0.?-1.:0.);
-            if(shift!=0.) x-=floor(x);
-            if(newton) MARKER(m,ip,m.first_shift_idx+axis)+=shift;
-            else MARKER(m,ip,m.first_shift_idx+axis)=shift;
+
+/**
+ * Apply kinetic boundary conditions, as in pusher_utilities_kernels.apply_kinetic_bc_marker.
+ *
+ * @param ip Row index of a marker that is neither a hole nor a ghost.
+ * @param args_markers Marker buffer, boundary types and bookkeeping columns.
+ * @param args_domain Mapping arguments needed for velocity reflection.
+ * @param newton Accumulate periodic shifts if true; overwrite them otherwise.
+ *
+ * Call after updating the position. Boundary type 0 wraps periodically,
+ * type 1 mirrors position and logical velocity and sets first_init_idx to -1,
+ * type 2 clears all columns except the ID to -1, and type 3 is handled on
+ * the host. MARKER accesses the flat row-major buffer; j is a CUDA-only
+ * column index replacing Pyccel array slices.
+ */
+__device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_markers,
+                                             const DomainArgs& args_domain, bool newton) {
+    const long long* bc_type = args_markers.bc_type;
+    int first_init_idx = args_markers.first_init_idx;
+    int first_shift_idx = args_markers.first_shift_idx;
+
+    // Remove markers before applying periodic or reflecting boundaries.
+    for (int axis = 0; axis < 3; ++axis) {
+        if (bc_type[axis] == 2 &&
+            (MARKER(args_markers, ip, axis) > 1. || MARKER(args_markers, ip, axis) < 0.)) {
+            int n_cols = args_markers.n_cols;
+            for (int j = 0; j < n_cols - 1; ++j) MARKER(args_markers, ip, j) = -1.;
+            return;
         }
-        if(m.bc_type[axis]==1) {
-            if(x>1.) {x=2.-x; reflected[axis]=true;}
-            else if(x<0.) {x=-x; reflected[axis]=true;}
+    }
+
+    // Wrap positions and update the shift exactly as in the Pyccel helper.
+    for (int axis = 0; axis < 3; ++axis) {
+        if (bc_type[axis] == 0) {
+            if (MARKER(args_markers, ip, axis) > 1.) {
+                MARKER(args_markers, ip, axis) -= floor(MARKER(args_markers, ip, axis));
+                if (newton) MARKER(args_markers, ip, first_shift_idx + axis) += 1.;
+                else MARKER(args_markers, ip, first_shift_idx + axis) = 1.;
+            } else if (MARKER(args_markers, ip, axis) < 0.) {
+                MARKER(args_markers, ip, axis) -= floor(MARKER(args_markers, ip, axis));
+                if (newton) MARKER(args_markers, ip, first_shift_idx + axis) += -1.;
+                else MARKER(args_markers, ip, first_shift_idx + axis) = -1.;
+            } else if (!newton) {
+                MARKER(args_markers, ip, first_shift_idx + axis) = 0.;
+            }
         }
     }
-    for(int axis=0;axis<3;++axis) if(reflected[axis]) {
-        MARKER(m,ip,m.first_init_idx)=-1.; reflect_velocity(ip,m,d,axis);
+
+    bool reflected[3] = {false, false, false};
+    int n_reflected = 0;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (bc_type[axis] == 1) {
+            if (MARKER(args_markers, ip, axis) > 1.) {
+                MARKER(args_markers, ip, axis) = 2. - MARKER(args_markers, ip, axis);
+                reflected[axis] = true;
+                ++n_reflected;
+            } else if (MARKER(args_markers, ip, axis) < 0.) {
+                MARKER(args_markers, ip, axis) = -MARKER(args_markers, ip, axis);
+                reflected[axis] = true;
+                ++n_reflected;
+            }
+        }
+    }
+    if (n_reflected == 0) return;
+    MARKER(args_markers, ip, first_init_idx) = -1.;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (reflected[axis]) reflect_velocity(ip, args_markers, args_domain, axis);
     }
 }
 }
