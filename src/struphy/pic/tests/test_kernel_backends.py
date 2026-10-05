@@ -364,7 +364,11 @@ def test_cuda_arguments_reject_host_and_bad_arrays():
 
     CudaMarkerArguments(markers, valid_mks, 10, *MARKER_INDICES, bc_type)  # ok
     for bad_markers in (
-        markers.get(), markers.astype(np.float32), cp.zeros((N_COLS, 10)).T, cp.zeros(10), cp.zeros((2, 3, 4))
+        markers.get(),
+        markers.astype(np.float32),
+        cp.zeros((N_COLS, 10)).T,
+        cp.zeros(10),
+        cp.zeros((2, 3, 4)),
     ):
         with pytest.raises(TypeError):
             CudaMarkerArguments(bad_markers, valid_mks, 10, *MARKER_INDICES, bc_type)

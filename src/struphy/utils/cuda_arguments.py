@@ -19,9 +19,7 @@ C_TYPES = {
     "double*": np.uint64,
     "bool*": np.uint64,
     "long long*": np.uint64,
-    "Array2D<double>": np.dtype(
-        [("data", np.uint64), ("shape", np.int64, 2), ("strides", np.int64, 2)], align=True
-    ),
+    "Array2D<double>": np.dtype([("data", np.uint64), ("shape", np.int64, 2), ("strides", np.int64, 2)], align=True),
 }
 
 
