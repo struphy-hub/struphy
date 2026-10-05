@@ -18,6 +18,7 @@ from struphy.linear_algebra.multigrid.smoothers import (
     ChebyshevSmoother,
     DiagonalComputer,
     JacobiSmoother,
+    KrylovSmoother,
     inverse_diagonal,
 )
 from struphy.topology.grids import TensorProductGrid
@@ -88,6 +89,41 @@ def test_smoother_symmetric(kind):
         S = JacobiSmoother(A, D_inv, sweeps=3)
     Sd = _assemble_dense(_SmootherAsOperator(S))
     assert np.abs(Sd - Sd.T).max() < 1e-12 * np.abs(Sd).max()
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("iterations", [1, 2, 4])
+def test_krylov_smoother(iterations):
+    """KrylovSmoother performs exactly ``iterations`` CG steps and is safe for a zero residual."""
+    derham, _, mass_ops, A = _poisson(8, 2, PERIODIC, sigma=0.5)
+    _, b = create_equal_random_arrays(derham.fem_spaces["0"], seed=3)
+
+    # zero right-hand side with zero initial guess: x stays zero (no NaN)
+    x = A.domain.zeros()
+    KrylovSmoother(A, iterations=iterations).smooth(A.domain.zeros(), x)
+    assert np.all(x.toarray() == 0.0)
+
+    # the k-th CG iterate minimizes the A-norm error over the k-th Krylov space, so the error
+    # decreases strictly with the number of iterations; compare with one call of k - 1 iterations
+    x_ref = A.domain.zeros()
+    if iterations > 1:
+        KrylovSmoother(A, iterations=iterations - 1).smooth(b, x_ref)
+    x = A.domain.zeros()
+    KrylovSmoother(A, iterations=iterations).smooth(b, x)
+
+    Ad = _assemble_dense(A)
+    x_ex = np.linalg.solve(Ad, b.toarray())
+
+    def err(y):
+        e = y.toarray() - x_ex
+        return e @ Ad @ e
+
+    assert err(x) < err(x_ref)
+
+    # one step from zero equals the steepest descent step alpha * b
+    if iterations == 1:
+        alpha = b.inner(b) / b.inner(A.dot(b))
+        assert np.allclose(x.toarray(), alpha * b.toarray(), rtol=1e-12, atol=1e-14)
 
 
 @pytest.mark.mpi_skip

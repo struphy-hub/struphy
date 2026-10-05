@@ -18,7 +18,6 @@ from feectools.linalg.basic import (
     ZeroOperator,
 )
 from feectools.linalg.block import BlockVector
-from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 
 
@@ -167,22 +166,64 @@ class ChebyshevSmoother(Smoother):
 
 
 class KrylovSmoother(Smoother):
-    """A fixed number of (preconditioned) conjugate gradient iterations, warm-started from ``x``.
+    r"""A fixed number of (preconditioned) conjugate gradient iterations, warm-started from ``x``.
+
+    Each call to :meth:`smooth` performs exactly ``iterations`` PCG steps for :math:`A x = b`,
+    starting from the current ``x``. No convergence tolerance is used; the iteration stops early only on
+    breakdown, i.e. when :math:`r^\top M^{-1} r = 0` (e.g. zero residual) or :math:`p^\top A p = 0`.
 
     Note that this smoother is non-linear; a V-cycle using it is not a fixed linear preconditioner.
+
+    Parameters
+    ----------
+    A : LinearOperator
+        System operator (symmetric positive definite).
+
+    M_inv : LinearOperator | None
+        Preconditioner :math:`M^{-1}` (symmetric positive definite). If None, the identity is used.
+
+    iterations : int
+        Number of PCG steps per call (at least 1).
     """
 
     def __init__(self, A: LinearOperator, M_inv: LinearOperator | None = None, *, iterations: int = 3):
         super().__init__(A)
-        self._solver = inverse(A, "pcg", pc=M_inv, maxiter=iterations, tol=1e-300, recycle=False)
+        assert iterations >= 1, f"KrylovSmoother needs at least one iteration, got {iterations}."
+        self._M_inv = IdentityOperator(A.domain) if M_inv is None else M_inv
+        self._iterations = iterations
+        self._z = A.domain.zeros()
+        self._p = A.domain.zeros()
+        self._q = A.domain.zeros()
 
     @property
     def is_symmetric(self) -> bool:
         return False
 
     def smooth(self, b: Vector, x: Vector) -> None:
-        self._solver._options["x0"] = x.copy()
-        self._solver.dot(b, out=x)
+        """Perform ``iterations`` PCG steps for ``A x = b``, updating ``x`` in place."""
+        r, z, p, q = self._r, self._z, self._p, self._q
+        self.residual(b, x, r)
+        self._M_inv.dot(r, out=z)
+        z.copy(out=p)
+        rz = r.inner(z)
+        for k in range(self._iterations):
+            # inner products are global reductions, hence all ranks break consistently
+            if rz == 0.0:
+                break
+            self._A.dot(p, out=q)
+            pq = p.inner(q)
+            if pq == 0.0:
+                break
+            alpha = rz / pq
+            x.mul_iadd(alpha, p)
+            if k == self._iterations - 1:
+                break
+            r.mul_iadd(-alpha, q)
+            self._M_inv.dot(r, out=z)
+            rz_new = r.inner(z)
+            p *= rz_new / rz
+            p += z
+            rz = rz_new
 
 
 def estimate_lambda_max(A: LinearOperator, M_inv: LinearOperator, *, n_iter: int = 15, seed: int = 1234) -> float:

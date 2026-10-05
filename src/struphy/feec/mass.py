@@ -2373,7 +2373,10 @@ class WeightedMassOperator(LinearOperator):
                 "WeightedMassOperators.create_weighted_mass or its data was modified afterwards."
             )
         params = dict(self._creation_info)
-        if isinstance(params["weights"], tuple):
+        # tuple (1D product of weights) and 2D list (block weights) are different formats; store the
+        # tuple as a list (JSON) and record its type, since its entries may themselves be (3x3) lists
+        params["weights_is_tuple"] = isinstance(params["weights"], tuple)
+        if params["weights_is_tuple"]:
             params["weights"] = list(params["weights"])
         return {
             "type": self.__class__.__name__,
@@ -2396,7 +2399,7 @@ class WeightedMassOperator(LinearOperator):
         params = dct["params"]
         name = params["name"]
         weights = params["weights"]
-        if isinstance(weights, list) and not (len(weights) > 0 and isinstance(weights[0], list)):
+        if params["weights_is_tuple"]:
             weights = tuple(weights)
 
         out = mass_ops.create_weighted_mass(
@@ -2441,12 +2444,12 @@ class WeightedMassOperator(LinearOperator):
             out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
-        
+
         if self._creation_info is None:
             out._creation_info = None
         else:
-            out._creation_info = dict(self._creation_info) # to create a separate dictionary
-        
+            out._creation_info = dict(self._creation_info)  # to create a separate dictionary
+
         return out
 
     def __imul__(self, a):

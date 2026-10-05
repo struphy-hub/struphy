@@ -64,6 +64,13 @@ def test_mass_to_dict(bcs):
     _, w = create_equal_random_arrays(derham.fem_spaces["2"], seed=2)
     assert _max_diff(WeightedMassOperator.from_dict(McT.to_dict(), mass_ops).dot(w), McT.dot(w)) < 1e-14
 
+    # constant 3x3 matrix as first tuple entry (must not be mistaken for block weights)
+    Mm = mass_ops.create_weighted_mass(
+        "Hcurl", "Hcurl", weights=([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]], "sqrt_g"), assemble=True
+    )
+    dct = json.loads(json.dumps(Mm.to_dict()))
+    assert _max_diff(WeightedMassOperator.from_dict(dct, mass_ops).dot(u), Mm.dot(u)) < 1e-14
+
     # modified data cannot be re-created
     M = mass_ops.create_weighted_mass("H1", "H1", weights=("sqrt_g",), assemble=True)
     assert M.is_reconstructible
