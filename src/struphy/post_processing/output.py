@@ -380,25 +380,31 @@ class Output:
         FileNotFoundError
             If ``path_out`` holds no raw simulation data (``data/data_proc0.hdf5``).
         """
+        # --- Raw output must exist, whatever is requested ---
         if not (self.path_out / "data" / "data_proc0.hdf5").exists():
             raise FileNotFoundError(f"No simulation data to process in {self.path_out}")
 
+        # --- Validate arguments and normalize the product name ---
+        # Remaining keyword arguments are coordinate selectors, applied with .sel() at the end.
         selectors = dict(coordinates)
         if "physical" in selectors:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
         if "as_numpy" in selectors:
             raise TypeError("evaluate() always returns xarray; call .to_numpy() on its result when needed")
+
         if name.count("/") == 2:
             # the full key of a particle product: "species/dataset/variable"
             if dataset is not None:
                 raise ValueError("dataset= cannot be combined with a 'species/dataset/variable' name")
             species, group, variable = name.split("/")
             name, dataset = f"{species}/{variable}", f"{group}/{variable}"
+
         if name != "scalars" and name.count("/") != 1:
             raise ValueError(
                 "evaluate() names must use the 'species/variable' or 'species/dataset/variable' form, or be 'scalars'"
             )
 
+        # --- Decide whether eta1/eta2/eta3 mean spline evaluation or coordinate selection ---
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
         if has_eta and name != "scalars" and (dataset is not None or not self._is_raw_spline_field(name)):
@@ -408,8 +414,11 @@ class Output:
                 if value is not None:
                     selectors[f"eta{direction}"] = value
             eta, has_eta = (None, None, None), False
+
         if has_eta and dataset is not None:
             raise ValueError("dataset= cannot be combined with direct FEEC eta evaluation")
+
+        # --- Scalars: read straight from the raw output ---
         if name == "scalars":
             if has_eta or representation is not None or dataset is not None:
                 raise ValueError("'scalars' accepts only time, variables, and coordinate selections")
@@ -423,10 +432,14 @@ class Output:
                 array = self.scalars[names]
         elif variables is not None:
             raise ValueError("variables= is only valid with evaluate('scalars')")
+
+        # --- Raw FEEC fields: evaluate the saved splines on a logical grid ---
+        # The time selection happens during evaluation, so t and method are consumed here.
         is_raw_spline_field = not has_eta and dataset is None and self._is_raw_spline_field(name)
         if name == "scalars":
             is_raw_spline_field = False
         elif has_eta:
+            # given etas, the cell centres of the simulation grid in the omitted directions
             if any(value is None for value in eta):
                 defaults = self._default_logical_grid()
                 eta = tuple(default if value is None else value for value, default in zip(eta, defaults))
@@ -434,11 +447,14 @@ class Output:
             t = None
             method = None
         elif is_raw_spline_field:
+            # no etas: the cell centres of the full simulation grid
             array = self._evaluate_spline_field(
                 name, *self._default_logical_grid(), t=t, method=method, representation=representation
             )
             t = None
             method = None
+
+        # --- Post-processed products: load from post_processing/ (processed on first use) ---
         if not has_eta:
             if representation is not None and not is_raw_spline_field:
                 raise ValueError("representation requires FEEC evaluation")
@@ -446,6 +462,8 @@ class Output:
                 if parallel is not None and not self.is_processed:
                     self.pproc(parallel=parallel)
                 array = self._product(name, dataset=dataset)
+
+        # --- Time selection; integers are wrapped in a list so that the t dimension is kept ---
         if t is not None:
             if isinstance(t, (int, np.integer)):
                 array = array.isel(t=[int(t)], drop=drop)
@@ -456,9 +474,12 @@ class Output:
                     raise TypeError("t sequences must contain saved-snapshot indices")
                 array = array.isel(t=list(t), drop=drop)
             elif isinstance(t, (float, np.floating)):
+                # a time value, matched with the other coordinate selectors below
                 selectors["t"] = [float(t)]
             else:
                 raise TypeError("t must be a saved-snapshot index, index sequence, slice, or float time coordinate")
+
+        # --- Coordinate selection (eta*, component, float t, ...) ---
         if selectors:
             options = {"drop": drop}
             if method is not None:
@@ -466,6 +487,7 @@ class Output:
             array = array.sel(selectors, **options)
         elif method is not None:
             raise ValueError("method requires a direct coordinate selector")
+
         return array
 
     def _is_raw_spline_field(self, name: str) -> bool:
