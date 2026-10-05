@@ -92,9 +92,9 @@ class Species(metaclass=ABCMeta):
             "class": type(self).__name__,
             "charge_number": self.charge_number,
             "mass_number": self.mass_number,
-            "alpha": self.alpha,
-            "epsilon": self.epsilon,
-            "kappa": self.kappa,
+            "alpha": self.prescribed_alpha,
+            "epsilon": self.prescribed_epsilon,
+            "kappa": self.prescribed_kappa,
             "variables": {name: variable.to_dict() for name, variable in self.variables.items()},
         }
 
