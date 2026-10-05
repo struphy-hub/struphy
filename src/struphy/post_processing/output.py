@@ -442,21 +442,12 @@ class Output:
         is_raw_spline_field = not has_eta and dataset is None and self._is_raw_spline_field(name)
         if name == "scalars":
             is_raw_spline_field = False
-        elif has_eta:
-            # given etas, the cell centres of the simulation grid in the omitted directions
+        elif has_eta or is_raw_spline_field:
+            # omitted directions (all three without etas) on the cell centres of the simulation grid
             if any(value is None for value in eta):
                 defaults = self._default_logical_grid()
                 eta = tuple(default if value is None else value for value, default in zip(eta, defaults))
             array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
-            if single_t:
-                array = array.isel(t=0, drop=drop)
-            t = None
-            method = None
-        elif is_raw_spline_field:
-            # no etas: the cell centres of the full simulation grid
-            array = self._evaluate_spline_field(
-                name, *self._default_logical_grid(), t=t, method=method, representation=representation
-            )
             if single_t:
                 array = array.isel(t=0, drop=drop)
             t = None
