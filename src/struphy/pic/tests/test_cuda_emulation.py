@@ -13,7 +13,9 @@ from struphy.pic.tests.cuda_emulation import emulate_struct_kernel
 from struphy.pic.tests.test_cuda_parity import CUDA_CASES
 
 # pyccel argument class name -> its CUDA version
-CUDA_CLASSES = {cls.__name__.removeprefix("Cuda"): cls for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments)}
+CUDA_CLASSES = {
+    cls.__name__.removeprefix("Cuda"): cls for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments)
+}
 
 requires_compiler = pytest.mark.skipif(emulation_compiler() is None, reason="no C++ compiler")
 

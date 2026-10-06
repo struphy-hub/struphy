@@ -8,7 +8,6 @@ import cunumpy as xp
 from cunumpy.kernels import Kernel
 
 
-
 @dataclass(kw_only=True, eq=False)
 class KernelSetup:
     """A marker evaluation kernel and all of its configuration.

@@ -11,9 +11,9 @@ import cunumpy as xp
 import numpy as np
 
 from struphy.geometry.domains import Cuboid
-from struphy.ode.utils import ButcherTableau
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaMarkerArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
+from struphy.ode.utils import ButcherTableau
 
 N_MARKERS = 129  # not a multiple of the block size
 N_COLS = 25
