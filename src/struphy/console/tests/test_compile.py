@@ -183,7 +183,7 @@ def test_compile_passes_jobs_to_make(jobs):
         mock.patch("struphy.utils.utils.read_state", return_value=state),
         mock.patch("struphy.utils.utils.save_state"),
     ):
-        struphy_compile("fortran", "GNU", None, False, False, False, False, False, False, True, **kwargs)
+        struphy_compile("fortran", "GNU", None, False, False, False, False, False, False, True, True, **kwargs)
 
     make_cmds = [c.args[0] for c in subp_run.call_args_list if c.args[0][0] == "make"]
     assert len(make_cmds) == 1

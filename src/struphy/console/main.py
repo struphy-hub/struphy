@@ -259,6 +259,12 @@ def add_parser_compile(
     )
 
     parser_compile.add_argument(
+        "--debug",
+        help="call pyccel with --debug compiler option",
+        action="store_true",
+    )
+
+    parser_compile.add_argument(
         "--dependencies",
         help="print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen",
         action="store_true",
