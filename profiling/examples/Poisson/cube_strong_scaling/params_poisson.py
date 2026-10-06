@@ -15,7 +15,7 @@ import logging
 
 from struphy import set_logging_level
 
-set_logging_level(logging.WARNING)
+set_logging_level(logging.INFO)
 
 import argparse
 
@@ -33,6 +33,7 @@ from struphy import (
     equils,
     grids,
     perturbations,
+    ProfilingOptions,
 )
 
 # ---------------------
@@ -80,10 +81,13 @@ domain = domains.Cuboid(r1=Lx, l2=-Ly / 2, r2=Ly / 2, r3=Lz)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(256, 256, 256), mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=(64, 64, 64), mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
+
+# Profilinig options
+profiling_opts = ProfilingOptions(use_line_profiler=True,)
 
 # Simulation object
 sim = Simulation(
@@ -97,6 +101,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=profiling_opts,
 )
 
 # ------------------
@@ -105,7 +110,7 @@ sim = Simulation(
 
 from struphy.linear_algebra.solver import SolverParameters
 
-solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=True)
+solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=False)
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
@@ -253,11 +258,9 @@ if __name__ == "__main__":
         # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
         # cell centres of the simulation grid (serial Derham, safe on rank 0 only).
         rhs_data = out.evaluate("em_fields/source", t=0)
-        print(rhs_data)
         rhs = rhs_data.values
 
         phi_data = out.evaluate("em_fields/phi", t=-1)
-        print(phi_data)
         phi = phi_data.values
         x, y, z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))
 

@@ -1,5 +1,6 @@
 import copy
 import logging
+from scope_profiler import ProfileManager
 
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -90,7 +91,8 @@ class Poisson(StruphyModel):
         # Solve to get initial potential (before time stepping)
         logger.info("\nSolving initial Poisson problem (before time stepping)...")
 
-        self.propagators.poisson(1.0)
+        with ProfileManager.profile_region("initial Poisson solve", functions=[self.propagators.poisson]):
+            self.propagators.poisson(1.0)
 
         logger.info("... Done.")
 
