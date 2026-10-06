@@ -12,8 +12,8 @@ import numpy as np
 from cunumpy.cuda import CudaStructArguments
 
 
-def _device_array(name, arr, dtype):
-    """Check that ``arr`` is a C-contiguous CuPy array of ``dtype`` on the current device (never copies)."""
+def _device_array(name, arr, dtype, ndim=None):
+    """Check that ``arr`` is a C-contiguous CuPy array of ``dtype`` (and ``ndim``) on the current device (never copies)."""
     import cupy as cp
 
     if not isinstance(arr, cp.ndarray):
@@ -22,6 +22,8 @@ def _device_array(name, arr, dtype):
         raise ValueError(f"{name} must be on the current CUDA device")
     if arr.dtype != dtype or not arr.flags.c_contiguous:
         raise TypeError(f"{name} must be a C-contiguous array of dtype {np.dtype(dtype)}")
+    if ndim is not None and arr.ndim != ndim:
+        raise TypeError(f"{name} must be a {ndim}-dimensional array, got {arr.ndim} dimensions")
     return arr
 
 
@@ -108,29 +110,34 @@ class CudaDerhamArguments(CudaStructArguments):
 
 
 class CudaDomainArguments(CudaStructArguments):
-    """CUDA version of :class:`~struphy.kernel_arguments.pusher_args_kernels.DomainArguments` (``DomainArgs``)."""
+    """CUDA version of :class:`~struphy.kernel_arguments.pusher_args_kernels.DomainArguments` (``DomainArgs``).
+
+    The knot vectors ``t1``, ``t2``, ``t3``, the spline indices ``ind1``, ``ind2``, ``ind3`` and the control points
+    ``cx``, ``cy``, ``cz`` of the spline mappings are array views (pointer, shape, strides), because the device
+    needs their shapes: ``find_span`` needs the number of knots, which a CUDA pointer does not carry.
+    """
 
     struct_name = "DomainArgs"
     fields = (
         ("kind_map", "int"),
         ("params", "double*"),
         ("degree", "long long*"),
-        ("t1", "double*"),
-        ("t2", "double*"),
-        ("t3", "double*"),
-        ("ind1", "long long*"),
-        ("ind2", "long long*"),
-        ("ind3", "long long*"),
-        ("cx", "double*"),
-        ("cy", "double*"),
-        ("cz", "double*"),
+        ("t1", "Array1D<double>"),
+        ("t2", "Array1D<double>"),
+        ("t3", "Array1D<double>"),
+        ("ind1", "Array2D<long long>"),
+        ("ind2", "Array2D<long long>"),
+        ("ind3", "Array2D<long long>"),
+        ("cx", "Array3D<double>"),
+        ("cy", "Array3D<double>"),
+        ("cz", "Array3D<double>"),
     )
 
     def __init__(self, kind_map: int, params, degree, t1, t2, t3, ind1, ind2, ind3, cx, cy, cz):
         self.kind_map = kind_map
         self.params = _device_array("params", params, np.float64)
         self.degree = _device_array("degree", degree, np.int64)
-        self.t1, self.t2, self.t3 = (_device_array("t", t, np.float64) for t in (t1, t2, t3))
-        self.ind1, self.ind2, self.ind3 = (_device_array("ind", ind, np.int64) for ind in (ind1, ind2, ind3))
-        self.cx, self.cy, self.cz = (_device_array("c", c, np.float64) for c in (cx, cy, cz))
+        self.t1, self.t2, self.t3 = (_device_array("t", t, np.float64, ndim=1) for t in (t1, t2, t3))
+        self.ind1, self.ind2, self.ind3 = (_device_array("ind", ind, np.int64, ndim=2) for ind in (ind1, ind2, ind3))
+        self.cx, self.cy, self.cz = (_device_array("c", c, np.float64, ndim=3) for c in (cx, cy, cz))
         self.pack()
