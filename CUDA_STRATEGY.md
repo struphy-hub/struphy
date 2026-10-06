@@ -25,7 +25,8 @@ Progress is tracked in struphy-hub/struphy#650.
 - [ ] **PR 16: One CPU and one GPU argument class per argument type** — every pyccel argument class (`MarkerArguments`, `DerhamArguments`, `DomainArguments`, `LocalProjectorsArguments`) has a CUDA counterpart of the same name with a `Cuda` prefix in `kernel_arguments/*_cuda.py`, with the same constructor and attributes. Each owner creates one of the two in `__init__`, depending on the backend; `PyccelStructArguments`, `__host_args__()` and host copies are no longer used. Every kernel that takes argument objects is called through `Kernel(PyccelKernel(...))`; without a CUDA version it raises on CuPy. The remaining entry kernels called from Python (spline, geometry and SPH evaluation, marker diagnostics, `reflect`, local projectors) move into one folder per kernel, like the pushers. Geometry evaluations have no CUDA version yet, so CuPy particle runs fail at setup until they are ported (see [PR 16 implementation notes](#pr-16-implementation-notes)).
 - [ ] **PR 17: Geometry evaluation on the GPU for all analytic mappings** — CUDA versions of the four geometry entry kernels (`kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` in `geometry/kernels/`), built on device versions of the whole metric chain (`f`, `df`, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`/`push`/`tran`) for every analytic mapping (`kind_map` 10–12, 20–22, 30–32). Restores CuPy particle runs (weight initialization evaluates `jacobian_det`), and removes the Cuboid-only checks in `Pusher`, the accumulators and `reflect`. Parity arguments cover every analytic mapping (see [PR 17](#pr-17-geometry-evaluation-for-all-analytic-mappings)).
 - [ ] **PR 18: Spline mappings on the GPU** — `kind_map` 0–2 (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC): `DomainArgs` gets array views for `ind1..3` and `cx/cy/cz` (shape needed on the device), spline-mapped `Domain`s can be created on the CuPy backend, and `spline_3d`, `spline_2d_straight`, `spline_2d_torus` get device versions (see [PR 18](#pr-18-spline-mappings)).
-- [ ] **Next (order to be confirmed)**: 6D array views in cunumpy and the blocked matrix accumulations `vlasov_maxwell`, `linear_vlasov_ampere` (steps 1–2 of the [porting order](#porting-order)); one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, including when to compile the kernels; a decision on hand-written CUDA vs. code generation before the guiding-center kernels (step 3).
+- [ ] **Next (order to be confirmed)**: 6D array views in cunumpy and the blocked matrix accumulations `vlasov_maxwell`, `linear_vlasov_ampere` (steps 1–2 of the [porting order](#porting-order)); one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, including when to compile the kernels, which needs the [feectools stack](#feectools) merged and released first; a decision on hand-written CUDA vs. code generation before the guiding-center kernels (step 3).
+- [ ] **feectools**: the FEEC side (stencil vectors and matrices, MPI exchange, GPU binding) in feectools, stacked PRs [#85](https://github.com/struphy-hub/feectools/pull/85) (merged into `cuda-development`), [#86](https://github.com/struphy-hub/feectools/pull/86), [#87](https://github.com/struphy-hub/feectools/pull/87), [#88](https://github.com/struphy-hub/feectools/pull/88), integrated by [#90](https://github.com/struphy-hub/feectools/pull/90); needed before the end-to-end model run, not for PR 17/18 (see [feectools](#feectools)).
 - [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
 
@@ -234,6 +235,33 @@ Steps (status in PR 13):
 5. Replace the hand-written parity, device-helper and transfer tests by the cunumpy helpers (`assert_kernels_agree`, `parity_cases()`, `device_function_kernel`, `assert_no_transfers`, `requires_cupy`). **Done.**
 
 What this buys, beyond less code in struphy: scalar checks against the kernel signature, launch shapes for grid kernels, the include-hash compile cache, debug mode, and one argument object per owner instead of two.
+
+## feectools
+
+Struphy's FEEC data (Derham spaces, stencil vectors and matrices, the MPI ghost-region exchange) lives in
+[feectools](https://github.com/struphy-hub/feectools). Its CUDA support is a stack of PRs on branches
+`cuda-<n>-<topic>`, each targeting `devel-tiny` and reviewed commit by commit; `cuda-development` collects them:
+
+| feectools PR | What | Struphy needs it for |
+|---|---|---|
+| [#85](https://github.com/struphy-hub/feectools/pull/85) `cuda-1-xp-arrays` (merged into `cuda-development`) | feectools runs on the CuPy backend: stencil data are `xp` arrays | `Derham` on CuPy (PR 7) and every struphy GPU test that builds a `Derham` |
+| [#86](https://github.com/struphy-hub/feectools/pull/86) `cuda-2-mpi-sync` | MPI with device buffers (CUDA-aware MPI, `synchronize_for_mpi` before every MPI call) | runs on more than one rank on CuPy: ghost-region exchange, reductions |
+| [#87](https://github.com/struphy-hub/feectools/pull/87) `cuda-3-device-binding` | one GPU per MPI rank (`bind_local_device` before MPI starts) | multi-GPU runs |
+| [#88](https://github.com/struphy-hub/feectools/pull/88) `cuda-4-device-kernels` | stencil `dot`, `transpose`, `inner`, `axpy` on the device (matvec 0.5 ms instead of 165 ms on an H100) | field solves in the time loop without host copies (e.g. Poisson and Ampère in Vlasov–Ampère) |
+| [#90](https://github.com/struphy-hub/feectools/pull/90) `cuda-development` | integrates the stack into `devel-tiny` | the feectools release struphy pins |
+
+**When.** PR 17 and PR 18 do not need it: they port struphy kernels, run on one rank, and are gated by the CPU
+emulation. The stack has to be merged (#86, #87, #88 in order, then #90) and released before the first PR that
+runs a whole model on the GPU, which then pins that release in `pyproject.toml` (today: `feectools>=0.3.0, <=0.3.0`).
+Until then, struphy's CuPy `Derham` tests only pass with feectools from `cuda-development`.
+
+**Before merging the stack:** it imports `CudaKernel`, `CudaKernelVariants`, `bind_local_device` and
+`synchronize_for_mpi` from the top level of cunumpy and requires `cunumpy>=0.3.0`. In cunumpy 0.5 these names are
+deprecated (removed in 0.6): import them from `cunumpy.cuda` and `cunumpy.mpi`, and require `cunumpy>=0.5.0, <0.6`
+like struphy.
+
+New feectools work for the GPU follows the same pattern: a `cuda-<n>-<topic>` PR, linked in the table above and
+from the struphy tracking issue ([#650](https://github.com/struphy-hub/struphy/issues/650)).
 
 ## Porting order
 
