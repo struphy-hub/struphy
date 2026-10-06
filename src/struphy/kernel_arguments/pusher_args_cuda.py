@@ -137,6 +137,8 @@ class CudaDomainArguments(CudaStructArguments):
         self.kind_map = kind_map
         self.params = _device_array("params", params, np.float64)
         self.degree = _device_array("degree", degree, np.int64)
+        if kind_map < 10 and bool((degree > 8).any()):
+            raise ValueError("CUDA spline mapping degrees must be at most 8.")
         self.t1, self.t2, self.t3 = (_device_array("t", t, np.float64, ndim=1) for t in (t1, t2, t3))
         self.ind1, self.ind2, self.ind3 = (_device_array("ind", ind, np.int64, ndim=2) for ind in (ind1, ind2, ind3))
         self.cx, self.cy, self.cz = (_device_array("c", c, np.float64, ndim=3) for c in (cx, cy, cz))

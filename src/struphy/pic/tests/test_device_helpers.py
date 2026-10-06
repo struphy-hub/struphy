@@ -7,6 +7,7 @@ from cunumpy.cuda import CudaKernel
 from cunumpy.kernel_testing import device_function_kernel, requires_cupy
 
 from struphy.bsplines import bsplines_kernels as splines
+from struphy.geometry.tests import spline_mapping_cases
 from struphy.linear_algebra import linalg_kernels as linalg
 from struphy.utils.cuda_arguments import CUDA_OPTIONS
 
@@ -203,3 +204,46 @@ extern "C" __global__ void evaluate(const double* eta, DerhamArgs args_derham, d
                 tn, p, eta[axis], span, expected[ip, axis, 1 : p + 2], expected[ip, axis, 10 : 10 + p]
             )
     np.testing.assert_allclose(out.get(), expected, rtol=1e-13, atol=1e-13)
+
+
+@requires_cupy
+@pytest.mark.parametrize("degree", range(1, 9))
+def test_der_spline_helpers(degree):
+    """b_splines_slim and b_der_splines_slim on the device agree with pyccel."""
+    import cupy as cp
+
+    from struphy.geometry.tests.spline_mapping_cases import DER_SPLINES_SOURCE, der_splines_case
+
+    knots, pts, expected = der_splines_case(degree)
+    out = cp.zeros(expected.shape)
+    CudaKernel(DER_SPLINES_SOURCE, "evaluate_der_splines", **CUDA_OPTIONS)(
+        cp.asarray(knots), len(knots), degree, cp.asarray(pts), out, len(pts), n_threads=len(pts)
+    )
+    np.testing.assert_allclose(out.get(), expected, rtol=1e-13, atol=1e-13)
+
+
+@requires_cupy
+@pytest.mark.parametrize("name", list(spline_mapping_cases.DOMAINS))
+def test_spline_mapping_helpers(name):
+    """spline_3d(_df), spline_2d_straight(_df) and spline_2d_torus(_df) on the device agree with pyccel.
+
+    The domain is created on the CuPy backend, so the device reads the CudaDomainArguments of the domain itself.
+    """
+    import cupy as cp
+
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
+
+    etas = spline_mapping_cases.points()
+    expected = spline_mapping_cases.expected(spline_mapping_cases.host_domain(name).args_domain, etas)
+    with cunumpy.use_backend("cupy"):
+        args_domain = spline_mapping_cases.DOMAINS[name]().args_domain
+    assert type(args_domain) is CudaDomainArguments
+    out = cp.zeros(expected.size)
+    spline_mapping_cases.make_kernel()(
+        *(cp.asarray(a) for a in spline_mapping_cases.flat_inputs(etas)),
+        args_domain,
+        out,
+        out.size,
+        n_threads=out.size,
+    )
+    np.testing.assert_allclose(out.get().reshape(expected.shape), expected, rtol=1e-12, atol=1e-12)
