@@ -16,14 +16,6 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
-# fmt: off
-    #$ omp end parallel
-    
-
-
-
-# fmt: on
-
 
 @stack_array("dfm", "norm_b1", "b")
 def eval_magnetic_energy(

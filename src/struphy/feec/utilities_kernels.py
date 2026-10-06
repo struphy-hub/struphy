@@ -121,13 +121,3 @@ def l2_projection_V0(
 
 #                             data[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = value
 #     # -- removed omp: #$ omp end parallel
-
-
-# ================= 3d =================================
-# fmt: off
-    #$ omp end parallel
-    
-
-
-
-# fmt: on
