@@ -35,6 +35,9 @@ class Compiler:
     verbose : bool
         Call pyccel in verbose mode (default=False).
 
+    debug : bool
+        Compile with debug flags (default=False).
+
     time_execution : bool
         Print the time spent in each section of the pyccelization (default=False).
 
@@ -63,12 +66,14 @@ class Compiler:
         time_execution: bool = False,
         yes: bool = False,
         jobs: int = 1,
+        debug: bool = False,
     ):
         self.language = language.lower()
         self.compiler = compiler
         self.compiler_config = compiler_config
         self.openmp = openmp
         self.verbose = verbose
+        self.debug = debug
         self.time_execution = time_execution
         self.yes = yes
         self.jobs = jobs
@@ -82,6 +87,7 @@ class Compiler:
         verbose: Optional[bool] = None,
         time_execution: Optional[bool] = None,
         yes: Optional[bool] = None,
+        debug: Optional[bool] = None,
         jobs: Optional[int] = None,
     ) -> None:
         """Compile Struphy kernels. All files containing "kernels" are auto-detected and saved to state.yml.
@@ -113,6 +119,9 @@ class Compiler:
         yes : bool
             Automatically answer yes to the prompt when changing the compilation language (default=False).
 
+        debug : bool
+            Compile with debug flags (default=False).
+
         jobs : int
             Number of kernels to compile in parallel (default=1).
         """
@@ -130,6 +139,8 @@ class Compiler:
             self.time_execution = time_execution
         if yes is not None:
             self.yes = yes
+        if debug is not None:
+            self.debug = debug
         if jobs is not None:
             self.jobs = jobs
 
@@ -144,6 +155,7 @@ class Compiler:
             dependencies=False,
             time_execution=self.time_execution,
             yes=self.yes,
+            debug=self.debug,
             jobs=self.jobs,
         )
 
@@ -160,6 +172,7 @@ class Compiler:
             dependencies=False,
             time_execution=False,
             yes=False,
+            debug=False,
         )
 
     def delete(self) -> None:
@@ -175,6 +188,7 @@ class Compiler:
             dependencies=False,
             time_execution=False,
             yes=False,
+            debug=False,
         )
 
     def dependencies(self) -> None:
@@ -190,6 +204,7 @@ class Compiler:
             dependencies=True,
             time_execution=False,
             yes=False,
+            debug=False,
         )
 
     def to_dict(self) -> dict:
@@ -200,6 +215,7 @@ class Compiler:
             "compiler_config": self.compiler_config,
             "openmp": self.openmp,
             "verbose": self.verbose,
+            "debug": self.debug,
             "time_execution": self.time_execution,
             "yes": self.yes,
         }
