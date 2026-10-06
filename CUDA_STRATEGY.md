@@ -24,7 +24,7 @@ Progress is tracked in struphy-hub/struphy#650.
 - [ ] **PR 15: Use cunumpy as intended** — every kernel folder declares its kernel in its `__init__.py` (`Kernel.from_folder`), and the code imports it: `from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage` instead of `catalog["push_eta_stage"]`; the module-level catalogs are gone. `Pusher`, `KernelSetup` and the accumulators call the `Kernel` itself (no `get_kernel()`, no `n_threads` branches: cunumpy infers one thread per marker from `args_markers`). Parity test arguments live next to each kernel in `<name>_test_args.py`, driven by `cunumpy.kernel_testing.parity_cases`/`check_parity`. Built against cunumpy `devel`; once the usage here is settled, cunumpy 0.5.0 is released on PyPI and struphy pins `cunumpy>=0.5.0, <0.6`.
 - [ ] **PR 16: One CPU and one GPU argument class per argument type** — every pyccel argument class (`MarkerArguments`, `DerhamArguments`, `DomainArguments`, `LocalProjectorsArguments`) has a CUDA counterpart of the same name with a `Cuda` prefix in `kernel_arguments/*_cuda.py`, with the same constructor and attributes. Each owner creates one of the two in `__init__`, depending on the backend; `PyccelStructArguments`, `__host_args__()` and host copies are no longer used. Every kernel that takes argument objects is called through `Kernel(PyccelKernel(...))`; without a CUDA version it raises on CuPy. The remaining entry kernels called from Python (spline, geometry and SPH evaluation, marker diagnostics, `reflect`, local projectors) move into one folder per kernel, like the pushers. Geometry evaluations have no CUDA version yet, so CuPy particle runs fail at setup until they are ported (see [PR 16 implementation notes](#pr-16-implementation-notes)).
 - [ ] **PR 17: struphy on the feectools CUDA stack** — the `feectools` submodule points at the top of the feectools CUDA stack (`cuda-4-device-kernels`, [feectools#88](https://github.com/struphy-hub/feectools/pull/88)) instead of `devel-tiny`, so the struphy CUDA PRs run against feectools with device stencil operations, MPI with device buffers and one GPU per rank. Moves along with the stack; before the struphy stack is merged into `devel`, the feectools stack is merged into `devel-tiny` and the submodule points there again (see [feectools](#feectools)).
-- [ ] **PR 18: Geometry evaluation on the GPU for all analytic mappings** — CUDA versions of the four geometry entry kernels (`kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` in `geometry/kernels/`), built on device versions of the whole metric chain (`f`, `df`, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`/`push`/`tran`) for every analytic mapping (`kind_map` 10–12, 20–22, 30–32). Restores CuPy particle runs (weight initialization evaluates `jacobian_det`), and removes the Cuboid-only checks in `Pusher`, the accumulators and `reflect`. Parity arguments cover every analytic mapping (see [PR 18](#pr-18-geometry-evaluation-for-all-analytic-mappings)).
+- [x] **PR 18: Geometry evaluation on the GPU for all analytic mappings** (open) — CUDA versions of the four geometry entry kernels (`kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` in `geometry/kernels/`), built on device versions of the whole metric chain (`f`, `df`, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`/`push`/`tran`) for every analytic mapping (`kind_map` 10–12, 20–22, 30–32). Restores CuPy particle runs (weight initialization evaluates `jacobian_det`), and removes the Cuboid-only checks in `Pusher`, the accumulators and `reflect`. Parity arguments cover every analytic mapping (see [PR 18](#pr-18-geometry-evaluation-for-all-analytic-mappings) and the [PR 18 implementation notes](#pr-18-implementation-notes)).
 - [ ] **PR 19: Spline mappings on the GPU** — `kind_map` 0–2 (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC): `DomainArgs` gets array views for `ind1..3` and `cx/cy/cz` (shape needed on the device), spline-mapped `Domain`s can be created on the CuPy backend, and `spline_3d`, `spline_2d_straight`, `spline_2d_torus` get device versions (see [PR 19](#pr-19-spline-mappings)).
 - [ ] **Next (order to be confirmed)**: 6D array views in cunumpy and the blocked matrix accumulations `vlasov_maxwell`, `linear_vlasov_ampere` (steps 1–2 of the [porting order](#porting-order)); one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, including when to compile the kernels, which needs the [feectools stack](#feectools) merged and released first; a decision on hand-written CUDA vs. code generation before the guiding-center kernels (step 3).
 - [ ] **feectools**: the FEEC side (stencil vectors and matrices, MPI exchange, GPU binding) in feectools, stacked PRs [#85](https://github.com/struphy-hub/feectools/pull/85) (merged into `cuda-development`), [#86](https://github.com/struphy-hub/feectools/pull/86), [#87](https://github.com/struphy-hub/feectools/pull/87), [#88](https://github.com/struphy-hub/feectools/pull/88), integrated by [#90](https://github.com/struphy-hub/feectools/pull/90); needed before the end-to-end model run, not for PR 18/19 (see [feectools](#feectools)).
@@ -55,7 +55,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 - **One folder per kernel.** Every kernel that Python calls (an *entry kernel*) lives in its own folder `<package>/kernels/<name>/`: `<name>_kernels.py` (pyccel), `__init__.py` (declares the `Kernel`), and once ported `<name>_cuda.cu` and `<name>_test_args.py`. Code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`) and calls it; there is no `Kernel(PyccelKernel(...))` at call sites. **Any PR that adds a kernel, or ports one that still lives in a shared module, puts it into its own folder first** (moved with its imports, as in PR 16) and adds its package to `test_cuda_parity.PACKAGES`. Helpers called only from other kernels (`@pure` functions, `__device__` functions) stay in shared modules and headers, e.g. `geometry/evaluation_kernels.py` and `geometry/evaluation_kernels.cuh`; per-mapping device helpers go next to their domain (`geometry/domains/<name>/<name>_cuda.cuh`, like `cuboid_cuda.cuh`).
 - **Small steps.** Every PR keeps the CPU code path working and tested.
 
-## Current state (after PR 16)
+## Current state (after PR 18)
 
 | File | Content |
 |---|---|
@@ -64,7 +64,8 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 | `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()` and `write_local_projectors_header()` |
 | `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs` and `LocalProjectorsArgs`, generated from the CUDA classes, using cunumpy array views |
 | `src/struphy/geometry/base.py`, `src/struphy/pic/base.py`, `src/struphy/feec/psydac_derham.py` | `Domain.args_domain`, `Particles.args_markers` and `Derham.args_derham` are the pyccel class on NumPy and the CUDA class on CuPy, chosen once at construction; every kernel call goes through a `Kernel` |
-| `src/struphy/*/kernels/` (`pic/pushing`, `pic/accumulation`, `pic/diagnostics`, `pic/sph`, `bsplines`, `geometry`, `feec`, `feec/local_projectors`) | every kernel called from Python with argument objects, one folder each: 44 pusher/evaluation (incl. `reflect`), 16 accumulation, 10 marker diagnostics, 4 SPH evaluation, 3 spline evaluation, 4 geometry, 1 FEEC utility and 8 local projector kernels. Each folder's `__init__.py` declares its `Kernel`; the code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`). Eleven have CUDA versions and a `<name>_test_args.py` |
+| `src/struphy/*/kernels/` (`pic/pushing`, `pic/accumulation`, `pic/diagnostics`, `pic/sph`, `bsplines`, `geometry`, `feec`, `feec/local_projectors`) | every kernel called from Python with argument objects, one folder each: 44 pusher/evaluation (incl. `reflect`), 16 accumulation, 10 marker diagnostics, 4 SPH evaluation, 3 spline evaluation, 4 geometry, 1 FEEC utility and 8 local projector kernels. Each folder's `__init__.py` declares its `Kernel`; the code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`). Fifteen have CUDA versions and a `<name>_test_args.py`, among them the four geometry kernels (PR 18) |
+| `src/struphy/geometry/evaluation_kernels.cuh`, `transform_kernels.cuh`, `geometry/domains/<name>/<name>_cuda.cuh` | device versions of the mapping helpers for every analytic mapping (`kind_map` 10–12, 20–22, 30–32): `f`/`df` per domain, the `kind_map` switch, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`, `push`, `tran` (PR 18); spline mappings trap on the device until PR 19 |
 | `src/struphy/pic/tests/test_cuda_parity.py`, `test_cuda_emulation.py` | parity of every CUDA kernel with pyccel from the `<name>_test_args.py` modules: on a GPU (`check_parity`), and without one by CPU emulation |
 | `src/struphy/pic/tests/test_kernel_backends.py` | the generated-header tests, the check that each CUDA class mirrors its pyccel class, signature check of all kernels, owner class selection, and (on a GPU) struct layout and copy/pickle checks |
 
@@ -274,7 +275,7 @@ done (✓), in this PR (PR 14), blocked (⏸).
 
 **Step 0 – Vlasov** (PRs 11–12, ✓): `push_eta_stage`, `push_vxb_analytic`, `push_vxb_implicit`, `reflect`.
 
-**Geometry** (PR 18, PR 19): `kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` with the metric chain, first for all analytic mappings, then for spline mappings. Needed by every particle run on the GPU (weight initialization) and by the diagnostics; it also lifts the Cuboid-only restriction of all CUDA kernels.
+**Geometry** (PR 18 ✓ for analytic mappings, PR 19 for spline mappings): `kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` with the metric chain. Needed by every particle run on the GPU (weight initialization) and by the diagnostics. Since PR 18 every CUDA kernel accepts all analytic mappings; only spline mappings are rejected on CuPy.
 
 **Step 1 – Vlasov–Ampère, Vlasov–Maxwell, ColdPlasmaVlasov**
 
@@ -339,8 +340,8 @@ The three spaces (H1vec/Hcurl/Hdiv) differ only in the basis; port one, then the
 `sph_pressure_coeffs`, `sph_mean_velocity_coeffs`, `sph_viscosity_tensor`, `sph_isotherm_kappa`,
 `push_v_sph_pressure`, `push_v_sph_pressure_ideal_gas`, `push_v_viscosity`, `div_u_weak_1form`.
 
-Infrastructure that gates the steps, independent of the kernels: mappings other than Cuboid (every
-CUDA kernel rejects other mappings at setup until PR 18 (analytic) and PR 19 (spline)), multi-rank marker sorting without host round trips,
+Infrastructure that gates the steps, independent of the kernels: spline mappings (every CUDA kernel
+accepts all analytic mappings since PR 18 and rejects spline mappings at setup until PR 19), multi-rank marker sorting without host round trips,
 and array views with more than 4 dimensions in cunumpy (all matrix accumulations write 6D stencil
 matrix data).
 
@@ -517,3 +518,47 @@ The CUDA spline evaluation is split accordingly: the shared device function `eva
 `test_cuda_parity.PACKAGES`, so their signatures are checked, and every CUDA kernel has a parity test and a
 CPU emulation test; `N_THREADS` in a `<name>_test_args.py` sets the launch size where it is not one thread
 per row of the first array (spline evaluation on grids, `reflect`).
+
+## PR 18 implementation notes
+
+Geometry evaluation runs on the GPU for every analytic mapping (`kind_map` 10–12, 20–22, 30–32).
+
+- **Device helpers, ported one to one.** `f` and `df` of each mapping are in `geometry/domains/<name>/<name>_cuda.cuh`
+  next to `<name>_kernels.py` (same function names and arguments as pyccel; `pi` comes from
+  `geometry/domains/constants_cuda.cuh`). `geometry/evaluation_kernels.cuh` has the `kind_map` switch for `f`/`df` and
+  `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff` with the pyccel arguments, including the `tmp` arrays and the
+  `avoid_round_off` zeroing per mapping. `geometry/transform_kernels.cuh` has `pull`, `push` and `tran`.
+  `linear_algebra/linalg_kernels.cuh` gains `matrix_matrix` and `matrix_inv_with_det`, and `matrix_inv` now computes
+  the determinant with `det()` like pyccel (it used a different expansion, which differed in round-off). Spline
+  mappings (`kind_map` 0–2) trap on the device.
+- **Entry kernels.** `<name>_cuda.cu` in the four `geometry/kernels/<name>/` folders, same arguments in the same order.
+  `kernel_evaluate_pic` launches one thread per marker row (the default: its first array is `markers`).
+  `kernel_pullpush_pic` launches one thread per marker row, passed as `n_threads=markers.shape[0]` because its first
+  array is `a`. `kernel_evaluate` and `kernel_pullpush` launch one thread per grid point (`n_threads=n1 * n2 * n3`).
+  `kernel_evaluate`'s `mat_f` has five dimensions, more than cunumpy's views, so it is a C-contiguous `double*`.
+- **`n_inside`.** The pyccel `_pic` kernels compact the rows of inside markers (`remove_outside=True`) and return their
+  number; a CUDA kernel returns nothing, and compaction needs a prefix count over all markers. `Domain` therefore
+  calls both kernels with `remove_outside=False` (one output row per marker; `a` gets one row per marker, inside
+  values scattered when it had none for outside markers) and removes the rows of outside markers itself with
+  `inside_logical_cube(markers)` (`geometry/base.py`), on both backends, so NumPy and CuPy produce identical outputs
+  and the return value is not used. The CUDA kernels still implement `remove_outside=True` and `a` without holes
+  exactly (each thread counts the inside markers before its row), so they fill the arrays like pyccel for every input;
+  this costs O(N²) and is not used by struphy.
+- **Spline mappings are rejected on CuPy.** The Cuboid-only checks in `Pusher`, `_accumulation_kernel` and `Particles`
+  (reflection) are replaced by `check_mapping_on_device` (`utils/cuda_arguments.py`), which raises
+  `NotImplementedError` for `kind_map` < 10 on CuPy and points to PR 19; `Domain`'s evaluations call it too. CuPy
+  particle runs work again for analytic mappings (weight initialization evaluates `jacobian_det`).
+- **Tests.** The parity arguments (`<name>_test_args.py`) loop over ten domains, all analytic mappings with
+  non-default parameters and `HollowTorus` with both angle parametrizations (`analytic_domains()` in
+  `pic/tests/kernel_test_args.py`): `kernel_evaluate_pic` 49 cases (F, det(DF), DF^(-1), G^(-1) for every mapping,
+  identity, DF and G for three), `kernel_evaluate` 20 (full and sparse meshgrids, every coefficient), and
+  `kernel_pullpush_pic`/`kernel_pullpush` 24 each (every `kind_fun` of pull, push and tran, mappings cycling, `a`
+  with and without holes, `remove_outside` both ways); tolerances `rtol = atol = 1e-10`. All of them run in the CPU
+  emulation, which now catches a wrong or transposed `DF` (checked by perturbing an off-diagonal entry of Colella's
+  `DF`). `test_device_helpers.py` compares `f`, `df`, `det_df`, `df_inv`, `g`, `g_inv` (both `avoid_round_off`) and
+  `pull`/`push`/`tran` (every `kind_fun`) with pyccel for every analytic mapping, and `test_kernel_backends.py`
+  evaluates `jacobian_det`, `jacobian_inv`, `metric`, `pull` and `push` on CuPy against NumPy. These GPU tests have
+  not run on an H100; the device-helper tests were run through the CPU emulation while developing.
+- **PR 19** adds the spline mappings: array views for `ind1..3` and `cx/cy/cz` in `DomainArgs`, spline-mapped domains
+  on CuPy, device versions of `spline_3d(_df)`, `spline_2d_straight(_df)`, `spline_2d_torus(_df)` in the `kind_map`
+  switch, and spline mappings in the parity arguments; `check_mapping_on_device` then goes away.
