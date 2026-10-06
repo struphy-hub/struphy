@@ -15,7 +15,7 @@
 
 // CUDA version of MarkerArguments (struphy.utils.cuda_arguments.CudaMarkerArguments).
 struct MarkerArgs {
-    Array2D<double> markers;  // device pointer, shape and element strides
+    Array2D<double> markers;  // (n_markers, n_cols), row-major: strides (n_cols, 1), see array_view.cuh
     bool* valid_mks;  // (n_markers,), true for markers that are neither holes nor ghosts
     int n_markers;
     int Np;

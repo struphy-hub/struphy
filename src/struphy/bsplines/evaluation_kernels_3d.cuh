@@ -50,7 +50,7 @@ namespace struphy_cuda {
  * @param span1 Knot span index along the first axis.
  * @param span2 Knot span index along the second axis.
  * @param span3 Knot span index along the third axis.
- * @param _data Spline coefficients of the current process (the _data of a StencilVector), any strides.
+ * @param _data Spline coefficients of the current process (the _data of a StencilVector); strides as in array_view.cuh.
  * @param starts Start indices of the current process (three entries).
  * @return spline_value, the value of the tensor-product spline.
  */

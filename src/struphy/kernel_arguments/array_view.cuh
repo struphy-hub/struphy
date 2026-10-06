@@ -1,6 +1,16 @@
 #pragma once
 // ABI-compatible with cunumpy array views; replaced by its header on migration.
 // Shapes and strides use 64-bit integers; strides are measured in elements.
+//
+// Kernels index a view like the pyccel kernels index the array: a(i, j) for a[i, j]. They never
+// read the strides themselves. The strides are set on the host, from the CuPy array's own
+// strides (arr.strides // arr.itemsize): in CudaKernel.__call__ (struphy/utils/kernel_backends.py)
+// for kernel arguments and in Argument._pack (struphy/utils/cuda_arguments.py) for struct fields.
+//
+// The layout is NumPy's: for a C-contiguous (row-major) array of shape (n0, n1, n2),
+// strides = (n1 * n2, n2, 1), so the last index runs fastest; for shape (n_markers, n_cols),
+// strides = (n_cols, 1) and markers(ip, j) is data[ip * n_cols + j]. A sliced or transposed
+// CuPy array keeps its own strides, so it is indexed correctly without a copy.
 template<class T> struct Array1D {
     T* data;
     long long shape[1], strides[1];
