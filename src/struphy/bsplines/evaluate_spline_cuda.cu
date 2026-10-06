@@ -12,7 +12,7 @@
  * @param _data Spline coefficients of the current process (the _data of a StencilVector), any strides.
  * @param kind Kind of 1d basis in each direction (three entries): 0 = N-spline, 1 = D-spline.
  * @param pn Spline degrees of V0 in each direction (three entries, 1 to 8).
- * @param tn1 Knot vector of V0 along the first axis, any stride.
+ * @param tn1 Knot vector of V0 along the first axis (contiguous).
  * @param tn2 Knot vector of V0 along the second axis.
  * @param tn3 Knot vector of V0 along the third axis.
  * @param starts Start indices of the splines on the current process (three entries).
@@ -26,12 +26,12 @@ __device__ inline double eval_spline_mpi(double eta1, double eta2, double eta3, 
     struphy_cuda::SplineScratch scratch;
 
     // get spline values at eta
-    scratch.span1 = struphy_cuda::find_span(tn1, pn[0], eta1);
-    scratch.span2 = struphy_cuda::find_span(tn2, pn[1], eta2);
-    scratch.span3 = struphy_cuda::find_span(tn3, pn[2], eta3);
-    struphy_cuda::b_d_splines_slim(tn1, pn[0], eta1, scratch.span1, scratch.bn1, scratch.bd1);
-    struphy_cuda::b_d_splines_slim(tn2, pn[1], eta2, scratch.span2, scratch.bn2, scratch.bd2);
-    struphy_cuda::b_d_splines_slim(tn3, pn[2], eta3, scratch.span3, scratch.bn3, scratch.bd3);
+    scratch.span1 = struphy_cuda::find_span(tn1.data, tn1.shape[0], pn[0], eta1);
+    scratch.span2 = struphy_cuda::find_span(tn2.data, tn2.shape[0], pn[1], eta2);
+    scratch.span3 = struphy_cuda::find_span(tn3.data, tn3.shape[0], pn[2], eta3);
+    struphy_cuda::b_d_splines_slim(tn1.data, pn[0], eta1, scratch.span1, scratch.bn1, scratch.bd1);
+    struphy_cuda::b_d_splines_slim(tn2.data, pn[1], eta2, scratch.span2, scratch.bn2, scratch.bd2);
+    struphy_cuda::b_d_splines_slim(tn3.data, pn[2], eta3, scratch.span3, scratch.bn3, scratch.bd3);
 
     const double* b1 = kind[0] == 0 ? scratch.bn1 : scratch.bd1;
     const double* b2 = kind[1] == 0 ? scratch.bn2 : scratch.bd2;
