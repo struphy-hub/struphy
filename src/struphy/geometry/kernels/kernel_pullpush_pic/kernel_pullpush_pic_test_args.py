@@ -1,7 +1,8 @@
 """Parity-test arguments of ``kernel_pullpush_pic``: pull-backs, push-forwards and transformations at 129 markers.
 
 Every ``kind_fun`` of pull (0, 1, 10, 11, 12), push (the same) and tran (0, 1, 10-21) is run once; the mapping cycles
-through all analytic mappings, so each mapping is used two or three times. Every third case passes ``a`` without
+through all analytic mappings, so each mapping is used two or three times, and each spline mapping gets three
+further transforms. Every third case passes ``a`` without
 holes (one row per inside marker), and ``remove_outside`` alternates.
 """
 
@@ -11,7 +12,8 @@ import numpy as np
 from struphy.geometry.base import inside_logical_cube
 from struphy.pic.tests.kernel_test_args import (
     N_ANALYTIC_DOMAINS,
-    analytic_domains,
+    N_GEOMETRY_DOMAINS,
+    geometry_domain,
     logical_markers,
 )
 
@@ -24,10 +26,18 @@ TRANSFORMS = (
     tuple((0, k) for k in PULLPUSH_KINDS) + tuple((1, k) for k in PULLPUSH_KINDS) + tuple((2, k) for k in TRAN_KINDS)
 )
 
-# (index into analytic_domains(), kind_transform, kind_fun, a_has_holes, remove_outside)
+# (index into geometry_domain(), kind_transform, kind_fun, a_has_holes, remove_outside); the analytic mappings
+# cycle through all transforms, then each spline mapping gets three of them
 CASES = tuple(
     (n % N_ANALYTIC_DOMAINS, kind_transform, kind_fun, n % 3 != 2, n % 2 == 0)
     for n, (kind_transform, kind_fun) in enumerate(TRANSFORMS)
+) + tuple(
+    (N_ANALYTIC_DOMAINS + n // 3, kind_transform, kind_fun, n % 3 != 2, n % 2 == 1)
+    for n, (kind_transform, kind_fun) in enumerate(
+        TRANSFORMS[(7 * j + 3 * s) % len(TRANSFORMS)]
+        for s in range(N_GEOMETRY_DOMAINS - N_ANALYTIC_DOMAINS)
+        for j in range(3)
+    )
 )
 
 
@@ -50,7 +60,7 @@ def make_args(backend, seed):
         xp.asarray(markers),
         kind_transform,
         kind_fun,
-        analytic_domains()[domain].args_domain,
+        geometry_domain(domain).args_domain,
         xp.asarray(out),
         remove_outside,
     )

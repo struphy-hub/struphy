@@ -4,6 +4,7 @@
 #include "struphy/bsplines/bsplines_kernels.cuh"
 #include "struphy/bsplines/evaluation_kernels_2d.cuh"
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
+#include "struphy/geometry/domains/constants_cuda.cuh"
 namespace struphy_cuda {
 /**
  * Row i of a 2d array view, as the Pyccel slice ind[i, :] (no copy).
@@ -234,7 +235,6 @@ __device__ inline void spline_2d_straight_df(double eta1, double eta2, const lon
 __device__ inline void spline_2d_torus(double eta1, double eta2, double eta3, const long long* degree,
                                        const Array2D<long long>& ind1, const Array2D<long long>& ind2,
                                        const DomainArgs& args, double tor_period, double* f_out) {
-    const double pi = 3.141592653589793;
     Array2D<double> cx = first_plane(args.cx);
     Array2D<double> cy = first_plane(args.cy);
 
@@ -281,7 +281,6 @@ __device__ inline void spline_2d_torus(double eta1, double eta2, double eta3, co
 __device__ inline void spline_2d_torus_df(double eta1, double eta2, double eta3, const long long* degree,
                                           const Array2D<long long>& ind1, const Array2D<long long>& ind2,
                                           const DomainArgs& args, double tor_period, double* df_out) {
-    const double pi = 3.141592653589793;
     Array2D<double> cx = first_plane(args.cx);
     Array2D<double> cy = first_plane(args.cy);
 

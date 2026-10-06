@@ -60,31 +60,9 @@ def _domains():
 
 
 def _spline_3d():
-    """A 3d spline mapping (kind_map 0) of a twisted torus with an elliptic cross section, clamped in eta1."""
-    from struphy.geometry.base import Spline, interp_mapping
+    from struphy.pic.tests.kernel_test_args import twisted_torus_spline
 
-    num_elements, degree, spl_kind = (4, 6, 5), (2, 3, 2), (False, True, True)
-
-    def grid(e1, e2, e3):
-        return np.meshgrid(e1, e2, e3, indexing="ij")
-
-    def radius(e1, e2, e3):
-        return 3.0 + (0.2 + e1) * np.cos(2 * np.pi * e2 + 2 * np.pi * e3)
-
-    def X(e1, e2, e3):
-        e1, e2, e3 = grid(e1, e2, e3)
-        return radius(e1, e2, e3) * np.cos(2 * np.pi * e3)
-
-    def Y(e1, e2, e3):
-        e1, e2, e3 = grid(e1, e2, e3)
-        return radius(e1, e2, e3) * np.sin(2 * np.pi * e3)
-
-    def Z(e1, e2, e3):
-        e1, e2, e3 = grid(e1, e2, e3)
-        return 1.5 * (0.2 + e1) * np.sin(2 * np.pi * e2)
-
-    cx, cy, cz = interp_mapping(num_elements, degree, spl_kind, X, Y, Z)
-    return Spline(num_elements=num_elements, degree=degree, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
+    return twisted_torus_spline()
 
 
 def _poloidal_without_pole():

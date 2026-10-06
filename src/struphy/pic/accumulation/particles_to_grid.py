@@ -16,16 +16,13 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
-from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 
-def _accumulation_kernel(kernel, args_domain) -> Kernel:
-    """The kernel as a :class:`cunumpy.kernels.Kernel`; CUDA accumulation needs an analytic mapping (see ``CUDA_STRATEGY.md``)."""
+def _accumulation_kernel(kernel) -> Kernel:
+    """The kernel as a :class:`cunumpy.kernels.Kernel` (pyccel or CUDA depending on the backend)."""
     if not isinstance(kernel, Kernel):
         kernel = Kernel(kernel)
-    if xp.cupy_backend:
-        check_mapping_on_device(args_domain.kind_map, "CUDA accumulation kernels")
     return kernel
 
 
@@ -114,7 +111,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = _accumulation_kernel(kernel, args_domain)
+        self._kernel = _accumulation_kernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
@@ -478,7 +475,7 @@ class AccumulatorVector:
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = _accumulation_kernel(kernel, args_domain)
+        self._kernel = _accumulation_kernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 

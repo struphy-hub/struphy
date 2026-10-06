@@ -1,13 +1,14 @@
 """Parity-test arguments of ``kernel_pullpush``: pull-backs, push-forwards and transformations on a 7 x 5 x 4 grid.
 
 Every ``kind_fun`` of pull (0, 1, 10, 11, 12), push (the same) and tran (0, 1, 10-21) is run once; the mapping cycles
-through all analytic mappings, so each mapping is used two or three times, and full and sparse meshgrids alternate.
+through all analytic mappings, so each mapping is used two or three times, each spline mapping gets three
+further transforms, and full and sparse meshgrids alternate.
 """
 
 import cunumpy as xp
 import numpy as np
 
-from struphy.pic.tests.kernel_test_args import N_ANALYTIC_DOMAINS, analytic_domains, evaluation_grid
+from struphy.pic.tests.kernel_test_args import N_ANALYTIC_DOMAINS, N_GEOMETRY_DOMAINS, evaluation_grid, geometry_domain
 
 RTOL = 1e-10
 ATOL = 1e-10
@@ -18,10 +19,18 @@ TRANSFORMS = (
     tuple((0, k) for k in PULLPUSH_KINDS) + tuple((1, k) for k in PULLPUSH_KINDS) + tuple((2, k) for k in TRAN_KINDS)
 )
 
-# (index into analytic_domains(), kind_transform, kind_fun, is_sparse_meshgrid)
+# (index into geometry_domain(), kind_transform, kind_fun, is_sparse_meshgrid); the analytic mappings cycle
+# through all transforms, then each spline mapping gets three of them
 CASES = tuple(
     ((3 * n) % N_ANALYTIC_DOMAINS, kind_transform, kind_fun, n % 2 == 1)
     for n, (kind_transform, kind_fun) in enumerate(TRANSFORMS)
+) + tuple(
+    (N_ANALYTIC_DOMAINS + n // 3, kind_transform, kind_fun, n % 2 == 0)
+    for n, (kind_transform, kind_fun) in enumerate(
+        TRANSFORMS[(8 * j + 3 * s + 1) % len(TRANSFORMS)]
+        for s in range(N_GEOMETRY_DOMAINS - N_ANALYTIC_DOMAINS)
+        for j in range(3)
+    )
 )
 
 
@@ -42,7 +51,7 @@ def make_args(backend, seed):
         eta3,
         kind_transform,
         kind_fun,
-        analytic_domains()[domain].args_domain,
+        geometry_domain(domain).args_domain,
         is_sparse_meshgrid,
         xp.asarray(rng.random((7, 5, 4, 3))),
     )

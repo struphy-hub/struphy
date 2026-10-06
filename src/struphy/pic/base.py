@@ -57,7 +57,6 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import check_mapping_on_device
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -338,10 +337,6 @@ class Particles(metaclass=ABCMeta):
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
-
-        # the velocity reflection kernel (pyccel or CUDA depending on the backend) needs an analytic mapping on CUDA
-        if self._reflect_axes and self._args_backend == "cupy":
-            check_mapping_on_device(domain.args_domain.kind_map, "CUDA reflection")
 
         # boundary condition type per axis for the per-marker kernel apply_kinetic_bc_marker
         # (0: periodic, 1: reflect, 2: remove, 3: handled in Python by apply_kinetic_bc)

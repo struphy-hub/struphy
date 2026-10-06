@@ -11,6 +11,7 @@ from cunumpy.kernel_testing import emulation_compiler
 from struphy.geometry.tests import spline_mapping_cases
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
 from struphy.pic.tests.cuda_emulation import emulate_struct_kernel
+from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
 from struphy.pic.tests.test_cuda_parity import CUDA_CASES
 
 # pyccel argument class name -> its CUDA version
@@ -87,3 +88,28 @@ def test_emulated_spline_mappings(name):
         n_threads=out.size,
     )
     np.testing.assert_allclose(out.reshape(expected.shape), expected, rtol=1e-13, atol=1e-13)
+
+
+@requires_compiler
+@pytest.mark.parametrize("domain_index", range(N_GEOMETRY_DOMAINS))
+@pytest.mark.parametrize("avoid_round_off", [False, True])
+def test_emulated_metric_helpers(domain_index, avoid_round_off):
+    """test_device_helpers.test_metric_helpers by CPU emulation, for the analytic and the spline mappings."""
+    from struphy.pic.tests.test_device_helpers import metric_helper_case
+
+    kernel, inputs, args_domain, expected = metric_helper_case(domain_index, avoid_round_off)
+    out = np.zeros(len(expected))
+    emulate_struct_kernel(kernel, *inputs, args_domain, out, len(out), n_threads=len(out))
+    np.testing.assert_allclose(out, expected, rtol=1e-10, atol=1e-10)
+
+
+@requires_compiler
+@pytest.mark.parametrize("domain_index", range(N_GEOMETRY_DOMAINS))
+def test_emulated_transform_helpers(domain_index):
+    """test_device_helpers.test_transform_helpers by CPU emulation, for the analytic and the spline mappings."""
+    from struphy.pic.tests.test_device_helpers import transform_helper_case
+
+    kernel, inputs, args_domain, expected = transform_helper_case(domain_index)
+    out = np.zeros(len(expected))
+    emulate_struct_kernel(kernel, *inputs, args_domain, out, len(out), n_threads=len(out))
+    np.testing.assert_allclose(out, expected, rtol=1e-10, atol=1e-10)

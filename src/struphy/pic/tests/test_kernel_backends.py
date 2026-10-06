@@ -18,6 +18,7 @@ from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
 from struphy.utils.cuda_arguments import CUDA_OPTIONS, write_local_projectors_header, write_pusher_header
 
 N_COLS = 25
@@ -196,28 +197,18 @@ def test_pusher_accepts_kernel(wrap):
         pusher(0.001)
 
 
-def test_spline_mappings_checked_only_on_cupy():
-    """Spline mappings (kind_map < 10) have no CUDA version yet (PR 19); the check passes on NumPy."""
-    from struphy.utils.cuda_arguments import check_mapping_on_device
-
-    with cunumpy.use_backend("numpy"):
-        for kind_map in (0, 1, 2, 10, 22, 32):
-            check_mapping_on_device(kind_map, "Geometry evaluations")
-
-
 @requires_cupy
-@pytest.mark.parametrize("domain_index", range(10))
+@pytest.mark.parametrize("domain_index", range(N_GEOMETRY_DOMAINS))
 def test_geometry_evaluation_on_cupy(domain_index):
-    """Geometry evaluations run on CuPy for every analytic mapping and agree with NumPy; spline mappings raise."""
-    from struphy.pic.tests.kernel_test_args import analytic_domains
-    from struphy.utils.cuda_arguments import check_mapping_on_device
+    """Geometry evaluations run on CuPy for every analytic mapping and four spline mappings and agree with NumPy."""
+    from struphy.pic.tests.kernel_test_args import geometry_domain
 
     markers = np.random.default_rng(3).uniform(-0.1, 1.0, (50, 3))
     eta = (np.linspace(0.1, 0.9, 5), np.linspace(0.0, 1.0, 4), np.linspace(0.2, 0.8, 3))
     results = []
     for backend in ("numpy", "cupy"):
         with cunumpy.use_backend(backend):
-            domain = analytic_domains()[domain_index]
+            domain = geometry_domain(domain_index)
             device_markers = cunumpy.asarray(markers)
             device_eta = tuple(cunumpy.asarray(e) for e in eta)
             values = (
@@ -230,6 +221,3 @@ def test_geometry_evaluation_on_cupy(domain_index):
             results.append([cunumpy.to_numpy(v) for v in values])
     for host, device in zip(*results):
         np.testing.assert_allclose(device, host, rtol=1e-10, atol=1e-10)
-
-    with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="PR 19"):
-        check_mapping_on_device(0, "Geometry evaluations")
