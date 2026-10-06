@@ -87,3 +87,54 @@ def evaluation_grid(sparse):
     coords = [(c if sparse else np.broadcast_to(c, (7, 5, 4))).copy() for c in coords]
     coords[1][0, 0, 0] = -1.0
     return tuple(xp.asarray(c) for c in coords)
+
+
+def analytic_domains():
+    """One domain per analytic mapping (``kind_map`` 10-12, 20-22, 30-32), HollowTorus in both angle parametrizations.
+
+    The parameters differ from the defaults and every Jacobian except Cuboid's and Orthogonal's is non-diagonal, so a
+    transposed or mixed-up ``DF`` changes the results. Created on the active backend (``args_domain`` is the pyccel
+    class on NumPy and the CUDA class on CuPy).
+    """
+    from struphy.geometry.domains import (
+        Colella,
+        HollowCylinder,
+        HollowTorus,
+        Orthogonal,
+        PoweredEllipticCylinder,
+        ShafranovDshapedCylinder,
+        ShafranovShiftCylinder,
+        ShafranovSqrtCylinder,
+    )
+
+    return (
+        Cuboid(l1=-1.0, r1=2.0, l2=0.5, r2=3.0, l3=-2.0, r3=4.0),
+        Orthogonal(Lx=2.0, Ly=3.0, alpha=0.05, Lz=4.0),
+        Colella(Lx=2.0, Ly=3.0, alpha=0.05, Lz=4.0),
+        HollowCylinder(a1=0.2, a2=1.0, Lz=4.0, poc=2),
+        PoweredEllipticCylinder(rx=1.0, ry=2.0, Lz=3.0, s=0.5),
+        HollowTorus(a1=0.1, a2=1.0, R0=3.0, sfl=False, pol_period=2, tor_period=3),
+        HollowTorus(a1=0.1, a2=1.0, R0=3.0, sfl=True, pol_period=1, tor_period=3),
+        ShafranovShiftCylinder(rx=1.0, ry=1.5, Lz=4.0, delta=0.1),
+        ShafranovSqrtCylinder(rx=1.5, ry=1.0, Lz=4.0, delta=0.1),
+        ShafranovDshapedCylinder(
+            R0=2.0, Lz=3.0, delta_x=0.1, delta_y=0.05, delta_gs=0.33, epsilon_gs=0.32, kappa_gs=1.7
+        ),
+    )
+
+
+N_ANALYTIC_DOMAINS = 10
+
+
+def logical_markers(n=N_MARKERS, seed=5):
+    """Logical points in marker format, shape (n, 7), away from the poles (eta1 >= 0.1).
+
+    Row 0 is a hole (-1), row 1 is outside in eta1 and row 2 in eta3, so ``remove_outside`` changes the result.
+    """
+    rng = np.random.default_rng(seed)
+    markers = rng.random((n, 7))
+    markers[:, 0] = rng.uniform(0.1, 0.95, n)
+    markers[0, :] = -1.0
+    markers[1, 0] = 1.2
+    markers[2, 2] = -0.3
+    return markers
