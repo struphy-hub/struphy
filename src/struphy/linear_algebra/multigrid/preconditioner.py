@@ -26,6 +26,7 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
+from scope_profiler import ProfileManager
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixPreconditioner
@@ -298,7 +299,8 @@ class MultiGridPreconditioner(LinearOperator):
         b.copy(out=self._b[0])
         if self._options.nullspace == "constants":
             _remove_mean(self._b[0])
-        self._vcycle(0)
+        with ProfileManager.profile_region("multigrid V-cycle", functions=[self._vcycle]):
+            self._vcycle(0)
         self._x[0].copy(out=out)
         if self._options.nullspace == "constants":
             _remove_mean(out)
@@ -312,17 +314,20 @@ class MultiGridPreconditioner(LinearOperator):
 
         x *= 0.0
         S = self._smoothers[l]
-        for _ in range(self._options.n_pre):
-            S.smooth(b, x)
+        with ProfileManager.profile_region(f"pre-smoother level {l}", functions=[S.smooth]):
+            for _ in range(self._options.n_pre):
+                S.smooth(b, x)
 
         r = S.residual(b, x, self._r[l])
         self._R[l].dot(r, out=self._b[l + 1])
-        self._vcycle(l + 1)
+        with ProfileManager.profile_region(f"coarse-grid correction level {l}", functions=[self._vcycle]):
+            self._vcycle(l + 1)
         self._P[l].dot(self._x[l + 1], out=self._e[l])
         x += self._e[l]
 
-        for _ in range(self._options.n_post):
-            S.smooth(b, x)
+        with ProfileManager.profile_region(f"post-smoother level {l}", functions=[S.smooth]):
+            for _ in range(self._options.n_post):
+                S.smooth(b, x)
 
     def _coarse_solve(self, b: Vector, x: Vector) -> None:
         if self._options.coarse_solver == "cg":
