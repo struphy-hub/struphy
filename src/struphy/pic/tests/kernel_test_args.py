@@ -1,10 +1,9 @@
-"""Argument builders shared by the ``<name>_test_args.py`` modules of the kernel folders.
+"""Argument builders for the kernel tests (pyccel/CUDA parity, CPU emulation, device helpers).
 
-Each ``<name>_test_args.py`` defines ``make_args(backend, seed)`` for cunumpy's parity tests
-(:func:`cunumpy.kernel_testing.check_parity`) and ``CASES``: the test cases, selected by ``seed``. The builders
-create random host data and convert it with ``xp.asarray``, so the arguments land on the active backend and are
-the same on both. Argument objects are the pyccel classes on the NumPy backend and their CUDA versions on
-the CuPy backend, as created by the owners.
+The builders create random host data and convert it with ``xp.asarray``, so the arguments land on the active
+backend and are the same on both. Argument objects are the pyccel classes on the NumPy backend and their CUDA
+versions on the CuPy backend, as created by the owners. The parity cases of every CUDA kernel, built from these, are
+in :mod:`struphy.pic.tests.cuda_parity_cases`.
 """
 
 import cunumpy as xp
