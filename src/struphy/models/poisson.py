@@ -85,16 +85,14 @@ class Poisson(StruphyModel):
 
         :meta private:
         """
-        # # use setter to assign source
-        # self.propagators.poisson.rho = Propagator.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+        if self.with_t_dep_source:
+            # Solve to get initial potential (before time stepping)
+            logger.info("\nSolving initial Poisson problem (before time stepping)...")
 
-        # Solve to get initial potential (before time stepping)
-        logger.info("\nSolving initial Poisson problem (before time stepping)...")
+            with ProfileManager.profile_region("initial Poisson solve", functions=[self.propagators.poisson]):
+                self.propagators.poisson(1.0)
 
-        with ProfileManager.profile_region("initial Poisson solve", functions=[self.propagators.poisson]):
-            self.propagators.poisson(1.0)
-
-        logger.info("... Done.")
+            logger.info("... Done.")
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

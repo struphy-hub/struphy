@@ -278,7 +278,7 @@ if __name__ == "__main__":
         rhs_data = out.evaluate("em_fields/source", t=0)
         rhs = rhs_data.values
 
-        phi_data = out.evaluate("em_fields/phi", t=0)
+        phi_data = out.evaluate("em_fields/phi", t=-1)
         phi = phi_data.values
         x, y, z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))
 
