@@ -23,6 +23,9 @@ Progress is tracked in struphy-hub/struphy#650.
 - [ ] **PR 14: Accumulation catalog and first Vlasov–Ampère kernels** — `pic/accumulation` is split into one folder per kernel with its own `catalog`; `Accumulator`/`AccumulatorVector` take catalog kernels and launch the CUDA version with one thread per marker row. CUDA versions of `push_v_with_efield`, `push_weights_with_efield_lin_va` and `charge_density_0form` (atomic fp64 adds). All CUDA kernels are checked against pyccel without a GPU by CPU emulation. `vlasov_maxwell` and `linear_vlasov_ampere` wait for 6D array views in cunumpy.
 - [ ] **PR 15: Use cunumpy as intended** — every kernel folder declares its kernel in its `__init__.py` (`Kernel.from_folder`), and the code imports it: `from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage` instead of `catalog["push_eta_stage"]`; the module-level catalogs are gone. `Pusher`, `KernelSetup` and the accumulators call the `Kernel` itself (no `get_kernel()`, no `n_threads` branches: cunumpy infers one thread per marker from `args_markers`). Parity test arguments live next to each kernel in `<name>_test_args.py`, driven by `cunumpy.kernel_testing.parity_cases`/`check_parity`. Built against cunumpy `devel`; once the usage here is settled, cunumpy 0.5.0 is released on PyPI and struphy pins `cunumpy>=0.5.0, <0.6`.
 - [ ] **PR 16: One CPU and one GPU argument class per argument type** — every pyccel argument class (`MarkerArguments`, `DerhamArguments`, `DomainArguments`, `LocalProjectorsArguments`) has a CUDA counterpart of the same name with a `Cuda` prefix in `kernel_arguments/*_cuda.py`, with the same constructor and attributes. Each owner creates one of the two in `__init__`, depending on the backend; `PyccelStructArguments`, `__host_args__()` and host copies are no longer used. Every kernel that takes argument objects is called through `Kernel(PyccelKernel(...))`; without a CUDA version it raises on CuPy. The remaining entry kernels called from Python (spline, geometry and SPH evaluation, marker diagnostics, `reflect`, local projectors) move into one folder per kernel, like the pushers. Geometry evaluations have no CUDA version yet, so CuPy particle runs fail at setup until they are ported (see [PR 16 implementation notes](#pr-16-implementation-notes)).
+- [ ] **PR 17: Geometry evaluation on the GPU for all analytic mappings** — CUDA versions of the four geometry entry kernels (`kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` in `geometry/kernels/`), built on device versions of the whole metric chain (`f`, `df`, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`/`push`/`tran`) for every analytic mapping (`kind_map` 10–12, 20–22, 30–32). Restores CuPy particle runs (weight initialization evaluates `jacobian_det`), and removes the Cuboid-only checks in `Pusher`, the accumulators and `reflect`. Parity arguments cover every analytic mapping (see [PR 17](#pr-17-geometry-evaluation-for-all-analytic-mappings)).
+- [ ] **PR 18: Spline mappings on the GPU** — `kind_map` 0–2 (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC): `DomainArgs` gets array views for `ind1..3` and `cx/cy/cz` (shape needed on the device), spline-mapped `Domain`s can be created on the CuPy backend, and `spline_3d`, `spline_2d_straight`, `spline_2d_torus` get device versions (see [PR 18](#pr-18-spline-mappings)).
+- [ ] **Next (order to be confirmed)**: 6D array views in cunumpy and the blocked matrix accumulations `vlasov_maxwell`, `linear_vlasov_ampere` (steps 1–2 of the [porting order](#porting-order)); one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, including when to compile the kernels; a decision on hand-written CUDA vs. code generation before the guiding-center kernels (step 3).
 - [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
 
@@ -32,8 +35,8 @@ Unrelated bugs found along the way go into their own PRs, not into these ones.
 
 A developer who adds a new kernel (e.g. for a new model) should only have to:
 
-1. write the pyccel kernel `<name>_kernels.py` as today, and
-2. optionally write `<name>_cuda.cu` **in the same folder**.
+1. write the pyccel kernel `<name>_kernels.py` in a new folder `<package>/kernels/<name>/`, next to an `__init__.py` that declares `<name> = Kernel.from_folder(__name__, structs=CUDA_STRUCTS)`, and
+2. optionally write `<name>_cuda.cu` and `<name>_test_args.py` **in the same folder**.
 
 Everything else (loading, dispatch, argument passing, tests for agreement between the two versions) is done by the infrastructure.
 CUDA kernels can be added one by one. If the code runs on the GPU and needs a kernel that has no CUDA version yet, it raises a clear error instead of silently falling back to the CPU.
@@ -47,6 +50,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 - **No silent CPU fallback on the GPU.** A kernel without a CUDA version raises an error on the GPU backend. Falling back would mean copying data to the host and back at every call.
 - **Kernels see only the C structs.** CUDA kernels and `__device__` helpers take `MarkerArgs`, `DomainArgs` and `DerhamArgs` from `pusher_args.cuh` and nothing else of the Python side. The Python classes that fill the structs can change (as they did when they moved to cunumpy in PR 13) without touching a single kernel.
 - **Own infrastructure first, cunumpy later.** The kernel infrastructure (`Kernel`, `KernelCatalog`, `CudaKernel`, `Argument`) stayed in struphy while it was being designed (PRs 1–12) and moved to [cunumpy](https://github.com/struphy-hub/cunumpy), which we maintain and release on PyPI ourselves, once it was stable (PR 13, see [Moving to cunumpy](#moving-to-cunumpy-pr-13)).
+- **One folder per kernel.** Every kernel that Python calls (an *entry kernel*) lives in its own folder `<package>/kernels/<name>/`: `<name>_kernels.py` (pyccel), `__init__.py` (declares the `Kernel`), and once ported `<name>_cuda.cu` and `<name>_test_args.py`. Code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`) and calls it; there is no `Kernel(PyccelKernel(...))` at call sites. **Any PR that adds a kernel, or ports one that still lives in a shared module, puts it into its own folder first** (moved with its imports, as in PR 16) and adds its package to `test_cuda_parity.PACKAGES`. Helpers called only from other kernels (`@pure` functions, `__device__` functions) stay in shared modules and headers, e.g. `geometry/evaluation_kernels.py` and `geometry/evaluation_kernels.cuh`; per-mapping device helpers go next to their domain (`geometry/domains/<name>/<name>_cuda.cuh`, like `cuboid_cuda.cuh`).
 - **Small steps.** Every PR keeps the CPU code path working and tested.
 
 ## Current state (after PR 16)
@@ -190,6 +194,20 @@ For each kernel: add `<name>_cuda.cu`; the parity test from PR 11 picks it up; `
 - Accumulation (before the first accumulation kernel): many markers write to the same grid cells. Options are atomics (`atomicAdd` on `double`, native since sm_60) and sort-then-reduce. Start with atomics, which match the pyccel structure one-to-one; measure before optimizing. The accumulated arrays are owned by feectools stencil vectors, which are host arrays on the NumPy backend and device arrays on CuPy (feectools#85), so the kernel writes into `vec._data` directly on both. Split `pic/accumulation` into one folder per kernel at the same time. Accumulation kernels over grid points need their own launch sizes; `CudaKernel` gets a `grid`/`block` override then.
 - Field evaluation on the device (`SplineFunction.__call__` and friends) is needed by diagnostics and by some propagators; it reuses the B-spline device helpers from PR 10 with 3D launch shapes.
 
+### PR 17: Geometry evaluation for all analytic mappings
+
+- Device helpers, ported from pyccel one to one: per mapping `<name>_cuda.cuh` next to `<name>_kernels.py` in `geometry/domains/<name>/` (`f` and `df` of Cuboid, Orthogonal, Colella, HollowCylinder, PoweredEllipticCylinder, HollowTorus, ShafranovShift/Sqrt/DshapedCylinder), and in `geometry/evaluation_kernels.cuh` the `kind_map` switch for `f`/`df` plus `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`. `pull`, `push`, `tran` go into `geometry/transform_kernels.cuh`. Spline mappings (`kind_map` 0–2) trap on the device until PR 18.
+- Entry kernels: `<name>_cuda.cu` and `<name>_test_args.py` in the four `geometry/kernels/<name>/` folders (one thread per marker, or per grid point with `N_THREADS`). The parity arguments loop over every analytic mapping, so a transposed `DF` (invisible with Cuboid's diagonal Jacobian) is caught, also by the CPU emulation.
+- Device helper tests for the metric chain, against the pyccel helpers, as in PR 10.
+- With `df`/`df_inv` defined for every analytic mapping, the Cuboid-only checks in `Pusher`, `_accumulation_kernel` and `Particles` (reflection) are replaced by a check for spline mappings.
+- The GPU tests are not run on the H100 in this PR; CPU emulation and the CPU regression tests are the gate.
+
+### PR 18: Spline mappings
+
+- `DomainArgs`: `ind1..3` become `Array2D<long long>` and `cx/cy/cz` `Array3D<double>` (the device needs their shapes); `CudaDomainArguments.fields` and the generated `pusher_args.cuh` change, the pyccel `DomainArguments` does not.
+- Spline-mapped domains (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC) can be created on the CuPy backend (the PR 5 leftover: polar splines and feectools arrays).
+- Device versions of `spline_3d(_df)`, `spline_2d_straight(_df)`, `spline_2d_torus(_df)` in `geometry/spline_mappings_kernels.cuh`, using the B-spline helpers of PR 10; the parity arguments of the geometry kernels add the spline mappings.
+
 ## Moving to cunumpy (PR 13)
 
 cunumpy 0.5.0 contains equivalents of everything struphy built in PRs 1–8, with more checks. The move was deliberately postponed until a few kernels ran on the GPU: keeping the small struphy classes while the design settled made them easier to understand and change, and the kernels never see the Python side, so nothing written in PRs 10–12 had to change beyond includes and argument names. The table uses the names of the 0.4.0 plan; in 0.5.0 the classes live in the submodules `cunumpy.kernels`, `cunumpy.cuda`, `cunumpy.kernel_testing` and `cunumpy.profiling`.
@@ -224,6 +242,8 @@ lists only the kernels it adds; P = pusher, A = accumulation, E = marker evaluat
 done (✓), in this PR (PR 14), blocked (⏸).
 
 **Step 0 – Vlasov** (PRs 11–12, ✓): `push_eta_stage`, `push_vxb_analytic`, `push_vxb_implicit`, `reflect`.
+
+**Geometry** (PR 17, PR 18): `kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` with the metric chain, first for all analytic mappings, then for spline mappings. Needed by every particle run on the GPU (weight initialization) and by the diagnostics; it also lifts the Cuboid-only restriction of all CUDA kernels.
 
 **Step 1 – Vlasov–Ampère, Vlasov–Maxwell, ColdPlasmaVlasov**
 
@@ -289,7 +309,7 @@ The three spaces (H1vec/Hcurl/Hdiv) differ only in the basis; port one, then the
 `push_v_sph_pressure`, `push_v_sph_pressure_ideal_gas`, `push_v_viscosity`, `div_u_weak_1form`.
 
 Infrastructure that gates the steps, independent of the kernels: mappings other than Cuboid (every
-CUDA kernel rejects other mappings at setup), multi-rank marker sorting without host round trips,
+CUDA kernel rejects other mappings at setup until PR 17 (analytic) and PR 18 (spline)), multi-rank marker sorting without host round trips,
 and array views with more than 4 dimensions in cunumpy (all matrix accumulations write 6D stencil
 matrix data).
 
