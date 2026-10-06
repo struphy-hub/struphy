@@ -17,8 +17,17 @@ from struphy.pic.pushing.kernels.push_vxb_implicit import push_vxb_implicit
 from struphy.pic.pushing.kernels.push_weights_with_efield_lin_va import push_weights_with_efield_lin_va
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-# all kernels of the two kernel packages, for tests that go through every kernel
-PACKAGES = ("struphy.pic.pushing.kernels", "struphy.pic.accumulation.kernels")
+# all kernel packages (one folder per kernel), for tests that go through every kernel
+PACKAGES = (
+    "struphy.pic.pushing.kernels",
+    "struphy.pic.accumulation.kernels",
+    "struphy.pic.diagnostics.kernels",
+    "struphy.pic.sph.kernels",
+    "struphy.bsplines.kernels",
+    "struphy.geometry.kernels",
+    "struphy.feec.kernels",
+    "struphy.feec.local_projectors.kernels",
+)
 CATALOGS = {package: KernelCatalog.from_package(package, structs=CUDA_STRUCTS) for package in PACKAGES}
 CUDA_CASES = [case for catalog in CATALOGS.values() for case in parity_cases(catalog)]
 

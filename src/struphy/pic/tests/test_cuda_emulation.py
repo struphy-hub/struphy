@@ -43,7 +43,10 @@ def test_emulated_parity(kernel):
             emulated_args = module.make_args("numpy", seed)
             before = arrays(host_args)
             kernel(*host_args)
-            emulate_struct_kernel(kernel.cuda_kernel, *emulated_args)
+            n_threads = getattr(module, "N_THREADS", None)  # as in cunumpy's check_parity
+            if callable(n_threads):
+                n_threads = n_threads(emulated_args)
+            emulate_struct_kernel(kernel.cuda_kernel, *emulated_args, n_threads=n_threads)
             host, emulated = arrays(host_args), arrays(emulated_args)
             assert any(not np.array_equal(a, b) for a, b in zip(before, host)), "the kernel changed nothing"
             for h, e in zip(host, emulated):

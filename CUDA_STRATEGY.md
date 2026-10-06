@@ -22,7 +22,7 @@ Progress is tracked in struphy-hub/struphy#650.
 - [ ] **PR 12+: Port kernels one by one**, in the order they are needed by the models we want on the GPU (see [Porting order](#porting-order)). Accumulation needs its own design step first.
 - [ ] **PR 14: Accumulation catalog and first Vlasov–Ampère kernels** — `pic/accumulation` is split into one folder per kernel with its own `catalog`; `Accumulator`/`AccumulatorVector` take catalog kernels and launch the CUDA version with one thread per marker row. CUDA versions of `push_v_with_efield`, `push_weights_with_efield_lin_va` and `charge_density_0form` (atomic fp64 adds). All CUDA kernels are checked against pyccel without a GPU by CPU emulation. `vlasov_maxwell` and `linear_vlasov_ampere` wait for 6D array views in cunumpy.
 - [ ] **PR 15: Use cunumpy as intended** — every kernel folder declares its kernel in its `__init__.py` (`Kernel.from_folder`), and the code imports it: `from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage` instead of `catalog["push_eta_stage"]`; the module-level catalogs are gone. `Pusher`, `KernelSetup` and the accumulators call the `Kernel` itself (no `get_kernel()`, no `n_threads` branches: cunumpy infers one thread per marker from `args_markers`). Parity test arguments live next to each kernel in `<name>_test_args.py`, driven by `cunumpy.kernel_testing.parity_cases`/`check_parity`. Built against cunumpy `devel`; once the usage here is settled, cunumpy 0.5.0 is released on PyPI and struphy pins `cunumpy>=0.5.0, <0.6`.
-- [ ] **PR 16: One CPU and one GPU argument class per argument type** — every pyccel argument class (`MarkerArguments`, `DerhamArguments`, `DomainArguments`, `LocalProjectorsArguments`) has a CUDA counterpart of the same name with a `Cuda` prefix in `kernel_arguments/*_cuda.py`, with the same constructor and attributes. Each owner creates one of the two in `__init__`, depending on the backend; `PyccelStructArguments`, `__host_args__()` and host copies are no longer used. Every kernel that takes argument objects is called through `Kernel(PyccelKernel(...))`; without a CUDA version it raises on CuPy. Geometry evaluations have no CUDA version yet, so CuPy particle runs fail at setup until they are ported (see [PR 16 implementation notes](#pr-16-implementation-notes)).
+- [ ] **PR 16: One CPU and one GPU argument class per argument type** — every pyccel argument class (`MarkerArguments`, `DerhamArguments`, `DomainArguments`, `LocalProjectorsArguments`) has a CUDA counterpart of the same name with a `Cuda` prefix in `kernel_arguments/*_cuda.py`, with the same constructor and attributes. Each owner creates one of the two in `__init__`, depending on the backend; `PyccelStructArguments`, `__host_args__()` and host copies are no longer used. Every kernel that takes argument objects is called through `Kernel(PyccelKernel(...))`; without a CUDA version it raises on CuPy. The remaining entry kernels called from Python (spline, geometry and SPH evaluation, marker diagnostics, `reflect`, local projectors) move into one folder per kernel, like the pushers. Geometry evaluations have no CUDA version yet, so CuPy particle runs fail at setup until they are ported (see [PR 16 implementation notes](#pr-16-implementation-notes)).
 - [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
 
@@ -58,7 +58,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 | `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()` and `write_local_projectors_header()` |
 | `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs` and `LocalProjectorsArgs`, generated from the CUDA classes, using cunumpy array views |
 | `src/struphy/geometry/base.py`, `src/struphy/pic/base.py`, `src/struphy/feec/psydac_derham.py` | `Domain.args_domain`, `Particles.args_markers` and `Derham.args_derham` are the pyccel class on NumPy and the CUDA class on CuPy, chosen once at construction; every kernel call goes through a `Kernel` |
-| `src/struphy/pic/pushing/kernels/`, `src/struphy/pic/accumulation/kernels/` | the 43 pusher/evaluation and 16 accumulation kernels, one folder each; each folder's `__init__.py` declares its `Kernel`. Seven have CUDA versions and a `<name>_test_args.py` |
+| `src/struphy/*/kernels/` (`pic/pushing`, `pic/accumulation`, `pic/diagnostics`, `pic/sph`, `bsplines`, `geometry`, `feec`, `feec/local_projectors`) | every kernel called from Python with argument objects, one folder each: 44 pusher/evaluation (incl. `reflect`), 16 accumulation, 10 marker diagnostics, 4 SPH evaluation, 3 spline evaluation, 4 geometry, 1 FEEC utility and 8 local projector kernels. Each folder's `__init__.py` declares its `Kernel`; the code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`). Eleven have CUDA versions and a `<name>_test_args.py` |
 | `src/struphy/pic/tests/test_cuda_parity.py`, `test_cuda_emulation.py` | parity of every CUDA kernel with pyccel from the `<name>_test_args.py` modules: on a GPU (`check_parity`), and without one by CPU emulation |
 | `src/struphy/pic/tests/test_kernel_backends.py` | the generated-header tests, the check that each CUDA class mirrors its pyccel class, signature check of all kernels, owner class selection, and (on a GPU) struct layout and copy/pickle checks |
 
@@ -446,3 +446,23 @@ step: CUDA versions of `kernel_evaluate_pic`, `kernel_evaluate` and the pull/pus
 
 `CudaLocalProjectorsArguments` is not used by any CUDA kernel yet; local projectors are rejected on the
 CuPy backend by `Derham`.
+
+### Kernel folders
+
+Every kernel that Python code calls with argument objects now lives in its own folder, like the pusher and
+accumulation kernels since PR 9/14: `<package>/kernels/<name>/` with `<name>_kernels.py` (pyccel),
+`<name>_cuda.cu` (if ported), `<name>_test_args.py` (if ported) and an `__init__.py` that declares
+`<name> = Kernel.from_folder(__name__, structs=CUDA_STRUCTS)`. The code imports the kernel and calls it, with
+no `Kernel(PyccelKernel(...))` at call sites. New packages: `pic/diagnostics/kernels` (marker energies,
+moments, guiding-center coordinates, from `pic/utilities_kernels.py`), `pic/sph/kernels` (from
+`pic/sph_eval_kernels.py`), `bsplines/kernels` (`eval_spline_mpi_markers/_matrix/_sparse_meshgrid`, from
+`bsplines/evaluation_kernels_3d.py`), `geometry/kernels` (`kernel_evaluate(_pic)`, `kernel_pullpush(_pic)`),
+`feec/kernels` (`hybrid_weight`) and `feec/local_projectors/kernels`; `reflect` joins `pic/pushing/kernels`.
+Only entry kernels moved; the `@pure` helpers they call stay in the shared modules and are imported from
+there.
+
+The CUDA spline evaluation is split accordingly: the shared device function `eval_spline_mpi` is in
+`bsplines/evaluation_kernels_3d.cuh`, and each folder has its `__global__` kernel. All packages are in
+`test_cuda_parity.PACKAGES`, so their signatures are checked, and every CUDA kernel has a parity test and a
+CPU emulation test; `N_THREADS` in a `<name>_test_args.py` sets the launch size where it is not one thread
+per row of the first array (spline evaluation on grids, `reflect`).

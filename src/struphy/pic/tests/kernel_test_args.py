@@ -60,3 +60,30 @@ def spline_coefficients(n=3, seed=11):
     """Random coefficients, large enough for every span of :func:`derham_arguments`."""
     rng = np.random.default_rng(seed)
     return tuple(xp.asarray(rng.normal(size=(18, 20, 16))) for _ in range(n))
+
+
+def spline_evaluation_arguments(kind):
+    """``_data, kind, pn, tn1, tn2, tn3, starts`` of the spline evaluation kernels, for degrees 2, 3, 1 on 8 cells.
+
+    The coefficients cover every span of the knots with start indices 1 on all axes.
+    """
+    rng = np.random.default_rng(34)
+    degree = np.array([2, 3, 1], dtype=np.int64)
+    knots = [np.r_[np.zeros(p), np.linspace(0, 1, 9), np.ones(p)] for p in degree]
+    return (
+        xp.asarray(rng.normal(size=(16, 18, 20))),
+        xp.asarray(kind, dtype=np.int64),
+        xp.asarray(degree),
+        *(xp.asarray(t) for t in knots),
+        xp.ones(3, dtype=np.int64),
+    )
+
+
+def evaluation_grid(sparse):
+    """Evaluation points on a 7 x 5 x 4 grid (sparse: shapes (7, 1, 1), (1, 5, 1), (1, 1, 4)); one is flagged -1."""
+    axes = [np.linspace(0.3, 0.7, n) for n in (7, 5, 4)]
+    coords = [axes[0][:, None, None], axes[1][None, :, None], axes[2][None, None, :]]
+    # copies: pyccel rejects the zero strides of views and broadcasts
+    coords = [(c if sparse else np.broadcast_to(c, (7, 5, 4))).copy() for c in coords]
+    coords[1][0, 0, 0] = -1.0
+    return tuple(xp.asarray(c) for c in coords)

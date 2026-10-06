@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -15,12 +14,12 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic import utilities_kernels
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB import cc_lin_mhd_5d_gradB
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg import cc_lin_mhd_5d_gradB_dg
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg_init import cc_lin_mhd_5d_gradB_dg_init
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.diagnostics.kernels.eval_gradB_ediff import eval_gradB_ediff
 from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_Hdiv import push_gc_cc_J2_dg_Hdiv
 from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_init_Hdiv import push_gc_cc_J2_dg_init_Hdiv
 from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_H1vec import push_gc_cc_J2_stage_H1vec
@@ -354,7 +353,7 @@ class CurrentCoupling5DGradB(Propagator):
             # Call the accumulation and Pusher class
             accum_kernel_init = cc_lin_mhd_5d_gradB_dg_init
             accum_kernel = cc_lin_mhd_5d_gradB_dg
-            self._accum_kernel_en_fB_mid = Kernel(PyccelKernel(utilities_kernels.eval_gradB_ediff))
+            self._accum_kernel_en_fB_mid = eval_gradB_ediff
 
             self._args_accum_kernel = (
                 epsilon,

@@ -174,7 +174,16 @@ def test_catalog_signatures():
 
     for catalog in CATALOGS.values():
         catalog.check_signatures()
-    assert [len(catalog) for catalog in CATALOGS.values()] == [43, 16]
+    assert {package.split(".", 1)[1]: len(catalog) for package, catalog in CATALOGS.items()} == {
+        "pic.pushing.kernels": 44,
+        "pic.accumulation.kernels": 16,
+        "pic.diagnostics.kernels": 10,
+        "pic.sph.kernels": 4,
+        "bsplines.kernels": 3,
+        "geometry.kernels": 4,
+        "feec.kernels": 1,
+        "feec.local_projectors.kernels": 8,
+    }
 
 
 @pytest.mark.parametrize("wrap", [False, True])

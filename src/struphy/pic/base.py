@@ -2,14 +2,11 @@ import logging
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
 import numpy as np
-from cunumpy.cuda import CudaKernel
-from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.partition import factorint
@@ -42,7 +39,7 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing import pusher_utilities_kernels
+from struphy.pic.pushing.kernels.reflect import reflect
 from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
 from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 from struphy.pic.sorting import SortingBoxes
@@ -51,16 +48,15 @@ from struphy.pic.sorting_kernels import (
     assign_particles_to_boxes,
     sort_boxed_particles,
 )
+from struphy.pic.sph.kernels.box_based_evaluation_flat import box_based_evaluation_flat
+from struphy.pic.sph.kernels.box_based_evaluation_meshgrid import box_based_evaluation_meshgrid
+from struphy.pic.sph.kernels.naive_evaluation_flat import naive_evaluation_flat
+from struphy.pic.sph.kernels.naive_evaluation_meshgrid import naive_evaluation_meshgrid
 from struphy.pic.sph_eval_kernels import (
-    box_based_evaluation_flat,
-    box_based_evaluation_meshgrid,
     distance,
-    naive_evaluation_flat,
-    naive_evaluation_meshgrid,
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import CUDA_OPTIONS
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -342,12 +338,8 @@ class Particles(metaclass=ABCMeta):
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
 
-        # velocity reflection kernel, pyccel or CUDA depending on the backend (see CUDA_STRATEGY.md)
+        # the velocity reflection kernel (pyccel or CUDA depending on the backend) supports only Cuboid on CUDA
         if self._reflect_axes:
-            self._reflect = Kernel(
-                PyccelKernel(pusher_utilities_kernels.reflect),
-                CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS),
-            )
             if self._args_backend == "cupy" and domain.args_domain.kind_map != 10:
                 raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")
 
@@ -1906,7 +1898,7 @@ class Particles(metaclass=ABCMeta):
                 continue
             # flip velocity
             outside_inds = outside_inds_per_axis[axis]
-            self._reflect(self.markers, self.domain.args_domain, outside_inds, axis, n_threads=len(outside_inds))
+            reflect(self.markers, self.domain.args_domain, outside_inds, axis, n_threads=len(outside_inds))
 
     def finish_kernel_bc(self, newton=False):
         """Bookkeeping after a pusher kernel that applied the kinetic boundary conditions per marker
@@ -4258,7 +4250,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         if fast:
             if len(_shp) == 1:
-                func = Kernel(PyccelKernel(box_based_evaluation_flat))
+                func = box_based_evaluation_flat
             elif len(_shp) == 3:
                 if _shp[0] > 1:
                     assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
@@ -4266,7 +4258,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                     assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
                 if _shp[2] > 1:
                     assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = Kernel(PyccelKernel(box_based_evaluation_meshgrid))
+                func = box_based_evaluation_meshgrid
 
             func(
                 self.args_markers,
@@ -4292,9 +4284,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             )
         else:
             if len(_shp) == 1:
-                func = Kernel(PyccelKernel(naive_evaluation_flat))
+                func = naive_evaluation_flat
             elif len(_shp) == 3:
-                func = Kernel(PyccelKernel(naive_evaluation_meshgrid))
+                func = naive_evaluation_meshgrid
             func(
                 self.args_markers,
                 eta1,

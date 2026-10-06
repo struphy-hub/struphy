@@ -9,11 +9,13 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 import h5py
 import numpy as np
-from cunumpy.kernels import Kernel, PyccelKernel
 from scipy.sparse import csc_matrix, kron
 
 import struphy.bsplines.bsplines as bsp
-from struphy.geometry import evaluation_kernels, transform_kernels
+from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate
+from struphy.geometry.kernels.kernel_evaluate_pic import kernel_evaluate_pic
+from struphy.geometry.kernels.kernel_pullpush import kernel_pullpush
+from struphy.geometry.kernels.kernel_pullpush_pic import kernel_pullpush_pic
 from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
@@ -1037,7 +1039,7 @@ class Domain(metaclass=DomainMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-            kernel = Kernel(PyccelKernel(evaluation_kernels.kernel_evaluate_pic))
+            kernel = kernel_evaluate_pic
             n_inside = kernel(
                 markers,
                 which,
@@ -1081,7 +1083,7 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            kernel = Kernel(PyccelKernel(evaluation_kernels.kernel_evaluate))
+            kernel = kernel_evaluate
             kernel(
                 E1,
                 E2,
@@ -1255,7 +1257,7 @@ class Domain(metaclass=DomainMeta):
             # make sure we don't have stride = 0
             A = A.copy()
 
-            kernel = Kernel(PyccelKernel(transform_kernels.kernel_pullpush_pic))
+            kernel = kernel_pullpush_pic
             n_inside = kernel(
                 A,
                 markers,
@@ -1312,7 +1314,7 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
-            kernel = Kernel(PyccelKernel(transform_kernels.kernel_pullpush))
+            kernel = kernel_pullpush
             kernel(
                 A,
                 E1,
