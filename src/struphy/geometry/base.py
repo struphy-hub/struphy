@@ -234,7 +234,10 @@ class Domain(metaclass=DomainMeta):
             array_module.asarray(self.degree, dtype=np.int64),
             *(array_module.ascontiguousarray(t, dtype=np.float64) for t in self.T),
             *(array_module.ascontiguousarray(ind, dtype=np.int64) for ind in self.indN),
-            *(array_module.ascontiguousarray(c, dtype=np.float64) for c in (self.cx, self.cy, self.cz)),
+            # The control points may be broadcast views with a zero stride on a
+            # singleton axis. ascontiguousarray() can preserve those strides,
+            # which the compiled Pyccel DomainArguments constructor cannot handle.
+            *(array_module.array(c, dtype=np.float64, order="C", copy=True) for c in (self.cx, self.cy, self.cz)),
         )
 
     def _can_build_args_domain(self):
