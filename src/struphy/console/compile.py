@@ -108,6 +108,7 @@ def struphy_compile(
     dependencies,
     time_execution,
     yes,
+    debug: bool = False,
     jobs=1,
 ):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
@@ -135,6 +136,9 @@ def struphy_compile(
 
     verbose : bool
         Call pyccel in verbose mode (default=False).
+
+    debug : bool
+        Compile with debug flags (default=False).
 
     dependencies : bool
         Whether to print Struphy kernels (to be compiled) and their dependencies on screen.
@@ -331,6 +335,9 @@ def struphy_compile(
 
         if verbose:
             flags += " --verbose"
+
+        if debug:
+            flags += " --debug"
 
         # compilation
         print("\nCompiling Struphy kernels ...")
