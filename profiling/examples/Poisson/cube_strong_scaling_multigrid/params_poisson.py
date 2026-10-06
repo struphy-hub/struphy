@@ -4,12 +4,12 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Poisson strong scaling on 3D cube, no preconditioner"
+name = "Poisson strong scaling on 3D cube, multigrid preconditioner"
 description = """
 Strong scaling test for Poisson equation on a 3D cube.
 The manufactured solution is a Gaussian bump times sin(pi*x/Lx), exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions are set in direction x.
-The linear system is solved with unpreconditioned CG.
+The linear system is solved with CG preconditioned by geometric multigrid.
 """
 
 import logging
@@ -35,6 +35,7 @@ from struphy import (
     grids,
     perturbations,
     ProfilingOptions,
+    MultiGridOptions,
 )
 
 # ---------------------
@@ -111,11 +112,12 @@ sim = Simulation(
 
 from struphy.linear_algebra.solver import SolverParameters
 
-solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=False)
+solver_params = SolverParameters(tol=1e-8, maxiter=100, info=True, recycle=False)
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
-    precond=None,
+    precond="MultiGrid",
+    multigrid=MultiGridOptions(),
     solver_params=solver_params,
 )
 
