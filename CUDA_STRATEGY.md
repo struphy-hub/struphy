@@ -206,8 +206,8 @@ For each kernel: add `<name>_cuda.cu`; the parity test from PR 11 picks it up; `
 
 ### PR 19: Spline mappings
 
-- `DomainArgs`: `ind1..3` become `Array2D<long long>` and `cx/cy/cz` `Array3D<double>` (the device needs their shapes); `CudaDomainArguments.fields` and the generated `pusher_args.cuh` change, the pyccel `DomainArguments` does not.
-- Spline-mapped domains (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC) can be created on the CuPy backend (the PR 5 leftover: polar splines and feectools arrays).
+- `DomainArgs`: `t1..t3` become `Array1D<double>` (`find_span` needs the number of knots), `ind1..3` `Array2D<long long>` and `cx/cy/cz` `Array3D<double>` (the device needs their shapes); `CudaDomainArguments.fields` and the generated `pusher_args.cuh` change, the pyccel `DomainArguments` does not.
+- Spline-mapped domains (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC) can be created on the CuPy backend: the control-point fitting (SciPy) runs on the host and the control points are copied to the device once. Polar splines (`Derham` with `polar_splines=True`) stay host-only and raise on CuPy.
 - Device versions of `spline_3d(_df)`, `spline_2d_straight(_df)`, `spline_2d_torus(_df)` in `geometry/spline_mappings_kernels.cuh`, using the B-spline helpers of PR 10; the parity arguments of the geometry kernels add the spline mappings.
 
 ## Moving to cunumpy (PR 13)
@@ -517,3 +517,38 @@ The CUDA spline evaluation is split accordingly: the shared device function `eva
 `test_cuda_parity.PACKAGES`, so their signatures are checked, and every CUDA kernel has a parity test and a
 CPU emulation test; `N_THREADS` in a `<name>_test_args.py` sets the launch size where it is not one thread
 per row of the first array (spline evaluation on grids, `reflect`).
+
+## PR 19 implementation notes (work in progress)
+
+Done in the first phase (independent of PR 18):
+
+- `DomainArgs` holds array views for the knots (`Array1D<double> t1..t3`), the spline indices
+  (`Array2D<long long> ind1..3`) and the control points (`Array3D<double> cx/cy/cz`). The knots are views
+  too because `find_span` needs `len(t)`, which a pointer does not carry (`DerhamArgs` has `nt1..nt3` for
+  this). `CudaDomainArguments` checks the number of dimensions and, for `kind_map` 0-2, that the degrees are
+  at most `MAX_SPLINE_DEGREE` (8). No CUDA code read these fields before.
+- Why spline-mapped domains could not be created on CuPy: `interp_mapping` (`geometry/base.py`) builds the
+  knots, Greville points and collocation matrices with `xp` and solves with SciPy sparse, so on CuPy
+  `bsplines.greville` already fails (`xp.around` of a Python list), and SciPy would get device arrays;
+  `Tokamak` creates an `EQDSKequilibrium`, whose `RectBivariateSpline` gets device arrays from `xp.linspace`.
+  Fix: `interp_mapping` and the `Tokamak` setup (default equilibrium and field-line tracing) run on the NumPy
+  backend and the control points are copied to the active backend once. `EQDSKequilibrium` itself still
+  cannot be created on CuPy (MHD equilibria on the GPU are a separate topic); a `Tokamak` on CuPy takes an
+  equilibrium created on the NumPy backend.
+- Polar splines: `PolarExtractionBlocksC1` builds SciPy sparse matrices from the control points, and the
+  polar extraction operators apply them to the stencil data, which lives on the device on CuPy. Making this
+  work needs device sparse matrices (`cupyx.scipy.sparse`) or kernels for the polar operators; until then
+  `Derham` raises `NotImplementedError` for `polar_splines=True` on CuPy.
+- Device helpers: `b_splines_slim`, `b_der_splines_slim` (`bsplines/bsplines_kernels.cuh`),
+  `evaluation_kernel_2d` (`bsplines/evaluation_kernels_2d.cuh`), `evaluation_kernel_3d`
+  (`bsplines/evaluation_kernels_3d.cuh`) and the six spline mappings in
+  `geometry/spline_mappings_kernels.cuh`, with the same names and arguments as pyccel (`const DomainArgs&`
+  for `args`, `Array2D<long long>` for `ind1..3`, `df_out` as nine row-major entries like `df`).
+- Tests: `test_cuda_args_domain` (GPU) and `test_cuda_args_domain_fake_cupy` (cunumpy's fake CuPy in a
+  subprocess, no GPU) cover the spline mappings; `test_spline_mapping_helpers`/`test_der_spline_helpers`
+  (GPU) and `test_emulated_spline_mappings`/`test_emulated_der_splines` (CPU emulation) compare the device
+  helpers with pyccel, with the shared cases in `geometry/tests/spline_mapping_cases.py`. The emulation
+  agrees with pyccel to the last bit.
+
+Left for the second phase (after PR 18): the `kind_map` 0-2 cases of the device `f`/`df` switch, the spline
+mappings in the geometry kernels' `<name>_test_args.py`, lifting the spline-mapping rejection, an H100 run.
