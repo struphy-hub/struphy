@@ -243,13 +243,20 @@ Struphy's FEEC data (Derham spaces, stencil vectors and matrices, the MPI ghost-
 [feectools](https://github.com/struphy-hub/feectools). Its CUDA support is a stack of PRs on branches
 `cuda-<n>-<topic>`, each targeting `devel-tiny` and reviewed commit by commit; `cuda-development` collects them:
 
-| feectools PR | What | Struphy needs it for |
-|---|---|---|
-| [#85](https://github.com/struphy-hub/feectools/pull/85) `cuda-1-xp-arrays` (merged into `cuda-development`) | feectools runs on the CuPy backend: stencil data are `xp` arrays | `Derham` on CuPy (PR 7) and every struphy GPU test that builds a `Derham` |
-| [#86](https://github.com/struphy-hub/feectools/pull/86) `cuda-2-mpi-sync` | MPI with device buffers (CUDA-aware MPI, `synchronize_for_mpi` before every MPI call) | runs on more than one rank on CuPy: ghost-region exchange, reductions |
-| [#87](https://github.com/struphy-hub/feectools/pull/87) `cuda-3-device-binding` | one GPU per MPI rank (`bind_local_device` before MPI starts) | multi-GPU runs |
-| [#88](https://github.com/struphy-hub/feectools/pull/88) `cuda-4-device-kernels` | stencil `dot`, `transpose`, `inner`, `axpy` on the device (matvec 0.5 ms instead of 165 ms on an H100) | field solves in the time loop without host copies (e.g. Poisson and Ampère in Vlasov–Ampère) |
-| [#90](https://github.com/struphy-hub/feectools/pull/90) `cuda-development` | integrates the stack into `devel-tiny` | the feectools release struphy pins |
+The stack is set up like struphy's: each PR targets the previous PR's branch, upstream changes come in through
+merge commits, and each PR's diff is only its own step. feectools has its own `CUDA_STRATEGY.md` (added in #90).
+
+| feectools PR | Branch → base | What | Struphy needs it for |
+|---|---|---|---|
+| [#90](https://github.com/struphy-hub/feectools/pull/90) CUDA 1 | `cuda-development` → `devel-tiny` | feectools on the CuPy backend (stencil data are `xp` arrays; contains [#85](https://github.com/struphy-hub/feectools/pull/85)), `devel-tiny` merged in, cunumpy 0.5 (`CUNUMPY_BACKEND`, `cunumpy>=0.5.0, <0.6`) | `Derham` on CuPy (PR 7) and every struphy GPU test that builds a `Derham` |
+| [#86](https://github.com/struphy-hub/feectools/pull/86) CUDA 2 | `cuda-2-mpi-sync` → `cuda-development` | MPI with device buffers (CUDA-aware MPI, `cunumpy.mpi.synchronize_for_mpi` before every MPI call) | runs on more than one rank on CuPy: ghost-region exchange, reductions |
+| [#87](https://github.com/struphy-hub/feectools/pull/87) CUDA 3 | `cuda-3-device-binding` → `cuda-2-mpi-sync` | one GPU per MPI rank (`cunumpy.cuda.bind_local_device` before MPI starts) | multi-GPU runs |
+| [#88](https://github.com/struphy-hub/feectools/pull/88) CUDA 4 | `cuda-4-device-kernels` → `cuda-3-device-binding` | stencil `dot`, `transpose`, `inner`, `axpy` as one folder per kernel (`linalg/kernels/stencil_<op>_<d>d/`, pyccel and CUDA side by side, `Kernel.from_folder`), parity and CPU-emulation tests | field solves in the time loop without host copies (e.g. Poisson and Ampère in Vlasov–Ampère) |
+
+Open on the feectools side: a version bump before #90 merges into `devel-tiny` (the version check fails on 0.3.0),
+the manual GPU run, and the 3D stencil kernels' assumption of unshifted `2p+1` diagonals (cunumpy views stop at 4D;
+matrices that do not fit now raise `NotImplementedError` instead of giving wrong results). `Array5D`/`Array6D`
+views in cunumpy remove that assumption and also unblock struphy's matrix accumulations.
 
 **When.** Struphy follows the top of the stack through the `feectools` submodule since PR 17, so every later struphy
 CUDA PR (and the first end-to-end model run) is tested against it. PR 18 and PR 19 do not depend on its changes:
