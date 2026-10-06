@@ -247,3 +247,136 @@ def test_spline_mapping_helpers(name):
         n_threads=out.size,
     )
     np.testing.assert_allclose(out.get().reshape(expected.shape), expected, rtol=1e-12, atol=1e-12)
+
+
+# CUDA-only wrappers that return one entry of a helper's output, so that device_function_kernel can call the
+# helpers elementwise (its pointer arguments are shared by all threads)
+GEOMETRY_WRAPPERS = r"""
+#include "struphy/geometry/transform_kernels.cuh"
+__device__ double metric_entry(double eta1, double eta2, double eta3, int kind_coeff, int entry,
+                               bool avoid_round_off, const DomainArgs& args) {
+    double tmp1[9], tmp2[9], tmp3[9], out[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    if (kind_coeff == 0) struphy_cuda::f(eta1, eta2, eta3, args, out);
+    else if (kind_coeff == 1) struphy_cuda::df(eta1, eta2, eta3, args, out);
+    else if (kind_coeff == 2) out[0] = struphy_cuda::det_df(eta1, eta2, eta3, args, tmp1);
+    else if (kind_coeff == 3) struphy_cuda::df_inv(eta1, eta2, eta3, args, tmp1, avoid_round_off, out);
+    else if (kind_coeff == 4) struphy_cuda::g(eta1, eta2, eta3, args, tmp1, tmp2, avoid_round_off, out);
+    else struphy_cuda::g_inv(eta1, eta2, eta3, args, tmp1, tmp2, tmp3, avoid_round_off, out);
+    return out[entry];
+}
+__device__ double transform_entry(double a0, double a1, double a2, double eta1, double eta2, double eta3,
+                                  int kind_transform, int kind_fun, int entry, const DomainArgs& args_domain) {
+    double a[3] = {a0, a1, a2}, out[3] = {0, 0, 0};
+    if (kind_transform == 0) struphy_cuda::pull(a, eta1, eta2, eta3, kind_fun, args_domain, out);
+    else if (kind_transform == 1) struphy_cuda::push(a, eta1, eta2, eta3, kind_fun, args_domain, out);
+    else struphy_cuda::tran(a, eta1, eta2, eta3, kind_fun, args_domain, out);
+    return out[entry];
+}
+"""
+
+
+@requires_cupy
+@pytest.mark.parametrize("domain_index", range(10))
+@pytest.mark.parametrize("avoid_round_off", [False, True])
+def test_metric_helpers(domain_index, avoid_round_off):
+    """f, df, det_df, df_inv, g and g_inv of every analytic mapping agree with the pyccel helpers."""
+    import cupy as cp
+
+    from struphy.geometry import evaluation_kernels as geometry
+    from struphy.pic.tests.kernel_test_args import analytic_domains, logical_markers
+
+    kernel = device_function_kernel(
+        GEOMETRY_WRAPPERS,
+        "double metric_entry(double eta1, double eta2, double eta3, int kind_coeff, int entry, "
+        "bool avoid_round_off, const DomainArgs& args)",
+        **CUDA_OPTIONS,
+    )
+    points = logical_markers()[3:, :3]  # inside the logical cube
+    rows = [(p, kind, entry) for p in points for kind in range(6) for entry in range(9)]
+    eta = np.array([r[0] for r in rows])
+    kinds = np.array([r[1] for r in rows], dtype=np.int32)
+    entries = np.array([r[2] for r in rows], dtype=np.int32)
+
+    with cunumpy.use_backend("numpy"):
+        args = analytic_domains()[domain_index].args_domain
+    expected = np.empty(len(rows))
+    tmp1, tmp2, tmp3 = np.empty((3, 3)), np.empty((3, 3)), np.empty((3, 3))
+    for i, (p, kind, entry) in enumerate(rows):
+        out = np.zeros((3, 3))
+        if kind == 0:
+            f_out = np.zeros(3)
+            geometry.f(*p, args, f_out)
+            out.flat[:3] = f_out
+        elif kind == 1:
+            geometry.df(*p, args, out)
+        elif kind == 2:
+            out[0, 0] = geometry.det_df(*p, args, tmp1)
+        elif kind == 3:
+            geometry.df_inv(*p, args, tmp1, avoid_round_off, out)
+        elif kind == 4:
+            geometry.g(*p, args, tmp1, tmp2, avoid_round_off, out)
+        else:
+            geometry.g_inv(*p, args, tmp1, tmp2, tmp3, avoid_round_off, out)
+        expected[i] = out.flat[entry]
+
+    with cunumpy.use_backend("cupy"):
+        device_args = analytic_domains()[domain_index].args_domain
+        result = cp.empty(len(rows))
+        kernel(
+            *(cp.asarray(eta[:, k]) for k in range(3)),
+            cp.asarray(kinds),
+            cp.asarray(entries),
+            cp.full(len(rows), avoid_round_off),
+            device_args,
+            result,
+            len(rows),
+            n_threads=len(rows),
+        )
+    np.testing.assert_allclose(result.get(), expected, rtol=1e-10, atol=1e-10)
+
+
+@requires_cupy
+@pytest.mark.parametrize("domain_index", range(10))
+def test_transform_helpers(domain_index):
+    """pull, push and tran of every analytic mapping agree with the pyccel helpers, for every kind_fun."""
+    import cupy as cp
+
+    from struphy.geometry import transform_kernels as transforms
+    from struphy.pic.tests.kernel_test_args import analytic_domains, logical_markers
+
+    kernel = device_function_kernel(
+        GEOMETRY_WRAPPERS,
+        "double transform_entry(double a0, double a1, double a2, double eta1, double eta2, double eta3, "
+        "int kind_transform, int kind_fun, int entry, const DomainArgs& args_domain)",
+        **CUDA_OPTIONS,
+    )
+    kinds = [(0, k) for k in (0, 1, 10, 11, 12)] + [(1, k) for k in (0, 1, 10, 11, 12)]
+    kinds += [(2, k) for k in (0, 1, *range(10, 22))]
+    points = logical_markers()[3:20, :3]
+    values = np.random.default_rng(12).normal(size=(len(points), 3))
+    rows = [(i, t, k, e) for i in range(len(points)) for t, k in kinds for e in range(3 if k >= 10 else 1)]
+
+    with cunumpy.use_backend("numpy"):
+        args = analytic_domains()[domain_index].args_domain
+    expected = np.empty(len(rows))
+    helper = {0: transforms.pull, 1: transforms.push, 2: transforms.tran}
+    for n, (i, t, k, e) in enumerate(rows):
+        a = values[i].copy() if k >= 10 else values[i, :1].copy()
+        out = np.zeros(3 if k >= 10 else 1)
+        helper[t](a, *points[i], k, args, out)
+        expected[n] = out[e]
+
+    columns = np.array(rows)
+    with cunumpy.use_backend("cupy"):
+        device_args = analytic_domains()[domain_index].args_domain
+        result = cp.empty(len(rows))
+        kernel(
+            *(cp.asarray(values[columns[:, 0], c]) for c in range(3)),
+            *(cp.asarray(points[columns[:, 0], c]) for c in range(3)),
+            *(cp.asarray(columns[:, c], dtype=cp.int32) for c in (1, 2, 3)),
+            device_args,
+            result,
+            len(rows),
+            n_threads=len(rows),
+        )
+    np.testing.assert_allclose(result.get(), expected, rtol=1e-10, atol=1e-10)

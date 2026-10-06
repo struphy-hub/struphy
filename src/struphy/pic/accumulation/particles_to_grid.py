@@ -16,15 +16,16 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
+from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 
 def _accumulation_kernel(kernel, args_domain) -> Kernel:
-    """The kernel as a :class:`cunumpy.kernels.Kernel`; CUDA accumulation needs a Cuboid (see ``CUDA_STRATEGY.md``)."""
+    """The kernel as a :class:`cunumpy.kernels.Kernel`; CUDA accumulation needs an analytic mapping (see ``CUDA_STRATEGY.md``)."""
     if not isinstance(kernel, Kernel):
         kernel = Kernel(kernel)
-    if xp.cupy_backend and args_domain.kind_map != 10:
-        raise NotImplementedError("CUDA accumulation kernels currently support only Cuboid mappings.")
+    if xp.cupy_backend:
+        check_mapping_on_device(args_domain.kind_map, "CUDA accumulation kernels")
     return kernel
 
 

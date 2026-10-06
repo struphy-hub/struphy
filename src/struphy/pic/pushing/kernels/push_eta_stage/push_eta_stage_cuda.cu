@@ -8,7 +8,7 @@
  * @param dt Time step.
  * @param stage Index of the current stage, 0 <= stage < n_stages.
  * @param args_markers Marker buffer (n_markers x n_cols, row-major) and column indices.
- * @param args_domain Mapping arguments; only Cuboid (kind_map == 10) is supported.
+ * @param args_domain Mapping arguments; every analytic mapping (spline mappings trap until CUDA strategy PR 19).
  * @param a Butcher coefficients a_stage (n_stages entries).
  * @param b Butcher weights b (n_stages entries).
  * @param c Butcher nodes c (n_stages entries; unused, as in the pyccel kernel).
