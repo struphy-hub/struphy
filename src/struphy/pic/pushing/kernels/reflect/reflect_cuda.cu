@@ -7,7 +7,7 @@
  * v_logical[axis] *= -1, v = DF v_logical.
  *
  * @param markers Marker array view; positions are already inside the logical cube.
- * @param args_domain Mapping arguments; only Cuboid (kind_map == 10) is supported.
+ * @param args_domain Mapping arguments; every analytic mapping (spline mappings trap until CUDA strategy PR 19).
  * @param outside_inds View of the marker row indices to reflect.
  * @param axis Logical velocity component to reverse (0, 1 or 2).
  */
