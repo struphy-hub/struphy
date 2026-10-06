@@ -11,13 +11,13 @@
 // members below in the same order and with the same types; test_cuda_argument_structs checks that they agree.
 // The member names are the attribute names of the pyccel classes. Pointers are device pointers.
 #pragma once
+#include "struphy/kernel_arguments/array_view.cuh"
 
 // CUDA version of MarkerArguments (struphy.utils.cuda_arguments.CudaMarkerArguments).
 struct MarkerArgs {
-    double* markers;  // (n_markers, n_cols), row-major
+    Array2D<double> markers;  // (n_markers, n_cols), row-major: strides (n_cols, 1), see array_view.cuh
     bool* valid_mks;  // (n_markers,), true for markers that are neither holes nor ghosts
     int n_markers;
-    int n_cols;
     int Np;
     int vdim;
     int weight_idx;
@@ -58,15 +58,3 @@ struct DomainArgs {
     double* cy;
     double* cz;
 };
-
-// Access column j of marker row ip. The logical (n_markers, n_cols) array is
-// stored row-major behind a flat double* pointer, so its index is ip * n_cols + j.
-// This macro keeps that indexing calculation consistent across CUDA kernels.
-// Cast ip BEFORE multiplying to use 64-bit arithmetic: the row offset can
-// exceed the range of a 32-bit int for large marker buffers.
-// The expansion is an array element, so it supports both reads and writes:
-//     double x = MARKER(args, ip, 0);
-//     MARKER(args, ip, 0) = x + dx;
-// Parentheses preserve operator precedence when arguments are expressions.
-// args is evaluated twice; pass a struct variable without side effects.
-#define MARKER(args, ip, j) ((args).markers[(long long)(ip) * (args).n_cols + (j)])

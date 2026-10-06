@@ -13,9 +13,11 @@ e.g. ``#include "struphy/kernel_arguments/pusher_args.cuh"`` for the argument st
 
 import importlib
 import math
+import re
 from pathlib import Path
 
 import cunumpy
+import numpy as np
 from cunumpy import PyccelKernel
 
 from struphy.utils.cuda_arguments import Argument
@@ -61,6 +63,13 @@ class CudaKernel:
         self._source = source
         self._block_size = block_size
         self._raw_kernel = None
+        signature = re.search(r"void\s+" + re.escape(name) + r"\s*\((.*?)\)", source, re.S)
+        self._view_types = {}
+        if signature:
+            for i, arg in enumerate(signature.group(1).split(",")):
+                view = re.search(r"Array([123])D<(double|long long)>", arg)
+                if view:
+                    self._view_types[i] = (int(view.group(1)), view.group(2))
 
     @classmethod
     def from_file(cls, path: str | Path, name: str | None = None, block_size: int = 128) -> "CudaKernel":
@@ -110,8 +119,29 @@ class CudaKernel:
             self._raw_kernel = cp.RawKernel(self._source, self.name, options=(f"-I{INCLUDE_DIR}",))
 
         values = []
-        for arg in args:
-            if isinstance(arg, Argument):
+        for index, arg in enumerate(args):
+            if index in self._view_types:
+                import cupy as cp
+
+                ndim, ctype = self._view_types[index]
+                dtype = np.float64 if ctype == "double" else np.int64
+                if not isinstance(arg, cp.ndarray) or arg.ndim != ndim or arg.dtype != dtype:
+                    raise TypeError(
+                        f"Array{ndim}D<{ctype}> requires a {ndim}-dimensional {np.dtype(dtype)} device array"
+                    )
+                if arg.device.id != cp.cuda.runtime.getDevice():
+                    raise ValueError("Array view must be on the current CUDA device")
+                view = np.zeros(
+                    (),
+                    dtype=np.dtype(
+                        [("data", np.uint64), ("shape", np.int64, ndim), ("strides", np.int64, ndim)], align=True
+                    ),
+                )
+                view["data"] = arg.data.ptr
+                view["shape"] = arg.shape
+                view["strides"] = tuple(s // arg.itemsize for s in arg.strides)
+                values.append(view[()])
+            elif isinstance(arg, Argument):
                 values.extend(arg.get_cuda_args())
             else:
                 values.append(arg)

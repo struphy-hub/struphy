@@ -29,14 +29,14 @@ extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_
     double last = stage == n_stages - 1 ? 1. : 0.;
 
     // check if marker is a hole or a boundary particle
-    if (MARKER(args_markers, ip, first_init_idx) == -1. || MARKER(args_markers, ip, args_markers.n_cols - 1) == -2.)
+    if (args_markers.markers(ip, first_init_idx) == -1. || args_markers.markers(ip, args_markers.markers.shape[1] - 1) == -2.)
         return;
 
-    double e1 = MARKER(args_markers, ip, 0);
-    double e2 = MARKER(args_markers, ip, 1);
-    double e3 = MARKER(args_markers, ip, 2);
+    double e1 = args_markers.markers(ip, 0);
+    double e2 = args_markers.markers(ip, 1);
+    double e3 = args_markers.markers(ip, 2);
     double v[3], dfm[9], dfinv[9], k[3];
-    for (int j = 0; j < 3; ++j) v[j] = MARKER(args_markers, ip, 3 + j);
+    for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
 
     // evaluate Jacobian, result in dfm
     struphy_cuda::df(e1, e2, e3, args_domain, dfm);
@@ -49,10 +49,10 @@ extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_
 
     for (int j = 0; j < 3; ++j) {
         // accumulation for last stage
-        MARKER(args_markers, ip, first_free_idx + j) += dt * b[stage] * k[j];
+        args_markers.markers(ip, first_free_idx + j) += dt * b[stage] * k[j];
         // update positions for intermediate stages or last stage
-        MARKER(args_markers, ip, j) = MARKER(args_markers, ip, first_init_idx + j) + dt * a[stage] * k[j] +
-                                      last * MARKER(args_markers, ip, first_free_idx + j);
+        args_markers.markers(ip, j) = args_markers.markers(ip, first_init_idx + j) + dt * a[stage] * k[j] +
+                                      last * args_markers.markers(ip, first_free_idx + j);
     }
 
     // apply kinetic boundary conditions

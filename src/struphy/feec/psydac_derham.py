@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import logging
+from pathlib import Path
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 import numpy as np
+from cunumpy import PyccelKernel
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -26,7 +28,7 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
-from struphy.bsplines import evaluation_kernels_3d as eval_3d
+from struphy.bsplines import evaluation_kernels_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
@@ -45,7 +47,7 @@ from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.cuda_arguments import CudaDerhamArguments
-from struphy.utils.kernel_backends import is_cuda_backend
+from struphy.utils.kernel_backends import CudaKernel, Kernel, is_cuda_backend
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -2296,6 +2298,30 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
+        # evaluation kernels, pyccel or CUDA depending on the backend (see CUDA_STRATEGY.md)
+        evaluate_spline_cuda = Path(__file__).parents[1] / "bsplines" / "evaluate_spline_cuda.cu"
+        self._eval_spline_mpi_markers, self._eval_spline_mpi_matrix, self._eval_spline_mpi_sparse_meshgrid = (
+            Kernel(
+                PyccelKernel(getattr(evaluation_kernels_3d, name)),
+                CudaKernel.from_file(evaluate_spline_cuda, name=name),
+            )
+            for name in ("eval_spline_mpi_markers", "eval_spline_mpi_matrix", "eval_spline_mpi_sparse_meshgrid")
+        )
+
+        # arguments of the evaluation kernels, one (kind, pn, tn1, tn2, tn3, starts) per component,
+        # on the backend of the coefficients and the same for both kernel versions
+        degree = np.asarray(derham.degree, dtype=np.int64)
+        if is_cuda_backend() and np.any((degree < 1) | (degree > 8)):
+            raise ValueError("CUDA spline degrees must be between 1 and 8.")
+        pn = xp.asarray(degree)
+        knots = tuple(xp.ascontiguousarray(t, dtype=float) for t in derham.V0fem.knots)
+        starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
+        kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
+        self._args_eval = tuple(
+            (xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
+            for kind, start in zip(kinds, starts)
+        )
+
         logger.debug(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
@@ -2835,9 +2861,6 @@ class SplineFunction:
         # extract coefficients and update ghost regions
         self.extract_coeffs(update_ghost_regions=True)
 
-        # get knot vectors
-        T1, T2, T3 = self.derham.V0fem.knots
-
         # marker evaluation
         if len(etas) == 1:
             marker_evaluation = True
@@ -2846,7 +2869,7 @@ class SplineFunction:
             # copy positions, such that flagging does not modify the caller's array
             markers = xp.array(etas[0][:, :3], dtype=float)
             self._flag_pts_not_on_proc(markers)
-            tmp_shape = markers.shape[0]
+            tmp_shape = (markers.shape[0],)
         # 3D meshgrid evaluation
         else:
             marker_evaluation = False
@@ -2877,46 +2900,34 @@ class SplineFunction:
 
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_sparse_meshgrid(
+                self._eval_spline_mpi_sparse_meshgrid(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *self._args_eval[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             elif marker_evaluation:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_markers(
+                self._eval_spline_mpi_markers(
                     markers,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *self._args_eval[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             else:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_matrix(
+                self._eval_spline_mpi_matrix(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *self._args_eval[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
 
             if self.derham.comm is not None:
@@ -2949,46 +2960,34 @@ class SplineFunction:
                 logger.debug(f"{self.space_id = }, {kind = }")
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_sparse_meshgrid(
+                    self._eval_spline_mpi_sparse_meshgrid(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *self._args_eval[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 elif marker_evaluation:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_markers(
+                    self._eval_spline_mpi_markers(
                         markers,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *self._args_eval[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_matrix(
+                    self._eval_spline_mpi_matrix(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *self._args_eval[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
 
                 if self.derham.comm is not None:
