@@ -1,5 +1,6 @@
 import copy
 import logging
+
 from scope_profiler import ProfileManager
 
 from struphy.io.options import BaseUnits, LiteralOptions

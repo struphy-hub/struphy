@@ -1032,7 +1032,6 @@ class WeightedMassOperators:
 
         logger.debug(f"\nCreating weighted mass matrix {name} from {V_id} to {W_id} ({dry_run = }).")
 
-        
         with ProfileManager.profile_region(f"weights eval for {name}"):
             spline_functions = {}
             if isinstance(weights, tuple):  # Case 3 (1D tuple)
