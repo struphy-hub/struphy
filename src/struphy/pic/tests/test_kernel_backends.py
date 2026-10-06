@@ -188,15 +188,6 @@ def test_pusher_accepts_kernel(wrap):
 
 
 @requires_cupy
-def test_missing_cuda_rejected_at_setup():
-    from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
-    from struphy.utils.cuda_arguments import prepare_kernel
-
-    with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError):
-        prepare_kernel(push_gc_cc_J1_Hdiv)
-
-
-@requires_cupy
 def test_geometry_evaluation_raises_on_cupy():
     """Geometry evaluations have no CUDA version yet; they raise instead of running pyccel on host copies."""
     with cunumpy.use_backend("cupy"):

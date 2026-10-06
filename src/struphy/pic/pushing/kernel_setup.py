@@ -7,7 +7,6 @@ from numbers import Integral, Real
 import cunumpy as xp
 from cunumpy.kernels import Kernel
 
-from struphy.utils.cuda_arguments import prepare_kernel
 
 
 @dataclass(kw_only=True, eq=False)
@@ -60,8 +59,8 @@ class KernelSetup:
         self.alpha = tuple(float(value) for value in alpha)
         self._output_indices_array: xp.ndarray = xp.array([-1 if i is None else i for i in indices], dtype=int)
         self._alpha_array: xp.ndarray = xp.array(alpha, dtype=float)
-        # on the CuPy backend this raises if there is no CUDA version (yet), see CUDA_STRATEGY.md
-        self.kernel = prepare_kernel(self.kernel)
+        if not isinstance(self.kernel, Kernel):
+            self.kernel = Kernel(self.kernel)
 
     @property
     def name(self) -> str:

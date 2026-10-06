@@ -60,7 +60,7 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, prepare_kernel
+from struphy.utils.cuda_arguments import CUDA_OPTIONS
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -342,13 +342,11 @@ class Particles(metaclass=ABCMeta):
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
 
-        # velocity reflection kernel, pyccel or CUDA depending on the backend, checked at setup (see CUDA_STRATEGY.md)
+        # velocity reflection kernel, pyccel or CUDA depending on the backend (see CUDA_STRATEGY.md)
         if self._reflect_axes:
-            self._reflect = prepare_kernel(
-                Kernel(
-                    PyccelKernel(pusher_utilities_kernels.reflect),
-                    CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS),
-                )
+            self._reflect = Kernel(
+                PyccelKernel(pusher_utilities_kernels.reflect),
+                CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS),
             )
             if self._args_backend == "cupy" and domain.args_domain.kind_map != 10:
                 raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")

@@ -55,7 +55,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 |---|---|
 | `cunumpy.kernels`, `cunumpy.cuda` | `Kernel`, `KernelCatalog`, `PyccelKernel`, `CudaStructArguments` and `CudaKernel`; Struphy uses cunumpy for dispatch and struct packing |
 | `src/struphy/kernel_arguments/` | the argument classes in pairs: the pyccel classes in `pusher_args_kernels.py` / `local_projectors_args_kernels.py` (NumPy backend) and their CUDA versions `Cuda<Name>` in `pusher_args_cuda.py` / `local_projectors_args_cuda.py` (CuPy backend; subclasses of `CudaStructArguments` whose `fields` define the C struct) |
-| `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `prepare_kernel()`, `write_pusher_header()` and `write_local_projectors_header()` |
+| `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()` and `write_local_projectors_header()` |
 | `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs` and `LocalProjectorsArgs`, generated from the CUDA classes, using cunumpy array views |
 | `src/struphy/geometry/base.py`, `src/struphy/pic/base.py`, `src/struphy/feec/psydac_derham.py` | `Domain.args_domain`, `Particles.args_markers` and `Derham.args_derham` are the pyccel class on NumPy and the CUDA class on CuPy, chosen once at construction; every kernel call goes through a `Kernel` |
 | `src/struphy/pic/pushing/kernels/`, `src/struphy/pic/accumulation/kernels/` | the 43 pusher/evaluation and 16 accumulation kernels, one folder each; each folder's `__init__.py` declares its `Kernel`. Seven have CUDA versions and a `<name>_test_args.py` |
@@ -434,8 +434,10 @@ constructor; the pyccel classes are unchanged.
 backend, so on NumPy `args_markers` is a `MarkerArguments` and pyccel kernels receive it as it is. There
 are no host copies and no `__host_args__()` any more. Every kernel that takes argument objects is called
 through `Kernel(PyccelKernel(...))`, built at the call site where the owner is pickled (`Kernel` objects
-cannot be pickled) and at setup through `prepare_kernel()` elsewhere; a kernel without a CUDA version
-raises `NotImplementedError` on CuPy.
+cannot be pickled) and kept by `Pusher`, `KernelSetup`, the accumulators, reflection and the spline
+evaluation; a kernel without a CUDA version raises `NotImplementedError` when it is called on CuPy.
+`prepare_kernel()` (PR 15) is removed: kernels are no longer checked or compiled at setup, CUDA kernels
+compile on their first call. When to compile them (e.g. once at simulation start) is decided later.
 
 Consequence: geometry evaluations (`Domain.__call__`, `jacobian_det`, `pull`/`push`, ...) have no CUDA
 version yet and raise on CuPy. `Particles` evaluates `jacobian_det` when it initializes weights, so
