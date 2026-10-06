@@ -1,7 +1,7 @@
 import logging
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
@@ -584,7 +584,7 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
             b[aa]._data,
         )
     # generate the weight for generating the matrix
-    PyccelKernel(kernels.hybrid_weight)(
+    Kernel(PyccelKernel(kernels.hybrid_weight))(
         *pads_out,
         *pts,
         *spans_out,

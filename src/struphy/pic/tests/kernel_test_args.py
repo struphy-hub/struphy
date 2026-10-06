@@ -3,7 +3,8 @@
 Each ``<name>_test_args.py`` defines ``make_args(backend, seed)`` for cunumpy's parity tests
 (:func:`cunumpy.kernel_testing.check_parity`) and ``CASES``: the test cases, selected by ``seed``. The builders
 create random host data and convert it with ``xp.asarray``, so the arguments land on the active backend and are
-the same on both.
+the same on both. Argument objects are the pyccel classes on the NumPy backend and their CUDA versions on
+the CuPy backend, as created by the owners.
 """
 
 import cunumpy as xp
@@ -11,7 +12,8 @@ import numpy as np
 
 from struphy.geometry.domains import Cuboid
 from struphy.ode.utils import ButcherTableau
-from struphy.utils.cuda_arguments import CudaDerhamArguments, CudaMarkerArguments
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaMarkerArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
 
 N_MARKERS = 129  # not a multiple of the block size
 N_COLS = 25
@@ -30,7 +32,8 @@ def marker_arguments(bc):
     markers[1, -1] = -2.0
     valid = np.ones(N_MARKERS, dtype=bool)
     valid[:2] = False
-    args_markers = CudaMarkerArguments(
+    args_class = CudaMarkerArguments if xp.get_backend() == "cupy" else MarkerArguments
+    args_markers = args_class(
         xp.asarray(markers),
         xp.asarray(valid),
         N_MARKERS,
@@ -49,7 +52,8 @@ def derham_arguments():
     """Splines of degrees 2, 3, 1 on 8 cells, starting at index 0."""
     degree = np.array([2, 3, 1], dtype=np.int64)
     knots = [np.r_[np.zeros(p), np.linspace(0, 1, 9), np.ones(p)] for p in degree]
-    return CudaDerhamArguments(xp.asarray(degree), *(xp.asarray(t) for t in knots), xp.zeros(3, dtype=np.int64))
+    args_class = CudaDerhamArguments if xp.get_backend() == "cupy" else DerhamArguments
+    return args_class(xp.asarray(degree), *(xp.asarray(t) for t in knots), xp.zeros(3, dtype=np.int64))
 
 
 def spline_coefficients(n=3, seed=11):

@@ -42,12 +42,13 @@ from struphy.initial import perturbations
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
 from struphy.io.options import DerhamOptions, FieldsBackground, LiteralOptions
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaDerhamArguments, prepare_kernel
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, prepare_kernel
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -908,8 +909,10 @@ class Derham:
 
         self._neighbours = self._get_neighbours()
 
-        # collect arguments for kernels (the knots of feectools are host arrays on every array backend)
-        self._args_derham = CudaDerhamArguments(
+        # collect arguments for kernels (the knots of feectools are host arrays on every array backend):
+        # the pyccel class on the NumPy backend, its CUDA version on the CuPy backend
+        args_class = CudaDerhamArguments if xp.get_backend() == "cupy" else DerhamArguments
+        self._args_derham = args_class(
             xp.asarray(self.degree, dtype=xp.int64),
             *(xp.asarray(t) for t in self.V0fem.knots),
             xp.asarray(self.V0.starts, dtype=xp.int64),

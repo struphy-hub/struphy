@@ -95,7 +95,7 @@ extern "C" __global__ void evaluate(MarkerArgs m, DomainArgs d, int newton) {
             m.markers[:, :3] = cunumpy.asarray(np.random.default_rng(2).uniform(-0.5, 1.5, (129, 3)))
             if backend == "numpy":
                 for i in range(129):
-                    apply_kinetic_bc_marker(i, m.__host_args__(), d.__host_args__(), newton)
+                    apply_kinetic_bc_marker(i, m, d, newton)
             else:
                 CudaKernel(source, "evaluate", **CUDA_OPTIONS)(m, d, int(newton), n_threads=129)
             results.append(cunumpy.to_numpy(m.markers).copy())
@@ -165,7 +165,7 @@ def test_get_spans_helper():
     """Named scratch fields retain the Pyccel spans and spline values per thread."""
     import cupy as cp
 
-    from struphy.utils.cuda_arguments import CudaDerhamArguments
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 
     pn = np.array([1, 3, 8], dtype=np.int64)
     knots = [np.r_[np.zeros(p), np.linspace(0, 1, 11), np.ones(p)] for p in pn]

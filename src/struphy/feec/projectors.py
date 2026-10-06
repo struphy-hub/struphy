@@ -1,4 +1,5 @@
 import cunumpy as xp
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
 from feectools.feec.global_geometric_projectors import GlobalGeometricProjector
@@ -33,6 +34,7 @@ from struphy.feec.utilities_local_projectors import (
     is_spline_zero_at_quadrature_points,
     split_points,
 )
+from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.linear_operators import PolarExtractionOperator
 
@@ -1057,8 +1059,9 @@ class CommutingProjectorLocal:
                 indexing="ij",
             )
 
-            # We intialize the arguments for the solve method
-            self._solve_args = LocalProjectorsArguments(
+            # We intialize the arguments for the solve method (pyccel class on NumPy, CUDA class on CuPy)
+            args_class = CudaLocalProjectorsArguments if xp.get_backend() == "cupy" else LocalProjectorsArguments
+            self._solve_args = args_class(
                 self._space_key_int,
                 self._IoH,
                 self._shift,
@@ -1280,9 +1283,10 @@ class CommutingProjectorLocal:
                     ),
                 )
 
-                # We intialize the arguments for the solve method
+                # We intialize the arguments for the solve method (pyccel class on NumPy, CUDA class on CuPy)
+                args_class = CudaLocalProjectorsArguments if xp.get_backend() == "cupy" else LocalProjectorsArguments
                 self._solve_args.append(
-                    LocalProjectorsArguments(
+                    args_class(
                         self._space_key_int,
                         self._IoH[h],
                         self._shift[h],
@@ -1552,7 +1556,7 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, StencilVector)
 
-            solve_local_main_loop(self._solve_args, rhs, out._data)
+            Kernel(PyccelKernel(solve_local_main_loop))(self._solve_args, rhs, out._data)
 
             # Finally we update the ghost regions
             out.update_ghost_regions()
@@ -1564,7 +1568,7 @@ class CommutingProjectorLocal:
                 assert isinstance(out, BlockVector)
 
             for h in range(3):
-                solve_local_main_loop(self._solve_args[h], rhs[h], out[h]._data)
+                Kernel(PyccelKernel(solve_local_main_loop))(self._solve_args[h], rhs[h], out[h]._data)
 
             # Finally we update the ghost regions
             for h in range(self._nsp):
@@ -1596,7 +1600,7 @@ class CommutingProjectorLocal:
             else:
                 assert xp.shape(out) == (self._loc_num_coeff[0], self._loc_num_coeff[1], self._loc_num_coeff[2])
 
-            solve_local_main_loop_weighted(
+            Kernel(PyccelKernel(solve_local_main_loop_weighted))(
                 self._solve_args,
                 rhs,
                 self.get_rowstarts(0),
@@ -1650,7 +1654,7 @@ class CommutingProjectorLocal:
 
             for h in range(3):
                 if self._do_nothing[h] == 0:
-                    solve_local_main_loop_weighted(
+                    Kernel(PyccelKernel(solve_local_main_loop_weighted))(
                         self._solve_args[h],
                         rhs[h],
                         self.get_rowstarts(
@@ -1698,10 +1702,10 @@ class CommutingProjectorLocal:
 
                 # For 1-forms
                 if self._space_key == "1":
-                    get_dofs_local_1_form_ec_component(self._solve_args[h], fh, f_eval_aux, h)
+                    Kernel(PyccelKernel(get_dofs_local_1_form_ec_component))(self._solve_args[h], fh, f_eval_aux, h)
                 # For 2-forms
                 else:
-                    get_dofs_local_2_form_ec_component(self._solve_args[h], fh, f_eval_aux, h)
+                    Kernel(PyccelKernel(get_dofs_local_2_form_ec_component))(self._solve_args[h], fh, f_eval_aux, h)
 
                 f_eval.append(f_eval_aux)
 
@@ -1709,7 +1713,7 @@ class CommutingProjectorLocal:
             f_eval = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts))
             # Evaluation of the function at all Gauss-Legendre quadrature points
             faux = fun(*self._meshgrid)
-            get_dofs_local_3_form(self._solve_args, faux, f_eval)
+            Kernel(PyccelKernel(get_dofs_local_3_form))(self._solve_args, faux, f_eval)
 
         elif self._space_key == "v":
             f_eval = []
@@ -1771,7 +1775,7 @@ class CommutingProjectorLocal:
                     # We should do nothing here
                     self._do_nothing[h] = 1
                 elif self._space_key == "1":
-                    get_dofs_local_1_form_ec_component_weighted(
+                    Kernel(PyccelKernel(get_dofs_local_1_form_ec_component_weighted))(
                         self._solve_args[h],
                         pre_computed_dofs[h],
                         self.get_values(
@@ -1787,7 +1791,7 @@ class CommutingProjectorLocal:
                 else:
                     # ind1 and ind2 are the indices of the two directions with histopolation, ind1 must be smaller than ind2.
                     (ind1, ind2) = [(1, 2), (0, 2), (0, 1)][h]
-                    get_dofs_local_2_form_ec_component_weighted(
+                    Kernel(PyccelKernel(get_dofs_local_2_form_ec_component_weighted))(
                         self._solve_args[h],
                         pre_computed_dofs[h],
                         self.get_values(
@@ -1810,7 +1814,7 @@ class CommutingProjectorLocal:
             if first_go:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
-            get_dofs_local_3_form_weighted(
+            Kernel(PyccelKernel(get_dofs_local_3_form_weighted))(
                 self._solve_args,
                 pre_computed_dofs[0],
                 self.get_values(0),

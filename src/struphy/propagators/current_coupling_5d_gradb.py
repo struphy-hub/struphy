@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -25,6 +26,7 @@ from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_init_Hdiv import push_gc_cc_J2
 from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_H1vec import push_gc_cc_J2_stage_H1vec
 from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_Hdiv import push_gc_cc_J2_stage_Hdiv
 from struphy.propagators.base import Propagator
+from struphy.utils.cuda_arguments import prepare_kernel
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -300,9 +302,9 @@ class CurrentCoupling5DGradB(Propagator):
 
             # define Pusher
             if self.options.u_space == "Hdiv":
-                self._pusher_kernel = push_gc_cc_J2_stage_Hdiv
+                self._pusher_kernel = prepare_kernel(push_gc_cc_J2_stage_Hdiv)
             elif self.options.u_space == "H1vec":
-                self._pusher_kernel = push_gc_cc_J2_stage_H1vec
+                self._pusher_kernel = prepare_kernel(push_gc_cc_J2_stage_H1vec)
             else:
                 raise ValueError(
                     f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -353,7 +355,7 @@ class CurrentCoupling5DGradB(Propagator):
             # Call the accumulation and Pusher class
             accum_kernel_init = cc_lin_mhd_5d_gradB_dg_init
             accum_kernel = cc_lin_mhd_5d_gradB_dg
-            self._accum_kernel_en_fB_mid = utilities_kernels.eval_gradB_ediff
+            self._accum_kernel_en_fB_mid = prepare_kernel(PyccelKernel(utilities_kernels.eval_gradB_ediff))
 
             self._args_accum_kernel = (
                 epsilon,
@@ -447,8 +449,8 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[2]._data,
             )
 
-            self._pusher_kernel_init = push_gc_cc_J2_dg_init_Hdiv
-            self._pusher_kernel = push_gc_cc_J2_dg_Hdiv
+            self._pusher_kernel_init = prepare_kernel(push_gc_cc_J2_dg_init_Hdiv)
+            self._pusher_kernel = prepare_kernel(push_gc_cc_J2_dg_Hdiv)
 
     def __call__(self, dt):
         # current FE coeffs

@@ -8,8 +8,12 @@ import numpy as np
 import pytest
 from cunumpy.kernel_testing import emulation_compiler
 
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
 from struphy.pic.tests.cuda_emulation import emulate_struct_kernel
 from struphy.pic.tests.test_cuda_parity import CUDA_CASES
+
+# pyccel argument class name -> its CUDA version
+CUDA_CLASSES = {cls.__name__.removeprefix("Cuda"): cls for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments)}
 
 requires_compiler = pytest.mark.skipif(emulation_compiler() is None, reason="no C++ compiler")
 
@@ -20,8 +24,9 @@ def arrays(args):
     for a in args:
         if isinstance(a, np.ndarray):
             out.append(a.copy())
-        elif hasattr(a, "host_fields"):
-            out += [getattr(a, f).copy() for f in a.host_fields if isinstance(getattr(a, f), np.ndarray)]
+        elif type(a).__name__ in CUDA_CLASSES:  # a pyccel argument object: the fields of its CUDA struct
+            fields = (getattr(a, f.name, None) for f in CUDA_CLASSES[type(a).__name__].struct.fields)
+            out += [f.copy() for f in fields if isinstance(f, np.ndarray)]
     return out
 
 
