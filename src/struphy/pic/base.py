@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import numpy as np
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.partition import factorint
 from line_profiler import profile
+from maybempi import MPI, SerialComm
 from scope_profiler import ProfileManager
 
 from struphy.bsplines.bsplines import quadrature_grid
@@ -2336,7 +2335,7 @@ class Particles(metaclass=ABCMeta):
         _tmp[self.mpi_rank] = scalar
 
         if self.mpi_comm is not None:
-            # own entry set beforehand: the serial MockComm's Allgather does not write to the buffer
+            # own entry set beforehand, so the result does not depend on how the communicator fills the buffer
             gathered = np.zeros(self.mpi_size, dtype=int)
             gathered[self.mpi_rank] = scalar
             self.mpi_comm.Allgather(
@@ -2368,7 +2367,7 @@ class Particles(metaclass=ABCMeta):
         _tmp[self.clone_id] = scalar
 
         if self.clone_config is not None:
-            # own entry set beforehand: the serial MockComm's Allgather does not write to the buffer
+            # own entry set beforehand, so the result does not depend on how the communicator fills the buffer
             gathered = np.zeros(self.num_clones, dtype=int)
             gathered[self.clone_id] = scalar
             self.clone_config.inter_comm.Allgather(

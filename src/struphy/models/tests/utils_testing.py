@@ -5,8 +5,7 @@ import shutil
 import tempfile
 from types import ModuleType
 
-from feectools.ddm.mpi import launched_under_mpi
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, launched_under_mpi
 
 from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py

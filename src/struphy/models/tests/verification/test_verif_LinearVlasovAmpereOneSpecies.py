@@ -4,7 +4,7 @@ import shutil
 
 import cunumpy as xp
 import h5py
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import (
     BoundaryParameters,

@@ -5,8 +5,7 @@ import time
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
@@ -1322,7 +1321,7 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     meanglobal = xp.mean(errorglo)
     maxglobal = xp.max(errorglo)
 
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         reducemeanlocal = meanlocal
     else:
         reducemeanlocal = comm.reduce(meanlocal, op=MPI.SUM, root=0)
@@ -1330,12 +1329,12 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     if rank == 0:
         reducemeanlocal = reducemeanlocal / world_size
 
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         reducemaxlocal = maxlocal
     else:
         reducemaxlocal = comm.reduce(maxlocal, op=MPI.MAX, root=0)
 
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         reducemeanglobal = meanglobal
     else:
         reducemeanglobal = comm.reduce(meanglobal, op=MPI.SUM, root=0)
@@ -1343,7 +1342,7 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
     if rank == 0:
         reducemeanglobal = reducemeanglobal / world_size
 
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         reducemaxglobal = maxglobal
     else:
         reducemaxglobal = comm.reduce(maxglobal, op=MPI.MAX, root=0)

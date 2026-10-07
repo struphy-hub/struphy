@@ -5,9 +5,8 @@ from dataclasses import fields, is_dataclass
 from textwrap import indent
 
 import cunumpy as xp
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
+from maybempi import MPI, SerialMPI
 from scope_profiler import ProfileManager
 
 from struphy import BaseUnits

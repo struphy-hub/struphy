@@ -17,8 +17,7 @@ import cunumpy as xp
 import h5py
 import numpy as np
 import xarray as xr
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 from pyevtk.hl import gridToVTK
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
@@ -1099,7 +1098,7 @@ class Output:
     def _setup_processing(self, parallel: bool):
         """Prepare the communicator and FEEC reconstruction for this processing run."""
         self._pproc_parallel = parallel
-        self._pproc_comm = self.comm if parallel else MockComm()
+        self._pproc_comm = self.comm if parallel else SerialComm()
         self._pproc_rank = self._pproc_comm.Get_rank()
         if parallel and self._pproc_comm.Get_size() != self.mpi_ranks:
             raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")

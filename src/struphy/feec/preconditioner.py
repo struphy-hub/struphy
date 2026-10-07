@@ -3,8 +3,6 @@ import logging
 import cunumpy as xp
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import ComposedLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator
@@ -12,6 +10,7 @@ from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
 from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
 from line_profiler import profile
+from maybempi import MPI, SerialComm
 from scipy import sparse
 
 from struphy.feec.linear_operators import BoundaryOperator
@@ -87,7 +86,7 @@ class MassMatrixPreconditioner(LinearOperator):
         logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
         comm = derham.comm
         dom_dec = derham.domain_decomposition
-        gather_weights = not isinstance(comm, (MockComm, type(None)))
+        gather_weights = not isinstance(comm, (SerialComm, type(None)))
         if gather_weights:
             rank = comm.Get_rank()
             # in the directions other than dim_reduce, the weight is taken at the global mid point;

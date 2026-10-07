@@ -2,9 +2,8 @@ import logging
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
+from maybempi import MPI, SerialComm
 
 from struphy import (
     BinningPlot,
@@ -38,7 +37,7 @@ def test_sph_evaluation_1d(
     tesselation,
     show_plot=False,
 ):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -163,7 +162,7 @@ def test_sph_evaluation_2d(
     eval_pts,
     show_plot=False,
 ):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -287,7 +286,7 @@ def test_sph_evaluation_3d(
     eval_pts,
     show_plot=False,
 ):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -409,7 +408,7 @@ def test_sph_evaluation_3d(
 @pytest.mark.parametrize("eval_pts", [11, 16])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselation, show_plot=False):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -528,7 +527,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
 @pytest.mark.parametrize("eval_pts", [11, 16])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselation, show_plot=False):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -647,7 +646,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
 @pytest.mark.parametrize("eval_pts", [11, 16])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselation, show_plot=False):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -793,7 +792,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
 @pytest.mark.parametrize("bc_y", ["periodic", "fixed", "mirror"])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation, show_plot=False):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -944,7 +943,7 @@ def test_sph_velocity_evaluation(
     tesselation,
     show_plot=False,
 ):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -1098,7 +1097,7 @@ def test_sph_velocity_evaluation_2d(
     tesselation,
     show_plot=False,
 ):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -1353,7 +1352,7 @@ def test_sph_viscosity_evaluation_2d(
     tesselation,
     show_plot=False,
 ):
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -1780,7 +1779,7 @@ def test_sph_no_slip_boundary_1d(
 
     numpy.set_printoptions(threshold=sys.maxsize, linewidth=200, precision=3, suppress=True)
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -1993,7 +1992,7 @@ def test_sph_no_slip_boundary_2d(
     so both must handle y_m (y=0) and y_p (y=1) walls. This test checks
     the symmetry of the no-slip BC between the two walls.
     """
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         rank = 0
     else:
@@ -2129,7 +2128,7 @@ def _make_sph_particles_1d(bc_x, comm, mode="ModesSin"):
 @pytest.mark.parametrize("bc_x", ["periodic", "fixed"])
 def test_sph_naive_vs_box_evaluation(bc_x):
     """The naive evaluation (fast=False) must agree with the box-based one: no extra 1/Np and no ghost double-counting."""
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
     else:
         comm = MPI.COMM_WORLD
@@ -2154,7 +2153,7 @@ def test_sph_naive_vs_box_evaluation(bc_x):
 
 def test_sph_full_box_row_detected():
     """A box holding as many markers as the box array has columns has no -1 terminator and must be rejected."""
-    if not isinstance(MPI.COMM_WORLD, MockComm):
+    if not isinstance(MPI.COMM_WORLD, SerialComm):
         return  # error path calls Abort() under MPI
 
     particles = _make_sph_particles_1d("periodic", None)

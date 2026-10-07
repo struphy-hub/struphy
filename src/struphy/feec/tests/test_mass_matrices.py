@@ -93,8 +93,8 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, reduced_dir
     from types import MethodType
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
@@ -323,8 +323,8 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -545,8 +545,8 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free, ma
     """Test whether different choices of basis for the magnetic background yield the same rotation-stabilized mass operator."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -698,7 +698,7 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -842,8 +842,8 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     import time
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -1142,8 +1142,8 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     import time
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -1411,7 +1411,7 @@ def test_matrix_free_diagonal(num_elements, degree, bcs):
     (also under MPI), and check that matrix-free operators without weights can be applied."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -1464,7 +1464,7 @@ def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False)
     The vector averaged with numpy is produced by evaluating a FEECVariable that contains the StencilVector."""
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import DerhamOptions, domains, grids
     from struphy.feec.mass import AverageOperator
@@ -1531,7 +1531,7 @@ def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False)
 def test_average_operator_transpose(bcs):
     """Check that AverageOperator.T can be built and satisfies <A x, y> = <x, A.T y>."""
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import DerhamOptions, domains, grids
     from struphy.feec.mass import AverageOperator
@@ -1566,7 +1566,7 @@ def test_average_operator_transpose(bcs):
 def test_average_operator_subcomm():
     """Check that the AverageOperator subcomm of each rank holds exactly the ranks of its perpendicular block.
     Nel=98 is a case where the colour from the domain breaks was wrong for 2 processes per direction."""
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import DerhamOptions, domains, grids
     from struphy.feec.mass import AverageOperator
@@ -1600,7 +1600,7 @@ def test_mass_preconditioner_array_weights_mpi(dim_reduce):
     (num_elements not divisible by the number of processes)."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.mass import WeightedMassOperator
     from struphy.feec.preconditioner import MassMatrixPreconditioner

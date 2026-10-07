@@ -3,8 +3,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
+from maybempi import MPI
 
 from struphy import Output, Simulation, set_logging_level
 from struphy.io.setup import import_parameters_py

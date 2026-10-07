@@ -4,10 +4,10 @@ from typing import Callable, get_args
 from warnings import warn
 
 from feectools.api.essential_bc import apply_essential_bc_stencil
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
+from maybempi import MPI
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import L2Projector, WeightedMassOperators

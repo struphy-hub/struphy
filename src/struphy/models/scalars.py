@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Callable, Union
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import space_to_form

@@ -14,7 +14,7 @@ DECOMPOSITION = ("domain_array", "index_array", "index_array_N", "index_array_D"
 
 def make_derham(bcs=(None, None, None), local_projectors=False):
     """Derham on 8 x 6 x 4 elements with degrees (2, 3, 1), for the active cunumpy backend."""
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
@@ -72,7 +72,7 @@ def test_local_projectors_not_supported_on_cupy():
 @requires_cupy
 def test_polar_splines_not_supported_on_cupy():
     """Polar splines have no device implementation yet; the Derham fails when it is created."""
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.psydac_derham import Derham

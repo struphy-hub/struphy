@@ -5,7 +5,7 @@ import logging.config
 import os
 from typing import TYPE_CHECKING
 
-from feectools.ddm.mpi import launched_under_mpi
+from maybempi import launched_under_mpi
 
 
 class RankZeroFilter(logging.Filter):
@@ -103,25 +103,16 @@ def setup_logging(logging_level: int = logging.WARNING):
 
     set_logging_level(logging_level)
 
-    # Add RankZeroFilter to all handlers
-    # This helper function figures out whether
-    # the current process is launched with mpirun
-    # or not without importing mpi4py, which would initialize MPI
-    # and cause issues if imported prematurely.
-    # Instead, it checks for the presence of certain environment
-    # variables that are typically set by MPI launchers (like mpirun or mpiexec).
+    # Add RankZeroFilter to all handlers. maybempi decides from the environment of the MPI launcher
+    # (mpirun, mpiexec, srun, ...) whether this process is an MPI rank, without importing mpi4py, which
+    # would initialize MPI. Serial runs never import mpi4py: `from maybempi import MPI` is then a serial
+    # stand-in. MAYBEMPI=0/1 overrides the detection.
     if not launched_under_mpi():
         rank = 0
-        # Serial run: tell feectools not to import mpi4py (which initializes MPI and takes
-        # ~1 s) and use its MockMPI instead. This is an in-process flag, deliberately not an
-        # environment variable, so that it is not inherited by ``mpirun`` subprocesses.
-        # It only has an effect if feectools.ddm.mpi has not been imported yet.
-        import feectools
-
-        feectools.use_mpi = False
     else:
-        # deferred: importing feectools (and thereby mpi4py) is expensive
-        from feectools.ddm.mpi import mpi as MPI
+        # feectools binds this rank's GPU (CuPy backend) before MPI starts, as CUDA-aware MPI requires
+        import feectools.ddm  # noqa: F401
+        from maybempi import MPI
 
         rank = MPI.COMM_WORLD.Get_rank()
     rank_filter = RankZeroFilter(rank)

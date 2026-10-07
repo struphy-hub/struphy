@@ -20,7 +20,7 @@ def test_bckgr_init_const(num_elements, degree, bcs, spaces, vec_comps):
     """Test field background initialization of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
@@ -79,8 +79,8 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
     import inspect
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
+    from maybempi import MPI
 
     from struphy import FieldsBackground, domains, equils
     from struphy.feec.psydac_derham import Derham
@@ -1109,8 +1109,8 @@ def test_sincos_init_const(num_elements, degree, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
+    from maybempi import MPI
 
     from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
@@ -1351,7 +1351,7 @@ def test_noise_init(num_elements, degree, bcs, space, direction):
     """Only tests 1d noise ('e1', 'e2', 'e3') !!"""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays

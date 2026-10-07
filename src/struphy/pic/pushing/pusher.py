@@ -4,8 +4,8 @@ import logging
 
 import cunumpy as xp
 from cunumpy.kernels import Kernel, PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments

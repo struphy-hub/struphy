@@ -24,9 +24,9 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -276,7 +276,7 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -529,7 +529,7 @@ def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
 def test_transposed_update_weights_drops_zero_blocks():
     """Transposed operator must drop blocks whose weight becomes zero in update_weights (#585)."""
     import numpy as np
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import DerhamOptions, domains, grids
     from struphy.feec.basis_projection_ops import BasisProjectionOperator
@@ -566,7 +566,7 @@ def test_transposed_update_weights_drops_zero_blocks():
 def test_projector_solve_apply_bc(bcs):
     """Tensor-product case: CommutingProjector.solve(apply_bc=True) must solve I0 * x = B * rhs exactly (#584)."""
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
@@ -597,7 +597,7 @@ def test_projector_solve_apply_bc(bcs):
 def test_coordinate_ops_polar(num_elements, degree):
     """CoordinateProjector/CoordinateInclusion between polar H1vec and H1 spaces (tensor-product and polar parts)."""
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.basis_projection_ops import CoordinateInclusion, CoordinateProjector

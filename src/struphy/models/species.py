@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import fields, is_dataclass
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy.models.variables import Variable
 from struphy.particles.parameters import (

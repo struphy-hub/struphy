@@ -76,7 +76,7 @@ Things we learned so far:
 - Flattening the argument classes at each call costs well under 1 µs, compared to about 70 µs for launching the kernel. Since PR 8 each class is one struct, packed once when the argument object is created.
 - `struphy compile` compiles every `.py` file whose name contains `kernels`. Non-pyccel modules must not contain `kernels` in their name; `.cu` files are ignored by it.
 - Kernel names can have at most 48 characters: with the Fortran backend, pyccel names the wrapper module `bind_c_<name>_kernels`, and Fortran names have at most 63 characters (PR 9).
-- Running the particle tests without an MPI launcher uses feectools' `MockComm`, whose collectives do nothing. Code that gathers into a buffer must fill its own entry first (fixed in PR 6).
+- Without an MPI launcher, `from maybempi import MPI` is maybempi's serial stand-in (until the move to maybempi: feectools' `MockComm`, whose collectives did nothing, so code that gathers into a buffer fills its own entry first, since PR 6). The serial stand-in behaves like MPI on one rank.
 - On an H100, the demo kernel pushes 10⁶ markers in about 0.13 ms per step (PR 1, flat arguments). Passing the structs by value (PR 8) has **not** run on a GPU yet; this is the first thing PR 10 does.
 
 ## Target layout

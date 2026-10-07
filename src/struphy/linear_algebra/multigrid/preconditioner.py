@@ -22,10 +22,10 @@ from typing import Literal
 
 import numpy as np
 import scipy.linalg as sla
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.feec.mass import WeightedMassOperators

@@ -2,7 +2,7 @@ import itertools
 from types import SimpleNamespace
 
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy.pic.base import Particles
 

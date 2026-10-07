@@ -49,7 +49,7 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
@@ -136,7 +136,7 @@ def test_marker_ids(loading, Np=1000):
     and that no marker is left at the origin (``sobol_antithetic`` with Np not divisible by 64)."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import LoadingParameters, domains
     from struphy.feec.psydac_derham import Derham
