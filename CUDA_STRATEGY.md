@@ -20,7 +20,7 @@ Progress is tracked in struphy-hub/struphy#650.
 - [ ] **PR 10: Device versions of helper kernels** — B-spline evaluation, mapping evaluation (per domain), small linear algebra, boundary conditions, as `__device__` functions in `.cuh` headers, each tested against its pyccel version. Starts with an H100 run of the PR 8 struct tests.
 - [ ] **PR 11: First real CUDA kernel** — `push_eta_stage` with a pyccel/CUDA parity test and an end-to-end run on the GPU without host/device transfers in the time loop.
 - [ ] **PR 12+: Port kernels one by one**, in the order they are needed by the models we want on the GPU (see [Porting order](#porting-order)). Accumulation needs its own design step first.
-- [ ] **Later: move the kernel infrastructure to cunumpy** — once a few kernels run on the GPU and the struphy classes are understood and stable, replace `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` by their cunumpy counterparts (see [Moving to cunumpy](#moving-to-cunumpy-later)). Kernels and device helpers do not change.
+- [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
 
 Unrelated bugs found along the way go into their own PRs, not into these ones.
@@ -38,24 +38,24 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 ## Principles
 
 - **1:1 correspondence.** Each CUDA kernel has the same name and the same arguments (in the same order) as its pyccel kernel. The CUDA kernel takes the CUDA versions of the argument classes, plus the number of threads (`n_threads`).
-- **The backend decides.** The cunumpy backend (`ARRAY_BACKEND=cupy` or `cunumpy.set_backend("cupy")`, queried with `cunumpy.get_backend()`) selects the CUDA kernels; with NumPy the pyccel kernels run as today.
+- **The backend decides.** The cunumpy backend (`CUNUMPY_BACKEND=cupy` or `cunumpy.set_backend("cupy")`, queried with `cunumpy.get_backend()`) selects the CUDA kernels; with NumPy the pyccel kernels run as today.
 - **No conversions at call time.** When a kernel is called, its arguments are already in the right format. There are no host/device copies per kernel call.
 - **Data already lives on the GPU.** On the CuPy backend, `xp` is `cupy`, so markers, spline coefficients etc. are CuPy arrays from the start. The CUDA argument objects only collect *references* to these arrays and raise if they get host arrays.
 - **No silent CPU fallback on the GPU.** A kernel without a CUDA version raises an error on the GPU backend. Falling back would mean copying data to the host and back at every call.
-- **Kernels see only the C structs.** CUDA kernels and `__device__` helpers take `MarkerArgs`, `DomainArgs` and `DerhamArgs` from `pusher_args.cuh` and nothing else of the Python side. The Python classes that fill the structs can change (and will, when they move to cunumpy) without touching a single kernel.
-- **Own infrastructure first, cunumpy later.** The kernel infrastructure (`Kernel`, `KernelCatalog`, `CudaKernel`, `Argument`) stays in struphy while it is being designed and while we learn what the kernels need. [cunumpy](https://github.com/struphy-hub/cunumpy), which we maintain and release on PyPI ourselves, already has equivalents (see [Moving to cunumpy](#moving-to-cunumpy-later)); the move happens when the struphy classes are stable, as a mechanical replacement.
+- **Kernels see only the C structs.** CUDA kernels and `__device__` helpers take `MarkerArgs`, `DomainArgs` and `DerhamArgs` from `pusher_args.cuh` and nothing else of the Python side. The Python classes that fill the structs can change (as they did when they moved to cunumpy in PR 13) without touching a single kernel.
+- **Own infrastructure first, cunumpy later.** The kernel infrastructure (`Kernel`, `KernelCatalog`, `CudaKernel`, `Argument`) stayed in struphy while it was being designed (PRs 1–12) and moved to [cunumpy](https://github.com/struphy-hub/cunumpy), which we maintain and release on PyPI ourselves, once it was stable (PR 13, see [Moving to cunumpy](#moving-to-cunumpy-pr-13)).
 - **Small steps.** Every PR keeps the CPU code path working and tested.
 
-## Current state (after PR 9)
+## Current state (after PR 13)
 
 | File | Content |
 |---|---|
-| `src/struphy/utils/kernel_backends.py` | `is_cuda_backend()`, `CudaKernel` (wraps a `cupy.RawKernel`, compiled lazily with the struphy headers on the include path; expands `Argument.get_cuda_args()` and takes `n_threads`), `Kernel` and `KernelCatalog` for backend selection and discovery |
-| `src/struphy/utils/cuda_arguments.py` | `Argument` base class plus `CudaMarkerArguments`, `CudaDerhamArguments` and `CudaDomainArguments`; each references its device arrays and packs them once into its C struct, which `get_cuda_args()` returns |
-| `src/struphy/kernel_arguments/pusher_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs` and `DomainArgs` that CUDA kernels take in place of the pyccel argument classes |
-| `src/struphy/geometry/base.py`, `src/struphy/pic/base.py`, `src/struphy/feec/psydac_derham.py` | `Domain.args_domain`, `Particles.args_markers` and `Derham.args_derham` are the pyccel bundle on NumPy and the CUDA bundle on CuPy, selected once at construction; each owner also keeps a private pyccel bundle (`_pyccel_args_*`) for direct pyccel calls |
-| `src/struphy/pic/pushing/kernels/` | the 43 pusher and marker evaluation kernels of `pic/pushing`, one folder each, and their `catalog` (none has a CUDA version yet) |
-| `src/struphy/pic/tests/test_kernel_backends.py` | the demo kernel pair `push_eta_linear` (pyccel function compiled with `epyccel` at test time, CUDA source string) and tests on both backends |
+| `cunumpy.kernels`, `cunumpy.cuda` | `Kernel`, `KernelCatalog`, `PyccelKernel`, `PyccelStructArguments` and `CudaKernel`; struphy has no dispatch code of its own any more |
+| `src/struphy/utils/cuda_arguments.py` | `CudaMarkerArguments`, `CudaDerhamArguments` and `CudaDomainArguments` (subclasses of `PyccelStructArguments`): `fields` define the C struct, `host_class`/`host_fields` the pyccel bundle returned by `__host_args__()`; also `CUDA_STRUCTS`, `CUDA_OPTIONS` (structs and include directory for every `CudaKernel`) and `write_pusher_header()` |
+| `src/struphy/kernel_arguments/pusher_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs` and `DomainArgs`, generated by `write_pusher_header()`, using cunumpy array views |
+| `src/struphy/geometry/base.py`, `src/struphy/pic/base.py`, `src/struphy/feec/psydac_derham.py` | `Domain.args_domain`, `Particles.args_markers` and `Derham.args_derham` are one object on both backends; pyccel calls go through `PyccelKernel`, which resolves `__host_args__()` |
+| `src/struphy/pic/pushing/kernels/` | the 43 pusher and marker evaluation kernels of `pic/pushing`, one folder each, and their `catalog`; `push_eta_stage`, `push_vxb_analytic` and `push_vxb_implicit` have CUDA versions |
+| `src/struphy/pic/tests/test_kernel_backends.py` | the generated-header test, catalog signature check, host bundle aliasing and copy/pickle tests, and (on a GPU) struct layout checks |
 
 Things we learned so far:
 
@@ -176,7 +176,7 @@ The pusher kernels call helpers from other pyccel modules: B-spline evaluation (
 - Write `push_eta_stage_cuda.cu`, using the device helpers from PR 10; one thread per marker, `if (ip >= args_markers.n_markers) return;`.
 - Parity: same markers on both backends, results agree to round-off (`rtol ~ 1e-13`). The test is written once against the catalog: it parametrizes over every kernel that has a CUDA version (`[n for n in catalog.names if n not in catalog.missing_cuda]`), builds the arguments with a per-kernel factory, runs the pyccel and the CUDA kernel, and compares every array argument. Later kernels then only add their factory.
 - `Pusher` on the CuPy backend passes `n_threads=particles.markers.shape[0]` and device arrays in `args_kernel` (the Butcher tableau arrays `a_stage`, `b`, `c` are tiny NumPy arrays today; `PushEta` makes device copies once at setup).
-- End-to-end: run `PushEta` (a propagator that only needs this kernel) with `ARRAY_BACKEND=cupy` on 1 and 2 ranks, and check that no host/device transfers happen inside the time loop: `nsys profile` (look for `cudaMemcpy` between the kernel launches) or monkeypatch `cupy.ndarray.get`/`cupy.asarray` to count calls during the loop.
+- End-to-end: run `PushEta` (a propagator that only needs this kernel) with `CUNUMPY_BACKEND=cupy` on 1 and 2 ranks, and check that no host/device transfers happen inside the time loop: `nsys profile` (look for `cudaMemcpy` between the kernel launches) or monkeypatch `cupy.ndarray.get`/`cupy.asarray` to count calls during the loop.
 
 ### PR 12+: Port kernels and particle boundary handling
 
@@ -186,11 +186,11 @@ For each kernel: add `<name>_cuda.cu`; the parity test from PR 11 picks it up; `
 - Accumulation (before the first accumulation kernel): many markers write to the same grid cells. Options are atomics (`atomicAdd` on `double`, native since sm_60) and sort-then-reduce. Start with atomics, which match the pyccel structure one-to-one; measure before optimizing. The accumulated arrays are owned by feectools stencil vectors, which are host arrays on the NumPy backend and device arrays on CuPy (feectools#85), so the kernel writes into `vec._data` directly on both. Split `pic/accumulation` into one folder per kernel at the same time. Accumulation kernels over grid points need their own launch sizes; `CudaKernel` gets a `grid`/`block` override then.
 - Field evaluation on the device (`SplineFunction.__call__` and friends) is needed by diagnostics and by some propagators; it reuses the B-spline device helpers from PR 10 with 3D launch shapes.
 
-## Moving to cunumpy (later)
+## Moving to cunumpy (PR 13)
 
-cunumpy `devel` (version 0.4.0, unreleased; PyPI has 0.3.0) contains equivalents of everything struphy built in PRs 1–8, with more checks. The move is deliberately postponed until a few kernels run on the GPU: keeping the small struphy classes while the design settles makes them easier to understand and change, and the kernels never see the Python side, so nothing written in PRs 10–12 has to change.
+cunumpy 0.5.0 contains equivalents of everything struphy built in PRs 1–8, with more checks. The move was deliberately postponed until a few kernels ran on the GPU: keeping the small struphy classes while the design settled made them easier to understand and change, and the kernels never see the Python side, so nothing written in PRs 10–12 had to change beyond includes and argument names. The table uses the names of the 0.4.0 plan; in 0.5.0 the classes live in the submodules `cunumpy.kernels`, `cunumpy.cuda`, `cunumpy.kernel_testing` and `cunumpy.profiling`.
 
-| struphy | cunumpy 0.4.0 |
+| struphy (PRs 1–12) | cunumpy |
 |---|---|
 | `utils.kernel_backends.Kernel`, `KernelCatalog`, `CudaKernel` | `xp.Kernel`, `xp.KernelCatalog.from_package` (same folder convention, source root on the include path by default), `xp.CudaKernel` (parses the `__global__` signature once and checks every call: argument count, array dtypes and contiguity, scalars cast and range-checked; 1D–3D launches via `n_threads` or `grid`; header-aware compile cache; `compile()` at setup; debug mode with `-lineinfo`, bounds checks and synchronized launches) |
 | `utils.cuda_arguments.Argument` + `_pack()` | `xp.CudaStructArguments` (`struct_name`, `fields`, `pack()`, repack on copy/unpickle, `cls.struct.declaration`/`to_header()`), `xp.CudaStruct.from_signature` to derive a struct from pyccel-style annotations |
@@ -203,17 +203,15 @@ cunumpy `devel` (version 0.4.0, unreleased; PyPI has 0.3.0) contains equivalents
 | atomics, thread-index macros | `cunumpy/atomic.cuh`, `cunumpy/index.cuh` |
 | one GPU per MPI rank | `xp.bind_local_device()`, `xp.require_cuda_aware_mpi()`, `xp.synchronize_for_mpi()` |
 
-When the time comes:
+Steps (status in PR 13):
 
-1. Release cunumpy 0.4.0 on PyPI (its `[Unreleased]` changelog block) and pin it in `pyproject.toml`.
-2. Delete `utils/kernel_backends.py`; the catalog `__init__.py` files, `Pusher` and `KernelSetup` use the cunumpy classes.
-3. The three argument classes subclass `xp.CudaStructArguments` and implement `__host_args__()`, becoming the single `args_*` object of their owner on both backends; the `_pyccel_args_*` bundles and the backend branches that select between the bundles go away. The pyccel class stays a plain compiled class held as an attribute (it cannot inherit from anything).
-4. `pusher_args.cuh` is generated from the Python `fields` (`to_header()`); a test asserts the committed header equals the generated one. Replace the local array-view header with `cunumpy/array_view.cuh`; markers already use the compatible `Array2D<double>` layout.
-5. Replace the hand-written parity, device-helper and transfer tests by the `cunumpy.testing` helpers.
+1. Depend on cunumpy 0.5.0 from PyPI in `pyproject.toml`. **Done.**
+2. Delete `utils/kernel_backends.py`; the catalog `__init__.py` files, `Pusher` and `KernelSetup` use the cunumpy classes. **Done.**
+3. The three argument classes subclass `PyccelStructArguments` and provide `__host_args__()`, becoming the single `args_*` object of their owner on both backends; the `_pyccel_args_*` bundles and the backend branches that select between them are gone. The pyccel class stays a plain compiled class built from the same arrays (it cannot inherit from anything). **Done.**
+4. `pusher_args.cuh` is generated from the Python `fields` (`write_pusher_header()`); `test_generated_header` asserts the committed header equals the generated one. **Done.** Markers use `Array2D<double>` and spline coefficients use `Array3D<double>` from `cunumpy/array_view.cuh`; cunumpy packs both views and replaces struphy's own `array_view.cuh`.
+5. Replace the hand-written parity, device-helper and transfer tests by the cunumpy helpers (`assert_kernels_agree`, `parity_cases()`, `device_function_kernel`, `assert_no_transfers`, `requires_cupy`). **Done.**
 
-What this buys, beyond less code in struphy: scalar checks against the kernel signature, launch shapes for grid kernels, the include-hash compile cache, debug mode, and the `KernelArguments` cleanup of the duplicate bundles.
-
-Until then, pieces of cunumpy that are independent of the dispatch classes can be used as soon as they are released: `xp.bind_local_device()` and `xp.require_cuda_aware_mpi()` for MPI runs, `xp.as_device_array` in the argument classes.
+What this buys, beyond less code in struphy: scalar checks against the kernel signature, launch shapes for grid kernels, the include-hash compile cache, debug mode, and one argument object per owner instead of two.
 
 ## Porting order
 
@@ -240,7 +238,7 @@ Next, in order:
 
 - Every kernel with a CUDA version has a parity test (pyccel vs. CUDA, same inputs), generated from the catalog (PR 11).
 - Each device helper is tested against its pyccel version through a small test kernel (PR 10).
-- CUDA tests are skipped when no GPU is available (`cunumpy.cupy_available()`), so the normal CI keeps working. Until a GPU runner exists, the GPU tests are run by hand on an H100 before a PR that touches CUDA code is merged, and the PR description says so.
+- CUDA tests are skipped when no GPU is available (`cunumpy.kernel_testing.requires_cupy`), so the normal CI keeps working. Until a GPU runner exists, the GPU tests are run by hand on an H100 before a PR that touches CUDA code is merged, and the PR description says so.
 - Regression tests on the CPU (`pic/tests/test_pushers.py`, `pic/tests/test_kernel_setup.py`, the model tests, ...) must pass in every PR. Particle tests need an MPI launcher (`mpirun -n 1 pytest ...`).
 
 ## Open questions
@@ -297,3 +295,16 @@ The `_evaluate_cuda` helper and its separate CUDA argument convention are remove
 (issue #674).
 Accumulation is deliberately left for the next Vlasov–Ampere/Maxwell step.
 GPU tests are provided but not run here, at the maintainer's request.
+
+## PR 13 implementation notes
+
+Struphy's dispatch code (`utils/kernel_backends.py`, `kernel_arguments/array_view.cuh`) is
+deleted; `cunumpy.kernels` and `cunumpy.cuda` replace it. Every `CudaKernel` is built with
+`CUDA_OPTIONS`, so it knows the three structs and has the struphy source root on its include
+path. The argument classes check dtype, contiguity and device of each owner array without
+copying; `CudaDomainArguments` sets `host_copies = True` because geometry evaluations on the
+CuPy backend still call pyccel with host copies. pyccel getters return a new NumPy view of the
+same buffer on every access, so tests compare data pointers, not object identity.
+`from cunumpy import PyccelKernel` is deprecated in cunumpy 0.5 (removed in 0.6); all imports use
+`cunumpy.kernels`. GPU tests are provided but not run here (no CUDA device on the development
+machine).

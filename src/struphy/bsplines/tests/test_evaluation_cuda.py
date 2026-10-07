@@ -6,11 +6,12 @@ from pathlib import Path
 import cunumpy as xp
 import numpy as np
 import pytest
-from cunumpy import PyccelKernel
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 
 import struphy
 from struphy.bsplines import evaluation_kernels_3d
-from struphy.utils.kernel_backends import CudaKernel, Kernel
+from struphy.utils.cuda_arguments import CUDA_OPTIONS
 
 requires_cupy = pytest.mark.skipif(not xp.cupy_available(), reason="CuPy/GPU not available")
 
@@ -24,7 +25,9 @@ def test_evaluation_parity(mode, kind, empty):
     name = "eval_spline_mpi_" + mode
     kernel = Kernel(
         PyccelKernel(getattr(evaluation_kernels_3d, name)),
-        CudaKernel.from_file(Path(struphy.__file__).parent / "bsplines" / "evaluate_spline_cuda.cu", name=name),
+        CudaKernel.from_file(
+            Path(struphy.__file__).parent / "bsplines" / "evaluate_spline_cuda.cu", name=name, **CUDA_OPTIONS
+        ),
     )
     rng = np.random.default_rng(34)
     coeff = rng.normal(size=(32, 36, 40))
@@ -65,9 +68,9 @@ def test_evaluation_parity(mode, kind, empty):
 @requires_cupy
 @pytest.mark.parametrize("ndim", [1, 2, 3])
 def test_view_validation(ndim):
-    from struphy.utils.kernel_backends import CudaKernel
+    from cunumpy.cuda import CudaKernel
 
-    source = f"""#include "struphy/kernel_arguments/array_view.cuh"
+    source = f"""#include "cunumpy/array_view.cuh"
     extern "C" __global__ void check(Array{ndim}D<double> a) {{ }}"""
     kernel = CudaKernel(source, "check")
     with xp.use_backend("cupy"):

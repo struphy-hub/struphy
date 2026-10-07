@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
@@ -227,8 +227,8 @@ class Accumulator:
         # accumulate into matrix (and vector) with markers
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
-                self.particles._pyccel_args_markers,
-                self.derham._pyccel_args_derham,
+                self.particles.args_markers,
+                self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
@@ -555,8 +555,8 @@ class AccumulatorVector:
         # accumulate into matrix (and vector) with markers
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
-                self.particles._pyccel_args_markers,
-                self.derham._pyccel_args_derham,
+                self.particles.args_markers,
+                self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
@@ -731,7 +731,7 @@ class ParticlesToGrid:
     >>> from struphy.pic.accumulation import accum_kernels
     >>> from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
     >>> from struphy.propagators.poisson_solve import PoissonSolve
-    >>> from cunumpy import PyccelKernel
+    >>> from cunumpy.kernels import PyccelKernel
     >>> rho = ParticlesToGrid(
     ...     kinetic_ions.var,
     ...     "H1",

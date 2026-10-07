@@ -30,8 +30,8 @@ def test_args_derham_on_numpy():
 
     with cunumpy.use_backend("numpy"):
         derham = make_derham()
-        assert isinstance(derham.args_derham, DerhamArguments)
-        assert derham.args_derham is derham._pyccel_args_derham
+        assert isinstance(derham.args_derham.__host_args__(), DerhamArguments)
+        assert derham.args_derham.__host_args__() is derham.args_derham.__host_args__()
         for name in ("pn", "tn1", "tn2", "tn3", "starts"):
             assert isinstance(getattr(derham.args_derham, name), np.ndarray), name
 
@@ -52,10 +52,9 @@ def test_derham_on_cupy(bcs):
         assert cunumpy.is_gpu(getattr(device, name)), name
         assert np.array_equal(cunumpy.to_numpy(getattr(device, name)), getattr(host, name)), name
 
-    # the pyccel arguments are host arrays on both backends (feectools knots are host arrays)
-    for name in ("pn", "tn1", "tn2", "tn3", "starts"):
-        assert isinstance(getattr(device._pyccel_args_derham, name), np.ndarray), name
-        assert np.array_equal(getattr(device._pyccel_args_derham, name), getattr(host._pyccel_args_derham, name)), name
+    # Device bundles deliberately have no host fallback.
+    with pytest.raises(RuntimeError, match="device array"):
+        device.args_derham.__host_args__()
 
     # Arguments keep the construction backend even when accessed from the NumPy backend.
     with cunumpy.use_backend("numpy"):

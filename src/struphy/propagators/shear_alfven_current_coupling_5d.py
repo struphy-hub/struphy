@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse

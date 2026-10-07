@@ -36,7 +36,7 @@ __device__ inline void get_spans(double eta1, double eta2, double eta3,
 }
 }
 
-#include "struphy/kernel_arguments/array_view.cuh"
+#include "cunumpy/array_view.cuh"
 namespace struphy_cuda {
 /**
  * Sum the non-zero contributions of a distributed spline, as in evaluation_kernels_3d.eval_spline_mpi_kernel.
@@ -50,7 +50,7 @@ namespace struphy_cuda {
  * @param span1 Knot span index along the first axis.
  * @param span2 Knot span index along the second axis.
  * @param span3 Knot span index along the third axis.
- * @param _data Spline coefficients of the current process (the _data of a StencilVector); strides as in array_view.cuh.
+ * @param _data Spline coefficients of the current process (the _data of a StencilVector); strides as in cunumpy/array_view.cuh.
  * @param starts Start indices of the current process (three entries).
  * @return spline_value, the value of the tensor-product spline.
  */

@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import numpy as np
-from cunumpy import PyccelKernel
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.partition import factorint
@@ -57,8 +58,7 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import CudaMarkerArguments
-from struphy.utils.kernel_backends import CudaKernel, Kernel
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaMarkerArguments
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -344,7 +344,7 @@ class Particles(metaclass=ABCMeta):
         if self._reflect_axes:
             self._reflect = Kernel(
                 PyccelKernel(pusher_utilities_kernels.reflect),
-                CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu"),
+                CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS),
             )
             if self._args_backend == "cupy" and domain.args_domain.kind_map != 10:
                 raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")
@@ -2131,13 +2131,13 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        func = pushing_catalog["sph_mean_velocity_coeffs"].pyccel_kernel
+        func = pushing_catalog["sph_mean_velocity_coeffs"].host_kernel
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            args_markers=self._pyccel_args_markers,
-            args_domain=self.domain._pyccel_args_domain,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
             neighbours=self.sorting_boxes.neighbours,
             holes=self.holes,
@@ -2243,12 +2243,12 @@ class Particles(metaclass=ABCMeta):
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = pushing_catalog["sph_mean_velocity_coeffs"].pyccel_kernel
+        func = pushing_catalog["sph_mean_velocity_coeffs"].host_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            args_markers=self._pyccel_args_markers,
-            args_domain=self.domain._pyccel_args_domain,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
             neighbours=self.sorting_boxes.neighbours,
             holes=self.holes,
@@ -2262,12 +2262,12 @@ class Particles(metaclass=ABCMeta):
         )
 
         # 2nd kernel
-        func = pushing_catalog["sph_viscosity_tensor"].pyccel_kernel
+        func = pushing_catalog["sph_viscosity_tensor"].host_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
-            args_markers=self._pyccel_args_markers,
-            args_domain=self.domain._pyccel_args_domain,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
             boxes=self.sorting_boxes.boxes,
             neighbours=self.sorting_boxes.neighbours,
             holes=self.holes,
@@ -2562,37 +2562,20 @@ class Particles(metaclass=ABCMeta):
         self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
 
         # arguments for kernels
-        self._pyccel_args_markers = MarkerArguments(
-            _to_numpy_for_kernel(self.markers),
-            _to_numpy_for_kernel(self.valid_mks),
-            _to_numpy_for_kernel(self.Np),
-            _to_numpy_for_kernel(self.vdim),
-            _to_numpy_for_kernel(self.index["weights"]),
-            _to_numpy_for_kernel(self.first_diagnostics_idx),
-            _to_numpy_for_kernel(self.first_pusher_idx),
-            _to_numpy_for_kernel(self.first_shift_idx),
-            _to_numpy_for_kernel(self.residual_idx),
-            _to_numpy_for_kernel(self.first_free_idx),
-            _to_numpy_for_kernel(self.mu_idx),
-            _to_numpy_for_kernel(self._bc_type),
+        self._args_markers = CudaMarkerArguments(
+            self.markers,
+            self.valid_mks,
+            self.Np,
+            self.vdim,
+            self.index["weights"],
+            self.first_diagnostics_idx,
+            self.first_pusher_idx,
+            self.first_shift_idx,
+            self.residual_idx,
+            self.first_free_idx,
+            self.mu_idx,
+            self._bc_type,
         )
-        if self._args_backend == "cupy":
-            self._args_markers = CudaMarkerArguments(
-                self.markers,
-                self.valid_mks,
-                self.Np,
-                self.vdim,
-                self.index["weights"],
-                self.first_diagnostics_idx,
-                self.first_pusher_idx,
-                self.first_shift_idx,
-                self.residual_idx,
-                self.first_free_idx,
-                self.mu_idx,
-                self._bc_type,
-            )
-        else:
-            self._args_markers = self._pyccel_args_markers
 
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.
@@ -4287,7 +4270,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 func = PyccelKernel(box_based_evaluation_meshgrid)
 
             func(
-                self._pyccel_args_markers,
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,
@@ -4314,7 +4297,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             elif len(_shp) == 3:
                 func = PyccelKernel(naive_evaluation_meshgrid)
             func(
-                self._pyccel_args_markers,
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,

@@ -1,4 +1,5 @@
 import pytest
+from cunumpy.kernels import PyccelKernel
 
 
 @pytest.mark.parametrize("basis_u", [0, 2])
@@ -49,7 +50,7 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
 
     def accumulate(grad_PB, grad_PBeq):
         vec = derham.coeff_spaces[space].zeros()
-        accum_kernels_gc.cc_lin_mhd_5d_gradB(
+        PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB)(
             args_markers,
             derham.args_derham,
             domain.args_domain,

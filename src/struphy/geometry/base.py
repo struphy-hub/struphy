@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 import h5py
 import numpy as np
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from scipy.sparse import csc_matrix, kron
 
 import struphy.bsplines.bsplines as bsp
@@ -26,6 +26,8 @@ logger = logging.getLogger("struphy")
 
 def _to_numpy_for_kernel(value):
     """Convert CuPy arrays to NumPy for passing to compiled kernels."""
+    if hasattr(type(value), "__host_args__"):
+        return value.__host_args__()
     if hasattr(value, "get"):  # CuPy array
         return value.get()
     return value
@@ -223,48 +225,19 @@ class Domain(metaclass=DomainMeta):
         self._args_backend = xp.get_backend()
         self._initialize_domain_args()
 
-    def _build_pyccel_domain_args(self):
-        """Build runtime mapping arguments used by compiled evaluation kernels (host copies on the CuPy backend)."""
-        return DomainArguments(
-            self.kind_map,
-            _to_numpy_for_kernel(self.params_numpy),
-            _to_numpy_for_kernel(xp.array(self.degree)),
-            _to_numpy_for_kernel(self.T[0]),
-            _to_numpy_for_kernel(self.T[1]),
-            _to_numpy_for_kernel(self.T[2]),
-            _to_numpy_for_kernel(self.indN[0]),
-            _to_numpy_for_kernel(self.indN[1]),
-            _to_numpy_for_kernel(self.indN[2]),
-            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
-        )
-
-    def _build_cuda_domain_args(self) -> CudaDomainArguments:
-        """Build the CUDA kernel arguments from the domain's own (device) arrays.
-
-        Arrays that already have the dtype and layout the CUDA kernels expect are referenced, not copied;
-        otherwise a device copy with the right dtype and layout is made once, here. Host arrays raise.
-        """
-
-        # cupy (not xp): the arrays are on the device, whichever backend is active now
-        import cupy as cp
-
-        def device(arr, dtype):
-            if not hasattr(arr, "__cuda_array_interface__"):
-                raise TypeError(
-                    f"{self.__class__.__name__}: CUDA domain arguments need CuPy arrays, got {type(arr)}; "
-                    "create the domain on the CuPy backend."
-                )
-            return cp.ascontiguousarray(arr, dtype=dtype)
-
+    def _build_domain_args(self):
+        """Reference owner arrays; normalize metadata/layout once at setup."""
+        array_module = xp.get_array_module(self.params_numpy)
         return CudaDomainArguments(
             self.kind_map,
-            device(self.params_numpy, np.float64),
-            cp.asarray(self.degree, dtype=np.int64),  # a tuple, not an array of the domain
-            *(device(t, np.float64) for t in self.T),
-            *(device(ind, np.int64) for ind in self.indN),
-            *(device(c, np.float64) for c in (self.cx, self.cy, self.cz)),
+            array_module.ascontiguousarray(self.params_numpy, dtype=np.float64),
+            array_module.asarray(self.degree, dtype=np.int64),
+            *(array_module.ascontiguousarray(t, dtype=np.float64) for t in self.T),
+            *(array_module.ascontiguousarray(ind, dtype=np.int64) for ind in self.indN),
+            # The control points may be broadcast views with a zero stride on a
+            # singleton axis. ascontiguousarray() can preserve those strides,
+            # which the compiled Pyccel DomainArguments constructor cannot handle.
+            *(array_module.array(c, dtype=np.float64, order="C", copy=True) for c in (self.cx, self.cy, self.cz)),
         )
 
     def _can_build_args_domain(self):
@@ -280,14 +253,7 @@ class Domain(metaclass=DomainMeta):
         return all(hasattr(self, attr) for attr in required_attrs)
 
     def _initialize_domain_args(self):
-        self._args_domain = None
-        self._pyccel_args_domain = None
-        if self._can_build_args_domain():
-            self._pyccel_args_domain = self._build_pyccel_domain_args()
-            if self._args_backend == "cupy":
-                self._args_domain = self._build_cuda_domain_args()
-            else:
-                self._args_domain = self._pyccel_args_domain
+        self._args_domain = self._build_domain_args() if self._can_build_args_domain() else None
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -295,7 +261,7 @@ class Domain(metaclass=DomainMeta):
         memo[id(self)] = result
 
         for key, value in self.__dict__.items():
-            if key in ("_args_domain", "_pyccel_args_domain"):
+            if key == "_args_domain":
                 continue
             setattr(result, key, copy.deepcopy(value, memo))
 
@@ -305,7 +271,6 @@ class Domain(metaclass=DomainMeta):
     def __getstate__(self):
         state = self.__dict__.copy()
         state.pop("_args_domain", None)
-        state.pop("_pyccel_args_domain", None)
         return state
 
     def __setstate__(self, state):
@@ -1081,7 +1046,7 @@ class Domain(metaclass=DomainMeta):
             n_inside = kernel(
                 markers,
                 which,
-                self._pyccel_args_domain,
+                self.args_domain,
                 out,
                 remove_outside,
                 avoid_round_off,
@@ -1127,7 +1092,7 @@ class Domain(metaclass=DomainMeta):
                 E2,
                 E3,
                 which,
-                self._pyccel_args_domain,
+                self.args_domain,
                 out,
                 is_sparse_meshgrid,
                 avoid_round_off,
@@ -1301,7 +1266,7 @@ class Domain(metaclass=DomainMeta):
                 _to_numpy_for_kernel(markers),
                 _to_numpy_for_kernel(self._transformation_ids[which]),
                 _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self._pyccel_args_domain),
+                _to_numpy_for_kernel(self.args_domain),
                 out_np,
                 _to_numpy_for_kernel(remove_outside),
             )
@@ -1363,7 +1328,7 @@ class Domain(metaclass=DomainMeta):
                 _to_numpy_for_kernel(E3),
                 _to_numpy_for_kernel(self._transformation_ids[which]),
                 _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self._pyccel_args_domain),
+                _to_numpy_for_kernel(self.args_domain),
                 _to_numpy_for_kernel(is_sparse_meshgrid),
                 out_np,
             )

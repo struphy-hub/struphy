@@ -6,7 +6,8 @@ from pathlib import Path
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 import numpy as np
-from cunumpy import PyccelKernel
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.cart import DomainDecomposition
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
@@ -46,8 +47,7 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.cuda_arguments import CudaDerhamArguments
-from struphy.utils.kernel_backends import CudaKernel, Kernel, is_cuda_backend
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaDerhamArguments
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -612,7 +612,7 @@ class Derham:
         polar_splines = options.polar_splines
         # local commuting projectors
         local_projectors = options.local_projectors
-        if local_projectors and is_cuda_backend():
+        if local_projectors and (xp.get_backend() == "cupy"):
             raise NotImplementedError(
                 "Local projectors (DerhamOptions.local_projectors=True) are not supported on the CuPy backend yet."
             )
@@ -909,19 +909,11 @@ class Derham:
         self._neighbours = self._get_neighbours()
 
         # collect arguments for kernels (the knots of feectools are host arrays on every array backend)
-        self._pyccel_args_derham = DerhamArguments(
-            np.array(self.degree),
-            *self.V0fem.knots,
-            np.array(self.V0.starts),
+        self._args_derham = CudaDerhamArguments(
+            xp.asarray(self.degree, dtype=xp.int64),
+            *(xp.asarray(t) for t in self.V0fem.knots),
+            xp.asarray(self.V0.starts, dtype=xp.int64),
         )
-        if is_cuda_backend():
-            self._args_derham = CudaDerhamArguments(
-                xp.asarray(self._pyccel_args_derham.pn),
-                *(xp.asarray(t) for t in self.V0fem.knots),
-                xp.asarray(self._pyccel_args_derham.starts),
-            )
-        else:
-            self._args_derham = self._pyccel_args_derham
 
         logger.debug("\nDERHAM:")
         logger.debug(f"{'number of elements:'.ljust(25)} {num_elements}")
@@ -2303,7 +2295,7 @@ class SplineFunction:
         self._eval_spline_mpi_markers, self._eval_spline_mpi_matrix, self._eval_spline_mpi_sparse_meshgrid = (
             Kernel(
                 PyccelKernel(getattr(evaluation_kernels_3d, name)),
-                CudaKernel.from_file(evaluate_spline_cuda, name=name),
+                CudaKernel.from_file(evaluate_spline_cuda, name=name, **CUDA_OPTIONS),
             )
             for name in ("eval_spline_mpi_markers", "eval_spline_mpi_matrix", "eval_spline_mpi_sparse_meshgrid")
         )
@@ -2311,7 +2303,7 @@ class SplineFunction:
         # arguments of the evaluation kernels, one (kind, pn, tn1, tn2, tn3, starts) per component,
         # on the backend of the coefficients and the same for both kernel versions
         degree = np.asarray(derham.degree, dtype=np.int64)
-        if is_cuda_backend() and np.any((degree < 1) | (degree > 8)):
+        if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
             raise ValueError("CUDA spline degrees must be between 1 and 8.")
         pn = xp.asarray(degree)
         knots = tuple(xp.ascontiguousarray(t, dtype=float) for t in derham.V0fem.knots)

@@ -3,12 +3,12 @@
 import cunumpy
 import numpy as np
 import pytest
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernel_testing import device_function_kernel, requires_cupy
 
 from struphy.bsplines import bsplines_kernels as splines
 from struphy.linear_algebra import linalg_kernels as linalg
-from struphy.utils.kernel_backends import CudaKernel
-
-requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
+from struphy.utils.cuda_arguments import CUDA_OPTIONS
 
 
 @requires_cupy
@@ -31,7 +31,7 @@ extern "C" __global__ void evaluate(const double* t, int nt, int p, const double
 }
 """
     out = cp.empty((len(points), 3 * degree + 3))
-    CudaKernel(source, "evaluate")(
+    CudaKernel(source, "evaluate", **CUDA_OPTIONS)(
         cp.asarray(knots), len(knots), degree, cp.asarray(points), out, len(points), n_threads=len(points)
     )
     expected = np.empty(out.shape)
@@ -62,7 +62,7 @@ extern "C" __global__ void evaluate(const double* a, const double* v, double* in
 }
 """
     inv, out = cp.empty(matrices.shape), cp.empty(vectors.shape)
-    CudaKernel(source, "evaluate")(
+    CudaKernel(source, "evaluate", **CUDA_OPTIONS)(
         cp.asarray(matrices), cp.asarray(vectors), inv, out, len(vectors), n_threads=len(vectors)
     )
     expected_inv, expected_out = np.empty_like(matrices), np.empty_like(vectors)
@@ -95,11 +95,38 @@ extern "C" __global__ void evaluate(MarkerArgs m, DomainArgs d, int newton) {
             m.markers[:, :3] = cunumpy.asarray(np.random.default_rng(2).uniform(-0.5, 1.5, (129, 3)))
             if backend == "numpy":
                 for i in range(129):
-                    apply_kinetic_bc_marker(i, m, d, newton)
+                    apply_kinetic_bc_marker(i, m.__host_args__(), d.__host_args__(), newton)
             else:
-                CudaKernel(source, "evaluate")(m, d, int(newton), n_threads=129)
+                CudaKernel(source, "evaluate", **CUDA_OPTIONS)(m, d, int(newton), n_threads=129)
             results.append(cunumpy.to_numpy(m.markers).copy())
     np.testing.assert_allclose(*results, rtol=1e-13, atol=1e-14)
+
+
+@requires_cupy
+@pytest.mark.parametrize("degree", range(1, 9))
+def test_span_with_cunumpy_wrapper(degree):
+    import cupy as cp
+
+    knots = np.r_[np.zeros(degree), np.linspace(0, 1, 11), np.ones(degree)]
+    points = np.r_[-0.01, np.linspace(0, 1, 129), 1.01]
+    kernel = device_function_kernel(
+        '#include "struphy/bsplines/bsplines_kernels.cuh"\n'
+        "__device__ int span_at(const double* t, int nt, int p, double x) {"
+        "return struphy_cuda::find_span(t, nt, p, x);}",
+        "int span_at(const double* t, int nt, int p, double x)",
+        **CUDA_OPTIONS,
+    )
+    out = cp.empty(len(points), dtype=cp.int32)
+    kernel(
+        cp.asarray(knots),
+        cp.full(len(points), len(knots), dtype=cp.int32),
+        cp.full(len(points), degree, dtype=cp.int32),
+        cp.asarray(points),
+        out,
+        len(points),
+        n_threads=len(points),
+    )
+    np.testing.assert_array_equal(out.get(), [splines.find_span(knots, degree, x) for x in points])
 
 
 @requires_cupy
@@ -125,7 +152,7 @@ extern "C" __global__ void evaluate(const double* eta, const double* params, dou
     eta = np.array([0.2, 0.4, 0.8])
     params = np.array([-2.0, 3.0, 1.0, 7.0, -5.0, -1.0])
     out = cp.empty(21)
-    CudaKernel(source, "evaluate")(cp.asarray(eta), cp.asarray(params), out, n_threads=1)
+    CudaKernel(source, "evaluate", **CUDA_OPTIONS)(cp.asarray(eta), cp.asarray(params), out, n_threads=1)
     f_out = np.empty(3)
     df_out = np.empty((3, 3))
     cuboid(*eta, *params, f_out)
@@ -164,7 +191,9 @@ extern "C" __global__ void evaluate(const double* eta, DerhamArgs args_derham, d
 """
     args_derham = CudaDerhamArguments(cp.asarray(pn), *(cp.asarray(tn) for tn in knots), cp.zeros(3, dtype=cp.int64))
     out = cp.zeros((len(points), 3, 18))
-    CudaKernel(source, "evaluate")(cp.asarray(points), args_derham, out, len(points), n_threads=len(points))
+    CudaKernel(source, "evaluate", **CUDA_OPTIONS)(
+        cp.asarray(points), args_derham, out, len(points), n_threads=len(points)
+    )
     expected = np.zeros(out.shape)
     for ip, eta in enumerate(points):
         for axis, (tn, p) in enumerate(zip(knots, pn)):
