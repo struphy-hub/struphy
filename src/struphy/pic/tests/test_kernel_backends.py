@@ -53,7 +53,7 @@ def make_arguments(n_markers, seed=0):
 
 def make_pusher(kernel):
     """Pusher for push_eta_stage (forward Euler) on 100 particles in a Cuboid."""
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import LoadingParameters
     from struphy.ode.utils import ButcherTableau
@@ -106,7 +106,7 @@ def test_argument_classes_correspond(cuda_class, source, class_name, cuda_only, 
 
 
 def test_owners_select_pyccel_classes_on_numpy():
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import LoadingParameters
     from struphy.feec.tests.test_derham_gpu import make_derham

@@ -3,8 +3,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 
 from struphy.io.setup import import_parameters_py
 from struphy.post_processing import output as output_module
@@ -54,7 +53,7 @@ def test_examples(params_path: Path, monkeypatch):
     if MPI.COMM_WORLD.Get_rank() == 0:
         # The scripts run on rank 0 alone, so their Output must not synchronize with the other
         # ranks: its barriers would pair with the Barrier below and desynchronize the ranks.
-        monkeypatch.setattr(output_module, "mpi_comm_world", MockComm)
+        monkeypatch.setattr(output_module, "mpi_comm_world", SerialComm)
         if pproc_path.exists():
             pproc_module = import_parameters_py(str(pproc_path), name=pproc_name)
             pproc_module.main()

@@ -160,7 +160,7 @@ def outside_mpi_job(monkeypatch):
     for name in list(os.environ):
         if name.startswith(MPI_LAUNCHER_ENV_PREFIXES):
             monkeypatch.delenv(name)
-    monkeypatch.setenv("STRUPHY_MPI", "0")
+    monkeypatch.setenv("MAYBEMPI", "0")
 
 
 @pytest.fixture

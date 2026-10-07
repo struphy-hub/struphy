@@ -24,8 +24,8 @@ def test_toarray_struphy(num_elements, degree, bcs, mapping):
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.basic import LinearOperator
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators

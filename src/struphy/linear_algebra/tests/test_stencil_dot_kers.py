@@ -19,8 +19,8 @@ def test_1d(num_elements, degree, bcs, domain_ind, codomain_ind):
 
     import cunumpy as xp
     from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.stencil import StencilMatrix, StencilVector
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
@@ -144,8 +144,8 @@ def test_3d(num_elements, degree, bcs, domain_ind, codomain_ind):
 
     import cunumpy as xp
     from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.stencil import StencilMatrix, StencilVector
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions

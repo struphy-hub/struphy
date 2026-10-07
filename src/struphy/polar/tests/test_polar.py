@@ -188,7 +188,7 @@ def test_spaces(num_elements, degree, bcs):
 )
 def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
@@ -301,7 +301,7 @@ def test_polar_adjoints_small_nel2(num_elements):
     """<A x, y> = <x, A^T y> for polar extraction operators and derivatives,
     including Nel2 = 3 where n_polar == n2 for H1 and H1vec."""
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
@@ -353,7 +353,7 @@ def test_polar_adjoints_small_nel2(num_elements):
 )
 def test_projectors(num_elements, degree, bcs):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder

@@ -14,7 +14,7 @@ def test_internal_energy_evaluator_out(name):
     """The discrete (second) derivatives of InternalEnergyEvaluator return their result, with and without out."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.variational_utilities import InternalEnergyEvaluator

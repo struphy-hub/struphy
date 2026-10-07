@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.solvers import inverse
+from maybempi import MPI
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham

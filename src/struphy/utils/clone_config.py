@@ -1,8 +1,7 @@
 import logging
 
 import cunumpy as xp
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 
 logger = logging.getLogger("struphy")
 
@@ -133,7 +132,7 @@ class CloneConfig:
 
     def print_clone_config(self):
         """Print a table summarizing the clone configuration."""
-        if isinstance(MPI.COMM_WORLD, MockComm):
+        if isinstance(MPI.COMM_WORLD, SerialComm):
             comm_world = None
             rank = 0
             size = 1

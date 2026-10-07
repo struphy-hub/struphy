@@ -100,7 +100,7 @@ grid = grids.TensorProductGrid(num_elements=num_element, mpi_dims_mask=(True, Tr
 derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Simulation object
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 rank = MPI.COMM_WORLD.Get_rank()
 sim = Simulation(

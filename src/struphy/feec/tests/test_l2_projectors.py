@@ -3,7 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import domains
 from struphy.feec.mass import L2Projector, WeightedMassOperators

@@ -7,7 +7,7 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.memory import coeff_space_nbytes
