@@ -19,7 +19,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.kernels import catalog as accum_catalog
+from struphy.pic.accumulation.kernels.gc_mag_density_0form import gc_mag_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -196,7 +196,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC = AccumulatorVector(
             self.energetic_ions.particles,
             "H1",
-            accum_catalog["gc_mag_density_0form"],
+            gc_mag_density_0form,
             self.mass_ops,
             self.domain.args_domain,
             filter_params=self.options.filter_params,
