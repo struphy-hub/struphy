@@ -1,4 +1,4 @@
-r"""Geometric multigrid V-cycle as a preconditioner, and a multigrid-preconditioned CG solver.
+r"""Geometric multigrid V-cycle as a preconditioner.
 
 Given a symmetric positive (semi-)definite operator :math:`A` on one space of a :class:`Derham`,
 for example the Poisson operator :math:`\sigma \mathbb M^0 + \mathbb G^\top \mathbb M^1 \mathbb G`:
@@ -26,6 +26,7 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
+from scope_profiler import ProfileManager
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixPreconditioner
@@ -298,7 +299,8 @@ class MultiGridPreconditioner(LinearOperator):
         b.copy(out=self._b[0])
         if self._options.nullspace == "constants":
             _remove_mean(self._b[0])
-        self._vcycle(0)
+        with ProfileManager.profile_region("multigrid V-cycle", functions=[self._vcycle]):
+            self._vcycle(0)
         self._x[0].copy(out=out)
         if self._options.nullspace == "constants":
             _remove_mean(out)
@@ -312,17 +314,20 @@ class MultiGridPreconditioner(LinearOperator):
 
         x *= 0.0
         S = self._smoothers[l]
-        for _ in range(self._options.n_pre):
-            S.smooth(b, x)
+        with ProfileManager.profile_region(f"pre-smoother level {l}", functions=[S.smooth]):
+            for _ in range(self._options.n_pre):
+                S.smooth(b, x)
 
         r = S.residual(b, x, self._r[l])
         self._R[l].dot(r, out=self._b[l + 1])
-        self._vcycle(l + 1)
+        with ProfileManager.profile_region(f"coarse-grid correction level {l}", functions=[self._vcycle]):
+            self._vcycle(l + 1)
         self._P[l].dot(self._x[l + 1], out=self._e[l])
         x += self._e[l]
 
-        for _ in range(self._options.n_post):
-            S.smooth(b, x)
+        with ProfileManager.profile_region(f"post-smoother level {l}", functions=[S.smooth]):
+            for _ in range(self._options.n_post):
+                S.smooth(b, x)
 
     def _coarse_solve(self, b: Vector, x: Vector) -> None:
         if self._options.coarse_solver == "cg":
@@ -338,77 +343,6 @@ class MultiGridPreconditioner(LinearOperator):
         if self._options.nullspace == "constants":
             bg -= bg.mean()
         _scatter(sla.lu_solve(self._coarse_lu, bg), x)
-
-
-class MultiGridSolver(LinearOperator):
-    r"""Conjugate gradient method preconditioned with :class:`MultiGridPreconditioner`.
-
-    Parameters
-    ----------
-    A, derham, domain, options, mass_ops :
-        See :class:`MultiGridPreconditioner`.
-
-    tol : float
-        Relative tolerance, the iteration stops when :math:`\|b - A x\|_2 \leq \mathrm{tol}\, \|b\|_2`.
-
-    maxiter : int
-        Maximal number of CG iterations.
-
-    verbose : bool
-        Print the residual in every iteration.
-    """
-
-    def __init__(
-        self,
-        A: LinearOperator,
-        derham: Derham,
-        domain: Domain,
-        options: MultiGridOptions | None = None,
-        *,
-        mass_ops: WeightedMassOperators | None = None,
-        tol: float = 1e-8,
-        maxiter: int = 100,
-        verbose: bool = False,
-    ):
-        self._pc = MultiGridPreconditioner(A, derham, domain, options, mass_ops=mass_ops)
-        self._tol = tol
-        self._solver = inverse(A, "pcg", pc=self._pc, tol=tol, maxiter=maxiter, verbose=verbose, recycle=False)
-
-    @property
-    def domain(self):
-        return self._pc.domain
-
-    @property
-    def codomain(self):
-        return self._pc.codomain
-
-    @property
-    def dtype(self):
-        return self._pc.dtype
-
-    @property
-    def preconditioner(self) -> MultiGridPreconditioner:
-        return self._pc
-
-    @property
-    def info(self) -> dict:
-        """Information of the last solve: ``niter``, ``success``, ``res_norm``."""
-        return self._solver._info
-
-    def update(self, A: LinearOperator) -> None:
-        """Set a new operator (see :meth:`MultiGridPreconditioner.update`)."""
-        self._pc.update(A)
-        self._solver.linop = A
-
-    def transpose(self, conjugate: bool = False) -> "MultiGridSolver":
-        return self
-
-    def dot(self, b: Vector, out: Vector | None = None, x0: Vector | None = None) -> Vector:
-        """Solve ``A x = b`` (initial guess ``x0``, zero by default)."""
-        nb = np.sqrt(b.inner(b))
-        self._solver._options["tol"] = self._tol * nb if nb > 0.0 else self._tol
-        self._solver._options["x0"] = x0 if x0 is not None else self.domain.zeros()
-        return self._solver.dot(b, out=out)
 
 
 # ----------------------------------------------------------------------------------------------------

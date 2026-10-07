@@ -152,7 +152,7 @@ def main(path_out=DEFAULT_OUTPUT):
             for j in range(3):
                 current = run.evaluate(
                     "kinetic_ions/f", dataset=f"e{i + 1}_current_{j + 1}/f", t=time_step, method="nearest"
-                ).squeeze("t")
+                )
                 ax[i, j].axhline(color="red", alpha=0.5)
                 ax[i, j].plot(current[f"eta{i + 1}"], current)
             ax[i, 0].set_ylim(-0.01, 0.01)
