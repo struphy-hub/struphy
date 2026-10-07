@@ -751,7 +751,8 @@ def test_eval_tensor_product_grid(num_elements, degree, bcs, n_markers=10):
 
     import time
 
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed, evaluate_tensor_product
+    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
+    from struphy.bsplines.kernels.eval_spline_mpi_tensor_product_fixed import eval_spline_mpi_tensor_product_fixed
     from struphy.feec.basis_projection_ops import prepare_projection_of_basis
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
