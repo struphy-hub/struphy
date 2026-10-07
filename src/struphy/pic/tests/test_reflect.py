@@ -37,7 +37,7 @@ def test_reflect_in_place(backend, axis, count):
 
 def reflecting_particles(domain):
     """Particles6D with reflecting boundaries in all directions, 100 markers drawn uniformly."""
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import LoadingParameters
     from struphy.particles.parameters import BoundaryParameters

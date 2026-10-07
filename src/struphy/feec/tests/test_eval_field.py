@@ -2,8 +2,7 @@ import logging
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 
 logger = logging.getLogger("struphy")
 
@@ -91,7 +90,7 @@ def test_eval_field(num_elements, degree, bcs):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(p0.vector.toarray(), p0.nbasis[0])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -143,7 +142,7 @@ def test_eval_field(num_elements, degree, bcs):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(E1.vector[0].toarray(), E1.nbasis[0])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -173,7 +172,7 @@ def test_eval_field(num_elements, degree, bcs):
 
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(E1.vector[1].toarray(), E1.nbasis[1])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -203,7 +202,7 @@ def test_eval_field(num_elements, degree, bcs):
 
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(E1.vector[2].toarray(), E1.nbasis[2])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -263,7 +262,7 @@ def test_eval_field(num_elements, degree, bcs):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(B2.vector[0].toarray(), B2.nbasis[0])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -293,7 +292,7 @@ def test_eval_field(num_elements, degree, bcs):
 
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(B2.vector[1].toarray(), B2.nbasis[1])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -323,7 +322,7 @@ def test_eval_field(num_elements, degree, bcs):
 
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(B2.vector[2].toarray(), B2.nbasis[2])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -383,7 +382,7 @@ def test_eval_field(num_elements, degree, bcs):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(n3.vector.toarray(), n3.nbasis[0])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -435,7 +434,7 @@ def test_eval_field(num_elements, degree, bcs):
     #########
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(uv.vector[0].toarray(), uv.nbasis[0])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -465,7 +464,7 @@ def test_eval_field(num_elements, degree, bcs):
 
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(uv.vector[1].toarray(), uv.nbasis[1])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)
@@ -495,7 +494,7 @@ def test_eval_field(num_elements, degree, bcs):
 
     # create legacy arrays with same coeffs
     coeffs_loc = xp.reshape(uv.vector[2].toarray(), uv.nbasis[2])
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         coeffs = coeffs_loc
     else:
         coeffs = xp.zeros_like(coeffs_loc)

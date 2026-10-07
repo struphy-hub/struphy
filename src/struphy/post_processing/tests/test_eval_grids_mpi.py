@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy.post_processing.output import Output
 

@@ -18,9 +18,9 @@ def test_saddlepointsolver(method_for_solving, num_elements, degree, bcs, mappin
 
     import cunumpy as xp
     import scipy as sc
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.basic import IdentityOperator, LinearOperator
     from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+    from maybempi import MPI
 
     from struphy import domains, perturbations
     from struphy.examples.restelli2018 import callables

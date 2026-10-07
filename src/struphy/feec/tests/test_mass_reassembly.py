@@ -1,7 +1,7 @@
 """Regression for reassembling mass operators with an evolving spline weight."""
 
 import numpy as np
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import DerhamOptions, domains, grids
 from struphy.feec.mass import WeightedMassOperators

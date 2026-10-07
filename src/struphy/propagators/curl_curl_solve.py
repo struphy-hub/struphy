@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from typing import Callable, Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.feec.mass import L2Projector, WeightedMassOperator

@@ -2,7 +2,7 @@ import json
 
 import numpy as np
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham

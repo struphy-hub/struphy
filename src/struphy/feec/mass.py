@@ -7,14 +7,13 @@ from typing import Callable
 import cunumpy as xp
 from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator, InverseLinearOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
+from maybempi import MPI, SerialComm
 from scope_profiler import ProfileManager
 
 from struphy import equils
@@ -3509,7 +3508,7 @@ class AverageOperator(LinearOperator):
 
         comm = derham.comm
         # Selection of ranks for each subcomms regarding their position in the two perpendicular directions to the averaged direction.
-        if not isinstance(comm, (MockComm, type(None))):
+        if not isinstance(comm, (SerialComm, type(None))):
             rank = comm.Get_rank()
             nprocs = derham.domain_decomposition.nprocs
             coords = derham.domain_decomposition.coords
@@ -3602,12 +3601,12 @@ class AverageOperator(LinearOperator):
         y = out._data[self._slices[0]]
         if self._transposed:
             xp.einsum(self._subscripts[0], x, out=self._tmp)
-            if not isinstance(self.derham.comm, (MockComm, type(None))):
+            if not isinstance(self.derham.comm, (SerialComm, type(None))):
                 self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
             xp.einsum(self._subscripts[1], self._tmp, self._weights, out=y)
         else:
             xp.einsum(self._subscripts[0], x, self._weights, out=self._tmp)
-            if not isinstance(self.derham.comm, (MockComm, type(None))):
+            if not isinstance(self.derham.comm, (SerialComm, type(None))):
                 self.subcomm.Allreduce(MPI.IN_PLACE, self._tmp, MPI.SUM)
             y[:] = self._tmp[self._slices[1]]
 

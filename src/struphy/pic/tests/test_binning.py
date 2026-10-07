@@ -37,7 +37,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import (
         BoundaryParameters,
@@ -284,7 +284,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import (
         BoundaryParameters,
@@ -491,8 +491,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
     from struphy import (
         BoundaryParameters,
@@ -515,7 +514,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         size = 1
         rank = 0
@@ -803,8 +802,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
     from struphy import (
         BoundaryParameters,
@@ -827,7 +825,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         size = 1
         rank = 0
@@ -1067,7 +1065,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 def test_binning_current_6D_full_f(mapping, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import (
         BoundaryParameters,
@@ -1251,7 +1249,7 @@ def test_binning_current_6D_full_f(mapping, show_plot=False):
 def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import (
         BoundaryParameters,
@@ -1344,7 +1342,7 @@ def test_binning_energy_tensor_6D_full_f(mapping, show_plot=False):
 def test_binning_heat_flux_6D_full_f(mapping, show_plot=False):
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import (
         BoundaryParameters,
@@ -1412,10 +1410,9 @@ def test_binning_heat_flux_6D_full_f(mapping, show_plot=False):
 
 
 if __name__ == "__main__":
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         size = 1
         rank = 0
