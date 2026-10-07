@@ -339,10 +339,6 @@ class Particles(metaclass=ABCMeta):
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
 
-        # the velocity reflection kernel (pyccel or CUDA depending on the backend) needs an analytic mapping on CUDA
-        if self._reflect_axes and self._args_backend == "cupy":
-            check_mapping_on_device(domain.args_domain.kind_map, "CUDA reflection")
-
         # boundary condition type per axis for the per-marker kernel apply_kinetic_bc_marker
         # (0: periodic, 1: reflect, 2: remove, 3: handled in Python by apply_kinetic_bc)
         self._bc_in_python = bc_refill is not None

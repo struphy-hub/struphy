@@ -1,10 +1,11 @@
 #pragma once
 // Device versions of geometry/evaluation_kernels.py: the kind_map switch for the mapping F and its Jacobian DF,
-// and the metric chain built on DF (det_df, df_inv, g, g_inv, select_metric_coeff), for every analytic mapping
-// (kind_map 10-12, 20-22, 30-32). Matrices are stored as nine row-major entries (m[3 * i + j] is pyccel's m[i, j]).
-// The temporary arrays tmp0..tmp3 of the pyccel helpers are kept as arguments (per-thread local arrays of the
-// caller). Spline mappings (kind_map 0-2) trap on the device; they are ported in CUDA strategy PR 19.
+// and the metric chain built on DF (det_df, df_inv, g, g_inv, select_metric_coeff), for every spline mapping
+// (kind_map 0-2, from geometry/spline_mappings_kernels.cuh) and analytic mapping (kind_map 10-12, 20-22, 30-32).
+// Matrices are stored as nine row-major entries (m[3 * i + j] is pyccel's m[i, j]). The temporary arrays
+// tmp0..tmp3 of the pyccel helpers are kept as arguments (per-thread local arrays of the caller).
 #include "struphy/kernel_arguments/pusher_args.cuh"
+#include "struphy/geometry/spline_mappings_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
 #include "struphy/geometry/domains/cuboid/cuboid_cuda.cuh"
 #include "struphy/geometry/domains/orthogonal/orthogonal_cuda.cuh"
@@ -22,14 +23,23 @@ namespace struphy_cuda {
  * @param eta1 Logical coordinate along the first axis.
  * @param eta2 Logical coordinate along the second axis.
  * @param eta3 Logical coordinate along the third axis.
- * @param args Mapping identifier (kind_map) and parameters (params).
+ * @param args Mapping identifier (kind_map), parameters (params) and, for spline mappings, knots, indices and
+ *             control points.
  * @param f_out Output buffer for the three physical coordinates.
  *
- * Every analytic mapping is supported. Spline mappings (kind_map 0-2) and unknown identifiers trap; Python
- * rejects spline mappings on the CuPy backend before a kernel is launched.
+ * Every spline (kind_map 0-2) and analytic mapping is supported; unknown identifiers trap.
  */
 __device__ inline void f(double eta1, double eta2, double eta3, const DomainArgs& args, double* f_out) {
     switch (args.kind_map) {
+        case 0:
+            spline_3d(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args.ind3, args, f_out);
+            return;
+        case 1:
+            spline_2d_straight(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args, args.params[0], f_out);
+            return;
+        case 2:
+            spline_2d_torus(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args, args.params[0], f_out);
+            return;
         case 10:
             cuboid(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], args.params[4],
                    args.params[5], f_out);
@@ -61,7 +71,7 @@ __device__ inline void f(double eta1, double eta2, double eta3, const DomainArgs
                               args.params[4], args.params[5], args.params[6], f_out);
             return;
         default:
-            asm("trap;");  // spline mappings (kind_map 0-2): CUDA strategy PR 19
+            asm("trap;");  // unknown kind_map
     }
 }
 
@@ -71,14 +81,23 @@ __device__ inline void f(double eta1, double eta2, double eta3, const DomainArgs
  * @param eta1 Logical coordinate along the first axis.
  * @param eta2 Logical coordinate along the second axis.
  * @param eta3 Logical coordinate along the third axis.
- * @param args Mapping identifier (kind_map) and parameters (params).
+ * @param args Mapping identifier (kind_map), parameters (params) and, for spline mappings, knots, indices and
+ *             control points.
  * @param df_out Output 3x3 matrix stored as nine row-major entries.
  *
- * Every analytic mapping is supported. Spline mappings (kind_map 0-2) and unknown identifiers trap; Python
- * rejects spline mappings on the CuPy backend before a kernel is launched.
+ * Every spline (kind_map 0-2) and analytic mapping is supported; unknown identifiers trap.
  */
 __device__ inline void df(double eta1, double eta2, double eta3, const DomainArgs& args, double* df_out) {
     switch (args.kind_map) {
+        case 0:
+            spline_3d_df(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args.ind3, args, df_out);
+            return;
+        case 1:
+            spline_2d_straight_df(eta1, eta2, args.degree, args.ind1, args.ind2, args, args.params[0], df_out);
+            return;
+        case 2:
+            spline_2d_torus_df(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args, args.params[0], df_out);
+            return;
         case 10:
             cuboid_df(args.params[0], args.params[1], args.params[2], args.params[3], args.params[4], args.params[5],
                       df_out);
@@ -112,7 +131,7 @@ __device__ inline void df(double eta1, double eta2, double eta3, const DomainArg
                                  args.params[4], args.params[5], args.params[6], df_out);
             return;
         default:
-            asm("trap;");  // spline mappings (kind_map 0-2): CUDA strategy PR 19
+            asm("trap;");  // unknown kind_map
     }
 }
 

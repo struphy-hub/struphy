@@ -34,7 +34,7 @@ __device__ inline bool marker_is_outside(const Array2D<double>& markers, long lo
  * @param markers Evaluation points in marker format (eta1, eta2, eta3 = markers[:, 0:3]), any strides.
  * @param kind_transform Which general transformation: 0 pull, 1 push, otherwise tran.
  * @param kind_fun Which detailed transformation (see pull, push, tran in transform_kernels.cuh).
- * @param args_domain Mapping arguments; every analytic mapping (spline mappings trap until CUDA strategy PR 19).
+ * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param out Output values, shape (N, 3), any strides. Rows of outside markers are set to -1; entries a
  *        transformation does not write keep their value.
  * @param remove_outside Whether to skip markers outside [0, 1]^3 (compacting the rows of out).

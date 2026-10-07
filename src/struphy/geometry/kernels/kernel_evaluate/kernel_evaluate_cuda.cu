@@ -14,7 +14,7 @@
  * @param eta2 Second coordinates, shape (n1, n2, n3) or (1, n2, 1).
  * @param eta3 Third coordinates, shape (n1, n2, n3) or (1, 1, n3).
  * @param kind_coeff Which coefficient: -1 identity, 0 mapping F, 1 DF, 2 det(DF), 3 DF^(-1), 4 G, 5 G^(-1).
- * @param args Mapping arguments; every analytic mapping (spline mappings trap until CUDA strategy PR 19).
+ * @param args Mapping arguments; every spline and analytic mapping.
  * @param mat_f Output, C-contiguous of shape (n1, n2, n3, 3, 3); entries a coefficient does not write keep their
  *        value.
  * @param is_sparse_meshgrid Whether the points come from a sparse meshgrid.

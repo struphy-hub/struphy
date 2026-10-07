@@ -29,7 +29,7 @@ __device__ inline bool marker_is_outside(const Array2D<double>& markers, long lo
  *
  * @param markers Evaluation points in marker format (eta1, eta2, eta3 = markers[:, 0:3]), any strides.
  * @param kind_coeff Which coefficient: -1 identity, 0 mapping F, 1 DF, 2 det(DF), 3 DF^(-1), 4 G, 5 G^(-1).
- * @param args Mapping arguments; every analytic mapping (spline mappings trap until CUDA strategy PR 19).
+ * @param args Mapping arguments; every spline and analytic mapping.
  * @param mat_f Output of shape (N, 3, 3), any strides. Rows of outside markers are set to -1 (identity: their
  *        coordinates in the first column); entries a coefficient does not write keep their value.
  * @param remove_outside Whether to skip markers outside [0, 1]^3 (compacting the rows of mat_f).

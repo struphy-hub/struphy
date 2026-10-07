@@ -10,7 +10,7 @@
  * @param dt Time step.
  * @param stage Stage index (unused; part of the common pusher signature).
  * @param args_markers Marker buffer (n_markers x n_cols, row-major), validity mask and column indices.
- * @param args_domain Mapping arguments; every analytic mapping (spline mappings trap until CUDA strategy PR 19).
+ * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param e1_1 Coefficients of the first component of the electric 1-form.
  * @param e1_2 Coefficients of the second component of the electric 1-form.

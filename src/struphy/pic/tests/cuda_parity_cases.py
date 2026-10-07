@@ -18,11 +18,13 @@ from struphy.ode.utils import ButcherTableau
 from struphy.pic.tests.kernel_test_args import (
     BOUNDARY_CONDITIONS,
     N_ANALYTIC_DOMAINS,
+    N_GEOMETRY_DOMAINS,
     N_MARKERS,
     analytic_domains,
     butcher_arguments,
     derham_arguments,
     evaluation_grid,
+    geometry_domain,
     logical_markers,
     marker_arguments,
     spline_coefficients,
@@ -95,13 +97,13 @@ def eval_spline_mpi_grid_args(sparse):
 # ---------------------------------------------------------------- geometry
 
 # metric coefficients at 129 markers: every mapping for F, det(DF), DF^(-1) and G^(-1); the identity, DF and G for
-# a diagonal and two non-diagonal mappings; remove_outside and avoid_round_off alternate.
-# (index into analytic_domains(), kind_coeff, remove_outside, avoid_round_off)
+# a diagonal, two non-diagonal analytic and three spline mappings; remove_outside and avoid_round_off alternate.
+# (index into geometry_domain(), kind_coeff, remove_outside, avoid_round_off)
 KERNEL_EVALUATE_PIC_CASES = tuple(
     (domain, kind_coeff, (domain + n) % 2 == 0, n % 2 == 1)
-    for domain in range(N_ANALYTIC_DOMAINS)
+    for domain in range(N_GEOMETRY_DOMAINS)
     for n, kind_coeff in enumerate((0, 2, 3, 5))
-) + tuple((domain, kind_coeff, kind_coeff == 1, True) for domain in (1, 2, 6) for kind_coeff in (-1, 1, 4))
+) + tuple((domain, kind_coeff, kind_coeff == 1, True) for domain in (1, 2, 6, 10, 11, 12) for kind_coeff in (-1, 1, 4))
 
 
 def kernel_evaluate_pic_args(case):
@@ -111,7 +113,7 @@ def kernel_evaluate_pic_args(case):
     return (
         xp.asarray(markers),
         kind_coeff,
-        analytic_domains()[domain].args_domain,
+        geometry_domain(domain).args_domain,
         xp.asarray(mat_f),
         remove_outside,
         avoid_round_off,
@@ -119,11 +121,11 @@ def kernel_evaluate_pic_args(case):
 
 
 # metric coefficients on a 7 x 5 x 4 grid: every mapping on a full and a sparse meshgrid, kind_coeff -1 to 5 and
-# avoid_round_off varying. (index into analytic_domains(), kind_coeff, is_sparse_meshgrid, avoid_round_off)
+# avoid_round_off varying. (index into geometry_domain(), kind_coeff, is_sparse_meshgrid, avoid_round_off)
 KIND_COEFFS = (-1, 0, 1, 2, 3, 4, 5)
 KERNEL_EVALUATE_CASES = tuple(
     (domain, KIND_COEFFS[(2 * domain + sparse) % len(KIND_COEFFS)], bool(sparse), (domain + sparse) % 2 == 0)
-    for domain in range(N_ANALYTIC_DOMAINS)
+    for domain in range(N_GEOMETRY_DOMAINS)
     for sparse in (0, 1)
 )
 
@@ -137,7 +139,7 @@ def kernel_evaluate_args(case):
         eta2,
         eta3,
         kind_coeff,
-        analytic_domains()[domain].args_domain,
+        geometry_domain(domain).args_domain,
         xp.asarray(mat_f),
         is_sparse_meshgrid,
         avoid_round_off,
@@ -145,17 +147,23 @@ def kernel_evaluate_args(case):
 
 
 # every kind_fun of pull (0, 1, 10, 11, 12), push (the same) and tran (0, 1, 10-21) once, cycling through the
-# analytic mappings
+# analytic mappings; each spline mapping gets three further transforms
 PULLPUSH_KINDS = (0, 1, 10, 11, 12)
 TRAN_KINDS = (0, 1, *range(10, 22))
 TRANSFORMS = (
     tuple((0, k) for k in PULLPUSH_KINDS) + tuple((1, k) for k in PULLPUSH_KINDS) + tuple((2, k) for k in TRAN_KINDS)
 )
+N_SPLINE_DOMAINS = N_GEOMETRY_DOMAINS - N_ANALYTIC_DOMAINS
 
-# (index into analytic_domains(), kind_transform, kind_fun, a_has_holes, remove_outside)
+# (index into geometry_domain(), kind_transform, kind_fun, a_has_holes, remove_outside)
 KERNEL_PULLPUSH_PIC_CASES = tuple(
     (n % N_ANALYTIC_DOMAINS, kind_transform, kind_fun, n % 3 != 2, n % 2 == 0)
     for n, (kind_transform, kind_fun) in enumerate(TRANSFORMS)
+) + tuple(
+    (N_ANALYTIC_DOMAINS + n // 3, kind_transform, kind_fun, n % 3 != 2, n % 2 == 1)
+    for n, (kind_transform, kind_fun) in enumerate(
+        TRANSFORMS[(7 * j + 3 * s) % len(TRANSFORMS)] for s in range(N_SPLINE_DOMAINS) for j in range(3)
+    )
 )
 
 
@@ -174,16 +182,21 @@ def kernel_pullpush_pic_args(case):
         xp.asarray(markers),
         kind_transform,
         kind_fun,
-        analytic_domains()[domain].args_domain,
+        geometry_domain(domain).args_domain,
         xp.asarray(out),
         remove_outside,
     )
 
 
-# (index into analytic_domains(), kind_transform, kind_fun, is_sparse_meshgrid)
+# (index into geometry_domain(), kind_transform, kind_fun, is_sparse_meshgrid)
 KERNEL_PULLPUSH_CASES = tuple(
     ((3 * n) % N_ANALYTIC_DOMAINS, kind_transform, kind_fun, n % 2 == 1)
     for n, (kind_transform, kind_fun) in enumerate(TRANSFORMS)
+) + tuple(
+    (N_ANALYTIC_DOMAINS + n // 3, kind_transform, kind_fun, n % 2 == 0)
+    for n, (kind_transform, kind_fun) in enumerate(
+        TRANSFORMS[(8 * j + 3 * s + 1) % len(TRANSFORMS)] for s in range(N_SPLINE_DOMAINS) for j in range(3)
+    )
 )
 
 
@@ -199,7 +212,7 @@ def kernel_pullpush_args(case):
         eta3,
         kind_transform,
         kind_fun,
-        analytic_domains()[domain].args_domain,
+        geometry_domain(domain).args_domain,
         is_sparse_meshgrid,
         xp.asarray(rng.random((7, 5, 4, 3))),
     )

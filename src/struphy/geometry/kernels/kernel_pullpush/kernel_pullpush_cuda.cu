@@ -15,7 +15,7 @@
  * @param eta3 Third coordinates, shape (n1, n2, n3) or (1, 1, n3).
  * @param kind_transform Which general transformation: 0 pull, 1 push, otherwise tran.
  * @param kind_fun Which detailed transformation (see pull, push, tran in transform_kernels.cuh).
- * @param args_domain Mapping arguments; every analytic mapping (spline mappings trap until CUDA strategy PR 19).
+ * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param is_sparse_meshgrid Whether the points come from a sparse meshgrid.
  * @param out Output values, shape (n1, n2, n3, 3), any strides; entries a transformation does not write keep their
  *        value.

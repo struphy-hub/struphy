@@ -6,6 +6,8 @@ versions on the CuPy backend, as created by the owners. The parity cases of ever
 in :mod:`struphy.pic.tests.cuda_parity_cases`.
 """
 
+import functools
+
 import cunumpy as xp
 import numpy as np
 
@@ -123,6 +125,62 @@ def analytic_domains():
 
 
 N_ANALYTIC_DOMAINS = 10
+
+# spline mappings (kind_map 0-2) after the analytic ones: indices N_ANALYTIC_DOMAINS, ... of geometry_domain()
+SPLINE_DOMAINS = ("IGAPolarCylinder", "IGAPolarTorus", "Spline", "Tokamak")
+N_GEOMETRY_DOMAINS = N_ANALYTIC_DOMAINS + len(SPLINE_DOMAINS)
+
+
+def twisted_torus_spline():
+    """A 3d spline mapping (``kind_map`` 0) of a twisted torus with an elliptic cross section, clamped in eta1."""
+    from struphy.geometry.base import Spline, interp_mapping
+
+    num_elements, degree, spl_kind = (4, 6, 5), (2, 3, 2), (False, True, True)
+
+    def grid(e1, e2, e3):
+        return np.meshgrid(e1, e2, e3, indexing="ij")
+
+    def radius(e1, e2, e3):
+        return 3.0 + (0.2 + e1) * np.cos(2 * np.pi * e2 + 2 * np.pi * e3)
+
+    def X(e1, e2, e3):
+        e1, e2, e3 = grid(e1, e2, e3)
+        return radius(e1, e2, e3) * np.cos(2 * np.pi * e3)
+
+    def Y(e1, e2, e3):
+        e1, e2, e3 = grid(e1, e2, e3)
+        return radius(e1, e2, e3) * np.sin(2 * np.pi * e3)
+
+    def Z(e1, e2, e3):
+        e1, e2, e3 = grid(e1, e2, e3)
+        return 1.5 * (0.2 + e1) * np.sin(2 * np.pi * e2)
+
+    cx, cy, cz = interp_mapping(num_elements, degree, spl_kind, X, Y, Z)
+    return Spline(num_elements=num_elements, degree=degree, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
+
+
+@functools.lru_cache(maxsize=None)
+def _spline_domain(name, backend):
+    """A spline-mapped domain, created once per backend (fitting the control points takes up to a second)."""
+    from struphy.geometry.domains import IGAPolarCylinder, IGAPolarTorus, Tokamak
+
+    if name == "IGAPolarCylinder":
+        return IGAPolarCylinder(num_elements=(6, 8), degree=(2, 3), a=1.3, Lz=2.0)
+    if name == "IGAPolarTorus":
+        return IGAPolarTorus(num_elements=(5, 7), degree=(3, 2), sfl=True, tor_period=3)
+    if name == "Spline":
+        return twisted_torus_spline()
+    # the default EQDSK equilibrium and the field-line tracing run on the host, also on CuPy
+    return Tokamak(num_elements=(6, 12), degree=(2, 3))
+
+
+def geometry_domain(index):
+    """Domain `index` of the geometry parity tests on the active backend: the analytic mappings of
+    :func:`analytic_domains`, then the spline mappings ``SPLINE_DOMAINS`` (IGAPolarCylinder ``kind_map`` 1,
+    IGAPolarTorus with straight field lines and Tokamak ``kind_map`` 2, a 3d spline ``kind_map`` 0)."""
+    if index < N_ANALYTIC_DOMAINS:
+        return analytic_domains()[index]
+    return _spline_domain(SPLINE_DOMAINS[index - N_ANALYTIC_DOMAINS], xp.get_backend())
 
 
 def logical_markers(n=N_MARKERS, seed=5):
