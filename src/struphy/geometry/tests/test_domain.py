@@ -1,6 +1,10 @@
 import copy
+import importlib.util
 import logging
+import os
 import pickle
+import subprocess
+import sys
 
 import cunumpy
 import pytest
@@ -1119,13 +1123,21 @@ def test_args_domain_backend_is_fixed_at_creation():
         assert args is cuda_args
 
 
-@requires_cupy
-@pytest.mark.parametrize("mapping", ["Cuboid", "HollowTorus", "Colella"])
-def test_cuda_args_domain(mapping):
-    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments.
+# Mappings checked on the CuPy backend: analytic ones and every spline mapping (kind_map 0-2) except GVECunit and
+# Spline(), whose default needs GVEC (not tested here, like the other GVEC tests).
+CUDA_DOMAIN_MAPPINGS = ["Cuboid", "HollowTorus", "Colella", "IGAPolarCylinder", "IGAPolarTorus", "Tokamak", "DESCunit"]
+VIEW_FIELDS = ("t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz")
 
-    Only analytic mappings: spline mappings (e.g. IGAPolarCylinder) cannot be created on the CuPy backend yet.
+
+def check_cuda_args_domain(mapping):
+    """Create ``mapping`` on the CuPy backend and check its CUDA domain arguments against the pyccel ones.
+
+    The CUDA arguments reference the domain's device arrays, and the struct holds their device addresses (and,
+    for the array views ``t1``, ..., ``cz``, their shapes and strides). Runs with the real CuPy on a GPU and with
+    cunumpy's fake CuPy (``CUNUMPY_FAKE_CUPY=1``) without one.
     """
+    import numpy as np
+
     from struphy import domains
     from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 
@@ -1137,21 +1149,72 @@ def test_cuda_args_domain(mapping):
         assert type(args) is CudaDomainArguments
         assert domain.args_domain is args  # built once
 
-        assert args.kind_map == domain.kind_map
+        assert args.kind_map == domain.kind_map == host.kind_map
         # no copies of arrays that already have the right dtype and layout
         assert args.t1 is domain.T[0] and args.ind3 is domain.indN[2]
 
         # the struct holds the device addresses of these arrays
         (struct,) = args.__cuda_args__()
         assert struct["kind_map"] == domain.kind_map
-        for name in ("params", "degree", "t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz"):
+        for name in ("params", "degree", *VIEW_FIELDS):
             dev = getattr(args, name)
-            assert struct[name] == dev.data.ptr, name
-            assert (cunumpy.to_numpy(dev) == getattr(host, name)).all(), name
+            ref = np.asarray(getattr(host, name))
+            if name in VIEW_FIELDS:
+                view = struct[name]
+                assert view["data"] == dev.data.ptr, name
+                assert tuple(view["shape"]) == dev.shape == ref.shape, name
+                assert tuple(view["strides"]) == tuple(s // dev.itemsize for s in dev.strides), name
+            else:
+                assert struct[name] == dev.data.ptr, name
+            assert np.allclose(cunumpy.to_numpy(dev), ref, rtol=1e-13, atol=1e-13), name
 
 
 @requires_cupy
-@pytest.mark.parametrize("mapping", ["Cuboid", "Colella"])
+@pytest.mark.parametrize("mapping", CUDA_DOMAIN_MAPPINGS)
+def test_cuda_args_domain(mapping):
+    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments."""
+    check_cuda_args_domain(mapping)
+
+
+def _cupy_installed():
+    try:
+        return importlib.util.find_spec("cupy") is not None
+    except ValueError:  # cunumpy's fake CuPy has no module spec
+        return False
+
+
+# environment variables through which an MPI launcher (Open MPI, MPICH/Hydra, Intel MPI, Slurm) hands a process
+# its place in the job
+MPI_LAUNCHER_PREFIXES = ("OMPI_", "PMIX_", "PMI_", "HYDRA_", "MPIR_", "I_MPI_", "SLURM_")
+
+
+def serial_child_env(**extra):
+    """Environment for a child Python process started from a test: serial, outside the MPI job.
+
+    Under ``mpirun`` the child would otherwise inherit the launcher's variables, join the parent's MPI job when it
+    imports struphy, and corrupt the parent's later collectives (a segfault in the next ``Alltoallv``).
+    """
+    env = {name: value for name, value in os.environ.items() if not name.startswith(MPI_LAUNCHER_PREFIXES)}
+    env.update(CUNUMPY_MPI="0", MAYBEMPI="0", **extra)
+    return env
+
+
+@pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
+@pytest.mark.parametrize("mapping", CUDA_DOMAIN_MAPPINGS)
+def test_cuda_args_domain_fake_cupy(mapping):
+    """Without a GPU: :func:`check_cuda_args_domain` with cunumpy's fake CuPy, which rejects host/device mixing.
+
+    Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
+    """
+    code = f"from struphy.geometry.tests.test_domain import check_cuda_args_domain; check_cuda_args_domain({mapping!r})"
+    result = subprocess.run(
+        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr[-4000:]
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "Colella", "IGAPolarCylinder"])
 def test_domain_deepcopy_and_pickle_on_cupy(mapping):
     """Deepcopy and unpickling on the CuPy backend rebuild the CUDA arguments."""
     from struphy import domains
@@ -1166,7 +1229,9 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             other_cuda = other.args_domain
             assert other_cuda is not cuda_args
             assert other_cuda.t1 is other.T[0]
-            assert other_cuda.__cuda_args__()[0]["t1"] == other.T[0].data.ptr
+            assert other_cuda.__cuda_args__()[0]["t1"]["data"] == other.T[0].data.ptr
+            assert other_cuda.__cuda_args__()[0]["cx"]["data"] == other_cuda.cx.data.ptr
+            assert (other_cuda.cx == cuda_args.cx).all()
 
 
 if __name__ == "__main__":

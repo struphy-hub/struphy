@@ -67,3 +67,20 @@ def test_local_projectors_not_supported_on_cupy():
     """Local projectors have no device implementation yet; the Derham fails when it is created."""
     with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="Local projectors"):
         make_derham(local_projectors=True)
+
+
+@requires_cupy
+def test_polar_splines_not_supported_on_cupy():
+    """Polar splines have no device implementation yet; the Derham fails when it is created."""
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    with cunumpy.use_backend("cupy"):
+        domain = domains.IGAPolarCylinder(num_elements=(8, 6), degree=(2, 3))
+        options = DerhamOptions(degree=(2, 3, 1), bcs=(("dirichlet", "free"), None, None), polar_splines=True)
+        with pytest.raises(NotImplementedError, match="Polar splines"):
+            Derham(TensorProductGrid(num_elements=(8, 6, 4)), options, comm=MPI.COMM_WORLD, domain=domain)

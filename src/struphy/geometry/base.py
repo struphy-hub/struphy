@@ -1051,7 +1051,6 @@ class Domain(metaclass=DomainMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-            check_mapping_on_device(self.kind_map, "Geometry evaluations")
             # one row per marker (remove_outside=False): a CUDA kernel cannot return the number of inside
             # markers, so the rows of outside markers are removed below, the same way on both backends
             kernel_evaluate_pic(
@@ -1098,7 +1097,6 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            check_mapping_on_device(self.kind_map, "Geometry evaluations")
             kernel_evaluate(
                 E1,
                 E2,
@@ -1281,7 +1279,6 @@ class Domain(metaclass=DomainMeta):
                 A = xp.zeros((markers.shape[0], A_values.shape[1]), dtype=float)
                 A[inside] = A_values
 
-            check_mapping_on_device(self.kind_map, "Geometry transformations")
             kernel_pullpush_pic(
                 A,
                 markers,
@@ -1340,7 +1337,6 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
-            check_mapping_on_device(self.kind_map, "Geometry transformations")
             kernel_pullpush(
                 A,
                 E1,
@@ -2479,8 +2475,24 @@ def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
     Returns
     --------
     cx, cy (, cz) : array-like
-        The control points.
+        The control points, as arrays of the active backend.
+
+    Notes
+    -----
+    The interpolation is a one-time setup step solved with SciPy on the host, so it runs on the NumPy backend
+    (``X``, ``Y``, ``Z`` are called with NumPy arrays and must return NumPy arrays). On the CuPy backend, the
+    control points are copied to the device once at the end.
     """
+    backend = xp.get_backend()
+    with xp.use_backend("numpy"):
+        coeffs = _interp_mapping_host(num_elements, degree, spl_kind, X, Y, Z)
+    if backend == "numpy" or not isinstance(coeffs, tuple):
+        return coeffs
+    return tuple(xp.to_cunumpy(c) for c in coeffs)
+
+
+def _interp_mapping_host(num_elements, degree, spl_kind, X, Y, Z=None):
+    """Host part of :func:`interp_mapping`; returns NumPy arrays (call it on the NumPy backend)."""
 
     from scipy.sparse.linalg import splu, spsolve
 
