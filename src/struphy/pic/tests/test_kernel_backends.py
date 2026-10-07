@@ -182,7 +182,7 @@ def test_catalog_signatures():
         "pic.sph.kernels": 4,
         "bsplines.kernels": 3,
         "geometry.kernels": 4,
-        "feec.kernels": 1,
+        "feec.kernels": 17,
         "feec.local_projectors.kernels": 8,
     }
 
