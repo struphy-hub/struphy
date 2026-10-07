@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import LinearOperator
+from feectools.linalg.solvers import inverse
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
@@ -11,7 +12,6 @@ from struphy.io.options import DerhamOptions
 from struphy.linear_algebra.multigrid.preconditioner import (
     MultiGridOptions,
     MultiGridPreconditioner,
-    MultiGridSolver,
     _assemble_dense,
 )
 from struphy.linear_algebra.multigrid.smoothers import (
@@ -164,12 +164,14 @@ def test_poisson_h_independent(bcs, nullspace, p, smoother, smoother_precond):
         _, u = create_equal_random_arrays(derham.fem_spaces["0"], seed=3)
         b = A.dot(u)
         opts = MultiGridOptions(smoother=smoother, smoother_precond=smoother_precond, nullspace=nullspace)
-        solver = MultiGridSolver(A, derham, domain, opts, mass_ops=mass_ops, tol=1e-8)
+        pc = MultiGridPreconditioner(A, derham, domain, opts, mass_ops=mass_ops)
+        tol = 1e-8 * np.sqrt(b.inner(b))
+        solver = inverse(A, "pcg", pc=pc, tol=tol, maxiter=100, recycle=False)
         x = solver.dot(b)
         r = b - A.dot(x)
-        assert solver.info["success"]
-        assert np.sqrt(r.inner(r)) <= 1e-8 * np.sqrt(b.inner(b))
-        niter.append(solver.info["niter"])
+        assert solver.get_info()["success"]
+        assert np.sqrt(r.inner(r)) <= tol
+        niter.append(solver.get_info()["niter"])
     assert max(niter) <= 15
     assert niter[1] <= niter[0] + 2
 
@@ -177,19 +179,21 @@ def test_poisson_h_independent(bcs, nullspace, p, smoother, smoother_precond):
 def test_update():
     """Changing a scalar of the operator re-uses the coarse operators and still converges."""
     derham, domain, mass_ops, A = _poisson(16, 2, DIRICHLET, sigma=2.0)
-    solver = MultiGridSolver(A, derham, domain, mass_ops=mass_ops, tol=1e-10)
-    coarse_M0 = solver.preconditioner.operators[1].addends[0].operator
+    pc = MultiGridPreconditioner(A, derham, domain, mass_ops=mass_ops)
+    coarse_M0 = pc.operators[1].addends[0].operator
 
     A2 = 100.0 * mass_ops.M0 + derham.grad.T @ mass_ops.M1 @ derham.grad
-    solver.update(A2)
-    assert solver.preconditioner.operators[1].addends[0].operator is coarse_M0
+    pc.update(A2)
+    assert pc.operators[1].addends[0].operator is coarse_M0
 
     _, u = create_equal_random_arrays(derham.fem_spaces["0"], seed=4)
     b = A2.dot(u)
+    tol = 1e-10 * np.sqrt(b.inner(b))
+    solver = inverse(A2, "pcg", pc=pc, tol=tol, maxiter=100, recycle=False)
     x = solver.dot(b)
     r = b - A2.dot(x)
-    assert np.sqrt(r.inner(r)) <= 1e-10 * np.sqrt(b.inner(b))
-    assert solver.info["niter"] <= 15
+    assert np.sqrt(r.inner(r)) <= tol
+    assert solver.get_info()["niter"] <= 15
 
 
 @pytest.mark.mpi_skip

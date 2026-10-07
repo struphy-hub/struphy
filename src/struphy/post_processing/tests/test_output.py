@@ -292,6 +292,13 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
     assert run.with_time_units("physical").model.to_dict() == run.model.to_dict()
 
 
+def test_evaluate_raises_without_raw_data(tmp_path):
+    root = write_tree(str(tmp_path))
+    os.remove(os.path.join(root, "data", "data_proc0.hdf5"))
+    with pytest.raises(FileNotFoundError, match="No simulation data"):
+        Output(root).evaluate("em_fields/E")
+
+
 def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
@@ -330,8 +337,9 @@ def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
 
 def test_evaluate_selects_positions_coordinates_and_slices(run):
     field = run.evaluate("em_fields/E", t=-1, component=2)
-    assert field.dims == ("t", "eta1", "eta2", "eta3")
-    assert field.sizes["t"] == 1
+    assert field.dims == ("eta1", "eta2", "eta3")
+    assert field.t.ndim == 0, "a single snapshot keeps its time as a scalar coordinate"
+    assert run.evaluate("em_fields/E", t=[-1], component=2).dims == ("t", "eta1", "eta2", "eta3")
     np.testing.assert_allclose(field, 3.0)
 
     every_second = run.evaluate("em_fields/E", t=slice(0, None, 2))
@@ -360,7 +368,7 @@ def test_evaluate_scalars_and_particle_defaults(run):
     scalars = run.evaluate("scalars", variables="en_tot", t=-1)
     assert isinstance(scalars, xr.Dataset)
     assert list(scalars.data_vars) == ["en_tot"]
-    assert scalars.sizes["t"] == 1
+    assert "t" not in scalars.dims
 
     distribution = run.evaluate("kinetic_ions/f")
     assert distribution.name == "f"
@@ -421,8 +429,8 @@ def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
     assert calls == [(0.25, 0.5, 0.75)] * NT
 
     last = run.evaluate("em_fields/e_field", eta1=0.25, eta2=0.5, eta3=0.75, t=-1)
-    assert last.dims == ("t", "component")
-    assert last.sizes["t"] == 1
+    assert last.dims == ("component",)
+    assert float(last.t) == 1.0
 
 
 def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
@@ -439,10 +447,10 @@ def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
 
     values = run.evaluate("em_fields/phi", eta1=[0.25, 0.5], eta2=range(2), eta3=0.75, t=0)
 
-    assert values.dims == ("t", "eta1", "eta2")
+    assert values.dims == ("eta1", "eta2")
     np.testing.assert_allclose(values.eta1, [0.25, 0.5])
     np.testing.assert_allclose(values.eta2, [0.0, 1.0])
-    np.testing.assert_allclose(values[0], [[75.25, 85.25], [75.5, 85.5]])
+    np.testing.assert_allclose(values, [[75.25, 85.25], [75.5, 85.5]])
 
 
 def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run, monkeypatch):
@@ -466,8 +474,8 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
 
     values = run.evaluate("em_fields/phi", t=0)
 
-    assert values.dims == ("t", "eta1", "eta2", "eta3")
-    assert values.shape == (1, 2, 3, 4)
+    assert values.dims == ("eta1", "eta2", "eta3")
+    assert values.shape == (2, 3, 4)
     np.testing.assert_allclose(values.eta1, [0.25, 0.75])
     np.testing.assert_allclose(values.eta2, [1 / 6, 0.5, 5 / 6])
     np.testing.assert_allclose(values.eta3, [0.125, 0.375, 0.625, 0.875])
@@ -492,10 +500,10 @@ def test_evaluate_raw_spline_field_keeps_omitted_directions_on_the_default_grid(
 
     plane = run.evaluate("em_fields/phi", t=0, eta3=0)
 
-    assert plane.dims == ("t", "eta1", "eta2")
+    assert plane.dims == ("eta1", "eta2")
     np.testing.assert_allclose(plane.eta1, eta1_default)
     np.testing.assert_allclose(plane.eta2, eta2_default)
-    np.testing.assert_allclose(plane[0], eta1_default[:, None] + 10 * eta2_default[None, :])
+    np.testing.assert_allclose(plane, eta1_default[:, None] + 10 * eta2_default[None, :])
 
 
 def test_evaluate_raw_spline_field_rejects_coordinates_outside_unit_cube(run):
@@ -579,8 +587,8 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
             )
         )
         expected = np.squeeze(np.asarray(expected))
-        np.testing.assert_allclose(result.isel(t=0), expected)
-        assert result.dims == ("t", "component", "eta1", "eta2")
+        np.testing.assert_allclose(result, expected)
+        assert result.dims == ("component", "eta1", "eta2")
 
 
 @pytest.mark.parametrize(

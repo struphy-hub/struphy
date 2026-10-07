@@ -162,6 +162,7 @@ _LAZY_API = {
     "domains": "struphy.api.domains",
     "equils": "struphy.api.equils",
     "grids": "struphy.api.grids",
+    "MultiGridOptions": "struphy.api.linear_algebra",
     "maxwellians": "struphy.api.maxwellians",
     "ButcherTableau": "struphy.api.ode",
     "BaseUnits": "struphy.api.options",
@@ -188,6 +189,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.api.domains import domains
     from struphy.api.equils import equils
     from struphy.api.grids import grids
+    from struphy.api.linear_algebra import MultiGridOptions
     from struphy.api.maxwellians import maxwellians
     from struphy.api.ode import ButcherTableau
     from struphy.api.options import (
@@ -232,6 +234,7 @@ __all__ = [
     "DerhamOptions",
     "FieldsBackground",
     "ButcherTableau",
+    "MultiGridOptions",
     "Output",
     "open_output",
     "Simulation",

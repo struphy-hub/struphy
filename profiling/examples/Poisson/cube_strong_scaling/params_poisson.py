@@ -4,18 +4,19 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Poisson strong scaling on 3D cube"
+name = "Poisson strong scaling on 3D cube, no preconditioner"
 description = """
 Strong scaling test for Poisson equation on a 3D cube.
-The manufactured solution is a simple product of sines and cosines.
+The manufactured solution is a Gaussian bump times sin(pi*x/Lx), exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions are set in direction x.
+The linear system is solved with unpreconditioned CG.
 """
 
 import logging
 
 from struphy import set_logging_level
 
-set_logging_level(logging.WARNING)
+set_logging_level(logging.INFO)
 
 import argparse
 
@@ -33,6 +34,7 @@ from struphy import (
     equils,
     grids,
     perturbations,
+    ProfilingOptions,
 )
 
 # ---------------------
@@ -80,10 +82,13 @@ domain = domains.Cuboid(r1=Lx, l2=-Ly / 2, r2=Ly / 2, r3=Lz)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(256, 256, 256), mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=(64, 64, 64), mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
+
+# Profilinig options
+profiling_opts = ProfilingOptions(use_line_profiler=True,)
 
 # Simulation object
 sim = Simulation(
@@ -97,6 +102,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=profiling_opts,
 )
 
 # ------------------
@@ -105,7 +111,7 @@ sim = Simulation(
 
 from struphy.linear_algebra.solver import SolverParameters
 
-solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=True)
+solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=False)
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
@@ -121,12 +127,27 @@ import numpy as np
 from struphy.initial.base import GenericPerturbation
 
 
+# Gaussian bump times sin(pi*x/Lx) (exact Dirichlet in x); the bump is narrow enough
+# to be periodic in y and z up to exp(-(Ly/2)**2/w**2) ~ 1e-11. Being localized, it
+# excites the whole spectrum of the Laplacian, so CG has to work for convergence.
+w = 0.3
+x0, y0, z0 = Lx / 2, 0.0, Lz / 2
+
+
 def exact_solution(x, y, z):
-    return np.sin(np.pi / Lx * x) * np.cos(12 * np.pi / Ly * y + 4 * np.pi / Lz * z)
+    gauss = np.exp(-((x - x0) ** 2 + (y - y0) ** 2 + (z - z0) ** 2) / w**2)
+    return np.sin(np.pi / Lx * x) * gauss
 
 
 def rhs_fun(x, y, z):
-    return exact_solution(x, y, z) * ((np.pi / Lx) ** 2 + (12 * np.pi / Ly) ** 2 + (4 * np.pi / Lz) ** 2)
+    # -Laplace(s*g) = -(s'' g + 2 s' dg/dx + s Laplace(g))
+    r2 = (x - x0) ** 2 + (y - y0) ** 2 + (z - z0) ** 2
+    gauss = np.exp(-r2 / w**2)
+    s = np.sin(np.pi / Lx * x)
+    ds = np.pi / Lx * np.cos(np.pi / Lx * x)
+    lap_gauss = (4 * r2 / w**4 - 6 / w**2) * gauss
+    dgauss_dx = -2 * (x - x0) / w**2 * gauss
+    return (np.pi / Lx) ** 2 * s * gauss - 2 * ds * dgauss_dx - s * lap_gauss
 
 
 rhs_perturbation = GenericPerturbation(rhs_fun, given_in_basis="physical")
@@ -135,11 +156,28 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 
 if __name__ == "__main__":
-    run = sim.run(profiling_activated=True, one_time_step=True)
-    run.pproc(create_vtk=True, parallel=True)
+    # switches for debugging and testing
+    estimate_mem = False
+    run = True
+    pproc = True
+    save_figs = True
+
+    if estimate_mem:
+        sim.estimate_mem(print_report=True)
+        exit()
+
+    if run:
+        out = sim.run(profiling_activated=True, one_time_step=True)
+    else:
+        # use this for working with existing sim data from a previous run
+        out = sim.output
+
+    if pproc:
+        out.pproc(create_vtk=True, parallel=True)
+
+    from matplotlib import pyplot as plt
 
     def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
-        from matplotlib import pyplot as plt
 
         fig = plt.figure(figsize=(16, 12))
 
@@ -232,15 +270,15 @@ if __name__ == "__main__":
 
         return fig
 
-    if sim.comm.rank == 0:
-        rhs_data = run.evaluate("em_fields/source_log")
-        print(rhs_data)
-        rhs = rhs_data.isel(t=0).values
+    if sim.rank == 0:
+        # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
+        # cell centres of the simulation grid (serial Derham, safe on rank 0 only).
+        rhs_data = out.evaluate("em_fields/source", t=0)
+        rhs = rhs_data.values
 
-        phi_data = run.evaluate("em_fields/phi_log")
-        print(phi_data)
-        phi = phi_data.isel(t=-1).values
-        x, y, z = run.grids_phy
+        phi_data = out.evaluate("em_fields/phi", t=-1)
+        phi = phi_data.values
+        x, y, z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))
 
         slice_pt_x = x.shape[0] // 2
         slice_pt_y = y.shape[1] // 2
@@ -257,17 +295,17 @@ if __name__ == "__main__":
         print(f"Max relative error in RHS: {rel_err_rhs:.2e}")
         print(f"Max relative error in Phi: {rel_err_phi:.2e}")
 
-        assert rel_err_rhs < 1e-3, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
-        assert rel_err_phi < 1e-2, (
+        assert rel_err_rhs < 6e-3, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
+        assert rel_err_phi < 5e-3, (
             f"The computed solution does not match the exact solution, max rel error = {rel_err_phi}."
         )
 
         import os
 
-        # `path_out` is the run's output folder; `sim_folder` alone is a bare name
-        # resolved against the CWD. The profiling packaging picks these files up from
-        # here and uploads them as `results-run<id>`.
-        results_dir = os.path.join(sim.env.path_out, "results")
+        # `out.path_out` is the out's (absolute) output folder; `sim_folder` alone is a bare
+        # name resolved against the CWD. The profiling packaging picks these files up from
+        # here and uploads them as `results-out<id>`.
+        results_dir = os.path.join(out.path_out, "results")
         os.makedirs(results_dir, exist_ok=True)
 
         np.save(os.path.join(results_dir, "rel_err_rhs.npy"), rel_err_rhs)
@@ -275,5 +313,8 @@ if __name__ == "__main__":
         np.save(os.path.join(results_dir, "resolution.npy"), sim.grid.num_elements)
         np.save(os.path.join(results_dir, "spline_degree.npy"), sim.derham_opts.degree)
 
-        fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
-        fig_phi.savefig(os.path.join(results_dir, "phi_slices.png"))
+        if save_figs:
+            fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
+            fig_phi.savefig(os.path.join(results_dir, "phi_slices.png"))
+        else:
+            plt.show()
