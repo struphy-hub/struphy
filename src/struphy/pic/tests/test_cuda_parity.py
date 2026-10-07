@@ -15,6 +15,9 @@ from cunumpy.kernels import Kernel, KernelCatalog
 from cunumpy.profiling import assert_no_transfers
 
 from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
+from struphy.pic.accumulation.kernels.linear_vlasov_ampere import linear_vlasov_ampere
+
+from struphy.pic.accumulation.kernels.vlasov_maxwell import vlasov_maxwell
 from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
 from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
@@ -146,7 +149,7 @@ def test_device_pusher_time_loop(monkeypatch):
 
 
 def test_vlasov_kernel_coverage():
-    """Vlasov (PushEta, both PushVxB algorithms) and the ported Vlasov-Ampere kernels have device kernels."""
+    """Vlasov (PushEta, both PushVxB algorithms) and the ported (linear) Vlasov-Ampere kernels have device kernels."""
     for kernel in (
         push_eta_stage,
         push_vxb_analytic,
@@ -154,5 +157,7 @@ def test_vlasov_kernel_coverage():
         push_v_with_efield,
         push_weights_with_efield_lin_va,
         charge_density_0form,
+        linear_vlasov_ampere,
+        vlasov_maxwell,
     ):
         assert kernel.has_cuda, kernel.name

@@ -22,13 +22,17 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
+from feectools.linalg.kernels.stencil_axpy_3d import stencil_axpy_3d
+from feectools.linalg.kernels.stencil_dot_3d import stencil_dot_3d
+from feectools.linalg.kernels.stencil_inner_3d import stencil_inner_3d
+from feectools.linalg.kernels.stencil_transpose_3d import stencil_transpose_3d
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from maybempi import MPI, SerialComm
 
-from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.bsplines.kernels.eval_spline_mpi_markers import eval_spline_mpi_markers
 from struphy.bsplines.kernels.eval_spline_mpi_matrix import eval_spline_mpi_matrix
 from struphy.bsplines.kernels.eval_spline_mpi_sparse_meshgrid import eval_spline_mpi_sparse_meshgrid
+from struphy.bsplines.kernels.eval_spline_mpi_tensor_product_fixed import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
@@ -42,6 +46,8 @@ from struphy.initial.perturbations import Noise
 from struphy.io.options import DerhamOptions, FieldsBackground, LiteralOptions
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
@@ -613,12 +619,6 @@ class Derham:
         if local_projectors and (xp.get_backend() == "cupy"):
             raise NotImplementedError(
                 "Local projectors (DerhamOptions.local_projectors=True) are not supported on the CuPy backend yet."
-            )
-        if polar_splines and (xp.get_backend() == "cupy"):
-            # PolarExtractionBlocksC1 builds SciPy sparse matrices from the control points, and the polar
-            # extraction operators apply them to the stencil data, which lives on the device on CuPy.
-            raise NotImplementedError(
-                "Polar splines (DerhamOptions.polar_splines=True) are not supported on the CuPy backend yet."
             )
 
         # number of elements and spline degrees in each direction
@@ -1494,6 +1494,24 @@ class Derham:
         """Mandatory pusher kernel arguments for the backend used at initialization."""
         return self._args_derham
 
+    def kernels(self) -> tuple:
+        """The kernels called on the data of this complex.
+
+        The spline evaluation kernels of :class:`SplineFunction` (at markers, on meshgrids and on
+        sparse meshgrids) and the feectools kernels of the 3D stencil data (matrix-vector product,
+        transpose, inner product, axpy), which the FEEC operators and solvers call. Used by
+        :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (
+            eval_spline_mpi_markers,
+            eval_spline_mpi_matrix,
+            eval_spline_mpi_sparse_meshgrid,
+            stencil_dot_3d,
+            stencil_transpose_3d,
+            stencil_inner_3d,
+            stencil_axpy_3d,
+        )
+
     # --------------------------
     #      methods:
     # --------------------------
@@ -2191,14 +2209,16 @@ class Derham:
         from struphy.bsplines import bsplines_kernels
 
         # Extract knot vectors, degree and kind of basis
-        Tn = Nspace.knots
+        Tn = xp.to_numpy(Nspace.knots)
         pn = Nspace.degree
 
-        spans = xp.zeros(etas.size, dtype=int)
-        bns = xp.zeros((etas.size, pn + 1), dtype=float)
-        bds = xp.zeros((etas.size, pn), dtype=float)
-        bn = xp.zeros(pn + 1, dtype=float)
-        bd = xp.zeros(pn, dtype=float)
+        # setup: computed point by point with the pyccel helpers on the host, then copied to the active backend once
+        etas = xp.to_numpy(etas)
+        spans = np.zeros(etas.size, dtype=int)
+        bns = np.zeros((etas.size, pn + 1), dtype=float)
+        bds = np.zeros((etas.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
 
         for n in range(etas.size):
             # avoid 1. --> 0. for clamped interpolation
@@ -2212,7 +2232,7 @@ class Derham:
             bns[n] = bn
             bds[n] = bd
 
-        return spans, bns, bds
+        return xp.to_cunumpy(spans), xp.to_cunumpy(bns), xp.to_cunumpy(bds)
 
 
 class SplineFunction:
@@ -2296,17 +2316,19 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
-        # arguments of the evaluation kernels, one (kind, pn, tn1, tn2, tn3, starts) per component,
-        # on the backend of the coefficients and the same for both kernel versions
+        # arguments of the evaluation kernels, one SplineArguments per component: the pyccel class on NumPy,
+        # the CUDA class on CuPy
+        args_class = CudaSplineArguments if xp.get_backend() == "cupy" else SplineArguments
         degree = np.asarray(derham.degree, dtype=np.int64)
         if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
             raise ValueError("CUDA spline degrees must be between 1 and 8.")
         pn = xp.asarray(degree)
-        knots = tuple(xp.ascontiguousarray(t, dtype=float) for t in derham.V0fem.knots)
+        # the knots are host arrays; cupy.ascontiguousarray does not take NumPy arrays, xp.asarray copies them
+        knots = tuple(xp.asarray(np.ascontiguousarray(t, dtype=float)) for t in derham.V0fem.knots)
         starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
         kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
-        self._args_eval = tuple(
-            (xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
+        self._args_spline = tuple(
+            args_class(xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
             for kind, start in zip(kinds, starts)
         )
 
@@ -2712,16 +2734,17 @@ class SplineFunction:
         n_comps = W.n_comps
 
         # stack blocks of E (polar coeffs x polar rings); incompatible blocks (None) are zero
-        rows = xp.cumsum([0] + list(W.n_polar))
-        cols = xp.cumsum([0] + [n_r * n_2 for n_r, n_2 in zip(W.n_rings, W.n2)])
-        E_full = xp.zeros((rows[-1], cols[-1]), dtype=float)
+        # (host setup data on every backend, like the blocks of E)
+        rows = np.cumsum([0] + list(W.n_polar))
+        cols = np.cumsum([0] + [n_r * n_2 for n_r, n_2 in zip(W.n_rings, W.n2)])
+        E_full = np.zeros((rows[-1], cols[-1]), dtype=float)
         for m in range(n_comps):
             for n in range(n_comps):
                 if E.blocks_ten_to_pol[m][n] is not None:
                     E_full[rows[m] : rows[m + 1], cols[n] : cols[n + 1]] = E.blocks_ten_to_pol[m][n].toarray()
 
         # E^T has full column rank, hence pinv(E^T) @ E^T = identity on polar coeffs
-        L_full = xp.linalg.pinv(E_full.T)
+        L_full = np.linalg.pinv(E_full.T)
 
         blocks = [
             [
@@ -2767,15 +2790,9 @@ class SplineFunction:
             else:
                 assert out.shape == tuple([span.size for span in spans])
 
-            eval_spline_mpi_tensor_product_fixed(
-                *spans,
-                *bases,
-                vec._data,
-                self.derham.spline_attributes[self.space_key].spline_types_pyccel[0],
-                xp.array(self.derham.degree),
-                xp.array(self.starts),
-                out,
-            )
+            args = self._args_spline[0]
+            kind, pn, starts = args.kind, args.pn, args.starts
+            eval_spline_mpi_tensor_product_fixed(*spans, *bases, vec._data, kind, pn, starts, out, n_threads=out.size)
 
         else:
             out_is_none = False
@@ -2798,18 +2815,10 @@ class SplineFunction:
                         [span.size for span in spans],
                     )
 
+                args = self._args_spline[i]
+                kind, pn, starts = args.kind, args.pn, args.starts
                 eval_spline_mpi_tensor_product_fixed(
-                    *spans,
-                    *bases[i],
-                    vec[i]._data,
-                    self.derham.spline_attributes[self.space_key].spline_types_pyccel[i],
-                    xp.array(
-                        self.derham.degree,
-                    ),
-                    xp.array(
-                        self.starts[i],
-                    ),
-                    out[i],
+                    *spans, *bases[i], vec[i]._data, kind, pn, starts, out[i], n_threads=out[i].size
                 )
 
         return out
@@ -2893,7 +2902,7 @@ class SplineFunction:
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    *self._args_eval[0],
+                    self._args_spline[0],
                     tmp,
                     n_threads=tmp.size,
                 )
@@ -2902,7 +2911,7 @@ class SplineFunction:
                 eval_spline_mpi_markers(
                     markers,
                     self._vector_stencil._data,
-                    *self._args_eval[0],
+                    self._args_spline[0],
                     tmp,
                     n_threads=tmp.size,
                 )
@@ -2913,7 +2922,7 @@ class SplineFunction:
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    *self._args_eval[0],
+                    self._args_spline[0],
                     tmp,
                     n_threads=tmp.size,
                 )
@@ -2953,7 +2962,7 @@ class SplineFunction:
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        *self._args_eval[n],
+                        self._args_spline[n],
                         tmp,
                         n_threads=tmp.size,
                     )
@@ -2962,7 +2971,7 @@ class SplineFunction:
                     eval_spline_mpi_markers(
                         markers,
                         self._vector_stencil[n]._data,
-                        *self._args_eval[n],
+                        self._args_spline[n],
                         tmp,
                         n_threads=tmp.size,
                     )
@@ -2973,7 +2982,7 @@ class SplineFunction:
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        *self._args_eval[n],
+                        self._args_spline[n],
                         tmp,
                         n_threads=tmp.size,
                     )
@@ -3050,28 +3059,32 @@ class SplineFunction:
             )
             on_proc = xp.all(is_on_proc_domain, axis=1)
 
-            markers[~on_proc, :] = -1.0
+            xp.copyto(markers, -1.0, where=~on_proc[:, None])
 
         # 3D meshgrid evaluation
         else:
             assert len(etas) == 3
             E1, E2, E3 = etas
-            # check if eval points are "interior points" in domain_array; if so, add small offset
+            # check if eval points are "interior points" in domain_array; if so, add small offset.
+            # The bounds are compared as host floats: with the device array each `if` would wait for the device.
+            if not hasattr(self, "_domain_array_host"):
+                self._domain_array_host = xp.to_numpy(dom_arr)
+            dom_arr = self._domain_array_host
 
             if dom_arr[rank, 0] != 0.0:
-                E1[E1 == dom_arr[rank, 0]] += 1e-8
+                E1 += 1e-8 * (E1 == dom_arr[rank, 0])
             if dom_arr[rank, 1] != 1.0:
-                E1[E1 == dom_arr[rank, 1]] += 1e-8
+                E1 += 1e-8 * (E1 == dom_arr[rank, 1])
 
             if dom_arr[rank, 3] != 0.0:
-                E2[E2 == dom_arr[rank, 3]] += 1e-8
+                E2 += 1e-8 * (E2 == dom_arr[rank, 3])
             if dom_arr[rank, 4] != 1.0:
-                E2[E2 == dom_arr[rank, 4]] += 1e-8
+                E2 += 1e-8 * (E2 == dom_arr[rank, 4])
 
             if dom_arr[rank, 6] != 0.0:
-                E3[E3 == dom_arr[rank, 6]] += 1e-8
+                E3 += 1e-8 * (E3 == dom_arr[rank, 6])
             if dom_arr[rank, 7] != 1.0:
-                E3[E3 == dom_arr[rank, 7]] += 1e-8
+                E3 += 1e-8 * (E3 == dom_arr[rank, 7])
 
             # True for eval points on current process
             E1_on_proc = xp.logical_and(
@@ -3087,10 +3100,10 @@ class SplineFunction:
                 E3 <= dom_arr[rank, 7],
             )
 
-            # flag eval points not on current process
-            E1[~E1_on_proc] = -1.0
-            E2[~E2_on_proc] = -1.0
-            E3[~E3_on_proc] = -1.0
+            # flag eval points not on current process (masked writes without a device sync)
+            xp.copyto(E1, -1.0, where=~E1_on_proc)
+            xp.copyto(E2, -1.0, where=~E2_on_proc)
+            xp.copyto(E3, -1.0, where=~E3_on_proc)
 
     def _add_noise(
         self,

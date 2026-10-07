@@ -18,14 +18,22 @@ from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, write_local_projectors_header, write_pusher_header
+from struphy.utils.cuda_arguments import (
+    CUDA_OPTIONS,
+    write_local_projectors_header,
+    write_pusher_header,
+    write_spline_header,
+)
 
 N_COLS = 25
 MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)
 ARGS_DIR = Path(struphy.__file__).parent / "kernel_arguments"
 HEADER = ARGS_DIR / "pusher_args.cuh"
 LOCAL_PROJECTORS_HEADER = ARGS_DIR / "local_projectors_args.cuh"
+SPLINE_HEADER = ARGS_DIR / "spline_args.cuh"
 
 # (CUDA class, pyccel source, pyccel class, struct members that only the CUDA class has, its header)
 ARGUMENT_PAIRS = (
@@ -39,6 +47,7 @@ ARGUMENT_PAIRS = (
         set(),
         LOCAL_PROJECTORS_HEADER,
     ),
+    (CudaSplineArguments, "spline_args_kernels.py", "SplineArguments", set(), SPLINE_HEADER),
 )
 
 
@@ -93,6 +102,10 @@ def test_generated_local_projectors_header(tmp_path):
     assert LOCAL_PROJECTORS_HEADER.read_text() == write_local_projectors_header(tmp_path / "local_projectors_args.cuh")
 
 
+def test_generated_spline_header(tmp_path):
+    assert SPLINE_HEADER.read_text() == write_spline_header(tmp_path / "spline_args.cuh")
+
+
 @pytest.mark.parametrize("cuda_class, source, class_name, cuda_only, header", ARGUMENT_PAIRS)
 def test_argument_classes_correspond(cuda_class, source, class_name, cuda_only, header):
     """Each CUDA argument class mirrors its pyccel class: same constructor, same attributes in the same order."""
@@ -121,6 +134,9 @@ def test_owners_select_pyccel_classes_on_numpy():
         assert type(domain.args_domain) is DomainArguments
         assert type(particles.args_markers) is MarkerArguments
         assert type(derham.args_derham) is DerhamArguments
+        for space in ("H1", "Hcurl"):
+            spline = derham.create_spline_function("f", space)
+            assert all(type(args) is SplineArguments for args in spline._args_spline)
 
 
 @requires_cupy
@@ -180,9 +196,9 @@ def test_catalog_signatures():
         "pic.accumulation.kernels": 16,
         "pic.diagnostics.kernels": 10,
         "pic.sph.kernels": 4,
-        "bsplines.kernels": 3,
+        "bsplines.kernels": 4,
         "geometry.kernels": 4,
-        "feec.kernels": 1,
+        "feec.kernels": 17,
         "feec.local_projectors.kernels": 8,
     }
 
