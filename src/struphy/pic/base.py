@@ -2,6 +2,7 @@ import logging
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
+from contextlib import ExitStack
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
@@ -941,6 +942,15 @@ class Particles(metaclass=ABCMeta):
         """Arguments for marker kernels, selected when this particle object is created."""
         return self._args_markers
 
+    def kernels(self) -> tuple:
+        """The kernels these particles call when they apply their boundary conditions.
+
+        :func:`~struphy.pic.pushing.kernels.reflect.reflect` if an axis has reflecting boundary
+        conditions, otherwise none. Used by
+        :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (reflect,) if self._reflect_axes else ()
+
     # -------------------------------------------
     # Initial condition and background -> weights
     # -------------------------------------------
@@ -1748,6 +1758,12 @@ class Particles(metaclass=ABCMeta):
 
         remove_ghost : bool
             Remove ghost particles before send.
+
+        Notes
+        -----
+        On the CuPy backend, the marker rows are exchanged as device buffers with CUDA-aware MPI
+        (staged through host memory otherwise), see :meth:`_sendrecv_markers_device`. The
+        per-rank counts are small host arrays on every backend (:meth:`_sendrecv_all_to_all`).
         """
         if remove_ghost:
             self._remove_ghost_particles()
@@ -4354,9 +4370,19 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
         # position that determines the sorting (including periodic shift of boundary conditions)
         if not isinstance(alpha, xp.ndarray):
-            alpha = xp.array(alpha, dtype=float)
-        assert alpha.size == 3
-        assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
+            # check a tuple/list on the host: on CuPy, asserting on a device comparison reads it back
+            alpha_host = np.array(alpha, dtype=float)
+            assert alpha_host.size == 3
+            assert np.all(alpha_host >= 0.0) and np.all(alpha_host <= 1.0)
+            if alpha_host[0] == alpha_host[1] == alpha_host[2]:
+                # the common case (alpha = 1 or alpha = 0.5 in every direction): a Python scalar,
+                # which needs no host-to-device copy on CuPy and gives the same values on NumPy
+                alpha = float(alpha_host[0])
+            else:
+                alpha = xp.asarray(alpha_host)
+        else:
+            assert alpha.size == 3
+            assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
         self._sorting_etas[:] = (
             alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
@@ -4456,8 +4482,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Amount of particles sent to i-th process.
         """
 
-        # One entry for each process
-        send_info = xp.zeros(self.mpi_size, dtype=int)
+        # One entry for each process. The counts are host integers on every backend: the
+        # size of a nonzero() result is known on the host (CuPy synchronizes to size it), so
+        # a small NumPy array holds them without any host/device copy, and the Alltoall of
+        # the counts (_sendrecv_all_to_all) passes host buffers to MPI.
+        send_info = np.zeros(self.mpi_size, dtype=int)
 
         # Gathered once and reused for every rank below, instead of re-gathering
         # self.markers[send_inds] and self._sorting_etas[send_inds] fresh on every
@@ -4521,9 +4550,16 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         -------
             recv_info : array[int]
                 Amount of marticles to be received from i-th process.
+
+        Notes
+        -----
+        ``send_info`` and ``recv_info`` are small NumPy arrays (one integer per rank) on every
+        backend: the counts size the receive buffers and the holes to fill, which Python needs
+        on the host anyway. On CuPy, only the marker rows themselves are device buffers
+        (:meth:`_sendrecv_markers`).
         """
 
-        recv_info = xp.zeros(self.mpi_size, dtype=int)
+        recv_info = np.zeros(self.mpi_size, dtype=int)
 
         self.mpi_comm.Alltoall(send_info, recv_info)
 
@@ -4541,6 +4577,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             hole_inds_after_send : array[int]
                 Indices of empty rows in markers after send.
         """
+
+        if xp.get_array_backend(self._markers) == "cupy":
+            self._sendrecv_markers_device(recv_info, hole_inds_after_send)
+            return
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
         first_hole = xp.cumsum(recv_info) - recv_info
@@ -4584,6 +4624,92 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # the send buffers must not be reused before the sends have completed
         for req in send_reqs:
             req.Wait()
+
+    def _mpi_cuda_aware(self) -> bool:
+        """Whether MPI takes device (CuPy) buffers, for :meth:`_sendrecv_markers_device`.
+
+        Uses the answer recorded by :func:`cunumpy.mpi.mpi_is_cuda_aware` or
+        :func:`cunumpy.mpi.set_mpi_cuda_aware` (e.g. by feectools or at startup). If nothing
+        was recorded, probes :attr:`mpi_comm` once; the probe is collective, which is safe
+        here because :meth:`mpi_sort_markers` is called by every rank of :attr:`mpi_comm`.
+        """
+        cuda_aware = xp.mpi.get_mpi_cuda_aware()
+        if cuda_aware is None:
+            cuda_aware = xp.mpi.mpi_is_cuda_aware(self.mpi_comm)
+        if not cuda_aware and not Particles._warned_mpi_staging:
+            Particles._warned_mpi_staging = True
+            logger.warning(
+                "MPI is not CUDA-aware: marker rows exchanged between ranks are staged through host memory.",
+            )
+        return cuda_aware
+
+    _warned_mpi_staging = False
+
+    def _sendrecv_markers_device(self, recv_info, hole_inds_after_send):
+        """:meth:`_sendrecv_markers` on the CuPy backend: marker rows go to MPI as device buffers.
+
+        With CUDA-aware MPI (:meth:`_mpi_cuda_aware`), the rows to send (:attr:`_send_list`,
+        gathered on the device by :meth:`_sendrecv_get_destinations`) and one device receive
+        buffer are handed to ``Isend``/``Irecv`` directly, after
+        :func:`cunumpy.mpi.synchronize_for_mpi` (inside :func:`cunumpy.mpi.mpi_buffer`), so MPI
+        reads what the kernels wrote. The rows from rank ``i`` arrive in a contiguous slice of
+        the receive buffer, and one device scatter puts all of them into the holes. Without
+        CUDA-aware MPI, :func:`~cunumpy.mpi.mpi_buffer` stages the same buffers through host
+        memory (counted by :func:`cunumpy.profiling.count_transfers`).
+
+        The bookkeeping stays on the host without host/device copies: the counts are host
+        integers (``recv_info`` from the Alltoall, the send counts are the row counts of the
+        send buffers), and so is the number of holes. Ranks exchange no message when the
+        count is zero (both sides know the count, so they skip consistently).
+
+        Parameters
+        ----------
+            recv_info : array[int]
+                Amount of markers to be received from i-th process (NumPy array).
+
+            hole_inds_after_send : array[int]
+                Indices of empty rows in markers after send (device array).
+        """
+        recv_info = np.asarray(recv_info)
+        n_recv = int(recv_info.sum())
+        if hole_inds_after_send.size < n_recv:
+            warnings.warn(
+                f'Strong load imbalance detected: \
+number of holes ({hole_inds_after_send.size}) on rank {self.mpi_rank} \
+is smaller than number of incoming particles ({n_recv}). \
+Increasing the value of "bufsize" in the markers parameters for the next run.',
+            )
+            self.mpi_comm.Abort()
+
+        cuda_aware = self._mpi_cuda_aware()
+
+        # rows from rank i land in recvbuf[first_row[i] : first_row[i] + recv_info[i]]
+        first_row = np.cumsum(recv_info) - recv_info
+        recvbuf = xp.empty((n_recv, self.markers.shape[1]), dtype=float)
+
+        with ExitStack() as buffers:
+            if n_recv > 0:
+                recv_mpi = buffers.enter_context(
+                    xp.mpi.mpi_buffer(recvbuf, send=False, recv=True, cuda_aware=cuda_aware),
+                )
+            reqs = []
+            for i in range(self.mpi_size):
+                if i == self.mpi_rank:
+                    continue
+                if recv_info[i] > 0:
+                    rows = recv_mpi[first_row[i] : first_row[i] + recv_info[i]]
+                    reqs.append(self.mpi_comm.Irecv(rows, source=i, tag=i))
+                data = self._send_list[i]
+                if data.shape[0] > 0:
+                    send_mpi = buffers.enter_context(xp.mpi.mpi_buffer(data, cuda_aware=cuda_aware))
+                    reqs.append(self.mpi_comm.Isend(send_mpi, dest=i, tag=self.mpi_rank))
+            # wait inside the block: the buffers must stay valid until MPI is done, and staged
+            # receive rows are copied to the device when the block ends
+            for req in reqs:
+                req.Wait()
+
+        if n_recv > 0:
+            self._markers[hole_inds_after_send[:n_recv]] = recvbuf
 
 
 class Tesselation:

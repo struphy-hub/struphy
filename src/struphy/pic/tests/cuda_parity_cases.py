@@ -80,6 +80,19 @@ def charge_density_0form_args(bc):
     return (args_markers, derham_arguments(), args_domain, xp.zeros((18, 20, 16)))
 
 
+def linear_vlasov_ampere_args(domain):
+    """129 markers (a hole and a boundary particle) in domain `domain` of geometry_domain(); zeroed V1 data."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    f0_values = xp.asarray(np.random.default_rng(14).random(N_MARKERS))
+    return (
+        args_markers,
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *v1_symm_accumulation_data(),
+        f0_values,
+    )
+
+
 def vlasov_maxwell_args(domain):
     """129 markers (a hole in row 0, a boundary particle in row 1, which is accumulated as in pyccel) in domain
     `domain` of geometry_domain(); zeroed V1 data."""
@@ -276,6 +289,9 @@ PARITY_CASES = {
     "reflect": ParityCases((0, 1, 2), reflect_args, n_threads=size_of(2)),
     # atomics add in another order than the serial loop
     "charge_density_0form": ParityCases(((0, 0, 0), (2, 0, 1)), charge_density_0form_args, rtol=1e-12, atol=1e-13),
+    # Cuboid, Colella and HollowTorus (non-diagonal DF) and a 3d spline mapping, by index into geometry_domain();
+    # atomics add in another order than the serial loop, and the entries reach 1e4 (atol for cancelling sums)
+    "linear_vlasov_ampere": ParityCases((0, 2, 5, 12), linear_vlasov_ampere_args, rtol=1e-12, atol=1e-10),
     # Cuboid, then Colella, HollowTorus, ShafranovDshapedCylinder (non-diagonal DF) and a 3d spline mapping, by index into
     # geometry_domain(); atomics add in another order than the serial loop, and G^{-1} of the spline mapping makes
     # entries of 6e5 (atol for cancelling sums)
