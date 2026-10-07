@@ -347,8 +347,8 @@ The three spaces (H1vec/Hcurl/Hdiv) differ only in the basis; port one, then the
 `push_v_sph_pressure`, `push_v_sph_pressure_ideal_gas`, `push_v_viscosity`, `div_u_weak_1form`.
 
 Infrastructure that gates the steps, independent of the kernels: mappings are no gate any more (every CUDA kernel
-accepts every mapping since PR 19), except for what is still host-only around them: polar splines in `Derham` and MHD
-equilibria such as `EQDSKequilibrium` cannot be created on CuPy (see [Open questions](#open-questions)); multi-rank marker sorting without host round trips,
+accepts every mapping since PR 19), except for what is still host-only around them: polar splines in `Derham` cannot be
+created on CuPy (see [Open questions](#open-questions)); multi-rank marker sorting without host round trips,
 and array views with more than 4 dimensions in cunumpy (all matrix accumulations write 6D stencil
 matrix data).
 
@@ -367,11 +367,31 @@ matrix data).
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here. The array view represents strides explicitly on the CUDA side.
 - **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. `xp.mpi_is_cuda_aware()` detects it; the exchange in `Particles.mpi_sort_markers` has to be checked for host staging buffers.
 - **Single-source alternatives.** Hand-written CUDA stays the default. Generating whole kernels from the Python source (`cupyx.jit`, numba-cuda, or a pyccel CUDA backend) is worth a look before the guiding-center kernels (the largest ones) are ported. Those tools take flat arguments, which `fields` also provides.
-- **Polar splines and MHD equilibria on the GPU** (left after PR 19): spline mappings run on the device, but
+- **Polar splines on the GPU** (left after PR 19): spline mappings run on the device, but
   `Derham` with `polar_splines=True` raises on CuPy (`PolarExtractionBlocksC1` builds SciPy sparse matrices, and the
-  polar extraction operators would apply them to device stencil data; needs `cupyx.scipy.sparse` or kernels), and
-  `EQDSKequilibrium` cannot be created on CuPy (its SciPy splines get device arrays). A `Tokamak` on CuPy builds its
-  default equilibrium on the host. Needed once a model with a polar domain or an EQDSK equilibrium runs on the GPU.
+  polar extraction operators would apply them to device stencil data; needs `cupyx.scipy.sparse` or kernels). Needed
+  once a model with a polar domain runs on the GPU. (MHD equilibria run on CuPy since #696, see
+  [MHD equilibria](#mhd-equilibria-on-cupy-696).)
+- **Equilibrium splines on the device.** The SciPy splines of `EQDSKequilibrium`, `AdhocTorus` (`q_kind` 1, 2) and
+  `AdhocTorusQPsi`, and GVEC/DESC, are evaluated on the host with one copy per call (#696). Fine while equilibria are
+  evaluated only at setup; a device B-spline evaluation of their knots and coefficients would remove the copies.
+
+## MHD equilibria on CuPy (#696)
+
+- **What failed.** Creating `AdhocTorus` (`q_kind` 1, 2: SciPy `quad`/`UnivariateSpline`), `AdhocTorusQPsi` (`odeint`,
+  `fsolve`) and `EQDSKequilibrium` (`RectBivariateSpline` on `xp.linspace`) on CuPy; evaluating `GVECequilibrium` and
+  `DESCequilibrium` (gvec/DESC got device arrays). The analytic equilibria already worked.
+- **Host setup.** `setup_on_host` (`fields_background/base.py`) runs these `__init__`s on the NumPy backend, so the
+  equilibria hold only host data (floats, NumPy arrays, SciPy splines) on either backend. `Tokamak` no longer builds
+  its default `EQDSKequilibrium` on the NumPy backend itself; the field-line tracing still runs there.
+- **Evaluation follows the arguments.** SciPy spline evaluations go through `host_call`, and the GVEC/DESC `bv`, `jv`,
+  `p0`, `n0`, `gradB1` through `@evaluate_on_host`: device arguments are copied to the host, evaluated on the NumPy
+  backend, and the result is copied back, once per call (equilibria are evaluated at setup; the time loop uses the
+  projected equilibrium). NumPy arguments are evaluated as before.
+- **Tests.** `fields_background/tests/test_equils_cupy.py` creates every equilibrium of `equils` on CuPy, evaluates
+  the methods models call (meshgrid and markers, plus `psi`/`g_tor` with derivatives) and compares with NumPy: on a
+  GPU, and without one on the fake CuPy, where the four geometry kernels run their pyccel version on the fake arrays'
+  host buffers (`host_geometry_kernels`), since the fake CuPy cannot launch CUDA kernels.
 
 ## PR 10 implementation notes
 
@@ -598,7 +618,7 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   NumPy backend, and the control points are copied to the active backend once. Found and tested without a GPU with
   cunumpy's fake CuPy (`CUNUMPY_FAKE_CUPY=1`), which rejects host/device mixing like CuPy.
 - **Still host-only.** `EQDSKequilibrium` cannot be created on CuPy (a `Tokamak` on CuPy takes an equilibrium created
-  on the NumPy backend, or builds its default one there). Polar splines: `PolarExtractionBlocksC1` builds SciPy sparse
+  on the NumPy backend, or builds its default one there; fixed in #696). Polar splines: `PolarExtractionBlocksC1` builds SciPy sparse
   matrices from the control points, and the polar extraction operators apply them to the stencil data, which lives on
   the device on CuPy; `Derham` raises `NotImplementedError` for `polar_splines=True` on CuPy (see
   [Open questions](#open-questions)).
