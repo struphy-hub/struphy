@@ -1791,7 +1791,9 @@ class WeightedMassOperator(LinearOperator):
         V_name = self._V.symbolic_space
         W_name = self._W.symbolic_space
         if V_name != W_name:
-            raise ValueError(f"A symmetry can only be given for square operators (V=W), but {V_name = } and {W_name = }.")
+            raise ValueError(
+                f"A symmetry can only be given for square operators (V=W), but {V_name = } and {W_name = }."
+            )
         if not isinstance(self._V, VectorFemSpace):
             raise ValueError(
                 f"A symmetry can only be given for vector-valued spaces (Hcurl, Hdiv, H1vec), but {V_name = }."
