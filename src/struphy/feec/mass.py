@@ -1580,7 +1580,8 @@ class WeightedMassOperator(LinearOperator):
             f"spline_functions={list(spline_functions or {})}"
         )
 
-        assert not (dry_run and transposed), "dry_run=True is not supported for transposed operators."
+        if dry_run and transposed:
+            raise ValueError("dry_run=True is not supported for transposed operators.")
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -1621,15 +1622,13 @@ class WeightedMassOperator(LinearOperator):
             self._mat = self._mat.transpose()
             self._weights = self._transpose_weights(self._weights)
 
+        self._init_domain_codomain()
+
         if self._dry_run:
-            # memory estimation only (see the nbytes property): skip the composite operators,
-            # the .dot() temporaries and the assembly kernel; none of them is needed for sizing
-            # and all of them would allocate memory.
-            self._domain = self._mat.domain
-            self._codomain = self._mat.codomain
+            # memory estimation only (see the nbytes property): skip the .dot() temporaries
+            # and the assembly kernel; none of them is needed for sizing and both would allocate memory.
             return
 
-        self._init_composite_operators()
         self._allocate_dot_temporaries()
 
         if not self._matrix_free:
@@ -1684,7 +1683,8 @@ class WeightedMassOperator(LinearOperator):
             raise TypeError(f"Weights must be callable, xp.ndarray or None, but are {type(weight)}.")
 
         grid_shape = tuple(pt.size for pt in pts)
-        assert mat_w.shape == grid_shape, f"Weight has shape {mat_w.shape}, but the quadrature grid is {grid_shape}."
+        if mat_w.shape != grid_shape:
+            raise ValueError(f"Weight has shape {mat_w.shape}, but the quadrature grid is {grid_shape}.")
         return mat_w
 
     def _quad_pts(self, space_name: str, component: int) -> list:
@@ -1706,24 +1706,30 @@ class WeightedMassOperator(LinearOperator):
         operators :math:`\\mathbb B_V, \\mathbb B_W` (identities if not given), and their transposes."""
         # basis extraction operators
         if V_extraction_op is not None:
-            assert V_extraction_op.domain == self._V.coeff_space
+            if not V_extraction_op.domain == self._V.coeff_space:
+                raise ValueError("The domain of V_extraction_op must be the coefficient space of V.")
             self._V_extraction_op = V_extraction_op
         else:
             self._V_extraction_op = IdentityOperator(self._V.coeff_space)
 
         if W_extraction_op is not None:
-            assert W_extraction_op.domain == self._W.coeff_space
+            if not W_extraction_op.domain == self._W.coeff_space:
+                raise ValueError("The domain of W_extraction_op must be the coefficient space of W.")
             self._W_extraction_op = W_extraction_op
         else:
             self._W_extraction_op = IdentityOperator(self._W.coeff_space)
 
         # boundary operators (act on the codomain of the extraction operators)
         if V_boundary_op is not None:
+            if not V_boundary_op.domain == self._V_extraction_op.codomain:
+                raise ValueError("The domain of V_boundary_op must be the codomain of the V extraction operator.")
             self._V_boundary_op = V_boundary_op
         else:
             self._V_boundary_op = IdentityOperator(self._V_extraction_op.codomain)
 
         if W_boundary_op is not None:
+            if not W_boundary_op.domain == self._W_extraction_op.codomain:
+                raise ValueError("The domain of W_boundary_op must be the codomain of the W extraction operator.")
             self._W_boundary_op = W_boundary_op
         else:
             self._W_boundary_op = IdentityOperator(self._W_extraction_op.codomain)
@@ -1740,12 +1746,9 @@ class WeightedMassOperator(LinearOperator):
         W_name = self._W.symbolic_space
         logger.debug(f"{V_name = }, {W_name = }")
 
-        assert V_name in self.derham.spline_attributes, (
-            f"Spline attributes for the domain space {V_name} not found in the Derham object !!"
-        )
-        assert W_name in self.derham.spline_attributes, (
-            f"Spline attributes for the codomain space {W_name} not found in the Derham object !!"
-        )
+        for space_name in (V_name, W_name):
+            if space_name not in self.derham.spline_attributes:
+                raise ValueError(f"Spline attributes for the space {space_name} not found in the Derham object.")
 
         if self._transposed:
             self._domain_femspace, self._domain_symbolic_name = self._W, W_name
@@ -1787,8 +1790,12 @@ class WeightedMassOperator(LinearOperator):
         """
         V_name = self._V.symbolic_space
         W_name = self._W.symbolic_space
-        assert V_name == W_name, "only square matrices (V=W) allowed!"
-        assert len(V_name) > 2, "only block matrices with domain/codomain spaces Hcurl, Hdiv and H1vec are allowed!"
+        if V_name != W_name:
+            raise ValueError(f"A symmetry can only be given for square operators (V=W), but {V_name = } and {W_name = }.")
+        if not isinstance(self._V, VectorFemSpace):
+            raise ValueError(
+                f"A symmetry can only be given for vector-valued spaces (Hcurl, Hdiv, H1vec), but {V_name = }."
+            )
 
         # which blocks (i, j) are allocated for the given symmetry
         block_masks = {
@@ -1889,9 +1896,8 @@ class WeightedMassOperator(LinearOperator):
         self._spline_spans = {}
         self._spline_bases = {}
         for name, spline in self.spline_functions.items():
-            assert isinstance(spline, SplineFunction), (
-                f"The entry {name} in spline_functions must be a SplineFunction object."
-            )
+            if not isinstance(spline, SplineFunction):
+                raise TypeError(f"The entry {name} in spline_functions must be a SplineFunction object.")
             self._spline_values[name] = xp.zeros(grid_shape, dtype=float)
             self._spline_spans[name], bns, bds = self.derham.prepare_eval_tp_fixed(pts)
             if spline.space_id == "H1":
@@ -1903,20 +1909,15 @@ class WeightedMassOperator(LinearOperator):
                     f"Spline functions in spline_functions must be defined on H1 or L2 spaces, but {spline.space_id} was given for the spline function {name}.",
                 )
 
-    def _init_composite_operators(self):
-        """Build the composite operators :math:`\\mathbb E_W \\mathbb M \\mathbb E_V^T` (``M``) and
-        :math:`\\mathbb B_W \\mathbb E_W \\mathbb M \\mathbb E_V^T \\mathbb B_V^T` (``M0``), with V and W
-        swapped for transposed operators, and set domain and codomain."""
-        # TODO: maybe remove since this is done in the .dot() explicitly
+    def _init_domain_codomain(self):
+        """Set domain and codomain of the operator, i.e. the codomains of the extraction operators
+        of V and W (swapped for transposed operators). These are the domain and codomain of :attr:`M`."""
         if self._transposed:
-            self._M = self._V_extraction_op @ self._mat @ self._W_extraction_op_T
-            self._M0 = self._V_boundary_op @ self._M @ self._W_boundary_op_T
+            self._domain = self._W_extraction_op.codomain
+            self._codomain = self._V_extraction_op.codomain
         else:
-            self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
-            self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
-
-        self._domain = self._M.domain
-        self._codomain = self._M.codomain
+            self._domain = self._V_extraction_op.codomain
+            self._codomain = self._W_extraction_op.codomain
 
     def _allocate_dot_temporaries(self):
         """Allocate the intermediate vectors used in :meth:`dot`."""
@@ -1988,42 +1989,48 @@ class WeightedMassOperator(LinearOperator):
     def dtype(self):
         return self._dtype
 
-    def tosparse(self):
-        if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
-            for bl in self._V_boundary_op.bc:
-                for bc in bl:
-                    assert not bc, logger.info(".tosparse() only works without boundary conditions at the moment")
-            for bl in self._W_boundary_op.bc:
-                for bc in bl:
-                    assert not bc, logger.info(".tosparse() only works without boundary conditions at the moment")
+    def _check_identity_extraction(self, method: str):
+        """Raise if the operator has non-trivial (polar) extraction operators, which
+        :meth:`to_sparse_mat_only` and :meth:`to_array_mat_only` do not support."""
+        if not all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
+            raise NotImplementedError(f".{method}() is not implemented for polar extraction operators.")
 
-            return self._mat.tosparse()
-        elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
-            return self._mat.tosparse()
-        else:
-            raise NotImplementedError()
+    def to_sparse_mat_only(self):
+        """Sparse matrix of the (block) stencil matrix, without extraction and boundary operators.
 
-    def toarray(self):
-        if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
-            for bl in self._V_boundary_op.bc:
-                for bc in bl:
-                    assert not bc, logger.info(".toarray() only works without boundary conditions at the moment")
-            for bl in self._W_boundary_op.bc:
-                for bc in bl:
-                    assert not bc, logger.info(".toarray() only works without boundary conditions at the moment")
+        In contrast to :meth:`tosparse` (inherited from LinearOperator, computed column by column
+        with :meth:`dot`), this is cheap but does not account for boundary conditions."""
+        self._check_identity_extraction("to_sparse_mat_only")
+        return self._mat.tosparse()
 
-            return self._mat.toarray()
-        elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
-            return self._mat.toarray()
-        else:
-            raise NotImplementedError()
+    def to_array_mat_only(self):
+        """Dense array of the (block) stencil matrix, without extraction and boundary operators.
+
+        In contrast to :meth:`toarray` (inherited from LinearOperator, computed column by column
+        with :meth:`dot`), this is cheap but does not account for boundary conditions."""
+        self._check_identity_extraction("to_array_mat_only")
+        return self._mat.toarray()
 
     @property
     def M(self):
+        """Composite operator :math:`\\mathbb E_W \\mathbb M \\mathbb E_V^T` (V and W swapped if transposed),
+        built on first access (allocates temporaries). Note that :meth:`dot` does not use it."""
+        if not hasattr(self, "_M"):
+            if self._transposed:
+                self._M = self._V_extraction_op @ self._mat @ self._W_extraction_op_T
+            else:
+                self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
         return self._M
 
     @property
     def M0(self):
+        """Composite operator :math:`\\mathbb B_W \\mathbb E_W \\mathbb M \\mathbb E_V^T \\mathbb B_V^T`
+        (V and W swapped if transposed), built on first access (allocates temporaries)."""
+        if not hasattr(self, "_M0"):
+            if self._transposed:
+                self._M0 = self._V_boundary_op @ self.M @ self._W_boundary_op_T
+            else:
+                self._M0 = self._W_boundary_op @ self.M @ self._V_boundary_op_T
         return self._M0
 
     @property
