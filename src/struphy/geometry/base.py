@@ -19,11 +19,23 @@ from struphy.geometry.kernels.kernel_pullpush_pic import kernel_pullpush_pic
 from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
+
+
+def inside_logical_cube(markers):
+    """Mask of the markers whose logical position ``markers[:, :3]`` lies in [0, 1]^3.
+
+    The test of the pyccel and CUDA geometry kernels (``e1 < 0.0 or e1 > 1.0 or ...`` marks a marker as outside, so a
+    NaN coordinate counts as inside). The geometry kernels are called with ``remove_outside=False`` and the rows of
+    outside markers are removed with this mask, on both backends.
+    """
+    positions = markers[:, :3]
+    return ~xp.any((positions < 0.0) | (positions > 1.0), axis=1)
 
 
 class DomainMeta(ABCMeta):
@@ -1039,13 +1051,15 @@ class Domain(metaclass=DomainMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-            kernel = kernel_evaluate_pic
-            n_inside = kernel(
+            check_mapping_on_device(self.kind_map, "Geometry evaluations")
+            # one row per marker (remove_outside=False): a CUDA kernel cannot return the number of inside
+            # markers, so the rows of outside markers are removed below, the same way on both backends
+            kernel_evaluate_pic(
                 markers,
                 which,
                 self.args_domain,
                 out,
-                remove_outside,
+                False,
                 avoid_round_off,
             )
 
@@ -1053,7 +1067,8 @@ class Domain(metaclass=DomainMeta):
             out = xp.transpose(out, axes=(1, 2, 0))
 
             # remove holes
-            out = out[:, :, :n_inside]
+            if remove_outside:
+                out = out[:, :, inside_logical_cube(markers)]
 
             if transposed:
                 out = xp.transpose(out, axes=(1, 0, 2))
@@ -1083,8 +1098,8 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            kernel = kernel_evaluate
-            kernel(
+            check_mapping_on_device(self.kind_map, "Geometry evaluations")
+            kernel_evaluate(
                 E1,
                 E2,
                 E3,
@@ -1093,6 +1108,7 @@ class Domain(metaclass=DomainMeta):
                 out,
                 is_sparse_meshgrid,
                 avoid_round_off,
+                n_threads=out.shape[0] * out.shape[1] * out.shape[2],  # CUDA: one thread per grid point
             )
 
             # move the (3, 3)-part to front
@@ -1251,32 +1267,42 @@ class Domain(metaclass=DomainMeta):
             else:
                 A_has_holes = False
 
-            # call evaluation kernel (no CUDA version yet: raises on the CuPy backend)
+            # call evaluation kernel
             out = xp.empty((markers.shape[0], 3), dtype=float)
+            inside = inside_logical_cube(markers)
 
-            # make sure we don't have stride = 0
-            A = A.copy()
+            # make sure we don't have stride = 0; give A one row per marker, as the kernel is called with
+            # remove_outside=False (a CUDA kernel cannot return the number of inside markers, so the rows of
+            # outside markers are removed below, the same way on both backends)
+            if A_has_holes:
+                A = A.copy()
+            else:
+                A_values = A
+                A = xp.zeros((markers.shape[0], A_values.shape[1]), dtype=float)
+                A[inside] = A_values
 
-            kernel = kernel_pullpush_pic
-            n_inside = kernel(
+            check_mapping_on_device(self.kind_map, "Geometry transformations")
+            kernel_pullpush_pic(
                 A,
                 markers,
                 self._transformation_ids[which],
                 kind_int,
                 self.args_domain,
                 out,
-                remove_outside,
+                False,
+                n_threads=markers.shape[0],  # CUDA: one thread per marker (the first array is A)
             )
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(1, 0))
 
             # remove holes
-            out = out[:, :n_inside]
+            if remove_outside:
+                out = out[:, inside]
 
             # check if A has correct shape
             if not A_has_holes and remove_outside:
-                assert A.shape[0] == out.shape[1]
+                assert A_values.shape[0] == out.shape[1]
 
             # change output order
             if kind_int < 10:
@@ -1309,13 +1335,13 @@ class Domain(metaclass=DomainMeta):
                 X = self(E1, E2, E3)
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
-            # call evaluation kernel (no CUDA version yet: raises on the CuPy backend)
+            # call evaluation kernel
             out = xp.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
-            kernel = kernel_pullpush
-            kernel(
+            check_mapping_on_device(self.kind_map, "Geometry transformations")
+            kernel_pullpush(
                 A,
                 E1,
                 E2,
@@ -1325,6 +1351,7 @@ class Domain(metaclass=DomainMeta):
                 self.args_domain,
                 is_sparse_meshgrid,
                 out,
+                n_threads=out.shape[0] * out.shape[1] * out.shape[2],  # CUDA: one thread per grid point
             )
 
             # move the (3, 3)-part to front

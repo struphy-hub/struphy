@@ -11,20 +11,17 @@ __device__ inline void matrix_vector(const double* a, const double* b, double* c
     for (int i=0; i<3; ++i) c[i]=a[3*i]*b[0]+a[3*i+1]*b[1]+a[3*i+2]*b[2];
 }
 /**
- * Invert a 3x3 matrix, as in linalg_kernels.matrix_inv.
+ * Product of two 3x3 matrices, as in linalg_kernels.matrix_matrix.
  *
- * @param a Non-singular input matrix stored as nine row-major entries.
- * @param b Output inverse with nine row-major entries; must not overlap a.
- *
- * det_a is the determinant of a. No singularity check is performed.
+ * @param a First input matrix stored as nine row-major entries.
+ * @param b Second input matrix stored as nine row-major entries.
+ * @param c Output a.dot(b) with nine row-major entries; must not overlap a or b.
  */
-__device__ inline void matrix_inv(const double* a, double* b) {
-    double det_a=a[0]*(a[4]*a[8]-a[5]*a[7])-a[1]*(a[3]*a[8]-a[5]*a[6])+a[2]*(a[3]*a[7]-a[4]*a[6]);
-    b[0]=(a[4]*a[8]-a[5]*a[7])/det_a; b[1]=(a[2]*a[7]-a[1]*a[8])/det_a;
-    b[2]=(a[1]*a[5]-a[2]*a[4])/det_a; b[3]=(a[5]*a[6]-a[3]*a[8])/det_a;
-    b[4]=(a[0]*a[8]-a[2]*a[6])/det_a; b[5]=(a[2]*a[3]-a[0]*a[5])/det_a;
-    b[6]=(a[3]*a[7]-a[4]*a[6])/det_a; b[7]=(a[1]*a[6]-a[0]*a[7])/det_a;
-    b[8]=(a[0]*a[4]-a[1]*a[3])/det_a;
+__device__ inline void matrix_matrix(const double* a, const double* b, double* c) {
+    for (int i = 0; i < 9; ++i) c[i] = 0.0;
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            for (int k = 0; k < 3; ++k) c[3 * i + j] += a[3 * i + k] * b[3 * k + j];
 }
 /**
  * Determinant of a 3x3 matrix, as in linalg_kernels.det.
@@ -37,6 +34,38 @@ __device__ inline double det(const double* a) {
     double minus = a[6] * a[4] * a[2] + a[7] * a[5] * a[0] + a[8] * a[3] * a[1];
     double det_a = plus - minus;
     return det_a;
+}
+/**
+ * Invert a 3x3 matrix whose determinant is known, as in linalg_kernels.matrix_inv_with_det.
+ *
+ * @param a Non-singular input matrix stored as nine row-major entries.
+ * @param det_a The determinant of a (pull() passes 1.0 to get the adjugate).
+ * @param b Output inverse with nine row-major entries; must not overlap a.
+ */
+__device__ inline void matrix_inv_with_det(const double* a, double det_a, double* b) {
+    b[0] = (a[4] * a[8] - a[7] * a[5]) / det_a;
+    b[1] = (a[7] * a[2] - a[1] * a[8]) / det_a;
+    b[2] = (a[1] * a[5] - a[4] * a[2]) / det_a;
+
+    b[3] = (a[5] * a[6] - a[8] * a[3]) / det_a;
+    b[4] = (a[8] * a[0] - a[2] * a[6]) / det_a;
+    b[5] = (a[2] * a[3] - a[5] * a[0]) / det_a;
+
+    b[6] = (a[3] * a[7] - a[6] * a[4]) / det_a;
+    b[7] = (a[6] * a[1] - a[0] * a[7]) / det_a;
+    b[8] = (a[0] * a[4] - a[3] * a[1]) / det_a;
+}
+/**
+ * Invert a 3x3 matrix, as in linalg_kernels.matrix_inv.
+ *
+ * @param a Non-singular input matrix stored as nine row-major entries.
+ * @param b Output inverse with nine row-major entries; must not overlap a.
+ *
+ * det_a is the determinant of a, computed with det() as in pyccel. No singularity check is performed.
+ */
+__device__ inline void matrix_inv(const double* a, double* b) {
+    double det_a = det(a);
+    matrix_inv_with_det(a, det_a, b);
 }
 /**
  * Scalar (dot) product of two vectors of length 3, as in linalg_kernels.scalar_dot.

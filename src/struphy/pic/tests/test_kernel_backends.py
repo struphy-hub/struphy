@@ -196,10 +196,40 @@ def test_pusher_accepts_kernel(wrap):
         pusher(0.001)
 
 
+def test_spline_mappings_checked_only_on_cupy():
+    """Spline mappings (kind_map < 10) have no CUDA version yet (PR 19); the check passes on NumPy."""
+    from struphy.utils.cuda_arguments import check_mapping_on_device
+
+    with cunumpy.use_backend("numpy"):
+        for kind_map in (0, 1, 2, 10, 22, 32):
+            check_mapping_on_device(kind_map, "Geometry evaluations")
+
+
 @requires_cupy
-def test_geometry_evaluation_raises_on_cupy():
-    """Geometry evaluations have no CUDA version yet; they raise instead of running pyccel on host copies."""
-    with cunumpy.use_backend("cupy"):
-        domain = Cuboid()
-        with pytest.raises(NotImplementedError):
-            domain.jacobian_det(cunumpy.random.rand(10, 3))
+@pytest.mark.parametrize("domain_index", range(10))
+def test_geometry_evaluation_on_cupy(domain_index):
+    """Geometry evaluations run on CuPy for every analytic mapping and agree with NumPy; spline mappings raise."""
+    from struphy.pic.tests.kernel_test_args import analytic_domains
+    from struphy.utils.cuda_arguments import check_mapping_on_device
+
+    markers = np.random.default_rng(3).uniform(-0.1, 1.0, (50, 3))
+    eta = (np.linspace(0.1, 0.9, 5), np.linspace(0.0, 1.0, 4), np.linspace(0.2, 0.8, 3))
+    results = []
+    for backend in ("numpy", "cupy"):
+        with cunumpy.use_backend(backend):
+            domain = analytic_domains()[domain_index]
+            device_markers = cunumpy.asarray(markers)
+            device_eta = tuple(cunumpy.asarray(e) for e in eta)
+            values = (
+                domain.jacobian_det(device_markers),
+                domain.jacobian_inv(device_markers, remove_outside=False),
+                domain.metric(*device_eta),
+                domain.pull(lambda x, y, z: x * y + z, device_markers, kind="3"),
+                domain.push((1.0, 2.0, 3.0), *device_eta, kind="2"),
+            )
+            results.append([cunumpy.to_numpy(v) for v in values])
+    for host, device in zip(*results):
+        np.testing.assert_allclose(device, host, rtol=1e-10, atol=1e-10)
+
+    with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="PR 19"):
+        check_mapping_on_device(0, "Geometry evaluations")
