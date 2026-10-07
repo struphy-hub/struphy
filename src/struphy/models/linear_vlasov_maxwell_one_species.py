@@ -1,6 +1,6 @@
 import copy
 
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions

@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 from struphy import set_logging_level
 

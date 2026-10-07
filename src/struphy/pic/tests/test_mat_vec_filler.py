@@ -2,6 +2,7 @@ import logging
 
 import cunumpy as xp
 import pytest
+from cunumpy.kernels import PyccelKernel
 
 logger = logging.getLogger("struphy")
 
@@ -230,7 +231,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
                     if rank == 0:
                         logger.info(f"\nTesting {name_b} ...")
 
-                    fun_b(DR.args_derham, eta1, eta2, eta3, *args)
+                    PyccelKernel(fun_b)(DR.args_derham, eta1, eta2, eta3, *args)
 
                     for n, ij in enumerate(ind_pairs):
                         assert_mat(
@@ -252,7 +253,7 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
                     if rank == 0:
                         logger.info(f"\nTesting {name} ...")
 
-                    fun(DR.args_derham, span1, span2, span3, *args)
+                    PyccelKernel(fun)(DR.args_derham, span1, span2, span3, *args)
 
                     for n, ij in enumerate(ind_pairs):
                         assert_mat(
@@ -275,14 +276,16 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
         # testing salar spaces
         if rank == 0:
             logger.info("\nTesting mat_fill_b_v0 ...")
-        ptomat.mat_fill_b_v0(DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0])
+        PyccelKernel(ptomat.mat_fill_b_v0)(DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             logger.info("\nTesting m_v_fill_b_v0 ...")
-        ptomat.m_v_fill_b_v0(DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0])
+        PyccelKernel(ptomat.m_v_fill_b_v0)(
+            DR.args_derham, eta1, eta2, eta3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0]
+        )
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         assert_vec(vec["v0"], rows, basis["v0"], rank)  # assertion test of vec
         count += 1
@@ -290,14 +293,16 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
         if rank == 0:
             logger.info("\nTesting mat_fill_b_v3 ...")
-        ptomat.mat_fill_b_v3(DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0])
+        PyccelKernel(ptomat.mat_fill_b_v3)(DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             logger.info("\nTesting m_v_fill_b_v3 ...")
-        ptomat.m_v_fill_b_v3(DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0])
+        PyccelKernel(ptomat.m_v_fill_b_v3)(
+            DR.args_derham, eta1, eta2, eta3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0]
+        )
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         assert_vec(vec["v3"], rows, basis["v3"], rank)  # assertion test of vec
         count += 1
@@ -305,14 +310,16 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
         if rank == 0:
             logger.info("\nTesting mat_fill_v0 ...")
-        ptomat.mat_fill_v0(DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0])
+        PyccelKernel(ptomat.mat_fill_v0)(DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0])
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             logger.info("\nTesting m_v_fill_v0 ...")
-        ptomat.m_v_fill_v0(DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0])
+        PyccelKernel(ptomat.m_v_fill_v0)(
+            DR.args_derham, span1, span2, span3, mat["v0"], fill_mat[0, 0], vec["v0"], fill_vec[0]
+        )
         assert_mat(mat["v0"], rows, cols, basis["v0"], basis["v0"], rank)  # assertion test of mat
         assert_vec(vec["v0"], rows, basis["v0"], rank)  # assertion test of vec
         count += 1
@@ -320,14 +327,16 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
 
         if rank == 0:
             logger.info("\nTesting mat_fill_v3 ...")
-        ptomat.mat_fill_v3(DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0])
+        PyccelKernel(ptomat.mat_fill_v3)(DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0])
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             logger.info("\nTesting m_v_fill_v3 ...")
-        ptomat.m_v_fill_v3(DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0])
+        PyccelKernel(ptomat.m_v_fill_v3)(
+            DR.args_derham, span1, span2, span3, mat["v3"], fill_mat[0, 0], vec["v3"], fill_vec[0]
+        )
         assert_mat(mat["v3"], rows, cols, basis["v3"], basis["v3"], rank)  # assertion test of mat
         assert_vec(vec["v3"], rows, basis["v3"], rank)  # assertion test of vec
         count += 1

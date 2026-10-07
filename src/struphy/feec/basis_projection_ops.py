@@ -2,7 +2,7 @@ import logging
 
 import cunumpy as xp
 import numpy as np
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import mpi as MPI
 from feectools.fem.basic import FemSpace

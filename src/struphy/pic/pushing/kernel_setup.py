@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from numbers import Integral, Real
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-
-from struphy.utils.kernel_backends import Kernel
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 
 
 @dataclass(kw_only=True, eq=False)
@@ -84,4 +83,5 @@ class KernelSetup:
 
     def evaluate(self, args_markers, args_domain):
         """Evaluate into the configured marker columns."""
-        self.kernel(self._alpha_array, self._output_indices_array, args_markers, args_domain, *self.args)
+        launch = {"n_threads": args_markers.n_markers} if isinstance(self.kernel, CudaKernel) else {}
+        self.kernel(self._alpha_array, self._output_indices_array, args_markers, args_domain, *self.args, **launch)

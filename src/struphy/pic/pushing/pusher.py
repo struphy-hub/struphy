@@ -3,7 +3,8 @@
 import logging
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
@@ -11,7 +12,6 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
-from struphy.utils.kernel_backends import CudaKernel, Kernel
 
 logger = logging.getLogger("struphy")
 
@@ -62,7 +62,7 @@ class Pusher:
         Particles object holding the markers to push.
 
     kernel : PyccelKernel | Kernel
-        The pusher kernel. A :class:`~struphy.utils.kernel_backends.Kernel` also holds its CUDA version;
+        The pusher kernel. A :class:`~cunumpy.kernels.Kernel` also holds its CUDA version;
         on the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     args_kernel : tuple
@@ -139,6 +139,9 @@ class Pusher:
         self._cuda = isinstance(self._kernel, CudaKernel)
         if self._cuda and args_domain.kind_map != 10:
             raise NotImplementedError("CUDA pushers currently support only Cuboid mappings.")
+
+        if self._cuda:
+            self._kernel.compile()
 
         self._particles = particles
         self._newton = "newton" in kernel.name

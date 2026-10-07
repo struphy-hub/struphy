@@ -1,4 +1,5 @@
 import pytest
+from cunumpy.kernels import PyccelKernel
 
 
 @pytest.mark.parametrize("mapping", ["Cuboid", "Colella", "HollowTorus"])
@@ -28,7 +29,7 @@ def test_hybrid_weight_metric(mapping):
     G_kernel = xp.zeros((3, 3, nq, nq, nq))
     for col in range(3):
         data = [xp.full((nq, nq, nq), float(col == i)) for i in range(3)]
-        kernels.hybrid_weight(0, 0, 0, *pts, *spans, nq, nq, nq, *wts, *data, n_data, domain.args_domain)
+        PyccelKernel(kernels.hybrid_weight)(0, 0, 0, *pts, *spans, nq, nq, nq, *wts, *data, n_data, domain.args_domain)
         for i in range(3):
             G_kernel[i, col] = data[i]
 

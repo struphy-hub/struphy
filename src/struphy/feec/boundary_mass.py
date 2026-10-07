@@ -2,7 +2,7 @@ import logging
 from typing import Callable
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector

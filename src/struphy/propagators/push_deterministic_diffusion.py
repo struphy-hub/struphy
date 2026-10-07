@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import OptionsBase
