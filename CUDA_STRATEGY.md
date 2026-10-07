@@ -366,7 +366,7 @@ the first kernel that uses them.
 - **Kernel launch configuration.** One thread per marker with a fixed block size for now. Kernels over grid points (accumulation, FEEC) need their own launch sizes; `CudaKernel` needs a `grid`/`block` override (PR 12+), or cunumpy's.
 - **Accumulation strategy.** Atomics vs. sort-then-reduce; see PR 12+. Decided by measurement on the first accumulation kernel.
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here. The array view represents strides explicitly on the CUDA side.
-- **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. `xp.mpi_is_cuda_aware()` detects it; the exchange in `Particles.mpi_sort_markers` has to be checked for host staging buffers.
+- **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. The marker exchange in `Particles.mpi_sort_markers` uses device buffers since #698 (see [Marker exchange implementation notes](#marker-exchange-implementation-notes-698)); the SPH ghost-box exchange (`_sendrecv_markers_boxes`) does not yet.
 - **Single-source alternatives.** Hand-written CUDA stays the default. Generating whole kernels from the Python source (`cupyx.jit`, numba-cuda, or a pyccel CUDA backend) is worth a look before the guiding-center kernels (the largest ones) are ported. Those tools take flat arguments, which `fields` also provides.
 - **Polar splines and MHD equilibria on the GPU** (left after PR 19): spline mappings run on the device, but
   `Derham` with `polar_splines=True` raises on CuPy (`PolarExtractionBlocksC1` builds SciPy sparse matrices, and the
@@ -501,7 +501,8 @@ through `Kernel(PyccelKernel(...))`, built at the call site where the owner is p
 cannot be pickled) and kept by `Pusher`, `KernelSetup`, the accumulators, reflection and the spline
 evaluation; a kernel without a CUDA version raises `NotImplementedError` when it is called on CuPy.
 `prepare_kernel()` (PR 15) is removed: kernels are no longer checked or compiled at setup, CUDA kernels
-compile on their first call. When to compile them (e.g. once at simulation start) is decided later.
+compile on their first call. When to compile them (e.g. once at simulation start) is decided later. (Since
+struphy#704 they are compiled at setup, see [Compiling at setup](#compiling-the-cuda-kernels-at-setup-struphy704).)
 
 Consequence: geometry evaluations (`Domain.__call__`, `jacobian_det`, `pull`/`push`, ...) have no CUDA
 version yet and raise on CuPy. `Particles` evaluates `jacobian_det` when it initializes weights, so
@@ -537,6 +538,23 @@ They are replaced by one test module, `pic/tests/cuda_parity_cases.py`: `PARITY_
 `build(case)`, the tolerances and the launch size. `test_cuda_parity.py` passes them to cunumpy's
 `assert_kernels_agree` (one test per case), `test_cuda_emulation.py` to the CPU emulation, and
 `test_cuda_kernels_have_parity_cases` checks that the CUDA kernels and the parity cases match.
+
+## Compiling the CUDA kernels at setup (struphy#704)
+
+`Simulation.run()` calls `Simulation.compile_cuda_kernels()` after `allocate()`, in the profiling region
+`setup: compile cuda kernels`, so that no CUDA kernel compiles in the first time step. The kernels come from
+`Simulation.kernels()`, which collects the `kernels()` of the owners that keep and call them: `Domain` (the four
+geometry kernels), `Derham` (the three spline evaluation kernels and feectools' `stencil_{dot,transpose,inner,axpy}_3d`),
+`Particles` (`reflect` if an axis reflects), and every propagator of the model. `Propagator.kernels()` collects
+by default from the propagator's attributes: `Kernel`s kept as attributes and the `kernels()` of `Pusher` (pusher
+kernel and its `KernelSetup`s), `KernelSetup`, `Accumulator` and `AccumulatorVector`, also inside lists, tuples
+and dicts (`utils/kernel_compilation.collect_kernels`). A propagator that calls a kernel it does not keep
+overrides `kernels()`. Diagnostics kernels and the initial solves are not listed; they run during the setup.
+
+Fail fast: on CuPy, if a listed kernel has no CUDA version, `compile_cuda_kernels()` raises
+`NotImplementedError` naming all of them, before anything is compiled (e.g. `VlasovAmpereOneSpecies`:
+`vlasov_maxwell`). On NumPy it does nothing. A test runs a model for one step on NumPy and checks that every
+`Kernel` called in the time loop is listed.
 
 ## PR 18 implementation notes
 
@@ -627,6 +645,24 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   The GPU tests have not run on an H100; the CPU emulation and the CPU regression tests are the gate.
 - **Parity cases.** The spline mappings are added to the geometry kernels' entries of `pic/tests/cuda_parity_cases.py`
   (the per-folder `<name>_test_args.py` modules were replaced by that module in PR 16).
+
+## Marker exchange implementation notes (#698)
+
+- `Particles._sendrecv_markers` on CuPy (`_sendrecv_markers_device`): the rows to send (gathered on the device per
+  destination) and one device receive buffer go to `Isend`/`Irecv` through `xp.mpi.mpi_buffer`, i.e. directly after
+  `synchronize_for_mpi` with CUDA-aware MPI, staged through (pinned) host memory otherwise (with a warning, once).
+  Rows from rank `i` arrive in a contiguous slice of the receive buffer; one device scatter fills the holes.
+  Zero-count messages are skipped (both sides know the counts). The NumPy path is unchanged.
+- Whether MPI is CUDA-aware: the answer recorded by `xp.mpi.mpi_is_cuda_aware()`/`set_mpi_cuda_aware()`, else a
+  collective probe of `mpi_comm` at the first exchange (`mpi_sort_markers` is collective).
+- Counts: `send_info`/`recv_info` are small NumPy arrays on every backend. The send counts are sizes of `nonzero`
+  results, which are host integers already (CuPy synchronizes to size them), so the `Alltoall` of the counts needs no
+  copy. Uniform `alpha` is a Python scalar (no host-to-device copy of a 3-vector).
+- Tests: `pic/tests/test_sorting_device.py` sorts the same markers on NumPy and on CuPy over all ranks and compares
+  the marker arrays; with CUDA-aware MPI no transfer (`count_transfers`) and no implicit host read of a device array
+  during the exchange, staged: one `to_host` per non-empty send and one `to_device`. Without a GPU it runs on the fake
+  CuPy (`mpirun -n N env CUNUMPY_FAKE_CUPY=1 pytest --with-mpi pic/tests/test_sorting_device.py`, in the PIC MPI
+  workflow); the GPU variant has not run (no GPU here).
 
 ## `linear_vlasov_ampere` implementation notes
 
