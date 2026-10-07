@@ -3,7 +3,6 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import (
@@ -21,7 +20,7 @@ from struphy.io.options import DerhamOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.accum_kernels import charge_density_0form
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
@@ -344,7 +343,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = PyccelKernel(charge_density_0form)
+    kernel = charge_density_0form
     # control_variate=True, so no PICVariable.species is needed to build the analytical background term
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles
@@ -461,7 +460,7 @@ def test_poisson_accum_full_f_background_1d():
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles
     pic_var._species = SimpleNamespace(charge_number=1)
-    rho = ParticlesToGrid(pic_var, "H1", PyccelKernel(charge_density_0form))
+    rho = ParticlesToGrid(pic_var, "H1", charge_density_0form)
 
     _phi = FEECVariable(space="H1")
     _phi.allocate(derham=derham, domain=domain)
@@ -519,7 +518,7 @@ def test_poisson_rho_coeffs_1d(full_f):
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles
     pic_var._species = SimpleNamespace(charge_number=1)
-    rho_pic = ParticlesToGrid(pic_var, "H1", PyccelKernel(charge_density_0form))
+    rho_pic = ParticlesToGrid(pic_var, "H1", charge_density_0form)
 
     def rho_ext(e1, e2, e3):
         return xp.sin(xp.pi * e1 / 2.0)
@@ -784,6 +783,101 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     else:
         assert error1 < 0.0053
         assert error2 < err_lim
+
+
+@pytest.mark.parametrize("degree", [[2, 2, 1], [3, 3, 1]])
+@pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
+def test_poisson_2d_multigrid(degree, bc_type):
+    """PoissonSolve with precond="MultiGrid" agrees with the unpreconditioned solve, in few iterations."""
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+
+    domain = domains.Colella(Lx=4.0, Ly=2.0, alpha=0.1, Lz=1.0)
+    bcs = {
+        "periodic": (None, None, None),
+        "dirichlet": (("dirichlet", "dirichlet"), None, None),
+        "neumann": (("free", "free"), None, None),
+    }[bc_type]
+    derham = Derham(TensorProductGrid(num_elements=[32, 32, 1]), DerhamOptions(degree=degree, bcs=bcs), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return xp.cos(2 * xp.pi * e1) * xp.sin(2 * xp.pi * e2) + 0.3 * xp.sin(4 * xp.pi * e2)
+
+    phis = []
+    infos = []
+    for precond in ["MassMatrixPreconditioner", "MultiGrid"]:
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        solver = PoissonSolve(rho=rho)
+        solver.variables.phi = phi
+        solver.options = solver.Options(
+            stab_eps=1e-8,
+            solver="pcg",
+            precond=precond,
+            # the Jacobi smoother is robust w.r.t. the mapping (the default mass smoother is robust w.r.t. the degree);
+            # no null space: the system is regularized by stab_eps
+            multigrid=MultiGridOptions(smoother_precond="jacobi"),
+            solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
+        )
+        solver.allocate()
+        solver(1.0)
+        phis.append(phi.spline.vector.toarray())
+        infos.append(solver._solver._info)
+
+    # global coefficient arrays (toarray only fills the local part)
+    if comm.Get_size() > 1:
+        phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
+    if bc_type != "dirichlet":
+        # solutions are defined up to a constant (the stabilization is tiny)
+        phis = [p - xp.mean(p) for p in phis]
+    assert xp.max(xp.abs(phis[0] - phis[1])) < 1e-6 * xp.max(xp.abs(phis[0]))
+    assert infos[1]["niter"] <= 25
+    assert infos[1]["niter"] < infos[0]["niter"]
+
+
+def test_implicit_diffusion_multigrid_dt():
+    """With divide_by_dt, the multigrid preconditioner follows changes of dt."""
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+    from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+
+    domain = domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[32, 16, 1]),
+        DerhamOptions(degree=[2, 2, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    phi = FEECVariable(space="H1")
+    phi.allocate(derham=derham, domain=domain)
+    phi.spline.vector = derham.P0(lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2))
+
+    prop = ImplicitDiffusion()
+    prop.variables.phi = phi
+    prop.options = prop.Options(
+        sigma_1=1.0,
+        sigma_2=1.0,
+        sigma_3=0.0,
+        divide_by_dt=True,
+        precond="MultiGrid",
+        multigrid=MultiGridOptions(),
+        solver_params=SolverParameters(tol=1e-12, maxiter=100, recycle=False),
+    )
+    prop.allocate()
+
+    for dt in [0.1, 0.1, 0.01]:
+        rhs = (1.0 / dt) * mass_ops.M0.dot(phi.spline.vector)
+        prop(dt)
+        A = (1.0 / dt) * mass_ops.M0 + derham.grad.T @ mass_ops.M1 @ derham.grad
+        r = rhs - A.dot(phi.spline.vector)
+        assert xp.sqrt(r.inner(r)) < 1e-9 * xp.sqrt(rhs.inner(rhs))
+        assert prop._solver._info["niter"] <= 15
 
 
 if __name__ == "__main__":

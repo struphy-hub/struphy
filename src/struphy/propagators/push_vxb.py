@@ -4,14 +4,14 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy import PyccelKernel
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
 
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
+from struphy.pic.pushing.kernels.push_vxb_implicit import push_vxb_implicit
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -124,9 +124,9 @@ class PushVxB(Propagator):
 
         # define pusher kernel
         if self.options.algo == "analytic":
-            kernel = PyccelKernel(pusher_kernels.push_vxb_analytic)
+            kernel = push_vxb_analytic
         elif self.options.algo == "implicit":
-            kernel = PyccelKernel(pusher_kernels.push_vxb_implicit)
+            kernel = push_vxb_implicit
         else:
             raise ValueError(f"{self.options.algo =} not supported.")
 

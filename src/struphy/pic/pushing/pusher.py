@@ -3,7 +3,7 @@
 import logging
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
@@ -11,7 +11,7 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
-from struphy.utils.kernel_backends import CudaKernel, Kernel
+from struphy.utils.cuda_arguments import check_mapping_on_device
 
 logger = logging.getLogger("struphy")
 
@@ -33,8 +33,8 @@ class Pusher:
     for any :class:`~struphy.ode.utils.ButcherTableau`
     as well as iterative nonlinear methods.
 
-    The particle push is performed via accelerated :mod:`~struphy.pic.pushing.pusher_kernels`
-    or :mod:`~struphy.pic.pushing.pusher_kernels_gc` for guiding-center models.
+    The particle push is performed via an accelerated kernel from :mod:`struphy.pic.pushing.kernels`,
+    e.g. ``push_eta_stage`` from :mod:`struphy.pic.pushing.kernels.push_eta_stage`.
 
     Notes
     -----
@@ -62,7 +62,7 @@ class Pusher:
         Particles object holding the markers to push.
 
     kernel : PyccelKernel | Kernel
-        The pusher kernel. A :class:`~struphy.utils.kernel_backends.Kernel` also holds its CUDA version;
+        The pusher kernel. A :class:`~cunumpy.kernels.Kernel` also holds its CUDA version;
         on the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     args_kernel : tuple
@@ -130,12 +130,9 @@ class Pusher:
         mpi_sort: str = None,
         local_eval_only: bool = False,
     ):
-        # choose the kernel for the active backend once; on the CuPy backend this raises
-        # if there is no CUDA version (yet), see CUDA_STRATEGY.md
-        if isinstance(kernel, PyccelKernel):
-            kernel = Kernel(kernel)
-        assert isinstance(kernel, Kernel), f"{kernel} is not of type Kernel or PyccelKernel"
-        self._kernel = kernel.get_kernel()
+        # on the CuPy backend a kernel without CUDA version (yet) raises when called, see CUDA_STRATEGY.md
+        self._kernel = kernel if isinstance(kernel, Kernel) else Kernel(kernel)
+        self._cuda = xp.cupy_backend
 
         self._particles = particles
         self._newton = "newton" in kernel.name
@@ -237,8 +234,9 @@ class Pusher:
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = xp.empty(1, dtype=int)
-            n_not_converged[0] = self.particles.n_mks_loc
+            if self.maxiter > 1:
+                n_not_converged = xp.empty(1, dtype=int)
+                n_not_converged[0] = self.particles.n_mks_loc
             k = 0
 
             if self.maxiter > 1:
@@ -247,7 +245,8 @@ class Pusher:
                     f"rank {rank}: {k =}, tol: {self._tol}, {n_not_converged[0] =}, {max_res =}",
                 )
 
-            n_not_converged[0] = self.particles.Np
+            if self.maxiter > 1:
+                n_not_converged[0] = self.particles.Np
             while True:
                 k += 1
 
@@ -333,8 +332,8 @@ class Pusher:
 
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
-            if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(apply_bc=False, do_test=True)
+            if self.particles.mpi_comm is not None and self.particles.mpi_size > 1:
+                self.particles.mpi_sort_markers(apply_bc=False, do_test=not self._cuda)
 
     def _sort_for_alpha(self, alpha: float | int | tuple | list, remove_ghost: bool = False):
         """MPI sort markers according to the alpha-weighted average of positions,
@@ -362,7 +361,7 @@ class Pusher:
         return self._particles
 
     @property
-    def kernel(self) -> PyccelKernel | CudaKernel:
+    def kernel(self) -> Kernel:
         """The pusher kernel for the active backend (pyccel or CUDA)."""
         return self._kernel
 

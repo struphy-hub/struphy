@@ -34,8 +34,8 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="poisson_cube_strong_scaling",
-        name="Poisson on cube strong scaling test",
-        description="Strong scaling of the Poisson model with manufactured solution on 3D cube.",
+        name="Poisson on cube strong scaling test, no preconditioner",
+        description="Strong scaling of the Poisson model with manufactured solution on 3D cube, solved with unpreconditioned CG.",
         physics_problem="Occurs in many plasma applications.",
         struphy_model_used="Poisson",
         params_source=params_dir / "params_poisson.py",

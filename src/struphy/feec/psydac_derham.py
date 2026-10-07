@@ -26,8 +26,10 @@ from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
-from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+from struphy.bsplines.kernels.eval_spline_mpi_markers import eval_spline_mpi_markers
+from struphy.bsplines.kernels.eval_spline_mpi_matrix import eval_spline_mpi_matrix
+from struphy.bsplines.kernels.eval_spline_mpi_sparse_meshgrid import eval_spline_mpi_sparse_meshgrid
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
@@ -39,13 +41,12 @@ from struphy.initial import perturbations
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
 from struphy.io.options import DerhamOptions, FieldsBackground, LiteralOptions
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.cuda_arguments import CudaDerhamArguments
-from struphy.utils.kernel_backends import is_cuda_backend
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -563,6 +564,11 @@ class Derham:
     domain : Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
+    domain_decomposition : DomainDecomposition, optional
+        Prescribed MPI decomposition of the elements, e.g. ``fine_derham.domain_decomposition.coarsen(...)``
+        for an aligned multigrid level. Must match ``grid.num_elements`` and the periodicity from ``options.bcs``,
+        and be built on ``comm``. If None (default), it is computed from ``comm`` and ``grid.mpi_dims_mask``.
+
     Notes
     -----
     The underlying base sequence is
@@ -579,6 +585,8 @@ class Derham:
         options: DerhamOptions,
         comm: MPI.Intracomm = None,
         domain: Domain = None,
+        *,
+        domain_decomposition: DomainDecomposition | None = None,
     ):
 
         # inputs
@@ -603,9 +611,15 @@ class Derham:
         polar_splines = options.polar_splines
         # local commuting projectors
         local_projectors = options.local_projectors
-        if local_projectors and is_cuda_backend():
+        if local_projectors and (xp.get_backend() == "cupy"):
             raise NotImplementedError(
                 "Local projectors (DerhamOptions.local_projectors=True) are not supported on the CuPy backend yet."
+            )
+        if polar_splines and (xp.get_backend() == "cupy"):
+            # PolarExtractionBlocksC1 builds SciPy sparse matrices from the control points, and the polar
+            # extraction operators apply them to the stencil data, which lives on the device on CuPy.
+            raise NotImplementedError(
+                "Polar splines (DerhamOptions.polar_splines=True) are not supported on the CuPy backend yet."
             )
 
         # number of elements and spline degrees in each direction
@@ -680,6 +694,7 @@ class Derham:
             comm=self.comm,
             mpi_dims_mask=mpi_dims_mask,
             use_feectools=use_feectools,
+            domain_decomposition=domain_decomposition,
         )
 
         # FEM spaces
@@ -898,20 +913,14 @@ class Derham:
 
         self._neighbours = self._get_neighbours()
 
-        # collect arguments for kernels (the knots of feectools are host arrays on every array backend)
-        self._pyccel_args_derham = DerhamArguments(
-            np.array(self.degree),
-            *self.V0fem.knots,
-            np.array(self.V0.starts),
+        # collect arguments for kernels (the knots of feectools are host arrays on every array backend):
+        # the pyccel class on the NumPy backend, its CUDA version on the CuPy backend
+        args_class = CudaDerhamArguments if xp.get_backend() == "cupy" else DerhamArguments
+        self._args_derham = args_class(
+            xp.asarray(self.degree, dtype=xp.int64),
+            *(xp.asarray(t) for t in self.V0fem.knots),
+            xp.asarray(self.V0.starts, dtype=xp.int64),
         )
-        if is_cuda_backend():
-            self._args_derham = CudaDerhamArguments(
-                xp.asarray(self._pyccel_args_derham.pn),
-                *(xp.asarray(t) for t in self.V0fem.knots),
-                xp.asarray(self._pyccel_args_derham.starts),
-            )
-        else:
-            self._args_derham = self._pyccel_args_derham
 
         logger.debug("\nDERHAM:")
         logger.debug(f"{'number of elements:'.ljust(25)} {num_elements}")
@@ -1520,6 +1529,7 @@ class Derham:
         comm=None,
         mpi_dims_mask: tuple[bool, bool, bool] = None,
         use_feectools: bool = True,
+        domain_decomposition: DomainDecomposition | None = None,
     ) -> DiscreteDerham:
         """Return a discrete Derham complex. Allows for the use of tiny-feectools.
 
@@ -1543,12 +1553,29 @@ class Derham:
 
         use_feectools: bool
             Use slimmed-down fork `feectools` of Psydac.
+
+        domain_decomposition : DomainDecomposition, optional
+            Prescribed decomposition of the elements; if None, it is computed from ``comm`` and ``mpi_dims_mask``.
         """
 
         if use_feectools:
-            self._domain_decomposition = DomainDecomposition(
-                num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask
-            )
+            if domain_decomposition is None:
+                self._domain_decomposition = DomainDecomposition(
+                    num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask
+                )
+            else:
+                assert tuple(domain_decomposition.ncells) == tuple(num_elements), (
+                    f"{domain_decomposition.ncells = } does not match {num_elements = }."
+                )
+                assert tuple(domain_decomposition.periods) == tuple(spl_kind), (
+                    f"{domain_decomposition.periods = } does not match {spl_kind = }."
+                )
+                if domain_decomposition.comm is not None and comm is not None:
+                    # (comm is None in the decomposition when feectools runs with MockMPI)
+                    assert domain_decomposition.comm == comm, (
+                        "domain_decomposition must be built on the Derham communicator."
+                    )
+                self._domain_decomposition = domain_decomposition
 
             _derham = self._discretize_derham(
                 num_elements,
@@ -2270,6 +2297,20 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
+        # arguments of the evaluation kernels, one (kind, pn, tn1, tn2, tn3, starts) per component,
+        # on the backend of the coefficients and the same for both kernel versions
+        degree = np.asarray(derham.degree, dtype=np.int64)
+        if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
+            raise ValueError("CUDA spline degrees must be between 1 and 8.")
+        pn = xp.asarray(degree)
+        knots = tuple(xp.ascontiguousarray(t, dtype=float) for t in derham.V0fem.knots)
+        starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
+        kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
+        self._args_eval = tuple(
+            (xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
+            for kind, start in zip(kinds, starts)
+        )
+
         logger.debug(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
@@ -2809,9 +2850,6 @@ class SplineFunction:
         # extract coefficients and update ghost regions
         self.extract_coeffs(update_ghost_regions=True)
 
-        # get knot vectors
-        T1, T2, T3 = self.derham.V0fem.knots
-
         # marker evaluation
         if len(etas) == 1:
             marker_evaluation = True
@@ -2820,7 +2858,7 @@ class SplineFunction:
             # copy positions, such that flagging does not modify the caller's array
             markers = xp.array(etas[0][:, :3], dtype=float)
             self._flag_pts_not_on_proc(markers)
-            tmp_shape = markers.shape[0]
+            tmp_shape = (markers.shape[0],)
         # 3D meshgrid evaluation
         else:
             marker_evaluation = False
@@ -2851,46 +2889,34 @@ class SplineFunction:
 
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_sparse_meshgrid(
+                eval_spline_mpi_sparse_meshgrid(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *self._args_eval[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             elif marker_evaluation:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_markers(
+                eval_spline_mpi_markers(
                     markers,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *self._args_eval[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             else:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_matrix(
+                eval_spline_mpi_matrix(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    *self._args_eval[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
 
             if self.derham.comm is not None:
@@ -2923,46 +2949,34 @@ class SplineFunction:
                 logger.debug(f"{self.space_id = }, {kind = }")
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_sparse_meshgrid(
+                    eval_spline_mpi_sparse_meshgrid(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *self._args_eval[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 elif marker_evaluation:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_markers(
+                    eval_spline_mpi_markers(
                         markers,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *self._args_eval[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_matrix(
+                    eval_spline_mpi_matrix(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        *self._args_eval[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
 
                 if self.derham.comm is not None:

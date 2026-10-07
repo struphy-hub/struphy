@@ -25,13 +25,12 @@ def make_derham(bcs=(None, None, None), local_projectors=False):
 
 
 def test_args_derham_on_numpy():
-    """On the NumPy backend the general arguments are the Pyccel host arguments."""
+    """On the NumPy backend the kernel arguments are the pyccel class."""
     from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 
     with cunumpy.use_backend("numpy"):
         derham = make_derham()
-        assert isinstance(derham.args_derham, DerhamArguments)
-        assert derham.args_derham is derham._pyccel_args_derham
+        assert type(derham.args_derham) is DerhamArguments
         for name in ("pn", "tn1", "tn2", "tn3", "starts"):
             assert isinstance(getattr(derham.args_derham, name), np.ndarray), name
 
@@ -40,7 +39,7 @@ def test_args_derham_on_numpy():
 @pytest.mark.parametrize("bcs", [(None, None, None), (("dirichlet", "free"), None, ("free", "dirichlet"))])
 def test_derham_on_cupy(bcs):
     """Same decomposition and kernel arguments on both backends, and CUDA arguments holding device copies."""
-    from struphy.utils.cuda_arguments import CudaDerhamArguments
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 
     derhams = {}
     for backend in ("numpy", "cupy"):
@@ -52,15 +51,10 @@ def test_derham_on_cupy(bcs):
         assert cunumpy.is_gpu(getattr(device, name)), name
         assert np.array_equal(cunumpy.to_numpy(getattr(device, name)), getattr(host, name)), name
 
-    # the pyccel arguments are host arrays on both backends (feectools knots are host arrays)
-    for name in ("pn", "tn1", "tn2", "tn3", "starts"):
-        assert isinstance(getattr(device._pyccel_args_derham, name), np.ndarray), name
-        assert np.array_equal(getattr(device._pyccel_args_derham, name), getattr(host._pyccel_args_derham, name)), name
-
     # Arguments keep the construction backend even when accessed from the NumPy backend.
     with cunumpy.use_backend("numpy"):
         args = device.args_derham
-        assert isinstance(args, CudaDerhamArguments)
+        assert type(args) is CudaDerhamArguments
         assert device.args_derham is args
         expected = (host.args_derham.pn, *host.V0fem.knots, host.args_derham.starts)
         for name, value in zip(("pn", "tn1", "tn2", "tn3", "starts"), expected):
@@ -73,3 +67,20 @@ def test_local_projectors_not_supported_on_cupy():
     """Local projectors have no device implementation yet; the Derham fails when it is created."""
     with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError, match="Local projectors"):
         make_derham(local_projectors=True)
+
+
+@requires_cupy
+def test_polar_splines_not_supported_on_cupy():
+    """Polar splines have no device implementation yet; the Derham fails when it is created."""
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    with cunumpy.use_backend("cupy"):
+        domain = domains.IGAPolarCylinder(num_elements=(8, 6), degree=(2, 3))
+        options = DerhamOptions(degree=(2, 3, 1), bcs=(("dirichlet", "free"), None, None), polar_splines=True)
+        with pytest.raises(NotImplementedError, match="Polar splines"):
+            Derham(TensorProductGrid(num_elements=(8, 6, 4)), options, comm=MPI.COMM_WORLD, domain=domain)

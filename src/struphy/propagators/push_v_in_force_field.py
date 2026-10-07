@@ -4,12 +4,11 @@ import logging
 from dataclasses import dataclass
 from typing import Callable
 
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -141,7 +140,7 @@ class PushVinForceField(Propagator):
 
         self._pusher = Pusher(
             self.variables.var.particles,
-            PyccelKernel(pusher_kernels.push_v_with_efield),
+            push_v_with_efield,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,

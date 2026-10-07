@@ -10,8 +10,14 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
-from struphy.pic import utilities_kernels
 from struphy.pic.base import ORBIT_POSITIONS, Particles
+from struphy.pic.diagnostics.kernels.eval_canonical_toroidal_moment_5d import eval_canonical_toroidal_moment_5d
+from struphy.pic.diagnostics.kernels.eval_canonical_toroidal_moment_6d import eval_canonical_toroidal_moment_6d
+from struphy.pic.diagnostics.kernels.eval_energy_5d import eval_energy_5d
+from struphy.pic.diagnostics.kernels.eval_guiding_center_from_6d import eval_guiding_center_from_6d
+from struphy.pic.diagnostics.kernels.eval_magnetic_background_energy import eval_magnetic_background_energy
+from struphy.pic.diagnostics.kernels.eval_magnetic_energy_PBb import eval_magnetic_energy_PBb
+from struphy.pic.diagnostics.kernels.eval_magnetic_moment_5d import eval_magnetic_moment_5d
 
 
 class Particles6D(Particles):
@@ -147,7 +153,7 @@ class Particles6D(Particles):
         )
 
         # eval guiding center phase space
-        utilities_kernels.eval_guiding_center_from_6d(
+        eval_guiding_center_from_6d(
             self.markers,
             self._derham.args_derham,
             self.domain.args_domain,
@@ -189,7 +195,7 @@ class Particles6D(Particles):
         if self.mpi_comm is not None:
             self.mpi_sort_markers(alpha=1)
 
-        utilities_kernels.eval_canonical_toroidal_moment_6d(
+        eval_canonical_toroidal_moment_6d(
             self.markers,
             self._derham.args_derham,
             self.first_diagnostics_idx,
@@ -438,7 +444,7 @@ class Particles5D(Particles):
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 1
 
-        utilities_kernels.eval_energy_5d(
+        eval_energy_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -454,7 +460,7 @@ class Particles5D(Particles):
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
-        utilities_kernels.eval_canonical_toroidal_moment_5d(
+        eval_canonical_toroidal_moment_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -481,7 +487,7 @@ class Particles5D(Particles):
         PBbt = E0T.dot(PBb, out=self._tmp0)
         PBbt.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy_PBb(
+        eval_magnetic_energy_PBb(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
@@ -497,7 +503,7 @@ class Particles5D(Particles):
         The result is stored in the energy diagnostics column (``self.first_diagnostics_idx``).
         """
 
-        utilities_kernels.eval_magnetic_background_energy(
+        eval_magnetic_background_energy(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
@@ -699,7 +705,7 @@ class Particles5Dvperp(Particles):
         super().draw_markers(sort=sort)
 
         # magnetic moment is an adiabatic invariant: evaluate once at draw time (diagnostics column 1)
-        utilities_kernels.eval_magnetic_moment_5d(
+        eval_magnetic_moment_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -723,7 +729,7 @@ class Particles5Dvperp(Particles):
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 2
 
-        utilities_kernels.eval_energy_5d(
+        eval_energy_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -739,7 +745,7 @@ class Particles5Dvperp(Particles):
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
-        utilities_kernels.eval_canonical_toroidal_moment_5d(
+        eval_canonical_toroidal_moment_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
@@ -766,7 +772,7 @@ class Particles5Dvperp(Particles):
         PBbt = E0T.dot(PBb, out=self._tmp0)
         PBbt.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy_PBb(
+        eval_magnetic_energy_PBb(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
@@ -782,7 +788,7 @@ class Particles5Dvperp(Particles):
         The result is stored in the energy diagnostics column (``self.first_diagnostics_idx``).
         """
 
-        utilities_kernels.eval_magnetic_background_energy(
+        eval_magnetic_background_energy(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
@@ -797,7 +803,7 @@ class Particles5Dvperp(Particles):
         diagnostics column (``self.first_diagnostics_idx + 1``).
         """
 
-        utilities_kernels.eval_magnetic_moment_5d(
+        eval_magnetic_moment_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,

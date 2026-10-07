@@ -32,15 +32,7 @@ Particel-to-grid accumulation
 Accumulation kernels
 ^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.pic.accumulation.accum_kernels
-    :members:
-    :special-members:
-    :show-inheritance:
-
-.. automodule:: struphy.pic.accumulation.accum_kernels_gc
-    :members:
-    :special-members:
-    :show-inheritance:
+.. automodule:: struphy.pic.accumulation.kernels
 
 
 Pusher class
@@ -59,10 +51,11 @@ run before every stage/iteration, after sorting particles using their spatial
 For example, register a vector evaluation with three explicit output columns::
 
     from struphy.pic.pushing.kernel_setup import KernelSetup
+    from struphy.pic.pushing.kernels.unit_b_1form import unit_b_1form
 
     self.add_init_kernel(
         KernelSetup(
-            kernel=eval_kernels_gc.unit_b_1form,
+            kernel=unit_b_1form,
             args=(self.derham.args_derham, b1, b2, b3),
             output_indices=(first_free_idx, first_free_idx + 1, first_free_idx + 2),
         )

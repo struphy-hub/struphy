@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import numpy as np
-from cunumpy import PyccelKernel
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI
 from feectools.ddm.partition import factorint
@@ -28,6 +27,7 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
 from struphy.io.output_handling import DataContainer
+from struphy.kernel_arguments.pusher_args_cuda import CudaMarkerArguments
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
@@ -39,24 +39,25 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing import eval_kernels_sph
-from struphy.pic.pushing.pusher_utilities_kernels import reflect
+from struphy.pic.pushing.kernels.reflect import reflect
+from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
+from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
     assign_particles_to_boxes,
     sort_boxed_particles,
 )
+from struphy.pic.sph.kernels.box_based_evaluation_flat import box_based_evaluation_flat
+from struphy.pic.sph.kernels.box_based_evaluation_meshgrid import box_based_evaluation_meshgrid
+from struphy.pic.sph.kernels.naive_evaluation_flat import naive_evaluation_flat
+from struphy.pic.sph.kernels.naive_evaluation_meshgrid import naive_evaluation_meshgrid
 from struphy.pic.sph_eval_kernels import (
-    box_based_evaluation_flat,
-    box_based_evaluation_meshgrid,
     distance,
-    naive_evaluation_flat,
-    naive_evaluation_meshgrid,
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import CudaMarkerArguments
+from struphy.utils.cuda_arguments import check_mapping_on_device
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -1892,12 +1893,8 @@ class Particles(metaclass=ABCMeta):
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
             # flip velocity
-            reflect(
-                self.markers,
-                self.domain._pyccel_args_domain,
-                outside_inds_per_axis[axis],
-                axis,
-            )
+            outside_inds = outside_inds_per_axis[axis]
+            reflect(self.markers, self.domain.args_domain, outside_inds, axis, n_threads=len(outside_inds))
 
     def finish_kernel_bc(self, newton=False):
         """Bookkeeping after a pusher kernel that applied the kinetic boundary conditions per marker
@@ -2115,7 +2112,7 @@ class Particles(metaclass=ABCMeta):
         Notes
         -----
         This method first computes SPH coefficients by calling
-        `eval_kernels_sph.sph_mean_velocity_coeffs` (via a Pyccel kernel) to
+        the Pyccel kernel `sph_mean_velocity_coeffs` to
         assemble mean-velocity coefficients into the markers array, then calls
         :meth:`eval_sph` for each velocity component.
         """
@@ -2124,23 +2121,21 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
-
-        func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
-            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            args_markers=self._pyccel_args_markers,
-            args_domain=self.domain._pyccel_args_domain,
-            boxes=self.sorting_boxes.boxes,
-            neighbours=self.sorting_boxes.neighbours,
-            holes=self.holes,
-            periodic1=self.boundary_params.bc_sph[0] == "periodic",
-            periodic2=self.boundary_params.bc_sph[1] == "periodic",
-            periodic3=self.boundary_params.bc_sph[2] == "periodic",
-            kernel_type=self.ker_dct()[kernel_type],
-            h1=h1,
-            h2=h2,
-            h3=h3,
+        sph_mean_velocity_coeffs(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            self.sorting_boxes.boxes,
+            self.sorting_boxes.neighbours,
+            self.holes,
+            self.boundary_params.bc_sph[0] == "periodic",
+            self.boundary_params.bc_sph[1] == "periodic",
+            self.boundary_params.bc_sph[2] == "periodic",
+            self.ker_dct()[kernel_type],
+            h1,
+            h2,
+            h3,
         )
 
         v1 = self._eval_sph(
@@ -2236,42 +2231,40 @@ class Particles(metaclass=ABCMeta):
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = PyccelKernel(eval_kernels_sph.sph_mean_velocity_coeffs)
-        func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
-            output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            args_markers=self._pyccel_args_markers,
-            args_domain=self.domain._pyccel_args_domain,
-            boxes=self.sorting_boxes.boxes,
-            neighbours=self.sorting_boxes.neighbours,
-            holes=self.holes,
-            periodic1=self.boundary_params.bc_sph[0] == "periodic",
-            periodic2=self.boundary_params.bc_sph[1] == "periodic",
-            periodic3=self.boundary_params.bc_sph[2] == "periodic",
-            kernel_type=self.ker_dct()[kernel_type],
-            h1=h1,
-            h2=h2,
-            h3=h3,
+        sph_mean_velocity_coeffs(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            self.sorting_boxes.boxes,
+            self.sorting_boxes.neighbours,
+            self.holes,
+            self.boundary_params.bc_sph[0] == "periodic",
+            self.boundary_params.bc_sph[1] == "periodic",
+            self.boundary_params.bc_sph[2] == "periodic",
+            self.ker_dct()[kernel_type],
+            h1,
+            h2,
+            h3,
         )
 
         # 2nd kernel
-        func = PyccelKernel(eval_kernels_sph.sph_viscosity_tensor)
-        func(
-            alpha=xp.array((0.0, 0.0, 0.0)),
-            output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
-            args_markers=self._pyccel_args_markers,
-            args_domain=self.domain._pyccel_args_domain,
-            boxes=self.sorting_boxes.boxes,
-            neighbours=self.sorting_boxes.neighbours,
-            holes=self.holes,
-            periodic1=self.boundary_params.bc_sph[0] == "periodic",
-            periodic2=self.boundary_params.bc_sph[1] == "periodic",
-            periodic3=self.boundary_params.bc_sph[2] == "periodic",
-            kernel_type=self.ker_dct()[kernel_type],
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            mu=mu,
+        sph_viscosity_tensor(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            self.sorting_boxes.boxes,
+            self.sorting_boxes.neighbours,
+            self.holes,
+            self.boundary_params.bc_sph[0] == "periodic",
+            self.boundary_params.bc_sph[1] == "periodic",
+            self.boundary_params.bc_sph[2] == "periodic",
+            self.ker_dct()[kernel_type],
+            h1,
+            h2,
+            h3,
+            mu,
         )
 
         # grid evaluation
@@ -2554,38 +2547,22 @@ class Particles(metaclass=ABCMeta):
         self._n_lost_markers = 0
         self._lost_markers = xp.zeros((int(self.n_rows * 0.5), 10), dtype=float)
 
-        # arguments for kernels
-        self._pyccel_args_markers = MarkerArguments(
-            _to_numpy_for_kernel(self.markers),
-            _to_numpy_for_kernel(self.valid_mks),
-            _to_numpy_for_kernel(self.Np),
-            _to_numpy_for_kernel(self.vdim),
-            _to_numpy_for_kernel(self.index["weights"]),
-            _to_numpy_for_kernel(self.first_diagnostics_idx),
-            _to_numpy_for_kernel(self.first_pusher_idx),
-            _to_numpy_for_kernel(self.first_shift_idx),
-            _to_numpy_for_kernel(self.residual_idx),
-            _to_numpy_for_kernel(self.first_free_idx),
-            _to_numpy_for_kernel(self.mu_idx),
-            _to_numpy_for_kernel(self._bc_type),
+        # arguments for kernels: the pyccel class on the NumPy backend, its CUDA version on the CuPy backend
+        args_class = CudaMarkerArguments if self._args_backend == "cupy" else MarkerArguments
+        self._args_markers = args_class(
+            self.markers,
+            self.valid_mks,
+            self.Np,
+            self.vdim,
+            self.index["weights"],
+            self.first_diagnostics_idx,
+            self.first_pusher_idx,
+            self.first_shift_idx,
+            self.residual_idx,
+            self.first_free_idx,
+            self.mu_idx,
+            self._bc_type,
         )
-        if self._args_backend == "cupy":
-            self._args_markers = CudaMarkerArguments(
-                self.markers,
-                self.valid_mks,
-                self.Np,
-                self.vdim,
-                self.index["weights"],
-                self.first_diagnostics_idx,
-                self.first_pusher_idx,
-                self.first_shift_idx,
-                self.residual_idx,
-                self.first_free_idx,
-                self.mu_idx,
-                self._bc_type,
-            )
-        else:
-            self._args_markers = self._pyccel_args_markers
 
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.
@@ -4269,7 +4246,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         if fast:
             if len(_shp) == 1:
-                func = PyccelKernel(box_based_evaluation_flat)
+                func = box_based_evaluation_flat
             elif len(_shp) == 3:
                 if _shp[0] > 1:
                     assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
@@ -4277,10 +4254,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                     assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
                 if _shp[2] > 1:
                     assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = PyccelKernel(box_based_evaluation_meshgrid)
+                func = box_based_evaluation_meshgrid
 
             func(
-                self._pyccel_args_markers,
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,
@@ -4303,11 +4280,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             )
         else:
             if len(_shp) == 1:
-                func = PyccelKernel(naive_evaluation_flat)
+                func = naive_evaluation_flat
             elif len(_shp) == 3:
-                func = PyccelKernel(naive_evaluation_meshgrid)
+                func = naive_evaluation_meshgrid
             func(
-                self._pyccel_args_markers,
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,

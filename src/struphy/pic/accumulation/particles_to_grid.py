@@ -3,14 +3,12 @@
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 from scope_profiler import ProfileManager
 
-import struphy.pic.accumulation.accum_kernels as accums
-import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import LiteralOptions
@@ -18,7 +16,15 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
+from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
+
+
+def _accumulation_kernel(kernel) -> Kernel:
+    """The kernel as a :class:`cunumpy.kernels.Kernel` (pyccel or CUDA depending on the backend)."""
+    if not isinstance(kernel, Kernel):
+        kernel = Kernel(kernel)
+    return kernel
 
 
 class Accumulator:
@@ -67,8 +73,9 @@ class Accumulator:
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    kernel : pyccelized function
-        The accumulation kernel.
+    kernel : Kernel | PyccelKernel
+        The accumulation kernel, e.g. ``charge_density_0form`` from ``struphy.pic.accumulation.kernels.charge_density_0form``.
+        On the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     derham : Derham
         Discrete FE spaces object.
@@ -87,16 +94,15 @@ class Accumulator:
 
     Note
     ----
-        Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py``
-        (6D particles) or ``struphy/pic/accumulation/accum_kernels_gc.py`` (5D particles), see :ref:`accum_kernels`
-        and :ref:`accum_kernels_gc` for details.
+        Struphy accumulation kernels live in ``struphy/pic/accumulation/kernels/``, one folder per kernel
+        (see :mod:`struphy.pic.accumulation.kernels`).
     """
 
     def __init__(
         self,
         particles: Particles,
         space_id: str,
-        kernel: PyccelKernel,
+        kernel: Kernel | PyccelKernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
@@ -106,8 +112,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
-        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
-        self._kernel = kernel
+        self._kernel = _accumulation_kernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
@@ -227,8 +232,8 @@ class Accumulator:
         # accumulate into matrix (and vector) with markers
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
-                self.particles._pyccel_args_markers,
-                self.derham._pyccel_args_derham,
+                self.particles.args_markers,
+                self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
@@ -314,7 +319,7 @@ class Accumulator:
         return self._particles
 
     @property
-    def kernel(self) -> PyccelKernel:
+    def kernel(self) -> Kernel:
         """The accumulation kernel."""
         return self._kernel
 
@@ -448,8 +453,9 @@ class AccumulatorVector:
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    kernel : pyccelized function
-        The accumulation kernel.
+    kernel : Kernel | PyccelKernel
+        The accumulation kernel, e.g. ``charge_density_0form`` from ``struphy.pic.accumulation.kernels.charge_density_0form``.
+        On the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     derham : Derham
         Discrete FE spaces object.
@@ -463,15 +469,14 @@ class AccumulatorVector:
         self,
         particles: Particles,
         space_id: str,
-        kernel: PyccelKernel,
+        kernel: Kernel | PyccelKernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         filter_params: FilterParameters = None,
     ):
         self._particles = particles
         self._space_id = space_id
-        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
-        self._kernel = kernel
+        self._kernel = _accumulation_kernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
@@ -555,8 +560,8 @@ class AccumulatorVector:
         # accumulate into matrix (and vector) with markers
         with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
-                self.particles._pyccel_args_markers,
-                self.derham._pyccel_args_derham,
+                self.particles.args_markers,
+                self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
@@ -599,7 +604,7 @@ class AccumulatorVector:
         return self._particles
 
     @property
-    def kernel(self) -> PyccelKernel:
+    def kernel(self) -> Kernel:
         """The accumulation kernel."""
         return self._kernel
 
@@ -722,33 +727,32 @@ class ParticlesToGrid:
     accum_space : {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
         FEEC space identifier of the vector to accumulate into.
 
-    accum_kernel : PyccelKernel
-        Pyccelized accumulation kernel matching ``accum_space``, for example
-        ``PyccelKernel(accum_kernels.charge_density_0form)``.
+    accum_kernel : Kernel | PyccelKernel
+        Accumulation kernel matching ``accum_space``, for example
+        ``charge_density_0form`` from ``struphy.pic.accumulation.kernels.charge_density_0form``.
 
     Examples
     --------
-    >>> from struphy.pic.accumulation import accum_kernels
+    >>> from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
     >>> from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
     >>> from struphy.propagators.poisson_solve import PoissonSolve
-    >>> from cunumpy import PyccelKernel
     >>> rho = ParticlesToGrid(
     ...     kinetic_ions.var,
     ...     "H1",
-    ...     PyccelKernel(accum_kernels.charge_density_0form),
+    ...     charge_density_0form,
     ... )
     >>> poisson = PoissonSolve(rho=rho, rho_coeffs=alpha**2 / epsilon)
     """
 
     pic_variable: PICVariable | SPHVariable = None
     accum_space: LiteralOptions.OptsFEECSpace = None
-    accum_kernel: PyccelKernel = None
+    accum_kernel: Kernel | PyccelKernel = None
 
     def __post_init__(self):
         if self.accum_space is not None:
             check_option(self.accum_space, LiteralOptions.OptsFEECSpace)
 
-        assert isinstance(self.accum_kernel, PyccelKernel) or self.accum_kernel is None
+        assert isinstance(self.accum_kernel, (Kernel, PyccelKernel)) or self.accum_kernel is None
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)

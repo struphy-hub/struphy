@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -15,11 +14,16 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic import utilities_kernels
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB import cc_lin_mhd_5d_gradB
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg import cc_lin_mhd_5d_gradB_dg
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg_init import cc_lin_mhd_5d_gradB_dg_init
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.pushing import pusher_kernels_gc
+from struphy.pic.diagnostics.kernels.eval_gradB_ediff import eval_gradB_ediff
+from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_Hdiv import push_gc_cc_J2_dg_Hdiv
+from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_init_Hdiv import push_gc_cc_J2_dg_init_Hdiv
+from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_H1vec import push_gc_cc_J2_stage_H1vec
+from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_Hdiv import push_gc_cc_J2_stage_Hdiv
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -265,7 +269,7 @@ class CurrentCoupling5DGradB(Propagator):
             self._ACC = Accumulator(
                 self.variables.energetic_ions.particles,
                 self.options.u_space,
-                PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB),
+                cc_lin_mhd_5d_gradB,
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=True,
@@ -296,9 +300,9 @@ class CurrentCoupling5DGradB(Propagator):
 
             # define Pusher
             if self.options.u_space == "Hdiv":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+                self._pusher_kernel = push_gc_cc_J2_stage_Hdiv
             elif self.options.u_space == "H1vec":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+                self._pusher_kernel = push_gc_cc_J2_stage_H1vec
             else:
                 raise ValueError(
                     f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -347,9 +351,9 @@ class CurrentCoupling5DGradB(Propagator):
                 b_tilde = self.b_tilde.spline.vector
 
             # Call the accumulation and Pusher class
-            accum_kernel_init = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg
-            self._accum_kernel_en_fB_mid = utilities_kernels.eval_gradB_ediff
+            accum_kernel_init = cc_lin_mhd_5d_gradB_dg_init
+            accum_kernel = cc_lin_mhd_5d_gradB_dg
+            self._accum_kernel_en_fB_mid = eval_gradB_ediff
 
             self._args_accum_kernel = (
                 epsilon,
@@ -443,8 +447,8 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[2]._data,
             )
 
-            self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
-            self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv
+            self._pusher_kernel_init = push_gc_cc_J2_dg_init_Hdiv
+            self._pusher_kernel = push_gc_cc_J2_dg_Hdiv
 
     def __call__(self, dt):
         # current FE coeffs

@@ -1,5 +1,4 @@
 import pytest
-from cunumpy import PyccelKernel
 
 
 @pytest.mark.parametrize("kernel_name", ["pc_lin_mhd_6d_full", "pc_lin_mhd_6d"])
@@ -15,7 +14,8 @@ def test_pc_accum_uses_time_dependent_weights(kernel_name, Np=200):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.pic.accumulation import accum_kernels
+    from struphy.pic.accumulation.kernels.pc_lin_mhd_6d import pc_lin_mhd_6d
+    from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_full import pc_lin_mhd_6d_full
     from struphy.pic.accumulation.particles_to_grid import Accumulator
     from struphy.pic.particles import Particles6D
     from struphy.topology.grids import TensorProductGrid
@@ -36,7 +36,7 @@ def test_pc_accum_uses_time_dependent_weights(kernel_name, Np=200):
     acc = Accumulator(
         particles,
         "Hcurl",
-        PyccelKernel(getattr(accum_kernels, kernel_name)),
+        {"pc_lin_mhd_6d": pc_lin_mhd_6d, "pc_lin_mhd_6d_full": pc_lin_mhd_6d_full}[kernel_name],
         mass_ops,
         domain.args_domain,
         add_vector=True,

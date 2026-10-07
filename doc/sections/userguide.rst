@@ -619,7 +619,7 @@ components) or ``<variable_name>_xyz`` (physical components, with
     import matplotlib.pyplot as plt
 
     # dims (eta1,): last snapshot, first component, along eta1 at eta2 = eta3 = 0
-    snapshot = out.evaluate("em_fields/e_field", t=-1, component=0, eta2=0, eta3=0).squeeze("t")
+    snapshot = out.evaluate("em_fields/e_field", t=-1, component=0, eta2=0, eta3=0)
 
     plt.figure()
     plt.plot(snapshot.X, snapshot)                  # physical x-coordinate along eta1
@@ -638,7 +638,7 @@ perturbation with respect to the background:
 
 .. code-block:: python
 
-    f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f", t=-1)   # dims (t, eta1, v1)
+    f = out.evaluate("kinetic_ions/f", dataset="e1_v1_density/f", t=-1)   # dims (eta1, v1)
     f.plot(x="eta1", y="v1")
 
 
