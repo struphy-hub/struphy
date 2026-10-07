@@ -76,3 +76,9 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
           mpirun --oversubscribe -n ${{ matrix.n-procs }} pytest -v --with-mpi -m mpi_pic pic/tests
+
+      - name: Run the marker exchange on the fake CuPy
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd ${{ env.STRUPHY_PATH }}
+          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi pic/tests/test_sorting_device.py

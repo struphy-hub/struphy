@@ -365,7 +365,7 @@ matrix data).
 - **Kernel launch configuration.** One thread per marker with a fixed block size for now. Kernels over grid points (accumulation, FEEC) need their own launch sizes; `CudaKernel` needs a `grid`/`block` override (PR 12+), or cunumpy's.
 - **Accumulation strategy.** Atomics vs. sort-then-reduce; see PR 12+. Decided by measurement on the first accumulation kernel.
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here. The array view represents strides explicitly on the CUDA side.
-- **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. `xp.mpi_is_cuda_aware()` detects it; the exchange in `Particles.mpi_sort_markers` has to be checked for host staging buffers.
+- **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. The marker exchange in `Particles.mpi_sort_markers` uses device buffers since #698 (see [Marker exchange implementation notes](#marker-exchange-implementation-notes-698)); the SPH ghost-box exchange (`_sendrecv_markers_boxes`) does not yet.
 - **Single-source alternatives.** Hand-written CUDA stays the default. Generating whole kernels from the Python source (`cupyx.jit`, numba-cuda, or a pyccel CUDA backend) is worth a look before the guiding-center kernels (the largest ones) are ported. Those tools take flat arguments, which `fields` also provides.
 - **Polar splines and MHD equilibria on the GPU** (left after PR 19): spline mappings run on the device, but
   `Derham` with `polar_splines=True` raises on CuPy (`PolarExtractionBlocksC1` builds SciPy sparse matrices, and the
@@ -644,3 +644,21 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   The GPU tests have not run on an H100; the CPU emulation and the CPU regression tests are the gate.
 - **Parity cases.** The spline mappings are added to the geometry kernels' entries of `pic/tests/cuda_parity_cases.py`
   (the per-folder `<name>_test_args.py` modules were replaced by that module in PR 16).
+
+## Marker exchange implementation notes (#698)
+
+- `Particles._sendrecv_markers` on CuPy (`_sendrecv_markers_device`): the rows to send (gathered on the device per
+  destination) and one device receive buffer go to `Isend`/`Irecv` through `xp.mpi.mpi_buffer`, i.e. directly after
+  `synchronize_for_mpi` with CUDA-aware MPI, staged through (pinned) host memory otherwise (with a warning, once).
+  Rows from rank `i` arrive in a contiguous slice of the receive buffer; one device scatter fills the holes.
+  Zero-count messages are skipped (both sides know the counts). The NumPy path is unchanged.
+- Whether MPI is CUDA-aware: the answer recorded by `xp.mpi.mpi_is_cuda_aware()`/`set_mpi_cuda_aware()`, else a
+  collective probe of `mpi_comm` at the first exchange (`mpi_sort_markers` is collective).
+- Counts: `send_info`/`recv_info` are small NumPy arrays on every backend. The send counts are sizes of `nonzero`
+  results, which are host integers already (CuPy synchronizes to size them), so the `Alltoall` of the counts needs no
+  copy. Uniform `alpha` is a Python scalar (no host-to-device copy of a 3-vector).
+- Tests: `pic/tests/test_sorting_device.py` sorts the same markers on NumPy and on CuPy over all ranks and compares
+  the marker arrays; with CUDA-aware MPI no transfer (`count_transfers`) and no implicit host read of a device array
+  during the exchange, staged: one `to_host` per non-empty send and one `to_device`. Without a GPU it runs on the fake
+  CuPy (`mpirun -n N env CUNUMPY_FAKE_CUPY=1 pytest --with-mpi pic/tests/test_sorting_device.py`, in the PIC MPI
+  workflow); the GPU variant has not run (no GPU here).
