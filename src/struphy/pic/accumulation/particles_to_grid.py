@@ -16,13 +16,13 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
-from struphy.utils.cuda_arguments import prepare_kernel
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 
-def _prepare_accumulation_kernel(kernel, args_domain) -> Kernel:
-    """The kernel, checked for the active backend at setup (see ``CUDA_STRATEGY.md``)."""
-    kernel = prepare_kernel(kernel)
+def _accumulation_kernel(kernel, args_domain) -> Kernel:
+    """The kernel as a :class:`cunumpy.kernels.Kernel`; CUDA accumulation needs a Cuboid (see ``CUDA_STRATEGY.md``)."""
+    if not isinstance(kernel, Kernel):
+        kernel = Kernel(kernel)
     if xp.cupy_backend and args_domain.kind_map != 10:
         raise NotImplementedError("CUDA accumulation kernels currently support only Cuboid mappings.")
     return kernel
@@ -113,7 +113,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = _prepare_accumulation_kernel(kernel, args_domain)
+        self._kernel = _accumulation_kernel(kernel, args_domain)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
@@ -477,7 +477,7 @@ class AccumulatorVector:
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = _prepare_accumulation_kernel(kernel, args_domain)
+        self._kernel = _accumulation_kernel(kernel, args_domain)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 

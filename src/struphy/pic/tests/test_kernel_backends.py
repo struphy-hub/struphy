@@ -1,30 +1,44 @@
 """Struphy's argument ABI and cunumpy integration (dispatch itself is tested upstream)."""
 
+import ast
 import copy
+import inspect
 import pickle
 from pathlib import Path
 
 import cunumpy
 import numpy as np
 import pytest
-from cunumpy.cuda import CudaKernel
+from cunumpy.cuda import CudaStruct
 from cunumpy.kernel_testing import requires_cupy
-from cunumpy.kernels import Kernel, PyccelKernel
+from cunumpy.kernels import Kernel
 
 import struphy
 from struphy.geometry.domains import Cuboid
-from struphy.utils.cuda_arguments import (
-    CUDA_OPTIONS,
-    CudaDerhamArguments,
-    CudaDomainArguments,
-    CudaMarkerArguments,
-    write_pusher_header,
-)
+from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, write_local_projectors_header, write_pusher_header
 
 N_COLS = 25
 MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)
-STRUCT_CLASSES = (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments)
-HEADER = Path(struphy.__file__).parent / "kernel_arguments" / "pusher_args.cuh"
+ARGS_DIR = Path(struphy.__file__).parent / "kernel_arguments"
+HEADER = ARGS_DIR / "pusher_args.cuh"
+LOCAL_PROJECTORS_HEADER = ARGS_DIR / "local_projectors_args.cuh"
+
+# (CUDA class, pyccel source, pyccel class, struct members that only the CUDA class has, its header)
+ARGUMENT_PAIRS = (
+    (CudaMarkerArguments, "pusher_args_kernels.py", "MarkerArguments", {"n_markers"}, HEADER),
+    (CudaDerhamArguments, "pusher_args_kernels.py", "DerhamArguments", {"nt1", "nt2", "nt3"}, HEADER),
+    (CudaDomainArguments, "pusher_args_kernels.py", "DomainArguments", set(), HEADER),
+    (
+        CudaLocalProjectorsArguments,
+        "local_projectors_args_kernels.py",
+        "LocalProjectorsArguments",
+        set(),
+        LOCAL_PROJECTORS_HEADER,
+    ),
+)
 
 
 def make_arguments(n_markers, seed=0):
@@ -32,7 +46,8 @@ def make_arguments(n_markers, seed=0):
     markers = cunumpy.asarray(rng.random((n_markers, N_COLS)))
     valid = cunumpy.asarray(rng.random(n_markers) > 0.1)
     bc = cunumpy.zeros(3, dtype=np.int64)
-    return CudaMarkerArguments(markers, valid, n_markers, *MARKER_INDICES, bc), Cuboid().args_domain
+    args_class = CudaMarkerArguments if cunumpy.get_backend() == "cupy" else MarkerArguments
+    return args_class(markers, valid, n_markers, *MARKER_INDICES, bc), Cuboid().args_domain
 
 
 def make_pusher(kernel):
@@ -61,48 +76,65 @@ def make_pusher(kernel):
     )
 
 
+def pyccel_init_parameters(source, class_name):
+    """Constructor parameter names of a pyccel class, read from its source (pyccel classes are compiled)."""
+    tree = ast.parse((ARGS_DIR / source).read_text())
+    cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == class_name)
+    init = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
+    return [arg.arg for arg in init.args.args[1:]]
+
+
 def test_generated_header(tmp_path):
     assert HEADER.read_text() == write_pusher_header(tmp_path / "pusher_args.cuh")
 
 
-def test_catalog_signatures():
-    from struphy.pic.tests.test_cuda_parity import CATALOGS
-
-    for catalog in CATALOGS.values():
-        catalog.check_signatures()
-    assert [len(catalog) for catalog in CATALOGS.values()] == [43, 16]
+def test_generated_local_projectors_header(tmp_path):
+    assert LOCAL_PROJECTORS_HEADER.read_text() == write_local_projectors_header(tmp_path / "local_projectors_args.cuh")
 
 
-def same_buffer(a, b):
-    return a.__array_interface__["data"][0] == b.__array_interface__["data"][0] and a.shape == b.shape
+@pytest.mark.parametrize("cuda_class, source, class_name, cuda_only, header", ARGUMENT_PAIRS)
+def test_argument_classes_correspond(cuda_class, source, class_name, cuda_only, header):
+    """Each CUDA argument class mirrors its pyccel class: same constructor, same attributes in the same order."""
+    assert cuda_class.__name__ == "Cuda" + class_name
+    cuda_parameters = list(inspect.signature(cuda_class.__init__).parameters)[1:]
+    assert cuda_parameters == pyccel_init_parameters(source, class_name)
+    # attributes set from constructor arguments; derived ones (e.g. n_markers, bn1) are skipped by the parser
+    pyccel_fields = [field.name for field in CudaStruct.from_pyccel_class(ARGS_DIR / source, class_name).fields]
+    cuda_fields = [field.name for field in cuda_class.struct.fields]
+    assert [name for name in cuda_fields if name not in cuda_only] == pyccel_fields
 
 
-def test_host_bundle_references_owner_arrays():
+def test_owners_select_pyccel_classes_on_numpy():
+    from feectools.ddm.mpi import mpi as MPI
+
+    from struphy import LoadingParameters
+    from struphy.feec.tests.test_derham_gpu import make_derham
+    from struphy.pic.particles import Particles6D
+
     with cunumpy.use_backend("numpy"):
-        markers, domain = make_arguments(10)
-        for bundle in (markers, domain):
-            host = bundle.__host_args__()
-            assert bundle.__host_args__() is host
-            for name in bundle.host_fields:
-                value = getattr(bundle, name)
-                if isinstance(value, np.ndarray):
-                    # pyccel getters return a new view of the same buffer
-                    assert same_buffer(getattr(host, name), value)
-
-
-def test_host_bundle_copies_rebuild():
-    with cunumpy.use_backend("numpy"):
-        m, _ = make_arguments(10)
-        for other in (copy.deepcopy(m), pickle.loads(pickle.dumps(m))):
-            assert other.markers is not m.markers
-            assert same_buffer(other.__host_args__().markers, other.markers)
-            np.testing.assert_array_equal(other.markers, m.markers)
+        domain = Cuboid()
+        particles = Particles6D(
+            comm_world=MPI.COMM_WORLD, loading_params=LoadingParameters(Np=10, seed=1234), domain=domain
+        )
+        derham = make_derham()
+        assert type(domain.args_domain) is DomainArguments
+        assert type(particles.args_markers) is MarkerArguments
+        assert type(derham.args_derham) is DerhamArguments
 
 
 @requires_cupy
-@pytest.mark.parametrize("cls", STRUCT_CLASSES)
-def test_cuda_struct_layout(cls):
-    cls.struct.verify_layout("struphy/kernel_arguments/pusher_args.cuh", include_dirs=CUDA_OPTIONS["include_dirs"])
+@pytest.mark.parametrize("cuda_class, source, class_name, cuda_only, header", ARGUMENT_PAIRS)
+def test_cuda_struct_layout(cuda_class, source, class_name, cuda_only, header):
+    include = f"struphy/kernel_arguments/{header.name}"
+    cuda_class.struct.verify_layout(include, include_dirs=CUDA_OPTIONS["include_dirs"])
+
+
+@requires_cupy
+def test_cuda_classes_reject_host_arrays():
+    with cunumpy.use_backend("numpy"):
+        markers = np.zeros((10, N_COLS))
+        with pytest.raises(TypeError, match="CuPy array"):
+            CudaMarkerArguments(markers, np.ones(10, dtype=bool), 10, *MARKER_INDICES, np.zeros(3, dtype=np.int64))
 
 
 @requires_cupy
@@ -112,8 +144,6 @@ def test_device_bundle_copies_rebuild():
         for other in (copy.deepcopy(m), pickle.loads(pickle.dumps(m))):
             assert other.markers is not m.markers
             assert other.packed["markers"]["data"] == other.markers.data.ptr
-        with pytest.raises(RuntimeError, match="device array"):
-            m.__host_args__()
 
 
 @requires_cupy
@@ -139,6 +169,23 @@ def test_scalar_types_checked():
             m.pack()
 
 
+def test_catalog_signatures():
+    from struphy.pic.tests.test_cuda_parity import CATALOGS
+
+    for catalog in CATALOGS.values():
+        catalog.check_signatures()
+    assert {package.split(".", 1)[1]: len(catalog) for package, catalog in CATALOGS.items()} == {
+        "pic.pushing.kernels": 44,
+        "pic.accumulation.kernels": 16,
+        "pic.diagnostics.kernels": 10,
+        "pic.sph.kernels": 4,
+        "bsplines.kernels": 3,
+        "geometry.kernels": 4,
+        "feec.kernels": 1,
+        "feec.local_projectors.kernels": 8,
+    }
+
+
 @pytest.mark.parametrize("wrap", [False, True])
 def test_pusher_accepts_kernel(wrap):
     from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
@@ -150,9 +197,9 @@ def test_pusher_accepts_kernel(wrap):
 
 
 @requires_cupy
-def test_missing_cuda_rejected_at_setup():
-    from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
-    from struphy.utils.cuda_arguments import prepare_kernel
-
-    with cunumpy.use_backend("cupy"), pytest.raises(NotImplementedError):
-        prepare_kernel(push_gc_cc_J1_Hdiv)
+def test_geometry_evaluation_raises_on_cupy():
+    """Geometry evaluations have no CUDA version yet; they raise instead of running pyccel on host copies."""
+    with cunumpy.use_backend("cupy"):
+        domain = Cuboid()
+        with pytest.raises(NotImplementedError):
+            domain.jacobian_det(cunumpy.random.rand(10, 3))

@@ -121,3 +121,43 @@ __device__ inline void eval_2form_spline_mpi(int span1, int span2, int span3, co
                                     scratch.bd2, scratch.bn3, span1, span2, span3, form_coeffs_3, args_derham.starts);
 }
 }
+
+// Point-wise evaluation shared by the eval_spline_mpi_* kernels (bsplines/kernels/<name>/<name>_cuda.cu).
+/**
+ * Point-wise evaluation of a distributed tensor-product spline, as in evaluation_kernels_3d.eval_spline_mpi.
+ *
+ * @param eta1 Evaluation point along the first axis.
+ * @param eta2 Evaluation point along the second axis.
+ * @param eta3 Evaluation point along the third axis.
+ * @param _data Spline coefficients of the current process (the _data of a StencilVector), any strides.
+ * @param kind Kind of 1d basis in each direction (three entries): 0 = N-spline, 1 = D-spline.
+ * @param pn Spline degrees of V0 in each direction (three entries, 1 to 8).
+ * @param tn1 Knot vector of V0 along the first axis (contiguous).
+ * @param tn2 Knot vector of V0 along the second axis.
+ * @param tn3 Knot vector of V0 along the third axis.
+ * @param starts Start indices of the splines on the current process (three entries).
+ * @return value, the value of the spline at (eta1, eta2, eta3).
+ *
+ * Pyccel allocates bn1, ..., bd3 per call; here they are fields of the thread-local SplineScratch.
+ */
+__device__ inline double eval_spline_mpi(double eta1, double eta2, double eta3, Array3D<double> _data,
+                                         const long long* kind, const long long* pn, Array1D<double> tn1,
+                                         Array1D<double> tn2, Array1D<double> tn3, const long long* starts) {
+    struphy_cuda::SplineScratch scratch;
+
+    // get spline values at eta
+    scratch.span1 = struphy_cuda::find_span(tn1.data, tn1.shape[0], pn[0], eta1);
+    scratch.span2 = struphy_cuda::find_span(tn2.data, tn2.shape[0], pn[1], eta2);
+    scratch.span3 = struphy_cuda::find_span(tn3.data, tn3.shape[0], pn[2], eta3);
+    struphy_cuda::b_d_splines_slim(tn1.data, pn[0], eta1, scratch.span1, scratch.bn1, scratch.bd1);
+    struphy_cuda::b_d_splines_slim(tn2.data, pn[1], eta2, scratch.span2, scratch.bn2, scratch.bd2);
+    struphy_cuda::b_d_splines_slim(tn3.data, pn[2], eta3, scratch.span3, scratch.bn3, scratch.bd3);
+
+    const double* b1 = kind[0] == 0 ? scratch.bn1 : scratch.bd1;
+    const double* b2 = kind[1] == 0 ? scratch.bn2 : scratch.bd2;
+    const double* b3 = kind[2] == 0 ? scratch.bn3 : scratch.bd3;
+
+    double value = struphy_cuda::eval_spline_mpi_kernel(pn[0] - kind[0], pn[1] - kind[1], pn[2] - kind[2], b1, b2, b3,
+                                                        scratch.span1, scratch.span2, scratch.span3, _data, starts);
+    return value;
+}

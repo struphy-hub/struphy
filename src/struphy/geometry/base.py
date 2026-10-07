@@ -9,28 +9,21 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 import h5py
 import numpy as np
-from cunumpy.kernels import PyccelKernel
 from scipy.sparse import csc_matrix, kron
 
 import struphy.bsplines.bsplines as bsp
-from struphy.geometry import evaluation_kernels, transform_kernels
+from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate
+from struphy.geometry.kernels.kernel_evaluate_pic import kernel_evaluate_pic
+from struphy.geometry.kernels.kernel_pullpush import kernel_pullpush
+from struphy.geometry.kernels.kernel_pullpush_pic import kernel_pullpush_pic
+from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from struphy.utils.cuda_arguments import CudaDomainArguments
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
-
-
-def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for passing to compiled kernels."""
-    if hasattr(type(value), "__host_args__"):
-        return value.__host_args__()
-    if hasattr(value, "get"):  # CuPy array
-        return value.get()
-    return value
 
 
 class DomainMeta(ABCMeta):
@@ -226,9 +219,13 @@ class Domain(metaclass=DomainMeta):
         self._initialize_domain_args()
 
     def _build_domain_args(self):
-        """Reference owner arrays; normalize metadata/layout once at setup."""
+        """Reference owner arrays; normalize metadata/layout once at setup.
+
+        The pyccel class on the NumPy backend, its CUDA version on the CuPy backend.
+        """
         array_module = xp.get_array_module(self.params_numpy)
-        return CudaDomainArguments(
+        args_class = CudaDomainArguments if self._args_backend == "cupy" else DomainArguments
+        return args_class(
             self.kind_map,
             array_module.ascontiguousarray(self.params_numpy, dtype=np.float64),
             array_module.asarray(self.degree, dtype=np.int64),
@@ -1042,7 +1039,7 @@ class Domain(metaclass=DomainMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate_pic)
+            kernel = kernel_evaluate_pic
             n_inside = kernel(
                 markers,
                 which,
@@ -1086,7 +1083,7 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate)
+            kernel = kernel_evaluate
             kernel(
                 E1,
                 E2,
@@ -1254,25 +1251,22 @@ class Domain(metaclass=DomainMeta):
             else:
                 A_has_holes = False
 
-            # call evaluation kernel
-            # Always create output as NumPy since compiled kernels require NumPy arrays
-            out_np = np.empty((markers.shape[0], 3), dtype=float)
+            # call evaluation kernel (no CUDA version yet: raises on the CuPy backend)
+            out = xp.empty((markers.shape[0], 3), dtype=float)
 
             # make sure we don't have stride = 0
             A = A.copy()
 
-            n_inside = transform_kernels.kernel_pullpush_pic(
-                _to_numpy_for_kernel(A),
-                _to_numpy_for_kernel(markers),
-                _to_numpy_for_kernel(self._transformation_ids[which]),
-                _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
-                out_np,
-                _to_numpy_for_kernel(remove_outside),
+            kernel = kernel_pullpush_pic
+            n_inside = kernel(
+                A,
+                markers,
+                self._transformation_ids[which],
+                kind_int,
+                self.args_domain,
+                out,
+                remove_outside,
             )
-
-            # Convert back to current backend if needed
-            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(1, 0))
@@ -1315,26 +1309,23 @@ class Domain(metaclass=DomainMeta):
                 X = self(E1, E2, E3)
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
-            # call evaluation kernel
-            # Always create output as NumPy since compiled kernels require NumPy arrays
-            out_np = np.empty(
+            # call evaluation kernel (no CUDA version yet: raises on the CuPy backend)
+            out = xp.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
-            transform_kernels.kernel_pullpush(
-                _to_numpy_for_kernel(A),
-                _to_numpy_for_kernel(E1),
-                _to_numpy_for_kernel(E2),
-                _to_numpy_for_kernel(E3),
-                _to_numpy_for_kernel(self._transformation_ids[which]),
-                _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
-                _to_numpy_for_kernel(is_sparse_meshgrid),
-                out_np,
+            kernel = kernel_pullpush
+            kernel(
+                A,
+                E1,
+                E2,
+                E3,
+                self._transformation_ids[which],
+                kind_int,
+                self.args_domain,
+                is_sparse_meshgrid,
+                out,
             )
-
-            # Convert back to current backend if needed
-            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(3, 0, 1, 2))

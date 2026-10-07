@@ -1,7 +1,7 @@
 #include "struphy/pic/pushing/pusher_utilities_kernels.cuh"
 
 /**
- * Reflect velocities with the same arguments as pusher_utilities_kernels.reflect.
+ * Reflect velocities with the same arguments as the pyccel reflect (reflect_kernels.py).
  *
  * One thread per entry of outside_inds: v_logical = DF^{-1} v,
  * v_logical[axis] *= -1, v = DF v_logical.

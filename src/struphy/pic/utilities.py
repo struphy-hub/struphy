@@ -1,8 +1,8 @@
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 
-import struphy.pic.utilities_kernels as utils
 from struphy.feec.utilities import get_quad_grids
+from struphy.pic.diagnostics.kernels.canonical_kinetic_particles import canonical_kinetic_particles
+from struphy.pic.diagnostics.kernels.thermal_energy import thermal_energy
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
@@ -22,7 +22,7 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     """
 
     res = xp.empty(1, dtype=float)
-    PyccelKernel(utils.canonical_kinetic_particles)(
+    canonical_kinetic_particles(
         res,
         particles.markers,
         derham.args_derham,
@@ -53,7 +53,7 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
     ]
 
     res = xp.empty(1, dtype=float)
-    PyccelKernel(utils.thermal_energy)(
+    thermal_energy(
         res,
         density_0_form._operators[0].matrix._data,
         derham.V0fem.coeff_space.pads[0],

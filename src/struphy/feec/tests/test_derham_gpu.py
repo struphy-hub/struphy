@@ -25,13 +25,12 @@ def make_derham(bcs=(None, None, None), local_projectors=False):
 
 
 def test_args_derham_on_numpy():
-    """On the NumPy backend the general arguments are the Pyccel host arguments."""
+    """On the NumPy backend the kernel arguments are the pyccel class."""
     from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 
     with cunumpy.use_backend("numpy"):
         derham = make_derham()
-        assert isinstance(derham.args_derham.__host_args__(), DerhamArguments)
-        assert derham.args_derham.__host_args__() is derham.args_derham.__host_args__()
+        assert type(derham.args_derham) is DerhamArguments
         for name in ("pn", "tn1", "tn2", "tn3", "starts"):
             assert isinstance(getattr(derham.args_derham, name), np.ndarray), name
 
@@ -40,7 +39,7 @@ def test_args_derham_on_numpy():
 @pytest.mark.parametrize("bcs", [(None, None, None), (("dirichlet", "free"), None, ("free", "dirichlet"))])
 def test_derham_on_cupy(bcs):
     """Same decomposition and kernel arguments on both backends, and CUDA arguments holding device copies."""
-    from struphy.utils.cuda_arguments import CudaDerhamArguments
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 
     derhams = {}
     for backend in ("numpy", "cupy"):
@@ -52,14 +51,10 @@ def test_derham_on_cupy(bcs):
         assert cunumpy.is_gpu(getattr(device, name)), name
         assert np.array_equal(cunumpy.to_numpy(getattr(device, name)), getattr(host, name)), name
 
-    # Device bundles deliberately have no host fallback.
-    with pytest.raises(RuntimeError, match="device array"):
-        device.args_derham.__host_args__()
-
     # Arguments keep the construction backend even when accessed from the NumPy backend.
     with cunumpy.use_backend("numpy"):
         args = device.args_derham
-        assert isinstance(args, CudaDerhamArguments)
+        assert type(args) is CudaDerhamArguments
         assert device.args_derham is args
         expected = (host.args_derham.pn, *host.V0fem.knots, host.args_derham.starts)
         for name, value in zip(("pn", "tn1", "tn2", "tn3", "starts"), expected):

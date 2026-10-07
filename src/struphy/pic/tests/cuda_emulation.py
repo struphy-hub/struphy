@@ -6,6 +6,7 @@ or ``DerhamArgs``. :func:`emulate_struct_kernel` therefore emulates a generated 
 the fields of each struct as separate parameters, rebuilds the structs and calls the real kernel.
 """
 
+import numpy as np
 from cunumpy.cuda import CudaKernel
 from cunumpy.kernel_testing import emulate_cuda_kernel
 
@@ -43,19 +44,32 @@ def _wrapper(kernel: CudaKernel):
     return source, name
 
 
+def _struct_field(value, name):
+    """Field `name` of a struct, read from the pyccel argument object `value`.
+
+    The CUDA structs have the attributes of their pyccel classes plus the knot lengths ``nt1``, ``nt2``,
+    ``nt3`` of ``DerhamArgs``, which pyccel gets from ``len(tn1)``.
+    """
+    if name in ("nt1", "nt2", "nt3"):
+        return len(getattr(value, "tn" + name[-1]))
+    return getattr(value, name)
+
+
 def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads=None):
-    """Emulate `kernel` with host arguments; struct arguments are argument objects holding NumPy arrays.
+    """Emulate `kernel` with host arguments; struct arguments are the pyccel argument objects (NumPy arrays).
 
     Arrays (also those inside the argument objects) are updated in place, as by a launch. Without `n_threads`,
-    the launch size is inferred from the arguments as in a real launch.
+    one thread per row of the first array is launched, as in a real launch.
     """
-    grid, block = kernel.launch_shape(n_threads, args=args)
-    source, name = _wrapper(kernel)
-    wrapper = CudaKernel(source, name, source_dir=kernel.source_dir, **CUDA_OPTIONS)
     flat = []
     for p, value in zip(kernel.signature, args):
         if p.struct is None:
             flat.append(value)
         else:
-            flat += [getattr(value, f.name) for f in p.struct.fields]
+            flat += [_struct_field(value, f.name) for f in p.struct.fields]
+    if n_threads is None:
+        n_threads = next(value.shape[0] for value in flat if isinstance(value, np.ndarray))
+    grid, block = kernel.launch_shape(n_threads)
+    source, name = _wrapper(kernel)
+    wrapper = CudaKernel(source, name, source_dir=kernel.source_dir, **CUDA_OPTIONS)
     emulate_cuda_kernel(wrapper, *flat, grid=grid, block=block, options=EMULATION_OPTIONS)
