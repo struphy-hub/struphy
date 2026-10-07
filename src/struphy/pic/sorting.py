@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
@@ -226,7 +227,7 @@ class SortingBoxes:
         n_particles = self._markers_shape[0]
         n_mkr = int(n_particles / n_box_in) + 1
         n_cols = round(
-            n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
+            n_mkr * (1 + 1 / math.sqrt(n_mkr) + self._box_bufsize),
         )
 
         # cartesian boxes (extra last row stores holes/outside particles)
