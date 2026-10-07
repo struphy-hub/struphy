@@ -1604,6 +1604,7 @@ class WeightedMassOperator(LinearOperator):
 
         self._init_projection_ops(V_extraction_op, W_extraction_op, V_boundary_op, W_boundary_op)
         self._init_domain_codomain_spaces()
+        self._prepare_spline_weights()
 
         # allocate the (block) matrix M (V -> W) and set its weights (zero blocks are None)
         if isinstance(weights_info, str):
@@ -1611,7 +1612,6 @@ class WeightedMassOperator(LinearOperator):
             blocks, self._weights = self._init_blocks_from_symmetry(weights_info)
         else:
             self._symmetry = None
-            self._prepare_spline_weights()
             blocks, self._weights = self._init_blocks_from_weights(weights_info)
 
         self._mat = self._wrap_blocks(blocks)
@@ -1878,24 +1878,26 @@ class WeightedMassOperator(LinearOperator):
         basis function values and output buffers, keyed by spline name. In :meth:`assemble`,
         the block weights are multiplied by the evaluated spline functions.
 
-        NOTE: the quadrature grid of the last codomain component (of W) is used for all blocks."""
-        W_name = self._W.symbolic_space
-        pts = self._quad_pts(W_name, len(self._component_spaces(self._W)) - 1)
+        The (local) quadrature grid is the same for all components of all spaces, since it is
+        determined by the elements of the domain decomposition (this is also used in
+        :mod:`struphy.feec.preconditioner`). Hence the spline functions are evaluated once,
+        on the grid of the first codomain component, and used for all blocks."""
+        pts = self._quad_pts(self._codomain_symbolic_name, 0)
         grid_shape = tuple(len(pt) for pt in pts)
 
-        self.spline_values = {}
-        self.spans = {}
-        self.bases = {}
+        self._spline_values = {}
+        self._spline_spans = {}
+        self._spline_bases = {}
         for name, spline in self.spline_functions.items():
             assert isinstance(spline, SplineFunction), (
                 f"The entry {name} in spline_functions must be a SplineFunction object."
             )
-            self.spline_values[name] = xp.zeros(grid_shape, dtype=float)
-            self.spans[name], bns, bds = self.derham.prepare_eval_tp_fixed(pts)
+            self._spline_values[name] = xp.zeros(grid_shape, dtype=float)
+            self._spline_spans[name], bns, bds = self.derham.prepare_eval_tp_fixed(pts)
             if spline.space_id == "H1":
-                self.bases[name] = bns
+                self._spline_bases[name] = bns
             elif spline.space_id == "L2":
-                self.bases[name] = bds
+                self._spline_bases[name] = bds
             else:
                 raise NotImplementedError(
                     f"Spline functions in spline_functions must be defined on H1 or L2 spaces, but {spline.space_id} was given for the spline function {name}.",
@@ -2262,9 +2264,9 @@ class WeightedMassOperator(LinearOperator):
                                 f"Maximum coefficient of spline {name}: {xp.max(xp.abs(spline.vector.toarray()))}"
                             )
                             values = spline.eval_tp_fixed_loc(
-                                self.spans[name],
-                                self.bases[name],
-                                out=self.spline_values[name],
+                                self._spline_spans[name],
+                                self._spline_bases[name],
+                                out=self._spline_values[name],
                             )
                             if xp.all(xp.abs(values) < 1e-14):
                                 logger.warning(
