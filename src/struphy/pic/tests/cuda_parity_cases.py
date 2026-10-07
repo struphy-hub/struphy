@@ -143,7 +143,8 @@ def eval_spline_mpi_grid_args(sparse):
 
 def eval_spline_mpi_tensor_product_fixed_args(kind):
     """Spline values on a 5 x 4 x 3 grid from pre-evaluated spans and (random) basis values."""
-    _data, kind, pn, *_, starts = spline_evaluation_arguments(kind)
+    _data, args_spline = spline_evaluation_arguments(kind)
+    kind, pn, starts = args_spline.kind, args_spline.pn, args_spline.starts
     rng = np.random.default_rng(7)
     degree, kinds = (2, 3, 1), xp.to_numpy(kind)
     # spans of the 8 cells: p <= span <= p + 7
