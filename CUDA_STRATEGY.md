@@ -500,7 +500,8 @@ through `Kernel(PyccelKernel(...))`, built at the call site where the owner is p
 cannot be pickled) and kept by `Pusher`, `KernelSetup`, the accumulators, reflection and the spline
 evaluation; a kernel without a CUDA version raises `NotImplementedError` when it is called on CuPy.
 `prepare_kernel()` (PR 15) is removed: kernels are no longer checked or compiled at setup, CUDA kernels
-compile on their first call. When to compile them (e.g. once at simulation start) is decided later.
+compile on their first call. When to compile them (e.g. once at simulation start) is decided later. (Since
+struphy#704 they are compiled at setup, see [Compiling at setup](#compiling-the-cuda-kernels-at-setup-struphy704).)
 
 Consequence: geometry evaluations (`Domain.__call__`, `jacobian_det`, `pull`/`push`, ...) have no CUDA
 version yet and raise on CuPy. `Particles` evaluates `jacobian_det` when it initializes weights, so
@@ -536,6 +537,23 @@ They are replaced by one test module, `pic/tests/cuda_parity_cases.py`: `PARITY_
 `build(case)`, the tolerances and the launch size. `test_cuda_parity.py` passes them to cunumpy's
 `assert_kernels_agree` (one test per case), `test_cuda_emulation.py` to the CPU emulation, and
 `test_cuda_kernels_have_parity_cases` checks that the CUDA kernels and the parity cases match.
+
+## Compiling the CUDA kernels at setup (struphy#704)
+
+`Simulation.run()` calls `Simulation.compile_cuda_kernels()` after `allocate()`, in the profiling region
+`setup: compile cuda kernels`, so that no CUDA kernel compiles in the first time step. The kernels come from
+`Simulation.kernels()`, which collects the `kernels()` of the owners that keep and call them: `Domain` (the four
+geometry kernels), `Derham` (the three spline evaluation kernels and feectools' `stencil_{dot,transpose,inner,axpy}_3d`),
+`Particles` (`reflect` if an axis reflects), and every propagator of the model. `Propagator.kernels()` collects
+by default from the propagator's attributes: `Kernel`s kept as attributes and the `kernels()` of `Pusher` (pusher
+kernel and its `KernelSetup`s), `KernelSetup`, `Accumulator` and `AccumulatorVector`, also inside lists, tuples
+and dicts (`utils/kernel_compilation.collect_kernels`). A propagator that calls a kernel it does not keep
+overrides `kernels()`. Diagnostics kernels and the initial solves are not listed; they run during the setup.
+
+Fail fast: on CuPy, if a listed kernel has no CUDA version, `compile_cuda_kernels()` raises
+`NotImplementedError` naming all of them, before anything is compiled (e.g. `VlasovAmpereOneSpecies`:
+`vlasov_maxwell`). On NumPy it does nothing. A test runs a model for one step on NumPy and checks that every
+`Kernel` called in the time loop is listed.
 
 ## PR 18 implementation notes
 
