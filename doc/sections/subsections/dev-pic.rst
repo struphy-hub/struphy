@@ -32,15 +32,7 @@ Particel-to-grid accumulation
 Accumulation kernels
 ^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.pic.accumulation.accum_kernels
-    :members:
-    :special-members:
-    :show-inheritance:
-
-.. automodule:: struphy.pic.accumulation.accum_kernels_gc
-    :members:
-    :special-members:
-    :show-inheritance:
+.. automodule:: struphy.pic.accumulation.kernels
 
 
 Pusher class

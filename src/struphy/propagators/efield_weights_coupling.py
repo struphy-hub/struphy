@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner
@@ -13,7 +12,7 @@ from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
@@ -192,7 +191,7 @@ class EfieldWeightsCoupling(Propagator):
         self._accum = Accumulator(
             particles,
             "Hcurl",
-            PyccelKernel(accum_kernels.linear_vlasov_ampere),
+            accum_catalog["linear_vlasov_ampere"],
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,

@@ -1,7 +1,6 @@
 import logging
 
 import pytest
-from cunumpy.kernels import PyccelKernel
 
 from struphy import set_logging_level
 
@@ -95,7 +94,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     from struphy.feec.mass import L2Projector, WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.pic.accumulation import accum_kernels
+    from struphy.pic.accumulation.kernels import catalog as accum_catalog
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
     from struphy.topology.grids import TensorProductGrid
@@ -191,7 +190,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     acc = AccumulatorVector(
         particles,
         "H1",
-        PyccelKernel(accum_kernels.charge_density_0form),
+        accum_catalog["charge_density_0form"],
         mass_ops,
         domain.args_domain,
     )
@@ -329,7 +328,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     ],
 )
 def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: bool = False):
-    r"""Test that AccumulatorVector with kernel :func:`~struphy.pic.accumulation.accum_kernels.div_u_weak_1form`
+    r"""Test that AccumulatorVector with kernel :func:`~struphy.pic.accumulation.kernels.div_u_weak_1form.div_u_weak_1form_kernels.div_u_weak_1form`
     provides an MC approximation of the L2 projection RHS into V1 (Hcurl).
 
     Particles are of type :class:`~struphy.pic.particles.ParticlesSPH`, loaded uniformly in
@@ -402,7 +401,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     from struphy.feec.mass import L2Projector, WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.pic.accumulation import accum_kernels
+    from struphy.pic.accumulation.kernels import catalog as accum_catalog
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import ParticlesSPH
     from struphy.topology.grids import TensorProductGrid
@@ -479,7 +478,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     acc = AccumulatorVector(
         particles,
         "Hcurl",
-        PyccelKernel(accum_kernels.div_u_weak_1form),
+        accum_catalog["div_u_weak_1form"],
         mass_ops,
         domain.args_domain,
     )

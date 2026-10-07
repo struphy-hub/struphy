@@ -1,10 +1,9 @@
 import pytest
-from cunumpy.kernels import PyccelKernel
 
 
 @pytest.mark.parametrize("basis_u", [0, 2])
 def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
-    r"""The kernel :func:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_gradB` must use the
+    r"""The kernel :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB.cc_lin_mhd_5d_gradB_kernels.cc_lin_mhd_5d_gradB` must use the
     full gradient :math:`\nabla B_\parallel = \nabla \tilde B_\parallel + \nabla B_{0,\parallel}` for every
     u-space (``basis_u=0``: H1vec, ``basis_u=2``: Hdiv), see issue #435.
 
@@ -18,7 +17,7 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
-    from struphy.pic.accumulation import accum_kernels_gc
+    from struphy.pic.accumulation.kernels import catalog as accum_catalog
     from struphy.topology.grids import TensorProductGrid
 
     rng = np.random.default_rng(435)
@@ -50,7 +49,7 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
 
     def accumulate(grad_PB, grad_PBeq):
         vec = derham.coeff_spaces[space].zeros()
-        PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB)(
+        accum_catalog["cc_lin_mhd_5d_gradB"](
             args_markers,
             derham.args_derham,
             domain.args_domain,

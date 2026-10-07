@@ -1,0 +1,59 @@
+"""Run struphy's CUDA kernels on the CPU, for parity tests without a GPU.
+
+``cunumpy.kernel_testing.emulate_cuda_kernel`` compiles a CUDA kernel as C++ and calls it once per thread,
+but it does not accept struct parameters, and every struphy kernel takes ``MarkerArgs``, ``DomainArgs``
+or ``DerhamArgs``. :func:`emulate_struct_kernel` therefore emulates a generated wrapper kernel that takes
+the fields of each struct as separate parameters, rebuilds the structs and calls the real kernel.
+"""
+
+from cunumpy.cuda import CudaKernel
+from cunumpy.kernel_testing import emulate_cuda_kernel
+
+from struphy.utils.cuda_arguments import CUDA_OPTIONS
+
+# the CUDA mapping dispatch traps on unsupported mappings with inline PTX, which a CPU compiler rejects
+EMULATION_OPTIONS = ("-Dasm(x)=__trap()",)
+
+
+def _declaration(param, name):
+    if param.view_ndim is not None:
+        return f"{param.ctype} {name}"
+    return f"{param.ctype}{'*' if param.pointer else ''} {name}"
+
+
+def _wrapper(kernel: CudaKernel):
+    """Source and name of a kernel that takes every struct field as a parameter and calls `kernel`."""
+    params, builds, call = [], [], []
+    for p in kernel.signature:
+        if p.struct is None:
+            params.append(_declaration(p, p.name))
+            call.append(p.name)
+            continue
+        fields = [f"{p.name}__{f.name}" for f in p.struct.fields]
+        params += [_declaration(f, name) for f, name in zip(p.struct.fields, fields)]
+        builds.append(f"    {p.struct.name} {p.name}_struct{{{', '.join(fields)}}};")
+        call.append(f"{p.name}_struct")
+    name = f"emulated_{kernel.name}"
+    source = (
+        kernel.source
+        + f'\nextern "C" __global__ void {name}({", ".join(params)}) {{\n'
+        + "\n".join(builds)
+        + f"\n    {kernel.name}({', '.join(call)});\n}}\n"
+    )
+    return source, name
+
+
+def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads: int):
+    """Emulate `kernel` with host arguments; struct arguments are argument objects holding NumPy arrays.
+
+    Arrays (also those inside the argument objects) are updated in place, as by a launch.
+    """
+    source, name = _wrapper(kernel)
+    wrapper = CudaKernel(source, name, source_dir=kernel.source_dir, **CUDA_OPTIONS)
+    flat = []
+    for p, value in zip(kernel.signature, args):
+        if p.struct is None:
+            flat.append(value)
+        else:
+            flat += [getattr(value, f.name) for f in p.struct.fields]
+    emulate_cuda_kernel(wrapper, *flat, n_threads=n_threads, options=EMULATION_OPTIONS)
