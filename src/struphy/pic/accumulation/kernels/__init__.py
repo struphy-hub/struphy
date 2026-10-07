@@ -1,15 +1,8 @@
 """Accumulation kernels, one folder per kernel (see ``CUDA_STRATEGY.md``).
 
-Each folder ``<name>`` contains the pyccel kernel ``<name>_kernels.py`` and, once ported, its CUDA version
-``<name>_cuda.cu``. Get the kernel for the active backend from the catalog::
+Each folder ``<name>`` holds the pyccel kernel ``<name>_kernels.py``, its CUDA version ``<name>_cuda.cu`` once
+ported, and the arguments of its parity test ``<name>_test_args.py``. The folder's ``__init__.py`` declares the
+kernel, a :class:`cunumpy.kernels.Kernel` that runs the version of the active backend::
 
-    from struphy.pic.accumulation.kernels import catalog
-
-    kernel = catalog["charge_density_0form"]
+    from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 """
-
-from cunumpy.kernels import KernelCatalog
-
-from struphy.utils.cuda_arguments import CUDA_STRUCTS
-
-catalog = KernelCatalog.from_package(__name__, structs=CUDA_STRUCTS)

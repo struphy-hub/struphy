@@ -11,9 +11,9 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.kernels import catalog as accum_catalog
+from struphy.pic.accumulation.kernels.vlasov_maxwell import vlasov_maxwell
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing.kernels import catalog
+from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -125,7 +125,7 @@ class VlasovAmpereCoupling(Propagator):
         self._info = self.options.solver_params.info
 
         # get accumulation kernel
-        accum_kernel = accum_catalog["vlasov_maxwell"]
+        accum_kernel = vlasov_maxwell
 
         # Initialize Accumulator object
         particles = self.variables.ions.particles
@@ -180,7 +180,7 @@ class VlasovAmpereCoupling(Propagator):
 
         self._pusher = Pusher(
             particles,
-            catalog["push_v_with_efield"],
+            push_v_with_efield,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,

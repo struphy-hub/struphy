@@ -3,6 +3,8 @@ import logging
 import pytest
 
 from struphy import set_logging_level
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
+from struphy.pic.accumulation.kernels.div_u_weak_1form import div_u_weak_1form
 
 pytestmark = pytest.mark.mpi_pic
 
@@ -94,7 +96,6 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     from struphy.feec.mass import L2Projector, WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.pic.accumulation.kernels import catalog as accum_catalog
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
     from struphy.topology.grids import TensorProductGrid
@@ -190,7 +191,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     acc = AccumulatorVector(
         particles,
         "H1",
-        accum_catalog["charge_density_0form"],
+        charge_density_0form,
         mass_ops,
         domain.args_domain,
     )
@@ -401,7 +402,6 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     from struphy.feec.mass import L2Projector, WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.pic.accumulation.kernels import catalog as accum_catalog
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import ParticlesSPH
     from struphy.topology.grids import TensorProductGrid
@@ -478,7 +478,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     acc = AccumulatorVector(
         particles,
         "Hcurl",
-        accum_catalog["div_u_weak_1form"],
+        div_u_weak_1form,
         mass_ops,
         domain.args_domain,
     )

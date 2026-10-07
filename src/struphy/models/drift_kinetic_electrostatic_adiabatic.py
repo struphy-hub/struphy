@@ -14,7 +14,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.kernels import catalog as accum_catalog
+from struphy.pic.accumulation.kernels.gc_density_0form import gc_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
@@ -131,7 +131,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         rho = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            accum_catalog["gc_density_0form"],
+            gc_density_0form,
         )
         self.propagators = self.Propagators(
             phi=self.em_fields.phi, rho=rho, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic

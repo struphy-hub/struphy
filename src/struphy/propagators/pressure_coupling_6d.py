@@ -14,9 +14,11 @@ from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.kernels import catalog as accum_catalog
+from struphy.pic.accumulation.kernels.pc_lin_mhd_6d import pc_lin_mhd_6d
+from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_full import pc_lin_mhd_6d_full
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing.kernels import catalog
+from struphy.pic.pushing.kernels.push_pc_GXu import push_pc_GXu
+from struphy.pic.pushing.kernels.push_pc_GXu_full import push_pc_GXu_full
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -188,11 +190,11 @@ class PressureCoupling6D(Propagator):
 
         # Call the accumulation and Pusher class
         if self.options.use_perp_model:
-            accum_ker = accum_catalog["pc_lin_mhd_6d"]
-            pusher_ker = catalog["push_pc_GXu"]
+            accum_ker = pc_lin_mhd_6d
+            pusher_ker = push_pc_GXu
         else:
-            accum_ker = accum_catalog["pc_lin_mhd_6d_full"]
-            pusher_ker = catalog["push_pc_GXu_full"]
+            accum_ker = pc_lin_mhd_6d_full
+            pusher_ker = push_pc_GXu_full
 
         # define Accumulator and arguments
         self._ACC = Accumulator(

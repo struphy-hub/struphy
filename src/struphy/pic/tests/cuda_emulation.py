@@ -43,11 +43,13 @@ def _wrapper(kernel: CudaKernel):
     return source, name
 
 
-def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads: int):
+def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads=None):
     """Emulate `kernel` with host arguments; struct arguments are argument objects holding NumPy arrays.
 
-    Arrays (also those inside the argument objects) are updated in place, as by a launch.
+    Arrays (also those inside the argument objects) are updated in place, as by a launch. Without `n_threads`,
+    the launch size is inferred from the arguments as in a real launch.
     """
+    grid, block = kernel.launch_shape(n_threads, args=args)
     source, name = _wrapper(kernel)
     wrapper = CudaKernel(source, name, source_dir=kernel.source_dir, **CUDA_OPTIONS)
     flat = []
@@ -56,4 +58,4 @@ def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads: int):
             flat.append(value)
         else:
             flat += [getattr(value, f.name) for f in p.struct.fields]
-    emulate_cuda_kernel(wrapper, *flat, n_threads=n_threads, options=EMULATION_OPTIONS)
+    emulate_cuda_kernel(wrapper, *flat, grid=grid, block=block, options=EMULATION_OPTIONS)

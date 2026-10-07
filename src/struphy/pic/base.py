@@ -42,7 +42,8 @@ from struphy.particles.parameters import (
 )
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing import pusher_utilities_kernels
-from struphy.pic.pushing.kernels import catalog as pushing_catalog
+from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
+from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -58,7 +59,7 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaMarkerArguments
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaMarkerArguments, prepare_kernel
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm
@@ -340,11 +341,13 @@ class Particles(metaclass=ABCMeta):
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
 
-        # velocity reflection kernel, pyccel or CUDA depending on the backend (see CUDA_STRATEGY.md)
+        # velocity reflection kernel, pyccel or CUDA depending on the backend, checked at setup (see CUDA_STRATEGY.md)
         if self._reflect_axes:
-            self._reflect = Kernel(
-                PyccelKernel(pusher_utilities_kernels.reflect),
-                CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS),
+            self._reflect = prepare_kernel(
+                Kernel(
+                    PyccelKernel(pusher_utilities_kernels.reflect),
+                    CudaKernel.from_file(Path(__file__).parent / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS),
+                )
             )
             if self._args_backend == "cupy" and domain.args_domain.kind_map != 10:
                 raise NotImplementedError("CUDA reflection currently supports only Cuboid mappings.")
@@ -2131,7 +2134,7 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        func = pushing_catalog["sph_mean_velocity_coeffs"].host_kernel
+        func = sph_mean_velocity_coeffs.host_kernel
 
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
@@ -2243,7 +2246,7 @@ class Particles(metaclass=ABCMeta):
         self.put_particles_in_boxes()
 
         # 1st kernel
-        func = pushing_catalog["sph_mean_velocity_coeffs"].host_kernel
+        func = sph_mean_velocity_coeffs.host_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
@@ -2262,7 +2265,7 @@ class Particles(metaclass=ABCMeta):
         )
 
         # 2nd kernel
-        func = pushing_catalog["sph_viscosity_tensor"].host_kernel
+        func = sph_viscosity_tensor.host_kernel
         func(
             alpha=xp.array((0.0, 0.0, 0.0)),
             output_indices=xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),

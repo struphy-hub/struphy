@@ -9,7 +9,7 @@ from numpy import array, random
 from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.pushing.kernels import catalog
+from struphy.pic.pushing.kernels.push_random_diffusion_stage import push_random_diffusion_stage
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -126,7 +126,7 @@ class PushRandomDiffusion(Propagator):
 
         self._pusher = Pusher(
             particles,
-            catalog["push_random_diffusion_stage"],
+            push_random_diffusion_stage,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,

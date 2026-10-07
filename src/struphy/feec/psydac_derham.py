@@ -47,7 +47,7 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaDerhamArguments
+from struphy.utils.cuda_arguments import CUDA_OPTIONS, CudaDerhamArguments, prepare_kernel
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -2290,12 +2290,14 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
-        # evaluation kernels, pyccel or CUDA depending on the backend (see CUDA_STRATEGY.md)
+        # evaluation kernels, pyccel or CUDA depending on the backend, checked at setup (see CUDA_STRATEGY.md)
         evaluate_spline_cuda = Path(__file__).parents[1] / "bsplines" / "evaluate_spline_cuda.cu"
         self._eval_spline_mpi_markers, self._eval_spline_mpi_matrix, self._eval_spline_mpi_sparse_meshgrid = (
-            Kernel(
-                PyccelKernel(getattr(evaluation_kernels_3d, name)),
-                CudaKernel.from_file(evaluate_spline_cuda, name=name, **CUDA_OPTIONS),
+            prepare_kernel(
+                Kernel(
+                    PyccelKernel(getattr(evaluation_kernels_3d, name)),
+                    CudaKernel.from_file(evaluate_spline_cuda, name=name, **CUDA_OPTIONS),
+                )
             )
             for name in ("eval_spline_mpi_markers", "eval_spline_mpi_matrix", "eval_spline_mpi_sparse_meshgrid")
         )
