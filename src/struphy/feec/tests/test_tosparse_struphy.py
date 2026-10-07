@@ -141,8 +141,7 @@ def test_weighted_mass_conversion_api(op_name, bcs):
     projection, whereas to_array_mat_only()/to_sparse_mat_only() represent the stencil matrix only."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -155,7 +154,7 @@ def test_weighted_mass_conversion_api(op_name, bcs):
 
     def to_global(arr):
         """Sum the rank-local contributions (rows owned by each rank) of a global-size array."""
-        if isinstance(comm, MockComm):
+        if isinstance(comm, SerialComm):
             return arr
         out = xp.zeros_like(arr)
         comm.Allreduce(arr, out, op=MPI.SUM)
@@ -191,7 +190,7 @@ def test_weighted_mass_conversion_api(op_name, bcs):
 def test_weighted_mass_mat_only_conversions_polar():
     """The matrix-only conversions are not implemented for polar extraction operators."""
 
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
