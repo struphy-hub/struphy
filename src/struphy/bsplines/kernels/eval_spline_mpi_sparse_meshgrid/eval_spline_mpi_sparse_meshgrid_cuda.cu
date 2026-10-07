@@ -1,5 +1,7 @@
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 
+using namespace struphy_cuda;
+
 // Same arguments, in the same order, as the pyccel kernel in eval_spline_mpi_sparse_meshgrid_kernels.py. Array views carry
 // dimensions and strides, so no CUDA-only lengths are needed.
 
@@ -35,6 +37,6 @@ extern "C" __global__ void eval_spline_mpi_sparse_meshgrid(Array3D<double> eta1,
     // point not in process domain
     if (eta1(i, 0, 0) == -1. || eta2(0, j, 0) == -1. || eta3(0, 0, k) == -1.) return;
 
-    values(i, j, k) = eval_spline_mpi(eta1(i, 0, 0), eta2(0, j, 0), eta3(0, 0, k), _data, kind, pn, tn1, tn2, tn3,
-                                      starts);
+    values(i, j, k) = evaluation_kernels_3d::eval_spline_mpi(eta1(i, 0, 0), eta2(0, j, 0), eta3(0, 0, k), _data, kind,
+                                                             pn, tn1, tn2, tn3, starts);
 }

@@ -1,5 +1,7 @@
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 
+using namespace struphy_cuda;
+
 // Same arguments, in the same order, as the pyccel kernel in eval_spline_mpi_markers_kernels.py. Array views carry
 // dimensions and strides, so no CUDA-only lengths are needed.
 
@@ -31,6 +33,6 @@ extern "C" __global__ void eval_spline_mpi_markers(Array2D<double> markers, Arra
     // point not in process domain
     if (markers(ip, 0) == -1.) return;
 
-    values(ip) = eval_spline_mpi(markers(ip, 0), markers(ip, 1), markers(ip, 2), _data, kind, pn, tn1, tn2, tn3,
-                                 starts);
+    values(ip) = evaluation_kernels_3d::eval_spline_mpi(markers(ip, 0), markers(ip, 1), markers(ip, 2), _data, kind, pn,
+                                                        tn1, tn2, tn3, starts);
 }

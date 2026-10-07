@@ -3,7 +3,7 @@
 #pragma once
 #include "cunumpy/array_view.cuh"
 #include "cunumpy/atomic.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::filler_kernels {
 /**
  * Add basis functions times filling to a stencil vector, as in filler_kernels.fill_vec.
  *
@@ -40,4 +40,4 @@ __device__ inline void fill_vec(int pi1, int pi2, int pi3, const double* bi1, co
         }
     }
 }
-}
+}  // namespace struphy_cuda::filler_kernels

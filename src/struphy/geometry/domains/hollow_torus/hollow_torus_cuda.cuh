@@ -1,6 +1,6 @@
 #pragma once
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::hollow_torus_kernels {
 /**
  * Evaluate the hollow torus mapping, as in hollow_torus_kernels.hollow_torus.
  *
@@ -98,4 +98,4 @@ __device__ inline void hollow_torus_df(double eta1, double eta2, double eta3, do
         df_out[8] = 0.0;
     }
 }
-}
+}  // namespace struphy_cuda::hollow_torus_kernels

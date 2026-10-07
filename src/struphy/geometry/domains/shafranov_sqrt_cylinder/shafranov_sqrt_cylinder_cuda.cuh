@@ -1,6 +1,6 @@
 #pragma once
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::shafranov_sqrt_cylinder_kernels {
 /**
  * Evaluate the Shafranov sqrt mapping, as in shafranov_sqrt_cylinder_kernels.shafranov_sqrt.
  *
@@ -46,4 +46,4 @@ __device__ inline void shafranov_sqrt_df(double eta1, double eta2, double eta3, 
     df_out[7] = 0.0;
     df_out[8] = lz;
 }
-}
+}  // namespace struphy_cuda::shafranov_sqrt_cylinder_kernels

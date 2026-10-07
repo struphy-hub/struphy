@@ -1,6 +1,6 @@
 #pragma once
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::colella_kernels {
 /**
  * Evaluate the Colella mapping, as in colella_kernels.colella.
  *
@@ -46,4 +46,4 @@ __device__ inline void colella_df(double eta1, double eta2, double lx, double ly
     df_out[7] = 0.0;
     df_out[8] = lz;
 }
-}
+}  // namespace struphy_cuda::colella_kernels

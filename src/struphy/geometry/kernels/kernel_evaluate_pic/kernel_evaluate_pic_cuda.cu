@@ -1,5 +1,7 @@
 #include "struphy/geometry/evaluation_kernels.cuh"
 
+using namespace struphy_cuda;
+
 // Same arguments, in the same order, as the pyccel kernel in kernel_evaluate_pic_kernels.py.
 
 /**
@@ -70,8 +72,8 @@ extern "C" __global__ void kernel_evaluate_pic(Array2D<double> markers, int kind
         for (int k = 0; k < 3; ++k)
             for (int l = 0; l < 3; ++l) out[3 * k + l] = mat_f(counter, k, l);
 
-        struphy_cuda::select_metric_coeff(e1, e2, e3, kind_coeff, args, tmp0, tmp1, tmp2, tmp3, avoid_round_off,
-                                          out);
+        evaluation_kernels::select_metric_coeff(e1, e2, e3, kind_coeff, args, tmp0, tmp1, tmp2, tmp3, avoid_round_off,
+                                                out);
 
         for (int k = 0; k < 3; ++k)
             for (int l = 0; l < 3; ++l) mat_f(counter, k, l) = out[3 * k + l];

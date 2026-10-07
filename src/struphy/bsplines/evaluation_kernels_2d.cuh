@@ -1,6 +1,6 @@
 #pragma once
 #include "cunumpy/array_view.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::evaluation_kernels_2d {
 /**
  * Sum the non-zero contributions of a 2d spline, as in evaluation_kernels_2d.evaluation_kernel_2d.
  *
@@ -26,4 +26,4 @@ __device__ inline double evaluation_kernel_2d(int p1, int p2, const double* basi
     }
     return spline_value;
 }
-}
+}  // namespace struphy_cuda::evaluation_kernels_2d
