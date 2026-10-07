@@ -59,7 +59,7 @@ def test_emulated_parity(name):
 @pytest.mark.parametrize("degree", range(1, 9))
 def test_emulated_der_splines(degree):
     """The device b_splines_slim and b_der_splines_slim, emulated on the CPU, agree with pyccel."""
-    from cunumpy.cuda import CudaKernel
+    from cunumpy.kernels import CudaKernel
 
     from struphy.geometry.tests.spline_mapping_cases import DER_SPLINES_SOURCE, der_splines_case
     from struphy.utils.cuda_arguments import CUDA_OPTIONS

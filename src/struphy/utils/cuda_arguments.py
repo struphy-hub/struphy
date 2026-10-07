@@ -8,7 +8,7 @@ building CUDA kernels and for generating the committed headers.
 
 from pathlib import Path
 
-from cunumpy.cuda import write_cuda_header
+from cunumpy.arguments import write_cuda_header
 
 from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments

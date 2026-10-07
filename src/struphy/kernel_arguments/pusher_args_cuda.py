@@ -9,7 +9,7 @@ CuPy backend.
 """
 
 import numpy as np
-from cunumpy.cuda import CudaStructArguments
+from cunumpy.arguments import CudaStructArguments
 
 
 def _device_array(name, arr, dtype, ndim=None):

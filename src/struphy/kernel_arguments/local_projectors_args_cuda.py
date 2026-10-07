@@ -7,7 +7,7 @@ the CuPy backend.
 """
 
 import numpy as np
-from cunumpy.cuda import CudaStructArguments
+from cunumpy.arguments import CudaStructArguments
 
 from struphy.kernel_arguments.pusher_args_cuda import _device_array
 

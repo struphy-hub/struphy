@@ -129,7 +129,7 @@ def flat_inputs(etas):
 
 
 def make_kernel():
-    """The wrapper kernel (a :class:`cunumpy.cuda.CudaKernel`) around :data:`PROTOTYPE`."""
+    """The wrapper kernel (a :class:`cunumpy.kernels.CudaKernel`) around :data:`PROTOTYPE`."""
     from cunumpy.kernel_testing import device_function_kernel
 
     from struphy.utils.cuda_arguments import CUDA_OPTIONS
