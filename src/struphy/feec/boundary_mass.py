@@ -173,8 +173,8 @@ class BoundaryMassOperator(LinearOperator):
         # for each active face, precompute per-space surface quadrature/geometric data
         self._setup_surface_data()
 
-        # load assembly kernel
-        self._assembly_kernel = PyccelKernel(mass_kernels.surface_kernel_3d_mat)
+        # load assembly kernel (writes the matrix data, its last argument)
+        self._assembly_kernel = PyccelKernel(mass_kernels.surface_kernel_3d_mat, outputs=(-1,))
 
         self.assemble()
 

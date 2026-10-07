@@ -2084,6 +2084,7 @@ class BasisProjectionOperator(LinearOperator):
                             basis_projection_kernels,
                             "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
                         ),
+                        outputs=(0,),  # writes the matrix data
                     )
 
                     logger.debug(f"Assemble block {i, j}")

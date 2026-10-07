@@ -537,6 +537,16 @@ They are replaced by one test module, `pic/tests/cuda_parity_cases.py`: `PARITY_
 `assert_kernels_agree` (one test per case), `test_cuda_emulation.py` to the CPU emulation, and
 `test_cuda_kernels_have_parity_cases` checks that the CUDA kernels and the parity cases match.
 
+**Declared kernel outputs (#342).** Each kernel folder's `__init__.py` declares the arguments its kernel writes
+to, by position, as `OUTPUTS` and passes them to cunumpy (`Kernel.from_folder(..., host_options={"outputs":
+OUTPUTS})`); the `PyccelKernel(...)` wraps in `feec/mass.py`, `feec/boundary_mass.py` and
+`feec/basis_projection_ops.py` pass `outputs=` too. Scratch arrays inside argument objects (`DerhamArguments.bn1`,
+...) are not outputs. On the CuPy fallback only the outputs are copied back to the device; the GPU parity test
+(`assert_kernels_agree`) compares only the outputs; `test_declared_outputs` checks on the NumPy backend that a kernel
+changes its outputs and no other argument, and the CPU emulation test checks the same for the CUDA kernel.
+`KernelCatalog.from_package` does not see the folders' `OUTPUTS`, so `test_cuda_parity` takes the kernels from the
+folders (`DECLARED`). A new kernel folder declares `OUTPUTS` (`test_kernels_declare_outputs`).
+
 ## PR 18 implementation notes
 
 Geometry evaluation runs on the GPU for every analytic mapping (`kind_map` 10–12, 20–22, 30–32).

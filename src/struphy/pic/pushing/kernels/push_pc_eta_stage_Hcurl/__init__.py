@@ -4,4 +4,7 @@ from cunumpy.kernels import Kernel
 
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-push_pc_eta_stage_Hcurl = Kernel.from_folder(__name__, structs=CUDA_STRUCTS)
+# the arguments the kernel writes to, by position: args_markers
+OUTPUTS = (2,)
+
+push_pc_eta_stage_Hcurl = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, host_options={"outputs": OUTPUTS})

@@ -1935,6 +1935,7 @@ class WeightedMassOperator(LinearOperator):
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_mat",
             ),
+            outputs=(-1,),  # writes the matrix data
         )
 
     @property
@@ -2570,7 +2571,7 @@ class WeightedMassOperator(LinearOperator):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = PyccelKernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
+        kernel = PyccelKernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"), outputs=(-1,))  # writes `out`
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -2673,6 +2674,7 @@ class StencilMatrixFreeMassOperator(LinearOperator):
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_matrixfree",
             ),
+            outputs=(-2,),  # writes the data of `out` (the last argument is the input vector)
         )
 
         self._diag_kernel = PyccelKernel(
@@ -2680,6 +2682,7 @@ class StencilMatrixFreeMassOperator(LinearOperator):
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_diag",
             ),
+            outputs=(-1,),  # writes the diagonal data
         )
 
         # temporary with ghost regions for the diagonal (contributions to other processes are exchanged)
