@@ -19,11 +19,10 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import yaml
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
+from maybempi import MPI, SerialMPI
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
 
@@ -2264,11 +2263,11 @@ if __name__ == "__main__":
         return self._comm
 
     @comm.setter
-    # NOTE: string annotation, MPI.Intracomm is a dummy function if mpi4py is not installed (MockMPI)
+    # NOTE: string annotation, MPI.Intracomm is maybempi's stand-in in serial runs
     def comm(self, value: "MPI.Intracomm | None"):
         """Set the MPI communicator; this also updates :attr:`rank`, :attr:`comm_size` and :attr:`Barrier`.
         If None is passed, MPI.COMM_WORLD is used (unless MPI is not available)."""
-        if isinstance(MPI, MockMPI):
+        if isinstance(MPI, SerialMPI):
             self._comm = None
             self._rank = 0
             self._comm_size = 1

@@ -89,8 +89,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
     from struphy import LoadingParameters, domains, maxwellians, perturbations
     from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -101,7 +100,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     from struphy.topology.grids import TensorProductGrid
     from struphy.utils.clone_config import CloneConfig
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         mpi_comm = None
         mpi_rank = 0
     else:
@@ -395,8 +394,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
     from struphy import LoadingParameters, domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -406,7 +404,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     from struphy.pic.particles import ParticlesSPH
     from struphy.topology.grids import TensorProductGrid
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         mpi_comm = None
         mpi_rank = 0
     else:

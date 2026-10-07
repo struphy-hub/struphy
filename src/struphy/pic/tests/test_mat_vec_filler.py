@@ -27,8 +27,8 @@ def test_particle_to_mat_kernels(num_elements, degree, bcs, n_markers=1):
     from time import sleep
 
     from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.stencil import StencilMatrix, StencilVector
+    from maybempi import MPI
 
     from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham

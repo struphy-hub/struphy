@@ -6,8 +6,6 @@ import cunumpy as xp
 import feectools.core.bsplines as bsp
 import numpy as np
 from feectools.ddm.cart import DomainDecomposition
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from feectools.feec.derivatives import Curl3D, Divergence3D, Gradient3D
 from feectools.feec.global_geometric_projectors import (
     GlobalGeometricProjector,
@@ -25,6 +23,7 @@ from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
+from maybempi import MPI, SerialComm
 
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.bsplines.kernels.eval_spline_mpi_markers import eval_spline_mpi_markers
@@ -1571,7 +1570,7 @@ class Derham:
                     f"{domain_decomposition.periods = } does not match {spl_kind = }."
                 )
                 if domain_decomposition.comm is not None and comm is not None:
-                    # (comm is None in the decomposition when feectools runs with MockMPI)
+                    # (comm is None in the decomposition when feectools runs serially)
                     assert domain_decomposition.comm == comm, (
                         "domain_decomposition must be built on the Derham communicator."
                     )
@@ -1974,7 +1973,7 @@ class Derham:
             dom_arr_loc[3 * n + 2] = el_end - el_sta + 1
 
         # distribute
-        if not isinstance(self.comm, (MockComm, type(None))):
+        if not isinstance(self.comm, (SerialComm, type(None))):
             self.comm.Allgather(dom_arr_loc, dom_arr)
         else:
             dom_arr[:] = dom_arr_loc
@@ -1999,7 +1998,7 @@ class Derham:
         """
 
         # MPI info
-        if not isinstance(self.comm, (MockComm, type(None))):
+        if not isinstance(self.comm, (SerialComm, type(None))):
             nproc = self.comm.Get_size()
         else:
             nproc = 1
@@ -2020,7 +2019,7 @@ class Derham:
             ind_arr_loc[2 * n + 1] = end
 
         # distribute
-        if not isinstance(self.comm, (MockComm, type(None))):
+        if not isinstance(self.comm, (SerialComm, type(None))):
             self.comm.Allgather(ind_arr_loc, ind_arr)
         else:
             ind_arr[:] = ind_arr_loc

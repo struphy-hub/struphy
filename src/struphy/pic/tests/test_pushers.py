@@ -39,7 +39,7 @@ logger = logging.getLogger("struphy")
 )
 def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
@@ -148,7 +148,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
 )
 def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
@@ -267,7 +267,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
 )
 def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
@@ -386,7 +386,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
 )
 def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
@@ -505,7 +505,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
 )
 def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
@@ -633,7 +633,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
 )
 def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
     from struphy.feec.psydac_derham import Derham
@@ -732,7 +732,7 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     """The per-marker boundary conditions applied inside push_eta_stage
     (apply_kinetic_bc_marker) must give the same result as Particles.apply_kinetic_bc."""
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, domains
     from struphy.ode.utils import ButcherTableau
@@ -800,7 +800,7 @@ def test_kinetic_bc_in_kernel(bc, mapping):
 def test_kinetic_bc_remove_counts_each_marker_once():
     """A marker outside the unit cube on several "remove" axes is lost (and counted) only once."""
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, domains
     from struphy.pic.particles import Particles6D

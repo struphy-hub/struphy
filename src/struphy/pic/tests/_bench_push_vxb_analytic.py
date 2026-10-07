@@ -13,7 +13,7 @@ Usage::
 import sys
 import time
 
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import LoadingParameters, domains
 from struphy.feec.psydac_derham import Derham

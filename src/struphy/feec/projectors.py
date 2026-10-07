@@ -1,6 +1,5 @@
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
-from feectools.ddm.mpi import mpi as MPI
 from feectools.feec.global_geometric_projectors import GlobalGeometricProjector
 from feectools.fem.basic import FemSpace
 from feectools.fem.tensor import TensorFemSpace
@@ -10,6 +9,7 @@ from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.kron import KroneckerStencilMatrix
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilMatrix, StencilVector
+from maybempi import MPI
 
 from struphy.feec.local_projectors.kernels.get_dofs_local_1_form_ec_component import get_dofs_local_1_form_ec_component
 from struphy.feec.local_projectors.kernels.get_dofs_local_1_form_ec_component_weighted import (

@@ -11,7 +11,7 @@ from typing import Literal, get_args
 
 import numpy as np
 import yaml
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 import struphy
 

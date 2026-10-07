@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 import cunumpy as xp
 from cunumpy.kernels import Kernel, PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.feec.mass import WeightedMassOperators

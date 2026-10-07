@@ -130,9 +130,8 @@ def test_set_zero_velocity_mpi(mapping, comp: int, show_plot=False):
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
+    from maybempi import MPI, SerialComm
 
     from struphy import BoundaryParameters, LoadingParameters, domains
     from struphy.pic.particles import Particles6D
@@ -142,7 +141,7 @@ def test_set_zero_velocity_mpi(mapping, comp: int, show_plot=False):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         size = 1
         rank = 0
@@ -211,10 +210,9 @@ def test_set_zero_velocity_mpi(mapping, comp: int, show_plot=False):
 
 
 if __name__ == "__main__":
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         size = 1
         rank = 0
