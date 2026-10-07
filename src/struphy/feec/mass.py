@@ -1472,6 +1472,12 @@ class WeightedMassOperators:
             )
 
 
+def _zero_weight(*etas):
+    """Zero default weight of an allocated block of a :class:`WeightedMassOperator`; keeps the block
+    structure until actual weights are passed to :meth:`WeightedMassOperator.assemble`."""
+    return 0 * etas[0]
+
+
 class WeightedMassOperator(LinearOperator):
     r"""
     Class for assembling weighted mass matrices in 3d.
@@ -1547,6 +1553,9 @@ class WeightedMassOperator(LinearOperator):
         can neither be assembled nor applied. Used to estimate the memory footprint of the FEEC
         matrices before allocating them, see
         :meth:`~struphy.feec.mass.WeightedMassOperators.estimate_mem`.
+
+    nquads : tuple | list, optional
+        Number of quadrature points per direction; defaults to ``derham.nquads``.
     """
 
     def __init__(
@@ -1566,389 +1575,51 @@ class WeightedMassOperator(LinearOperator):
         nquads: tuple | list = None,
         dry_run: bool = False,
     ):
-        logger.debug(f"{derham = }")
-        logger.debug(f"{V = }")
-        logger.debug(f"{W = }")
-        logger.debug(f"{name = }")
-        logger.debug(f"{V_extraction_op = }")
-        logger.debug(f"{W_extraction_op = }")
-        logger.debug(f"{V_boundary_op = }")
-        logger.debug(f"{W_boundary_op = }")
-        logger.debug(f"{type(weights_info) = }")
-        logger.debug(f"{spline_functions = }")
-        logger.debug(f"{transposed = }")
-        logger.debug(f"{matrix_free = }")
-        logger.debug(f"{nquads = }")
+        logger.debug(
+            f"__init__: {name = }, {transposed = }, {matrix_free = }, {nquads = }, {dry_run = }, "
+            f"spline_functions={list(spline_functions or {})}"
+        )
+
+        assert not (dry_run and transposed), "dry_run=True is not supported for transposed operators."
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
         self._derham = derham
         self._nquads = nquads
-
         self._V = V
         self._W = W
         self._name = name
+        self._weights_info = weights_info
+        self._transposed = transposed
+        self._matrix_free = matrix_free
         self._dry_run = dry_run
+        self._dtype = V.coeff_space.dtype
 
         # recipe for re-creating the operator with WeightedMassOperators.create_weighted_mass, see to_dict()
         self._creation_info: dict | None = None
 
-        assert not (dry_run and transposed), "dry_run=True is not supported for transposed operators."
-
         # spline functions that are used as weights in the operator, to be evaluated at quadrature points
         self._spline_functions = spline_functions if spline_functions is not None else {}
 
-        # set basis extraction operators
-        if V_extraction_op is not None:
-            assert V_extraction_op.domain == V.coeff_space
-            self._V_extraction_op = V_extraction_op
-        else:
-            self._V_extraction_op = IdentityOperator(V.coeff_space)
+        self._init_projection_ops(V_extraction_op, W_extraction_op, V_boundary_op, W_boundary_op)
+        self._init_domain_codomain_spaces()
 
-        if W_extraction_op is not None:
-            assert W_extraction_op.domain == W.coeff_space
-            self._W_extraction_op = W_extraction_op
-        else:
-            self._W_extraction_op = IdentityOperator(W.coeff_space)
-
-        # set boundary operators
-        if V_boundary_op is not None:
-            self._V_boundary_op = V_boundary_op
-        else:
-            self._V_boundary_op = IdentityOperator(
-                self._V_extraction_op.codomain,
-            )
-
-        if W_boundary_op is not None:
-            self._W_boundary_op = W_boundary_op
-        else:
-            self._W_boundary_op = IdentityOperator(
-                self._W_extraction_op.codomain,
-            )
-
-        self._weights_info = weights_info
-        self._transposed = transposed
-        self._matrix_free = matrix_free
-
-        self._dtype = V.coeff_space.dtype
-
-        # set domain and codomain symbolic names
-        logger.debug(f"{V.symbolic_space = }")
-        logger.debug(f"{W.symbolic_space = }")
-        V_name = V.symbolic_space
-        W_name = W.symbolic_space
-
-        assert V_name in derham.spline_attributes, (
-            f"Spline attributes for the domain space {V_name} not found in the Derham object !!"
-        )
-        assert W_name in derham.spline_attributes, (
-            f"Spline attributes for the codomain space {W_name} not found in the Derham object !!"
-        )
-
-        if transposed:
-            self._domain_femspace = W
-            self._domain_symbolic_name = W_name
-
-            self._codomain_femspace = V
-            self._codomain_symbolic_name = V_name
-        else:
-            self._domain_femspace = V
-            self._domain_symbolic_name = V_name
-
-            self._codomain_femspace = W
-            self._codomain_symbolic_name = W_name
-
-        # Are both space scalar spaces : useful to know if _dof_mat will be Stencil or Block Matrix
-        self._is_scalar = False
-        if isinstance(V, TensorFemSpace) and isinstance(W, TensorFemSpace):
-            self._is_scalar = True
-
-        # ====== initialize Stencil-/BlockLinearOperator ====
-
-        # collect TensorFemSpaces for each component in tuple
-        if isinstance(V, TensorFemSpace):
-            Vspaces = (V,)
-        else:
-            Vspaces = V.spaces
-
-        if isinstance(W, TensorFemSpace):
-            Wspaces = (W,)
-        else:
-            Wspaces = W.spaces
-
-        # initialize blocks according to given symmetry and set zero default weights
+        # allocate the (block) matrix M (V -> W) and set its weights (zero blocks are None)
         if isinstance(weights_info, str):
             self._symmetry = weights_info
-
-            assert V_name == W_name, "only square matrices (V=W) allowed!"
-            assert (
-                len(
-                    V_name,
-                )
-                > 2
-            ), "only block matrices with domain/codomain spaces Hcurl, Hdiv and H1vec are allowed!"
-
-            if self._matrix_free:
-                if weights_info == "symm":
-                    blocks = [
-                        [StencilMatrixFreeMassOperator(self.derham, Vs, Ws, nquads=self.nquads) for Vs in V.spaces]
-                        for Ws in W.spaces
-                    ]
-                elif weights_info == "asym":
-                    blocks = [
-                        [
-                            StencilMatrixFreeMassOperator(self.derham, Vs, Ws, nquads=self.nquads) if i != j else None
-                            for j, Vs in enumerate(V.spaces)
-                        ]
-                        for i, Ws in enumerate(W.spaces)
-                    ]
-                elif weights_info == "diag":
-                    blocks = [
-                        [
-                            StencilMatrixFreeMassOperator(self.derham, Vs, Ws, nquads=self.nquads) if i == j else None
-                            for j, Vs in enumerate(V.spaces)
-                        ]
-                        for i, Ws in enumerate(W.spaces)
-                    ]
-                else:
-                    raise NotImplementedError(
-                        f"given symmetry {weights_info} is not implemented!",
-                    )
-
-            else:
-                if weights_info == "symm":
-                    blocks = [
-                        [
-                            StencilMatrix(
-                                Vs.coeff_space,
-                                Ws.coeff_space,
-                                backend=PSYDAC_BACKEND_GPYCCEL,
-                                precompiled=True,
-                                dry_run=dry_run,
-                            )
-                            for Vs in V.spaces
-                        ]
-                        for Ws in W.spaces
-                    ]
-                elif weights_info == "asym":
-                    blocks = [
-                        [
-                            StencilMatrix(
-                                Vs.coeff_space,
-                                Ws.coeff_space,
-                                backend=PSYDAC_BACKEND_GPYCCEL,
-                                precompiled=True,
-                                dry_run=dry_run,
-                            )
-                            if i != j
-                            else None
-                            for j, Vs in enumerate(V.spaces)
-                        ]
-                        for i, Ws in enumerate(W.spaces)
-                    ]
-                elif weights_info == "diag":
-                    blocks = [
-                        [
-                            StencilMatrix(
-                                Vs.coeff_space,
-                                Ws.coeff_space,
-                                backend=PSYDAC_BACKEND_GPYCCEL,
-                                precompiled=True,
-                                dry_run=dry_run,
-                            )
-                            if i == j
-                            else None
-                            for j, Vs in enumerate(V.spaces)
-                        ]
-                        for i, Ws in enumerate(W.spaces)
-                    ]
-                else:
-                    raise NotImplementedError(
-                        f"given symmetry {weights_info} is not implemented!",
-                    )
-
-            self._mat = BlockLinearOperator(
-                V.coeff_space,
-                W.coeff_space,
-                blocks=blocks,
-            )
-
-            # set zero default weights with same block structure as block matrix
-            self._weights = []
-            for block_row in blocks:
-                self._weights += [[]]
-                for block in block_row:
-                    if block is None:
-                        self._weights[-1] += [None]
-                    else:
-                        self._weights[-1] += [lambda *etas: 0 * etas[0]]
-
-        # OR initialize blocks according to given weights by identifying zero blocks
+            blocks, self._weights = self._init_blocks_from_symmetry(weights_info)
         else:
             self._symmetry = None
+            self._prepare_spline_weights()
+            blocks, self._weights = self._init_blocks_from_weights(weights_info)
 
-            blocks = []
-            self._weights = []
+        self._mat = self._wrap_blocks(blocks)
 
-            # loop over codomain spaces (rows)
-            for a, wspace in enumerate(Wspaces):
-                blocks += [[]]
-                self._weights += [[]]
-
-                # quadrature points
-                pts = [points.flatten() for points in derham.spline_attributes[W_name].quad_grid_pts[a]]
-
-                # spline functions as weights: prepare for assembly on quad grid
-                grid_shape = tuple([len(pt) for pt in pts])
-                self.spline_values = {}
-                self.spans = {}
-                self.bases = {}
-                for name, spline in self.spline_functions.items():
-                    assert isinstance(spline, SplineFunction), (
-                        f"The entry {name} in spline_functions must be a SplineFunction object."
-                    )
-                    self.spline_values[name] = xp.zeros(grid_shape, dtype=float)
-                    self.spans[name], bns, bds = derham.prepare_eval_tp_fixed(pts)
-                    if spline.space_id == "H1":
-                        self.bases[name] = bns
-                    elif spline.space_id == "L2":
-                        self.bases[name] = bds
-                    else:
-                        raise NotImplementedError(
-                            f"Spline functions in spline_functions must be defined on H1 or L2 spaces, but {spline.space_id} was given for the spline function {name}.",
-                        )
-
-                # loop over domain spaces (columns)
-                for b, vspace in enumerate(Vspaces):
-                    # set zero default weights if weights is None
-                    if weights_info is None:
-                        if self._matrix_free:
-                            blocks[-1] += [
-                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, nquads=self.nquads),
-                            ]
-                        else:
-                            blocks[-1] += [
-                                StencilMatrix(
-                                    vspace.coeff_space,
-                                    wspace.coeff_space,
-                                    backend=PSYDAC_BACKEND_GPYCCEL,
-                                    precompiled=True,
-                                    dry_run=dry_run,
-                                ),
-                            ]
-                        self._weights[-1] += [lambda *etas: 0 * etas[0]]
-
-                    else:
-                        # A block can be locally zero on this MPI rank but non-zero on another rank.
-                        # We therefore check whether the block is globally non-zero before deciding
-                        # whether to allocate the corresponding StencilMatrix. All ranks must make
-                        # the same block-allocation decision, otherwise exchange_assembly_data()
-                        # will communicate incompatible block structures.
-                        loc_weight = weights_info[a][b]
-
-                        if loc_weight is None:
-                            mat_w = None
-                            local_nonzero = xp.array(False, dtype=bool)
-                        else:
-                            if callable(loc_weight):
-                                PTS = xp.meshgrid(*pts, indexing="ij")
-                                mat_w = loc_weight(*PTS).copy()
-                            elif isinstance(loc_weight, xp.ndarray):
-                                mat_w = loc_weight
-                            else:
-                                raise TypeError(f"Invalid weight type: {type(loc_weight)}")
-
-                            logger.debug(f"{mat_w.shape = } and {[pt.size for pt in pts] = }.")
-                            assert mat_w.shape == tuple([pt.size for pt in pts])
-                            local_nonzero = xp.array(bool(xp.any(xp.abs(mat_w) > 1e-14)), dtype=bool)
-
-                        if self.derham.comm is not None:
-                            # Checks if the block is non zero on at least MPI processes
-                            self.derham.comm.Allreduce(MPI.IN_PLACE, local_nonzero, op=MPI.LOR)
-
-                        if bool(local_nonzero):
-                            if mat_w is None:
-                                # The block is globally non-zero, but this rank has a locally zero weight.
-                                # We still allocate the block and pass a zero local weight array so that
-                                # the local matrix has the same structure as on the other MPI ranks.
-                                mat_w = xp.zeros(tuple([pt.size for pt in pts]), dtype=float)
-
-                            if self._matrix_free:
-                                blocks[-1] += [
-                                    StencilMatrixFreeMassOperator(
-                                        self.derham,
-                                        vspace,
-                                        wspace,
-                                        weights=loc_weight if loc_weight is not None else mat_w,
-                                        nquads=self.nquads,
-                                    )
-                                ]
-                            else:
-                                blocks[-1] += [
-                                    StencilMatrix(
-                                        vspace.coeff_space,
-                                        wspace.coeff_space,
-                                        backend=PSYDAC_BACKEND_GPYCCEL,
-                                        precompiled=True,
-                                        dry_run=dry_run,
-                                    )
-                                ]
-
-                            self._weights[-1] += [loc_weight if loc_weight is not None else mat_w]
-                        else:
-                            blocks[-1] += [None]
-                            self._weights[-1] += [None]
-
-            if len(blocks) == len(blocks[0]) == 1:
-                if blocks[0][0] is None:
-                    if self._matrix_free:
-                        self._mat = StencilMatrixFreeMassOperator(
-                            self.derham,
-                            vspace,
-                            wspace,
-                            nquads=self.nquads,
-                        )
-                    else:
-                        self._mat = StencilMatrix(
-                            vspace.coeff_space,
-                            wspace.coeff_space,
-                            backend=PSYDAC_BACKEND_GPYCCEL,
-                            precompiled=True,
-                            dry_run=dry_run,
-                        )
-                else:
-                    self._mat = blocks[0][0]
-            else:
-                self._mat = BlockLinearOperator(
-                    V.coeff_space,
-                    W.coeff_space,
-                    blocks=blocks,
-                )
-
-        # transpose of matrix and weights
+        # the weights are stored in the block order of the (possibly transposed) operator
         if transposed:
             self._mat = self._mat.transpose()
-
-            n_rows = len(self._weights)
-            n_cols = len(self._weights[0])
-
-            tmp_weights = []
-
-            for m in range(n_cols):
-                tmp_weights += [[]]
-                for n in range(n_rows):
-                    if self._weights[n][m] is not None:
-                        tmp_weights[-1] += [self._weights[n][m]]
-                    else:
-                        tmp_weights[-1] += [None]
-
-            self._weights = tmp_weights
-
-        self._W_extraction_op_T = self._W_extraction_op.T
-        self._W_boundary_op_T = self._W_boundary_op.T
-        self._V_extraction_op_T = self._V_extraction_op.T
-        self._V_boundary_op_T = self._V_boundary_op.T
+            self._weights = self._transpose_weights(self._weights)
 
         if self._dry_run:
             # memory estimation only (see the nbytes property): skip the composite operators,
@@ -1958,8 +1629,283 @@ class WeightedMassOperator(LinearOperator):
             self._codomain = self._mat.codomain
             return
 
+        self._init_composite_operators()
+        self._allocate_dot_temporaries()
+
+        if not self._matrix_free:
+            self._load_assembly_kernel()
+
+    # ------------------------------------------------------------------
+    # Helpers for __init__ (and assemble/transpose)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _component_spaces(space: TensorFemSpace | VectorFemSpace) -> tuple[TensorFemSpace, ...]:
+        """Scalar component spaces of ``space``, i.e. ``(space,)`` for a TensorFemSpace
+        and ``space.spaces`` for a VectorFemSpace."""
+        if isinstance(space, TensorFemSpace):
+            return (space,)
+        return space.spaces
+
+    @staticmethod
+    def _transpose_weights(weights: list) -> list:
+        """Transpose a 2d list of block weights (``None`` entries are kept)."""
+        return [[weights[n][m] for n in range(len(weights))] for m in range(len(weights[0]))]
+
+    @staticmethod
+    def _evaluate_weight(weight, pts: list, copy: bool = False):
+        """Evaluate a block weight at the quadrature points.
+
+        Parameters
+        ----------
+        weight : callable | xp.ndarray | None
+            Weight function of the logical coordinates, or its values at the quadrature points.
+
+        pts : list[xp.ndarray]
+            1d arrays of the quadrature points in each direction.
+
+        copy : bool
+            Whether to return a copy of an xp.ndarray weight (callables are always evaluated into a new array).
+
+        Returns
+        -------
+        mat_w : xp.ndarray | None
+            The weight on the tensor-product quadrature grid, or ``None`` if ``weight`` is ``None``.
+        """
+        if weight is None:
+            return None
+
+        if callable(weight):
+            PTS = xp.meshgrid(*pts, indexing="ij")
+            mat_w = weight(*PTS).copy()
+        elif isinstance(weight, xp.ndarray):
+            mat_w = weight.copy() if copy else weight
+        else:
+            raise TypeError(f"Weights must be callable, xp.ndarray or None, but are {type(weight)}.")
+
+        grid_shape = tuple(pt.size for pt in pts)
+        assert mat_w.shape == grid_shape, f"Weight has shape {mat_w.shape}, but the quadrature grid is {grid_shape}."
+        return mat_w
+
+    def _quad_pts(self, space_name: str, component: int) -> list:
+        """1d arrays of the (local) quadrature points of the given component of the space ``space_name``."""
+        return [points.flatten() for points in self.derham.spline_attributes[space_name].quad_grid_pts[component]]
+
+    def _is_globally_nonzero(self, local_nonzero: bool) -> bool:
+        """Logical OR of ``local_nonzero`` over all MPI ranks.
+
+        This is a collective call: it must be reached on all ranks, such that all ranks take
+        the same decision on whether a block is allocated/assembled."""
+        flag = xp.array(bool(local_nonzero), dtype=bool)
+        if self.derham.comm is not None:
+            self.derham.comm.Allreduce(MPI.IN_PLACE, flag, op=MPI.LOR)
+        return bool(flag)
+
+    def _init_projection_ops(self, V_extraction_op, W_extraction_op, V_boundary_op, W_boundary_op):
+        """Set the polar extraction operators :math:`\\mathbb E_V, \\mathbb E_W` and the boundary
+        operators :math:`\\mathbb B_V, \\mathbb B_W` (identities if not given), and their transposes."""
+        # basis extraction operators
+        if V_extraction_op is not None:
+            assert V_extraction_op.domain == self._V.coeff_space
+            self._V_extraction_op = V_extraction_op
+        else:
+            self._V_extraction_op = IdentityOperator(self._V.coeff_space)
+
+        if W_extraction_op is not None:
+            assert W_extraction_op.domain == self._W.coeff_space
+            self._W_extraction_op = W_extraction_op
+        else:
+            self._W_extraction_op = IdentityOperator(self._W.coeff_space)
+
+        # boundary operators (act on the codomain of the extraction operators)
+        if V_boundary_op is not None:
+            self._V_boundary_op = V_boundary_op
+        else:
+            self._V_boundary_op = IdentityOperator(self._V_extraction_op.codomain)
+
+        if W_boundary_op is not None:
+            self._W_boundary_op = W_boundary_op
+        else:
+            self._W_boundary_op = IdentityOperator(self._W_extraction_op.codomain)
+
+        self._V_extraction_op_T = self._V_extraction_op.T
+        self._W_extraction_op_T = self._W_extraction_op.T
+        self._V_boundary_op_T = self._V_boundary_op.T
+        self._W_boundary_op_T = self._W_boundary_op.T
+
+    def _init_domain_codomain_spaces(self):
+        """Set the domain/codomain FEM spaces and their symbolic names (V and W swapped for transposed
+        operators), and whether both spaces are scalar (then ``_mat`` is a single block)."""
+        V_name = self._V.symbolic_space
+        W_name = self._W.symbolic_space
+        logger.debug(f"{V_name = }, {W_name = }")
+
+        assert V_name in self.derham.spline_attributes, (
+            f"Spline attributes for the domain space {V_name} not found in the Derham object !!"
+        )
+        assert W_name in self.derham.spline_attributes, (
+            f"Spline attributes for the codomain space {W_name} not found in the Derham object !!"
+        )
+
+        if self._transposed:
+            self._domain_femspace, self._domain_symbolic_name = self._W, W_name
+            self._codomain_femspace, self._codomain_symbolic_name = self._V, V_name
+        else:
+            self._domain_femspace, self._domain_symbolic_name = self._V, V_name
+            self._codomain_femspace, self._codomain_symbolic_name = self._W, W_name
+
+        self._is_scalar = isinstance(self._V, TensorFemSpace) and isinstance(self._W, TensorFemSpace)
+
+    def _new_block(self, vspace: TensorFemSpace, wspace: TensorFemSpace, weights=None):
+        """Allocate a single (non-assembled) block mapping the scalar space ``vspace`` to ``wspace``.
+
+        Returns a :class:`StencilMatrixFreeMassOperator` with the given ``weights`` for matrix-free
+        operators, and a StencilMatrix otherwise (then ``weights`` is ignored; they are passed
+        to the assembly kernel in :meth:`assemble`)."""
+        if self._matrix_free:
+            return StencilMatrixFreeMassOperator(self.derham, vspace, wspace, weights=weights, nquads=self.nquads)
+
+        return StencilMatrix(
+            vspace.coeff_space,
+            wspace.coeff_space,
+            backend=PSYDAC_BACKEND_GPYCCEL,
+            precompiled=True,
+            dry_run=self._dry_run,
+        )
+
+    def _init_blocks_from_symmetry(self, symmetry: str) -> tuple[list, list]:
+        """Allocate the blocks of a square block operator (V = W) according to a given symmetry.
+
+        Only the blocks allowed by the symmetry (all for ``symm``, off-diagonal for ``asym``, diagonal
+        for ``diag``) are allocated, the others are ``None``. Allocated blocks get a zero default weight,
+        the actual weights are passed later to :meth:`assemble`.
+
+        Returns
+        -------
+        blocks, weights : list, list
+            2d lists of the blocks and their weights, in the block order of the non-transposed operator.
+        """
+        V_name = self._V.symbolic_space
+        W_name = self._W.symbolic_space
+        assert V_name == W_name, "only square matrices (V=W) allowed!"
+        assert len(V_name) > 2, "only block matrices with domain/codomain spaces Hcurl, Hdiv and H1vec are allowed!"
+
+        # which blocks (i, j) are allocated for the given symmetry
+        block_masks = {
+            "symm": lambda i, j: True,
+            "asym": lambda i, j: i != j,
+            "diag": lambda i, j: i == j,
+        }
+        if symmetry not in block_masks:
+            raise NotImplementedError(f"given symmetry {symmetry} is not implemented!")
+        is_allocated = block_masks[symmetry]
+
+        blocks = [
+            [self._new_block(Vs, Ws) if is_allocated(i, j) else None for j, Vs in enumerate(self._V.spaces)]
+            for i, Ws in enumerate(self._W.spaces)
+        ]
+        weights = [[_zero_weight if block is not None else None for block in row] for row in blocks]
+
+        return blocks, weights
+
+    def _init_blocks_from_weights(self, weights_info: list | None) -> tuple[list, list]:
+        """Allocate the blocks according to the given weights.
+
+        For ``weights_info=None`` all blocks are allocated with zero default weights. Otherwise a block
+        is allocated only if its weight is non-zero on at least one MPI rank; globally zero blocks are
+        set to ``None`` to accelerate the dot product.
+
+        Returns
+        -------
+        blocks, weights : list, list
+            2d lists of the blocks and their weights, in the block order of the non-transposed operator.
+        """
+        W_name = self._W.symbolic_space
+
+        blocks = []
+        weights = []
+
+        # loop over codomain spaces (rows)
+        for a, wspace in enumerate(self._component_spaces(self._W)):
+            blocks += [[]]
+            weights += [[]]
+
+            pts = self._quad_pts(W_name, a)
+
+            # loop over domain spaces (columns)
+            for b, vspace in enumerate(self._component_spaces(self._V)):
+                if weights_info is None:
+                    blocks[-1] += [self._new_block(vspace, wspace)]
+                    weights[-1] += [_zero_weight]
+                    continue
+
+                # A block can be locally zero on this MPI rank but non-zero on another rank.
+                # We therefore check whether the block is globally non-zero before deciding
+                # whether to allocate it. All ranks must make the same block-allocation decision,
+                # otherwise exchange_assembly_data() will communicate incompatible block structures.
+                loc_weight = weights_info[a][b]
+                mat_w = self._evaluate_weight(loc_weight, pts)
+                local_nonzero = mat_w is not None and bool(xp.any(xp.abs(mat_w) > 1e-14))
+
+                if self._is_globally_nonzero(local_nonzero):
+                    if loc_weight is None:
+                        # The block is globally non-zero, but this rank has a locally zero weight.
+                        # We still allocate the block and use a zero local weight array, such that
+                        # the local matrix has the same structure as on the other MPI ranks.
+                        loc_weight = xp.zeros(tuple(pt.size for pt in pts), dtype=float)
+
+                    blocks[-1] += [self._new_block(vspace, wspace, weights=loc_weight)]
+                    weights[-1] += [loc_weight]
+                else:
+                    blocks[-1] += [None]
+                    weights[-1] += [None]
+
+        return blocks, weights
+
+    def _wrap_blocks(self, blocks: list):
+        """Return the single block of a 1x1 operator, or a BlockLinearOperator (V -> W) otherwise.
+
+        A zero 1x1 block is still allocated, such that the matrix is never ``None``."""
+        if len(blocks) == len(blocks[0]) == 1:
+            if blocks[0][0] is None:
+                return self._new_block(self._component_spaces(self._V)[0], self._component_spaces(self._W)[0])
+            return blocks[0][0]
+
+        return BlockLinearOperator(self._V.coeff_space, self._W.coeff_space, blocks=blocks)
+
+    def _prepare_spline_weights(self):
+        """Prepare the evaluation of :attr:`spline_functions` at the quadrature points: knot spans,
+        basis function values and output buffers, keyed by spline name. In :meth:`assemble`,
+        the block weights are multiplied by the evaluated spline functions.
+
+        NOTE: the quadrature grid of the last codomain component (of W) is used for all blocks."""
+        W_name = self._W.symbolic_space
+        pts = self._quad_pts(W_name, len(self._component_spaces(self._W)) - 1)
+        grid_shape = tuple(len(pt) for pt in pts)
+
+        self.spline_values = {}
+        self.spans = {}
+        self.bases = {}
+        for name, spline in self.spline_functions.items():
+            assert isinstance(spline, SplineFunction), (
+                f"The entry {name} in spline_functions must be a SplineFunction object."
+            )
+            self.spline_values[name] = xp.zeros(grid_shape, dtype=float)
+            self.spans[name], bns, bds = self.derham.prepare_eval_tp_fixed(pts)
+            if spline.space_id == "H1":
+                self.bases[name] = bns
+            elif spline.space_id == "L2":
+                self.bases[name] = bds
+            else:
+                raise NotImplementedError(
+                    f"Spline functions in spline_functions must be defined on H1 or L2 spaces, but {spline.space_id} was given for the spline function {name}.",
+                )
+
+    def _init_composite_operators(self):
+        """Build the composite operators :math:`\\mathbb E_W \\mathbb M \\mathbb E_V^T` (``M``) and
+        :math:`\\mathbb B_W \\mathbb E_W \\mathbb M \\mathbb E_V^T \\mathbb B_V^T` (``M0``), with V and W
+        swapped for transposed operators, and set domain and codomain."""
         # TODO: maybe remove since this is done in the .dot() explicitly
-        # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
         if self._transposed:
             self._M = self._V_extraction_op @ self._mat @ self._W_extraction_op_T
             self._M0 = self._V_boundary_op @ self._M @ self._W_boundary_op_T
@@ -1967,25 +1913,25 @@ class WeightedMassOperator(LinearOperator):
             self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
             self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
 
-        # set domain and codomain
         self._domain = self._M.domain
         self._codomain = self._M.codomain
 
-        # allocate temporaries for .dot()
+    def _allocate_dot_temporaries(self):
+        """Allocate the intermediate vectors used in :meth:`dot`."""
         self._temp_WB = self._W_boundary_op.domain.zeros()
         self._temp_WE = self._W_extraction_op.domain.zeros()
         self._temp_VB = self._V_boundary_op.domain.zeros()
         self._temp_VE = self._V_extraction_op.domain.zeros()
         self._temp_mat = self._mat.domain.zeros()
 
-        # load assembly kernel
-        if not self._matrix_free:
-            self._assembly_kernel = PyccelKernel(
-                getattr(
-                    mass_kernels,
-                    "kernel_" + str(self._V.ldim) + "d_mat",
-                ),
-            )
+    def _load_assembly_kernel(self):
+        """Load the pyccelized assembly kernel for the dimension of the problem (1d, 2d or 3d)."""
+        self._assembly_kernel = PyccelKernel(
+            getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_mat",
+            ),
+        )
 
     @property
     def derham(self):
@@ -2159,18 +2105,7 @@ class WeightedMassOperator(LinearOperator):
 
         # bring weights back in "right" (not transposed order)
         if self._transposed:
-            n_rows = len(self._weights)
-            n_cols = len(self._weights[0])
-
-            weights = []
-
-            for m in range(n_cols):
-                weights += [[]]
-                for n in range(n_rows):
-                    if self._weights[n][m] is not None:
-                        weights[-1] += [self._weights[n][m]]
-                    else:
-                        weights[-1] += [None]
+            weights = self._transpose_weights(self._weights)
         else:
             weights = self._weights
 
@@ -2193,7 +2128,7 @@ class WeightedMassOperator(LinearOperator):
         )
 
         # weights of M in its own (transposed) block order
-        M._weights = [[self._weights[n][m] for n in range(len(self._weights))] for m in range(len(self._weights[0]))]
+        M._weights = self._transpose_weights(self._weights)
 
         if self._creation_info is not None:
             M._creation_info = dict(self._creation_info, is_transpose=not self._creation_info["is_transpose"])
@@ -2275,26 +2210,8 @@ class WeightedMassOperator(LinearOperator):
             )
 
             # collect domain/codomain TensorFemSpaces for each component in tuple
-            if self._transposed:
-                if isinstance(self._W, TensorFemSpace):
-                    domain_spaces = (self._W,)
-                else:
-                    domain_spaces = self._W.spaces
-
-                if isinstance(self._V, TensorFemSpace):
-                    codomain_spaces = (self._V,)
-                else:
-                    codomain_spaces = self._V.spaces
-            else:
-                if isinstance(self._V, TensorFemSpace):
-                    domain_spaces = (self._V,)
-                else:
-                    domain_spaces = self._V.spaces
-
-                if isinstance(self._W, TensorFemSpace):
-                    codomain_spaces = (self._W,)
-                else:
-                    codomain_spaces = self._W.spaces
+            domain_spaces = self._component_spaces(self._domain_femspace)
+            codomain_spaces = self._component_spaces(self._codomain_femspace)
 
             # set new weights and check for compatibility
             if weights is not None:
@@ -2317,7 +2234,7 @@ class WeightedMassOperator(LinearOperator):
                 codomain_pads = codomain_space.coeff_space.pads
 
                 # quadrature points
-                pts = [points.flatten() for points in spline_attr[W_name].quad_grid_pts[a]]
+                pts = self._quad_pts(W_name, a)
 
                 # global quadrature weights in format (local element, local weight)
                 wts = spline_attr[W_name].quad_grid_wts[a]
@@ -2334,23 +2251,11 @@ class WeightedMassOperator(LinearOperator):
 
                     loc_weight = self._weights[a][b]
 
-                    # evaluate weight at quadrature points
-                    if callable(loc_weight):
-                        PTS = xp.meshgrid(*pts, indexing="ij")
-                        mat_w = loc_weight(*PTS).copy()
-                    elif isinstance(loc_weight, xp.ndarray):
-                        # Spline factors below must not modify the stored geometric
-                        # weight: assembly can be repeated as density changes.
-                        mat_w = loc_weight.copy()
-                    elif loc_weight is not None:
-                        raise TypeError(
-                            "weights must be callable or xp.ndarray or None but is {}".format(
-                                type(self._weights[a][b]),
-                            ),
-                        )
+                    # evaluate weight at quadrature points (copy: spline factors below must not
+                    # modify the stored geometric weight, assembly can be repeated as density changes)
+                    mat_w = self._evaluate_weight(loc_weight, pts, copy=True)
 
                     if loc_weight is not None:
-                        assert mat_w.shape == tuple([pt.size for pt in pts])
                         # evalute splines and multiply
                         for name, spline in self.spline_functions.items():
                             logger.debug(
@@ -2369,17 +2274,10 @@ class WeightedMassOperator(LinearOperator):
                             mat_w *= values
                     else:
                         logger.debug(f"No weight for block {a, b}, setting mat_w to None.")
-                        mat_w = None
 
-                    not_weight_zero = xp.array(
-                        int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
+                    not_weight_zero = self._is_globally_nonzero(
+                        loc_weight is not None and bool(xp.any(xp.abs(mat_w) > 1e-14)),
                     )
-                    if self.derham.comm is not None:
-                        self.derham.comm.Allreduce(
-                            MPI.IN_PLACE,
-                            not_weight_zero,
-                            op=MPI.LOR,
-                        )
 
                     # evaluated basis functions at quadrature points of domain space
                     domain_basis = spline_attr[V_name].quad_grid_bases[b]
@@ -2411,12 +2309,7 @@ class WeightedMassOperator(LinearOperator):
                         if mat is None:
                             # Maybe in a previous iteration we had more zeros
                             # Can only happen in the Block case
-                            self._mat[a, b] = StencilMatrix(
-                                domain_space.coeff_space,
-                                codomain_space.coeff_space,
-                                backend=PSYDAC_BACKEND_GPYCCEL,
-                                precompiled=True,
-                            )
+                            self._mat[a, b] = self._new_block(domain_space, codomain_space)
                             mat = self._mat[a, b]
 
                         logger.debug(f"Assemble block {a, b}")
