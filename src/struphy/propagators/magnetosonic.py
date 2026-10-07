@@ -171,7 +171,7 @@ class Magnetosonic(Propagator):
             _UT = _U.T
 
         self._B = -1 / 2.0 * _UT @ self.derham.div.T @ self.mass_ops.M3
-        self._C = 1 / 2.0 * self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U
+        self._C = 1 / 2.0 * (self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U)
 
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)

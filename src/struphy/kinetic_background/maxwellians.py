@@ -394,7 +394,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
     .. math::
 
-        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
+        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B_0)}\frac{m_sF}{q_sB_0} \mathcal{H}(\epsilon - \mu B_0),
 
     - Energy
 
@@ -408,7 +408,9 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
         \mu = \frac{m_s v_\perp²}{2B},
 
-    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
+    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function, :math:`B_0` is the on-axis field and :math:`\mathcal{H}` is the Heaviside function.
+    The last term estimates the average radial orbit excursion of passing particles, so that :math:`\psi_c` is close to the
+    orbit center and the distribution has no net parallel flow (Angelino et al. 2006, Phys. Plasmas 13, 052304, Eq. 7).
 
     With the three constants of motion, a canonical Maxwellian distribution function is defined as
 
@@ -626,15 +628,6 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                         self.test_mask[2 * n_markers // 3] = True
         return cached
 
-    @property
-    def B_max(self):
-        r"""Maximum equilibrium field strength :math:`B_\text{max} = \max |\mathbf B_0|` over the plasma domain"""
-        if not hasattr(self, "_B_max"):
-            e1 = xp.linspace(0.0, 1.0, 300)
-            e2 = xp.linspace(0.0, 1.0, 300)
-            self._B_max = float(xp.max(self.equil.absB0(e1, e2, xp.zeros(1))))
-        return self._B_max
-
     def eval_psic(self, *coords):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
 
@@ -683,13 +676,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            B_max = self.B_max
-            positive_mask = (energy - mu * B_max) > 0
+            positive_mask = (energy - mu * B0) > 0
             correction = xp.zeros_like(psi_c)
             correction[positive_mask] = (
                 self._epsilon
                 * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy - mu * B_max)[positive_mask])
+                * xp.sqrt(2 * (energy - mu * B0)[positive_mask])
                 * R0
             )
             psi_c += correction
@@ -710,13 +702,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            B_max = self.B_max
-            positive_mask[:] = (energy - mu * B_max) > 0
+            positive_mask[:] = (energy - mu * B0) > 0
             correction[:] = 0.0
             correction[positive_mask] = (
                 self._epsilon
                 * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy - mu * B_max)[positive_mask])
+                * xp.sqrt(2 * (energy - mu * B0)[positive_mask])
                 * R0
             )
             psi_c[:] += correction
