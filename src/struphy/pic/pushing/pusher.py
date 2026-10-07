@@ -365,6 +365,10 @@ class Pusher:
         """The pusher kernel for the active backend (pyccel or CUDA)."""
         return self._kernel
 
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this pusher calls: the pusher kernel and those of its init and eval kernel setups."""
+        return (self._kernel,) + tuple(setup.kernel for setup in self._init_kernels + self._eval_kernels)
+
     @property
     def init_kernels(self) -> tuple[KernelSetup, ...]:
         """Ordered setups for evaluations at the initial state."""
