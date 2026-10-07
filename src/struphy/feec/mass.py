@@ -47,7 +47,8 @@ class _ClassifiedWeights:
 
     # callables returning shape (n1, n2, n3)
     scalars: list = field(default_factory=list)
-    # callables returning shape (n1, n2, n3, 3, 3)
+    # matrix factors in multiplication order: callables returning shape (n1, n2, n3, 3, 3)
+    # or constant arrays of shape (3, 3)
     matrices: list = field(default_factory=list)
     # callable returning shape (n1, n2, n3, 3), for maps from a scalar to a vector space
     col_vector: Callable | None = None
@@ -1123,20 +1124,20 @@ class WeightedMassOperators:
         by the product of all scalar factors. SplineFunction factors are not evaluated here;
         they are passed on to :class:`WeightedMassOperator`, which evaluates them during assembly.
 
+        The factors are evaluated once per distinct quadrature grid: if all components of ``W_id``
+        share the same grid (the usual case), the evaluation is reused for all block rows.
+
         Returns
         -------
         weights_values : list[list[xp.ndarray | None]]
-            Weights at the quadrature points, one block per (component of ``W_id``, component of ``V_id``).
-            ``None`` marks a zero block.
+            Weights at the quadrature points, one C-contiguous block of shape (n1, n2, n3) per
+            (component of ``W_id``, component of ``V_id``). ``None`` marks a zero block.
 
         spline_functions : dict
             SplineFunction factors, keyed by their name.
         """
         classified = self._classify_weights(weights, V_id, W_id)
         self._check_weight_compatibility(classified, V_id, W_id)
-
-        # all matrix factors are combined into a single callable
-        f_matrix = self._compose_matrix_callable(classified.matrices) if classified.matrices else None
 
         # number of block columns = number of components of the domain space V_id
         if V_id in _SCALAR_SPACES:
@@ -1155,18 +1156,33 @@ class WeightedMassOperators:
         logger.debug(f"{len(quad_grid_pts) = }")
 
         weights_values = []
+        evaluated_grid = None
         for m, component in enumerate(quad_grid_pts):
             grids_1d = [pts.flatten() for pts in component]
-            logger.debug(f"Evaluating block row {m} of {W_id} on grid of size {tuple(g.size for g in grids_1d)}.")
-            weights_values.append(self._eval_weights_on_grid(classified, f_matrix, m, n_cols, grids_1d))
+            grid_shape = tuple(g.size for g in grids_1d)
+
+            # evaluate the factors only if the grid differs from the one of the previous row
+            reuse = evaluated_grid is not None and all(
+                xp.array_equal(g, g_prev) for g, g_prev in zip(grids_1d, evaluated_grid)
+            )
+            if not reuse:
+                logger.debug(f"Evaluating weights for block row {m} of {W_id} on grid of shape {grid_shape}.")
+                mv, scalar = self._eval_factors(classified, grids_1d)
+                evaluated_grid = grids_1d
+
+            # a scalar array reused from a previous row must not be shared between blocks
+            weights_values.append(
+                self._extract_row(classified, mv, scalar, m, n_cols, grid_shape, copy_scalar=reuse),
+            )
 
         return weights_values, classified.spline_functions
 
     def _classify_weights(self, weights: tuple, V_id: str, W_id: str) -> "_ClassifiedWeights":
-        """Sort the entries of a 1D weights tuple into scalar, vector and matrix callables and SplineFunctions.
+        """Sort the entries of a 1D weights tuple into scalar, vector and matrix factors and SplineFunctions.
 
-        Strings and nested lists are converted to callables; for general callables the
-        type is determined from the number of dimensions of their output (see :meth:`_callable_output_dim`).
+        Strings are converted to callables (or constant matrices), nested lists to constant matrices;
+        for general callables the kind is determined from the number of dimensions of their output
+        (see :meth:`_callable_output_dim`).
         """
         classified = _ClassifiedWeights()
 
@@ -1182,12 +1198,10 @@ class WeightedMassOperators:
                     classified.scalars.append(f_call)
 
             elif isinstance(f, list):
-                # constant 3x3 matrix given as nested list
+                # constant 3x3 matrix given as nested list (copied, such that later changes to the list have no effect)
                 if len(f) != 3 or any(not isinstance(row, list) or len(row) != 3 for row in f):
                     raise ValueError(f"Nested list weight must be of shape 3x3, got {f}.")
-                # copy the values, such that later changes to the list do not affect the weight
-                values = tuple(tuple(row) for row in f)
-                classified.matrices.append(self._constant_matrix_callable(values))
+                classified.matrices.append(xp.array(f, dtype=float))
 
             elif isinstance(f, SplineFunction):
                 # evaluated during assembly in WeightedMassOperator
@@ -1221,9 +1235,10 @@ class WeightedMassOperators:
         return classified
 
     def _string_weight_callable(self, key: str):
-        """Return the callable and its kind (``'matrix'`` or ``'scalar'``) for a predefined string weight.
+        """Return the weight and its kind (``'matrix'`` or ``'scalar'``) for a predefined string weight.
 
         Matrix callables return arrays of shape (n1, n2, n3, 3, 3), scalar callables of shape (n1, n2, n3).
+        ``'Identity'`` is returned as constant matrix of shape (3, 3).
         """
         if key == "G":
             return lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True), "matrix"
@@ -1237,29 +1252,13 @@ class WeightedMassOperators:
                 "matrix",
             )
         elif key == "Identity":
-            identity = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
-            return self._constant_matrix_callable(identity), "matrix"
+            return xp.eye(3), "matrix"
         elif key == "sqrt_g":
             return lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3)), "scalar"
         elif key == "1/sqrt_g":
             return lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3)), "scalar"
         else:
             raise NotImplementedError(f"The option {key} is not available.")
-
-    @staticmethod
-    def _constant_matrix_callable(values: tuple):
-        """Return a callable that evaluates the constant 3x3 matrix ``values`` on a sparse meshgrid."""
-
-        def f_call(e1, e2, e3):
-            """Constant matrix callable."""
-            out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
-            for m in range(3):
-                for n in range(3):
-                    out[m, n] = values[m][n]
-            # to keep C-ordering the (3, 3)-part is in the last indices
-            return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-
-        return f_call
 
     @staticmethod
     def _callable_output_dim(f: Callable) -> int:
@@ -1290,62 +1289,99 @@ class WeightedMassOperators:
             raise ValueError(f"Matrix weights require a vector->vector map, got {V_id}->{W_id}.")
 
     @staticmethod
-    def _compose_matrix_callable(matrices: list):
-        """Return a callable that evaluates the matrix product of all callables in ``matrices`` (left to right)."""
+    def _eval_matrix_product(matrices: list, E1, E2, E3):
+        """Matrix product (left to right) of the matrix factors at the points (E1, E2, E3) of a sparse meshgrid.
 
-        def f_call_matrix(e1, e2, e3):
-            """Matrix-matrix multiplication of the matrix callables."""
-            out = matrices[0](e1, e2, e3)
-            for f in matrices[1:]:
-                # batched product over the grid; the 3x3 part is in the last two axes
-                out = out @ f(e1, e2, e3)
-            return out
-
-        return f_call_matrix
+        Constant factors of shape (3, 3) are multiplied as such, without being expanded to the grid.
+        Returns an array of shape (n1, n2, n3, 3, 3), or of shape (3, 3) if all factors are constant.
+        """
+        out = None
+        for f in matrices:
+            factor = f if isinstance(f, xp.ndarray) else f(E1, E2, E3)
+            # batched product over the grid; the 3x3 part is in the last two axes
+            out = factor if out is None else out @ factor
+        return out
 
     @staticmethod
-    def _eval_weights_on_grid(
-        classified: "_ClassifiedWeights",
-        f_matrix: Callable | None,
-        m: int,
-        n_cols: int,
-        grids_1d: list,
-    ) -> list:
-        """Evaluate block row ``m`` of the weights on the tensor-product grid ``grids_1d``.
+    def _eval_factors(classified: "_ClassifiedWeights", grids_1d: list):
+        """Evaluate the matrix/vector factor and the product of the scalar factors on the grid ``grids_1d``.
 
-        Returns a list of ``n_cols`` blocks of shape (n1, n2, n3); ``None`` marks a zero block.
+        Returns
+        -------
+        mv : xp.ndarray | None
+            Matrix product of shape (n1, n2, n3, 3, 3) or (3, 3) (if constant), vector of shape
+            (n1, n2, n3, 3), or None if there is neither a matrix nor a vector factor.
+
+        scalar : xp.ndarray | None
+            Product of the scalar factors, of shape (n1, n2, n3), or None if there are none.
         """
         E1, E2, E3, _ = Domain.prepare_eval_pts(*grids_1d)
-        row = [None] * n_cols
 
-        # 1. matrix or vector factor; the blocks of the row are views into the evaluated array
-        if f_matrix is not None:
-            tmp = f_matrix(E1, E2, E3)  # shape (n1, n2, n3, 3, 3)
-            _log_weight_stats("matrix weight", tmp)
-            row = [tmp[:, :, :, m, n] for n in range(n_cols)]
+        if classified.matrices:
+            mv = WeightedMassOperators._eval_matrix_product(classified.matrices, E1, E2, E3)
+            _log_weight_stats("matrix weight", mv)
         elif classified.col_vector is not None:
-            tmp = classified.col_vector(E1, E2, E3)  # shape (n1, n2, n3, 3), entry m belongs to row m
-            _log_weight_stats("column vector weight", tmp)
-            row = [tmp[:, :, :, m]]
+            mv = classified.col_vector(E1, E2, E3)
+            _log_weight_stats("column vector weight", mv)
         elif classified.row_vector is not None:
-            tmp = classified.row_vector(E1, E2, E3)  # shape (n1, n2, n3, 3), entry n belongs to column n
-            _log_weight_stats("row vector weight", tmp)
-            row = [tmp[:, :, :, n] for n in range(n_cols)]
+            mv = classified.row_vector(E1, E2, E3)
+            _log_weight_stats("row vector weight", mv)
+        else:
+            mv = None
 
-        # 2. multiply all blocks by the product of the scalar factors (computed once per row)
-        if classified.scalars:
-            scalar = None
-            for f in classified.scalars:
-                val = f(E1, E2, E3)
-                scalar = val if scalar is None else scalar * val
+        scalar = None
+        for f in classified.scalars:
+            val = f(E1, E2, E3)
+            scalar = val if scalar is None else scalar * val
+        if scalar is not None:
             _log_weight_stats("scalar weight", scalar)
 
-            for n in range(n_cols):
-                if row[n] is not None:
-                    row[n] *= scalar
-                elif m == n:
-                    # purely scalar weight: only the diagonal blocks are non-zero
-                    row[n] = scalar
+        return mv, scalar
+
+    @staticmethod
+    def _extract_row(
+        classified: "_ClassifiedWeights",
+        mv,
+        scalar,
+        m: int,
+        n_cols: int,
+        grid_shape: tuple,
+        copy_scalar: bool = False,
+    ) -> list:
+        """Blocks of row ``m`` of the weights, from the evaluated factors (see :meth:`_eval_factors`).
+
+        Returns a list of ``n_cols`` new C-contiguous arrays of shape ``grid_shape``; ``None`` marks a zero block.
+        If ``copy_scalar`` is True, a purely scalar block is a copy of ``scalar`` instead of ``scalar`` itself.
+        """
+        row = []
+        for n in range(n_cols):
+            # entry (m, n) of the matrix or vector factor; None if there is no such factor
+            if classified.matrices:
+                if mv.ndim == 2:
+                    # constant matrix: exactly zero entries give zero blocks
+                    if mv[m, n] == 0.0:
+                        row.append(None)
+                        continue
+                    factor = float(mv[m, n])
+                else:
+                    factor = mv[:, :, :, m, n]
+            elif classified.col_vector is not None:
+                factor = mv[:, :, :, m]
+            elif classified.row_vector is not None:
+                factor = mv[:, :, :, n]
+            else:
+                factor = None
+
+            if factor is None:
+                # purely scalar weight: only the diagonal blocks are non-zero
+                if scalar is not None and m == n:
+                    row.append(scalar.copy() if copy_scalar else scalar)
+                else:
+                    row.append(None)
+            elif scalar is None:
+                row.append(xp.ascontiguousarray(xp.broadcast_to(factor, grid_shape), dtype=float))
+            else:
+                row.append(xp.ascontiguousarray(factor * scalar))
 
         return row
 
