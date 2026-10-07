@@ -1183,6 +1183,22 @@ def _cupy_installed():
         return False
 
 
+# environment variables through which an MPI launcher (Open MPI, MPICH/Hydra, Intel MPI, Slurm) hands a process
+# its place in the job
+MPI_LAUNCHER_PREFIXES = ("OMPI_", "PMIX_", "PMI_", "HYDRA_", "MPIR_", "I_MPI_", "SLURM_")
+
+
+def serial_child_env(**extra):
+    """Environment for a child Python process started from a test: serial, outside the MPI job.
+
+    Under ``mpirun`` the child would otherwise inherit the launcher's variables, join the parent's MPI job when it
+    imports struphy, and corrupt the parent's later collectives (a segfault in the next ``Alltoallv``).
+    """
+    env = {name: value for name, value in os.environ.items() if not name.startswith(MPI_LAUNCHER_PREFIXES)}
+    env.update(CUNUMPY_MPI="0", MAYBEMPI="0", **extra)
+    return env
+
+
 @pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
 @pytest.mark.parametrize("mapping", CUDA_DOMAIN_MAPPINGS)
 def test_cuda_args_domain_fake_cupy(mapping):
@@ -1190,9 +1206,10 @@ def test_cuda_args_domain_fake_cupy(mapping):
 
     Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
     """
-    env = {**os.environ, "CUNUMPY_FAKE_CUPY": "1"}
     code = f"from struphy.geometry.tests.test_domain import check_cuda_args_domain; check_cuda_args_domain({mapping!r})"
-    result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
+    )
     assert result.returncode == 0, result.stderr[-4000:]
 
 
