@@ -2,7 +2,6 @@ import copy
 import logging
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -14,7 +13,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
@@ -148,7 +147,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         particles_to_grid = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            PyccelKernel(accum_kernels.charge_density_0form),
+            accum_catalog["charge_density_0form"],
         )
 
         self.initial_poisson = PoissonSolve(

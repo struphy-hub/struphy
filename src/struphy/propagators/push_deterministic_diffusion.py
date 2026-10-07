@@ -3,13 +3,12 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy.kernels import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
@@ -119,7 +118,7 @@ class PushDeterministicDiffusion(Propagator):
         self._u_on_grid = AccumulatorVector(
             particles,
             "H1",
-            PyccelKernel(accum_kernels.charge_density_0form),
+            accum_catalog["charge_density_0form"],
             self.mass_ops,
             self.domain.args_domain,
         )

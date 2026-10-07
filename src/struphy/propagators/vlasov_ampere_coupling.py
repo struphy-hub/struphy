@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner
@@ -12,7 +11,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
@@ -126,7 +125,7 @@ class VlasovAmpereCoupling(Propagator):
         self._info = self.options.solver_params.info
 
         # get accumulation kernel
-        accum_kernel = PyccelKernel(accum_kernels.vlasov_maxwell)
+        accum_kernel = accum_catalog["vlasov_maxwell"]
 
         # Initialize Accumulator object
         particles = self.variables.ions.particles

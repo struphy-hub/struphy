@@ -2,7 +2,6 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
@@ -19,8 +18,8 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -197,7 +196,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC = AccumulatorVector(
             self.energetic_ions.particles,
             "H1",
-            PyccelKernel(accum_kernels_gc.gc_mag_density_0form),
+            accum_catalog["gc_mag_density_0form"],
             self.mass_ops,
             self.domain.args_domain,
             filter_params=self.options.filter_params,

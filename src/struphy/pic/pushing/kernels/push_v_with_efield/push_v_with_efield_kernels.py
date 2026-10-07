@@ -20,7 +20,7 @@ def push_v_with_efield(
     e1_1: "float[:,:,:]",
     e1_2: "float[:,:,:]",
     e1_3: "float[:,:,:]",
-    const: "float",
+    const_factor: "float",
 ):
     r"""Updates particle velocities as
 
@@ -29,14 +29,14 @@ def push_v_with_efield(
         \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = c \, \bar{DF}^{-\top}  (\mathbb L^1)^\top \mathbf e
 
     where :math:`\mathbf e \in \mathbb R^{N_1}` are given FE coefficients of the 1-form spline field
-    and :math:`c \in \mathbb R` is some constant.
+    and :math:`c \in \mathbb R` is some constant (``const_factor``).
 
     Parameters
     ----------
         e1_1, e1_2, e1_3 : ndarray[float]
             3d array of FE coeffs of E-field as 1-form.
 
-        const : float
+        const_factor : float
             A constant (usuallly related to the charge-to-mass ratio).
     """
 
@@ -99,4 +99,4 @@ def push_v_with_efield(
         linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
-        markers[ip, 3:6] += dt * const * e_cart
+        markers[ip, 3:6] += dt * const_factor * e_cart

@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
@@ -14,8 +13,8 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.pushing.kernels import catalog
 from struphy.pic.pushing.pusher import Pusher
@@ -189,10 +188,10 @@ class PressureCoupling6D(Propagator):
 
         # Call the accumulation and Pusher class
         if self.options.use_perp_model:
-            accum_ker = PyccelKernel(accum_kernels.pc_lin_mhd_6d)
+            accum_ker = accum_catalog["pc_lin_mhd_6d"]
             pusher_ker = catalog["push_pc_GXu"]
         else:
-            accum_ker = PyccelKernel(accum_kernels.pc_lin_mhd_6d_full)
+            accum_ker = accum_catalog["pc_lin_mhd_6d_full"]
             pusher_ker = catalog["push_pc_GXu_full"]
 
         # define Accumulator and arguments

@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy.kernels import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -11,8 +10,8 @@ from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -169,7 +168,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._ACC = Accumulator(
             self.energetic_ions.particles,
             self.options.u_space,
-            PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_D),
+            accum_catalog["cc_lin_mhd_5d_D"],
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,

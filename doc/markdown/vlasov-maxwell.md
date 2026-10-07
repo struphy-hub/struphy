@@ -376,7 +376,7 @@ $$
 B_p = -\frac{\alpha^2}{\varepsilon} \frac 1 N w_p\,.
 $$
 
-As an example, we can look at the kernel [charge_density_0form](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/accumulation/accum_kernels.py), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
+As an example, we can look at the kernel [charge_density_0form](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/accumulation/kernels/charge_density_0form/charge_density_0form_kernels.py), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
 
 1. Extract the marker position $\boldsymbol \eta_p$ and other relevant marker quantities.
 2. Compute the "filling function", denoted $A^{\mu,\nu}_p$ or $B^\mu_p$ in the [Accumulator docstring](https://struphy-hub.github.io/struphy/sections/subsections-old/pic_base.html#struphy.pic.accumulation.particles_to_grid.Accumulator).
@@ -384,7 +384,7 @@ As an example, we can look at the kernel [charge_density_0form](https://github.c
 
         import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 
-which is imported at the top of [accum_kernels.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py?ref_type=heads) and [accum_kernels_gc.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels_gc.py?ref_type=heads), respectively. The coupling term in Ampère's law can be treated in analogous fashion:
+which is imported at the top of each accumulation kernel in [pic/accumulation/kernels](https://github.com/struphy-hub/struphy/tree/devel/src/struphy/pic/accumulation/kernels) (one folder per kernel). The coupling term in Ampère's law can be treated in analogous fashion:
 
 $$
 \begin{aligned}

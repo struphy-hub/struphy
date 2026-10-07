@@ -61,4 +61,14 @@ __device__ inline void cross(const double* a, const double* b, double* c) {
     c[1] = a[2] * b[0] - a[0] * b[2];
     c[2] = a[0] * b[1] - a[1] * b[0];
 }
+/**
+ * Transpose of a 3x3 matrix, as in linalg_kernels.transpose.
+ *
+ * @param a Input matrix stored as nine row-major entries.
+ * @param b Output transpose with nine row-major entries; must not overlap a.
+ */
+__device__ inline void transpose(const double* a, double* b) {
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j) b[3 * i + j] = a[3 * j + i];
+}
 }

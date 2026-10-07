@@ -1,4 +1,4 @@
-"""Every CUDA pusher must have a parity argument factory here."""
+"""Every CUDA pusher and accumulation kernel must have a parity argument factory here."""
 
 import cunumpy as xp
 import numpy as np
@@ -7,6 +7,7 @@ from cunumpy.kernel_testing import assert_kernels_agree
 from cunumpy.profiling import assert_no_transfers
 
 from struphy.ode.utils import ButcherTableau
+from struphy.pic.accumulation.kernels import catalog as accum_catalog
 from struphy.pic.pushing.kernels import catalog
 from struphy.pic.tests.test_kernel_backends import make_arguments, requires_cupy
 
@@ -38,16 +39,40 @@ def field_arguments(bc, method):
     return (m, d, a, *coeffs)
 
 
+def efield_arguments(bc, method):
+    return (*field_arguments(bc, method), 0.7)
+
+
+def weights_arguments(bc, method):
+    f0_values = xp.asarray(np.random.default_rng(13).random(129))
+    return (*field_arguments(bc, method), f0_values, 1.3, 0.8)
+
+
 FACTORIES = {
     "push_eta_stage": eta_arguments,
     "push_vxb_analytic": field_arguments,
     "push_vxb_implicit": field_arguments,
+    "push_v_with_efield": efield_arguments,
+    "push_weights_with_efield_lin_va": weights_arguments,
 }
 CUDA_NAMES = [name for name, kernel in catalog.parity_cases()]
 
 
+def density_arguments(bc):
+    """Accumulation into a 0-form vector; the arguments are markers, Derham, domain and the vector."""
+    m, d, a, *_ = field_arguments(bc, "forward_euler")
+    return (m, a, d, xp.zeros((18, 20, 16)))
+
+
+ACCUM_FACTORIES = {
+    "charge_density_0form": density_arguments,
+}
+ACCUM_CUDA_NAMES = [name for name, kernel in accum_catalog.parity_cases()]
+
+
 def test_cuda_factories_cover_catalog():
     assert set(CUDA_NAMES) == set(FACTORIES)
+    assert set(ACCUM_CUDA_NAMES) == set(ACCUM_FACTORIES)
 
 
 @requires_cupy
@@ -67,6 +92,16 @@ def test_catalog_parity(name, bc, method):
             return (0.2, stage, *args)
 
         assert_kernels_agree(catalog[name], make_args, n_threads=129, rtol=1e-13, atol=1e-14)
+
+
+@requires_cupy
+@pytest.mark.parametrize("name", ACCUM_CUDA_NAMES)
+@pytest.mark.parametrize("bc", [(0, 0, 0), (2, 0, 1)])
+def test_accum_catalog_parity(name, bc):
+    # atomics add in another order than the serial loop, hence the tolerance
+    assert_kernels_agree(
+        accum_catalog[name], lambda backend, seed: ACCUM_FACTORIES[name](bc), n_threads=129, rtol=1e-12, atol=1e-13
+    )
 
 
 @requires_cupy
@@ -103,6 +138,10 @@ def test_device_pusher_time_loop(monkeypatch):
 
 
 def test_vlasov_kernel_coverage():
-    """Both selectable PushVxB algorithms and PushEta must have device kernels."""
-    for name in ("push_eta_stage", "push_vxb_analytic", "push_vxb_implicit"):
+    """PushEta, both selectable PushVxB algorithms and the electric-field push must have device kernels."""
+    for name in ("push_eta_stage", "push_vxb_analytic", "push_vxb_implicit", "push_v_with_efield"):
         assert catalog[name].cuda_kernel is not None
+    for name in ("push_weights_with_efield_lin_va",):
+        assert catalog[name].cuda_kernel is not None
+    for name in ("charge_density_0form",):
+        assert accum_catalog[name].cuda_kernel is not None
