@@ -92,4 +92,80 @@ __device__ inline void b_d_splines_slim(const double* tn, int pn, double eta, in
         bn[j + 1] = saved;
     }
 }
+
+/**
+ * Evaluate the pn + 1 non-vanishing B-splines, as in bsplines_kernels.b_splines_slim.
+ *
+ * @param tn Knot sequence.
+ * @param pn B-spline degree, at most MAX_SPLINE_DEGREE.
+ * @param eta Evaluation point.
+ * @param span Knot span index from find_span.
+ * @param values Output buffer with at least pn + 1 entries.
+ *
+ * Same recursion as basis_funs; the Pyccel left/right arrays are thread-local arrays here.
+ */
+__device__ inline void b_splines_slim(const double* tn, int pn, double eta, int span, double* values) {
+    double left[MAX_SPLINE_DEGREE], right[MAX_SPLINE_DEGREE];
+    values[0] = 1.;
+    for (int j = 0; j < pn; ++j) {
+        left[j] = eta - tn[span - j];
+        right[j] = tn[span + 1 + j] - eta;
+        double saved = 0.;
+        for (int r = 0; r <= j; ++r) {
+            double temp = values[r] / (right[r] + left[j - r]);
+            values[r] = saved + right[r] * temp;
+            saved = left[j - r] * temp;
+        }
+        values[j + 1] = saved;
+    }
+}
+
+/**
+ * Evaluate the pn + 1 non-vanishing B-splines and their derivatives, as in bsplines_kernels.b_der_splines_slim.
+ *
+ * @param tn Knot sequence.
+ * @param pn B-spline degree, between 1 and MAX_SPLINE_DEGREE.
+ * @param eta Evaluation point.
+ * @param span Knot span index from find_span.
+ * @param bn Output buffer for the pn + 1 B-spline values.
+ * @param der Output buffer for the pn + 1 derivatives of the B-splines.
+ *
+ * The Pyccel scratch arrays left, right, diff and the triangular table values ((pn + 1) x (pn + 1)) are
+ * fixed-size, thread-local arrays here.
+ */
+__device__ inline void b_der_splines_slim(const double* tn, int pn, double eta, int span, double* bn, double* der) {
+    double left[MAX_SPLINE_DEGREE], right[MAX_SPLINE_DEGREE], diff[MAX_SPLINE_DEGREE];
+    double values[MAX_SPLINE_DEGREE + 1][MAX_SPLINE_DEGREE + 1];
+    values[0][0] = 1.;
+    for (int j = 0; j < pn; ++j) {
+        left[j] = eta - tn[span - j];
+        right[j] = tn[span + 1 + j] - eta;
+        double saved = 0.;
+        for (int r = 0; r <= j; ++r) {
+            diff[r] = 1. / (right[r] + left[j - r]);
+            double temp = values[j][r] * diff[r];
+            values[j + 1][r] = saved + right[r] * temp;
+            saved = left[j - r] * temp;
+        }
+        values[j + 1][j + 1] = saved;
+    }
+
+    for (int r = 0; r < pn; ++r) diff[r] = diff[r] * pn;
+
+    // compute derivatives
+    // j = 0
+    double saved = values[pn - 1][0] * diff[0];
+    der[0] = -saved;
+
+    // j = 1, ... , pn - 1
+    for (int j = 1; j < pn; ++j) {
+        double temp = saved;
+        saved = values[pn - 1][j] * diff[j];
+        der[j] = temp - saved;
+    }
+
+    // j = pn
+    for (int j = 0; j <= pn; ++j) bn[j] = values[pn][j];
+    der[pn] = saved;
+}
 }

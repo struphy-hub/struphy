@@ -57,7 +57,7 @@ def test_evaluation_parity(mode, kind, empty):
 @requires_cupy
 @pytest.mark.parametrize("ndim", [1, 2, 3])
 def test_view_validation(ndim):
-    from cunumpy.cuda import CudaKernel
+    from cunumpy.kernels import CudaKernel
 
     source = f"""#include "cunumpy/array_view.cuh"
     extern "C" __global__ void check(Array{ndim}D<double> a) {{ }}"""

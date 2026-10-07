@@ -3,11 +3,13 @@
 import cunumpy
 import numpy as np
 import pytest
-from cunumpy.cuda import CudaKernel
 from cunumpy.kernel_testing import device_function_kernel, requires_cupy
+from cunumpy.kernels import CudaKernel
 
 from struphy.bsplines import bsplines_kernels as splines
+from struphy.geometry.tests import spline_mapping_cases
 from struphy.linear_algebra import linalg_kernels as linalg
+from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
 from struphy.utils.cuda_arguments import CUDA_OPTIONS
 
 
@@ -205,6 +207,49 @@ extern "C" __global__ void evaluate(const double* eta, DerhamArgs args_derham, d
     np.testing.assert_allclose(out.get(), expected, rtol=1e-13, atol=1e-13)
 
 
+@requires_cupy
+@pytest.mark.parametrize("degree", range(1, 9))
+def test_der_spline_helpers(degree):
+    """b_splines_slim and b_der_splines_slim on the device agree with pyccel."""
+    import cupy as cp
+
+    from struphy.geometry.tests.spline_mapping_cases import DER_SPLINES_SOURCE, der_splines_case
+
+    knots, pts, expected = der_splines_case(degree)
+    out = cp.zeros(expected.shape)
+    CudaKernel(DER_SPLINES_SOURCE, "evaluate_der_splines", **CUDA_OPTIONS)(
+        cp.asarray(knots), len(knots), degree, cp.asarray(pts), out, len(pts), n_threads=len(pts)
+    )
+    np.testing.assert_allclose(out.get(), expected, rtol=1e-13, atol=1e-13)
+
+
+@requires_cupy
+@pytest.mark.parametrize("name", list(spline_mapping_cases.DOMAINS))
+def test_spline_mapping_helpers(name):
+    """spline_3d(_df), spline_2d_straight(_df) and spline_2d_torus(_df) on the device agree with pyccel.
+
+    The domain is created on the CuPy backend, so the device reads the CudaDomainArguments of the domain itself.
+    """
+    import cupy as cp
+
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
+
+    etas = spline_mapping_cases.points()
+    expected = spline_mapping_cases.expected(spline_mapping_cases.host_domain(name).args_domain, etas)
+    with cunumpy.use_backend("cupy"):
+        args_domain = spline_mapping_cases.DOMAINS[name]().args_domain
+    assert type(args_domain) is CudaDomainArguments
+    out = cp.zeros(expected.size)
+    spline_mapping_cases.make_kernel()(
+        *(cp.asarray(a) for a in spline_mapping_cases.flat_inputs(etas)),
+        args_domain,
+        out,
+        out.size,
+        n_threads=out.size,
+    )
+    np.testing.assert_allclose(out.get().reshape(expected.shape), expected, rtol=1e-12, atol=1e-12)
+
+
 # CUDA-only wrappers that return one entry of a helper's output, so that device_function_kernel can call the
 # helpers elementwise (its pointer arguments are shared by all threads)
 GEOMETRY_WRAPPERS = r"""
@@ -231,15 +276,14 @@ __device__ double transform_entry(double a0, double a1, double a2, double eta1, 
 """
 
 
-@requires_cupy
-@pytest.mark.parametrize("domain_index", range(10))
-@pytest.mark.parametrize("avoid_round_off", [False, True])
-def test_metric_helpers(domain_index, avoid_round_off):
-    """f, df, det_df, df_inv, g and g_inv of every analytic mapping agree with the pyccel helpers."""
-    import cupy as cp
+def metric_helper_case(domain_index, avoid_round_off):
+    """Wrapper kernel, per-thread host inputs and pyccel reference for f, df, det_df, df_inv, g and g_inv.
 
+    Domain `domain_index` of :func:`~struphy.pic.tests.kernel_test_args.geometry_domain` (analytic and spline
+    mappings). Used by :func:`test_metric_helpers` (GPU) and by its CPU emulation in ``test_cuda_emulation.py``.
+    """
     from struphy.geometry import evaluation_kernels as geometry
-    from struphy.pic.tests.kernel_test_args import analytic_domains, logical_markers
+    from struphy.pic.tests.kernel_test_args import geometry_domain, logical_markers
 
     kernel = device_function_kernel(
         GEOMETRY_WRAPPERS,
@@ -254,7 +298,7 @@ def test_metric_helpers(domain_index, avoid_round_off):
     entries = np.array([r[2] for r in rows], dtype=np.int32)
 
     with cunumpy.use_backend("numpy"):
-        args = analytic_domains()[domain_index].args_domain
+        args = geometry_domain(domain_index).args_domain
     expected = np.empty(len(rows))
     tmp1, tmp2, tmp3 = np.empty((3, 3)), np.empty((3, 3)), np.empty((3, 3))
     for i, (p, kind, entry) in enumerate(rows):
@@ -275,30 +319,17 @@ def test_metric_helpers(domain_index, avoid_round_off):
             geometry.g_inv(*p, args, tmp1, tmp2, tmp3, avoid_round_off, out)
         expected[i] = out.flat[entry]
 
-    with cunumpy.use_backend("cupy"):
-        device_args = analytic_domains()[domain_index].args_domain
-        result = cp.empty(len(rows))
-        kernel(
-            *(cp.asarray(eta[:, k]) for k in range(3)),
-            cp.asarray(kinds),
-            cp.asarray(entries),
-            cp.full(len(rows), avoid_round_off),
-            device_args,
-            result,
-            len(rows),
-            n_threads=len(rows),
-        )
-    np.testing.assert_allclose(result.get(), expected, rtol=1e-10, atol=1e-10)
+    inputs = (*(eta[:, k].copy() for k in range(3)), kinds, entries, np.full(len(rows), avoid_round_off))
+    return kernel, inputs, args, expected
 
 
-@requires_cupy
-@pytest.mark.parametrize("domain_index", range(10))
-def test_transform_helpers(domain_index):
-    """pull, push and tran of every analytic mapping agree with the pyccel helpers, for every kind_fun."""
-    import cupy as cp
+def transform_helper_case(domain_index):
+    """Wrapper kernel, per-thread host inputs and pyccel reference for pull, push and tran (every kind_fun).
 
+    Used by :func:`test_transform_helpers` (GPU) and by its CPU emulation in ``test_cuda_emulation.py``.
+    """
     from struphy.geometry import transform_kernels as transforms
-    from struphy.pic.tests.kernel_test_args import analytic_domains, logical_markers
+    from struphy.pic.tests.kernel_test_args import geometry_domain, logical_markers
 
     kernel = device_function_kernel(
         GEOMETRY_WRAPPERS,
@@ -313,7 +344,7 @@ def test_transform_helpers(domain_index):
     rows = [(i, t, k, e) for i in range(len(points)) for t, k in kinds for e in range(3 if k >= 10 else 1)]
 
     with cunumpy.use_backend("numpy"):
-        args = analytic_domains()[domain_index].args_domain
+        args = geometry_domain(domain_index).args_domain
     expected = np.empty(len(rows))
     helper = {0: transforms.pull, 1: transforms.push, 2: transforms.tran}
     for n, (i, t, k, e) in enumerate(rows):
@@ -323,16 +354,40 @@ def test_transform_helpers(domain_index):
         expected[n] = out[e]
 
     columns = np.array(rows)
+    inputs = (
+        *(values[columns[:, 0], c] for c in range(3)),
+        *(points[columns[:, 0], c] for c in range(3)),
+        *(columns[:, c].astype(np.int32) for c in (1, 2, 3)),
+    )
+    return kernel, inputs, args, expected
+
+
+def _run_on_device(kernel, inputs, domain_index, n):
+    import cupy as cp
+
+    from struphy.pic.tests.kernel_test_args import geometry_domain
+
     with cunumpy.use_backend("cupy"):
-        device_args = analytic_domains()[domain_index].args_domain
-        result = cp.empty(len(rows))
-        kernel(
-            *(cp.asarray(values[columns[:, 0], c]) for c in range(3)),
-            *(cp.asarray(points[columns[:, 0], c]) for c in range(3)),
-            *(cp.asarray(columns[:, c], dtype=cp.int32) for c in (1, 2, 3)),
-            device_args,
-            result,
-            len(rows),
-            n_threads=len(rows),
-        )
-    np.testing.assert_allclose(result.get(), expected, rtol=1e-10, atol=1e-10)
+        device_args = geometry_domain(domain_index).args_domain
+        result = cp.empty(n)
+        kernel(*(cp.asarray(a) for a in inputs), device_args, result, n, n_threads=n)
+    return result.get()
+
+
+@requires_cupy
+@pytest.mark.parametrize("domain_index", range(N_GEOMETRY_DOMAINS))
+@pytest.mark.parametrize("avoid_round_off", [False, True])
+def test_metric_helpers(domain_index, avoid_round_off):
+    """f, df, det_df, df_inv, g and g_inv of every analytic mapping and four spline mappings agree with pyccel."""
+    kernel, inputs, _, expected = metric_helper_case(domain_index, avoid_round_off)
+    result = _run_on_device(kernel, inputs, domain_index, len(expected))
+    np.testing.assert_allclose(result, expected, rtol=1e-10, atol=1e-10)
+
+
+@requires_cupy
+@pytest.mark.parametrize("domain_index", range(N_GEOMETRY_DOMAINS))
+def test_transform_helpers(domain_index):
+    """pull, push and tran of every analytic mapping and four spline mappings agree with pyccel, for every kind_fun."""
+    kernel, inputs, _, expected = transform_helper_case(domain_index)
+    result = _run_on_device(kernel, inputs, domain_index, len(expected))
+    np.testing.assert_allclose(result, expected, rtol=1e-10, atol=1e-10)

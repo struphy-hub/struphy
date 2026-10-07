@@ -615,6 +615,12 @@ class Derham:
             raise NotImplementedError(
                 "Local projectors (DerhamOptions.local_projectors=True) are not supported on the CuPy backend yet."
             )
+        if polar_splines and (xp.get_backend() == "cupy"):
+            # PolarExtractionBlocksC1 builds SciPy sparse matrices from the control points, and the polar
+            # extraction operators apply them to the stencil data, which lives on the device on CuPy.
+            raise NotImplementedError(
+                "Polar splines (DerhamOptions.polar_splines=True) are not supported on the CuPy backend yet."
+            )
 
         # number of elements and spline degrees in each direction
         assert len(num_elements) == 3
