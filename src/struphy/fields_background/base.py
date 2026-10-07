@@ -1,9 +1,11 @@
 "Base classes for MHD equilibria."
 
+import functools
 import logging
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
+import numpy as np
 from pyevtk.hl import gridToVTK
 
 from struphy.geometry.base import Domain
@@ -16,6 +18,84 @@ from struphy.utils.utils import (
 )
 
 logger = logging.getLogger("struphy")
+
+
+def _on_device(arg) -> bool:
+    """Whether ``arg`` is (or contains, for tuples and lists) a CuPy array."""
+    if isinstance(arg, (tuple, list)):
+        return any(_on_device(a) for a in arg)
+    return xp.is_gpu(arg)
+
+
+def _to_host(arg):
+    """Copy CuPy arrays in ``arg`` (an array, or a tuple/list of them) to the host; leave everything else alone."""
+    if isinstance(arg, (tuple, list)):
+        return type(arg)(_to_host(a) for a in arg)
+    return xp.to_numpy(arg) if xp.is_gpu(arg) else arg
+
+
+def _to_device(arg):
+    """Copy NumPy arrays in ``arg`` (an array, or a tuple/list of them) to the device; leave scalars alone."""
+    if isinstance(arg, (tuple, list)):
+        return type(arg)(_to_device(a) for a in arg)
+    return xp.to_cupy(arg) if isinstance(arg, np.ndarray) else arg
+
+
+def host_call(fun, *args, **kwargs):
+    """Call a host-only function (SciPy spline, external equilibrium code) with arguments of any backend.
+
+    Device (CuPy) arrays among the arguments are copied to the host, ``fun`` runs on the NumPy backend, and its array
+    results are copied back to the device, once per call. Without device arguments, ``fun`` is called directly on the
+    NumPy backend (on the NumPy backend, this is a plain call), so the result lives where the arguments live.
+
+    The copies cost one host round trip per call; equilibria are evaluated at setup (initial conditions, projections
+    onto the FEEC spaces, mappings), not in the time loop, which uses the projected equilibrium.
+
+    Parameters
+    ----------
+    fun : callable
+        The host-only function.
+
+    *args, **kwargs
+        Arguments of ``fun``; arrays (or tuples/lists of arrays) of either backend, or scalars.
+
+    Returns
+    -------
+    The result of ``fun`` (an array, a tuple/list of arrays or a scalar), with arrays on the device if any argument
+    was on the device.
+    """
+    device = _on_device(args) or _on_device(list(kwargs.values()))
+    if xp.get_backend() == "numpy" and not device:
+        return fun(*args, **kwargs)
+    with xp.use_backend("numpy"):
+        out = fun(*_to_host(args), **{k: _to_host(v) for k, v in kwargs.items()})
+    return _to_device(out) if device else out
+
+
+def evaluate_on_host(method):
+    """Decorator for equilibrium methods that can only be evaluated on the host (see :func:`host_call`)."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        return host_call(method, self, *args, **kwargs)
+
+    return wrapper
+
+
+def setup_on_host(init):
+    """Decorator for ``__init__`` of equilibria whose setup is host-only (file reading, ODE solves, SciPy fits).
+
+    ``__init__`` runs on the NumPy backend, so the equilibrium holds only host data (NumPy arrays, SciPy splines,
+    floats) on either backend. Its evaluation follows the backend of the arguments; host-only parts of it go through
+    :func:`host_call`.
+    """
+
+    @functools.wraps(init)
+    def wrapper(self, *args, **kwargs):
+        with xp.use_backend("numpy"):
+            init(self, *args, **kwargs)
+
+    return wrapper
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
