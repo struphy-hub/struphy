@@ -1,6 +1,7 @@
 import inspect
 import logging
 from copy import deepcopy
+from dataclasses import dataclass, field
 from typing import Callable
 
 import cunumpy as xp
@@ -31,6 +32,35 @@ from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
+
+# space identifiers with scalar-valued and vector-valued elements
+_SCALAR_SPACES = ("H1", "L2")
+_VECTOR_SPACES = ("Hcurl", "Hdiv", "H1vec")
+
+
+@dataclass
+class _ClassifiedWeights:
+    """Factors of a 1D weights tuple (Case 3 in :meth:`WeightedMassOperators.create_weighted_mass`), sorted by kind.
+
+    All callables take the evaluation points (e1, e2, e3) on a sparse meshgrid of shape (n1, n2, n3).
+    """
+
+    # callables returning shape (n1, n2, n3)
+    scalars: list = field(default_factory=list)
+    # callables returning shape (n1, n2, n3, 3, 3)
+    matrices: list = field(default_factory=list)
+    # callable returning shape (n1, n2, n3, 3), for maps from a scalar to a vector space
+    col_vector: Callable | None = None
+    # callable returning shape (n1, n2, n3, 3), for maps from a vector to a scalar space
+    row_vector: Callable | None = None
+    # SplineFunction factors, keyed by name; evaluated during assembly in WeightedMassOperator
+    spline_functions: dict = field(default_factory=dict)
+
+
+def _log_weight_stats(label: str, values):
+    """Log shape and range of evaluated weights; the reductions are only computed if debug logging is enabled."""
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(f"Evaluated {label} with {values.shape = }, max = {xp.max(values)}, min = {xp.min(values)}")
 
 
 class WeightedMassOperators:
@@ -1033,211 +1063,13 @@ class WeightedMassOperators:
         logger.debug(f"\nCreating weighted mass matrix {name} from {V_id} to {W_id} ({dry_run = }).")
 
         with ProfileManager.profile_region(f"weights eval for {name}"):
-            spline_functions = {}
-            if isinstance(weights, tuple):  # Case 3 (1D tuple)
-                # save callables in lists for later evaluation at quadrature points
-                f_call_scalars = []
-                f_call_column_vector = None
-                f_call_row_vector = None
-                f_call_matrices = []
-
-                for n, f in enumerate(weights):
-                    logger.debug(f"Processing weight #{n}")
-                    if isinstance(f, str):
-                        # determine the callable and add to list f_call_
-                        logger.debug(f"Processing string weight {f}.")
-                        if f == "G":
-                            f_call = lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True)
-                            f_call_matrices.append(f_call)
-                        elif f == "Ginv":
-                            f_call = lambda e1, e2, e3: self.domain.metric_inv(e1, e2, e3, change_out_order=True)
-                            f_call_matrices.append(f_call)
-                        elif f == "DFinv":
-                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
-                            f_call_matrices.append(f_call)
-                        elif f == "DFinvT":
-                            f_call = lambda e1, e2, e3: self.domain.jacobian_inv(
-                                e1, e2, e3, change_out_order=True, transposed=True
-                            )
-                            f_call_matrices.append(f_call)
-                        elif f == "sqrt_g":
-                            f_call = lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3))
-                            f_call_scalars.append(f_call)
-                        elif f == "1/sqrt_g":
-                            f_call = lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3))
-                            f_call_scalars.append(f_call)
-                        elif f == "Identity":
-
-                            def f_call(e1, e2, e3):
-                                """Identity callable."""
-                                # to keep C-ordering the (3, 3)-part is in the last indices
-                                out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
-                                out[0, 0] = 1.0
-                                out[1, 1] = 1.0
-                                out[2, 2] = 1.0
-                                return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-
-                            f_call_matrices.append(f_call)
-                        else:
-                            raise NotImplementedError(
-                                f"The option {f} is not available.",
-                            )
-                    elif isinstance(f, list):
-                        assert len(f) == 3
-                        logger.debug(f"Processing nested list weight {f}.")
-                        for fi in f:
-                            assert isinstance(fi, list)
-                            assert len(fi) == 3
-
-                        # copy the values of the nested list to avoid any issues with references
-                        values = tuple([tuple([value for value in fi_row]) for fi_row in f])
-
-                        def f_call(e1, e2, e3):
-                            """Nested list callable."""
-                            out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
-                            for m in range(3):
-                                for n in range(3):
-                                    logger.debug(f"{values[m][n] = }")
-                                    out[m, n] = values[m][n]
-                            return xp.transpose(out, axes=(2, 3, 4, 0, 1))
-
-                        f_call_matrices.append(f_call)
-                    elif isinstance(f, SplineFunction):
-                        logger.debug(f"Processing SplineFunction weight {f}.")
-                        spline_functions[f.name] = f
-                        continue
-                    else:
-                        # Input is a a matrix or a Rotation matrix etc.
-                        logger.debug(f"Processing callable weight {f}.")
-                        assert callable(f)
-
-                        # determine the output dimension of the callable and add to list f_call_
-                        xx, yy, zz = xp.meshgrid(
-                            xp.linspace(0, 1, 1),
-                            xp.linspace(0, 1, 2),
-                            xp.linspace(0, 1, 3),
-                            indexing="ij",
-                        )
-                        out_dim = f(xx, yy, zz).ndim
-                        if out_dim == 3:
-                            f_call_scalars.append(f)
-                        elif out_dim == 4:
-                            if V_id in ("H1", "L2") and W_id in ("Hcurl", "Hdiv", "H1vec"):
-                                f_call_column_vector = f
-                            elif V_id in ("Hcurl", "Hdiv", "H1vec") and W_id in ("H1", "L2"):
-                                f_call_row_vector = f
-                            else:
-                                raise ValueError(
-                                    f"Vector weight {f} is only supported for scalar<->vector maps; got {V_id}->{W_id}."
-                                )
-                        elif out_dim == 5:
-                            f_call_matrices.append(f)
-                        else:
-                            raise ValueError(
-                                f"Callable {f} has wrong output dimension {out_dim}.",
-                            )
-
-                # check that the dimensions of the callables are compatible with the domain and codomain spaces
-                if f_call_column_vector is not None:
-                    assert V_id in ("H1", "L2")
-                    assert W_id in ("Hcurl", "Hdiv", "H1vec")
-                    assert len(f_call_matrices) == 0
-                    assert f_call_row_vector is None
-                if f_call_row_vector is not None:
-                    assert V_id in ("Hcurl", "Hdiv", "H1vec")
-                    assert W_id in ("H1", "L2")
-                    assert len(f_call_matrices) == 0
-                    assert f_call_column_vector is None
-                if len(f_call_matrices) > 0:
-                    assert V_id in ("Hcurl", "Hdiv", "H1vec")
-                    assert W_id in ("Hcurl", "Hdiv", "H1vec")
-                    assert f_call_column_vector is None
-                    assert f_call_row_vector is None
-
-                # matrix-matrix multiplication of the callables in f_call_matrices to get a single callable
-                if len(f_call_matrices) > 0:
-
-                    def f_call_matrix(e1, e2, e3):
-                        """Matrix-matrix multiplication of the callables in f_call_matrices."""
-                        out = f_call_matrices[0](e1, e2, e3)
-                        if len(f_call_matrices) > 1:
-                            for f in f_call_matrices[1:]:
-                                # out = xp.einsum("...ij,...jk->...ik", out, f(e1, e2, e3))
-                                out[:] = out @ f(e1, e2, e3)  # the 3x3 part must be in the last two indices
-                        return out
-
-                # get the evaluation points for the quadrature grid of the codomain space W_id
-                assert W_id in self.derham.spline_attributes, (
-                    f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
-                )
-
-                quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
-                logger.debug(f"{len(quad_grid_pts) = }")
-
-                weights_values = []
-                integration_grids = []
-                # loop over components of W_id (rows, equal to the number of entries in quad_grid_pts)
-                for component in quad_grid_pts:
-                    grids_1d = [pts.flatten() for pts in component]
-                    grid_sizes = tuple([len(grid_1d) for grid_1d in grids_1d])
-                    logger.debug(f"Initializing {grid_sizes = }")
-                    integration_grids += [grids_1d]
-
-                    # loop over components of V_id (columns)
-                    if V_id in ("H1", "L2"):
-                        weights_values += [[None]]
-                    elif V_id in ("Hcurl", "Hdiv", "H1vec"):
-                        weights_values += [[None, None, None]]
-                    else:
-                        raise ValueError(f"Unknown space identifier {V_id} for the domain.")
-                logger.debug(f"Initialized {weights_values = }")
-
-                # evaluate at quadrature points, loop over rows of W_id (components of the codomain)
-                for m, grids_1d in enumerate(integration_grids):
-                    logger.debug(f"rows of {W_id}: {m}")
-                    E1, E2, E3, _ = Domain.prepare_eval_pts(*grids_1d)
-
-                    # matrix or vectors first
-                    if len(f_call_matrices) > 0:
-                        tmp = f_call_matrix(E1, E2, E3)
-                        logger.debug(f"Evaluated matrix callable with shape {tmp.shape = }")
-                        logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
-                        for n in range(len(weights_values[m])):
-                            logger.debug(f"columns of {V_id}: {n}")
-                            weights_values[m][n] = tmp[:, :, :, m, n]
-                    elif f_call_column_vector is not None:
-                        tmp = f_call_column_vector(E1, E2, E3)
-                        logger.debug(f"Evaluated column vector callable with shape {tmp.shape = }")
-                        logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
-                        for n in range(len(weights_values[m])):
-                            logger.debug(f"columns of {V_id}: {n}")
-                            weights_values[m][n] = tmp[:, :, :, m]
-                    elif f_call_row_vector is not None:
-                        tmp = f_call_row_vector(E1, E2, E3)
-                        logger.debug(f"Evaluated row vector callable with shape {tmp.shape = }")
-                        logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
-                        for n in range(len(weights_values[m])):
-                            logger.debug(f"columns of {V_id}: {n}")
-                            weights_values[m][n] = tmp[:, :, :, n]
-
-                    # then loop over scalars and multiply with the previous result
-                    for f_call in f_call_scalars:
-                        tmp = f_call(E1, E2, E3)
-                        logger.debug(f"Evaluated scalar callable with shape {tmp.shape = }")
-                        logger.debug(f"max value: {xp.max(tmp)}, min value: {xp.min(tmp)}")
-                        for n in range(len(weights_values[m])):
-                            logger.debug(f"columns of {V_id}: {n}")
-                            if weights_values[m][n] is None:
-                                if m == n:
-                                    weights_values[m][n] = tmp
-                                else:
-                                    continue
-                            else:
-                                weights_values[m][n] *= tmp
-
+            if isinstance(weights, tuple):
+                # Case 3 (1D tuple): evaluate the product of all factors at the quadrature points
+                weights_values, spline_functions = self._eval_tuple_weights(weights, V_id, W_id)
             else:
+                # Cases 1, 2 and 4 are passed on unchanged to WeightedMassOperator
                 logger.debug(f"Processing weights of type {type(weights)}.")
-                weights_values = weights
+                weights_values, spline_functions = weights, {}
 
         out = WeightedMassOperator(
             self.derham,
@@ -1277,6 +1109,245 @@ class WeightedMassOperators:
                 out.assemble()
 
         return out
+
+    ##################################################################
+    # Evaluation of tuple weights (Case 3 in create_weighted_mass) #
+    ##################################################################
+    def _eval_tuple_weights(self, weights: tuple, V_id: str, W_id: str):
+        """Evaluate a 1D tuple of weights at the quadrature points of the codomain ``W_id``.
+
+        The tuple entries are factors which are multiplied together. They are first sorted
+        into scalar, vector and matrix factors (see :meth:`_classify_weights`). On the quadrature
+        grid of each component of ``W_id`` (= block row), the matrix factors are multiplied
+        together (or the single vector factor is evaluated), and the result is then multiplied
+        by the product of all scalar factors. SplineFunction factors are not evaluated here;
+        they are passed on to :class:`WeightedMassOperator`, which evaluates them during assembly.
+
+        Returns
+        -------
+        weights_values : list[list[xp.ndarray | None]]
+            Weights at the quadrature points, one block per (component of ``W_id``, component of ``V_id``).
+            ``None`` marks a zero block.
+
+        spline_functions : dict
+            SplineFunction factors, keyed by their name.
+        """
+        classified = self._classify_weights(weights, V_id, W_id)
+        self._check_weight_compatibility(classified, V_id, W_id)
+
+        # all matrix factors are combined into a single callable
+        f_matrix = self._compose_matrix_callable(classified.matrices) if classified.matrices else None
+
+        # number of block columns = number of components of the domain space V_id
+        if V_id in _SCALAR_SPACES:
+            n_cols = 1
+        elif V_id in _VECTOR_SPACES:
+            n_cols = 3
+        else:
+            raise ValueError(f"Unknown space identifier {V_id} for the domain.")
+
+        assert W_id in self.derham.spline_attributes, (
+            f"Spline attributes for the codomain space {W_id} not found in the Derham object !!"
+        )
+
+        # one tuple of 1d quadrature grids per component of W_id (= block row)
+        quad_grid_pts = self.derham.spline_attributes[W_id].quad_grid_pts
+        logger.debug(f"{len(quad_grid_pts) = }")
+
+        weights_values = []
+        for m, component in enumerate(quad_grid_pts):
+            grids_1d = [pts.flatten() for pts in component]
+            logger.debug(f"Evaluating block row {m} of {W_id} on grid of size {tuple(g.size for g in grids_1d)}.")
+            weights_values.append(self._eval_weights_on_grid(classified, f_matrix, m, n_cols, grids_1d))
+
+        return weights_values, classified.spline_functions
+
+    def _classify_weights(self, weights: tuple, V_id: str, W_id: str) -> "_ClassifiedWeights":
+        """Sort the entries of a 1D weights tuple into scalar, vector and matrix callables and SplineFunctions.
+
+        Strings and nested lists are converted to callables; for general callables the
+        type is determined from the number of dimensions of their output (see :meth:`_callable_output_dim`).
+        """
+        classified = _ClassifiedWeights()
+
+        for n, f in enumerate(weights):
+            logger.debug(f"Processing weight #{n}: {f}")
+
+            if isinstance(f, str):
+                # predefined metric/Jacobian weight
+                f_call, kind = self._string_weight_callable(f)
+                if kind == "matrix":
+                    classified.matrices.append(f_call)
+                else:
+                    classified.scalars.append(f_call)
+
+            elif isinstance(f, list):
+                # constant 3x3 matrix given as nested list
+                if len(f) != 3 or any(not isinstance(row, list) or len(row) != 3 for row in f):
+                    raise ValueError(f"Nested list weight must be of shape 3x3, got {f}.")
+                # copy the values, such that later changes to the list do not affect the weight
+                values = tuple(tuple(row) for row in f)
+                classified.matrices.append(self._constant_matrix_callable(values))
+
+            elif isinstance(f, SplineFunction):
+                # evaluated during assembly in WeightedMassOperator
+                classified.spline_functions[f.name] = f
+
+            elif callable(f):
+                # general callable (e.g. a function or a LocalRotationMatrix)
+                out_dim = self._callable_output_dim(f)
+                if out_dim == 3:
+                    classified.scalars.append(f)
+                elif out_dim == 4:
+                    # a column vector maps a scalar space to a vector space, a row vector vice versa
+                    if classified.col_vector is not None or classified.row_vector is not None:
+                        raise ValueError(f"At most one vector-valued weight is allowed, got a second one {f}.")
+                    if V_id in _SCALAR_SPACES and W_id in _VECTOR_SPACES:
+                        classified.col_vector = f
+                    elif V_id in _VECTOR_SPACES and W_id in _SCALAR_SPACES:
+                        classified.row_vector = f
+                    else:
+                        raise ValueError(
+                            f"Vector weight {f} is only supported for scalar<->vector maps; got {V_id}->{W_id}."
+                        )
+                elif out_dim == 5:
+                    classified.matrices.append(f)
+                else:
+                    raise ValueError(f"Callable {f} has wrong output dimension {out_dim}.")
+
+            else:
+                raise TypeError(f"Unsupported weight {f} of type {type(f)}.")
+
+        return classified
+
+    def _string_weight_callable(self, key: str):
+        """Return the callable and its kind (``'matrix'`` or ``'scalar'``) for a predefined string weight.
+
+        Matrix callables return arrays of shape (n1, n2, n3, 3, 3), scalar callables of shape (n1, n2, n3).
+        """
+        if key == "G":
+            return lambda e1, e2, e3: self.domain.metric(e1, e2, e3, change_out_order=True), "matrix"
+        elif key == "Ginv":
+            return lambda e1, e2, e3: self.domain.metric_inv(e1, e2, e3, change_out_order=True), "matrix"
+        elif key == "DFinv":
+            return lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True), "matrix"
+        elif key == "DFinvT":
+            return (
+                lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3, change_out_order=True, transposed=True),
+                "matrix",
+            )
+        elif key == "Identity":
+            identity = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+            return self._constant_matrix_callable(identity), "matrix"
+        elif key == "sqrt_g":
+            return lambda e1, e2, e3: abs(self.domain.jacobian_det(e1, e2, e3)), "scalar"
+        elif key == "1/sqrt_g":
+            return lambda e1, e2, e3: 1.0 / abs(self.domain.jacobian_det(e1, e2, e3)), "scalar"
+        else:
+            raise NotImplementedError(f"The option {key} is not available.")
+
+    @staticmethod
+    def _constant_matrix_callable(values: tuple):
+        """Return a callable that evaluates the constant 3x3 matrix ``values`` on a sparse meshgrid."""
+
+        def f_call(e1, e2, e3):
+            """Constant matrix callable."""
+            out = xp.zeros((3, 3, e1.shape[0], e2.shape[1], e3.shape[2]), dtype=float)
+            for m in range(3):
+                for n in range(3):
+                    out[m, n] = values[m][n]
+            # to keep C-ordering the (3, 3)-part is in the last indices
+            return xp.transpose(out, axes=(2, 3, 4, 0, 1))
+
+        return f_call
+
+    @staticmethod
+    def _callable_output_dim(f: Callable) -> int:
+        """Number of dimensions of the output of ``f`` on a small 3d test grid.
+
+        3 means scalar-valued, 4 vector-valued and 5 matrix-valued.
+        """
+        xx, yy, zz = xp.meshgrid(
+            xp.linspace(0, 1, 1),
+            xp.linspace(0, 1, 2),
+            xp.linspace(0, 1, 3),
+            indexing="ij",
+        )
+        return f(xx, yy, zz).ndim
+
+    @staticmethod
+    def _check_weight_compatibility(classified: "_ClassifiedWeights", V_id: str, W_id: str):
+        """Check that the kinds of the weight factors fit to the domain ``V_id`` and the codomain ``W_id``."""
+        if classified.col_vector is not None and not (
+            V_id in _SCALAR_SPACES and W_id in _VECTOR_SPACES and len(classified.matrices) == 0
+        ):
+            raise ValueError("Column vector weight requires a scalar->vector map without matrix factors.")
+        if classified.row_vector is not None and not (
+            V_id in _VECTOR_SPACES and W_id in _SCALAR_SPACES and len(classified.matrices) == 0
+        ):
+            raise ValueError("Row vector weight requires a vector->scalar map without matrix factors.")
+        if len(classified.matrices) > 0 and not (V_id in _VECTOR_SPACES and W_id in _VECTOR_SPACES):
+            raise ValueError(f"Matrix weights require a vector->vector map, got {V_id}->{W_id}.")
+
+    @staticmethod
+    def _compose_matrix_callable(matrices: list):
+        """Return a callable that evaluates the matrix product of all callables in ``matrices`` (left to right)."""
+
+        def f_call_matrix(e1, e2, e3):
+            """Matrix-matrix multiplication of the matrix callables."""
+            out = matrices[0](e1, e2, e3)
+            for f in matrices[1:]:
+                # batched product over the grid; the 3x3 part is in the last two axes
+                out = out @ f(e1, e2, e3)
+            return out
+
+        return f_call_matrix
+
+    @staticmethod
+    def _eval_weights_on_grid(
+        classified: "_ClassifiedWeights",
+        f_matrix: Callable | None,
+        m: int,
+        n_cols: int,
+        grids_1d: list,
+    ) -> list:
+        """Evaluate block row ``m`` of the weights on the tensor-product grid ``grids_1d``.
+
+        Returns a list of ``n_cols`` blocks of shape (n1, n2, n3); ``None`` marks a zero block.
+        """
+        E1, E2, E3, _ = Domain.prepare_eval_pts(*grids_1d)
+        row = [None] * n_cols
+
+        # 1. matrix or vector factor; the blocks of the row are views into the evaluated array
+        if f_matrix is not None:
+            tmp = f_matrix(E1, E2, E3)  # shape (n1, n2, n3, 3, 3)
+            _log_weight_stats("matrix weight", tmp)
+            row = [tmp[:, :, :, m, n] for n in range(n_cols)]
+        elif classified.col_vector is not None:
+            tmp = classified.col_vector(E1, E2, E3)  # shape (n1, n2, n3, 3), entry m belongs to row m
+            _log_weight_stats("column vector weight", tmp)
+            row = [tmp[:, :, :, m]]
+        elif classified.row_vector is not None:
+            tmp = classified.row_vector(E1, E2, E3)  # shape (n1, n2, n3, 3), entry n belongs to column n
+            _log_weight_stats("row vector weight", tmp)
+            row = [tmp[:, :, :, n] for n in range(n_cols)]
+
+        # 2. multiply all blocks by the product of the scalar factors (computed once per row)
+        if classified.scalars:
+            scalar = None
+            for f in classified.scalars:
+                val = f(E1, E2, E3)
+                scalar = val if scalar is None else scalar * val
+            _log_weight_stats("scalar weight", scalar)
+
+            for n in range(n_cols):
+                if row[n] is not None:
+                    row[n] *= scalar
+                elif m == n:
+                    # purely scalar weight: only the diagonal blocks are non-zero
+                    row[n] = scalar
+
+        return row
 
     #######################################
     # Aux classes (to be removed in TODO) #
