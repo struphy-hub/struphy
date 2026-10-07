@@ -57,6 +57,7 @@ from struphy.pic.sph_eval_kernels import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.cuda_arguments import check_mapping_on_device
 
 if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only needed for annotations
     from mpi4py.MPI import Intracomm

@@ -19,6 +19,7 @@ from struphy.geometry.kernels.kernel_pullpush_pic import kernel_pullpush_pic
 from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses

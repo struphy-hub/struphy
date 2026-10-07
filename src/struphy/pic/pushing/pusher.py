@@ -11,6 +11,7 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.utils.cuda_arguments import check_mapping_on_device
 
 logger = logging.getLogger("struphy")
 
