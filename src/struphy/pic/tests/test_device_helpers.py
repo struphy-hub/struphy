@@ -3,7 +3,7 @@
 import cunumpy
 import numpy as np
 import pytest
-from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import CudaKernel
 from cunumpy.kernel_testing import device_function_kernel, requires_cupy
 
 from struphy.bsplines import bsplines_kernels as splines

@@ -7,7 +7,7 @@ the fields of each struct as separate parameters, rebuilds the structs and calls
 """
 
 import numpy as np
-from cunumpy.cuda import CudaKernel
+from cunumpy.kernels import CudaKernel
 from cunumpy.kernel_testing import emulate_cuda_kernel
 
 from struphy.utils.cuda_arguments import CUDA_OPTIONS
