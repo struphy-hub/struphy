@@ -289,7 +289,7 @@ done (✓), in this PR (PR 14), blocked (⏸).
 |---|---|---|---|---|
 | 1 | `push_v_with_efield` | P | `VlasovAmpereCoupling`, `PushVinForceField` | PR 14 |
 | 2 | `charge_density_0form` | A (vector) | initial Poisson solve of these models | PR 14 |
-| 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | ⏸ 6D views |
+| 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | ✓ (#688, see [notes](#vlasov_maxwell-implementation-notes)) |
 
 **Step 2 – LinearVlasovAmpère/Maxwell (δf)**
 
@@ -626,3 +626,25 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   The GPU tests have not run on an H100; the CPU emulation and the CPU regression tests are the gate.
 - **Parity cases.** The spline mappings are added to the geometry kernels' entries of `pic/tests/cuda_parity_cases.py`
   (the per-folder `<name>_test_args.py` modules were replaced by that module in PR 16).
+
+## `vlasov_maxwell` implementation notes
+
+The accumulation of `VlasovAmpereCoupling` in `VlasovAmpereOneSpecies` and `VlasovMaxwellOneSpecies` (step 1, #3 of
+the [porting order](#porting-order); part of #688).
+
+- **Kernel.** `vlasov_maxwell_cuda.cu`: same arguments in the same order as pyccel, one thread per marker row; `df`,
+  `matrix_inv`, `transpose`, `matrix_matrix`, `matrix_vector`, then `m_v_fill_b_v1_symm` with
+  `A_p = w_p DF^{-1} DF^{-T}` and `B_p = w_p DF^{-1} v_p`. As in pyccel, only holes are skipped: boundary particles
+  (`markers[ip, -1] == -2`) are accumulated (unlike `linear_vlasov_ampere`).
+- **Device helpers.** `fill_mat`, `fill_mat_vec` (`filler_kernels.cuh`) and `m_v_fill_b_v1_symm`
+  (`particle_to_mat_kernels.cuh`) with atomic adds into `Array6D<double>`/`Array3D<double>` data, byte-identical to the
+  ones of the `linear_vlasov_ampere` PR (#705), as are `v1_symm_accumulation_data()` and the `m_v_fill_b_v1_symm`
+  wrapper tests.
+- **Tests.** `PARITY_CASES["vlasov_maxwell"]`: 129 markers (a hole, a boundary particle) in Cuboid, Colella,
+  HollowTorus, ShafranovDshapedCylinder and a 3d spline mapping; the CPU emulation agrees with pyccel to 7e-12 at
+  entries up to 6e5 (spline mapping) and fails for a transposed `DF`, skipped boundary particles or unskipped holes.
+  `rtol = 1e-12`, `atol = 1e-8` for the GPU's atomic summation order. GPU tests have not run on an H100.
+- **Still missing for the models end to end on the GPU.** `MassMatrixPreconditioner` (the default of
+  `VlasovAmpereCoupling`, `MaxwellWeakAmpere` and the initial `PoissonSolve`) cannot be created on CuPy, CG inner products
+  return host scalars, the FEEC operators (`curl`, `grad`, mass matrices, Schur solves) need the feectools CUDA stack,
+  multi-rank marker sorting goes through the host, and the first H100 run (#687) is pending.
