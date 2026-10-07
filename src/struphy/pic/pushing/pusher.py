@@ -3,7 +3,7 @@
 import logging
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 from scope_profiler import ProfileManager
@@ -11,7 +11,6 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
-from struphy.utils.kernel_backends import CudaKernel, Kernel
 
 logger = logging.getLogger("struphy")
 
@@ -34,7 +33,7 @@ class Pusher:
     as well as iterative nonlinear methods.
 
     The particle push is performed via an accelerated kernel from :mod:`struphy.pic.pushing.kernels`,
-    e.g. ``catalog["push_eta_stage"]``.
+    e.g. ``push_eta_stage`` from :mod:`struphy.pic.pushing.kernels.push_eta_stage`.
 
     Notes
     -----
@@ -62,7 +61,7 @@ class Pusher:
         Particles object holding the markers to push.
 
     kernel : PyccelKernel | Kernel
-        The pusher kernel. A :class:`~struphy.utils.kernel_backends.Kernel` also holds its CUDA version;
+        The pusher kernel. A :class:`~cunumpy.kernels.Kernel` also holds its CUDA version;
         on the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     args_kernel : tuple
@@ -130,13 +129,9 @@ class Pusher:
         mpi_sort: str = None,
         local_eval_only: bool = False,
     ):
-        # choose the kernel for the active backend once; on the CuPy backend this raises
-        # if there is no CUDA version (yet), see CUDA_STRATEGY.md
-        if isinstance(kernel, PyccelKernel):
-            kernel = Kernel(kernel)
-        assert isinstance(kernel, Kernel), f"{kernel} is not of type Kernel or PyccelKernel"
-        self._kernel = kernel.get_kernel()
-        self._cuda = isinstance(self._kernel, CudaKernel)
+        # on the CuPy backend a kernel without CUDA version (yet) raises when called, see CUDA_STRATEGY.md
+        self._kernel = kernel if isinstance(kernel, Kernel) else Kernel(kernel)
+        self._cuda = xp.cupy_backend
         if self._cuda and args_domain.kind_map != 10:
             raise NotImplementedError("CUDA pushers currently support only Cuboid mappings.")
 
@@ -272,7 +267,6 @@ class Pusher:
                         self.particles.args_markers,
                         self._args_domain,
                         *self._args_kernel,
-                        **({"n_threads": markers.shape[0]} if self._cuda else {}),
                     )
 
                 # markers have moved
@@ -368,7 +362,7 @@ class Pusher:
         return self._particles
 
     @property
-    def kernel(self) -> PyccelKernel | CudaKernel:
+    def kernel(self) -> Kernel:
         """The pusher kernel for the active backend (pyccel or CUDA)."""
         return self._kernel
 

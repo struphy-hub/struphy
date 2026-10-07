@@ -3,7 +3,6 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import (
@@ -21,7 +20,7 @@ from struphy.io.options import DerhamOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.accum_kernels import charge_density_0form
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
@@ -344,7 +343,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = PyccelKernel(charge_density_0form)
+    kernel = charge_density_0form
     # control_variate=True, so no PICVariable.species is needed to build the analytical background term
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles
@@ -461,7 +460,7 @@ def test_poisson_accum_full_f_background_1d():
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles
     pic_var._species = SimpleNamespace(charge_number=1)
-    rho = ParticlesToGrid(pic_var, "H1", PyccelKernel(charge_density_0form))
+    rho = ParticlesToGrid(pic_var, "H1", charge_density_0form)
 
     _phi = FEECVariable(space="H1")
     _phi.allocate(derham=derham, domain=domain)
@@ -519,7 +518,7 @@ def test_poisson_rho_coeffs_1d(full_f):
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles
     pic_var._species = SimpleNamespace(charge_number=1)
-    rho_pic = ParticlesToGrid(pic_var, "H1", PyccelKernel(charge_density_0form))
+    rho_pic = ParticlesToGrid(pic_var, "H1", charge_density_0form)
 
     def rho_ext(e1, e2, e3):
         return xp.sin(xp.pi * e1 / 2.0)

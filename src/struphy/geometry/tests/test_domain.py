@@ -1091,14 +1091,14 @@ requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GP
 
 
 def test_args_domain_selects_backend():
-    """The argument object follows the active backend."""
+    """The argument object is the pyccel class on the NumPy backend and keeps it when the backend changes."""
     from struphy import domains
     from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
     with cunumpy.use_backend("numpy"):
         domain = domains.Cuboid()
         args = domain.args_domain
-        assert isinstance(args, DomainArguments)
+        assert type(args) is DomainArguments
     if cunumpy.cupy_available():
         with cunumpy.use_backend("cupy"):
             assert domain.args_domain is args
@@ -1108,12 +1108,12 @@ def test_args_domain_selects_backend():
 def test_args_domain_backend_is_fixed_at_creation():
     """Changing the active backend does not change a domain's argument object."""
     from struphy import domains
-    from struphy.utils.cuda_arguments import CudaDomainArguments
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 
     with cunumpy.use_backend("cupy"):
         domain = domains.Cuboid()
         cuda_args = domain.args_domain
-        assert isinstance(cuda_args, CudaDomainArguments)
+        assert type(cuda_args) is CudaDomainArguments
     with cunumpy.use_backend("numpy"):
         args = domain.args_domain
         assert args is cuda_args
@@ -1127,12 +1127,14 @@ def test_cuda_args_domain(mapping):
     Only analytic mappings: spline mappings (e.g. IGAPolarCylinder) cannot be created on the CuPy backend yet.
     """
     from struphy import domains
-    from struphy.utils.cuda_arguments import CudaDomainArguments
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 
+    with cunumpy.use_backend("numpy"):
+        host = getattr(domains, mapping)().args_domain
     with cunumpy.use_backend("cupy"):
         domain = getattr(domains, mapping)()
         args = domain.args_domain
-        assert isinstance(args, CudaDomainArguments)
+        assert type(args) is CudaDomainArguments
         assert domain.args_domain is args  # built once
 
         assert args.kind_map == domain.kind_map
@@ -1140,9 +1142,8 @@ def test_cuda_args_domain(mapping):
         assert args.t1 is domain.T[0] and args.ind3 is domain.indN[2]
 
         # the struct holds the device addresses of these arrays
-        (struct,) = args.get_cuda_args()
+        (struct,) = args.__cuda_args__()
         assert struct["kind_map"] == domain.kind_map
-        host = domain._pyccel_args_domain
         for name in ("params", "degree", "t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz"):
             dev = getattr(args, name)
             assert struct[name] == dev.data.ptr, name
@@ -1152,7 +1153,7 @@ def test_cuda_args_domain(mapping):
 @requires_cupy
 @pytest.mark.parametrize("mapping", ["Cuboid", "Colella"])
 def test_domain_deepcopy_and_pickle_on_cupy(mapping):
-    """Deepcopy and unpickling on the CuPy backend rebuild both the pyccel and the CUDA arguments."""
+    """Deepcopy and unpickling on the CuPy backend rebuild the CUDA arguments."""
     from struphy import domains
 
     with cunumpy.use_backend("cupy"):
@@ -1165,7 +1166,7 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             other_cuda = other.args_domain
             assert other_cuda is not cuda_args
             assert other_cuda.t1 is other.T[0]
-            assert other_cuda.get_cuda_args()[0]["t1"] == other.T[0].data.ptr
+            assert other_cuda.__cuda_args__()[0]["t1"] == other.T[0].data.ptr
 
 
 if __name__ == "__main__":

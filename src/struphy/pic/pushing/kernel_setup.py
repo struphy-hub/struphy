@@ -5,9 +5,7 @@ from dataclasses import dataclass
 from numbers import Integral, Real
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-
-from struphy.utils.kernel_backends import Kernel
+from cunumpy.kernels import Kernel
 
 
 @dataclass(kw_only=True, eq=False)
@@ -60,11 +58,8 @@ class KernelSetup:
         self.alpha = tuple(float(value) for value in alpha)
         self._output_indices_array: xp.ndarray = xp.array([-1 if i is None else i for i in indices], dtype=int)
         self._alpha_array: xp.ndarray = xp.array(alpha, dtype=float)
-        if isinstance(self.kernel, Kernel):
-            # on the CuPy backend this raises if there is no CUDA version (yet), see CUDA_STRATEGY.md
-            self.kernel = self.kernel.get_kernel()
-        elif not isinstance(self.kernel, PyccelKernel):
-            self.kernel = PyccelKernel(self.kernel)
+        if not isinstance(self.kernel, Kernel):
+            self.kernel = Kernel(self.kernel)
 
     @property
     def name(self) -> str:
@@ -84,4 +79,12 @@ class KernelSetup:
 
     def evaluate(self, args_markers, args_domain):
         """Evaluate into the configured marker columns."""
-        self.kernel(self._alpha_array, self._output_indices_array, args_markers, args_domain, *self.args)
+        # one thread per marker; the first array argument (alpha) does not tell the launch size
+        self.kernel(
+            self._alpha_array,
+            self._output_indices_array,
+            args_markers,
+            args_domain,
+            *self.args,
+            n_threads=args_markers.n_markers,
+        )

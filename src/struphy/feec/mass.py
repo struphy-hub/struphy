@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.ddm.mpi import MockComm
 from feectools.ddm.mpi import mpi as MPI

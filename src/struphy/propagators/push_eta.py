@@ -9,7 +9,7 @@ from line_profiler import profile
 from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.pushing.kernels import catalog
+from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -91,7 +91,7 @@ class PushEta(Propagator):
     @profile
     def allocate(self):
         # get kernel
-        kernel = catalog["push_eta_stage"]
+        kernel = push_eta_stage
 
         # define algorithm
         butcher = self.options.butcher

@@ -1,76 +1,77 @@
-"""Every CUDA pusher must have a parity argument factory here."""
+"""Parity of every CUDA kernel with its pyccel kernel, on the cases of ``cuda_parity_cases.PARITY_CASES``."""
+
+import importlib
 
 import cunumpy as xp
 import numpy as np
 import pytest
+from cunumpy.kernel_testing import assert_kernels_agree, requires_cupy
+from cunumpy.kernels import Kernel, KernelCatalog
+from cunumpy.profiling import assert_no_transfers
 
-from struphy.ode.utils import ButcherTableau
-from struphy.pic.pushing.kernels import catalog
-from struphy.pic.tests.test_kernel_backends import make_arguments, requires_cupy
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
+from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
+from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
+from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
+from struphy.pic.pushing.kernels.push_vxb_implicit import push_vxb_implicit
+from struphy.pic.pushing.kernels.push_weights_with_efield_lin_va import push_weights_with_efield_lin_va
+from struphy.pic.tests.cuda_parity_cases import PARITY_CASES
+from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-
-def eta_arguments(bc, method):
-    m, d = make_arguments(129)
-    rng = np.random.default_rng(7)
-    markers = rng.random((129, 25))
-    markers[:, 3:6] = rng.uniform(-2, 2, (129, 3))
-    markers[:, 8:14] = markers[:, :6]
-    markers[:, 18:21] = 0.0
-    markers[0, 8] = -1.0
-    markers[1, -1] = -2.0
-    m.markers[:] = xp.asarray(markers)
-    m.bc_type[:] = xp.asarray(bc, dtype=np.int64)
-    butcher = ButcherTableau(method)
-    return (m, d, xp.asarray(butcher.a_stage), xp.asarray(butcher.b), xp.asarray(butcher.c), butcher.n_stages)
-
-
-def field_arguments(bc, method, electric=False):
-    from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
-    from struphy.utils.cuda_arguments import CudaDerhamArguments
-
-    m, d, *_ = eta_arguments(bc, method)
-    degree = np.array([2, 3, 1], dtype=np.int64)
-    knots = [np.r_[np.zeros(p), np.linspace(0, 1, 9), np.ones(p)] for p in degree]
-    cls = CudaDerhamArguments if xp.get_backend() == "cupy" else DerhamArguments
-    a = cls(xp.asarray(degree), *(xp.asarray(t) for t in knots), xp.zeros(3, dtype=np.int64))
-    rng = np.random.default_rng(11)
-    coeffs = tuple(xp.asarray(rng.normal(size=(18, 20, 16))) for _ in range(3))
-    return (m, d, a, *coeffs, 0.7) if electric else (m, d, a, *coeffs)
-
-
-FACTORIES = {
-    "push_eta_stage": eta_arguments,
-    "push_vxb_analytic": field_arguments,
-    "push_vxb_implicit": field_arguments,
-}
-CUDA_NAMES = [n for n in catalog.names if n not in catalog.missing_cuda]
+# all kernel packages (one folder per kernel), for tests that go through every kernel
+PACKAGES = (
+    "struphy.pic.pushing.kernels",
+    "struphy.pic.accumulation.kernels",
+    "struphy.pic.diagnostics.kernels",
+    "struphy.pic.sph.kernels",
+    "struphy.bsplines.kernels",
+    "struphy.geometry.kernels",
+    "struphy.feec.kernels",
+    "struphy.feec.local_projectors.kernels",
+)
+CATALOGS = {package: KernelCatalog.from_package(package, structs=CUDA_STRUCTS) for package in PACKAGES}
+# every kernel with a CUDA version, by name
+CUDA_KERNELS = {name: kernel for catalog in CATALOGS.values() for name, kernel in catalog.parity_cases()}
+# (kernel name, case index) of every parity case, as pytest parameters
+PARITY_PARAMS = [
+    pytest.param(name, index, id=f"{name}-{index}")
+    for name in PARITY_CASES
+    for index in range(len(PARITY_CASES[name].cases))
+]
 
 
-def test_cuda_factories_cover_catalog():
-    assert set(CUDA_NAMES) == set(FACTORIES)
+def check_case(name, index, compare):
+    """Run case `index` of kernel `name` with `compare(kernel, make_args, **settings)` (cunumpy's signature)."""
+    spec = PARITY_CASES[name]
+    case = spec.cases[index]
+    return compare(
+        CUDA_KERNELS[name],
+        lambda backend, seed: spec.build(case),
+        n_threads=spec.n_threads,
+        rtol=spec.rtol,
+        atol=spec.atol,
+    )
+
+
+def test_folders_declare_their_kernels():
+    """Each kernel folder's __init__.py declares its kernel under the folder name (the import used in the code)."""
+    for package, catalog in CATALOGS.items():
+        for name in catalog:
+            kernel = getattr(importlib.import_module(f"{package}.{name}"), name)
+            assert isinstance(kernel, Kernel) and kernel.name == name
+            assert kernel.has_cuda == catalog[name].has_cuda
+
+
+def test_cuda_kernels_have_parity_cases():
+    """Every kernel with a CUDA version has parity cases (add them to cuda_parity_cases.PARITY_CASES), and only those."""
+    assert set(PARITY_CASES) == set(CUDA_KERNELS)
+    assert all(len(spec.cases) > 0 for spec in PARITY_CASES.values())
 
 
 @requires_cupy
-@pytest.mark.parametrize("name", CUDA_NAMES)
-@pytest.mark.parametrize("bc", [(0, 0, 0), (1, 1, 1), (2, 0, 1)])
-@pytest.mark.parametrize("method", ["forward_euler", "rk4"])
-def test_catalog_parity(name, bc, method):
-    results = []
-    for backend in ("numpy", "cupy"):
-        with xp.use_backend(backend):
-            args = FACTORIES[name](bc, method)
-            for stage in range(args[-1] if name == "push_eta_stage" else 1):
-                catalog[name](0.2, stage, *args, n_threads=129)
-            # Compare the mutable bundle and every explicit array argument.
-            results.append(
-                [
-                    xp.to_numpy(a).copy()
-                    for a in (args[0].markers, args[0].valid_mks, args[0].bc_type, *args[2:])
-                    if hasattr(a, "shape")
-                ]
-            )
-    for host, device in zip(*results):
-        np.testing.assert_allclose(host, device, rtol=1e-13, atol=1e-14)
+@pytest.mark.parametrize("name, index", PARITY_PARAMS)
+def test_parity(name, index):
+    check_case(name, index, assert_kernels_agree)
 
 
 @requires_cupy
@@ -81,7 +82,7 @@ def test_device_pusher_time_loop(monkeypatch):
     from struphy.pic.tests.test_kernel_backends import make_pusher
 
     with xp.use_backend("cupy"):
-        pusher = make_pusher(catalog["push_eta_stage"])()
+        pusher = make_pusher(push_eta_stage)()
         if pusher.particles.mpi_size != 1:
             pytest.skip("Single-rank transfer guard; multi-rank exchange needs CUDA-aware MPI")
         pusher(0.001)  # warm up NVRTC and CuPy operations
@@ -93,7 +94,7 @@ def test_device_pusher_time_loop(monkeypatch):
             assert isinstance(value, cp.ndarray), "Host array conversion inside time loop"
             return original(value, *args, **kwargs)
 
-        with monkeypatch.context() as patch:
+        with assert_no_transfers(), monkeypatch.context() as patch:
             patch.setattr(cp, "asarray", device_only)
             for _ in range(5):
                 pusher(0.001)
@@ -107,6 +108,13 @@ def test_device_pusher_time_loop(monkeypatch):
 
 
 def test_vlasov_kernel_coverage():
-    """Both selectable PushVxB algorithms and PushEta must have device kernels."""
-    for name in ("push_eta_stage", "push_vxb_analytic", "push_vxb_implicit"):
-        assert catalog[name].cuda_kernel is not None
+    """Vlasov (PushEta, both PushVxB algorithms) and the ported Vlasov-Ampere kernels have device kernels."""
+    for kernel in (
+        push_eta_stage,
+        push_vxb_analytic,
+        push_vxb_implicit,
+        push_v_with_efield,
+        push_weights_with_efield_lin_va,
+        charge_density_0form,
+    ):
+        assert kernel.has_cuda, kernel.name

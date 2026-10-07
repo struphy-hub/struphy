@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy import PyccelKernel
 from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
 
@@ -12,10 +11,12 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels.cc_lin_mhd_6d_2 import cc_lin_mhd_6d_2
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing.kernels import catalog
+from struphy.pic.pushing.kernels.push_bxu_H1vec import push_bxu_H1vec
+from struphy.pic.pushing.kernels.push_bxu_Hcurl import push_bxu_Hcurl
+from struphy.pic.pushing.kernels.push_bxu_Hdiv import push_bxu_Hdiv
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -173,7 +174,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._accumulator = Accumulator(
             particles,
             self.options.u_space,
-            PyccelKernel(accum_kernels.cc_lin_mhd_6d_2),
+            cc_lin_mhd_6d_2,
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -197,11 +198,11 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # load particle pusher kernel
         if self.options.u_space == "Hcurl":
-            kernel = catalog["push_bxu_Hcurl"]
+            kernel = push_bxu_Hcurl
         elif self.options.u_space == "Hdiv":
-            kernel = catalog["push_bxu_Hdiv"]
+            kernel = push_bxu_Hdiv
         elif self.options.u_space == "H1vec":
-            kernel = catalog["push_bxu_H1vec"]
+            kernel = push_bxu_H1vec
         else:
             raise ValueError(
                 f'{self.options.u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',

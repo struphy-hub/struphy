@@ -4,13 +4,29 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
 from struphy.pic import sph_smoothing_kernels
 from struphy.pic.pushing.kernel_setup import KernelSetup
-from struphy.pic.pushing.kernels import catalog
+from struphy.pic.pushing.kernels.bstar_2form import bstar_2form
+from struphy.pic.pushing.kernels.bstar_parallel_3form import bstar_parallel_3form
+from struphy.pic.pushing.kernels.driftkinetic_hamiltonian import driftkinetic_hamiltonian
+from struphy.pic.pushing.kernels.grad_driftkinetic_hamiltonian import grad_driftkinetic_hamiltonian
+from struphy.pic.pushing.kernels.push_gc_Bstar_discrete_gradient_1st_order import (
+    push_gc_Bstar_discrete_gradient_1st_order,
+)
+from struphy.pic.pushing.kernels.push_gc_Bstar_discrete_gradient_1st_order_newton import (
+    push_gc_Bstar_discrete_gradient_1st_order_newton,
+)
+from struphy.pic.pushing.kernels.push_gc_Bstar_discrete_gradient_2nd_order import (
+    push_gc_Bstar_discrete_gradient_2nd_order,
+)
+from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
+from struphy.pic.pushing.kernels.sph_pressure_coeffs import sph_pressure_coeffs
+from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
+from struphy.pic.pushing.kernels.unit_b_1form import unit_b_1form
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -37,23 +53,23 @@ def coefficients(value):
 
 
 @pytest.mark.parametrize(
-    "kernel_name,values,expected",
+    "kernel,values,expected",
     [
-        ("driftkinetic_hamiltonian", (2.0, 5.0), (23.25,)),
-        ("bstar_parallel_3form", (2.0, 5.0), (17.0,)),
-        ("grad_driftkinetic_hamiltonian", (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (4.0, 11.0, 18.0)),
-        ("bstar_2form", (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (13.0, 17.0, 21.0)),
-        ("unit_b_1form", (1.0, 2.0, 3.0), (1.0, 2.0, 3.0)),
+        (driftkinetic_hamiltonian, (2.0, 5.0), (23.25,)),
+        (bstar_parallel_3form, (2.0, 5.0), (17.0,)),
+        (grad_driftkinetic_hamiltonian, (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (4.0, 11.0, 18.0)),
+        (bstar_2form, (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (13.0, 17.0, 21.0)),
+        (unit_b_1form, (1.0, 2.0, 3.0), (1.0, 2.0, 3.0)),
     ],
 )
-def test_guiding_center_destinations(marker_args, derham_args, kernel_name, values, expected):
+def test_guiding_center_destinations(marker_args, derham_args, kernel, values, expected):
     fields = tuple(coefficients(value) for value in values)
-    args = (derham_args, *fields) if kernel_name == "unit_b_1form" else (derham_args, 2.0, *fields)
-    if kernel_name in ("driftkinetic_hamiltonian", "grad_driftkinetic_hamiltonian"):
+    args = (derham_args, *fields) if kernel.name == "unit_b_1form" else (derham_args, 2.0, *fields)
+    if kernel.name in ("driftkinetic_hamiltonian", "grad_driftkinetic_hamiltonian"):
         args += (True,)
     indices = (30,) if len(expected) == 1 else (30, None, 24)
     setup = KernelSetup(
-        kernel=catalog[kernel_name],
+        kernel=kernel,
         output_indices=indices,
         args=args,
         alpha=(1.0, 0.0, 0.5, 0.5),
@@ -67,13 +83,13 @@ def test_guiding_center_destinations(marker_args, derham_args, kernel_name, valu
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
-@pytest.mark.parametrize("kernel_name", ["sph_pressure_coeffs", "sph_mean_velocity_coeffs"])
-def test_sph_vector_destinations(marker_args, kernel_name):
+@pytest.mark.parametrize("kernel", [sph_pressure_coeffs, sph_mean_velocity_coeffs])
+def test_sph_vector_destinations(marker_args, kernel):
     boxes = np.array([[0, -1], [-1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
     neighbours[0, 0] = 0
     setup = KernelSetup(
-        kernel=catalog[kernel_name],
+        kernel=kernel,
         output_indices=(30, None, 24),
         args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5),
     )
@@ -81,7 +97,7 @@ def test_sph_vector_destinations(marker_args, kernel_name):
     setup.evaluate(marker_args, Cuboid().args_domain)
     reference = before.copy()
     # One particle: density = weight * W(0) = 2 * (1 / h) = 4.
-    if kernel_name == "sph_pressure_coeffs":
+    if kernel.name == "sph_pressure_coeffs":
         reference[0, 30], reference[0, 24] = 4.0, 2.0 * 4.0 ** (-1.0 / 3.0)
     else:
         reference[0, 30], reference[0, 24] = 1.0, 3.0
@@ -102,7 +118,7 @@ def test_sph_tensor_destinations(marker_args):
     density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
     indices = (30, 29, 28, 27, None, 25, 24, 23, 22)
     setup = KernelSetup(
-        kernel=catalog["sph_viscosity_tensor"],
+        kernel=sph_viscosity_tensor,
         output_indices=indices,
         args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
     )
@@ -134,16 +150,15 @@ def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
 
 
 @pytest.mark.parametrize(
-    "kernel_name,n_fields",
+    "kernel,n_fields",
     [
-        ("push_gc_Bstar_discrete_gradient_1st_order", 6),
-        ("push_gc_Bstar_discrete_gradient_2nd_order", 14),
-        ("push_gc_Bstar_discrete_gradient_1st_order_newton", 8),
+        (push_gc_Bstar_discrete_gradient_1st_order, 6),
+        (push_gc_Bstar_discrete_gradient_2nd_order, 14),
+        (push_gc_Bstar_discrete_gradient_1st_order_newton, 8),
     ],
 )
-def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel_name, n_fields):
+def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel, n_fields):
     # A marker at rest (v = mu = 0, no E-field) stays put; the residual must be 0, not NaN (issue #589).
-    kernel = catalog[kernel_name]
     markers = np.zeros((1, 40))
     markers[0, :3] = (0.4, 0.3, 0.2)
     markers[0, 8:11] = markers[0, :3]
@@ -173,7 +188,7 @@ def test_sph_tensor_mapped_domain(marker_args):
     density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
     indices = tuple(range(22, 31))
     setup = KernelSetup(
-        kernel=catalog["sph_viscosity_tensor"],
+        kernel=sph_viscosity_tensor,
         output_indices=indices,
         args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
     )

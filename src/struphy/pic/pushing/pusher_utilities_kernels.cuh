@@ -40,7 +40,7 @@ __device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
  * Call after updating the position. Boundary type 0 wraps periodically,
  * type 1 mirrors position and logical velocity and sets first_init_idx to -1,
  * type 2 clears all columns except the ID to -1, and type 3 is handled on
- * the host. MARKER accesses the flat row-major buffer; j is a CUDA-only
+ * the host. The marker view carries shape and strides; j is a CUDA-only
  * column index replacing Pyccel array slices.
  */
 __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_markers,

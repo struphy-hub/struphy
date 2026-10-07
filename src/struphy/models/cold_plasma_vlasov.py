@@ -1,8 +1,6 @@
 import copy
 import logging
 
-from cunumpy import PyccelKernel
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -13,7 +11,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.jxb_cold import JxBCold
@@ -182,7 +180,7 @@ class ColdPlasmaVlasov(StruphyModel):
         particles_to_grid = ParticlesToGrid(
             self.hot_elec.var,
             "H1",
-            PyccelKernel(accum_kernels.charge_density_0form),
+            charge_density_0form,
         )
 
         self.initial_poisson = PoissonSolve(

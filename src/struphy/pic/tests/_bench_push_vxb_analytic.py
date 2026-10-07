@@ -20,7 +20,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import create_equal_random_arrays
 from struphy.io.options import DerhamOptions
 from struphy.pic.particles import Particles6D
-from struphy.pic.pushing.kernels import catalog
+from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
 from struphy.pic.pushing.pusher import Pusher as Pusher_psy
 from struphy.topology.grids import TensorProductGrid
 
@@ -57,7 +57,7 @@ def main(num_elements: int, degree: int, ppc: int) -> float:
 
     pusher_psy = Pusher_psy(
         particles,
-        catalog["push_vxb_analytic"],
+        push_vxb_analytic,
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
