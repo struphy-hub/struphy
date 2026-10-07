@@ -243,19 +243,19 @@ class Simulation(SimulationBase):
 
         with ProfileManager.profile_region("setup: allocate"):
             # feec
-            with ProfileManager.profile_region("setup: feec", functions=[self._allocate_feec]):
+            with ProfileManager.profile_region("allocate feec", functions=[self._allocate_feec]):
                 self._allocate_feec(self.grid, self.derham_opts)
 
             # allocate model variables
-            with ProfileManager.profile_region("setup: variables", functions=[self._allocate_variables]):
+            with ProfileManager.profile_region("allocate variables", functions=[self._allocate_variables]):
                 self._allocate_variables()
 
             # pass info to propagators
-            with ProfileManager.profile_region("setup: propagators", functions=[self._allocate_propagators]):
+            with ProfileManager.profile_region("allocate propagators", functions=[self._allocate_propagators]):
                 self._allocate_propagators()
 
             # allocate helper fields and perform initial solves if needed
-            with ProfileManager.profile_region("setup: helpers", functions=[self.model.post_allocate]):
+            with ProfileManager.profile_region("model post allocate", functions=[self.model.post_allocate]):
                 self.model.post_allocate()
 
         logger.debug("... Done.")
@@ -1217,7 +1217,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, FieldSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                    with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1230,7 +1230,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, FluidSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                    with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1243,7 +1243,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, ParticleSpecies)
                 for k, v in spec.variables.items():
                     if isinstance(v, PICVariable):
-                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                        with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                             v.allocate(
                                 clone_config=self.clone_config,
                                 derham=self.derham,
@@ -1252,7 +1252,7 @@ class Simulation(SimulationBase):
                                 projected_equil=self.projected_equil,
                             )
                     if isinstance(v, SPHVariable):
-                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                        with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                             v.allocate(
                                 derham=self.derham,
                                 domain=self.domain,
@@ -1266,7 +1266,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, DiagnosticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                    with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1309,7 +1309,7 @@ class Simulation(SimulationBase):
         assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
-            with ProfileManager.profile_region("setup prop: " + prop.__class__.__name__, functions=[prop.allocate]):
+            with ProfileManager.profile_region("allocate prop: " + prop.__class__.__name__, functions=[prop.allocate]):
                 prop.allocate()
             logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
