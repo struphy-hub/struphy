@@ -22,6 +22,10 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
+from feectools.linalg.kernels.stencil_axpy_3d import stencil_axpy_3d
+from feectools.linalg.kernels.stencil_dot_3d import stencil_dot_3d
+from feectools.linalg.kernels.stencil_inner_3d import stencil_inner_3d
+from feectools.linalg.kernels.stencil_transpose_3d import stencil_transpose_3d
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from maybempi import MPI, SerialComm
 
@@ -1488,6 +1492,24 @@ class Derham:
         """Mandatory pusher kernel arguments for the backend used at initialization."""
         return self._args_derham
 
+    def kernels(self) -> tuple:
+        """The kernels called on the data of this complex.
+
+        The spline evaluation kernels of :class:`SplineFunction` (at markers, on meshgrids and on
+        sparse meshgrids) and the feectools kernels of the 3D stencil data (matrix-vector product,
+        transpose, inner product, axpy), which the FEEC operators and solvers call. Used by
+        :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (
+            eval_spline_mpi_markers,
+            eval_spline_mpi_matrix,
+            eval_spline_mpi_sparse_meshgrid,
+            stencil_dot_3d,
+            stencil_transpose_3d,
+            stencil_inner_3d,
+            stencil_axpy_3d,
+        )
+
     # --------------------------
     #      methods:
     # --------------------------
@@ -2296,7 +2318,8 @@ class SplineFunction:
         if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
             raise ValueError("CUDA spline degrees must be between 1 and 8.")
         pn = xp.asarray(degree)
-        knots = tuple(xp.ascontiguousarray(t, dtype=float) for t in derham.V0fem.knots)
+        # the knots are host arrays; cupy.ascontiguousarray does not take NumPy arrays, xp.asarray copies them
+        knots = tuple(xp.asarray(np.ascontiguousarray(t, dtype=float)) for t in derham.V0fem.knots)
         starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
         kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
         self._args_eval = tuple(
