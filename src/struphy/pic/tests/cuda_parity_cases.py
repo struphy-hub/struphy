@@ -29,6 +29,7 @@ from struphy.pic.tests.kernel_test_args import (
     marker_arguments,
     spline_coefficients,
     spline_evaluation_arguments,
+    v1_symm_accumulation_data,
 )
 
 
@@ -71,12 +72,58 @@ def reflect_args(axis):
     return (xp.asarray(markers), Cuboid(r1=2.0, r2=3.0, r3=4.0).args_domain, xp.asarray(outside_inds), axis)
 
 
+# guiding-centre evaluation kernels: every mapping, the evaluation point at the new position (alpha = 1), the old one
+# (alpha = 0) and in between; the output column alternates. (index into geometry_domain(), alpha, output column)
+BSTAR_PARALLEL_ALPHAS = ((1.0,) * 6, (0.0,) * 6, (0.3, 0.6, 0.9, 0.5, 0.0, 0.0))
+BSTAR_PARALLEL_3FORM_CASES = tuple(
+    (domain, BSTAR_PARALLEL_ALPHAS[domain % 3], 19 if domain % 2 == 0 else 24) for domain in range(N_GEOMETRY_DOMAINS)
+)
+
+
+def bstar_parallel_3form_args(case):
+    """Markers with shifts in [0, 1), so eta + shift wraps around, a negative eta_n in row 0 and a hole in row 2."""
+    domain, alpha, output_column = case
+    args_markers, _ = marker_arguments((0, 0, 0))
+    args_markers.markers[0, 8] = -0.75  # eta_n[0] = mod(-0.75, 1.0) = 0.25 (not 0, where some Jacobians are singular)
+    args_markers.markers[2, 0] = -1.0  # a hole: pyccel tests markers[ip, 0] == -1, not valid_mks
+    return (
+        xp.asarray(alpha),
+        xp.asarray([output_column], dtype=np.int64),
+        args_markers,
+        geometry_domain(domain).args_domain,
+        derham_arguments(),
+        0.37,
+        *spline_coefficients(n=2, seed=23),
+    )
+
+
 # ---------------------------------------------------------------- accumulation
 
 
 def charge_density_0form_args(bc):
     args_markers, args_domain = marker_arguments(bc)
     return (args_markers, derham_arguments(), args_domain, xp.zeros((18, 20, 16)))
+
+
+def linear_vlasov_ampere_args(domain):
+    """129 markers (a hole and a boundary particle) in domain `domain` of geometry_domain(); zeroed V1 data."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    f0_values = xp.asarray(np.random.default_rng(14).random(N_MARKERS))
+    return (
+        args_markers,
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *v1_symm_accumulation_data(),
+        f0_values,
+    )
+
+
+def vlasov_maxwell_args(domain):
+    """129 markers (a hole in row 0, a boundary particle in row 1, which is accumulated as in pyccel) in domain
+    `domain` of geometry_domain(); zeroed V1 data."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    args_markers.markers[0, 0] = -1.0
+    return (args_markers, derham_arguments(), geometry_domain(domain).args_domain, *v1_symm_accumulation_data())
 
 
 # ---------------------------------------------------------------- spline evaluation
@@ -276,8 +323,22 @@ PARITY_CASES = {
         BOUNDARY_CONDITIONS, push_weights_with_efield_lin_va_args, **PUSHER_TOLERANCES
     ),
     "reflect": ParityCases((0, 1, 2), reflect_args, n_threads=size_of(2)),
+    # one thread per marker row; the first array, alpha, does not tell the launch size
+    "bstar_parallel_3form": ParityCases(
+        BSTAR_PARALLEL_3FORM_CASES,
+        bstar_parallel_3form_args,
+        n_threads=lambda args: args[2].n_markers,
+        **GEOMETRY_TOLERANCES,
+    ),
     # atomics add in another order than the serial loop
     "charge_density_0form": ParityCases(((0, 0, 0), (2, 0, 1)), charge_density_0form_args, rtol=1e-12, atol=1e-13),
+    # Cuboid, Colella and HollowTorus (non-diagonal DF) and a 3d spline mapping, by index into geometry_domain();
+    # atomics add in another order than the serial loop, and the entries reach 1e4 (atol for cancelling sums)
+    "linear_vlasov_ampere": ParityCases((0, 2, 5, 12), linear_vlasov_ampere_args, rtol=1e-12, atol=1e-10),
+    # Cuboid, then Colella, HollowTorus, ShafranovDshapedCylinder (non-diagonal DF) and a 3d spline mapping, by index into
+    # geometry_domain(); atomics add in another order than the serial loop, and G^{-1} of the spline mapping makes
+    # entries of 6e5 (atol for cancelling sums)
+    "vlasov_maxwell": ParityCases((0, 2, 5, 9, 12), vlasov_maxwell_args, rtol=1e-12, atol=1e-8),
     "eval_spline_mpi_markers": ParityCases(SPLINE_KINDS, eval_spline_mpi_markers_args),
     "eval_spline_mpi_matrix": ParityCases(SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=False), n_threads=size_of(-1)),
     "eval_spline_mpi_sparse_meshgrid": ParityCases(
