@@ -2324,7 +2324,8 @@ class SplineFunction:
         if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
             raise ValueError("CUDA spline degrees must be between 1 and 8.")
         pn = xp.asarray(degree)
-        knots = tuple(xp.ascontiguousarray(t, dtype=float) for t in derham.V0fem.knots)
+        # the knots are host arrays; cupy.ascontiguousarray does not take NumPy arrays, xp.asarray copies them
+        knots = tuple(xp.asarray(np.ascontiguousarray(t, dtype=float)) for t in derham.V0fem.knots)
         starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
         kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
         self._args_eval = tuple(
