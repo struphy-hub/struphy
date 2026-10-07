@@ -20,6 +20,7 @@ from struphy.pic.tests.kernel_test_args import (
     N_ANALYTIC_DOMAINS,
     N_GEOMETRY_DOMAINS,
     N_MARKERS,
+    analytic_domains,
     butcher_arguments,
     derham_arguments,
     evaluation_grid,

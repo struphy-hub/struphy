@@ -16,6 +16,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
+from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
 
 

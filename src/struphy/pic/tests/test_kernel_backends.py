@@ -197,6 +197,15 @@ def test_pusher_accepts_kernel(wrap):
         pusher(0.001)
 
 
+def test_spline_mappings_checked_only_on_cupy():
+    """Spline mappings (kind_map < 10) have no CUDA version yet (PR 19); the check passes on NumPy."""
+    from struphy.utils.cuda_arguments import check_mapping_on_device
+
+    with cunumpy.use_backend("numpy"):
+        for kind_map in (0, 1, 2, 10, 22, 32):
+            check_mapping_on_device(kind_map, "Geometry evaluations")
+
+
 @requires_cupy
 @pytest.mark.parametrize("domain_index", range(N_GEOMETRY_DOMAINS))
 def test_geometry_evaluation_on_cupy(domain_index):
