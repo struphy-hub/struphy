@@ -942,6 +942,15 @@ class Particles(metaclass=ABCMeta):
         """Arguments for marker kernels, selected when this particle object is created."""
         return self._args_markers
 
+    def kernels(self) -> tuple:
+        """The kernels these particles call when they apply their boundary conditions.
+
+        :func:`~struphy.pic.pushing.kernels.reflect.reflect` if an axis has reflecting boundary
+        conditions, otherwise none. Used by
+        :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (reflect,) if self._reflect_axes else ()
+
     # -------------------------------------------
     # Initial condition and background -> weights
     # -------------------------------------------
