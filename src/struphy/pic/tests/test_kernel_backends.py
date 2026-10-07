@@ -9,7 +9,7 @@ from pathlib import Path
 import cunumpy
 import numpy as np
 import pytest
-from cunumpy.cuda import CudaStruct
+from cunumpy.arguments import CudaStruct
 from cunumpy.kernel_testing import requires_cupy
 from cunumpy.kernels import Kernel
 

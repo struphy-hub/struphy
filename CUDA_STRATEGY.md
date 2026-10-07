@@ -59,7 +59,7 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 
 | File | Content |
 |---|---|
-| `cunumpy.kernels`, `cunumpy.cuda` | `Kernel`, `KernelCatalog`, `PyccelKernel`, `CudaStructArguments` and `CudaKernel`; Struphy uses cunumpy for dispatch and struct packing |
+| `cunumpy.kernels`, `cunumpy.arguments`, `cunumpy.cuda` (cunumpy 0.6) | `Kernel`, `KernelCatalog`, `PyccelKernel` and `CudaKernel` in `cunumpy.kernels`; `CudaStructArguments`, `CudaStruct` and `write_cuda_header` in `cunumpy.arguments`; the device runtime (`bind_local_device`, ...) in `cunumpy.cuda`. Struphy uses cunumpy for dispatch and struct packing |
 | `src/struphy/kernel_arguments/` | the argument classes in pairs: the pyccel classes in `pusher_args_kernels.py` / `local_projectors_args_kernels.py` (NumPy backend) and their CUDA versions `Cuda<Name>` in `pusher_args_cuda.py` / `local_projectors_args_cuda.py` (CuPy backend; subclasses of `CudaStructArguments` whose `fields` define the C struct) |
 | `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()` and `write_local_projectors_header()` |
 | `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs` and `LocalProjectorsArgs`, generated from the CUDA classes, using cunumpy array views |

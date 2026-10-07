@@ -3,8 +3,8 @@
 import cunumpy
 import numpy as np
 import pytest
-from cunumpy.cuda import CudaKernel
 from cunumpy.kernel_testing import device_function_kernel, requires_cupy
+from cunumpy.kernels import CudaKernel
 
 from struphy.bsplines import bsplines_kernels as splines
 from struphy.geometry.tests import spline_mapping_cases
