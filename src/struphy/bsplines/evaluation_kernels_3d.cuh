@@ -72,6 +72,24 @@ __device__ inline double eval_spline_mpi_kernel(int p1, int p2, int p3, const do
 }
 
 /**
+ * Evaluate a 0-form spline, as in evaluation_kernels_3d.eval_0form_spline_mpi.
+ *
+ * @param span1 Knot span index along the first axis (from get_spans).
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param args_derham Spline degrees and start indices.
+ * @param scratch N-spline values from get_spans; pyccel reads them from args_derham.bn1, bn2, bn3.
+ * @param form_coeffs Coefficients of the 0-form (N N N).
+ * @return out, the value of the 0-form at the point of get_spans.
+ */
+__device__ inline double eval_0form_spline_mpi(int span1, int span2, int span3, const DerhamArgs& args_derham,
+                                               const SplineScratch& scratch, Array3D<double> form_coeffs) {
+    double out = eval_spline_mpi_kernel(args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], scratch.bn1,
+                                        scratch.bn2, scratch.bn3, span1, span2, span3, form_coeffs, args_derham.starts);
+    return out;
+}
+
+/**
  * Evaluate the three components of a 1-form spline, as in evaluation_kernels_3d.eval_1form_spline_mpi.
  *
  * @param span1 Knot span index along the first axis (from get_spans).

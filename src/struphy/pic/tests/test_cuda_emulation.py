@@ -10,6 +10,7 @@ from cunumpy.kernel_testing import emulation_compiler
 
 from struphy.geometry.tests import spline_mapping_cases
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.pic.tests.cuda_emulation import emulate_struct_kernel
 from struphy.pic.tests.cuda_parity_cases import PARITY_CASES
 from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
@@ -17,7 +18,8 @@ from struphy.pic.tests.test_cuda_parity import CUDA_KERNELS
 
 # pyccel argument class name -> its CUDA version
 CUDA_CLASSES = {
-    cls.__name__.removeprefix("Cuda"): cls for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments)
+    cls.__name__.removeprefix("Cuda"): cls
+    for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments, CudaSplineArguments)
 }
 
 requires_compiler = pytest.mark.skipif(emulation_compiler() is None, reason="no C++ compiler")
@@ -113,3 +115,15 @@ def test_emulated_transform_helpers(domain_index):
     out = np.zeros(len(expected))
     emulate_struct_kernel(kernel, *inputs, args_domain, out, len(out), n_threads=len(out))
     np.testing.assert_allclose(out, expected, rtol=1e-10, atol=1e-10)
+
+
+@requires_compiler
+def test_emulated_v1_symm_filler():
+    """test_device_helpers.test_v1_symm_filler by CPU emulation: the device m_v_fill_b_v1_symm agrees with pyccel."""
+    from struphy.pic.tests.test_device_helpers import v1_symm_filler_case
+
+    kernel, (eta, fills), args_derham, data, expected = v1_symm_filler_case()
+    emulate_struct_kernel(kernel, eta, fills, args_derham, *data, len(eta), n_threads=len(eta))
+    for result, reference in zip(data, expected):
+        assert np.any(reference != 0.0)
+        np.testing.assert_allclose(result, reference, rtol=1e-12, atol=1e-13)

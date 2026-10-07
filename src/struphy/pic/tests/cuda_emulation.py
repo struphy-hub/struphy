@@ -6,8 +6,10 @@ or ``DerhamArgs``. :func:`emulate_struct_kernel` therefore emulates a generated 
 the fields of each struct as separate parameters, rebuilds the structs and calls the real kernel.
 """
 
+import contextlib
+
 import numpy as np
-from cunumpy.kernel_testing import emulate_cuda_kernel
+from cunumpy.kernel_testing import emulate_cuda_kernel, fake_cupy_active
 from cunumpy.kernels import CudaKernel
 
 from struphy.utils.cuda_arguments import CUDA_OPTIONS
@@ -55,11 +57,12 @@ def _struct_field(value, name):
     return getattr(value, name)
 
 
-def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads=None):
+def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads=None, grid=None, block=None):
     """Emulate `kernel` with host arguments; struct arguments are the pyccel argument objects (NumPy arrays).
 
-    Arrays (also those inside the argument objects) are updated in place, as by a launch. Without `n_threads`,
-    one thread per row of the first array is launched, as in a real launch.
+    Arrays (also those inside the argument objects) are updated in place, as by a launch. Without `n_threads` or
+    `grid`, one thread per row of the first array is launched, as in a real launch; `grid` and `block` give the
+    launch shape explicitly.
     """
     flat = []
     for p, value in zip(kernel.signature, args):
@@ -67,9 +70,58 @@ def emulate_struct_kernel(kernel: CudaKernel, *args, n_threads=None):
             flat.append(value)
         else:
             flat += [_struct_field(value, f.name) for f in p.struct.fields]
-    if n_threads is None:
-        n_threads = next(value.shape[0] for value in flat if isinstance(value, np.ndarray))
-    grid, block = kernel.launch_shape(n_threads)
+    if grid is None:
+        if n_threads is None:
+            n_threads = next(value.shape[0] for value in flat if isinstance(value, np.ndarray))
+        grid, block = kernel.launch_shape(n_threads, block=block)
     source, name = _wrapper(kernel)
     wrapper = CudaKernel(source, name, source_dir=kernel.source_dir, **CUDA_OPTIONS)
     emulate_cuda_kernel(wrapper, *flat, grid=grid, block=block, options=EMULATION_OPTIONS)
+
+
+def _host(value):
+    """The host buffer behind a fake CuPy array (the same memory, no copy); other values unchanged."""
+    if isinstance(value, np.ndarray) or not hasattr(value, "__cuda_array_interface__"):
+        return value
+    return object.__getattribute__(value, "_a")
+
+
+class _HostFields:
+    """A CUDA argument object (``Cuda*Arguments``) whose array attributes are their fake CuPy host buffers."""
+
+    def __init__(self, args):
+        self._args = args
+
+    def __getattr__(self, name):
+        return _host(getattr(self._args, name))
+
+
+@contextlib.contextmanager
+def emulated_launches():
+    """On cunumpy's fake CuPy, run every ``CudaKernel`` launch by CPU emulation, in place on the fake device arrays.
+
+    The fake CuPy (``CUNUMPY_FAKE_CUPY=1``) keeps device arrays in host memory and rejects host/device mixing, but
+    cannot launch kernels. Inside this context a launch emulates the kernel (struct arguments included, through
+    :func:`emulate_struct_kernel`) on the host buffers of the fake arrays, so code that launches CUDA kernels (struphy's
+    and feectools') runs end to end on the CuPy backend without a GPU. Each launch compiles the kernel, so this is slow.
+    """
+    if not fake_cupy_active():
+        raise RuntimeError("emulated_launches() needs cunumpy's fake CuPy (CUNUMPY_FAKE_CUPY=1)")
+    original = CudaKernel.__call__
+
+    def launch(self, *args, n_threads=None, grid=None, block=None, shared_mem=0, stream=None):
+        grid, block = self.launch_shape(n_threads, grid=grid, block=block, args=args)
+        if any(p.struct is not None for p in self.signature):
+            host_args = [_host(a) if p.struct is None else _HostFields(a) for p, a in zip(self.signature, args)]
+            emulate_struct_kernel(self, *host_args, grid=grid, block=block)
+        else:
+            host_args = [_host(a) for a in args]
+            emulate_cuda_kernel(
+                self, *host_args, grid=grid, block=block, shared_mem=shared_mem, options=EMULATION_OPTIONS
+            )
+
+    CudaKernel.__call__ = launch
+    try:
+        yield
+    finally:
+        CudaKernel.__call__ = original

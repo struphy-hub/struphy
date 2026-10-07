@@ -67,11 +67,10 @@ class Tokamak(PoloidalSplineTorus):
     ):
         if r_min != 0.0:
             r0 = r_min
-        # The equilibrium and the field-line tracing (SciPy) are host-only setup: they run on the NumPy
-        # backend, and the control points are copied to the active backend once.
+        # The field-line tracing (SciPy) is host-only setup: it runs on the NumPy backend, and the control points
+        # are copied to the active backend once. EQDSKequilibrium does its own setup (file, SciPy splines) on the host.
         if equilibrium is None:
-            with xp.use_backend("numpy"):
-                equilibrium = EQDSKequilibrium()
+            equilibrium = EQDSKequilibrium()
         else:
             assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
