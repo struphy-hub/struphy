@@ -11,7 +11,6 @@ from scope_profiler import ProfileManager
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
-from struphy.utils.cuda_arguments import prepare_kernel
 
 logger = logging.getLogger("struphy")
 
@@ -130,8 +129,8 @@ class Pusher:
         mpi_sort: str = None,
         local_eval_only: bool = False,
     ):
-        # on the CuPy backend this raises if there is no CUDA version (yet), see CUDA_STRATEGY.md
-        self._kernel = prepare_kernel(kernel)
+        # on the CuPy backend a kernel without CUDA version (yet) raises when called, see CUDA_STRATEGY.md
+        self._kernel = kernel if isinstance(kernel, Kernel) else Kernel(kernel)
         self._cuda = xp.cupy_backend
         if self._cuda and args_domain.kind_map != 10:
             raise NotImplementedError("CUDA pushers currently support only Cuboid mappings.")

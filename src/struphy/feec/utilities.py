@@ -1,7 +1,6 @@
 import logging
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
@@ -11,6 +10,7 @@ from feectools.linalg.stencil import StencilMatrix, StencilVector
 
 import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts
+from struphy.feec.kernels.hybrid_weight import hybrid_weight
 from struphy.polar.basic import PolarVector
 
 logger = logging.getLogger("struphy")
@@ -584,7 +584,7 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
             b[aa]._data,
         )
     # generate the weight for generating the matrix
-    PyccelKernel(kernels.hybrid_weight)(
+    hybrid_weight(
         *pads_out,
         *pts,
         *spans_out,

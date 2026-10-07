@@ -11,17 +11,21 @@ from feectools.linalg.kron import KroneckerStencilMatrix
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 
+from struphy.feec.local_projectors.kernels.get_dofs_local_1_form_ec_component import get_dofs_local_1_form_ec_component
+from struphy.feec.local_projectors.kernels.get_dofs_local_1_form_ec_component_weighted import (
+    get_dofs_local_1_form_ec_component_weighted,
+)
+from struphy.feec.local_projectors.kernels.get_dofs_local_2_form_ec_component import get_dofs_local_2_form_ec_component
+from struphy.feec.local_projectors.kernels.get_dofs_local_2_form_ec_component_weighted import (
+    get_dofs_local_2_form_ec_component_weighted,
+)
+from struphy.feec.local_projectors.kernels.get_dofs_local_3_form import get_dofs_local_3_form
+from struphy.feec.local_projectors.kernels.get_dofs_local_3_form_weighted import get_dofs_local_3_form_weighted
+from struphy.feec.local_projectors.kernels.solve_local_main_loop import solve_local_main_loop
+from struphy.feec.local_projectors.kernels.solve_local_main_loop_weighted import solve_local_main_loop_weighted
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,
-    get_dofs_local_1_form_ec_component,
-    get_dofs_local_1_form_ec_component_weighted,
-    get_dofs_local_2_form_ec_component,
-    get_dofs_local_2_form_ec_component_weighted,
-    get_dofs_local_3_form,
-    get_dofs_local_3_form_weighted,
     get_local_problem_size,
-    solve_local_main_loop,
-    solve_local_main_loop_weighted,
 )
 from struphy.feec.utilities_local_projectors import (
     build_translation_list_for_non_zero_spline_indices,
@@ -33,6 +37,7 @@ from struphy.feec.utilities_local_projectors import (
     is_spline_zero_at_quadrature_points,
     split_points,
 )
+from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.linear_operators import PolarExtractionOperator
 
@@ -1057,8 +1062,9 @@ class CommutingProjectorLocal:
                 indexing="ij",
             )
 
-            # We intialize the arguments for the solve method
-            self._solve_args = LocalProjectorsArguments(
+            # We intialize the arguments for the solve method (pyccel class on NumPy, CUDA class on CuPy)
+            args_class = CudaLocalProjectorsArguments if xp.get_backend() == "cupy" else LocalProjectorsArguments
+            self._solve_args = args_class(
                 self._space_key_int,
                 self._IoH,
                 self._shift,
@@ -1280,9 +1286,10 @@ class CommutingProjectorLocal:
                     ),
                 )
 
-                # We intialize the arguments for the solve method
+                # We intialize the arguments for the solve method (pyccel class on NumPy, CUDA class on CuPy)
+                args_class = CudaLocalProjectorsArguments if xp.get_backend() == "cupy" else LocalProjectorsArguments
                 self._solve_args.append(
-                    LocalProjectorsArguments(
+                    args_class(
                         self._space_key_int,
                         self._IoH[h],
                         self._shift[h],

@@ -1,25 +1,14 @@
 """Reflection uses the same arguments on NumPy and CUDA."""
 
-from pathlib import Path
-
 import cunumpy as xp
 import numpy as np
 import pytest
-from cunumpy.cuda import CudaKernel
-from cunumpy.kernels import Kernel, PyccelKernel
 
-import struphy
 from struphy.geometry.domains import Cuboid
-from struphy.pic.pushing import pusher_utilities_kernels
-from struphy.utils.cuda_arguments import CUDA_OPTIONS
+from struphy.pic.pushing.kernels.reflect import reflect
 
 requires_cupy = pytest.mark.skipif(not xp.cupy_available(), reason="CuPy/GPU not available")
 
-# the same pair as Particles builds in __init__
-reflect = Kernel(
-    PyccelKernel(pusher_utilities_kernels.reflect),
-    CudaKernel.from_file(Path(struphy.__file__).parent / "pic" / "pushing" / "reflect_cuda.cu", **CUDA_OPTIONS),
-)
 BACKENDS = ["numpy", pytest.param("cupy", marks=requires_cupy)]
 
 
