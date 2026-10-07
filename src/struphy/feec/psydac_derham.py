@@ -614,12 +614,6 @@ class Derham:
             raise NotImplementedError(
                 "Local projectors (DerhamOptions.local_projectors=True) are not supported on the CuPy backend yet."
             )
-        if polar_splines and (xp.get_backend() == "cupy"):
-            # PolarExtractionBlocksC1 builds SciPy sparse matrices from the control points, and the polar
-            # extraction operators apply them to the stencil data, which lives on the device on CuPy.
-            raise NotImplementedError(
-                "Polar splines (DerhamOptions.polar_splines=True) are not supported on the CuPy backend yet."
-            )
 
         # number of elements and spline degrees in each direction
         assert len(num_elements) == 3
@@ -2712,16 +2706,17 @@ class SplineFunction:
         n_comps = W.n_comps
 
         # stack blocks of E (polar coeffs x polar rings); incompatible blocks (None) are zero
-        rows = xp.cumsum([0] + list(W.n_polar))
-        cols = xp.cumsum([0] + [n_r * n_2 for n_r, n_2 in zip(W.n_rings, W.n2)])
-        E_full = xp.zeros((rows[-1], cols[-1]), dtype=float)
+        # (host setup data on every backend, like the blocks of E)
+        rows = np.cumsum([0] + list(W.n_polar))
+        cols = np.cumsum([0] + [n_r * n_2 for n_r, n_2 in zip(W.n_rings, W.n2)])
+        E_full = np.zeros((rows[-1], cols[-1]), dtype=float)
         for m in range(n_comps):
             for n in range(n_comps):
                 if E.blocks_ten_to_pol[m][n] is not None:
                     E_full[rows[m] : rows[m + 1], cols[n] : cols[n + 1]] = E.blocks_ten_to_pol[m][n].toarray()
 
         # E^T has full column rank, hence pinv(E^T) @ E^T = identity on polar coeffs
-        L_full = xp.linalg.pinv(E_full.T)
+        L_full = np.linalg.pinv(E_full.T)
 
         blocks = [
             [
