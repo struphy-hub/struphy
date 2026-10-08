@@ -167,7 +167,55 @@ def test_stiffness_preconditioner_kernel_correction(derivative, mapping):
 
 
 @pytest.mark.parametrize("derivative", ["grad", "curl", "div"])
-def test_stiffness_preconditioner_mpi(derivative):
+def test_stiffness_preconditioner_average_weights(derivative):
+    """On a stretched cuboid (constant, anisotropic weights), weights="average" is exact for grad
+    and better than unit weights for curl and div."""
+
+    from feectools.linalg.solvers import inverse
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import StiffnessPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(
+        TensorProductGrid(num_elements=[8, 10, 4]),
+        DerhamOptions(degree=[2, 3, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=MPI.COMM_WORLD,
+    )
+    mass_ops = WeightedMassOperators(derham, domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=0.5, l3=0.0, r3=1.0))
+
+    k = int(FORMS[derivative])
+    d = getattr(derham, derivative)
+    sigma = 0.0 if derivative == "grad" else 1.0
+    A = d.T @ getattr(mass_ops, f"M{k + 1}") @ d
+    if sigma:
+        A = A + sigma * getattr(mass_ops, f"M{k}")
+    b = derham.boundary_ops[FORMS[derivative]].dot(
+        create_equal_random_arrays(derham.fem_spaces[FORMS[derivative]], seed=2, flattened=True)[1]
+    )
+
+    niter = {}
+    for weights in ("unit", "average"):
+        P = StiffnessPreconditioner(mass_ops, derivative, sigma=sigma, weights=weights)
+        assert P.weights == weights
+        inv = inverse(A, "pcg", pc=P, tol=1e-10, maxiter=3000)
+        inv.dot(b)
+        assert inv._info["success"]
+        niter[weights] = inv._info["niter"]
+
+    if derivative == "grad":
+        assert niter["average"] <= 2
+    assert niter["average"] < niter["unit"]
+
+
+@pytest.mark.parametrize("derivative", ["grad", "curl", "div"])
+@pytest.mark.parametrize("weights", ["unit", "average"])
+def test_stiffness_preconditioner_mpi(derivative, weights):
     """The preconditioner must not depend on the MPI decomposition."""
 
     import cunumpy as xp
@@ -190,7 +238,7 @@ def test_stiffness_preconditioner_mpi(derivative):
         )
         mass_ops = WeightedMassOperators(derham, domains.HollowCylinder(a1=0.1, a2=1.0, Lz=3.0))
         _, v = create_equal_random_arrays(derham.fem_spaces[FORMS[derivative]], seed=1234)
-        out += [StiffnessPreconditioner(mass_ops, derivative, sigma=1.0).dot(v)]
+        out += [StiffnessPreconditioner(mass_ops, derivative, sigma=1.0, weights=weights).dot(v)]
 
     for a, b in zip(_blocks(out[0]), _blocks(out[1])):
         sl = tuple(slice(si, ei + 1) for si, ei in zip(a.space.starts, a.space.ends))

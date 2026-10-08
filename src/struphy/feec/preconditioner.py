@@ -434,7 +434,15 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     block Jacobi for div). On the range of :math:`\mathbb d_-^T` the kernel of
     :math:`\mathbb d_-` does not matter, since :math:`\mathbb G^T \mathbb C^T = 0`.
 
-    The geometry is included by diagonal scaling (default, see :class:`KroneckerPreconditioner`).
+    The geometry is included by diagonal scaling (default, see :class:`KroneckerPreconditioner`),
+    and/or with ``weights="average"``: fast diagonalization needs the same 1d mass matrix in
+    each direction for all terms, so the weights :math:`w` of the mass matrices are approximated
+    by one common separable shape :math:`\prod_d \phi_d(\eta_d)` (mean 1; :math:`\phi_d` is the mean
+    over the other directions, averaged over the diagonal blocks of :math:`\mathbb M_{k+1}`), times
+    the mean of the weight of each term (the block of :math:`\mathbb M_{k+1}` for the stiffness
+    term of each direction, the block of :math:`\mathbb M_k` for the mass term). This is exact
+    e.g. for constant but anisotropic weights.
+
     Polar splines are not supported yet.
 
     Parameters
@@ -458,6 +466,10 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     kernel_correction : bool
         For curl and div: whether to add the correction on the kernel of the derivative (needs
         ``sigma > 0``). Ignored for grad.
+
+    weights : str
+        ``"unit"`` (operator on the logical cube, default) or ``"average"`` (separable
+        approximation of the weights, see above).
     """
 
     _FORMS = {"grad": 0, "curl": 1, "div": 2}
@@ -470,9 +482,11 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         apply_bc: bool = True,
         diagonal_scaling: bool = True,
         kernel_correction: bool = True,
+        weights: str = "unit",
     ):
         assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
         assert sigma >= 0.0
+        assert weights in ("unit", "average"), f"weights must be 'unit' or 'average', got {weights!r}."
         kernel_correction = kernel_correction and derivative != "grad"
         if kernel_correction and sigma == 0.0:
             raise ValueError("The kernel correction needs sigma > 0 (or kernel_correction=False).")
@@ -485,6 +499,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         self._mass_ops = mass_ops
         self._derivative = derivative
         self._sigma = sigma
+        self._weights = weights
         self._mass_mid = getattr(mass_ops, f"M{k + 1}")
         # tensor-product derivative without boundary operators (no polar splines)
         self._d = getattr(derham, f"{derivative}_bcfree")
@@ -497,7 +512,12 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             prev = "grad" if derivative == "curl" else "curl"
             d_prev = getattr(derham, prev)
             P_prev = StiffnessPreconditioner(
-                mass_ops, prev, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling, kernel_correction=False
+                mass_ops,
+                prev,
+                apply_bc=apply_bc,
+                diagonal_scaling=diagonal_scaling,
+                kernel_correction=False,
+                weights=weights,
             )
             self._kernel_correction = (1.0 / sigma) * (d_prev @ P_prev @ d_prev.T)
             self._tmp_kernel = self.codomain.zeros()
@@ -511,6 +531,11 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     def sigma(self) -> float:
         """Coefficient of the mass term."""
         return self._sigma
+
+    @property
+    def weights(self) -> str:
+        """``"unit"`` or ``"average"``."""
+        return self._weights
 
     @property
     def kernel_correction(self) -> LinearOperator | None:
@@ -540,6 +565,18 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         # directions in which each component is differentiated, and the codomain block
         stiff_dirs = _derivative_directions(self._d)
 
+        # weights: common shape per direction and means per block (unit or separable average)
+        n_mid = len(self._mass_mid.weights)
+        n_dom = len(self._mass_operator.weights)
+        if self._weights == "average":
+            mid_weights = [self._mass_mid.weights[r][r] for r in range(n_mid)]
+            shapes, mid_means = _separable_weight(mid_weights, self._mass_operator.derham)
+            _, dom_means = _separable_weight(
+                [self._mass_operator.weights[c][c] for c in range(n_dom)], self._mass_operator.derham
+            )
+        else:
+            shapes, mid_means, dom_means = [_ones_1d] * 3, [1.0] * n_mid, [1.0] * n_dom
+
         matrixblocks = []
         solverblocks = []
         for c, comp in enumerate(comps):
@@ -548,14 +585,14 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             stiffness, mass, local_mass, local_stiffness = [], [], [], []
             for d in range(3):
                 basis = comp.spaces[d].basis
-                M_d, domain_decomposition = _dense_mass_1d(self._mass_operator, basis, d, _ones_1d)
+                M_d, domain_decomposition = _dense_mass_1d(self._mass_operator, basis, d, shapes[d])
 
                 S_d = None
                 if d in stiff_dirs[c]:
                     assert basis == "B", "Only B-spline directions are differentiated."
-                    M_D, _ = _dense_mass_1d(self._mass_operator, "M", d, _ones_1d)
+                    M_D, _ = _dense_mass_1d(self._mass_operator, "M", d, shapes[d])
                     D_d = _difference_matrix_1d(M_d.shape[0], M_D.shape[0])
-                    S_d = D_d.T @ M_D @ D_d
+                    S_d = mid_means[stiff_dirs[c][d]] * (D_d.T @ M_D @ D_d)
 
                 if bc is not None and basis == "B":
                     M_d = _apply_bc_dense(M_d, bc[d])
@@ -570,8 +607,9 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                     else _process_local_matrix_1d(xp.asarray(S_d), comp.coeff_space, d, domain_decomposition)
                 )
 
-            solverblocks.append(KroneckerSumSolver(coeff_space, stiffness, mass, sigma=self._sigma))
-            matrixblocks.append(_kronecker_sum(coeff_space, local_stiffness, local_mass, self._sigma))
+            sigma_c = self._sigma * dom_means[c]
+            solverblocks.append(KroneckerSumSolver(coeff_space, stiffness, mass, sigma=sigma_c))
+            matrixblocks.append(_kronecker_sum(coeff_space, local_stiffness, local_mass, sigma_c))
 
         if is_scalar:
             return matrixblocks[0], solverblocks[0]
@@ -1049,6 +1087,48 @@ def _derivative_directions(derivative: LinearOperator) -> list[dict[int, int]]:
         assert op.diffdir not in directions[c], "Component differentiated twice in the same direction."
         directions[c][op.diffdir] = r
     return directions
+
+
+def _separable_weight(weights: list, derham) -> tuple[list[xp.ndarray], list[float]]:
+    r"""
+    Common separable shape of 3d weights, :math:`w_i \approx \bar w_i \prod_d \phi_d(\eta_d)`.
+
+    Parameters
+    ----------
+    weights : list
+        3d weights (callable, array at the local quadrature points, or None for 1).
+
+    derham : Derham
+        Discrete de Rham sequence (quadrature grid).
+
+    Returns
+    -------
+    shapes : list[xp.ndarray]
+        :math:`\phi_d` at the global 1d quadrature points: the mean over the other directions,
+        divided by the mean, averaged over the weights (mean 1).
+
+    means : list[float]
+        The means :math:`\bar w_i` of the weights over the logical cube.
+
+    Collective on ``derham.comm`` for array weights.
+    """
+    grids = [derham.H1_1d_serial[d].get_assembly_grids(derham.nquads[d])[0] for d in range(3)]
+    pts = [xp.asarray(np.ravel(g.points)) for g in grids]
+    wts = [xp.asarray(np.ravel(g.weights)) for g in grids]
+
+    profiles, means = [], []
+    for w in weights:
+        prof = []
+        for d in range(3):
+            p = _reduced_weight_1d(w, 0, d, derham, "average")
+            prof.append(xp.asarray(p(pts[d]) if callable(p) else p, dtype=float))
+        mean = float(xp.sum(prof[0] * wts[0]) / xp.sum(wts[0]))
+        assert mean > 0.0, "The weights must have a positive mean."
+        profiles.append(prof)
+        means.append(mean)
+
+    shapes = [sum(prof[d] / mean for prof, mean in zip(profiles, means)) / len(weights) for d in range(3)]
+    return shapes, means
 
 
 def _dense_mass_1d(
