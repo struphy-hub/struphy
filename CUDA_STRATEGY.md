@@ -291,7 +291,6 @@ done (✓), in a PR (PR 14), blocked (⏸).
 |---|---|---|---|---|
 | 1 | `push_v_with_efield` | P | `VlasovAmpereCoupling`, `PushVinForceField` | PR 14 |
 | 2 | `charge_density_0form` | A (vector) | initial Poisson solve of these models | PR 14 |
-
 | 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | ✓ (#688, see [notes](#vlasov_maxwell-implementation-notes)) |
 
 **Step 2 – LinearVlasovAmpère/Maxwell (δf)**
