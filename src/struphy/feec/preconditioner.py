@@ -434,8 +434,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     block Jacobi for div). On the range of :math:`\mathbb d_-^T` the kernel of
     :math:`\mathbb d_-` does not matter, since :math:`\mathbb G^T \mathbb C^T = 0`.
 
-    The geometry is included by diagonal scaling (default, see :class:`KroneckerPreconditioner`),
-    and/or with ``weights="average"``: fast diagonalization needs the same 1d mass matrix in
+    The geometry is included with ``weights="average"`` (default) and by diagonal scaling
+    (default, see :class:`KroneckerPreconditioner`). For the weights, fast diagonalization needs the same 1d mass matrix in
     each direction for all terms, so the weights :math:`w` of the mass matrices are approximated
     by one common separable shape :math:`\prod_d \phi_d(\eta_d)` (mean 1; :math:`\phi_d` is the mean
     over the other directions, averaged over the diagonal blocks of :math:`\mathbb M_{k+1}`), times
@@ -468,8 +468,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         ``sigma > 0``). Ignored for grad.
 
     weights : str
-        ``"unit"`` (operator on the logical cube, default) or ``"average"`` (separable
-        approximation of the weights, see above).
+        ``"average"`` (separable approximation of the weights, see above; default) or
+        ``"unit"`` (operator on the logical cube).
     """
 
     _FORMS = {"grad": 0, "curl": 1, "div": 2}
@@ -482,7 +482,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         apply_bc: bool = True,
         diagonal_scaling: bool = True,
         kernel_correction: bool = True,
-        weights: str = "unit",
+        weights: str = "average",
     ):
         assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
         assert sigma >= 0.0

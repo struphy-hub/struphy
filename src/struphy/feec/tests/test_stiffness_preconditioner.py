@@ -40,7 +40,13 @@ def test_stiffness_approximation_unit_cube(derivative, sigma):
     mass_ops = WeightedMassOperators(derham, domains.Cuboid())
 
     P = StiffnessPreconditioner(
-        mass_ops, derivative, sigma=sigma, apply_bc=False, diagonal_scaling=False, kernel_correction=False
+        mass_ops,
+        derivative,
+        sigma=sigma,
+        apply_bc=False,
+        diagonal_scaling=False,
+        kernel_correction=False,
+        weights="unit",
     )
     A = P.core_operator
     x = create_equal_random_arrays(derham.fem_spaces[FORMS[derivative]], seed=1)[1]
@@ -96,8 +102,8 @@ def test_stiffness_preconditioner_grad(mapping, sigma):
     niter = {}
     for label, P in (
         ("none", None),
-        ("unit", StiffnessPreconditioner(mass_ops, "grad", sigma=sigma, diagonal_scaling=False)),
-        ("scaled", StiffnessPreconditioner(mass_ops, "grad", sigma=sigma)),
+        ("unit", StiffnessPreconditioner(mass_ops, "grad", sigma=sigma, weights="unit", diagonal_scaling=False)),
+        ("scaled", StiffnessPreconditioner(mass_ops, "grad", sigma=sigma, weights="unit")),
     ):
         inv = inverse(A, "pcg", pc=P, tol=1e-10, maxiter=2000) if P else inverse(A, "cg", tol=1e-10, maxiter=2000)
         inv.dot(b)
@@ -259,7 +265,7 @@ def test_stiffness_preconditioner_options():
     mass_ops = WeightedMassOperators(derham, domains.Cuboid())
     P = StiffnessPreconditioner(mass_ops, "grad", sigma=0.5)
     assert P.transpose() is P
-    assert P.derivative == "grad" and P.sigma == 0.5 and P.diagonal_scaling
+    assert P.derivative == "grad" and P.sigma == 0.5 and P.diagonal_scaling and P.weights == "average"
     with pytest.raises(AssertionError):
         StiffnessPreconditioner(mass_ops, "rot")
     with pytest.raises(AssertionError):
