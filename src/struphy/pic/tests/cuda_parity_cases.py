@@ -1,8 +1,9 @@
 """Inputs for the pyccel/CUDA parity tests: for every kernel with a CUDA version, the cases it is checked on.
 
 Test-only: ``test_cuda_parity.py`` (on a GPU) and ``test_cuda_emulation.py`` (without one) run each case on both
-kernel versions and compare every array. ``build(case)`` returns the kernel's positional arguments on the active
-backend; a kernel that is ported to CUDA gets an entry here.
+kernel versions and compare the arrays of the arguments the kernel declares as outputs (``OUTPUTS`` in its folder's
+``__init__.py``); the other arrays must stay unchanged. ``build(case)`` returns the kernel's positional arguments on
+the active backend; a kernel that is ported to CUDA gets an entry here.
 """
 
 from collections.abc import Callable, Sequence
@@ -14,6 +15,9 @@ import numpy as np
 
 from struphy.geometry.base import inside_logical_cube
 from struphy.geometry.domains import Cuboid
+from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.tests.kernel_test_args import (
     BOUNDARY_CONDITIONS,
@@ -29,6 +33,7 @@ from struphy.pic.tests.kernel_test_args import (
     marker_arguments,
     spline_coefficients,
     spline_evaluation_arguments,
+    v1_symm_accumulation_data,
 )
 
 
@@ -43,6 +48,38 @@ class ParityCases:
     atol: float = 0.0
     n_threads: Callable[[tuple], int] | None = None
     """Launch size, if it is not one thread per row of the first array."""
+
+
+# pyccel argument class name -> the fields of its CUDA struct, the data of an argument object (the pyccel scratch
+# arrays bn1, ..., bd3 of DerhamArguments are not fields)
+STRUCT_FIELDS = {
+    cls.__name__.removeprefix("Cuda"): tuple(field.name for field in cls.struct.fields)
+    for cls in (
+        CudaMarkerArguments,
+        CudaDerhamArguments,
+        CudaDomainArguments,
+        CudaLocalProjectorsArguments,
+        CudaSplineArguments,
+    )
+}
+
+
+def argument_arrays(args, indices=None):
+    """Host copies of the arrays among `args` (or among the arguments `indices`), by name.
+
+    An array argument is named ``"argument <i>"``; a pyccel argument object contributes the arrays among its struct
+    fields, ``"argument <i>.<field>"`` (the names of ``cunumpy.kernel_testing.assert_kernels_agree``).
+    """
+    found = {}
+    for i in range(len(args)) if indices is None else (i % len(args) for i in indices):
+        value = args[i]
+        if isinstance(value, np.ndarray):
+            found[f"argument {i}"] = value.copy()
+        for field in STRUCT_FIELDS.get(type(value).__name__, ()):
+            item = getattr(value, field, None)
+            if isinstance(item, np.ndarray):
+                found[f"argument {i}.{field}"] = item.copy()
+    return found
 
 
 # ---------------------------------------------------------------- pushers
@@ -71,12 +108,58 @@ def reflect_args(axis):
     return (xp.asarray(markers), Cuboid(r1=2.0, r2=3.0, r3=4.0).args_domain, xp.asarray(outside_inds), axis)
 
 
+# guiding-centre evaluation kernels: every mapping, the evaluation point at the new position (alpha = 1), the old one
+# (alpha = 0) and in between; the output column alternates. (index into geometry_domain(), alpha, output column)
+BSTAR_PARALLEL_ALPHAS = ((1.0,) * 6, (0.0,) * 6, (0.3, 0.6, 0.9, 0.5, 0.0, 0.0))
+BSTAR_PARALLEL_3FORM_CASES = tuple(
+    (domain, BSTAR_PARALLEL_ALPHAS[domain % 3], 19 if domain % 2 == 0 else 24) for domain in range(N_GEOMETRY_DOMAINS)
+)
+
+
+def bstar_parallel_3form_args(case):
+    """Markers with shifts in [0, 1), so eta + shift wraps around, a negative eta_n in row 0 and a hole in row 2."""
+    domain, alpha, output_column = case
+    args_markers, _ = marker_arguments((0, 0, 0))
+    args_markers.markers[0, 8] = -0.75  # eta_n[0] = mod(-0.75, 1.0) = 0.25 (not 0, where some Jacobians are singular)
+    args_markers.markers[2, 0] = -1.0  # a hole: pyccel tests markers[ip, 0] == -1, not valid_mks
+    return (
+        xp.asarray(alpha),
+        xp.asarray([output_column], dtype=np.int64),
+        args_markers,
+        geometry_domain(domain).args_domain,
+        derham_arguments(),
+        0.37,
+        *spline_coefficients(n=2, seed=23),
+    )
+
+
 # ---------------------------------------------------------------- accumulation
 
 
 def charge_density_0form_args(bc):
     args_markers, args_domain = marker_arguments(bc)
     return (args_markers, derham_arguments(), args_domain, xp.zeros((18, 20, 16)))
+
+
+def linear_vlasov_ampere_args(domain):
+    """129 markers (a hole and a boundary particle) in domain `domain` of geometry_domain(); zeroed V1 data."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    f0_values = xp.asarray(np.random.default_rng(14).random(N_MARKERS))
+    return (
+        args_markers,
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *v1_symm_accumulation_data(),
+        f0_values,
+    )
+
+
+def vlasov_maxwell_args(domain):
+    """129 markers (a hole in row 0, a boundary particle in row 1, which is accumulated as in pyccel) in domain
+    `domain` of geometry_domain(); zeroed V1 data."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    args_markers.markers[0, 0] = -1.0
+    return (args_markers, derham_arguments(), geometry_domain(domain).args_domain, *v1_symm_accumulation_data())
 
 
 # ---------------------------------------------------------------- spline evaluation
@@ -92,6 +175,18 @@ def eval_spline_mpi_markers_args(kind):
 def eval_spline_mpi_grid_args(sparse):
     """Spline values on a 7 x 5 x 4 grid (full or sparse meshgrid), one point flagged."""
     return lambda kind: (*evaluation_grid(sparse=sparse), *spline_evaluation_arguments(kind), xp.zeros((7, 5, 4)))
+
+
+def eval_spline_mpi_tensor_product_fixed_args(kind):
+    """Spline values on a 5 x 4 x 3 grid from pre-evaluated spans and (random) basis values."""
+    _data, args_spline = spline_evaluation_arguments(kind)
+    kind, pn, starts = args_spline.kind, args_spline.pn, args_spline.starts
+    rng = np.random.default_rng(7)
+    degree, kinds = (2, 3, 1), xp.to_numpy(kind)
+    # spans of the 8 cells: p <= span <= p + 7
+    spans = [xp.asarray(rng.integers(p, p + 8, size=n)) for p, n in zip(degree, (5, 4, 3))]
+    bases = [xp.asarray(rng.random((n, p - k + 1))) for p, k, n in zip(degree, kinds, (5, 4, 3))]
+    return (*spans, *bases, _data, kind, pn, starts, xp.zeros((5, 4, 3)))
 
 
 # ---------------------------------------------------------------- geometry
@@ -265,12 +360,29 @@ PARITY_CASES = {
         BOUNDARY_CONDITIONS, push_weights_with_efield_lin_va_args, **PUSHER_TOLERANCES
     ),
     "reflect": ParityCases((0, 1, 2), reflect_args, n_threads=size_of(2)),
+    # one thread per marker row; the first array, alpha, does not tell the launch size
+    "bstar_parallel_3form": ParityCases(
+        BSTAR_PARALLEL_3FORM_CASES,
+        bstar_parallel_3form_args,
+        n_threads=lambda args: args[2].n_markers,
+        **GEOMETRY_TOLERANCES,
+    ),
     # atomics add in another order than the serial loop
     "charge_density_0form": ParityCases(((0, 0, 0), (2, 0, 1)), charge_density_0form_args, rtol=1e-12, atol=1e-13),
+    # Cuboid, Colella and HollowTorus (non-diagonal DF) and a 3d spline mapping, by index into geometry_domain();
+    # atomics add in another order than the serial loop, and the entries reach 1e4 (atol for cancelling sums)
+    "linear_vlasov_ampere": ParityCases((0, 2, 5, 12), linear_vlasov_ampere_args, rtol=1e-12, atol=1e-10),
+    # Cuboid, then Colella, HollowTorus, ShafranovDshapedCylinder (non-diagonal DF) and a 3d spline mapping, by index into
+    # geometry_domain(); atomics add in another order than the serial loop, and G^{-1} of the spline mapping makes
+    # entries of 6e5 (atol for cancelling sums)
+    "vlasov_maxwell": ParityCases((0, 2, 5, 9, 12), vlasov_maxwell_args, rtol=1e-12, atol=1e-8),
     "eval_spline_mpi_markers": ParityCases(SPLINE_KINDS, eval_spline_mpi_markers_args),
     "eval_spline_mpi_matrix": ParityCases(SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=False), n_threads=size_of(-1)),
     "eval_spline_mpi_sparse_meshgrid": ParityCases(
         SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=True), n_threads=size_of(-1)
+    ),
+    "eval_spline_mpi_tensor_product_fixed": ParityCases(
+        SPLINE_KINDS, eval_spline_mpi_tensor_product_fixed_args, n_threads=size_of(-1)
     ),
     "kernel_evaluate_pic": ParityCases(KERNEL_EVALUATE_PIC_CASES, kernel_evaluate_pic_args, **GEOMETRY_TOLERANCES),
     # one thread per grid point: the first three axes of mat_f, shape (n1, n2, n3, 3, 3)

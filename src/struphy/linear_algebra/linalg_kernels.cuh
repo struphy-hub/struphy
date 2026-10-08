@@ -100,4 +100,15 @@ __device__ inline void transpose(const double* a, double* b) {
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j) b[3 * i + j] = a[3 * j + i];
 }
+/**
+ * Outer product of two vectors of length 3, as in linalg_kernels.outer.
+ *
+ * @param a First input vector with three entries.
+ * @param b Second input vector with three entries.
+ * @param c Output matrix c_ij = a_i * b_j with nine row-major entries; must not overlap a or b.
+ */
+__device__ inline void outer(const double* a, const double* b, double* c) {
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j) c[3 * i + j] = a[i] * b[j];
+}
 }  // namespace struphy_cuda::linalg_kernels

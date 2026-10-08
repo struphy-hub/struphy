@@ -27,6 +27,9 @@ from struphy.fields_background.base import (
     NumericalFluidEquilibrium,
     NumericalFluidEquilibriumWithB,
     NumericalMHDequilibrium,
+    evaluate_on_host,
+    host_call,
+    setup_on_host,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.io.options import BaseUnits
@@ -874,6 +877,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
         """
 
+    @setup_on_host
     def __init__(
         self,
         a: float = 1.0,
@@ -1010,7 +1014,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
             if der == 0:
                 out = -self.params["B0"] * self.params["a"] ** 2 / xp.sqrt(dq * q0 * eps**2 + dq**2)
-                out *= xp.arctanh(
+                # not in place: on CuPy, the prefactor is a 0-d device array
+                out = out * xp.arctanh(
                     xp.sqrt((dq - dq * (r / self.params["R0"]) ** 2) / (q0 * eps**2 + dq)),
                 )
             elif der == 1:
@@ -1020,7 +1025,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         # alternative profile (interpolated)
         elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
-            out = self._psi_i(r, nu=der)
+            out = host_call(self._psi_i, r, nu=der)
 
             # remove all "dimensions" for point-wise evaluation
             if isinstance(r, (int, float)):
@@ -1149,7 +1154,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
             # alternative profiles (interpolated)
             elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
-                pout = self._p_i(r)
+                pout = host_call(self._p_i, r)
 
                 # remove all "dimensions" for point-wise evaluation
                 if isinstance(r, (int, float)):
@@ -1365,6 +1370,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         Units are those defned in the parameter file (through :class:`~struphy.io.options.BaseUnits`).
         """
 
+    @setup_on_host
     def __init__(
         self,
         a: float = 0.361925,
@@ -1470,7 +1476,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         assert der >= 0 and der <= 2, "Only first and second derivatives available!"
 
-        out = self._psi_i(r, nu=der)
+        out = host_call(self._psi_i, r, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(r, (int, float)):
@@ -1665,6 +1671,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         Struphy base units. If None, no rescaling of output is performed.
     """
 
+    @setup_on_host
     def __init__(
         self,
         rel_path: bool = True,
@@ -1864,7 +1871,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     def q_psi(self, psi, der=0):
         """Safety factor q = q(psi)."""
-        out = self._q_i(psi, nu=der)
+        out = host_call(self._q_i, psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
@@ -1875,7 +1882,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     def g_psi(self, psi, der=0):
         """Toroidal field function g = g(psi)."""
-        out = self._g_i(psi, nu=der)
+        out = host_call(self._g_i, psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
@@ -1886,7 +1893,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     def p_psi(self, psi, der=0):
         """Pressure profile p = p(psi) in units Pa (as in the EQDSK file)."""
-        out = self._p_i(psi, nu=der)
+        out = host_call(self._p_i, psi, nu=der)
 
         # remove all "dimensions" for point-wise evaluation
         if isinstance(psi, (int, float)):
@@ -1922,7 +1929,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         is_float = all(isinstance(v, (int, float)) for v in [R, Z])
 
-        out = self._psi_i(R, Z, dx=dR, dy=dZ, grid=False)
+        out = host_call(self._psi_i, R, Z, dx=dR, dy=dZ, grid=False)
 
         # remove all "dimensions" for point-wise evaluation
         if is_float:
@@ -2121,6 +2128,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
+    @evaluate_on_host
     @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
@@ -2142,6 +2150,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @evaluate_on_host
     @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter^3."""
@@ -2171,6 +2180,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @evaluate_on_host
     @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3."""
@@ -2190,6 +2200,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return self.params["p0"] + tmp / self.units.p
 
+    @evaluate_on_host
     @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
@@ -2407,6 +2418,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
+    @evaluate_on_host
     @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
@@ -2480,6 +2492,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @evaluate_on_host
     @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B)
@@ -2555,6 +2568,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @evaluate_on_host
     @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3 in Pascal."""
@@ -2586,6 +2600,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @evaluate_on_host
     @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
@@ -2610,6 +2625,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # density in default units, n=1 --> 10^20 m^(-3)
         return p0_pascal / (self.params["T_kelvin"] * k_Boltzmann) / self.units.n
 
+    @evaluate_on_host
     @profile
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""

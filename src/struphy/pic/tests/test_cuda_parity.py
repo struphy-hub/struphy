@@ -1,4 +1,9 @@
-"""Parity of every CUDA kernel with its pyccel kernel, on the cases of ``cuda_parity_cases.PARITY_CASES``."""
+"""Parity of every CUDA kernel with its pyccel kernel, on the cases of ``cuda_parity_cases.PARITY_CASES``.
+
+The parity test compares the arguments each kernel declares as outputs (``OUTPUTS`` in its folder's
+``__init__.py``, passed to cunumpy as ``host_options={"outputs": OUTPUTS}``); ``test_declared_outputs`` checks the
+declarations on the NumPy backend.
+"""
 
 import importlib
 
@@ -10,12 +15,15 @@ from cunumpy.kernels import Kernel, KernelCatalog
 from cunumpy.profiling import assert_no_transfers
 
 from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
+from struphy.pic.accumulation.kernels.linear_vlasov_ampere import linear_vlasov_ampere
+
+from struphy.pic.accumulation.kernels.vlasov_maxwell import vlasov_maxwell
 from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
 from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
 from struphy.pic.pushing.kernels.push_vxb_implicit import push_vxb_implicit
 from struphy.pic.pushing.kernels.push_weights_with_efield_lin_va import push_weights_with_efield_lin_va
-from struphy.pic.tests.cuda_parity_cases import PARITY_CASES
+from struphy.pic.tests.cuda_parity_cases import PARITY_CASES, argument_arrays
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
 # all kernel packages (one folder per kernel), for tests that go through every kernel
@@ -30,8 +38,13 @@ PACKAGES = (
     "struphy.feec.local_projectors.kernels",
 )
 CATALOGS = {package: KernelCatalog.from_package(package, structs=CUDA_STRUCTS) for package in PACKAGES}
+# the kernels as their folders declare them (with OUTPUTS, which from_package does not know), by package
+DECLARED = {
+    package: KernelCatalog({name: getattr(importlib.import_module(f"{package}.{name}"), name) for name in catalog})
+    for package, catalog in CATALOGS.items()
+}
 # every kernel with a CUDA version, by name
-CUDA_KERNELS = {name: kernel for catalog in CATALOGS.values() for name, kernel in catalog.parity_cases()}
+CUDA_KERNELS = {name: kernel for catalog in DECLARED.values() for name, kernel in catalog.parity_cases()}
 # (kernel name, case index) of every parity case, as pytest parameters
 PARITY_PARAMS = [
     pytest.param(name, index, id=f"{name}-{index}")
@@ -68,9 +81,37 @@ def test_cuda_kernels_have_parity_cases():
     assert all(len(spec.cases) > 0 for spec in PARITY_CASES.values())
 
 
+def test_kernels_declare_outputs():
+    """Every kernel folder declares the arguments its kernel writes to, by position (``OUTPUTS``)."""
+    for catalog in DECLARED.values():
+        for name, kernel in catalog.items():
+            outputs, n_params = kernel.host_kernel.outputs, len(kernel.host_parameters())
+            assert outputs, f"{name}: declare OUTPUTS in its __init__.py"
+            assert all(isinstance(i, int) and -n_params <= i < n_params for i in outputs), (name, outputs)
+
+
+@pytest.mark.parametrize("name", list(PARITY_CASES))
+def test_declared_outputs(name):
+    """On the NumPy backend, the kernel changes its declared outputs and no other argument, in every parity case."""
+    kernel, spec = CUDA_KERNELS[name], PARITY_CASES[name]
+    with xp.use_backend("numpy"):
+        for case in spec.cases:
+            args = spec.build(case)
+            before = argument_arrays(args)
+            kernel(*args)
+            outputs = argument_arrays(args, kernel.host_kernel.outputs)
+            assert any(not np.array_equal(value, before[key]) for key, value in outputs.items()), (
+                f"{name}{case}: the kernel changed none of its outputs"
+            )
+            for key, value in argument_arrays(args).items():
+                if key not in outputs:
+                    np.testing.assert_array_equal(value, before[key], err_msg=f"{name}{case}: {key} is not an output")
+
+
 @requires_cupy
 @pytest.mark.parametrize("name, index", PARITY_PARAMS)
 def test_parity(name, index):
+    """assert_kernels_agree compares the declared outputs of the kernel (``kernel.host_kernel.outputs``)."""
     check_case(name, index, assert_kernels_agree)
 
 
@@ -108,7 +149,7 @@ def test_device_pusher_time_loop(monkeypatch):
 
 
 def test_vlasov_kernel_coverage():
-    """Vlasov (PushEta, both PushVxB algorithms) and the ported Vlasov-Ampere kernels have device kernels."""
+    """Vlasov (PushEta, both PushVxB algorithms) and the ported (linear) Vlasov-Ampere kernels have device kernels."""
     for kernel in (
         push_eta_stage,
         push_vxb_analytic,
@@ -116,5 +157,7 @@ def test_vlasov_kernel_coverage():
         push_v_with_efield,
         push_weights_with_efield_lin_va,
         charge_density_0form,
+        linear_vlasov_ampere,
+        vlasov_maxwell,
     ):
         assert kernel.has_cuda, kernel.name

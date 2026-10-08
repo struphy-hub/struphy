@@ -5,6 +5,7 @@ from dataclasses import fields, is_dataclass
 from textwrap import indent
 
 import cunumpy as xp
+import numpy as np
 from line_profiler import profile
 from maybempi import MPI, SerialMPI
 from scope_profiler import ProfileManager
@@ -454,9 +455,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Check if scalars are not "nan" and print to screen.
         """
         sq_str = ""
-        for key, scalar in self.scalars.dct.items():
-            val = scalar.value[0]
-            assert not xp.isnan(val), f"Scalar {key} is {val}."
+        for key in self.scalars.dct:
+            # the host copy made by the last update: no device synchronization per scalar
+            val = self.scalars.host_value(key)[0]
+            assert not np.isnan(val), f"Scalar {key} is {val}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
         print(sq_str)
 
@@ -561,9 +563,11 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     obj.markers[:, -1] >= 0.0,
                     obj.markers[:, -1] < var.n_to_save,
                 )
-                n_markers_on_proc = xp.count_nonzero(markers_on_proc)
+                # the number of rows is known on the host after the gather; counting the mask first
+                # (xp.count_nonzero) would wait for the device a second time
+                rows = obj.markers[markers_on_proc]
                 var.saved_markers[:] = -1.0
-                var.saved_markers[:n_markers_on_proc] = obj.markers[markers_on_proc]
+                var.saved_markers[: rows.shape[0]] = rows
 
     @profile
     def update_distr_functions(self):
@@ -608,7 +612,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
 
-                    ndim = xp.count_nonzero(xp.array([d > 1 for d in obj.boxes_per_dim]))
+                    ndim = sum(int(d) > 1 for d in obj.boxes_per_dim)
                     if ndim == 0:
                         kernel_type = "gaussian_3d"
                     else:

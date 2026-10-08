@@ -391,3 +391,65 @@ def test_transform_helpers(domain_index):
     kernel, inputs, _, expected = transform_helper_case(domain_index)
     result = _run_on_device(kernel, inputs, domain_index, len(expected))
     np.testing.assert_allclose(result, expected, rtol=1e-10, atol=1e-10)
+
+
+# CUDA-only wrapper: one thread per point calls m_v_fill_b_v1_symm with the point's nine fillings
+V1_SYMM_FILLER_SOURCE = r"""
+#include "struphy/pic/accumulation/particle_to_mat_kernels.cuh"
+extern "C" __global__ void fill_v1_symm(const double* eta, const double* fills, DerhamArgs args_derham,
+                                        Array6D<double> mat11, Array6D<double> mat12, Array6D<double> mat13,
+                                        Array6D<double> mat22, Array6D<double> mat23, Array6D<double> mat33,
+                                        Array3D<double> vec1, Array3D<double> vec2, Array3D<double> vec3, int n) {
+    int ip = blockDim.x * blockIdx.x + threadIdx.x;
+    if (ip >= n) return;
+    const double* fill = fills + 9 * ip;
+    struphy_cuda::particle_to_mat_kernels::m_v_fill_b_v1_symm(args_derham, eta[3 * ip], eta[3 * ip + 1],
+                                                              eta[3 * ip + 2], mat11, mat12, mat13, mat22, mat23,
+                                                              mat33, fill[0], fill[1], fill[2], fill[3], fill[4],
+                                                              fill[5], vec1, vec2, vec3, fill[6], fill[7], fill[8]);
+}
+"""
+
+
+def v1_symm_filler_case():
+    """Wrapper kernel, host inputs and pyccel reference for the device m_v_fill_b_v1_symm.
+
+    65 points (the corners of the unit cube among them) with random fillings, accumulated into zeroed V1 data shaped
+    like the real accumulation matrices (:func:`~struphy.pic.tests.kernel_test_args.v1_symm_accumulation_data`).
+    Used by :func:`test_v1_symm_filler` (GPU) and by its CPU emulation in ``test_cuda_emulation.py``. Returns
+    ``kernel, (eta, fills), args_derham, data, expected``: ``args_derham`` is the pyccel class and ``data`` the nine
+    zeroed host arrays in kernel order.
+    """
+    from struphy.pic.accumulation import particle_to_mat_kernels
+    from struphy.pic.tests.kernel_test_args import derham_arguments, v1_symm_accumulation_data
+
+    rng = np.random.default_rng(15)
+    eta = np.r_[np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 0.5]]), rng.random((62, 3))]
+    fills = rng.normal(size=(len(eta), 9))
+    with cunumpy.use_backend("numpy"):
+        args_derham = derham_arguments()
+        data = v1_symm_accumulation_data()
+        expected = tuple(a.copy() for a in data)
+    for point, fill in zip(eta, fills):
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+            args_derham, *point, *expected[:6], *fill[:6], *expected[6:], *fill[6:]
+        )
+    kernel = CudaKernel(V1_SYMM_FILLER_SOURCE, "fill_v1_symm", **CUDA_OPTIONS)
+    return kernel, (eta, fills), args_derham, data, expected
+
+
+@requires_cupy
+def test_v1_symm_filler():
+    """m_v_fill_b_v1_symm (and the fill_mat/fill_mat_vec it calls) on the device agrees with pyccel."""
+    import cupy as cp
+
+    from struphy.pic.tests.kernel_test_args import derham_arguments
+
+    kernel, (eta, fills), _, data, expected = v1_symm_filler_case()
+    with cunumpy.use_backend("cupy"):
+        args_derham = derham_arguments()
+    device_data = [cp.asarray(a) for a in data]
+    kernel(cp.asarray(eta), cp.asarray(fills), args_derham, *device_data, len(eta), n_threads=len(eta))
+    for result, reference in zip(device_data, expected):
+        assert np.any(reference != 0.0)
+        np.testing.assert_allclose(result.get(), reference, rtol=1e-12, atol=1e-13)
