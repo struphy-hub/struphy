@@ -79,11 +79,7 @@ def get_python_modules(directory: Path, excluded_files: set[str] | None = None) 
         sys.exit(1)
 
     excluded = excluded_files or set()
-    modules = {
-        path.stem
-        for path in directory.glob("*.py")
-        if path.name not in excluded
-    }
+    modules = {path.stem for path in directory.glob("*.py") if path.name not in excluded}
     return modules
 
 
