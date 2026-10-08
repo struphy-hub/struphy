@@ -8,11 +8,18 @@ import numpy as np
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
 from feectools.fem.tensor import TensorFemSpace
-from feectools.linalg.basic import ComposedLinearOperator, LinearOperator, Vector, VectorSpace
+from feectools.linalg.basic import (
+    ComposedLinearOperator,
+    LinearOperator,
+    ScaledLinearOperator,
+    SumLinearOperator,
+    Vector,
+    VectorSpace,
+)
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
 from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
-from feectools.linalg.stencil import StencilMatrix, StencilVectorSpace
+from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVectorSpace
 from line_profiler import profile
 from maybempi import MPI, SerialComm
 from scipy import sparse
@@ -23,52 +30,49 @@ from struphy.feec.mass import WeightedMassOperator
 logger = logging.getLogger("struphy")
 
 
-class MassMatrixPreconditioner(LinearOperator):
+class KroneckerPreconditioner(LinearOperator):
     r"""
-    Preconditioner for inverting 3d weighted mass matrices.
+    Base class for preconditioners built from Kronecker approximations.
 
-    The mass matrix is approximated by a Kronecker product of 1d mass matrices
-    (block diagonal for vector-valued spaces), which is inverted exactly with a
-    :class:`~feectools.linalg.kron.KroneckerLinearSolver`:
+    The operator to be preconditioned has the form :math:`A = B E \, A_c \, E^T B^T`, where
+    :math:`A_c` acts on the tensor-product coefficient space and :math:`B E` are the
+    boundary and extraction operators of a mass operator (the composition ``M0`` or ``M``
+    of ``mass_operator``). The preconditioner applies
 
-    * In the direction ``dim_reduce``, the 1d mass matrix carries a 1d weight
-      obtained from the diagonal block ``(c, c)`` of the 3d weight: its value at
-      the mid point (0.5) of the other two directions, or its mean over them
-      (see ``weight_reduction``).
-    * In the other directions, the 1d mass matrices are unweighted.
-    * Essential boundary conditions of the mass operator are imposed on the 1d
-      matrices (identity rows).
+    .. math::
 
-    The preconditioner applies :math:`B E \tilde M^{-1} E^T B^T`, where
-    :math:`B E \dots E^T B^T` is the composition of the mass operator (if any)
-    and :math:`\tilde M` is the Kronecker approximation (see :meth:`solve`).
+        P = B E \, S \tilde A_c^{-1} S \, E^T B^T \,,
+
+    where :math:`\tilde A_c` (``matrix``) approximates :math:`A_c` and can be inverted exactly
+    (``solver``), e.g. as a Kronecker product. With ``diagonal_scaling``, the diagonal operator
+    :math:`S = \hat D^{1/2} D^{-1/2}` with :math:`D = \mathrm{diag}(A_c)` and
+    :math:`\hat D = \mathrm{diag}(\tilde A_c)` corrects the approximation pointwise
+    (Loli, Sangalli, Tani, Comp. Math. Appl. 116, 2022); otherwise :math:`S = I`.
+
+    Subclasses implement ``_build_approximation`` and ``transpose``, and ``_core_diagonal``
+    for diagonal scaling.
 
     Parameters
     ----------
     mass_operator : WeightedMassOperator
-        The weighted mass operator for which the approximate inverse is needed.
+        Mass operator whose composition defines the spaces and :math:`B E`; its core
+        (``mass_operator.matrix``) is replaced by :math:`S \tilde A_c^{-1} S`.
 
     apply_bc : bool
         Whether to include boundary operators.
 
-    dim_reduce : int
-        Axis along which the weight is kept.
-
-    weight_reduction : str
-        How the weight is reduced in the other axes: ``"midpoint"`` (value at 0.5, default)
-        or ``"average"`` (mean over the axes). Which one gives the better preconditioner
-        depends on the weight.
+    diagonal_scaling : bool
+        Whether to correct the approximation with the diagonal scaling :math:`S`.
     """
 
     def __init__(
         self,
         mass_operator: WeightedMassOperator,
         apply_bc: bool = True,
-        dim_reduce: int = 0,
-        weight_reduction: str = "midpoint",
+        diagonal_scaling: bool = False,
     ):
         assert isinstance(mass_operator, WeightedMassOperator)
-        assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
+        assert mass_operator.domain == mass_operator.codomain, "Only square operators can be inverted!"
 
         self._mass_operator = mass_operator
         self._femspace = mass_operator.domain_femspace
@@ -77,45 +81,69 @@ class MassMatrixPreconditioner(LinearOperator):
         self._codomain = mass_operator.codomain
         self._domain = mass_operator.domain
         self._apply_bc = apply_bc
-        self._dim_reduce = dim_reduce
-        self._weight_reduction = weight_reduction
+        self._diagonal_scaling = diagonal_scaling
 
-        n_dims = self._femspace.ldim
-        assert n_dims == 3  # other dims not yet implemented
-        assert dim_reduce < n_dims
-        assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
+        assert self._femspace.ldim == 3  # other dims not yet implemented
 
         # boundary conditions are only imposed if the mass operator has a BoundaryOperator
-        bc = _boundary_conditions(mass_operator, apply_bc)
-        apply_bc = bc is not None
+        self._bc = _boundary_conditions(mass_operator, apply_bc)
 
-        derham = mass_operator.derham
-        logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
+        # approximation of the core operator and its exact inverse
+        self._matrix, self._solver = self._build_approximation(self._bc)
 
-        def weight_1d(c: int, d: int) -> Callable | xp.ndarray:
-            if d == dim_reduce:
-                return _reduced_weight_1d(mass_operator.weights[c][c], c, d, derham, weight_reduction)
-            return _ones_1d
+        # diagonal scaling S (a sequence of diagonal operators, applied in this order before the
+        # solver and in reverse order after it)
+        self._scaling = self._build_scaling() if diagonal_scaling else ()
+        self._tmp_core = tuple(self._matrix.codomain.zeros() for _ in range(2)) if self._scaling else ()
 
-        # Kronecker approximation of the mass matrix and its exact inverse
-        self._matrix, self._solver = _kronecker_approximation(mass_operator, bc, weight_1d)
+        # operator to be inverted (with boundary operators B, E if apply_bc), needed in solve
+        self._M, self._mass_index, self._tmp_vectors = _operator_to_invert(mass_operator, self._bc is not None)
 
-        # mass operator to be inverted (with boundary operators B, E if apply_bc), needed in solve
-        self._M, self._mass_index, self._tmp_vectors = _operator_to_invert(mass_operator, apply_bc)
+    # --------------------------------------
+    # To be implemented by subclasses
+    # --------------------------------------
+    def _build_approximation(self, bc: list | None) -> tuple[LinearOperator, LinearOperator]:
+        """
+        Approximation of the core operator and its exact inverse.
 
+        Parameters
+        ----------
+        bc : list | None
+            Boundary conditions from ``_boundary_conditions``; None for no boundary conditions.
+
+        Returns
+        -------
+        matrix : LinearOperator
+            The approximation :math:`\\tilde A_c`.
+
+        solver : LinearOperator
+            Its exact inverse.
+        """
+        raise NotImplementedError
+
+    def _core_diagonal(self) -> LinearOperator:
+        """Diagonal :math:`D` of the core operator as diagonal operator (for diagonal scaling)."""
+        raise NotImplementedError(f"{type(self).__name__} does not support diagonal scaling.")
+
+    def transpose(self, conjugate: bool = False) -> KroneckerPreconditioner:
+        raise NotImplementedError
+
+    # --------------------------------------
+    # Common interface
+    # --------------------------------------
     @property
     def space(self) -> VectorSpace:
         """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
         return self._space
 
     @property
-    def matrix(self) -> KroneckerStencilMatrix | BlockLinearOperator:
-        """Approximation of the input mass matrix as KroneckerStencilMatrix (block diagonal for vector-valued spaces)."""
+    def matrix(self) -> LinearOperator:
+        """Approximation of the core operator (Kronecker products, block diagonal for vector-valued spaces)."""
         return self._matrix
 
     @property
-    def solver(self) -> KroneckerLinearSolver | BlockLinearOperator:
-        """KroneckerLinearSolver (block diagonal for vector-valued spaces) for exactly inverting the approximate mass matrix self.matrix."""
+    def solver(self) -> LinearOperator:
+        """Exact inverse of the approximation self.matrix."""
         return self._solver
 
     @property
@@ -133,28 +161,42 @@ class MassMatrixPreconditioner(LinearOperator):
         return self._dtype
 
     @property
-    def weight_reduction(self) -> str:
-        """How the weight is reduced in the directions other than ``dim_reduce``: ``"midpoint"`` or ``"average"``."""
-        return self._weight_reduction
+    def diagonal_scaling(self) -> bool:
+        """Whether the approximation is corrected by diagonal scaling."""
+        return self._diagonal_scaling
 
-    def transpose(self, conjugate: bool = False) -> "MassMatrixPreconditioner":
-        """
-        Returns the transposed operator.
-        """
-        return MassMatrixPreconditioner(
-            self._mass_operator.transpose(),
-            self._apply_bc,
-            self._dim_reduce,
-            self._weight_reduction,
-        )
+    def _build_scaling(self) -> tuple[LinearOperator, ...]:
+        """Diagonal scaling :math:`S = \\hat D^{1/2} D^{-1/2}` as one diagonal operator."""
+        D = _local_diagonal(self._core_diagonal())
+        D_hat = _local_diagonal(self._matrix)
+        S = [xp.where(d > 0, xp.sqrt(xp.abs(dh) / xp.where(d > 0, d, 1.0)), 1.0) for d, dh in zip(D, D_hat)]
+        return (_diagonal_operator(self._matrix.domain, S),)
+
+    def _apply_inverse(self, x: Vector, out: Vector) -> Vector:
+        """Apply :math:`S \\tilde A_c^{-1} S` (the replacement of the core operator) to x."""
+        if not self._scaling:
+            return self._solver.dot(x, out=out)
+
+        buf = self._tmp_core
+        k = 0
+        y = x
+        for op in self._scaling:
+            y = op.dot(y, out=buf[k])
+            k = 1 - k
+        y = self._solver.dot(y, out=buf[k])
+        k = 1 - k
+        for op in reversed(self._scaling[1:]):
+            y = op.dot(y, out=buf[k])
+            k = 1 - k
+        return self._scaling[0].dot(y, out=out)
 
     @profile
     def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
         """
-        Computes (B * E * M^(-1) * E^T * B^T) * rhs as an approximation for an inverse mass matrix.
+        Computes :math:`B E \\, S \\tilde A_c^{-1} S \\, E^T B^T` rhs, an approximation of :math:`A^{-1}` rhs.
 
-        The operators of the composition are applied from right to left; the mass
-        matrix M itself is replaced by the Kronecker solver.
+        The operators of the composition are applied from right to left; the core operator
+        is replaced by :math:`S \\tilde A_c^{-1} S`.
 
         Parameters
         ----------
@@ -167,37 +209,116 @@ class MassMatrixPreconditioner(LinearOperator):
         Returns
         -------
         out : feectools.linalg.basic.Vector
-            The result of (B * E * M^(-1) * E^T * B^T) * rhs.
+            The result.
         """
-
         assert isinstance(rhs, Vector)
         assert rhs.space == self._space
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._space
 
-        return _apply_composed(self._M, self._mass_index, self.solver.dot, self._tmp_vectors, rhs, out)
+        return _apply_composed(self._M, self._mass_index, self._apply_inverse, self._tmp_vectors, rhs, out)
 
     def dot(self, v: Vector, out: Vector | None = None) -> Vector:
         """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
-
         assert isinstance(v, Vector)
         assert v.space == self.domain
-
-        # newly created output vector
-        if out is None:
-            out = self.solve(v)
-
-        # in-place dot-product (result is written to out)
-        else:
+        if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self.codomain
-            self.solve(v, out=out)
-
-        return out
+        return self.solve(v, out=out)
 
 
-class MassMatrixDiagonalPreconditioner(LinearOperator):
+class MassMatrixPreconditioner(KroneckerPreconditioner):
+    r"""
+    Preconditioner for inverting 3d weighted mass matrices.
+
+    The mass matrix is approximated by a Kronecker product of 1d mass matrices
+    (block diagonal for vector-valued spaces), which is inverted exactly with a
+    :class:`~feectools.linalg.kron.KroneckerLinearSolver`:
+
+    * In the direction ``dim_reduce``, the 1d mass matrix carries a 1d weight
+      obtained from the diagonal block ``(c, c)`` of the 3d weight: its value at
+      the mid point (0.5) of the other two directions, or its mean over them
+      (see ``weight_reduction``).
+    * In the other directions, the 1d mass matrices are unweighted.
+    * Essential boundary conditions of the mass operator are imposed on the 1d
+      matrices (identity rows).
+
+    The preconditioner applies :math:`B E \tilde M^{-1} E^T B^T`, where
+    :math:`B E \dots E^T B^T` is the composition of the mass operator (if any)
+    and :math:`\tilde M` is the Kronecker approximation (see :class:`KroneckerPreconditioner`).
+
+    Parameters
+    ----------
+    mass_operator : WeightedMassOperator
+        The weighted mass operator for which the approximate inverse is needed.
+
+    apply_bc : bool
+        Whether to include boundary operators.
+
+    dim_reduce : int
+        Axis along which the weight is kept.
+
+    weight_reduction : str
+        How the weight is reduced in the other axes: ``"midpoint"`` (value at 0.5, default)
+        or ``"average"`` (mean over the axes). Which one gives the better preconditioner
+        depends on the weight.
+
+    diagonal_scaling : bool
+        Whether to correct the approximation with the diagonals of the mass matrix and of
+        its approximation (see :class:`KroneckerPreconditioner`).
+    """
+
+    def __init__(
+        self,
+        mass_operator: WeightedMassOperator,
+        apply_bc: bool = True,
+        dim_reduce: int = 0,
+        weight_reduction: str = "midpoint",
+        diagonal_scaling: bool = False,
+    ):
+        assert dim_reduce < 3
+        assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
+        self._dim_reduce = dim_reduce
+        self._weight_reduction = weight_reduction
+
+        super().__init__(mass_operator, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+
+    def _build_approximation(self, bc):
+        mass_operator = self._mass_operator
+        derham = mass_operator.derham
+        logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
+
+        def weight_1d(c: int, d: int) -> Callable | xp.ndarray:
+            if d == self._dim_reduce:
+                return _reduced_weight_1d(mass_operator.weights[c][c], c, d, derham, self._weight_reduction)
+            return _ones_1d
+
+        return _kronecker_approximation(mass_operator, bc, weight_1d)
+
+    def _core_diagonal(self):
+        return self._mass_operator.matrix.diagonal()
+
+    @property
+    def weight_reduction(self) -> str:
+        """How the weight is reduced in the directions other than ``dim_reduce``: ``"midpoint"`` or ``"average"``."""
+        return self._weight_reduction
+
+    def transpose(self, conjugate: bool = False) -> MassMatrixPreconditioner:
+        """
+        Returns the transposed operator.
+        """
+        return MassMatrixPreconditioner(
+            self._mass_operator.transpose(),
+            self._apply_bc,
+            self._dim_reduce,
+            self._weight_reduction,
+            self._diagonal_scaling,
+        )
+
+
+class MassMatrixDiagonalPreconditioner(KroneckerPreconditioner):
     r"""
     Preconditioner for inverting 3d weighted mass matrices. The mass matrix is approximated by
 
@@ -221,32 +342,15 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         Whether to include boundary operators.
     """
 
-    def __init__(self, mass_operator, apply_bc=True):
-        assert isinstance(mass_operator, WeightedMassOperator)
-        assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
+    def __init__(self, mass_operator: WeightedMassOperator, apply_bc: bool = True):
+        super().__init__(mass_operator, apply_bc=apply_bc, diagonal_scaling=True)
 
-        self._mass_operator = mass_operator
-        self._femspace = mass_operator.domain_femspace
-        self._space = mass_operator.domain
-        self._dtype = mass_operator.dtype
-        self._codomain = mass_operator.codomain
-        self._domain = mass_operator.domain
-        self._apply_bc = apply_bc
-
-        n_dims = self._femspace.ldim
-        assert n_dims == 3  # other dims not yet implemented
-
-        # boundary conditions are only imposed if the mass operator has a BoundaryOperator
-        bc = _boundary_conditions(mass_operator, apply_bc)
-        apply_bc = bc is not None
-
+    def _build_approximation(self, bc):
         # mass matrix on the logical domain (unit weights) as Kronecker product, and its exact inverse
-        self._matrix, self._solver = _kronecker_approximation(mass_operator, bc, lambda c, d: _ones_1d)
+        return _kronecker_approximation(self._mass_operator, bc, lambda c, d: _ones_1d)
 
-        # mass operator to be inverted (with boundary operators B, E if apply_bc), needed in solve
-        self._M, self._mass_index, self._tmp_vectors = _operator_to_invert(mass_operator, apply_bc)
-
-        # Need to assemble the logical mass matrix to extract the coefficients
+    def _build_scaling(self):
+        # D^{-1/2} of the mass matrix and \hat D^{1/2} of the assembled logical mass matrix
         fun = [
             [(lambda e1, e2, e3: xp.ones_like(e1, dtype=float)) if i == j else None for j in range(3)] for i in range(3)
         ]
@@ -259,39 +363,9 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         log_M.assemble()
         self._logM_srqt_diag = log_M.matrix.diagonal(sqrt=True)
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True)
+        return (self._M_invsrqt_diag, self._logM_srqt_diag)
 
-        self._tmp_vector_no_bc = [self._mass_operator.matrix.codomain.zeros() for i in range(2)]
-
-    @property
-    def space(self):
-        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
-        return self._space
-
-    @property
-    def matrix(self):
-        """Mass matrix on the logical domain as KroneckerStencilMatrix."""
-        return self._matrix
-
-    @property
-    def solver(self):
-        """KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix."""
-        return self._solver
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._space
-
-    @property
-    def codomain(self):
-        """The codomain of the linear operator - an element of Vectorspace"""
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    def update_mass_operator(self, mass_operator):
+    def update_mass_operator(self, mass_operator: WeightedMassOperator) -> None:
         """Update the mass operator to enable recycling the preconditioner"""
         assert isinstance(mass_operator, WeightedMassOperator)
         assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
@@ -304,91 +378,14 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         M, mass_index, _ = _operator_to_invert(mass_operator, apply_bc)
         assert mass_index == self._mass_index, "The updated mass operator must have the same structure."
         self._M = M
+        # updated in place, so self._scaling stays valid
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True, out=self._M_invsrqt_diag)
 
-    def transpose(self, conjugate=False):
+    def transpose(self, conjugate: bool = False) -> MassMatrixDiagonalPreconditioner:
         """
         Returns the transposed operator.
         """
         return MassMatrixDiagonalPreconditioner(self._mass_operator.transpose(), self._apply_bc)
-
-    def _solve_no_bc(self, rhs, out):
-        r"""
-        Computes M^(-1) * rhs as an approximation for an inverse mass matrix.
-        With $M = D^{1/2} * \hat D^{-1/2} * \hat M * \hat D^{-1/2} * D^{1/2}$
-        Should only be called by the solve method that will handle the bcs.
-
-        Parameters
-        ----------
-        rhs : feectools.linalg.basic.Vector
-            The right-hand side vector.
-
-        out : feectools.linalg.basic.Vector
-            The output vector will be written into this vector in-place.
-
-        Returns
-        -------
-        out : feectools.linalg.basic.Vector
-            The result of M^(-1) * rhs.
-        """
-
-        assert isinstance(rhs, Vector)
-        assert rhs.space == self._mass_operator.matrix.domain
-
-        # M^-1 ~ D^{-1/2} \hat D^{1/2} \hat M ^{-1} \hat D^{1/2} D^{-1/2}
-        Dmr = self._M_invsrqt_diag.dot(rhs, out=self._tmp_vector_no_bc[0])
-        DhDmr = self._logM_srqt_diag.dot(Dmr, out=self._tmp_vector_no_bc[1])
-        invMr = self.solver.dot(DhDmr, out=self._tmp_vector_no_bc[0])
-        DhiMr = self._logM_srqt_diag.dot(invMr, out=self._tmp_vector_no_bc[1])
-        out = self._M_invsrqt_diag.dot(DhiMr, out=out)
-
-        return out
-
-    @profile
-    def solve(self, rhs, out=None):
-        r"""
-        Computes :math:`(B * E * M^{-1} * E^T * B^T) * rhs` as an approximation for an inverse mass matrix,
-        with :math:`M = D^{1/2} * \hat D^{-1/2} * \hat M * \hat D^{-1/2} * D^{1/2}`.
-
-        Parameters
-        ----------
-        rhs : Vector
-            The right-hand side vector.
-
-        out : Vector, optional
-            If given, the output vector will be written into this vector in-place.
-
-        Returns
-        -------
-        out : Vector
-            The result of :math:`(B * E * M^{-1} * E^T * B^T) * rhs`.
-        """
-
-        assert isinstance(rhs, Vector)
-        assert rhs.space == self._space
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space == self._space
-
-        return _apply_composed(self._M, self._mass_index, self._solve_no_bc, self._tmp_vectors, rhs, out)
-
-    def dot(self, v, out=None):
-        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
-
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-
-        # newly created output vector
-        if out is None:
-            out = self.solve(v)
-
-        # in-place dot-product (result is written to out)
-        else:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-            self.solve(v, out=out)
-
-        return out
 
 
 # --------------------------------------------------------------------------------------
@@ -397,6 +394,50 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 def _ones_1d(e: xp.ndarray) -> xp.ndarray:
     """Unit weight for 1d mass matrices."""
     return xp.ones(e.size, dtype=float)
+
+
+def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
+    """
+    Local (rows owned by this process) diagonal of ``op``, one array per block of its domain.
+
+    Supported are StencilMatrix, StencilDiagonalMatrix, KroneckerStencilMatrix (1d factors),
+    sums, scalings and block-diagonal BlockLinearOperators of these.
+    """
+    if isinstance(op, BlockLinearOperator):
+        return [a for i in range(op.n_block_rows) for a in _local_diagonal(op[i, i])]
+    if isinstance(op, StencilDiagonalMatrix):
+        return [op._data]
+    if isinstance(op, StencilMatrix):
+        return [op.diagonal()._data]
+    if isinstance(op, KroneckerStencilMatrix):
+        # outer product of the diagonals of the (process-local) factors on the local rows
+        diags = []
+        for A, s, e in zip(op.mats, op.codomain.starts, op.codomain.ends):
+            assert A.domain.ndim == 1, "Only 1d factors are supported."
+            off = A.codomain.pads[0] * A.codomain.shifts[0]
+            diags.append(A._data[off : off + e - s + 1, A.pads[0]])
+        out = diags[0]
+        for d in diags[1:]:
+            out = xp.multiply.outer(out, d)
+        return [out]
+    if isinstance(op, SumLinearOperator):
+        parts = [_local_diagonal(a) for a in op.addends]
+        return [sum(blocks) for blocks in zip(*parts)]
+    if isinstance(op, ScaledLinearOperator):
+        return [op.scalar * a for a in _local_diagonal(op.operator)]
+    raise NotImplementedError(f"Diagonal of {type(op).__name__} is not supported.")
+
+
+def _diagonal_operator(space: VectorSpace, diags: list[xp.ndarray]) -> LinearOperator:
+    """Diagonal operator on ``space`` (Stencil- or BlockVectorSpace) with the given local diagonals."""
+    if isinstance(space, BlockVectorSpace):
+        n = len(space.spaces)
+        blocks = [
+            [StencilDiagonalMatrix(V, V, diags[i]) if i == j else None for j in range(n)]
+            for i, V in enumerate(space.spaces)
+        ]
+        return BlockLinearOperator(space, space, blocks=blocks)
+    return StencilDiagonalMatrix(space, space, diags[0])
 
 
 def _boundary_conditions(mass_operator: WeightedMassOperator, apply_bc: bool) -> list | None:
