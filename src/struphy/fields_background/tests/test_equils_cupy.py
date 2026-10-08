@@ -7,15 +7,13 @@ subprocess), which rejects host/device mixing like CuPy, and every evaluation is
 import contextlib
 import importlib.util
 import inspect
-import subprocess
-import sys
 
 import cunumpy
 import numpy as np
 import pytest
 from cunumpy.kernel_testing import requires_cupy
 
-from struphy.geometry.tests.test_domain import _cupy_installed, serial_child_env
+from struphy.geometry.tests.test_domain import _cupy_installed, run_fake_cupy_child
 
 # (equilibrium, its parameters, domain, its parameters); domain None for numerical equilibria (own domain).
 # Every equilibrium of `equils` is here (`test_all_equilibria_have_cases`); GVEC and DESC need their packages.
@@ -240,12 +238,10 @@ def test_all_equilibria_have_cases():
 
 
 def test_host_call_numpy_is_plain_call():
-    """On the NumPy backend, :func:`host_call` calls the function directly and returns its result unchanged."""
-    from struphy.fields_background.base import host_call
-
+    """On the NumPy backend, :func:`cunumpy.host_call` calls the function directly and returns its result unchanged."""
     a = np.linspace(0.0, 1.0, 5)
     with cunumpy.use_backend("numpy"):
-        out = host_call(lambda x, y=1.0: x * y, a, y=2.0)
+        out = cunumpy.host_call(lambda x, y=1.0: x * y, a, y=2.0)
     assert type(out) is np.ndarray
     assert np.array_equal(out, 2 * a)
 
@@ -262,10 +258,7 @@ def test_equil_fake_cupy(case):
         "from struphy.fields_background.tests.test_equils_cupy import check_equil_on_cupy, host_geometry_kernels\n"
         f"with host_geometry_kernels(): check_equil_on_cupy({case!r})"
     )
-    result = subprocess.run(
-        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr[-4000:]
+    run_fake_cupy_child(code)
 
 
 @requires_cupy
