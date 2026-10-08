@@ -421,15 +421,18 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     (block Jacobi, :math:`P_{BJ}`).
 
     Block Jacobi overestimates :math:`A` on the kernel of :math:`\mathbb d` (gradients for
-    curl), where :math:`A = \sigma \mathbb M_k`. With ``kernel_correction`` (default, needs
-    :math:`\sigma > 0`), the preconditioner for curl is
+    curl, curls for div), where :math:`A = \sigma \mathbb M_k`. With ``kernel_correction``
+    (default, needs :math:`\sigma > 0`), the preconditioner is
 
     .. math::
 
-        P = P_{BJ} + \sigma^{-1} \, \mathbb G \, P_{\mathbb G} \, \mathbb G^T \,,
+        P = P_{BJ} + \sigma^{-1} \, \mathbb d_- \, P_- \, \mathbb d_-^T \,,
 
-    where :math:`P_{\mathbb G}` is the preconditioner for :math:`\mathbb G^T \mathbb M_1 \mathbb G`;
-    it is exact for gradients on the logical cube.
+    where :math:`\mathbb d_-` is the previous derivative (:math:`\mathbb G` for curl,
+    :math:`\mathbb C` for div) and :math:`P_-` approximates the inverse of
+    :math:`\mathbb d_-^T \mathbb M_k \mathbb d_-` (the grad preconditioner for curl, the curl
+    block Jacobi for div). On the range of :math:`\mathbb d_-^T` the kernel of
+    :math:`\mathbb d_-` does not matter, since :math:`\mathbb G^T \mathbb C^T = 0`.
 
     The geometry is included by diagonal scaling (default, see :class:`KroneckerPreconditioner`).
     Polar splines are not supported yet.
@@ -453,7 +456,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         approximation.
 
     kernel_correction : bool
-        For curl: whether to add the correction on the kernel of the derivative (needs
+        For curl and div: whether to add the correction on the kernel of the derivative (needs
         ``sigma > 0``). Ignored for grad.
     """
 
@@ -470,7 +473,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     ):
         assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
         assert sigma >= 0.0
-        kernel_correction = kernel_correction and derivative == "curl"
+        kernel_correction = kernel_correction and derivative != "grad"
         if kernel_correction and sigma == 0.0:
             raise ValueError("The kernel correction needs sigma > 0 (or kernel_correction=False).")
 
@@ -491,8 +494,11 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         # correction on the kernel of the derivative: sigma^{-1} d_prev P_prev d_prev^T
         self._kernel_correction = None
         if kernel_correction:
-            d_prev = derham.grad
-            P_prev = StiffnessPreconditioner(mass_ops, "grad", apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+            prev = "grad" if derivative == "curl" else "curl"
+            d_prev = getattr(derham, prev)
+            P_prev = StiffnessPreconditioner(
+                mass_ops, prev, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling, kernel_correction=False
+            )
             self._kernel_correction = (1.0 / sigma) * (d_prev @ P_prev @ d_prev.T)
             self._tmp_kernel = self.codomain.zeros()
 

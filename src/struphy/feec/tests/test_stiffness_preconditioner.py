@@ -112,11 +112,11 @@ def test_stiffness_preconditioner_grad(mapping, sigma):
         assert niter["scaled"] <= niter["unit"]
 
 
-@pytest.mark.parametrize("derivative", ["curl"])
+@pytest.mark.parametrize("derivative", ["curl", "div"])
 @pytest.mark.parametrize("mapping", ["Cuboid", "HollowCylinder"])
 def test_stiffness_preconditioner_kernel_correction(derivative, mapping):
-    """PCG for C^T M2 C + sigma M1: with kernel correction, fewer iterations than with block Jacobi
-    alone and than with the mass-matrix preconditioner."""
+    """PCG for C^T M2 C + sigma M1 and D^T M3 D + sigma M2: with kernel correction, fewer iterations
+    than with block Jacobi alone and than with the mass-matrix preconditioner."""
 
     from feectools.linalg.solvers import inverse
     from maybempi import MPI
