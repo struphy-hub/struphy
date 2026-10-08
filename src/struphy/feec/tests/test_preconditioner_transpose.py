@@ -101,3 +101,30 @@ def test_mass_diagonal_preconditioner_zero_diagonal_block():
 
     _, x = create_equal_random_arrays(derham.V1fem, seed=1)
     assert all(xp.all(xp.isfinite(b.toarray())) for b in pc.dot(x).blocks)
+
+
+def test_mass_diagonal_preconditioner_small_periodic_direction():
+    """Periodic direction with fewer points than the stencil width (1 element, degree 1): the main
+    diagonal of the 1d factors must be at offset 0, otherwise the diagonal scaling vanishes."""
+
+    import cunumpy as xp
+    from feectools.linalg.solvers import inverse
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, _local_diagonal
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(grid=TensorProductGrid(num_elements=(4, 4, 1)), options=DerhamOptions(degree=(2, 2, 1)))
+    mass_ops = WeightedMassOperators(derham=derham, domain=domains.Cuboid())
+
+    pc = MassMatrixDiagonalPreconditioner(mass_ops.Mv)
+    assert all(float(xp.min(d)) > 0.0 for d in _local_diagonal(pc.matrix))
+
+    _, x = create_equal_random_arrays(derham.Vvfem, seed=1)
+    inv = inverse(mass_ops.Mv, "pcg", pc=pc, tol=1e-12, maxiter=100)
+    inv.dot(x)
+    assert inv._info["success"]

@@ -982,11 +982,17 @@ def _process_local_matrix_1d(
     V_local = StencilVectorSpace(cart_1d)
     M_local = StencilMatrix(V_local, V_local)
 
-    # copy the rows owned by this process: entry (i, j) is stored at row i - s + p, diagonal (j - i + p) mod n
+    # copy the rows owned by this process: entry (i, j) is stored at row i - s + p and diagonal
+    # index k + p with the offset k = j - i; in periodic directions k is taken nearest to 0
+    # (in [-n/2, n/2)), so that the main diagonal is at k = 0 also if 2p + 1 > n
     rows, cols = xp.nonzero(M_arr)
     on_process = (rows >= s) & (rows <= e)
     rows, cols = rows[on_process], cols[on_process]
-    M_local._data[rows - s + p, (cols + p - rows) % M_arr.shape[1]] = M_arr[rows, cols]
+    k = cols - rows
+    if coeff_space.periods[d]:
+        k = (k + n // 2) % n - n // 2
+    assert xp.all(xp.abs(k) <= p), "Entries outside the band of the stencil matrix."
+    M_local._data[rows - s + p, k + p] = M_arr[rows, cols]
 
     # check if stencil matrix was built correctly
     assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
