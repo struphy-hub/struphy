@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import itertools
 import logging
 from collections.abc import Callable
+from functools import reduce
 
 import cunumpy as xp
 import numpy as np
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
+from feectools.feec.derivatives import DirectionalDerivativeOperator
 from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import (
     ComposedLinearOperator,
@@ -18,14 +21,14 @@ from feectools.linalg.basic import (
 )
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
-from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
+from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix, KroneckerSumSolver
 from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVectorSpace
 from line_profiler import profile
 from maybempi import MPI, SerialComm
 from scipy import sparse
 
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
 
 logger = logging.getLogger("struphy")
 
@@ -386,6 +389,164 @@ class MassMatrixDiagonalPreconditioner(KroneckerPreconditioner):
         Returns the transposed operator.
         """
         return MassMatrixDiagonalPreconditioner(self._mass_operator.transpose(), self._apply_bc)
+
+
+class StiffnessPreconditioner(KroneckerPreconditioner):
+    r"""
+    Preconditioner for the stabilized stiffness operators
+
+    .. math::
+
+        A = \mathbb d^T \mathbb M_{k+1} \mathbb d + \sigma \, \mathbb M_k \,,
+        \qquad \mathbb d \in \{\mathbb G, \mathbb C, \mathbb D\} \ (k = 0, 1, 2)\,,
+
+    i.e. :math:`\mathbb G^T \mathbb M_1 \mathbb G + \sigma \mathbb M_0`,
+    :math:`\mathbb C^T \mathbb M_2 \mathbb C + \sigma \mathbb M_1` and
+    :math:`\mathbb D^T \mathbb M_3 \mathbb D + \sigma \mathbb M_2`.
+
+    With unit weights (the operator on the logical cube), the mass matrices are
+    block-diagonal Kronecker products of 1d mass matrices :math:`M_d`, and each diagonal block of
+    :math:`A` is a sum of Kronecker products,
+
+    .. math::
+
+        A_{cc} \approx \sum_{d \in N_c} M_1 \otimes \dots \otimes S_d \otimes \dots \otimes M_3
+            + \sigma \, M_1 \otimes M_2 \otimes M_3 \,,
+
+    with the 1d stiffness matrices :math:`S_d = \mathbb d_d^T M^D_d \mathbb d_d` in the directions
+    :math:`N_c` in which component c is differentiated (its B-spline directions). These blocks
+    are inverted exactly by fast diagonalization
+    (:class:`~feectools.linalg.kron.KroneckerSumSolver`). For the gradient this is the exact
+    inverse on the logical cube; for curl and div the off-diagonal blocks are neglected
+    (block Jacobi), so :math:`\sigma > 0` is required for a good preconditioner.
+
+    The geometry is included by diagonal scaling (default, see :class:`KroneckerPreconditioner`).
+    Polar splines are not supported yet.
+
+    Parameters
+    ----------
+    mass_ops : WeightedMassOperators
+        The mass operators :math:`\mathbb M_k`.
+
+    derivative : str
+        ``"grad"``, ``"curl"`` or ``"div"``.
+
+    sigma : float
+        Coefficient of the mass term.
+
+    apply_bc : bool
+        Whether to include boundary operators.
+
+    diagonal_scaling : bool
+        Whether to correct the approximation with the diagonals of :math:`A` and of its
+        approximation.
+    """
+
+    _FORMS = {"grad": 0, "curl": 1, "div": 2}
+
+    def __init__(
+        self,
+        mass_ops: WeightedMassOperators,
+        derivative: str = "grad",
+        sigma: float = 0.0,
+        apply_bc: bool = True,
+        diagonal_scaling: bool = True,
+    ):
+        assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
+        assert sigma >= 0.0
+
+        derham = mass_ops.derham
+        if derham.polar_splines:
+            raise NotImplementedError("StiffnessPreconditioner does not support polar splines yet.")
+
+        k = self._FORMS[derivative]
+        self._mass_ops = mass_ops
+        self._derivative = derivative
+        self._sigma = sigma
+        self._mass_mid = getattr(mass_ops, f"M{k + 1}")
+        # tensor-product derivative without boundary operators (no polar splines)
+        self._d = getattr(derham, f"{derivative}_bcfree")
+
+        if derivative != "grad" and sigma == 0.0:
+            logger.warning(
+                f"StiffnessPreconditioner for {derivative!r} with sigma = 0: the operator has a large kernel."
+            )
+
+        super().__init__(getattr(mass_ops, f"M{k}"), apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+
+    @property
+    def derivative(self) -> str:
+        """``"grad"``, ``"curl"`` or ``"div"``."""
+        return self._derivative
+
+    @property
+    def sigma(self) -> float:
+        """Coefficient of the mass term."""
+        return self._sigma
+
+    @property
+    def core_operator(self) -> LinearOperator:
+        """The core operator :math:`\\mathbb d^T \\mathbb M_{k+1} \\mathbb d + \\sigma \\mathbb M_k` on the tensor-product spaces."""
+        A = self._d.T @ self._mass_mid.matrix @ self._d
+        if self._sigma != 0.0:
+            A = A + self._sigma * self._mass_operator.matrix
+        return A
+
+    def _build_approximation(self, bc):
+        femspace = self._femspace
+        is_scalar = isinstance(femspace, TensorFemSpace)
+        comps = (femspace,) if is_scalar else femspace.spaces
+
+        # directions in which each component is differentiated, and the codomain block
+        stiff_dirs = _derivative_directions(self._d)
+
+        matrixblocks = []
+        solverblocks = []
+        for c, comp in enumerate(comps):
+            coeff_space = femspace.coeff_space if is_scalar else femspace.coeff_space[c]
+
+            stiffness, mass, local_mass, local_stiffness = [], [], [], []
+            for d in range(3):
+                basis = comp.spaces[d].basis
+                M_d, domain_decomposition = _dense_mass_1d(self._mass_operator, basis, d, _ones_1d)
+
+                S_d = None
+                if d in stiff_dirs[c]:
+                    assert basis == "B", "Only B-spline directions are differentiated."
+                    M_D, _ = _dense_mass_1d(self._mass_operator, "M", d, _ones_1d)
+                    D_d = _difference_matrix_1d(M_d.shape[0], M_D.shape[0])
+                    S_d = D_d.T @ M_D @ D_d
+
+                if bc is not None and basis == "B":
+                    M_d = _apply_bc_dense(M_d, bc[d])
+                    S_d = None if S_d is None else _apply_bc_dense(S_d, bc[d])
+
+                stiffness.append(S_d)
+                mass.append(M_d)
+                local_mass.append(_process_local_matrix_1d(xp.asarray(M_d), comp.coeff_space, d, domain_decomposition))
+                local_stiffness.append(
+                    None
+                    if S_d is None
+                    else _process_local_matrix_1d(xp.asarray(S_d), comp.coeff_space, d, domain_decomposition)
+                )
+
+            solverblocks.append(KroneckerSumSolver(coeff_space, stiffness, mass, sigma=self._sigma))
+            matrixblocks.append(_kronecker_sum(coeff_space, local_stiffness, local_mass, self._sigma))
+
+        if is_scalar:
+            return matrixblocks[0], solverblocks[0]
+        return (
+            _block_diagonal(femspace.coeff_space, matrixblocks),
+            _block_diagonal(femspace.coeff_space, solverblocks),
+        )
+
+    def _core_diagonal(self):
+        space = self._matrix.domain
+        return _diagonal_operator(space, _probe_diagonal(self.core_operator, space))
+
+    def transpose(self, conjugate: bool = False) -> StiffnessPreconditioner:
+        """The operator is symmetric, so is the preconditioner."""
+        return self
 
 
 # --------------------------------------------------------------------------------------
@@ -822,6 +983,130 @@ def _block_diagonal(space: BlockVectorSpace, blocks: list[LinearOperator]) -> Bl
         space,
         blocks=[[blocks[i] if i == j else None for j in range(n)] for i in range(n)],
     )
+
+
+# --------------------------------------------------------------------------------------
+# Helper functions for stiffness preconditioners
+# --------------------------------------------------------------------------------------
+def _derivative_directions(derivative: LinearOperator) -> list[dict[int, int]]:
+    """
+    For each component c of the domain of a (tensor-product) derivative, the directions in
+    which it is differentiated, mapped to the codomain block of that derivative.
+
+    The blocks ``(r, c)`` of ``derivative`` (a BlockLinearOperator, or a single operator) are
+    DirectionalDerivativeOperators, possibly negated.
+    """
+    if isinstance(derivative, BlockLinearOperator):
+        nrows, ncols = derivative.n_block_rows, derivative.n_block_cols
+        blocks = {(r, c): derivative[r, c] for r in range(nrows) for c in range(ncols) if derivative[r, c] is not None}
+    else:
+        ncols = 1
+        blocks = {(0, 0): derivative}
+
+    directions = [{} for _ in range(ncols)]
+    for (r, c), op in blocks.items():
+        assert isinstance(op, DirectionalDerivativeOperator), f"Unexpected block {type(op).__name__} in derivative."
+        assert op.diffdir not in directions[c], "Component differentiated twice in the same direction."
+        directions[c][op.diffdir] = r
+    return directions
+
+
+def _dense_mass_1d(
+    mass_operator: WeightedMassOperator, basis: str, d: int, weight: Callable | xp.ndarray
+) -> tuple[np.ndarray, DomainDecomposition]:
+    """Global 1d mass matrix in direction d (B- or M-splines) as dense host array, see ``_mass_matrix_1d``."""
+    M, domain_decomposition = _mass_matrix_1d(mass_operator, basis, d, weight)
+    return np.asarray(xp.to_numpy(M.toarray()), dtype=float), domain_decomposition
+
+
+def _difference_matrix_1d(n_B: int, n_M: int) -> np.ndarray:
+    """
+    1d derivative matrix from B-spline to M-spline coefficients, :math:`(\\mathbb d c)_r = c_{r+1} - c_r`
+    (periodic if ``n_M == n_B``, else ``n_M == n_B - 1``).
+    """
+    assert n_M in (n_B, n_B - 1)
+    D = np.zeros((n_M, n_B))
+    for r in range(n_M):
+        D[r, r] = -1.0
+        D[r, (r + 1) % n_B] = 1.0
+    return D
+
+
+def _apply_bc_dense(A: np.ndarray, bc_d: tuple[bool, bool]) -> np.ndarray:
+    """Impose essential boundary conditions on a dense 1d matrix: zero row and column, 1 on the diagonal."""
+    A = A.copy()
+    for i, is_essential in zip((0, -1), bc_d):
+        if is_essential:
+            A[i, :] = 0.0
+            A[:, i] = 0.0
+            A[i, i] = 1.0
+    return A
+
+
+def _kronecker_sum(
+    space: StencilVectorSpace,
+    stiffness: list[StencilMatrix | None],
+    mass: list[StencilMatrix],
+    sigma: float,
+) -> LinearOperator:
+    """
+    The operator :math:`\\sum_d M_1 \\otimes \\dots \\otimes S_d \\otimes \\dots \\otimes M_3 + \\sigma M_1 \\otimes M_2 \\otimes M_3`
+    as sum of KroneckerStencilMatrix (process-local 1d factors; directions with ``S_d = None`` have no term).
+    """
+    terms = []
+    for d, S_d in enumerate(stiffness):
+        if S_d is not None:
+            factors = [S_d.copy() if e == d else M_e.copy() for e, M_e in enumerate(mass)]
+            terms.append(KroneckerStencilMatrix(space, space, *factors))
+    if sigma != 0.0:
+        terms.append(KroneckerStencilMatrix(space, space, *[M_e.copy() for M_e in mass]) * sigma)
+    assert terms, "The operator has no terms."
+    return reduce(lambda a, b: a + b, terms)
+
+
+def _probe_diagonal(op: LinearOperator, space: VectorSpace) -> list[xp.ndarray]:
+    """
+    Local diagonal of ``op`` (one array per block of ``space``) by probing with colored unit vectors.
+
+    In each direction, the degrees of freedom are colored with a stride larger than the coupling
+    width of ``op`` (assumed at most ``pads + 1``); applying ``op`` to the sum of the unit vectors
+    of one color gives the diagonal entries of that color. In periodic directions, the stride
+    divides the number of points (so that no two dofs of one color couple across the boundary).
+    This needs ``prod(stride)`` applications of ``op`` per block; it is collective.
+    """
+    is_block = isinstance(space, BlockVectorSpace)
+    spaces = space.spaces if is_block else (space,)
+    x = space.zeros()
+    y = space.zeros()
+    xs = x.blocks if is_block else (x,)
+    ys = y.blocks if is_block else (y,)
+
+    diags = []
+    for c, V in enumerate(spaces):
+        local = tuple(slice(p * m, p * m + e - s + 1) for p, m, s, e in zip(V.pads, V.shifts, V.starts, V.ends))
+        shape = tuple(e - s + 1 for s, e in zip(V.starts, V.ends))
+
+        strides = []
+        for n, p, periodic in zip(V.npts, V.pads, V.periods):
+            st = min(p + 2, n)
+            while periodic and n % st:
+                st += 1
+            strides.append(st)
+        indices = [xp.arange(s, e + 1) for s, e in zip(V.starts, V.ends)]
+
+        diag = xp.zeros(shape, dtype=float)
+        for color in itertools.product(*(range(st) for st in strides)):
+            mask = xp.ones(shape, dtype=bool)
+            for d, (g, st, r) in enumerate(zip(indices, strides, color)):
+                mask = mask & (g % st == r).reshape([-1 if e == d else 1 for e in range(len(shape))])
+            for xb in xs:
+                xb._data[:] = 0.0
+            xs[c]._data[local] = mask
+            x.ghost_regions_in_sync = False
+            op.dot(x, out=y)
+            diag[mask] = ys[c]._data[local][mask]
+        diags.append(diag)
+    return diags
 
 
 class FFTSolver(BandedSolver):
