@@ -74,15 +74,9 @@ dev = [
     "struphy[mpi]",
     "struphy[pproc]",
     "notebook",
-    "autopep8",
-    "isort",
-    "flake8",
-    "pylint",
-    "ssort",
-    "add-trailing-comma",
+    "ruff==0.15.0",
     "pre-commit",
     "nbstripout",
-    "tabulate",
     "tomli-w",
     "kaleido",
     "pandas",
@@ -151,23 +145,12 @@ struphy = [
     "**/*.cuh",
 ]
 
-[tool.autopep8]
-max_line_length = 120
-ignore = [
-    "E221,E226,E203,E265,E731,E711",
-]
-
-[tool.isort]
-profile = "black"
-line_length = 120
-
-[tool.pylint]
-max-line-length = 120
-
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.lint]
+# "I": import sorting (replaces isort), fixed with `ruff check --fix`
+extend-select = ["I"]
 ignore = [
     "E265",
     "E402",
