@@ -288,10 +288,11 @@ class KineticEnergyPIC(PICScalar):
 
     :math:
 
-        \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
+        \mathcal E = \frac{\alpha}{2} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
 
     where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
     and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
+    The weights already contain the Monte-Carlo factor :math:`1/N_p`.
     """
 
     def _local_update(self):
@@ -300,7 +301,7 @@ class KineticEnergyPIC(PICScalar):
         velocities = particles.velocities  # TODO: velocities need to redefined for Particles5d? Put magnetic moment as COM.
         weights = particles.weights
 
-        energy = self.normalization * 0.5 / particles.Np * xp.sum(weights * xp.sum(velocities**2, axis=1))
+        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
 
 
@@ -332,10 +333,11 @@ class KineticEnergySPH(SPHScalar):
 
     :math:
 
-        \mathcal E = \frac{\alpha}{2 N_p} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
+        \mathcal E = \frac{\alpha}{2} \sum_{i=0}^{N_p-1} w_i v_i^2\,,
 
     where :math:`\alpha` is a normalization constant, :math:`N_p` is the total number of particles,
     and :math:`w_i` and :math:`v_i` are the weight and velocity of particle :math:`i`, respectively.
+    The weights already contain the Monte-Carlo factor :math:`1/N_p`.
     """
 
     def _local_update(self):
