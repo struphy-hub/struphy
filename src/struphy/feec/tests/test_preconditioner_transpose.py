@@ -37,12 +37,13 @@ def test_mass_preconditioner_transpose(dim_reduce, weight_reduction, diagonal_sc
     assert pc_diag_T._apply_bc is False
 
 
-def test_mass_diagonal_preconditioner_assembles_diagonal_blocks_only(monkeypatch):
-    """The logical mass matrix of MassMatrixDiagonalPreconditioner needs only the diagonal blocks."""
+def test_mass_diagonal_preconditioner_assembles_1d_matrices_only(monkeypatch):
+    """MassMatrixDiagonalPreconditioner assembles only 1d mass matrices (no 3d logical mass matrix);
+    the diagonal of the logical mass matrix is the one of its Kronecker approximation."""
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
-    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
@@ -52,18 +53,16 @@ def test_mass_diagonal_preconditioner_assembles_diagonal_blocks_only(monkeypatch
     mass_ops = WeightedMassOperators(derham, domains.Colella())
 
     M1 = mass_ops.M1
-    weights_infos = []
+    created = []
     init = WeightedMassOperator.__init__
 
-    def recording_init(self, *args, weights_info=None, **kwargs):
-        weights_infos.append(weights_info)
-        init(self, *args, weights_info=weights_info, **kwargs)
+    def recording_init(self, derham, V, W, *args, **kwargs):
+        created.append(V.ldim)
+        init(self, derham, V, W, *args, **kwargs)
 
     monkeypatch.setattr(WeightedMassOperator, "__init__", recording_init)
-    MassMatrixDiagonalPreconditioner(M1)
+    pc = MassMatrixDiagonalPreconditioner(M1)
 
-    # the logical mass matrix is the only 3x3 weighted mass operator created
-    (fun,) = [w for w in weights_infos if isinstance(w, list) and len(w) == 3]
-    for i in range(3):
-        for j in range(3):
-            assert callable(fun[i][j]) == (i == j)
+    assert isinstance(pc, MassMatrixPreconditioner)
+    assert pc.dim_reduce is None and pc.diagonal_scaling
+    assert created and all(ldim == 1 for ldim in created)

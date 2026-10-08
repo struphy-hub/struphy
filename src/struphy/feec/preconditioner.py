@@ -243,7 +243,8 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
     * In the direction ``dim_reduce``, the 1d mass matrix carries a 1d weight
       obtained from the diagonal block ``(c, c)`` of the 3d weight: its value at
       the mid point (0.5) of the other two directions, or its mean over them
-      (see ``weight_reduction``).
+      (see ``weight_reduction``). With ``dim_reduce=None``, no direction is weighted
+      (mass matrix on the logical cube).
     * In the other directions, the 1d mass matrices are unweighted.
     * Essential boundary conditions of the mass operator are imposed on the 1d
       matrices (identity rows).
@@ -260,8 +261,8 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
     apply_bc : bool
         Whether to include boundary operators.
 
-    dim_reduce : int
-        Axis along which the weight is kept.
+    dim_reduce : int | None
+        Axis along which the weight is kept; None for unit weights in all directions.
 
     weight_reduction : str
         How the weight is reduced in the other axes: ``"midpoint"`` (value at 0.5, default)
@@ -277,11 +278,11 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         self,
         mass_operator: WeightedMassOperator,
         apply_bc: bool = True,
-        dim_reduce: int = 0,
+        dim_reduce: int | None = 0,
         weight_reduction: str = "midpoint",
         diagonal_scaling: bool = False,
     ):
-        assert dim_reduce < 3
+        assert dim_reduce is None or dim_reduce < 3
         assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
         self._dim_reduce = dim_reduce
         self._weight_reduction = weight_reduction
@@ -304,9 +305,37 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         return self._mass_operator.matrix.diagonal()
 
     @property
+    def dim_reduce(self) -> int | None:
+        """Axis along which the weight is kept (None: unit weights in all directions)."""
+        return self._dim_reduce
+
+    @property
     def weight_reduction(self) -> str:
         """How the weight is reduced in the directions other than ``dim_reduce``: ``"midpoint"`` or ``"average"``."""
         return self._weight_reduction
+
+    def update_mass_operator(self, mass_operator: WeightedMassOperator) -> None:
+        """
+        Update the mass operator (same spaces and structure, e.g. new weights) to recycle the preconditioner.
+
+        The Kronecker approximation is rebuilt only if it depends on the weights (``dim_reduce`` is
+        not None); the diagonal scaling is updated.
+        """
+        assert isinstance(mass_operator, WeightedMassOperator)
+        assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
+        assert mass_operator.domain == self.domain, "Update needs to have the same domain and codomain"
+
+        self._mass_operator = mass_operator
+
+        # the composition has the same structure as before, so the temporary vectors can be reused
+        M, mass_index, _ = _operator_to_invert(mass_operator, self._bc is not None)
+        assert mass_index == self._mass_index, "The updated mass operator must have the same structure."
+        self._M = M
+
+        if self._dim_reduce is not None:
+            self._matrix, self._solver = self._build_approximation(self._bc)
+        if self._diagonal_scaling:
+            self._scaling = self._build_scaling()
 
     def transpose(self, conjugate: bool = False) -> MassMatrixPreconditioner:
         """
@@ -321,7 +350,7 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         )
 
 
-class MassMatrixDiagonalPreconditioner(KroneckerPreconditioner):
+class MassMatrixDiagonalPreconditioner(MassMatrixPreconditioner):
     r"""
     Preconditioner for inverting 3d weighted mass matrices. The mass matrix is approximated by
 
@@ -330,6 +359,9 @@ class MassMatrixDiagonalPreconditioner(KroneckerPreconditioner):
 
     Where $D$ is the diagonal of the matrix to invert, :math:`\hat M` is the mass matrix on the logical domain
     that is a Kronecker product (fastly inverted) and :math:`\hat D^{-1/2}` is the diagonal of :math:`\hat M`.
+
+    This is ``MassMatrixPreconditioner(mass_operator, apply_bc, dim_reduce=None, diagonal_scaling=True)``;
+    the class is kept for its name (e.g. in solver options).
 
     Notes
     -----
@@ -346,43 +378,7 @@ class MassMatrixDiagonalPreconditioner(KroneckerPreconditioner):
     """
 
     def __init__(self, mass_operator: WeightedMassOperator, apply_bc: bool = True):
-        super().__init__(mass_operator, apply_bc=apply_bc, diagonal_scaling=True)
-
-    def _build_approximation(self, bc):
-        # mass matrix on the logical domain (unit weights) as Kronecker product, and its exact inverse
-        return _kronecker_approximation(self._mass_operator, bc, lambda c, d: _ones_1d)
-
-    def _build_scaling(self):
-        # D^{-1/2} of the mass matrix and \hat D^{1/2} of the assembled logical mass matrix
-        fun = [
-            [(lambda e1, e2, e3: xp.ones_like(e1, dtype=float)) if i == j else None for j in range(3)] for i in range(3)
-        ]
-        log_M = WeightedMassOperator(
-            self._mass_operator.derham,
-            self._femspace,
-            self._femspace,
-            weights_info=fun,
-        )
-        log_M.assemble()
-        self._logM_srqt_diag = log_M.matrix.diagonal(sqrt=True)
-        self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True)
-        return (self._M_invsrqt_diag, self._logM_srqt_diag)
-
-    def update_mass_operator(self, mass_operator: WeightedMassOperator) -> None:
-        """Update the mass operator to enable recycling the preconditioner"""
-        assert isinstance(mass_operator, WeightedMassOperator)
-        assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
-        assert mass_operator.domain == self.domain, "Update needs to have the same domain and codomain"
-
-        self._mass_operator = mass_operator
-
-        # the composition has the same structure as before, so the temporary vectors can be reused
-        apply_bc = _boundary_conditions(mass_operator, self._apply_bc) is not None
-        M, mass_index, _ = _operator_to_invert(mass_operator, apply_bc)
-        assert mass_index == self._mass_index, "The updated mass operator must have the same structure."
-        self._M = M
-        # updated in place, so self._scaling stays valid
-        self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True, out=self._M_invsrqt_diag)
+        super().__init__(mass_operator, apply_bc=apply_bc, dim_reduce=None, diagonal_scaling=True)
 
     def transpose(self, conjugate: bool = False) -> MassMatrixDiagonalPreconditioner:
         """
