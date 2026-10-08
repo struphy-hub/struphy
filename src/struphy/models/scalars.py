@@ -294,6 +294,10 @@ class KineticEnergyPIC(PICScalar):
     estimate (:meth:`~struphy.pic.base.Particles.initialize_weights` sets
     :math:`w_i = f_i / (s_i N_p)`), so the sum must not be divided by :math:`N_p` again.
 
+    With the control variate (``WeightsParameters(control_variate=True)``) the weights are the delta-f weights
+    :math:`w_i = (f_i - f_{0,i}) / (s_i N_p)` (:meth:`~struphy.pic.base.Particles.update_weights`), at all times
+    including :math:`t=0`, so this is the kinetic energy of :math:`f - f_0`.
+
     For :class:`~struphy.pic.particles.Particles5D` the velocity coordinates are :math:`(v_\parallel, \mu)`,
     so only the parallel kinetic energy :math:`v_i^2 = v_{\parallel,i}^2` is summed; the magnetic-moment
     part :math:`\mu_i |B_0|` is tracked by a separate scalar in the models (e.g. ``en_fB``).
