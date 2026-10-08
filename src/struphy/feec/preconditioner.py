@@ -636,10 +636,17 @@ def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
     Local (rows owned by this process) diagonal of ``op``, one array per block of its domain.
 
     Supported are StencilMatrix, StencilDiagonalMatrix, KroneckerStencilMatrix (1d factors),
-    sums, scalings and block-diagonal BlockLinearOperators of these.
+    sums, scalings and BlockLinearOperators of these (missing diagonal blocks give zeros).
     """
     if isinstance(op, BlockLinearOperator):
-        return [a for i in range(op.n_block_rows) for a in _local_diagonal(op[i, i])]
+        diags = []
+        for i, V in enumerate(op.domain.spaces):
+            if op[i, i] is None:
+                # zero block (e.g. a mass matrix block with zero weight)
+                diags.append(xp.zeros(tuple(e - s + 1 for s, e in zip(V.starts, V.ends)), dtype=float))
+            else:
+                diags.extend(_local_diagonal(op[i, i]))
+        return diags
     if isinstance(op, StencilDiagonalMatrix):
         return [op._data]
     if isinstance(op, StencilMatrix):

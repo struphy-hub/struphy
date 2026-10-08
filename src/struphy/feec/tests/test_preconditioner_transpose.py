@@ -66,3 +66,38 @@ def test_mass_diagonal_preconditioner_assembles_1d_matrices_only(monkeypatch):
     assert isinstance(pc, MassMatrixPreconditioner)
     assert pc.dim_reduce is None and pc.diagonal_scaling
     assert created and all(ldim == 1 for ldim in created)
+
+
+def test_mass_diagonal_preconditioner_zero_diagonal_block():
+    """A mass operator with a zero (None) diagonal block, e.g. after reassembly with a zero weight:
+    construction and update_mass_operator must work; the scaling of that block is 1."""
+
+    import cunumpy as xp
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    grid = TensorProductGrid(num_elements=(3, 3, 2))
+    derham = Derham(grid, DerhamOptions(degree=(1, 1, 1), bcs=(None, None, None)))
+    mass_ops = WeightedMassOperators(derham, domains.Colella())
+
+    def one(e1, e2, e3):
+        return xp.ones_like(e1, dtype=float)
+
+    weights = [[one if i == j and i != 2 else None for j in range(3)] for i in range(3)]
+    M = WeightedMassOperator(derham, derham.V1fem, derham.V1fem, weights_info=weights)
+    M.assemble()
+    assert M.matrix[2, 2] is None
+
+    pc = MassMatrixDiagonalPreconditioner(mass_ops.M1)
+    pc.update_mass_operator(M)
+    scaling = pc._scaling[0]
+    assert xp.allclose(scaling[2, 2]._data, 1.0)
+
+    _, x = create_equal_random_arrays(derham.V1fem, seed=1)
+    assert all(xp.all(xp.isfinite(b.toarray())) for b in pc.dot(x).blocks)
