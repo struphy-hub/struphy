@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
 
 import cunumpy as xp
+import numpy as np
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
 from feectools.fem.tensor import TensorFemSpace
@@ -31,9 +31,10 @@ class MassMatrixPreconditioner(LinearOperator):
     (block diagonal for vector-valued spaces), which is inverted exactly with a
     :class:`~feectools.linalg.kron.KroneckerLinearSolver`:
 
-    * In the direction ``dim_reduce``, the 1d mass matrix carries a 1d weight:
-      the diagonal block ``(c, c)`` of the 3d weight, evaluated at the mid point
-      (0.5) of the other two directions.
+    * In the direction ``dim_reduce``, the 1d mass matrix carries a 1d weight
+      obtained from the diagonal block ``(c, c)`` of the 3d weight: its value at
+      the mid point (0.5) of the other two directions, or its mean over them
+      (see ``weight_reduction``).
     * In the other directions, the 1d mass matrices are unweighted.
     * Essential boundary conditions of the mass operator are imposed on the 1d
       matrices (identity rows).
@@ -51,10 +52,21 @@ class MassMatrixPreconditioner(LinearOperator):
         Whether to include boundary operators.
 
     dim_reduce : int
-        Axis along which the weight is kept (in the other axes it is taken at 0.5).
+        Axis along which the weight is kept.
+
+    weight_reduction : str
+        How the weight is reduced in the other axes: ``"midpoint"`` (value at 0.5, default)
+        or ``"average"`` (mean over the axes). Which one gives the better preconditioner
+        depends on the weight.
     """
 
-    def __init__(self, mass_operator: WeightedMassOperator, apply_bc: bool = True, dim_reduce: int = 0):
+    def __init__(
+        self,
+        mass_operator: WeightedMassOperator,
+        apply_bc: bool = True,
+        dim_reduce: int = 0,
+        weight_reduction: str = "midpoint",
+    ):
         assert isinstance(mass_operator, WeightedMassOperator)
         assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
 
@@ -66,10 +78,12 @@ class MassMatrixPreconditioner(LinearOperator):
         self._domain = mass_operator.domain
         self._apply_bc = apply_bc
         self._dim_reduce = dim_reduce
+        self._weight_reduction = weight_reduction
 
         n_dims = self._femspace.ldim
         assert n_dims == 3  # other dims not yet implemented
         assert dim_reduce < n_dims
+        assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
 
         # boundary conditions are only imposed if the mass operator has a BoundaryOperator
         bc = _boundary_conditions(mass_operator, apply_bc)
@@ -78,23 +92,16 @@ class MassMatrixPreconditioner(LinearOperator):
         derham = mass_operator.derham
         logger.debug(f"{derham.num_elements = }, {derham.bcs = }, {derham.degree = }")
 
-        # MPI setup for gathering array-valued weights along dim_reduce
-        gather = _WeightGather.setup(derham, dim_reduce)
-
         def weight_1d(c: int, d: int) -> Callable | xp.ndarray:
             if d == dim_reduce:
-                return _reduced_weight_1d(mass_operator.weights[c][c], c, d, derham, gather)
+                return _reduced_weight_1d(mass_operator.weights[c][c], c, d, derham, weight_reduction)
             return _ones_1d
 
         # Kronecker approximation of the mass matrix and its exact inverse
         self._matrix, self._solver = _kronecker_approximation(mass_operator, bc, weight_1d)
 
         # mass operator to be inverted (with boundary operators B, E if apply_bc), needed in solve
-        self._M, self._is_composed, tmp = _operator_to_invert(mass_operator, apply_bc)
-        if self._is_composed:
-            self._tmp_vectors = tmp
-        else:
-            self._tmp_vector = tmp
+        self._M, self._mass_index, self._tmp_vectors = _operator_to_invert(mass_operator, apply_bc)
 
     @property
     def space(self) -> VectorSpace:
@@ -125,11 +132,21 @@ class MassMatrixPreconditioner(LinearOperator):
     def dtype(self):
         return self._dtype
 
+    @property
+    def weight_reduction(self) -> str:
+        """How the weight is reduced in the directions other than ``dim_reduce``: ``"midpoint"`` or ``"average"``."""
+        return self._weight_reduction
+
     def transpose(self, conjugate: bool = False) -> "MassMatrixPreconditioner":
         """
         Returns the transposed operator.
         """
-        return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc, self._dim_reduce)
+        return MassMatrixPreconditioner(
+            self._mass_operator.transpose(),
+            self._apply_bc,
+            self._dim_reduce,
+            self._weight_reduction,
+        )
 
     @profile
     def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
@@ -137,7 +154,7 @@ class MassMatrixPreconditioner(LinearOperator):
         Computes (B * E * M^(-1) * E^T * B^T) * rhs as an approximation for an inverse mass matrix.
 
         The operators of the composition are applied from right to left; the mass
-        matrix itself is replaced by the Kronecker solver.
+        matrix M itself is replaced by the Kronecker solver.
 
         Parameters
         ----------
@@ -155,33 +172,11 @@ class MassMatrixPreconditioner(LinearOperator):
 
         assert isinstance(rhs, Vector)
         assert rhs.space == self._space
-
-        if not self._is_composed:
-            if out is None:
-                out = self._tmp_vector.copy()
-            self.solver.dot(rhs, out=out)
-            return out
-
-        # successive dot products with all but the first (left-most) operator
-        x = rhs
-        for A, y in zip(reversed(self._M.multiplicants[1:]), reversed(self._tmp_vectors)):
-            if isinstance(A, (StencilMatrix, BlockLinearOperator)):
-                # the mass matrix: apply the approximate inverse instead
-                self.solver.dot(x, out=y)
-            else:
-                A.dot(x, out=y)
-            x = y
-
-        # first operator
-        A = self._M.multiplicants[0]
-        if out is None:
-            out = A.dot(x)
-        else:
+        if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self._space
-            A.dot(x, out=out)
 
-        return out
+        return _apply_composed(self._M, self._mass_index, self.solver.dot, self._tmp_vectors, rhs, out)
 
     def dot(self, v: Vector, out: Vector | None = None) -> Vector:
         """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
@@ -249,11 +244,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         self._matrix, self._solver = _kronecker_approximation(mass_operator, bc, lambda c, d: _ones_1d)
 
         # mass operator to be inverted (with boundary operators B, E if apply_bc), needed in solve
-        self._M, self._is_composed, tmp = _operator_to_invert(mass_operator, apply_bc)
-        if self._is_composed:
-            self._tmp_vectors = tmp
-        else:
-            self._tmp_vector = tmp
+        self._M, self._mass_index, self._tmp_vectors = _operator_to_invert(mass_operator, apply_bc)
 
         # Need to assemble the logical mass matrix to extract the coefficients
         fun = [
@@ -306,18 +297,13 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
         assert mass_operator.domain == self.domain, "Update needs to have the same domain and codomain"
 
-        if self._is_composed:
-            if self._apply_bc:
-                assert isinstance(mass_operator.M0, ComposedLinearOperator)
-            else:
-                assert isinstance(mass_operator.M, ComposedLinearOperator)
-
         self._mass_operator = mass_operator
 
-        if self._apply_bc:
-            self._M = mass_operator.M0
-        else:
-            self._M = mass_operator.M
+        # the composition has the same structure as before, so the temporary vectors can be reused
+        apply_bc = _boundary_conditions(mass_operator, self._apply_bc) is not None
+        M, mass_index, _ = _operator_to_invert(mass_operator, apply_bc)
+        assert mass_index == self._mass_index, "The updated mass operator must have the same structure."
+        self._M = M
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse=True, sqrt=True, out=self._M_invsrqt_diag)
 
     def transpose(self, conjugate=False):
@@ -380,34 +366,11 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         assert isinstance(rhs, Vector)
         assert rhs.space == self._space
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space == self._space
 
-        # successive dot products with all but last operator
-        if self._is_composed:
-            x = rhs
-            for i in range(len(self._tmp_vectors)):
-                y = self._tmp_vectors[-1 - i]
-                A = self._M.multiplicants[-1 - i]
-                if isinstance(A, (StencilMatrix, BlockLinearOperator)):
-                    self._solve_no_bc(x, out=y)
-                else:
-                    A.dot(x, out=y)
-                x = y
-
-            # last operator
-            A = self._M.multiplicants[0]
-            if out is None:
-                out = A.dot(x)
-            else:
-                assert isinstance(out, Vector)
-                assert out.space == self._space
-                A.dot(x, out=out)
-
-        else:
-            if out is None:
-                out = self._tmp_vector.copy()
-            self._solve_no_bc(rhs, out=out)
-
-        return out
+        return _apply_composed(self._M, self._mass_index, self._solve_no_bc, self._tmp_vectors, rhs, out)
 
     def dot(self, v, out=None):
         """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
@@ -457,70 +420,80 @@ def _boundary_conditions(mass_operator: WeightedMassOperator, apply_bc: bool) ->
 
 def _operator_to_invert(
     mass_operator: WeightedMassOperator, apply_bc: bool
-) -> tuple[LinearOperator, bool, tuple[Vector, ...] | Vector]:
+) -> tuple[ComposedLinearOperator | LinearOperator, int | None, tuple[Vector, ...]]:
     """
     The operator approximately inverted by the preconditioners: ``M0`` (with boundary
     operators) if ``apply_bc``, else ``M``.
 
     Returns
     -------
-    M : LinearOperator
+    M : ComposedLinearOperator | LinearOperator
         The operator.
 
-    is_composed : bool
-        Whether ``M`` is a ComposedLinearOperator.
+    mass_index : int | None
+        Position of the mass matrix ``mass_operator.matrix`` in ``M.multiplicants``, or
+        None if ``M`` is not composed (then ``M`` is the mass matrix itself).
 
-    tmp : tuple[Vector, ...] | Vector
-        Temporary vectors for ``solve``: the codomains of all but the first factor of
-        ``M`` if it is composed, else one vector in the codomain of ``M``.
+    tmp_vectors : tuple[Vector, ...]
+        Temporary vectors for ``_apply_composed``: the codomains of all but the first
+        factor of ``M`` (empty if ``M`` is not composed).
     """
     M = mass_operator.M0 if apply_bc else mass_operator.M
-    is_composed = isinstance(M, ComposedLinearOperator)
-    if is_composed:
-        tmp = tuple(op.codomain.zeros() for op in M.multiplicants[1:])
-    else:
-        tmp = M.codomain.zeros()
-    return M, is_composed, tmp
+    if not isinstance(M, ComposedLinearOperator):
+        return M, None, ()
+
+    mass_index = next((k for k, op in enumerate(M.multiplicants) if op is mass_operator.matrix), None)
+    assert mass_index is not None, "The mass matrix was not found in the composed mass operator."
+    tmp_vectors = tuple(op.codomain.zeros() for op in M.multiplicants[1:])
+    return M, mass_index, tmp_vectors
 
 
-@dataclass
-class _WeightGather:
+def _apply_composed(
+    M: LinearOperator,
+    mass_index: int | None,
+    apply_inverse: Callable[[Vector, Vector], Vector],
+    tmp_vectors: tuple[Vector, ...],
+    rhs: Vector,
+    out: Vector | None,
+) -> Vector:
     """
-    MPI setup for gathering a 1d cut of an array-valued weight along ``dim_reduce``.
+    Apply the operator ``M`` (see ``_operator_to_invert``) to ``rhs``, with the mass matrix
+    replaced by ``apply_inverse(x, out)`` (an approximate inverse).
 
-    In the directions other than ``dim_reduce``, the weight is taken at the global mid
-    point; the ranks owning the mid element there (exactly one rank per slab along
-    ``dim_reduce``) form ``subcomm``. ``root`` is the lowest of these ranks in ``comm``.
+    The factors of a composition are applied from right to left; the result is written
+    to ``out`` (allocated if None).
     """
+    if mass_index is None:
+        if out is None:
+            out = M.codomain.zeros()
+        return apply_inverse(rhs, out)
 
-    comm: object
-    subcomm: object
-    root: int
+    ops = M.multiplicants
+    if out is None:
+        out = ops[0].codomain.zeros()
 
-    @classmethod
-    def setup(cls, derham, dim_reduce: int) -> "_WeightGather | None":
-        """Collective on ``derham.comm``; returns None in serial runs."""
-        comm = derham.comm
-        if isinstance(comm, (SerialComm, type(None))):
-            return None
-
-        dom_dec = derham.domain_decomposition
-        rank = comm.Get_rank()
-        is_selected = all(
-            dom_dec.starts[i] <= derham.num_elements[i] // 2 <= dom_dec.ends[i]
-            for i in range(len(derham.num_elements))
-            if i != dim_reduce
-        )
-        color = 0 if is_selected else MPI.UNDEFINED
-        subcomm = comm.Split(color=color, key=rank)
-        root = comm.allreduce(rank if is_selected else comm.Get_size(), op=MPI.MIN)
-        logger.debug(f"Rank {rank} selected for gathering 1d weight info in dimension {dim_reduce}: {is_selected}")
-        return cls(comm, subcomm, root)
+    x = rhs
+    for k in range(len(ops) - 1, -1, -1):
+        y = out if k == 0 else tmp_vectors[k - 1]
+        if k == mass_index:
+            apply_inverse(x, y)
+        else:
+            ops[k].dot(x, out=y)
+        x = y
+    return out
 
 
-def _reduced_weight_1d(weight, c: int, d: int, derham, gather: _WeightGather | None) -> Callable | xp.ndarray:
-    """
-    1d weight along direction ``d``: the 3d weight at the mid point (0.5) of the other directions.
+# number of Gauss-Legendre points per direction for averaging callable weights
+_N_AVG_CALLABLE = 16
+
+
+def _reduced_weight_1d(weight, c: int, d: int, derham, reduction: str = "midpoint") -> Callable | xp.ndarray:
+    r"""
+    1d weight along direction ``d``, obtained from the 3d weight by reducing the other two directions
+    :math:`i, j \neq d`:
+
+    * ``"midpoint"``: the weight at the mid point, :math:`\bar w(\eta_d) = w(\eta_d; \eta_i = \eta_j = 0.5)`,
+    * ``"average"``: the mean, :math:`\bar w(\eta_d) = \int_0^1 \int_0^1 w \, \textnormal d\eta_i \, \textnormal d\eta_j`.
 
     Parameters
     ----------
@@ -529,70 +502,103 @@ def _reduced_weight_1d(weight, c: int, d: int, derham, gather: _WeightGather | N
         logical coordinates, its values at the local quadrature points, or None (unit weight).
 
     c, d : int
-        Component and direction (only used for logging and for the callable case).
+        Component and direction (``c`` is only used for logging).
 
     derham : Derham
         Discrete de Rham sequence of the mass operator.
 
-    gather : _WeightGather | None
-        MPI setup from ``_WeightGather.setup``; None in serial runs.
+    reduction : str
+        ``"midpoint"`` or ``"average"``.
 
     Returns
     -------
     Callable | xp.ndarray
-        A function of the 1d quadrature points, or the weight at all global 1d
-        quadrature points (collective on ``gather.comm`` in parallel runs).
+        For a callable weight, a function of the 1d points (for ``"average"``, the mean is
+        approximated with Gauss-Legendre quadrature on ``_N_AVG_CALLABLE`` points per direction).
+        For an array weight, the reduced weight at all global 1d quadrature points; this is
+        collective on ``derham.comm``. For the mid point (array weight) it is the value at the
+        global mid quadrature point; for the mean, Gauss quadrature of the derham is used.
     """
+    assert reduction in ("midpoint", "average"), f"Unknown weight reduction {reduction!r}."
     n_dims = 3
+    i, j = (k for k in range(n_dims) if k != d)
 
     if weight is None:
         return _ones_1d
 
     if callable(weight):
+        if reduction == "midpoint":
+
+            def fun(e):
+                # evaluate the 3d weight on the "meshgrid" (0.5, ..., e, ..., 0.5)
+                s = e.shape[0]
+                f = e.reshape(tuple([1 if k != d else s for k in range(n_dims)]))
+                return xp.atleast_1d(
+                    weight(
+                        *[xp.array(xp.full_like(f, 0.5)) if k != d else xp.array(f) for k in range(n_dims)]
+                    ).squeeze(),
+                )
+
+            return fun
+
+        # Gauss-Legendre points and weights on [0, 1]
+        nodes, wts = np.polynomial.legendre.leggauss(_N_AVG_CALLABLE)
+        pts = xp.asarray((nodes + 1.0) / 2.0)
+        wts = xp.asarray(wts / 2.0)
 
         def fun(e):
-            # evaluate the 3d weight on the "meshgrid" (0.5, ..., e, ..., 0.5)
-            s = e.shape[0]
-            newshape = tuple([1 if i != d else s for i in range(n_dims)])
-            f = e.reshape(newshape)
-            return xp.atleast_1d(
-                weight(
-                    *[xp.array(xp.full_like(f, 0.5)) if i != d else xp.array(f) for i in range(n_dims)],
-                ).squeeze(),
-            )
+            # integrate over direction i on the grid (e, pts) for each point in direction j
+            e_d, e_i = xp.meshgrid(xp.ravel(e), pts, indexing="ij")
+            total = xp.zeros(e_d.shape[0], dtype=float)
+            args = [None] * n_dims
+            args[d] = e_d
+            args[i] = e_i
+            for eta_j, w_j in zip(pts, wts):
+                args[j] = xp.full_like(e_d, eta_j)
+                total += w_j * (xp.reshape(weight(*args), e_d.shape) @ wts)
+            return total
 
         return fun
 
     if isinstance(weight, xp.ndarray):
-        s = weight.shape
         logger.debug(f"{weight.shape = } for component {c} and direction {d}.")
         dom_dec = derham.domain_decomposition
-        npts = derham.num_elements[d] * derham.nquads[d]
-        fun = xp.zeros(npts, dtype=float)
+        nq_d = derham.nquads[d]
+        start = dom_dec.starts[d] * nq_d
+        stop = start + weight.shape[d]
 
-        # local index of the global mid quadrature point in the other directions
-        # (clipped on non-selected ranks, which receive the gathered weight below)
-        mid = [0] * n_dims
-        for i in range(n_dims):
-            if i != d:
-                nq_i = s[i] // dom_dec.local_ncells[i]
-                mid_i = (derham.num_elements[i] * nq_i) // 2 - dom_dec.starts[i] * nq_i
-                mid[i] = min(max(mid_i, 0), s[i] - 1)
-        cut = tuple(slice(None) if i == d else mid[i] for i in range(n_dims))
-        local_fun = xp.ascontiguousarray(weight[cut], dtype=float)
+        # every process writes its contribution at its rows along d; the sum over all processes
+        # gives the reduced weight (row 0) and the normalization (row 1)
+        sums = xp.zeros((2, derham.num_elements[d] * nq_d), dtype=float)
 
-        logger.debug(f"{fun.size = } for component {c} and direction {d} before gathering on all processes.")
-        if gather is not None:
-            # local sizes differ if num_elements[d] is not divisible by the number of processes
-            if gather.subcomm != MPI.COMM_NULL:
-                counts = gather.subcomm.allgather(local_fun.size)
-                displs = [sum(counts[:j]) for j in range(len(counts))]
-                gather.subcomm.Allgatherv(local_fun, [fun, counts, displs, MPI.DOUBLE])
-            gather.comm.Bcast(fun, root=gather.root)
+        if reduction == "midpoint":
+            # only the process owning the global mid point in directions i and j contributes
+            # (exactly one process per slab along d)
+            mid = {}
+            for k in (i, j):
+                nq_k = weight.shape[k] // dom_dec.local_ncells[k]
+                mid[k] = (derham.num_elements[k] * nq_k) // 2 - dom_dec.starts[k] * nq_k
+            if all(0 <= mid[k] < weight.shape[k] for k in (i, j)):
+                cut = tuple(slice(None) if k == d else mid[k] for k in range(n_dims))
+                sums[0, start:stop] = weight[cut]
+                sums[1, start:stop] = 1.0
         else:
-            fun[:] = local_fun
-        logger.debug(f"{fun.shape = } for component {c} and direction {d} after gathering on all processes.")
-        return fun
+            # Gauss weights at the local quadrature points (same grid as the array weight)
+            qwts = [xp.ravel(w) for w in derham.spline_attributes["H1"].quad_grid_wts[0]]
+            assert weight.shape == tuple(w.size for w in qwts), (
+                f"Array weight of shape {weight.shape} does not match the local quadrature grid."
+            )
+            weighted = weight * qwts[i].reshape([-1 if k == i else 1 for k in range(n_dims)])
+            weighted = weighted * qwts[j].reshape([-1 if k == j else 1 for k in range(n_dims)])
+            sums[0, start:stop] = weighted.sum(axis=(i, j))
+            sums[1, start:stop] = qwts[i].sum() * qwts[j].sum()
+
+        comm = derham.comm
+        if not isinstance(comm, (SerialComm, type(None))):
+            local_sums = sums.copy()
+            comm.Allreduce(local_sums, sums, op=MPI.SUM)
+
+        return sums[0] / sums[1]
 
     raise TypeError(f"weights needs to be callable, xp.ndarray or None but is {type(weight)}")
 
@@ -792,8 +798,19 @@ class FFTSolver(BandedSolver):
         assert isinstance(circmat, xp.ndarray)
         assert is_circulant(circmat)
 
+        from scipy.linalg import solve_circulant  # deferred: scipy.linalg is slow to import
+
         self._space = xp.ndarray
-        self._column = circmat[:, 0]
+        # copy: circmat is still used by the caller (e.g. for the process-local stencil matrix)
+        self._column = xp.array(circmat[:, 0], copy=True)
+
+        # stabilize a singular matrix once, here, so that all solves use the same matrix
+        try:
+            solve_circulant(self._column, xp.ones_like(self._column))
+        except xp.linalg.LinAlgError:
+            eps = 1e-4
+            logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
+            self._column[0] *= 1.0 + eps
 
     # --------------------------------------
     # Abstract interface
@@ -827,20 +844,11 @@ class FFTSolver(BandedSolver):
         assert rhs.T.shape[0] == self._column.size
 
         if out is None:
-            out = solve_circulant(self._column, rhs.T).T
+            return solve_circulant(self._column, rhs.T).T
 
-        else:
-            assert out.shape == rhs.shape
-            assert out.dtype == rhs.dtype
-
-            try:
-                out[:] = solve_circulant(self._column, rhs.T).T
-            except xp.linalg.LinAlgError:
-                eps = 1e-4
-                logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
-                self._column[0] *= 1.0 + eps
-                out[:] = solve_circulant(self._column, rhs.T).T
-
+        assert out.shape == rhs.shape
+        assert out.dtype == rhs.dtype
+        out[:] = solve_circulant(self._column, rhs.T).T
         return out
 
 
@@ -863,12 +871,7 @@ def is_circulant(mat):
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
-    if mat.shape[0] > 1:
-        for i in range(mat.shape[0] - 1):
-            circulant = xp.allclose(mat[i, :], xp.roll(mat[i + 1, :], -1))
-            if not circulant:
-                return circulant
-    else:
-        circulant = True
-
-    return circulant
+    # circulant: every row is the previous one shifted by one, i.e. mat[i, j] = mat[0, (j - i) % n]
+    n = mat.shape[0]
+    idx = (xp.arange(n)[None, :] - xp.arange(n)[:, None]) % n
+    return bool(xp.allclose(mat, mat[0][idx]))
