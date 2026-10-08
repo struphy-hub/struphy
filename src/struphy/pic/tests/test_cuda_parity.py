@@ -11,7 +11,6 @@ from cunumpy.profiling import assert_no_transfers
 
 from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.kernels.linear_vlasov_ampere import linear_vlasov_ampere
-
 from struphy.pic.accumulation.kernels.vlasov_maxwell import vlasov_maxwell
 from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
 from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
