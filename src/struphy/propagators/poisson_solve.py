@@ -35,7 +35,7 @@ class PoissonSolve(ImplicitDiffusion):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`Poisson`.
+        r"""Configuration options for :class:`Poisson`.
 
         Parameters
         ----------
@@ -81,6 +81,23 @@ class PoissonSolve(ImplicitDiffusion):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
 
+        enforce_compatibility : bool, default=True
+            If ``True`` and the Poisson operator is singular (no Dirichlet boundary conditions
+            and no polar splines, e.g. fully periodic), the constant ("net charge") component of the
+            right-hand side is removed before the solve,
+
+            .. math::
+
+                \mathbf b \leftarrow \mathbf b - \frac{\mathbf 1^\top \mathbf b}{\mathbf 1^\top \mathbb M^0 \mathbf 1}\, \mathbb M^0 \mathbf 1\,,
+
+            such that the discrete compatibility condition :math:`\mathbf 1^\top \mathbf b = 0` holds
+            (:math:`\mathbf 1` is the coefficient vector of the constant function). This is equivalent to
+            a uniform neutralizing background; for particle sources, the net charge is Monte-Carlo noise.
+            Without it, the constant mode of ``phi`` becomes ``(net charge) / stab_eps``, and
+            ``grad phi`` loses digits to cancellation. ``stab_eps`` then only fixes the constant of ``phi``.
+            Set to ``False`` if ``stab_eps * stab_mat`` is a physical term (e.g. adiabatic electrons with
+            ``stab_mat="M0ad"``) and not just a stabilization.
+
         filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
             If not None, specifies a filter to the accumulation of a specific variable.
 
@@ -104,6 +121,7 @@ class PoissonSolve(ImplicitDiffusion):
         precond: LiteralOptions.OptsDiffusionPrecond = "MassMatrixPreconditioner"
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
+        enforce_compatibility: bool = True
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
