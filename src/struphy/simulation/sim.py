@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-from cunumpy.kernels import Kernel
 import h5py
 import yaml
+from cunumpy.kernels import Kernel
 from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
