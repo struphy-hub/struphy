@@ -656,7 +656,8 @@ def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
         diags = []
         for A, s, e in zip(op.mats, op.codomain.starts, op.codomain.ends):
             assert A.domain.ndim == 1, "Only 1d factors are supported."
-            off = A.codomain.pads[0] * A.codomain.shifts[0]
+            # the factor may own more rows than the codomain on this process
+            off = A.codomain.pads[0] * A.codomain.shifts[0] + s - A.codomain.starts[0]
             diags.append(A._data[off : off + e - s + 1, A.pads[0]])
         out = diags[0]
         for d in diags[1:]:
