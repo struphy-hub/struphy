@@ -2593,6 +2593,11 @@ class Particles(metaclass=ABCMeta):
             self._bc_type,
         )
 
+        # on the CuPy backend with several ranks, find out now (collectively, in the setup) whether MPI takes device
+        # buffers; otherwise the probe runs on the first marker exchange, inside the first time step
+        if xp.get_backend() == "cupy" and self.mpi_size > 1:
+            self._mpi_cuda_aware()
+
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.
 

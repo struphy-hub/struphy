@@ -7,27 +7,21 @@ the NumPy backend and once on the CuPy backend. The test checks that
 1. both runs give the same energies, electric-field coefficients and marker weights/positions,
    within tolerances explained in :func:`compare_runs`, and
 2. the time loop of the CuPy run does no host/device transfers through cunumpy, apart from an
-   explicit budget for the diagnostics and the output (see :class:`TransferBudget`).
+   explicit budget for the diagnostics and the output (see :class:`~struphy.models.tests.gpu_e2e.TransferBudget`).
 
-The CuPy part needs a GPU (``requires_cupy``) and is skipped otherwise. It is MPI-compatible: under
+The CuPy part needs a GPU, or cunumpy's fake CuPy (``CUNUMPY_FAKE_CUPY=1``), on which the CUDA launches are emulated
+on the CPU, and is skipped otherwise. It is MPI-compatible: under
 ``mpirun -n 2 pytest --with-mpi`` both runs use the same domain decomposition, and the markers are
 gathered and compared by marker ID.
 
-Only transfers made through cunumpy are counted (``to_numpy``, ``to_cupy``, host fallbacks of
-kernels, ...). Implicit synchronizations such as ``float(device_scalar)`` in the convergence check
-of the iterative solver are not seen; use ``nsys`` for those.
+The shared parts (transfer budget, instrumentation, gathering the markers) are in
+:mod:`struphy.models.tests.gpu_e2e`.
 """
 
 import logging
-import os
-from dataclasses import dataclass, field
 
-import cunumpy as xp
-import h5py
 import numpy as np
 import pytest
-from cunumpy.kernel_testing import requires_cupy
-from cunumpy.profiling import TransferCounter, count_transfers
 from maybempi import MPI
 
 from struphy import (
@@ -45,9 +39,9 @@ from struphy import (
     maxwellians,
     perturbations,
 )
-from struphy.io.output_handling import DataContainer
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import LinearVlasovAmpereOneSpecies
+from struphy.models.tests.gpu_e2e import RunResult, requires_cupy_backend, run, shared_out_folder
 
 logger = logging.getLogger("struphy")
 
@@ -58,9 +52,6 @@ PPC = 40  # 320 markers
 DT = 0.1
 N_STEPS = 3
 SOLVER_TOL = 1e-12
-
-# transfer kinds that move data between host and device (device_copy is device-only and allowed)
-HOST_DEVICE_KINDS = ("to_host", "to_device", "kernel_conversion", "fallback")
 
 
 def make_simulation(out_folders: str, sim_folder: str) -> Simulation:
@@ -115,145 +106,15 @@ def make_simulation(out_folders: str, sim_folder: str) -> Simulation:
     )
 
 
-@dataclass
-class TransferBudget:
-    """Transfers recorded per phase of the time loop (setup before it is not counted).
-
-    ``integrate`` (the propagators) must not transfer at all. ``diagnostics`` (scalars, saved
-    markers, binned distribution functions, coefficient extraction) may copy small results to the
-    host: at most a few scalars per call, never a host-to-device copy or a host kernel. ``output``
-    (``DataContainer.save_data``) may copy each saved dataset to the host once, nothing more.
-    """
-
-    integrate: TransferCounter = field(default_factory=TransferCounter)
-    diagnostics: TransferCounter = field(default_factory=TransferCounter)
-    output: TransferCounter = field(default_factory=TransferCounter)
-    # allowed device-to-host copies by `output`: one per saved dataset, and their bytes
-    output_allowed_copies: int = 0
-    output_allowed_bytes: int = 0
-    n_integrate_calls: int = 0
-    n_diagnostics_calls: int = 0
-
-    def check(self, n_scalars: int):
-        report = (
-            f"integrate:\n{self.integrate.report()}\n"
-            f"diagnostics:\n{self.diagnostics.report()}\n"
-            f"output:\n{self.output.report()}"
-        )
-        assert self.n_integrate_calls == N_STEPS, report
-
-        # 1. the propagators: nothing between host and device
-        assert all(e.kind not in HOST_DEVICE_KINDS for e in self.integrate.events), report
-
-        # 2. diagnostics: no host-to-device copies, no host kernels, only scalar-sized downloads
-        for kind in ("to_device", "kernel_conversion", "fallback"):
-            assert self.diagnostics.count(kind) == 0, report
-        assert self.diagnostics.to_host <= n_scalars * self.n_diagnostics_calls, report
-        assert self.diagnostics.bytes_to_host <= 8 * n_scalars * self.n_diagnostics_calls, report
-
-        # 3. output: each saved dataset once to the host
-        for kind in ("to_device", "kernel_conversion", "fallback"):
-            assert self.output.count(kind) == 0, report
-        assert self.output.to_host <= self.output_allowed_copies, report
-        assert self.output.bytes_to_host <= self.output_allowed_bytes, report
-
-
-def instrument(sim: Simulation, monkeypatch) -> TransferBudget:
-    """Count the transfers of the time loop of ``sim.run()`` per phase.
-
-    Counting starts once the HDF5 datasets are created, the last step of the setup in
-    :meth:`Simulation.run`. The model methods are patched on the instance, ``save_data`` on the class
-    (the ``DataContainer`` is created inside ``run``).
-    """
-    budget = TransferBudget()
-    in_loop = [False]
-    model = sim.model
-
-    def counted(fn, phase: str, calls: str | None = None):
-        def wrapper(*args, **kwargs):
-            if not in_loop[0]:
-                return fn(*args, **kwargs)
-            with count_transfers() as counter:
-                out = fn(*args, **kwargs)
-            getattr(budget, phase).events.extend(counter.events)
-            if calls is not None:
-                setattr(budget, calls, getattr(budget, calls) + 1)
-            return out
-
-        return wrapper
-
-    original_init_datasets = sim._initialize_hdf5_datasets
-
-    def init_datasets(*args, **kwargs):
-        out = original_init_datasets(*args, **kwargs)
-        in_loop[0] = True
-        return out
-
-    monkeypatch.setattr(sim, "_initialize_hdf5_datasets", init_datasets)
-    monkeypatch.setattr(model, "integrate", counted(model.integrate, "integrate", "n_integrate_calls"))
-    monkeypatch.setattr(
-        model,
-        "update_scalar_quantities",
-        counted(model.update_scalar_quantities, "diagnostics", "n_diagnostics_calls"),
-    )
-    for name in ("update_markers_to_be_saved", "update_distr_functions"):
-        monkeypatch.setattr(model, name, counted(getattr(model, name), "diagnostics"))
-
-    original_save_data = DataContainer.save_data
-
-    def save_data(self, keys=None):
-        if not in_loop[0]:
-            return original_save_data(self, keys=keys)
-        for key in self._dset_dict if keys is None else keys:
-            val = self._dset_dict[key]
-            budget.output_allowed_copies += 1
-            budget.output_allowed_bytes += int(getattr(val, "nbytes", 8))
-        with count_transfers() as counter:
-            original_save_data(self, keys=keys)
-        budget.output.events.extend(counter.events)
-
-    monkeypatch.setattr(DataContainer, "save_data", save_data)
-    return budget
-
-
-@dataclass
-class RunResult:
-    """Host copies of what is compared between the backends."""
-
-    scalars: dict  # name -> time series (rank 0 only, else empty)
-    e_coeffs: np.ndarray  # local electric-field coefficients at the end
-    markers: np.ndarray  # all valid markers (gathered), sorted by marker ID
-    n_scalars: int
-    budget: TransferBudget
-
-
-def run(backend: str, out_folders: str, monkeypatch) -> RunResult:
+def run_model(backend: str, out_folders: str) -> RunResult:
     """Run the simulation on ``backend`` and copy the results to the host."""
-    with xp.use_backend(backend):
-        sim = make_simulation(out_folders, sim_folder=backend)
-        budget = instrument(sim, monkeypatch)
-        sim.run()
-        monkeypatch.undo()
-
-        model = sim.model
-        comm = MPI.COMM_WORLD
-
-        e_coeffs = np.asarray(xp.to_numpy(model.em_fields.e_field.spline.vector.toarray()))
-
-        particles = model.kinetic_ions.var.particles
-        local = np.asarray(xp.to_numpy(particles.markers_wo_holes_and_ghost))
-        parts = comm.allgather(local) if comm.Get_size() > 1 else [local]
-        markers = np.concatenate(parts, axis=0)
-        markers = markers[np.argsort(markers[:, -1])]
-
-        scalars = {}
-        if comm.Get_rank() == 0:
-            with h5py.File(os.path.join(sim.env.path_out, "data", "data_proc0.hdf5"), "r") as f:
-                for key in model.scalars.dct:
-                    scalars[key] = f["scalar"][key][()].ravel()
-
-    return RunResult(
-        scalars=scalars, e_coeffs=e_coeffs, markers=markers, n_scalars=len(model.scalars.dct), budget=budget
+    return run(
+        backend,
+        make_simulation,
+        out_folders,
+        n_steps=N_STEPS,
+        fields=lambda model: {"e_field": model.em_fields.e_field},
+        particles=lambda model: model.kinetic_ions.var.particles,
     )
 
 
@@ -294,8 +155,9 @@ def compare_runs(ref: RunResult, gpu: RunResult):
     w_ref, w_gpu = ref.markers[:, 6], gpu.markers[:, 6]
     np.testing.assert_allclose(w_gpu, w_ref, rtol=0, atol=rtol * np.max(np.abs(w_ref)))
 
-    assert gpu.e_coeffs.shape == ref.e_coeffs.shape
-    np.testing.assert_allclose(gpu.e_coeffs, ref.e_coeffs, rtol=0, atol=rtol * np.max(np.abs(ref.e_coeffs)))
+    e_ref, e_gpu = ref.fields["e_field"], gpu.fields["e_field"]
+    assert e_gpu.shape == e_ref.shape
+    np.testing.assert_allclose(e_gpu, e_ref, rtol=0, atol=rtol * np.max(np.abs(e_ref)))
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         for key, series in ref.scalars.items():
@@ -304,26 +166,26 @@ def compare_runs(ref: RunResult, gpu: RunResult):
 
 @pytest.fixture
 def out_folders(tmp_path_factory):
-    """One output folder for all ranks (the one of rank 0; ``tmp_path`` differs per rank)."""
-    comm = MPI.COMM_WORLD
-    path = str(tmp_path_factory.mktemp("gpu_e2e_LinearVlasovAmpereOneSpecies")) if comm.Get_rank() == 0 else None
-    return comm.bcast(path, root=0)
+    return shared_out_folder(tmp_path_factory, "gpu_e2e_LinearVlasovAmpereOneSpecies")
 
 
-def test_numpy_reference(out_folders, monkeypatch):
+def test_numpy_reference(out_folders):
     """The NumPy run that the GPU run is compared against; on NumPy nothing can be transferred."""
-    ref = run("numpy", out_folders, monkeypatch)
+    ref = run_model("numpy", out_folders)
     check_reference(ref)
     ref.budget.check(n_scalars=ref.n_scalars)
     assert ref.budget.integrate.total == ref.budget.diagnostics.total == ref.budget.output.total == 0
 
 
-@requires_cupy
-def test_cupy_matches_numpy_without_transfers(out_folders, monkeypatch):
-    """The CuPy run agrees with the NumPy run, and its time loop stays on the device."""
-    ref = run("numpy", out_folders, monkeypatch)
+@requires_cupy_backend
+def test_cupy_matches_numpy_without_transfers(out_folders):
+    """The CuPy run agrees with the NumPy run, and its time loop stays on the device.
+
+    On a GPU, or on the fake CuPy (``CUNUMPY_FAKE_CUPY=1``) with every CUDA launch emulated on the CPU.
+    """
+    ref = run_model("numpy", out_folders)
     check_reference(ref)
-    gpu = run("cupy", out_folders, monkeypatch)
+    gpu = run_model("cupy", out_folders)
     compare_runs(ref, gpu)
     gpu.budget.check(n_scalars=gpu.n_scalars)
 
