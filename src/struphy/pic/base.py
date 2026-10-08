@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
@@ -7,6 +8,7 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import numpy as np
+from cunumpy.kernels import PyccelKernel
 from feectools.ddm.partition import factorint
 from line_profiler import profile
 from maybempi import MPI, SerialComm
@@ -62,6 +64,14 @@ if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only n
     from mpi4py.MPI import Intracomm
 
 logger = logging.getLogger("struphy")
+
+# Box sorting has no CUDA port yet (#694). On the CuPy backend these wrappers copy the
+# device arrays to the host, run the pyccel kernel there and copy the declared outputs
+# back: an explicit host/device round trip on every call. On NumPy they call the
+# kernel directly.
+_assign_box_to_each_particle = PyccelKernel(assign_box_to_each_particle, outputs=(0,))
+_assign_particles_to_boxes = PyccelKernel(assign_particles_to_boxes, outputs=(2, 3))
+_sort_boxed_particles = PyccelKernel(sort_boxed_particles, outputs=(0, 1, 2, 4, 5))
 
 
 def _to_numpy_for_kernel(value):
@@ -297,7 +307,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
-            n_boxes = xp.prod(xp.array(self.boxes_per_dim), dtype=int) * self.num_clones
+            n_boxes = math.prod(self.boxes_per_dim) * self.num_clones
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -1947,7 +1957,7 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbouring processes are also communicated (as ghost particles)."""
         self._remove_ghost_particles()
 
-        assign_box_to_each_particle(
+        _assign_box_to_each_particle(
             self.markers,
             self.holes,
             self._sorting_boxes.nx,
@@ -1992,7 +2002,7 @@ class Particles(metaclass=ABCMeta):
         if use_numpy_argsort:
             self._sort_boxed_particles_numpy()
         else:
-            sort_boxed_particles(
+            _sort_boxed_particles(
                 self._markers,
                 self._sorting_boxes._swap_line_1,
                 self._sorting_boxes._swap_line_2,
@@ -2579,14 +2589,10 @@ class Particles(metaclass=ABCMeta):
             # split boxes across MPI processes
             nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
 
-            # check whether this process touches the domain boundary
+            # check whether this process touches the domain boundary (host-side bookkeeping:
+            # Python bools, also on the CuPy backend)
+            x_l, x_r, _, y_l, y_r, _, z_l, z_r, _ = xp.to_numpy(self.domain_array[self.mpi_rank]).tolist()
             is_domain_boundary = {}
-            x_l = self.domain_array[self.mpi_rank, 0]
-            x_r = self.domain_array[self.mpi_rank, 1]
-            y_l = self.domain_array[self.mpi_rank, 3]
-            y_r = self.domain_array[self.mpi_rank, 4]
-            z_l = self.domain_array[self.mpi_rank, 6]
-            z_r = self.domain_array[self.mpi_rank, 7]
             is_domain_boundary["x_m"] = x_l == 0.0
             is_domain_boundary["x_p"] = x_r == 1.0
             is_domain_boundary["y_m"] = y_l == 0.0
@@ -3092,7 +3098,7 @@ Increase the value of "box_bufsize" in the markers parameters for the next run.'
             warnings.warn(msg)
             self.mpi_comm.Abort()
 
-        assign_particles_to_boxes(
+        _assign_particles_to_boxes(
             self.markers,
             self.holes,
             self._sorting_boxes._boxes,
@@ -3834,8 +3840,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         periodic2 = self.bc_sph[1] == "periodic"
         periodic3 = self.bc_sph[2] == "periodic"
 
-        # Determine which proc are on which side
-        dd = self.domain_array
+        # Determine which proc are on which side (setup on the host, also on the CuPy backend)
+        dd = xp.to_numpy(self.domain_array)
         rank = self.mpi_rank
 
         x_l = dd[rank][0]
