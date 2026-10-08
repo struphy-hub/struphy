@@ -272,7 +272,7 @@ class VariationalViscosity(Propagator):
 
         self._scaled_stiffness._scalar = dt * self._mu  # /2.
         self._scaled_Mv._scalar = dt * self._alpha
-        # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
+        # self.evol_op._multiplicands[1]._addends[0]._scalar = - dt*self._mu/2.
         un1 = self.evol_op.dot(un, out=self._tmp_un1)
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")

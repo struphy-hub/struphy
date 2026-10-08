@@ -412,7 +412,7 @@ def _boundary_conditions(mass_operator: WeightedMassOperator, apply_bc: bool) ->
     """
     if not apply_bc or not isinstance(mass_operator.M0, ComposedLinearOperator):
         return None
-    last = mass_operator.M0.multiplicants[-1]
+    last = mass_operator.M0.multiplicands[-1]
     if not isinstance(last, BoundaryOperator):
         return None
     return last.bc
@@ -431,7 +431,7 @@ def _operator_to_invert(
         The operator.
 
     mass_index : int | None
-        Position of the mass matrix ``mass_operator.matrix`` in ``M.multiplicants``, or
+        Position of the mass matrix ``mass_operator.matrix`` in ``M.multiplicands``, or
         None if ``M`` is not composed (then ``M`` is the mass matrix itself).
 
     tmp_vectors : tuple[Vector, ...]
@@ -442,9 +442,9 @@ def _operator_to_invert(
     if not isinstance(M, ComposedLinearOperator):
         return M, None, ()
 
-    mass_index = next((k for k, op in enumerate(M.multiplicants) if op is mass_operator.matrix), None)
+    mass_index = next((k for k, op in enumerate(M.multiplicands) if op is mass_operator.matrix), None)
     assert mass_index is not None, "The mass matrix was not found in the composed mass operator."
-    tmp_vectors = tuple(op.codomain.zeros() for op in M.multiplicants[1:])
+    tmp_vectors = tuple(op.codomain.zeros() for op in M.multiplicands[1:])
     return M, mass_index, tmp_vectors
 
 
@@ -468,7 +468,7 @@ def _apply_composed(
             out = M.codomain.zeros()
         return apply_inverse(rhs, out)
 
-    ops = M.multiplicants
+    ops = M.multiplicands
     if out is None:
         out = ops[0].codomain.zeros()
 
