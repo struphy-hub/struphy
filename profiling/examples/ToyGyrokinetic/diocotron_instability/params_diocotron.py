@@ -82,10 +82,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
 args, _ = parser.parse_known_args()
 
-env = EnvironmentOptions(
-    sim_folder=f"sim_{args.id:02d}",
-    restart=False
-)
+env = EnvironmentOptions(sim_folder=f"sim_{args.id:02d}", restart=False)
 
 # Time stepping
 time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")

@@ -28,14 +28,14 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    MultiGridOptions,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
     equils,
     grids,
     perturbations,
-    ProfilingOptions,
-    MultiGridOptions,
 )
 
 # ---------------------
@@ -89,7 +89,9 @@ grid = grids.TensorProductGrid(num_elements=(64, 64, 64), mpi_dims_mask=(True, T
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profilinig options
-profiling_opts = ProfilingOptions(use_line_profiler=True,)
+profiling_opts = ProfilingOptions(
+    use_line_profiler=True,
+)
 
 # Simulation object
 sim = Simulation(
@@ -127,7 +129,6 @@ model.propagators.poisson.options = model.propagators.poisson.Options(
 import numpy as np
 
 from struphy.initial.base import GenericPerturbation
-
 
 # Gaussian bump times sin(pi*x/Lx) (exact Dirichlet in x); the bump is narrow enough
 # to be periodic in y and z up to exp(-(Ly/2)**2/w**2) ~ 1e-11. Being localized, it
