@@ -39,7 +39,9 @@ def test_stiffness_approximation_unit_cube(derivative, sigma):
     )
     mass_ops = WeightedMassOperators(derham, domains.Cuboid())
 
-    P = StiffnessPreconditioner(mass_ops, derivative, sigma=sigma, apply_bc=False, diagonal_scaling=False)
+    P = StiffnessPreconditioner(
+        mass_ops, derivative, sigma=sigma, apply_bc=False, diagonal_scaling=False, kernel_correction=False
+    )
     A = P.core_operator
     x = create_equal_random_arrays(derham.fem_spaces[FORMS[derivative]], seed=1)[1]
 
@@ -108,6 +110,60 @@ def test_stiffness_preconditioner_grad(mapping, sigma):
     else:
         assert niter["unit"] < niter["none"]
         assert niter["scaled"] <= niter["unit"]
+
+
+@pytest.mark.parametrize("derivative", ["curl"])
+@pytest.mark.parametrize("mapping", ["Cuboid", "HollowCylinder"])
+def test_stiffness_preconditioner_kernel_correction(derivative, mapping):
+    """PCG for C^T M2 C + sigma M1: with kernel correction, fewer iterations than with block Jacobi
+    alone and than with the mass-matrix preconditioner."""
+
+    from feectools.linalg.solvers import inverse
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner, StiffnessPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(
+        TensorProductGrid(num_elements=[8, 10, 4]),
+        DerhamOptions(degree=[2, 3, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=MPI.COMM_WORLD,
+    )
+    domain = domains.Cuboid() if mapping == "Cuboid" else domains.HollowCylinder(a1=0.1, a2=1.0, Lz=3.0)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    k = int(FORMS[derivative])
+    d = getattr(derham, derivative)
+    M_k, M_k1 = getattr(mass_ops, f"M{k}"), getattr(mass_ops, f"M{k + 1}")
+    sigma = 1.0
+    A = d.T @ M_k1 @ d + sigma * M_k
+    b = derham.boundary_ops[FORMS[derivative]].dot(
+        create_equal_random_arrays(derham.fem_spaces[FORMS[derivative]], seed=2, flattened=True)[1]
+    )
+
+    P = StiffnessPreconditioner(mass_ops, derivative, sigma=sigma)
+    assert P.kernel_correction is not None
+    niter = {}
+    for label, pc in (
+        ("mass", MassMatrixPreconditioner(M_k, diagonal_scaling=True)),
+        ("block Jacobi", StiffnessPreconditioner(mass_ops, derivative, sigma=sigma, kernel_correction=False)),
+        ("kernel correction", P),
+    ):
+        inv = inverse(A, "pcg", pc=pc, tol=1e-10, maxiter=3000)
+        inv.dot(b)
+        assert inv._info["success"]
+        niter[label] = inv._info["niter"]
+
+    assert niter["kernel correction"] < niter["block Jacobi"]
+    assert niter["kernel correction"] < niter["mass"]
+
+    with pytest.raises(ValueError):
+        StiffnessPreconditioner(mass_ops, derivative, sigma=0.0)
 
 
 @pytest.mark.parametrize("derivative", ["grad", "curl", "div"])

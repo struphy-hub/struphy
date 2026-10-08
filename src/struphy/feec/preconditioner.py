@@ -417,8 +417,19 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     :math:`N_c` in which component c is differentiated (its B-spline directions). These blocks
     are inverted exactly by fast diagonalization
     (:class:`~feectools.linalg.kron.KroneckerSumSolver`). For the gradient this is the exact
-    inverse on the logical cube; for curl and div the off-diagonal blocks are neglected
-    (block Jacobi), so :math:`\sigma > 0` is required for a good preconditioner.
+    inverse on the logical cube. For curl and div, the off-diagonal blocks are neglected
+    (block Jacobi, :math:`P_{BJ}`).
+
+    Block Jacobi overestimates :math:`A` on the kernel of :math:`\mathbb d` (gradients for
+    curl), where :math:`A = \sigma \mathbb M_k`. With ``kernel_correction`` (default, needs
+    :math:`\sigma > 0`), the preconditioner for curl is
+
+    .. math::
+
+        P = P_{BJ} + \sigma^{-1} \, \mathbb G \, P_{\mathbb G} \, \mathbb G^T \,,
+
+    where :math:`P_{\mathbb G}` is the preconditioner for :math:`\mathbb G^T \mathbb M_1 \mathbb G`;
+    it is exact for gradients on the logical cube.
 
     The geometry is included by diagonal scaling (default, see :class:`KroneckerPreconditioner`).
     Polar splines are not supported yet.
@@ -440,6 +451,10 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     diagonal_scaling : bool
         Whether to correct the approximation with the diagonals of :math:`A` and of its
         approximation.
+
+    kernel_correction : bool
+        For curl: whether to add the correction on the kernel of the derivative (needs
+        ``sigma > 0``). Ignored for grad.
     """
 
     _FORMS = {"grad": 0, "curl": 1, "div": 2}
@@ -451,9 +466,13 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         sigma: float = 0.0,
         apply_bc: bool = True,
         diagonal_scaling: bool = True,
+        kernel_correction: bool = True,
     ):
         assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
         assert sigma >= 0.0
+        kernel_correction = kernel_correction and derivative == "curl"
+        if kernel_correction and sigma == 0.0:
+            raise ValueError("The kernel correction needs sigma > 0 (or kernel_correction=False).")
 
         derham = mass_ops.derham
         if derham.polar_splines:
@@ -467,12 +486,15 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         # tensor-product derivative without boundary operators (no polar splines)
         self._d = getattr(derham, f"{derivative}_bcfree")
 
-        if derivative != "grad" and sigma == 0.0:
-            logger.warning(
-                f"StiffnessPreconditioner for {derivative!r} with sigma = 0: the operator has a large kernel."
-            )
-
         super().__init__(getattr(mass_ops, f"M{k}"), apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+
+        # correction on the kernel of the derivative: sigma^{-1} d_prev P_prev d_prev^T
+        self._kernel_correction = None
+        if kernel_correction:
+            d_prev = derham.grad
+            P_prev = StiffnessPreconditioner(mass_ops, "grad", apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+            self._kernel_correction = (1.0 / sigma) * (d_prev @ P_prev @ d_prev.T)
+            self._tmp_kernel = self.codomain.zeros()
 
     @property
     def derivative(self) -> str:
@@ -483,6 +505,18 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     def sigma(self) -> float:
         """Coefficient of the mass term."""
         return self._sigma
+
+    @property
+    def kernel_correction(self) -> LinearOperator | None:
+        """The correction on the kernel of the derivative, or None."""
+        return self._kernel_correction
+
+    def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
+        """Apply the preconditioner (block Jacobi part plus kernel correction, if any) to rhs."""
+        out = super().solve(rhs, out=out)
+        if self._kernel_correction is not None:
+            out += self._kernel_correction.dot(rhs, out=self._tmp_kernel)
+        return out
 
     @property
     def core_operator(self) -> LinearOperator:
