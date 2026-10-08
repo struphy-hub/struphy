@@ -274,6 +274,14 @@ the `pyproject.toml` pin (today `feectools>=0.3.0, <=0.3.0`) point at that relea
 deprecated (removed in 0.6): import them from `cunumpy.cuda` and `cunumpy.mpi`, and require `cunumpy>=0.5.0, <0.6`
 like struphy.
 
+**Mass-matrix preconditioners on CuPy** (`feec/preconditioner.py`, for #689). `MassMatrixPreconditioner` and
+`MassMatrixDiagonalPreconditioner` build their 1d mass matrices and 1d solvers (`FFTSolver` for circulant,
+`SparseSolver` otherwise) on the host on every backend; only the process-local 1d stencil matrices (factors of the
+`KroneckerStencilMatrix`) are copied to the device. `is_circulant` and `FFTSolver` take host or device arrays;
+`FFTSolver.solve` solves device data on the host and copies it back, until the device Kronecker solve of
+[feectools#96](https://github.com/struphy-hub/feectools/pull/96) builds dense inverses from these host solvers.
+Tested with fake CuPy and emulated launches (`feec/tests/test_preconditioner_cupy.py`).
+
 New feectools work for the GPU follows the same pattern: a `cuda-<n>-<topic>` PR, linked in the table above and
 from the struphy tracking issue ([#650](https://github.com/struphy-hub/struphy/issues/650)).
 

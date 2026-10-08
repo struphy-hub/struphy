@@ -1,6 +1,7 @@
 import logging
 
 import cunumpy as xp
+import numpy as np
 from feectools.api.essential_bc import apply_essential_bc_stencil
 from feectools.ddm.cart import CartDecomposition, DomainDecomposition
 from feectools.fem.tensor import TensorFemSpace
@@ -228,52 +229,10 @@ class MassMatrixPreconditioner(LinearOperator):
                                     identity=True,
                                 )
 
-                M_arr = M.toarray()
-
-                # create 1d solver for mass matrix
-                if is_circulant(M_arr):
-                    solvercells += [FFTSolver(M_arr)]
-                else:
-                    solvercells += [SparseSolver(M.tosparse())]
-
-                # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
-                periodic = femspaces[c].coeff_space.periods[d]
-
-                n = femspaces[c].coeff_space.npts[d]
-                p = femspaces[c].coeff_space.pads[d]
-                s = femspaces[c].coeff_space.starts[d]
-                e = femspaces[c].coeff_space.ends[d]
-
-                cart_decomp_1d = CartDecomposition(
-                    domain_decompos_1d,
-                    [n],
-                    [[s]],
-                    [[e]],
-                    [p],
-                    [1],
-                )
-
-                V_local = StencilVectorSpace(cart_decomp_1d)
-
-                M_local = StencilMatrix(V_local, V_local)
-
-                row_indices, col_indices = xp.nonzero(M_arr)
-
-                for row_i, col_i in zip(row_indices, col_indices):
-                    # only consider row indices on process
-                    if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
-                        row_i_loc = row_i - s
-
-                        M_local._data[
-                            row_i_loc + p,
-                            (col_i + p - row_i) % M_arr.shape[1],
-                        ] = M_arr[row_i, col_i]
-
-                # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
-
-                matrixcells += [M_local.copy()]
-                # =======================================================================================================
+                # 1d solver (host) and process-local 1d stencil matrix (active backend)
+                solver_1d, M_local = _solver_and_local_matrix_1d(M, femspaces[c].coeff_space, d, domain_decompos_1d)
+                solvercells += [solver_1d]
+                matrixcells += [M_local]
 
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
@@ -587,52 +546,10 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                                     identity=True,
                                 )
 
-                M_arr = M.toarray()
-
-                # create 1d solver for mass matrix
-                if is_circulant(M_arr):
-                    solvercells += [FFTSolver(M_arr)]
-                else:
-                    solvercells += [SparseSolver(M.tosparse())]
-
-                # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
-                periodic = femspaces[c].coeff_space.periods[d]
-
-                n = femspaces[c].coeff_space.npts[d]
-                p = femspaces[c].coeff_space.pads[d]
-                s = femspaces[c].coeff_space.starts[d]
-                e = femspaces[c].coeff_space.ends[d]
-
-                cart_decomp_1d = CartDecomposition(
-                    domain_decompos_1d,
-                    [n],
-                    [[s]],
-                    [[e]],
-                    [p],
-                    [1],
-                )
-
-                V_local = StencilVectorSpace(cart_decomp_1d)
-
-                M_local = StencilMatrix(V_local, V_local)
-
-                row_indices, col_indices = xp.nonzero(M_arr)
-
-                for row_i, col_i in zip(row_indices, col_indices):
-                    # only consider row indices on process
-                    if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
-                        row_i_loc = row_i - s
-
-                        M_local._data[
-                            row_i_loc + p,
-                            (col_i + p - row_i) % M_arr.shape[1],
-                        ] = M_arr[row_i, col_i]
-
-                # check if stencil matrix was built correctly
-                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
-
-                matrixcells += [M_local.copy()]
-                # =======================================================================================================
+                # 1d solver (host) and process-local 1d stencil matrix (active backend)
+                solver_1d, M_local = _solver_and_local_matrix_1d(M, femspaces[c].coeff_space, d, domain_decompos_1d)
+                solvercells += [solver_1d]
+                matrixcells += [M_local]
 
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
@@ -884,23 +801,89 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         return out
 
 
+def _solver_and_local_matrix_1d(M, coeff_space, d, domain_decomposition_1d):
+    """1d solver and process-local 1d stencil matrix of an assembled 1d mass matrix.
+
+    The 1d matrix is small setup data: it is converted to a dense host (NumPy) array on every backend, and
+    the 1d solver (:class:`FFTSolver` for circulant matrices, :class:`SparseSolver` otherwise) is a host
+    solver, as expected by :class:`KroneckerLinearSolver`. Only the process-local stencil matrix, which
+    becomes a factor of the :class:`KroneckerStencilMatrix`, holds its data on the active backend.
+
+    Parameters
+    ----------
+    M : StencilMatrix
+        The assembled 1d mass matrix (serial, not distributed).
+
+    coeff_space : StencilVectorSpace
+        The (distributed) 3d coefficient space of the component.
+
+    d : int
+        The spatial direction of the 1d matrix.
+
+    domain_decomposition_1d : DomainDecomposition
+        Domain decomposition of the serial 1d FEM space.
+
+    Returns
+    -------
+    solver : FFTSolver | SparseSolver
+        Host solver for the 1d matrix.
+
+    M_local : StencilMatrix
+        The rows ``coeff_space.starts[d]`` to ``coeff_space.ends[d]`` of the 1d matrix as a stencil matrix.
+    """
+    M_arr = xp.to_numpy(M.toarray())
+
+    if is_circulant(M_arr):
+        solver = FFTSolver(M_arr)
+    else:
+        solver = SparseSolver(M.tosparse())
+
+    # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
+    n = coeff_space.npts[d]
+    p = coeff_space.pads[d]
+    s = coeff_space.starts[d]
+    e = coeff_space.ends[d]
+
+    cart_decomp_1d = CartDecomposition(domain_decomposition_1d, [n], [[s]], [[e]], [p], [1])
+    V_local = StencilVectorSpace(cart_decomp_1d)
+    M_local = StencilMatrix(V_local, V_local)
+
+    # fill the stencil data on the host, then copy it to the active backend once
+    data = np.zeros(M_local._data.shape, dtype=M_local._data.dtype)
+    row_indices, col_indices = np.nonzero(M_arr)
+    for row_i, col_i in zip(row_indices, col_indices):
+        # only consider row indices on process
+        if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
+            row_i_loc = row_i - s
+            data[row_i_loc + p, (col_i + p - row_i) % M_arr.shape[1]] = M_arr[row_i, col_i]
+    M_local._data[...] = xp.asarray(data)
+
+    # check if stencil matrix was built correctly
+    assert np.allclose(xp.to_numpy(M_local.toarray())[s : e + 1], M_arr[s : e + 1])
+
+    return solver, M_local
+
+
 class FFTSolver(BandedSolver):
     """
     Solve the equation Ax = b for x, assuming A is a circulant matrix.
     b can contain multiple right-hand sides (RHS) and is of shape (#RHS, N).
 
+    The circulant matrix is kept on the host (it is small 1d setup data, see :class:`KroneckerLinearSolver`).
+    Right-hand sides on the device (CuPy backend) are solved on the host and copied back.
+
     Parameters
     ----------
-    circmat : xp.ndarray
-        Generic circulant matrix.
+    circmat : numpy.ndarray
+        Generic circulant matrix (a device array is copied to the host).
     """
 
     def __init__(self, circmat):
-        assert isinstance(circmat, xp.ndarray)
+        circmat = xp.to_numpy(circmat)
         assert is_circulant(circmat)
 
         self._space = xp.ndarray
-        self._column = circmat[:, 0]
+        self._column = circmat[:, 0].copy()
 
     # --------------------------------------
     # Abstract interface
@@ -908,6 +891,19 @@ class FFTSolver(BandedSolver):
     @property
     def space(self):
         return self._space
+
+    def _solve_host(self, rhs, stabilize):
+        from scipy.linalg import solve_circulant
+
+        try:
+            return solve_circulant(self._column, rhs.T).T
+        except np.linalg.LinAlgError:
+            if not stabilize:
+                raise
+            eps = 1e-4
+            logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
+            self._column[0] *= 1.0 + eps
+            return solve_circulant(self._column, rhs.T).T
 
     @profile
     def solve(self, rhs, out=None, transposed=False):
@@ -920,7 +916,7 @@ class FFTSolver(BandedSolver):
             The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
             i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
             index denoting the number of the right-hand side, and the 1-st index denoting the element inside
-            a right-hand side.
+            a right-hand side. A device array is solved on the host; the result is a device array.
 
         out : xp.ndarray, optional
             Output vector. If given, it has to have the same shape and datatype as rhs.
@@ -929,24 +925,18 @@ class FFTSolver(BandedSolver):
             If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
         """
 
-        from scipy.linalg import solve_circulant
-
         assert rhs.T.shape[0] == self._column.size
 
-        if out is None:
-            out = solve_circulant(self._column, rhs.T).T
+        # a singular matrix is stabilized only for in-place solves (as called by KroneckerLinearSolver)
+        on_device = xp.is_gpu(rhs)
+        result = self._solve_host(xp.to_numpy(rhs) if on_device else rhs, stabilize=out is not None)
 
+        if out is None:
+            out = xp.asarray(result) if on_device else result
         else:
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
-
-            try:
-                out[:] = solve_circulant(self._column, rhs.T).T
-            except xp.linalg.LinAlgError:
-                eps = 1e-4
-                logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
-                self._column[0] *= 1.0 + eps
-                out[:] = solve_circulant(self._column, rhs.T).T
+            out[...] = xp.asarray(result) if xp.is_gpu(out) else result
 
         return out
 
@@ -958,7 +948,7 @@ def is_circulant(mat):
     Parameters
     ----------
     mat : array[float]
-        The matrix that is checked to be circulant.
+        The matrix that is checked to be circulant (host or device array; checked on the host).
 
     Returns
     -------
@@ -966,13 +956,13 @@ def is_circulant(mat):
         Whether the matrix is circulant (=True) or not (=False).
     """
 
-    assert isinstance(mat, xp.ndarray)
+    mat = xp.to_numpy(mat)
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
     if mat.shape[0] > 1:
         for i in range(mat.shape[0] - 1):
-            circulant = xp.allclose(mat[i, :], xp.roll(mat[i + 1, :], -1))
+            circulant = bool(np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1)))
             if not circulant:
                 return circulant
     else:
