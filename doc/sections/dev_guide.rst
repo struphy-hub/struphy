@@ -20,7 +20,7 @@ Code formatting and import sorting
 
 Struphy uses `ruff <https://docs.astral.sh/ruff/>`_ for formatting, linting and sorting imports
 (ruff's ``I`` rules replace isort). The settings are in the ``[tool.ruff]`` section of ``pyproject.toml``,
-and ruff is installed with the ``dev`` extra (``pip install -e .[dev]``).
+and ruff is installed together with Struphy.
 Run the following from the repository root before pushing::
 
     ruff check --fix    # lint and sort imports

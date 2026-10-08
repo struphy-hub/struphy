@@ -1013,7 +1013,7 @@ ruff:
     - .image_ubuntu_latest
   script:
     - !reference [.scripts, create_venv]
-    - pip install ruff==0.15.0
+    - pip install ruff==0.16.10
     - ruff format --check
     - ruff check
 
