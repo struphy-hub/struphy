@@ -3,6 +3,7 @@ import importlib.util
 import logging
 import os
 import pickle
+import signal
 import subprocess
 import sys
 
@@ -1199,6 +1200,34 @@ def serial_child_env(**extra):
     return env
 
 
+def run_fake_cupy_child(code: str):
+    """Run ``code`` in a serial child Python process on cunumpy's fake CuPy and fail the test if the child fails.
+
+    The check is serial, so under ``mpirun`` only rank 0 starts the child; the other ranks skip. Before, every rank
+    started the same child at the same time, and on CI the GVEC case crashed (SIGILL) in one of the two concurrent
+    children with no output. The child runs with ``faulthandler`` (a crash prints the Python traceback) and one OpenMP
+    thread, and a failure reports the signal or exit code and the end of both output streams (GVEC writes its Fortran
+    messages to stdout).
+    """
+    from maybempi import MPI
+
+    if MPI.COMM_WORLD.Get_rank() != 0:
+        pytest.skip("serial check, runs on MPI rank 0")
+    result = subprocess.run(
+        [sys.executable, "-X", "faulthandler", "-c", code],
+        env=serial_child_env(CUNUMPY_FAKE_CUPY="1", OMP_NUM_THREADS="1"),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        rc = result.returncode
+        how = f"signal {signal.Signals(-rc).name}" if rc < 0 else f"exit code {rc}"
+        pytest.fail(
+            f"child process failed with {how}\n"
+            f"--- stdout (end) ---\n{result.stdout[-2000:]}\n--- stderr (end) ---\n{result.stderr[-4000:]}",
+        )
+
+
 @pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
 @pytest.mark.parametrize("mapping", CUDA_DOMAIN_MAPPINGS)
 def test_cuda_args_domain_fake_cupy(mapping):
@@ -1207,10 +1236,7 @@ def test_cuda_args_domain_fake_cupy(mapping):
     Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
     """
     code = f"from struphy.geometry.tests.test_domain import check_cuda_args_domain; check_cuda_args_domain({mapping!r})"
-    result = subprocess.run(
-        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr[-4000:]
+    run_fake_cupy_child(code)
 
 
 @requires_cupy

@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy<=2.5.0",
-    "cunumpy >= 0.6.1, <= 0.6.1",
+    "cunumpy >= 0.6.2, <= 0.6.2",
     "pyccel>=2.2.0, <=2.2.3",
     "maybempi>=0.1.2",
     "feectools>=0.5.0, <=0.5.0",
@@ -48,7 +48,7 @@ dependencies = [
     "pytest<=9.1.0",
     "pytest-mpi<=0.6",
     "pytest-testmon<=2.2.0",
-    "ruff==0.15.0, <=0.16.0",
+    "ruff==0.16.10",
     "line_profiler<=5.0.2",
     "scope-profiler>=0.5.0, <=0.7.2",
 ]
@@ -74,15 +74,8 @@ dev = [
     "struphy[mpi]",
     "struphy[pproc]",
     "notebook",
-    "autopep8",
-    "isort",
-    "flake8",
-    "pylint",
-    "ssort",
-    "add-trailing-comma",
     "pre-commit",
     "nbstripout",
-    "tabulate",
     "tomli-w",
     "kaleido",
     "pandas",
@@ -151,23 +144,18 @@ struphy = [
     "**/*.cuh",
 ]
 
-[tool.autopep8]
-max_line_length = 120
-ignore = [
-    "E221,E226,E203,E265,E731,E711",
-]
-
-[tool.isort]
-profile = "black"
-line_length = 120
-
-[tool.pylint]
-max-line-length = 120
-
 [tool.ruff]
 line-length = 120
 
+[tool.ruff.format]
+# ruff>=0.16 also formats code blocks in Markdown; README.md is generated from README.qmd
+# and the doc snippets are aligned by hand
+exclude = ["*.md"]
+
 [tool.ruff.lint]
+# Ruff's pre-0.16 default rules (pyflakes and basic pycodestyle errors), plus
+# "I": import sorting (replaces isort), fixed with `ruff check --fix`
+select = ["E4", "E7", "E9", "F", "I"]
 ignore = [
     "E265",
     "E402",

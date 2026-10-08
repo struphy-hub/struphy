@@ -391,17 +391,25 @@ stencil matrix data) are in cunumpy since 0.6.1 (`Array6D`); `linear_vlasov_ampe
 - **What failed.** Creating `AdhocTorus` (`q_kind` 1, 2: SciPy `quad`/`UnivariateSpline`), `AdhocTorusQPsi` (`odeint`,
   `fsolve`) and `EQDSKequilibrium` (`RectBivariateSpline` on `xp.linspace`) on CuPy; evaluating `GVECequilibrium` and
   `DESCequilibrium` (gvec/DESC got device arrays). The analytic equilibria already worked.
-- **Host setup.** `setup_on_host` (`fields_background/base.py`) runs these `__init__`s on the NumPy backend, so the
+- **Host setup.** `xp.setup_on_host` (cunumpy >= 0.6.2, which also provides `xp.host_call` and `xp.evaluate_on_host`) runs these `__init__`s on the NumPy backend, so the
   equilibria hold only host data (floats, NumPy arrays, SciPy splines) on either backend. `Tokamak` no longer builds
   its default `EQDSKequilibrium` on the NumPy backend itself; the field-line tracing still runs there.
-- **Evaluation follows the arguments.** SciPy spline evaluations go through `host_call`, and the GVEC/DESC `bv`, `jv`,
-  `p0`, `n0`, `gradB1` through `@evaluate_on_host`: device arguments are copied to the host, evaluated on the NumPy
+- **Evaluation follows the arguments.** SciPy spline evaluations go through `xp.host_call`, and the GVEC/DESC `bv`,
+  `jv`, `p0`, `n0`, `gradB1` through `@xp.evaluate_on_host`: device arguments are copied to the host, evaluated on the NumPy
   backend, and the result is copied back, once per call (equilibria are evaluated at setup; the time loop uses the
   projected equilibrium). NumPy arguments are evaluated as before.
 - **Tests.** `fields_background/tests/test_equils_cupy.py` creates every equilibrium of `equils` on CuPy, evaluates
   the methods models call (meshgrid and markers, plus `psi`/`g_tor` with derivatives) and compares with NumPy: on a
   GPU, and without one on the fake CuPy, where the four geometry kernels run their pyccel version on the fake arrays'
   host buffers (`host_geometry_kernels`), since the fake CuPy cannot launch CUDA kernels.
+- **GVEC at markers (#715).** gvec evaluated the markers' `rho`, `theta`, `zeta` as a tensor grid, so `bv`/`jv` at N
+  markers returned N x N x N arrays and `absB0` failed (on NumPy too). The coordinates are now passed as
+  `xarray.DataArray`s with one shared dimension, which gvec evaluates point by point. Boozer coordinates
+  (`use_boozer=True`) are computed per flux surface, so marker evaluation raises there. Test: `test_gvec_equil.py`.
+- **Fake-CuPy child processes under MPI.** `run_fake_cupy_child` (`geometry/tests/test_domain.py`) starts the child
+  only on rank 0 (under `mpirun` every rank used to start the same child at once; on CI one of the two concurrent GVEC
+  children died with SIGILL and no output), with `faulthandler` and one OpenMP thread, and a failure reports the
+  signal and the end of stdout and stderr (gvec writes its Fortran messages to stdout).
 
 ## Hand-written CUDA vs. code generation (decision for #690)
 
