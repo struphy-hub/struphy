@@ -19,7 +19,8 @@ def _max_abs(arrays, comm):
 
 @pytest.mark.parametrize("derivative", ["grad", "curl", "div"])
 @pytest.mark.parametrize("sigma", [0.0, 0.7])
-def test_stiffness_approximation_unit_cube(derivative, sigma):
+@pytest.mark.parametrize("num_elements", [[6, 5, 4], [6, 5, 1]])
+def test_stiffness_approximation_unit_cube(derivative, sigma, num_elements):
     """On the unit cube (unit weights), the diagonal blocks of the Kronecker approximation equal those of
     the stiffness operator, the solver inverts the approximation, and probing gives its exact diagonal."""
 
@@ -35,7 +36,9 @@ def test_stiffness_approximation_unit_cube(derivative, sigma):
 
     comm = MPI.COMM_WORLD
     derham = Derham(
-        TensorProductGrid(num_elements=[6, 5, 4]), DerhamOptions(degree=[2, 3, 2], bcs=(None, None, None)), comm=comm
+        TensorProductGrid(num_elements=num_elements),
+        DerhamOptions(degree=[2, 3, 2 if num_elements[2] > 1 else 1], bcs=(None, None, None)),
+        comm=comm,
     )
     mass_ops = WeightedMassOperators(derham, domains.Cuboid())
 
@@ -59,7 +62,8 @@ def test_stiffness_approximation_unit_cube(derivative, sigma):
                 b._data[:] = 0.0
         r = A.dot(xc) - P.matrix.dot(xc)
         ref = A.dot(xc)
-        assert _max_abs([_blocks(r)[c].toarray()], comm) < 1e-12 * _max_abs([_blocks(ref)[c].toarray()], comm)
+        # <= since a block vanishes for a derivative in a direction with a single periodic element
+        assert _max_abs([_blocks(r)[c].toarray()], comm) <= 1e-12 * _max_abs([_blocks(ref)[c].toarray()], comm)
 
     if sigma > 0:
         r = P.solver.dot(P.matrix.dot(x)) - x

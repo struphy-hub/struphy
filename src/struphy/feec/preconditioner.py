@@ -262,7 +262,11 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         Whether to include boundary operators.
 
     dim_reduce : int | None
-        Axis along which the weight is kept; None for unit weights in all directions.
+        Axis along which the weight is kept (default 0); None for unit weights in all directions.
+        With an axis, the approximation is exact for weights (and mappings) that vary only along
+        that axis, e.g. radial profiles in eta1. With None, the Kronecker factors do not depend
+        on the weights, so ``update_mass_operator`` only recomputes the diagonal scaling: use it
+        for weights that change often (e.g. a density updated in every time step).
 
     weight_reduction : str
         How the weight is reduced in the other axes: ``"midpoint"`` (value at 0.5, default)
@@ -271,7 +275,13 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
 
     diagonal_scaling : bool
         Whether to correct the approximation with the diagonals of the mass matrix and of
-        its approximation (see :class:`KroneckerPreconditioner`).
+        its approximation (see :class:`KroneckerPreconditioner`; default True).
+
+    Notes
+    -----
+    The diagonal scaling follows `G. Loli, G. Sangalli, M. Tani, "Easy and efficient preconditioning
+    of the isogeometric mass matrix", Comp. Math. Appl., Vol. 116, 2022
+    <https://www.sciencedirect.com/science/article/pii/S0898122120304715?via%3Dihub>`_.
     """
 
     def __init__(
@@ -280,7 +290,7 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         apply_bc: bool = True,
         dim_reduce: int | None = 0,
         weight_reduction: str = "midpoint",
-        diagonal_scaling: bool = False,
+        diagonal_scaling: bool = True,
     ):
         assert dim_reduce is None or dim_reduce < 3
         assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
@@ -348,43 +358,6 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
             self._weight_reduction,
             self._diagonal_scaling,
         )
-
-
-class MassMatrixDiagonalPreconditioner(MassMatrixPreconditioner):
-    r"""
-    Preconditioner for inverting 3d weighted mass matrices. The mass matrix is approximated by
-
-    .. math::
-        D^{1/2} * \hat D^{-1/2} * \hat M * \hat D^{-1/2} * D^{1/2}
-
-    Where $D$ is the diagonal of the matrix to invert, :math:`\hat M` is the mass matrix on the logical domain
-    that is a Kronecker product (fastly inverted) and :math:`\hat D^{-1/2}` is the diagonal of :math:`\hat M`.
-
-    This is ``MassMatrixPreconditioner(mass_operator, apply_bc, dim_reduce=None, diagonal_scaling=True)``;
-    the class is kept for its name (e.g. in solver options).
-
-    Notes
-    -----
-
-    Reference: `G. Loli, G. Sangalli, M. Tani, "Easy and efficient preconditioning of the isogeometric mass matrix", Comp. Math. Appl., Vol. 116, 2022 <https://www.sciencedirect.com/science/article/pii/S0898122120304715?via%3Dihub>`_
-
-    Parameters
-    ----------
-    mass_operator : WeightedMassOperator
-        The weighted mass operator for which the approximate inverse is needed.
-
-    apply_bc : bool
-        Whether to include boundary operators.
-    """
-
-    def __init__(self, mass_operator: WeightedMassOperator, apply_bc: bool = True):
-        super().__init__(mass_operator, apply_bc=apply_bc, dim_reduce=None, diagonal_scaling=True)
-
-    def transpose(self, conjugate: bool = False) -> MassMatrixDiagonalPreconditioner:
-        """
-        Returns the transposed operator.
-        """
-        return MassMatrixDiagonalPreconditioner(self._mass_operator.transpose(), self._apply_bc)
 
 
 class StiffnessPreconditioner(KroneckerPreconditioner):
@@ -587,7 +560,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                 if d in stiff_dirs[c]:
                     assert basis == "B", "Only B-spline directions are differentiated."
                     M_D, _ = _dense_mass_1d(self._mass_operator, "M", d, shapes[d])
-                    D_d = _difference_matrix_1d(M_d.shape[0], M_D.shape[0])
+                    D_d = _dense_derivative_1d(self._d, stiff_dirs[c][d], c)
+                    assert D_d.shape == (M_D.shape[0], M_d.shape[0])
                     S_d = mid_means[stiff_dirs[c][d]] * (D_d.T @ M_D @ D_d)
 
                 if bc is not None and basis == "B":
@@ -1149,17 +1123,18 @@ def _dense_mass_1d(
     return np.asarray(xp.to_numpy(M.toarray()), dtype=float), domain_decomposition
 
 
-def _difference_matrix_1d(n_B: int, n_M: int) -> np.ndarray:
+def _dense_derivative_1d(derivative: LinearOperator, r: int, c: int) -> np.ndarray:
     """
-    1d derivative matrix from B-spline to M-spline coefficients, :math:`(\\mathbb d c)_r = c_{r+1} - c_r`
-    (periodic if ``n_M == n_B``, else ``n_M == n_B - 1``).
+    Global 1d derivative matrix (B- to M-spline coefficients) of the block ``(r, c)`` of a
+    tensor-product derivative, as dense host array, taken from the 1d factor of the block itself
+    (:meth:`DirectionalDerivativeOperator.tokronstencil`), so that it matches the 3d operator
+    (e.g. it vanishes in a periodic direction with a single element).
     """
-    assert n_M in (n_B, n_B - 1)
-    D = np.zeros((n_M, n_B))
-    for r in range(n_M):
-        D[r, r] = -1.0
-        D[r, (r + 1) % n_B] = 1.0
-    return D
+    op = derivative[r, c] if isinstance(derivative, BlockLinearOperator) else derivative
+    assert isinstance(op, DirectionalDerivativeOperator) and not op.transposed
+    D = op.tokronstencil().mats[op.diffdir].toarray()
+    # the sign of a negated block is already included in its 1d factor
+    return np.asarray(xp.to_numpy(D), dtype=float)
 
 
 def _apply_bc_dense(A: np.ndarray, bc_d: tuple[bool, bool]) -> np.ndarray:

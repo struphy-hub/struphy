@@ -4,13 +4,13 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Poisson strong scaling on 3D cube, no preconditioner"
+name = "Poisson strong scaling on hollow cylinder, mass-matrix preconditioner"
 description = """
-Strong scaling test for Poisson equation on a 3D cube (Cuboid).
+Strong scaling test for Poisson equation on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4).
 The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
 exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions are set in direction eta1.
-The linear system is solved with unpreconditioned CG.
+The linear system is solved with CG preconditioned by the Kronecker approximation of the inverse 0-form mass matrix (MassMatrixPreconditioner).
 """
 
 import logging
@@ -74,10 +74,10 @@ env = EnvironmentOptions(
 time_opts = Time()
 
 # Geometry
-Lx = 2.0
-Ly = 3.0
+a1 = 1e-2
+a2 = 1.0
 Lz = 4.0
-domain = domains.Cuboid(r1=Lx, l2=-Ly / 2, r2=Ly / 2, r3=Lz)
+domain = domains.HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = None
@@ -118,7 +118,7 @@ solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=Fals
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
-    precond=None,
+    precond="MassMatrixPreconditioner",
     solver_params=solver_params,
 )
 
@@ -153,9 +153,15 @@ def exact_solution(e1, e2, e3):
 
 
 def laplacian(e1, e2, e3):
-    """Physical Laplacian of the exact solution, in logical coordinates (Cuboid: x_i = l_i + L_i * eta_i)."""
+    """Physical Laplacian of the exact solution, in logical coordinates.
+
+    HollowCylinder: r = a1 + (a2 - a1) * eta1, theta = 2*pi*eta2, z = Lz * eta3, and
+    Laplace(phi) = phi_rr + phi_r / r + phi_theta,theta / r**2 + phi_zz.
+    """
     g, d, dd = gaussian_derivatives(e1, e2, e3)
-    return dd[0] / Lx**2 + dd[1] / Ly**2 + dd[2] / Lz**2
+    da = a2 - a1
+    r = a1 + da * e1
+    return dd[0] / da**2 + d[0] / (da * r) + dd[1] / (2 * np.pi * r) ** 2 + dd[2] / Lz**2
 
 
 def rhs_fun(e1, e2, e3):
@@ -190,11 +196,12 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     def slice_axes(k, X, Y, Z, E1, E2, E3):
-        """Axes (horizontal, vertical, labels) for plotting the slice eta_k = 0.5 in physical coordinates."""
+        """Axes (horizontal, vertical, labels) for plotting the slice eta_k = 0.5: the cross-section (x, y)
+        at eta3 = 0.5, the half plane (r, z) at eta2 = 0.5 and the logical (eta2, eta3) at eta1 = 0.5."""
         if k == 0:
-            return Y, Z, "y", "z"
+            return E2, E3, "eta2", "eta3"
         elif k == 1:
-            return X, Z, "x", "z"
+            return np.sqrt(X**2 + Y**2), Z, "r", "z"
         else:
             return X, Y, "x", "y"
 
@@ -245,8 +252,8 @@ if __name__ == "__main__":
         print(f"Max relative error in RHS: {rel_err_rhs:.2e}")
         print(f"Max relative error in Phi: {rel_err_phi:.2e}")
 
-        assert rel_err_rhs < 1.7e-2, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
-        assert rel_err_phi < 1.2e-2, (
+        assert rel_err_rhs < 2.2e-2, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
+        assert rel_err_phi < 1.3e-2, (
             f"The computed solution does not match the exact solution, max rel error = {rel_err_phi}."
         )
 
