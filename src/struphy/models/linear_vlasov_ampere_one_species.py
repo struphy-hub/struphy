@@ -186,6 +186,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        # The pushers evaluate e at the markers, including in the ghost cells: grad.dot does not fill them,
+        # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
+        self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
 
     def _compute_en_w(self):
