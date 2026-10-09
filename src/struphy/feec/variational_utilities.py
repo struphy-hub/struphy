@@ -1376,7 +1376,7 @@ class H1vecMassMatrix_density:
     def _create_inv(
         self,
         type="pcg",
-        pc_type="MassMatrixDiagonalPreconditioner",
+        pc_type="MassMatrixPreconditioner",
         tol=1e-16,
         maxiter=500,
         verbose=False,
@@ -1389,7 +1389,8 @@ class H1vecMassMatrix_density:
                 preconditioner,
                 pc_type,
             )
-            self._pc = pc_class(self.massop)
+            # dim_reduce=None: the Kronecker factors do not depend on the weights, cheap to update
+            self._pc = pc_class(self.massop, dim_reduce=None)
 
         self._inv = inverse(
             self.massop,
