@@ -459,14 +459,14 @@ class CurrentCoupling5DGradB(Propagator):
         holes = particles.holes
         args_markers = particles.args_markers
         markers = args_markers.markers
-        first_init_idx = args_markers.first_init_idx
+        first_pusher_idx = args_markers.first_pusher_idx
         first_free_idx = args_markers.first_free_idx
 
         # clear buffer
-        markers[:, first_init_idx:-2] = 0.0
+        markers[:, first_pusher_idx:-2] = 0.0
 
         # save old marker positions
-        markers[:, first_init_idx : first_init_idx + 3] = markers[:, :3]
+        markers[:, first_pusher_idx : first_pusher_idx + 3] = markers[:, :3]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
@@ -530,7 +530,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_init_idx:-2] = 0.0
+            markers[:, first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:
@@ -661,7 +661,7 @@ class CurrentCoupling5DGradB(Propagator):
                 sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
                 sum_H_diff_loc = xp.sum(
-                    (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2,
+                    (markers[~holes, :3] - markers[~holes, first_pusher_idx : first_pusher_idx + 3]) ** 2,
                 )
 
                 buffer_array = xp.array([sum_u_diff_loc])
@@ -853,7 +853,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_init_idx:-2] = 0.0
+            markers[:, first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:

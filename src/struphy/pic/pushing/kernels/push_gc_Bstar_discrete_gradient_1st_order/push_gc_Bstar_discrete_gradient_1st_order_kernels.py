@@ -82,25 +82,25 @@ def push_gc_Bstar_discrete_gradient_1st_order(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_shift_idx = args_markers.first_shift_idx
     residual_idx = args_markers.residual_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
         # check if marker is converged or a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[ip, first_pusher_idx] == -1.0:
             continue
 
         eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx : first_shift_idx + 3]
-        eta_n[:] = markers[ip, first_init_idx : first_init_idx + 3]
+        eta_n[:] = markers[ip, first_pusher_idx : first_pusher_idx + 3]
 
         eta_mid[:] = (eta_k + eta_n) / 2.0
         eta_mid[:] = mod(eta_mid, 1.0)
         eta_diff[:] = eta_k - eta_n
 
         v_k = markers[ip, 3]
-        v_n = markers[ip, first_init_idx + 3]
+        v_n = markers[ip, first_pusher_idx + 3]
         v_mid = (v_k + v_n) / 2.0
         v_diff = v_k - v_n
 

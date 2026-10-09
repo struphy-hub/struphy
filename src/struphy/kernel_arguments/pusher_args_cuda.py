@@ -39,7 +39,7 @@ class CudaMarkerArguments(CudaStructArguments):
         ("vdim", "int"),
         ("weight_idx", "int"),
         ("first_diagnostics_idx", "int"),
-        ("first_init_idx", "int"),
+        ("first_pusher_idx", "int"),
         ("first_shift_idx", "int"),
         ("residual_idx", "int"),
         ("first_free_idx", "int"),
@@ -71,7 +71,7 @@ class CudaMarkerArguments(CudaStructArguments):
         self.weight_idx = weight_idx
         self.n_markers = markers.shape[0]
         self.first_diagnostics_idx = first_diagnostics_idx
-        self.first_init_idx = first_pusher_idx
+        self.first_pusher_idx = first_pusher_idx
         self.first_shift_idx = first_shift_idx
         self.residual_idx = residual_idx
         self.first_free_idx = first_free_idx
