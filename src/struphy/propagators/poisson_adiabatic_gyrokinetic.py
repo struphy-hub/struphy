@@ -6,7 +6,6 @@ from feectools.linalg.stencil import StencilVector
 
 from struphy.feec.mass import AverageOperator
 from struphy.io.options import LiteralOptions
-from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
@@ -134,13 +133,13 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
         precond : LiteralOptions.OptsDiffusionPrecond, default=None
             Name of the preconditioner, see :class:`ImplicitDiffusion`. Requires ``solver="pcg"``.
+            ``"MultiGrid"`` is not supported: multigrid would be built for the stabilization without
+            the average, which is applied after ``ImplicitDiffusion.allocate()``.
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the mass-matrix or stiffness
             preconditioner, see :class:`ImplicitDiffusion`.
 
-        multigrid : MultiGridOptions, default=None
-            Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -170,7 +169,6 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsDiffusionPrecond = None
         precond_params: dict = None
-        multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
@@ -181,14 +179,16 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             if self.precond is not None:
                 assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+            if self.precond == "MultiGrid":
+                raise ValueError(
+                    "precond='MultiGrid' is not supported (it would not see the average in the stabilization)."
+                )
 
             # defaults
             if self.precond_params is None:
                 self.precond_params = {}
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-            if self.multigrid is None:
-                self.multigrid = MultiGridOptions()
 
     def allocate(self):
         epsilon = self.epsilon
