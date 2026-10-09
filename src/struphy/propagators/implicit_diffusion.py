@@ -9,6 +9,7 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
+from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
@@ -183,11 +184,26 @@ class ImplicitDiffusion(Propagator):
             Name of the symmetric iterative solver passed to
             :func:`psydac.linalg.solvers.inverse`.
 
-        precond : LiteralOptions.OptsDiffusionPrecond, default="MassMatrixPreconditioner"
-            Name of the preconditioner configuration.
-            ``"MultiGrid"`` uses a geometric multigrid V-cycle
-            (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`,
-            requires ``solver="pcg"``). The other values currently result in ``pc=None``.
+        precond : LiteralOptions.OptsDiffusionPrecond, default=None
+            Name of the preconditioner:
+
+            - ``None``: no preconditioner.
+            - ``"MultiGrid"``: geometric multigrid V-cycle
+              (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`,
+              requires ``solver="pcg"``).
+            - ``"MassMatrixPreconditioner"`` or ``"MassMatrixDiagonalPreconditioner"``: Kronecker
+              approximation of the inverse of the 0-form mass matrix ``M0``
+              (see :mod:`struphy.feec.preconditioner`).
+            - ``"StiffnessPreconditioner"``: Kronecker approximation of the inverse of
+              ``grad.T @ M1 @ grad + sigma * M0``
+              (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner`), with
+              ``sigma = sigma_1`` (divided by dt if ``divide_by_dt=True``); any ``stab_mat`` is
+              approximated by ``M0`` (this keeps periodic or Neumann problems regular).
+
+        precond_params : dict, default=None
+            Keyword arguments passed to the constructor of the mass-matrix or stiffness
+            preconditioner, e.g. ``{"weights": "unit"}`` for ``"StiffnessPreconditioner"``
+            or ``{"dim_reduce": None}`` for ``"MassMatrixPreconditioner"``.
 
         multigrid : MultiGridOptions, default=None
             Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
@@ -223,7 +239,8 @@ class ImplicitDiffusion(Propagator):
         diffusion_mat: OptsDiffusionMat = "M1"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsDiffusionPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsDiffusionPrecond = None
+        precond_params: dict = None
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
@@ -234,10 +251,12 @@ class ImplicitDiffusion(Propagator):
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
-            if self.precond == "MultiGrid":
-                assert self.solver == "pcg", "precond='MultiGrid' requires solver='pcg'."
+            if self.precond is not None:
+                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
 
             # defaults
+            if self.precond_params is None:
+                self.precond_params = {}
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
             if self.multigrid is None:
@@ -357,10 +376,15 @@ class ImplicitDiffusion(Propagator):
         self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
+        # the multigrid and stiffness preconditioners depend on sigma_1, they are updated in __call__
+        # if it changes (e.g. with dt); _pc_sig_1 is the sigma_1 they were built with
         self._mg = None
-        if self.options.precond == "MultiGrid":
-            # the operator is updated in __call__ if sigma_1 changes (e.g. with dt)
-            self._mg_sig_1 = self._sigma_1
+        self._stiffness_pc = None
+        self._pc_sig_1 = self._sigma_1
+        precond = self.options.precond
+        if precond is None:
+            pc = None
+        elif precond == "MultiGrid":
             self._mg = MultiGridPreconditioner(
                 self._sigma_1 * stab_mat + self._diffusion_op,
                 self.derham,
@@ -369,15 +393,20 @@ class ImplicitDiffusion(Propagator):
                 mass_ops=self.mass_ops,
             )
             pc = self._mg
+        elif precond == "StiffnessPreconditioner":
+            self._stiffness_pc = self._build_stiffness_pc(self._sigma_1)
+            pc = self._stiffness_pc
         else:
-            # TODO: mass-matrix preconditioners are not effective for this operator
-            pc = None
+            pc_class = getattr(preconditioner, precond)
+            pc = pc_class(self.mass_ops.M0, **self.options.precond_params)
 
         # solver just with A_2, but will be set during call with dt
+        # (only "pcg" takes a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
         self._solver = inverse(
             self._diffusion_op,
             self.options.solver,
-            pc=pc,
+            **pc_kwargs,
             x0=self.x0,
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,
@@ -390,6 +419,18 @@ class ImplicitDiffusion(Propagator):
         self._rhs = phi.space.zeros()
         self._rhs2 = phi.space.zeros()
         self._tmp_src = phi.space.zeros()
+
+    def _build_stiffness_pc(self, sig_1: float) -> preconditioner.StiffnessPreconditioner:
+        """StiffnessPreconditioner for ``sig_1 * stab_mat + grad.T @ M1 @ grad``; the stabilization
+        is approximated by ``sig_1 * M0`` for any ``stab_mat`` (with ``sigma = 0``, the pseudo-inverse
+        would drop the constants, on which the operator is not singular for periodic or Neumann
+        boundary conditions)."""
+        return preconditioner.StiffnessPreconditioner(
+            self.mass_ops,
+            "grad",
+            sigma=sig_1,
+            **self.options.precond_params,
+        )
 
     @property
     def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
@@ -481,9 +522,13 @@ class ImplicitDiffusion(Propagator):
 
         # compute lhs
         self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
-        if self._mg is not None and sig_1 != self._mg_sig_1:
-            self._mg.update(self._solver.linop)
-            self._mg_sig_1 = sig_1
+        if sig_1 != self._pc_sig_1:
+            if self._mg is not None:
+                self._mg.update(self._solver.linop)
+            if self._stiffness_pc is not None:
+                self._stiffness_pc = self._build_stiffness_pc(sig_1)
+                self._solver.set_options(pc=self._stiffness_pc)
+            self._pc_sig_1 = sig_1
 
         # solve
         with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):

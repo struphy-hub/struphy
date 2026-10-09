@@ -587,7 +587,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                 if d in stiff_dirs[c]:
                     assert basis == "B", "Only B-spline directions are differentiated."
                     M_D, _ = _dense_mass_1d(self._mass_operator, "M", d, shapes[d])
-                    D_d = _difference_matrix_1d(M_d.shape[0], M_D.shape[0])
+                    D_d = _dense_derivative_1d(self._d, stiff_dirs[c][d], c)
+                    assert D_d.shape == (M_D.shape[0], M_d.shape[0])
                     S_d = mid_means[stiff_dirs[c][d]] * (D_d.T @ M_D @ D_d)
 
                 if bc is not None and basis == "B":
@@ -1149,17 +1150,18 @@ def _dense_mass_1d(
     return np.asarray(xp.to_numpy(M.toarray()), dtype=float), domain_decomposition
 
 
-def _difference_matrix_1d(n_B: int, n_M: int) -> np.ndarray:
+def _dense_derivative_1d(derivative: LinearOperator, r: int, c: int) -> np.ndarray:
     """
-    1d derivative matrix from B-spline to M-spline coefficients, :math:`(\\mathbb d c)_r = c_{r+1} - c_r`
-    (periodic if ``n_M == n_B``, else ``n_M == n_B - 1``).
+    Global 1d derivative matrix (B- to M-spline coefficients) of the block ``(r, c)`` of a
+    tensor-product derivative, as dense host array, taken from the 1d factor of the block itself
+    (:meth:`DirectionalDerivativeOperator.tokronstencil`), so that it matches the 3d operator
+    (e.g. it vanishes in a periodic direction with a single element).
     """
-    assert n_M in (n_B, n_B - 1)
-    D = np.zeros((n_M, n_B))
-    for r in range(n_M):
-        D[r, r] = -1.0
-        D[r, (r + 1) % n_B] = 1.0
-    return D
+    op = derivative[r, c] if isinstance(derivative, BlockLinearOperator) else derivative
+    assert isinstance(op, DirectionalDerivativeOperator) and not op.transposed
+    D = op.tokronstencil().mats[op.diffdir].toarray()
+    # the sign of a negated block is already included in its 1d factor
+    return np.asarray(xp.to_numpy(D), dtype=float)
 
 
 def _apply_bc_dense(A: np.ndarray, bc_d: tuple[bool, bool]) -> np.ndarray:
