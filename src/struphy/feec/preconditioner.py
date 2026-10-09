@@ -271,7 +271,7 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
 
     diagonal_scaling : bool
         Whether to correct the approximation with the diagonals of the mass matrix and of
-        its approximation (see :class:`KroneckerPreconditioner`).
+        its approximation (see :class:`KroneckerPreconditioner`; default True).
     """
 
     def __init__(
@@ -280,7 +280,7 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         apply_bc: bool = True,
         dim_reduce: int | None = 0,
         weight_reduction: str = "midpoint",
-        diagonal_scaling: bool = False,
+        diagonal_scaling: bool = True,
     ):
         assert dim_reduce is None or dim_reduce < 3
         assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
