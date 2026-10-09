@@ -1,4 +1,4 @@
-"""Poisson strong scaling profiling case with multigrid preconditioner.
+"""Poisson strong scaling profiling case on 3D cube, multigrid preconditioner.
 
 This file defines the Poisson strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
@@ -49,8 +49,8 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label="poisson_cube_strong_scaling_multigrid",
-        name="Poisson on cube strong scaling test, multigrid preconditioner",
-        description="Strong scaling of the Poisson model with manufactured solution on 3D cube, solved with multigrid-preconditioned CG.",
+        name="Poisson on 3D cube strong scaling test, multigrid preconditioner",
+        description="Strong scaling of the Poisson model with manufactured solution on a 3D cube (Cuboid), solved with CG preconditioned by geometric multigrid.",
         physics_problem="Occurs in many plasma applications.",
         struphy_model_used="Poisson",
         params_source=params_dir / "params_poisson.py",
