@@ -278,12 +278,24 @@ def test_stiffness_preconditioner_options():
 
 @pytest.mark.parametrize(
     "case",
-    ["mid_aniso", "mid_perp", "stab_scaled", "average_eta3", "average_eta2_eta3", "mid_perp_average_eta3", "stab_id"],
+    [
+        "mid_aniso",
+        "mid_perp",
+        "stab_scaled",
+        "average_eta3",
+        "average_eta2_eta3",
+        "mid_perp_average_eta3",
+        "stab_id",
+        "stab_id_average_eta3",
+        "stab_id_average_eta2_eta3",
+        "average_global",
+    ],
 )
 def test_stiffness_preconditioner_mid_stab_average(case):
     """PCG for G^T M_mid G + sigma S (I - A) on the unit cube (Dirichlet in eta1): exact (few iterations) with
-    constant (anisotropic or perpendicular) mid, a scaled stabilization and averages over periodic directions;
-    the identity stabilization (approximated) needs fewer iterations than no preconditioner."""
+    constant (anisotropic or perpendicular) mid, a scaled or identity stabilization and averages over periodic
+    directions (Euclidean for the identity); the global average (not exact in the Dirichlet direction eta1) needs
+    fewer iterations than no preconditioner."""
 
     from feectools.linalg.basic import IdentityOperator
     from feectools.linalg.solvers import inverse
@@ -316,12 +328,14 @@ def test_stiffness_preconditioner_mid_stab_average(case):
         )
     if case == "stab_scaled":
         stab = 3.0 * mass_ops.M0
-    if case == "stab_id":
+    if case.startswith("stab_id"):
         stab = "Id"
-    if case in ("average_eta3", "mid_perp_average_eta3"):
+    if case in ("average_eta3", "mid_perp_average_eta3", "stab_id_average_eta3"):
         average = "eta3"
-    if case == "average_eta2_eta3":
+    if case in ("average_eta2_eta3", "stab_id_average_eta2_eta3"):
         average = "eta2 eta3"
+    if case == "average_global":
+        average = "eta1 eta2 eta3"
 
     # the operator
     S = mass_ops.M0 if stab is None else (IdentityOperator(derham.V0) if stab == "Id" else stab)
@@ -341,8 +355,8 @@ def test_stiffness_preconditioner_mid_stab_average(case):
         assert inv._info["success"]
         niter.append(inv._info["niter"])
 
-    if case == "stab_id":
-        assert niter[1] < niter[0]
+    if case == "average_global":
+        assert niter[1] < niter[0] / 4
     else:
         assert niter[1] <= 3
 

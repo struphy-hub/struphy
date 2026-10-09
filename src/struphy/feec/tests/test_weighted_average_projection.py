@@ -54,3 +54,42 @@ def test_weighted_average_projection(mapping, stab):
             avg = avg @ AverageOperator(derham, "H1", d)
         diff = avg.dot(x) - Px
         assert float(diff.inner(diff)) ** 0.5 < 1e-12 * float(Px.inner(Px)) ** 0.5
+
+
+def test_weighted_average_projection_global():
+    """Average over all three directions: P x is the constant (1^T S x) / (1^T S 1), S (I - P) is symmetric."""
+
+    from feectools.linalg.basic import IdentityOperator
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedAverageProjection, WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=4.0, tor_period=1)
+    derham = Derham(
+        TensorProductGrid(num_elements=[8, 8, 6]),
+        DerhamOptions(degree=[2, 2, 2], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=MPI.COMM_WORLD,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    S0 = mass_ops.M0
+    P = WeightedAverageProjection(derham, S0, (0, 1, 2))
+    assert P.directions == (0, 1, 2)
+    S = S0 @ (IdentityOperator(derham.V0) - P)
+
+    x = create_equal_random_arrays(derham.V0fem, seed=1, flattened=True)[1]
+    y = create_equal_random_arrays(derham.V0fem, seed=2, flattened=True)[1]
+    xSy, ySx = float(x.inner(S.dot(y))), float(y.inner(S.dot(x)))
+    assert abs(xSy - ySx) < 1e-12 * abs(xSy)
+
+    ones = derham.V0.zeros()
+    ones[:] = 1.0
+    mean = float(ones.inner(S0.dot(x))) / float(ones.inner(S0.dot(ones)))
+    Px = P.dot(x)
+    diff = Px - mean * ones
+    assert float(diff.inner(diff)) ** 0.5 < 1e-12 * float(Px.inner(Px)) ** 0.5
+    assert abs(float(ones.inner(S.dot(x)))) < 1e-12 * abs(float(ones.inner(S0.dot(x))))

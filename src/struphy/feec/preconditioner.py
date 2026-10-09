@@ -435,7 +435,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     directions (:math:`F_d = M_d` otherwise). In directions with :math:`S_d \mathbb 1 = 0`
     (periodic or without essential boundary conditions) the constants are an eigenvector of the
     fast diagonalization and this term is exact in its eigenbasis (it removes the averaged modes).
-    The identity (``stab="Id"``) is replaced by its diagonal in that eigenbasis.
+    The identity (``stab="Id"``) is replaced by its diagonal in that eigenbasis; its average is
+    Euclidean, i.e. :math:`M_d` is replaced by the identity and :math:`c_d = \mathbb 1`.
 
     Polar splines are not supported yet.
 
@@ -477,7 +478,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
     stab_average : str | None
         Gradient only: the directions averaged in the stabilization :math:`\mathbb S (\mathbb I - \mathbb A)`,
-        e.g. ``"eta3"`` or ``"eta2 eta3"``; None (default) for no averaging.
+        e.g. ``"eta3"``, ``"eta2 eta3"`` or ``"eta1 eta2 eta3"`` (global mean); None (default) for no averaging.
     """
 
     _FORMS = {"grad": 0, "curl": 1, "div": 2}
@@ -663,10 +664,11 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                     M_d = _apply_bc_dense(M_d, bc[d])
                     S_d = None if S_d is None else _apply_bc_dense(S_d, bc[d])
 
-                # 1d factors of the stabilization terms (None for M_d)
+                # 1d factors of the stabilization terms (None for M_d); the average is weighted with
+                # M_d, or Euclidean (1 1^T / n) for the identity stabilization
                 identity.append(np.eye(M_d.shape[0]))
                 if d in self._average_dirs:
-                    c_d = M_d @ np.ones(M_d.shape[0])
+                    c_d = np.ones(M_d.shape[0]) if self._stab_is_identity else M_d @ np.ones(M_d.shape[0])
                     average.append(np.outer(c_d, c_d) / c_d.sum())
                 else:
                     average.append(None)

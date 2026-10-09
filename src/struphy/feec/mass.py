@@ -3542,7 +3542,9 @@ class WeightedAverageProjection(LinearOperator):
         \mathbb S (\mathbb I - \Pi_{\mathbb S}) = \mathbb S - \mathbb S \mathbb E \, (\mathbb E^\top \mathbb S \, \mathbb E)^{-1} \, \mathbb E^\top \mathbb S
 
     is symmetric. If the weight of :math:`\mathbb S` does not depend on the averaged directions,
-    :math:`\Pi_{\mathbb S}` is the plain average of :class:`AverageOperator`.
+    :math:`\Pi_{\mathbb S}` is the plain average of :class:`AverageOperator`. If all three directions
+    are averaged, :math:`\mathbb E` is the vector of ones and the reduced matrix is the scalar
+    :math:`\mathbb 1^\top \mathbb S \, \mathbb 1` (the weighted mean over the whole domain).
 
     The reduced matrix :math:`\mathbb E^\top \mathbb S \, \mathbb E` (on the remaining directions) is
     assembled once by probing :math:`\mathbb S` with colored vectors and factorized on every process;
@@ -3559,7 +3561,7 @@ class WeightedAverageProjection(LinearOperator):
         conditions, whose reduced rows are replaced by the identity).
 
     directions : tuple[int]
-        The averaged directions (0, 1 and/or 2).
+        The averaged directions (0, 1 and/or 2; all three for the global mean).
     """
 
     def __init__(self, derham: Derham, S: LinearOperator, directions: tuple[int, ...]):
@@ -3572,7 +3574,6 @@ class WeightedAverageProjection(LinearOperator):
         directions = tuple(sorted(set(directions)))
         assert directions and all(d in (0, 1, 2) for d in directions)
         kept = tuple(d for d in range(3) if d not in directions)
-        assert kept, "At least one direction must not be averaged."
 
         self._derham = derham
         self._S = S
