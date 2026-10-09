@@ -122,7 +122,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             Time stepping algorithm.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner for mass-matrix block.
         solver_params : SolverParameters, default=None
             Solver controls.
@@ -141,7 +141,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         butcher: ButcherTableau = None
