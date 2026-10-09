@@ -13,7 +13,9 @@ from feectools.feec.derivatives import DirectionalDerivativeOperator
 from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import (
     ComposedLinearOperator,
+    IdentityOperator,
     LinearOperator,
+    LinearSolver,
     ScaledLinearOperator,
     SumLinearOperator,
     Vector,
@@ -28,7 +30,7 @@ from maybempi import MPI, SerialComm
 from scipy import sparse
 
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
+from struphy.feec.mass import WeightedAverageProjection, WeightedMassOperator, WeightedMassOperators
 
 logger = logging.getLogger("struphy")
 
@@ -128,6 +130,10 @@ class KroneckerPreconditioner(LinearOperator):
         """Diagonal :math:`D` of the core operator as diagonal operator (for diagonal scaling)."""
         raise NotImplementedError(f"{type(self).__name__} does not support diagonal scaling.")
 
+    def _scaling_matrix(self) -> LinearOperator:
+        """The approximation whose diagonal :math:`\\hat D` enters the diagonal scaling (default: ``matrix``)."""
+        return self._matrix
+
     def transpose(self, conjugate: bool = False) -> KroneckerPreconditioner:
         raise NotImplementedError
 
@@ -171,7 +177,7 @@ class KroneckerPreconditioner(LinearOperator):
     def _build_scaling(self) -> tuple[LinearOperator, ...]:
         """Diagonal scaling :math:`S = \\hat D^{1/2} D^{-1/2}` as one diagonal operator."""
         D = _local_diagonal(self._core_diagonal())
-        D_hat = _local_diagonal(self._matrix)
+        D_hat = _local_diagonal(self._scaling_matrix())
         S = [xp.where(d > 0, xp.sqrt(xp.abs(dh) / xp.where(d > 0, d, 1.0)), 1.0) for d, dh in zip(D, D_hat)]
         return (_diagonal_operator(self._matrix.domain, S),)
 
@@ -373,6 +379,15 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     :math:`\mathbb C^T \mathbb M_2 \mathbb C + \sigma \mathbb M_1` and
     :math:`\mathbb D^T \mathbb M_3 \mathbb D + \sigma \mathbb M_2`.
 
+    The matrix in the middle (``mid``, default :math:`\mathbb M_{k+1}`) and the stabilization
+    (``stab``, default :math:`\mathbb M_k`) can be other weighted mass operators with the same
+    domain and codomain (or sums and multiples of them), e.g. ``mid="M1gyro"`` and
+    ``stab="M0ad_withT"``; ``stab="Id"`` is the identity. For the gradient, ``stab_average``
+    replaces the stabilization :math:`\mathbb S` by :math:`\mathbb S (\mathbb I - \mathbb A)`, where
+    :math:`\mathbb A` is the :math:`\mathbb S`-weighted average over the given directions
+    (:class:`~struphy.feec.mass.WeightedAverageProjection`), as in the adiabatic gyrokinetic Poisson
+    equation.
+
     With unit weights (the operator on the logical cube), the mass matrices are
     block-diagonal Kronecker products of 1d mass matrices :math:`M_d`, and each diagonal block of
     :math:`A` is a sum of Kronecker products,
@@ -410,7 +425,18 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     over the other directions, averaged over the diagonal blocks of :math:`\mathbb M_{k+1}`), times
     the mean of the weight of each term (the block of :math:`\mathbb M_{k+1}` for the stiffness
     term of each direction, the block of :math:`\mathbb M_k` for the mass term). This is exact
-    e.g. for constant but anisotropic weights.
+    e.g. for constant but anisotropic weights. A block of ``mid`` with zero mean (e.g. the
+    parallel direction of a perpendicular operator) gives no stiffness term in that direction; its
+    1d stiffness still defines the eigenbasis of the fast diagonalization.
+
+    The averaged stabilization :math:`\mathbb S (\mathbb I - \mathbb A)` is approximated by
+    :math:`\bar s \, (M_1 \otimes M_2 \otimes M_3 - F_1 \otimes F_2 \otimes F_3)` with
+    :math:`F_d = c_d c_d^T / (\mathbb 1^T c_d)`, :math:`c_d = M_d \mathbb 1`, in the averaged
+    directions (:math:`F_d = M_d` otherwise). In directions with :math:`S_d \mathbb 1 = 0`
+    (periodic or without essential boundary conditions) the constants are an eigenvector of the
+    fast diagonalization and this term is exact in its eigenbasis (it removes the averaged modes).
+    The identity (``stab="Id"``) is replaced by its diagonal in that eigenbasis; its average is
+    Euclidean, i.e. :math:`M_d` is replaced by the identity and :math:`c_d = \mathbb 1`.
 
     Polar splines are not supported yet.
 
@@ -439,6 +465,20 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     weights : str
         ``"average"`` (separable approximation of the weights, see above; default) or
         ``"unit"`` (operator on the logical cube).
+
+    mid : str | LinearOperator | None
+        Matrix in the middle: the name of a mass operator of ``mass_ops`` (e.g. ``"M1gyro"``,
+        ``"M1perp"``) or the operator itself (a WeightedMassOperator, or a sum or multiple of such),
+        with the domain and codomain of :math:`\mathbb M_{k+1}`. Default :math:`\mathbb M_{k+1}`.
+
+    stab : str | LinearOperator | None
+        Stabilization: the name of a mass operator of ``mass_ops`` (e.g. ``"M0ad"``,
+        ``"M0ad_withT"``), the operator itself (as for ``mid``), with the domain and codomain of
+        :math:`\mathbb M_k`, or ``"Id"`` for the identity. Default :math:`\mathbb M_k`.
+
+    stab_average : str | None
+        Gradient only: the directions averaged in the stabilization :math:`\mathbb S (\mathbb I - \mathbb A)`,
+        e.g. ``"eta3"``, ``"eta2 eta3"`` or ``"eta1 eta2 eta3"`` (global mean); None (default) for no averaging.
     """
 
     _FORMS = {"grad": 0, "curl": 1, "div": 2}
@@ -452,6 +492,9 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         diagonal_scaling: bool = True,
         kernel_correction: bool = True,
         weights: str = "average",
+        mid: str | LinearOperator | None = None,
+        stab: str | LinearOperator | None = None,
+        stab_average: str | None = None,
     ):
         assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
         assert sigma >= 0.0
@@ -469,13 +512,36 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         self._derivative = derivative
         self._sigma = sigma
         self._weights = weights
-        self._mass_mid = getattr(mass_ops, f"M{k + 1}")
+
+        # matrix in the middle and stabilization, as sums of weighted mass operators
+        mass_mid_default = getattr(mass_ops, f"M{k + 1}")
+        self._mid = mid
+        self._mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, mass_mid_default))
+        self._stab = stab
+        self._stab_is_identity = isinstance(stab, str) and stab == "Id"
+        mass_k = getattr(mass_ops, f"M{k}")
+        self._stab_terms = (
+            None if self._stab_is_identity else _mass_terms(_resolve_mass_operator(mass_ops, stab, mass_k))
+        )
+        for terms, ref, name in ((self._mid_terms, mass_mid_default, "mid"), (self._stab_terms or [], mass_k, "stab")):
+            for _, op in terms:
+                assert op.domain == ref.domain and op.codomain == ref.codomain, (
+                    f"{name} must have the domain and codomain of M{k + 1 if name == 'mid' else k}."
+                )
+
+        # averaged directions of the stabilization (gradient only)
+        self._stab_average = stab_average
+        self._average_dirs = _parse_directions(stab_average)
+        if self._average_dirs and derivative != "grad":
+            raise NotImplementedError("stab_average is only implemented for derivative='grad'.")
+
         # tensor-product derivative without boundary operators (no polar splines)
         self._d = getattr(derham, f"{derivative}_bcfree")
 
-        super().__init__(getattr(mass_ops, f"M{k}"), apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+        super().__init__(mass_k, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
 
-        # correction on the kernel of the derivative: sigma^{-1} d_prev P_prev d_prev^T
+        # correction on the kernel of the derivative: sigma^{-1} d_prev P_prev d_prev^T,
+        # where A = sigma * stab; P_prev approximates the inverse of d_prev^T stab d_prev
         self._kernel_correction = None
         if kernel_correction:
             prev = "grad" if derivative == "curl" else "curl"
@@ -487,6 +553,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                 diagonal_scaling=diagonal_scaling,
                 kernel_correction=False,
                 weights=weights,
+                mid=None if self._stab_is_identity else stab,
             )
             self._kernel_correction = (1.0 / sigma) * (d_prev @ P_prev @ d_prev.T)
             self._tmp_kernel = self.codomain.zeros()
@@ -511,6 +578,21 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         """The correction on the kernel of the derivative, or None."""
         return self._kernel_correction
 
+    @property
+    def mid(self) -> str | LinearOperator | None:
+        """The matrix in the middle as given (None for the default :math:`\\mathbb M_{k+1}`)."""
+        return self._mid
+
+    @property
+    def stab(self) -> str | LinearOperator | None:
+        """The stabilization as given (None for the default :math:`\\mathbb M_k`, ``"Id"`` for the identity)."""
+        return self._stab
+
+    @property
+    def stab_average(self) -> str | None:
+        """The directions averaged in the stabilization, or None."""
+        return self._stab_average
+
     def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
         """Apply the preconditioner (block Jacobi part plus kernel correction, if any) to rhs."""
         out = super().solve(rhs, out=out)
@@ -520,10 +602,19 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
     @property
     def core_operator(self) -> LinearOperator:
-        """The core operator :math:`\\mathbb d^T \\mathbb M_{k+1} \\mathbb d + \\sigma \\mathbb M_k` on the tensor-product spaces."""
-        A = self._d.T @ self._mass_mid.matrix @ self._d
+        """The core operator :math:`\\mathbb d^T \\mathbb M_{\\textrm{mid}} \\mathbb d + \\sigma \\mathbb S (\\mathbb I - \\mathbb A)`
+        on the tensor-product spaces (without the average if ``stab_average`` is None)."""
+        return self._core(with_average=True)
+
+    def _core(self, with_average: bool) -> LinearOperator:
+        A = self._d.T @ _terms_matrix(self._mid_terms) @ self._d
         if self._sigma != 0.0:
-            A = A + self._sigma * self._mass_operator.matrix
+            space = self._mass_operator.matrix.domain
+            S = IdentityOperator(space) if self._stab_is_identity else _terms_matrix(self._stab_terms)
+            if self._average_dirs and with_average:
+                avg = WeightedAverageProjection(self._mass_ops.derham, S, self._average_dirs)
+                S = S @ (IdentityOperator(space) - avg)
+            A = A + self._sigma * S
         return A
 
     def _build_approximation(self, bc):
@@ -535,38 +626,52 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         stiff_dirs = _derivative_directions(self._d)
 
         # weights: common shape per direction and means per block (unit or separable average)
-        n_mid = len(self._mass_mid.weights)
+        derham = self._mass_operator.derham
+        n_mid = len(self._mid_terms[0][1].weights)
         n_dom = len(self._mass_operator.weights)
         if self._weights == "average":
-            mid_weights = [self._mass_mid.weights[r][r] for r in range(n_mid)]
-            shapes, mid_means = _separable_weight(mid_weights, self._mass_operator.derham)
-            _, dom_means = _separable_weight(
-                [self._mass_operator.weights[c][c] for c in range(n_dom)], self._mass_operator.derham
-            )
+            shapes, mid_means = _separable_weight(_block_weights(self._mid_terms, n_mid), derham)
+            if self._stab_is_identity:
+                dom_means = [1.0] * n_dom
+            else:
+                _, dom_means = _separable_weight(_block_weights(self._stab_terms, n_dom), derham)
         else:
             shapes, mid_means, dom_means = [_ones_1d] * 3, [1.0] * n_mid, [1.0] * n_dom
 
         matrixblocks = []
         solverblocks = []
+        scalingblocks = []
         for c, comp in enumerate(comps):
             coeff_space = femspace.coeff_space if is_scalar else femspace.coeff_space[c]
 
-            stiffness, mass, local_mass, local_stiffness = [], [], [], []
+            stiffness, coeffs, mass, local_mass, local_stiffness = [], [], [], [], []
+            identity, average = [], []
             for d in range(3):
                 basis = comp.spaces[d].basis
                 M_d, domain_decomposition = _dense_mass_1d(self._mass_operator, basis, d, shapes[d])
 
+                # unscaled 1d stiffness (defines the eigenbasis also for a zero coefficient)
                 S_d = None
                 if d in stiff_dirs[c]:
                     assert basis == "B", "Only B-spline directions are differentiated."
                     M_D, _ = _dense_mass_1d(self._mass_operator, "M", d, shapes[d])
                     D_d = _dense_derivative_1d(self._d, stiff_dirs[c][d], c)
                     assert D_d.shape == (M_D.shape[0], M_d.shape[0])
-                    S_d = mid_means[stiff_dirs[c][d]] * (D_d.T @ M_D @ D_d)
+                    S_d = D_d.T @ M_D @ D_d
+                coeffs.append(mid_means[stiff_dirs[c][d]] if S_d is not None else 1.0)
 
                 if bc is not None and basis == "B":
                     M_d = _apply_bc_dense(M_d, bc[d])
                     S_d = None if S_d is None else _apply_bc_dense(S_d, bc[d])
+
+                # 1d factors of the stabilization terms (None for M_d); the average is weighted with
+                # M_d, or Euclidean (1 1^T / n) for the identity stabilization
+                identity.append(np.eye(M_d.shape[0]))
+                if d in self._average_dirs:
+                    c_d = np.ones(M_d.shape[0]) if self._stab_is_identity else M_d @ np.ones(M_d.shape[0])
+                    average.append(np.outer(c_d, c_d) / c_d.sum())
+                else:
+                    average.append(None)
 
                 stiffness.append(S_d)
                 mass.append(M_d)
@@ -574,23 +679,58 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                 local_stiffness.append(
                     None
                     if S_d is None
-                    else _process_local_matrix_1d(xp.asarray(S_d), comp.coeff_space, d, domain_decomposition)
+                    else _process_local_matrix_1d(
+                        xp.asarray(coeffs[d] * S_d), comp.coeff_space, d, domain_decomposition
+                    )
                 )
 
+            # stabilization: sigma_c * (M_1 x M_2 x M_3 - F_1 x F_2 x F_3), or the identity
             sigma_c = self._sigma * dom_means[c]
-            solverblocks.append(KroneckerSumSolver(coeff_space, stiffness, mass, sigma=sigma_c))
-            matrixblocks.append(_kronecker_sum(coeff_space, local_stiffness, local_mass, sigma_c))
+            terms = []
+            if self._stab_is_identity and sigma_c != 0.0:
+                terms.append((sigma_c, identity))
+            if self._average_dirs and sigma_c != 0.0:
+                factors = (
+                    [average[d] if average[d] is not None else identity[d] for d in range(3)]
+                    if self._stab_is_identity
+                    else average
+                )
+                terms.append((-sigma_c, factors))
+            sigma_mass = 0.0 if self._stab_is_identity else sigma_c
+
+            solverblocks.append(
+                KroneckerSumSolver(
+                    coeff_space, stiffness, mass, sigma=sigma_mass, stiffness_coeffs=coeffs, mass_terms=terms
+                )
+            )
+            dense_terms = [
+                (coeff, [mass[d] if F is None else F for d, F in enumerate(factors)]) for coeff, factors in terms
+            ]
+            matrixblocks.append(_kronecker_sum(coeff_space, local_stiffness, local_mass, sigma_mass, dense_terms))
+            # the average term is the last one; it is left out in the diagonal scaling
+            n_scaling = len(dense_terms) - (1 if self._average_dirs and sigma_c != 0.0 else 0)
+            scalingblocks.append(
+                _kronecker_sum(coeff_space, local_stiffness, local_mass, sigma_mass, dense_terms[:n_scaling])
+            )
 
         if is_scalar:
+            self._matrix_without_average = scalingblocks[0]
             return matrixblocks[0], solverblocks[0]
+        self._matrix_without_average = _block_diagonal(femspace.coeff_space, scalingblocks)
         return (
             _block_diagonal(femspace.coeff_space, matrixblocks),
             _block_diagonal(femspace.coeff_space, solverblocks),
         )
 
     def _core_diagonal(self):
+        # without the average: it couples all degrees of freedom along the averaged directions,
+        # which probing cannot resolve; its diagonal is small (O(1/n)) and left out on both sides
+        # (see _scaling_matrix), which keeps the preconditioner exact on the logical cube
         space = self._matrix.domain
-        return _diagonal_operator(space, _probe_diagonal(self.core_operator, space))
+        return _diagonal_operator(space, _probe_diagonal(self._core(with_average=False), space))
+
+    def _scaling_matrix(self) -> LinearOperator:
+        return self._matrix_without_average
 
     def transpose(self, conjugate: bool = False) -> StiffnessPreconditioner:
         """The operator is symmetric, so is the preconditioner."""
@@ -610,7 +750,8 @@ def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
     Local (rows owned by this process) diagonal of ``op``, one array per block of its domain.
 
     Supported are StencilMatrix, StencilDiagonalMatrix, KroneckerStencilMatrix (1d factors),
-    sums, scalings and BlockLinearOperators of these (missing diagonal blocks give zeros).
+    _DenseKroneckerProduct, sums, scalings and BlockLinearOperators of these (missing diagonal
+    blocks give zeros).
     """
     if isinstance(op, BlockLinearOperator):
         diags = []
@@ -637,6 +778,8 @@ def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
         for d in diags[1:]:
             out = xp.multiply.outer(out, d)
         return [out]
+    if isinstance(op, _DenseKroneckerProduct):
+        return [op.local_diagonal()]
     if isinstance(op, SumLinearOperator):
         parts = [_local_diagonal(a) for a in op.addends]
         return [sum(blocks) for blocks in zip(*parts)]
@@ -1080,7 +1223,8 @@ def _separable_weight(weights: list, derham) -> tuple[list[xp.ndarray], list[flo
     Parameters
     ----------
     weights : list
-        3d weights (callable, array at the local quadrature points, or None for 1).
+        Per weight :math:`w_i`: a 3d weight (callable, array at the local quadrature points, or
+        None for 1), or a list of ``(coefficient, weight)`` terms (an empty list is a zero weight).
 
     derham : Derham
         Discrete de Rham sequence (quadrature grid).
@@ -1089,10 +1233,11 @@ def _separable_weight(weights: list, derham) -> tuple[list[xp.ndarray], list[flo
     -------
     shapes : list[xp.ndarray]
         :math:`\phi_d` at the global 1d quadrature points: the mean over the other directions,
-        divided by the mean, averaged over the weights (mean 1).
+        divided by the mean, averaged over the weights with non-zero mean (mean 1).
 
     means : list[float]
-        The means :math:`\bar w_i` of the weights over the logical cube.
+        The means :math:`\bar w_i` of the weights over the logical cube (0 for weights whose
+        mean vanishes relative to the largest one).
 
     Collective on ``derham.comm`` for array weights.
     """
@@ -1102,16 +1247,24 @@ def _separable_weight(weights: list, derham) -> tuple[list[xp.ndarray], list[flo
 
     profiles, means = [], []
     for w in weights:
+        terms = w if isinstance(w, list) else [(1.0, w)]
         prof = []
         for d in range(3):
-            p = _reduced_weight_1d(w, 0, d, derham, "average")
-            prof.append(xp.asarray(p(pts[d]) if callable(p) else p, dtype=float))
-        mean = float(xp.sum(prof[0] * wts[0]) / xp.sum(wts[0]))
-        assert mean > 0.0, "The weights must have a positive mean."
+            p_d = xp.zeros(pts[d].size, dtype=float)
+            for coeff, w_t in terms:
+                p = _reduced_weight_1d(w_t, 0, d, derham, "average")
+                p_d = p_d + coeff * xp.asarray(p(pts[d]) if callable(p) else p, dtype=float)
+            prof.append(p_d)
         profiles.append(prof)
-        means.append(mean)
+        means.append(float(xp.sum(prof[0] * wts[0]) / xp.sum(wts[0])))
 
-    shapes = [sum(prof[d] / mean for prof, mean in zip(profiles, means)) / len(weights) for d in range(3)]
+    largest = max(abs(m) for m in means)
+    assert largest > 0.0, "The weights must not all vanish."
+    means = [0.0 if abs(m) <= 1e-12 * largest else m for m in means]
+    assert all(m >= 0.0 for m in means), f"The weights must have non-negative means, got {means}."
+
+    nonzero = [(prof, m) for prof, m in zip(profiles, means) if m > 0.0]
+    shapes = [sum(prof[d] / m for prof, m in nonzero) / len(nonzero) for d in range(3)]
     return shapes, means
 
 
@@ -1153,10 +1306,12 @@ def _kronecker_sum(
     stiffness: list[StencilMatrix | None],
     mass: list[StencilMatrix],
     sigma: float,
+    mass_terms: list[tuple[float, list[StencilMatrix | None]]] | None = None,
 ) -> LinearOperator:
     """
-    The operator :math:`\\sum_d M_1 \\otimes \\dots \\otimes S_d \\otimes \\dots \\otimes M_3 + \\sigma M_1 \\otimes M_2 \\otimes M_3`
-    as sum of KroneckerStencilMatrix (process-local 1d factors; directions with ``S_d = None`` have no term).
+    The operator :math:`\\sum_d M_1 \\otimes \\dots \\otimes S_d \\otimes \\dots \\otimes M_3 + \\sigma M_1 \\otimes M_2 \\otimes M_3
+    + \\sum_t c_t F_{t,1} \\otimes F_{t,2} \\otimes F_{t,3}` as sum of KroneckerStencilMatrix (process-local
+    1d factors; directions with ``S_d = None`` have no term; factors ``F = None`` stand for ``M_d``).
     """
     terms = []
     for d, S_d in enumerate(stiffness):
@@ -1165,8 +1320,128 @@ def _kronecker_sum(
             terms.append(KroneckerStencilMatrix(space, space, *factors))
     if sigma != 0.0:
         terms.append(KroneckerStencilMatrix(space, space, *[M_e.copy() for M_e in mass]) * sigma)
+    for coeff, factors in mass_terms or []:
+        terms.append(coeff * _DenseKroneckerProduct(space, factors))
     assert terms, "The operator has no terms."
     return reduce(lambda a, b: a + b, terms)
+
+
+class _DenseKroneckerProduct(LinearOperator):
+    """
+    Kronecker product :math:`F_1 \\otimes F_2 \\otimes F_3` of dense global 1d matrices on a
+    StencilVectorSpace (e.g. the rank-one factors of an average), applied with a
+    KroneckerLinearSolver (also along distributed axes).
+    """
+
+    class _DenseApply(LinearSolver):
+        """'Solver' for KroneckerLinearSolver that applies a dense matrix to each right-hand side."""
+
+        def __init__(self, mat):
+            self._mat = mat
+
+        @property
+        def space(self):
+            return xp.ndarray
+
+        def transpose(self):
+            return _DenseKroneckerProduct._DenseApply(self._mat.T)
+
+        def solve(self, rhs, out=None):
+            # rows of rhs are the vectors: out_i = mat @ rhs_i
+            result = rhs @ self._mat.T
+            if out is None:
+                return result
+            out[...] = result
+            return out
+
+    def __init__(self, space: StencilVectorSpace, factors: list[np.ndarray]):
+        assert all(F.shape == (n, n) for F, n in zip(factors, space.npts))
+        self._space = space
+        self._factors = [np.asarray(F, dtype=float) for F in factors]
+        self._kron = KroneckerLinearSolver(
+            space, space, [_DenseKroneckerProduct._DenseApply(xp.asarray(F)) for F in self._factors]
+        )
+
+    @property
+    def domain(self) -> StencilVectorSpace:
+        return self._space
+
+    @property
+    def codomain(self) -> StencilVectorSpace:
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    def local_diagonal(self) -> xp.ndarray:
+        """Diagonal on the rows owned by this process."""
+        diags = [
+            xp.asarray(np.diag(F)[s : e + 1]) for F, s, e in zip(self._factors, self._space.starts, self._space.ends)
+        ]
+        out = diags[0]
+        for d in diags[1:]:
+            out = xp.multiply.outer(out, d)
+        return out
+
+    def dot(self, v: Vector, out: Vector | None = None) -> Vector:
+        assert v.space == self._space
+        return self._kron.solve(v, out=out)
+
+    def transpose(self, conjugate: bool = False) -> _DenseKroneckerProduct:
+        return _DenseKroneckerProduct(self._space, [F.T for F in self._factors])
+
+    def tosparse(self):
+        raise NotImplementedError
+
+    def toarray(self):
+        raise NotImplementedError
+
+
+def _resolve_mass_operator(mass_ops: WeightedMassOperators, spec, default: LinearOperator) -> LinearOperator:
+    """The mass operator given by ``spec``: None (``default``), a name in ``mass_ops`` or an operator."""
+    if spec is None:
+        return default
+    if isinstance(spec, str):
+        if not hasattr(mass_ops, spec):
+            raise ValueError(f"WeightedMassOperators has no mass operator {spec!r}.")
+        return getattr(mass_ops, spec)
+    assert isinstance(spec, LinearOperator), f"Expected a name or a LinearOperator, got {type(spec).__name__}."
+    return spec
+
+
+def _mass_terms(op: LinearOperator) -> list[tuple[float, WeightedMassOperator]]:
+    """``op`` (a WeightedMassOperator, or a sum or multiple of such) as list of ``(coefficient, operator)``."""
+    if isinstance(op, WeightedMassOperator):
+        return [(1.0, op)]
+    if isinstance(op, ScaledLinearOperator):
+        return [(op.scalar * c, t) for c, t in _mass_terms(op.operator)]
+    if isinstance(op, SumLinearOperator):
+        return [term for a in op.addends for term in _mass_terms(a)]
+    raise TypeError(f"Expected a WeightedMassOperator or a sum/multiple of such, got {type(op).__name__}.")
+
+
+def _terms_matrix(terms: list[tuple[float, WeightedMassOperator]]) -> LinearOperator:
+    """Sum of the tensor-product matrices (without boundary operators) of the terms."""
+    return reduce(lambda a, b: a + b, [t.matrix if c == 1.0 else c * t.matrix for c, t in terms])
+
+
+def _block_weights(terms: list[tuple[float, WeightedMassOperator]], n: int) -> list[list[tuple[float, object]]]:
+    """Diagonal blocks of the weights of a sum of mass operators: per block, the ``(coefficient, weight)`` terms
+    (a stored weight None is a zero block and is left out)."""
+    return [[(c, t.weights[r][r]) for c, t in terms if t.weights[r][r] is not None] for r in range(n)]
+
+
+def _parse_directions(spec: str | None) -> tuple[int, ...]:
+    """``"eta2 eta3"`` (or ``"eta2,eta3"``) -> ``(1, 2)``; None or ``""`` -> ``()``."""
+    if not spec:
+        return ()
+    dirs = []
+    for token in spec.replace(",", " ").split():
+        if token not in ("eta1", "eta2", "eta3"):
+            raise ValueError(f"Unknown direction {token!r}, expected 'eta1', 'eta2' or 'eta3'.")
+        dirs.append(int(token[-1]) - 1)
+    return tuple(sorted(set(dirs)))
 
 
 def _probe_diagonal(op: LinearOperator, space: VectorSpace) -> list[xp.ndarray]:
