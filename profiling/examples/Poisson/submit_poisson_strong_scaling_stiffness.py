@@ -10,9 +10,13 @@ directly (its `__main__` block is the worker).
 """
 
 import argparse
+import sys
 from pathlib import Path
 
-from profiling_job import ProfilingCase
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from profiling_job import ProfilingCase  # noqa: E402
 
 
 def main() -> None:
@@ -30,7 +34,7 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "examples" / "Poisson" / "cube_strong_scaling_stiffness"
+    params_dir = script_dir / "cube_strong_scaling_stiffness"
 
     profiling_case = ProfilingCase(
         label="poisson_cube_strong_scaling_stiffness",

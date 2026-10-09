@@ -12,9 +12,13 @@ Use this file as a template for defining other profiling cases.
 """
 
 import argparse
+import sys
 from pathlib import Path
 
-from profiling_job import ProfilingCase
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from profiling_job import ProfilingCase  # noqa: E402
 
 
 def main() -> None:
@@ -32,7 +36,7 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "examples" / "ToyGyrokinetic" / "diocotron_instability"
+    params_dir = script_dir / "diocotron_instability"
 
     profiling_case = ProfilingCase(
         label="diocotron_instability",
