@@ -29,7 +29,7 @@ def marker_arguments(bc):
     markers[:, 3:6] = rng.uniform(-2, 2, (N_MARKERS, 3))
     markers[:, 8:14] = markers[:, :6]
     markers[:, 18:21] = 0.0
-    # Row 0 is a hole. Struphy marks every column of a hole with -1: pushers test column first_init_idx (8),
+    # Row 0 is a hole. Struphy marks every column of a hole with -1: pushers test column first_pusher_idx (8),
     # accumulation kernels test column 0.
     markers[0, :] = -1.0
     markers[1, -1] = -2.0
