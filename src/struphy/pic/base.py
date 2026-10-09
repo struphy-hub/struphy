@@ -4456,8 +4456,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Amount of particles sent to i-th process.
         """
 
-        # One entry for each process
-        send_info = xp.zeros(self.mpi_size, dtype=int)
+        # Row counts are host integers; keep the MPI bookkeeping on the host.
+        send_info = np.zeros(self.mpi_size, dtype=int)
 
         # Gathered once and reused for every rank below, instead of re-gathering
         # self.markers[send_inds] and self._sorting_etas[send_inds] fresh on every
@@ -4523,7 +4523,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Amount of marticles to be received from i-th process.
         """
 
-        recv_info = xp.zeros(self.mpi_size, dtype=int)
+        recv_info = np.zeros(self.mpi_size, dtype=int)
 
         self.mpi_comm.Alltoall(send_info, recv_info)
 
@@ -4541,6 +4541,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             hole_inds_after_send : array[int]
                 Indices of empty rows in markers after send.
         """
+
+        if xp.get_array_backend(self._markers) == "cupy":
+            self._sendrecv_markers_device(recv_info, hole_inds_after_send)
+            return
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
         first_hole = xp.cumsum(recv_info) - recv_info
@@ -4584,6 +4588,74 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         # the send buffers must not be reused before the sends have completed
         for req in send_reqs:
             req.Wait()
+
+    def _mpi_cuda_aware(self) -> bool:
+        """Return the cached CUDA-aware MPI capability, probing collectively if needed."""
+        cuda_aware = xp.mpi.get_mpi_cuda_aware()
+        if cuda_aware is None:
+            cuda_aware = xp.mpi.mpi_is_cuda_aware(self.mpi_comm)
+        if not cuda_aware and not Particles._warned_mpi_staging:
+            Particles._warned_mpi_staging = True
+            logger.warning(
+                "MPI is not CUDA-aware: marker rows exchanged between ranks are staged through host memory.",
+            )
+        return cuda_aware
+
+    _warned_mpi_staging = False
+
+    def _sendrecv_markers_device(self, recv_info, hole_inds_after_send):
+        """Exchange marker rows and scatter incoming rows into empty slots.
+
+        :func:`cunumpy.mpi.exchange` handles GPU synchronization, optional host
+        staging, and completion of all MPI transfers.
+
+        Parameters
+        ----------
+        recv_info : array[int]
+            Number of markers to receive from each process (NumPy array).
+        hole_inds_after_send : array[int]
+            Indices of empty rows in markers after send (device array).
+        """
+        recv_info = np.asarray(recv_info)
+        n_recv = int(recv_info.sum())
+
+        if hole_inds_after_send.size < n_recv:
+            warnings.warn(
+                f"Strong load imbalance detected: "
+                f"number of holes ({hole_inds_after_send.size}) "
+                f"on rank {self.mpi_rank} is smaller than number of "
+                f"incoming particles ({n_recv}). "
+                'Increase "bufsize" in the markers parameters for the next run.',
+            )
+            self.mpi_comm.Abort()
+
+        recvbuf = xp.empty((n_recv, self.markers.shape[1]), dtype=self.markers.dtype)
+        first_row = np.cumsum(recv_info) - recv_info
+
+        sends = []
+        receives = []
+        for rank in range(self.mpi_size):
+            if rank == self.mpi_rank:
+                continue
+
+            if recv_info[rank] > 0:
+                start = int(first_row[rank])
+                stop = start + int(recv_info[rank])
+                receives.append((recvbuf[start:stop], rank, rank))
+
+            data = self._send_list[rank]
+            if data.shape[0] > 0:
+                sends.append((data, rank, self.mpi_rank))
+
+        xp.mpi.exchange(
+            self.mpi_comm,
+            sends=sends,
+            receives=receives,
+            cuda_aware=self._mpi_cuda_aware(),
+        )
+
+        if n_recv > 0:
+            self._markers[hole_inds_after_send[:n_recv]] = recvbuf
 
 
 class Tesselation:
