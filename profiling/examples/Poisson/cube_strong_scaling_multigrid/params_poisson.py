@@ -6,9 +6,10 @@
 
 name = "Poisson strong scaling on 3D cube, multigrid preconditioner"
 description = """
-Strong scaling test for Poisson equation on a 3D cube.
-The manufactured solution is a Gaussian bump times sin(pi*x/Lx), exciting the full spectrum.
-Homogeneous Dirichlet boundary conditions are set in direction x.
+Strong scaling test for Poisson equation on a 3D cube (Cuboid).
+The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
+exciting the full spectrum.
+Homogeneous Dirichlet boundary conditions are set in direction eta1.
 The linear system is solved with CG preconditioned by geometric multigrid.
 """
 
@@ -114,7 +115,7 @@ sim = Simulation(
 
 from struphy.linear_algebra.solver import SolverParameters
 
-solver_params = SolverParameters(tol=1e-8, maxiter=100, info=True, recycle=False)
+solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=False)
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
@@ -130,30 +131,40 @@ import numpy as np
 
 from struphy.initial.base import GenericPerturbation
 
-# Gaussian bump times sin(pi*x/Lx) (exact Dirichlet in x); the bump is narrow enough
-# to be periodic in y and z up to exp(-(Ly/2)**2/w**2) ~ 1e-11. Being localized, it
-# excites the whole spectrum of the Laplacian, so CG has to work for convergence.
-w = 0.3
-x0, y0, z0 = Lx / 2, 0.0, Lz / 2
+# The exact solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5).
+# Its value at the Dirichlet boundary eta1 = 0, 1 is exp(-0.25 / w**2) ~ 1e-11, and it is periodic
+# in eta2 and eta3 up to the same accuracy. Being localized, it excites the whole spectrum of the
+# Laplacian, so CG has to work for convergence. Both the solution and the right-hand side
+# -Laplace(phi) are 0-forms given as functions of the logical coordinates (given_in_basis="0");
+# the pushed-forward solution at x = F(eta) is phi(eta).
+w = 0.1
+eta0 = (0.5, 0.5, 0.5)
 
 
-def exact_solution(x, y, z):
-    gauss = np.exp(-((x - x0) ** 2 + (y - y0) ** 2 + (z - z0) ** 2) / w**2)
-    return np.sin(np.pi / Lx * x) * gauss
+def gaussian_derivatives(e1, e2, e3):
+    """The Gaussian and its first and second derivatives with respect to eta1, eta2, eta3."""
+    eta = (e1, e2, e3)
+    g = np.exp(-sum((e - c) ** 2 for e, c in zip(eta, eta0)) / w**2)
+    d = [-2 * (e - c) / w**2 * g for e, c in zip(eta, eta0)]
+    dd = [(4 * (e - c) ** 2 / w**4 - 2 / w**2) * g for e, c in zip(eta, eta0)]
+    return g, d, dd
 
 
-def rhs_fun(x, y, z):
-    # -Laplace(s*g) = -(s'' g + 2 s' dg/dx + s Laplace(g))
-    r2 = (x - x0) ** 2 + (y - y0) ** 2 + (z - z0) ** 2
-    gauss = np.exp(-r2 / w**2)
-    s = np.sin(np.pi / Lx * x)
-    ds = np.pi / Lx * np.cos(np.pi / Lx * x)
-    lap_gauss = (4 * r2 / w**4 - 6 / w**2) * gauss
-    dgauss_dx = -2 * (x - x0) / w**2 * gauss
-    return (np.pi / Lx) ** 2 * s * gauss - 2 * ds * dgauss_dx - s * lap_gauss
+def exact_solution(e1, e2, e3):
+    return gaussian_derivatives(e1, e2, e3)[0]
 
 
-rhs_perturbation = GenericPerturbation(rhs_fun, given_in_basis="physical")
+def laplacian(e1, e2, e3):
+    """Physical Laplacian of the exact solution, in logical coordinates (Cuboid: x_i = l_i + L_i * eta_i)."""
+    g, d, dd = gaussian_derivatives(e1, e2, e3)
+    return dd[0] / Lx**2 + dd[1] / Ly**2 + dd[2] / Lz**2
+
+
+def rhs_fun(e1, e2, e3):
+    return -laplacian(e1, e2, e3)
+
+
+rhs_perturbation = GenericPerturbation(rhs_fun, given_in_basis="0")
 
 model.em_fields.source.add_perturbation(rhs_perturbation)
 
@@ -180,126 +191,64 @@ if __name__ == "__main__":
 
     from matplotlib import pyplot as plt
 
-    def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
+    def slice_axes(k, X, Y, Z, E1, E2, E3):
+        """Axes (horizontal, vertical, labels) for plotting the slice eta_k = 0.5 in physical coordinates."""
+        if k == 0:
+            return Y, Z, "y", "z"
+        elif k == 1:
+            return X, Z, "x", "z"
+        else:
+            return X, Y, "x", "y"
 
+    def plot_slices(num, exact, name):
+        """Numerical solution, exact solution and error on the slices eta_k = 0.5 (k = 1, 2, 3)."""
         fig = plt.figure(figsize=(16, 12))
-
-        plt.subplot(3, 3, 1)
-        plt.pcolor(y[slice_pt_x, :, :], z[slice_pt_x, :, :], num[slice_pt_x, :, :])
-        plt.colorbar()
-        plt.xlabel("y")
-        plt.ylabel("z")
-        plt.title("{} from struphy, slice at x = {:.2f}".format(name, x[slice_pt_x, 0, 0]))
-
-        plt.subplot(3, 3, 4)
-        plt.pcolor(
-            y[slice_pt_x, :, :],
-            z[slice_pt_x, :, :],
-            exact(x[slice_pt_x, :, :], y[slice_pt_x, :, :], z[slice_pt_x, :, :]),
-        )
-        plt.colorbar()
-        plt.xlabel("y")
-        plt.ylabel("z")
-        plt.title("{} exact, slice at x = {:.2f}".format(name, x[slice_pt_x, 0, 0]))
-
-        plt.subplot(3, 3, 7)
-        plt.pcolor(
-            y[slice_pt_x, :, :],
-            z[slice_pt_x, :, :],
-            np.abs(num[slice_pt_x, :, :] - exact(x[slice_pt_x, :, :], y[slice_pt_x, :, :], z[slice_pt_x, :, :])),
-        )
-        plt.colorbar()
-        plt.xlabel("y")
-        plt.ylabel("z")
-        plt.title("{} error, slice at x = {:.2f}".format(name, x[slice_pt_x, 0, 0]))
-
-        plt.subplot(3, 3, 2)
-        plt.pcolor(x[:, slice_pt_y, :], z[:, slice_pt_y, :], num[:, slice_pt_y, :])
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("z")
-        plt.title("{} from struphy, slice at y = {:.2f}".format(name, y[0, slice_pt_y, 0]))
-
-        plt.subplot(3, 3, 5)
-        plt.pcolor(
-            x[:, slice_pt_y, :],
-            z[:, slice_pt_y, :],
-            exact(x[:, slice_pt_y, :], y[:, slice_pt_y, :], z[:, slice_pt_y, :]),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("z")
-        plt.title("{} exact, slice at y = {:.2f}".format(name, y[0, slice_pt_y, 0]))
-
-        plt.subplot(3, 3, 8)
-        plt.pcolor(
-            x[:, slice_pt_y, :],
-            z[:, slice_pt_y, :],
-            np.abs(num[:, slice_pt_y, :] - exact(x[:, slice_pt_y, :], y[:, slice_pt_y, :], z[:, slice_pt_y, :])),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("z")
-        plt.title("{} error, slice at y = {:.2f}".format(name, y[0, slice_pt_y, 0]))
-
-        plt.subplot(3, 3, 3)
-        plt.pcolor(x[:, :, slice_pt_z], y[:, :, slice_pt_z], num[:, :, slice_pt_z])
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.title("{} from struphy, slice at z = {:.2f}".format(name, z[0, 0, slice_pt_z]))
-
-        plt.subplot(3, 3, 6)
-        plt.pcolor(
-            x[:, :, slice_pt_z],
-            y[:, :, slice_pt_z],
-            exact(x[:, :, slice_pt_z], y[:, :, slice_pt_z], z[:, :, slice_pt_z]),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.title("{} exact, slice at z = {:.2f}".format(name, z[0, 0, slice_pt_z]))
-
-        plt.subplot(3, 3, 9)
-        plt.pcolor(
-            x[:, :, slice_pt_z],
-            y[:, :, slice_pt_z],
-            np.abs(num[:, :, slice_pt_z] - exact(x[:, :, slice_pt_z], y[:, :, slice_pt_z], z[:, :, slice_pt_z])),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.title("{} error, slice at z = {:.2f}".format(name, z[0, 0, slice_pt_z]))
-
+        for k in range(3):
+            idx = tuple(num.shape[k] // 2 if i == k else slice(None) for i in range(3))
+            h, v, hlabel, vlabel = slice_axes(k, X[idx], Y[idx], Z[idx], E1[idx], E2[idx], E3[idx])
+            eta_k = (E1, E2, E3)[k][idx].flat[0]
+            for row, (data, what) in enumerate(
+                [(num[idx], "from struphy"), (exact[idx], "exact"), (np.abs(num[idx] - exact[idx]), "error")]
+            ):
+                plt.subplot(3, 3, 3 * row + k + 1)
+                plt.pcolormesh(h, v, data, shading="gouraud")
+                plt.colorbar()
+                plt.xlabel(hlabel)
+                plt.ylabel(vlabel)
+                plt.title(f"{name} {what}, slice at eta{k + 1} = {eta_k:.2f}")
+        fig.tight_layout()
         return fig
 
     if sim.rank == 0:
         # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
         # cell centres of the simulation grid (serial Derham, safe on rank 0 only).
-        rhs_data = out.evaluate("em_fields/source", t=0)
-        rhs = rhs_data.values
+        rhs = out.evaluate("em_fields/source", t=0).values
 
         phi_data = out.evaluate("em_fields/phi", t=-1)
         phi = phi_data.values
-        x, y, z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))
 
-        slice_pt_x = x.shape[0] // 2
-        slice_pt_y = y.shape[1] // 2
-        slice_pt_z = 0
-
-        fig_rhs = plot_slices(rhs, rhs_fun, "RHS", slice_pt_x=slice_pt_x, slice_pt_y=slice_pt_y, slice_pt_z=slice_pt_z)
-        fig_phi = plot_slices(
-            phi, exact_solution, "Phi", slice_pt_x=slice_pt_x, slice_pt_y=slice_pt_y, slice_pt_z=slice_pt_z
+        # logical coordinates of the evaluation points and their images x = F(eta)
+        E1, E2, E3 = np.meshgrid(
+            *(phi_data.coords[c].values for c in ("eta1", "eta2", "eta3")),
+            indexing="ij",
         )
+        X, Y, Z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))
 
-        rel_err_rhs = np.max(np.abs(rhs - rhs_fun(x, y, z))) / np.max(np.abs(rhs_fun(x, y, z)))
-        rel_err_phi = np.max(np.abs(phi - exact_solution(x, y, z))) / np.max(np.abs(exact_solution(x, y, z)))
+        # pushed-forward exact solutions: the 0-forms at x = F(eta) are their values at eta
+        rhs_exact = rhs_fun(E1, E2, E3)
+        phi_exact = exact_solution(E1, E2, E3)
+
+        fig_rhs = plot_slices(rhs, rhs_exact, "RHS")
+        fig_phi = plot_slices(phi, phi_exact, "Phi")
+
+        rel_err_rhs = np.max(np.abs(rhs - rhs_exact)) / np.max(np.abs(rhs_exact))
+        rel_err_phi = np.max(np.abs(phi - phi_exact)) / np.max(np.abs(phi_exact))
 
         print(f"Max relative error in RHS: {rel_err_rhs:.2e}")
         print(f"Max relative error in Phi: {rel_err_phi:.2e}")
 
-        assert rel_err_rhs < 6e-3, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
-        assert rel_err_phi < 5e-3, (
+        assert rel_err_rhs < 1.7e-2, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
+        assert rel_err_phi < 1.2e-2, (
             f"The computed solution does not match the exact solution, max rel error = {rel_err_phi}."
         )
 

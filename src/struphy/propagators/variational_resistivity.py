@@ -124,7 +124,7 @@ class VariationalResistivity(Propagator):
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Linear solver for implicit subproblems.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
             Linear-solver controls.
@@ -146,7 +146,7 @@ class VariationalResistivity(Propagator):
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         linearize_current: bool = False
@@ -521,8 +521,9 @@ class VariationalResistivity(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        pc_M1 = preconditioner.MassMatrixDiagonalPreconditioner(
+        pc_M1 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M1,
+            dim_reduce=None,
         )
         inv_M1 = inverse(
             self.mass_ops.M1,
@@ -533,8 +534,9 @@ class VariationalResistivity(Propagator):
             verbose=False,
         )
 
-        pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
+        pc_M3 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M3,
+            dim_reduce=None,
         )
         self._inv_M3 = inverse(
             self.mass_ops.M3,
@@ -558,7 +560,8 @@ class VariationalResistivity(Propagator):
                 preconditioner,
                 self.options.precond,
             )
-            self.pc_jac = pc_class(self.M_de_ds)
+            # dim_reduce=None: the Kronecker factors do not depend on the weights, cheap to update
+            self.pc_jac = pc_class(self.M_de_ds, dim_reduce=None)
 
         self.inv_jac = inverse(
             self.M_de_ds,
@@ -588,7 +591,7 @@ class VariationalResistivity(Propagator):
                 preconditioner,
                 self.options.precond,
             )
-            self.pc = pc_class(M2)
+            self.pc = pc_class(M2, dim_reduce=None)
 
         self.inv_lop = inverse(
             self.l_op,

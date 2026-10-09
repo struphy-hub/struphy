@@ -170,7 +170,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 divide_by_dt=True,
                 diffusion_mat="M1perp",
                 solver="pcg",
-                precond="MassMatrixPreconditioner",
+                precond=None,
                 solver_params=solver_params,
             )
 
@@ -377,7 +377,7 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         divide_by_dt=True,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -396,7 +396,7 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         divide_by_dt=True,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -519,7 +519,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         stab_eps=1e-8,
         diffusion_mat="M1",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -538,7 +538,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         stab_eps=1e-8,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -694,7 +694,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         stab_eps=1e-8,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -748,7 +748,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
             stab_eps=1e-8,
             diffusion_mat="M1",
             solver="pcg",
-            precond="MassMatrixPreconditioner",
+            precond=None,
             solver_params=solver_params,
         )
         poisson_solver_2p5d.allocate()

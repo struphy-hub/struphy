@@ -1,15 +1,15 @@
 import pytest
 
 
-@pytest.mark.parametrize("dim_reduce", [0, 2])
+@pytest.mark.parametrize("dim_reduce", [0, 2, None])
 @pytest.mark.parametrize("weight_reduction", ["midpoint", "average"])
 @pytest.mark.parametrize("diagonal_scaling", [False, True])
 def test_mass_preconditioner_transpose(dim_reduce, weight_reduction, diagonal_scaling):
-    """The transposes of the mass-matrix preconditioners keep their class and options."""
+    """The transpose of the mass-matrix preconditioner keeps its class and options."""
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
-    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
@@ -32,18 +32,14 @@ def test_mass_preconditioner_transpose(dim_reduce, weight_reduction, diagonal_sc
     assert pc_T.weight_reduction == weight_reduction
     assert pc_T.diagonal_scaling == diagonal_scaling
 
-    pc_diag_T = MassMatrixDiagonalPreconditioner(mass_ops.M1, apply_bc=False).transpose()
-    assert type(pc_diag_T) is MassMatrixDiagonalPreconditioner
-    assert pc_diag_T._apply_bc is False
 
-
-def test_mass_diagonal_preconditioner_assembles_1d_matrices_only(monkeypatch):
-    """MassMatrixDiagonalPreconditioner assembles only 1d mass matrices (no 3d logical mass matrix);
+def test_mass_preconditioner_unweighted_assembles_1d_matrices_only(monkeypatch):
+    """MassMatrixPreconditioner with dim_reduce=None assembles only 1d mass matrices (no 3d logical mass matrix);
     the diagonal of the logical mass matrix is the one of its Kronecker approximation."""
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
-    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
@@ -61,14 +57,13 @@ def test_mass_diagonal_preconditioner_assembles_1d_matrices_only(monkeypatch):
         init(self, derham, V, W, *args, **kwargs)
 
     monkeypatch.setattr(WeightedMassOperator, "__init__", recording_init)
-    pc = MassMatrixDiagonalPreconditioner(M1)
+    pc = MassMatrixPreconditioner(M1, dim_reduce=None)
 
-    assert isinstance(pc, MassMatrixPreconditioner)
     assert pc.dim_reduce is None and pc.diagonal_scaling
     assert created and all(ldim == 1 for ldim in created)
 
 
-def test_mass_diagonal_preconditioner_zero_diagonal_block():
+def test_mass_preconditioner_unweighted_zero_diagonal_block():
     """A mass operator with a zero (None) diagonal block, e.g. after reassembly with a zero weight:
     construction and update_mass_operator must work; the scaling of that block is 1."""
 
@@ -76,7 +71,7 @@ def test_mass_diagonal_preconditioner_zero_diagonal_block():
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
-    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.io.options import DerhamOptions
@@ -94,7 +89,7 @@ def test_mass_diagonal_preconditioner_zero_diagonal_block():
     M.assemble()
     assert M.matrix[2, 2] is None
 
-    pc = MassMatrixDiagonalPreconditioner(mass_ops.M1)
+    pc = MassMatrixPreconditioner(mass_ops.M1, dim_reduce=None)
     pc.update_mass_operator(M)
     scaling = pc._scaling[0]
     assert xp.allclose(scaling[2, 2]._data, 1.0)
@@ -103,7 +98,7 @@ def test_mass_diagonal_preconditioner_zero_diagonal_block():
     assert all(xp.all(xp.isfinite(b.toarray())) for b in pc.dot(x).blocks)
 
 
-def test_mass_diagonal_preconditioner_small_periodic_direction():
+def test_mass_preconditioner_unweighted_small_periodic_direction():
     """Periodic direction with fewer points than the stencil width (1 element, degree 1): the main
     diagonal of the 1d factors must be at offset 0, otherwise the diagonal scaling vanishes."""
 
@@ -112,7 +107,7 @@ def test_mass_diagonal_preconditioner_small_periodic_direction():
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
-    from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, _local_diagonal
+    from struphy.feec.preconditioner import MassMatrixPreconditioner, _local_diagonal
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.io.options import DerhamOptions
@@ -121,7 +116,7 @@ def test_mass_diagonal_preconditioner_small_periodic_direction():
     derham = Derham(grid=TensorProductGrid(num_elements=(4, 4, 1)), options=DerhamOptions(degree=(2, 2, 1)))
     mass_ops = WeightedMassOperators(derham=derham, domain=domains.Cuboid())
 
-    pc = MassMatrixDiagonalPreconditioner(mass_ops.Mv)
+    pc = MassMatrixPreconditioner(mass_ops.Mv, dim_reduce=None)
     assert all(float(xp.min(d)) > 0.0 for d in _local_diagonal(pc.matrix))
 
     _, x = create_equal_random_arrays(derham.Vvfem, seed=1)

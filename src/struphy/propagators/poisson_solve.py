@@ -45,7 +45,7 @@ class PoissonSolve(ImplicitDiffusion):
             Internally mapped to ``sigma_1 = stab_eps`` in the parent
             :class:`ImplicitDiffusion` formulation.
 
-        stab_mat : {"M0", "M0ad", "Id"}, default="Id"
+        stab_mat : {"M0", "M0ad", "Id"}, default="M0"
             Stabilization matrix multiplied by ``stab_eps``.
 
             - ``"M0"``: standard weighted 0-form mass operator.
@@ -67,9 +67,15 @@ class PoissonSolve(ImplicitDiffusion):
             Name of the symmetric iterative solver passed to
             :func:`psydac.linalg.solvers.inverse`.
 
-        precond : LiteralOptions.OptsDiffusionPrecond, default="MassMatrixPreconditioner"
-            Name of the preconditioner configuration, see :class:`ImplicitDiffusion`
-            (``"MultiGrid"`` for geometric multigrid).
+        precond : LiteralOptions.OptsDiffusionPrecond, default=None
+            Name of the preconditioner, see :class:`ImplicitDiffusion`
+            (``"MultiGrid"`` for geometric multigrid, ``"StiffnessPreconditioner"`` for the
+            Kronecker approximation of the Laplacian, ``"MassMatrixPreconditioner"`` for the
+            Kronecker approximation of ``M0``). Requires ``solver="pcg"``.
+
+        precond_params : dict, default=None
+            Keyword arguments passed to the constructor of the mass-matrix or stiffness
+            preconditioner, see :class:`ImplicitDiffusion`.
 
         multigrid : MultiGridOptions, default=None
             Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
@@ -97,11 +103,12 @@ class PoissonSolve(ImplicitDiffusion):
         OptsDiffusionMat = Literal["M1", "M1perp", "M1para", "M1gyro"]
         # propagator options
         stab_eps: float = 0.0
-        stab_mat: OptsStabMat = "Id"
+        stab_mat: OptsStabMat = "M0"
         diffusion_mat: OptsDiffusionMat = "M1"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsDiffusionPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsDiffusionPrecond = None
+        precond_params: dict = None
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
@@ -112,10 +119,12 @@ class PoissonSolve(ImplicitDiffusion):
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
-            if self.precond == "MultiGrid":
-                assert self.solver == "pcg", "precond='MultiGrid' requires solver='pcg'."
+            if self.precond is not None:
+                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
 
             # defaults
+            if self.precond_params is None:
+                self.precond_params = {}
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
             if self.multigrid is None:

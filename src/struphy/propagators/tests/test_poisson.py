@@ -203,7 +203,7 @@ def test_poisson_1d(
                 # sigma_2=0.0,
                 # sigma_3=1.0,
                 solver="pcg",
-                precond="MassMatrixPreconditioner",
+                precond=None,
                 solver_params=solver_params,
             )
 
@@ -368,7 +368,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
         # sigma_2=0.0,
         # sigma_3=1.0,
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -470,7 +470,7 @@ def test_poisson_accum_full_f_background_1d():
     poisson_solver.options = poisson_solver.Options(
         stab_eps=1e-6,
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
     )
     poisson_solver.allocate()
@@ -695,7 +695,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         # sigma_2=0.0,
         # sigma_3=1.0,
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -723,7 +723,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         # sigma_2=0.0,
         # sigma_3=1.0,
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -808,7 +808,7 @@ def test_poisson_2d_multigrid(degree, bc_type):
 
     phis = []
     infos = []
-    for precond in ["MassMatrixPreconditioner", "MultiGrid"]:
+    for precond in [None, "MultiGrid"]:
         phi = FEECVariable(space="H1")
         phi.allocate(derham=derham, domain=domain)
         solver = PoissonSolve(rho=rho)
@@ -878,6 +878,105 @@ def test_implicit_diffusion_multigrid_dt():
         r = rhs - A.dot(phi.spline.vector)
         assert xp.sqrt(r.inner(r)) < 1e-9 * xp.sqrt(rhs.inner(rhs))
         assert prop._solver._info["niter"] <= 15
+
+
+@pytest.mark.parametrize("stab_mat", ["M0", "Id"])
+@pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
+def test_poisson_2d_kronecker_preconds(bc_type, stab_mat):
+    """PoissonSolve with the Kronecker preconditioners agrees with the unpreconditioned solve (pcg and cg);
+    the stiffness preconditioner needs fewer iterations than no preconditioner (the mass-matrix
+    preconditioner does not approximate the Laplacian and is only checked for the solution)."""
+    domain = domains.Colella(Lx=4.0, Ly=2.0, alpha=0.1, Lz=1.0)
+    bcs = {
+        "periodic": (None, None, None),
+        "dirichlet": (("dirichlet", "dirichlet"), None, None),
+        "neumann": (("free", "free"), None, None),
+    }[bc_type]
+    derham = Derham(TensorProductGrid(num_elements=[32, 32, 1]), DerhamOptions(degree=[2, 2, 1], bcs=bcs), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return xp.cos(2 * xp.pi * e1) * xp.sin(2 * xp.pi * e2) + 0.3 * xp.sin(4 * xp.pi * e2)
+
+    phis = []
+    infos = []
+    for solver_name, precond in [
+        ("pcg", None),
+        ("pcg", "MassMatrixPreconditioner"),
+        ("pcg", "StiffnessPreconditioner"),
+        ("cg", None),
+    ]:
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        solver = PoissonSolve(rho=rho)
+        solver.variables.phi = phi
+        solver.options = solver.Options(
+            stab_eps=1e-8,
+            stab_mat=stab_mat,
+            solver=solver_name,
+            precond=precond,
+            solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
+        )
+        solver.allocate()
+        solver(1.0)
+        phis.append(phi.spline.vector.toarray())
+        infos.append(solver._solver._info)
+
+    # global coefficient arrays (toarray only fills the local part)
+    if comm.Get_size() > 1:
+        phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
+    if bc_type != "dirichlet":
+        # solutions are defined up to a constant (the stabilization is tiny)
+        phis = [p - xp.mean(p) for p in phis]
+    for p in phis[1:]:
+        assert xp.max(xp.abs(p - phis[0])) < 1e-6 * xp.max(xp.abs(phis[0]))
+    assert all(info["success"] for info in infos)
+    assert infos[2]["niter"] < infos[0]["niter"]
+
+
+def test_implicit_diffusion_stiffness_dt():
+    """With divide_by_dt, the stiffness preconditioner follows changes of dt."""
+    from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+
+    domain = domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[32, 16, 1]),
+        DerhamOptions(degree=[2, 2, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    phi = FEECVariable(space="H1")
+    phi.allocate(derham=derham, domain=domain)
+    phi.spline.vector = derham.P0(lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2))
+
+    prop = ImplicitDiffusion()
+    prop.variables.phi = phi
+    prop.options = prop.Options(
+        sigma_1=1.0,
+        sigma_2=1.0,
+        sigma_3=0.0,
+        divide_by_dt=True,
+        precond="StiffnessPreconditioner",
+        solver_params=SolverParameters(tol=1e-12, maxiter=100, recycle=False),
+    )
+    prop.allocate()
+
+    for dt in [0.1, 0.1, 0.01]:
+        rhs = (1.0 / dt) * mass_ops.M0.dot(phi.spline.vector)
+        prop(dt)
+        assert prop._stiffness_pc.sigma == 1.0 / dt
+        A = (1.0 / dt) * mass_ops.M0 + derham.grad.T @ mass_ops.M1 @ derham.grad
+        r = rhs - A.dot(phi.spline.vector)
+        assert xp.sqrt(r.inner(r)) < 1e-9 * xp.sqrt(rhs.inner(rhs))
+        # exact inverse on the Cuboid (up to round-off)
+        assert prop._solver._info["niter"] <= 3
 
 
 if __name__ == "__main__":
