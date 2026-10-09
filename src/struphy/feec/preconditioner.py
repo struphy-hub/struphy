@@ -675,13 +675,11 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
                 stiffness.append(S_d)
                 mass.append(M_d)
-                local_mass.append(_process_local_matrix_1d(xp.asarray(M_d), comp.coeff_space, d, domain_decomposition))
+                local_mass.append(_process_local_matrix_1d(M_d, comp.coeff_space, d, domain_decomposition))
                 local_stiffness.append(
                     None
                     if S_d is None
-                    else _process_local_matrix_1d(
-                        xp.asarray(coeffs[d] * S_d), comp.coeff_space, d, domain_decomposition
-                    )
+                    else _process_local_matrix_1d(coeffs[d] * S_d, comp.coeff_space, d, domain_decomposition)
                 )
 
             # stabilization: sigma_c * (M_1 x M_2 x M_3 - F_1 x F_2 x F_3), or the identity
@@ -774,9 +772,10 @@ def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
             # the factor may own more rows than the codomain on this process
             off = A.codomain.pads[0] * A.codomain.shifts[0] + s - A.codomain.starts[0]
             diags.append(A._data[off : off + e - s + 1, A.pads[0]])
+        # outer product by broadcasting (works on every backend, unlike ufunc.outer)
         out = diags[0]
         for d in diags[1:]:
-            out = xp.multiply.outer(out, d)
+            out = out[..., None] * d
         return [out]
     if isinstance(op, _DenseKroneckerProduct):
         return [op.local_diagonal()]
@@ -1059,27 +1058,34 @@ def _apply_bc_1d(M: StencilMatrix, bc_d: tuple[bool, bool]) -> None:
             apply_essential_bc_stencil(M, axis=0, ext=ext, order=0, identity=True)
 
 
-def _solver_1d(M: StencilMatrix, M_arr: xp.ndarray) -> FFTSolver | SparseSolver:
-    """Direct solver for the 1d matrix M (dense copy M_arr): FFT if circulant, else sparse LU."""
+def _solver_1d(M: StencilMatrix, M_arr: np.ndarray) -> FFTSolver | SparseSolver:
+    """
+    Direct solver for the 1d matrix M (dense host copy M_arr): FFT if circulant, else sparse LU.
+
+    The solver is a host solver on every backend, as expected by KroneckerLinearSolver: on the
+    CuPy backend, the latter solves device data with the dense inverse it builds from this solver
+    once, so that applying the preconditioner makes no host copies.
+    """
     if is_circulant(M_arr):
         return FFTSolver(M_arr)
     return SparseSolver(M.tosparse())
 
 
 def _process_local_matrix_1d(
-    M_arr: xp.ndarray, coeff_space: StencilVectorSpace, d: int, domain_decomposition: DomainDecomposition
+    M_arr: np.ndarray, coeff_space: StencilVectorSpace, d: int, domain_decomposition: DomainDecomposition
 ) -> StencilMatrix:
     """
     Process-local 1d factor of a KroneckerStencilMatrix on ``coeff_space``.
 
     The factor lives on a 1d space without communicator that owns the same rows
     (``starts[d]`` to ``ends[d]``) as ``coeff_space`` in direction ``d`` on this process,
-    as required by KroneckerStencilMatrix.
+    as required by KroneckerStencilMatrix. The band is filled on the host and copied to the
+    data of the factor (active backend) in one step.
 
     Parameters
     ----------
-    M_arr : xp.ndarray
-        The global 1d matrix as dense array.
+    M_arr : np.ndarray
+        The global 1d matrix as dense array (a device array is copied to the host).
 
     coeff_space : StencilVectorSpace
         The (distributed) 3d coefficient space.
@@ -1098,21 +1104,24 @@ def _process_local_matrix_1d(
     cart_1d = CartDecomposition(domain_decomposition, [n], [[s]], [[e]], [p], [1])
     V_local = StencilVectorSpace(cart_1d)
     M_local = StencilMatrix(V_local, V_local)
+    M_arr = xp.to_numpy(M_arr)
 
     # copy the rows owned by this process: entry (i, j) is stored at row i - s + p and diagonal
     # index k + p with the offset k = j - i; in periodic directions k is taken nearest to 0
     # (in [-n/2, n/2)), so that the main diagonal is at k = 0 also if 2p + 1 > n
-    rows, cols = xp.nonzero(M_arr)
+    rows, cols = np.nonzero(M_arr)
     on_process = (rows >= s) & (rows <= e)
     rows, cols = rows[on_process], cols[on_process]
     k = cols - rows
     if coeff_space.periods[d]:
         k = (k + n // 2) % n - n // 2
-    assert xp.all(xp.abs(k) <= p), "Entries outside the band of the stencil matrix."
-    M_local._data[rows - s + p, k + p] = M_arr[rows, cols]
+    assert np.all(np.abs(k) <= p), "Entries outside the band of the stencil matrix."
+    data = np.zeros(M_local._data.shape, dtype=M_local._data.dtype)
+    data[rows - s + p, k + p] = M_arr[rows, cols]
+    M_local._data[...] = xp.asarray(data)
 
     # check if stencil matrix was built correctly
-    assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+    assert np.allclose(xp.to_numpy(M_local.toarray())[s : e + 1], M_arr[s : e + 1])
 
     return M_local
 
@@ -1165,7 +1174,8 @@ def _kronecker_approximation(
             if bc is not None and _has_essential_bc(mass_operator, basis, c, d):
                 _apply_bc_1d(M, bc[d])
 
-            M_arr = M.toarray()
+            # the dense 1d matrix and the 1d solver are host setup data on every backend
+            M_arr = xp.to_numpy(M.toarray())
             solvercells.append(_solver_1d(M, M_arr))
             matrixcells.append(_process_local_matrix_1d(M_arr, femspace_c.coeff_space, d, domain_decomposition))
 
@@ -1494,26 +1504,31 @@ class FFTSolver(BandedSolver):
     Solve the equation Ax = b for x, assuming A is a circulant matrix.
     b can contain multiple right-hand sides (RHS) and is of shape (#RHS, N).
 
+    A host (NumPy) solver on every backend: the 1d matrices of Kronecker solvers are small
+    setup data. On the CuPy backend, KroneckerLinearSolver solves device data with the dense
+    inverse it builds from this solver (by solving for the identity on the host), so ``solve``
+    is only called with host arrays.
+
     Parameters
     ----------
-    circmat : xp.ndarray
-        Generic circulant matrix.
+    circmat : np.ndarray
+        Generic circulant matrix (a device array is copied to the host).
     """
 
     def __init__(self, circmat):
-        assert isinstance(circmat, xp.ndarray)
+        circmat = xp.to_numpy(circmat)
         assert is_circulant(circmat)
 
         from scipy.linalg import solve_circulant  # deferred: scipy.linalg is slow to import
 
-        self._space = xp.ndarray
+        self._space = np.ndarray
         # copy: circmat is still used by the caller (e.g. for the process-local stencil matrix)
-        self._column = xp.array(circmat[:, 0], copy=True)
+        self._column = np.array(circmat[:, 0], copy=True)
 
         # stabilize a singular matrix once, here, so that all solves use the same matrix
         try:
-            solve_circulant(self._column, xp.ones_like(self._column))
-        except xp.linalg.LinAlgError:
+            solve_circulant(self._column, np.ones_like(self._column))
+        except np.linalg.LinAlgError:
             eps = 1e-4
             logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
             self._column[0] *= 1.0 + eps
@@ -1532,13 +1547,13 @@ class FFTSolver(BandedSolver):
 
         Parameters
         ----------
-        rhs : xp.ndarray
-            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
+        rhs : np.ndarray
+            The right-hand sides to solve for (host array). The vectors are assumed to be given in C-contiguous order,
             i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
             index denoting the number of the right-hand side, and the 1-st index denoting the element inside
             a right-hand side.
 
-        out : xp.ndarray, optional
+        out : np.ndarray, optional
             Output vector. If given, it has to have the same shape and datatype as rhs.
 
         transposed : bool
@@ -1565,7 +1580,7 @@ def is_circulant(mat):
     Parameters
     ----------
     mat : array[float]
-        The matrix that is checked to be circulant.
+        The matrix that is checked to be circulant (host or device array; checked on the host).
 
     Returns
     -------
@@ -1573,11 +1588,11 @@ def is_circulant(mat):
         Whether the matrix is circulant (=True) or not (=False).
     """
 
-    assert isinstance(mat, xp.ndarray)
+    mat = xp.to_numpy(mat)
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
     # circulant: every row is the previous one shifted by one, i.e. mat[i, j] = mat[0, (j - i) % n]
     n = mat.shape[0]
-    idx = (xp.arange(n)[None, :] - xp.arange(n)[:, None]) % n
-    return bool(xp.allclose(mat, mat[0][idx]))
+    idx = (np.arange(n)[None, :] - np.arange(n)[:, None]) % n
+    return bool(np.allclose(mat, mat[0][idx]))
