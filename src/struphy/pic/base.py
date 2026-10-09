@@ -1249,10 +1249,13 @@ class Particles(metaclass=ABCMeta):
 
             # 2. plain sobol numbers with skip of first 1000 numbers
             elif self.loading == "sobol_standard":
-                self.phasespace_coords = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_mks_load_loc,
-                    1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank],
+                # generated on the host, then copied to the device (setup only)
+                self.phasespace_coords = xp.to_cunumpy(
+                    sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        int(n_mks_load_loc),
+                        1000 + int((n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]),
+                    )
                 )
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
@@ -1263,10 +1266,12 @@ class Particles(metaclass=ABCMeta):
 
                 # each sobol point yields 64 symmetric markers; round up and truncate the last group
                 n_sobol = -(-self.n_mks_load // 64)
-                temp_markers = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_sobol[self._mpi_rank],
-                    1000 + (xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank],
+                temp_markers = xp.to_cunumpy(
+                    sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        int(n_sobol[self._mpi_rank]),
+                        1000 + int((xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank]),
+                    )
                 )
 
                 temp_symmetric = xp.zeros((64 * n_sobol[self._mpi_rank], 3 + self.vdim), dtype=float)
