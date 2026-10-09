@@ -24,7 +24,8 @@ classifiers = [
 ]
 dependencies = [
     "numpy<=2.5.0",
-    "cunumpy >= 0.6.1, <= 0.6.1",
+    # After GPU porting, set cunumpy to 0.7.0
+    "cunumpy @ git+https://github.com/struphy-hub/cunumpy.git@26a640b1d47d5677663785e49b1c44d343540df1",
     "pyccel>=2.2.0, <=2.2.3",
     "maybempi>=0.1.2",
     "feectools>=0.6.0, <=0.6.0",
