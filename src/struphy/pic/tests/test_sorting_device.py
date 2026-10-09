@@ -143,12 +143,15 @@ def check_mpi_sort_markers_device(cuda_aware: bool | None, bc: str = "periodic",
             if cuda_aware:
                 assert transfers.total == 0, transfers.report()
             else:
-                # one staged copy per non-empty send buffer, one copy back of the receive buffer
+                # exchange stages each non-empty send and receive buffer separately
                 n_dest = sum(1 for i in range(size) if i != rank and dev._send_list[i].shape[0] > 0)
+                n_sources = sum(1 for i in range(size) if i != rank and ref._recvbufs[i].shape[0] > 0)
                 assert transfers.to_host == n_dest, transfers.report()
-                assert transfers.to_device == (1 if n_recv > 0 else 0), transfers.report()
+                assert transfers.to_device == n_sources, transfers.report()
                 sent_bytes = sum(e.nbytes for e in transfers.events if e.kind == "to_host")
                 assert sent_bytes == n_send * ref.markers.shape[1] * 8
+                received_bytes = sum(e.nbytes for e in transfers.events if e.kind == "to_device")
+                assert received_bytes == n_recv * ref.markers.shape[1] * 8
 
             if count_reads and cuda_aware:
                 # (the staged exchange reads the send buffers with .get(), counted above)
