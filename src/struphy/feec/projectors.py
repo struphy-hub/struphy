@@ -2129,7 +2129,7 @@ class ProjectorPreconditioner(LinearOperator):
         # temporary vectors for dot product
         if self._is_composed:
             tmp_vectors = []
-            for op in self._I.multiplicants[1:]:
+            for op in self._I.multiplicands[1:]:
                 tmp_vectors.append(op.codomain.zeros())
 
             self._tmp_vectors = tuple(tmp_vectors)
@@ -2197,7 +2197,7 @@ class ProjectorPreconditioner(LinearOperator):
             x = rhs
             for i in range(len(self._tmp_vectors)):
                 y = self._tmp_vectors[-1 - i]
-                A = self._I.multiplicants[-1 - i]
+                A = self._I.multiplicands[-1 - i]
                 if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
                     self.solver.dot(x, out=y)
                 else:
@@ -2205,7 +2205,7 @@ class ProjectorPreconditioner(LinearOperator):
                 x = y
 
             # last operator
-            A = self._I.multiplicants[0]
+            A = self._I.multiplicands[0]
             if out is None:
                 out = A.dot(x)
             else:
