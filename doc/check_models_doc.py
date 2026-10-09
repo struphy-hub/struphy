@@ -8,7 +8,6 @@ from pathlib import Path
 
 from doc_check_common import CheckConfig, get_documented_items, get_exported_names, run_check
 
-
 DOC_FILE = Path("doc/sections/subsections/models-all.rst")
 MODELS_INIT = Path("src/struphy/models/__init__.py")
 MODELS_DIR = Path("src/struphy/models")
@@ -29,11 +28,7 @@ def main() -> int:
     documented_items = get_documented_items(DOC_FILE, config.directive_pattern)
     syntax_targets = [
         ("models.__init__", MODELS_INIT),
-        *[
-            (path.stem, path)
-            for path in sorted(MODELS_DIR.glob("*.py"))
-            if path.name != "__init__.py"
-        ],
+        *[(path.stem, path) for path in sorted(MODELS_DIR.glob("*.py")) if path.name != "__init__.py"],
     ]
     return run_check(config, expected_items, documented_items, syntax_targets)
 
