@@ -30,6 +30,17 @@ def main() -> None:
         action="store_true",
         help="Upload the packaged profiling results to the profiling-data repo.",
     )
+    parser.add_argument(
+        "--language",
+        default="fortran",
+        choices=["fortran", "c"],
+        help="Pyccel language to compile the Struphy kernels with.",
+    )
+    parser.add_argument(
+        "--compiler",
+        default="GNU",
+        help='Pyccel compiler family ("GNU", "intel", "PGI", "nvidia" or "LLVM").',
+    )
     args = parser.parse_args()
 
     # Paths relative to this script's location, so it can be run from anywhere.
@@ -43,8 +54,8 @@ def main() -> None:
         physics_problem="Occurs in many plasma applications.",
         struphy_model_used="Poisson",
         params_source=params_dir / "params_poisson.py",
-        language="fortran",
-        compiler="GNU",
+        language=args.language,
+        compiler=args.compiler,
         upload=args.upload,
     )
 
