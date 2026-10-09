@@ -38,7 +38,7 @@ __device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
  * @param newton Accumulate periodic shifts if true; overwrite them otherwise.
  *
  * Call after updating the position. Boundary type 0 wraps periodically,
- * type 1 mirrors position and logical velocity and sets first_init_idx to -1,
+ * type 1 mirrors position and logical velocity and sets first_pusher_idx to -1,
  * type 2 clears all columns except the ID to -1, and type 3 is handled on
  * the host. The marker view carries shape and strides; j is a CUDA-only
  * column index replacing Pyccel array slices.
@@ -46,7 +46,7 @@ __device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
 __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_markers,
                                              const DomainArgs& args_domain, bool newton) {
     const long long* bc_type = args_markers.bc_type;
-    int first_init_idx = args_markers.first_init_idx;
+    int first_pusher_idx = args_markers.first_pusher_idx;
     int first_shift_idx = args_markers.first_shift_idx;
 
     // Remove markers before applying periodic or reflecting boundaries.
@@ -92,7 +92,7 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
         }
     }
     if (n_reflected == 0) return;
-    args_markers.markers(ip, first_init_idx) = -1.;
+    args_markers.markers(ip, first_pusher_idx) = -1.;
     for (int axis = 0; axis < 3; ++axis) {
         if (reflected[axis]) reflect_velocity(ip, args_markers.markers, args_domain, axis);
     }
