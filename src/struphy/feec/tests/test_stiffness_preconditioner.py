@@ -274,3 +274,98 @@ def test_stiffness_preconditioner_options():
         StiffnessPreconditioner(mass_ops, "rot")
     with pytest.raises(AssertionError):
         StiffnessPreconditioner(mass_ops, "grad", sigma=-1.0)
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["mid_aniso", "mid_perp", "stab_scaled", "average_eta3", "average_eta2_eta3", "mid_perp_average_eta3", "stab_id"],
+)
+def test_stiffness_preconditioner_mid_stab_average(case):
+    """PCG for G^T M_mid G + sigma S (I - A) on the unit cube (Dirichlet in eta1): exact (few iterations) with
+    constant (anisotropic or perpendicular) mid, a scaled stabilization and averages over periodic directions;
+    the identity stabilization (approximated) needs fewer iterations than no preconditioner."""
+
+    from feectools.linalg.basic import IdentityOperator
+    from feectools.linalg.solvers import inverse
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedAverageProjection, WeightedMassOperators
+    from struphy.feec.preconditioner import StiffnessPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(
+        TensorProductGrid(num_elements=[10, 8, 6]),
+        DerhamOptions(degree=[2, 3, 2], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=MPI.COMM_WORLD,
+    )
+    mass_ops = WeightedMassOperators(derham, domains.Cuboid())
+    sigma = 10.0
+
+    mid, stab, average = None, None, None
+    if case in ("mid_aniso",):
+        mid = mass_ops.create_weighted_mass(
+            "Hcurl", "Hcurl", weights=([[2.0, 0, 0], [0, 1.0, 0], [0, 0, 0.5]], "sqrt_g"), assemble=True
+        )
+    if case in ("mid_perp", "mid_perp_average_eta3"):
+        mid = mass_ops.create_weighted_mass(
+            "Hcurl", "Hcurl", weights=([[1.0, 0, 0], [0, 1.0, 0], [0, 0, 0.0]], "sqrt_g"), assemble=True
+        )
+    if case == "stab_scaled":
+        stab = 3.0 * mass_ops.M0
+    if case == "stab_id":
+        stab = "Id"
+    if case in ("average_eta3", "mid_perp_average_eta3"):
+        average = "eta3"
+    if case == "average_eta2_eta3":
+        average = "eta2 eta3"
+
+    # the operator
+    S = mass_ops.M0 if stab is None else (IdentityOperator(derham.V0) if stab == "Id" else stab)
+    if average:
+        dirs = [int(t[-1]) - 1 for t in average.split()]
+        S = S @ (IdentityOperator(derham.V0) - WeightedAverageProjection(derham, S, dirs))
+    A = derham.grad.T @ (mass_ops.M1 if mid is None else mid) @ derham.grad + sigma * S
+
+    P = StiffnessPreconditioner(mass_ops, "grad", sigma=sigma, mid=mid, stab=stab, stab_average=average)
+    assert P.stab_average == average
+
+    b = derham.boundary_ops["0"].dot(create_equal_random_arrays(derham.V0fem, seed=3, flattened=True)[1])
+    niter = []
+    for pc in (None, P):
+        inv = inverse(A, "pcg", pc=pc, tol=1e-10, maxiter=1000) if pc else inverse(A, "cg", tol=1e-10, maxiter=1000)
+        inv.dot(b)
+        assert inv._info["success"]
+        niter.append(inv._info["niter"])
+
+    if case == "stab_id":
+        assert niter[1] < niter[0]
+    else:
+        assert niter[1] <= 3
+
+
+def test_stiffness_preconditioner_mid_stab_options():
+    """Names of mass operators, wrong domains, averages only for grad, unknown directions."""
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import StiffnessPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(TensorProductGrid(num_elements=[4, 4, 2]), DerhamOptions(degree=[1, 1, 1], bcs=(None, None, None)))
+    mass_ops = WeightedMassOperators(derham, domains.Cuboid())
+    P = StiffnessPreconditioner(mass_ops, "grad", sigma=0.5, mid="M1", stab="M0", stab_average="eta2, eta3")
+    assert P.mid == "M1" and P.stab == "M0" and P.stab_average == "eta2, eta3"
+    with pytest.raises(ValueError):
+        StiffnessPreconditioner(mass_ops, "grad", sigma=0.5, mid="M1_does_not_exist")
+    with pytest.raises(AssertionError):
+        StiffnessPreconditioner(mass_ops, "grad", sigma=0.5, mid="M0")
+    with pytest.raises(ValueError):
+        StiffnessPreconditioner(mass_ops, "grad", sigma=0.5, stab_average="eta4")
+    with pytest.raises(NotImplementedError):
+        StiffnessPreconditioner(mass_ops, "curl", sigma=0.5, stab_average="eta3")
