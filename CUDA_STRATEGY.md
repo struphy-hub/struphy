@@ -271,7 +271,7 @@ deprecated (removed in 0.6): import them from `cunumpy.cuda` and `cunumpy.mpi`, 
 like struphy.
 
 **Mass-matrix preconditioners on CuPy** (`feec/preconditioner.py`, for #689). The Kronecker preconditioners
-(`MassMatrixPreconditioner`, `MassMatrixDiagonalPreconditioner`) build their 1d mass matrices and 1d solvers
+(`MassMatrixPreconditioner`) build their 1d mass matrices and 1d solvers
 (`FFTSolver` for circulant, `SparseSolver` otherwise) on the host on every backend; the process-local 1d stencil
 matrices (factors of the `KroneckerStencilMatrix`) and the diagonal scaling live on the device. Applying them makes
 no host copies: `KroneckerLinearSolver` solves device data with dense inverses built once from the host 1d solvers
