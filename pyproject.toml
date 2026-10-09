@@ -27,7 +27,7 @@ dependencies = [
     "cunumpy >= 0.6.1, <= 0.6.1",
     "pyccel>=2.2.0, <=2.2.3",
     "maybempi>=0.1.2",
-    "feectools>=0.6.0, <=0.6.0",
+    "feectools>=0.6.0, <=0.7.0",
     "scipy<=1.18.0",
     "h5py<=3.16.0",
     "h5netcdf<=1.8.1",
@@ -148,14 +148,18 @@ struphy = [
 line-length = 120
 
 [tool.ruff.format]
-# ruff>=0.16 also formats code blocks in Markdown; README.md is generated from README.qmd
-# and the doc snippets are aligned by hand
-exclude = ["*.md"]
+exclude = [
+    "*.md",
+]
 
 [tool.ruff.lint]
-# Ruff's pre-0.16 default rules (pyflakes and basic pycodestyle errors), plus
-# "I": import sorting (replaces isort), fixed with `ruff check --fix`
-select = ["E4", "E7", "E9", "F", "I"]
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "I",
+]
 ignore = [
     "E265",
     "E402",
