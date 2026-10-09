@@ -27,7 +27,7 @@ dependencies = [
     "cunumpy >= 0.6.2, <= 0.6.2",
     "pyccel>=2.2.0, <=2.2.3",
     "maybempi>=0.1.2",
-    "feectools>=0.5.0, <=0.5.0",
+    "feectools>=0.6.0, <=0.6.0",
     "scipy<=1.18.0",
     "h5py<=3.16.0",
     "h5netcdf<=1.8.1",
