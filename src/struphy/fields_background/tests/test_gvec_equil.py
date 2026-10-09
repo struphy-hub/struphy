@@ -17,12 +17,15 @@ def _markers(n=7, seed=3):
 
 
 @pytest.mark.parametrize("name", ["bv", "jv", "p0", "n0", "absB0"])
-def test_gvec_marker_evaluation_matches_grid(name):
+def test_gvec_marker_evaluation_matches_grid(name, with_gvec=False):
     """Marker (flat) evaluation gives one value per marker, equal to the grid evaluation at each marker.
 
     Before, gvec evaluated the markers' rho, theta and zeta as a tensor grid, so ``bv`` and ``jv`` at N markers
     returned N x N x N arrays, and ``absB0`` failed.
     """
+    if not with_gvec:
+        pytest.skip("GVEC not tested here (with_gvec=False), like the other GVEC tests")
+
     from struphy.fields_background.equils import GVECequilibrium
 
     equil = GVECequilibrium(**GVEC_PARAMS)
@@ -38,8 +41,11 @@ def test_gvec_marker_evaluation_matches_grid(name):
             assert np.isclose(f[ip], g.ravel()[0], rtol=1e-12, atol=1e-14)
 
 
-def test_gvec_marker_evaluation_boozer_raises():
+def test_gvec_marker_evaluation_boozer_raises(with_gvec=False):
     """gvec computes the Boozer transform per flux surface, so marker evaluation with ``use_boozer=True`` raises."""
+    if not with_gvec:
+        pytest.skip("GVEC not tested here (with_gvec=False), like the other GVEC tests")
+
     from struphy.fields_background.equils import GVECequilibrium
 
     equil = GVECequilibrium(**GVEC_PARAMS, use_boozer=True)

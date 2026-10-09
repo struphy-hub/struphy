@@ -12,7 +12,7 @@ struct MarkerArgs {
     int vdim;
     int weight_idx;
     int first_diagnostics_idx;
-    int first_init_idx;
+    int first_pusher_idx;
     int first_shift_idx;
     int residual_idx;
     int first_free_idx;
