@@ -10,7 +10,7 @@ from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
-from struphy.feec.mass import L2Projector, WeightedMassOperator
+from struphy.feec.mass import L2Projector, WeightedAverageProjection, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.solver import SolverParameters
@@ -170,6 +170,13 @@ class ImplicitDiffusion(Propagator):
             - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
             - ``"Id"``: identity operator.
 
+        stab_average : str, default=None
+            If not None, the stabilization becomes ``stab_mat @ (I - A)``, where ``A`` is the average
+            over the given logical directions, e.g. ``"eta3"`` or ``"eta2 eta3"``, weighted with
+            ``stab_mat`` (:class:`~struphy.feec.mass.WeightedAverageProjection`; e.g. the flux-surface
+            average with the volume element for ``"M0"``), such that the operator stays symmetric.
+            Not supported by ``precond="MultiGrid"``.
+
         diffusion_mat : {"M1", "M1perp"} or WeightedMassOperator, default="M1"
             Diffusion metric in the bilinear form
             ``grad.T @ diffusion_mat @ grad``.
@@ -195,10 +202,10 @@ class ImplicitDiffusion(Propagator):
               approximation of the inverse of the 0-form mass matrix ``M0``
               (see :mod:`struphy.feec.preconditioner`).
             - ``"StiffnessPreconditioner"``: Kronecker approximation of the inverse of
-              ``grad.T @ M1 @ grad + sigma * M0``
-              (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner`), with
-              ``sigma = sigma_1`` (divided by dt if ``divide_by_dt=True``); any ``stab_mat`` is
-              approximated by ``M0`` (this keeps periodic or Neumann problems regular).
+              ``grad.T @ diffusion_mat @ grad + sigma * stab_mat (I - A)``
+              (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``mid=diffusion_mat``,
+              ``stab=stab_mat`` and ``stab_average``), with ``sigma = sigma_1`` (divided by dt if
+              ``divide_by_dt=True``).
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the mass-matrix or stiffness
@@ -236,6 +243,7 @@ class ImplicitDiffusion(Propagator):
         sigma_3: float = 1.0
         divide_by_dt: bool = False
         stab_mat: OptsStabMat = "M0"
+        stab_average: str = None
         diffusion_mat: OptsDiffusionMat = "M1"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
@@ -253,6 +261,9 @@ class ImplicitDiffusion(Propagator):
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             if self.precond is not None:
                 assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+            preconditioner._parse_directions(self.stab_average)
+            if self.stab_average and self.precond == "MultiGrid":
+                raise ValueError("precond='MultiGrid' does not support stab_average (no coarsening of the average).")
 
             # defaults
             if self.precond_params is None:
@@ -363,6 +374,12 @@ class ImplicitDiffusion(Propagator):
         else:
             stab_mat = getattr(self.mass_ops, self.options.stab_mat)
 
+        # stabilization without the (stab_mat-weighted) average over the given directions: stab_mat @ (I - A)
+        average_dirs = preconditioner._parse_directions(self.options.stab_average)
+        if average_dirs:
+            avg = WeightedAverageProjection(self.derham, stab_mat, average_dirs)
+            stab_mat = stab_mat @ (IdentityOperator(stab_mat.domain, stab_mat.codomain) - avg)
+
         if isinstance(self.options.diffusion_mat, str):
             diffusion_mat = getattr(self.mass_ops, self.options.diffusion_mat)
         else:
@@ -421,14 +438,14 @@ class ImplicitDiffusion(Propagator):
         self._tmp_src = phi.space.zeros()
 
     def _build_stiffness_pc(self, sig_1: float) -> preconditioner.StiffnessPreconditioner:
-        """StiffnessPreconditioner for ``sig_1 * stab_mat + grad.T @ M1 @ grad``; the stabilization
-        is approximated by ``sig_1 * M0`` for any ``stab_mat`` (with ``sigma = 0``, the pseudo-inverse
-        would drop the constants, on which the operator is not singular for periodic or Neumann
-        boundary conditions)."""
+        """StiffnessPreconditioner for ``sig_1 * stab_mat (I - A) + grad.T @ diffusion_mat @ grad``."""
         return preconditioner.StiffnessPreconditioner(
             self.mass_ops,
             "grad",
             sigma=sig_1,
+            mid=self.options.diffusion_mat,
+            stab=self.options.stab_mat,
+            stab_average=self.options.stab_average,
             **self.options.precond_params,
         )
 

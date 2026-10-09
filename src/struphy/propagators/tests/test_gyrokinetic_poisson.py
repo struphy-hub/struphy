@@ -808,6 +808,58 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         plt.show()
 
 
+@pytest.mark.parametrize("which_geometry", ["cylindrical", "toroidal"])
+def test_poisson_adiabatic_gyrokinetic_stiffness_preconditioner(which_geometry):
+    """PoissonAdiabaticGyrokinetic (M1gyro, M0ad_withT and the average in the stabilization): the stiffness
+    preconditioner gives the solution without preconditioner, in fewer iterations; multigrid is rejected."""
+    from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
+
+    if which_geometry == "cylindrical":
+        domain = domains.HollowCylinder(a1=0.1, a2=1.0, Lz=4.0)
+    else:
+        domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=4.0, tor_period=1)
+    equil = equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0)
+    equil.domain = domain
+
+    derham = Derham(
+        TensorProductGrid(num_elements=[12, 12, 8]),
+        DerhamOptions(degree=[2, 2, 2], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return xp.sin(xp.pi * e1) * (1.0 + xp.cos(2 * xp.pi * e2) * xp.sin(2 * xp.pi * e3))
+
+    phis, infos = [], []
+    for precond in [None, "StiffnessPreconditioner"]:
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        prop = PoissonAdiabaticGyrokinetic(rho=rho, epsilon=0.1)
+        prop.variables.phi = phi
+        prop.options = prop.Options(
+            which_geometry=which_geometry,
+            precond=precond,
+            solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
+        )
+        prop.allocate()
+        prop(1.0)
+        phis.append(phi.spline.vector.toarray())
+        infos.append(prop._solver._info)
+
+    if comm.Get_size() > 1:
+        phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
+    assert all(info["success"] for info in infos)
+    assert xp.max(xp.abs(phis[0] - phis[1])) < 1e-7 * xp.max(xp.abs(phis[0]))
+    assert infos[1]["niter"] < infos[0]["niter"] / 2
+
+    with pytest.raises(ValueError):
+        PoissonAdiabaticGyrokinetic.Options(precond="MultiGrid")
+
+
 if __name__ == "__main__":
     direction = 0
     bc_type = "dirichlet"
