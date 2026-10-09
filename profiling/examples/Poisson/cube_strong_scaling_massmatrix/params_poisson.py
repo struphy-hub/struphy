@@ -4,13 +4,13 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Poisson strong scaling on 3D cube, no preconditioner"
+name = "Poisson strong scaling on 3D cube, mass-matrix preconditioner"
 description = """
 Strong scaling test for Poisson equation on a 3D cube (Cuboid).
 The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
 exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions are set in direction eta1.
-The linear system is solved with unpreconditioned CG.
+The linear system is solved with CG preconditioned by the Kronecker approximation of the inverse 0-form mass matrix (MassMatrixPreconditioner).
 """
 
 import logging
@@ -118,7 +118,7 @@ solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=Fals
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
-    precond=None,
+    precond="MassMatrixPreconditioner",
     solver_params=solver_params,
 )
 
