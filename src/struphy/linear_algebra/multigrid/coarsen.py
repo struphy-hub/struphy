@@ -111,7 +111,7 @@ class OperatorCoarsener:
             return SumLinearOperator(self.space(A.domain), self.space(A.codomain), *addends)
 
         if isinstance(A, ComposedLinearOperator):
-            factors = [self(a) for a in A.multiplicants]
+            factors = [self(a) for a in A.multiplicands]
             return ComposedLinearOperator(self.space(A.domain), self.space(A.codomain), *factors)
 
         if isinstance(A, PowerLinearOperator):

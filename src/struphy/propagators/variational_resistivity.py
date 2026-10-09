@@ -249,7 +249,7 @@ class VariationalResistivity(Propagator):
         total_resistivity = self._update_artificial_resistivity(bn, dt)
 
         self._scaled_stiffness._scalar = dt * self._eta
-        # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
+        # self.evol_op._multiplicands[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current:
             bn1 = self.evol_op.dot(
                 bn
