@@ -71,7 +71,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
     markers = args_markers.markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
 
     # allocate for magnetic field evaluation
     eta_diff = empty(3, dtype=float)
@@ -108,10 +108,10 @@ def cc_lin_mhd_5d_gradB_dg(
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_pusher_idx : first_pusher_idx + 3]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        eta_diff[:] = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
+        eta_diff[:] = markers[ip, 0:3] - markers[ip, first_pusher_idx : first_pusher_idx + 3]
 
         # marker weight and velocity
         weight = markers[ip, 5]
