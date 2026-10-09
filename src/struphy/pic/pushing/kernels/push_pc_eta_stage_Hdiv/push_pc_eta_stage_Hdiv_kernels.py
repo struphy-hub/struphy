@@ -59,7 +59,7 @@ def push_pc_eta_stage_Hdiv(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -128,7 +128,7 @@ def push_pc_eta_stage_Hdiv(
 
         # update markers for the next stage
         markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
+            markers[ip, first_pusher_idx : first_pusher_idx + 3]
             + dt * k * a[stage]
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
