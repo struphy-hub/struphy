@@ -65,7 +65,7 @@ def push_vxb_implicit(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
 
     # fmt: off
     #$ omp parallel firstprivate(b_prod) private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
@@ -73,7 +73,7 @@ def push_vxb_implicit(
     # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[ip, first_pusher_idx] == -1.0:
             continue
 
         e1 = markers[ip, 0]
