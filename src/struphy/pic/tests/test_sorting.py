@@ -1,4 +1,6 @@
 import logging
+import subprocess
+import sys
 from time import time
 
 import cunumpy as xp
@@ -7,8 +9,9 @@ from maybempi import MPI
 
 from struphy import BoundaryParameters, LoadingParameters, SortingParameters, WeightsParameters, domains
 from struphy.feec.psydac_derham import Derham
+from struphy.geometry.tests.test_domain import _cupy_installed, serial_child_env
 from struphy.io.options import DerhamOptions
-from struphy.pic.particles import Particles6D
+from struphy.pic.particles import Particles6D, ParticlesSPH
 from struphy.topology.grids import TensorProductGrid
 
 logger = logging.getLogger("struphy")
@@ -192,6 +195,95 @@ def test_mpi_sort_markers_on_rank_boundary(bc):
     for tag, eta in zip(tags, special):
         n_found = mpi_comm.allreduce(int(xp.count_nonzero(v1 == tag)))
         assert n_found == 1, f"marker at {eta} found on {n_found} processes"
+
+
+def check_sorting_boxes_on_cupy():
+    """Create ``Particles6D`` with sorting boxes on the CuPy backend and compare the boxes with NumPy.
+
+    Checks the setup (``SortingBoxes``: neighbours and box arrays, also for SPH particles) and one :meth:`do_sort` of the same markers on
+    both backends. Box sorting has no CUDA port yet (#694); on CuPy it runs the pyccel kernels on the host. Serial
+    (no MPI communicator). Runs with the real CuPy on a GPU and with cunumpy's fake CuPy (``CUNUMPY_FAKE_CUPY=1``).
+    """
+    import numpy as np
+
+    def make_particles():
+        return Particles6D(
+            loading_params=LoadingParameters(Np=3000, seed=1234),
+            sorting_params=SortingParameters(boxes_per_dim=(4, 3, 2)),
+        )
+
+    with xp.use_backend("numpy"):
+        ref = make_particles()
+        ref.draw_markers(sort=False)
+        ref_boxes = ref.sorting_boxes
+        ref_setup = {
+            name: np.array(getattr(ref_boxes, name), copy=True)
+            for name in ("_neighbours", "_boxes", "_next_index", "_cumul_next_index")
+        }
+        markers_in = np.array(ref.markers, copy=True)
+        ref.do_sort()
+
+    with xp.use_backend("cupy"):
+        particles = make_particles()
+        boxes = particles.sorting_boxes
+        assert xp.get_array_backend(boxes.neighbours) == "cupy"
+        assert xp.get_array_backend(boxes.boxes) == "cupy"
+        for name, value in ref_setup.items():
+            dev = getattr(boxes, name)
+            assert dev.shape == value.shape and dev.dtype == value.dtype, name
+            assert np.array_equal(xp.to_numpy(dev), value), name
+
+        # the same markers as on NumPy, then sort on both backends
+        particles.markers[:] = xp.to_cunumpy(markers_in)
+        particles.update_holes()
+        particles.do_sort()
+        assert np.array_equal(xp.to_numpy(particles.markers), ref.markers)
+        for name in ("_boxes", "_next_index", "_cumul_next_index"):
+            assert np.array_equal(xp.to_numpy(getattr(boxes, name)), getattr(ref_boxes, name)), name
+
+    # SPH particles also set up the boundary boxes and the neighbouring processes (on the host)
+    def make_sph():
+        return ParticlesSPH(
+            loading_params=LoadingParameters(Np=3000, seed=1234),
+            sorting_params=SortingParameters(boxes_per_dim=(4, 3, 2)),
+        )
+
+    with xp.use_backend("numpy"):
+        ref_sph = make_sph()
+    with xp.use_backend("cupy"):
+        sph = make_sph()
+    assert sph.sorting_boxes.communicate
+    assert sph.sorting_boxes.is_domain_boundary == ref_sph.sorting_boxes.is_domain_boundary
+    assert all(type(v) is bool for v in sph.sorting_boxes.is_domain_boundary.values())
+    assert sph.sorting_boxes._bnd_boxes_x_m == ref_sph.sorting_boxes._bnd_boxes_x_m
+    assert (sph._x_m_proc, sph._y_p_proc, sph._x_p_y_p_z_p_proc) == (
+        ref_sph._x_m_proc,
+        ref_sph._y_p_proc,
+        ref_sph._x_p_y_p_z_p_proc,
+    )
+    assert np.array_equal(xp.to_numpy(sph.sorting_boxes.neighbours), ref_sph.sorting_boxes.neighbours)
+
+
+@pytest.mark.skipif(not xp.cupy_available(), reason="CuPy/GPU not available")
+def test_sorting_boxes_on_cupy():
+    """Sorting boxes on the CuPy backend match the NumPy ones (see :func:`check_sorting_boxes_on_cupy`)."""
+    check_sorting_boxes_on_cupy()
+
+
+@pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
+def test_sorting_boxes_on_cupy_fake_cupy():
+    """Without a GPU: :func:`check_sorting_boxes_on_cupy` with cunumpy's fake CuPy, which rejects host/device mixing.
+
+    Runs in a serial subprocess because the fake CuPy must be installed before cunumpy is imported; under ``mpirun``
+    only rank 0 starts it.
+    """
+    if MPI.COMM_WORLD.Get_rank() != 0:
+        pytest.skip("serial subprocess test, runs on rank 0 only")
+    code = "from struphy.pic.tests.test_sorting import check_sorting_boxes_on_cupy; check_sorting_boxes_on_cupy()"
+    result = subprocess.run(
+        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr[-4000:]
 
 
 if __name__ == "__main__":

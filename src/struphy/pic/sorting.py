@@ -3,6 +3,7 @@ import math
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
+import numpy as np
 
 from struphy.pic.sorting_kernels import flatten_index, initialize_neighbours
 
@@ -226,6 +227,7 @@ class SortingBoxes:
 
         n_particles = self._markers_shape[0]
         n_mkr = int(n_particles / n_box_in) + 1
+        # host-side bookkeeping: plain Python numbers, also on the CuPy backend
         n_cols = round(
             n_mkr * (1 + 1 / math.sqrt(n_mkr) + self._box_bufsize),
         )
@@ -234,11 +236,13 @@ class SortingBoxes:
         self._boxes = xp.full((self._n_boxes + 1, n_cols), -1, dtype=int)
         self._next_index = xp.zeros((self._n_boxes + 1), dtype=int)
         self._cumul_next_index = xp.zeros((self._n_boxes + 2), dtype=int)
-        self._neighbours = xp.zeros((self._n_boxes, 27), dtype=int)
 
-        # A particle on box i only sees particles in boxes that belong to neighbours[i]
-        initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
-        # logger.info(f"{self._rank = }\n{self._neighbours = }")
+        # A particle on box i only sees particles in boxes that belong to neighbours[i].
+        # Setup data: built once on the host with the pyccel kernel, then moved to the
+        # active backend (one host-to-device copy on CuPy).
+        neighbours = np.zeros((self._n_boxes, 27), dtype=int)
+        initialize_neighbours(neighbours, self.nx, self.ny, self.nz)
+        self._neighbours = xp.to_cunumpy(neighbours)
 
         self._swap_line_1 = xp.zeros(self._markers_shape[1])
         self._swap_line_2 = xp.zeros(self._markers_shape[1])
