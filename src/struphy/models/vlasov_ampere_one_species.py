@@ -166,7 +166,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         """
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method (reset weights after Poisson solve)
+        # charge of f - f0 for the Poisson right-hand side (see below for the weights of the time stepping)
         particles = self.kinetic_ions.var.particles
         particles.update_weights()
 
@@ -178,10 +178,15 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        # The pushers evaluate e at the markers, including in the ghost cells: grad.dot does not fill them,
+        # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
+        self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
 
-        # reset particle weights
-        particles.weights = particles.weights0.copy()
+        # The Poisson right-hand side is the charge of f - f0 in any case; the time stepping uses the delta-f
+        # weights only with the control variate (and the scalars must be computed with the same weights at t=0).
+        if not particles.control_variate:
+            particles.weights = particles.weights0.copy()
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
