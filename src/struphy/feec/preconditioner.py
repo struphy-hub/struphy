@@ -262,7 +262,11 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         Whether to include boundary operators.
 
     dim_reduce : int | None
-        Axis along which the weight is kept; None for unit weights in all directions.
+        Axis along which the weight is kept (default 0); None for unit weights in all directions.
+        With an axis, the approximation is exact for weights (and mappings) that vary only along
+        that axis, e.g. radial profiles in eta1. With None, the Kronecker factors do not depend
+        on the weights, so ``update_mass_operator`` only recomputes the diagonal scaling: use it
+        for weights that change often (e.g. a density updated in every time step).
 
     weight_reduction : str
         How the weight is reduced in the other axes: ``"midpoint"`` (value at 0.5, default)
@@ -272,6 +276,12 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
     diagonal_scaling : bool
         Whether to correct the approximation with the diagonals of the mass matrix and of
         its approximation (see :class:`KroneckerPreconditioner`; default True).
+
+    Notes
+    -----
+    The diagonal scaling follows `G. Loli, G. Sangalli, M. Tani, "Easy and efficient preconditioning
+    of the isogeometric mass matrix", Comp. Math. Appl., Vol. 116, 2022
+    <https://www.sciencedirect.com/science/article/pii/S0898122120304715?via%3Dihub>`_.
     """
 
     def __init__(
@@ -348,43 +358,6 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
             self._weight_reduction,
             self._diagonal_scaling,
         )
-
-
-class MassMatrixDiagonalPreconditioner(MassMatrixPreconditioner):
-    r"""
-    Preconditioner for inverting 3d weighted mass matrices. The mass matrix is approximated by
-
-    .. math::
-        D^{1/2} * \hat D^{-1/2} * \hat M * \hat D^{-1/2} * D^{1/2}
-
-    Where $D$ is the diagonal of the matrix to invert, :math:`\hat M` is the mass matrix on the logical domain
-    that is a Kronecker product (fastly inverted) and :math:`\hat D^{-1/2}` is the diagonal of :math:`\hat M`.
-
-    This is ``MassMatrixPreconditioner(mass_operator, apply_bc, dim_reduce=None, diagonal_scaling=True)``;
-    the class is kept for its name (e.g. in solver options).
-
-    Notes
-    -----
-
-    Reference: `G. Loli, G. Sangalli, M. Tani, "Easy and efficient preconditioning of the isogeometric mass matrix", Comp. Math. Appl., Vol. 116, 2022 <https://www.sciencedirect.com/science/article/pii/S0898122120304715?via%3Dihub>`_
-
-    Parameters
-    ----------
-    mass_operator : WeightedMassOperator
-        The weighted mass operator for which the approximate inverse is needed.
-
-    apply_bc : bool
-        Whether to include boundary operators.
-    """
-
-    def __init__(self, mass_operator: WeightedMassOperator, apply_bc: bool = True):
-        super().__init__(mass_operator, apply_bc=apply_bc, dim_reduce=None, diagonal_scaling=True)
-
-    def transpose(self, conjugate: bool = False) -> MassMatrixDiagonalPreconditioner:
-        """
-        Returns the transposed operator.
-        """
-        return MassMatrixDiagonalPreconditioner(self._mass_operator.transpose(), self._apply_bc)
 
 
 class StiffnessPreconditioner(KroneckerPreconditioner):

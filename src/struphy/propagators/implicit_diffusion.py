@@ -191,7 +191,7 @@ class ImplicitDiffusion(Propagator):
             - ``"MultiGrid"``: geometric multigrid V-cycle
               (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`,
               requires ``solver="pcg"``).
-            - ``"MassMatrixPreconditioner"`` or ``"MassMatrixDiagonalPreconditioner"``: Kronecker
+            - ``"MassMatrixPreconditioner"``: Kronecker
               approximation of the inverse of the 0-form mass matrix ``M0``
               (see :mod:`struphy.feec.preconditioner`).
             - ``"StiffnessPreconditioner"``: Kronecker approximation of the inverse of

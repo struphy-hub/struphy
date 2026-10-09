@@ -75,12 +75,11 @@ class LiteralOptions:
     # solvers
     OptsSymmSolver = Literal["pcg", "cg"]
     OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
-    OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
+    OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
     OptsDiffusionPrecond = Literal[
         "MultiGrid",
         "StiffnessPreconditioner",
         "MassMatrixPreconditioner",
-        "MassMatrixDiagonalPreconditioner",
         None,
     ]
     OptsSaddlePointSolver = Literal["uzawa"]
