@@ -135,7 +135,7 @@ class ImplicitDiffusion(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`ImplicitDiffusion`.
+        r"""Configuration options for :class:`ImplicitDiffusion`.
 
         Parameters
         ----------
@@ -222,6 +222,22 @@ class ImplicitDiffusion(Propagator):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
 
+        enforce_compatibility : bool, default=False
+            If ``True`` and the diffusion operator is singular (no Dirichlet boundary conditions
+            and no polar splines, i.e. the constant functions are in its kernel), the right-hand side
+            is made compatible before the solve by removing its constant ("net charge") component,
+
+            .. math::
+
+                \mathbf b \leftarrow \mathbf b - \frac{\mathbf 1^\top \mathbf b}{\mathbf 1^\top \mathbb M^0 \mathbf 1}\, \mathbb M^0 \mathbf 1\,,
+
+            where :math:`\mathbf 1` (all ones) is the coefficient vector of the constant function
+            (partition of unity). This is equivalent to adding a uniform neutralizing background.
+            It is meant for (nearly) singular problems where ``sigma_1`` is only a small
+            stabilization; then ``phi`` stays of order one instead of growing like
+            ``(net charge) / sigma_1``, which would destroy the accuracy of ``grad phi``.
+            For ``stab_mat="M0"`` and ``sigma_2 = 0`` it changes ``phi`` only by a constant, for any ``sigma_1``.
+
         filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
             If not None, specifies a filter to the accumulation of a specific variable.
             Keyed by the ``pic_variable`` of the corresponding
@@ -251,6 +267,7 @@ class ImplicitDiffusion(Propagator):
         precond_params: dict = None
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
+        enforce_compatibility: bool = False
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
@@ -437,6 +454,28 @@ class ImplicitDiffusion(Propagator):
         self._rhs2 = phi.space.zeros()
         self._tmp_src = phi.space.zeros()
 
+        # constant function and its weak form M0 @ 1, for removing the kernel component of the rhs
+        self._ones = None
+        if self.options.enforce_compatibility and self.operator_is_singular:
+            self._ones = phi.space.zeros()
+            owned = tuple(slice(s, e + 1) for s, e in zip(self._ones.starts, self._ones.ends))
+            self._ones[owned] = 1.0
+            self._ones.update_ghost_regions()
+            self._m0_ones = self.mass_ops.M0.dot(self._ones)
+            self._ones_m0_ones = self._ones.inner(self._m0_ones)
+
+    @property
+    def operator_is_singular(self) -> bool:
+        """True if the diffusion operator ``grad.T @ diffusion_mat @ grad`` is known to be singular
+        with the constant functions (coefficient vector of all ones) in its kernel: no Dirichlet boundary
+        conditions and tensor-product splines. Polar splines are conservatively treated as regular."""
+        no_dirichlet = not any(any(bc) for bc in self.derham.dirichlet_bc)
+        return (
+            no_dirichlet
+            and not self.derham.polar_splines
+            and isinstance(self.variables.phi.spline.vector, StencilVector)
+        )
+
     def _build_stiffness_pc(self, sig_1: float) -> preconditioner.StiffnessPreconditioner:
         """StiffnessPreconditioner for ``sig_1 * stab_mat (I - A) + grad.T @ diffusion_mat @ grad``."""
         return preconditioner.StiffnessPreconditioner(
@@ -532,6 +571,10 @@ class ImplicitDiffusion(Propagator):
                 self._rhs2 += sig_3 * coeff * vec
 
         rhs += self._rhs2
+
+        # remove the kernel component (net charge) of the rhs: 1^T rhs = 0 (compatibility condition)
+        if self._ones is not None:
+            rhs.mul_iadd(-self._ones.inner(rhs) / self._ones_m0_ones, self._m0_ones)
 
         if self.diagnostic is not None:
             proj = L2Projector("H1", self.mass_ops)

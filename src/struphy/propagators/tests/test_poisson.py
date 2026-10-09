@@ -880,6 +880,99 @@ def test_implicit_diffusion_multigrid_dt():
         assert prop._solver._info["niter"] <= 15
 
 
+@pytest.mark.parametrize("stab_mat", ["Id", "M0"])
+def test_poisson_net_charge_periodic_1d(stab_mat):
+    """Periodic Poisson problem with a non-neutral source (net charge, e.g. Monte-Carlo noise).
+
+    The constant functions span the kernel of the periodic Laplacian. With the default options the
+    net charge is removed from the rhs (compatibility condition), such that phi stays O(1) and
+    E = -grad phi is accurate. Without it, the constant mode of phi is (net charge) / stab_eps.
+    """
+    Lx = 12.56
+    k = 2 * xp.pi / Lx
+    amp = 0.1
+    net = 0.3
+
+    domain = domains.Cuboid(r1=Lx)
+    derham = Derham(TensorProductGrid(num_elements=(16, 1, 1)), DerhamOptions(degree=(3, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return net + amp * xp.cos(2 * xp.pi * e1)
+
+    # uniform points without the duplicate endpoint, such that the mean of cos(k x) vanishes
+    e1 = xp.linspace(0.0, 1.0, 100, endpoint=False)
+    x = domain(e1, 0.0, 0.0)[0][:, 0, 0]
+    phi_exact = amp / k**2 * xp.cos(k * x)
+    e_exact = amp / k * xp.sin(k * x)
+
+    def solve(**kwargs):
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        poisson = PoissonSolve(rho=rho)
+        poisson.variables.phi = phi
+        poisson.options = poisson.Options(
+            stab_mat=stab_mat,
+            solver_params=SolverParameters(tol=1e-13, maxiter=3000, recycle=False),
+            **kwargs,
+        )
+        poisson.allocate()
+        poisson(1.0)
+        e = FEECVariable(space="Hcurl")
+        e.allocate(derham=derham, domain=domain)
+        derham.grad.dot(-phi.spline.vector, out=e.spline.vector)
+        phi_vals = domain.push(phi.spline, e1, 0.0, 0.0, kind="0")[:, 0, 0]
+        e_vals = domain.push(e.spline, e1, 0.0, 0.0, kind="1")[0][:, 0, 0]
+        return poisson, phi_vals, e_vals
+
+    # default options (stab_eps -> 1e-14): phi is O(1) and E is accurate
+    poisson, phi_vals, e_vals = solve()
+    assert poisson.operator_is_singular
+    e_err = xp.max(xp.abs(e_vals - e_exact)) / xp.max(xp.abs(e_exact))
+    phi_err = xp.max(xp.abs(phi_vals - xp.mean(phi_vals) - phi_exact)) / xp.max(xp.abs(phi_exact))
+    logger.info(f"{stab_mat=}: {xp.max(xp.abs(phi_vals))=}, {e_err=}, {phi_err=}")
+    assert xp.max(xp.abs(phi_vals)) < 2.0 * xp.max(xp.abs(phi_exact))
+    assert e_err < 1e-3
+    assert phi_err < 1e-3
+
+    # without compatibility, the constant mode of phi is huge: (net charge) / stab_eps
+    _, phi_vals_nc, _ = solve(enforce_compatibility=False)
+    logger.info(f"{stab_mat=}, enforce_compatibility=False: {xp.max(xp.abs(phi_vals_nc))=}")
+    assert xp.max(xp.abs(phi_vals_nc)) > 1e10
+
+    # for stab_mat="M0" and a finite stab_eps, the projection changes phi only by a constant
+    if stab_mat == "M0":
+        _, phi1, e1_vals = solve(stab_eps=1e-2)
+        _, phi2, e2_vals = solve(stab_eps=1e-2, enforce_compatibility=False)
+        assert xp.max(xp.abs(e1_vals - e2_vals)) < 1e-10 * xp.max(xp.abs(e_exact))
+        shift = phi2 - phi1
+        assert xp.max(xp.abs(shift - xp.mean(shift))) < 1e-10 * xp.max(xp.abs(phi_exact))
+
+
+def test_poisson_dirichlet_not_singular():
+    """With Dirichlet boundary conditions the Poisson operator is regular and the rhs is not modified."""
+    domain = domains.Cuboid(r1=4.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=(8, 1, 1)),
+        DerhamOptions(degree=(2, 1, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = WeightedMassOperators(derham, domain)
+
+    phi = FEECVariable(space="H1")
+    phi.allocate(derham=derham, domain=domain)
+    poisson = PoissonSolve(rho=lambda e1, e2, e3: 1.0 + 0.0 * e1)
+    poisson.variables.phi = phi
+    poisson.allocate()
+    assert not poisson.operator_is_singular
+    assert poisson._ones is None
+
+
 @pytest.mark.parametrize("stab_mat", ["M0", "Id"])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 def test_poisson_2d_kronecker_preconds(bc_type, stab_mat):
