@@ -42,7 +42,7 @@ def eval_gradB_ediff(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
@@ -51,10 +51,10 @@ def eval_gradB_ediff(
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_pusher_idx : first_pusher_idx + 3]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        eta_diff = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
+        eta_diff = markers[ip, 0:3] - markers[ip, first_pusher_idx : first_pusher_idx + 3]
 
         # marker weight and velocity
         weight = markers[ip, 5]
