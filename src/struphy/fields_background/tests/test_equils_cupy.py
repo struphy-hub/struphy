@@ -214,7 +214,9 @@ def check_equil_on_cupy(case):
                 assert np.allclose(o, r, rtol=1e-12, atol=1e-12, equal_nan=True), (case, where, name)
 
 
-def _check_needs(case):
+def _check_needs(case, with_gvec=False):
+    if EQUIL_CASES[case][0] == "GVECequilibrium" and not with_gvec:
+        pytest.skip("GVEC not tested here (with_gvec=False), like the other GVEC tests")
     package = NEEDS.get(EQUIL_CASES[case][0])
     if package is not None and importlib.util.find_spec(package) is None:
         pytest.skip(f"{package} is not installed")
@@ -248,12 +250,12 @@ def test_host_call_numpy_is_plain_call():
 
 @pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
 @pytest.mark.parametrize("case", list(EQUIL_CASES))
-def test_equil_fake_cupy(case):
+def test_equil_fake_cupy(case, with_gvec=False):
     """Without a GPU: :func:`check_equil_on_cupy` with cunumpy's fake CuPy, which rejects host/device mixing.
 
     Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
     """
-    _check_needs(case)
+    _check_needs(case, with_gvec)
     code = (
         "from struphy.fields_background.tests.test_equils_cupy import check_equil_on_cupy, host_geometry_kernels\n"
         f"with host_geometry_kernels(): check_equil_on_cupy({case!r})"
@@ -263,7 +265,7 @@ def test_equil_fake_cupy(case):
 
 @requires_cupy
 @pytest.mark.parametrize("case", list(EQUIL_CASES))
-def test_equil_cupy(case):
+def test_equil_cupy(case, with_gvec=False):
     """On a GPU: the equilibria are created and evaluated on CuPy and agree with NumPy."""
-    _check_needs(case)
+    _check_needs(case, with_gvec)
     check_equil_on_cupy(case)

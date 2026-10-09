@@ -1,8 +1,10 @@
 """Mass-matrix preconditioners on the CuPy backend (struphy-hub/struphy#689, part of #650).
 
 The 1d mass matrices and solvers of the Kronecker preconditioners are host (NumPy) setup data on every
-backend; the Kronecker stencil matrices and the vectors they are applied to live on the device. These tests
-build the preconditioners on the CuPy backend and compare their action with the NumPy backend:
+backend; the Kronecker stencil matrices, the diagonal scaling and the vectors they are applied to live on
+the device, and feectools' KroneckerLinearSolver solves device data with dense inverses built from the host
+1d solvers. These tests build the preconditioners on the CuPy backend, check that applying them makes no
+host/device transfers, and compare their action with the NumPy backend:
 
 * without a GPU, with cunumpy's fake CuPy (host memory, CuPy semantics) in a subprocess, the CUDA kernels
   launched on the way (feectools' stencil kernels, struphy's geometry kernels) run by CPU emulation;
@@ -22,7 +24,12 @@ from struphy.geometry.tests.test_domain import _cupy_installed, serial_child_env
 requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
 
 SPACES = ("M0", "M1", "M2")
-PRECONDITIONERS = ("MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner")
+# (class name, keyword arguments)
+PRECONDITIONERS = (
+    ("MassMatrixPreconditioner", {}),
+    ("MassMatrixPreconditioner", {"weight_reduction": "average", "diagonal_scaling": True}),
+    ("MassMatrixDiagonalPreconditioner", {}),
+)
 BCS = {
     "periodic": (None, None, None),
     "clamped": (("dirichlet", "dirichlet"), ("free", "free"), ("free", "dirichlet")),
@@ -72,7 +79,10 @@ def _to_host(v):
 
 
 def check_preconditioners_on_cupy(bcs_name):
-    """Every preconditioner of :data:`PRECONDITIONERS` for M0, M1 and M2 gives the NumPy result on the CuPy backend."""
+    """Every preconditioner of :data:`PRECONDITIONERS` for M0, M1 and M2 gives the NumPy result on the CuPy backend.
+
+    Applying the preconditioners (``dot``, also in place) makes no host/device transfers.
+    """
     from struphy.feec import preconditioner
 
     bcs = BCS[bcs_name]
@@ -87,19 +97,21 @@ def check_preconditioners_on_cupy(bcs_name):
             M_device = getattr(device, space)
             v_device = _to_device(v_host, M_device.domain)
 
-        for name in PRECONDITIONERS:
+        for name, kwargs in PRECONDITIONERS:
             cls = getattr(preconditioner, name)
+            case = (bcs_name, space, name, kwargs)
             with cunumpy.use_backend("numpy"):
-                expected = _to_host(cls(M_host).dot(v_host))
+                expected = _to_host(cls(M_host, **kwargs).dot(v_host))
             with cunumpy.use_backend("cupy"):
-                pc = cls(M_device)
-                out = pc.dot(v_device)
-                for block in _blocks(out):
-                    assert cunumpy.is_gpu(block._data), (bcs_name, space, name)
-                # in-place application
+                pc = cls(M_device, **kwargs)
                 out_inplace = pc.codomain.zeros()
-                pc.dot(v_device, out=out_inplace)
-            assert np.linalg.norm(expected) > 0, (bcs_name, space, name)
+                with cunumpy.profiling.assert_no_transfers():
+                    out = pc.dot(v_device)
+                    # in-place application
+                    pc.dot(v_device, out=out_inplace)
+                for block in _blocks(out):
+                    assert cunumpy.is_gpu(block._data), case
+            assert np.linalg.norm(expected) > 0, case
             np.testing.assert_allclose(_to_host(out), expected, rtol=1e-12, atol=1e-12 * np.abs(expected).max())
             np.testing.assert_allclose(_to_host(out_inplace), expected, rtol=1e-12, atol=1e-12 * np.abs(expected).max())
 
