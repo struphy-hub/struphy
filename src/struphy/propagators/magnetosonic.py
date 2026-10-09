@@ -112,12 +112,17 @@ class Magnetosonic(Propagator):
         solver_params : SolverParameters, default=None
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
+
+        with_jxb : bool, default=True
+            Whether to include the explicit current term J0 x B (with J0 = curl B0)
+            in the momentum equation.
         """
 
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        with_jxb: bool = True
 
         def __post_init__(self):
             # checks
@@ -216,9 +221,10 @@ class Magnetosonic(Propagator):
 
         # solve for new u coeffs (no tmps created here)
         byn1 = self._B.dot(pn, out=self._byn1)
-        byn2 = self._MJ.dot(self._b, out=self._byn2)
-        byn2 *= 1 / 2
-        byn1 -= byn2
+        if self.options.with_jxb:
+            byn2 = self._MJ.dot(self._b, out=self._byn2)
+            byn2 *= 1 / 2
+            byn1 -= byn2
 
         un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
 
