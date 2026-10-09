@@ -43,7 +43,7 @@ def push_eta_stage(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_free_idx = args_markers.first_free_idx
 
     if stage == n_stages - 1:
@@ -57,7 +57,7 @@ def push_eta_stage(
     # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole or a boundary particle
-        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
+        if markers[ip, first_pusher_idx] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         e1 = markers[ip, 0]
@@ -85,7 +85,7 @@ def push_eta_stage(
 
         # update positions for intermediate stages or last stage
         markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
+            markers[ip, first_pusher_idx : first_pusher_idx + 3]
             + dt * a[stage] * k
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )

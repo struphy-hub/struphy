@@ -71,7 +71,7 @@ class MarkerArguments:
 
         # useful indices
         self.first_diagnostics_idx = first_diagnostics_idx
-        self.first_init_idx = first_pusher_idx
+        self.first_pusher_idx = first_pusher_idx
         self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
         self.residual_idx = residual_idx  # residual in iterative solvers
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
