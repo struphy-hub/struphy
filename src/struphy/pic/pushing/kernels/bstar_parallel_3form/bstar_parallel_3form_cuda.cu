@@ -32,7 +32,7 @@ extern "C" __global__ void bstar_parallel_3form(const double* alpha, const long 
     double eta_k[3], eta_n[3], eta[3], dfm[9];
 
     // get marker arguments
-    int first_init_idx = args_markers.first_init_idx;
+    int first_pusher_idx = args_markers.first_pusher_idx;
     int first_shift_idx = args_markers.first_shift_idx;
 
     // only do something if particle is a "true" particle (i.e. not a hole)
@@ -40,7 +40,7 @@ extern "C" __global__ void bstar_parallel_3form(const double* alpha, const long 
 
     for (int j = 0; j < 3; ++j) {
         eta_k[j] = args_markers.markers(ip, j) + args_markers.markers(ip, first_shift_idx + j);
-        eta_n[j] = args_markers.markers(ip, first_init_idx + j);
+        eta_n[j] = args_markers.markers(ip, first_pusher_idx + j);
 
         eta[j] = alpha[j] * eta_k[j] + (1.0 - alpha[j]) * eta_n[j];
         // numpy.mod(eta, 1.0) (Fortran MODULO): the result has the sign of the divisor
@@ -48,7 +48,7 @@ extern "C" __global__ void bstar_parallel_3form(const double* alpha, const long 
     }
 
     double v_k = args_markers.markers(ip, 3);
-    double v_n = args_markers.markers(ip, first_init_idx + 3);
+    double v_n = args_markers.markers(ip, first_pusher_idx + 3);
     double v = alpha[3] * v_k + (1.0 - alpha[3]) * v_n;
 
     // evaluate Jacobian, result in dfm
