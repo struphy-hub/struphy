@@ -56,6 +56,10 @@ EQUIL_CASES = {
 # equilibria that need an optional package (skipped without it)
 NEEDS = {"GVECequilibrium": "gvec", "DESCequilibrium": "desc"}
 
+# equilibria evaluated through their native code on the host (one round trip per call); all others are evaluated on
+# the device only, without host/device transfers
+HOST_EVALUATION = {"GVECequilibrium", "DESCequilibrium"}
+
 # methods that models and projections call on the logical domain; those an equilibrium does not provide are skipped
 METHODS = (
     "absB0",
@@ -181,7 +185,8 @@ def check_equil_on_cupy(case):
     """Create ``case`` on the CuPy backend, evaluate it there and compare with the NumPy backend.
 
     Every result is a device array (or a scalar for constant parts like ``psi`` derivatives of analytic profiles) and
-    agrees with the NumPy result. Evaluated on a meshgrid (three 1d arrays) and at markers (one 2d array).
+    agrees with the NumPy result. Evaluated on a meshgrid (three 1d arrays) and at markers (one 2d array), without
+    host/device transfers except for the equilibria in ``HOST_EVALUATION``.
     """
     rng = np.random.default_rng(1234)
     e1 = np.sort(rng.uniform(0.1, 0.9, 4))
@@ -196,8 +201,15 @@ def check_equil_on_cupy(case):
 
     with cunumpy.use_backend("cupy"):
         equil = _build(case)
-        out_grid = _evaluations(equil, tuple(cunumpy.asarray(e) for e in (e1, e2, e3)))
-        out_markers = _evaluations(equil, (cunumpy.asarray(markers),))
+        grid = tuple(cunumpy.asarray(e) for e in (e1, e2, e3))
+        markers_device = cunumpy.asarray(markers)
+        if EQUIL_CASES[case][0] in HOST_EVALUATION:
+            no_transfers = contextlib.nullcontext()
+        else:
+            no_transfers = cunumpy.profiling.assert_no_transfers()
+        with no_transfers:
+            out_grid = _evaluations(equil, grid)
+            out_markers = _evaluations(equil, (markers_device,))
 
     for ref, out, where in ((ref_grid, out_grid, "meshgrid"), (ref_markers, out_markers, "markers")):
         assert ref.keys() == out.keys()
