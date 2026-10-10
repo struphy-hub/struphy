@@ -29,10 +29,10 @@ from feectools.linalg.kernels.stencil_transpose_3d import stencil_transpose_3d
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from maybempi import MPI, SerialComm
 
-from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.bsplines.kernels.eval_spline_mpi_markers import eval_spline_mpi_markers
 from struphy.bsplines.kernels.eval_spline_mpi_matrix import eval_spline_mpi_matrix
 from struphy.bsplines.kernels.eval_spline_mpi_sparse_meshgrid import eval_spline_mpi_sparse_meshgrid
+from struphy.bsplines.kernels.eval_spline_mpi_tensor_product_fixed import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
@@ -2209,14 +2209,16 @@ class Derham:
         from struphy.bsplines import bsplines_kernels
 
         # Extract knot vectors, degree and kind of basis
-        Tn = Nspace.knots
+        Tn = xp.to_numpy(Nspace.knots)
         pn = Nspace.degree
 
-        spans = xp.zeros(etas.size, dtype=int)
-        bns = xp.zeros((etas.size, pn + 1), dtype=float)
-        bds = xp.zeros((etas.size, pn), dtype=float)
-        bn = xp.zeros(pn + 1, dtype=float)
-        bd = xp.zeros(pn, dtype=float)
+        # setup: computed point by point with the pyccel helpers on the host, then copied to the active backend once
+        etas = xp.to_numpy(etas)
+        spans = np.zeros(etas.size, dtype=int)
+        bns = np.zeros((etas.size, pn + 1), dtype=float)
+        bds = np.zeros((etas.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
 
         for n in range(etas.size):
             # avoid 1. --> 0. for clamped interpolation
@@ -2230,7 +2232,7 @@ class Derham:
             bns[n] = bn
             bds[n] = bd
 
-        return spans, bns, bds
+        return xp.to_cunumpy(spans), xp.to_cunumpy(bns), xp.to_cunumpy(bds)
 
 
 class SplineFunction:
@@ -2788,15 +2790,9 @@ class SplineFunction:
             else:
                 assert out.shape == tuple([span.size for span in spans])
 
-            eval_spline_mpi_tensor_product_fixed(
-                *spans,
-                *bases,
-                vec._data,
-                self.derham.spline_attributes[self.space_key].spline_types_pyccel[0],
-                xp.array(self.derham.degree),
-                xp.array(self.starts),
-                out,
-            )
+            args = self._args_spline[0]
+            kind, pn, starts = args.kind, args.pn, args.starts
+            eval_spline_mpi_tensor_product_fixed(*spans, *bases, vec._data, kind, pn, starts, out, n_threads=out.size)
 
         else:
             out_is_none = False
@@ -2819,18 +2815,10 @@ class SplineFunction:
                         [span.size for span in spans],
                     )
 
+                args = self._args_spline[i]
+                kind, pn, starts = args.kind, args.pn, args.starts
                 eval_spline_mpi_tensor_product_fixed(
-                    *spans,
-                    *bases[i],
-                    vec[i]._data,
-                    self.derham.spline_attributes[self.space_key].spline_types_pyccel[i],
-                    xp.array(
-                        self.derham.degree,
-                    ),
-                    xp.array(
-                        self.starts[i],
-                    ),
-                    out[i],
+                    *spans, *bases[i], vec[i]._data, kind, pn, starts, out[i], n_threads=out[i].size
                 )
 
         return out
@@ -3071,28 +3059,32 @@ class SplineFunction:
             )
             on_proc = xp.all(is_on_proc_domain, axis=1)
 
-            markers[~on_proc, :] = -1.0
+            xp.copyto(markers, -1.0, where=~on_proc[:, None])
 
         # 3D meshgrid evaluation
         else:
             assert len(etas) == 3
             E1, E2, E3 = etas
-            # check if eval points are "interior points" in domain_array; if so, add small offset
+            # check if eval points are "interior points" in domain_array; if so, add small offset.
+            # The bounds are compared as host floats: with the device array each `if` would wait for the device.
+            if not hasattr(self, "_domain_array_host"):
+                self._domain_array_host = xp.to_numpy(dom_arr)
+            dom_arr = self._domain_array_host
 
             if dom_arr[rank, 0] != 0.0:
-                E1[E1 == dom_arr[rank, 0]] += 1e-8
+                E1 += 1e-8 * (E1 == dom_arr[rank, 0])
             if dom_arr[rank, 1] != 1.0:
-                E1[E1 == dom_arr[rank, 1]] += 1e-8
+                E1 += 1e-8 * (E1 == dom_arr[rank, 1])
 
             if dom_arr[rank, 3] != 0.0:
-                E2[E2 == dom_arr[rank, 3]] += 1e-8
+                E2 += 1e-8 * (E2 == dom_arr[rank, 3])
             if dom_arr[rank, 4] != 1.0:
-                E2[E2 == dom_arr[rank, 4]] += 1e-8
+                E2 += 1e-8 * (E2 == dom_arr[rank, 4])
 
             if dom_arr[rank, 6] != 0.0:
-                E3[E3 == dom_arr[rank, 6]] += 1e-8
+                E3 += 1e-8 * (E3 == dom_arr[rank, 6])
             if dom_arr[rank, 7] != 1.0:
-                E3[E3 == dom_arr[rank, 7]] += 1e-8
+                E3 += 1e-8 * (E3 == dom_arr[rank, 7])
 
             # True for eval points on current process
             E1_on_proc = xp.logical_and(
@@ -3108,10 +3100,10 @@ class SplineFunction:
                 E3 <= dom_arr[rank, 7],
             )
 
-            # flag eval points not on current process
-            E1[~E1_on_proc] = -1.0
-            E2[~E2_on_proc] = -1.0
-            E3[~E3_on_proc] = -1.0
+            # flag eval points not on current process (masked writes without a device sync)
+            xp.copyto(E1, -1.0, where=~E1_on_proc)
+            xp.copyto(E2, -1.0, where=~E2_on_proc)
+            xp.copyto(E3, -1.0, where=~E3_on_proc)
 
     def _add_noise(
         self,

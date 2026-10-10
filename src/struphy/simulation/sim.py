@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
+import numpy as np
 import yaml
 from cunumpy.kernels import Kernel
 from feectools.linalg.memory import stencil_matrix_memory
@@ -664,11 +665,12 @@ class Simulation(SimulationBase):
 
         self.data = DataContainer(self.env.path_out, comm=self.comm)
 
-        # time quantities (current time value, value in seconds and index)
+        # time quantities (current time value, value in seconds and index); host bookkeeping of the time loop,
+        # NumPy on both backends, so that reading them for the loop control and saving them never waits for the device
         self.time_state = {}
-        self.time_state["value"] = xp.zeros(1, dtype=float)
-        self.time_state["value_sec"] = xp.zeros(1, dtype=float)
-        self.time_state["index"] = xp.zeros(1, dtype=int)
+        self.time_state["value"] = np.zeros(1, dtype=float)
+        self.time_state["value_sec"] = np.zeros(1, dtype=float)
+        self.time_state["index"] = np.zeros(1, dtype=int)
 
         # add time quantities to data object for saving
         for key, val in self.time_state.items():
@@ -1425,10 +1427,10 @@ class Simulation(SimulationBase):
         """
 
         # save scalar quantities in group 'scalar/'
-        for key, scalar in self.model.scalars.dct.items():
-            val = scalar.value
+        # the host copies of the scalars (Scalars.to_host): saving them copies nothing from the device
+        for key in self.model.scalars.dct:
             key_scalar = "scalar/" + key
-            data.add_data({key_scalar: val})
+            data.add_data({key_scalar: self.model.scalars.host_value(key)})
 
         with h5py.File(data.file_path, "a") as file:
             # store grid_info only for runs with 512 ranks or smaller

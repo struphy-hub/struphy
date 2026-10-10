@@ -141,6 +141,18 @@ def eval_spline_mpi_grid_args(sparse):
     return lambda kind: (*evaluation_grid(sparse=sparse), *spline_evaluation_arguments(kind), xp.zeros((7, 5, 4)))
 
 
+def eval_spline_mpi_tensor_product_fixed_args(kind):
+    """Spline values on a 5 x 4 x 3 grid from pre-evaluated spans and (random) basis values."""
+    _data, args_spline = spline_evaluation_arguments(kind)
+    kind, pn, starts = args_spline.kind, args_spline.pn, args_spline.starts
+    rng = np.random.default_rng(7)
+    degree, kinds = (2, 3, 1), xp.to_numpy(kind)
+    # spans of the 8 cells: p <= span <= p + 7
+    spans = [xp.asarray(rng.integers(p, p + 8, size=n)) for p, n in zip(degree, (5, 4, 3))]
+    bases = [xp.asarray(rng.random((n, p - k + 1))) for p, k, n in zip(degree, kinds, (5, 4, 3))]
+    return (*spans, *bases, _data, kind, pn, starts, xp.zeros((5, 4, 3)))
+
+
 # ---------------------------------------------------------------- geometry
 
 # metric coefficients at 129 markers: every mapping for F, det(DF), DF^(-1) and G^(-1); the identity, DF and G for
@@ -332,6 +344,9 @@ PARITY_CASES = {
     "eval_spline_mpi_matrix": ParityCases(SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=False), n_threads=size_of(-1)),
     "eval_spline_mpi_sparse_meshgrid": ParityCases(
         SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=True), n_threads=size_of(-1)
+    ),
+    "eval_spline_mpi_tensor_product_fixed": ParityCases(
+        SPLINE_KINDS, eval_spline_mpi_tensor_product_fixed_args, n_threads=size_of(-1)
     ),
     "kernel_evaluate_pic": ParityCases(KERNEL_EVALUATE_PIC_CASES, kernel_evaluate_pic_args, **GEOMETRY_TOLERANCES),
     # one thread per grid point: the first three axes of mat_f, shape (n1, n2, n3, 3, 3)
