@@ -83,6 +83,7 @@ class LiteralOptions:
         None,
     ]
     OptsCurlCurlPrecond = Literal[
+        "MultiGrid",
         "HiptmairXu",
         "StiffnessPreconditioner",
         "MassMatrixPreconditioner",

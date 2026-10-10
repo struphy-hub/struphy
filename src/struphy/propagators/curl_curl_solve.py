@@ -13,6 +13,7 @@ from scope_profiler import ProfileManager
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions
+from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
@@ -146,11 +147,19 @@ class CurlCurlSolve(Propagator):
               (:class:`~struphy.feec.preconditioner.HiptmairXuPreconditioner` with ``mid=diffusion_mat`` and
               ``stab=stab_mat``): smoother plus corrections on the gradients and on vector-valued
               :math:`H^1` splines.
+            - ``"MultiGrid"``: geometric multigrid V-cycle
+              (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`)
+              with the hybrid smoother of Hiptmair (see ``multigrid``).
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the preconditioner,
             e.g. ``{"kernel_correction": False}`` for ``"StiffnessPreconditioner"``
             or ``{"smoother": "jacobi"}`` for ``"HiptmairXu"``.
+
+        multigrid : MultiGridOptions, default=None
+            Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
+            If ``None``, defaults to ``MultiGridOptions(hiptmair=True, smoother_precond="jacobi")``:
+            without the Hiptmair smoother, multigrid is not robust for the curl-curl operator.
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -169,6 +178,7 @@ class CurlCurlSolve(Propagator):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsCurlCurlPrecond = None
         precond_params: dict = None
+        multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
 
         def __post_init__(self):
@@ -183,6 +193,8 @@ class CurlCurlSolve(Propagator):
             # defaults
             if self.precond_params is None:
                 self.precond_params = {}
+            if self.multigrid is None:
+                self.multigrid = MultiGridOptions(hiptmair=True, smoother_precond="jacobi")
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
 
@@ -283,6 +295,14 @@ class CurlCurlSolve(Propagator):
                 mid=self.options.diffusion_mat,
                 stab=self.options.stab_mat,
                 **self.options.precond_params,
+            )
+        elif precond == "MultiGrid":
+            pc = MultiGridPreconditioner(
+                lhs,
+                self.derham,
+                self.domain,
+                self.options.multigrid,
+                mass_ops=self.mass_ops,
             )
         elif precond == "HiptmairXu":
             pc = preconditioner.HiptmairXuPreconditioner(
