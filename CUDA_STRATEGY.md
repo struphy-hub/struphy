@@ -31,6 +31,7 @@ Progress is tracked in struphy-hub/struphy#650.
 - [x] **FEEC assembly kernels in kernel folders** (#411) — the 16 assembly kernels of `feec/mass.py`, `feec/boundary_mass.py` and `feec/basis_projection_ops.py` move from `feec/mass_kernels.py` and `feec/basis_projection_kernels.py` into one folder each under `feec/kernels/`; pure restructuring, ready for CUDA ports (see [FEEC assembly kernels](#feec-assembly-kernels-411)).
 - [ ] **Next (order to be confirmed)**: one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, which needs the [feectools stack](#feectools) merged and released first; the guiding-center kernels (step 3), by hand (decided in #690, see [Hand-written CUDA](#hand-written-cuda-decision-for-690)).
 - [ ] **feectools**: the FEEC side (stencil vectors and matrices, MPI exchange, GPU binding) in feectools, stacked PRs [#85](https://github.com/struphy-hub/feectools/pull/85) (merged into `cuda-development`), [#86](https://github.com/struphy-hub/feectools/pull/86), [#87](https://github.com/struphy-hub/feectools/pull/87), [#88](https://github.com/struphy-hub/feectools/pull/88), integrated by [#90](https://github.com/struphy-hub/feectools/pull/90); needed before the end-to-end model run, not for PR 18/19 (see [feectools](#feectools)).
+- [ ] **End-to-end tests of `LinearVlasovAmpereOneSpecies` and `VlasovAmpereOneSpecies`** (#689) — `models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py` and `test_gpu_VlasovAmpereOneSpecies.py` (shared helpers in `models/tests/gpu_e2e.py`) run a small Cuboid case (320 Sobol markers, 8 elements, 3 steps; for `VlasovAmpereOneSpecies` Landau damping with full-f weights and an `e1_v1` binning plot) on NumPy and CuPy, compare energies, field coefficients and markers, and count the transfers of the time loop: in `model.integrate` only the 8-byte residual norm of each Krylov iteration (feectools' convergence test), scalar-sized downloads in the diagnostics, one download per saved dataset in the output. They run on a GPU, or on the fake CuPy with every CUDA launch emulated on the CPU (`CUNUMPY_FAKE_CUPY=1`, also under `mpirun -n 2`; `CudaKernel.compile` is skipped there); without either, `test_fake_cupy_matches_numpy` runs the comparison in a serial child process. Both pass on the fake CuPy on 1 and 2 ranks (not yet on a GPU). Needs the device Kronecker solve, the 6D stencil views, the `linear_vlasov_ampere`/`vlasov_maxwell` CUDA kernels, `MassMatrixPreconditioner` on CuPy and device inner products, and a feectools release with them.
 - [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
 
@@ -273,6 +274,16 @@ the `pyproject.toml` pin (today `feectools>=0.3.0, <=0.3.0`) point at that relea
 `synchronize_for_mpi` from the top level of cunumpy and requires `cunumpy>=0.3.0`. In cunumpy 0.5 these names are
 deprecated (removed in 0.6): import them from `cunumpy.cuda` and `cunumpy.mpi`, and require `cunumpy>=0.5.0, <0.6`
 like struphy.
+
+**Mass-matrix preconditioners on CuPy** (`feec/preconditioner.py`, for #689). The Kronecker preconditioners
+(`MassMatrixPreconditioner`) build their 1d mass matrices and 1d solvers
+(`FFTSolver` for circulant, `SparseSolver` otherwise) on the host on every backend; the process-local 1d stencil
+matrices (factors of the `KroneckerStencilMatrix`) and the diagonal scaling live on the device. Applying them makes
+no host copies: `KroneckerLinearSolver` solves device data with dense inverses built once from the host 1d solvers
+([feectools#96](https://github.com/struphy-hub/feectools/pull/96)). Tested with fake CuPy, emulated launches and
+`assert_no_transfers` (`feec/tests/test_preconditioner_cupy.py`). `StiffnessPreconditioner` builds its 1d data the
+same way, but `KroneckerSumSolver` (feectools 0.7.0) does not yet run on the device: its dense "solvers" hold device
+matrices, from which `KroneckerLinearSolver` tries to build dense inverses on the host.
 
 New feectools work for the GPU follows the same pattern: a `cuda-<n>-<topic>` PR, linked in the table above and
 from the struphy tracking issue ([#650](https://github.com/struphy-hub/struphy/issues/650)).
