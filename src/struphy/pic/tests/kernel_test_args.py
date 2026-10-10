@@ -29,7 +29,9 @@ def marker_arguments(bc):
     markers[:, 3:6] = rng.uniform(-2, 2, (N_MARKERS, 3))
     markers[:, 8:14] = markers[:, :6]
     markers[:, 18:21] = 0.0
-    markers[0, 8] = -1.0
+    # Row 0 is a hole. Struphy marks every column of a hole with -1: pushers test column first_pusher_idx (8),
+    # accumulation kernels test column 0.
+    markers[0, :] = -1.0
     markers[1, -1] = -2.0
     valid = np.ones(N_MARKERS, dtype=bool)
     valid[:2] = False
@@ -49,12 +51,35 @@ def butcher_arguments(method):
     return xp.asarray(butcher.a_stage), xp.asarray(butcher.b), xp.asarray(butcher.c), butcher.n_stages
 
 
+DERHAM_DEGREE = (2, 3, 1)
+DERHAM_CELLS = 8
+
+
 def derham_arguments():
     """Splines of degrees 2, 3, 1 on 8 cells, starting at index 0."""
-    degree = np.array([2, 3, 1], dtype=np.int64)
-    knots = [np.r_[np.zeros(p), np.linspace(0, 1, 9), np.ones(p)] for p in degree]
+    degree = np.array(DERHAM_DEGREE, dtype=np.int64)
+    knots = [np.r_[np.zeros(p), np.linspace(0, 1, DERHAM_CELLS + 1), np.ones(p)] for p in degree]
     args_class = CudaDerhamArguments if xp.get_backend() == "cupy" else DerhamArguments
     return args_class(xp.asarray(degree), *(xp.asarray(t) for t in knots), xp.zeros(3, dtype=np.int64))
+
+
+def v1_symm_accumulation_data():
+    """Zeroed data of a symmetric V1 -> V1 accumulation matrix and a V1 vector, for :func:`derham_arguments`.
+
+    Returns the six independent blocks ``mat11, mat12, mat13, mat22, mat23, mat33`` and the three vector components
+    ``vec1, vec2, vec3`` on the active backend, shaped like the ``_data`` of the ``StencilMatrix`` blocks and
+    ``StencilVector`` components that ``Accumulator(..., "Hcurl", ..., symmetry="symm", add_vector=True)`` passes on
+    one process for clamped splines of degrees 2, 3, 1 on 8 cells: component ``mu`` has D-splines (``n - 1``
+    functions) along axis ``mu`` and N-splines (``n = 8 + p``) along the others, every axis is padded by ``p`` on both
+    sides, and the matrix blocks have ``2 p + 1`` diagonals per axis (the paddings are the degrees of V0).
+    """
+    degree = np.array(DERHAM_DEGREE)
+    n_spline = DERHAM_CELLS + degree
+    rows = [tuple(n_spline - (np.arange(3) == mu) + 2 * degree) for mu in range(3)]
+    diagonals = tuple(2 * degree + 1)
+    mats = tuple(xp.zeros(rows[mu] + diagonals) for mu, nu in ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)))
+    vecs = tuple(xp.zeros(rows[mu]) for mu in range(3))
+    return mats + vecs
 
 
 def spline_coefficients(n=3, seed=11):
