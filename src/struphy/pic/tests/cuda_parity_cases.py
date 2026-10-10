@@ -72,6 +72,31 @@ def reflect_args(axis):
     return (xp.asarray(markers), Cuboid(r1=2.0, r2=3.0, r3=4.0).args_domain, xp.asarray(outside_inds), axis)
 
 
+# guiding-centre evaluation kernels: every mapping, the evaluation point at the new position (alpha = 1), the old one
+# (alpha = 0) and in between; the output column alternates. (index into geometry_domain(), alpha, output column)
+BSTAR_PARALLEL_ALPHAS = ((1.0,) * 6, (0.0,) * 6, (0.3, 0.6, 0.9, 0.5, 0.0, 0.0))
+BSTAR_PARALLEL_3FORM_CASES = tuple(
+    (domain, BSTAR_PARALLEL_ALPHAS[domain % 3], 19 if domain % 2 == 0 else 24) for domain in range(N_GEOMETRY_DOMAINS)
+)
+
+
+def bstar_parallel_3form_args(case):
+    """Markers with shifts in [0, 1), so eta + shift wraps around, a negative eta_n in row 0 and a hole in row 2."""
+    domain, alpha, output_column = case
+    args_markers, _ = marker_arguments((0, 0, 0))
+    args_markers.markers[0, 8] = -0.75  # eta_n[0] = mod(-0.75, 1.0) = 0.25 (not 0, where some Jacobians are singular)
+    args_markers.markers[2, 0] = -1.0  # a hole: pyccel tests markers[ip, 0] == -1, not valid_mks
+    return (
+        xp.asarray(alpha),
+        xp.asarray([output_column], dtype=np.int64),
+        args_markers,
+        geometry_domain(domain).args_domain,
+        derham_arguments(),
+        0.37,
+        *spline_coefficients(n=2, seed=23),
+    )
+
+
 # ---------------------------------------------------------------- accumulation
 
 
@@ -287,6 +312,13 @@ PARITY_CASES = {
         BOUNDARY_CONDITIONS, push_weights_with_efield_lin_va_args, **PUSHER_TOLERANCES
     ),
     "reflect": ParityCases((0, 1, 2), reflect_args, n_threads=size_of(2)),
+    # one thread per marker row; the first array, alpha, does not tell the launch size
+    "bstar_parallel_3form": ParityCases(
+        BSTAR_PARALLEL_3FORM_CASES,
+        bstar_parallel_3form_args,
+        n_threads=lambda args: args[2].n_markers,
+        **GEOMETRY_TOLERANCES,
+    ),
     # atomics add in another order than the serial loop
     "charge_density_0form": ParityCases(((0, 0, 0), (2, 0, 1)), charge_density_0form_args, rtol=1e-12, atol=1e-13),
     # Cuboid, Colella and HollowTorus (non-diagonal DF) and a 3d spline mapping, by index into geometry_domain();
