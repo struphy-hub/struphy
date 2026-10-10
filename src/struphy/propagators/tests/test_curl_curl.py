@@ -34,6 +34,8 @@ plt.rcParams.update({"font.size": 22})
 
 # Curl-Curl test: polynomial test field on the logic cube
 
+PRECONDS = ["MassMatrixPreconditioner", "StiffnessPreconditioner"]
+
 domain: Domain = domains.Cuboid()
 
 
@@ -52,7 +54,7 @@ def test_convergence_1d(
     sigma = 1.5
 
     E_exact = lambda e: xp.sin(8 * xp.pi * e)
-    j_exact = lambda e: (64 * (xp.pi**2) - sigma) * E_exact(e)
+    j_exact = lambda e: (64 * (xp.pi**2) + sigma) * E_exact(e)
 
     # Test over spline degree and grid resolution
     Nels = [2**n for n in range(Nmin, Nmax + 1)]
@@ -276,7 +278,7 @@ def test_convergence_2d(
 
     trig = mode["trig"]
     f0, f1 = mode["freq"]
-    prefactor = mode["coef"] * (xp.pi**2) - sigma
+    prefactor = mode["coef"] * (xp.pi**2) + sigma
 
     def scalar_exact(a, b):
         return trig(f0 * xp.pi * a) * trig(f1 * xp.pi * b)
@@ -424,7 +426,7 @@ def test_callable_source():
     j_exact = (
         lambda x, y, z: 0 * x,
         lambda x, y, z: 0 * y,
-        lambda x, y, z: (4 * xp.pi**2 - sigma) * E_exact(x),
+        lambda x, y, z: (4 * xp.pi**2 + sigma) * E_exact(x),
     )
 
     grid = TensorProductGrid(num_elements=(16, 1, 1))
@@ -462,6 +464,55 @@ def test_callable_source():
 
     with pytest.raises(TypeError):
         solve(j_exact[:2])
+
+
+@pytest.mark.parametrize("precond", PRECONDS)
+@pytest.mark.parametrize("mapping", ["Cuboid", "HollowCylinder"])
+def test_preconditioners(precond, mapping):
+    """All preconditioners give the same solution; the curl-curl preconditioners need fewer iterations."""
+    sigma = 0.5
+    grid = TensorProductGrid(num_elements=(8, 6, 4))
+    derham = Derham(
+        grid=grid,
+        options=DerhamOptions(degree=(2, 2, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    dom = domains.Cuboid() if mapping == "Cuboid" else domains.HollowCylinder(a1=0.1, a2=1.0, Lz=3.0)
+    mass_ops = WeightedMassOperators(derham=derham, domain=dom)
+
+    Propagator.derham = derham
+    Propagator.domain = dom
+    Propagator.mass_ops = mass_ops
+
+    j = (
+        lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2),
+        lambda e1, e2, e3: xp.sin(xp.pi * e1) ** 2,
+        lambda e1, e2, e3: xp.sin(2 * xp.pi * e1) * xp.sin(2 * xp.pi * e3),
+    )
+
+    def solve(precond):
+        _e = FEECVariable(space="Hcurl")
+        _e.allocate(derham=derham, domain=dom)
+        curlcurl_solver = CurlCurlSolve(j=j)
+        curlcurl_solver.variables.e = _e
+        curlcurl_solver.options = curlcurl_solver.Options(
+            sigma=sigma,
+            precond=precond,
+            solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
+        )
+        curlcurl_solver.allocate()
+        curlcurl_solver(1.0)
+        assert curlcurl_solver._solver._info["success"]
+        return _e.spline.vector, curlcurl_solver._solver._info["niter"]
+
+    e_ref, niter_ref = solve(None)
+    e, niter = solve(precond)
+    diff = (e - e_ref).toarray()
+    assert comm.allreduce(float(xp.max(xp.abs(diff))), op=MPI.MAX) < 1e-8 * comm.allreduce(
+        float(xp.max(xp.abs(e_ref.toarray()))), op=MPI.MAX
+    )
+    if precond != "MassMatrixPreconditioner":
+        assert niter < niter_ref
 
 
 if __name__ == "__main__":

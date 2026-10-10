@@ -82,6 +82,11 @@ class LiteralOptions:
         "MassMatrixPreconditioner",
         None,
     ]
+    OptsCurlCurlPrecond = Literal[
+        "StiffnessPreconditioner",
+        "MassMatrixPreconditioner",
+        None,
+    ]
     OptsSaddlePointSolver = Literal["uzawa"]
     OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
     OptsNonlinearSolver = Literal["Picard", "Newton"]
