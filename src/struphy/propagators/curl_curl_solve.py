@@ -211,8 +211,11 @@ class CurlCurlSolve(Propagator):
 
     @profile
     def allocate(self, verbose: bool = False):
+        if self.options.sigma < 0.0:
+            raise ValueError(f"CurlCurlSolve needs sigma >= 0 (SPD operator), got {self.options.sigma = }.")
+
         # always stabilize
-        if xp.abs(self.options.sigma) < 1e-14:
+        if self.options.sigma < 1e-14:
             self.options.sigma = 1e-14
             if MPI.COMM_WORLD.Get_rank() == 0:
                 logger.info(f"Running Curl-Curl solve with {self.options.sigma =}")

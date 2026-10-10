@@ -258,6 +258,11 @@ class FEECVariable(Variable):
         check_option(new, LiteralOptions.OptsInitProjection)
         self._projection = new
 
+    def to_dict(self) -> dict:
+        data = super().to_dict()
+        data["projection"] = self.projection
+        return data
+
     @property
     def lifting_function(self) -> Perturbation | None:
         """The lifting function for the case of lifting of boundary conditions.

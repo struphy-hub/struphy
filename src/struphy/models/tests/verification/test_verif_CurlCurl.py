@@ -3,6 +3,7 @@ import os
 import shutil
 
 import cunumpy as xp
+import pytest
 from matplotlib import pyplot as plt
 from maybempi import MPI
 
@@ -21,14 +22,15 @@ from struphy.models import CurlCurl
 logger = logging.getLogger("struphy")
 
 
-def test_curl_curl_1d(do_plot=False):
+@pytest.mark.parametrize("hfun", ["cos", "sin"])
+def test_curl_curl_1d(hfun, do_plot=False):
     # light-weight model instance
     model = CurlCurl(with_t_dep_source=True)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "CurlCurl")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder="time_source_1d")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"time_source_1d_{hfun}")
 
     # time stepping
     time_opts = Time(dt=0.1, Tend=1.0)
@@ -43,7 +45,7 @@ def test_curl_curl_1d(do_plot=False):
     # propagator options
     omega = 2 * xp.pi
     sigma = 2.0
-    model.propagators.source.options = model.propagators.source.Options(omega=omega)
+    model.propagators.source.options = model.propagators.source.Options(omega=omega, hfun=hfun)
     model.propagators.curl_curl.options = model.propagators.curl_curl.Options(
         sigma=sigma,
         precond="StiffnessPreconditioner",
@@ -57,7 +59,8 @@ def test_curl_curl_1d(do_plot=False):
     model.em_fields.source.add_perturbation(
         perturbations.ModesCos(ls=(l,), amps=(amp,), given_in_basis="1", comp=2),
     )
-    e_exact = lambda x, t: amp / (k**2 + sigma) * xp.cos(k * x) * xp.cos(omega * t)
+    h = xp.cos if hfun == "cos" else xp.sin
+    e_exact = lambda x, t: amp / (k**2 + sigma) * xp.cos(k * x) * h(omega * t)
 
     # instance of simulation
     sim = Simulation(
@@ -97,8 +100,8 @@ def test_curl_curl_1d(do_plot=False):
         logger.info(f"{err =}")
         assert err < 1e-4
 
-        shutil.rmtree(test_folder)
+        shutil.rmtree(os.path.join(out_folders, env.sim_folder))
 
 
 if __name__ == "__main__":
-    test_curl_curl_1d(do_plot=True)
+    test_curl_curl_1d("sin", do_plot=True)

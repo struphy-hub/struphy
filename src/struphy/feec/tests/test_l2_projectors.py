@@ -392,3 +392,17 @@ if __name__ == "__main__":
     test_l2_projectors_mappings(num_elements, degree, bcs, array_input, do_plot=False, with_desc=False)
     # test_l2_projectors_convergence(0, 1, True, do_plot=False)
     # test_l2_projectors_convergence(1, 1, False, do_plot=True)
+
+
+def test_feec_variable_projection_to_dict():
+    """The projection option of a FEECVariable is serialized and restored with the model."""
+    from struphy.models import CurlCurl
+
+    model = CurlCurl()
+    model.em_fields.e_field.projection = "L2"
+    dct = model.to_dict()
+    assert dct["species"]["em_fields"]["variables"]["e_field"]["projection"] == "L2"
+
+    model2 = type(model).from_dict(dct)
+    assert model2.em_fields.e_field.projection == "L2"
+    assert model2.em_fields.source.projection == "L2"

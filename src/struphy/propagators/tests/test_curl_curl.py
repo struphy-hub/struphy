@@ -466,6 +466,23 @@ def test_callable_source():
         solve(j_exact[:2])
 
 
+def test_negative_sigma():
+    """sigma < 0 makes the operator indefinite and must be rejected."""
+    grid = TensorProductGrid(num_elements=(8, 1, 1))
+    derham = Derham(grid=grid, options=DerhamOptions(degree=(2, 1, 1)), comm=comm)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = WeightedMassOperators(derham=derham, domain=domain)
+
+    _e = FEECVariable(space="Hcurl")
+    _e.allocate(derham=derham, domain=domain)
+    curlcurl_solver = CurlCurlSolve()
+    curlcurl_solver.variables.e = _e
+    curlcurl_solver.options = curlcurl_solver.Options(sigma=-1.0)
+    with pytest.raises(ValueError):
+        curlcurl_solver.allocate()
+
+
 @pytest.mark.parametrize("precond", PRECONDS)
 @pytest.mark.parametrize("mapping", ["Cuboid", "HollowCylinder"])
 def test_preconditioners(precond, mapping):

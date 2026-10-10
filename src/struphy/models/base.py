@@ -1016,6 +1016,8 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
                     continue
                 if "save_data" in variable_data:
                     variable.save_data = variable_data["save_data"]
+                if isinstance(variable, FEECVariable) and "projection" in variable_data:
+                    variable.projection = variable_data["projection"]
                 if isinstance(variable, PICVariable) and "n_as_volume_form" in variable_data:
                     variable._n_as_volume_form = variable_data["n_as_volume_form"]
 

@@ -90,6 +90,9 @@ class CurlCurl(StruphyModel):
             # Solve to get initial field (before time stepping)
             logger.info("\nSolving initial curl-curl problem (before time stepping)...")
 
+            # source at t = 0 (the time state is not yet attached to the propagators)
+            self.propagators.source.update_source(0.0)
+
             with ProfileManager.profile_region("initial curl-curl solve", functions=[self.propagators.curl_curl]):
                 self.propagators.curl_curl(1.0)
 
