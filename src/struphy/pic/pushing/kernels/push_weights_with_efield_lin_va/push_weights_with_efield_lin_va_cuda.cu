@@ -2,6 +2,8 @@
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Weight update of the linear Vlasov-Ampere system (delta-f), as in
  * push_weights_with_efield_lin_va_kernels.push_weights_with_efield_lin_va.
@@ -48,21 +50,21 @@ extern "C" __global__ void push_weights_with_efield_lin_va(double dt, int stage,
     for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
 
     // spline evaluation; CUDA-only scratch holds the spline values pyccel keeps in args_derham
-    struphy_cuda::SplineScratch scratch;
-    struphy_cuda::get_spans(eta1, eta2, eta3, args_derham, scratch);
+    evaluation_kernels_3d::SplineScratch scratch;
+    evaluation_kernels_3d::get_spans(eta1, eta2, eta3, args_derham, scratch);
     int span1 = scratch.span1, span2 = scratch.span2, span3 = scratch.span3;
 
     // Compute Jacobian matrix
-    struphy_cuda::df(eta1, eta2, eta3, args_domain, dfm);
+    evaluation_kernels::df(eta1, eta2, eta3, args_domain, dfm);
 
     // invert Jacobian matrix
-    struphy_cuda::matrix_inv(dfm, df_inv);
+    linalg_kernels::matrix_inv(dfm, df_inv);
 
     // compute DF^{-1} v
-    struphy_cuda::matrix_vector(df_inv, v, df_inv_v);
+    linalg_kernels::matrix_vector(df_inv, v, df_inv_v);
 
     // E-field (1-form)
-    struphy_cuda::eval_1form_spline_mpi(span1, span2, span3, args_derham, scratch, e1_1, e1_2, e1_3, e_vec);
+    evaluation_kernels_3d::eval_1form_spline_mpi(span1, span2, span3, args_derham, scratch, e1_1, e1_2, e1_3, e_vec);
 
     // w_{n+1} = w_n + kappa * dt / (2 * N * s_0 * v_th^2) * f_0 * ( DF^{-1} v_p ) \cdot ( e_{n+1} + e_n )
     double update = (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2]) * f0_values[ip] *

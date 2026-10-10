@@ -1,12 +1,15 @@
 #pragma once
 #include "struphy/kernel_arguments/pusher_args.cuh"
 #include "struphy/bsplines/bsplines_kernels.cuh"
-namespace struphy_cuda {
+#include "cunumpy/array_view.cuh"
+namespace struphy_cuda::evaluation_kernels_3d {
 /** Per-thread outputs of get_spans; spline names match DerhamArguments. */
 struct SplineScratch {
     int span1, span2, span3;
-    double bn1[MAX_SPLINE_DEGREE + 1], bn2[MAX_SPLINE_DEGREE + 1], bn3[MAX_SPLINE_DEGREE + 1];
-    double bd1[MAX_SPLINE_DEGREE], bd2[MAX_SPLINE_DEGREE], bd3[MAX_SPLINE_DEGREE];
+    double bn1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], bn2[bsplines_kernels::MAX_SPLINE_DEGREE + 1],
+        bn3[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
+    double bd1[bsplines_kernels::MAX_SPLINE_DEGREE], bd2[bsplines_kernels::MAX_SPLINE_DEGREE],
+        bd3[bsplines_kernels::MAX_SPLINE_DEGREE];
 };
 
 /**
@@ -24,20 +27,17 @@ struct SplineScratch {
  */
 __device__ inline void get_spans(double eta1, double eta2, double eta3,
                                 const DerhamArgs& args_derham, SplineScratch& scratch) {
-    int span1 = find_span(args_derham.tn1, args_derham.nt1, args_derham.pn[0], eta1);
-    int span2 = find_span(args_derham.tn2, args_derham.nt2, args_derham.pn[1], eta2);
-    int span3 = find_span(args_derham.tn3, args_derham.nt3, args_derham.pn[2], eta3);
+    int span1 = bsplines_kernels::find_span(args_derham.tn1, args_derham.nt1, args_derham.pn[0], eta1);
+    int span2 = bsplines_kernels::find_span(args_derham.tn2, args_derham.nt2, args_derham.pn[1], eta2);
+    int span3 = bsplines_kernels::find_span(args_derham.tn3, args_derham.nt3, args_derham.pn[2], eta3);
     scratch.span1 = span1;
     scratch.span2 = span2;
     scratch.span3 = span3;
-    b_d_splines_slim(args_derham.tn1, args_derham.pn[0], eta1, span1, scratch.bn1, scratch.bd1);
-    b_d_splines_slim(args_derham.tn2, args_derham.pn[1], eta2, span2, scratch.bn2, scratch.bd2);
-    b_d_splines_slim(args_derham.tn3, args_derham.pn[2], eta3, span3, scratch.bn3, scratch.bd3);
-}
+    bsplines_kernels::b_d_splines_slim(args_derham.tn1, args_derham.pn[0], eta1, span1, scratch.bn1, scratch.bd1);
+    bsplines_kernels::b_d_splines_slim(args_derham.tn2, args_derham.pn[1], eta2, span2, scratch.bn2, scratch.bd2);
+    bsplines_kernels::b_d_splines_slim(args_derham.tn3, args_derham.pn[2], eta3, span3, scratch.bn3, scratch.bd3);
 }
 
-#include "cunumpy/array_view.cuh"
-namespace struphy_cuda {
 /**
  * Sum the non-zero contributions of a distributed spline, as in evaluation_kernels_3d.eval_spline_mpi_kernel.
  *
@@ -138,7 +138,6 @@ __device__ inline void eval_2form_spline_mpi(int span1, int span2, int span3, co
     out[2] = eval_spline_mpi_kernel(args_derham.pn[0] - 1, args_derham.pn[1] - 1, args_derham.pn[2], scratch.bd1,
                                     scratch.bd2, scratch.bn3, span1, span2, span3, form_coeffs_3, args_derham.starts);
 }
-}
 
 // Point-wise evaluation shared by the eval_spline_mpi_* kernels (bsplines/kernels/<name>/<name>_cuda.cu).
 /**
@@ -161,26 +160,25 @@ __device__ inline void eval_2form_spline_mpi(int span1, int span2, int span3, co
 __device__ inline double eval_spline_mpi(double eta1, double eta2, double eta3, Array3D<double> _data,
                                          const long long* kind, const long long* pn, Array1D<double> tn1,
                                          Array1D<double> tn2, Array1D<double> tn3, const long long* starts) {
-    struphy_cuda::SplineScratch scratch;
+    SplineScratch scratch;
 
     // get spline values at eta
-    scratch.span1 = struphy_cuda::find_span(tn1.data, tn1.shape[0], pn[0], eta1);
-    scratch.span2 = struphy_cuda::find_span(tn2.data, tn2.shape[0], pn[1], eta2);
-    scratch.span3 = struphy_cuda::find_span(tn3.data, tn3.shape[0], pn[2], eta3);
-    struphy_cuda::b_d_splines_slim(tn1.data, pn[0], eta1, scratch.span1, scratch.bn1, scratch.bd1);
-    struphy_cuda::b_d_splines_slim(tn2.data, pn[1], eta2, scratch.span2, scratch.bn2, scratch.bd2);
-    struphy_cuda::b_d_splines_slim(tn3.data, pn[2], eta3, scratch.span3, scratch.bn3, scratch.bd3);
+    scratch.span1 = bsplines_kernels::find_span(tn1.data, tn1.shape[0], pn[0], eta1);
+    scratch.span2 = bsplines_kernels::find_span(tn2.data, tn2.shape[0], pn[1], eta2);
+    scratch.span3 = bsplines_kernels::find_span(tn3.data, tn3.shape[0], pn[2], eta3);
+    bsplines_kernels::b_d_splines_slim(tn1.data, pn[0], eta1, scratch.span1, scratch.bn1, scratch.bd1);
+    bsplines_kernels::b_d_splines_slim(tn2.data, pn[1], eta2, scratch.span2, scratch.bn2, scratch.bd2);
+    bsplines_kernels::b_d_splines_slim(tn3.data, pn[2], eta3, scratch.span3, scratch.bn3, scratch.bd3);
 
     const double* b1 = kind[0] == 0 ? scratch.bn1 : scratch.bd1;
     const double* b2 = kind[1] == 0 ? scratch.bn2 : scratch.bd2;
     const double* b3 = kind[2] == 0 ? scratch.bn3 : scratch.bd3;
 
-    double value = struphy_cuda::eval_spline_mpi_kernel(pn[0] - kind[0], pn[1] - kind[1], pn[2] - kind[2], b1, b2, b3,
-                                                        scratch.span1, scratch.span2, scratch.span3, _data, starts);
+    double value = eval_spline_mpi_kernel(pn[0] - kind[0], pn[1] - kind[1], pn[2] - kind[2], b1, b2, b3, scratch.span1,
+                                          scratch.span2, scratch.span3, _data, starts);
     return value;
 }
 
-namespace struphy_cuda {
 /**
  * Sum the non-zero contributions of a spline with global coefficients, as in evaluation_kernels_3d.evaluation_kernel_3d.
  *
@@ -212,4 +210,4 @@ __device__ inline double evaluation_kernel_3d(int p1, int p2, int p3, const doub
     }
     return spline_value;
 }
-}
+}  // namespace struphy_cuda::evaluation_kernels_3d

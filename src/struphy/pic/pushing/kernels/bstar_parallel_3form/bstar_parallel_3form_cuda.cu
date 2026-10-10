@@ -2,6 +2,8 @@
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Evaluate B*_parallel as a 3-form, as in bstar_parallel_3form_kernels.bstar_parallel_3form.
  *
@@ -52,20 +54,21 @@ extern "C" __global__ void bstar_parallel_3form(const double* alpha, const long 
     double v = alpha[3] * v_k + (1.0 - alpha[3]) * v_n;
 
     // evaluate Jacobian, result in dfm
-    struphy_cuda::df(eta[0], eta[1], eta[2], args_domain, dfm);
+    evaluation_kernels::df(eta[0], eta[1], eta[2], args_domain, dfm);
 
-    double det_df = struphy_cuda::det(dfm);
+    double det_df = linalg_kernels::det(dfm);
 
     // spline evaluation; CUDA-only scratch holds the spline values pyccel keeps in args_derham
-    struphy_cuda::SplineScratch scratch;
-    struphy_cuda::get_spans(eta[0], eta[1], eta[2], args_derham, scratch);
+    evaluation_kernels_3d::SplineScratch scratch;
+    evaluation_kernels_3d::get_spans(eta[0], eta[1], eta[2], args_derham, scratch);
     int span1 = scratch.span1, span2 = scratch.span2, span3 = scratch.span3;
 
     // compute B*_parallel
-    double B_dot_b = struphy_cuda::eval_0form_spline_mpi(span1, span2, span3, args_derham, scratch, B_dot_b_coeffs);
+    double B_dot_b =
+        evaluation_kernels_3d::eval_0form_spline_mpi(span1, span2, span3, args_derham, scratch, B_dot_b_coeffs);
 
     double b_star_parallel =
-        struphy_cuda::eval_0form_spline_mpi(span1, span2, span3, args_derham, scratch, curl_unit_b_dot_b0);
+        evaluation_kernels_3d::eval_0form_spline_mpi(span1, span2, span3, args_derham, scratch, curl_unit_b_dot_b0);
 
     b_star_parallel *= epsilon * v;
     b_star_parallel += B_dot_b;

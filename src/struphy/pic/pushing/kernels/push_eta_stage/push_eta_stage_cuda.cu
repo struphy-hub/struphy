@@ -1,5 +1,7 @@
 #include "struphy/pic/pushing/pusher_utilities_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * One stage of an explicit Runge-Kutta position push, as in push_eta_stage_kernels.push_eta_stage.
  *
@@ -39,13 +41,13 @@ extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_
     for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
 
     // evaluate Jacobian, result in dfm
-    struphy_cuda::df(e1, e2, e3, args_domain, dfm);
+    evaluation_kernels::df(e1, e2, e3, args_domain, dfm);
 
     // evaluate inverse Jacobian matrix
-    struphy_cuda::matrix_inv(dfm, dfinv);
+    linalg_kernels::matrix_inv(dfm, dfinv);
 
     // pull-back of velocity
-    struphy_cuda::matrix_vector(dfinv, v, k);
+    linalg_kernels::matrix_vector(dfinv, v, k);
 
     for (int j = 0; j < 3; ++j) {
         // accumulation for last stage
@@ -56,5 +58,5 @@ extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_
     }
 
     // apply kinetic boundary conditions
-    struphy_cuda::apply_kinetic_bc_marker(ip, args_markers, args_domain, false);
+    pusher_utilities_kernels::apply_kinetic_bc_marker(ip, args_markers, args_domain, false);
 }
