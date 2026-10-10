@@ -34,7 +34,7 @@ plt.rcParams.update({"font.size": 22})
 
 # Curl-Curl test: polynomial test field on the logic cube
 
-PRECONDS = ["MassMatrixPreconditioner", "StiffnessPreconditioner"]
+PRECONDS = ["MassMatrixPreconditioner", "StiffnessPreconditioner", "HiptmairXu"]
 
 domain: Domain = domains.Cuboid()
 

@@ -142,10 +142,15 @@ class CurlCurlSolve(Propagator):
               (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``derivative="curl"``,
               ``mid=diffusion_mat`` and ``stab=stab_mat``): block Jacobi with fast diagonalization,
               plus a correction on the gradients (``kernel_correction``, default True).
+            - ``"HiptmairXu"``: auxiliary space preconditioner of Hiptmair and Xu
+              (:class:`~struphy.feec.preconditioner.HiptmairXuPreconditioner` with ``mid=diffusion_mat`` and
+              ``stab=stab_mat``): smoother plus corrections on the gradients and on vector-valued
+              :math:`H^1` splines.
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the preconditioner,
-            e.g. ``{"kernel_correction": False}`` for ``"StiffnessPreconditioner"``.
+            e.g. ``{"kernel_correction": False}`` for ``"StiffnessPreconditioner"``
+            or ``{"smoother": "jacobi"}`` for ``"HiptmairXu"``.
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -266,6 +271,7 @@ class CurlCurlSolve(Propagator):
         self._diffusion_op = self.derham.curl.T @ diffusion_mat @ self.derham.curl
 
         # preconditioner and solver for Ax=b
+        lhs = self._diffusion_op + self._sigma * self._stab_mat
         precond = self.options.precond
         if precond is None:
             pc = None
@@ -278,6 +284,15 @@ class CurlCurlSolve(Propagator):
                 stab=self.options.stab_mat,
                 **self.options.precond_params,
             )
+        elif precond == "HiptmairXu":
+            pc = preconditioner.HiptmairXuPreconditioner(
+                lhs,
+                self.mass_ops,
+                self._sigma,
+                mid=self.options.diffusion_mat,
+                stab=self.options.stab_mat,
+                **self.options.precond_params,
+            )
         else:
             pc_class = getattr(preconditioner, precond)
             pc = pc_class(self.mass_ops.M1, **self.options.precond_params)
@@ -285,7 +300,7 @@ class CurlCurlSolve(Propagator):
         # (only "pcg" takes a preconditioner)
         pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
         self._solver = inverse(
-            self._diffusion_op + self._sigma * self._stab_mat,
+            lhs,
             self.options.solver,
             **pc_kwargs,
             x0=self.x0,
