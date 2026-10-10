@@ -809,9 +809,9 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
 
 
 @pytest.mark.parametrize("which_geometry", ["cylindrical", "toroidal"])
-def test_gyrokinetic_poisson_solve_stiffness_preconditioner(which_geometry):
+def test_gyrokinetic_poisson_solve_preconditioners(which_geometry):
     """GyrokineticPoissonSolve (M1gyro, M0ad_withT and the average in the stabilization): the stiffness
-    preconditioner gives the solution without preconditioner, in fewer iterations; multigrid is rejected."""
+    and multigrid preconditioners give the solution without preconditioner, in fewer iterations."""
     from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
 
     if which_geometry == "cylindrical":
@@ -834,8 +834,17 @@ def test_gyrokinetic_poisson_solve_stiffness_preconditioner(which_geometry):
     def rho(e1, e2, e3):
         return xp.sin(xp.pi * e1) * (1.0 + xp.cos(2 * xp.pi * e2) * xp.sin(2 * xp.pi * e3))
 
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+
+    # the Jacobi smoother uses the diagonal of the stabilization without the average
+    variants = [
+        (None, None),
+        ("StiffnessPreconditioner", None),
+        ("MultiGrid", MultiGridOptions()),
+        ("MultiGrid", MultiGridOptions(smoother="jacobi", smoother_degree=2)),
+    ]
     phis, infos = [], []
-    for precond in [None, "StiffnessPreconditioner"]:
+    for precond, multigrid in variants:
         phi = FEECVariable(space="H1")
         phi.allocate(derham=derham, domain=domain)
         prop = GyrokineticPoissonSolve(rho=rho, epsilon=0.1)
@@ -843,6 +852,7 @@ def test_gyrokinetic_poisson_solve_stiffness_preconditioner(which_geometry):
         prop.options = prop.Options(
             which_geometry=which_geometry,
             precond=precond,
+            multigrid=multigrid,
             solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
         )
         prop.allocate()
@@ -853,11 +863,13 @@ def test_gyrokinetic_poisson_solve_stiffness_preconditioner(which_geometry):
     if comm.Get_size() > 1:
         phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
     assert all(info["success"] for info in infos)
-    assert xp.max(xp.abs(phis[0] - phis[1])) < 1e-7 * xp.max(xp.abs(phis[0]))
+    for phi in phis[1:]:
+        assert xp.max(xp.abs(phis[0] - phi)) < 1e-7 * xp.max(xp.abs(phis[0]))
+    # stiffness and multigrid (Chebyshev smoother) at least halve the iterations; the Jacobi smoother
+    # (approximate diagonal) is weaker
     assert infos[1]["niter"] < infos[0]["niter"] / 2
-
-    with pytest.raises(ValueError):
-        GyrokineticPoissonSolve.Options(precond="MultiGrid")
+    assert infos[2]["niter"] < infos[0]["niter"] / 2
+    assert infos[3]["niter"] < infos[0]["niter"]
 
 
 if __name__ == "__main__":

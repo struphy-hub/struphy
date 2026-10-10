@@ -6,7 +6,8 @@ kept. Leaves are re-created on the coarse Derham:
 
 * :class:`IdentityOperator`, :class:`ZeroOperator`, :class:`BoundaryOperator`: on the corresponding coarse spaces,
 * :class:`DirectionalDerivativeOperator` (blocks of ``derham.grad``, ``curl``, ``div`` and their transposes),
-* :class:`WeightedMassOperator` and :class:`BasisProjectionOperator`: from their ``to_dict()`` recipe.
+* :class:`WeightedMassOperator` and :class:`BasisProjectionOperator`: from their ``to_dict()`` recipe,
+* :class:`WeightedAverageProjection`: from its coarsened weighting operator.
 
 Further leaf types can be supported with :func:`register_coarsening`.
 """
@@ -28,7 +29,7 @@ from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperator
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
+from struphy.feec.mass import WeightedAverageProjection, WeightedMassOperator, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
 
@@ -173,3 +174,8 @@ def _coarsen_mass(A: WeightedMassOperator, c: OperatorCoarsener) -> LinearOperat
 @register_coarsening(BasisProjectionOperator)
 def _coarsen_basis_projection(A: BasisProjectionOperator, c: OperatorCoarsener) -> LinearOperator:
     return BasisProjectionOperator.from_dict(A.to_dict(), c.coarse)
+
+
+@register_coarsening(WeightedAverageProjection)
+def _coarsen_average(A: WeightedAverageProjection, c: OperatorCoarsener) -> LinearOperator:
+    return WeightedAverageProjection(c.coarse, c(A._S), A._directions)

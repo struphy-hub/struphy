@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 from feectools.linalg.basic import (
+    ComposedLinearOperator,
     IdentityOperator,
     LinearOperator,
     ScaledLinearOperator,
@@ -19,6 +20,8 @@ from feectools.linalg.basic import (
 )
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+
+from struphy.feec.mass import WeightedAverageProjection
 
 
 class Smoother(ABC):
@@ -335,6 +338,12 @@ class DiagonalComputer:
     not couple, so one application of the operator per color gives the diagonal entries of all dofs of
     that color. This costs :math:`\prod_d c_d` operator applications (times the number of components).
 
+    The average :math:`\Pi` of a stabilization :math:`\mathbb S (\mathbb I - \Pi)`
+    (:class:`~struphy.feec.mass.WeightedAverageProjection`) couples all dofs along the averaged directions
+    and cannot be probed this way. Its (positive semi-definite, low-rank) part is dropped: the diagonal of
+    :math:`\mathbb S (\mathbb I - \Pi)` is approximated by the diagonal of :math:`\mathbb S`, an upper bound,
+    and :math:`\Pi` alone has diagonal zero. This only affects the Jacobi smoother and preconditioner.
+
     Parameters
     ----------
     widths : tuple[int, int, int]
@@ -361,8 +370,14 @@ class DiagonalComputer:
             for blk in _stencil_blocks(d):
                 blk._data[...] = 1.0
             return d
-        if isinstance(A, ZeroOperator):
+        if isinstance(A, (ZeroOperator, WeightedAverageProjection)):
             return A.domain.zeros()
+        if isinstance(A, ComposedLinearOperator) and _is_average_complement(A.multiplicands[-1]):
+            # S @ (I - Pi): diagonal of S (see class docstring)
+            head = A.multiplicands[:-1]
+            if len(head) == 1:
+                return self(head[0])
+            return self(ComposedLinearOperator(A.domain, A.codomain, *head))
 
         cached = self._cache.get(id(A))
         if cached is not None and cached[0] is A:
@@ -398,6 +413,19 @@ class DiagonalComputer:
                 yb = _stencil_blocks(y)[n]
                 db._data[idx][mask] = yb._data[idx][mask]
         return d
+
+
+def _is_average_complement(A: LinearOperator) -> bool:
+    """Whether ``A`` is ``I - Pi`` with a :class:`~struphy.feec.mass.WeightedAverageProjection` ``Pi``."""
+    if not isinstance(A, SumLinearOperator) or len(A.addends) != 2:
+        return False
+    ident = [a for a in A.addends if isinstance(a, IdentityOperator)]
+    avg = [
+        a
+        for a in A.addends
+        if isinstance(a, ScaledLinearOperator) and isinstance(a.operator, WeightedAverageProjection) and a.scalar < 0
+    ]
+    return len(ident) == 1 and len(avg) == 1
 
 
 def _n_colors(n: int, c: int, periodic: bool) -> int:

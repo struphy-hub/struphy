@@ -142,6 +142,38 @@ def test_coarsen_curl_curl(bcs):
     assert _max_diff(P.T.dot(A.dot(P.dot(u))), Ac.dot(u)) < 1e-12
 
 
+@pytest.mark.parametrize("bcs", BCS)
+@pytest.mark.parametrize("directions", [(2,), (1, 2)])
+def test_coarsen_average(bcs, directions):
+    r"""Re-discretization of the stabilization :math:`\sigma S (I - \Pi_S) + G^\top M_1 G` with the
+    :math:`S`-weighted average :math:`\Pi_S` (:class:`WeightedAverageProjection`) equals building it directly
+    on the coarse level, and the coarse average is a projection."""
+    from feectools.linalg.basic import IdentityOperator
+
+    from struphy.feec.mass import WeightedAverageProjection
+
+    derham, domain = _derham((8, 8, 4), (2, 2, 1), bcs)
+    h = MultiGridHierarchy(derham, max_levels=2)
+    mass_ops = WeightedMassOperators(derham, domain)
+    S = mass_ops.M0
+    avg = WeightedAverageProjection(derham, S, directions)
+    A = 0.7 * (S @ (IdentityOperator(S.domain) - avg)) + derham.grad.T @ mass_ops.M1 @ derham.grad
+
+    Ac = OperatorCoarsener(h[0], h[1], domain)(A)
+    assert Ac.domain is h[1].coeff_spaces["0"] and Ac.codomain is h[1].coeff_spaces["0"]
+
+    mass_c = WeightedMassOperators(h[1], domain)
+    Sc = mass_c.M0
+    avg_c = WeightedAverageProjection(h[1], Sc, directions)
+    Ad = 0.7 * (Sc @ (IdentityOperator(Sc.domain) - avg_c)) + h[1].grad.T @ mass_c.M1 @ h[1].grad
+    _, u = create_equal_random_arrays(h[1].fem_spaces["0"], seed=7)
+    assert _max_diff(Ac.dot(u), Ad.dot(u)) < 1e-13
+
+    # the coarse average is a projection
+    avg_u = avg_c.dot(u)
+    assert _max_diff(avg_c.dot(avg_u), avg_u) < 1e-12
+
+
 def test_coarsen_unknown_leaf():
     from feectools.linalg.stencil import StencilMatrix
 
