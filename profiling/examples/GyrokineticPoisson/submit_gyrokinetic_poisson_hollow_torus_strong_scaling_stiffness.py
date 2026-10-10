@@ -1,11 +1,11 @@
-"""Poisson strong scaling profiling case on hollow torus, mass-matrix preconditioner.
+"""GyrokineticPoisson strong scaling profiling case on hollow torus, stiffness preconditioner.
 
-This file defines the Poisson strong scaling profiling case (the `ProfilingCase`)
+This file defines the GyrokineticPoisson strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
 SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch
 system, runs directly on this machine. `finalize_run` then packages and uploads
 each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_poisson.py`
+Each generated script runs the simulation itself by invoking `params_gyrokinetic_poisson.py`
 directly (its `__main__` block is the worker).
 """
 
@@ -45,15 +45,15 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "hollow_torus_strong_scaling_massmatrix"
+    params_dir = script_dir / "hollow_torus_strong_scaling_stiffness"
 
     profiling_case = ProfilingCase(
-        label="poisson_hollow_torus_strong_scaling_massmatrix",
-        name="Poisson on hollow torus strong scaling test, mass-matrix preconditioner",
-        description="Strong scaling of the Poisson model with manufactured solution on a full hollow torus (HollowTorus, a1=1e-2, a2=1, R0=4), solved with CG preconditioned by the Kronecker approximation of the inverse 0-form mass matrix (MassMatrixPreconditioner).",
-        physics_problem="Occurs in many plasma applications.",
-        struphy_model_used="Poisson",
-        params_source=params_dir / "params_poisson.py",
+        label="gyrokinetic_poisson_hollow_torus_strong_scaling_stiffness",
+        name="GyrokineticPoisson on hollow torus strong scaling test, stiffness preconditioner",
+        description="Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with CG preconditioned by the Kronecker approximation of the inverse operator (StiffnessPreconditioner).",
+        physics_problem="Field equation of gyrokinetic simulations with adiabatic electrons.",
+        struphy_model_used="GyrokineticPoisson",
+        params_source=params_dir / "params_gyrokinetic_poisson.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

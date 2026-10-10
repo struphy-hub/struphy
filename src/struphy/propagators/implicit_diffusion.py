@@ -175,7 +175,7 @@ class ImplicitDiffusion(Propagator):
             over the given logical directions, e.g. ``"eta3"`` or ``"eta2 eta3"``, weighted with
             ``stab_mat`` (:class:`~struphy.feec.mass.WeightedAverageProjection`; e.g. the flux-surface
             average with the volume element for ``"M0"``), such that the operator stays symmetric.
-            Not supported by ``precond="MultiGrid"``.
+            With ``precond="MultiGrid"``, the average is re-built on every coarse level.
 
         diffusion_mat : {"M1", "M1perp"} or WeightedMassOperator, default="M1"
             Diffusion metric in the bilinear form
@@ -262,8 +262,6 @@ class ImplicitDiffusion(Propagator):
             if self.precond is not None:
                 assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
             preconditioner._parse_directions(self.stab_average)
-            if self.stab_average and self.precond == "MultiGrid":
-                raise ValueError("precond='MultiGrid' does not support stab_average (no coarsening of the average).")
 
             # defaults
             if self.precond_params is None:

@@ -129,8 +129,6 @@ class PoissonSolve(ImplicitDiffusion):
             if self.precond is not None:
                 assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
             _parse_directions(self.stab_average)
-            if self.stab_average and self.precond == "MultiGrid":
-                raise ValueError("precond='MultiGrid' does not support stab_average (no coarsening of the average).")
 
             # defaults
             if self.precond_params is None:
