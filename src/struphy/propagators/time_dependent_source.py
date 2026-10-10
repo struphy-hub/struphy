@@ -35,7 +35,7 @@ class TimeDependentSource(Propagator):
         Attributes
         ----------
         source : FEECVariable
-            Source coefficient field in ``"H1"`` space.
+            Source coefficient field in any FEEC space (``"H1"``, ``"Hcurl"``, ``"Hdiv"``, ``"L2"`` or ``"H1vec"``).
         """
 
         def __init__(self):
@@ -48,7 +48,6 @@ class TimeDependentSource(Propagator):
         @source.setter
         def source(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1"
             self._source = new
 
     def __init__(self):
