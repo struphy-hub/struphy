@@ -61,9 +61,9 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 | File | Content |
 |---|---|
 | `cunumpy.kernels`, `cunumpy.arguments`, `cunumpy.cuda` (cunumpy 0.6) | `Kernel`, `KernelCatalog`, `PyccelKernel` and `CudaKernel` in `cunumpy.kernels`; `CudaStructArguments`, `CudaStruct` and `write_cuda_header` in `cunumpy.arguments`; the device runtime (`bind_local_device`, ...) in `cunumpy.cuda`. Struphy uses cunumpy for dispatch and struct packing |
-| `src/struphy/kernel_arguments/` | the argument classes in pairs: the pyccel classes in `pusher_args_kernels.py` / `local_projectors_args_kernels.py` (NumPy backend) and their CUDA versions `Cuda<Name>` in `pusher_args_cuda.py` / `local_projectors_args_cuda.py` (CuPy backend; subclasses of `CudaStructArguments` whose `fields` define the C struct) |
-| `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()` and `write_local_projectors_header()` |
-| `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs` and `LocalProjectorsArgs`, generated from the CUDA classes, using cunumpy array views |
+| `src/struphy/kernel_arguments/` | the argument classes in pairs: the pyccel classes in `pusher_args_kernels.py` / `local_projectors_args_kernels.py` / `spline_args_kernels.py` (NumPy backend) and their CUDA versions `Cuda<Name>` in `pusher_args_cuda.py` / `local_projectors_args_cuda.py` / `spline_args_cuda.py` (CuPy backend; subclasses of `CudaStructArguments` whose `fields` define the C struct) |
+| `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()`, `write_local_projectors_header()` and `write_spline_header()` |
+| `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh`, `spline_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs`, `LocalProjectorsArgs` and `SplineArgs`, generated from the CUDA classes, using cunumpy array views |
 | `src/struphy/geometry/base.py`, `src/struphy/pic/base.py`, `src/struphy/feec/psydac_derham.py` | `Domain.args_domain`, `Particles.args_markers` and `Derham.args_derham` are the pyccel class on NumPy and the CUDA class on CuPy, chosen once at construction; every kernel call goes through a `Kernel` |
 | `src/struphy/*/kernels/` (`pic/pushing`, `pic/accumulation`, `pic/diagnostics`, `pic/sph`, `bsplines`, `geometry`, `feec`, `feec/local_projectors`) | every kernel called from Python with argument objects, one folder each: 44 pusher/evaluation (incl. `reflect`), 16 accumulation, 10 marker diagnostics, 4 SPH evaluation, 3 spline evaluation, 4 geometry, 1 FEEC utility and 8 local projector kernels. Each folder's `__init__.py` declares its `Kernel`; the code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`). Sixteen have CUDA versions (`linear_vlasov_ampere` the latest), with parity cases in `pic/tests/cuda_parity_cases.py`, among them the four geometry kernels (PR 18) |
 | `src/struphy/geometry/evaluation_kernels.cuh`, `transform_kernels.cuh`, `spline_mappings_kernels.cuh`, `geometry/domains/<name>/<name>_cuda.cuh` | device versions of the mapping helpers for every mapping: `f`/`df` per analytic domain (`kind_map` 10–12, 20–22, 30–32, PR 18) and the spline mappings `spline_3d`, `spline_2d_straight`, `spline_2d_torus` (`kind_map` 0–2, PR 19), the `kind_map` switch, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`, `push`, `tran` |
@@ -554,6 +554,7 @@ The argument classes come in pairs, one for each backend:
 | `pusher_args_kernels.DerhamArguments` | `pusher_args_cuda.CudaDerhamArguments` (`DerhamArgs`) |
 | `pusher_args_kernels.DomainArguments` | `pusher_args_cuda.CudaDomainArguments` (`DomainArgs`) |
 | `local_projectors_args_kernels.LocalProjectorsArguments` | `local_projectors_args_cuda.CudaLocalProjectorsArguments` (`LocalProjectorsArgs`) |
+| `spline_args_kernels.SplineArguments` | `spline_args_cuda.CudaSplineArguments` (`SplineArgs`) |
 
 The two classes of a pair take the same constructor arguments and have the same attributes; the CUDA struct
 adds only derived members that CUDA pointers cannot carry (`n_markers` is also a pyccel attribute; `nt1`,
@@ -579,6 +580,10 @@ step: CUDA versions of `kernel_evaluate_pic`, `kernel_evaluate` and the pull/pus
 
 `CudaLocalProjectorsArguments` is not used by any CUDA kernel yet; local projectors are rejected on the
 CuPy backend by `Derham`.
+
+`SplineFunction` creates one `SplineArguments` (`CudaSplineArguments` on CuPy) per component, holding `kind`,
+`pn`, `tn1`, `tn2`, `tn3` and `starts`; the three `eval_spline_mpi_*` entry kernels take it as `args_spline`
+instead of six loose arguments (#678). The device helper `eval_spline_mpi` keeps its flat signature.
 
 ### Kernel folders
 

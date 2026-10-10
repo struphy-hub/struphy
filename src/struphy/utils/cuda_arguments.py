@@ -12,10 +12,12 @@ from cunumpy.arguments import write_cuda_header
 
 from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 
 PUSHER_STRUCTS = tuple(cls.struct for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments))
 LOCAL_PROJECTORS_STRUCTS = (CudaLocalProjectorsArguments.struct,)
-CUDA_STRUCTS = PUSHER_STRUCTS + LOCAL_PROJECTORS_STRUCTS
+SPLINE_STRUCTS = (CudaSplineArguments.struct,)
+CUDA_STRUCTS = PUSHER_STRUCTS + LOCAL_PROJECTORS_STRUCTS + SPLINE_STRUCTS
 CUDA_INCLUDE_DIR = Path(__file__).resolve().parents[2]
 CUDA_OPTIONS = {"structs": CUDA_STRUCTS, "include_dirs": (CUDA_INCLUDE_DIR,)}
 
@@ -28,6 +30,11 @@ def write_pusher_header(path):
 def write_local_projectors_header(path):
     """Generate the committed ABI header ``local_projectors_args.cuh`` from the CUDA argument class."""
     return write_cuda_header(path, LOCAL_PROJECTORS_STRUCTS, guard="STRUPHY_LOCAL_PROJECTORS_ARGS_CUH")
+
+
+def write_spline_header(path):
+    """Generate the committed ABI header ``spline_args.cuh`` from the CUDA argument class."""
+    return write_cuda_header(path, SPLINE_STRUCTS, guard="STRUPHY_SPLINE_ARGS_CUH")
 
 
 def check_mapping_on_device(kind_map: int, what: str):

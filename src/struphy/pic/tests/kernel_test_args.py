@@ -14,6 +14,8 @@ import numpy as np
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaMarkerArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.ode.utils import ButcherTableau
 
 N_MARKERS = 129  # not a multiple of the block size
@@ -89,20 +91,21 @@ def spline_coefficients(n=3, seed=11):
 
 
 def spline_evaluation_arguments(kind):
-    """``_data, kind, pn, tn1, tn2, tn3, starts`` of the spline evaluation kernels, for degrees 2, 3, 1 on 8 cells.
+    """``_data, args_spline`` of the spline evaluation kernels, for degrees 2, 3, 1 on 8 cells.
 
     The coefficients cover every span of the knots with start indices 1 on all axes.
     """
     rng = np.random.default_rng(34)
     degree = np.array([2, 3, 1], dtype=np.int64)
     knots = [np.r_[np.zeros(p), np.linspace(0, 1, 9), np.ones(p)] for p in degree]
-    return (
-        xp.asarray(rng.normal(size=(16, 18, 20))),
+    args_class = CudaSplineArguments if xp.get_backend() == "cupy" else SplineArguments
+    args_spline = args_class(
         xp.asarray(kind, dtype=np.int64),
         xp.asarray(degree),
         *(xp.asarray(t) for t in knots),
         xp.ones(3, dtype=np.int64),
     )
+    return xp.asarray(rng.normal(size=(16, 18, 20))), args_spline
 
 
 def evaluation_grid(sparse):
