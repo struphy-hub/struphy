@@ -342,7 +342,8 @@ class DiagonalComputer:
     (:class:`~struphy.feec.mass.WeightedAverageProjection`) couples all dofs along the averaged directions
     and cannot be probed this way. Its (positive semi-definite, low-rank) part is dropped: the diagonal of
     :math:`\mathbb S (\mathbb I - \Pi)` is approximated by the diagonal of :math:`\mathbb S`, an upper bound,
-    and :math:`\Pi` alone has diagonal zero. This only affects the Jacobi smoother and preconditioner.
+    and :math:`\Pi` in any other position raises ``NotImplementedError``. This only affects the Jacobi
+    smoother and preconditioner.
 
     Parameters
     ----------
@@ -370,8 +371,12 @@ class DiagonalComputer:
             for blk in _stencil_blocks(d):
                 blk._data[...] = 1.0
             return d
-        if isinstance(A, (ZeroOperator, WeightedAverageProjection)):
+        if isinstance(A, ZeroOperator):
             return A.domain.zeros()
+        if isinstance(A, WeightedAverageProjection):
+            raise NotImplementedError(
+                "Diagonal of a WeightedAverageProjection is only approximated within S @ (I - Pi)."
+            )
         if isinstance(A, ComposedLinearOperator) and _is_average_complement(A.multiplicands[-1]):
             # S @ (I - Pi): diagonal of S (see class docstring)
             head = A.multiplicands[:-1]

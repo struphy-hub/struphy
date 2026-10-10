@@ -103,6 +103,9 @@ class GyrokineticPoisson(StruphyModel):
             # Solve to get initial potential (before time stepping)
             logger.info("\nSolving initial gyrokinetic Poisson problem (before time stepping)...")
 
+            # source at t = 0 (the time state is not yet attached to the propagators)
+            self.propagators.source.update_source(0.0)
+
             with ProfileManager.profile_region(
                 "initial gyrokinetic Poisson solve", functions=[self.propagators.gyrokinetic_poisson]
             ):

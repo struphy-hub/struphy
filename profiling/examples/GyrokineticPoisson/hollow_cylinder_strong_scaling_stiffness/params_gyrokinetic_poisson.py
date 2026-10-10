@@ -100,7 +100,7 @@ grid = grids.TensorProductGrid(num_elements=(64, 64, 64), mpi_dims_mask=(True, T
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
-# Profilinig options
+# Profiling options
 profiling_opts = ProfilingOptions(
     use_line_profiler=True,
 )
