@@ -1,11 +1,11 @@
-"""Poisson strong scaling profiling case on hollow cylinder, mass-matrix preconditioner.
+"""GyrokineticPoisson strong scaling profiling case on hollow cylinder, multigrid preconditioner.
 
-This file defines the Poisson strong scaling profiling case (the `ProfilingCase`)
+This file defines the GyrokineticPoisson strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
 SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch
 system, runs directly on this machine. `finalize_run` then packages and uploads
 each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_poisson.py`
+Each generated script runs the simulation itself by invoking `params_gyrokinetic_poisson.py`
 directly (its `__main__` block is the worker).
 """
 
@@ -45,15 +45,15 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "hollow_cylinder_strong_scaling_massmatrix"
+    params_dir = script_dir / "hollow_cylinder_strong_scaling_multigrid"
 
     profiling_case = ProfilingCase(
-        label="poisson_hollow_cylinder_strong_scaling_massmatrix",
-        name="Poisson on hollow cylinder strong scaling test, mass-matrix preconditioner",
-        description="Strong scaling of the Poisson model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by the Kronecker approximation of the inverse 0-form mass matrix (MassMatrixPreconditioner).",
-        physics_problem="Occurs in many plasma applications.",
-        struphy_model_used="Poisson",
-        params_source=params_dir / "params_poisson.py",
+        label="gyrokinetic_poisson_hollow_cylinder_strong_scaling_multigrid",
+        name="GyrokineticPoisson on hollow cylinder strong scaling test, multigrid preconditioner",
+        description="Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a hollow cylinder in a screw pinch equilibrium (HollowCylinder, a1=1e-2, a2=1, Lz=2*pi; ScrewPinch, a=1, R0=1), solved with CG preconditioned by geometric multigrid (MultiGridPreconditioner).",
+        physics_problem="Field equation of gyrokinetic simulations with adiabatic electrons.",
+        struphy_model_used="GyrokineticPoisson",
+        params_source=params_dir / "params_gyrokinetic_poisson.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

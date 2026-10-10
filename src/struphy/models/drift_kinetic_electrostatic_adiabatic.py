@@ -17,7 +17,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.kernels.gc_density_0form import gc_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
-from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
+from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
@@ -89,7 +89,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             Z: int = 1,
             diagnostic: FEECVariable | None = None,
         ):
-            self.gc_poisson = PoissonAdiabaticGyrokinetic(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
+            self.gc_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
             self.push_gc_bxe = PushGuidingCenterBxEstar(phi=phi)
             self.push_gc_para = PushGuidingCenterParallel(phi=phi)
 
@@ -282,7 +282,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         """
         doc = rf"""**1. ImplicitDiffusion:**
 
-{PoissonAdiabaticGyrokinetic.__doc__}
+{GyrokineticPoissonSolve.__doc__}
 
 **2. PushGuidingCenterBxEstar:**
 

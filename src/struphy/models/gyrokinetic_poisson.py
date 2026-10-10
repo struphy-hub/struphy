@@ -9,21 +9,23 @@ from struphy.models.species import (
     FieldSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.propagators.base import Propagator
-from struphy.propagators.implicit_diffusion import ImplicitDiffusion
-from struphy.propagators.poisson_solve import PoissonSolve
+from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
 from struphy.propagators.time_dependent_source import TimeDependentSource
 
 logger = logging.getLogger("struphy")
 
 
-class Poisson(StruphyModel):
-    """Weak discretization of Poisson's equation with a diffusion matrix, stabilization and an optional time-dependent right-hand side.
+class GyrokineticPoisson(StruphyModel):
+    """Weak discretization of the gyrokinetic Poisson equation with adiabatic electrons and an optional time-dependent right-hand side.
 
     Parameters
     ----------
     base_units: BaseUnits
         Base units for normalization (default: BaseUnits())
+    epsilon: float
+        Gyrokinetic parameter (default: 1.0)
+    Z: int
+        Charge number of the ions (default: 1)
     with_t_dep_source: bool
         Whether the right-hand side source term is time-dependent (default: False)
     """
@@ -43,14 +45,20 @@ class Poisson(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, rho: FEECVariable = None, with_t_dep_source=False):
+        def __init__(self, rho: FEECVariable = None, epsilon: float = 1.0, Z: int = 1, with_t_dep_source=False):
             if with_t_dep_source:
                 self.source = TimeDependentSource()
-            self.poisson = PoissonSolve(rho=rho)
+            self.gyrokinetic_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z)
 
     ## abstract methods
 
-    def __init__(self, base_units: BaseUnits = BaseUnits(), with_t_dep_source=False):
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(),
+        epsilon: float = 1.0,
+        Z: int = 1,
+        with_t_dep_source=False,
+    ):
 
         self.with_t_dep_source = with_t_dep_source
 
@@ -64,12 +72,17 @@ class Poisson(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(rho=self.em_fields.source, with_t_dep_source=with_t_dep_source)
+        self.propagators = self.Propagators(
+            rho=self.em_fields.source,
+            epsilon=epsilon,
+            Z=Z,
+            with_t_dep_source=with_t_dep_source,
+        )
 
         # 4. assign variables to propagators
         if with_t_dep_source:
             self.propagators.source.variables.source = self.em_fields.source
-        self.propagators.poisson.variables.phi = self.em_fields.phi
+        self.propagators.gyrokinetic_poisson.variables.phi = self.em_fields.phi
 
         # 5. define scalars to be tracked during simulation
 
@@ -82,33 +95,23 @@ class Poisson(StruphyModel):
         return None
 
     def post_allocate(self):
-        """Solve initial Poisson equation.
+        """Solve initial gyrokinetic Poisson equation.
 
         :meta private:
         """
         if self.with_t_dep_source:
             # Solve to get initial potential (before time stepping)
-            logger.info("\nSolving initial Poisson problem (before time stepping)...")
+            logger.info("\nSolving initial gyrokinetic Poisson problem (before time stepping)...")
 
             # source at t = 0 (the time state is not yet attached to the propagators)
             self.propagators.source.update_source(0.0)
 
-            with ProfileManager.profile_region("initial Poisson solve", functions=[self.propagators.poisson]):
-                self.propagators.poisson(1.0)
+            with ProfileManager.profile_region(
+                "initial gyrokinetic Poisson solve", functions=[self.propagators.gyrokinetic_poisson]
+            ):
+                self.propagators.gyrokinetic_poisson(1.0)
 
             logger.info("... Done.")
-
-    # default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
 
     @classmethod
     def doc_pde(cls):
@@ -118,10 +121,14 @@ class Poisson(StruphyModel):
 
         .. math::
 
-            -\nabla \cdot D_0(\mathbf{x}) \nabla \phi + n_0(\mathbf{x}) \phi = \rho(t, \mathbf{x})
+            \frac{1}{Z\epsilon^2} \frac{n_0}{T_0} \left( \phi - \langle \phi \rangle \right) - \nabla \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) = \frac{1}{\epsilon} \rho(t, \mathbf{x})\,,
 
-        where :math:`n_0, \rho(t) : \Omega \to \mathbb{R}` are real-valued functions, :math:`\rho(t)` is parametrized by time :math:`t`, and :math:`D_0 : \Omega \to \mathbb{R}^{3 \times 3}` is a positive matrix.
-        Boundary terms from integration by parts are assumed to vanish.
+        where :math:`n_0, T_0, |B_0| : \Omega \to \mathbb{R}` are the equilibrium density, temperature and magnetic field strength,
+        :math:`\nabla_\perp = (\mathbb{1} - \mathbf b_0 \mathbf b_0^\top) \nabla` is the gradient perpendicular to the unit vector
+        :math:`\mathbf b_0 = \mathbf B_0 / |B_0|`, and :math:`\langle \phi \rangle` is the :math:`n_0/T_0`-weighted average
+        over the toroidal (cylindrical geometry) or the poloidal and toroidal (toroidal geometry) angle.
+        :math:`\epsilon` is the gyrokinetic parameter, :math:`Z` the charge number of the ions, and the right-hand side
+        :math:`\rho(t)` is parametrized by time :math:`t`. Boundary terms from integration by parts are assumed to vanish.
         """
 
     @classmethod
@@ -130,7 +137,7 @@ class Poisson(StruphyModel):
 
         .. math::
 
-            \hat D = \hat n / \hat x^2,\qquad \hat\rho = \hat n.
+            \hat \rho = \hat n.
 
         No dedicated velocity normalization is used."""
 
@@ -145,33 +152,35 @@ class Poisson(StruphyModel):
         """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.time_dependent_source.TimeDependentSource` (if :attr:`with_t_dep_source` is True)
-        2. :class:`~struphy.propagators.poisson_solve.PoissonSolve`
+        2. :class:`~struphy.propagators.gyrokinetic_poisson_solve.GyrokineticPoissonSolve`
         """
         doc = rf"""**1. TimeDependentSource:**
 
 {TimeDependentSource.__doc__}
 
-**2. PoissonFieldSolve:**
+**2. GyrokineticPoissonSolve:**
 
-{PoissonSolve.__doc__}
+{GyrokineticPoissonSolve.__doc__}
 """
         return doc
 
     @classmethod
     def doc_long_description(cls):
-        r"""Poisson is the standalone elliptic field-solve model used for weak
-        diffusion/Poisson problems. It is also the building block reused by
-        other models for initial electrostatic solves."""
+        r"""GyrokineticPoisson is the standalone elliptic field-solve model for the
+        gyrokinetic Poisson equation with adiabatic electrons, the field equation of
+        :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`. It solves the field
+        equation with a prescribed (possibly time-dependent) source, e.g. for verification
+        and profiling of the solver in a given MHD equilibrium."""
 
     @classmethod
     def doc_examples(cls):
-        r"""Create and initialize a Poisson model:
+        r"""Create and initialize a GyrokineticPoisson model:
 
         .. code-block:: python
 
-            from struphy.models import Poisson
+            from struphy.models import GyrokineticPoisson
 
-            model = Poisson()
+            model = GyrokineticPoisson(epsilon=1.0, Z=1)
             model.em_fields.phi
             model.em_fields.source
         """
@@ -180,14 +189,12 @@ class Poisson(StruphyModel):
     def doc_use_cases(cls):
         r"""This model is appropriate for:
 
-        - elliptic benchmark problems
-        - electrostatic field solves with prescribed source terms
-        - testing weak Poisson discretizations and boundary handling"""
+        - verification and profiling of the gyrokinetic Poisson solver
+        - electrostatic potentials of a prescribed gyrokinetic charge density in an MHD equilibrium"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-        - hyperbolic time-dependent wave propagation
         - self-consistent kinetic plasma evolution on its own
-        - magnetic-field dynamics or full Maxwell coupling"""
+        - electromagnetic or magnetic-field dynamics"""
