@@ -2880,7 +2880,11 @@ class Particles(metaclass=ABCMeta):
                     outside_inds = outside_inds[~gyro_inside_inds]
 
             # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss
-            self.markers[outside_inds, 2] -= 2 * self.equil.q_r(r_loss) * self.markers[outside_inds, 1]
+            # (eta3 = tor_period * phi / 2pi, eta2 = theta / 2pi)
+            tor_period = self.domain.params.get("tor_period", 1)
+            self.markers[outside_inds, 2] -= (
+                2 * self.equil.q_r(r_loss) * tor_period * self.markers[outside_inds, 1]
+            )
 
             # theta_boudary_transfer = - theta_loss
             self.markers[outside_inds, 1] = 1.0 - self.markers[outside_inds, 1]

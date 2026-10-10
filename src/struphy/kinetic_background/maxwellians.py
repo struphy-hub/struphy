@@ -440,6 +440,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     cache_size : int, optional
         Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
         Must be able to accomodate all markers on the current process.
+
+    correction_B : str, default="B0"
+        Field :math:`B_0` in the passing-particle correction. ``"B0"``: on-axis field. ``"Bmax"``: field at the
+        inboard midplane of the flux surface :math:`\psi = P_\phi` (radius clipped to the plasma). A particle can only
+        bounce on that surface, so the correction vanishes for every particle that can bounce and :math:`\psi_c`
+        is a function of exact constants of motion (exact equilibrium, but with a net parallel flow).
     """
 
     def __init__(
@@ -451,8 +457,10 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         equil: AxisymmMHDequilibrium = None,
         epsilon: float = 1.0,
         cache_size: int | None = None,
+        correction_B: str = "B0",
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
+        assert correction_B in ("B0", "Bmax")
 
         super().__init__(
             n=n,
@@ -472,6 +480,17 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         self.params["equil"] = equil
         self.params["epsilon"] = epsilon
         self.params["cache_size"] = cache_size
+        self.params["correction_B"] = correction_B
+
+        if correction_B == "Bmax":
+            # |B| at the inboard midplane (R = R0 - r, Z = 0) as a function of psi
+            R0 = equil.params["R0"]
+            r = xp.linspace(1e-4, equil.params["a"], 1001)
+            psi_in = equil.psi(R0 - r, 0.0 * r)
+            bx, by, bz = equil.b_xyz(R0 - r, 0.0 * r, 0.0 * r)
+            order = xp.argsort(psi_in)
+            self._psi_in = psi_in[order]
+            self._B_in = xp.sqrt(bx**2 + by**2 + bz**2)[order]
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -628,6 +647,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                         self.test_mask[2 * n_markers // 3] = True
         return cached
 
+    def _correction_field(self, p_phi, B0):
+        """Field in the passing-particle correction: on-axis B0, or B_max of the flux surface psi = P_phi."""
+        if self.params["correction_B"] == "B0":
+            return B0
+        return xp.interp(p_phi, self._psi_in, self._B_in)
+
     def eval_psic(self, *coords):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities."""
 
@@ -675,13 +700,14 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             energy = 1 / 2 * vparallel**2 + mu * absB0
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
+            B_corr = self._correction_field(psi_c, B0)
 
-            positive_mask = (energy - mu * B0) > 0
+            positive_mask = (energy - mu * B_corr) > 0
             correction = xp.zeros_like(psi_c)
             correction[positive_mask] = (
                 self._epsilon
                 * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy - mu * B0)[positive_mask])
+                * xp.sqrt(2 * (energy - mu * B_corr)[positive_mask])
                 * R0
             )
             psi_c += correction
@@ -701,13 +727,14 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             energy[:] = 1 / 2 * vparallel**2 + mu * absB0
 
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
+            B_corr = self._correction_field(psi_c, B0)
 
-            positive_mask[:] = (energy - mu * B0) > 0
+            positive_mask[:] = (energy - mu * B_corr) > 0
             correction[:] = 0.0
             correction[positive_mask] = (
                 self._epsilon
                 * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy - mu * B0)[positive_mask])
+                * xp.sqrt(2 * (energy - mu * B_corr)[positive_mask])
                 * R0
             )
             psi_c[:] += correction
