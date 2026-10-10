@@ -318,7 +318,8 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         return _kronecker_approximation(mass_operator, bc, weight_1d)
 
     def _core_diagonal(self):
-        return self._mass_operator.matrix.diagonal()
+        # the matrix itself: _local_diagonal also adds the band entries that wrap onto the diagonal
+        return self._mass_operator.matrix
 
     @property
     def dim_reduce(self) -> int | None:
@@ -765,7 +766,7 @@ def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
     if isinstance(op, StencilDiagonalMatrix):
         return [op._data]
     if isinstance(op, StencilMatrix):
-        return [op.diagonal()._data]
+        return [_stencil_local_diagonal(op)]
     if isinstance(op, KroneckerStencilMatrix):
         # outer product of the diagonals of the (process-local) factors on the local rows
         diags = []
@@ -786,6 +787,31 @@ def _local_diagonal(op: LinearOperator) -> list[xp.ndarray]:
     if isinstance(op, ScaledLinearOperator):
         return [op.scalar * a for a in _local_diagonal(op.operator)]
     raise NotImplementedError(f"Diagonal of {type(op).__name__} is not supported.")
+
+
+def _stencil_local_diagonal(M: StencilMatrix) -> xp.ndarray:
+    """
+    Local diagonal of a StencilMatrix, including the band entries that wrap onto the main diagonal.
+
+    In a periodic direction with fewer points than the band width (``2p + 1 > n``, e.g. a single
+    element), the band entries at the offsets ``k = m n`` (``m != 0``) are on the main diagonal too;
+    :meth:`StencilMatrix.diagonal` returns only the entry at ``k = 0``.
+    """
+    V = M.codomain
+    assert all(m == 1 for m in V.shifts) and all(m == 1 for m in M.domain.shifts), "Only shifts 1 are supported."
+    offsets = [
+        [k for k in range(-p, p + 1) if k % n == 0] if periodic else [0]
+        for n, p, periodic in zip(V.npts, M.pads, V.periods)
+    ]
+    diag = M.diagonal()._data
+    if all(o == [0] for o in offsets):
+        return diag
+    idx = M._get_diagonal_indices()
+    rows, cols = idx[: V.ndim], idx[V.ndim :]
+    for ks in itertools.product(*offsets):
+        if any(ks):
+            diag = diag + M._data[rows + tuple(j + k for j, k in zip(cols, ks))]
+    return diag
 
 
 def _diagonal_operator(space: VectorSpace, diags: list[xp.ndarray]) -> LinearOperator:
