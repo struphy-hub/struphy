@@ -26,9 +26,10 @@ requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GP
 SPACES = ("M0", "M1", "M2")
 # (class name, keyword arguments)
 PRECONDITIONERS = (
+    ("MassMatrixPreconditioner", {"diagonal_scaling": False}),
     ("MassMatrixPreconditioner", {}),
-    ("MassMatrixPreconditioner", {"weight_reduction": "average", "diagonal_scaling": True}),
-    ("MassMatrixDiagonalPreconditioner", {}),
+    ("MassMatrixPreconditioner", {"weight_reduction": "average"}),
+    ("MassMatrixPreconditioner", {"dim_reduce": None}),
 )
 BCS = {
     "periodic": (None, None, None),

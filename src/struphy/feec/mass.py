@@ -3517,3 +3517,168 @@ class AverageOperator(LinearOperator):
         return AverageOperator(
             self.derham, self._space, self._direction, transposed=not self._transposed, nquads=self._nquads
         )
+
+
+class WeightedAverageProjection(LinearOperator):
+    r"""
+    Projection onto functions that are constant in the given directions, orthogonal with respect to
+    a symmetric positive (semi-)definite operator :math:`\mathbb S` on the 0-form coefficients:
+
+    .. math::
+
+        \Pi_{\mathbb S} = \mathbb E \, (\mathbb E^\top \mathbb S \, \mathbb E)^{-1} \, \mathbb E^\top \mathbb S \,,
+
+    where :math:`\mathbb E` embeds the coefficients of the remaining directions as constant along the
+    averaged ones (:math:`\mathbb E^\top` sums over the averaged directions). For a weighted mass matrix
+    :math:`\mathbb S`, :math:`\Pi_{\mathbb S} \phi` is the spline in the remaining directions closest to
+    :math:`\phi` in the weighted :math:`L^2` norm, i.e. the weighted average (e.g. the flux-surface
+    average with the volume element :math:`\sqrt g` for :math:`\mathbb M^0`). Then
+
+    .. math::
+
+        \mathbb S (\mathbb I - \Pi_{\mathbb S}) = \mathbb S - \mathbb S \mathbb E \, (\mathbb E^\top \mathbb S \, \mathbb E)^{-1} \, \mathbb E^\top \mathbb S
+
+    is symmetric. If the weight of :math:`\mathbb S` does not depend on the averaged directions,
+    :math:`\Pi_{\mathbb S}` is the plain average of :class:`AverageOperator`. If all three directions
+    are averaged, :math:`\mathbb E` is the vector of ones and the reduced matrix is the scalar
+    :math:`\mathbb 1^\top \mathbb S \, \mathbb 1` (the weighted mean over the whole domain).
+
+    The reduced matrix :math:`\mathbb E^\top \mathbb S \, \mathbb E` (on the remaining directions) is
+    assembled once by probing :math:`\mathbb S` with colored vectors and factorized on every process;
+    one application costs one application of :math:`\mathbb S` and a sparse solve.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence (0-forms, no polar splines).
+
+    S : LinearOperator
+        Symmetric operator on the 0-form coefficients (e.g. a weighted mass operator), positive
+        definite on the functions constant in the averaged directions (up to essential boundary
+        conditions, whose reduced rows are replaced by the identity).
+
+    directions : tuple[int]
+        The averaged directions (0, 1 and/or 2; all three for the global mean).
+    """
+
+    def __init__(self, derham: Derham, S: LinearOperator, directions: tuple[int, ...]):
+        import numpy as np
+        from scipy import sparse
+        from scipy.sparse.linalg import splu
+
+        V = derham.V0
+        assert S.domain == V and S.codomain == V, "S must act on the 0-form coefficients."
+        directions = tuple(sorted(set(directions)))
+        assert directions and all(d in (0, 1, 2) for d in directions)
+        kept = tuple(d for d in range(3) if d not in directions)
+
+        self._derham = derham
+        self._S = S
+        self._space = V
+        self._directions = directions
+        self._kept = kept
+        self._comm = None if isinstance(derham.comm, (SerialComm, type(None))) else derham.comm
+        self._local = tuple(slice(p * m, p * m + e - s + 1) for p, m, s, e in zip(V.pads, V.shifts, V.starts, V.ends))
+        self._red_shape = tuple(V.npts[d] for d in kept)
+        self._red_local = tuple(slice(V.starts[d], V.ends[d] + 1) for d in kept)
+        self._tmp = V.zeros()
+        self._tmp2 = V.zeros()
+
+        # reduced matrix E^T S E, column by column with colored probes: in each kept direction the
+        # columns of one color are at least 2 p + 1 apart (also across a periodic boundary)
+        strides = []
+        for d in kept:
+            n, p = V.npts[d], V.pads[d]
+            stride = n
+            if not V.periods[d]:
+                stride = min(n, 2 * p + 1)
+            else:
+                for s in range(2 * p + 1, n + 1):
+                    if n % s == 0:
+                        stride = s
+                        break
+            strides.append(stride)
+
+        rows, cols, vals = [], [], []
+        n_red = int(np.prod(self._red_shape))
+        index = np.arange(n_red).reshape(self._red_shape)
+        for color in np.ndindex(*strides):
+            probe = np.zeros(self._red_shape)
+            sel = tuple(slice(c, None, s) for c, s in zip(color, strides))
+            probe[sel] = 1.0
+            col = self._ET(self._S.dot(self._E(probe, out=self._tmp), out=self._tmp2))
+            # entry (b, a) for the probed columns a: rows b within the coupling width of a
+            for a in index[sel].ravel():
+                a_idx = np.unravel_index(a, self._red_shape)
+                ranges = []
+                for k, d in enumerate(kept):
+                    n, p = V.npts[d], V.pads[d]
+                    r = np.arange(a_idx[k] - p, a_idx[k] + p + 1)
+                    r = r % n if V.periods[d] else r[(r >= 0) & (r < n)]
+                    ranges.append(np.unique(r))
+                for b_idx in np.ndindex(*[len(r) for r in ranges]):
+                    b = tuple(r[i] for r, i in zip(ranges, b_idx))
+                    rows.append(index[b])
+                    cols.append(a)
+                    vals.append(col[b])
+        K = sparse.coo_matrix((vals, (rows, cols)), shape=(n_red, n_red)).tocsc()
+        K.sum_duplicates()
+        # rows without entries (essential boundary conditions of S): identity
+        diag = K.diagonal()
+        empty = np.abs(diag) <= 1e-14 * max(np.abs(diag).max(), 1e-300)
+        if np.any(empty):
+            K = K + sparse.diags(empty.astype(float))
+        self._K_lu = splu(K.tocsc())
+
+    def _ET(self, v):
+        """E^T v: sum over the averaged directions, as global array over the kept directions (all processes)."""
+        import numpy as np
+
+        loc = xp.to_numpy(v._data[self._local]).sum(axis=self._directions)
+        out = np.zeros(self._red_shape)
+        out[self._red_local] = loc
+        if self._comm is not None:
+            out = self._comm.allreduce(out, op=MPI.SUM)
+        return out
+
+    def _E(self, red, out):
+        """E red: the global array over the kept directions, constant along the averaged ones."""
+        loc = red[self._red_local]
+        shape = [1, 1, 1]
+        for k, d in enumerate(self._kept):
+            shape[d] = loc.shape[k]
+        out._data[self._local] = xp.asarray(loc.reshape(shape))
+        out.update_ghost_regions()
+        return out
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    @property
+    def directions(self) -> tuple[int, ...]:
+        """The averaged directions."""
+        return self._directions
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._space.zeros()
+        red = self._K_lu.solve(self._ET(self._S.dot(v, out=self._tmp)).ravel()).reshape(self._red_shape)
+        return self._E(red, out)
+
+    def transpose(self, conjugate=False):
+        raise NotImplementedError("Only S @ (I - P) is symmetric; P itself is not.")
+
+    def tosparse(self):
+        raise NotImplementedError
+
+    def toarray(self):
+        raise NotImplementedError

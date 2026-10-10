@@ -2,7 +2,6 @@ import logging
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
-from contextlib import ExitStack
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
@@ -4665,67 +4664,55 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
     _warned_mpi_staging = False
 
     def _sendrecv_markers_device(self, recv_info, hole_inds_after_send):
-        """:meth:`_sendrecv_markers` on the CuPy backend: marker rows go to MPI as device buffers.
+        """Exchange marker rows and scatter incoming rows into empty slots.
 
-        With CUDA-aware MPI (:meth:`_mpi_cuda_aware`), the rows to send (:attr:`_send_list`,
-        gathered on the device by :meth:`_sendrecv_get_destinations`) and one device receive
-        buffer are handed to ``Isend``/``Irecv`` directly, after
-        :func:`cunumpy.mpi.synchronize_for_mpi` (inside :func:`cunumpy.mpi.mpi_buffer`), so MPI
-        reads what the kernels wrote. The rows from rank ``i`` arrive in a contiguous slice of
-        the receive buffer, and one device scatter puts all of them into the holes. Without
-        CUDA-aware MPI, :func:`~cunumpy.mpi.mpi_buffer` stages the same buffers through host
-        memory (counted by :func:`cunumpy.profiling.count_transfers`).
-
-        The bookkeeping stays on the host without host/device copies: the counts are host
-        integers (``recv_info`` from the Alltoall, the send counts are the row counts of the
-        send buffers), and so is the number of holes. Ranks exchange no message when the
-        count is zero (both sides know the count, so they skip consistently).
+        :func:`cunumpy.mpi.exchange` handles GPU synchronization, optional host
+        staging, and completion of all MPI transfers.
 
         Parameters
         ----------
-            recv_info : array[int]
-                Amount of markers to be received from i-th process (NumPy array).
-
-            hole_inds_after_send : array[int]
-                Indices of empty rows in markers after send (device array).
+        recv_info : array[int]
+            Number of markers to receive from each process (NumPy array).
+        hole_inds_after_send : array[int]
+            Indices of empty rows in markers after send (device array).
         """
         recv_info = np.asarray(recv_info)
         n_recv = int(recv_info.sum())
+
         if hole_inds_after_send.size < n_recv:
             warnings.warn(
-                f'Strong load imbalance detected: \
-number of holes ({hole_inds_after_send.size}) on rank {self.mpi_rank} \
-is smaller than number of incoming particles ({n_recv}). \
-Increasing the value of "bufsize" in the markers parameters for the next run.',
+                f"Strong load imbalance detected: "
+                f"number of holes ({hole_inds_after_send.size}) "
+                f"on rank {self.mpi_rank} is smaller than number of "
+                f"incoming particles ({n_recv}). "
+                'Increase "bufsize" in the markers parameters for the next run.',
             )
             self.mpi_comm.Abort()
 
-        cuda_aware = self._mpi_cuda_aware()
-
-        # rows from rank i land in recvbuf[first_row[i] : first_row[i] + recv_info[i]]
+        recvbuf = xp.empty((n_recv, self.markers.shape[1]), dtype=self.markers.dtype)
         first_row = np.cumsum(recv_info) - recv_info
-        recvbuf = xp.empty((n_recv, self.markers.shape[1]), dtype=float)
 
-        with ExitStack() as buffers:
-            if n_recv > 0:
-                recv_mpi = buffers.enter_context(
-                    xp.mpi.mpi_buffer(recvbuf, send=False, recv=True, cuda_aware=cuda_aware),
-                )
-            reqs = []
-            for i in range(self.mpi_size):
-                if i == self.mpi_rank:
-                    continue
-                if recv_info[i] > 0:
-                    rows = recv_mpi[first_row[i] : first_row[i] + recv_info[i]]
-                    reqs.append(self.mpi_comm.Irecv(rows, source=i, tag=i))
-                data = self._send_list[i]
-                if data.shape[0] > 0:
-                    send_mpi = buffers.enter_context(xp.mpi.mpi_buffer(data, cuda_aware=cuda_aware))
-                    reqs.append(self.mpi_comm.Isend(send_mpi, dest=i, tag=self.mpi_rank))
-            # wait inside the block: the buffers must stay valid until MPI is done, and staged
-            # receive rows are copied to the device when the block ends
-            for req in reqs:
-                req.Wait()
+        sends = []
+        receives = []
+        for rank in range(self.mpi_size):
+            if rank == self.mpi_rank:
+                continue
+
+            if recv_info[rank] > 0:
+                start = int(first_row[rank])
+                stop = start + int(recv_info[rank])
+                receives.append((recvbuf[start:stop], rank, rank))
+
+            data = self._send_list[rank]
+            if data.shape[0] > 0:
+                sends.append((data, rank, self.mpi_rank))
+
+        xp.mpi.exchange(
+            self.mpi_comm,
+            sends=sends,
+            receives=receives,
+            cuda_aware=self._mpi_cuda_aware(),
+        )
 
         if n_recv > 0:
             self._markers[hole_inds_after_send[:n_recv]] = recvbuf
