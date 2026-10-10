@@ -809,10 +809,10 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
 
 
 @pytest.mark.parametrize("which_geometry", ["cylindrical", "toroidal"])
-def test_poisson_adiabatic_gyrokinetic_stiffness_preconditioner(which_geometry):
-    """PoissonAdiabaticGyrokinetic (M1gyro, M0ad_withT and the average in the stabilization): the stiffness
+def test_gyrokinetic_poisson_solve_stiffness_preconditioner(which_geometry):
+    """GyrokineticPoissonSolve (M1gyro, M0ad_withT and the average in the stabilization): the stiffness
     preconditioner gives the solution without preconditioner, in fewer iterations; multigrid is rejected."""
-    from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
+    from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
 
     if which_geometry == "cylindrical":
         domain = domains.HollowCylinder(a1=0.1, a2=1.0, Lz=4.0)
@@ -838,7 +838,7 @@ def test_poisson_adiabatic_gyrokinetic_stiffness_preconditioner(which_geometry):
     for precond in [None, "StiffnessPreconditioner"]:
         phi = FEECVariable(space="H1")
         phi.allocate(derham=derham, domain=domain)
-        prop = PoissonAdiabaticGyrokinetic(rho=rho, epsilon=0.1)
+        prop = GyrokineticPoissonSolve(rho=rho, epsilon=0.1)
         prop.variables.phi = phi
         prop.options = prop.Options(
             which_geometry=which_geometry,
@@ -857,7 +857,7 @@ def test_poisson_adiabatic_gyrokinetic_stiffness_preconditioner(which_geometry):
     assert infos[1]["niter"] < infos[0]["niter"] / 2
 
     with pytest.raises(ValueError):
-        PoissonAdiabaticGyrokinetic.Options(precond="MultiGrid")
+        GyrokineticPoissonSolve.Options(precond="MultiGrid")
 
 
 if __name__ == "__main__":

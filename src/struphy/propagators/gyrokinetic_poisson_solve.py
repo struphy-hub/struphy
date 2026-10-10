@@ -12,7 +12,7 @@ from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.utils.utils import check_option
 
 
-class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
+class GyrokineticPoissonSolve(ImplicitDiffusion):
     r"""
     Weak discretization of the Poisson equation, with adabatic response of electrons.
 
@@ -84,7 +84,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     @dataclass
     class Options:
-        r"""Configuration options for :class:`PoissonAdiabaticGyrokinetic`.
+        r"""Configuration options for :class:`GyrokineticPoissonSolve`.
 
         Parameters
         ----------
@@ -153,10 +153,10 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
         Notes
         -----
-        ``Poisson.Options`` reuses :class:`ImplicitDiffusion` internals by
+        ``GyrokineticPoissonSolve`` reuses :class:`ImplicitDiffusion` internals by
         enforcing
-        ``sigma_2 = 0.0``, ``sigma_3 = 1.0``, ``divide_by_dt = False`` and
-        ``diffusion_mat = "M1"`` in ``__post_init__``.
+        ``sigma_1 = 1 / (Z * epsilon**2)``, ``sigma_2 = 0.0``, ``sigma_3 = 1 / epsilon`` and
+        ``divide_by_dt = False`` in ``allocate``.
         """
 
         # specific literals
