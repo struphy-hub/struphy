@@ -189,6 +189,11 @@ Pure fields
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: struphy.models.CurlCurl
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
 .. autoclass:: struphy.models.Maxwell
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:

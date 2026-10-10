@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 _LAZY_IMPORTS = {
     "ColdPlasma": "struphy.models.cold_plasma",
     "ColdPlasmaVlasov": "struphy.models.cold_plasma_vlasov",
+    "CurlCurl": "struphy.models.curl_curl",
     "DeterministicParticleDiffusion": "struphy.models.deterministic_particle_diffusion",
     "DriftKineticElectrostaticAdiabatic": "struphy.models.drift_kinetic_electrostatic_adiabatic",
     "GuidingCenter": "struphy.models.guiding_center",
@@ -50,6 +51,7 @@ _LAZY_IMPORTS = {
 if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.cold_plasma import ColdPlasma
     from struphy.models.cold_plasma_vlasov import ColdPlasmaVlasov
+    from struphy.models.curl_curl import CurlCurl
     from struphy.models.deterministic_particle_diffusion import DeterministicParticleDiffusion
     from struphy.models.drift_kinetic_electrostatic_adiabatic import DriftKineticElectrostaticAdiabatic
     from struphy.models.guiding_center import GuidingCenter
@@ -88,6 +90,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
 __all__ = [
     "ColdPlasma",
     "ColdPlasmaVlasov",
+    "CurlCurl",
     "DeterministicParticleDiffusion",
     "DriftKineticElectrostaticAdiabatic",
     "GuidingCenter",
