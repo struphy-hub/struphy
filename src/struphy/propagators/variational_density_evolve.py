@@ -11,7 +11,7 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
@@ -202,7 +202,7 @@ class VariationalDensityEvolve(Propagator):
         self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             self.options.solver,
@@ -408,8 +408,9 @@ class VariationalDensityEvolve(Propagator):
         self.divPirhoT = self.divPirho.T
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
@@ -532,9 +533,7 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho.assemble()
 
         logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options.get('pc') = }")
-        if hasattr(self, "_Mrho_inv") and isinstance(
-            self._Mrho_inv._options.get("pc"), MassMatrixDiagonalPreconditioner
-        ):
+        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options.get("pc"), MassMatrixPreconditioner):
             self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
