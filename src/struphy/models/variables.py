@@ -191,6 +191,12 @@ class FEECVariable(Variable):
         The FEEC function space. Options: 'H1', 'HDiv', 'HCurl', 'L2'.
         Determines the continuity and smoothness properties of the discretization.
 
+    projection : str
+        Projection of the initial condition (backgrounds and perturbations) into the spline space:
+        "commuting" (the commuting projector, default) or "L2" (the L2-orthogonal projection).
+        The L2 projection gives the exact load vector ``M @ coeffs`` of the projected function, e.g. for
+        a right-hand side of a weak formulation.
+
     Attributes
     ----------
     space : str
@@ -228,13 +234,34 @@ class FEECVariable(Variable):
     >>> E_field.add_background(FieldsBackground(type='uniform', magnitude=1.0))
     """
 
-    def __init__(self, space: LiteralOptions.OptsFEECSpace = "H1"):
+    def __init__(
+        self,
+        space: LiteralOptions.OptsFEECSpace = "H1",
+        projection: LiteralOptions.OptsInitProjection = "commuting",
+    ):
         check_option(space, LiteralOptions.OptsFEECSpace)
+        check_option(projection, LiteralOptions.OptsInitProjection)
         self._space = space
+        self._projection = projection
 
     @property
     def space(self) -> str:
         return self._space
+
+    @property
+    def projection(self) -> str:
+        """Projection of the initial condition into the spline space ("commuting" or "L2")."""
+        return self._projection
+
+    @projection.setter
+    def projection(self, new: LiteralOptions.OptsInitProjection):
+        check_option(new, LiteralOptions.OptsInitProjection)
+        self._projection = new
+
+    def to_dict(self) -> dict:
+        data = super().to_dict()
+        data["projection"] = self.projection
+        return data
 
     @property
     def lifting_function(self) -> Perturbation | None:
@@ -325,6 +352,7 @@ class FEECVariable(Variable):
             perturbations=self.perturbations,
             domain=domain,
             equil=equil,
+            projection=self.projection,
         )
 
         self._derham_lift = None
