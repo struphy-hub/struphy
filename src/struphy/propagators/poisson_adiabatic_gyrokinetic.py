@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable, Literal
 
-from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.stencil import StencilVector
 
-from struphy.feec.mass import AverageOperator
 from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
@@ -104,7 +102,12 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             - ``"Id"``: identity operator.
 
         which_geometry: {"cylindrical", "toroidal"}, default="cylindrical"
-            Geometry of the problem, determines the meaning of `<\phi>` in the stabilization term.
+            Geometry of the problem, determines the meaning of `<\phi>` in the stabilization term:
+            the average over ``eta3`` (cylindrical) or over ``eta2`` and ``eta3`` (toroidal), i.e.
+            ``stab_average`` of :class:`ImplicitDiffusion` is ``"eta3"`` or ``"eta2 eta3"``. The average
+            is weighted with ``stab_mat`` (for equilibrium density and temperature constant on the
+            averaged surfaces, the flux-surface average with the volume element), which keeps the
+            operator symmetric (:class:`~struphy.feec.mass.WeightedAverageProjection`).
 
         diffusion_mat : {"M1", "M1perp", "M1gyro"}, defaults="M1gyro"
             Diffusion matrix.
@@ -131,10 +134,14 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             Name of the symmetric iterative solver passed to
             :func:`psydac.linalg.solvers.inverse`.
 
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Name of the preconditioner configuration.
-            Currently this class inherits the same behavior as
-            :class:`ImplicitDiffusion`, where ``pc=None`` is used internally.
+        precond : LiteralOptions.OptsDiffusionPrecond, default=None
+            Name of the preconditioner, see :class:`ImplicitDiffusion`. Requires ``solver="pcg"``.
+            ``"StiffnessPreconditioner"`` approximates the operator with ``diffusion_mat``, ``stab_mat``
+            and the average; ``"MultiGrid"`` is not supported (no coarsening of the average).
+
+        precond_params : dict, default=None
+            Keyword arguments passed to the constructor of the mass-matrix or stiffness
+            preconditioner, see :class:`ImplicitDiffusion`.
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -162,7 +169,8 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         which_geometry: OptsGeometry = "cylindrical"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsDiffusionPrecond = None
+        precond_params: dict = None
         solver_params: SolverParameters = None
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
@@ -170,11 +178,25 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
-            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
+            check_option(self.which_geometry, self.OptsGeometry)
+            if self.precond is not None:
+                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+            if self.precond == "MultiGrid":
+                raise ValueError(
+                    "precond='MultiGrid' is not supported (no coarsening of the average in the stabilization)."
+                )
 
             # defaults
+            if self.precond_params is None:
+                self.precond_params = {}
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
+
+        @property
+        def stab_average(self) -> str:
+            """Directions averaged in the stabilization, see ``which_geometry``."""
+            return {"cylindrical": "eta3", "toroidal": "eta2 eta3"}[self.which_geometry]
 
     def allocate(self):
         epsilon = self.epsilon
@@ -183,18 +205,8 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         self.options.sigma_2 = 0.0
         self.options.sigma_3 = 1 / epsilon
         self.options.divide_by_dt = False
+        # the stabilization stab_mat @ (I - A) (A from stab_average) is built in ImplicitDiffusion
         super().allocate()
-        if self.options.which_geometry == "cylindrical":
-            average_mat = AverageOperator(self.derham, "H1", 2)
-            self._stab_mat = self._stab_mat @ (
-                IdentityOperator(self._stab_mat.domain, self._stab_mat.codomain) - average_mat
-            )
-        elif self.options.which_geometry == "toroidal":
-            average_mat1 = AverageOperator(self.derham, "H1", 1)
-            average_mat2 = AverageOperator(self.derham, "H1", 2)
-            self._stab_mat = self._stab_mat @ (
-                IdentityOperator(self._stab_mat.domain, self._stab_mat.codomain) - (average_mat1 @ average_mat2)
-            )
 
     @property
     def options(self) -> Options:
