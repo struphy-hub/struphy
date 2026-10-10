@@ -146,7 +146,7 @@ from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage  # a Kerne
 - The CUDA argument objects hold references. If an owner reallocates an array, it must rebuild its arguments at the same place, exactly like for the pyccel arguments.
 - `Domain` (PR 5): arrays that already have the dtype and layout the kernels expect (`float64`/`int64`, C-contiguous) are referenced, not copied; otherwise one device copy is made when the arguments are built (e.g. `degree`, a tuple). Arguments are recreated after deepcopy or unpickling. Spline mappings (e.g. `IGAPolarCylinder`) cannot be created on CuPy yet (`interp_mapping` passes CuPy arrays to `scipy.sparse`), so CUDA `args_domain` exists only for analytic mappings for now.
 - `Particles` (PR 6): particle arrays, validity masks and boundary-condition codes are allocated through `xp`. Scalar MPI gathers use small NumPy buffers (the own entry filled first, see `MockComm` above) and copy the result back to the active backend.
-- `Derham` (PR 7): depends on feectools running on the CuPy backend (struphy-hub/feectools#85, merged). Data that describes the spline spaces (knots, quadrature and projection grids, `spline_types_pyccel`) is host data on every backend; only coefficients and stencil matrices live on the device. `domain_array`, `index_array(_N/_D)` and `neighbours` are gathered with NumPy MPI buffers and converted with `xp.asarray`. `args_derham` is built from the host knots, degrees and starts on NumPy, and from one device copy of them on CuPy. The pyccel scratch arrays (`bn1`, ..., `bd3`) are not part of the CUDA arguments; they become per-thread local arrays in CUDA (PR 10). Not supported on CuPy yet: local projectors (`NotImplementedError` at construction), polar splines (`NotImplementedError` at construction since PR 19, see the [PR 19 implementation notes](#pr-19-implementation-notes)), and field evaluation (`SplineFunction.__call__` still calls pyccel kernels with device coefficients).
+- `Derham` (PR 7): depends on feectools running on the CuPy backend (struphy-hub/feectools#85, merged). Data that describes the spline spaces (knots, quadrature and projection grids, `spline_types_pyccel`) is host data on every backend; only coefficients and stencil matrices live on the device. `domain_array`, `index_array(_N/_D)` and `neighbours` are gathered with NumPy MPI buffers and converted with `xp.asarray`. `args_derham` is built from the host knots, degrees and starts on NumPy, and from one device copy of them on CuPy. The pyccel scratch arrays (`bn1`, ..., `bd3`) are not part of the CUDA arguments; they become per-thread local arrays in CUDA (PR 10). Polar splines run on CuPy since #695 (see [Polar splines on CuPy](#polar-splines-on-cupy-695)). Not supported on CuPy yet: local projectors (`NotImplementedError` at construction) and field evaluation (`SplineFunction.__call__` still calls pyccel kernels with device coefficients).
 
 ### PR 8: Argument structs in a shared header (complete, open)
 
@@ -208,7 +208,7 @@ For each kernel: add `<name>_cuda.cu`; the parity test from PR 11 picks it up; `
 ### PR 19: Spline mappings
 
 - `DomainArgs`: `t1..t3` become `Array1D<double>` (`find_span` needs the number of knots), `ind1..3` `Array2D<long long>` and `cx/cy/cz` `Array3D<double>` (the device needs their shapes); `CudaDomainArguments.fields` and the generated `pusher_args.cuh` change, the pyccel `DomainArguments` does not.
-- Spline-mapped domains (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC) can be created on the CuPy backend: the control-point fitting (SciPy) runs on the host and the control points are copied to the device once. Polar splines (`Derham` with `polar_splines=True`) stay host-only and raise on CuPy.
+- Spline-mapped domains (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC) can be created on the CuPy backend: the control-point fitting (SciPy) runs on the host and the control points are copied to the device once. Polar splines (`Derham` with `polar_splines=True`) stayed host-only and raised on CuPy (on CuPy since #695).
 - Device versions of `spline_3d(_df)`, `spline_2d_straight(_df)`, `spline_2d_torus(_df)` in `geometry/spline_mappings_kernels.cuh`, using the B-spline helpers of PR 10; the parity arguments of the geometry kernels add the spline mappings.
 
 ## Moving to cunumpy (PR 13)
@@ -348,10 +348,9 @@ The three spaces (H1vec/Hcurl/Hdiv) differ only in the basis; port one, then the
 `push_v_sph_pressure`, `push_v_sph_pressure_ideal_gas`, `push_v_viscosity`, `div_u_weak_1form`.
 
 Infrastructure that gates the steps, independent of the kernels: mappings are no gate any more (every CUDA kernel
-accepts every mapping since PR 19), except for what is still host-only around them: polar splines in `Derham` cannot be
-created on CuPy (see [Open questions](#open-questions)). Multi-rank marker sorting stays on the device since #712. Array
-views with more than 4 dimensions (all matrix accumulations write 6D stencil matrix data) are in cunumpy since 0.6.1
-(`Array6D`); `linear_vlasov_ampere` is the first kernel that uses them.
+accepts every mapping since PR 19); polar splines in `Derham` (#695) and MHD equilibria (#696) run on CuPy too. Multi-rank
+marker sorting stays on the device since #712. Array views with more than 4 dimensions (all matrix accumulations write 6D
+stencil matrix data) are in cunumpy since 0.6.1 (`Array6D`); `linear_vlasov_ampere` is the first kernel that uses them.
 
 ## Testing
 
@@ -368,11 +367,9 @@ views with more than 4 dimensions (all matrix accumulations write 6D stencil mat
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here. The array view represents strides explicitly on the CUDA side.
 - **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. The marker exchange in `Particles.mpi_sort_markers` uses device buffers since #698 (see [Marker exchange implementation notes](#marker-exchange-implementation-notes-698)); the SPH ghost-box exchange (`_sendrecv_markers_boxes`) does not yet.
 - **Single-source alternatives.** Decided (#690): no code generation; every CUDA kernel is written by hand, see [Hand-written CUDA](#hand-written-cuda-decision-for-690).
-- **Polar splines on the GPU** (left after PR 19): spline mappings run on the device, but
-  `Derham` with `polar_splines=True` raises on CuPy (`PolarExtractionBlocksC1` builds SciPy sparse matrices, and the
-  polar extraction operators would apply them to device stencil data; needs `cupyx.scipy.sparse` or kernels). Needed
-  once a model with a polar domain runs on the GPU. (MHD equilibria run on CuPy since #696, see
-  [MHD equilibria](#mhd-equilibria-on-cupy-696).)
+- **Polar splines and MHD equilibria on the GPU** (left after PR 19): both run on CuPy now, polar splines since #695
+  (see [Polar splines on CuPy](#polar-splines-on-cupy-695)) and MHD equilibria since #696 (see
+  [MHD equilibria](#mhd-equilibria-on-cupy-696)).
 - **GVEC/DESC fields on the device.** `GVECequilibrium` and `DESCequilibrium` still evaluate B, J, p and n through
   gvec/DESC on the host, one copy per call (#696). Plan: evaluate them once at setup on a grid, interpolate onto 3d
   tensor-product splines (`make_interp_spline` per axis + `NdBSpline`) and evaluate those on the device, with native
@@ -690,8 +687,8 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
 - **Still host-only.** `EQDSKequilibrium` cannot be created on CuPy (a `Tokamak` on CuPy takes an equilibrium created
   on the NumPy backend, or builds its default one there; fixed in #696). Polar splines: `PolarExtractionBlocksC1` builds SciPy sparse
   matrices from the control points, and the polar extraction operators apply them to the stencil data, which lives on
-  the device on CuPy; `Derham` raises `NotImplementedError` for `polar_splines=True` on CuPy (see
-  [Open questions](#open-questions)).
+  the device on CuPy; `Derham` raised `NotImplementedError` for `polar_splines=True` on CuPy (resolved in #695, see
+  [Polar splines on CuPy](#polar-splines-on-cupy-695)).
 - **Device helpers.** `b_splines_slim`, `b_der_splines_slim` (`bsplines/bsplines_kernels.cuh`), `evaluation_kernel_2d`
   (`bsplines/evaluation_kernels_2d.cuh`), `evaluation_kernel_3d` (`bsplines/evaluation_kernels_3d.cuh`) and the six
   spline mappings in `geometry/spline_mappings_kernels.cuh`, with the pyccel names and arguments (`const DomainArgs&`
@@ -799,3 +796,24 @@ the [porting order](#porting-order); part of #688).
   `VlasovAmpereCoupling`, `MaxwellWeakAmpere` and the initial `PoissonSolve`) cannot be created on CuPy, CG inner products
   return host scalars, the FEEC operators (`curl`, `grad`, mass matrices, Schur solves) need the feectools CUDA stack,
   and the first H100 run (#687) is pending.
+
+## Polar splines on CuPy (#695)
+
+- **Blocks on the host.** `PolarExtractionBlocksC1` builds every block (extraction, DOF extraction, polar
+  derivatives) with NumPy/SciPy from a host copy of the control points (`xp.to_numpy(domain.cx)`), on every backend:
+  they are setup data, and `.toarray()`, `.T` and the restart left inverse (`SplineFunction._restart_extraction_op`)
+  keep working on them.
+- **Products on the device.** `PolarExtractionOperator` and `PolarLinearOperator` keep their `blocks_*` as host
+  matrices; on CuPy, `dot` uses device copies (`DeviceSparseMatrix`, a `cupyx.scipy.sparse.csr_matrix` via
+  `xp.scipy.sparse`), made once per block list and dropped by the setters. The blocks act only on the first two or
+  three radial rings (at most `3 n2 x 3 n2` in `eta1-eta2`, `n3 x n3` in `eta3`), so they are small; blocks without
+  non-zeros are not copied. On NumPy nothing changes (the SciPy blocks are applied as before).
+- **MPI.** The ring reductions (`dot_inner_tp_rings`, `dot_parts_of_polar`, `PolarVector.toarray`) call
+  `cunumpy.mpi.synchronize_for_mpi` before `Allreduce`, which gets device buffers on CuPy (CUDA-aware MPI).
+- **Tests.** `polar/tests/test_polar_cupy.py` compares NumPy and CuPy for `IGAPolarCylinder` and `IGAPolarTorus`:
+  extraction and DOF extraction operators and their transposes, `grad`/`curl`/`div` and transposes, `PolarVector`
+  arithmetic, the polar projectors, polar mass matrices (GPU only) and polar `SplineFunction` coefficients
+  (`extract_coeffs`, restart). Without a GPU it runs on the fake CuPy with two substitutes: a dense stand-in for
+  `cupyx.scipy.sparse` (`set_device_sparse_module`) and the host versions of the feectools kernels (the fake cannot
+  launch CUDA kernels). The mass matrices need struphy's CUDA geometry kernels and are compared on the GPU only.
+  Field evaluation (`SplineFunction.__call__`) is not covered: it is not ported to CuPy for any space yet.

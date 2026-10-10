@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
+from cunumpy.mpi import synchronize_for_mpi
 from feectools.linalg.basic import Vector, VectorSpace
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
@@ -329,6 +330,7 @@ class PolarVector(Vector):
 
             # allreduce tensor-product part
             if self.space.comm is not None and allreduce:
+                synchronize_for_mpi(out)
                 self.space.comm.Allreduce(MPI.IN_PLACE, out, op=MPI.SUM)
 
             out = xp.concatenate((self.pol[0].flatten(), out))
@@ -340,6 +342,7 @@ class PolarVector(Vector):
 
             # allreduce tensor-product part
             if self.space.comm is not None and allreduce:
+                synchronize_for_mpi(out1, out2, out3)
                 self.space.comm.Allreduce(MPI.IN_PLACE, out1, op=MPI.SUM)
                 self.space.comm.Allreduce(MPI.IN_PLACE, out2, op=MPI.SUM)
                 self.space.comm.Allreduce(MPI.IN_PLACE, out3, op=MPI.SUM)
