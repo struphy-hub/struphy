@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import cunumpy as xp
 import h5py
 import yaml
+from cunumpy.kernels import Kernel
 from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
@@ -77,6 +78,7 @@ from struphy.post_processing.output import Output
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.kernel_compilation import collect_kernels, missing_cuda
 from struphy.utils.progress import tqdm
 from struphy.utils.utils import ruff_autofix_and_format
 
@@ -258,6 +260,69 @@ class Simulation(SimulationBase):
                 self.model.post_allocate()
 
         logger.debug("... Done.")
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The :class:`~cunumpy.kernels.Kernel` objects the time stepping calls, each once.
+
+        Collected after :meth:`allocate` from the domain (:meth:`Domain.kernels
+        <struphy.geometry.base.Domain.kernels>`), the Derham complex (:meth:`Derham.kernels
+        <struphy.feec.psydac_derham.Derham.kernels>`), the particles of every kinetic variable
+        (:meth:`Particles.kernels <struphy.pic.base.Particles.kernels>`) and the propagators of the model
+        (:meth:`Propagator.kernels <struphy.propagators.base.Propagator.kernels>`). Kernels that only
+        diagnostics or the initial solves call are not included; they run during the setup anyway.
+        """
+        owners = [self.domain, self.derham]
+        for species in self.model.species.values():
+            for variable in species.variables.values():
+                if isinstance(variable, (PICVariable, SPHVariable)):
+                    owners.append(variable.particles)
+        owners += self.model.prop_list
+        return collect_kernels(*owners)
+
+    def compile_cuda_kernels(self) -> tuple[Kernel, ...]:
+        """Compile the CUDA versions of the kernels of :meth:`kernels` now, before the time stepping.
+
+        A CUDA kernel is otherwise compiled on its first call, which puts the compile time into the
+        first time step (and its profiling regions). :meth:`run` calls this method after
+        :meth:`allocate`, in the profiling region ``"setup: compile cuda kernels"``. CuPy caches the
+        compiled kernels on disk, so a second run on the same machine mostly loads them.
+
+        On the NumPy backend this does nothing (the pyccel kernels are compiled by ``struphy compile``).
+
+        Returns
+        -------
+        tuple[Kernel, ...]
+            The kernels whose CUDA version was compiled; empty on the NumPy backend.
+
+        Raises
+        ------
+        NotImplementedError
+            On the CuPy backend, if a kernel the time stepping calls has no CUDA version. All such
+            kernels are listed, and nothing is compiled; without this check the run would fail at the
+            first call of the first one, in the time loop.
+        """
+        if xp.get_backend() != "cupy":
+            return ()
+
+        kernels = self.kernels()
+        missing = missing_cuda(kernels)
+        if missing:
+            lines = "\n".join(
+                f"  - {kernel.name}" + (f" (expected at {kernel.cuda_path})" if kernel.cuda_path else "")
+                for kernel in missing
+            )
+            raise NotImplementedError(
+                f"Model {self.model_name} cannot run on the CuPy backend: {len(missing)} of the "
+                f"{len(kernels)} kernels its time stepping calls have no CUDA version:\n{lines}",
+            )
+
+        compiled = []
+        with ProfileManager.profile_region("setup: compile cuda kernels"):
+            for kernel in kernels:
+                if kernel.compile():
+                    compiled.append(kernel)
+        logger.info(f"Compiled {len(compiled)} CUDA kernels: {', '.join(k.name for k in compiled)}")
+        return tuple(compiled)
 
     def estimate_mem(self, print_report: bool = False) -> dict:
         """Estimate the memory footprint of all model variables and FEEC matrices, in bytes,
@@ -657,6 +722,9 @@ class Simulation(SimulationBase):
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
                 self.allocate()
+
+                # CUDA kernels (CuPy backend only): compile them now rather than in the first time step
+                self.compile_cuda_kernels()
                 with ProfileManager.profile_region("setup: run metadata", functions=[self._write_run_metadata]):
                     self._write_run_metadata(
                         one_time_step=one_time_step,

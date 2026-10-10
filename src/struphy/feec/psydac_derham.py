@@ -22,6 +22,10 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
+from feectools.linalg.kernels.stencil_axpy_3d import stencil_axpy_3d
+from feectools.linalg.kernels.stencil_dot_3d import stencil_dot_3d
+from feectools.linalg.kernels.stencil_inner_3d import stencil_inner_3d
+from feectools.linalg.kernels.stencil_transpose_3d import stencil_transpose_3d
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from maybempi import MPI, SerialComm
 
@@ -1493,6 +1497,24 @@ class Derham:
     def args_derham(self) -> DerhamArguments | CudaDerhamArguments:
         """Mandatory pusher kernel arguments for the backend used at initialization."""
         return self._args_derham
+
+    def kernels(self) -> tuple:
+        """The kernels called on the data of this complex.
+
+        The spline evaluation kernels of :class:`SplineFunction` (at markers, on meshgrids and on
+        sparse meshgrids) and the feectools kernels of the 3D stencil data (matrix-vector product,
+        transpose, inner product, axpy), which the FEEC operators and solvers call. Used by
+        :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (
+            eval_spline_mpi_markers,
+            eval_spline_mpi_matrix,
+            eval_spline_mpi_sparse_meshgrid,
+            stencil_dot_3d,
+            stencil_transpose_3d,
+            stencil_inner_3d,
+            stencil_axpy_3d,
+        )
 
     # --------------------------
     #      methods:
