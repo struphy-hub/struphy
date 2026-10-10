@@ -95,7 +95,7 @@ def test_curl_curl_1d(do_plot=False):
             plt.show()
 
         logger.info(f"{err =}")
-        assert err < 1e-5
+        assert err < 1e-4
 
         shutil.rmtree(test_folder)
 

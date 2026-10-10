@@ -35,7 +35,9 @@ class CurlCurl(StruphyModel):
     class EMFields(FieldSpecies):
         def __init__(self):
             self.e_field = FEECVariable(space="Hcurl")
-            self.source = FEECVariable(space="Hcurl")
+            # L2 projection: M1 @ coeffs is the exact load vector of the source; the commuting projection would
+            # add an O(h^p) gradient component to the right-hand side, which is amplified by 1/sigma in the solution
+            self.source = FEECVariable(space="Hcurl", projection="L2")
             self.init_variables()
 
     ## propagators
