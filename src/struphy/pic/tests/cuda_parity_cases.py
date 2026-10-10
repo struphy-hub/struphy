@@ -93,6 +93,14 @@ def linear_vlasov_ampere_args(domain):
     )
 
 
+def vlasov_maxwell_args(domain):
+    """129 markers (a hole in row 0, a boundary particle in row 1, which is accumulated as in pyccel) in domain
+    `domain` of geometry_domain(); zeroed V1 data."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    args_markers.markers[0, 0] = -1.0
+    return (args_markers, derham_arguments(), geometry_domain(domain).args_domain, *v1_symm_accumulation_data())
+
+
 # ---------------------------------------------------------------- spline evaluation
 
 
@@ -284,6 +292,10 @@ PARITY_CASES = {
     # Cuboid, Colella and HollowTorus (non-diagonal DF) and a 3d spline mapping, by index into geometry_domain();
     # atomics add in another order than the serial loop, and the entries reach 1e4 (atol for cancelling sums)
     "linear_vlasov_ampere": ParityCases((0, 2, 5, 12), linear_vlasov_ampere_args, rtol=1e-12, atol=1e-10),
+    # Cuboid, then Colella, HollowTorus, ShafranovDshapedCylinder (non-diagonal DF) and a 3d spline mapping, by index into
+    # geometry_domain(); atomics add in another order than the serial loop, and G^{-1} of the spline mapping makes
+    # entries of 6e5 (atol for cancelling sums)
+    "vlasov_maxwell": ParityCases((0, 2, 5, 9, 12), vlasov_maxwell_args, rtol=1e-12, atol=1e-8),
     "eval_spline_mpi_markers": ParityCases(SPLINE_KINDS, eval_spline_mpi_markers_args),
     "eval_spline_mpi_matrix": ParityCases(SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=False), n_threads=size_of(-1)),
     "eval_spline_mpi_sparse_meshgrid": ParityCases(
