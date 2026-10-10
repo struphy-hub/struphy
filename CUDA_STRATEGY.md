@@ -370,26 +370,40 @@ stencil matrix data) are in cunumpy since 0.6.1 (`Array6D`); `linear_vlasov_ampe
 - **Polar splines and MHD equilibria on the GPU** (left after PR 19): both run on CuPy now, polar splines since #695
   (see [Polar splines on CuPy](#polar-splines-on-cupy-695)) and MHD equilibria since #696 (see
   [MHD equilibria](#mhd-equilibria-on-cupy-696)).
-- **Equilibrium splines on the device.** The SciPy splines of `EQDSKequilibrium`, `AdhocTorus` (`q_kind` 1, 2) and
-  `AdhocTorusQPsi`, and GVEC/DESC, are evaluated on the host with one copy per call (#696). Fine while equilibria are
-  evaluated only at setup; a device B-spline evaluation of their knots and coefficients would remove the copies.
+- **GVEC/DESC fields on the device.** `GVECequilibrium` and `DESCequilibrium` still evaluate B, J, p and n through
+  gvec/DESC on the host, one copy per call (#696). Plan: evaluate them once at setup on a grid, interpolate onto 3d
+  tensor-product splines (`make_interp_spline` per axis + `NdBSpline`) and evaluate those on the device, with native
+  evaluation kept as an option (`evaluate="spline" | "native"`), since this trades exactness for speed. Separate PR.
 
 ## MHD equilibria on CuPy (#696)
 
 - **What failed.** Creating `AdhocTorus` (`q_kind` 1, 2: SciPy `quad`/`UnivariateSpline`), `AdhocTorusQPsi` (`odeint`,
   `fsolve`) and `EQDSKequilibrium` (`RectBivariateSpline` on `xp.linspace`) on CuPy; evaluating `GVECequilibrium` and
   `DESCequilibrium` (gvec/DESC got device arrays). The analytic equilibria already worked.
-- **Host setup.** `xp.setup_on_host` (cunumpy >= 0.6.2, which also provides `xp.host_call` and `xp.evaluate_on_host`) runs these `__init__`s on the NumPy backend, so the
-  equilibria hold only host data (floats, NumPy arrays, SciPy splines) on either backend. `Tokamak` no longer builds
-  its default `EQDSKequilibrium` on the NumPy backend itself; the field-line tracing still runs there.
-- **Evaluation follows the arguments.** SciPy spline evaluations go through `xp.host_call`, and the GVEC/DESC `bv`,
-  `jv`, `p0`, `n0`, `gradB1` through `@xp.evaluate_on_host`: device arguments are copied to the host, evaluated on the NumPy
-  backend, and the result is copied back, once per call (equilibria are evaluated at setup; the time loop uses the
-  projected equilibrium). NumPy arguments are evaluated as before.
+- **Splines on the device.** The splines of `AdhocTorus` (`q_kind` 1, 2), `AdhocTorusQPsi` and `EQDSKequilibrium`
+  are fitted on the active backend with `xp.scipy.interpolate` (SciPy or `cupyx.scipy`, looked up at the point of use)
+  and evaluated there, without host round trips (also at run time: `pic/base.py` evaluates `b_cart` and
+  `pic/particles.py` `psi_r` at markers). Only the scalar setup steps run on the host, under
+  `xp.use_backend("numpy")`: the `quad` loops, `odeint`/`fsolve`, the EQDSK file and the `minimize` for the magnetic
+  axis (on a host copy of the flux spline, so the optimizer steps don't evaluate on the device).
+  `RectBivariateSpline` is not in `cupyx.scipy`; with `s=0` it is the same spline as `make_interp_spline` along R, then
+  along Z, as an `NdBSpline` (same knots, values and derivatives equal to round-off). `NdBSpline` extrapolates, so the
+  points are clamped to the domain of the spline first, as `RectBivariateSpline` does.
+- **Field-line tracing (`Tokamak`).** One batched Newton (secant) solve over all rays per flux surface
+  (`xp.optimize.newton`, cunumpy#93) instead of one scalar `scipy.optimize.newton` per point; `psi` is evaluated on the
+  active backend, so `Tokamak` runs its setup there. The small spline interpolation (`splu`, `kron_lusolve_2d`) and the
+  other xi-parametrizations (a SciPy `root` per flux surface) run on the host. The control points agree with the
+  scalar tracing to ~1e-12, and the tracing is 6-15x faster on the CPU too.
+- **GVEC/DESC** `bv`, `jv`, `p0`, `n0`, `gradB1` go through `@xp.evaluate_on_host`: device arguments are copied to the
+  host, evaluated on the NumPy backend, and the result is copied back, once per call (see the open question
+  [GVEC/DESC fields on the device](#open-questions)).
 - **Tests.** `fields_background/tests/test_equils_cupy.py` creates every equilibrium of `equils` on CuPy, evaluates
   the methods models call (meshgrid and markers, plus `psi`/`g_tor` with derivatives) and compares with NumPy: on a
   GPU, and without one on the fake CuPy, where the four geometry kernels run their pyccel version on the fake arrays'
-  host buffers (`host_geometry_kernels`), since the fake CuPy cannot launch CUDA kernels.
+  host buffers (`host_geometry_kernels`), since the fake CuPy cannot launch CUDA kernels. The fake `cupyx.scipy`
+  (cunumpy#93) has only the `interpolate` names CuPy has, and the evaluation of every equilibrium except GVEC/DESC runs
+  under `xp.profiling.assert_no_transfers()`. Still to check on a GPU: that CuPy's `UnivariateSpline` and `NdBSpline`
+  agree with SciPy to the test's 1e-12 (the fake runs SciPy itself).
 - **GVEC at markers (#715).** gvec evaluated the markers' `rho`, `theta`, `zeta` as a tensor grid, so `bv`/`jv` at N
   markers returned N x N x N arrays and `absB0` failed (on NumPy too). The coordinates are now passed as
   `xarray.DataArray`s with one shared dimension, which gvec evaluates point by point. Boozer coordinates
