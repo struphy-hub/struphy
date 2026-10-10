@@ -55,6 +55,7 @@ class LiteralOptions:
     # derham
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    OptsInitProjection = Literal["commuting", "L2"]
     OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
 
     # fields backgrounds

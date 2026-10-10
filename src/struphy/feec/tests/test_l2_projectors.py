@@ -137,6 +137,56 @@ def test_l2_projectors_mappings(
         logger.info(f"Finished testing {dom_type =}")
 
 
+@pytest.mark.parametrize("space", ["H1", "Hcurl", "Hdiv", "L2"])
+def test_feec_variable_l2_projection(space):
+    """FEECVariable with projection="L2": M @ coeffs is the exact load vector (Lambda, f) of the initial condition."""
+    from struphy.initial.base import GenericPerturbation
+    from struphy.models.variables import FEECVariable
+
+    comm = MPI.COMM_WORLD
+    domain = domains.HollowCylinder(a1=0.1, a2=1.0, Lz=3.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[8, 6, 4]),
+        DerhamOptions(degree=[2, 2, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    funs = (
+        lambda x, y, z: xp.exp(-(x**2) - y**2) * xp.cos(z),
+        lambda x, y, z: x * y + 0.5,
+        lambda x, y, z: xp.sin(x + 2 * z),
+    )
+    is_scalar = space in ("H1", "L2")
+
+    var = {}
+    for projection in ("commuting", "L2"):
+        v = FEECVariable(space=space, projection=projection)
+        for comp in range(1 if is_scalar else 3):
+            v.add_perturbation(GenericPerturbation(funs[comp], given_in_basis="physical", comp=comp))
+        v.allocate(derham=derham, domain=domain)
+        var[projection] = v
+    assert var["L2"].spline.projection == "L2"
+
+    # reference load vector of the pulled-back function
+    from struphy.geometry.utilities import TransformedPformComponent
+
+    key = derham.space_to_form[space]
+    ptbs = var["L2"].perturbations
+    ptbs = ptbs if isinstance(ptbs, list) else [ptbs]
+    if is_scalar:
+        fun = TransformedPformComponent(ptbs[0], "physical", key, domain=domain)
+    else:
+        fun = [TransformedPformComponent(ptbs, "physical", key, comp=c, domain=domain) for c in range(3)]
+    dofs = L2Projector(space, mass_ops).get_dofs(fun, apply_bc=True)
+    M = getattr(mass_ops, "M" + key)
+    r = M.dot(var["L2"].spline.vector) - dofs
+    assert xp.sqrt(r.inner(r)) < 1e-10 * xp.sqrt(dofs.inner(dofs))
+
+    # the commuting projection is a different spline
+    d = var["L2"].spline.vector - var["commuting"].spline.vector
+    assert xp.sqrt(d.inner(d)) > 1e-6 * xp.sqrt(dofs.inner(dofs))
+
+
 @pytest.mark.convergence
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [1, 2])
