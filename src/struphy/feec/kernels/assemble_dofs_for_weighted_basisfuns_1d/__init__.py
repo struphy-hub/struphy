@@ -8,4 +8,9 @@ from cunumpy.kernels import Kernel
 
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-assemble_dofs_for_weighted_basisfuns_1d = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, missing_cuda="fallback")
+# the arguments the kernel writes to, by position: mat
+OUTPUTS = (0,)
+
+assemble_dofs_for_weighted_basisfuns_1d = Kernel.from_folder(
+    __name__, structs=CUDA_STRUCTS, missing_cuda="fallback", host_options={"outputs": OUTPUTS}
+)

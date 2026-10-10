@@ -8,4 +8,9 @@ from cunumpy.kernels import Kernel
 
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-kernel_1d_mat = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, missing_cuda="fallback")
+# the arguments the kernel writes to, by position: data
+OUTPUTS = (9,)
+
+kernel_1d_mat = Kernel.from_folder(
+    __name__, structs=CUDA_STRUCTS, missing_cuda="fallback", host_options={"outputs": OUTPUTS}
+)

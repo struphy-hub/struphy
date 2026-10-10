@@ -4,4 +4,7 @@ from cunumpy.kernels import Kernel
 
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-hybrid_weight = Kernel.from_folder(__name__, structs=CUDA_STRUCTS)
+# the arguments the kernel writes to, by position: data1, data2, data3
+OUTPUTS = (15, 16, 17)
+
+hybrid_weight = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, host_options={"outputs": OUTPUTS})

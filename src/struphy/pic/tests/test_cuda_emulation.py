@@ -9,52 +9,36 @@ import pytest
 from cunumpy.kernel_testing import emulation_compiler
 
 from struphy.geometry.tests import spline_mapping_cases
-from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
-from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.pic.tests.cuda_emulation import emulate_struct_kernel
-from struphy.pic.tests.cuda_parity_cases import PARITY_CASES
+from struphy.pic.tests.cuda_parity_cases import PARITY_CASES, argument_arrays
 from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
 from struphy.pic.tests.test_cuda_parity import CUDA_KERNELS
 
-# pyccel argument class name -> its CUDA version
-CUDA_CLASSES = {
-    cls.__name__.removeprefix("Cuda"): cls
-    for cls in (CudaMarkerArguments, CudaDerhamArguments, CudaDomainArguments, CudaSplineArguments)
-}
-
 requires_compiler = pytest.mark.skipif(emulation_compiler() is None, reason="no C++ compiler")
-
-
-def arrays(args):
-    """The arrays among the arguments and inside the argument objects, as host copies."""
-    out = []
-    for a in args:
-        if isinstance(a, np.ndarray):
-            out.append(a.copy())
-        elif type(a).__name__ in CUDA_CLASSES:  # a pyccel argument object: the fields of its CUDA struct
-            fields = (getattr(a, f.name, None) for f in CUDA_CLASSES[type(a).__name__].struct.fields)
-            out += [f.copy() for f in fields if isinstance(f, np.ndarray)]
-    return out
 
 
 @requires_compiler
 @pytest.mark.parametrize("name", list(PARITY_CASES))
 def test_emulated_parity(name):
+    """The emulated CUDA kernel writes the declared outputs like the pyccel kernel, and nothing else."""
     kernel, spec = CUDA_KERNELS[name], PARITY_CASES[name]
+    outputs = kernel.host_kernel.outputs
     with xp.use_backend("numpy"):
         for case in spec.cases:
             host_args = spec.build(case)
             emulated_args = spec.build(case)
-            before = arrays(host_args)
+            before = argument_arrays(emulated_args)
             kernel(*host_args)
             n_threads = spec.n_threads(emulated_args) if spec.n_threads else None
             emulate_struct_kernel(kernel.cuda_kernel, *emulated_args, n_threads=n_threads)
-            host, emulated = arrays(host_args), arrays(emulated_args)
-            assert any(not np.array_equal(a, b) for a, b in zip(before, host)), (
-                f"{name}{case}: the kernel changed nothing"
-            )
-            for h, e in zip(host, emulated):
-                np.testing.assert_allclose(e, h, rtol=spec.rtol, atol=spec.atol, err_msg=f"{name}{case}")
+            host, emulated = argument_arrays(host_args, outputs), argument_arrays(emulated_args, outputs)
+            for key, value in argument_arrays(emulated_args).items():
+                if key not in emulated:
+                    np.testing.assert_array_equal(value, before[key], err_msg=f"{name}{case}: {key} is not an output")
+            for key in host:
+                np.testing.assert_allclose(
+                    emulated[key], host[key], rtol=spec.rtol, atol=spec.atol, err_msg=f"{name}{case}: {key}"
+                )
 
 
 @requires_compiler
