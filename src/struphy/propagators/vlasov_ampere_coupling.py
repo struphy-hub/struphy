@@ -214,6 +214,8 @@ class VlasovAmpereCoupling(Propagator):
         self._e_sum += self.variables.e.spline.vector
         self._e_sum += self._e_tmp
         self._e_sum *= 0.5
+        # the pusher kernel reads the ghost regions directly (the solver output may leave them stale)
+        self._e_sum.update_ghost_regions()
 
         # Update velocities
         self._pusher(dt)
