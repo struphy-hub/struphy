@@ -361,6 +361,72 @@ def test_polar_adjoints_small_nel2(num_elements):
         assert xp.isclose(lhs, rhs, rtol=1e-12), (lhs, rhs)
 
 
+def test_polar_ops_eta1_decomposition():
+    """With an MPI decomposition in eta_1 (processes away from the pole): the ghost-region flags of the
+    tp parts written by polar operators agree on all processes (they must be set collectively),
+    and PolarLinearOperator.dot gives the same result for out=v (in-place)."""
+    import cunumpy as xp
+    from maybempi import MPI
+    from scipy.sparse import identity
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.linear_operators import PolarLinearOperator
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+
+    degree = [2, 2, 1]
+    num_elements = [16, 6, 4]
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, False, False))
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
+
+    def tp_blocks(vec):
+        return [vec] if not hasattr(vec, "blocks") else list(vec.blocks)
+
+    def assert_sync_flags_agree(vec, label):
+        flags = [b.ghost_regions_in_sync for b in tp_blocks(vec)]
+        if comm.Get_size() > 1:
+            all_flags = comm.allgather(flags)
+            assert all(f == flags for f in all_flags), (label, all_flags)
+
+    E = derham.extraction_ops
+    for k, space in (("0", derham.V0pol), ("1", derham.V1pol), ("2", derham.V2pol)):
+        x_pol = _rand_polar_vector(derham, space, seed=123)
+        for b in tp_blocks(x_pol.tp):
+            b.update_ghost_regions()
+
+        # transposed extraction (polar -> tp): writes the inner rings at the pole only
+        x_tp = E[k].T.dot(x_pol)
+        assert_sync_flags_agree(x_tp, f"E{k}.T")
+
+        # extraction (tp -> polar): writes the "first tp ring" at the pole only
+        y_pol = E[k].dot(x_tp)
+        assert_sync_flags_agree(y_pol.tp, f"E{k}")
+
+        # subsequent stencil dot must not hang (collective ghost-region update on all or no processes)
+        derham.grad_bcfree.tp_operator.dot(E["0"].T.dot(_rand_polar_vector(derham, derham.V0pol, seed=7)))
+
+    # square PolarLinearOperator on V0pol with random polar blocks
+    V = derham.V0pol
+    G = derham.grad_bcfree
+    rng = xp.random.default_rng(42)
+    op = PolarLinearOperator(V, V, tp_operator=G.tp_operator.T @ G.tp_operator)
+    op.blocks_pol_to_ten = [[rng.random(shape) for shape in row] for row in op.blocks_pol_to_ten_shapes]
+    op.blocks_pol_to_pol = [[rng.random(shape) for shape in row] for row in op.blocks_pol_to_pol_shapes]
+    op.blocks_e3 = [[identity(shape[0]) for shape in row] for row in op.blocks_e3_shapes]
+
+    for A in (op, op.transpose()):
+        x = _rand_polar_vector(derham, V, seed=5)
+        ref = A.dot(x)
+        assert_sync_flags_agree(ref.tp, f"{A.transposed = }")
+        A.dot(x, out=x)
+        assert _rel_err(x, ref) < 1e-14, A.transposed
+
+
 def _rand_polar_vector(derham, space, seed):
     """Random PolarVector (equal on all processes for the same seed)."""
     import cunumpy as xp

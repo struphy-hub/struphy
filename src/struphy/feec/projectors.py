@@ -472,6 +472,9 @@ class CommutingProjector:
                     (self._I0T, self._pc0T),
                 )
             )
+            # transposed boundary operator and buffer for the right-hand side with boundary conditions
+            self._boundary_op_T = self._boundary_op.T
+            self._polar_rhs_bc = self._boundary_op_T.codomain.zeros()
         else:
             self._polar_solver = None
 
@@ -506,6 +509,11 @@ class CommutingProjector:
     def is_polar(self):
         """Whether the projector maps to polar splines (True) or pure tensor product splines."""
         return self._is_polar
+
+    @property
+    def polar_info(self):
+        """Info dict of the iterative solver of the last polar projection (None before the first one)."""
+        return self._polar_info
 
     @property
     def I(self):
@@ -590,7 +598,7 @@ class CommutingProjector:
 
         # boundary conditions are only imposed if requested (as in the tensor product case)
         if apply_bc:
-            rhs = self._boundary_op.T.dot(rhs)
+            rhs = self._boundary_op_T.dot(rhs, out=self._polar_rhs_bc)
 
         # relative tolerance w.r.t. the norm of the right-hand side
         rhs_norm = xp.sqrt(rhs.inner(rhs))

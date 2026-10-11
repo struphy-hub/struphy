@@ -494,6 +494,10 @@ class PolarLinearOperator(LinearOperator):
             assert isinstance(out, PolarVector)
             assert out.space == self._codomain
 
+            # out is overwritten in step 1 but v is still needed in steps 2 and 3
+            if out is v:
+                v = v.copy()
+
         # 1. total tp zone to total tp zone (stencil)
         self.tp_operator.dot(v.tp, out=out.tp)
         out.set_tp_coeffs_to_zero()
@@ -592,9 +596,15 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out, map_to_tp, add=False):
 
     polar_space = out.space
 
-    # the "first tp ring" is only held by the processes at the pole, which are the only ones contributing
-    if map_to_tp and not polar_space.is_pole_rank:
-        return
+    if map_to_tp:
+        # the "first tp ring" is written directly at the pole, hence ghost regions are not up-to-date
+        # (the flag must be set collectively, i.e. also on the processes that do not write)
+        for out_m in [out.tp] if isinstance(out.tp, StencilVector) else out.tp.blocks:
+            out_m.ghost_regions_in_sync = False
+
+        # the "first tp ring" is only held by the processes at the pole, which are the only ones contributing
+        if not polar_space.is_pole_rank:
+            return
 
     # number of coeffs in eta_2 (always the same (periodic))
     n2 = polar_space.n2[0]
@@ -664,9 +674,6 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out, map_to_tp, add=False):
                 out_tp[m][n_rings_out[m], s2 : e2 + 1, s3 : e3 + 1] += res[s2 : e2 + 1, s3 : e3 + 1]
             else:
                 out_tp[m][n_rings_out[m], s2 : e2 + 1, s3 : e3 + 1] = res[s2 : e2 + 1, s3 : e3 + 1]
-
-            # the "first tp ring" was written directly, hence ghost regions are not up-to-date
-            out_tp[m].ghost_regions_in_sync = False
         else:
             if add:
                 out.pol[m][:, :] += res
@@ -727,6 +734,11 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out, map_from_tp, add=False):
     assert isinstance(out, (StencilVector, BlockVector))
 
     polar_space = v.space
+
+    # the inner rings are written directly at the pole, hence ghost regions are not up-to-date
+    # (the flag must be set collectively, i.e. also on the processes that do not write)
+    for out_m in [out] if isinstance(out, StencilVector) else out.blocks:
+        out_m.ghost_regions_in_sync = False
 
     # only the processes at the pole hold (and write to) the inner tp rings
     if not polar_space.is_pole_rank:
@@ -799,9 +811,6 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out, map_from_tp, add=False):
             out_vec[m][0 : n_rings_out[m], s2 : e2 + 1, s3 : e3 + 1] += res[:, s2 : e2 + 1, s3 : e3 + 1]
         else:
             out_vec[m][0 : n_rings_out[m], s2 : e2 + 1, s3 : e3 + 1] = res[:, s2 : e2 + 1, s3 : e3 + 1]
-
-        # the inner rings were written directly, hence ghost regions are not up-to-date
-        out_vec[m].ghost_regions_in_sync = False
 
 
 def dot_pol_pol(blocks_e1_e2, blocks_e3, v, out):
