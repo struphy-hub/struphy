@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.feec.global_geometric_projectors import GlobalGeometricProjector
@@ -40,6 +42,8 @@ from struphy.feec.utilities_local_projectors import (
 from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.linear_operators import PolarExtractionOperator
+
+logger = logging.getLogger("struphy")
 
 
 class TensorCommutingProjector:
@@ -342,6 +346,12 @@ class CommutingProjector:
 
     boundary_op : BoundaryOperator
         The boundary operator applying essential boundary conditions to a vector. If not given, is set to identity.
+
+    polar_rtol : float
+        Relative tolerance (w.r.t. the norm of the right-hand side) of the iterative solver for polar projections.
+
+    polar_maxiter : int
+        Maximum number of iterations of the iterative solver for polar projections.
     """
 
     def __init__(
@@ -350,6 +360,8 @@ class CommutingProjector:
         dofs_extraction_op=None,
         base_extraction_op=None,
         boundary_op=None,
+        polar_rtol: float = 1e-13,
+        polar_maxiter: int = 1000,
     ):
         self._projector_tensor = projector_tensor
 
@@ -448,39 +460,17 @@ class CommutingProjector:
             apply_bc=True,
         )
 
-        # linear solver used for polar projections
+        # linear solver used for polar projections (the absolute tolerance is set from polar_rtol in each solve)
+        self._polar_rtol = polar_rtol
         if self._is_polar:
-            self._polar_solver = inverse(
-                self._I,
-                "pbicgstab",
-                pc=self._pc,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
-            )
-            self._polar_solver0 = inverse(
-                self._I0,
-                "pbicgstab",
-                pc=self._pc0,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
-            )
-            self._polar_solverT = inverse(
-                self._IT,
-                "pbicgstab",
-                pc=self._pcT,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
-            )
-            self._polar_solver0T = inverse(
-                self._I0T,
-                "pbicgstab",
-                pc=self._pc0T,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
+            self._polar_solver, self._polar_solver0, self._polar_solverT, self._polar_solver0T = (
+                inverse(I, "pbicgstab", pc=pc, tol=polar_rtol, maxiter=polar_maxiter, verbose=False)
+                for I, pc in (
+                    (self._I, self._pc),
+                    (self._I0, self._pc0),
+                    (self._IT, self._pcT),
+                    (self._I0T, self._pc0T),
+                )
             )
         else:
             self._polar_solver = None
@@ -584,48 +574,36 @@ class CommutingProjector:
         assert isinstance(rhs, Vector)
         assert rhs.space == self._I.domain
 
+        # standard (tensor product) case (Kronecker solver)
+        if not self.is_polar:
+            if transposed:
+                pc = self.pc0T if apply_bc else self.pcT
+            else:
+                pc = self.pc0 if apply_bc else self.pc
+            return pc.solve(rhs, out=out)
+
+        # polar case (iterative solve with PBiConjugateGradientStab)
         if transposed:
-            # polar case (iterative solve with PBiConjugateGradientStab)
-            if self.is_polar:
-                if apply_bc:
-                    self._polar_solver0T.set_options(x0=x0)
-                    x = self._polar_solver0T.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-                else:
-                    self._polar_solverT.set_options(x0=x0)
-                    x = self._polar_solverT.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-            # standard (tensor product) case (Kronecker solver)
-            else:
-                if apply_bc:
-                    x = self.pc0T.solve(rhs, out=out)
-                else:
-                    x = self.pcT.solve(rhs, out=out)
+            solver = self._polar_solver0T if apply_bc else self._polar_solverT
         else:
-            # polar case (iterative solve with PBiConjugateGradientStab)
-            if self.is_polar:
-                if apply_bc:
-                    self._polar_solver0.set_options(x0=x0)
-                    x = self._polar_solver0.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-                else:
-                    self._polar_solver.set_options(x0=x0)
-                    x = self._polar_solver.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-            # standard (tensor product) case (Kronecker solver)
-            else:
-                if apply_bc:
-                    x = self.pc0.solve(rhs, out=out)
-                else:
-                    x = self.pc.solve(rhs, out=out)
+            solver = self._polar_solver0 if apply_bc else self._polar_solver
+
+        # boundary conditions are only imposed if requested (as in the tensor product case)
+        if apply_bc:
+            rhs = self._boundary_op.T.dot(rhs)
+
+        # relative tolerance w.r.t. the norm of the right-hand side
+        rhs_norm = xp.sqrt(rhs.inner(rhs))
+        solver.set_options(x0=x0, tol=self._polar_rtol * rhs_norm if rhs_norm > 0.0 else self._polar_rtol)
+        x = solver.solve(rhs, out=out)
+
+        info = solver.get_info()
+        self._polar_info = info
+        if not info["success"]:
+            logger.warning(
+                f"Polar projection did not converge: {info['niter']} iterations, "
+                f"residual norm {info['res_norm']:.2e} (rhs norm {rhs_norm:.2e}, rtol {self._polar_rtol:.1e}).",
+            )
 
         return x
 
