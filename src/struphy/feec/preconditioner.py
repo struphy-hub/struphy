@@ -31,6 +31,20 @@ from scipy import sparse
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedAverageProjection, WeightedMassOperator, WeightedMassOperators
+from struphy.polar.basic import PolarDerhamSpace
+from struphy.polar.kron_2dx1d import (
+    ILU_DROP_TOL,
+    ILU_FILL_FACTOR,
+    Kron2Dx1DGroup,
+    PolarKron2Dx1DSolver,
+    bc_masks,
+    component_groups,
+    poloidal_extraction_matrix,
+    poloidal_mass_matrix,
+    reduced_weight_2d,
+    spline_bases,
+    tp_space,
+)
 
 logger = logging.getLogger("struphy")
 
@@ -364,6 +378,187 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
             self._weight_reduction,
             self._diagonal_scaling,
         )
+
+
+class PolarMassMatrixPreconditioner(LinearOperator):
+    r"""
+    Preconditioner for inverting weighted mass matrices on polar spline spaces, exploiting the
+    2D x 1D Kronecker structure of the polar extraction (see :mod:`struphy.polar.kron_2dx1d`):
+
+    .. math::
+
+        \mathbb B \mathbb E \mathbb M \mathbb E^T \mathbb B^T \approx \bigoplus_G
+        \left(\mathbb E_\textnormal{pol} \mathbb M^G_{12}[\bar w] \mathbb E_\textnormal{pol}^T\right) \otimes \mathbb M^G_3 \,,
+
+    with boundary conditions imposed on both factors. Here, :math:`G` are groups of vector components
+    (same spline basis in :math:`\eta_3`, coupled at the pole), :math:`\mathbb M^G_{12}[\bar w]` is the
+    (block) mass matrix of the poloidal plane with the weights of the 3d mass operator reduced in
+    :math:`\eta_3` (see :func:`~struphy.polar.kron_2dx1d.reduced_weight_2d`), and :math:`\mathbb M^G_3`
+    is the unweighted 1d mass matrix in :math:`\eta_3`. Couplings between different groups are neglected.
+
+    The approximation is exact for weights that do not depend on :math:`\eta_3` and have no couplings
+    between the groups (e.g. a cylinder or an axisymmetric torus with axisymmetric weights); with an exact
+    poloidal solver, an iterative solver then converges in one iteration.
+
+    Parameters
+    ----------
+    mass_operator : WeightedMassOperator
+        The weighted mass operator on a polar spline space for which the approximate inverse is needed.
+
+    apply_bc : bool
+        Whether to include boundary operators.
+
+    poloidal_solver : str
+        Solver for the poloidal matrices: ``"schur"`` (block elimination of the pole block), ``"lu"``
+        (sparse LU) or ``"ilu"`` (incomplete LU).
+
+    weight_reduction : str
+        How the weights are reduced in eta_3: ``"midpoint"`` (value at 0.5) or ``"average"`` (mean).
+
+    schur_outer : str
+        Factorization of the outer block in the Schur solver: ``"lu"`` (exact) or ``"ilu"``.
+
+    drop_tol, fill_factor : float
+        Parameters of the incomplete LU factorizations (``scipy.sparse.linalg.spilu``).
+    """
+
+    def __init__(
+        self,
+        mass_operator: WeightedMassOperator,
+        apply_bc: bool = True,
+        poloidal_solver: str = "schur",
+        weight_reduction: str = "midpoint",
+        schur_outer: str = "lu",
+        drop_tol: float = ILU_DROP_TOL,
+        fill_factor: float = ILU_FILL_FACTOR,
+    ):
+        assert isinstance(mass_operator, WeightedMassOperator)
+        assert mass_operator.domain == mass_operator.codomain, "Only square operators can be inverted!"
+        if not isinstance(mass_operator.domain, PolarDerhamSpace):
+            raise ValueError(
+                "PolarMassMatrixPreconditioner needs a mass operator on polar splines, use MassMatrixPreconditioner instead."
+            )
+        assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
+
+        self._mass_operator = mass_operator
+        self._space = mass_operator.domain
+        self._apply_bc = apply_bc
+        self._poloidal_solver = poloidal_solver
+        self._weight_reduction = weight_reduction
+        self._solver_kwargs = {"schur_outer": schur_outer, "drop_tol": drop_tol, "fill_factor": fill_factor}
+
+        # boundary conditions are only imposed if the mass operator has a BoundaryOperator
+        self._bc = _boundary_conditions(mass_operator, apply_bc)
+        self._tmp = self._space.zeros() if self._bc is not None else None
+
+        self._solver = self._build_solver()
+
+    def _build_solver(self) -> PolarKron2Dx1DSolver:
+        groups = _polar_mass_groups(self._mass_operator, self._weight_reduction)
+        if self._bc is not None:
+            bases = spline_bases(self._mass_operator.domain_femspace)
+            groups = [g.masked(*bc_masks(self._space, g.comps, bases, self._bc), True, self._space) for g in groups]
+        return PolarKron2Dx1DSolver(self._space, groups, self._poloidal_solver, **self._solver_kwargs)
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._mass_operator.dtype
+
+    @property
+    def space(self):
+        """PolarDerhamSpace."""
+        return self._space
+
+    @property
+    def solver(self) -> PolarKron2Dx1DSolver:
+        """The 2D x 1D Kronecker solver."""
+        return self._solver
+
+    @property
+    def exact(self) -> bool:
+        """Whether the poloidal solves are exact (incomplete LU factorizations are not)."""
+        return self._solver.exact
+
+    def update_mass_operator(self, mass_operator: WeightedMassOperator) -> None:
+        """Update the mass operator (same spaces and structure, e.g. new weights) and rebuild the factorizations."""
+        assert isinstance(mass_operator, WeightedMassOperator)
+        assert mass_operator.domain == self.domain, "Update needs to have the same domain and codomain"
+        self._mass_operator = mass_operator
+        self._solver = self._build_solver()
+
+    def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
+        """Applies the approximate inverse to rhs."""
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._space
+        if self._bc is not None:
+            self._mass_operator._V_boundary_op.dot(rhs, out=self._tmp)
+            rhs = self._tmp
+        return self._solver.dot(rhs, out=out)
+
+    def dot(self, v: Vector, out: Vector | None = None) -> Vector:
+        return self.solve(v, out=out)
+
+    def transpose(self, conjugate: bool = False) -> PolarMassMatrixPreconditioner:
+        return PolarMassMatrixPreconditioner(
+            self._mass_operator.transpose(),
+            self._apply_bc,
+            self._poloidal_solver,
+            self._weight_reduction,
+            **self._solver_kwargs,
+        )
+
+
+def _polar_mass_groups(mass_operator: WeightedMassOperator, reduction: str) -> list[Kron2Dx1DGroup]:
+    """Factors (E_pol M_12[w] E_pol^T, M_3) of the 2D x 1D Kronecker approximation of a polar mass matrix."""
+    derham = mass_operator.derham
+    space = mass_operator.domain
+    bases = spline_bases(mass_operator.domain_femspace)
+    E_op = derham.extraction_ops[space.space_id]
+    weights = mass_operator.weights
+    symmetry = mass_operator.symmetry
+
+    groups = []
+    for comps in component_groups(space):
+        E = poloidal_extraction_matrix(space, comps, E_op.blocks_ten_to_pol, None)
+
+        # poloidal mass matrix (blocks of the group); the weight reduction is collective
+        blocks = [[None] * len(comps) for _ in comps]
+        for a, c in enumerate(comps):
+            for b, c2 in enumerate(comps):
+                w2 = reduced_weight_2d(weights[c][c2], derham, reduction)
+                if w2 is not None:
+                    blocks[a][b] = poloidal_mass_matrix(derham, tuple(bases[c][:2]), tuple(bases[c2][:2]), w2)
+        for a, c in enumerate(comps):
+            for b, c2 in enumerate(comps):
+                if blocks[a][b] is None:
+                    if symmetry in ("symm", "asym") and blocks[b][a] is not None:
+                        blocks[a][b] = (1.0 if symmetry == "symm" else -1.0) * blocks[b][a].T
+                    else:
+                        shape_r = _poloidal_size(space, c)
+                        shape_c = _poloidal_size(space, c2)
+                        blocks[a][b] = sparse.csr_matrix((shape_r, shape_c))
+        M12 = sparse.bmat(blocks, format="csr")
+        A_pol = (E @ M12 @ E.T).tocsr()
+
+        # unweighted 1d mass matrix in eta_3
+        A_3 = _mass_matrix_1d(mass_operator, bases[comps[0]][2], 2, _ones_1d)[0].toarray()
+
+        groups.append(Kron2Dx1DGroup(comps, A_pol, A_3))
+    return groups
+
+
+def _poloidal_size(space: PolarDerhamSpace, c: int) -> int:
+    """Number of tensor-product coefficients of component c in the poloidal plane."""
+    n1, n2 = tp_space(space, c).npts[:2]
+    return n1 * n2
 
 
 class StiffnessPreconditioner(KroneckerPreconditioner):

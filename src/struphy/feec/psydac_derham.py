@@ -670,6 +670,9 @@ class Derham:
         # smoothness at the polar singularity: default False for standard tensor product splines, or True for C1 polar splines
         self._polar_splines = polar_splines
 
+        # solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections
+        self._polar_poloidal_solver = options.polar_poloidal_solver
+
         # Other derived properties
         self._mpi_dims_mask = mpi_dims_mask
         with_projectors = True  # projectors are always built in the current implementation, but this flag can be used to skip their construction if not needed
@@ -1005,6 +1008,11 @@ class Derham:
     def polar_splines(self) -> bool:
         """C^k smoothness at eta_1=0. Is False for standard tensor product splines and True for C^1 polar splines."""
         return self._polar_splines
+
+    @property
+    def polar_poloidal_solver(self) -> str:
+        """Solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections ("schur", "lu" or "ilu")."""
+        return self._polar_poloidal_solver
 
     @property
     def with_local_projectors(self) -> bool:
@@ -1917,6 +1925,7 @@ class Derham:
                     dofs_extraction_op=self._dofs_extraction_ops[sp_form],
                     base_extraction_op=self._extraction_ops[sp_form],
                     boundary_op=self.boundary_ops[sp_form],
+                    poloidal_solver=self.polar_poloidal_solver,
                 )
             )
         return tuple(tmp)
