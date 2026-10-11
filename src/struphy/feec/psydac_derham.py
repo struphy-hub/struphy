@@ -46,6 +46,7 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.utils import check_option
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -1635,6 +1636,7 @@ class Derham:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        projection: LiteralOptions.OptsInitProjection = "commuting",
     ):
         """Creat a callable spline function.
 
@@ -1660,6 +1662,10 @@ class Derham:
 
         equil : FLuidEquilibrium
             Fluid background used for inital condition.
+
+        projection : str
+            Projection of the initial condition into the spline space: "commuting" (the commuting
+            projector, default) or "L2" (the L2-orthogonal projection).
         """
         return SplineFunction(
             name,
@@ -1670,6 +1676,7 @@ class Derham:
             perturbations=perturbations,
             domain=domain,
             equil=equil,
+            projection=projection,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -2253,6 +2260,11 @@ class SplineFunction:
 
     equil : FluidEquilibrium
         Fluid background used for inital condition.
+
+    projection : str
+        Projection of the initial condition into the spline space: "commuting" (the commuting
+        projector of the Derham, default) or "L2" (the L2-orthogonal projection,
+        :class:`~struphy.feec.mass.L2Projector`, needs ``domain``).
     """
 
     def __init__(
@@ -2265,7 +2277,10 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        projection: LiteralOptions.OptsInitProjection = "commuting",
     ):
+        check_option(projection, LiteralOptions.OptsInitProjection)
+        self._projection = projection
         self._name = name
         self._space_id = space_id
         self._derham = derham
@@ -2496,6 +2511,29 @@ class SplineFunction:
         if update_ghost_regions:
             self._vector_stencil.update_ghost_regions()
 
+    @property
+    def projection(self) -> str:
+        """Projection of the initial condition into the spline space ("commuting" or "L2")."""
+        return self._projection
+
+    def _project(self, fun, domain: Domain):
+        """Coefficients of the projection of the p-form proxy ``fun`` (callable or list of callables)."""
+        if self._projection == "commuting":
+            return self.derham.projectors[self.space_key](fun)
+
+        # avoid circular imports
+        from struphy.feec.mass import L2Projector, WeightedMassOperators
+        from struphy.linear_algebra.solver import SolverParameters
+
+        assert domain is not None, "The L2 projection of the initial condition needs the domain."
+        if getattr(self, "_l2_projector", None) is None:
+            self._l2_projector = L2Projector(
+                self.space_id,
+                WeightedMassOperators(self.derham, domain),
+                solver_params=SolverParameters(tol=1e-14, maxiter=3000),
+            )
+        return self._l2_projector(fun, apply_bc=True)
+
     def initialize_coeffs(
         self,
         *,
@@ -2595,7 +2633,7 @@ class SplineFunction:
                         ]
 
                 # perform projection
-                self.vector += self.derham.projectors[self.space_key](fun)
+                self.vector += self._project(fun, domain)
 
         # add perturbations to coefficient vector
         if self.perturbations is not None:
@@ -2643,7 +2681,7 @@ class SplineFunction:
                             ]
 
                     # peform projection
-                    self.vector += self.derham.projectors[self.space_key](fun)
+                    self.vector += self._project(fun, domain)
 
                 # TODO: re-add Eigfun and InitFromOutput in new framework
 
@@ -3023,6 +3061,7 @@ class SplineFunction:
             perturbations=self.perturbations,
             domain=self.domain,
             equil=self.equil,
+            projection=self.projection,
         )
 
     #######################

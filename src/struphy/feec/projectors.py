@@ -444,6 +444,10 @@ class CommutingProjector:
             # solvers are built on first use
             self._polar_solvers = {}
             self._polar_krylov = {}
+
+            # transposed boundary operator and buffer for the right-hand side with boundary conditions
+            self._boundary_op_T = self._boundary_op.T
+            self._polar_rhs_bc = self._boundary_op_T.codomain.zeros()
         else:
             # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B * P * I * E^T * B^T as ComposedLinearOperator
             self._I = P @ self._imat @ E.T
@@ -490,6 +494,11 @@ class CommutingProjector:
     def is_polar(self):
         """Whether the projector maps to polar splines (True) or pure tensor product splines."""
         return self._is_polar
+
+    @property
+    def polar_info(self):
+        """Info dict of the iterative solver of the last polar projection (None before the first one)."""
+        return self._polar_info
 
     @property
     def I(self):
@@ -588,7 +597,7 @@ class CommutingProjector:
 
         # boundary conditions are only imposed if requested (as in the tensor product case)
         if apply_bc:
-            rhs = self._boundary_op.T.dot(rhs)
+            rhs = self._boundary_op_T.dot(rhs, out=self._polar_rhs_bc)
 
         if solver.exact:
             return solver.dot(rhs, out=out)
