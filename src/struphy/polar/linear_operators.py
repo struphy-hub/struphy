@@ -599,8 +599,7 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out, map_to_tp, add=False):
     if map_to_tp:
         # the "first tp ring" is written directly at the pole, hence ghost regions are not up-to-date
         # (the flag must be set collectively, i.e. also on the processes that do not write)
-        for out_m in [out.tp] if isinstance(out.tp, StencilVector) else out.tp.blocks:
-            out_m.ghost_regions_in_sync = False
+        out.tp.ghost_regions_in_sync = False
 
         # the "first tp ring" is only held by the processes at the pole, which are the only ones contributing
         if not polar_space.is_pole_rank:
@@ -737,8 +736,7 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out, map_from_tp, add=False):
 
     # the inner rings are written directly at the pole, hence ghost regions are not up-to-date
     # (the flag must be set collectively, i.e. also on the processes that do not write)
-    for out_m in [out] if isinstance(out, StencilVector) else out.blocks:
-        out_m.ghost_regions_in_sync = False
+    out.ghost_regions_in_sync = False
 
     # only the processes at the pole hold (and write to) the inner tp rings
     if not polar_space.is_pole_rank:

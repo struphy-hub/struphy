@@ -372,6 +372,7 @@ def test_polar_ops_eta1_decomposition():
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder
     from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
     from struphy.polar.linear_operators import PolarLinearOperator
     from struphy.topology.grids import TensorProductGrid
 
@@ -403,12 +404,11 @@ def test_polar_ops_eta1_decomposition():
         x_tp = E[k].T.dot(x_pol)
         assert_sync_flags_agree(x_tp, f"E{k}.T")
 
-        # extraction (tp -> polar): writes the "first tp ring" at the pole only
-        y_pol = E[k].dot(x_tp)
-        assert_sync_flags_agree(y_pol.tp, f"E{k}")
-
-        # subsequent stencil dot must not hang (collective ghost-region update on all or no processes)
-        derham.grad_bcfree.tp_operator.dot(E["0"].T.dot(_rand_polar_vector(derham, derham.V0pol, seed=7)))
+        # dofs extraction (tp -> polar): writes the "first tp ring" at the pole only (out starts in sync)
+        y_pol = PolarVector(space)
+        y_pol.tp.update_ghost_regions()
+        derham.dofs_extraction_ops[k].dot(x_tp, out=y_pol)
+        assert_sync_flags_agree(y_pol.tp, f"P{k}")
 
     # square PolarLinearOperator on V0pol with random polar blocks
     V = derham.V0pol
