@@ -292,6 +292,25 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     r1_pol = CT.dot(b2_pol)
     r2_pol = DT.dot(p3_pol)
 
+    # polar derivatives are consistent with the tensor-product ones: E_{k+1}^T D_pol = D_tp E_k^T
+    E = derham.extraction_ops
+    for D, k, x in (
+        (derham.grad_bcfree, "0", f0_pol),
+        (derham.curl_bcfree, "1", e1_pol),
+        (derham.div_bcfree, "2", b2_pol),
+    ):
+        k1 = str(int(k) + 1)
+        lhs = E[k1].T.dot(D.dot(x))
+        rhs = D.tp_operator.dot(E[k].T.dot(x))
+        d = lhs - rhs
+        assert xp.sqrt(d.inner(d)) < 1e-12 * xp.sqrt(rhs.inner(rhs)), k
+
+    # exactness of the polar sequence
+    r = derham.curl_bcfree.dot(derham.grad_bcfree.dot(f0_pol))
+    assert xp.sqrt(r.inner(r)) < 1e-12
+    r = derham.div_bcfree.dot(derham.curl_bcfree.dot(e1_pol))
+    assert xp.sqrt(r.inner(r)) < 1e-12
+
     if rank == 0:
         logger.info("------------- Test passed ---------------------------")
 
@@ -342,16 +361,107 @@ def test_polar_adjoints_small_nel2(num_elements):
         assert xp.isclose(lhs, rhs, rtol=1e-12), (lhs, rhs)
 
 
-@pytest.mark.parametrize("num_elements", [[6, 12, 7]])
-@pytest.mark.parametrize("degree", [[4, 3, 2]])
+def test_polar_ops_eta1_decomposition():
+    """With an MPI decomposition in eta_1 (processes away from the pole): the ghost-region flags of the
+    tp parts written by polar operators agree on all processes (they must be set collectively),
+    and PolarLinearOperator.dot gives the same result for out=v (in-place)."""
+    import cunumpy as xp
+    from maybempi import MPI
+    from scipy.sparse import identity
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
+    from struphy.polar.linear_operators import PolarLinearOperator
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+
+    degree = [2, 2, 1]
+    num_elements = [16, 6, 4]
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, False, False))
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
+
+    def tp_blocks(vec):
+        return [vec] if not hasattr(vec, "blocks") else list(vec.blocks)
+
+    def assert_sync_flags_agree(vec, label):
+        flags = [b.ghost_regions_in_sync for b in tp_blocks(vec)]
+        if comm.Get_size() > 1:
+            all_flags = comm.allgather(flags)
+            assert all(f == flags for f in all_flags), (label, all_flags)
+
+    E = derham.extraction_ops
+    for k, space in (("0", derham.V0pol), ("1", derham.V1pol), ("2", derham.V2pol)):
+        x_pol = _rand_polar_vector(derham, space, seed=123)
+        for b in tp_blocks(x_pol.tp):
+            b.update_ghost_regions()
+
+        # transposed extraction (polar -> tp): writes the inner rings at the pole only
+        x_tp = E[k].T.dot(x_pol)
+        assert_sync_flags_agree(x_tp, f"E{k}.T")
+
+        # dofs extraction (tp -> polar): writes the "first tp ring" at the pole only (out starts in sync)
+        y_pol = PolarVector(space)
+        y_pol.tp.update_ghost_regions()
+        derham.dofs_extraction_ops[k].dot(x_tp, out=y_pol)
+        assert_sync_flags_agree(y_pol.tp, f"P{k}")
+
+    # square PolarLinearOperator on V0pol with random polar blocks
+    V = derham.V0pol
+    G = derham.grad_bcfree
+    rng = xp.random.default_rng(42)
+    op = PolarLinearOperator(V, V, tp_operator=G.tp_operator.T @ G.tp_operator)
+    op.blocks_pol_to_ten = [[rng.random(shape) for shape in row] for row in op.blocks_pol_to_ten_shapes]
+    op.blocks_pol_to_pol = [[rng.random(shape) for shape in row] for row in op.blocks_pol_to_pol_shapes]
+    op.blocks_e3 = [[identity(shape[0]) for shape in row] for row in op.blocks_e3_shapes]
+
+    for A in (op, op.transpose()):
+        x = _rand_polar_vector(derham, V, seed=5)
+        ref = A.dot(x)
+        assert_sync_flags_agree(ref.tp, f"{A.transposed = }")
+        A.dot(x, out=x)
+        assert _rel_err(x, ref) < 1e-14, A.transposed
+
+
+def _rand_polar_vector(derham, space, seed):
+    """Random PolarVector (equal on all processes for the same seed)."""
+    import cunumpy as xp
+
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.polar.basic import PolarVector
+
+    fem_space = derham.fem_spaces[derham.space_to_form[space.space_id]]
+    v = PolarVector(space)
+    v.tp = create_equal_random_arrays(fem_space, seed=seed)[1]
+    rng = xp.random.default_rng(seed)
+    v.pol = [rng.random(pol.shape) for pol in v.pol]
+    return v
+
+
+def _rel_err(a, b):
+    import cunumpy as xp
+
+    d = a - b
+    return xp.sqrt(d.inner(d)) / xp.sqrt(b.inner(b))
+
+
+@pytest.mark.parametrize("num_elements", [[8, 12, 4]])
+@pytest.mark.parametrize("degree", [[3, 3, 2], [2, 3, 1]])
 @pytest.mark.parametrize(
     "bcs",
     [
         (("free", "free"), None, None),
-        (("free", "free"), None, ("free", "free")),
+        (("free", "dirichlet"), None, None),
+        (("free", "dirichlet"), None, ("dirichlet", "dirichlet")),
     ],
 )
 def test_projectors(num_elements, degree, bcs):
+    """Polar commuting projectors: projection of splines is the identity (with and without
+    boundary conditions), grad P0 = P1 grad, and exactness of the polar sequence."""
     import cunumpy as xp
     from maybempi import MPI
 
@@ -361,95 +471,54 @@ def test_projectors(num_elements, degree, bcs):
     from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
 
-    # create control points
-    params_map = {"num_elements": num_elements[:2], "degree": degree[:2], "Lz": 3.0, "a": 1.0}
-    domain = IGAPolarCylinder(**params_map)
-
-    # create polar de Rham sequence
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=3.0, a=1.0)
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads_proj=[6, 6, 6], polar_splines=True)
     derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
-    if rank == 0:
-        logger.info("")
-        logger.info(f"Domain decomposition : \n{derham.domain_array}")
-        logger.info("")
+    # projection of a spline returns the spline, with and without boundary conditions
+    for form, P in derham.projectors_global.items():
+        if form not in ("0", "1", "2", "3", "v"):
+            continue
+        x = _rand_polar_vector(derham, P.I.domain, seed=1234)
+        assert _rel_err(P.solve(P.I.dot(x), apply_bc=False), x) < 1e-10, form
 
-    comm.Barrier()
+        x0 = P.boundary_op.dot(x)
+        assert _rel_err(P.solve(P.I0.dot(x0), apply_bc=True), x0) < 1e-10, form
 
-    # function to project on physical domain
-    def fun_scalar(x, y, z):
-        return xp.sin(2 * xp.pi * (x)) * xp.cos(2 * xp.pi * y) * xp.sin(2 * xp.pi * z)
+        # transposed solve
+        assert _rel_err(P.solve(P.IT.dot(x), transposed=True, apply_bc=False), x) < 1e-10, form
 
-    fun_vector = [fun_scalar, fun_scalar, fun_scalar]
+    # commutation grad P0 f = P1 grad f (up to the quadrature error in the histopolation)
+    tp = 2 * xp.pi
 
-    # pull-back to logical domain
-    def fun0(e1, e2, e3):
-        return domain.pull(fun_scalar, e1, e2, e3, kind="0")
+    def f(e1, e2, e3):
+        xh, yh = e1 * xp.cos(tp * e2), e1 * xp.sin(tp * e2)
+        return xp.sin(xh + 0.3) * xp.cos(yh) * xp.cos(tp * e3)
 
-    fun1 = [
-        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind="1")[0],
-        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind="1")[1],
-        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind="1")[2],
-    ]
+    def df(e1, e2, e3):
+        xh, yh = e1 * xp.cos(tp * e2), e1 * xp.sin(tp * e2)
+        fx = xp.cos(xh + 0.3) * xp.cos(yh) * xp.cos(tp * e3)
+        fy = -xp.sin(xh + 0.3) * xp.sin(yh) * xp.cos(tp * e3)
+        return (
+            fx * xp.cos(tp * e2) + fy * xp.sin(tp * e2),
+            -fx * e1 * tp * xp.sin(tp * e2) + fy * e1 * tp * xp.cos(tp * e2),
+            -xp.sin(xh + 0.3) * xp.cos(yh) * tp * xp.sin(tp * e3),
+        )
 
-    fun2 = [
-        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind="2")[0],
-        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind="2")[1],
-        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind="2")[2],
-    ]
+    dfs = [lambda e1, e2, e3, i=i: df(e1, e2, e3)[i] for i in range(3)]
 
-    def fun3(e1, e2, e3):
-        return domain.pull(fun_scalar, e1, e2, e3, kind="3")
+    c0 = derham.P0(f, apply_bc=False)
+    c1 = derham.P1(dfs, apply_bc=False)
+    err = _rel_err(derham.grad_bcfree.dot(c0), c1)
+    logger.info(f"{bcs = }, {degree = }: |grad P0 f - P1 grad f| / |P1 grad f| = {err:.2e}")
+    assert err < 1e-5
 
-    # ============ project on V0 =========================
-    if rank == 0:
-        r0_pol = derham.P0(fun0)
-    else:
-        r0_pol = derham.P0(fun0)
-
-    if rank == 0:
-        logger.info("Test passed for PI_0 polar projector")
-        logger.info("")
-
-    comm.Barrier()
-
-    # ============ project on V1 =========================
-    if rank == 0:
-        r1_pol = derham.P1(fun1)
-    else:
-        r1_pol = derham.P1(fun1)
-
-    if rank == 0:
-        logger.info("Test passed for PI_1 polar projector")
-        logger.info("")
-
-    comm.Barrier()
-
-    # ============ project on V2 =========================
-    if rank == 0:
-        r2_pol = derham.P2(fun2)
-    else:
-        r2_pol = derham.P2(fun2)
-
-    if rank == 0:
-        logger.info("Test passed for PI_2 polar projector")
-        logger.info("")
-
-    comm.Barrier()
-
-    # ============ project on V3 =========================
-    if rank == 0:
-        r3_pol = derham.P3(fun3)
-    else:
-        r3_pol = derham.P3(fun3)
-
-    if rank == 0:
-        logger.info("Test passed for PI_3 polar projector")
-        logger.info("")
+    # exactness of the polar sequence
+    assert xp.sqrt((r := derham.curl_bcfree.dot(derham.grad_bcfree.dot(c0))).inner(r)) < 1e-12
+    b2 = derham.curl_bcfree.dot(c1)
+    assert xp.sqrt((r := derham.div_bcfree.dot(b2)).inner(r)) < 1e-12
 
 
 @pytest.mark.parametrize("space_id", ["H1", "Hcurl", "Hdiv", "L2", "H1vec"])
@@ -503,4 +572,4 @@ def test_restart_polar(space_id, tmp_path):
 if __name__ == "__main__":
     # test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
     # test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])
-    test_projectors([8, 15, 6], [2, 2, 3], [False, True, True])
+    test_projectors([8, 12, 4], [3, 3, 2], (("free", "dirichlet"), None, None))
