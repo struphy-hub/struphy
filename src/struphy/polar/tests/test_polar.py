@@ -393,9 +393,11 @@ def _rel_err(a, b):
         (("free", "dirichlet"), None, ("dirichlet", "dirichlet")),
     ],
 )
-def test_projectors(num_elements, degree, bcs):
-    """Polar commuting projectors: projection of splines is the identity (with and without
-    boundary conditions), grad P0 = P1 grad, and exactness of the polar sequence."""
+@pytest.mark.parametrize("poloidal_solver", ["schur", "lu", "ilu"])
+def test_projectors(num_elements, degree, bcs, poloidal_solver):
+    """Polar commuting projectors: the 2D x 1D Kronecker inter-/histopolation matrices agree with
+    P * I * E^T, projection of splines is the identity (with and without boundary conditions),
+    grad P0 = P1 grad, and exactness of the polar sequence."""
     import cunumpy as xp
     from maybempi import MPI
 
@@ -408,7 +410,9 @@ def test_projectors(num_elements, degree, bcs):
 
     domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=3.0, a=1.0)
     grid = TensorProductGrid(num_elements=num_elements)
-    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads_proj=[6, 6, 6], polar_splines=True)
+    derham_opts = DerhamOptions(
+        degree=degree, bcs=bcs, nquads_proj=[6, 6, 6], polar_splines=True, polar_poloidal_solver=poloidal_solver
+    )
     derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
     # projection of a spline returns the spline, with and without boundary conditions
@@ -416,6 +420,17 @@ def test_projectors(num_elements, degree, bcs):
         if form not in ("0", "1", "2", "3", "v"):
             continue
         x = _rand_polar_vector(derham, P.I.domain, seed=1234)
+        y = _rand_polar_vector(derham, P.I.domain, seed=5678)
+
+        # 2D x 1D Kronecker operators: P * I * E^T and its transpose
+        Pd, Eb, B = P.dofs_extraction_op, P.base_extraction_op, P.boundary_op
+        if poloidal_solver == "schur":
+            # (the operators do not depend on the poloidal solver; the Kronecker dot product is slow)
+            assert _rel_err(P.I.dot(x), Pd.dot(P.projector_tensor.imat_kronecker.dot(Eb.T.dot(x)))) < 1e-12, form
+        assert xp.isclose(P.IT.dot(x).dot(y), x.dot(P.I.dot(y)), rtol=1e-12), form
+        assert xp.isclose(P.I0T.dot(x).dot(y), x.dot(P.I0.dot(y)), rtol=1e-12), form
+        assert _rel_err(P.I0.dot(x), B.dot(P.I.dot(B.dot(x)))) < 1e-12, form
+
         assert _rel_err(P.solve(P.I.dot(x), apply_bc=False), x) < 1e-10, form
 
         x0 = P.boundary_op.dot(x)
@@ -453,6 +468,81 @@ def test_projectors(num_elements, degree, bcs):
     assert xp.sqrt((r := derham.curl_bcfree.dot(derham.grad_bcfree.dot(c0))).inner(r)) < 1e-12
     b2 = derham.curl_bcfree.dot(c1)
     assert xp.sqrt((r := derham.div_bcfree.dot(b2)).inner(r)) < 1e-12
+
+
+def test_poloidal_mass_matrix():
+    """2d mass matrices of the poloidal plane (unit weight) are Kronecker products of the 1d mass matrices."""
+    import scipy.sparse as spa
+
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import _mass_matrix_1d, _ones_1d
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.kron_2dx1d import poloidal_mass_matrix
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = IGAPolarCylinder(num_elements=(8, 9), degree=(3, 2))
+    grid = TensorProductGrid(num_elements=[8, 9, 4])
+    derham_opts = DerhamOptions(degree=[3, 2, 2], bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, domain=domain)
+    M0 = WeightedMassOperators(derham, domain).M0
+
+    for bases in ("BB", "BM", "MB", "MM"):
+        M = poloidal_mass_matrix(derham, tuple(bases), tuple(bases), None)
+        A1, A2 = (_mass_matrix_1d(M0, bases[d], d, _ones_1d)[0].tosparse() for d in range(2))
+        assert abs(M - spa.kron(A1, A2)).max() < 1e-12, bases
+
+
+@pytest.mark.parametrize("mapping", ["IGAPolarCylinder", "IGAPolarTorus"])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "free"), None, None),
+        (("free", "dirichlet"), None, ("dirichlet", "dirichlet")),
+    ],
+)
+@pytest.mark.parametrize("poloidal_solver", ["schur", "lu", "ilu"])
+def test_polar_mass_preconditioner(mapping, bcs, poloidal_solver):
+    """The 2D x 1D Kronecker preconditioner is exact for axisymmetric mass matrices (cylinder, torus)
+    with exact poloidal solvers, and a good preconditioner with incomplete LU."""
+    import cunumpy as xp
+    from feectools.linalg.solvers import inverse
+    from maybempi import MPI
+
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import PolarMassMatrixPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    num_elements, degree = [8, 12, 4], [3, 3, 2]
+    domain = getattr(domains, mapping)(num_elements=num_elements[:2], degree=degree[:2])
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+    mass = WeightedMassOperators(derham, domain)
+
+    for name in ("M0", "M1", "M2", "M3", "Mv"):
+        M = getattr(mass, name)
+        pc = PolarMassMatrixPreconditioner(M, poloidal_solver=poloidal_solver)
+        assert pc.exact == (poloidal_solver != "ilu")
+
+        x = M._V_boundary_op.dot(_rand_polar_vector(derham, M.domain, seed=4321))
+        b = M.dot(x)
+
+        # exact preconditioner: pc * M = Id (on the space with boundary conditions)
+        if pc.exact:
+            assert _rel_err(pc.dot(b), x) < 1e-10, name
+
+        solver = inverse(M, "pcg", pc=pc, tol=1e-10, maxiter=100)
+        y = solver.dot(b)
+        info = solver.get_info()
+        logger.info(f"{mapping}, {bcs = }, {poloidal_solver = }, {name}: {info['niter']} iterations")
+        assert info["success"], name
+        assert info["niter"] <= (2 if pc.exact else 10), (name, info["niter"])
+        assert _rel_err(y, x) < 1e-8, name
 
 
 @pytest.mark.parametrize("space_id", ["H1", "Hcurl", "Hdiv", "L2", "H1vec"])

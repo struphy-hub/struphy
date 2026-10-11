@@ -75,7 +75,8 @@ class LiteralOptions:
     # solvers
     OptsSymmSolver = Literal["pcg", "cg"]
     OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
-    OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
+    OptsMassPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None]
+    OptsPoloidalSolver = Literal["schur", "lu", "ilu"]
     OptsDiffusionPrecond = Literal[
         "MultiGrid",
         "StiffnessPreconditioner",
@@ -239,6 +240,12 @@ class DerhamOptions(OptionsBase):
     local_projectors : bool
         Whether to build local commuting projectors based on
         quasi-inter-/histopolation.
+
+    polar_poloidal_solver : str
+        Solver for the poloidal (eta_1-eta_2) matrices in the 2D x 1D Kronecker
+        solves of the polar commuting projectors (only used with ``polar_splines=True``):
+        ``"schur"`` (exact, block elimination of the pole block), ``"lu"``
+        (exact, sparse LU) or ``"ilu"`` (incomplete LU as preconditioner).
     """
 
     degree: tuple[int, int, int] = (1, 1, 1)
@@ -251,8 +258,10 @@ class DerhamOptions(OptionsBase):
     nquads_proj: tuple[int, int, int] | None = None
     polar_splines: bool = False
     local_projectors: bool = False
+    polar_poloidal_solver: LiteralOptions.OptsPoloidalSolver = "schur"
 
     def __post_init__(self):
+        check_option(self.polar_poloidal_solver, LiteralOptions.OptsPoloidalSolver)
         for bc in self.bcs:
             if bc is not None:
                 assert isinstance(bc, tuple) and len(bc) == 2, (
