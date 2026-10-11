@@ -24,7 +24,7 @@ from feectools.linalg.basic import (
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.direct_solvers import BandedSolver, SparseSolver
 from feectools.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix, KroneckerSumSolver
-from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVectorSpace
+from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector, StencilVectorSpace
 from line_profiler import profile
 from maybempi import MPI, SerialComm
 from scipy import sparse
@@ -735,6 +735,202 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     def transpose(self, conjugate: bool = False) -> StiffnessPreconditioner:
         """The operator is symmetric, so is the preconditioner."""
         return self
+
+
+class HiptmairXuPreconditioner(LinearOperator):
+    r"""
+    Auxiliary space preconditioner of Hiptmair and Xu (SIAM J. Numer. Anal. 45, 2007) for the curl-curl operator
+
+    .. math::
+
+        A = \mathbb C^T \mathbb M_2 \mathbb C + \sigma \, \mathbb M_1 \,, \qquad \sigma > 0\,.
+
+    The kernel of the curl (the gradients) and the smooth fields are not reduced by point or block smoothers.
+    They are corrected in the auxiliary spaces :math:`V^0_h` (scalar potentials) and
+    :math:`(V^0_h)^3` (vector-valued :math:`H^1` splines, ``"H1vec"``):
+
+    .. math::
+
+        P = S + \sigma^{-1} \, \mathbb G \, P_0 \, \mathbb G^T + \Pi \, P_v \, \Pi^T \,,
+
+    where
+
+    * :math:`S` is the smoother, either the Jacobi preconditioner :math:`\textrm{diag}(A)^{-1}` (``"jacobi"``)
+      or the block Jacobi part of :class:`StiffnessPreconditioner` (``"block_jacobi"``, default,
+      fast diagonalization of the diagonal blocks of :math:`A`),
+    * :math:`P_0` approximates the inverse of :math:`\mathbb G^T \mathbb M_1 \mathbb G`
+      (:class:`StiffnessPreconditioner` for the gradient with ``mid=stab``),
+      since :math:`A \mathbb G = \sigma \mathbb M_1 \mathbb G`,
+    * :math:`\Pi: (V^0_h)^3 \to V^1_h` is the commuting projector :math:`\hat \Pi^1` applied to vector-valued
+      :math:`H^1` splines (:class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` with identity weight),
+    * :math:`P_v` approximates the inverse of the vector Laplacian :math:`\nabla^T \nabla + \sigma` on
+      :math:`(V^0_h)^3`, which bounds :math:`\Pi^T A \Pi` from above: the scalar :class:`StiffnessPreconditioner`
+      for the gradient with coefficient :math:`\sigma`, applied to each component.
+
+    With essential boundary conditions, all components of the auxiliary space :math:`(V^0_h)^3` vanish on the
+    Dirichlet boundary, which is the stable regular decomposition :math:`H_0(\textnormal{curl}) = H^1_0(\Omega)^3 + \nabla H^1_0(\Omega)`.
+    The number of PCG iterations is then bounded independently of the mesh size and of :math:`\sigma`.
+
+    Polar splines are not supported (as for :class:`StiffnessPreconditioner`).
+
+    Parameters
+    ----------
+    A : LinearOperator
+        The curl-curl operator on ``derham.coeff_spaces["1"]``; only needed for ``smoother="jacobi"``.
+
+    mass_ops : WeightedMassOperators
+        The mass operators.
+
+    sigma : float
+        Coefficient of the mass term (must be positive).
+
+    smoother : str
+        ``"block_jacobi"`` (default) or ``"jacobi"``.
+
+    mid : str | LinearOperator | None
+        Matrix in the middle of the curl-curl term (default :math:`\mathbb M_2`), see :class:`StiffnessPreconditioner`.
+
+    stab : str | LinearOperator | None
+        Stabilization (default :math:`\mathbb M_1`, ``"Id"`` for the identity), see :class:`StiffnessPreconditioner`.
+
+    aux_weight : float
+        Factor in front of the vector auxiliary space correction :math:`\Pi P_v \Pi^T` (0 switches it off).
+
+    apply_bc, diagonal_scaling, weights :
+        Passed to the Kronecker preconditioners (see :class:`StiffnessPreconditioner`).
+    """
+
+    _SMOOTHERS = ("block_jacobi", "jacobi")
+
+    def __init__(
+        self,
+        A: LinearOperator | None,
+        mass_ops: WeightedMassOperators,
+        sigma: float,
+        smoother: str = "block_jacobi",
+        mid: str | LinearOperator | None = None,
+        stab: str | LinearOperator | None = None,
+        aux_weight: float = 1.0,
+        apply_bc: bool = True,
+        diagonal_scaling: bool = True,
+        weights: str = "average",
+    ):
+        # avoid circular imports
+        from struphy.feec.basis_projection_ops import BasisProjectionOperators
+        from struphy.linear_algebra.multigrid.smoothers import DiagonalComputer, inverse_diagonal
+
+        assert smoother in self._SMOOTHERS, f"smoother must be one of {self._SMOOTHERS}, got {smoother!r}."
+        if sigma <= 0.0:
+            raise ValueError(f"HiptmairXuPreconditioner needs sigma > 0, got {sigma =}.")
+
+        derham = mass_ops.derham
+        if derham.polar_splines:
+            raise NotImplementedError("HiptmairXuPreconditioner does not support polar splines yet.")
+
+        self._mass_ops = mass_ops
+        self._sigma = sigma
+        self._smoother = smoother
+        self._aux_weight = aux_weight
+        self._space = derham.coeff_spaces["1"]
+        kron_kwargs = dict(apply_bc=apply_bc, diagonal_scaling=diagonal_scaling, weights=weights)
+
+        # smoother and gradient correction
+        if smoother == "block_jacobi":
+            # block Jacobi plus the correction sigma^{-1} G P_0 G^T on the gradients
+            self._S = StiffnessPreconditioner(
+                mass_ops, "curl", sigma=sigma, mid=mid, stab=stab, kernel_correction=True, **kron_kwargs
+            )
+            self._grad_correction = None
+        else:
+            assert A is not None, "smoother='jacobi' needs the operator A."
+            assert A.domain is self._space and A.codomain is self._space
+            self._S = inverse_diagonal(DiagonalComputer(derham.degree)(A))
+            P_0 = StiffnessPreconditioner(mass_ops, "grad", mid=None if stab == "Id" else stab, **kron_kwargs)
+            self._grad_correction = (1.0 / sigma) * (derham.grad @ P_0 @ derham.grad.T)
+
+        # vector auxiliary space: Pi P_v Pi^T
+        self._Pi = None
+        if aux_weight != 0.0:
+            identity = [[(lambda e1, e2, e3: 1.0 + 0.0 * e1) if m == n else None for n in range(3)] for m in range(3)]
+            basis_ops = BasisProjectionOperators(derham, mass_ops.domain)
+            self._Pi = basis_ops.create_basis_op(identity, "H1vec", "Hcurl", assemble=True, name="Pi_v1")
+            self._PiT = self._Pi.T
+            self._P_v = StiffnessPreconditioner(mass_ops, "grad", sigma=sigma, **kron_kwargs)
+            self._aux = derham.coeff_spaces["v"]
+            self._tmp_v = (self._aux.zeros(), self._aux.zeros())
+            self._tmp_0 = (self._P_v.domain.zeros(), self._P_v.codomain.zeros())
+
+        self._tmp = self._space.zeros()
+
+    @property
+    def domain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def codomain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    @property
+    def sigma(self) -> float:
+        """Coefficient of the mass term."""
+        return self._sigma
+
+    @property
+    def smoother(self) -> str:
+        """``"block_jacobi"`` or ``"jacobi"``."""
+        return self._smoother
+
+    @property
+    def aux_weight(self) -> float:
+        """Factor in front of the vector auxiliary space correction."""
+        return self._aux_weight
+
+    def _apply_P_v(self, z: Vector, out: Vector) -> Vector:
+        """Scalar preconditioner applied to each component of ``z`` in ``(V^0_h)^3``."""
+        x0, y0 = self._tmp_0
+        for zc, oc in zip(z.blocks, out.blocks):
+            _copy_owned(zc, x0)
+            self._P_v.dot(x0, out=y0)
+            _copy_owned(y0, oc)
+        return out
+
+    def dot(self, v: Vector, out: Vector | None = None) -> Vector:
+        """Apply the preconditioner to ``v``."""
+        assert v.space is self._space
+        if out is None:
+            out = self._space.zeros()
+
+        self._S.dot(v, out=out)
+        if self._grad_correction is not None:
+            out += self._grad_correction.dot(v, out=self._tmp)
+        if self._Pi is not None:
+            z, w = self._tmp_v
+            self._PiT.dot(v, out=z)
+            self._apply_P_v(z, w)
+            self._Pi.dot(w, out=self._tmp)
+            if self._aux_weight != 1.0:
+                self._tmp *= self._aux_weight
+            out += self._tmp
+        return out
+
+    def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
+        """Same as ``dot`` (approximate inverse of :math:`A`)."""
+        return self.dot(rhs, out=out)
+
+    def transpose(self, conjugate: bool = False) -> HiptmairXuPreconditioner:
+        """The operator is symmetric, so is the preconditioner."""
+        return self
+
+
+def _copy_owned(src: StencilVector, dst: StencilVector) -> None:
+    """Copy the owned coefficients of ``src`` into ``dst`` (stencil vectors of equal shape on different spaces)."""
+    assert tuple(src.space.starts) == tuple(dst.space.starts) and tuple(src.space.ends) == tuple(dst.space.ends)
+    dst._data[...] = src._data
+    dst.ghost_regions_in_sync = False
 
 
 # --------------------------------------------------------------------------------------
