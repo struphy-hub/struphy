@@ -60,6 +60,7 @@ def struphy_test(
             f"{LIBPATH}/post_processing/tests/",
             f"{LIBPATH}/propagators/tests/",
             f"{LIBPATH}/simulation/tests/",
+            f"{LIBPATH}/utils/tests/",
         ]
 
         if mpi > 1:

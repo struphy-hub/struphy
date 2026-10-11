@@ -78,6 +78,7 @@ from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.progress import tqdm
+from struphy.utils.threads import limit_blas_threads
 from struphy.utils.utils import ruff_autofix_and_format
 
 logger = logging.getLogger("struphy")
@@ -618,7 +619,9 @@ class Simulation(SimulationBase):
         Responsibilities include allocation (when not restarting),
         initialization of output storage, handling restarts, running the
         main time-stepping loop, saving data at intervals, and finalizing
-        profiling and metadata. Prints progress on MPI rank 0.
+        profiling and metadata. Prints progress on MPI rank 0. With more than
+        one rank, the BLAS threads are limited to one per rank, see
+        :func:`~struphy.utils.threads.limit_blas_threads`.
 
         Parameters
         ----------
@@ -642,6 +645,9 @@ class Simulation(SimulationBase):
             logger.info(f"Simulation name: {self.name}")
         if self.description != "":
             logger.info(f"Description: {self.description}")
+
+        # threaded BLAS oversubscribes the cores with several ranks per node (#743)
+        limit_blas_threads(self.comm)
 
         self._remove_existing_output_files()
         self._setup_folders()

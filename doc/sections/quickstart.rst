@@ -246,4 +246,38 @@ As all data structures in Struphy are written for MPI, you can run the same scri
 
     mpirun -n 4 python params_Poisson.py
 
-            
+Parallel Runs: MPI and OpenMP
+-----------------------------
+
+Struphy combines MPI (domain decomposition) with OpenMP threads in the particle kernels
+(compile with ``struphy compile --openmp``). In a hybrid run with ``n`` ranks and ``k``
+threads per rank, set the threads with ``OMP_NUM_THREADS`` and make sure that each rank
+is bound to its own ``k`` cores, so that ``n * k`` does not exceed the number of cores:
+
+.. code-block:: bash
+
+    # Open MPI, 4 ranks with 2 threads each
+    export OMP_NUM_THREADS=2
+    mpirun -n 4 --map-by slot:PE=2 --bind-to core python params_Poisson.py
+
+    # SLURM
+    #SBATCH --ntasks-per-node=4
+    #SBATCH --cpus-per-task=2
+    export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+    srun python params_Poisson.py
+
+numpy and scipy use a threaded BLAS library (OpenBLAS or MKL) with its own threads,
+independent of ``OMP_NUM_THREADS``. With several ranks per node, the BLAS threads of all
+ranks oversubscribe the cores, which can make linear solves (e.g. in the commuting
+projectors) a hundred times slower. Therefore, with more than one MPI rank,
+``Simulation.run`` limits BLAS to one thread per rank; the OpenMP threads are not affected.
+To choose the number of BLAS threads yourself, set ``OPENBLAS_NUM_THREADS`` (or
+``MKL_NUM_THREADS``); Struphy then leaves it unchanged. Scripts that use the Struphy data
+structures without a ``Simulation`` can apply the same limit with
+
+.. code-block:: python
+
+    from maybempi import MPI
+    from struphy.utils.threads import limit_blas_threads
+
+    limit_blas_threads(MPI.COMM_WORLD)
