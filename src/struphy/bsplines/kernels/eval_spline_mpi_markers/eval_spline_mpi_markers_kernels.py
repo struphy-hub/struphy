@@ -44,10 +44,5 @@ def eval_spline_mpi_markers(
             markers[ip, 1],
             markers[ip, 2],
             _data,
-            args_spline.kind,
-            args_spline.pn,
-            args_spline.tn1,
-            args_spline.tn2,
-            args_spline.tn3,
-            args_spline.starts,
+            args_spline,
         )
