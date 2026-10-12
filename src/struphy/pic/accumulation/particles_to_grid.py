@@ -323,6 +323,10 @@ class Accumulator:
         """The accumulation kernel."""
         return self._kernel
 
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this accumulator calls (the accumulation kernel)."""
+        return (self._kernel,)
+
     @property
     def derham(self):
         """Discrete Derham complex on the logical unit cube."""
@@ -607,6 +611,10 @@ class AccumulatorVector:
     def kernel(self) -> Kernel:
         """The accumulation kernel."""
         return self._kernel
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this accumulator calls (the accumulation kernel)."""
+        return (self._kernel,)
 
     @property
     def derham(self):
