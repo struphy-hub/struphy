@@ -611,6 +611,79 @@ def test_polar_mass_preconditioner(mapping, bcs, poloidal_solver):
         assert _rel_err(y, x) < 1e-8, name
 
 
+@pytest.mark.parametrize("mapping", ["IGAPolarCylinder", "IGAPolarTorus"])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "dirichlet"), None, None),
+        (("free", "dirichlet"), None, ("dirichlet", "dirichlet")),
+    ],
+)
+@pytest.mark.parametrize("poloidal_solver", ["schur", "lu", "ilu"])
+def test_polar_stiffness_preconditioner(mapping, bcs, poloidal_solver):
+    """The polar stiffness preconditioner (dispatched from StiffnessPreconditioner) is exact for the
+    Laplacian on axisymmetric domains with exact poloidal solvers, and a good preconditioner for curl-curl."""
+    from feectools.linalg.basic import IdentityOperator
+    from feectools.linalg.solvers import inverse
+    from maybempi import MPI
+
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import PolarStiffnessPreconditioner, StiffnessPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    num_elements, degree = [8, 12, 6], [3, 3, 2]
+    domain = getattr(domains, mapping)(num_elements=num_elements[:2], degree=degree[:2])
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+    mass = WeightedMassOperators(derham, domain)
+
+    with pytest.raises(NotImplementedError):
+        StiffnessPreconditioner(mass, "div", sigma=1.0)
+
+    cases = [
+        ("grad", 0.0, mass.M0, None),
+        ("grad", 1.0, mass.M0, None),
+        ("grad", 1.0, mass.M0, "Id"),
+        ("curl", 1.0, mass.M1, None),
+        ("curl", 1e-3, mass.M1, None),
+    ]
+    for derivative, sigma, M, stab in cases:
+        # incomplete LU is not symmetric; for curl with small sigma the poloidal matrices are nearly
+        # singular on the gradients, the asymmetry is large and PCG fails
+        if poloidal_solver == "ilu" and derivative == "curl" and sigma < 1.0:
+            continue
+        d = getattr(derham, derivative)
+        mid = mass.M1 if derivative == "grad" else mass.M2
+        A = d.T @ mid @ d
+        if sigma != 0.0:
+            A = A + sigma * (M if stab is None else IdentityOperator(M.domain))
+        pc = StiffnessPreconditioner(mass, derivative, sigma=sigma, stab=stab, poloidal_solver=poloidal_solver)
+        assert isinstance(pc, PolarStiffnessPreconditioner)
+        assert pc.exact == (poloidal_solver != "ilu")
+
+        x = M._V_boundary_op.dot(_rand_polar_vector(derham, M.domain, seed=4321))
+        b = A.dot(x)
+
+        # exact for the Laplacian on axisymmetric domains (the identity stabilization is approximated)
+        exact = pc.exact and derivative == "grad" and stab is None
+        if exact:
+            assert _rel_err(pc.dot(b), x) < 1e-10, (derivative, sigma)
+
+        solver = inverse(A, "pcg", pc=pc, tol=1e-10, maxiter=200)
+        y = solver.dot(b)
+        info = solver.get_info()
+        logger.info(
+            f"{mapping}, {bcs = }, {poloidal_solver = }, {derivative}, {sigma = }, {stab = }: {info['niter']} iterations"
+        )
+        assert info["success"], (derivative, sigma, stab)
+        assert info["niter"] <= (2 if exact else 30), (derivative, sigma, stab, info["niter"])
+        assert _rel_err(y, x) < 1e-8, (derivative, sigma, stab)
+
+
 @pytest.mark.parametrize("space_id", ["H1", "Hcurl", "Hdiv", "L2", "H1vec"])
 def test_restart_polar(space_id, tmp_path):
     """Write restart data (vector_stencil) like Simulation does and re-initialize a polar SplineFunction from it."""

@@ -39,7 +39,7 @@ from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 from maybempi import MPI
-from scipy.linalg import lu_factor, lu_solve
+from scipy.linalg import eigh, lu_factor, lu_solve
 from scipy.sparse.linalg import spilu, splu
 
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
@@ -562,8 +562,11 @@ class _PolarKron2Dx1DBase(LinearOperator):
     def toarray(self):
         raise NotImplementedError()
 
-    def _apply(self, v: PolarVector, out: PolarVector | None, ops_3: list, ops_pol: list) -> PolarVector:
-        """Apply ops_3[g] (to (n3, m) arrays) along eta_3 and ops_pol[g] (to (N_pol, m) arrays) in the poloidal plane."""
+    def _apply(
+        self, v: PolarVector, out: PolarVector | None, ops_3: list, ops_pol: list, ops_3_post: list | None = None
+    ) -> PolarVector:
+        """Apply ops_3[g] (to (n3, m) arrays) along eta_3, then ops_pol[g] (to (N_pol, m) arrays, called with the
+        global eta_3 indices of the m columns) in the poloidal plane, and finally ops_3_post[g] along eta_3 (if given)."""
         assert isinstance(v, PolarVector)
         assert v.space == self._space
         if out is None:
@@ -580,11 +583,7 @@ class _PolarKron2Dx1DBase(LinearOperator):
             tmp_tp = {}
             tmp_pol = {}
             for c in g.comps:
-                L = _interior(tp_component(v.tp, c))
-                l1, l2, l3 = L.shape
-                T3 = self._t3[c]
-                X = T3.forward(np.ascontiguousarray(L.reshape(l1 * l2, l3).T))
-                tmp_tp[c] = np.ascontiguousarray(T3.backward(op_3(X)).T).reshape(l1, l2, l3)
+                tmp_tp[c] = self._apply_3(_interior(tp_component(v.tp, c)), c, op_3)
                 tmp_pol[c] = op_3(v.pol[c].T).T if V.n_polar[c] > 0 else v.pol[c].copy()
 
             # 2. poloidal plane
@@ -597,7 +596,8 @@ class _PolarKron2Dx1DBase(LinearOperator):
                 nr = V.n_rings[c]
                 blocks.append(tmp_pol[c][:, s3 + k0 : s3 + k1])
                 blocks.append(full[c][nr:].reshape(-1, k1 - k0))
-            Z = op_pol(np.concatenate(blocks, axis=0)) if k1 > k0 else np.concatenate(blocks, axis=0)
+            Y = np.concatenate(blocks, axis=0)
+            Z = op_pol(Y, np.arange(s3 + k0, s3 + k1)) if k1 > k0 else Y
 
             off = 0
             for c in g.comps:
@@ -621,7 +621,23 @@ class _PolarKron2Dx1DBase(LinearOperator):
                 comm.Allreduce(MPI.IN_PLACE, out_pol[c], op=MPI.SUM)
             out.pol[c][:] = out_pol[c]
 
+        # 3. eta_3 direction again
+        if ops_3_post is not None:
+            for g, op_3 in zip(self._groups, ops_3_post):
+                for c in g.comps:
+                    L = _interior(tp_component(out.tp, c))
+                    L[...] = self._apply_3(L, c, op_3)
+                    if V.n_polar[c] > 0:
+                        out.pol[c][:] = op_3(out.pol[c].T).T
+
         return out
+
+    def _apply_3(self, L: np.ndarray, c: int, op_3) -> np.ndarray:
+        """Apply op_3 along eta_3 to the local data L (shape (l1, l2, l3)) of component c."""
+        l1, l2, l3 = L.shape
+        T3 = self._t3[c]
+        X = T3.forward(np.ascontiguousarray(L.reshape(l1 * l2, l3).T))
+        return np.ascontiguousarray(T3.backward(op_3(X)).T).reshape(l1, l2, l3)
 
 
 class PolarKron2Dx1DOperator(_PolarKron2Dx1DBase):
@@ -639,7 +655,7 @@ class PolarKron2Dx1DOperator(_PolarKron2Dx1DBase):
 
     def dot(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
         ops_3 = [lambda X, A=g.A_3: A @ X for g in self._groups]
-        ops_pol = [lambda Y, A=g.A_pol: A @ Y for g in self._groups]
+        ops_pol = [lambda Y, modes, A=g.A_pol: A @ Y for g in self._groups]
         return self._apply(v, out, ops_3, ops_pol)
 
     def transpose(self, conjugate=False) -> "PolarKron2Dx1DOperator":
@@ -696,7 +712,7 @@ class PolarKron2Dx1DSolver(_PolarKron2Dx1DBase):
 
     def dot(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
         ops_3 = [lambda X, lu=lu: lu.solve(np.asarray(X, order="F")) for lu in self._lu_3]
-        ops_pol = [s.solve for s in self._pol_solvers]
+        ops_pol = [lambda Y, modes, s=s: s.solve(Y) for s in self._pol_solvers]
         return self._apply(v, out, ops_3, ops_pol)
 
     def solve(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
@@ -706,6 +722,167 @@ class PolarKron2Dx1DSolver(_PolarKron2Dx1DBase):
         return PolarKron2Dx1DSolver(
             self._space, [g.transpose() for g in self._groups], self._kind, **self._solver_kwargs
         )
+
+
+@dataclass
+class KronSum2Dx1DGroup:
+    r"""
+    Factors of one group of components: :math:`\mathbb A = \sum_t \mathbb A^t_\textnormal{pol} \otimes \mathbb B^t_3`
+    with :math:`\mathbb B^t_3` the 1d mass matrix ``M_3`` (term ``"M"``), the 1d stiffness matrix ``S_3`` (term ``"S"``)
+    or the identity (term ``"I"``).
+    """
+
+    comps: tuple[int, ...]
+    # poloidal factor of each term ("M", "S" or "I"), without boundary conditions
+    A_pol: dict[str, spa.spmatrix]
+    M_3: np.ndarray
+    S_3: np.ndarray | None = None
+    # masks of the unknowns free of essential boundary conditions (None: all free)
+    free_pol: np.ndarray | None = None
+    free_3: np.ndarray | None = None
+    pole: np.ndarray | None = field(default=None, repr=False)
+
+
+def fast_diagonalization_3(
+    M_3: np.ndarray, S_3: np.ndarray | None, free_3: np.ndarray | None = None
+) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray]:
+    r"""
+    Basis :math:`V` of :math:`\eta_3` in which the 1d factors of a :class:`KronSum2Dx1DGroup` are diagonal.
+
+    With ``S_3``, :math:`V` solves the generalized eigenvalue problem :math:`S_3 V = M_3 V \Lambda`
+    (:math:`V^\top M_3 V = I`, :math:`V^\top S_3 V = \Lambda`) and the identity is approximated by the diagonal
+    of :math:`V^\top V`. Without ``S_3``, :math:`V` are the orthonormal eigenvectors of :math:`M_3` (exact).
+    The unknowns with essential boundary conditions (``~free_3``) are decoupled: each of them is a mode of its own,
+    on which the inverse is the identity.
+
+    Returns
+    -------
+    V : np.ndarray
+        The basis (columns), with :math:`\mathbb A^{-1} = (I \otimes V) \bigoplus_k (\sum_t q_{t,k} \mathbb A^t_\textnormal{pol})^{-1} (I \otimes V^\top)`.
+
+    q : dict[str, np.ndarray]
+        Diagonals :math:`q_t` of the 1d factors of the terms ``"M"``, ``"S"`` and ``"I"`` in this basis.
+
+    constrained : np.ndarray[bool]
+        The modes of the constrained unknowns.
+    """
+    n3 = M_3.shape[0]
+    free = np.ones(n3, dtype=bool) if free_3 is None else np.asarray(free_3, dtype=bool)
+    f = np.flatnonzero(free)
+    nf = f.size
+    Mf = M_3[np.ix_(f, f)]
+    if S_3 is None:
+        mu, Vf = eigh(Mf)
+        qf = {"M": mu, "S": np.zeros(nf), "I": np.ones(nf)}
+    else:
+        lam, Vf = eigh(S_3[np.ix_(f, f)], Mf)
+        qf = {"M": np.ones(nf), "S": lam, "I": np.einsum("ik,ik->k", Vf, Vf)}
+
+    V = np.zeros((n3, n3))
+    V[np.ix_(f, np.arange(nf))] = Vf
+    V[np.flatnonzero(~free), np.arange(nf, n3)] = 1.0
+    constrained = np.zeros(n3, dtype=bool)
+    constrained[nf:] = True
+    q = {t: np.concatenate((qf[t], np.full(n3 - nf, np.nan))) for t in qf}
+    return V, q, constrained
+
+
+class PolarKronSum2Dx1DSolver(_PolarKron2Dx1DBase):
+    r"""
+    (Approximate) inverse of :math:`\bigoplus_G \sum_t \mathbb A^{G,t}_\textnormal{pol} \otimes \mathbb B^{G,t}_3`
+    (see :class:`KronSum2Dx1DGroup`) on a PolarDerhamSpace, by fast diagonalization in :math:`\eta_3`
+    (see :func:`fast_diagonalization_3`):
+
+    .. math::
+
+        \mathbb A^{-1} = (I \otimes V) \bigoplus_k \Big(\sum_t q_{t,k} \mathbb A^t_\textnormal{pol}\Big)^{-1} (I \otimes V^\top)\,.
+
+    The poloidal matrices of the modes :math:`k` are factorized with :func:`make_poloidal_solver`, each
+    process only those of the modes it holds after the redistribution in the poloidal plane; modes
+    with the same coefficients share their factorization. Essential boundary conditions are imposed
+    as identity rows.
+
+    Parameters
+    ----------
+    space : PolarDerhamSpace
+        Domain and codomain.
+
+    groups : list[KronSum2Dx1DGroup]
+        The factors of each group of components.
+
+    poloidal_solver : str
+        ``"schur"``, ``"ilu"`` or ``"lu"``.
+
+    **solver_kwargs
+        Passed to :func:`make_poloidal_solver` (``schur_outer``, ``drop_tol``, ``fill_factor``).
+    """
+
+    def __init__(
+        self, space: PolarDerhamSpace, groups: list[KronSum2Dx1DGroup], poloidal_solver: str = "schur", **solver_kwargs
+    ):
+        super().__init__(space, groups)
+        self._kind = poloidal_solver
+        self._solver_kwargs = solver_kwargs
+
+        self._V = []
+        self._mode_solvers = []
+        for g in groups:
+            V, q, constrained = fast_diagonalization_3(g.M_3, g.S_3, g.free_3)
+            self._V.append(V)
+            pole = g.pole if g.pole is not None else pole_mask(space, g.comps)
+
+            # factorizations of the modes held by this process (key None: constrained mode, identity)
+            s3 = tp_space(space, g.comps[0]).starts[2]
+            k0, k1 = self._tpl[g.comps[0]].my_chunk
+            solvers = {}
+            keys = {}
+            for k in range(s3 + k0, s3 + k1):
+                if constrained[k]:
+                    keys[k] = None
+                    continue
+                coeffs = {t: q[t][k] for t in g.A_pol}
+                key = tuple(f"{coeffs[t]:.12e}" for t in sorted(coeffs))
+                keys[k] = key
+                if key not in solvers:
+                    A = sum(c * g.A_pol[t] for t, c in coeffs.items() if c != 0.0)
+                    if g.free_pol is not None:
+                        A = apply_mask(spa.csr_matrix(A), g.free_pol, True)
+                    solvers[key] = make_poloidal_solver(spa.csr_matrix(A), poloidal_solver, pole=pole, **solver_kwargs)
+            self._mode_solvers.append((solvers, keys))
+            logger.debug(f"PolarKronSum2Dx1DSolver: group {g.comps}, {len(solvers)} poloidal factorizations")
+
+    @property
+    def exact(self) -> bool:
+        """Whether the poloidal solves are exact (else the solver is an approximate inverse, e.g. a preconditioner)."""
+        return all(s.exact for solvers, _ in self._mode_solvers for s in solvers.values())
+
+    @property
+    def poloidal_solver(self) -> str:
+        return self._kind
+
+    @staticmethod
+    def _solve_modes(Y: np.ndarray, modes: np.ndarray, solvers: dict, keys: dict) -> np.ndarray:
+        out = Y.copy()
+        by_key = {}
+        for j, k in enumerate(modes):
+            by_key.setdefault(keys[int(k)], []).append(j)
+        for key, cols in by_key.items():
+            if key is not None:
+                out[:, cols] = solvers[key].solve(Y[:, cols])
+        return out
+
+    def dot(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
+        ops_3 = [lambda X, V=V: V.T @ X for V in self._V]
+        ops_pol = [lambda Y, modes, s=s, k=k: self._solve_modes(Y, modes, s, k) for s, k in self._mode_solvers]
+        ops_3_post = [lambda X, V=V: V @ X for V in self._V]
+        return self._apply(v, out, ops_3, ops_pol, ops_3_post)
+
+    def solve(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
+        return self.dot(v, out=out)
+
+    def transpose(self, conjugate=False) -> "PolarKronSum2Dx1DSolver":
+        """The factors are symmetric, so is the inverse."""
+        return self
 
 
 # --------------------------------------------------------------------------------------

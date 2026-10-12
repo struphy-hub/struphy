@@ -201,11 +201,14 @@ class ImplicitDiffusion(Propagator):
             - ``"MassMatrixPreconditioner"``: Kronecker
               approximation of the inverse of the 0-form mass matrix ``M0``
               (see :mod:`struphy.feec.preconditioner`).
+            - ``"PolarMassMatrixPreconditioner"``: 2D x 1D Kronecker approximation of the inverse
+              of ``M0`` on polar splines.
             - ``"StiffnessPreconditioner"``: Kronecker approximation of the inverse of
               ``grad.T @ diffusion_mat @ grad + sigma * stab_mat (I - A)``
               (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``mid=diffusion_mat``,
               ``stab=stab_mat`` and ``stab_average``), with ``sigma = sigma_1`` (divided by dt if
-              ``divide_by_dt=True``).
+              ``divide_by_dt=True``). With polar splines, this is a
+              :class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner` (without ``stab_average``).
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the mass-matrix or stiffness

@@ -36,7 +36,9 @@ from struphy.polar.kron_2dx1d import (
     ILU_DROP_TOL,
     ILU_FILL_FACTOR,
     Kron2Dx1DGroup,
+    KronSum2Dx1DGroup,
     PolarKron2Dx1DSolver,
+    PolarKronSum2Dx1DSolver,
     bc_masks,
     component_groups,
     poloidal_extraction_matrix,
@@ -633,7 +635,10 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     The identity (``stab="Id"``) is replaced by its diagonal in that eigenbasis; its average is
     Euclidean, i.e. :math:`M_d` is replaced by the identity and :math:`c_d = \mathbb 1`.
 
-    Polar splines are not supported yet.
+    With polar splines (``mass_ops.derham.polar_splines``), the constructor returns a
+    :class:`PolarStiffnessPreconditioner` instead (``grad`` and ``curl`` only, without ``stab_average``;
+    ``diagonal_scaling`` and ``weights`` are ignored there, and its own options such as
+    ``poloidal_solver`` can be passed as keyword arguments).
 
     Parameters
     ----------
@@ -678,6 +683,12 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
     _FORMS = {"grad": 0, "curl": 1, "div": 2}
 
+    def __new__(cls, mass_ops: WeightedMassOperators | None = None, *args, **kwargs):
+        # polar splines: the 2D x 1D Kronecker version
+        if cls is StiffnessPreconditioner and mass_ops is not None and mass_ops.derham.polar_splines:
+            return _polar_stiffness_preconditioner(mass_ops, *args, **kwargs)
+        return super().__new__(cls)
+
     def __init__(
         self,
         mass_ops: WeightedMassOperators,
@@ -699,9 +710,6 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             raise ValueError("The kernel correction needs sigma > 0 (or kernel_correction=False).")
 
         derham = mass_ops.derham
-        if derham.polar_splines:
-            raise NotImplementedError("StiffnessPreconditioner does not support polar splines yet.")
-
         k = self._FORMS[derivative]
         self._mass_ops = mass_ops
         self._derivative = derivative
@@ -930,6 +938,364 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     def transpose(self, conjugate: bool = False) -> StiffnessPreconditioner:
         """The operator is symmetric, so is the preconditioner."""
         return self
+
+
+def _polar_stiffness_preconditioner(
+    mass_ops: WeightedMassOperators,
+    derivative: str = "grad",
+    sigma: float = 0.0,
+    apply_bc: bool = True,
+    diagonal_scaling: bool = True,
+    kernel_correction: bool = True,
+    weights: str = "average",
+    mid: str | LinearOperator | None = None,
+    stab: str | LinearOperator | None = None,
+    stab_average: str | None = None,
+    **polar_kwargs,
+) -> PolarStiffnessPreconditioner:
+    """The PolarStiffnessPreconditioner for the arguments of StiffnessPreconditioner (plus its own options)."""
+    if stab_average:
+        raise NotImplementedError("stab_average is not implemented for polar splines yet.")
+    return PolarStiffnessPreconditioner(
+        mass_ops,
+        derivative,
+        sigma,
+        apply_bc=apply_bc,
+        kernel_correction=kernel_correction,
+        mid=mid,
+        stab=stab,
+        **polar_kwargs,
+    )
+
+
+class PolarStiffnessPreconditioner(LinearOperator):
+    r"""
+    Preconditioner for the stabilized stiffness operators :math:`A = \mathbb d^T \mathbb M_{k+1} \mathbb d + \sigma \mathbb M_k`
+    (:math:`\mathbb d \in \{\mathbb G, \mathbb C\}`, see :class:`StiffnessPreconditioner`) on polar spline spaces,
+    exploiting the 2D x 1D Kronecker structure of the polar extraction (see :mod:`struphy.polar.kron_2dx1d`).
+
+    With the polar extraction :math:`\mathbb E` (:math:`\mathbb E_{k+1}^T \mathbb d = \mathbb d_\textnormal{tp} \mathbb E_k^T`),
+    :math:`A = \mathbb E_k (\mathbb d_\textnormal{tp}^T \mathbb M^\textnormal{tp}_{k+1} \mathbb d_\textnormal{tp} + \sigma \mathbb M^\textnormal{tp}_k) \mathbb E_k^T`.
+    The blocks of the tensor-product derivative :math:`\mathbb d_\textnormal{tp}` differentiate either in the
+    poloidal plane (identity in :math:`\eta_3`) or in :math:`\eta_3` (identity in the poloidal plane). With the weights of
+    the mass matrices reduced in :math:`\eta_3` (see :func:`~struphy.polar.kron_2dx1d.reduced_weight_2d`), each group :math:`G`
+    of components (see :func:`~struphy.polar.kron_2dx1d.component_groups`) is approximated by
+
+    .. math::
+
+        A_G \approx \left(\mathbb K_\textnormal{pol} + \sigma \mathbb M_\textnormal{pol}\right) \otimes \mathbb M_3
+            + \mathbb W_\textnormal{pol} \otimes \mathbb S_3 \,,
+
+    where :math:`\mathbb K_\textnormal{pol}` collects the terms with poloidal derivatives on both sides, :math:`\mathbb W_\textnormal{pol}`
+    those with :math:`\eta_3` derivatives on both sides (:math:`\mathbb S_3 = \mathbb D_3^T \mathbb M^D_3 \mathbb D_3`), and
+    :math:`\mathbb M_\textnormal{pol}` is the poloidal stabilization (all with the polar extraction applied). It is inverted by
+    fast diagonalization in :math:`\eta_3` and one poloidal solve per :math:`\eta_3` mode (:class:`~struphy.polar.kron_2dx1d.PolarKronSum2Dx1DSolver`).
+    Neglected are the mixed terms (poloidal derivative on one side, :math:`\eta_3` derivative on the other), which vanish if the
+    weights do not couple the poloidal plane and :math:`\eta_3` (e.g. a cylinder or an axisymmetric torus without straight field
+    line coordinates), and the couplings between the groups. For the gradient, the preconditioner is then the exact inverse
+    of :math:`A` for weights that do not depend on :math:`\eta_3`. For the curl, the groups :math:`(E_1, E_2)` and :math:`E_3` are
+    decoupled (block Jacobi) and, with ``kernel_correction``, the correction :math:`\sigma^{-1} \mathbb G P_\textnormal{grad} \mathbb G^T`
+    on the kernel of the curl is added (see :class:`StiffnessPreconditioner`). The identity stabilization (``stab="Id"``) is
+    approximated by its diagonal in the eigenbasis of the fast diagonalization.
+
+    The divergence is not implemented yet.
+
+    Parameters
+    ----------
+    mass_ops : WeightedMassOperators
+        The mass operators :math:`\mathbb M_k` (on polar splines).
+
+    derivative : str
+        ``"grad"`` or ``"curl"``.
+
+    sigma : float
+        Coefficient of the mass term.
+
+    apply_bc : bool
+        Whether to include boundary operators.
+
+    kernel_correction : bool
+        For curl: whether to add the correction on the kernel of the curl (needs ``sigma > 0``).
+
+    mid, stab : str | LinearOperator | None
+        Matrix in the middle and stabilization, see :class:`StiffnessPreconditioner`.
+
+    poloidal_solver : str
+        Solver for the poloidal matrices: ``"schur"`` (block elimination of the pole block), ``"lu"`` (sparse LU)
+        or ``"ilu"`` (incomplete LU). Incomplete LU makes the preconditioner non-symmetric; for curl with small
+        ``sigma`` the poloidal matrices are nearly singular on the gradients, and PCG may fail. Use an exact
+        solver there.
+
+    weight_reduction : str
+        How the weights are reduced in eta_3: ``"midpoint"`` (value at 0.5) or ``"average"`` (mean).
+
+    schur_outer : str
+        Factorization of the outer block in the Schur solver: ``"lu"`` (exact) or ``"ilu"`` (same caveat as
+        ``poloidal_solver="ilu"``).
+
+    drop_tol, fill_factor : float
+        Parameters of the incomplete LU factorizations (``scipy.sparse.linalg.spilu``).
+    """
+
+    _FORMS = {"grad": 0, "curl": 1}
+
+    def __init__(
+        self,
+        mass_ops: WeightedMassOperators,
+        derivative: str = "grad",
+        sigma: float = 0.0,
+        apply_bc: bool = True,
+        kernel_correction: bool = True,
+        mid: str | LinearOperator | None = None,
+        stab: str | LinearOperator | None = None,
+        poloidal_solver: str = "schur",
+        weight_reduction: str = "midpoint",
+        schur_outer: str = "lu",
+        drop_tol: float = ILU_DROP_TOL,
+        fill_factor: float = ILU_FILL_FACTOR,
+    ):
+        if derivative == "div":
+            raise NotImplementedError("PolarStiffnessPreconditioner is not implemented for derivative='div' yet.")
+        assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
+        assert sigma >= 0.0
+        assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
+        kernel_correction = kernel_correction and derivative != "grad"
+        if kernel_correction and sigma == 0.0:
+            raise ValueError("The kernel correction needs sigma > 0 (or kernel_correction=False).")
+
+        derham = mass_ops.derham
+        if not derham.polar_splines:
+            raise ValueError("PolarStiffnessPreconditioner needs polar splines, use StiffnessPreconditioner instead.")
+
+        k = self._FORMS[derivative]
+        self._mass_ops = mass_ops
+        self._derivative = derivative
+        self._sigma = sigma
+        self._mass_k = getattr(mass_ops, f"M{k}")
+        self._space = self._mass_k.domain
+        self._poloidal_solver = poloidal_solver
+        self._solver_kwargs = {"schur_outer": schur_outer, "drop_tol": drop_tol, "fill_factor": fill_factor}
+
+        # matrix in the middle and stabilization, as sums of weighted mass operators
+        mass_mid_default = getattr(mass_ops, f"M{k + 1}")
+        mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, mass_mid_default))
+        stab_is_identity = isinstance(stab, str) and stab == "Id"
+        stab_terms = None if stab_is_identity else _mass_terms(_resolve_mass_operator(mass_ops, stab, self._mass_k))
+        for terms, ref, name in ((mid_terms, mass_mid_default, "mid"), (stab_terms or [], self._mass_k, "stab")):
+            for _, op in terms:
+                assert op.domain == ref.domain and op.codomain == ref.codomain, (
+                    f"{name} must have the domain and codomain of M{k + 1 if name == 'mid' else k}."
+                )
+
+        groups = _polar_stiffness_groups(
+            mass_ops, derivative, sigma, mid_terms, stab_terms, stab_is_identity, weight_reduction
+        )
+
+        # boundary conditions are only imposed if the mass operator has a BoundaryOperator
+        self._bc = _boundary_conditions(self._mass_k, apply_bc)
+        if self._bc is not None:
+            bases = spline_bases(self._mass_k.domain_femspace)
+            for g in groups:
+                g.free_pol, g.free_3 = bc_masks(self._space, g.comps, bases, self._bc)
+        self._tmp = self._space.zeros() if self._bc is not None else None
+
+        self._solver = PolarKronSum2Dx1DSolver(self._space, groups, poloidal_solver, **self._solver_kwargs)
+
+        # correction on the kernel of the curl: sigma^{-1} G P_grad G^T
+        self._kernel_correction = None
+        if kernel_correction:
+            P_prev = PolarStiffnessPreconditioner(
+                mass_ops,
+                "grad",
+                apply_bc=apply_bc,
+                kernel_correction=False,
+                mid=None if stab_is_identity else stab,
+                poloidal_solver=poloidal_solver,
+                weight_reduction=weight_reduction,
+                **self._solver_kwargs,
+            )
+            d_prev = derham.grad
+            self._kernel_correction = (1.0 / sigma) * (d_prev @ P_prev @ d_prev.T)
+            self._tmp_kernel = self._space.zeros()
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._mass_k.dtype
+
+    @property
+    def derivative(self) -> str:
+        """``"grad"`` or ``"curl"``."""
+        return self._derivative
+
+    @property
+    def sigma(self) -> float:
+        """Coefficient of the mass term."""
+        return self._sigma
+
+    @property
+    def solver(self) -> PolarKronSum2Dx1DSolver:
+        """The 2D x 1D fast-diagonalization solver (without the kernel correction)."""
+        return self._solver
+
+    @property
+    def kernel_correction(self) -> LinearOperator | None:
+        """The correction on the kernel of the curl, or None."""
+        return self._kernel_correction
+
+    @property
+    def exact(self) -> bool:
+        """Whether the poloidal solves are exact (incomplete LU factorizations are not)."""
+        return self._solver.exact
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
+        """Apply the preconditioner (block Jacobi part plus kernel correction, if any) to rhs."""
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._space
+        b = rhs
+        if self._bc is not None:
+            self._mass_k._V_boundary_op.dot(rhs, out=self._tmp)
+            b = self._tmp
+        out = self._solver.dot(b, out=out)
+        if self._kernel_correction is not None:
+            out += self._kernel_correction.dot(rhs, out=self._tmp_kernel)
+        return out
+
+    def dot(self, v: Vector, out: Vector | None = None) -> Vector:
+        return self.solve(v, out=out)
+
+    def transpose(self, conjugate: bool = False) -> PolarStiffnessPreconditioner:
+        """The operator is symmetric, so is the preconditioner."""
+        return self
+
+
+def _poloidal_mass_block(
+    terms: list[tuple[float, WeightedMassOperator]], derham, bases: list, r: int, r2: int, reduction: str
+) -> sparse.csr_matrix | None:
+    """Block (r, r2) of the poloidal mass matrix of a sum of mass operators, with the weights reduced in eta_3
+    (on the tensor-product coefficients; None if the block vanishes). Collective for array weights."""
+    out = None
+    for coeff, op in terms:
+        w, w_t = op.weights[r][r2], op.weights[r2][r]
+        if w is not None:
+            B = poloidal_mass_matrix(
+                derham, tuple(bases[r][:2]), tuple(bases[r2][:2]), reduced_weight_2d(w, derham, reduction)
+            )
+        elif op.symmetry in ("symm", "asym") and w_t is not None:
+            B_t = poloidal_mass_matrix(
+                derham, tuple(bases[r2][:2]), tuple(bases[r][:2]), reduced_weight_2d(w_t, derham, reduction)
+            )
+            B = (1.0 if op.symmetry == "symm" else -1.0) * B_t.T.tocsr()
+        else:
+            continue
+        out = coeff * B if out is None else out + coeff * B
+    return out
+
+
+def _polar_stiffness_groups(
+    mass_ops: WeightedMassOperators,
+    derivative: str,
+    sigma: float,
+    mid_terms: list,
+    stab_terms: list | None,
+    stab_is_identity: bool,
+    reduction: str,
+) -> list[KronSum2Dx1DGroup]:
+    """Factors of the 2D x 1D approximation of the polar stiffness operator, see :class:`PolarStiffnessPreconditioner`
+    (without boundary conditions)."""
+    derham = mass_ops.derham
+    k = PolarStiffnessPreconditioner._FORMS[derivative]
+    mass_k = getattr(mass_ops, f"M{k}")
+    space = mass_k.domain
+    bases = spline_bases(mass_k.domain_femspace)
+    bases_mid = spline_bases(getattr(mass_ops, f"M{k + 1}").domain_femspace)
+    E_op = derham.extraction_ops[space.space_id]
+
+    # blocks (r, c) of the tensor-product derivative: direction and 1d derivative matrix (with sign)
+    d_tp = getattr(derham, f"{derivative}_tp")
+    blocks = {}
+    for c, dirs in enumerate(_derivative_directions(d_tp)):
+        for diffdir, r in dirs.items():
+            blocks[(r, c)] = (diffdir, _dense_derivative_1d(d_tp, r, c))
+
+    # 1d stiffness in eta_3; the derivatives in eta_3 of all blocks are equal up to the sign
+    D3 = next(D for diffdir, D in blocks.values() if diffdir == 2)
+    S_3 = D3.T @ _dense_mass_1d(mass_k, "M", 2, _ones_1d)[0] @ D3
+
+    def poloidal_factor(diffdir: int, D: np.ndarray, c: int) -> sparse.csr_matrix:
+        n1, n2 = tp_space(space, c).npts[:2]
+        if diffdir == 0:
+            return sparse.kron(sparse.csr_matrix(D), sparse.eye(n2), format="csr")
+        if diffdir == 1:
+            return sparse.kron(sparse.eye(n1), sparse.csr_matrix(D), format="csr")
+        if np.allclose(D, D3):
+            return sparse.eye(n1 * n2, format="csr")
+        assert np.allclose(D, -D3), "The derivatives in eta_3 must be equal up to the sign."
+        return -sparse.eye(n1 * n2, format="csr")
+
+    # poloidal mass blocks of the matrix in the middle (computed once, in the same order on all processes)
+    mid_blocks = {}
+
+    def mid_block(r: int, r2: int):
+        if (r, r2) not in mid_blocks:
+            mid_blocks[(r, r2)] = _poloidal_mass_block(mid_terms, derham, bases_mid, r, r2, reduction)
+        return mid_blocks[(r, r2)]
+
+    groups = []
+    for comps in component_groups(space):
+        n = len(comps)
+        terms = {"M": [[None] * n for _ in comps], "S": [[None] * n for _ in comps]}
+        for a, c in enumerate(comps):
+            for b, c2 in enumerate(comps):
+                for (r, cc), (dd, D) in blocks.items():
+                    if cc != c:
+                        continue
+                    for (r2, cc2), (dd2, D2) in blocks.items():
+                        # mixed terms (poloidal and eta_3 derivative) are neglected
+                        if cc2 != c2 or (dd == 2) != (dd2 == 2):
+                            continue
+                        M_rr = mid_block(r, r2)
+                        if M_rr is None:
+                            continue
+                        term = poloidal_factor(dd, D, c).T @ M_rr @ poloidal_factor(dd2, D2, c2)
+                        t = "S" if dd == 2 else "M"
+                        terms[t][a][b] = term if terms[t][a][b] is None else terms[t][a][b] + term
+                if sigma != 0.0 and not stab_is_identity:
+                    S_ab = _poloidal_mass_block(stab_terms, derham, bases, c, c2, reduction)
+                    if S_ab is not None:
+                        S_ab = sigma * S_ab
+                        terms["M"][a][b] = S_ab if terms["M"][a][b] is None else terms["M"][a][b] + S_ab
+
+        E = poloidal_extraction_matrix(space, comps, E_op.blocks_ten_to_pol, None)
+        A_pol = {}
+        for t, blk in terms.items():
+            if all(B is None for row in blk for B in row):
+                continue
+            for a, c in enumerate(comps):
+                for b, c2 in enumerate(comps):
+                    if blk[a][b] is None:
+                        blk[a][b] = sparse.csr_matrix((_poloidal_size(space, c), _poloidal_size(space, c2)))
+            A_pol[t] = (E @ sparse.bmat(blk, format="csr") @ E.T).tocsr()
+        if sigma != 0.0 and stab_is_identity:
+            A_pol["I"] = sigma * sparse.eye(E.shape[0], format="csr")
+
+        # unweighted 1d mass matrix in eta_3
+        M_3 = _dense_mass_1d(mass_k, bases[comps[0]][2], 2, _ones_1d)[0]
+        groups.append(KronSum2Dx1DGroup(comps, A_pol, M_3, S_3 if "S" in A_pol else None))
+    return groups
 
 
 class HiptmairXuPreconditioner(LinearOperator):
