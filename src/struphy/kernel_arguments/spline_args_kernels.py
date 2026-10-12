@@ -1,5 +1,6 @@
 # NOTE: This file must use ONLY numpy for pyccel compilation compatibility.
 # Backend conversion (NumPy/CuPy) happens at the Python wrapper level.
+import numpy as np
 
 
 class SplineArguments:
@@ -19,6 +20,8 @@ class SplineArguments:
 
     starts : array[int]
         Start indices of the splines of this component on the current process.
+
+    The scratch arrays ``bn1``, ..., ``bd3`` hold the B- and D-spline values at the current evaluation point.
     """
 
     def __init__(
@@ -36,3 +39,10 @@ class SplineArguments:
         self.tn2 = tn2
         self.tn3 = tn3
         self.starts = starts
+
+        self.bn1 = np.empty(int(pn[0] + 1), dtype=float)
+        self.bn2 = np.empty(int(pn[1] + 1), dtype=float)
+        self.bn3 = np.empty(int(pn[2] + 1), dtype=float)
+        self.bd1 = np.empty(int(pn[0]), dtype=float)
+        self.bd2 = np.empty(int(pn[1]), dtype=float)
+        self.bd3 = np.empty(int(pn[2]), dtype=float)
