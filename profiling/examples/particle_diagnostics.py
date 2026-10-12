@@ -137,6 +137,7 @@ def save_equilibrium_diagnostics(out, species, results_dir=None, exact=None, sca
                 # e.g. the number of lost markers: absolute values on a second axis
                 if ax_abs is None:
                     ax_abs = ax.twinx()
+                    ax_abs.set_ylabel("absolute")
                 ax_abs.plot(t, values, "--", label=f"{name} (absolute, right axis)")
             if time is None:
                 time = t
