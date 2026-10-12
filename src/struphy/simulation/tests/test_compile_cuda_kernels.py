@@ -5,15 +5,12 @@ GPU, the CuPy path is tested with the backend switched by monkeypatching and wit
 (in a subprocess); the test marked ``requires_cupy`` compiles the kernels of a small model on a GPU.
 """
 
-import subprocess
-import sys
-
 import cunumpy
 import pytest
 from cunumpy.kernels import CudaKernel, Kernel
 
 from struphy import DerhamOptions, EnvironmentOptions, Simulation, Time, domains, equils, grids, maxwellians
-from struphy.geometry.tests.test_domain import _cupy_installed, serial_child_env
+from struphy.geometry.tests.test_domain import _cupy_installed, run_fake_cupy_child
 from struphy.models import Vlasov, VlasovAmpereOneSpecies
 from struphy.particles.parameters import BoundaryParameters, LoadingParameters
 from struphy.pic.pushing.kernels.push_bxu_Hdiv import push_bxu_Hdiv
@@ -225,13 +222,7 @@ with cunumpy.use_backend("cupy"):
 @pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
 def test_compile_cuda_kernels_fake_cupy():
     """With cunumpy's fake CuPy the CuPy backend is active: kernels are checked and compiled (compile recorded)."""
-    result = subprocess.run(
-        [sys.executable, "-c", FAKE_CUPY_CHECK],
-        env=serial_child_env(CUNUMPY_FAKE_CUPY="1"),
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr[-4000:]
+    run_fake_cupy_child(FAKE_CUPY_CHECK)
 
 
 @requires_cupy
