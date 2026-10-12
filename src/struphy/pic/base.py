@@ -1237,6 +1237,9 @@ class Particles(metaclass=ABCMeta):
                     # Generate a chunk of random particles
                     num_to_add_glob = min(chunk_size, int(self.Np) - num_loaded_particles_glob)
                     temp = xp.random.rand(num_to_add_glob, 3 + self.vdim)
+                    # inversion method for drawing uniformly on the disc, before the domain check
+                    if self.spatial == "disc":
+                        temp[:, 0] = xp.sqrt(temp[:, 0])
                     # check which particles are on the current process domain
                     is_on_proc_domain = self._is_on_domain_of_rank(temp[:, :3], self.mpi_rank)
                     valid_idx = xp.nonzero(xp.all(is_on_proc_domain, axis=1))[0]
@@ -1388,11 +1391,12 @@ class Particles(metaclass=ABCMeta):
                         "Inverse transform sampling of given vdim is not implemented!",
                     )
 
-            # inversion method for drawing uniformly on the disc
+            # inversion method for drawing uniformly on the disc (done above for pseudo-random markers)
             if self.spatial == "disc":
-                self._markers[:n_mks_load_loc, 0] = xp.sqrt(
-                    self._markers[:n_mks_load_loc, 0],
-                )
+                if self.loading != "pseudo_random":
+                    self._markers[:n_mks_load_loc, 0] = xp.sqrt(
+                        self._markers[:n_mks_load_loc, 0],
+                    )
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
@@ -1431,6 +1435,9 @@ class Particles(metaclass=ABCMeta):
                 self.mpi_sort_markers()
             self.do_sort()
             logger.info("Done.")
+        elif self.mpi_comm is not None and self.mpi_size > 1:
+            # markers drawn on the domain of another process (e.g. Sobol loading) are sent to their process
+            self.mpi_sort_markers(apply_bc=False)
 
     def initialize_weights(
         self,
@@ -2538,7 +2545,15 @@ class Particles(metaclass=ABCMeta):
             _n_mks_load_tot = self.Np
             _ppc = self.ppc
 
-        n_mks_load = self.gather_scalar_in_subcomm_array(int(_ppc * n_cells_loc))
+        if self.spatial == "disc":
+            # markers drawn uniformly on the disc have the density 2*eta1 in eta1
+            # (more markers on processes at larger eta1)
+            d = self.domain_array[self.mpi_rank]
+            n_mks_loc = int(_n_mks_load_tot * (d[1] ** 2 - d[0] ** 2) * (d[4] - d[3]) * (d[7] - d[6]))
+        else:
+            n_mks_loc = int(_ppc * n_cells_loc)
+
+        n_mks_load = self.gather_scalar_in_subcomm_array(n_mks_loc)
 
         # add deviation from Np to rank 0
         n_mks_load[0] += _n_mks_load_tot - xp.sum(n_mks_load)

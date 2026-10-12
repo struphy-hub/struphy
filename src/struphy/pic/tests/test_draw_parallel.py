@@ -196,3 +196,41 @@ if __name__ == "__main__":
             },
         ],
     )
+
+
+@pytest.mark.parametrize("loading", ["pseudo_random", "sobol_standard"])
+def test_draw_disc_on_own_process(loading, ppc=50):
+    """Markers drawn uniformly on the disc are on their own process after `draw_markers` (without sorting boxes)."""
+
+    import numpy as np
+    from maybempi import MPI
+
+    from struphy import LoadingParameters, domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.pic.particles import Particles6D
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+
+    domain = domains.HollowCylinder(a1=0.1, a2=1.0, Lz=4.0)
+    derham = Derham(TensorProductGrid(num_elements=(8, 9, 4)), DerhamOptions(degree=(1, 1, 1)), comm=comm)
+    domain_decomp = (derham.domain_array, derham.domain_decomposition.nprocs)
+
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=domain_decomp,
+        loading_params=LoadingParameters(ppc=ppc, loading=loading, seed=1234, spatial="disc"),
+        domain=domain,
+    )
+    particles.draw_markers()
+
+    # all markers are on their own process and none is lost
+    positions = particles.positions
+    assert np.all(particles._is_on_domain_of_rank(positions, rank))
+    assert comm.allreduce(positions.shape[0]) == particles.Np
+
+    # uniform on the disc: eta1 has the density 2 eta1 with mean 2/3 and variance 1/18
+    mean = comm.allreduce(np.sum(positions[:, 0])) / particles.Np
+    assert abs(mean - 2.0 / 3.0) < 5.0 * np.sqrt(1.0 / 18.0 / particles.Np)
