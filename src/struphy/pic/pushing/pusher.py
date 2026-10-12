@@ -1,9 +1,11 @@
 "Accelerated particle pushing."
 
 import logging
+from functools import cache
+from pathlib import Path
 
 import cunumpy as xp
-from cunumpy.kernels import Kernel, PyccelKernel
+from cunumpy.kernels import CudaKernel, Kernel, PyccelKernel
 from line_profiler import profile
 from maybempi import MPI
 from scope_profiler import ProfileManager
@@ -14,6 +16,13 @@ from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.utils.cuda_arguments import check_mapping_on_device
 
 logger = logging.getLogger("struphy")
+
+
+@cache
+def _prepare_push_cuda() -> CudaKernel:
+    """The CUDA kernel that fuses the column-slice assignments at the start of :meth:`Pusher._push`
+    (compiled on first call)."""
+    return CudaKernel.from_file(Path(__file__).with_name("prepare_push_cuda.cu"), "prepare_push")
 
 
 class Pusher:
@@ -208,17 +217,29 @@ class Pusher:
         logger.debug(f"{residual_idx =}")
         logger.debug(f"{self.particles.n_cols =}")
 
-        init_slice = slice(first_pusher_idx, first_shift_idx)
-        shift_slice = slice(first_shift_idx, residual_idx)
+        if self._cuda:
+            # the three assignments below in one pass over the buffer (each slice is a strided pass on its own)
+            n_rows, n_cols = markers.shape
+            _prepare_push_cuda()(
+                markers,
+                n_rows,
+                n_cols,
+                first_pusher_idx,
+                3 + vdim,
+                n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
+            )
+        else:
+            init_slice = slice(first_pusher_idx, first_shift_idx)
+            shift_slice = slice(first_shift_idx, residual_idx)
 
-        # save initial phase space coordinates
-        markers[:, init_slice] = markers[:, : 3 + vdim]
+            # save initial phase space coordinates
+            markers[:, init_slice] = markers[:, : 3 + vdim]
 
-        # set boundary shifts to zero
-        markers[:, shift_slice] = 0.0
+            # set boundary shifts to zero
+            markers[:, shift_slice] = 0.0
 
-        # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-        markers[:, residual_idx:-2] = 0.0
+            # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
+            markers[:, residual_idx:-2] = 0.0
 
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
