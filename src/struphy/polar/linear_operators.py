@@ -1,5 +1,5 @@
 import cunumpy as xp
-from cunumpy.mpi import synchronize_for_mpi
+from cunumpy.mpi import mpi_buffer
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
@@ -110,9 +110,9 @@ class _BlocksOnBackend:
 
 def _allreduce_sum(comm, buf):
     """In-place sum over the ranks of comm (buf may live on the device: CUDA-aware MPI)."""
-    if comm is not None:
-        synchronize_for_mpi(buf)
-        comm.Allreduce(MPI.IN_PLACE, buf, op=MPI.SUM)
+    if comm is not None and comm.Get_size() > 1:
+        with mpi_buffer(buf, recv=True) as buffer:
+            comm.Allreduce(MPI.IN_PLACE, buffer, op=MPI.SUM)
 
 
 class PolarExtractionOperator(_BlocksOnBackend, LinearOperator):
