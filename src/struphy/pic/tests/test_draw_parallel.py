@@ -177,27 +177,6 @@ def test_marker_ids(loading, Np=1000):
     assert n_at_origin == 0
 
 
-if __name__ == "__main__":
-    # test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
-    #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
-    test_draw(
-        [8, 9, 10],
-        [2, 3, 4],
-        [False, False, True],
-        [
-            "Cuboid",
-            {
-                "l1": 0.0,
-                "r1": 1.0,
-                "l2": 0.0,
-                "r2": 1.0,
-                "l3": 0.0,
-                "r3": 1.0,
-            },
-        ],
-    )
-
-
 @pytest.mark.parametrize("loading", ["pseudo_random", "sobol_standard"])
 def test_draw_disc_on_own_process(loading, ppc=50):
     """Markers drawn uniformly on the disc are on their own process after `draw_markers` (without sorting boxes)."""
@@ -227,10 +206,33 @@ def test_draw_disc_on_own_process(loading, ppc=50):
     particles.draw_markers()
 
     # all markers are on their own process and none is lost
+    # (reduce before asserting, such that a failure on one process does not deadlock the others)
     positions = particles.positions
-    assert np.all(particles._is_on_domain_of_rank(positions, rank))
+    on_own_process = comm.allreduce(bool(np.all(particles._is_on_domain_of_rank(positions, rank))), op=MPI.LAND)
+    assert on_own_process
     assert comm.allreduce(positions.shape[0]) == particles.Np
 
     # uniform on the disc: eta1 has the density 2 eta1 with mean 2/3 and variance 1/18
     mean = comm.allreduce(np.sum(positions[:, 0])) / particles.Np
     assert abs(mean - 2.0 / 3.0) < 5.0 * np.sqrt(1.0 / 18.0 / particles.Np)
+
+
+if __name__ == "__main__":
+    # test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
+    #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+    test_draw(
+        [8, 9, 10],
+        [2, 3, 4],
+        [False, False, True],
+        [
+            "Cuboid",
+            {
+                "l1": 0.0,
+                "r1": 1.0,
+                "l2": 0.0,
+                "r2": 1.0,
+                "l3": 0.0,
+                "r3": 1.0,
+            },
+        ],
+    )

@@ -1435,8 +1435,14 @@ class Particles(metaclass=ABCMeta):
                 self.mpi_sort_markers()
             self.do_sort()
             logger.info("Done.")
-        elif self.mpi_comm is not None and self.mpi_size > 1:
-            # markers drawn on the domain of another process (e.g. Sobol loading) are sent to their process
+        elif (
+            not self._initialized_sorting
+            and self.loading != "restart"
+            and self.mpi_comm is not None
+            and self.mpi_size > 1
+        ):
+            # without sorting boxes, markers drawn on the domain of another process (e.g. Sobol loading
+            # or the disc transform) are sent to their process
             self.mpi_sort_markers(apply_bc=False)
 
     def initialize_weights(
@@ -2549,7 +2555,7 @@ class Particles(metaclass=ABCMeta):
             # markers drawn uniformly on the disc have the density 2*eta1 in eta1
             # (more markers on processes at larger eta1)
             d = self.domain_array[self.mpi_rank]
-            n_mks_loc = int(_n_mks_load_tot * (d[1] ** 2 - d[0] ** 2) * (d[4] - d[3]) * (d[7] - d[6]))
+            n_mks_loc = max(1, int(_n_mks_load_tot * (d[1] ** 2 - d[0] ** 2) * (d[4] - d[3]) * (d[7] - d[6])))
         else:
             n_mks_loc = int(_ppc * n_cells_loc)
 
