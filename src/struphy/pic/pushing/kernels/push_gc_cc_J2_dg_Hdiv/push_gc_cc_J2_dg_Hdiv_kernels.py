@@ -80,7 +80,7 @@ def push_gc_cc_J2_dg_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
@@ -90,7 +90,7 @@ def push_gc_cc_J2_dg_Hdiv(
 
         # marker positions, mid point
         eta_old[:] = markers[ip, 0:3]
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_pusher_idx : first_pusher_idx + 3]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
         v = markers[ip, 3]
@@ -204,6 +204,6 @@ def push_gc_cc_J2_dg_Hdiv(
         e /= abs_b_star_para
         e /= det_df
 
-        markers[ip, 0:3] = markers[ip, first_init_idx : first_init_idx + 3] - dt * e
+        markers[ip, 0:3] = markers[ip, first_pusher_idx : first_pusher_idx + 3] - dt * e
         markers[ip, 0:3] *= alpha
         markers[ip, 0:3] += eta_old * (1.0 - alpha)
