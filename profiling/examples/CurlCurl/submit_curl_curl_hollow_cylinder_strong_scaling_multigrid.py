@@ -1,11 +1,11 @@
-"""Poisson strong scaling profiling case on hollow torus, mass-matrix preconditioner.
+"""Curl-curl strong scaling profiling case on hollow cylinder, multigrid preconditioner.
 
-This file defines the Poisson strong scaling profiling case (the `ProfilingCase`)
+This file defines the curl-curl strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
 SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch
 system, runs directly on this machine. `finalize_run` then packages and uploads
 each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_poisson.py`
+Each generated script runs the simulation itself by invoking `params_curl_curl.py`
 directly (its `__main__` block is the worker).
 """
 
@@ -45,15 +45,15 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "hollow_torus_strong_scaling_massmatrix"
+    params_dir = script_dir / "hollow_cylinder_strong_scaling_multigrid"
 
     profiling_case = ProfilingCase(
-        label="poisson_hollow_torus_strong_scaling_massmatrix",
-        name="Poisson on hollow torus strong scaling test, mass-matrix preconditioner",
-        description="Strong scaling of the Poisson model with manufactured solution on a full hollow torus (HollowTorus, a1=1e-2, a2=1, R0=4), solved with CG preconditioned by the Kronecker approximation of the inverse 0-form mass matrix (MassMatrixPreconditioner).",
-        physics_problem="Occurs in many plasma applications.",
-        struphy_model_used="Poisson",
-        params_source=params_dir / "params_poisson.py",
+        label="curl_curl_hollow_cylinder_strong_scaling_multigrid",
+        name="Curl-curl on hollow cylinder strong scaling test, multigrid preconditioner",
+        description="Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by geometric multigrid with the hybrid smoother of Hiptmair.",
+        physics_problem="Occurs in implicit time stepping of Maxwell's equations and in magnetostatics.",
+        struphy_model_used="CurlCurl",
+        params_source=params_dir / "params_curl_curl.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

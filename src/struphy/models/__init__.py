@@ -11,9 +11,11 @@ from typing import TYPE_CHECKING
 _LAZY_IMPORTS = {
     "ColdPlasma": "struphy.models.cold_plasma",
     "ColdPlasmaVlasov": "struphy.models.cold_plasma_vlasov",
+    "CurlCurl": "struphy.models.curl_curl",
     "DeterministicParticleDiffusion": "struphy.models.deterministic_particle_diffusion",
     "DriftKineticElectrostaticAdiabatic": "struphy.models.drift_kinetic_electrostatic_adiabatic",
     "GuidingCenter": "struphy.models.guiding_center",
+    "GyrokineticPoisson": "struphy.models.gyrokinetic_poisson",
     "HasegawaWakatani": "struphy.models.hasegawa_wakatani",
     "IncompressibleNavierStokesSPH": "struphy.models.incompressible_navier_stokes_sph",
     "LinearExtendedMHDuniform": "struphy.models.linear_extended_mh_duniform",
@@ -50,9 +52,11 @@ _LAZY_IMPORTS = {
 if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.cold_plasma import ColdPlasma
     from struphy.models.cold_plasma_vlasov import ColdPlasmaVlasov
+    from struphy.models.curl_curl import CurlCurl
     from struphy.models.deterministic_particle_diffusion import DeterministicParticleDiffusion
     from struphy.models.drift_kinetic_electrostatic_adiabatic import DriftKineticElectrostaticAdiabatic
     from struphy.models.guiding_center import GuidingCenter
+    from struphy.models.gyrokinetic_poisson import GyrokineticPoisson
     from struphy.models.hasegawa_wakatani import HasegawaWakatani
     from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
     from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
@@ -88,9 +92,11 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
 __all__ = [
     "ColdPlasma",
     "ColdPlasmaVlasov",
+    "CurlCurl",
     "DeterministicParticleDiffusion",
     "DriftKineticElectrostaticAdiabatic",
     "GuidingCenter",
+    "GyrokineticPoisson",
     "HasegawaWakatani",
     "IncompressibleNavierStokesSPH",
     "LinearExtendedMHDuniform",
