@@ -317,6 +317,8 @@ class Output:
         self._seconds = None
         self._spline_derham = None
         self._spline_snapshots = {}
+        # polar splines: operators recovering the polar coefficients from the saved ones, per (derham, space)
+        self._polar_restart_ops = {}
 
     def evaluate(
         self,
@@ -1472,6 +1474,7 @@ class Output:
         step : int
             Time-step stride of the saved snapshots.
         """
+        polar_fields = {}
         for file in files:
             for species, dset in file["feec"].items():
                 for var, ddset in dset.items():
@@ -1517,8 +1520,15 @@ class Output:
 
                     vector.update_ghost_regions()
                     if is_polar:
-                        field._restart_extraction_op().dot(vector, out=field.vector)
-                        field.vector.update_ghost_regions()
+                        polar_fields[(species, var)] = field
+
+        # polar splines: recover the polar coefficients once all files are loaded
+        for field in polar_fields.values():
+            key = (id(field.derham), field.space_id)
+            if key not in self._polar_restart_ops:
+                self._polar_restart_ops[key] = field._restart_extraction_op()
+            self._polar_restart_ops[key].dot(field.vector_stencil, out=field.vector)
+            field.vector.update_ghost_regions()
 
     def _create_eval_grids(self, celldivide: int | Sequence[int] = (1, 1, 1)):
         """Build the logical evaluation grids and distribute them over the MPI ranks.

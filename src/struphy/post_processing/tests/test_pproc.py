@@ -98,10 +98,6 @@ def test_products_are_processed_in_parallel_on_first_use():
     comm.Barrier()
 
 
-if __name__ == "__main__":
-    test_pproc_mpi(show_plot=True)
-
-
 def test_pproc_polar(tmp_path):
     """Fields on polar splines are loaded from the saved (extracted) coefficients: the Poisson
     solution on a disc evaluates to the exact solution."""
@@ -143,12 +139,23 @@ def test_pproc_polar(tmp_path):
 
     sim.run(one_time_step=True)
     run = Output(sim.env.path_out)
-    run.pproc(parallel=False)
 
+    # serial pproc
+    run.pproc(parallel=False)
     if sim.rank == 0:
         phi = run.evaluate("em_fields/phi", t=-1)
         X, Y, Z = (phi.coords[c].values for c in ("X", "Y", "Z"))
         exact = phi_fun(X, Y, Z)
         # (the spline mapping only approximates the disc; before loading the polar coefficients, the error was 1)
         assert np.max(np.abs(phi.values - exact)) < 1e-2 * np.max(np.abs(exact))
+        serial = np.asarray(run.fields.em_fields.phi)
+
+    # parallel pproc (one data file per process) gives the same fields
+    run.pproc(parallel=True, force=True)
+    if sim.rank == 0:
+        assert np.allclose(np.asarray(run.fields.em_fields.phi), serial, atol=1e-7)
     MPI.COMM_WORLD.Barrier()
+
+
+if __name__ == "__main__":
+    test_pproc_mpi(show_plot=True)

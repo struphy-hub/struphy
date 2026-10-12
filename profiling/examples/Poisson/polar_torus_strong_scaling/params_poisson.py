@@ -19,7 +19,18 @@ parser.add_argument(
     choices=["polar", "tensor"],
     help="C1 polar splines on a full torus (IGAPolarTorus) or tensor-product splines on a torus with a hole (HollowTorus).",
 )
-parser.add_argument("--precond", default="None", help="Name of the preconditioner (None for no preconditioner).")
+parser.add_argument(
+    "--precond",
+    default="None",
+    choices=[
+        "None",
+        "MassMatrixPreconditioner",
+        "PolarMassMatrixPreconditioner",
+        "StiffnessPreconditioner",
+        "MultiGrid",
+    ],
+    help="Name of the preconditioner (None for no preconditioner).",
+)
 parser.add_argument(
     "--poloidal-solver",
     default="schur",
