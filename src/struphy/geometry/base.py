@@ -469,6 +469,13 @@ class Domain(metaclass=DomainMeta):
             raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
         return self._args_domain
 
+    def kernels(self) -> tuple:
+        """The geometry evaluation kernels (evaluation and pull/push, on grids and at markers).
+
+        Used by :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (kernel_evaluate, kernel_evaluate_pic, kernel_pullpush, kernel_pullpush_pic)
+
     @property
     def dict_transformations(self):
         """Dictionary of str->int for pull, push and transformation functions."""
