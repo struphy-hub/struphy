@@ -35,6 +35,7 @@ class PolarDerhamSpace(VectorSpace):
         self._dtype = float
         self._comm = derham.comm
         self._space_id = space_id
+        self._factorization_cache = derham._polar_factorization_cache
 
         # dimensions of 1d spaces
         self._n = derham.spline_attributes["H1"].nbasis[0]

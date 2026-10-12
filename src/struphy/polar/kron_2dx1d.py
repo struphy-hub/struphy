@@ -215,6 +215,41 @@ def poloidal_extraction_matrix(
 # --------------------------------------------------------------------------------------
 # Poloidal solvers
 # --------------------------------------------------------------------------------------
+def _matrix_key(matrix):
+    """Exact numerical contents, independent of sparse storage order and explicit zeros."""
+    matrix = spa.csc_matrix(matrix, copy=True)
+    matrix.sum_duplicates()
+    matrix.eliminate_zeros()
+    matrix.sort_indices()
+    return (
+        matrix.shape,
+        matrix.dtype.str,
+        matrix.indptr.astype(np.int64, copy=False).tobytes(),
+        matrix.indices.astype(np.int64, copy=False).tobytes(),
+        matrix.data.tobytes(),
+    )
+
+
+def _cache_context():
+    """Keep device copies separate when solvers are built on different backends/devices."""
+    backend = xp.get_backend()
+    if backend == "cupy":
+        import cupy
+
+        return backend, cupy.cuda.runtime.getDevice()
+    return backend, None
+
+
+def _factorized_1d(matrix, cache=None):
+    key = ("1d", _cache_context(), _matrix_key(matrix))
+    factor = None if cache is None else cache.get(key)
+    if factor is None:
+        factor = _FactorizedSolve(splu(spa.csc_matrix(matrix)), dense=True)
+        if cache is not None:
+            cache[key] = factor
+    return factor
+
+
 class _FactorizedSolve:
     """Host factorization with a cached device solve; dense inverses are only used for small 1d factors."""
 
@@ -260,15 +295,15 @@ class _SparseLU:
 class _KroneckerBlockDiagonal:
     """Exact solver for a block diagonal matrix with Kronecker blocks A1 x A2 (C-ordering of the unknowns)."""
 
-    def __init__(self, factors: list[tuple[np.ndarray, np.ndarray]]):
+    def __init__(self, factors: list[tuple[np.ndarray, np.ndarray]], cache=None):
         self._sizes = []
         self._lus = []
         for A1, A2 in factors:
             self._sizes.append((A1.shape[0], A2.shape[0]))
             self._lus.append(
                 (
-                    _FactorizedSolve(splu(spa.csc_matrix(A1)), dense=True),
-                    _FactorizedSolve(splu(spa.csc_matrix(A2)), dense=True),
+                    _factorized_1d(A1, cache),
+                    _factorized_1d(A2, cache),
                 )
             )
         self.exact = True
@@ -356,6 +391,7 @@ def make_poloidal_solver(
     schur_outer: str = "lu",
     drop_tol: float = ILU_DROP_TOL,
     fill_factor: float = ILU_FILL_FACTOR,
+    _cache=None,
 ):
     """
     Solver for the poloidal matrix A.
@@ -382,23 +418,48 @@ def make_poloidal_solver(
         Parameters of the incomplete LU factorization (``scipy.sparse.linalg.spilu``).
     """
     assert kind in POLOIDAL_SOLVERS, f"Unknown poloidal solver {kind!r}, must be one of {POLOIDAL_SOLVERS}."
-    if kind in ("lu", "ilu"):
-        return _SparseLU(A, kind, drop_tol=drop_tol, fill_factor=fill_factor)
-
-    assert pole is not None
-    if outer_kronecker is not None:
-        outer = _KroneckerBlockDiagonal(outer_kronecker)
-        if __debug__:
-            # the outer block must match the Kronecker factors
-            o = np.flatnonzero(~pole)
-            Aoo = spa.csr_matrix(A)[o][:, o]
-            K = spa.block_diag([spa.kron(spa.csr_matrix(A1), spa.csr_matrix(A2)) for A1, A2 in outer_kronecker])
-            diff = abs(Aoo - K).max() if Aoo.nnz + K.nnz > 0 else 0.0
-            assert diff <= 1e-12 * max(abs(Aoo).max(), 1.0), f"Outer block is not Kronecker ({diff = })."
+    if kind == "schur":
+        assert pole is not None
+        settings = (
+            np.asarray(pole, dtype=bool).tobytes(),
+            None if outer_kronecker is None else tuple((_matrix_key(a), _matrix_key(b)) for a, b in outer_kronecker),
+            schur_outer,
+            float(drop_tol),
+            float(fill_factor),
+        )
     else:
-        o = np.flatnonzero(~pole)
-        outer = _SparseLU(spa.csr_matrix(A)[o][:, o], schur_outer, drop_tol=drop_tol, fill_factor=fill_factor)
-    return _SchurSolver(A, pole, outer)
+        settings = (float(drop_tol), float(fill_factor)) if kind == "ilu" else ()
+    key = ("poloidal", _cache_context(), kind, _matrix_key(A), settings)
+    if _cache is not None:
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+
+    if kind in ("lu", "ilu"):
+        solver = _SparseLU(A, kind, drop_tol=drop_tol, fill_factor=fill_factor)
+    else:
+        if outer_kronecker is not None:
+            outer = _KroneckerBlockDiagonal(outer_kronecker, cache=_cache)
+            if __debug__:
+                # the outer block must match the Kronecker factors
+                o = np.flatnonzero(~pole)
+                Aoo = spa.csr_matrix(A)[o][:, o]
+                K = spa.block_diag([spa.kron(spa.csr_matrix(A1), spa.csr_matrix(A2)) for A1, A2 in outer_kronecker])
+                diff = abs(Aoo - K).max() if Aoo.nnz + K.nnz > 0 else 0.0
+                assert diff <= 1e-12 * max(abs(Aoo).max(), 1.0), f"Outer block is not Kronecker ({diff = })."
+        else:
+            o = np.flatnonzero(~pole)
+            outer = make_poloidal_solver(
+                spa.csr_matrix(A)[o][:, o],
+                schur_outer,
+                drop_tol=drop_tol,
+                fill_factor=fill_factor,
+                _cache=_cache,
+            )
+        solver = _SchurSolver(A, pole, outer)
+    if _cache is not None:
+        _cache[key] = solver
+    return solver
 
 
 def pole_mask(space: PolarDerhamSpace, comps: tuple[int, ...]) -> np.ndarray:
@@ -732,13 +793,14 @@ class PolarKron2Dx1DSolver(_PolarKron2Dx1DBase):
         super().__init__(space, groups)
         self._kind = poloidal_solver
         self._solver_kwargs = solver_kwargs
-        self._lu_3 = [_FactorizedSolve(splu(spa.csc_matrix(g.A_3)), dense=True) for g in groups]
+        self._lu_3 = [_factorized_1d(g.A_3, space._factorization_cache) for g in groups]
         self._pol_solvers = [
             make_poloidal_solver(
                 g.A_pol,
                 poloidal_solver,
                 pole=g.pole if g.pole is not None else pole_mask(space, g.comps),
                 outer_kronecker=g.outer_kronecker,
+                _cache=space._factorization_cache,
                 **solver_kwargs,
             )
             for g in groups
