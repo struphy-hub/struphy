@@ -171,6 +171,13 @@ class ProfilingCase:
             ),
             "set -e",
             f"source {activate_path!s}",
+            # Thread counts per MPI rank (unless set by the user): OpenMP kernels get the
+            # cores SLURM assigns to each task, threaded BLAS gets one thread, because the
+            # BLAS threads of all ranks would otherwise oversubscribe the cores (#743).
+            # SLURM does not set these variables, and `srun`/`mpirun` pass them to the ranks.
+            'export OMP_NUM_THREADS="${OMP_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"',
+            'export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-1}"',
+            'echo "OMP_NUM_THREADS=$OMP_NUM_THREADS OPENBLAS_NUM_THREADS=$OPENBLAS_NUM_THREADS"',
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',
