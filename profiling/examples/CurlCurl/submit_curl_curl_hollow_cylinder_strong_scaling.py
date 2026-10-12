@@ -1,4 +1,4 @@
-"""Curl-curl strong scaling profiling case on hollow cylinder, no preconditioner.
+"""Curl-curl strong scaling profiling case on hollow cylinder.
 
 This file defines the curl-curl strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
@@ -7,6 +7,8 @@ system, runs directly on this machine. `finalize_run` then packages and uploads
 each run as soon as its own job finishes.
 Each generated script runs the simulation itself by invoking `params_curl_curl.py`
 directly (its `__main__` block is the worker).
+
+The variant (preconditioner) is chosen with `--variant`; run this script once per variant.
 """
 
 import argparse
@@ -18,12 +20,47 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
+# variant -> (label, name, description, flags of the params file); the labels identify the
+# cases in the profiling-data repo and are kept from the former one-case-per-script layout
+VARIANTS = {
+    "none": (
+        "curl_curl_hollow_cylinder_strong_scaling",
+        "Curl-curl on hollow cylinder strong scaling test, no preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with unpreconditioned CG.",
+        [],
+    ),
+    "hiptmair_xu": (
+        "curl_curl_hollow_cylinder_strong_scaling_hiptmair_xu",
+        "Curl-curl on hollow cylinder strong scaling test, Hiptmair-Xu preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by the auxiliary space preconditioner of Hiptmair and Xu (HiptmairXuPreconditioner).",
+        ["--precond", "HiptmairXu"],
+    ),
+    "multigrid": (
+        "curl_curl_hollow_cylinder_strong_scaling_multigrid",
+        "Curl-curl on hollow cylinder strong scaling test, multigrid preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by geometric multigrid with the hybrid smoother of Hiptmair.",
+        ["--precond", "MultiGrid"],
+    ),
+    "stiffness": (
+        "curl_curl_hollow_cylinder_strong_scaling_stiffness",
+        "Curl-curl on hollow cylinder strong scaling test, stiffness preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by the Kronecker approximation of the inverse curl-curl operator with gradient correction (StiffnessPreconditioner).",
+        ["--precond", "StiffnessPreconditioner"],
+    ),
+}
+
 
 def main() -> None:
 
     # Parse arguments, do not remove --upload
     parser = argparse.ArgumentParser(
         description=("Submit profiling jobs to a SLURM cluster and package the results for upload."),
+    )
+    parser.add_argument(
+        "--variant",
+        default="none",
+        choices=list(VARIANTS),
+        help="Preconditioner of the runs.",
     )
     parser.add_argument(
         "--upload",
@@ -42,15 +79,16 @@ def main() -> None:
         help='Pyccel compiler family ("GNU", "intel", "PGI", "nvidia" or "LLVM").',
     )
     args = parser.parse_args()
+    label, name, description, param_flags = VARIANTS[args.variant]
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
     params_dir = script_dir / "hollow_cylinder_strong_scaling"
 
     profiling_case = ProfilingCase(
-        label="curl_curl_hollow_cylinder_strong_scaling",
-        name="Curl-curl on hollow cylinder strong scaling test, no preconditioner",
-        description="Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with unpreconditioned CG.",
+        label=label,
+        name=name,
+        description=description,
         physics_problem="Occurs in implicit time stepping of Maxwell's equations and in magnetostatics.",
         struphy_model_used="CurlCurl",
         params_source=params_dir / "params_curl_curl.py",
@@ -61,7 +99,7 @@ def main() -> None:
 
     # Launch one run per rank count
     for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
-        profiling_case.launch(num_tasks)
+        profiling_case.launch(num_tasks, param_flags=param_flags)
 
     # Package and push each run as its own job finishes.
     profiling_case.finalize_run()

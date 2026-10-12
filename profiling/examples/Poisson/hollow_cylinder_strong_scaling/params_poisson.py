@@ -4,13 +4,43 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Poisson strong scaling on hollow cylinder, no preconditioner"
-description = """
+import argparse
+
+# Command line options
+# `--id` distinguishes runs that share a rank count but differ in something else; the
+# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
+# `--precond` selects the preconditioner (the variant), see the submit script.
+# Unknown flags are ignored so the driver can forward other parameters as well.
+parser = argparse.ArgumentParser()
+parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+parser.add_argument(
+    "--precond",
+    default="None",
+    choices=["None", "MultiGrid", "StiffnessPreconditioner"],
+    help="Name of the preconditioner (None for no preconditioner).",
+)
+parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 64], help="Number of elements per direction.")
+args, _ = parser.parse_known_args()
+
+precond = None if args.precond == "None" else args.precond
+
+# preconditioner -> (name suffix, linear solver) for the name and the description
+PRECONDS = {
+    None: ("no preconditioner", "unpreconditioned CG"),
+    "MultiGrid": ("multigrid preconditioner", "CG preconditioned by geometric multigrid"),
+    "StiffnessPreconditioner": (
+        "stiffness preconditioner",
+        "CG preconditioned by the Kronecker approximation of the inverse Laplacian (StiffnessPreconditioner)",
+    ),
+}
+
+name = f"Poisson strong scaling on hollow cylinder, {PRECONDS[precond][0]}"
+description = f"""
 Strong scaling test for Poisson equation on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4).
 The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
 exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions are set in direction eta1.
-The linear system is solved with unpreconditioned CG.
+The linear system is solved with {PRECONDS[precond][1]}.
 """
 
 import logging
@@ -19,7 +49,6 @@ from struphy import set_logging_level
 
 set_logging_level(logging.INFO)
 
-import argparse
 
 # ------------------
 # Import Struphy API
@@ -58,13 +87,6 @@ model.em_fields.source.save_data = True
 # --------------------------
 
 # Environment options
-# `--id` distinguishes runs that share a rank count but differ in something else; the
-# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
-# Unknown flags are ignored so the driver can forward other parameters as well.
-parser = argparse.ArgumentParser()
-parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
-args, _ = parser.parse_known_args()
-
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
     restart=False,
@@ -83,7 +105,7 @@ domain = domains.HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(64, 64, 64), mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
@@ -118,7 +140,7 @@ solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=Fals
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
-    precond=None,
+    precond=precond,
     solver_params=solver_params,
 )
 
