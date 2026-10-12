@@ -24,6 +24,7 @@ from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
+from struphy.polar.basic import PolarVector
 from struphy.post_processing import store
 from struphy.post_processing.arrays import (
     BINNED_LABELS,
@@ -1483,7 +1484,11 @@ class Output:
                     assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
                     assert pads.shape == (3,) or pads.shape == (3, 3)
 
-                    vector = fields[species][var].vector
+                    # the saved data are the tensor-product coefficients (for polar splines: the
+                    # extracted coefficients E^T v, from which v is recovered below)
+                    field = fields[species][var]
+                    is_polar = isinstance(field.vector, PolarVector)
+                    vector = field.vector_stencil if is_polar else field.vector
 
                     # scalar field
                     if gl_s.shape == (3,):
@@ -1511,6 +1516,9 @@ class Output:
                             ] = ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3]
 
                     vector.update_ghost_regions()
+                    if is_polar:
+                        field._restart_extraction_op().dot(vector, out=field.vector)
+                        field.vector.update_ghost_regions()
 
     def _create_eval_grids(self, celldivide: int | Sequence[int] = (1, 1, 1)):
         """Build the logical evaluation grids and distribute them over the MPI ranks.
