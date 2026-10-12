@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy<=2.5.0",
-    "cunumpy >= 0.6.1, <= 0.6.1",
+    "cunumpy @ git+https://github.com/max-models/cunumpy.git@26a640b1d47d5677663785e49b1c44d343540df1",
     "pyccel>=2.2.0, <=2.2.3",
     "maybempi>=0.1.2",
     "feectools>=0.8.0, <=0.8.0",
