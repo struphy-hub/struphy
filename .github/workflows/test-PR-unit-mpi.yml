@@ -82,3 +82,9 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
           mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi pic/tests/test_sorting_device.py
+
+      - name: Run polar GPU MPI paths on the fake CuPy
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd ${{ env.STRUPHY_PATH }}
+          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi polar/tests/test_polar_cupy.py -k mpi_fake

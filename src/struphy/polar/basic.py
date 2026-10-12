@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
-from cunumpy.mpi import synchronize_for_mpi
+from cunumpy.mpi import mpi_buffer
 from feectools.linalg.basic import Vector, VectorSpace
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
@@ -106,14 +106,22 @@ class PolarDerhamSpace(VectorSpace):
         self._n_comps = len(self.n_polar)
 
         if self.n_comps == 1:
-            if self.starts[0] == 0:
+            self._is_pole_rank = self.starts[0] == 0
+            if self.is_pole_rank:
                 assert self.ends[0] > self.n_rings[0], "MPI coeff decomposition in eta_1 too small for polar splines!"
         else:
+            self._is_pole_rank = self.starts[0][0] == 0
             for n in range(3):
                 if self.starts[n][0] == 0:
                     assert self.ends[n][0] > self.n_rings[n], (
                         "MPI coeff decomposition in eta_1 too small for polar splines!"
                     )
+
+        # sub-communicator of the processes at the pole (the only ones holding the inner tp rings)
+        if self.comm is not None and self.comm.Get_size() > 1:
+            self._pole_comm = self.comm.Split(int(self.is_pole_rank), self.comm.Get_rank())
+        else:
+            self._pole_comm = self.comm
 
     @property
     def dtype(self):
@@ -124,6 +132,16 @@ class PolarDerhamSpace(VectorSpace):
     def comm(self):
         """TODO"""
         return self._comm
+
+    @property
+    def is_pole_rank(self):
+        """Whether this process holds the first coefficients in eta_1 (the inner tensor-product rings at the pole)."""
+        return self._is_pole_rank
+
+    @property
+    def pole_comm(self):
+        """Sub-communicator of the processes with the same value of is_pole_rank (None in serial runs without MPI)."""
+        return self._pole_comm
 
     @property
     def space_id(self):
@@ -326,26 +344,25 @@ class PolarVector(Vector):
             s1, s2, s3 = self.space.starts
             e1, e2, e3 = self.space.ends
 
-            out = self.tp.toarray()[self.space.n_rings[0] * self.space.n[1] * self.space.n3[0] :]
+            out = self.tp.toarray()[self.space.n_rings[0] * self.space.n2[0] * self.space.n3[0] :]
 
             # allreduce tensor-product part
-            if self.space.comm is not None and allreduce:
-                synchronize_for_mpi(out)
-                self.space.comm.Allreduce(MPI.IN_PLACE, out, op=MPI.SUM)
+            if self.space.comm is not None and self.space.comm.Get_size() > 1 and allreduce:
+                with mpi_buffer(out, recv=True) as buf:
+                    self.space.comm.Allreduce(MPI.IN_PLACE, buf, op=MPI.SUM)
 
             out = xp.concatenate((self.pol[0].flatten(), out))
 
         else:
-            out1 = self.tp[0].toarray()[self.space.n_rings[0] * self.space.n[1] * self.space.n3[0] :]
-            out2 = self.tp[1].toarray()[self.space.n_rings[1] * self.space.n[1] * self.space.n3[1] :]
-            out3 = self.tp[2].toarray()[self.space.n_rings[2] * self.space.n[1] * self.space.n3[2] :]
+            out1 = self.tp[0].toarray()[self.space.n_rings[0] * self.space.n2[0] * self.space.n3[0] :]
+            out2 = self.tp[1].toarray()[self.space.n_rings[1] * self.space.n2[1] * self.space.n3[1] :]
+            out3 = self.tp[2].toarray()[self.space.n_rings[2] * self.space.n2[2] * self.space.n3[2] :]
 
             # allreduce tensor-product part
-            if self.space.comm is not None and allreduce:
-                synchronize_for_mpi(out1, out2, out3)
-                self.space.comm.Allreduce(MPI.IN_PLACE, out1, op=MPI.SUM)
-                self.space.comm.Allreduce(MPI.IN_PLACE, out2, op=MPI.SUM)
-                self.space.comm.Allreduce(MPI.IN_PLACE, out3, op=MPI.SUM)
+            if self.space.comm is not None and self.space.comm.Get_size() > 1 and allreduce:
+                for array in (out1, out2, out3):
+                    with mpi_buffer(array, recv=True) as buf:
+                        self.space.comm.Allreduce(MPI.IN_PLACE, buf, op=MPI.SUM)
 
             out = xp.concatenate(
                 (
