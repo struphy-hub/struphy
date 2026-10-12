@@ -208,7 +208,7 @@ class ImplicitDiffusion(Propagator):
               (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``mid=diffusion_mat``,
               ``stab=stab_mat`` and ``stab_average``), with ``sigma = sigma_1`` (divided by dt if
               ``divide_by_dt=True``). With polar splines, this is a
-              :class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner` (without ``stab_average``).
+              :class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner`.
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the mass-matrix or stiffness

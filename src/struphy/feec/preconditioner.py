@@ -41,6 +41,7 @@ from struphy.polar.kron_2dx1d import (
     PolarKronSum2Dx1DSolver,
     bc_masks,
     component_groups,
+    poloidal_average_basis,
     poloidal_extraction_matrix,
     poloidal_mass_matrix,
     reduced_weight_2d,
@@ -636,9 +637,9 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     Euclidean, i.e. :math:`M_d` is replaced by the identity and :math:`c_d = \mathbb 1`.
 
     With polar splines (``mass_ops.derham.polar_splines``), the constructor returns a
-    :class:`PolarStiffnessPreconditioner` instead (``grad`` and ``curl`` only, without ``stab_average``;
-    ``diagonal_scaling`` and ``weights`` are ignored there, and its own options such as
-    ``poloidal_solver`` can be passed as keyword arguments).
+    :class:`PolarStiffnessPreconditioner` instead (``grad`` and ``curl`` only; ``diagonal_scaling``
+    and ``weights`` are ignored there, and its own options such as ``poloidal_solver`` can be passed
+    as keyword arguments).
 
     Parameters
     ----------
@@ -710,6 +711,9 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             raise ValueError("The kernel correction needs sigma > 0 (or kernel_correction=False).")
 
         derham = mass_ops.derham
+        if derham.polar_splines:
+            raise NotImplementedError("Use PolarStiffnessPreconditioner for polar splines.")
+
         k = self._FORMS[derivative]
         self._mass_ops = mass_ops
         self._derivative = derivative
@@ -954,8 +958,6 @@ def _polar_stiffness_preconditioner(
     **polar_kwargs,
 ) -> PolarStiffnessPreconditioner:
     """The PolarStiffnessPreconditioner for the arguments of StiffnessPreconditioner (plus its own options)."""
-    if stab_average:
-        raise NotImplementedError("stab_average is not implemented for polar splines yet.")
     return PolarStiffnessPreconditioner(
         mass_ops,
         derivative,
@@ -964,6 +966,7 @@ def _polar_stiffness_preconditioner(
         kernel_correction=kernel_correction,
         mid=mid,
         stab=stab,
+        stab_average=stab_average,
         **polar_kwargs,
     )
 
@@ -998,6 +1001,15 @@ class PolarStiffnessPreconditioner(LinearOperator):
     on the kernel of the curl is added (see :class:`StiffnessPreconditioner`). The identity stabilization (``stab="Id"``) is
     approximated by its diagonal in the eigenbasis of the fast diagonalization.
 
+    For the gradient, ``stab_average`` replaces the stabilization :math:`\mathbb S` by :math:`\mathbb S (\mathbb I - \Pi_{\mathbb S})`
+    (:class:`~struphy.feec.mass.PolarWeightedAverageProjection`, averages over :math:`\eta_2` and/or :math:`\eta_3`). With
+    :math:`\mathbb S \approx \mathbb S_\textnormal{pol} \otimes \mathbb M_3`, the average over :math:`\eta_3` gives the 1d factor
+    :math:`F_3 = c_3 c_3^\top / (\mathbb 1^\top c_3)`, :math:`c_3 = \mathbb M_3 \mathbb 1`, which acts only on the constant mode of the
+    fast diagonalization (exact for periodic :math:`\eta_3`), and the average over :math:`\eta_2` the low-rank poloidal factor
+    :math:`\mathbb S_\textnormal{pol} \mathbb B (\mathbb B^\top \mathbb S_\textnormal{pol} \mathbb B)^{-1} \mathbb B^\top \mathbb S_\textnormal{pol}`, which is
+    included in the poloidal solves by the Woodbury identity. With weights that do not depend on :math:`\eta_3`, the
+    preconditioner thus stays exact (except for ``stab="Id"``, whose average is Euclidean).
+
     The divergence is not implemented yet.
 
     Parameters
@@ -1019,6 +1031,10 @@ class PolarStiffnessPreconditioner(LinearOperator):
 
     mid, stab : str | LinearOperator | None
         Matrix in the middle and stabilization, see :class:`StiffnessPreconditioner`.
+
+    stab_average : str | None
+        Gradient only: the directions averaged in the stabilization, ``"eta3"``, ``"eta2"`` or ``"eta2 eta3"``
+        (see :class:`StiffnessPreconditioner`); None (default) for no averaging.
 
     poloidal_solver : str
         Solver for the poloidal matrices: ``"schur"`` (block elimination of the pole block), ``"lu"`` (sparse LU)
@@ -1048,6 +1064,7 @@ class PolarStiffnessPreconditioner(LinearOperator):
         kernel_correction: bool = True,
         mid: str | LinearOperator | None = None,
         stab: str | LinearOperator | None = None,
+        stab_average: str | None = None,
         poloidal_solver: str = "schur",
         weight_reduction: str = "midpoint",
         schur_outer: str = "lu",
@@ -1087,8 +1104,16 @@ class PolarStiffnessPreconditioner(LinearOperator):
                     f"{name} must have the domain and codomain of M{k + 1 if name == 'mid' else k}."
                 )
 
+        # averaged directions of the stabilization (gradient only)
+        self._stab_average = stab_average
+        average_dirs = _parse_directions(stab_average)
+        if average_dirs and derivative != "grad":
+            raise NotImplementedError("stab_average is only implemented for derivative='grad'.")
+        if 0 in average_dirs:
+            raise NotImplementedError("Averages over eta1 (across the pole) are not implemented for polar splines.")
+
         groups = _polar_stiffness_groups(
-            mass_ops, derivative, sigma, mid_terms, stab_terms, stab_is_identity, weight_reduction
+            mass_ops, derivative, sigma, mid_terms, stab_terms, stab_is_identity, weight_reduction, average_dirs
         )
 
         # boundary conditions are only imposed if the mass operator has a BoundaryOperator
@@ -1141,6 +1166,11 @@ class PolarStiffnessPreconditioner(LinearOperator):
         return self._sigma
 
     @property
+    def stab_average(self) -> str | None:
+        """The directions averaged in the stabilization, or None."""
+        return self._stab_average
+
+    @property
     def solver(self) -> PolarKronSum2Dx1DSolver:
         """The 2D x 1D fast-diagonalization solver (without the kernel correction)."""
         return self._solver
@@ -1165,13 +1195,16 @@ class PolarStiffnessPreconditioner(LinearOperator):
         """Apply the preconditioner (block Jacobi part plus kernel correction, if any) to rhs."""
         assert isinstance(rhs, Vector)
         assert rhs.space == self._space
+        # kernel correction first, in case out is rhs
+        if self._kernel_correction is not None:
+            self._kernel_correction.dot(rhs, out=self._tmp_kernel)
         b = rhs
         if self._bc is not None:
             self._mass_k._V_boundary_op.dot(rhs, out=self._tmp)
             b = self._tmp
         out = self._solver.dot(b, out=out)
         if self._kernel_correction is not None:
-            out += self._kernel_correction.dot(rhs, out=self._tmp_kernel)
+            out += self._tmp_kernel
         return out
 
     def dot(self, v: Vector, out: Vector | None = None) -> Vector:
@@ -1213,6 +1246,7 @@ def _polar_stiffness_groups(
     stab_terms: list | None,
     stab_is_identity: bool,
     reduction: str,
+    average_dirs: tuple[int, ...] = (),
 ) -> list[KronSum2Dx1DGroup]:
     """Factors of the 2D x 1D approximation of the polar stiffness operator, see :class:`PolarStiffnessPreconditioner`
     (without boundary conditions)."""
@@ -1289,12 +1323,34 @@ def _polar_stiffness_groups(
                     if blk[a][b] is None:
                         blk[a][b] = sparse.csr_matrix((_poloidal_size(space, c), _poloidal_size(space, c2)))
             A_pol[t] = (E @ sparse.bmat(blk, format="csr") @ E.T).tocsr()
-        if sigma != 0.0 and stab_is_identity:
-            A_pol["I"] = sigma * sparse.eye(E.shape[0], format="csr")
 
         # unweighted 1d mass matrix in eta_3
         M_3 = _dense_mass_1d(mass_k, bases[comps[0]][2], 2, _ones_1d)[0]
-        groups.append(KronSum2Dx1DGroup(comps, A_pol, M_3, S_3 if "S" in A_pol else None))
+        B_3 = {}
+        if sigma != 0.0 and stab_is_identity:
+            A_pol["I"] = sigma * sparse.eye(E.shape[0], format="csr")
+            B_3["I"] = np.eye(M_3.shape[0])
+
+        # averaged stabilization: -sigma S Pi_S (gradient only, one group)
+        low_rank = []
+        if sigma != 0.0 and average_dirs:
+            if stab_is_identity:
+                S_pol = sparse.eye(E.shape[0], format="csr")
+            else:
+                S_pol = (E @ _poloidal_mass_block(stab_terms, derham, bases, 0, 0, reduction) @ E.T).tocsr()
+            if 2 in average_dirs:
+                c_3 = np.ones(M_3.shape[0]) if stab_is_identity else M_3 @ np.ones(M_3.shape[0])
+                B_3["F"] = np.outer(c_3, c_3) / c_3.sum()
+                key_3 = "F"
+            else:
+                key_3 = "I" if stab_is_identity else "M"
+            if 1 in average_dirs:
+                B_pol = poloidal_average_basis(space, E_op)
+                low_rank.append((-sigma, S_pol, B_pol, key_3))
+            else:
+                A_pol["F"] = -sigma * S_pol
+
+        groups.append(KronSum2Dx1DGroup(comps, A_pol, M_3, S_3 if "S" in A_pol else None, B_3, low_rank))
     return groups
 
 

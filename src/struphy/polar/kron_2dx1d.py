@@ -210,6 +210,44 @@ def poloidal_extraction_matrix(
     return spa.bmat(rows, format="csr")
 
 
+def poloidal_average_basis(space: PolarDerhamSpace, E_op) -> spa.csr_matrix:
+    r"""
+    Basis of the polar 0-forms of the poloidal plane that are constant in :math:`\eta_2` (functions of :math:`\eta_1` only),
+    as columns in the polar unknowns (polar coefficients, then the tensor-product rings :math:`i \geq` ``n_rings``):
+    the polar coefficients of the function that is 1 on the inner rings, and the constant in :math:`\eta_2` on each
+    outer ring.
+
+    Parameters
+    ----------
+    space : PolarDerhamSpace
+        The polar 0-form space (``"H1"``).
+
+    E_op : PolarExtractionOperator
+        The basis extraction operator of the space.
+    """
+    assert space.space_id == "H1", "Averages in eta_2 are only implemented for 0-forms."
+    n1, n2 = tp_space(space, 0).npts[:2]
+    npol, nr = space.n_polar[0], space.n_rings[0]
+
+    # polar coefficients of the function that is 1 on the inner rings (partition of unity of the polar splines)
+    E = poloidal_extraction_matrix(space, (0,), E_op.blocks_ten_to_pol, None)
+    E_inner = E[:npol, : nr * n2].toarray().T
+    ones = np.ones(nr * n2)
+    p0 = np.linalg.lstsq(E_inner, ones, rcond=None)[0]
+    assert np.allclose(E_inner @ p0, ones), "The polar splines must reproduce constants on the inner rings."
+
+    cols = [np.concatenate((p0, np.zeros((n1 - nr) * n2)))[:, None]]
+    B = spa.hstack([spa.csr_matrix(np.column_stack(cols))] + [_ring_constant(npol, n1 - nr, n2)])
+    return B.tocsr()
+
+
+def _ring_constant(npol: int, n_rings_outer: int, n2: int) -> spa.csr_matrix:
+    """Columns that are 1 on one outer ring each (rows: polar unknowns)."""
+    rows = npol + np.arange(n_rings_outer * n2)
+    cols = np.repeat(np.arange(n_rings_outer), n2)
+    return spa.csr_matrix((np.ones(rows.size), (rows, cols)), shape=(npol + n_rings_outer * n2, n_rings_outer))
+
+
 # --------------------------------------------------------------------------------------
 # Poloidal solvers
 # --------------------------------------------------------------------------------------
@@ -523,7 +561,7 @@ class Kron2Dx1DGroup:
 class _PolarKron2Dx1DBase(LinearOperator):
     """Common data layout and parallel application of 2D x 1D Kronecker operators on a PolarDerhamSpace."""
 
-    def __init__(self, space: PolarDerhamSpace, groups: list[Kron2Dx1DGroup]):
+    def __init__(self, space: PolarDerhamSpace, groups: list["Kron2Dx1DGroup | KronSum2Dx1DGroup"]):
         assert isinstance(space, PolarDerhamSpace)
         self._space = space
         self._groups = groups
@@ -595,7 +633,8 @@ class _PolarKron2Dx1DBase(LinearOperator):
                 full[c] = self._tpl[c].forward(tmp_tp[c])
                 nr = V.n_rings[c]
                 blocks.append(tmp_pol[c][:, s3 + k0 : s3 + k1])
-                blocks.append(full[c][nr:].reshape(-1, k1 - k0))
+                n1, n2 = tp_space(V, c).npts[:2]
+                blocks.append(full[c][nr:].reshape((n1 - nr) * n2, k1 - k0))
             Y = np.concatenate(blocks, axis=0)
             Z = op_pol(Y, np.arange(s3 + k0, s3 + k1)) if k1 > k0 else Y
 
@@ -729,14 +768,20 @@ class KronSum2Dx1DGroup:
     r"""
     Factors of one group of components: :math:`\mathbb A = \sum_t \mathbb A^t_\textnormal{pol} \otimes \mathbb B^t_3`
     with :math:`\mathbb B^t_3` the 1d mass matrix ``M_3`` (term ``"M"``), the 1d stiffness matrix ``S_3`` (term ``"S"``)
-    or the identity (term ``"I"``).
+    or another 1d matrix of ``B_3`` (e.g. the identity), plus low-rank terms
+    :math:`c \, \mathbb S \mathbb B (\mathbb B^\top \mathbb S \mathbb B)^{-1} \mathbb B^\top \mathbb S \otimes \mathbb B^t_3`
+    (e.g. a weighted average in :math:`\eta_2`).
     """
 
     comps: tuple[int, ...]
-    # poloidal factor of each term ("M", "S" or "I"), without boundary conditions
+    # poloidal factor of each term ("M", "S" or a key of B_3), without boundary conditions
     A_pol: dict[str, spa.spmatrix]
     M_3: np.ndarray
     S_3: np.ndarray | None = None
+    # further 1d factors in eta_3 (e.g. "I": identity), approximated by their diagonal in the eigenbasis
+    B_3: dict[str, np.ndarray] = field(default_factory=dict)
+    # low-rank terms coeff * (S B)(B^T S B)^{-1}(S B)^T x B_3[key] (or M_3 for key "M"), as (coeff, S, B, key)
+    low_rank: list = field(default_factory=list)
     # masks of the unknowns free of essential boundary conditions (None: all free)
     free_pol: np.ndarray | None = None
     free_3: np.ndarray | None = None
@@ -744,14 +789,15 @@ class KronSum2Dx1DGroup:
 
 
 def fast_diagonalization_3(
-    M_3: np.ndarray, S_3: np.ndarray | None, free_3: np.ndarray | None = None
+    M_3: np.ndarray, S_3: np.ndarray | None, free_3: np.ndarray | None = None, B_3: dict | None = None
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray]:
     r"""
     Basis :math:`V` of :math:`\eta_3` in which the 1d factors of a :class:`KronSum2Dx1DGroup` are diagonal.
 
     With ``S_3``, :math:`V` solves the generalized eigenvalue problem :math:`S_3 V = M_3 V \Lambda`
-    (:math:`V^\top M_3 V = I`, :math:`V^\top S_3 V = \Lambda`) and the identity is approximated by the diagonal
-    of :math:`V^\top V`. Without ``S_3``, :math:`V` are the orthonormal eigenvectors of :math:`M_3` (exact).
+    (:math:`V^\top M_3 V = I`, :math:`V^\top S_3 V = \Lambda`). Without ``S_3``, :math:`V` are the orthonormal
+    eigenvectors of :math:`M_3`. Further 1d matrices ``B_3`` (e.g. the identity) are approximated by the diagonal of
+    :math:`V^\top B V` (exact if they are diagonal in this basis, e.g. the M_3-weighted average for periodic :math:`\eta_3`).
     The unknowns with essential boundary conditions (``~free_3``) are decoupled: each of them is a mode of its own,
     on which the inverse is the identity.
 
@@ -761,7 +807,7 @@ def fast_diagonalization_3(
         The basis (columns), with :math:`\mathbb A^{-1} = (I \otimes V) \bigoplus_k (\sum_t q_{t,k} \mathbb A^t_\textnormal{pol})^{-1} (I \otimes V^\top)`.
 
     q : dict[str, np.ndarray]
-        Diagonals :math:`q_t` of the 1d factors of the terms ``"M"``, ``"S"`` and ``"I"`` in this basis.
+        Diagonals :math:`q_t` of the 1d factors ``"M"``, ``"S"`` and those of ``B_3`` in this basis.
 
     constrained : np.ndarray[bool]
         The modes of the constrained unknowns.
@@ -773,10 +819,12 @@ def fast_diagonalization_3(
     Mf = M_3[np.ix_(f, f)]
     if S_3 is None:
         mu, Vf = eigh(Mf)
-        qf = {"M": mu, "S": np.zeros(nf), "I": np.ones(nf)}
+        qf = {"M": mu, "S": np.zeros(nf)}
     else:
         lam, Vf = eigh(S_3[np.ix_(f, f)], Mf)
-        qf = {"M": np.ones(nf), "S": lam, "I": np.einsum("ik,ik->k", Vf, Vf)}
+        qf = {"M": np.ones(nf), "S": lam}
+    for key, B in (B_3 or {}).items():
+        qf[key] = np.einsum("ik,ij,jk->k", Vf, B[np.ix_(f, f)], Vf)
 
     V = np.zeros((n3, n3))
     V[np.ix_(f, np.arange(nf))] = Vf
@@ -785,6 +833,34 @@ def fast_diagonalization_3(
     constrained[nf:] = True
     q = {t: np.concatenate((qf[t], np.full(n3 - nf, np.nan))) for t in qf}
     return V, q, constrained
+
+
+def _low_rank_factors(S: spa.spmatrix, B: spa.spmatrix, free: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
+    """U = D S D B and C = B^T D S D B (identity on empty rows) of a low-rank term, with the mask D of ``free``."""
+    S = spa.csr_matrix(S) if free is None else apply_mask(spa.csr_matrix(S), free, False)
+    U = (S @ B).toarray() if spa.issparse(B) else S @ B
+    C = np.asarray(B.T @ U)
+    diag = np.abs(np.diag(C))
+    empty = diag <= 1e-14 * max(diag.max(), 1e-300)
+    C[empty, empty] = 1.0
+    return U, C
+
+
+class _WoodburySolver:
+    """Solver for A + alpha U C^{-1} U^T (Woodbury identity), given a solver for A."""
+
+    def __init__(self, base, U: np.ndarray, C: np.ndarray, alpha: float):
+        self._base = base
+        self._U = U
+        self._W = base.solve(U)
+        self._T = lu_factor(C / alpha + U.T @ self._W)
+        self.exact = base.exact
+
+    def solve(self, Y: np.ndarray) -> np.ndarray:
+        if Y.shape[-1] == 0:
+            return Y.copy()
+        X = self._base.solve(Y)
+        return X - self._W @ lu_solve(self._T, self._U.T @ X)
 
 
 class PolarKronSum2Dx1DSolver(_PolarKron2Dx1DBase):
@@ -827,9 +903,10 @@ class PolarKronSum2Dx1DSolver(_PolarKron2Dx1DBase):
         self._V = []
         self._mode_solvers = []
         for g in groups:
-            V, q, constrained = fast_diagonalization_3(g.M_3, g.S_3, g.free_3)
+            V, q, constrained = fast_diagonalization_3(g.M_3, g.S_3, g.free_3, g.B_3)
             self._V.append(V)
             pole = g.pole if g.pole is not None else pole_mask(space, g.comps)
+            low_rank = [(coeff, *_low_rank_factors(S, B, g.free_pol), key) for coeff, S, B, key in g.low_rank]
 
             # factorizations of the modes held by this process (key None: constrained mode, identity)
             s3 = tp_space(space, g.comps[0]).starts[2]
@@ -841,20 +918,26 @@ class PolarKronSum2Dx1DSolver(_PolarKron2Dx1DBase):
                     keys[k] = None
                     continue
                 coeffs = {t: q[t][k] for t in g.A_pol}
-                key = tuple(f"{coeffs[t]:.12e}" for t in sorted(coeffs))
+                alphas = [coeff * q[key][k] for coeff, _, _, key in low_rank]
+                key = tuple(f"{coeffs[t]:.12e}" for t in sorted(coeffs)) + tuple(f"{a:.12e}" for a in alphas)
                 keys[k] = key
                 if key not in solvers:
                     A = sum(c * g.A_pol[t] for t, c in coeffs.items() if c != 0.0)
                     if g.free_pol is not None:
                         A = apply_mask(spa.csr_matrix(A), g.free_pol, True)
-                    solvers[key] = make_poloidal_solver(spa.csr_matrix(A), poloidal_solver, pole=pole, **solver_kwargs)
+                    solver = make_poloidal_solver(spa.csr_matrix(A), poloidal_solver, pole=pole, **solver_kwargs)
+                    for alpha, (_, U, C, _) in zip(alphas, low_rank):
+                        if abs(alpha) > 1e-14 * max(1.0, max(abs(c) for c in coeffs.values())):
+                            solver = _WoodburySolver(solver, U, C, alpha)
+                    solvers[key] = solver
             self._mode_solvers.append((solvers, keys))
             logger.debug(f"PolarKronSum2Dx1DSolver: group {g.comps}, {len(solvers)} poloidal factorizations")
 
     @property
     def exact(self) -> bool:
-        """Whether the poloidal solves are exact (else the solver is an approximate inverse, e.g. a preconditioner)."""
-        return all(s.exact for solvers, _ in self._mode_solvers for s in solvers.values())
+        """Whether the poloidal solves are exact (else the solver is an approximate inverse, e.g. a preconditioner).
+        Given by the configuration, the same on all processes (also on those without factorizations)."""
+        return self._kind != "ilu" and not (self._kind == "schur" and self._solver_kwargs.get("schur_outer") == "ilu")
 
     @property
     def poloidal_solver(self) -> str:

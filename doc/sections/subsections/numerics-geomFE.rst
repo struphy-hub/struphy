@@ -298,5 +298,8 @@ with one poloidal solve per :math:`\eta_3` mode.
 It is used automatically for ``precond="StiffnessPreconditioner"`` with polar splines.
 For the gradient it is exact on axisymmetric domains (without straight field line coordinates).
 For the curl, the components :math:`(E_1, E_2)` and :math:`E_3` are decoupled (block Jacobi) and a correction on the gradients is added.
+Weighted averages over :math:`\eta_2` and/or :math:`\eta_3` (e.g. the flux-surface average of the gyrokinetic Poisson equation,
+``stab_average``) are available on polar 0-forms through :class:`~struphy.feec.mass.PolarWeightedAverageProjection`,
+and are included in the polar stiffness preconditioner (the average over :math:`\eta_2` by a low-rank correction).
 
 .. image:: ../../pics/polar_derham.png
