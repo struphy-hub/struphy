@@ -549,7 +549,7 @@ def _polar_mass_groups(mass_operator: WeightedMassOperator, reduction: str) -> l
         A_pol = (E @ M12 @ E.T).tocsr()
 
         # unweighted 1d mass matrix in eta_3
-        A_3 = _mass_matrix_1d(mass_operator, bases[comps[0]][2], 2, _ones_1d)[0].toarray()
+        A_3 = xp.to_numpy(_mass_matrix_1d(mass_operator, bases[comps[0]][2], 2, _ones_1d)[0].toarray())
 
         groups.append(Kron2Dx1DGroup(comps, A_pol, A_3))
     return groups
