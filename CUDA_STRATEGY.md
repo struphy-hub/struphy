@@ -831,6 +831,8 @@ the [porting order](#porting-order); part of #688).
   kernels), with dense device-array substitutes for cuSPARSE products and triangular solves.
   MPI parity tests decompose independently in eta1, eta2 and eta3 and exercise both device-buffer and
   staged polar collectives; CI runs them on 1, 2, 3 and 4 ranks. Real-GPU variants are included but require
-  GPU hardware and the feectools CUDA stack.
+  GPU hardware and the feectools CUDA stack. Full real-GPU MPI parity is opt-in with
+  `STRUPHY_TEST_CUDA_AWARE_MPI=1` on a known CUDA-aware MPI build; the separate staged-collective test
+  runs with regular MPI too, without involving feectools halos.
 - **Separate follow-ups.** `SplineFunction.__call__` field evaluation is not ported to CuPy for any space yet.
   FFT eta3 solves and sharing factorizations across different projector objects are additional optimizations.
