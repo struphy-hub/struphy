@@ -35,14 +35,14 @@ from dataclasses import dataclass, field
 import cunumpy as xp
 import numpy as np
 import scipy.sparse as spa
-from maybempi import MPI
-from scipy.linalg import lu_factor, lu_solve
-from scipy.sparse.linalg import spilu, splu
-
 from feectools.fem.tensor import TensorFemSpace
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+from maybempi import MPI
+from scipy.linalg import lu_factor, lu_solve
+from scipy.sparse.linalg import spilu, splu
+
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
 logger = logging.getLogger("struphy")
