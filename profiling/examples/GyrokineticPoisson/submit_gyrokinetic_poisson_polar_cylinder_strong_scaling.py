@@ -45,6 +45,10 @@ VARIANTS = {
         "polar splines, polar mass matrix preconditioner (Schur)",
         ["--splines", "polar", "--precond", "PolarMassMatrixPreconditioner"],
     ),
+    "polar_mass_ilu": (
+        "polar splines, polar mass matrix preconditioner (ILU)",
+        ["--splines", "polar", "--precond", "PolarMassMatrixPreconditioner", "--poloidal-solver", "ilu"],
+    ),
     "polar_stiffness": (
         "polar splines, polar stiffness preconditioner (Schur)",
         ["--splines", "polar", "--precond", "StiffnessPreconditioner"],

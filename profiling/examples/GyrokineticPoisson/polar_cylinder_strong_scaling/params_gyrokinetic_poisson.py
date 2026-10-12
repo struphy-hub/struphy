@@ -237,7 +237,9 @@ phi_lam = sym.lambdify((x_, y_, z_), phi_sym, "numpy")
 rho_lam = sym.lambdify((x_, y_, z_), rho_sym, "numpy")
 
 # the symbolic equilibrium must match the struphy equilibrium
-_pts = np.random.default_rng(0).uniform(-0.7, 0.7, (3, 50))
+_rng = np.random.default_rng(0)
+_r, _t = _rng.uniform(1e-3, 0.99, 50), _rng.uniform(0.0, 2 * np.pi, 50)
+_pts = (_r * np.cos(_t), _r * np.sin(_t), _rng.uniform(0.0, Lz, 50))
 _check = [
     (sym.lambdify((x_, y_, z_), n_sym, "numpy"), equil.n_xyz),
     (sym.lambdify((x_, y_, z_), p_sym, "numpy"), equil.p_xyz),

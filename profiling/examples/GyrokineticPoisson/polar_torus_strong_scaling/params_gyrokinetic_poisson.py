@@ -266,22 +266,24 @@ phi_lam = sym.lambdify((x_, y_, z_), phi_sym, "numpy")
 rho_lam = sym.lambdify((x_, y_, z_), rho_sym, "numpy")
 n_over_t_lam = sym.lambdify((x_, y_, z_), n_sym**2 / p_sym, "numpy")
 
-# trapezoidal rule in theta (exponentially accurate for periodic integrands)
+# <phi> depends on r only: tabulated once (trapezoidal rule in theta, exponentially accurate for periodic
+# integrands) and interpolated
 _theta = np.linspace(0.0, 2 * np.pi, 512, endpoint=False)
+_r_tab = np.linspace(0.0, a, 2001)
+_R_tab = R0 + _r_tab[:, None] * np.cos(_theta)
+_g_tab = np.exp(-((_r_tab[:, None] * np.cos(_theta) - x0) ** 2 + (_r_tab[:, None] * np.sin(_theta)) ** 2) / w**2)
+_avg_tab = np.sum(_g_tab * _R_tab, axis=1) / np.sum(_R_tab, axis=1)
 
 
 def average(x, y, z):
     """Flux-surface average <phi>(r) = int g R dtheta / int R dtheta at the points (x, y, z)."""
     r = np.sqrt((np.sqrt(x**2 + y**2) - R0) ** 2 + z**2)
-    rr = np.asarray(r)[..., None]
-    R = R0 + rr * np.cos(_theta)
-    g = np.exp(-((rr * np.cos(_theta) - x0) ** 2 + (rr * np.sin(_theta)) ** 2) / w**2)
-    return np.sum(g * R, axis=-1) / np.sum(R, axis=-1)
+    return np.interp(r, _r_tab, _avg_tab)
 
 
 # the symbolic equilibrium must match the struphy equilibrium (points in the torus)
 _rng = np.random.default_rng(0)
-_r, _t, _p = _rng.uniform(0.0, 0.7, 50), _rng.uniform(0.0, 2 * np.pi, 50), _rng.uniform(0.0, 2 * np.pi, 50)
+_r, _t, _p = _rng.uniform(1e-3, 0.99, 50), _rng.uniform(0.0, 2 * np.pi, 50), _rng.uniform(0.0, 2 * np.pi, 50)
 _pts = ((R0 + _r * np.cos(_t)) * np.cos(_p), (R0 + _r * np.cos(_t)) * np.sin(_p), _r * np.sin(_t))
 _check = [
     (sym.lambdify((x_, y_, z_), n_sym, "numpy"), equil.n_xyz),
