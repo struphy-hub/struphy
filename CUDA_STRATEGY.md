@@ -27,7 +27,7 @@ Progress is tracked in struphy-hub/struphy#650.
 - [x] **PR 18: Geometry evaluation on the GPU for all analytic mappings** (#681, open) — CUDA versions of the four geometry entry kernels (`kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` in `geometry/kernels/`), built on device versions of the whole metric chain (`f`, `df`, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`/`push`/`tran`) for every analytic mapping (`kind_map` 10–12, 20–22, 30–32). Restores CuPy particle runs (weight initialization evaluates `jacobian_det`), and removes the Cuboid-only checks in `Pusher`, the accumulators and `reflect`. Parity arguments cover every analytic mapping (see [PR 18](#pr-18-geometry-evaluation-for-all-analytic-mappings) and the [PR 18 implementation notes](#pr-18-implementation-notes)).
 - [x] **PR 19: Spline mappings on the GPU** ([#683](https://github.com/struphy-hub/struphy/pull/683)) — `kind_map` 0–2 (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC): `DomainArgs` gets array views for `t1..3`, `ind1..3` and `cx/cy/cz` (shapes needed on the device), spline-mapped `Domain`s can be created on the CuPy backend (control points fitted on the host), and `spline_3d`, `spline_2d_straight`, `spline_2d_torus` get device versions in the `kind_map` switch, so every mapping runs on CuPy and `check_mapping_on_device` is gone. Parity arguments and device-helper tests add four spline mappings. Polar splines and `EQDSKequilibrium` stay host-only (see [PR 19](#pr-19-spline-mappings) and the [PR 19 implementation notes](#pr-19-implementation-notes)).
 - [x] **`linear_vlasov_ampere` on the GPU** (part of #688) — the first matrix accumulation: CUDA version of `linear_vlasov_ampere` (`EfieldWeightsCoupling`) on cunumpy's `Array6D` views (cunumpy 0.6.1), device versions of `fill_mat`, `fill_mat_vec`, `m_v_fill_b_v1_symm` and `outer`, and the matrix path of `Accumulator` checked on the CuPy backend (device data, ghost regions, transposed blocks, Schur operator) without a GPU through cunumpy's fake CuPy with emulated kernel launches (see the [implementation notes](#linear_vlasov_ampere-implementation-notes)).
-- [ ] **Next (order to be confirmed)**: the blocked matrix accumulation `vlasov_maxwell` (step 1 of the [porting order](#porting-order)); one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, including when to compile the kernels, which needs the [feectools stack](#feectools) merged and released first; a decision on hand-written CUDA vs. code generation before the guiding-center kernels (step 3).
+- [ ] **Next (order to be confirmed)**: one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, which needs the [feectools stack](#feectools) merged and released first; the guiding-center kernels (step 3), by hand (decided in #690, see [Hand-written CUDA](#hand-written-cuda-decision-for-690)).
 - [ ] **feectools**: the FEEC side (stencil vectors and matrices, MPI exchange, GPU binding) in feectools, stacked PRs [#85](https://github.com/struphy-hub/feectools/pull/85) (merged into `cuda-development`), [#86](https://github.com/struphy-hub/feectools/pull/86), [#87](https://github.com/struphy-hub/feectools/pull/87), [#88](https://github.com/struphy-hub/feectools/pull/88), integrated by [#90](https://github.com/struphy-hub/feectools/pull/90); needed before the end-to-end model run, not for PR 18/19 (see [feectools](#feectools)).
 - [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
@@ -316,7 +316,7 @@ algorithm is `discrete_gradient_1st_order`; its chain comes first.
 | 16–17 | `push_gc_bxEstar_discrete_gradient_2nd_order`, `push_gc_Bstar_discrete_gradient_2nd_order` | P |
 | 18–19 | `push_gc_bxEstar_explicit_multistage`, `push_gc_Bstar_explicit_multistage` | P |
 
-These are the largest kernels; evaluate code generation (see [Open questions](#open-questions)) before porting 13–19 by hand.
+These are the largest kernels. They are ported by hand like the others (decision for #690, see [Hand-written CUDA](#hand-written-cuda-decision-for-690)); `bstar_parallel_3form` (7) has its CUDA version.
 
 **Step 4 – Hybrid MHD–kinetic 6D (current and pressure coupling)**
 
@@ -367,7 +367,7 @@ views with more than 4 dimensions (all matrix accumulations write 6D stencil mat
 - **Accumulation strategy.** Atomics vs. sort-then-reduce; see PR 12+. Decided by measurement on the first accumulation kernel.
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here. The array view represents strides explicitly on the CUDA side.
 - **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. The marker exchange in `Particles.mpi_sort_markers` uses device buffers since #698 (see [Marker exchange implementation notes](#marker-exchange-implementation-notes-698)); the SPH ghost-box exchange (`_sendrecv_markers_boxes`) does not yet.
-- **Single-source alternatives.** Hand-written CUDA stays the default. Generating whole kernels from the Python source (`cupyx.jit`, numba-cuda, or a pyccel CUDA backend) is worth a look before the guiding-center kernels (the largest ones) are ported. Those tools take flat arguments, which `fields` also provides.
+- **Single-source alternatives.** Decided (#690): no code generation; every CUDA kernel is written by hand, see [Hand-written CUDA](#hand-written-cuda-decision-for-690).
 - **Polar splines on the GPU** (left after PR 19): spline mappings run on the device, but
   `Derham` with `polar_splines=True` raises on CuPy (`PolarExtractionBlocksC1` builds SciPy sparse matrices, and the
   polar extraction operators would apply them to device stencil data; needs `cupyx.scipy.sparse` or kernels). Needed
@@ -415,6 +415,35 @@ views with more than 4 dimensions (all matrix accumulations write 6D stencil mat
   only on rank 0 (under `mpirun` every rank used to start the same child at once; on CI one of the two concurrent GVEC
   children died with SIGILL and no output), with `faulthandler` and one OpenMP thread, and a failure reports the
   signal and the end of stdout and stderr (gvec writes its Fortran messages to stdout).
+
+## Hand-written CUDA (decision for #690)
+
+**Decision: all CUDA kernels are written by hand, as `<name>_cuda.cu` next to the pyccel kernel, like every kernel
+so far. Kernels are not generated from the pyccel source (no numba, `cupyx.jit` or other code generation).**
+
+To decide, one guiding-center kernel, `bstar_parallel_3form` (step 3, #7: drift-kinetic B*∥ as a 3-form; mapping
+Jacobian, two 0-form spline evaluations, weighted average of old and new marker positions), was ported by hand
+(`pic/pushing/kernels/bstar_parallel_3form/bstar_parallel_3form_cuda.cu`, one to one with pyccel) and through a
+numba.cuda prototype generator. The prototype was removed after the decision. The reasons:
+
+1. **The shared part is already written.** What a generator would save is mostly the helper chain (mappings,
+   metric, splines, linear algebra, boundary conditions), which PRs 10–19 have already ported and tested by hand.
+   What is left per kernel is its body: for `bstar_parallel_3form` 36 lines that read like the pyccel code, plus one
+   5-line helper (`eval_0form_spline_mpi`).
+2. **A generator is a second compiler to maintain**, and its mistakes are silent (array lengths that change when a
+   size is known only at run time; it cannot tell which writes need atomics, so accumulation kernels would race).
+   The prototype translated only 31 of the 60 pusher and accumulation entry kernels.
+3. **It does not fit the infrastructure.** Structs, signature checks in `CudaKernel`, the compile cache, debug
+   mode, `assert_kernels_agree`, the CPU emulation of the real source and the transfer checks are all built for
+   CUDA C++ source. numba does not accept the C structs and would need a second launch and test path, plus about
+   175 MB of dependencies.
+4. **Drift between pyccel and CUDA** (the main argument for one source) is caught by the parity cases: a change to a
+   pyccel kernel that is not made in its `.cu` fails `test_emulated_parity` in the normal CI.
+
+The port of `bstar_parallel_3form` stays, with 14 parity cases in `pic/tests/cuda_parity_cases.py`: one per mapping
+(all analytic and four spline mappings), α = 1, 0 and mixed, so the evaluation point wraps around in `mod(eta, 1)`
+(Fortran `MODULO`, `eta - floor(eta)` in CUDA), a negative `eta_n`, a hole and two output columns. The CPU emulation
+agrees with pyccel to 5.7·10⁻¹⁴.
 
 ## PR 10 implementation notes
 
