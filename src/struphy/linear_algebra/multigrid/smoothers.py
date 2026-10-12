@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 from feectools.linalg.basic import (
+    ComposedLinearOperator,
     IdentityOperator,
     LinearOperator,
     ScaledLinearOperator,
@@ -19,6 +20,8 @@ from feectools.linalg.basic import (
 )
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
+
+from struphy.feec.mass import WeightedAverageProjection
 
 
 class Smoother(ABC):
@@ -48,6 +51,10 @@ class Smoother(ABC):
     @abstractmethod
     def smooth(self, b: Vector, x: Vector) -> None:
         """Improve the approximate solution ``x`` of ``A x = b`` in place."""
+
+    def smooth_post(self, b: Vector, x: Vector) -> None:
+        """Post-smoothing step: the adjoint of :meth:`smooth` (the same for self-adjoint smoothers)."""
+        self.smooth(b, x)
 
 
 class JacobiSmoother(Smoother):
@@ -163,6 +170,78 @@ class ChebyshevSmoother(Smoother):
             d *= rho_new * rho
             d.mul_iadd(2.0 * rho_new / delta, z)
             rho = rho_new
+
+
+class HiptmairSmoother(Smoother):
+    r"""Hybrid smoother of Hiptmair (SIAM J. Numer. Anal. 36, 1998) for curl-curl operators
+    :math:`A = \mathbb C^T \mathbb M_2 \mathbb C + \sigma \mathbb M_1`.
+
+    Point or polynomial smoothers do not reduce the error in the kernel of the curl (the gradients),
+    where :math:`A = \sigma \mathbb M_1` has small eigenvalues on all scales. The hybrid smoother adds a sweep
+    on the potentials: one step of :meth:`smooth` is
+
+    1. a sweep of ``smoother`` for :math:`A x = b` in :math:`V^1_h`,
+    2. a sweep of ``smoother_0`` for :math:`(\mathbb G^T A \mathbb G) \, y = \mathbb G^T (b - A x)` in
+       :math:`V^0_h`, starting from :math:`y = 0`, followed by :math:`x \leftarrow x + \mathbb G y`.
+
+    :meth:`smooth_post` performs the two steps in reverse order, hence the V-cycle stays symmetric if both
+    inner smoothers are :math:`A`-symmetric.
+
+    Parameters
+    ----------
+    A : LinearOperator
+        Curl-curl operator on the 1-form coefficients.
+
+    grad : LinearOperator
+        Discrete gradient :math:`\mathbb G` (with boundary conditions) on the same level.
+
+    smoother : Smoother
+        Smoother for ``A``.
+
+    smoother_0 : Smoother
+        Smoother for :math:`\mathbb G^T A \mathbb G` (its ``A``).
+    """
+
+    def __init__(self, A: LinearOperator, grad: LinearOperator, smoother: Smoother, smoother_0: Smoother):
+        super().__init__(A)
+        assert smoother.A is A
+        assert grad.codomain is A.domain and smoother_0.A.domain is grad.domain
+        self._G = grad
+        self._GT = grad.T
+        self._S1 = smoother
+        self._S0 = smoother_0
+        self._b0 = grad.domain.zeros()
+        self._y0 = grad.domain.zeros()
+        self._Gy = A.domain.zeros()
+
+    @property
+    def is_symmetric(self) -> bool:
+        return self._S1.is_symmetric and self._S0.is_symmetric
+
+    @property
+    def smoother(self) -> Smoother:
+        """Smoother in :math:`V^1_h`."""
+        return self._S1
+
+    @property
+    def smoother_0(self) -> Smoother:
+        """Smoother for the potentials in :math:`V^0_h`."""
+        return self._S0
+
+    def _potential_sweep(self, b: Vector, x: Vector) -> None:
+        self.residual(b, x, self._r)
+        self._GT.dot(self._r, out=self._b0)
+        self._y0 *= 0.0
+        self._S0.smooth(self._b0, self._y0)
+        x += self._G.dot(self._y0, out=self._Gy)
+
+    def smooth(self, b: Vector, x: Vector) -> None:
+        self._S1.smooth(b, x)
+        self._potential_sweep(b, x)
+
+    def smooth_post(self, b: Vector, x: Vector) -> None:
+        self._potential_sweep(b, x)
+        self._S1.smooth_post(b, x)
 
 
 class KrylovSmoother(Smoother):
@@ -335,6 +414,13 @@ class DiagonalComputer:
     not couple, so one application of the operator per color gives the diagonal entries of all dofs of
     that color. This costs :math:`\prod_d c_d` operator applications (times the number of components).
 
+    The average :math:`\Pi` of a stabilization :math:`\mathbb S (\mathbb I - \Pi)`
+    (:class:`~struphy.feec.mass.WeightedAverageProjection`) couples all dofs along the averaged directions
+    and cannot be probed this way. Its (positive semi-definite, low-rank) part is dropped: the diagonal of
+    :math:`\mathbb S (\mathbb I - \Pi)` is approximated by the diagonal of :math:`\mathbb S`, an upper bound,
+    and :math:`\Pi` in any other position raises ``NotImplementedError``. This only affects the Jacobi
+    smoother and preconditioner.
+
     Parameters
     ----------
     widths : tuple[int, int, int]
@@ -363,6 +449,16 @@ class DiagonalComputer:
             return d
         if isinstance(A, ZeroOperator):
             return A.domain.zeros()
+        if isinstance(A, WeightedAverageProjection):
+            raise NotImplementedError(
+                "Diagonal of a WeightedAverageProjection is only approximated within S @ (I - Pi)."
+            )
+        if isinstance(A, ComposedLinearOperator) and _is_average_complement(A.multiplicands[-1]):
+            # S @ (I - Pi): diagonal of S (see class docstring)
+            head = A.multiplicands[:-1]
+            if len(head) == 1:
+                return self(head[0])
+            return self(ComposedLinearOperator(A.domain, A.codomain, *head))
 
         cached = self._cache.get(id(A))
         if cached is not None and cached[0] is A:
@@ -398,6 +494,19 @@ class DiagonalComputer:
                 yb = _stencil_blocks(y)[n]
                 db._data[idx][mask] = yb._data[idx][mask]
         return d
+
+
+def _is_average_complement(A: LinearOperator) -> bool:
+    """Whether ``A`` is ``I - Pi`` with a :class:`~struphy.feec.mass.WeightedAverageProjection` ``Pi``."""
+    if not isinstance(A, SumLinearOperator) or len(A.addends) != 2:
+        return False
+    ident = [a for a in A.addends if isinstance(a, IdentityOperator)]
+    avg = [
+        a
+        for a in A.addends
+        if isinstance(a, ScaledLinearOperator) and isinstance(a.operator, WeightedAverageProjection) and a.scalar < 0
+    ]
+    return len(ident) == 1 and len(avg) == 1
 
 
 def _n_colors(n: int, c: int, periodic: bool) -> int:

@@ -4,6 +4,7 @@ from typing import Callable, Literal
 from feectools.linalg.stencil import StencilVector
 
 from struphy.io.options import LiteralOptions
+from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
@@ -12,7 +13,7 @@ from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.utils.utils import check_option
 
 
-class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
+class GyrokineticPoissonSolve(ImplicitDiffusion):
     r"""
     Weak discretization of the Poisson equation, with adabatic response of electrons.
 
@@ -84,7 +85,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
     @dataclass
     class Options:
-        r"""Configuration options for :class:`PoissonAdiabaticGyrokinetic`.
+        r"""Configuration options for :class:`GyrokineticPoissonSolve`.
 
         Parameters
         ----------
@@ -137,11 +138,16 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         precond : LiteralOptions.OptsDiffusionPrecond, default=None
             Name of the preconditioner, see :class:`ImplicitDiffusion`. Requires ``solver="pcg"``.
             ``"StiffnessPreconditioner"`` approximates the operator with ``diffusion_mat``, ``stab_mat``
-            and the average; ``"MultiGrid"`` is not supported (no coarsening of the average).
+            and the average; ``"MultiGrid"`` is the geometric multigrid V-cycle, with the average
+            re-built on every coarse level.
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the mass-matrix or stiffness
             preconditioner, see :class:`ImplicitDiffusion`.
+
+        multigrid : MultiGridOptions, default=None
+            Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
+            If ``None``, defaults to ``MultiGridOptions()``.
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -153,10 +159,10 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
 
         Notes
         -----
-        ``Poisson.Options`` reuses :class:`ImplicitDiffusion` internals by
+        ``GyrokineticPoissonSolve`` reuses :class:`ImplicitDiffusion` internals by
         enforcing
-        ``sigma_2 = 0.0``, ``sigma_3 = 1.0``, ``divide_by_dt = False`` and
-        ``diffusion_mat = "M1"`` in ``__post_init__``.
+        ``sigma_1 = 1 / (Z * epsilon**2)``, ``sigma_2 = 0.0``, ``sigma_3 = 1 / epsilon`` and
+        ``divide_by_dt = False`` in ``allocate``.
         """
 
         # specific literals
@@ -171,6 +177,7 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsDiffusionPrecond = None
         precond_params: dict = None
+        multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
@@ -182,16 +189,14 @@ class PoissonAdiabaticGyrokinetic(ImplicitDiffusion):
             check_option(self.which_geometry, self.OptsGeometry)
             if self.precond is not None:
                 assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
-            if self.precond == "MultiGrid":
-                raise ValueError(
-                    "precond='MultiGrid' is not supported (no coarsening of the average in the stabilization)."
-                )
 
             # defaults
             if self.precond_params is None:
                 self.precond_params = {}
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
+            if self.multigrid is None:
+                self.multigrid = MultiGridOptions()
 
         @property
         def stab_average(self) -> str:
