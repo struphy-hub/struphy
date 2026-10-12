@@ -126,17 +126,27 @@ def save_equilibrium_diagnostics(out, species, results_dir=None, exact=None, sca
 
     if scalars:
         fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax_abs = None
         for name in scalars:
             values = out.scalars[name].values
             t = out.scalars[name].coords["t"].values
-            drift = (values - values[0]) / np.abs(values[0])
             np.save(os.path.join(results_dir, f"{name}.npy"), values)
-            ax.plot(t, drift, label=name)
+            if values[0] != 0.0:
+                ax.plot(t, (values - values[0]) / np.abs(values[0]), label=name)
+            else:
+                # e.g. the number of lost markers: absolute values on a second axis
+                if ax_abs is None:
+                    ax_abs = ax.twinx()
+                ax_abs.plot(t, values, "--", label=f"{name} (absolute, right axis)")
             if time is None:
                 time = t
         ax.set_xlabel("t")
         ax.set_ylabel("relative drift")
-        ax.legend()
+        handles, labels = ax.get_legend_handles_labels()
+        if ax_abs is not None:
+            handles_abs, labels_abs = ax_abs.get_legend_handles_labels()
+            handles, labels = handles + handles_abs, labels + labels_abs
+        ax.legend(handles, labels)
         fig.tight_layout()
         fig.savefig(os.path.join(results_dir, "scalars.png"))
         plt.close(fig)

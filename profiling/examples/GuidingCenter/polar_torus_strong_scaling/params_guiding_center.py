@@ -38,10 +38,16 @@ parser.add_argument(
     help="Runge-Kutta method of the explicit algorithm.",
 )
 parser.add_argument("--epsilon", type=float, default=0.05, help="Normalized cyclotron period (size of the drifts).")
-parser.add_argument("--ppc", type=int, default=100, help="Markers per cell.")
-parser.add_argument("--num-elements", type=int, nargs=3, default=[16, 18, 16], help="Number of elements per direction.")
-parser.add_argument("--dt", type=float, default=0.1, help="Time step.")
-parser.add_argument("--tend", type=float, default=200.0, help="End time.")
+parser.add_argument("--ppc", type=int, default=25, help="Markers per cell.")
+parser.add_argument(
+    "--num-elements",
+    type=int,
+    nargs=3,
+    default=[16, 48, 48],
+    help="Number of elements per direction (eta1 is not decomposed; up to 256 processes for the default).",
+)
+parser.add_argument("--dt", type=float, default=0.2, help="Time step.")
+parser.add_argument("--tend", type=float, default=100.0, help="End time.")
 parser.add_argument("--save-step", type=int, default=20, help="Save (and bin) every save_step time steps.")
 args, _ = parser.parse_known_args()
 
@@ -53,7 +59,8 @@ Initial condition: {args.init} Maxwellian. A canonical Maxwellian (density and t
 toroidal momentum psi_c) is an exact equilibrium; a gyro-Maxwellian with the same profiles in the flux label of the
 position is not (radial drifts in the torus), it serves as a control.
 The binned distributions in position (eta1, eta1-eta2) and velocity space (v_parallel, mu, eta1-v_parallel)
-are compared with their initial profiles up to t={args.tend} (dt={args.dt}).
+are compared with their initial profiles up to t={args.tend} (dt={args.dt}). The density vanishes at the edge r=a,
+where markers on drift orbits leaving the plasma are removed; this small loss is not part of the equilibrium.
 Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if explicit), epsilon={args.epsilon},
 {args.ppc} markers per cell on a grid with {args.num_elements} elements.
 """
@@ -104,10 +111,11 @@ env = EnvironmentOptions(sim_folder=f"sim_{args.id:02d}", save_step=args.save_st
 
 time_opts = Time(dt=args.dt, Tend=args.tend, split_algo="LieTrotter")
 
-# Grid (polar splines need a multiple of 3 elements in eta2)
+# Grid (polar splines need a multiple of 3 elements in eta2); eta1 is not decomposed, such that the process
+# with the pole has all rings of the polar splines and each process has at least degree elements per direction
 num_elements = tuple(args.num_elements)
 degree = (3, 3, 3)
-grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(False, True, True))
 
 # Geometry: full torus without hole, the spline mapping has the resolution of the grid in the poloidal plane
 a = 1.0
@@ -143,8 +151,9 @@ VTH_EDGE = 0.15
 
 
 def n_of_s(s):
+    # vanishes at the edge: markers on drift orbits that leave the plasma at r=a are removed (not replaced)
     s = np.clip(s, 0.0, 1.0)
-    return 0.2 + 0.8 * (1.0 - s)
+    return (1.0 - s) ** 2
 
 
 def vth_of_s(s):
@@ -187,7 +196,7 @@ binning_plots = (
 
 model.kinetic_ions.set_markers(
     loading_params=LoadingParameters(
-        ppc=args.ppc, seed=1234, moments=(0.0, 0.0, VTH_AXIS, VTH_AXIS), B0=B0, spatial="disc"
+        ppc=args.ppc, seed=1234, moments=(0.0, 0.0, VTH_AXIS, VTH_AXIS), B0=B_min, spatial="disc"
     ),
     weights_params=WeightsParameters(),
     boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic")),

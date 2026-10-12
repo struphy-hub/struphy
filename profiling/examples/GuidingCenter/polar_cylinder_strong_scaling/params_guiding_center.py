@@ -31,10 +31,16 @@ parser.add_argument(
     help="Runge-Kutta method of the explicit algorithm.",
 )
 parser.add_argument("--epsilon", type=float, default=0.05, help="Normalized cyclotron period (size of the drifts).")
-parser.add_argument("--ppc", type=int, default=100, help="Markers per cell.")
-parser.add_argument("--num-elements", type=int, nargs=3, default=[16, 18, 16], help="Number of elements per direction.")
-parser.add_argument("--dt", type=float, default=0.1, help="Time step.")
-parser.add_argument("--tend", type=float, default=200.0, help="End time.")
+parser.add_argument("--ppc", type=int, default=25, help="Markers per cell.")
+parser.add_argument(
+    "--num-elements",
+    type=int,
+    nargs=3,
+    default=[16, 48, 48],
+    help="Number of elements per direction (eta1 is not decomposed; up to 256 processes for the default).",
+)
+parser.add_argument("--dt", type=float, default=0.2, help="Time step.")
+parser.add_argument("--tend", type=float, default=100.0, help="End time.")
 parser.add_argument("--save-step", type=int, default=20, help="Save (and bin) every save_step time steps.")
 args, _ = parser.parse_known_args()
 
@@ -96,10 +102,11 @@ env = EnvironmentOptions(sim_folder=f"sim_{args.id:02d}", save_step=args.save_st
 
 time_opts = Time(dt=args.dt, Tend=args.tend, split_algo="LieTrotter")
 
-# Grid (polar splines need a multiple of 3 elements in eta2)
+# Grid (polar splines need a multiple of 3 elements in eta2); eta1 is not decomposed, such that the process
+# with the pole has all rings of the polar splines and each process has at least degree elements per direction
 num_elements = tuple(args.num_elements)
 degree = (3, 3, 3)
-grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(False, True, True))
 
 # Geometry: cylinder without hole, the spline mapping has the resolution of the grid in the poloidal plane
 a = 1.0
@@ -195,8 +202,9 @@ background = maxwellians.GyroMaxwellian2D(
 )
 model.kinetic_ions.var.add_background(background)
 
-# exact radial density (binned with divide_by_jac, normalized to the binned data)
-exact = {"e1_density": lambda e1: n_profile(e1, 0 * e1, 0 * e1)}
+# exact radial profile of the binned distribution (normalized to the binned data): the binning divides by the
+# spatial Jacobian only, the velocity-space Jacobian |B0| of (v_parallel, mu) remains
+exact = {"e1_density": lambda e1: n_profile(e1, 0 * e1, 0 * e1) / equil.absB0(np.stack((e1, 0 * e1, 0 * e1), axis=1))}
 
 if __name__ == "__main__":
     import sys
