@@ -99,7 +99,7 @@ def push_v_sph_pressure_ideal_gas(
     gamma = 5 / 3
 
     # fmt: off
-    #$ omp parallel firstprivate(grad_u) private(ip, eta1, eta2, eta3, n_at_eta, loc_box, sum2, sum4, sum6, grad_u_cart, tmp1, dfinv, dfinvT)
+    #$ omp parallel firstprivate(grad_u) private(dfinv, dfinvT, eta1, eta2, eta3, grad_u_cart, ip, loc_box, n_at_eta, sum2, sum4, sum6, tmp1)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -255,3 +255,7 @@ def push_v_sph_pressure_ideal_gas(
 
         # update velocities
         markers[ip, 3:6] -= dt * (grad_u_cart - gravity)
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

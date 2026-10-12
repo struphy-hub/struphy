@@ -90,7 +90,7 @@ def push_v_viscosity(
     f_visc = zeros(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, loc_box, j, k, coeff_idx, f_visc, f_visc_cart, tmp1, dfinv, dfinvT)
+    #$ omp parallel private(coeff_idx, detdf, eta1, eta2, eta3, f_visc, ip, j, k, loc_box, tmp1)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -150,3 +150,7 @@ def push_v_viscosity(
 
         # update velocities
         markers[ip, 3:6] -= dt * f_visc / detdf
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

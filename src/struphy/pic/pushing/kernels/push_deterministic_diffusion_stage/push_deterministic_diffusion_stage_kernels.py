@@ -63,7 +63,13 @@ def push_deterministic_diffusion_stage(
     pi_du_value = empty(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(ip, e1, e2, e3, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, tmp1, tmp2, tmp3, ginv)
+    #$ omp parallel private(e1, e2, e3, ginv, ip, k, pi_du_value, pi_u_value, span1, span2, span3, thread_derham, tmp, tmp1, tmp2, tmp3)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -76,14 +82,14 @@ def push_deterministic_diffusion_stage(
         e3 = markers[ip, 2]
 
         # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
+        span1, span2, span3 = get_spans(e1, e2, e3, thread_derham)
 
         # density function: 0-form components
         pi_u_value = eval_0form_spline_mpi(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             pi_u,
         )
 
@@ -92,7 +98,7 @@ def push_deterministic_diffusion_stage(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             pi_grad_u1,
             pi_grad_u2,
             pi_grad_u3,
@@ -128,3 +134,7 @@ def push_deterministic_diffusion_stage(
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

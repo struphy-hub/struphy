@@ -63,8 +63,16 @@ def linear_vlasov_ampere(
     # total number of markers (weights are w_p = delta f_p / (N * s_0))
     n_markers_tot = args_markers.Np
 
-    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, filling_m, filling_v)
-    # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    # fmt: off
+    #$ omp parallel private(df_inv, df_inv_v, dfm, eta1, eta2, eta3, filling_m, filling_v, ip, thread_derham, v)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
@@ -104,7 +112,7 @@ def linear_vlasov_ampere(
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
-            args_derham,
+            thread_derham,
             eta1,
             eta2,
             eta3,
@@ -127,3 +135,7 @@ def linear_vlasov_ampere(
             filling_v[1],
             filling_v[2],
         )
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

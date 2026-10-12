@@ -52,7 +52,7 @@ def push_eta_stage(
         last = 0.0
 
     # fmt: off
-    #$ omp parallel private(ip, e1, e2, e3, v, dfm, dfinv, k)
+    #$ omp parallel private(dfinv, dfm, e1, e2, e3, ip, k, v)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -92,3 +92,7 @@ def push_eta_stage(
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

@@ -193,6 +193,65 @@ def test_compile_passes_jobs_to_make(jobs):
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize(
+    "previous, openmp, rebuild",
+    [("", True, True), (" --openmp", False, True), (" --openmp", True, False), (None, False, False)],
+)
+def test_compile_rebuilds_when_openmp_changes(previous, openmp, rebuild):
+    """Changing OpenMP flags must not silently reuse up-to-date serial binaries."""
+    from struphy.console.compile import struphy_compile
+
+    state = {
+        "kernels": [],
+        "last_used_language": "fortran",
+        "last_used_compiler": "GNU",
+        "last_used_omp": previous,
+    }
+    with (
+        mock.patch("struphy.console.compile.collect_kernel_files", return_value=[]),
+        mock.patch("struphy.console.compile.subp_run") as run,
+        mock.patch("struphy.utils.utils.read_state", return_value=state),
+        mock.patch("struphy.utils.utils.save_state"),
+    ):
+        struphy_compile("fortran", "GNU", None, openmp, False, False, False, False, False, True)
+
+    make = next(call.args[0] for call in run.call_args_list if call.args[0][0] == "make")
+    assert ("-B" in make) == rebuild
+    assert state["last_used_omp"].strip() == ("--openmp" if openmp else "")
+
+
+@pytest.mark.mpi_skip
+def test_failed_compile_does_not_record_requested_flags():
+    """A failed rebuild must be retried with the requested flags on the next invocation."""
+    import subprocess
+
+    from struphy.console.compile import struphy_compile
+
+    state = {
+        "kernels": [],
+        "last_used_language": "fortran",
+        "last_used_compiler": "GNU",
+        "last_used_omp": "",
+    }
+
+    def run(cmd):
+        if cmd[0] == "make":
+            raise subprocess.CalledProcessError(2, cmd)
+
+    with (
+        mock.patch("struphy.console.compile.collect_kernel_files", return_value=[]),
+        mock.patch("struphy.console.compile.subp_run", side_effect=run),
+        mock.patch("struphy.utils.utils.read_state", return_value=state),
+        mock.patch("struphy.utils.utils.save_state") as save,
+        pytest.raises(subprocess.CalledProcessError),
+    ):
+        struphy_compile("fortran", "GNU", None, True, False, False, False, False, False, True)
+
+    assert state["last_used_omp"] == ""
+    save.assert_not_called()
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize(
     "args, jobs",
     [
         (["compile"], 1),
