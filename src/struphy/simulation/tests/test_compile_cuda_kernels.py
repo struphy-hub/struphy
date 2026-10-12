@@ -119,8 +119,8 @@ def test_kernels_of_a_small_model(tmp_path):
     }
     assert names(sim.model.propagators.push_eta.kernels()) == {"push_eta_stage"}
     assert names(sim.model.propagators.coupling_va.kernels()) == {"vlasov_maxwell", "push_v_with_efield"}
-    # the accumulation kernel vlasov_maxwell has no CUDA version yet: this model cannot run on CuPy
-    assert names(missing_cuda(kernels)) == {"vlasov_maxwell"}
+    # every kernel of this model has a CUDA version (vlasov_maxwell since #713)
+    assert missing_cuda(kernels) == []
 
 
 def test_kernels_of_reflecting_particles(tmp_path):
@@ -236,7 +236,8 @@ def test_compile_cuda_kernels_fake_cupy():
 
 @requires_cupy
 def test_compile_cuda_kernels_on_gpu(tmp_path):
-    """On a GPU: the kernels of Vlasov are compiled at setup, VlasovAmpereOneSpecies fails fast."""
+    """On a GPU: the kernels of Vlasov and VlasovAmpereOneSpecies are compiled at setup, a kernel without CUDA
+    version fails fast."""
     with cunumpy.use_backend("cupy"):
         sim = make_vlasov(tmp_path)
         sim.allocate()
@@ -246,5 +247,10 @@ def test_compile_cuda_kernels_on_gpu(tmp_path):
 
         sim = make_vlasov_ampere(tmp_path / "va")
         sim.allocate()
-        with pytest.raises(NotImplementedError, match="vlasov_maxwell"):
+        compiled = sim.compile_cuda_kernels()
+        assert compiled == sim.kernels()
+        assert "vlasov_maxwell" in names(compiled)
+
+        sim.kernels = lambda: (push_eta_stage, push_bxu_Hdiv)
+        with pytest.raises(NotImplementedError, match="push_bxu_Hdiv"):
             sim.compile_cuda_kernels()

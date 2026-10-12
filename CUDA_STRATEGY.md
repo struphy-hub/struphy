@@ -290,7 +290,7 @@ done (✓), in a PR (PR 14), blocked (⏸).
 |---|---|---|---|---|
 | 1 | `push_v_with_efield` | P | `VlasovAmpereCoupling`, `PushVinForceField` | PR 14 |
 | 2 | `charge_density_0form` | A (vector) | initial Poisson solve of these models | PR 14 |
-| 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | next (6D views available) |
+| 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | ✓ (#688, see [notes](#vlasov_maxwell-implementation-notes)) |
 
 **Step 2 – LinearVlasovAmpère/Maxwell (δf)**
 
@@ -552,8 +552,8 @@ and dicts (`utils/kernel_compilation.collect_kernels`). A propagator that calls 
 overrides `kernels()`. Diagnostics kernels and the initial solves are not listed; they run during the setup.
 
 Fail fast: on CuPy, if a listed kernel has no CUDA version, `compile_cuda_kernels()` raises
-`NotImplementedError` naming all of them, before anything is compiled (e.g. `VlasovAmpereOneSpecies`:
-`vlasov_maxwell`). On NumPy it does nothing. A test runs a model for one step on NumPy and checks that every
+`NotImplementedError` naming all of them, before anything is compiled (e.g. a model
+that pushes with `push_bxu_Hdiv`). On NumPy it does nothing. A test runs a model for one step on NumPy and checks that every
 `Kernel` called in the time loop is listed.
 
 ## PR 18 implementation notes
@@ -663,6 +663,7 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   during the exchange, staged: one `to_host` per non-empty send and one `to_device`. Without a GPU it runs on the fake
   CuPy (`mpirun -n N env CUNUMPY_FAKE_CUPY=1 pytest --with-mpi pic/tests/test_sorting_device.py`, in the PIC MPI
   workflow); the GPU variant has not run (no GPU here).
+
 ## `linear_vlasov_ampere` implementation notes
 
 The first matrix accumulation on the GPU (part of #688, tracked in #650): `linear_vlasov_ampere`, the accumulation of
@@ -705,3 +706,25 @@ The first matrix accumulation on the GPU (part of #688, tracked in #650): `linea
   with pyccel to round-off and catches a transposed `DF`. `m_v_fill_b_v1_symm` is compared with pyccel through a
   wrapper kernel (`test_v1_symm_filler` on a GPU, `test_emulated_v1_symm_filler` by emulation). GPU tests have not run
   on an H100.
+
+## `vlasov_maxwell` implementation notes
+
+The accumulation of `VlasovAmpereCoupling` in `VlasovAmpereOneSpecies` and `VlasovMaxwellOneSpecies` (step 1, #3 of
+the [porting order](#porting-order); part of #688).
+
+- **Kernel.** `vlasov_maxwell_cuda.cu`: same arguments in the same order as pyccel, one thread per marker row; `df`,
+  `matrix_inv`, `transpose`, `matrix_matrix`, `matrix_vector`, then `m_v_fill_b_v1_symm` with
+  `A_p = w_p DF^{-1} DF^{-T}` and `B_p = w_p DF^{-1} v_p`. As in pyccel, only holes are skipped: boundary particles
+  (`markers[ip, -1] == -2`) are accumulated (unlike `linear_vlasov_ampere`).
+- **Device helpers.** `fill_mat`, `fill_mat_vec` (`filler_kernels.cuh`) and `m_v_fill_b_v1_symm`
+  (`particle_to_mat_kernels.cuh`) with atomic adds into `Array6D<double>`/`Array3D<double>` data, byte-identical to the
+  ones of the `linear_vlasov_ampere` PR (#705), as are `v1_symm_accumulation_data()` and the `m_v_fill_b_v1_symm`
+  wrapper tests.
+- **Tests.** `PARITY_CASES["vlasov_maxwell"]`: 129 markers (a hole, a boundary particle) in Cuboid, Colella,
+  HollowTorus, ShafranovDshapedCylinder and a 3d spline mapping; the CPU emulation agrees with pyccel to 7e-12 at
+  entries up to 6e5 (spline mapping) and fails for a transposed `DF`, skipped boundary particles or unskipped holes.
+  `rtol = 1e-12`, `atol = 1e-8` for the GPU's atomic summation order. GPU tests have not run on an H100.
+- **Still missing for the models end to end on the GPU.** `MassMatrixPreconditioner` (the default of
+  `VlasovAmpereCoupling`, `MaxwellWeakAmpere` and the initial `PoissonSolve`) cannot be created on CuPy, CG inner products
+  return host scalars, the FEEC operators (`curl`, `grad`, mass matrices, Schur solves) need the feectools CUDA stack,
+  and the first H100 run (#687) is pending.
