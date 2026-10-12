@@ -266,6 +266,27 @@ See Fig. 5 for an example with :math:`p=4`.
 Polar splines
 ^^^^^^^^^^^^^
 
-Coming soon !
+For domains with a polar singularity at :math:`\eta_1 = 0` (e.g. ``IGAPolarCylinder``, ``IGAPolarTorus``),
+``DerhamOptions(polar_splines=True)`` builds the C1 polar spline spaces of
+`Holderied and Possanner (JCP 2022) <https://doi.org/10.1016/j.jcp.2022.111329>`_.
+The first two rings of tensor-product splines around the pole are replaced by a few polar basis functions,
+via extraction operators :math:`\mathbb E` (basis) and :math:`\mathbb P` (degrees of freedom) that act in the
+poloidal plane :math:`(\eta_1, \eta_2)` only.
+
+Hence, the inter-/histopolation matrices of the commuting projectors, :math:`\mathbb P \mathcal I \mathbb E^T`,
+and the mass matrices with weights independent of :math:`\eta_3` have a 2D x 1D Kronecker structure
+:math:`\mathbb A_\textnormal{pol} \otimes \mathbb A_3` (:mod:`struphy.polar.kron_2dx1d`).
+They are solved with a 1d direct solver in :math:`\eta_3` and one of the following solvers for the
+sparse poloidal matrix :math:`\mathbb A_\textnormal{pol}`:
+
+* ``"schur"`` (default): block elimination of the pole block (polar coefficients and first tensor-product ring),
+  with an exact (Kronecker or sparse LU) solve of the outer block and a dense LU of the small Schur complement,
+* ``"lu"``: sparse LU factorization,
+* ``"ilu"``: incomplete LU factorization, used as preconditioner of an iterative solver.
+
+The solver of the projectors is set with ``DerhamOptions(polar_poloidal_solver=...)``.
+For weighted mass matrices, use :class:`~struphy.feec.preconditioner.PolarMassMatrixPreconditioner`
+(``precond="PolarMassMatrixPreconditioner"`` in the propagator options);
+it is exact for axisymmetric weights and mappings.
 
 .. image:: ../../pics/polar_derham.png

@@ -163,6 +163,7 @@ def test_run_metadata_contains_variables_and_propagator_options(tmp_path):
         "class": "FEECVariable",
         "space": "Hcurl",
         "save_data": False,
+        "projection": "commuting",
     }
     assert metadata["model"]["species"]["em_fields"]["variables"]["b_field"]["space"] == "Hdiv"
     options = metadata["model"]["propagator_options"]["maxwell"]

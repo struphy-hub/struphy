@@ -27,7 +27,7 @@ def apply_kinetic_bc_marker(
     * 0 (periodic): wrap :math:`\eta_i` into :math:`[0, 1)` and store the shift :math:`\pm 1`
       at ``first_shift_idx + axis`` (set for ``newton=False``, accumulated for ``newton=True``).
     * 1 (reflect): mirror :math:`\eta_i` at the boundary, flip the logical velocity component
-      and mark the marker as done for multi-stage/iterative pushers (``first_init_idx = -1``).
+      and mark the marker as done for multi-stage/iterative pushers (``first_pusher_idx = -1``).
     * 2 (remove): turn the marker into a hole (all columns except the ID set to -1).
     * 3 (refill): skipped here, handled by :meth:`~struphy.pic.base.Particles.apply_kinetic_bc`.
 
@@ -48,7 +48,7 @@ def apply_kinetic_bc_marker(
 
     markers = args_markers.markers
     bc_type = args_markers.bc_type
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_shift_idx = args_markers.first_shift_idx
 
     # remove
@@ -94,7 +94,7 @@ def apply_kinetic_bc_marker(
     if n_reflected == 0:
         return
 
-    markers[ip, first_init_idx] = -1.0
+    markers[ip, first_pusher_idx] = -1.0
 
     # reflect velocities (Jacobian at the reflected position)
     dfm = empty((3, 3), dtype=float)
