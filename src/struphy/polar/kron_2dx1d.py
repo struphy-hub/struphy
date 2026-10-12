@@ -32,16 +32,17 @@ sub-communicator of processes sharing the same :math:`\eta_3` sub-domain.
 import logging
 from dataclasses import dataclass, field
 
+import cunumpy as xp
 import numpy as np
 import scipy.sparse as spa
-from feectools.fem.tensor import TensorFemSpace
-from feectools.linalg.basic import LinearOperator
-from feectools.linalg.block import BlockVector
-from feectools.linalg.stencil import StencilVector
 from maybempi import MPI
 from scipy.linalg import lu_factor, lu_solve
 from scipy.sparse.linalg import spilu, splu
 
+from feectools.fem.tensor import TensorFemSpace
+from feectools.linalg.basic import LinearOperator
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
 logger = logging.getLogger("struphy")
@@ -573,19 +574,23 @@ class _PolarKron2Dx1DBase(LinearOperator):
             assert out.space == self._space
 
         V = self._space
-        out_pol = [np.zeros_like(p) for p in v.pol]
+        # These Kronecker solvers and MPI transposes use SciPy/NumPy on the host.
+        # Move backend arrays explicitly at this boundary; implicit CuPy-to-NumPy
+        # conversions are rejected by CuPy and by cunumpy's fake backend.
+        out_pol = [np.zeros_like(xp.to_numpy(p)) for p in v.pol]
 
         for g, op_3, op_pol in zip(self._groups, ops_3, ops_pol):
             # 1. eta_3 direction (tensor-product part redistributed, polar coeffs replicated)
             tmp_tp = {}
             tmp_pol = {}
             for c in g.comps:
-                L = _interior(tp_component(v.tp, c))
+                L = xp.to_numpy(_interior(tp_component(v.tp, c)))
                 l1, l2, l3 = L.shape
                 T3 = self._t3[c]
                 X = T3.forward(np.ascontiguousarray(L.reshape(l1 * l2, l3).T))
                 tmp_tp[c] = np.ascontiguousarray(T3.backward(op_3(X)).T).reshape(l1, l2, l3)
-                tmp_pol[c] = op_3(v.pol[c].T).T if V.n_polar[c] > 0 else v.pol[c].copy()
+                pol = xp.to_numpy(v.pol[c])
+                tmp_pol[c] = op_3(pol.T).T if V.n_polar[c] > 0 else pol.copy()
 
             # 2. poloidal plane
             s3 = tp_space(V, g.comps[0]).starts[2]
@@ -611,7 +616,7 @@ class _PolarKron2Dx1DBase(LinearOperator):
                 F[nr:] = Z[off : off + (n1 - nr) * n2].reshape(n1 - nr, n2, k1 - k0)
                 off += (n1 - nr) * n2
                 u = tp_component(out.tp, c)
-                _interior(u)[...] = self._tpl[c].backward(F)
+                _interior(u)[...] = xp.asarray(self._tpl[c].backward(F))
                 u.ghost_regions_in_sync = False
 
         # polar coefficients are held by all processes (each column was computed on exactly one process)
@@ -619,7 +624,7 @@ class _PolarKron2Dx1DBase(LinearOperator):
         for c in range(V.n_comps):
             if comm is not None and comm.Get_size() > 1 and out_pol[c].size > 0:
                 comm.Allreduce(MPI.IN_PLACE, out_pol[c], op=MPI.SUM)
-            out.pol[c][:] = out_pol[c]
+            out.pol[c][:] = xp.asarray(out_pol[c])
 
         return out
 
