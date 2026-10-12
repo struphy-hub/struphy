@@ -320,7 +320,9 @@ class PolarExtractionOperator(_BlocksOnBackend, LinearOperator):
 
             # 3. map polar coeffs to "polar rings" (added in-place)
             if self.blocks_ten_to_pol is not None:
-                dot_parts_of_polar(self._backend_blocks("blocks_ten_to_pol"), blocks_e3, v, out, map_from_tp=False, add=True)
+                dot_parts_of_polar(
+                    self._backend_blocks("blocks_ten_to_pol"), blocks_e3, v, out, map_from_tp=False, add=True
+                )
 
         # "standard" operator (tensor-product vector --> polar vector)
         else:
