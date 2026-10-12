@@ -1,5 +1,5 @@
 import cunumpy as xp
-from cunumpy.mpi import synchronize_for_mpi
+from cunumpy.mpi import mpi_buffer
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
@@ -40,7 +40,7 @@ def device_sparse_module():
 
 
 class DeviceSparseMatrix:
-    """Device copy of a (small) host matrix of the polar operators, for products with device arrays.
+    """Device CSR copy of a host polar matrix, for products with device arrays.
 
     The polar blocks (:class:`~struphy.polar.extraction_operators.PolarExtractionBlocksC1`) are setup data built
     with SciPy on the host. On the CuPy backend the polar operators apply them to coefficients that live on the
@@ -109,10 +109,10 @@ class _BlocksOnBackend:
 
 
 def _allreduce_sum(comm, buf):
-    """In-place sum over the ranks of comm (buf may live on the device: CUDA-aware MPI)."""
-    if comm is not None:
-        synchronize_for_mpi(buf)
-        comm.Allreduce(MPI.IN_PLACE, buf, op=MPI.SUM)
+    """In-place sum with synchronized device buffers or host staging."""
+    if comm is not None and comm.Get_size() > 1:
+        with mpi_buffer(buf, recv=True) as buffer:
+            comm.Allreduce(MPI.IN_PLACE, buffer, op=MPI.SUM)
 
 
 class PolarExtractionOperator(_BlocksOnBackend, LinearOperator):
