@@ -30,7 +30,5 @@ extern "C" __global__ void eval_spline_mpi_matrix(Array3D<double> eta1, Array3D<
     // point not in process domain
     if (eta1(i, j, k) == -1. || eta2(i, j, k) == -1. || eta3(i, j, k) == -1.) return;
 
-    values(i, j, k) =
-        eval_spline_mpi(eta1(i, j, k), eta2(i, j, k), eta3(i, j, k), _data, args_spline.kind, args_spline.pn,
-                        args_spline.tn1, args_spline.tn2, args_spline.tn3, args_spline.starts);
+    values(i, j, k) = eval_spline_mpi(eta1(i, j, k), eta2(i, j, k), eta3(i, j, k), _data, args_spline);
 }
