@@ -1,11 +1,11 @@
-"""Poisson strong scaling profiling case on 3D cube, mass-matrix preconditioner.
+"""Curl-curl strong scaling profiling case on 3D cube, stiffness preconditioner.
 
-This file defines the Poisson strong scaling profiling case (the `ProfilingCase`)
+This file defines the curl-curl strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
 SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch
 system, runs directly on this machine. `finalize_run` then packages and uploads
 each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_poisson.py`
+Each generated script runs the simulation itself by invoking `params_curl_curl.py`
 directly (its `__main__` block is the worker).
 """
 
@@ -45,15 +45,15 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "cube_strong_scaling_massmatrix"
+    params_dir = script_dir / "cube_strong_scaling_stiffness"
 
     profiling_case = ProfilingCase(
-        label="poisson_cube_strong_scaling_massmatrix",
-        name="Poisson on 3D cube strong scaling test, mass-matrix preconditioner",
-        description="Strong scaling of the Poisson model with manufactured solution on a 3D cube (Cuboid), solved with CG preconditioned by the Kronecker approximation of the inverse 0-form mass matrix (MassMatrixPreconditioner).",
-        physics_problem="Occurs in many plasma applications.",
-        struphy_model_used="Poisson",
-        params_source=params_dir / "params_poisson.py",
+        label="curl_curl_cube_strong_scaling_stiffness",
+        name="Curl-curl on 3D cube strong scaling test, stiffness preconditioner",
+        description="Strong scaling of the CurlCurl model with manufactured solution on a 3D cube (Cuboid), solved with CG preconditioned by the Kronecker approximation of the inverse curl-curl operator with gradient correction (StiffnessPreconditioner).",
+        physics_problem="Occurs in implicit time stepping of Maxwell's equations and in magnetostatics.",
+        struphy_model_used="CurlCurl",
+        params_source=params_dir / "params_curl_curl.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,
