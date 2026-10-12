@@ -1414,16 +1414,16 @@ class Particles(metaclass=ABCMeta):
 
                         counter += 1
 
-            # keep markers off a pole at eta1=0, where the mapping is singular
-            if self._pole:
-                eta1 = self._markers[:n_mks_load_loc, 0]
-                eta1[eta1 < POLE_ETA1_MIN] = POLE_ETA1_MIN
-
             # check if all particle positions are inside the unit cube [0, 1]^3
             n_mks_load_loc = self.n_mks_load[self._mpi_rank]
 
             assert xp.all(~self.holes[:n_mks_load_loc])
             assert xp.all(self.holes[n_mks_load_loc:])
+
+        # keep markers off a pole at eta1=0, where the mapping is singular (holes have eta1=-1)
+        if self._pole:
+            eta1 = self._markers[:, 0]
+            eta1[xp.logical_and(eta1 >= 0.0, eta1 < POLE_ETA1_MIN)] = POLE_ETA1_MIN
 
         if self._initialized_sorting and sort:
             logger.info("\nSorting the markers after initial draw")
@@ -1848,7 +1848,8 @@ class Particles(metaclass=ABCMeta):
 
         # pole at eta1=0: markers with eta1 < 0 have crossed the axis (as in apply_kinetic_bc_marker)
         if self._pole:
-            crossed = self._find_outside_particles(0)
+            self._find_outside_particles(0)
+            crossed = xp.nonzero(self._is_outside_left)[0]
             self.markers[crossed, 0] *= -1.0
             self.markers[crossed, 1] = (self.markers[crossed, 1] + 0.5) % 1.0
             near_pole = xp.logical_and(self.valid_mks, self.markers[:, 0] < POLE_ETA1_MIN)

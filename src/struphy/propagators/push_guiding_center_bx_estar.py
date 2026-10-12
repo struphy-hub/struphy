@@ -178,9 +178,10 @@ class PushGuidingCenterBxEstar(Propagator):
         self._absB0 = self.projected_equil.absB0
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
-        # the kernels need tensor-product coefficients: transposed extraction operator
-        # PolarVector --> StencilVector (identity map in case of no polar splines)
+        # the kernels need tensor-product coefficients: transposed extraction operators
+        # PolarVector --> Stencil-/BlockVector (identity maps in case of no polar splines)
         self._E0T = self.derham.extraction_ops["0"].transpose()
+        self._E1T = self.derham.extraction_ops["1"].transpose()
 
         # magnetic perturbation
         if self.b_tilde is not None:
@@ -189,6 +190,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
             self._PB = getattr(self.basis_ops, "PB")
             self._B_dot_b_pol = self._PB.codomain.zeros()
+            self._grad_b_pol = self.derham.grad.codomain.zeros()
 
             self._update_b_tilde()
         else:
@@ -202,6 +204,7 @@ class PushGuidingCenterBxEstar(Propagator):
         self._update_phi()
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.V1.zeros()
+        self._e_field_pol = self.derham.grad.codomain.zeros()
 
         # choose method
         particles = self.variables.ions.particles
@@ -492,7 +495,8 @@ class PushGuidingCenterBxEstar(Propagator):
         B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
         B_dot_b.update_ghost_regions()
 
-        grad_b_full = self.derham.grad_tp.dot(B_dot_b, out=self._grad_b_full)
+        grad_b_pol = self.derham.grad.dot(B_dot_b_pol, out=self._grad_b_pol)
+        grad_b_full = self._E1T.dot(grad_b_pol, out=self._grad_b_full)
         grad_b_full.update_ghost_regions()
 
         grad_b_full += self._gradB1
@@ -506,7 +510,8 @@ class PushGuidingCenterBxEstar(Propagator):
         # electric field
         # TODO: add out to __neg__ of StencilVector
         if self._evaluate_e_field:
-            e_field = self.derham.grad_tp.dot(-self._phi, out=self._e_field)
+            e_field_pol = self.derham.grad.dot(-self.phi.spline.vector, out=self._e_field_pol)
+            e_field = self._E1T.dot(e_field_pol, out=self._e_field)
             e_field.update_ghost_regions()
 
         # magnetic perturbation

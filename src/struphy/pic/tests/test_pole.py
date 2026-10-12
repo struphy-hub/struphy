@@ -137,18 +137,21 @@ def test_python_bc_axis_map():
     assert particles.args_markers.pole
     assert np.all(particles.positions[:, 0] >= 1e-10)
 
-    valid = np.nonzero(particles.valid_mks)[0][:3]
+    valid = np.nonzero(particles.valid_mks)[0][:4]
     markers = particles.markers
-    markers[valid, 0] = -0.25
-    markers[valid, 1] = 0.6
+    markers[valid[:3], 0] = -0.25
+    markers[valid[:3], 1] = 0.6
+    # outside at eta1=1: removed (boundary condition of axis 0), not mapped through the axis
+    markers[valid[3], 0] = 1.05
     n_valid = np.count_nonzero(particles.valid_mks)
 
     particles.apply_kinetic_bc()
 
-    assert np.allclose(markers[valid, 0], 0.25)
-    assert np.allclose(markers[valid, 1], 0.1)
-    assert np.count_nonzero(particles.valid_mks) == n_valid
-    assert particles.n_lost_markers == 0
+    assert np.allclose(markers[valid[:3], 0], 0.25)
+    assert np.allclose(markers[valid[:3], 1], 0.1)
+    assert np.all(markers[valid[3], :-1] == -1.0)
+    assert particles.n_lost_markers == 1
+    assert np.count_nonzero(particles.valid_mks) == n_valid - 1
 
 
 @pytest.mark.mpi(min_size=1)
@@ -332,8 +335,8 @@ def test_guiding_center_through_pole(tmp_path_factory, algo):
         n_steps=10,
         comm=comm,
     )
-    model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo=algo)
-    model.propagators.push_parallel.options = model.propagators.push_parallel.Options(algo=algo)
+    model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo=algo, evaluate_e_field=True)
+    model.propagators.push_parallel.options = model.propagators.push_parallel.Options(algo=algo, evaluate_e_field=True)
     sim.allocate()
 
     particles = model.kinetic_ions.var.particles
