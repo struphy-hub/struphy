@@ -28,10 +28,10 @@ extern "C" __global__ void push_vxb_analytic(double dt, int stage, MarkerArgs ar
     int n_markers = args_markers.n_markers;
     if (ip >= n_markers) return;
 
-    int first_init_idx = args_markers.first_init_idx;
+    int first_pusher_idx = args_markers.first_pusher_idx;
 
     // check if marker is a hole
-    if (args_markers.markers(ip, first_init_idx) == -1. || args_markers.markers(ip, args_markers.markers.shape[1] - 1) == -2.)
+    if (args_markers.markers(ip, first_pusher_idx) == -1. || args_markers.markers(ip, args_markers.markers.shape[1] - 1) == -2.)
         return;
 
     double e1 = args_markers.markers(ip, 0);

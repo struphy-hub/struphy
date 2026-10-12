@@ -22,6 +22,10 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
+from feectools.linalg.kernels.stencil_axpy_3d import stencil_axpy_3d
+from feectools.linalg.kernels.stencil_dot_3d import stencil_dot_3d
+from feectools.linalg.kernels.stencil_inner_3d import stencil_inner_3d
+from feectools.linalg.kernels.stencil_transpose_3d import stencil_transpose_3d
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 from maybempi import MPI, SerialComm
 
@@ -46,6 +50,7 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.utils import check_option
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -669,6 +674,9 @@ class Derham:
         # smoothness at the polar singularity: default False for standard tensor product splines, or True for C1 polar splines
         self._polar_splines = polar_splines
 
+        # solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections
+        self._polar_poloidal_solver = options.polar_poloidal_solver
+
         # Other derived properties
         self._mpi_dims_mask = mpi_dims_mask
         with_projectors = True  # projectors are always built in the current implementation, but this flag can be used to skip their construction if not needed
@@ -1004,6 +1012,11 @@ class Derham:
     def polar_splines(self) -> bool:
         """C^k smoothness at eta_1=0. Is False for standard tensor product splines and True for C^1 polar splines."""
         return self._polar_splines
+
+    @property
+    def polar_poloidal_solver(self) -> str:
+        """Solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections ("schur", "lu" or "ilu")."""
+        return self._polar_poloidal_solver
 
     @property
     def with_local_projectors(self) -> bool:
@@ -1494,6 +1507,24 @@ class Derham:
         """Mandatory pusher kernel arguments for the backend used at initialization."""
         return self._args_derham
 
+    def kernels(self) -> tuple:
+        """The kernels called on the data of this complex.
+
+        The spline evaluation kernels of :class:`SplineFunction` (at markers, on meshgrids and on
+        sparse meshgrids) and the feectools kernels of the 3D stencil data (matrix-vector product,
+        transpose, inner product, axpy), which the FEEC operators and solvers call. Used by
+        :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (
+            eval_spline_mpi_markers,
+            eval_spline_mpi_matrix,
+            eval_spline_mpi_sparse_meshgrid,
+            stencil_dot_3d,
+            stencil_transpose_3d,
+            stencil_inner_3d,
+            stencil_axpy_3d,
+        )
+
     # --------------------------
     #      methods:
     # --------------------------
@@ -1627,6 +1658,7 @@ class Derham:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        projection: LiteralOptions.OptsInitProjection = "commuting",
     ):
         """Creat a callable spline function.
 
@@ -1652,6 +1684,10 @@ class Derham:
 
         equil : FLuidEquilibrium
             Fluid background used for inital condition.
+
+        projection : str
+            Projection of the initial condition into the spline space: "commuting" (the commuting
+            projector, default) or "L2" (the L2-orthogonal projection).
         """
         return SplineFunction(
             name,
@@ -1662,6 +1698,7 @@ class Derham:
             perturbations=perturbations,
             domain=domain,
             equil=equil,
+            projection=projection,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -1910,6 +1947,7 @@ class Derham:
                     dofs_extraction_op=self._dofs_extraction_ops[sp_form],
                     base_extraction_op=self._extraction_ops[sp_form],
                     boundary_op=self.boundary_ops[sp_form],
+                    poloidal_solver=self.polar_poloidal_solver,
                 )
             )
         return tuple(tmp)
@@ -2244,6 +2282,11 @@ class SplineFunction:
 
     equil : FluidEquilibrium
         Fluid background used for inital condition.
+
+    projection : str
+        Projection of the initial condition into the spline space: "commuting" (the commuting
+        projector of the Derham, default) or "L2" (the L2-orthogonal projection,
+        :class:`~struphy.feec.mass.L2Projector`, needs ``domain``).
     """
 
     def __init__(
@@ -2256,7 +2299,10 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        projection: LiteralOptions.OptsInitProjection = "commuting",
     ):
+        check_option(projection, LiteralOptions.OptsInitProjection)
+        self._projection = projection
         self._name = name
         self._space_id = space_id
         self._derham = derham
@@ -2302,7 +2348,8 @@ class SplineFunction:
         if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
             raise ValueError("CUDA spline degrees must be between 1 and 8.")
         pn = xp.asarray(degree)
-        knots = tuple(xp.ascontiguousarray(t, dtype=float) for t in derham.V0fem.knots)
+        # the knots are host arrays; cupy.ascontiguousarray does not take NumPy arrays, xp.asarray copies them
+        knots = tuple(xp.asarray(np.ascontiguousarray(t, dtype=float)) for t in derham.V0fem.knots)
         starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
         kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
         self._args_eval = tuple(
@@ -2487,6 +2534,29 @@ class SplineFunction:
         if update_ghost_regions:
             self._vector_stencil.update_ghost_regions()
 
+    @property
+    def projection(self) -> str:
+        """Projection of the initial condition into the spline space ("commuting" or "L2")."""
+        return self._projection
+
+    def _project(self, fun, domain: Domain):
+        """Coefficients of the projection of the p-form proxy ``fun`` (callable or list of callables)."""
+        if self._projection == "commuting":
+            return self.derham.projectors[self.space_key](fun)
+
+        # avoid circular imports
+        from struphy.feec.mass import L2Projector, WeightedMassOperators
+        from struphy.linear_algebra.solver import SolverParameters
+
+        assert domain is not None, "The L2 projection of the initial condition needs the domain."
+        if getattr(self, "_l2_projector", None) is None:
+            self._l2_projector = L2Projector(
+                self.space_id,
+                WeightedMassOperators(self.derham, domain),
+                solver_params=SolverParameters(tol=1e-14, maxiter=3000),
+            )
+        return self._l2_projector(fun, apply_bc=True)
+
     def initialize_coeffs(
         self,
         *,
@@ -2586,7 +2656,7 @@ class SplineFunction:
                         ]
 
                 # perform projection
-                self.vector += self.derham.projectors[self.space_key](fun)
+                self.vector += self._project(fun, domain)
 
         # add perturbations to coefficient vector
         if self.perturbations is not None:
@@ -2634,7 +2704,7 @@ class SplineFunction:
                             ]
 
                     # peform projection
-                    self.vector += self.derham.projectors[self.space_key](fun)
+                    self.vector += self._project(fun, domain)
 
                 # TODO: re-add Eigfun and InitFromOutput in new framework
 
@@ -3014,6 +3084,7 @@ class SplineFunction:
             perturbations=self.perturbations,
             domain=self.domain,
             equil=self.equil,
+            projection=self.projection,
         )
 
     #######################
