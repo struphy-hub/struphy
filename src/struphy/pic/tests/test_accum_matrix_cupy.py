@@ -6,8 +6,6 @@ into the Schur operator without host copies. Checked against the NumPy backend o
 cunumpy's fake CuPy with CPU-emulated kernel launches (in a subprocess, see :func:`check_accumulator_matrix_fake_cupy`).
 """
 
-import subprocess
-import sys
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,7 +14,7 @@ import numpy as np
 import pytest
 from cunumpy.kernel_testing import emulation_compiler, requires_cupy
 
-from struphy.geometry.tests.test_domain import _cupy_installed, serial_child_env
+from struphy.geometry.tests.test_domain import _cupy_installed, run_fake_cupy_child
 
 ALPHA, KAPPA, VTH, DT = 1.3, 0.7, 0.9, 0.05
 N_SCHUR_ITERATIONS = 3
@@ -203,7 +201,4 @@ def test_accumulator_matrix_fake_cupy():
     subprocess because the fake CuPy must be installed before cunumpy is imported.
     """
     code = "from struphy.pic.tests.test_accum_matrix_cupy import check_accumulator_matrix_fake_cupy as c; c()"
-    result = subprocess.run(
-        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr[-4000:]
+    run_fake_cupy_child(code)
