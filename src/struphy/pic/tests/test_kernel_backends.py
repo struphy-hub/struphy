@@ -135,7 +135,9 @@ def test_cuda_classes_reject_host_arrays():
     with cunumpy.use_backend("numpy"):
         markers = np.zeros((10, N_COLS))
         with pytest.raises(TypeError, match="CuPy array"):
-            CudaMarkerArguments(markers, np.ones(10, dtype=bool), 10, *MARKER_INDICES, np.zeros(3, dtype=np.int64))
+            CudaMarkerArguments(
+                markers, np.ones(10, dtype=bool), 10, *MARKER_INDICES, np.zeros(3, dtype=np.int64), False
+            )
 
 
 @requires_cupy

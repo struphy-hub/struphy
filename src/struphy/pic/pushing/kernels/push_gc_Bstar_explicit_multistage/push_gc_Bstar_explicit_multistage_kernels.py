@@ -201,16 +201,11 @@ def push_gc_Bstar_explicit_multistage(
         k_v = linalg_kernels.scalar_dot(b_star, e_star)
         k_v /= b_star_parallel * epsilon
 
-        # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
-        markers[ip, first_free_idx + 3] += dt * b[stage] * k_v
+        # accumulation for last stage and update of positions (regular at a pole)
+        pusher_utilities_kernels.update_position_stage(ip, k, dt, a[stage], b[stage], last, args_markers)
 
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_pusher_idx : first_pusher_idx + 3]
-            + dt * a[stage] * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
-        )
+        # same for v_parallel
+        markers[ip, first_free_idx + 3] += dt * b[stage] * k_v
         markers[ip, 3] = (
             markers[ip, first_pusher_idx + 3] + dt * a[stage] * k_v + last * markers[ip, first_free_idx + 3]
         )

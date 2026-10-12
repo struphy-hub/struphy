@@ -63,6 +63,9 @@ if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only n
 
 logger = logging.getLogger("struphy")
 
+# smallest eta1 of a marker on a domain with a pole at eta1=0 (as in pusher_utilities_kernels)
+POLE_ETA1_MIN = 1e-10
+
 
 def _to_numpy_for_kernel(value):
     """Convert CuPy arrays to NumPy for compiled kernel calls."""
@@ -343,6 +346,18 @@ class Particles(metaclass=ABCMeta):
         self._bc_in_python = bc_refill is not None
         bc_codes = {"periodic": 0, "reflect": 1, "remove": 3 if self._bc_in_python else 2}
         self._bc_type = xp.array([bc_codes.get(b_c, 3) for b_c in bc], dtype=int)
+
+        # pole at eta1=0 (no hole around the axis): markers move through the axis,
+        # the boundary condition of axis 0 then applies at eta1=1 only
+        # (see apply_kinetic_bc_marker and update_position_stage in pusher_utilities_kernels)
+        self._pole = domain is not None and domain.pole
+        if self._pole:
+            if domain.params.get("poc", 1) != 1 or domain.params.get("pol_period", 1) != 1:
+                raise NotImplementedError(
+                    "Markers on a domain with a pole need the full poloidal angle (poc=1 or pol_period=1)."
+                )
+            if self._args_backend == "cupy":
+                raise NotImplementedError("Markers on a domain with a pole are not supported on the CuPy backend yet.")
 
         # create marker array
         self._bufsize = bufsize
@@ -1399,6 +1414,11 @@ class Particles(metaclass=ABCMeta):
 
                         counter += 1
 
+            # keep markers off a pole at eta1=0, where the mapping is singular
+            if self._pole:
+                eta1 = self._markers[:n_mks_load_loc, 0]
+                eta1[eta1 < POLE_ETA1_MIN] = POLE_ETA1_MIN
+
             # check if all particle positions are inside the unit cube [0, 1]^3
             n_mks_load_loc = self.n_mks_load[self._mpi_rank]
 
@@ -1826,6 +1846,14 @@ class Particles(metaclass=ABCMeta):
             for a Newton step or for a strandard (explicit or Picard) step.
         """
 
+        # pole at eta1=0: markers with eta1 < 0 have crossed the axis (as in apply_kinetic_bc_marker)
+        if self._pole:
+            crossed = self._find_outside_particles(0)
+            self.markers[crossed, 0] *= -1.0
+            self.markers[crossed, 1] = (self.markers[crossed, 1] + 0.5) % 1.0
+            near_pole = xp.logical_and(self.valid_mks, self.markers[:, 0] < POLE_ETA1_MIN)
+            self.markers[near_pole, 0] = POLE_ETA1_MIN
+
         # apply boundary conditions
         if self._remove_axes:
             # extract the (n_rows, 3) logical coordinates once per contiguous
@@ -1905,6 +1933,9 @@ class Particles(metaclass=ABCMeta):
 
         for axis in self._reflect_axes:
             if len(outside_inds_per_axis[axis]) == 0:
+                continue
+            # only Cartesian velocities are reflected (columns 3:6 hold other data for vdim != 3)
+            if self.vdim != 3:
                 continue
             # flip velocity
             outside_inds = outside_inds_per_axis[axis]
@@ -2576,6 +2607,7 @@ class Particles(metaclass=ABCMeta):
             self.first_free_idx,
             self.mu_idx,
             self._bc_type,
+            self._pole,
         )
 
     def _initialize_sorting_boxes(self):
