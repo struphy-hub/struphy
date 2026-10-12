@@ -54,10 +54,5 @@ def eval_spline_mpi_sparse_meshgrid(
                     eta2[0, j, 0],
                     eta3[0, 0, k],
                     _data,
-                    args_spline.kind,
-                    args_spline.pn,
-                    args_spline.tn1,
-                    args_spline.tn2,
-                    args_spline.tn3,
-                    args_spline.starts,
+                    args_spline,
                 )
