@@ -1,3 +1,5 @@
+import logging
+
 import cunumpy as xp
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.feec.global_geometric_projectors import GlobalGeometricProjector
@@ -39,7 +41,16 @@ from struphy.feec.utilities_local_projectors import (
 )
 from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
+from struphy.polar.kron_2dx1d import (
+    PolarKron2Dx1DOperator,
+    PolarKron2Dx1DSolver,
+    bc_masks,
+    projector_groups,
+    spline_bases,
+)
 from struphy.polar.linear_operators import PolarExtractionOperator
+
+logger = logging.getLogger("struphy")
 
 
 class TensorCommutingProjector:
@@ -342,6 +353,21 @@ class CommutingProjector:
 
     boundary_op : BoundaryOperator
         The boundary operator applying essential boundary conditions to a vector. If not given, is set to identity.
+
+    polar_rtol : float
+        Relative tolerance (w.r.t. the norm of the right-hand side) of the iterative solver for polar projections
+        (only used if the poloidal solver is not exact, i.e. for ``"ilu"``).
+
+    polar_maxiter : int
+        Maximum number of iterations of the iterative solver for polar projections.
+
+    poloidal_solver : str
+        Solver for the poloidal (eta1-eta2) matrices of the 2D x 1D Kronecker structure of polar projections:
+        ``"schur"`` (exact, block elimination of the pole block), ``"lu"`` (exact, sparse LU) or ``"ilu"``
+        (incomplete LU, used as preconditioner of an iterative solver), see :mod:`struphy.polar.kron_2dx1d`.
+
+    poloidal_solver_kwargs : dict | None
+        Further options of the poloidal solver (``drop_tol``, ``fill_factor`` of the incomplete LU factorization).
     """
 
     def __init__(
@@ -350,6 +376,10 @@ class CommutingProjector:
         dofs_extraction_op=None,
         base_extraction_op=None,
         boundary_op=None,
+        polar_rtol: float = 1e-13,
+        polar_maxiter: int = 1000,
+        poloidal_solver: str = "schur",
+        poloidal_solver_kwargs: dict | None = None,
     ):
         self._projector_tensor = projector_tensor
 
@@ -372,118 +402,66 @@ class CommutingProjector:
         else:
             self._boundary_op = IdentityOperator(self.space.coeff_space)
 
-        # convert Kronecker inter-/histopolation matrix to Stencil-/BlockLinearOperator (only needed in polar case)
-        if isinstance(self.dofs_extraction_op, PolarExtractionOperator):
-            self._is_polar = True
-
-            if isinstance(projector_tensor.imat_kronecker, KroneckerStencilMatrix):
-                self._imat = projector_tensor.imat_kronecker.tostencil()
-                self._imat.set_backend(
-                    PSYDAC_BACKEND_GPYCCEL,
-                    precompiled=True,
-                )
-            else:
-                b11 = projector_tensor.imat_kronecker.blocks[0][0].tostencil()
-                b11.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-                b22 = projector_tensor.imat_kronecker.blocks[1][1].tostencil()
-                b22.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-                b33 = projector_tensor.imat_kronecker.blocks[2][2].tostencil()
-                b33.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-
-                blocks = [
-                    [b11, None, None],
-                    [None, b22, None],
-                    [None, None, b33],
-                ]
-
-                self._imat = BlockLinearOperator(
-                    self.space.coeff_space,
-                    self.space.coeff_space,
-                    blocks,
-                )
-
-        else:
-            self._is_polar = False
-
-            self._imat = projector_tensor.imat_kronecker
-
-        # transposed
+        self._is_polar = isinstance(self.dofs_extraction_op, PolarExtractionOperator)
+        self._imat = projector_tensor.imat_kronecker
         self._imatT = self._imat.T
 
         # some shortcuts
         P = self._dofs_extraction_op
         E = self._base_extraction_op
-
         B = self._boundary_op
 
-        # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B * P * I * E^T * B^T as ComposedLinearOperator
-        self._I = P @ self._imat @ E.T
-        self._I0 = B @ self._I @ B.T
+        self._polar_rtol = polar_rtol
+        self._polar_maxiter = polar_maxiter
+        self._poloidal_solver = poloidal_solver
+        self._poloidal_solver_kwargs = poloidal_solver_kwargs or {}
 
-        # transposed
-        self._IT = E @ self._imatT @ P.T
-        self._I0T = B @ self._IT @ B.T
-
-        # preconditioner ID * P * I^(-1) * E^T * ID^T and B * P * I^(-1) * E^T * B^T for iterative polar projections
-        self._pc = ProjectorPreconditioner(
-            self,
-            transposed=False,
-            apply_bc=False,
-        )
-        self._pc0 = ProjectorPreconditioner(
-            self,
-            transposed=False,
-            apply_bc=True,
-        )
-
-        # transposed
-        self._pcT = ProjectorPreconditioner(
-            self,
-            transposed=True,
-            apply_bc=False,
-        )
-        self._pc0T = ProjectorPreconditioner(
-            self,
-            transposed=True,
-            apply_bc=True,
-        )
-
-        # linear solver used for polar projections
         if self._is_polar:
-            self._polar_solver = inverse(
-                self._I,
-                "pbicgstab",
-                pc=self._pc,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
+            # 2D x 1D Kronecker structure (P_pol (I_1 x I_2) E_pol^T) x I_3 of the polar inter-/histopolation matrix
+            polar_space = P.codomain
+            groups = projector_groups(polar_space, self.space, P, E)
+            bc = getattr(B, "bc", None)
+            bases = spline_bases(self.space)
+            masks = [bc_masks(polar_space, g.comps, bases, bc) for g in groups]
+
+            # factors of the operators to invert, key (transposed, apply_bc); boundary conditions as D A D + I - D
+            groups_bc = [g.masked(*m, True, polar_space) for g, m in zip(groups, masks)]
+            self._polar_groups = {
+                (False, False): groups,
+                (False, True): groups_bc,
+                (True, False): [g.transpose() for g in groups],
+                (True, True): [g.transpose() for g in groups_bc],
+            }
+
+            # inter-/histopolation matrices I = P * I * E^T and I0 = B * P * I * E^T * B^T
+            self._I = PolarKron2Dx1DOperator(polar_space, groups)
+            self._I0 = PolarKron2Dx1DOperator(
+                polar_space, [g.masked(*m, False, polar_space) for g, m in zip(groups, masks)]
             )
-            self._polar_solver0 = inverse(
-                self._I0,
-                "pbicgstab",
-                pc=self._pc0,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
-            )
-            self._polar_solverT = inverse(
-                self._IT,
-                "pbicgstab",
-                pc=self._pcT,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
-            )
-            self._polar_solver0T = inverse(
-                self._I0T,
-                "pbicgstab",
-                pc=self._pc0T,
-                tol=1e-14,
-                maxiter=1000,
-                verbose=False,
-            )
+            self._IT = self._I.transpose()
+            self._I0T = self._I0.transpose()
+
+            # solvers are built on first use
+            self._polar_solvers = {}
+            self._polar_krylov = {}
+
+            # transposed boundary operator and buffer for the right-hand side with boundary conditions
+            self._boundary_op_T = self._boundary_op.T
+            self._polar_rhs_bc = self._boundary_op_T.codomain.zeros()
         else:
-            self._polar_solver = None
+            # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B * P * I * E^T * B^T as ComposedLinearOperator
+            self._I = P @ self._imat @ E.T
+            self._I0 = B @ self._I @ B.T
+
+            # transposed
+            self._IT = E @ self._imatT @ P.T
+            self._I0T = B @ self._IT @ B.T
+
+            # Kronecker solvers ID * P * I^(-1) * E^T * ID^T and B * P * I^(-1) * E^T * B^T
+            self._pc = ProjectorPreconditioner(self, transposed=False, apply_bc=False)
+            self._pc0 = ProjectorPreconditioner(self, transposed=False, apply_bc=True)
+            self._pcT = ProjectorPreconditioner(self, transposed=True, apply_bc=False)
+            self._pc0T = ProjectorPreconditioner(self, transposed=True, apply_bc=True)
 
         self._polar_info = None
 
@@ -518,6 +496,11 @@ class CommutingProjector:
         return self._is_polar
 
     @property
+    def polar_info(self):
+        """Info dict of the iterative solver of the last polar projection (None before the first one)."""
+        return self._polar_info
+
+    @property
     def I(self):
         """Inter-/histopolation matrix ID * P * I * E^T * ID^T as ComposedLinearOperator (ID = IdentityOperator)."""
         return self._I
@@ -539,23 +522,40 @@ class CommutingProjector:
 
     @property
     def pc(self):
-        """Preconditioner P * I^(-1) * E^T for iterative polar projections."""
-        return self._pc
+        """(Approximate) inverse of I: Kronecker solver (tensor product), resp. 2D x 1D Kronecker solver (polar)."""
+        return self._polar_solver(False, False) if self.is_polar else self._pc
 
     @property
     def pc0(self):
-        """Preconditioner B * P * I^(-1) * E^T * B^T for iterative polar projections."""
-        return self._pc0
+        """(Approximate) inverse of I0 (with boundary conditions)."""
+        return self._polar_solver(False, True) if self.is_polar else self._pc0
 
     @property
     def pcT(self):
-        """Transposed preconditioner P * I^(-T) * E^T for iterative polar projections."""
-        return self._pcT
+        """(Approximate) inverse of the transposed I."""
+        return self._polar_solver(True, False) if self.is_polar else self._pcT
 
     @property
     def pc0T(self):
-        """Transposed preconditioner B * P * I^(-T) * E^T * B^T for iterative polar projections."""
-        return self._pc0T
+        """(Approximate) inverse of the transposed I0 (with boundary conditions)."""
+        return self._polar_solver(True, True) if self.is_polar else self._pc0T
+
+    @property
+    def poloidal_solver(self) -> str:
+        """Solver for the poloidal matrices of polar projections ("schur", "lu" or "ilu")."""
+        return self._poloidal_solver
+
+    def _polar_solver(self, transposed: bool, apply_bc: bool) -> PolarKron2Dx1DSolver:
+        """2D x 1D Kronecker solver of the polar inter-/histopolation matrix (built on first use)."""
+        key = (transposed, apply_bc)
+        if key not in self._polar_solvers:
+            self._polar_solvers[key] = PolarKron2Dx1DSolver(
+                self._I.domain,
+                self._polar_groups[key],
+                self._poloidal_solver,
+                **self._poloidal_solver_kwargs,
+            )
+        return self._polar_solvers[key]
 
     def solve(self, rhs, transposed=False, apply_bc=False, out=None, x0=None):
         """
@@ -584,48 +584,48 @@ class CommutingProjector:
         assert isinstance(rhs, Vector)
         assert rhs.space == self._I.domain
 
-        if transposed:
-            # polar case (iterative solve with PBiConjugateGradientStab)
-            if self.is_polar:
-                if apply_bc:
-                    self._polar_solver0T.set_options(x0=x0)
-                    x = self._polar_solver0T.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-                else:
-                    self._polar_solverT.set_options(x0=x0)
-                    x = self._polar_solverT.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-            # standard (tensor product) case (Kronecker solver)
+        # standard (tensor product) case (Kronecker solver)
+        if not self.is_polar:
+            if transposed:
+                pc = self.pc0T if apply_bc else self.pcT
             else:
-                if apply_bc:
-                    x = self.pc0T.solve(rhs, out=out)
-                else:
-                    x = self.pcT.solve(rhs, out=out)
-        else:
-            # polar case (iterative solve with PBiConjugateGradientStab)
-            if self.is_polar:
-                if apply_bc:
-                    self._polar_solver0.set_options(x0=x0)
-                    x = self._polar_solver0.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-                else:
-                    self._polar_solver.set_options(x0=x0)
-                    x = self._polar_solver.solve(
-                        self._boundary_op.T.dot(rhs),
-                        out=out,
-                    )
-            # standard (tensor product) case (Kronecker solver)
+                pc = self.pc0 if apply_bc else self.pc
+            return pc.solve(rhs, out=out)
+
+        # polar case: 2D x 1D Kronecker solver
+        solver = self._polar_solver(transposed, apply_bc)
+
+        # boundary conditions are only imposed if requested (as in the tensor product case)
+        if apply_bc:
+            rhs = self._boundary_op_T.dot(rhs, out=self._polar_rhs_bc)
+
+        if solver.exact:
+            return solver.dot(rhs, out=out)
+
+        # approximate poloidal solver (ILU): preconditioner of an iterative solve
+        key = (transposed, apply_bc)
+        if key not in self._polar_krylov:
+            if transposed:
+                op = self._I0T if apply_bc else self._IT
             else:
-                if apply_bc:
-                    x = self.pc0.solve(rhs, out=out)
-                else:
-                    x = self.pc.solve(rhs, out=out)
+                op = self._I0 if apply_bc else self._I
+            self._polar_krylov[key] = inverse(
+                op, "pbicgstab", pc=solver, tol=self._polar_rtol, maxiter=self._polar_maxiter, verbose=False
+            )
+        krylov = self._polar_krylov[key]
+
+        # relative tolerance w.r.t. the norm of the right-hand side
+        rhs_norm = float(xp.sqrt(rhs.inner(rhs)))
+        krylov.set_options(x0=x0, tol=self._polar_rtol * rhs_norm if rhs_norm > 0.0 else self._polar_rtol)
+        x = krylov.solve(rhs, out=out)
+
+        info = krylov.get_info()
+        self._polar_info = info
+        if not info["success"]:
+            logger.warning(
+                f"Polar projection did not converge: {info['niter']} iterations, "
+                f"residual norm {info['res_norm']:.2e} (rhs norm {rhs_norm:.2e}, rtol {self._polar_rtol:.1e}).",
+            )
 
         return x
 
