@@ -15,6 +15,8 @@ class CudaSplineArguments(CudaStructArguments):
     """CUDA version of :class:`~struphy.kernel_arguments.spline_args_kernels.SplineArguments` (``SplineArgs``).
 
     The knot vectors are array views (pointer, shape, strides), because ``find_span`` needs the number of knots.
+    The pyccel scratch arrays ``bn1``, ..., ``bd3`` are per-thread local arrays in the CUDA kernels, so they are
+    not part of the struct.
     """
 
     struct_name = "SplineArgs"
