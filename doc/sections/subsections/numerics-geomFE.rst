@@ -293,7 +293,8 @@ On the CuPy backend, extraction, derivatives, Kronecker operators and these solv
 coefficients on the device. Factorization and mass-preconditioner assembly run once on the host;
 cached device factors apply subsequent solves. Polar MPI collectives support CUDA-aware device
 buffers or host staging through ``cunumpy.mpi.mpi_buffer``. The feectools halo exchanges require
-CUDA-aware MPI on real GPUs. General ``SplineFunction.__call__`` field evaluation is a separate
-GPU port and is not supported yet.
+CUDA-aware MPI on real GPUs. ``SplineFunction.__call__`` dispatches CUDA kernels for marker
+and dense/sparse grid evaluation. The fixed local-grid helper ``eval_tp_fixed_loc`` remains
+host-only; distributed field-evaluation MPI handling and coverage are separate follow-ups.
 
 .. image:: ../../pics/polar_derham.png
