@@ -584,7 +584,7 @@ CuPy backend by `Derham`.
 
 `SplineFunction` creates one `SplineArguments` (`CudaSplineArguments` on CuPy) per component, holding `kind`,
 `pn`, `tn1`, `tn2`, `tn3` and `starts`; the three `eval_spline_mpi_*` entry kernels take it as `args_spline`
-instead of six loose arguments (#678). The device helper `eval_spline_mpi` keeps its flat signature.
+instead of six loose arguments (#678), and pass it on to the device helper `eval_spline_mpi`.
 
 ### Kernel folders
 
