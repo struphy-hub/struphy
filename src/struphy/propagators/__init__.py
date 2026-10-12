@@ -12,6 +12,7 @@ _LAZY_IMPORTS = {
     "CurrentCoupling6DDensity": "struphy.propagators.current_coupling_6d_density",
     "EfieldWeightsCoupling": "struphy.propagators.efield_weights_coupling",
     "FaradayExtended": "struphy.propagators.faraday_extended",
+    "GyrokineticPoissonSolve": "struphy.propagators.gyrokinetic_poisson_solve",
     "Hall": "struphy.propagators.hall",
     "HasegawaWakataniStep": "struphy.propagators.hasegawa_wakatani_step",
     "ImplicitDiffusion": "struphy.propagators.implicit_diffusion",
@@ -20,7 +21,6 @@ _LAZY_IMPORTS = {
     "MagnetosonicUniform": "struphy.propagators.magnetosonic_uniform",
     "MaxwellWeakAmpere": "struphy.propagators.maxwell_weak_ampere",
     "OhmCold": "struphy.propagators.ohm_cold",
-    "PoissonAdiabaticGyrokinetic": "struphy.propagators.poisson_adiabatic_gyrokinetic",
     "PoissonSolve": "struphy.propagators.poisson_solve",
     "PressureCoupling6D": "struphy.propagators.pressure_coupling_6d",
     "PushDeterministicDiffusion": "struphy.propagators.push_deterministic_diffusion",
@@ -59,6 +59,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
     from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
     from struphy.propagators.faraday_extended import FaradayExtended
+    from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
     from struphy.propagators.hall import Hall
     from struphy.propagators.hasegawa_wakatani_step import HasegawaWakataniStep
     from struphy.propagators.implicit_diffusion import ImplicitDiffusion
@@ -67,7 +68,6 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
     from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
     from struphy.propagators.ohm_cold import OhmCold
-    from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
     from struphy.propagators.poisson_solve import PoissonSolve
     from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
     from struphy.propagators.push_deterministic_diffusion import PushDeterministicDiffusion
@@ -105,6 +105,7 @@ __all__ = [
     "CurrentCoupling6DDensity",
     "EfieldWeightsCoupling",
     "FaradayExtended",
+    "GyrokineticPoissonSolve",
     "Hall",
     "HasegawaWakataniStep",
     "ImplicitDiffusion",
@@ -113,7 +114,6 @@ __all__ = [
     "MagnetosonicUniform",
     "MaxwellWeakAmpere",
     "OhmCold",
-    "PoissonAdiabaticGyrokinetic",
     "PoissonSolve",
     "PressureCoupling6D",
     "PushDeterministicDiffusion",

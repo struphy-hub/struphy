@@ -99,7 +99,7 @@ def cc_lin_mhd_5d_gradB(
 
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     mu_idx = args_markers.mu_idx
 
     # allocate for magnetic field evaluation
@@ -130,7 +130,7 @@ def cc_lin_mhd_5d_gradB(
             continue
 
         # if particle is refilled
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[ip, first_pusher_idx] == -1.0:
             continue
 
         # marker positions

@@ -10,8 +10,10 @@ from line_profiler import profile
 from maybempi import MPI
 from scope_profiler import ProfileManager
 
+from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector, WeightedMassOperator
 from struphy.io.options import LiteralOptions
+from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
@@ -30,16 +32,16 @@ class CurlCurlSolve(Propagator):
 
     .. math::
 
-        \int_\Omega \nabla \times \mathbf F \cdot \nabla \times \mathbf E\,\textrm d \mathbf x - \sigma \int_\Omega \mathbf F \cdot \mathbf E\,\textrm d \mathbf x = \sum_i \int_\Omega \mathbf F \cdot \mathbf J _i\,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
+        \int_\Omega \nabla \times \mathbf F \cdot \nabla \times \mathbf E\,\textrm d \mathbf x + \sigma \int_\Omega \mathbf F \cdot \mathbf E\,\textrm d \mathbf x = \sum_i \int_\Omega \mathbf F \cdot \mathbf J _i\,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
 
     where :math:`\mathbf J _i:\Omega \to \mathbb R^3` are real-valued and
-    :math:`\sigma \in \mathbb R / \{0\}` is a scalar.
+    :math:`\sigma > 0` is a scalar (the operator is symmetric positive definite).
     Boundary terms from integration by parts are assumed to vanish.
     The equation is discretized as
 
     .. math::
 
-        \left( \mathbb C^\top \cdot \mathbb M^2 \cdot \mathbb C - \sigma \mathbb M^1 \right)\, \boldsymbol e^{n+1} =\sum_i \boldsymbol j_i\,,
+        \left( \mathbb C^\top \cdot \mathbb M^2 \cdot \mathbb C + \sigma \mathbb M^1 \right)\, \boldsymbol e^{n+1} =\sum_i \boldsymbol j_i\,,
 
     where :math:`\mathbb M^1` and :math:`\mathbb M^2` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>` and :math:`\boldsymbol j_i`
     is the vector of coefficients of the projection of :math:`\mathbf J_i` into the discrete space :math:`V^1_h\subset H(\textnormal{curl})`.
@@ -106,8 +108,9 @@ class CurlCurlSolve(Propagator):
         Parameters
         ----------
         sigma : float, default=1.0
-            Coefficient multiplying the stabilization/mass contribution on the
-            left-hand side.
+            Coefficient of the stabilization/mass term on the left-hand side,
+            ``curl.T @ diffusion_mat @ curl + sigma * stab_mat``. Must be positive for the
+            operator to be positive definite (values below ``1e-14`` are set to ``1e-14``).
 
         stab_mat : {"M1", "Id"}, default="M1"
             Stabilization operator used in the term weighted by ``sigma``.
@@ -129,10 +132,34 @@ class CurlCurlSolve(Propagator):
             Name of the symmetric iterative solver passed to
             :func:`psydac.linalg.solvers.inverse`.
 
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Name of the preconditioner configuration.
-            Currently this class sets ``pc=None`` internally, so this option is
-            reserved for compatibility and future extensions.
+        precond : LiteralOptions.OptsCurlCurlPrecond, default=None
+            Name of the preconditioner (requires ``solver="pcg"``):
+
+            - ``None``: no preconditioner.
+            - ``"MassMatrixPreconditioner"``: Kronecker approximation of the inverse of
+              the 1-form mass matrix ``M1`` (see :mod:`struphy.feec.preconditioner`).
+            - ``"StiffnessPreconditioner"``: Kronecker approximation of the inverse of
+              ``curl.T @ diffusion_mat @ curl + sigma * stab_mat``
+              (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``derivative="curl"``,
+              ``mid=diffusion_mat`` and ``stab=stab_mat``): block Jacobi with fast diagonalization,
+              plus a correction on the gradients (``kernel_correction``, default True).
+            - ``"HiptmairXu"``: auxiliary space preconditioner of Hiptmair and Xu
+              (:class:`~struphy.feec.preconditioner.HiptmairXuPreconditioner` with ``mid=diffusion_mat`` and
+              ``stab=stab_mat``): smoother plus corrections on the gradients and on vector-valued
+              :math:`H^1` splines.
+            - ``"MultiGrid"``: geometric multigrid V-cycle
+              (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`)
+              with the hybrid smoother of Hiptmair (see ``multigrid``).
+
+        precond_params : dict, default=None
+            Keyword arguments passed to the constructor of the preconditioner,
+            e.g. ``{"kernel_correction": False}`` for ``"StiffnessPreconditioner"``
+            or ``{"smoother": "jacobi"}`` for ``"HiptmairXu"``.
+
+        multigrid : MultiGridOptions, default=None
+            Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
+            If ``None``, defaults to ``MultiGridOptions(hiptmair=True, smoother_precond="jacobi")``:
+            without the Hiptmair smoother, multigrid is not robust for the curl-curl operator.
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -149,7 +176,9 @@ class CurlCurlSolve(Propagator):
         diffusion_mat: OptsDiffusionMat = "M2"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsCurlCurlPrecond = None
+        precond_params: dict = None
+        multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
 
         def __post_init__(self):
@@ -157,9 +186,15 @@ class CurlCurlSolve(Propagator):
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
-            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.precond, LiteralOptions.OptsCurlCurlPrecond)
+            if self.precond is not None:
+                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
 
             # defaults
+            if self.precond_params is None:
+                self.precond_params = {}
+            if self.multigrid is None:
+                self.multigrid = MultiGridOptions(hiptmair=True, smoother_precond="jacobi")
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
 
@@ -176,8 +211,11 @@ class CurlCurlSolve(Propagator):
 
     @profile
     def allocate(self, verbose: bool = False):
+        if self.options.sigma < 0.0:
+            raise ValueError(f"CurlCurlSolve needs sigma >= 0 (SPD operator), got {self.options.sigma = }.")
+
         # always stabilize
-        if xp.abs(self.options.sigma) < 1e-14:
+        if self.options.sigma < 1e-14:
             self.options.sigma = 1e-14
             if MPI.COMM_WORLD.Get_rank() == 0:
                 logger.info(f"Running Curl-Curl solve with {self.options.sigma =}")
@@ -248,17 +286,46 @@ class CurlCurlSolve(Propagator):
         self._diffusion_op = self.derham.curl.T @ diffusion_mat @ self.derham.curl
 
         # preconditioner and solver for Ax=b
-        if self.options.precond is None:
+        lhs = self._diffusion_op + self._sigma * self._stab_mat
+        precond = self.options.precond
+        if precond is None:
             pc = None
+        elif precond == "StiffnessPreconditioner":
+            pc = preconditioner.StiffnessPreconditioner(
+                self.mass_ops,
+                "curl",
+                sigma=self._sigma,
+                mid=self.options.diffusion_mat,
+                stab=self.options.stab_mat,
+                **self.options.precond_params,
+            )
+        elif precond == "MultiGrid":
+            pc = MultiGridPreconditioner(
+                lhs,
+                self.derham,
+                self.domain,
+                self.options.multigrid,
+                mass_ops=self.mass_ops,
+            )
+        elif precond == "HiptmairXu":
+            pc = preconditioner.HiptmairXuPreconditioner(
+                lhs,
+                self.mass_ops,
+                self._sigma,
+                mid=self.options.diffusion_mat,
+                stab=self.options.stab_mat,
+                **self.options.precond_params,
+            )
         else:
-            # TODO: waiting for multigrid preconditioner
-            pc = None
+            pc_class = getattr(preconditioner, precond)
+            pc = pc_class(self.mass_ops.M1, **self.options.precond_params)
 
-        # solver just with A_2, but will be set during call with dt
+        # (only "pcg" takes a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
         self._solver = inverse(
-            self._diffusion_op,
+            lhs,
             self.options.solver,
-            pc=pc,
+            **pc_kwargs,
             x0=self.x0,
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,
@@ -318,9 +385,6 @@ class CurlCurlSolve(Propagator):
             elif isinstance(src, AccumulatorVector):
                 src()  # accumulate
                 self._rhs += coeff * src.vectors[0]
-
-        # compute lhs
-        self._solver.linop = self._diffusion_op - self._sigma * self._stab_mat
 
         # solve
         with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
