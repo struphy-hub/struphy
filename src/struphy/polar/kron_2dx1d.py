@@ -824,7 +824,10 @@ def fast_diagonalization_3(
         lam, Vf = eigh(S_3[np.ix_(f, f)], Mf)
         qf = {"M": np.ones(nf), "S": lam}
     for key, B in (B_3 or {}).items():
-        qf[key] = np.einsum("ik,ij,jk->k", Vf, B[np.ix_(f, f)], Vf)
+        q_key = np.einsum("ik,ij,jk->k", Vf, B[np.ix_(f, f)], Vf)
+        # round-off to zero, so that modes with equal coefficients share their factorization
+        q_key[np.abs(q_key) <= 1e-12 * max(np.abs(q_key).max(), 1e-300)] = 0.0
+        qf[key] = q_key
 
     V = np.zeros((n3, n3))
     V[np.ix_(f, np.arange(nf))] = Vf
@@ -927,7 +930,7 @@ class PolarKronSum2Dx1DSolver(_PolarKron2Dx1DBase):
                         A = apply_mask(spa.csr_matrix(A), g.free_pol, True)
                     solver = make_poloidal_solver(spa.csr_matrix(A), poloidal_solver, pole=pole, **solver_kwargs)
                     for alpha, (_, U, C, _) in zip(alphas, low_rank):
-                        if abs(alpha) > 1e-14 * max(1.0, max(abs(c) for c in coeffs.values())):
+                        if alpha != 0.0:
                             solver = _WoodburySolver(solver, U, C, alpha)
                     solvers[key] = solver
             self._mode_solvers.append((solvers, keys))

@@ -652,6 +652,7 @@ def test_polar_stiffness_preconditioner(mapping, bcs, poloidal_solver):
         ("grad", 10.0, mass.M0, "Id", "eta3"),
         ("grad", 10.0, mass.M0, None, "eta2 eta3"),
         ("grad", 10.0, mass.M0, "Id", "eta2 eta3"),
+        ("grad", 10.0, mass.M0, None, "eta2"),
         ("curl", 1.0, mass.M1, None, None),
         ("curl", 1e-3, mass.M1, None, None),
     ]
@@ -744,12 +745,6 @@ def test_restart_polar(space_id, tmp_path):
     assert xp.allclose(g.vector.toarray(), f.vector.toarray(), atol=1e-12)
 
 
-if __name__ == "__main__":
-    # test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
-    # test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])
-    test_projectors([8, 12, 4], [3, 3, 2], (("free", "dirichlet"), None, None))
-
-
 @pytest.mark.parametrize("mapping", ["IGAPolarCylinder", "IGAPolarTorus"])
 @pytest.mark.parametrize("stab", ["M0", "Id"])
 @pytest.mark.parametrize("directions", [(2,), (1, 2), (1,)])
@@ -801,3 +796,9 @@ def test_polar_weighted_average_projection(mapping, stab, directions):
     r = A.dot(Px)
     s = S.dot(Px)
     assert r.dot(r) ** 0.5 < 1e-12 * s.dot(s) ** 0.5
+
+
+if __name__ == "__main__":
+    # test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
+    # test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])
+    test_projectors([8, 12, 4], [3, 3, 2], (("free", "dirichlet"), None, None))
