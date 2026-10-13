@@ -1,5 +1,7 @@
 #include "struphy/geometry/transform_kernels.cuh"
 
+using namespace struphy_cuda;
+
 // Same arguments, in the same order, as the pyccel kernel in kernel_pullpush_pic_kernels.py.
 
 /**
@@ -83,11 +85,11 @@ extern "C" __global__ void kernel_pullpush_pic(Array2D<double> a, Array2D<double
         for (long long k = 0; k < n_tmp2; ++k) tmp2[k] = out(counter_o, k);
 
         if (kind_transform == 0)
-            struphy_cuda::pull(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2);
+            transform_kernels::pull(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2);
         else if (kind_transform == 1)
-            struphy_cuda::push(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2);
+            transform_kernels::push(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2);
         else
-            struphy_cuda::tran(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2);
+            transform_kernels::tran(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2);
 
         for (long long k = 0; k < n_tmp2; ++k) out(counter_o, k) = tmp2[k];
     }

@@ -3,6 +3,8 @@
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Exact rotation of the velocity about the magnetic field, as in push_vxb_analytic_kernels.push_vxb_analytic.
  *
@@ -41,21 +43,21 @@ extern "C" __global__ void push_vxb_analytic(double dt, int stage, MarkerArgs ar
     for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
 
     // evaluate Jacobian, result in dfm
-    struphy_cuda::df(e1, e2, e3, args_domain, dfm);
+    evaluation_kernels::df(e1, e2, e3, args_domain, dfm);
 
     // metric coeffs
-    double det_df = struphy_cuda::det(dfm);
+    double det_df = linalg_kernels::det(dfm);
 
     // spline evaluation; CUDA-only scratch holds the spline values pyccel keeps in args_derham
-    struphy_cuda::SplineScratch scratch;
-    struphy_cuda::get_spans(e1, e2, e3, args_derham, scratch);
+    evaluation_kernels_3d::SplineScratch scratch;
+    evaluation_kernels_3d::get_spans(e1, e2, e3, args_derham, scratch);
     int span1 = scratch.span1, span2 = scratch.span2, span3 = scratch.span3;
 
     // magnetic field 2-form
-    struphy_cuda::eval_2form_spline_mpi(span1, span2, span3, args_derham, scratch, b2_1, b2_2, b2_3, b_form);
+    evaluation_kernels_3d::eval_2form_spline_mpi(span1, span2, span3, args_derham, scratch, b2_1, b2_2, b2_3, b_form);
 
     // magnetic field: Cartesian components
-    struphy_cuda::matrix_vector(dfm, b_form, b_cart);
+    linalg_kernels::matrix_vector(dfm, b_form, b_cart);
     for (int j = 0; j < 3; ++j) b_cart[j] = b_cart[j] / det_df;
 
     // magnetic field: magnitude
@@ -68,14 +70,14 @@ extern "C" __global__ void push_vxb_analytic(double dt, int stage, MarkerArgs ar
     for (int j = 0; j < 3; ++j) b_norm[j] = b_cart[j] / b_abs;
 
     // parallel velocity v.b_norm
-    double vpar = struphy_cuda::scalar_dot(v, b_norm);
+    double vpar = linalg_kernels::scalar_dot(v, b_norm);
 
     // first component of perpendicular velocity
-    struphy_cuda::cross(v, b_norm, vxb_norm);
-    struphy_cuda::cross(b_norm, vxb_norm, vperp);
+    linalg_kernels::cross(v, b_norm, vxb_norm);
+    linalg_kernels::cross(b_norm, vxb_norm, vperp);
 
     // second component of perpendicular velocity
-    struphy_cuda::cross(b_norm, vperp, b_normxvperp);
+    linalg_kernels::cross(b_norm, vperp, b_normxvperp);
 
     // analytic rotation
     for (int j = 0; j < 3; ++j)

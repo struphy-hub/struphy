@@ -1,4 +1,5 @@
 import cunumpy as xp
+from cunumpy.mpi import mpi_buffer
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
@@ -8,8 +9,113 @@ from scipy.sparse import csr_matrix, identity
 from struphy.linear_algebra.linalg_kron import kron_matvec_2d
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
+# Sparse module used to put the polar blocks on the device on the CuPy backend; ``None`` means ``xp.scipy.sparse``
+# (``cupyx.scipy.sparse``). Tests without a GPU replace it with :func:`set_device_sparse_module`.
+_DEVICE_SPARSE_MODULE = None
 
-class PolarExtractionOperator(LinearOperator):
+
+def set_device_sparse_module(module):
+    """Set the sparse module that builds the device copies of the polar blocks on the CuPy backend.
+
+    Parameters
+    ----------
+    module : module | None
+        Must provide ``csr_matrix(host_csr_matrix)`` returning an object with ``.dot(device_array)``.
+        ``None`` restores the default, ``xp.scipy.sparse`` (``cupyx.scipy.sparse`` on the CuPy backend).
+
+    Returns
+    -------
+    previous : module | None
+        The module that was set before.
+    """
+    global _DEVICE_SPARSE_MODULE
+    previous = _DEVICE_SPARSE_MODULE
+    _DEVICE_SPARSE_MODULE = module
+    return previous
+
+
+def device_sparse_module():
+    """The sparse module for the device copies of the polar blocks (``cupyx.scipy.sparse`` by default)."""
+    return xp.scipy.sparse if _DEVICE_SPARSE_MODULE is None else _DEVICE_SPARSE_MODULE
+
+
+class DeviceSparseMatrix:
+    """Device CSR copy of a host polar matrix, for products with device arrays.
+
+    The polar blocks (:class:`~struphy.polar.extraction_operators.PolarExtractionBlocksC1`) are setup data built
+    with SciPy on the host. On the CuPy backend the polar operators apply them to coefficients that live on the
+    device; this class holds a CSR copy of a block on the device (``cupyx.scipy.sparse``) and computes ``A @ x``
+    there (SpMV/SpMM on the GPU). Blocks without non-zero entries (or with an empty dimension) are not copied,
+    their products are zeros.
+
+    Parameters
+    ----------
+    host : scipy.sparse matrix | numpy.ndarray
+        The host matrix.
+    """
+
+    def __init__(self, host):
+        host = csr_matrix(host)
+        self._shape = host.shape
+        self._dtype = host.dtype
+        if host.nnz == 0 or 0 in host.shape:
+            self._device = None
+        else:
+            self._device = device_sparse_module().csr_matrix(host)
+
+    @property
+    def shape(self):
+        return self._shape
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def dot(self, x):
+        """Product with a device array x of shape (shape[1],) or (shape[1], k)."""
+        assert x.shape[0] == self.shape[1], f"{x.shape =} does not match {self.shape =}"
+        if self._device is None:
+            return xp.zeros((self.shape[0],) + tuple(x.shape[1:]), dtype=float)
+        # kron_matvec_2d passes transposed views; cuSPARSE takes a contiguous dense operand
+        return self._device.dot(xp.ascontiguousarray(x))
+
+
+def device_blocks(blocks):
+    """2D nested list of host blocks (``None`` allowed) -> same list with :class:`DeviceSparseMatrix` copies."""
+    if blocks is None:
+        return None
+    return [[None if blk is None else DeviceSparseMatrix(blk) for blk in row] for row in blocks]
+
+
+class _BlocksOnBackend:
+    """Mixin: the blocks of a polar operator for the active array backend.
+
+    The blocks themselves (properties ``blocks_*``) stay host matrices on every backend. On the NumPy backend
+    :meth:`_backend_blocks` returns them unchanged; on the CuPy backend it returns device copies
+    (:func:`device_blocks`), made once per block list and dropped when the list is replaced.
+    """
+
+    def _backend_blocks(self, name):
+        blocks = getattr(self, name)
+        if blocks is None or xp.get_backend() == "numpy":
+            return blocks
+        cache = self.__dict__.setdefault("_device_blocks_cache", {})
+        if name not in cache:
+            cache[name] = device_blocks(blocks)
+        return cache[name]
+
+    def _drop_device_blocks(self, name):
+        self.__dict__.get("_device_blocks_cache", {}).pop(name, None)
+
+
+def _allreduce_sum(comm, buf):
+    """In-place sum with synchronized device buffers or host staging."""
+    if comm is not None and comm.Get_size() > 1:
+        with mpi_buffer(buf, recv=True) as buffer:
+            comm.Allreduce(MPI.IN_PLACE, buffer, op=MPI.SUM)
+
+
+class PolarExtractionOperator(_BlocksOnBackend, LinearOperator):
     """
     Linear operator mapping from Stencil-/BlockVectorSpace (V) to PolarDerhamSpace (W).
 
@@ -149,6 +255,7 @@ class PolarExtractionOperator(LinearOperator):
             check_blocks(blocks, self.blocks_ten_to_pol_shapes)
 
         self._blocks_ten_to_pol = blocks
+        self._drop_device_blocks("blocks_ten_to_pol")
 
     @property
     def blocks_ten_to_ten_shapes(self):
@@ -168,6 +275,7 @@ class PolarExtractionOperator(LinearOperator):
             check_blocks(blocks, self.blocks_ten_to_ten_shapes)
 
         self._blocks_ten_to_ten = blocks
+        self._drop_device_blocks("blocks_ten_to_ten")
 
     @property
     def blocks_e3(self):
@@ -204,13 +312,17 @@ class PolarExtractionOperator(LinearOperator):
                 assert out.space == self._codomain
                 v.tp.copy(out=out)
 
+            blocks_e3 = self._backend_blocks("blocks_e3")
+
             # 2. map "first tp ring" to "polar rings" + "first tp ring"
             if self.blocks_ten_to_ten is not None:
-                dot_parts_of_polar(self.blocks_ten_to_ten, self.blocks_e3, v, out, map_from_tp=True)
+                dot_parts_of_polar(self._backend_blocks("blocks_ten_to_ten"), blocks_e3, v, out, map_from_tp=True)
 
             # 3. map polar coeffs to "polar rings" (added in-place)
             if self.blocks_ten_to_pol is not None:
-                dot_parts_of_polar(self.blocks_ten_to_pol, self.blocks_e3, v, out, map_from_tp=False, add=True)
+                dot_parts_of_polar(
+                    self._backend_blocks("blocks_ten_to_pol"), blocks_e3, v, out, map_from_tp=False, add=True
+                )
 
         # "standard" operator (tensor-product vector --> polar vector)
         else:
@@ -226,13 +338,15 @@ class PolarExtractionOperator(LinearOperator):
             # 1. identity operation on outer tp zone
             out.tp = v
 
+            blocks_e3 = self._backend_blocks("blocks_e3")
+
             # 2. map from "polar rings" to polar coeffs
             if self.blocks_ten_to_pol is not None:
-                dot_inner_tp_rings(self.blocks_ten_to_pol, self.blocks_e3, v, out, map_to_tp=False)
+                dot_inner_tp_rings(self._backend_blocks("blocks_ten_to_pol"), blocks_e3, v, out, map_to_tp=False)
 
             # 3. map to "polar rings" + "first tp ring" to "first tp ring"
             if self.blocks_ten_to_ten is not None:
-                dot_inner_tp_rings(self.blocks_ten_to_ten, self.blocks_e3, v, out, map_to_tp=True)
+                dot_inner_tp_rings(self._backend_blocks("blocks_ten_to_ten"), blocks_e3, v, out, map_to_tp=True)
 
         return out
 
@@ -267,7 +381,7 @@ class PolarExtractionOperator(LinearOperator):
         )
 
 
-class PolarLinearOperator(LinearOperator):
+class PolarLinearOperator(_BlocksOnBackend, LinearOperator):
     """
     Linear operator mapping from PolarDerhamSpace (V) to PolarDerhamSpace (W).
 
@@ -427,6 +541,8 @@ class PolarLinearOperator(LinearOperator):
             check_blocks(blocks, self.blocks_pol_to_ten_shapes)
             self._blocks_pol_to_ten = blocks
 
+        self._drop_device_blocks("blocks_pol_to_ten")
+
     @property
     def blocks_pol_to_pol_shapes(self):
         return self._blocks_pol_to_pol_shapes
@@ -447,6 +563,8 @@ class PolarLinearOperator(LinearOperator):
             check_blocks(blocks, self.blocks_pol_to_pol_shapes)
             self._blocks_pol_to_pol = blocks
 
+        self._drop_device_blocks("blocks_pol_to_pol")
+
     @property
     def blocks_e3_shapes(self):
         return self._blocks_e3_shapes
@@ -466,6 +584,8 @@ class PolarLinearOperator(LinearOperator):
         else:
             check_blocks(blocks, self.blocks_e3_shapes)
             self._blocks_e3 = blocks
+
+        self._drop_device_blocks("blocks_e3")
 
     def dot(self, v, out=None):
         """
@@ -502,16 +622,19 @@ class PolarLinearOperator(LinearOperator):
         self.tp_operator.dot(v.tp, out=out.tp)
         out.set_tp_coeffs_to_zero()
 
+        blocks_e3 = self._backend_blocks("blocks_e3")
+        blocks_pol_to_ten = self._backend_blocks("blocks_pol_to_ten")
+
         # 2. polar to polar (dense)
-        dot_pol_pol(self.blocks_pol_to_pol, self.blocks_e3, v, out)
+        dot_pol_pol(self._backend_blocks("blocks_pol_to_pol"), blocks_e3, v, out)
 
         # 3. contributions are added in-place
         if self.transposed:
             # "first tp ring" to polar
-            dot_inner_tp_rings(self.blocks_pol_to_ten, self.blocks_e3, v.tp, out, map_to_tp=False, add=True)
+            dot_inner_tp_rings(blocks_pol_to_ten, blocks_e3, v.tp, out, map_to_tp=False, add=True)
         else:
             # polar to "first tp ring"
-            dot_parts_of_polar(self.blocks_pol_to_ten, self.blocks_e3, v, out.tp, map_from_tp=False, add=True)
+            dot_parts_of_polar(blocks_pol_to_ten, blocks_e3, v, out.tp, map_from_tp=False, add=True)
 
         return out
 
@@ -661,8 +784,7 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out, map_to_tp, add=False):
 
         # sum up local dot products (polar coeffs are held by all processes, the "first tp ring" only at the pole)
         comm = polar_space.pole_comm if map_to_tp else polar_space.comm
-        if comm is not None and comm.Get_size() > 1:
-            comm.Allreduce(MPI.IN_PLACE, res, op=MPI.SUM)
+        _allreduce_sum(comm, res)
 
         # write result to output polar vector (in-place)
         # (only the rank owning the first eta_1 coeffs holds the "first tp ring", see PolarDerhamSpace)
@@ -799,9 +921,7 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out, map_from_tp, add=False):
                     res += kron_matvec_2d([block_e1_e2, block_e3], v.pol[n]).reshape(n_rings_out[m], n2, n3_out[m])
 
         if map_from_tp:
-            comm = polar_space.pole_comm
-            if comm is not None and comm.Get_size() > 1:
-                comm.Allreduce(MPI.IN_PLACE, res, op=MPI.SUM)
+            _allreduce_sum(polar_space.pole_comm, res)
 
         s1, s2, s3 = out_starts[m]
         e1, e2, e3 = out_ends[m]

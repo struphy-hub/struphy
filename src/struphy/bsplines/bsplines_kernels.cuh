@@ -1,5 +1,5 @@
 #pragma once
-namespace struphy_cuda {
+namespace struphy_cuda::bsplines_kernels {
 // Fixed capacity of the per-thread spline scratch arrays.
 constexpr int MAX_SPLINE_DEGREE = 8;
 
@@ -168,4 +168,4 @@ __device__ inline void b_der_splines_slim(const double* tn, int pn, double eta, 
     for (int j = 0; j <= pn; ++j) bn[j] = values[pn][j];
     der[pn] = saved;
 }
-}
+}  // namespace struphy_cuda::bsplines_kernels
