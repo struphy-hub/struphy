@@ -1146,12 +1146,14 @@ class Particles(metaclass=ABCMeta):
 
         All needed parameters can be set in the parameter file, see :ref:`params_yml`.
 
-        An initial sorting will be performed if sort is given as True (default) and sorting_params were given to the init.
+        On several processes, the markers are always sent to the process of their domain after drawing
+        (:meth:`mpi_sort_markers`). They are also sorted into boxes if sort is True (default) and sorting
+        boxes were set up.
 
         Parameters
         ----------
         sort : Bool
-            Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
+            Whether to sort the markers into boxes after initial drawing (only if sorting boxes were set up).
         """
 
         import scipy.special as sp
@@ -1258,10 +1260,13 @@ class Particles(metaclass=ABCMeta):
 
             # 2. plain sobol numbers with skip of first 1000 numbers
             elif self.loading == "sobol_standard":
-                self.phasespace_coords = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_mks_load_loc,
-                    1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank],
+                # generated on the host, then copied to the device (setup only)
+                self.phasespace_coords = xp.to_cunumpy(
+                    sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        int(n_mks_load_loc),
+                        1000 + int((n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]),
+                    )
                 )
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
@@ -1272,10 +1277,12 @@ class Particles(metaclass=ABCMeta):
 
                 # each sobol point yields 64 symmetric markers; round up and truncate the last group
                 n_sobol = -(-self.n_mks_load // 64)
-                temp_markers = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_sobol[self._mpi_rank],
-                    1000 + (xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank],
+                temp_markers = xp.to_cunumpy(
+                    sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        int(n_sobol[self._mpi_rank]),
+                        1000 + int((xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank]),
+                    )
                 )
 
                 temp_symmetric = xp.zeros((64 * n_sobol[self._mpi_rank], 3 + self.vdim), dtype=float)
@@ -1405,10 +1412,15 @@ class Particles(metaclass=ABCMeta):
             assert xp.all(~self.holes[:n_mks_load_loc])
             assert xp.all(self.holes[n_mks_load_loc:])
 
-        if self._initialized_sorting and sort:
-            logger.info("\nSorting the markers after initial draw")
-            if self.mpi_comm is not None:
-                self.mpi_sort_markers()
+        # send the markers to the process of their domain: needed on several processes whether or not there are
+        # sorting boxes, since accumulations before the first push (e.g. an initial Poisson solve) assume it (#764)
+        sort_boxes = self._initialized_sorting and sort
+        if self.mpi_comm is not None and (self.mpi_size > 1 or sort_boxes):
+            logger.info("\nSending the markers to their processes after initial draw")
+            self.mpi_sort_markers()
+
+        if sort_boxes:
+            logger.info("\nSorting the markers into boxes after initial draw")
             self.do_sort()
             logger.info("Done.")
 
@@ -2586,6 +2598,12 @@ class Particles(metaclass=ABCMeta):
             self.mu_idx,
             self._bc_type,
         )
+
+        # on the CuPy backend with several ranks, find out now (collectively, in the setup) whether MPI takes device
+        # buffers; otherwise the probe runs on the first marker exchange, inside the first time step.
+        # The probe is collective: all ranks of mpi_comm must allocate their marker arrays together, never one alone.
+        if xp.get_backend() == "cupy" and self.mpi_size > 1:
+            self._mpi_cuda_aware()
 
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.
