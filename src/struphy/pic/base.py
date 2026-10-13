@@ -1146,12 +1146,14 @@ class Particles(metaclass=ABCMeta):
 
         All needed parameters can be set in the parameter file, see :ref:`params_yml`.
 
-        An initial sorting will be performed if sort is given as True (default) and sorting_params were given to the init.
+        On several processes, the markers are always sent to the process of their domain after drawing
+        (:meth:`mpi_sort_markers`). They are also sorted into boxes if sort is True (default) and sorting
+        boxes were set up.
 
         Parameters
         ----------
         sort : Bool
-            Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
+            Whether to sort the markers into boxes after initial drawing (only if sorting boxes were set up).
         """
 
         import scipy.special as sp
@@ -1410,10 +1412,15 @@ class Particles(metaclass=ABCMeta):
             assert xp.all(~self.holes[:n_mks_load_loc])
             assert xp.all(self.holes[n_mks_load_loc:])
 
-        if self._initialized_sorting and sort:
-            logger.info("\nSorting the markers after initial draw")
-            if self.mpi_comm is not None:
-                self.mpi_sort_markers()
+        # send the markers to the process of their domain: needed on several processes whether or not there are
+        # sorting boxes, since accumulations before the first push (e.g. an initial Poisson solve) assume it (#764)
+        sort_boxes = self._initialized_sorting and sort
+        if self.mpi_comm is not None and (self.mpi_size > 1 or sort_boxes):
+            logger.info("\nSending the markers to their processes after initial draw")
+            self.mpi_sort_markers()
+
+        if sort_boxes:
+            logger.info("\nSorting the markers into boxes after initial draw")
             self.do_sort()
             logger.info("Done.")
 
