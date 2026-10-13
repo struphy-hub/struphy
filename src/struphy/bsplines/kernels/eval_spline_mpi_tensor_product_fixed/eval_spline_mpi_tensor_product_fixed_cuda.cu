@@ -1,5 +1,7 @@
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 
+using namespace struphy_cuda;
+
 // Same arguments, in the same order, as the pyccel kernel in eval_spline_mpi_tensor_product_fixed_kernels.py. Array
 // views carry dimensions and strides, so no CUDA-only lengths are needed.
 
@@ -42,12 +44,13 @@ extern "C" __global__ void eval_spline_mpi_tensor_product_fixed(Array1D<long lon
     long long j = (ijk / nk) % nj;
     long long i = ijk / (nj * nk);
 
-    double b1[struphy_cuda::MAX_SPLINE_DEGREE + 1], b2[struphy_cuda::MAX_SPLINE_DEGREE + 1],
-        b3[struphy_cuda::MAX_SPLINE_DEGREE + 1];
+    double b1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], b2[bsplines_kernels::MAX_SPLINE_DEGREE + 1],
+        b3[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
     for (int il = 0; il <= pn[0] - kind[0]; ++il) b1[il] = b1s(i, il);
     for (int il = 0; il <= pn[1] - kind[1]; ++il) b2[il] = b2s(j, il);
     for (int il = 0; il <= pn[2] - kind[2]; ++il) b3[il] = b3s(k, il);
 
-    values(i, j, k) = struphy_cuda::eval_spline_mpi_kernel(pn[0] - kind[0], pn[1] - kind[1], pn[2] - kind[2], b1, b2,
-                                                           b3, span1s(i), span2s(j), span3s(k), _data, starts);
+    values(i, j, k) =
+        evaluation_kernels_3d::eval_spline_mpi_kernel(pn[0] - kind[0], pn[1] - kind[1], pn[2] - kind[2], b1, b2, b3,
+                                                      span1s(i), span2s(j), span3s(k), _data, starts);
 }

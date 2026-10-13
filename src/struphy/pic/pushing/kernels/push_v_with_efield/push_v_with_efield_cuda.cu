@@ -2,6 +2,8 @@
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Velocity update in an electric field, as in push_v_with_efield_kernels.push_v_with_efield.
  *
@@ -36,22 +38,22 @@ extern "C" __global__ void push_v_with_efield(double dt, int stage, MarkerArgs a
     double dfm[9], dfinv[9], dfinvt[9], e_form[3], e_cart[3];
 
     // evaluate Jacobian, result in dfm
-    struphy_cuda::df(eta1, eta2, eta3, args_domain, dfm);
+    evaluation_kernels::df(eta1, eta2, eta3, args_domain, dfm);
 
     // metric coeffs
-    struphy_cuda::matrix_inv(dfm, dfinv);
-    struphy_cuda::transpose(dfinv, dfinvt);
+    linalg_kernels::matrix_inv(dfm, dfinv);
+    linalg_kernels::transpose(dfinv, dfinvt);
 
     // spline evaluation; CUDA-only scratch holds the spline values pyccel keeps in args_derham
-    struphy_cuda::SplineScratch scratch;
-    struphy_cuda::get_spans(eta1, eta2, eta3, args_derham, scratch);
+    evaluation_kernels_3d::SplineScratch scratch;
+    evaluation_kernels_3d::get_spans(eta1, eta2, eta3, args_derham, scratch);
     int span1 = scratch.span1, span2 = scratch.span2, span3 = scratch.span3;
 
     // electric field: 1-form components
-    struphy_cuda::eval_1form_spline_mpi(span1, span2, span3, args_derham, scratch, e1_1, e1_2, e1_3, e_form);
+    evaluation_kernels_3d::eval_1form_spline_mpi(span1, span2, span3, args_derham, scratch, e1_1, e1_2, e1_3, e_form);
 
     // electric field: Cartesian components
-    struphy_cuda::matrix_vector(dfinvt, e_form, e_cart);
+    linalg_kernels::matrix_vector(dfinvt, e_form, e_cart);
 
     // update velocities
     for (int j = 0; j < 3; ++j) args_markers.markers(ip, 3 + j) += dt * const_factor * e_cart[j];
