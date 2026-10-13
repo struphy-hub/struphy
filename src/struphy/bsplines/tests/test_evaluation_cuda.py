@@ -7,6 +7,9 @@ import cunumpy as xp
 import numpy as np
 import pytest
 
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
+
 requires_cupy = pytest.mark.skipif(not xp.cupy_available(), reason="CuPy/GPU not available")
 
 
@@ -26,10 +29,11 @@ def test_evaluation_parity(mode, kind, empty):
     for backend in ("numpy", "cupy"):
         with xp.use_backend(backend):
             data = xp.asarray(coeff)[::2, ::2, ::2]
-            metadata = (
+            args_class = CudaSplineArguments if backend == "cupy" else SplineArguments
+            args_spline = args_class(
                 xp.asarray(kind, dtype=xp.int64),
                 xp.asarray(degree),
-                *(xp.asarray(np.repeat(t, 2))[::2] for t in knots),
+                *(xp.asarray(t) for t in knots),
                 xp.asarray([1, 1, 1], dtype=xp.int64),
             )
             if mode == "markers":
@@ -48,7 +52,7 @@ def test_evaluation_parity(mode, kind, empty):
                     coords[1][0, 0, 0] = -1.0
                 storage = xp.full((axes[0].size, 5, 8), 17.0)
                 out = storage[:, :, ::2]
-            kernel(*coords, data, *metadata, out, n_threads=out.size)
+            kernel(*coords, data, args_spline, out, n_threads=out.size)
             results.append(xp.to_numpy(out).copy())
             assert bool(xp.all(storage[..., 1::2] == 17.0))
     np.testing.assert_allclose(results[1], results[0], rtol=1e-12, atol=1e-12)

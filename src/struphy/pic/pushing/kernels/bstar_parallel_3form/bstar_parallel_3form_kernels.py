@@ -45,7 +45,7 @@ def bstar_parallel_3form(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_shift_idx = args_markers.first_shift_idx
 
     for ip in range(n_markers):
@@ -54,13 +54,13 @@ def bstar_parallel_3form(
             continue
 
         eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx : first_shift_idx + 3]
-        eta_n[:] = markers[ip, first_init_idx : first_init_idx + 3]
+        eta_n[:] = markers[ip, first_pusher_idx : first_pusher_idx + 3]
 
         eta[:] = alpha[:3] * eta_k + (1.0 - alpha[:3]) * eta_n
         eta[:] = mod(eta, 1.0)
 
         v_k = markers[ip, 3]
-        v_n = markers[ip, first_init_idx + 3]
+        v_n = markers[ip, first_pusher_idx + 3]
         v = alpha[3] * v_k + (1.0 - alpha[3]) * v_n
 
         # evaluate Jacobian, result in dfm

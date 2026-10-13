@@ -615,7 +615,7 @@ class CommutingProjector:
         krylov = self._polar_krylov[key]
 
         # relative tolerance w.r.t. the norm of the right-hand side
-        rhs_norm = xp.sqrt(rhs.inner(rhs))
+        rhs_norm = float(xp.sqrt(rhs.inner(rhs)))
         krylov.set_options(x0=x0, tol=self._polar_rtol * rhs_norm if rhs_norm > 0.0 else self._polar_rtol)
         x = krylov.solve(rhs, out=out)
 
