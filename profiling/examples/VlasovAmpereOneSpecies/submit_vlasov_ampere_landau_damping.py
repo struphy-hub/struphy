@@ -10,7 +10,7 @@ directly (its `__main__` block is the worker).
 
 The run is profiled with scope-profiler. `--backend cupy` runs it on the GPU with CUDA-event
 timing per region; the job script exports the choice as CUNUMPY_BACKEND before the simulation.
-The resolution (32 cells, 1000 markers per cell, 20 steps) is set in `params_vlasov_ampere.py`.
+The resolution (1024 cells, 1000 markers per cell, 20 steps) is set in `params_vlasov_ampere.py`.
 """
 
 import argparse

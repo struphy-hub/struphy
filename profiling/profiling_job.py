@@ -12,8 +12,9 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   writes and runs a plain bash script to completion (otherwise) — the caller doesn't
   need to know which. Pass `param_flags` to override the default commands (e.g. to add a
   case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
-  Under SLURM, the cluster preset is picked on each call from
-  `clusters.SLURM_PRESETS` unless a `slurm_presets` argument overrides it.
+  Under SLURM, the preset of the detected cluster is taken from `clusters.SLURM_PRESETS`
+  on each call, unless `slurm_preset` names another one (e.g. a GPU partition);
+  `slurm_options` overrides single pragmas of it.
 - `ProfilingCase.finalize_run` packages and pushes the case-level metadata straight
   away, then waits on the runs one by one, packaging and pushing each run's results
   into that same folder as soon as its own job finishes. With `upload=True`, the
@@ -212,8 +213,9 @@ class ProfilingCase:
         num_tasks: int = 1,
         num_nodes: int | None = None,
         param_flags: list[str] | None = None,
-        slurm_presets: dict[str, dict] | None = None,
         backend: str = "numpy",
+        slurm_preset: str | None = None,
+        slurm_options: dict | None = None,
     ) -> None:
         """Build, submit/run, and record the run for a single rank count.
 
@@ -234,12 +236,16 @@ class ProfilingCase:
                 outside SLURM, where every rank runs in a single local process group.
             param_flags: Extra CLI flags forwarded to `build_commands` and appended
                 to the `params_source` invocation, e.g. `["--ppc", "10"]`.
-            slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
-                picked via `detect_machine_name` on every call. Defaults to
-                `clusters.SLURM_PRESETS`. Ignored outside SLURM.
             backend: cunumpy backend of this run, "numpy" (CPU) or "cupy" (GPU):
                 exported as CUNUMPY_BACKEND in the job script and recorded in the
                 run's metadata, so one case can mix runs on both backends.
+            slurm_preset: Key of the `clusters.SLURM_PRESETS` entry the job is
+                submitted with, e.g. "pitagora_booster" for a GPU partition.
+                Defaults to the cluster found by `detect_machine_name`. Its
+                `HARDWARE_INFO` entry is only needed when `num_nodes` is not given.
+                Ignored outside SLURM.
+            slurm_options: SLURM pragmas that override those of the preset, e.g.
+                `{"time": "00:30:00"}`. Ignored outside SLURM.
 
         Raises:
             ValueError: If `backend` is neither "numpy" nor "cupy", or if
@@ -264,19 +270,15 @@ class ProfilingCase:
 
         # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
         if self.use_slurm:
-            cluster_name = detect_machine_name()
+            # The preset of this run: the caller's choice, or the one of the detected cluster.
+            preset_name = slurm_preset or detect_machine_name()
             if num_nodes is None:
                 # Compute the number of nodes needed to run `num_tasks` ranks, given the cluster's hardware.
-                cpus_per_node = HARDWARE_INFO[cluster_name]["cpus_per_node"]
+                cpus_per_node = HARDWARE_INFO[preset_name]["cpus_per_node"]
                 num_nodes = (num_tasks + cpus_per_node - 1) // cpus_per_node
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
-
-            # Pick the cluster preset for this run, either from the caller's override or the default.
-            if slurm_presets is not None:
-                cluster_preset = slurm_presets[cluster_name]
-            else:
-                cluster_preset = SLURM_PRESETS[cluster_name]
+            cluster_preset = {**SLURM_PRESETS[preset_name], **(slurm_options or {})}
 
             # Build the slurm script
             script = SlurmScript(

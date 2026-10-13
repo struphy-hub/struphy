@@ -96,8 +96,10 @@ domain = domains.Cuboid(r1=Lx)
 equil = None
 
 # Grid
-num_elements = 32  # cells in x (1 in y and z)
-grid = grids.TensorProductGrid(num_elements=(num_elements, 1, 1))
+# cells in x (1 in y and z). Only x is decomposed, and every rank needs at least `degree` = 3 cells of its own,
+# so 1024 cells run on up to 256 ranks (4 cells per rank), one full CPU node.
+num_elements = 1024
+grid = grids.TensorProductGrid(num_elements=(num_elements, 1, 1), mpi_dims_mask=(True, False, False))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(3, 1, 1))
