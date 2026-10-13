@@ -18,8 +18,8 @@ import argparse
 import sys
 from pathlib import Path
 
-# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, three levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
@@ -89,7 +89,6 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "polar_torus_strong_scaling"
 
     profiling_case = ProfilingCase(
         label=f"guiding_center_polar_torus_strong_scaling_{args.variant}",
@@ -102,7 +101,7 @@ def main() -> None:
         ),
         physics_problem="Long-time guiding-center equilibrium in a tokamak.",
         struphy_model_used="GuidingCenter",
-        params_source=params_dir / "params_guiding_center.py",
+        params_source=script_dir / "params_guiding_center.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

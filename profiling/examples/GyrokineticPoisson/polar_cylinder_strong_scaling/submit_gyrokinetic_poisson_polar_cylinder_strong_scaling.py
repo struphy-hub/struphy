@@ -1,10 +1,10 @@
-"""CurlCurl polar cylinder strong scaling profiling case: polar splines versus tensor-product splines on a cylinder with a hole.
+"""GyrokineticPoisson polar cylinder strong scaling profiling case: polar splines versus tensor-product splines on a cylinder with a hole.
 
-This file defines one variant of the CurlCurl strong scaling profiling case on a cylinder (radius 1, length 4) (the
+This file defines one variant of the GyrokineticPoisson strong scaling profiling case on a cylinder (radius 1, length 2*pi) in a screw pinch equilibrium (the
 `ProfilingCase`) and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
 SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch system, runs directly
 on this machine. `finalize_run` then packages and uploads each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_curl_curl.py` directly (its `__main__`
+Each generated script runs the simulation itself by invoking `params_gyrokinetic_poisson.py` directly (its `__main__`
 block is the worker), with the flags of the variant.
 
 The variant (spline space and preconditioner) is chosen with `--variant`; run this script once per variant.
@@ -14,12 +14,12 @@ import argparse
 import sys
 from pathlib import Path
 
-# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, three levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
-# variant -> (description, flags of params_curl_curl.py)
+# variant -> (description, flags of params_gyrokinetic_poisson.py)
 VARIANTS = {
     "tensor_none": (
         "tensor-product splines, no preconditioner",
@@ -28,10 +28,6 @@ VARIANTS = {
     "tensor_stiffness": (
         "tensor-product splines, stiffness preconditioner",
         ["--splines", "tensor", "--precond", "StiffnessPreconditioner"],
-    ),
-    "tensor_hiptmair_xu": (
-        "tensor-product splines, Hiptmair-Xu preconditioner",
-        ["--splines", "tensor", "--precond", "HiptmairXu"],
     ),
     "tensor_multigrid": (
         "tensor-product splines, multigrid preconditioner",
@@ -49,13 +45,17 @@ VARIANTS = {
         "polar splines, polar mass matrix preconditioner (Schur)",
         ["--splines", "polar", "--precond", "PolarMassMatrixPreconditioner"],
     ),
+    "polar_mass_ilu": (
+        "polar splines, polar mass matrix preconditioner (ILU)",
+        ["--splines", "polar", "--precond", "PolarMassMatrixPreconditioner", "--poloidal-solver", "ilu"],
+    ),
     "polar_stiffness": (
         "polar splines, polar stiffness preconditioner (Schur)",
         ["--splines", "polar", "--precond", "StiffnessPreconditioner"],
     ),
-    "polar_stiffness_lu": (
-        "polar splines, polar stiffness preconditioner (LU)",
-        ["--splines", "polar", "--precond", "StiffnessPreconditioner", "--poloidal-solver", "lu"],
+    "polar_stiffness_ilu": (
+        "polar splines, polar stiffness preconditioner (ILU)",
+        ["--splines", "polar", "--precond", "StiffnessPreconditioner", "--poloidal-solver", "ilu"],
     ),
 }
 
@@ -93,19 +93,18 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "polar_cylinder_strong_scaling"
 
     profiling_case = ProfilingCase(
-        label=f"curl_curl_polar_cylinder_strong_scaling_{args.variant}",
-        name=f"CurlCurl on a cylinder strong scaling test, {variant_description}",
+        label=f"gyrokinetic_poisson_polar_cylinder_strong_scaling_{args.variant}",
+        name=f"GyrokineticPoisson on a cylinder strong scaling test, {variant_description}",
         description=(
-            "Strong scaling of the CurlCurl model with a manufactured solution whose gradient is largest on the axis, "
+            "Strong scaling of the GyrokineticPoisson model with a manufactured solution whose gradient is largest on the axis, "
             "comparing C1 polar splines (IGAPolarCylinder) with tensor-product splines on a cylinder with a hole "
             f"(HollowCylinder, a1=1e-2): {variant_description}."
         ),
-        physics_problem="Occurs in implicit time stepping of Maxwell's equations and in magnetostatics.",
-        struphy_model_used="CurlCurl",
-        params_source=params_dir / "params_curl_curl.py",
+        physics_problem="Field equation of gyrokinetic simulations with adiabatic electrons.",
+        struphy_model_used="GyrokineticPoisson",
+        params_source=script_dir / "params_gyrokinetic_poisson.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

@@ -17,8 +17,8 @@ import argparse
 import sys
 from pathlib import Path
 
-# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, three levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
@@ -88,7 +88,6 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "cuboid_strong_scaling"
 
     profiling_case = ProfilingCase(
         label=f"vlasov_cuboid_strong_scaling_{args.variant}",
@@ -100,7 +99,7 @@ def main() -> None:
         ),
         physics_problem="Long-time Maxwellian equilibrium of charged particles in a uniform magnetic field.",
         struphy_model_used="Vlasov",
-        params_source=params_dir / "params_vlasov.py",
+        params_source=script_dir / "params_vlasov.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

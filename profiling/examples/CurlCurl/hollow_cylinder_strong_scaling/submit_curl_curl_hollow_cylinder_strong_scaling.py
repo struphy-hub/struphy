@@ -1,11 +1,11 @@
-"""GyrokineticPoisson strong scaling profiling case on hollow torus.
+"""Curl-curl strong scaling profiling case on hollow cylinder.
 
-This file defines the GyrokineticPoisson strong scaling profiling case (the `ProfilingCase`)
+This file defines the curl-curl strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
 SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch
 system, runs directly on this machine. `finalize_run` then packages and uploads
 each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_gyrokinetic_poisson.py`
+Each generated script runs the simulation itself by invoking `params_curl_curl.py`
 directly (its `__main__` block is the worker).
 
 The variant (preconditioner) is chosen with `--variant`; run this script once per variant.
@@ -15,8 +15,8 @@ import argparse
 import sys
 from pathlib import Path
 
-# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, three levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
@@ -24,21 +24,27 @@ from profiling_job import ProfilingCase  # noqa: E402
 # cases in the profiling-data repo and are kept from the former one-case-per-script layout
 VARIANTS = {
     "none": (
-        "gyrokinetic_poisson_hollow_torus_strong_scaling",
-        "GyrokineticPoisson on hollow torus strong scaling test, no preconditioner",
-        "Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with unpreconditioned CG.",
+        "curl_curl_hollow_cylinder_strong_scaling",
+        "Curl-curl on hollow cylinder strong scaling test, no preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with unpreconditioned CG.",
         [],
     ),
+    "hiptmair_xu": (
+        "curl_curl_hollow_cylinder_strong_scaling_hiptmair_xu",
+        "Curl-curl on hollow cylinder strong scaling test, Hiptmair-Xu preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by the auxiliary space preconditioner of Hiptmair and Xu (HiptmairXuPreconditioner).",
+        ["--precond", "HiptmairXu"],
+    ),
     "multigrid": (
-        "gyrokinetic_poisson_hollow_torus_strong_scaling_multigrid",
-        "GyrokineticPoisson on hollow torus strong scaling test, multigrid preconditioner",
-        "Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with CG preconditioned by geometric multigrid (MultiGridPreconditioner).",
+        "curl_curl_hollow_cylinder_strong_scaling_multigrid",
+        "Curl-curl on hollow cylinder strong scaling test, multigrid preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by geometric multigrid with the hybrid smoother of Hiptmair.",
         ["--precond", "MultiGrid"],
     ),
     "stiffness": (
-        "gyrokinetic_poisson_hollow_torus_strong_scaling_stiffness",
-        "GyrokineticPoisson on hollow torus strong scaling test, stiffness preconditioner",
-        "Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with CG preconditioned by the Kronecker approximation of the inverse operator (StiffnessPreconditioner).",
+        "curl_curl_hollow_cylinder_strong_scaling_stiffness",
+        "Curl-curl on hollow cylinder strong scaling test, stiffness preconditioner",
+        "Strong scaling of the CurlCurl model with manufactured solution on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4), solved with CG preconditioned by the Kronecker approximation of the inverse curl-curl operator with gradient correction (StiffnessPreconditioner).",
         ["--precond", "StiffnessPreconditioner"],
     ),
 }
@@ -77,15 +83,14 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "hollow_torus_strong_scaling"
 
     profiling_case = ProfilingCase(
         label=label,
         name=name,
         description=description,
-        physics_problem="Field equation of gyrokinetic simulations with adiabatic electrons.",
-        struphy_model_used="GyrokineticPoisson",
-        params_source=params_dir / "params_gyrokinetic_poisson.py",
+        physics_problem="Occurs in implicit time stepping of Maxwell's equations and in magnetostatics.",
+        struphy_model_used="CurlCurl",
+        params_source=script_dir / "params_curl_curl.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,
