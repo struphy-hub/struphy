@@ -71,8 +71,9 @@ import cunumpy as xp
 import numpy as np
 from cunumpy.kernel_testing import fake_cupy_active
 from maybempi import MPI
-from scope_profiler import ProfilingOptions, ProfilingResults, read_h5
+from scope_profiler import ProfilingResults, read_h5
 
+from struphy import ProfilingOptions
 from struphy.models.tests.gpu_e2e import device_context
 
 SIZES = {
