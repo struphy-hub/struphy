@@ -8,6 +8,33 @@ from typing import TYPE_CHECKING
 from maybempi import launched_under_mpi
 
 
+def _apply_stored_backend():
+    """Set ``CUNUMPY_BACKEND`` from the state file (``struphy backend set``) unless the variable is already set.
+
+    cunumpy reads the variable when it is imported, so this runs at ``import struphy`` and has an effect only when
+    struphy is imported before cunumpy. The state file is read here directly (not through ``struphy.utils``, which
+    imports this package).
+    """
+    if "CUNUMPY_BACKEND" in os.environ:
+        return
+    try:
+        import yaml
+    except ImportError:
+        return
+    state_file = os.path.join(os.path.dirname(__file__), "state.yml")
+    try:
+        with open(state_file) as f:
+            state = yaml.load(f, Loader=yaml.FullLoader) or {}
+    except (OSError, yaml.YAMLError):
+        return
+    backend = state.get("backend") if isinstance(state, dict) else None
+    if backend in ("numpy", "cupy"):
+        os.environ["CUNUMPY_BACKEND"] = backend
+
+
+_apply_stored_backend()
+
+
 class RankZeroFilter(logging.Filter):
     def __init__(self, rank: int):
         super().__init__()

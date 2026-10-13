@@ -91,6 +91,9 @@ def struphy():
     # 7. output inspection and post-processing
     add_parser_output(subparsers)
 
+    # 8. "backend" sub-command
+    add_parser_backend(subparsers)
+
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -129,6 +132,7 @@ def struphy():
         "profile": ("struphy.console.profile", "struphy_profile"),
         "test": ("struphy.console.test", "struphy_test"),
         "output": ("struphy.console.output", "struphy_output"),
+        "backend": ("struphy.console.backend", "struphy_backend"),
     }
 
     # import struphy.console.MODULE.FUNC_NAME as func
@@ -442,6 +446,22 @@ def add_parser_output(subparsers):
     )
     parser.add_argument("--format", choices=("markdown", "html"), default="markdown", help="report format")
     parser.add_argument("--directory", help="report directory")
+
+
+def add_parser_backend(subparsers):
+    """Add the command-line interface for the cunumpy array backend (NumPy or CuPy)."""
+    parser = subparsers.add_parser(
+        "backend",
+        help="show or choose the array backend of struphy runs: numpy (CPU) or cupy (GPU)",
+        description=(
+            "cunumpy picks its backend from the environment variable CUNUMPY_BACKEND. 'struphy backend set' stores "
+            "a choice in the state file; 'import struphy' then sets CUNUMPY_BACKEND from it unless the variable is "
+            "already set, and the profiling driver exports it in every job script."
+        ),
+    )
+    parser.add_argument("action", choices=("get", "set", "unset"))
+    parser.add_argument("backend", nargs="?", choices=("numpy", "cupy"), help="with set: the backend to store")
+    parser.add_argument("--value", action="store_true", help="with get: print only the stored backend")
 
 
 def add_parser_test(subparsers, list_models):

@@ -8,8 +8,9 @@ soon as its own job finishes.
 Each generated script runs the simulation itself by invoking `params_vlasov_ampere.py`
 directly (its `__main__` block is the worker).
 
-The run is profiled with scope-profiler; `--backend cupy` runs it on the GPU with CUDA-event
-timing per region. `--ppc`, `--num-elements` and `--steps` are forwarded to `params_vlasov_ampere.py`
+The run is profiled with scope-profiler. `--backend cupy` runs it on the GPU with CUDA-event
+timing per region (default: the backend stored with `struphy backend set`); the job script exports
+the choice as CUNUMPY_BACKEND. `--ppc`, `--num-elements` and `--steps` are forwarded to `params_vlasov_ampere.py`
 (defaults: 1000 markers per cell on 32 cells, 20 steps).
 """
 
@@ -47,9 +48,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--backend",
-        default="numpy",
+        default=None,
         choices=["numpy", "cupy"],
-        help="cunumpy backend to run on; cupy records CUDA-event GPU times per region.",
+        help="cunumpy backend to run on (default: 'struphy backend get'); cupy records CUDA-event GPU times.",
     )
     parser.add_argument("--ppc", type=int, default=1000, help="Markers per cell.")
     parser.add_argument("--num-elements", type=int, default=32, help="Cells in x.")
@@ -69,12 +70,11 @@ def main() -> None:
         params_source=params_dir / "params_vlasov_ampere.py",
         language=args.language,
         compiler=args.compiler,
+        backend=args.backend,
         upload=args.upload,
     )
 
     param_flags = [
-        "--backend",
-        args.backend,
         "--ppc",
         str(args.ppc),
         "--num-elements",

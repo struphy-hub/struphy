@@ -63,6 +63,7 @@ from slurm_script_generator.squeue import SQueue, job_states
 from upload import _clone_profiling_data, _push_profiling_data
 
 from struphy import Compiler
+from struphy.console.backend import BACKENDS, configured_backend
 from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
 
 script_dir = Path(__file__).resolve().parent
@@ -101,6 +102,9 @@ class ProfilingCase:
     params_source: Path
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
+    # cunumpy backend the runs use, "numpy" (CPU) or "cupy" (GPU): exported as CUNUMPY_BACKEND in every job
+    # script. None takes the backend stored with `struphy backend set` (default numpy).
+    backend: str | None = None
     # Whether the packaged results are pushed to the profiling-data repo. Set here rather
     # than at `finalize_run` time because `setup_run` clones that repo up front, so a
     # missing/unreachable repo fails before any job is submitted rather than after.
@@ -171,11 +175,15 @@ class ProfilingCase:
             ),
             "set -e",
             f"source {activate_path!s}",
+            # cunumpy reads its backend from this variable when it is imported, so it is exported before the run.
+            # Explicit, so the job script does not depend on the state file at the time it runs.
+            f"export CUNUMPY_BACKEND={self.backend}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',
             f'echo "Physics problem: {self.physics_problem}"',
             f'echo "Struphy model used: {self.struphy_model_used}"',
+            f'echo "cunumpy backend: {self.backend}"',
             f'echo "Case directory: {output_root}"',
             'echo "----------------------------------------"',
             f'mkdir -p "{sim_dir}"',
@@ -329,6 +337,13 @@ class ProfilingCase:
             )
         self.venv_path = Path(virtual_env)
 
+        # The cunumpy backend of the runs: the case's own choice, else the one stored with `struphy backend set`.
+        if self.backend is None:
+            self.backend = configured_backend()
+        if self.backend not in BACKENDS:
+            raise ValueError(f"backend must be one of {BACKENDS}, got {self.backend!r}")
+        print(f"cunumpy backend: {self.backend}")
+
         # Compile Struphy kernels with the case's language and compiler
         self.compiler_instance = Compiler(language=self.language, compiler=self.compiler)
         if not self.compiler_instance.compiled(language=self.language):
@@ -383,6 +398,7 @@ class ProfilingCase:
             "physics_problem": self.physics_problem,
             "struphy_model_used": self.struphy_model_used,
             "struphy_commit": self.run_commit,
+            "backend": self.backend,
             "compiler": self.compiler_instance.to_dict(),
             "scheduler": "slurm" if self.use_slurm else "local",
             "parameter_file": str(self.params_source),
