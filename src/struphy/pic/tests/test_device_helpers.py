@@ -25,11 +25,11 @@ def test_spline_helpers(degree):
 extern "C" __global__ void evaluate(const double* t, int nt, int p, const double* x, double* out, int n) {
     int i=blockDim.x*blockIdx.x+threadIdx.x;
     if(i>=n) return;
-    int span=struphy_cuda::find_span(t,nt,p,x[i]);
+    int span=struphy_cuda::bsplines_kernels::find_span(t,nt,p,x[i]);
     double* row=out+i*(3*p+3);
     row[0]=span;
-    struphy_cuda::basis_funs(t,p,x[i],span,row+1);
-    struphy_cuda::b_d_splines_slim(t,p,x[i],span,row+p+2,row+2*p+3);
+    struphy_cuda::bsplines_kernels::basis_funs(t,p,x[i],span,row+1);
+    struphy_cuda::bsplines_kernels::b_d_splines_slim(t,p,x[i],span,row+p+2,row+2*p+3);
 }
 """
     out = cp.empty((len(points), 3 * degree + 3))
@@ -59,8 +59,8 @@ def test_matrix_helpers():
 extern "C" __global__ void evaluate(const double* a, const double* v, double* inv, double* out, int n) {
     int i=blockDim.x*blockIdx.x+threadIdx.x;
     if(i>=n) return;
-    struphy_cuda::matrix_inv(a+9*i,inv+9*i);
-    struphy_cuda::matrix_vector(inv+9*i,v+3*i,out+3*i);
+    struphy_cuda::linalg_kernels::matrix_inv(a+9*i,inv+9*i);
+    struphy_cuda::linalg_kernels::matrix_vector(inv+9*i,v+3*i,out+3*i);
 }
 """
     inv, out = cp.empty(matrices.shape), cp.empty(vectors.shape)
@@ -86,7 +86,7 @@ def test_boundary_helpers(bc, newton):
 #include "struphy/pic/pushing/pusher_utilities_kernels.cuh"
 extern "C" __global__ void evaluate(MarkerArgs m, DomainArgs d, int newton) {
     int i=blockDim.x*blockIdx.x+threadIdx.x;
-    if(i<m.n_markers) struphy_cuda::apply_kinetic_bc_marker(i,m,d,newton);
+    if(i<m.n_markers) struphy_cuda::pusher_utilities_kernels::apply_kinetic_bc_marker(i,m,d,newton);
 }
 """
     results = []
@@ -114,7 +114,7 @@ def test_span_with_cunumpy_wrapper(degree):
     kernel = device_function_kernel(
         '#include "struphy/bsplines/bsplines_kernels.cuh"\n'
         "__device__ int span_at(const double* t, int nt, int p, double x) {"
-        "return struphy_cuda::find_span(t, nt, p, x);}",
+        "return struphy_cuda::bsplines_kernels::find_span(t, nt, p, x);}",
         "int span_at(const double* t, int nt, int p, double x)",
         **CUDA_OPTIONS,
     )
@@ -141,14 +141,14 @@ def test_cuboid_helpers():
     source = r"""
 #include "struphy/geometry/evaluation_kernels.cuh"
 extern "C" __global__ void evaluate(const double* eta, const double* params, double* out) {
-    struphy_cuda::cuboid(eta[0], eta[1], eta[2], params[0], params[1], params[2],
+    struphy_cuda::cuboid_kernels::cuboid(eta[0], eta[1], eta[2], params[0], params[1], params[2],
                         params[3], params[4], params[5], out);
-    struphy_cuda::cuboid_df(params[0], params[1], params[2],
+    struphy_cuda::cuboid_kernels::cuboid_df(params[0], params[1], params[2],
                            params[3], params[4], params[5], out + 3);
     DomainArgs args = {};
     args.kind_map = 10;
     args.params = const_cast<double*>(params);
-    struphy_cuda::df(eta[0], eta[1], eta[2], args, out + 12);
+    struphy_cuda::evaluation_kernels::df(eta[0], eta[1], eta[2], args, out + 12);
 }
 """
     eta = np.array([0.2, 0.4, 0.8])
@@ -177,8 +177,8 @@ def test_get_spans_helper():
 extern "C" __global__ void evaluate(const double* eta, DerhamArgs args_derham, double* out, int n) {
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     if (ip >= n) return;
-    struphy_cuda::SplineScratch scratch;
-    struphy_cuda::get_spans(eta[3*ip], eta[3*ip+1], eta[3*ip+2], args_derham, scratch);
+    struphy_cuda::evaluation_kernels_3d::SplineScratch scratch;
+    struphy_cuda::evaluation_kernels_3d::get_spans(eta[3*ip], eta[3*ip+1], eta[3*ip+2], args_derham, scratch);
     const int spans[3] = {scratch.span1, scratch.span2, scratch.span3};
     const double* bn[3] = {scratch.bn1, scratch.bn2, scratch.bn3};
     const double* bd[3] = {scratch.bd1, scratch.bd2, scratch.bd3};
@@ -257,20 +257,20 @@ GEOMETRY_WRAPPERS = r"""
 __device__ double metric_entry(double eta1, double eta2, double eta3, int kind_coeff, int entry,
                                bool avoid_round_off, const DomainArgs& args) {
     double tmp1[9], tmp2[9], tmp3[9], out[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-    if (kind_coeff == 0) struphy_cuda::f(eta1, eta2, eta3, args, out);
-    else if (kind_coeff == 1) struphy_cuda::df(eta1, eta2, eta3, args, out);
-    else if (kind_coeff == 2) out[0] = struphy_cuda::det_df(eta1, eta2, eta3, args, tmp1);
-    else if (kind_coeff == 3) struphy_cuda::df_inv(eta1, eta2, eta3, args, tmp1, avoid_round_off, out);
-    else if (kind_coeff == 4) struphy_cuda::g(eta1, eta2, eta3, args, tmp1, tmp2, avoid_round_off, out);
-    else struphy_cuda::g_inv(eta1, eta2, eta3, args, tmp1, tmp2, tmp3, avoid_round_off, out);
+    if (kind_coeff == 0) struphy_cuda::evaluation_kernels::f(eta1, eta2, eta3, args, out);
+    else if (kind_coeff == 1) struphy_cuda::evaluation_kernels::df(eta1, eta2, eta3, args, out);
+    else if (kind_coeff == 2) out[0] = struphy_cuda::evaluation_kernels::det_df(eta1, eta2, eta3, args, tmp1);
+    else if (kind_coeff == 3) struphy_cuda::evaluation_kernels::df_inv(eta1, eta2, eta3, args, tmp1, avoid_round_off, out);
+    else if (kind_coeff == 4) struphy_cuda::evaluation_kernels::g(eta1, eta2, eta3, args, tmp1, tmp2, avoid_round_off, out);
+    else struphy_cuda::evaluation_kernels::g_inv(eta1, eta2, eta3, args, tmp1, tmp2, tmp3, avoid_round_off, out);
     return out[entry];
 }
 __device__ double transform_entry(double a0, double a1, double a2, double eta1, double eta2, double eta3,
                                   int kind_transform, int kind_fun, int entry, const DomainArgs& args_domain) {
     double a[3] = {a0, a1, a2}, out[3] = {0, 0, 0};
-    if (kind_transform == 0) struphy_cuda::pull(a, eta1, eta2, eta3, kind_fun, args_domain, out);
-    else if (kind_transform == 1) struphy_cuda::push(a, eta1, eta2, eta3, kind_fun, args_domain, out);
-    else struphy_cuda::tran(a, eta1, eta2, eta3, kind_fun, args_domain, out);
+    if (kind_transform == 0) struphy_cuda::transform_kernels::pull(a, eta1, eta2, eta3, kind_fun, args_domain, out);
+    else if (kind_transform == 1) struphy_cuda::transform_kernels::push(a, eta1, eta2, eta3, kind_fun, args_domain, out);
+    else struphy_cuda::transform_kernels::tran(a, eta1, eta2, eta3, kind_fun, args_domain, out);
     return out[entry];
 }
 """
@@ -403,9 +403,10 @@ extern "C" __global__ void fill_v1_symm(const double* eta, const double* fills, 
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     if (ip >= n) return;
     const double* fill = fills + 9 * ip;
-    struphy_cuda::m_v_fill_b_v1_symm(args_derham, eta[3 * ip], eta[3 * ip + 1], eta[3 * ip + 2], mat11, mat12, mat13,
-                                     mat22, mat23, mat33, fill[0], fill[1], fill[2], fill[3], fill[4], fill[5], vec1,
-                                     vec2, vec3, fill[6], fill[7], fill[8]);
+    struphy_cuda::particle_to_mat_kernels::m_v_fill_b_v1_symm(args_derham, eta[3 * ip], eta[3 * ip + 1],
+                                                              eta[3 * ip + 2], mat11, mat12, mat13, mat22, mat23,
+                                                              mat33, fill[0], fill[1], fill[2], fill[3], fill[4],
+                                                              fill[5], vec1, vec2, vec3, fill[6], fill[7], fill[8]);
 }
 """
 

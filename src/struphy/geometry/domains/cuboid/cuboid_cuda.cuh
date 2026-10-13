@@ -1,5 +1,5 @@
 #pragma once
-namespace struphy_cuda {
+namespace struphy_cuda::cuboid_kernels {
 /**
  * Evaluate the cuboid mapping, as in cuboid_kernels.cuboid.
  *
@@ -45,4 +45,4 @@ __device__ inline void cuboid_df(double l1, double r1, double l2, double r2, dou
     df_out[7] = 0.;
     df_out[8] = r3 - l3;
 }
-}
+}  // namespace struphy_cuda::cuboid_kernels

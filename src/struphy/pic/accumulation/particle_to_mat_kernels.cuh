@@ -2,7 +2,7 @@
 #pragma once
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 #include "struphy/pic/accumulation/filler_kernels.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::particle_to_mat_kernels {
 /**
  * Add one marker's contribution to a 0-form vector, as in particle_to_mat_kernels.vec_fill_b_v0.
  *
@@ -21,12 +21,12 @@ __device__ inline void vec_fill_b_v0(const DerhamArgs& args_derham, double eta1,
     int pn3 = args_derham.pn[2];
 
     // CUDA-only scratch holds the spans and the spline values pyccel keeps in args_derham
-    SplineScratch scratch;
-    get_spans(eta1, eta2, eta3, args_derham, scratch);
+    evaluation_kernels_3d::SplineScratch scratch;
+    evaluation_kernels_3d::get_spans(eta1, eta2, eta3, args_derham, scratch);
     int span1 = scratch.span1, span2 = scratch.span2, span3 = scratch.span3;
 
-    fill_vec(pn1, pn2, pn3, scratch.bn1, scratch.bn2, scratch.bn3, span1, span2, span3, args_derham.starts, vec,
-             fill);
+    filler_kernels::fill_vec(pn1, pn2, pn3, scratch.bn1, scratch.bn2, scratch.bn3, span1, span2, span3,
+                             args_derham.starts, vec, fill);
 }
 
 /**
@@ -74,27 +74,33 @@ __device__ inline void m_v_fill_b_v1_symm(const DerhamArgs& args_derham, double 
     int pd3 = pn3 - 1;
 
     // CUDA-only scratch holds the spans and the spline values pyccel keeps in args_derham
-    SplineScratch scratch;
-    get_spans(eta1, eta2, eta3, args_derham, scratch);
+    evaluation_kernels_3d::SplineScratch scratch;
+    evaluation_kernels_3d::get_spans(eta1, eta2, eta3, args_derham, scratch);
     int span1 = scratch.span1, span2 = scratch.span2, span3 = scratch.span3;
 
     // fill matrix entries
-    fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3, scratch.bd1, scratch.bn2, scratch.bn3, scratch.bd1, scratch.bn2,
-                 scratch.bn3, span1, span2, span3, args_derham.starts, args_derham.pn, mat11, fill11, vec1, fill1);
+    filler_kernels::fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3, scratch.bd1, scratch.bn2, scratch.bn3, scratch.bd1,
+                                 scratch.bn2, scratch.bn3, span1, span2, span3, args_derham.starts, args_derham.pn,
+                                 mat11, fill11, vec1, fill1);
 
-    fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3, scratch.bn1, scratch.bd2, scratch.bn3, scratch.bn1, scratch.bd2,
-                 scratch.bn3, span1, span2, span3, args_derham.starts, args_derham.pn, mat22, fill22, vec2, fill2);
+    filler_kernels::fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3, scratch.bn1, scratch.bd2, scratch.bn3, scratch.bn1,
+                                 scratch.bd2, scratch.bn3, span1, span2, span3, args_derham.starts, args_derham.pn,
+                                 mat22, fill22, vec2, fill2);
 
-    fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3, scratch.bn1, scratch.bn2, scratch.bd3, scratch.bn1, scratch.bn2,
-                 scratch.bd3, span1, span2, span3, args_derham.starts, args_derham.pn, mat33, fill33, vec3, fill3);
+    filler_kernels::fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3, scratch.bn1, scratch.bn2, scratch.bd3, scratch.bn1,
+                                 scratch.bn2, scratch.bd3, span1, span2, span3, args_derham.starts, args_derham.pn,
+                                 mat33, fill33, vec3, fill3);
 
-    fill_mat(pd1, pn2, pn3, pn1, pd2, pn3, scratch.bd1, scratch.bn2, scratch.bn3, scratch.bn1, scratch.bd2,
-             scratch.bn3, span1, span2, span3, args_derham.starts, args_derham.pn, mat12, fill12);
+    filler_kernels::fill_mat(pd1, pn2, pn3, pn1, pd2, pn3, scratch.bd1, scratch.bn2, scratch.bn3, scratch.bn1,
+                             scratch.bd2, scratch.bn3, span1, span2, span3, args_derham.starts, args_derham.pn, mat12,
+                             fill12);
 
-    fill_mat(pd1, pn2, pn3, pn1, pn2, pd3, scratch.bd1, scratch.bn2, scratch.bn3, scratch.bn1, scratch.bn2,
-             scratch.bd3, span1, span2, span3, args_derham.starts, args_derham.pn, mat13, fill13);
+    filler_kernels::fill_mat(pd1, pn2, pn3, pn1, pn2, pd3, scratch.bd1, scratch.bn2, scratch.bn3, scratch.bn1,
+                             scratch.bn2, scratch.bd3, span1, span2, span3, args_derham.starts, args_derham.pn, mat13,
+                             fill13);
 
-    fill_mat(pn1, pd2, pn3, pn1, pn2, pd3, scratch.bn1, scratch.bd2, scratch.bn3, scratch.bn1, scratch.bn2,
-             scratch.bd3, span1, span2, span3, args_derham.starts, args_derham.pn, mat23, fill23);
+    filler_kernels::fill_mat(pn1, pd2, pn3, pn1, pn2, pd3, scratch.bn1, scratch.bd2, scratch.bn3, scratch.bn1,
+                             scratch.bn2, scratch.bd3, span1, span2, span3, args_derham.starts, args_derham.pn, mat23,
+                             fill23);
 }
-}
+}  // namespace struphy_cuda::particle_to_mat_kernels
