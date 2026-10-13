@@ -289,6 +289,19 @@ For weighted mass matrices, use :class:`~struphy.feec.preconditioner.PolarMassMa
 (``precond="PolarMassMatrixPreconditioner"`` in the propagator options);
 it is exact for axisymmetric weights and mappings.
 
+Stiffness operators :math:`\mathbb d^T \mathbb M_{k+1} \mathbb d + \sigma \mathbb M_k` (gradient and curl) are a sum of
+two Kronecker products, :math:`(\mathbb K_\textnormal{pol} + \sigma \mathbb M_\textnormal{pol}) \otimes \mathbb M_3 + \mathbb W_\textnormal{pol} \otimes \mathbb S_3`,
+where :math:`\mathbb W_\textnormal{pol}` is the poloidal mass matrix of the :math:`\eta_3`-derivative terms
+and :math:`\mathbb S_3` the 1d stiffness matrix in :math:`\eta_3`.
+:class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner` inverts this sum by fast diagonalization in :math:`\eta_3`,
+with one poloidal solve per :math:`\eta_3` mode.
+It is used automatically for ``precond="StiffnessPreconditioner"`` with polar splines.
+For the gradient it is exact on axisymmetric domains (without straight field line coordinates).
+For the curl, the components :math:`(E_1, E_2)` and :math:`E_3` are decoupled (block Jacobi) and a correction on the gradients is added.
+Weighted averages over :math:`\eta_2` and/or :math:`\eta_3` (e.g. the flux-surface average of the gyrokinetic Poisson equation,
+``stab_average``) are available on polar 0-forms through :class:`~struphy.feec.mass.PolarWeightedAverageProjection`,
+and are included in the polar stiffness preconditioner (the average over :math:`\eta_2` by a low-rank correction).
+
 On the CuPy backend, extraction, derivatives, Kronecker operators and these solves keep their
 coefficients on the device. Factorization and mass-preconditioner assembly run once on the host;
 cached device factors apply subsequent solves. Identical factors are shared across polar spaces
