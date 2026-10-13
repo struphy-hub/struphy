@@ -16,21 +16,21 @@ __device__ double spline_mapping_entry(double eta1, double eta2, double eta3, in
     double f_out[3], df_out[9];
     switch (args_domain.kind_map) {
         case 0:
-            struphy_cuda::spline_3d(eta1, eta2, eta3, args_domain.degree, args_domain.ind1, args_domain.ind2,
+            struphy_cuda::spline_mappings_kernels::spline_3d(eta1, eta2, eta3, args_domain.degree, args_domain.ind1, args_domain.ind2,
                                     args_domain.ind3, args_domain, f_out);
-            struphy_cuda::spline_3d_df(eta1, eta2, eta3, args_domain.degree, args_domain.ind1, args_domain.ind2,
+            struphy_cuda::spline_mappings_kernels::spline_3d_df(eta1, eta2, eta3, args_domain.degree, args_domain.ind1, args_domain.ind2,
                                        args_domain.ind3, args_domain, df_out);
             break;
         case 1:
-            struphy_cuda::spline_2d_straight(eta1, eta2, eta3, args_domain.degree, args_domain.ind1,
+            struphy_cuda::spline_mappings_kernels::spline_2d_straight(eta1, eta2, eta3, args_domain.degree, args_domain.ind1,
                                              args_domain.ind2, args_domain, args_domain.params[0], f_out);
-            struphy_cuda::spline_2d_straight_df(eta1, eta2, args_domain.degree, args_domain.ind1, args_domain.ind2,
+            struphy_cuda::spline_mappings_kernels::spline_2d_straight_df(eta1, eta2, args_domain.degree, args_domain.ind1, args_domain.ind2,
                                                 args_domain, args_domain.params[0], df_out);
             break;
         case 2:
-            struphy_cuda::spline_2d_torus(eta1, eta2, eta3, args_domain.degree, args_domain.ind1, args_domain.ind2,
+            struphy_cuda::spline_mappings_kernels::spline_2d_torus(eta1, eta2, eta3, args_domain.degree, args_domain.ind1, args_domain.ind2,
                                           args_domain, args_domain.params[0], f_out);
-            struphy_cuda::spline_2d_torus_df(eta1, eta2, eta3, args_domain.degree, args_domain.ind1,
+            struphy_cuda::spline_mappings_kernels::spline_2d_torus_df(eta1, eta2, eta3, args_domain.degree, args_domain.ind1,
                                              args_domain.ind2, args_domain, args_domain.params[0], df_out);
             break;
         default:
@@ -148,10 +148,10 @@ DER_SPLINES_SOURCE = r"""
 extern "C" __global__ void evaluate_der_splines(const double* t, int nt, int p, const double* x, double* out, int n) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if (i >= n) return;
-    int span = struphy_cuda::find_span(t, nt, p, x[i]);
+    int span = struphy_cuda::bsplines_kernels::find_span(t, nt, p, x[i]);
     double* row = out + i * (3 * p + 3);
-    struphy_cuda::b_splines_slim(t, p, x[i], span, row);
-    struphy_cuda::b_der_splines_slim(t, p, x[i], span, row + p + 1, row + 2 * p + 2);
+    struphy_cuda::bsplines_kernels::b_splines_slim(t, p, x[i], span, row);
+    struphy_cuda::bsplines_kernels::b_der_splines_slim(t, p, x[i], span, row + p + 1, row + 2 * p + 2);
 }
 """
 
