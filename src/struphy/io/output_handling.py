@@ -1,6 +1,7 @@
 import logging
 import os
 
+import cunumpy as xp
 import h5py
 import numpy as np
 
@@ -82,15 +83,13 @@ class DataContainer:
 
     @staticmethod
     def _as_numpy_array(val):
-        """Return a NumPy view/copy suitable for h5py writes."""
-        if isinstance(val, np.ndarray):
-            return val
+        """Return a NumPy array suitable for h5py writes.
 
-        get = getattr(val, "get", None)
-        if callable(get) and "cupy" in val.__class__.__module__:
-            return get()
-
-        return np.asarray(val)
+        Host data is returned as it is. Device data (CuPy backend) is copied to the host here, through cunumpy
+        (``xp.to_numpy``), so the copy is explicit and seen by ``cunumpy.profiling.count_transfers``. This is the
+        only place where the output copies device data: one copy per saved dataset and output step.
+        """
+        return xp.to_numpy(val)
 
     def add_data(self, data_dict):
         """
