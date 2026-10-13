@@ -107,8 +107,16 @@ derham_opts = DerhamOptions(degree=(3, 1, 1))
 from cunumpy.kernel_testing import fake_cupy_active
 
 gpu_timing = xp.get_backend() == "cupy" and not fake_cupy_active()
+
+# scope-profiler run label, the name of the run in the comparison plots of the profiling-data page: the runs of
+# one case differ in backend and rank count only, so the label names those two (e.g. "cupy, 4 ranks").
+from maybempi import MPI, SerialMPI
+
+num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+profiling_label = f"{xp.get_backend()}, {num_ranks} rank" + ("s" if num_ranks != 1 else "")
+
 profiling_opts = ProfilingOptions(
-    label=f"{name} ({xp.get_backend()})",
+    label=profiling_label,
     use_gpu_timing=gpu_timing,
     gpu_timing_backend="cupy",
     gpu_sync_on_exit=gpu_timing,
