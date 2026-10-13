@@ -217,7 +217,9 @@ OpenMP threading can be enabled for the kernels with::
     struphy compile --openmp -j 4
     export OMP_NUM_THREADS=4
 
-Changing between OpenMP and serial compilation rebuilds the Struphy kernels even
+This also compiles the feectools kernels (stencil matrix-vector products,
+transposes, inner products, axpy and DOF evaluation) with OpenMP. Changing between
+OpenMP and serial compilation rebuilds the Struphy and feectools kernels even
 when their source files have not changed. ``-j`` controls compiler processes;
 ``OMP_NUM_THREADS`` controls threads during simulation. With MPI, set the thread
 count per rank to fit the cores allocated to that rank.
@@ -231,9 +233,11 @@ size depends on the grid, spline degree, and number of accumulated arrays.
 To check threaded numerical results after compilation, developers can run::
 
     pytest -q src/struphy/pic/tests/test_openmp.py
+    pytest -q --pyargs feectools.linalg.tests.test_openmp
 
-This compares compiled execution with 1, 2, and 4 threads against serial reference
-loops, including particle deposition and spline evaluation.
+These compare compiled execution with 1, 2, and 4 threads against serial reference
+loops, including particle deposition, spline evaluation and the stencil operations
+of feectools.
 
 In case you encounter problems during install visit :ref:`trouble_shoot`.
 

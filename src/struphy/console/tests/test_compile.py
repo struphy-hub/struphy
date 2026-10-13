@@ -216,6 +216,9 @@ def test_compile_rebuilds_when_openmp_changes(previous, openmp, rebuild):
 
     make = next(call.args[0] for call in run.call_args_list if call.args[0][0] == "make")
     assert ("-B" in make) == rebuild
+    # feectools kernels are compiled with the same OpenMP setting
+    accelerate = next(call.args[0] for call in run.call_args_list if call.args[0][0] == "psydac-accelerate")
+    assert ("--openmp" in accelerate) == openmp
     assert state["last_used_omp"].strip() == ("--openmp" if openmp else "")
 
 

@@ -163,3 +163,4 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           cd "${{ env.STRUPHY_PATH }}"
           pytest -q pic/tests/test_openmp.py console/tests/test_compile.py
+          pytest -q --pyargs feectools.linalg.tests.test_openmp

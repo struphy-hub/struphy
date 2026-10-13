@@ -322,6 +322,8 @@ def struphy_compile(
             cmd += ["--compiler-config=" + compiler_config]
         else:
             cmd += ["--compiler-family=" + compiler]
+        if openmp:
+            cmd += ["--openmp"]
 
         subp_run(cmd)
 
