@@ -38,7 +38,9 @@ def marker_args():
     markers[0, 8:14] = markers[0, :6]
     markers[0, 11] = 1.0  # Initial parallel velocity.
     markers[1, 0] = -1.0  # A hole must never be written to.
-    return MarkerArguments(markers, np.array([True, False]), 1, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=int))
+    return MarkerArguments(
+        markers, np.array([True, False]), 1, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=int), False
+    )
 
 
 @pytest.fixture
@@ -163,7 +165,9 @@ def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel, n_f
     markers[0, :3] = (0.4, 0.3, 0.2)
     markers[0, 8:11] = markers[0, :3]
     markers[0, 18] = markers[0, 21] = 1.0  # B*_parallel and B* = (0, 0, 1) at time n.
-    args_markers = MarkerArguments(markers, np.array([True]), 1, 2, 5, 6, 8, 12, 16, 17, 4, np.zeros(3, dtype=int))
+    args_markers = MarkerArguments(
+        markers, np.array([True]), 1, 2, 5, 6, 8, 12, 16, 17, 4, np.zeros(3, dtype=int), False
+    )
     kernel(0.1, 0, args_markers, Cuboid().args_domain, derham_args, 1.0, *(coefficients(1.0),) * n_fields, False)
     assert markers[0, 16] == 0.0
     np.testing.assert_array_equal(markers[0, :4], (0.4, 0.3, 0.2, 0.0))

@@ -67,7 +67,6 @@ def push_gc_bxEstar_explicit_multistage(
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
     first_pusher_idx = args_markers.first_pusher_idx
-    first_free_idx = args_markers.first_free_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -166,15 +165,8 @@ def push_gc_bxEstar_explicit_multistage(
 
         k[:] = Exb / b_star_parallel
 
-        # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
-
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_pusher_idx : first_pusher_idx + 3]
-            + dt * a[stage] * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
-        )
+        # accumulation for last stage and update of positions (regular at a pole)
+        pusher_utilities_kernels.update_position_stage(ip, k, dt, a[stage], b[stage], last, args_markers)
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)

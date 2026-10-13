@@ -647,7 +647,6 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
         cbufs = self.cbufs if use_cbufs else None
 
-        a1 = self.equil.domain.params["a1"]
         B0 = self.equil.params["B0"]
         R0 = self.equil.params["R0"]
 
