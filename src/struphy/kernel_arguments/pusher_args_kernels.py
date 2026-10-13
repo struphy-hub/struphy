@@ -45,6 +45,10 @@ class MarkerArguments:
         Kinetic boundary condition in each logical direction
         (0: periodic, 1: reflect, 2: remove, 3: refill (handled in Python)),
         see :func:`~struphy.pic.pushing.pusher_utilities_kernels.apply_kinetic_bc_marker`.
+
+    pole : bool
+        Whether the domain has a pole at eta1=0 (markers then move through the axis),
+        see :func:`~struphy.pic.pushing.pusher_utilities_kernels.update_position_stage`.
     """
 
     def __init__(
@@ -61,6 +65,7 @@ class MarkerArguments:
         first_free_idx: int,
         mu_idx: int,
         bc_type: "int[:]",
+        pole: bool,
     ):
         self.markers = markers
         self.valid_mks = valid_mks
@@ -77,6 +82,7 @@ class MarkerArguments:
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
         self.mu_idx = mu_idx  # particle magnetic moment
         self.bc_type = bc_type  # kinetic boundary conditions per axis
+        self.pole = pole  # pole at eta1=0
 
 
 class DerhamArguments:

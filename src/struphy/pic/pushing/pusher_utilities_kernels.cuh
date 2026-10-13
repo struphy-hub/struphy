@@ -36,8 +36,9 @@ __device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
  * @param args_domain Mapping arguments needed for velocity reflection.
  * @param newton Accumulate periodic shifts if true; overwrite them otherwise.
  *
- * Call after updating the position. Boundary type 0 wraps periodically,
- * type 1 mirrors position and logical velocity and sets first_pusher_idx to -1,
+ * Call after updating the position. With a pole at eta1=0, a marker with
+ * eta1 < 0 is mapped to (-eta1, eta2 + 1/2) first. Boundary type 0 wraps periodically,
+ * type 1 mirrors position and logical velocity (for vdim=3) and sets first_pusher_idx to -1,
  * type 2 clears all columns except the ID to -1, and type 3 is handled on
  * the host. The marker view carries shape and strides; j is a CUDA-only
  * column index replacing Pyccel array slices.
@@ -47,6 +48,16 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
     const long long* bc_type = args_markers.bc_type;
     int first_pusher_idx = args_markers.first_pusher_idx;
     int first_shift_idx = args_markers.first_shift_idx;
+
+    // Pole at eta1=0: a marker with eta1 < 0 has crossed the axis.
+    if (args_markers.pole) {
+        if (args_markers.markers(ip, 0) < 0.) {
+            args_markers.markers(ip, 0) = -args_markers.markers(ip, 0);
+            double e2 = args_markers.markers(ip, 1) + 0.5;
+            args_markers.markers(ip, 1) = e2 - floor(e2);
+        }
+        if (args_markers.markers(ip, 0) < 1e-10) args_markers.markers(ip, 0) = 1e-10;
+    }
 
     // Remove markers before applying periodic or reflecting boundaries.
     for (int axis = 0; axis < 3; ++axis) {
@@ -92,6 +103,8 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
     }
     if (n_reflected == 0) return;
     args_markers.markers(ip, first_pusher_idx) = -1.;
+    // Only Cartesian velocities are reflected (columns 3:6 hold other data for vdim != 3).
+    if (args_markers.vdim != 3) return;
     for (int axis = 0; axis < 3; ++axis) {
         if (reflected[axis]) reflect_velocity(ip, args_markers.markers, args_domain, axis);
     }

@@ -45,6 +45,7 @@ class CudaMarkerArguments(CudaStructArguments):
         ("first_free_idx", "int"),
         ("mu_idx", "int"),
         ("bc_type", "long long*"),
+        ("pole", "bool"),
     )
 
     def __init__(
@@ -61,6 +62,7 @@ class CudaMarkerArguments(CudaStructArguments):
         first_free_idx: int,
         mu_idx: int,
         bc_type,
+        pole: bool,
     ):
         self.markers = _device_array("markers", markers, np.float64)
         if markers.ndim != 2:
@@ -77,6 +79,7 @@ class CudaMarkerArguments(CudaStructArguments):
         self.first_free_idx = first_free_idx
         self.mu_idx = mu_idx
         self.bc_type = _device_array("bc_type", bc_type, np.int64)
+        self.pole = pole
         self.pack()
 
 
