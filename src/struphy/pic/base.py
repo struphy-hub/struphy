@@ -2593,7 +2593,8 @@ class Particles(metaclass=ABCMeta):
         )
 
         # on the CuPy backend with several ranks, find out now (collectively, in the setup) whether MPI takes device
-        # buffers; otherwise the probe runs on the first marker exchange, inside the first time step
+        # buffers; otherwise the probe runs on the first marker exchange, inside the first time step.
+        # The probe is collective: all ranks of mpi_comm must allocate their marker arrays together, never one alone.
         if xp.get_backend() == "cupy" and self.mpi_size > 1:
             self._mpi_cuda_aware()
 

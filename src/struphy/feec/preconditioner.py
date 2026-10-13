@@ -332,8 +332,10 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         return _kronecker_approximation(mass_operator, bc, weight_1d)
 
     def _core_diagonal(self):
-        # the matrix itself: _local_diagonal also adds the band entries that wrap onto the diagonal
-        return self._mass_operator.matrix
+        # diagonal of the mass matrix, including the band entries that wrap onto the main diagonal
+        # (StencilMatrix.diagonal() keeps only the entry at offset 0)
+        M = self._mass_operator.matrix
+        return _diagonal_operator(M.domain, _local_diagonal(M))
 
     @property
     def dim_reduce(self) -> int | None:
@@ -1979,6 +1981,7 @@ class FFTSolver(BandedSolver):
 
         from scipy.linalg import solve_circulant
 
+        assert isinstance(rhs, np.ndarray), f"FFTSolver solves on the host, got {type(rhs).__name__}."
         assert rhs.T.shape[0] == self._column.size
 
         if out is None:

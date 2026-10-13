@@ -11,15 +11,11 @@ host/device transfers, and compare their action with the NumPy backend:
 * on a GPU (skipped otherwise), directly.
 """
 
-import contextlib
-import subprocess
-import sys
-
 import cunumpy
 import numpy as np
 import pytest
 
-from struphy.geometry.tests.test_domain import _cupy_installed, serial_child_env
+from struphy.geometry.tests.test_domain import _cupy_installed, run_fake_cupy_child
 
 requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GPU not available")
 
@@ -117,58 +113,14 @@ def check_preconditioners_on_cupy(bcs_name):
             np.testing.assert_allclose(_to_host(out_inplace), expected, rtol=1e-12, atol=1e-12 * np.abs(expected).max())
 
 
-def _host_buffer(value):
-    """The host buffer behind a fake CuPy array (the same memory, no copy); other values unchanged."""
-    if isinstance(value, np.ndarray) or not hasattr(value, "__cuda_array_interface__"):
-        return value
-    return object.__getattribute__(value, "_a")
-
-
-class _HostFields:
-    """A CUDA argument object whose array attributes are their fake CuPy host buffers."""
-
-    def __init__(self, args):
-        self._args = args
-
-    def __getattr__(self, name):
-        return _host_buffer(getattr(self._args, name))
-
-
-@contextlib.contextmanager
-def _emulated_launches():
-    """On cunumpy's fake CuPy, run every ``CudaKernel`` launch by CPU emulation, in place on the fake device arrays.
-
-    A minimal version of ``emulated_launches`` of struphy-hub/struphy#705; use that one once it is merged.
-    """
-    from cunumpy.kernel_testing import emulate_cuda_kernel, fake_cupy_active
-    from cunumpy.kernels import CudaKernel
-
-    from struphy.pic.tests.cuda_emulation import EMULATION_OPTIONS, emulate_struct_kernel
-
-    assert fake_cupy_active()
-    original = CudaKernel.__call__
-
-    def launch(self, *args, n_threads=None, grid=None, block=None, shared_mem=0, stream=None):
-        if any(p.struct is not None for p in self.signature):
-            host_args = [_host_buffer(a) if p.struct is None else _HostFields(a) for p, a in zip(self.signature, args)]
-            emulate_struct_kernel(self, *host_args, n_threads=n_threads)
-        else:
-            grid, block = self.launch_shape(n_threads, grid=grid, block=block, args=args)
-            host_args = [_host_buffer(a) for a in args]
-            emulate_cuda_kernel(
-                self, *host_args, grid=grid, block=block, shared_mem=shared_mem, options=EMULATION_OPTIONS
-            )
-
-    CudaKernel.__call__ = launch
-    try:
-        yield
-    finally:
-        CudaKernel.__call__ = original
-
-
 def check_preconditioners_on_fake_cupy(bcs_name):
     """:func:`check_preconditioners_on_cupy` with the CUDA kernel launches emulated on the CPU."""
-    with _emulated_launches():
+    from cunumpy.kernel_testing import emulated_launches, fake_cupy_active
+
+    from struphy.pic.tests.cuda_emulation import EMULATION_OPTIONS
+
+    assert fake_cupy_active()
+    with emulated_launches(options=EMULATION_OPTIONS):
         check_preconditioners_on_cupy(bcs_name)
 
 
@@ -177,20 +129,22 @@ def check_preconditioners_on_fake_cupy(bcs_name):
 def test_mass_preconditioners_fake_cupy(bcs_name):
     """Without a GPU: the preconditioners build and apply on cunumpy's fake CuPy, which rejects host/device mixing.
 
-    Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
+    Runs in a serial subprocess (on MPI rank 0 only) because the fake CuPy must be installed before cunumpy is imported.
     """
-    code = (
+    run_fake_cupy_child(
         "from struphy.feec.tests.test_preconditioner_cupy import check_preconditioners_on_fake_cupy; "
         f"check_preconditioners_on_fake_cupy({bcs_name!r})"
     )
-    result = subprocess.run(
-        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr[-4000:]
 
 
 @requires_cupy
 @pytest.mark.parametrize("bcs_name", list(BCS))
 def test_mass_preconditioners_on_cupy(bcs_name):
-    """On a GPU: the preconditioners give the NumPy result on the CuPy backend."""
-    check_preconditioners_on_cupy(bcs_name)
+    """On a GPU, or in this process on the fake CuPy (``CUNUMPY_FAKE_CUPY=1``, launches emulated on the CPU): the
+    preconditioners give the NumPy result on the CuPy backend."""
+    from cunumpy.kernel_testing import fake_cupy_active
+
+    if fake_cupy_active():
+        check_preconditioners_on_fake_cupy(bcs_name)
+    else:
+        check_preconditioners_on_cupy(bcs_name)
