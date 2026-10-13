@@ -291,7 +291,9 @@ it is exact for axisymmetric weights and mappings.
 
 On the CuPy backend, extraction, derivatives, Kronecker operators and these solves keep their
 coefficients on the device. Factorization and mass-preconditioner assembly run once on the host;
-cached device factors apply subsequent solves. Polar MPI collectives support CUDA-aware device
+cached device factors apply subsequent solves. Identical factors are shared across polar spaces
+and projector/preconditioner instances of the same Derham. Matrix contents and solver settings
+are matched exactly; updated weights use new factors, and unused entries are released. Polar MPI collectives support CUDA-aware device
 buffers or host staging through ``cunumpy.mpi.mpi_buffer``. The feectools halo exchanges require
 CUDA-aware MPI on real GPUs. ``SplineFunction.__call__`` dispatches CUDA kernels for marker
 and dense/sparse grid evaluation. The fixed local-grid helper ``eval_tp_fixed_loc`` remains

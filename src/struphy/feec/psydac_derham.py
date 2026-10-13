@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+from weakref import WeakValueDictionary
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
@@ -809,6 +810,8 @@ class Derham:
             assert self.domain is not None
             self._ck_blocks = PolarExtractionBlocksC1(self.domain, self)
 
+        # Polar spaces share live factors; obsolete mass-weight factors are not retained.
+        self._polar_factorization_cache = WeakValueDictionary()
         V0pol, V1pol, V2pol, V3pol, Vvpol = self._assemble_polar_extraction_operators()
 
         self._V0pol = V0pol

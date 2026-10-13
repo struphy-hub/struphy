@@ -843,6 +843,11 @@ the [porting order](#porting-order); part of #688).
   with device permutations and batched sparse triangular solves. Small 1d factors and the pole Schur complement
   use cached dense inverses and device matrix products. The full poloidal inverse is never made dense.
   Projectors support `schur`, `lu`, `ilu`, boundary conditions and transposed solves on both backends.
+- **Shared factorizations.** Polar spaces belonging to one Derham share identical 1d factors and poloidal
+  solvers, including their cached device copies. Keys use exact canonical sparse matrix contents, dtype,
+  solver kind/settings, Schur pole mask and outer factors, and backend/device. Changed weights and boundary
+  matrices get different factors; no approximate matching is used. Weak entries disappear when no live solver
+  uses them, so repeated weight updates do not retain obsolete factorizations. Separate Derham objects are isolated.
 - **Mass setup.** Callable weights are evaluated with coordinates on the active backend. Sampled weights and
   spline quadrature data are copied explicitly to the host for the 2d reduction/assembly and factorization.
   These are setup transfers; repeated operator/preconditioner applications have no coefficient transfers on
@@ -917,5 +922,4 @@ fallback for that kernel. They take only arrays and scalars, no argument objects
   runs with regular MPI too, without involving feectools halos.
 - **Separate follow-ups.** `SplineFunction.__call__` already dispatches CUDA kernels for marker and dense/sparse
   grid evaluation. Remaining evaluation work is the host-only `eval_tp_fixed_loc` helper and distributed
-  field-evaluation MPI handling/coverage. FFT eta3 solves and sharing factorizations across different projector
-  objects are additional optimizations.
+  field-evaluation MPI handling/coverage. FFT eta3 solves are an additional optimization.
