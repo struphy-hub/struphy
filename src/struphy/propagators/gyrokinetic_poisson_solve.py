@@ -180,6 +180,8 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
+        # the adiabatic term is physical, not a stabilization: the rhs is not projected
+        enforce_compatibility: bool = False
 
         def __post_init__(self):
             # checks
