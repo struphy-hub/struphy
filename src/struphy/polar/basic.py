@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
+from cunumpy.mpi import mpi_buffer
 from feectools.linalg.basic import Vector, VectorSpace
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
@@ -34,6 +35,7 @@ class PolarDerhamSpace(VectorSpace):
         self._dtype = float
         self._comm = derham.comm
         self._space_id = space_id
+        self._factorization_cache = derham._polar_factorization_cache
 
         # dimensions of 1d spaces
         self._n = derham.spline_attributes["H1"].nbasis[0]
@@ -346,8 +348,9 @@ class PolarVector(Vector):
             out = self.tp.toarray()[self.space.n_rings[0] * self.space.n2[0] * self.space.n3[0] :]
 
             # allreduce tensor-product part
-            if self.space.comm is not None and allreduce:
-                self.space.comm.Allreduce(MPI.IN_PLACE, out, op=MPI.SUM)
+            if self.space.comm is not None and self.space.comm.Get_size() > 1 and allreduce:
+                with mpi_buffer(out, recv=True) as buf:
+                    self.space.comm.Allreduce(MPI.IN_PLACE, buf, op=MPI.SUM)
 
             out = xp.concatenate((self.pol[0].flatten(), out))
 
@@ -357,10 +360,10 @@ class PolarVector(Vector):
             out3 = self.tp[2].toarray()[self.space.n_rings[2] * self.space.n2[2] * self.space.n3[2] :]
 
             # allreduce tensor-product part
-            if self.space.comm is not None and allreduce:
-                self.space.comm.Allreduce(MPI.IN_PLACE, out1, op=MPI.SUM)
-                self.space.comm.Allreduce(MPI.IN_PLACE, out2, op=MPI.SUM)
-                self.space.comm.Allreduce(MPI.IN_PLACE, out3, op=MPI.SUM)
+            if self.space.comm is not None and self.space.comm.Get_size() > 1 and allreduce:
+                for array in (out1, out2, out3):
+                    with mpi_buffer(array, recv=True) as buf:
+                        self.space.comm.Allreduce(MPI.IN_PLACE, buf, op=MPI.SUM)
 
             out = xp.concatenate(
                 (

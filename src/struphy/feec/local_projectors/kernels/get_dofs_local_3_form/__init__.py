@@ -4,4 +4,7 @@ from cunumpy.kernels import Kernel
 
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-get_dofs_local_3_form = Kernel.from_folder(__name__, structs=CUDA_STRUCTS)
+# the arguments the kernel writes to, by position: f_eval
+OUTPUTS = (2,)
+
+get_dofs_local_3_form = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, host_options={"outputs": OUTPUTS})

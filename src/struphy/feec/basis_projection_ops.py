@@ -2,7 +2,6 @@ import logging
 
 import cunumpy as xp
 import numpy as np
-from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.fem.basic import FemSpace
 from feectools.fem.tensor import TensorFemSpace
@@ -11,7 +10,9 @@ from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 from maybempi import MPI
 
-from struphy.feec import basis_projection_kernels
+from struphy.feec.kernels.assemble_dofs_for_weighted_basisfuns_1d import assemble_dofs_for_weighted_basisfuns_1d
+from struphy.feec.kernels.assemble_dofs_for_weighted_basisfuns_2d import assemble_dofs_for_weighted_basisfuns_2d
+from struphy.feec.kernels.assemble_dofs_for_weighted_basisfuns_3d import assemble_dofs_for_weighted_basisfuns_3d
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
@@ -23,6 +24,13 @@ from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.docstring_converter import auto_convert_docstring
 
 logger = logging.getLogger("struphy")
+
+# assembly kernels by dimension of the problem (1d, 2d or 3d)
+_ASSEMBLY_KERNELS = {
+    1: assemble_dofs_for_weighted_basisfuns_1d,
+    2: assemble_dofs_for_weighted_basisfuns_2d,
+    3: assemble_dofs_for_weighted_basisfuns_3d,
+}
 
 
 class BasisProjectionOperators:
@@ -2079,12 +2087,7 @@ class BasisProjectionOperator(LinearOperator):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = PyccelKernel(
-                        getattr(
-                            basis_projection_kernels,
-                            "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
-                        ),
-                    )
+                    kernel = _ASSEMBLY_KERNELS[V.ldim]
 
                     logger.debug(f"Assemble block {i, j}")
                     kernel(

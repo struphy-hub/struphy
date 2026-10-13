@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
@@ -17,7 +16,15 @@ from maybempi import MPI, SerialComm
 from scope_profiler import ProfileManager
 
 from struphy import equils
-from struphy.feec import mass_kernels
+from struphy.feec.kernels.kernel_1d_eval import kernel_1d_eval
+from struphy.feec.kernels.kernel_1d_mat import kernel_1d_mat
+from struphy.feec.kernels.kernel_2d_eval import kernel_2d_eval
+from struphy.feec.kernels.kernel_2d_mat import kernel_2d_mat
+from struphy.feec.kernels.kernel_3d_diag import kernel_3d_diag
+from struphy.feec.kernels.kernel_3d_eval import kernel_3d_eval
+from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
+from struphy.feec.kernels.kernel_3d_matrixfree import kernel_3d_matrixfree
+from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
@@ -31,6 +38,12 @@ from struphy.utils.docstring_converter import auto_convert_docstring, info
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
+
+# assembly kernels by dimension of the problem (1d, 2d or 3d)
+_MAT_KERNELS = {1: kernel_1d_mat, 2: kernel_2d_mat, 3: kernel_3d_mat}
+_EVAL_KERNELS = {1: kernel_1d_eval, 2: kernel_2d_eval, 3: kernel_3d_eval}
+_MATRIXFREE_KERNELS = {3: kernel_3d_matrixfree}
+_DIAG_KERNELS = {3: kernel_3d_diag}
 
 # space identifiers with scalar-valued and vector-valued elements
 _SCALAR_SPACES = ("H1", "L2")
@@ -1929,13 +1942,8 @@ class WeightedMassOperator(LinearOperator):
         self._temp_mat = self._mat.domain.zeros()
 
     def _load_assembly_kernel(self):
-        """Load the pyccelized assembly kernel for the dimension of the problem (1d, 2d or 3d)."""
-        self._assembly_kernel = PyccelKernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_mat",
-            ),
-        )
+        """Load the assembly kernel for the dimension of the problem (1d, 2d or 3d)."""
+        self._assembly_kernel = _MAT_KERNELS[self._V.ldim]
 
     @property
     def derham(self):
@@ -2570,7 +2578,7 @@ class WeightedMassOperator(LinearOperator):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = PyccelKernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
+        kernel = _EVAL_KERNELS[W.ldim]
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -2668,19 +2676,8 @@ class StencilMatrixFreeMassOperator(LinearOperator):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = PyccelKernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_matrixfree",
-            ),
-        )
-
-        self._diag_kernel = PyccelKernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_diag",
-            ),
-        )
+        self._dot_kernel = _MATRIXFREE_KERNELS[self._V.ldim]
+        self._diag_kernel = _DIAG_KERNELS[self._V.ldim]
 
         # temporary with ghost regions for the diagonal (contributions to other processes are exchanged)
         self._diag_tmp = W.coeff_space.zeros()
@@ -3265,7 +3262,7 @@ class L2Projector:
             pads = fem_space.coeff_space.pads
 
             if isinstance(vec, StencilVector):
-                mass_kernels.kernel_3d_vec(
+                kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3276,7 +3273,7 @@ class L2Projector:
                     vec._data,
                 )
             else:
-                mass_kernels.kernel_3d_vec(
+                kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,

@@ -1,5 +1,7 @@
 #include "struphy/pic/pushing/pusher_utilities_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Reflect velocities with the same arguments as the pyccel reflect (reflect_kernels.py).
  *
@@ -15,5 +17,5 @@ extern "C" __global__ void reflect(Array2D<double> markers, DomainArgs args_doma
                                    Array1D<long long> outside_inds, int axis) {
     long long i = (long long)blockDim.x * blockIdx.x + threadIdx.x;
     if (i >= outside_inds.shape[0]) return;
-    struphy_cuda::reflect_velocity(outside_inds(i), markers, args_domain, axis);
+    pusher_utilities_kernels::reflect_velocity(outside_inds(i), markers, args_domain, axis);
 }
