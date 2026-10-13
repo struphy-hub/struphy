@@ -81,9 +81,13 @@ def has_module_system() -> bool:
     )
 
 
-def detect_launcher() -> str:
-    """The MPI launcher to use: `srun` under SLURM, otherwise `mpirun`/`mpiexec`."""
-    if shutil.which("srun"):
+def detect_launcher(use_slurm: bool = True) -> str:
+    """The MPI launcher to use: `srun` under SLURM, otherwise `mpirun`/`mpiexec`.
+
+    With `use_slurm=False` (local runs) `srun` is never used, even where it exists: on a login
+    node it would request a new allocation instead of running on this machine.
+    """
+    if use_slurm and shutil.which("srun"):
         return "srun"
     for launcher in ("mpirun", "mpiexec"):
         if shutil.which(launcher):
@@ -390,7 +394,7 @@ class ProfilingCase:
         force_local = os.environ.get("STRUPHY_PROFILING_LOCAL", "0").lower() in ("1", "true", "yes")
         self.use_slurm = shutil.which("sbatch") is not None and not force_local
         self.use_modules = self.use_slurm and has_module_system()
-        self.launcher = detect_launcher()
+        self.launcher = detect_launcher(self.use_slurm)
 
     def case_info_dict(self) -> dict:
         """This case's metadata plus every submitted/launched job, as written to `profiling_case_info.json`.

@@ -65,9 +65,9 @@ def main() -> None:
     )
 
     # One CPU node: 256 ranks on Pitagora's DCGP partition
-    profiling_case.launch(256, num_nodes=1, backend="numpy", slurm_preset="pitagora_dcgp")
+    profiling_case.launch(64, num_nodes=1, backend="numpy", slurm_preset="pitagora_dcgp")
     # One GPU node: one rank per GPU on Pitagora's booster partition
-    profiling_case.launch(4, num_nodes=1, backend="cupy", slurm_preset="pitagora_booster")
+    profiling_case.launch(1, num_nodes=1, backend="cupy", slurm_preset="pitagora_booster")
 
     # Package and push each run as its own job finishes.
     profiling_case.finalize_run()
