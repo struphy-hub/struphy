@@ -46,6 +46,8 @@ from struphy.initial.perturbations import Noise
 from struphy.io.options import DerhamOptions, FieldsBackground, LiteralOptions
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
@@ -2336,8 +2338,9 @@ class SplineFunction:
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
 
-        # arguments of the evaluation kernels, one (kind, pn, tn1, tn2, tn3, starts) per component,
-        # on the backend of the coefficients and the same for both kernel versions
+        # arguments of the evaluation kernels, one SplineArguments per component: the pyccel class on NumPy,
+        # the CUDA class on CuPy
+        args_class = CudaSplineArguments if xp.get_backend() == "cupy" else SplineArguments
         degree = np.asarray(derham.degree, dtype=np.int64)
         if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
             raise ValueError("CUDA spline degrees must be between 1 and 8.")
@@ -2346,8 +2349,8 @@ class SplineFunction:
         knots = tuple(xp.asarray(np.ascontiguousarray(t, dtype=float)) for t in derham.V0fem.knots)
         starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
         kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
-        self._args_eval = tuple(
-            (xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
+        self._args_spline = tuple(
+            args_class(xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
             for kind, start in zip(kinds, starts)
         )
 
@@ -2958,7 +2961,7 @@ class SplineFunction:
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    *self._args_eval[0],
+                    self._args_spline[0],
                     tmp,
                     n_threads=tmp.size,
                 )
@@ -2967,7 +2970,7 @@ class SplineFunction:
                 eval_spline_mpi_markers(
                     markers,
                     self._vector_stencil._data,
-                    *self._args_eval[0],
+                    self._args_spline[0],
                     tmp,
                     n_threads=tmp.size,
                 )
@@ -2978,7 +2981,7 @@ class SplineFunction:
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    *self._args_eval[0],
+                    self._args_spline[0],
                     tmp,
                     n_threads=tmp.size,
                 )
@@ -3018,7 +3021,7 @@ class SplineFunction:
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        *self._args_eval[n],
+                        self._args_spline[n],
                         tmp,
                         n_threads=tmp.size,
                     )
@@ -3027,7 +3030,7 @@ class SplineFunction:
                     eval_spline_mpi_markers(
                         markers,
                         self._vector_stencil[n]._data,
-                        *self._args_eval[n],
+                        self._args_spline[n],
                         tmp,
                         n_threads=tmp.size,
                     )
@@ -3038,7 +3041,7 @@ class SplineFunction:
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        *self._args_eval[n],
+                        self._args_spline[n],
                         tmp,
                         n_threads=tmp.size,
                     )
