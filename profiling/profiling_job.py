@@ -9,9 +9,10 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   a single object to thread through the rest of the run.
 - For each rank count, the caller calls `ProfilingCase.launch(ntasks, param_flags=None, backend="numpy")`, which builds
   the per-rank shell commands and either submits a `SlurmScript` (under SLURM) or
-  writes and runs a plain bash script to completion (otherwise) — the caller doesn't
-  need to know which. Pass `param_flags` to override the default commands (e.g. to add a
-  case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
+  writes and runs a plain bash script to completion (otherwise, or with
+  STRUPHY_PROFILING_LOCAL=1) — the caller doesn't need to know which. Pass `param_flags`
+  to override the default commands (e.g. to add a case-specific flag such as an arbitrary
+  `ppc`) before they're wrapped in a script.
   Under SLURM, the preset of the detected cluster is taken from `clusters.SLURM_PRESETS`
   on each call, unless `slurm_preset` names another one (e.g. a GPU partition);
   `slurm_options` overrides single pragmas of it.
@@ -385,7 +386,9 @@ class ProfilingCase:
         self.case_output_root = self.run_results_root / self.label
         self.case_output_root.mkdir(parents=True, exist_ok=True)
 
-        self.use_slurm = shutil.which("sbatch") is not None
+        # STRUPHY_PROFILING_LOCAL=1 runs on this machine even where SLURM is available (e.g. on a login node)
+        force_local = os.environ.get("STRUPHY_PROFILING_LOCAL", "0").lower() in ("1", "true", "yes")
+        self.use_slurm = shutil.which("sbatch") is not None and not force_local
         self.use_modules = self.use_slurm and has_module_system()
         self.launcher = detect_launcher()
 

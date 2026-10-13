@@ -209,8 +209,8 @@ if __name__ == "__main__":
 
         # cost per step and per marker, from the `model.integrate` region (the maximum over the ranks per step);
         # the first step includes one-time work (CUDA module loads, allocations of work arrays)
-        steps = results["model.integrate"]
-        per_rank = [steps[rank].durations for rank in steps.ranks]
+        integrate = results["model.integrate"]
+        per_rank = [integrate[rank].durations for rank in integrate.ranks]
         n_calls = min(len(durations) for durations in per_rank)
         step_times = np.max([durations[:n_calls] for durations in per_rank], axis=0)
         step_median = float(statistics.median(step_times[1:] if len(step_times) > 1 else step_times))
