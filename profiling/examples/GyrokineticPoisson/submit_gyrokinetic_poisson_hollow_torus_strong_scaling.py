@@ -1,4 +1,4 @@
-"""GyrokineticPoisson strong scaling profiling case on hollow torus, no preconditioner.
+"""GyrokineticPoisson strong scaling profiling case on hollow torus.
 
 This file defines the GyrokineticPoisson strong scaling profiling case (the `ProfilingCase`)
 and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
@@ -7,6 +7,8 @@ system, runs directly on this machine. `finalize_run` then packages and uploads
 each run as soon as its own job finishes.
 Each generated script runs the simulation itself by invoking `params_gyrokinetic_poisson.py`
 directly (its `__main__` block is the worker).
+
+The variant (preconditioner) is chosen with `--variant`; run this script once per variant.
 """
 
 import argparse
@@ -18,12 +20,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
+# variant -> (label, name, description, flags of the params file); the labels identify the
+# cases in the profiling-data repo and are kept from the former one-case-per-script layout
+VARIANTS = {
+    "none": (
+        "gyrokinetic_poisson_hollow_torus_strong_scaling",
+        "GyrokineticPoisson on hollow torus strong scaling test, no preconditioner",
+        "Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with unpreconditioned CG.",
+        [],
+    ),
+    "multigrid": (
+        "gyrokinetic_poisson_hollow_torus_strong_scaling_multigrid",
+        "GyrokineticPoisson on hollow torus strong scaling test, multigrid preconditioner",
+        "Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with CG preconditioned by geometric multigrid (MultiGridPreconditioner).",
+        ["--precond", "MultiGrid"],
+    ),
+    "stiffness": (
+        "gyrokinetic_poisson_hollow_torus_strong_scaling_stiffness",
+        "GyrokineticPoisson on hollow torus strong scaling test, stiffness preconditioner",
+        "Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with CG preconditioned by the Kronecker approximation of the inverse operator (StiffnessPreconditioner).",
+        ["--precond", "StiffnessPreconditioner"],
+    ),
+}
+
 
 def main() -> None:
 
     # Parse arguments, do not remove --upload
     parser = argparse.ArgumentParser(
         description=("Submit profiling jobs to a SLURM cluster and package the results for upload."),
+    )
+    parser.add_argument(
+        "--variant",
+        default="none",
+        choices=list(VARIANTS),
+        help="Preconditioner of the runs.",
     )
     parser.add_argument(
         "--upload",
@@ -42,15 +73,16 @@ def main() -> None:
         help='Pyccel compiler family ("GNU", "intel", "PGI", "nvidia" or "LLVM").',
     )
     args = parser.parse_args()
+    label, name, description, param_flags = VARIANTS[args.variant]
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
     params_dir = script_dir / "hollow_torus_strong_scaling"
 
     profiling_case = ProfilingCase(
-        label="gyrokinetic_poisson_hollow_torus_strong_scaling",
-        name="GyrokineticPoisson on hollow torus strong scaling test, no preconditioner",
-        description="Strong scaling of the GyrokineticPoisson model (adiabatic electrons, epsilon=1, Z=1) with manufactured solution on a full hollow torus in an ad hoc tokamak equilibrium (HollowTorus, a1=1e-2, a2=1, R0=3; AdhocTorus, a=1, R0=3), solved with unpreconditioned CG.",
+        label=label,
+        name=name,
+        description=description,
         physics_problem="Field equation of gyrokinetic simulations with adiabatic electrons.",
         struphy_model_used="GyrokineticPoisson",
         params_source=params_dir / "params_gyrokinetic_poisson.py",
@@ -61,7 +93,7 @@ def main() -> None:
 
     # Launch one run per rank count
     for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
-        profiling_case.launch(num_tasks)
+        profiling_case.launch(num_tasks, param_flags=param_flags)
 
     # Package and push each run as its own job finishes.
     profiling_case.finalize_run()
