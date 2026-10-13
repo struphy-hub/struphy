@@ -1,8 +1,9 @@
 """Inputs for the pyccel/CUDA parity tests: for every kernel with a CUDA version, the cases it is checked on.
 
 Test-only: ``test_cuda_parity.py`` (on a GPU) and ``test_cuda_emulation.py`` (without one) run each case on both
-kernel versions and compare every array. ``build(case)`` returns the kernel's positional arguments on the active
-backend; a kernel that is ported to CUDA gets an entry here.
+kernel versions and compare the arrays of the arguments the kernel declares as outputs (``OUTPUTS`` in its folder's
+``__init__.py``); the other arrays must stay unchanged. ``build(case)`` returns the kernel's positional arguments on
+the active backend; a kernel that is ported to CUDA gets an entry here.
 """
 
 from collections.abc import Callable, Sequence
@@ -14,6 +15,9 @@ import numpy as np
 
 from struphy.geometry.base import inside_logical_cube
 from struphy.geometry.domains import Cuboid
+from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.tests.kernel_test_args import (
     BOUNDARY_CONDITIONS,
@@ -44,6 +48,38 @@ class ParityCases:
     atol: float = 0.0
     n_threads: Callable[[tuple], int] | None = None
     """Launch size, if it is not one thread per row of the first array."""
+
+
+# pyccel argument class name -> the fields of its CUDA struct, the data of an argument object (the pyccel scratch
+# arrays bn1, ..., bd3 of DerhamArguments are not fields)
+STRUCT_FIELDS = {
+    cls.__name__.removeprefix("Cuda"): tuple(field.name for field in cls.struct.fields)
+    for cls in (
+        CudaMarkerArguments,
+        CudaDerhamArguments,
+        CudaDomainArguments,
+        CudaLocalProjectorsArguments,
+        CudaSplineArguments,
+    )
+}
+
+
+def argument_arrays(args, indices=None):
+    """Host copies of the arrays among `args` (or among the arguments `indices`), by name.
+
+    An array argument is named ``"argument <i>"``; a pyccel argument object contributes the arrays among its struct
+    fields, ``"argument <i>.<field>"`` (the names of ``cunumpy.kernel_testing.assert_kernels_agree``).
+    """
+    found = {}
+    for i in range(len(args)) if indices is None else (i % len(args) for i in indices):
+        value = args[i]
+        if isinstance(value, np.ndarray):
+            found[f"argument {i}"] = value.copy()
+        for field in STRUCT_FIELDS.get(type(value).__name__, ()):
+            item = getattr(value, field, None)
+            if isinstance(item, np.ndarray):
+                found[f"argument {i}.{field}"] = item.copy()
+    return found
 
 
 # ---------------------------------------------------------------- pushers
@@ -139,6 +175,18 @@ def eval_spline_mpi_markers_args(kind):
 def eval_spline_mpi_grid_args(sparse):
     """Spline values on a 7 x 5 x 4 grid (full or sparse meshgrid), one point flagged."""
     return lambda kind: (*evaluation_grid(sparse=sparse), *spline_evaluation_arguments(kind), xp.zeros((7, 5, 4)))
+
+
+def eval_spline_mpi_tensor_product_fixed_args(kind):
+    """Spline values on a 5 x 4 x 3 grid from pre-evaluated spans and (random) basis values."""
+    _data, args_spline = spline_evaluation_arguments(kind)
+    kind, pn, starts = args_spline.kind, args_spline.pn, args_spline.starts
+    rng = np.random.default_rng(7)
+    degree, kinds = (2, 3, 1), xp.to_numpy(kind)
+    # spans of the 8 cells: p <= span <= p + 7
+    spans = [xp.asarray(rng.integers(p, p + 8, size=n)) for p, n in zip(degree, (5, 4, 3))]
+    bases = [xp.asarray(rng.random((n, p - k + 1))) for p, k, n in zip(degree, kinds, (5, 4, 3))]
+    return (*spans, *bases, _data, kind, pn, starts, xp.zeros((5, 4, 3)))
 
 
 # ---------------------------------------------------------------- geometry
@@ -332,6 +380,9 @@ PARITY_CASES = {
     "eval_spline_mpi_matrix": ParityCases(SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=False), n_threads=size_of(-1)),
     "eval_spline_mpi_sparse_meshgrid": ParityCases(
         SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=True), n_threads=size_of(-1)
+    ),
+    "eval_spline_mpi_tensor_product_fixed": ParityCases(
+        SPLINE_KINDS, eval_spline_mpi_tensor_product_fixed_args, n_threads=size_of(-1)
     ),
     "kernel_evaluate_pic": ParityCases(KERNEL_EVALUATE_PIC_CASES, kernel_evaluate_pic_args, **GEOMETRY_TOLERANCES),
     # one thread per grid point: the first three axes of mat_f, shape (n1, n2, n3, 3, 3)

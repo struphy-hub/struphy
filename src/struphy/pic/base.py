@@ -1161,12 +1161,14 @@ class Particles(metaclass=ABCMeta):
 
         All needed parameters can be set in the parameter file, see :ref:`params_yml`.
 
-        An initial sorting will be performed if sort is given as True (default) and sorting_params were given to the init.
+        On several processes, the markers are always sent to the process of their domain after drawing
+        (:meth:`mpi_sort_markers`). They are also sorted into boxes if sort is True (default) and sorting
+        boxes were set up.
 
         Parameters
         ----------
         sort : Bool
-            Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
+            Whether to sort the markers into boxes after initial drawing (only if sorting boxes were set up).
         """
 
         import scipy.special as sp
@@ -1276,10 +1278,13 @@ class Particles(metaclass=ABCMeta):
 
             # 2. plain sobol numbers with skip of first 1000 numbers
             elif self.loading == "sobol_standard":
-                self.phasespace_coords = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_mks_load_loc,
-                    1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank],
+                # generated on the host, then copied to the device (setup only)
+                self.phasespace_coords = xp.to_cunumpy(
+                    sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        int(n_mks_load_loc),
+                        1000 + int((n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]),
+                    )
                 )
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
@@ -1290,10 +1295,12 @@ class Particles(metaclass=ABCMeta):
 
                 # each sobol point yields 64 symmetric markers; round up and truncate the last group
                 n_sobol = -(-self.n_mks_load // 64)
-                temp_markers = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_sobol[self._mpi_rank],
-                    1000 + (xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank],
+                temp_markers = xp.to_cunumpy(
+                    sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        int(n_sobol[self._mpi_rank]),
+                        1000 + int((xp.cumsum(n_sobol) - n_sobol)[self._mpi_rank]),
+                    )
                 )
 
                 temp_symmetric = xp.zeros((64 * n_sobol[self._mpi_rank], 3 + self.vdim), dtype=float)
@@ -1429,21 +1436,23 @@ class Particles(metaclass=ABCMeta):
             eta1 = self._markers[:, 0]
             eta1[xp.logical_and(eta1 >= 0.0, eta1 < POLE_ETA1_MIN)] = POLE_ETA1_MIN
 
-        if self._initialized_sorting and sort:
-            logger.info("\nSorting the markers after initial draw")
-            if self.mpi_comm is not None:
-                self.mpi_sort_markers()
+        # send the markers to the process of their domain: needed on several processes whether or not there are
+        # sorting boxes, since accumulations before the first push (e.g. an initial Poisson solve) assume it (#764);
+        # not for restart loading without boxes (the holes of the restart markers array are not updated yet)
+        sort_boxes = self._initialized_sorting and sort
+        if self.mpi_comm is not None and (sort_boxes or (self.mpi_size > 1 and self.loading != "restart")):
+            logger.info("\nSending the markers to their processes after initial draw")
+            self.mpi_sort_markers()
+
+        if sort_boxes:
+            logger.info("\nSorting the markers into boxes after initial draw")
             self.do_sort()
             logger.info("Done.")
-        elif (
-            not self._initialized_sorting
-            and self.loading != "restart"
-            and self.mpi_comm is not None
-            and self.mpi_size > 1
-        ):
-            # without sorting boxes, markers drawn on the domain of another process (e.g. Sobol loading
-            # or the disc transform) are sent to their process
-            self.mpi_sort_markers(apply_bc=False)
+        elif self.mpi_comm is not None and self.loading in ("sobol_standard", "sobol_antithetic"):
+            # Sobol markers are drawn on the whole domain on every process (pseudo-random ones only on the
+            # process domain): send them to their process, otherwise the first accumulation (e.g. the initial
+            # Poisson solve) writes outside the local arrays and corrupts the heap.
+            self.mpi_sort_markers()
 
     def initialize_weights(
         self,
@@ -1575,7 +1584,7 @@ class Particles(metaclass=ABCMeta):
         divide_by_jac: bool = True,
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
-        Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
+        ``xp.histogramdd`` (NumPy or CuPy, on the device of the markers) is used, following the algorithm outlined in :ref:`binning`.
 
         Parameters
         ----------
@@ -1600,7 +1609,8 @@ class Particles(metaclass=ABCMeta):
             The reconstructed delta-f distribution function.
         """
 
-        assert xp.count_nonzero(components) == len(bin_edges)
+        # components is a host list: counted with Python, not with xp (CuPy rejects lists)
+        assert sum(bool(c) for c in components) == len(bin_edges)
 
         # volume of a bin
         bin_vol = 1.0
@@ -1609,43 +1619,51 @@ class Particles(metaclass=ABCMeta):
 
         # extend components list to number of columns of markers array
         _n = len(components)
-        slicing = components + [False] * (self.markers.shape[1] - _n)
+        slicing = list(components) + [False] * (self.markers.shape[1] - _n)
 
         # determine type of output quantity
         # Note: "density" Literal does not have "_"
         quantity, *v_axis = output_quantity.rsplit(sep="_", maxsplit=1)
         v_axis = [int(char) - 1 for char in "".join(v_axis)]  # convert dimension axis to index
 
+        # the valid markers, gathered once; everything below stays on the device of the markers
+        markers = self.markers_wo_holes_and_ghost
+        velocities = markers[:, self.index["vel"]]
+
         # determine histogram weights multiplier
         if quantity == "density":
             multiplier = 1
         elif quantity == "current":
-            multiplier = self.velocities[:, v_axis[0]]
+            multiplier = velocities[:, v_axis[0]]
         elif quantity == "energy_tensor":
-            multiplier = self.velocities[:, v_axis[0]] * self.velocities[:, v_axis[1]]
+            multiplier = velocities[:, v_axis[0]] * velocities[:, v_axis[1]]
         elif quantity == "heat_flux":
-            velocity_norm2 = xp.linalg.norm(self.velocities, axis=1) ** 2
-            multiplier = velocity_norm2 * self.velocities[:, v_axis[0]]
+            velocity_norm2 = xp.linalg.norm(velocities, axis=1) ** 2
+            multiplier = velocity_norm2 * velocities[:, v_axis[0]]
 
         # compute weights of histogram:
-        _weights0 = self.weights0 * self.Np * multiplier
-        _weights = self.weights * self.Np * multiplier
+        _weights0 = markers[:, self.index["w0"]] * self.Np * multiplier
+        _weights = markers[:, self.index["weights"]] * self.Np * multiplier
 
         if divide_by_jac:
-            _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
+            jacobian_det = self.domain.jacobian_det(markers[:, self.index["pos"]], remove_outside=False)
+            _weights /= jacobian_det
             # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-            _weights0 /= self.domain.jacobian_det(self.positions, remove_outside=False)
+            _weights0 /= jacobian_det
             # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
+        # the binned columns, one by one (an index list would have to be uploaded to the device first)
+        sample = xp.stack([markers[:, i] for i, binned in enumerate(slicing) if binned], axis=1)
+
         f_slice = xp.histogramdd(
-            self.markers_wo_holes_and_ghost[:, slicing],
+            sample,
             bins=bin_edges,
             weights=_weights0,
         )[0]
 
         df_slice = xp.histogramdd(
-            self.markers_wo_holes_and_ghost[:, slicing],
+            sample,
             bins=bin_edges,
             weights=_weights,
         )[0]
@@ -2631,6 +2649,12 @@ class Particles(metaclass=ABCMeta):
             self._bc_type,
             self._pole,
         )
+
+        # on the CuPy backend with several ranks, find out now (collectively, in the setup) whether MPI takes device
+        # buffers; otherwise the probe runs on the first marker exchange, inside the first time step.
+        # The probe is collective: all ranks of mpi_comm must allocate their marker arrays together, never one alone.
+        if xp.get_backend() == "cupy" and self.mpi_size > 1:
+            self._mpi_cuda_aware()
 
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.

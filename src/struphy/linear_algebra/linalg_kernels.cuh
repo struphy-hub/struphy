@@ -1,5 +1,5 @@
 #pragma once
-namespace struphy_cuda {
+namespace struphy_cuda::linalg_kernels {
 /**
  * Multiply a 3x3 matrix by a vector, as in linalg_kernels.matrix_vector.
  *
@@ -111,4 +111,4 @@ __device__ inline void outer(const double* a, const double* b, double* c) {
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j) c[3 * i + j] = a[i] * b[j];
 }
-}
+}  // namespace struphy_cuda::linalg_kernels

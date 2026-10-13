@@ -2,6 +2,8 @@
 #include "struphy/linear_algebra/linalg_kernels.cuh"
 #include "struphy/pic/accumulation/particle_to_mat_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Accumulate the matrix and vector of the linear Vlasov-Ampere system (delta-f) into V1, as in
  * linear_vlasov_ampere_kernels.linear_vlasov_ampere.
@@ -67,16 +69,16 @@ extern "C" __global__ void linear_vlasov_ampere(MarkerArgs args_markers, DerhamA
     v[2] = args_markers.markers(ip, 5);
 
     // evaluate Jacobian, result in dfm
-    struphy_cuda::df(eta1, eta2, eta3, args_domain, dfm);
+    evaluation_kernels::df(eta1, eta2, eta3, args_domain, dfm);
 
     // invert Jacobian matrix
-    struphy_cuda::matrix_inv(dfm, df_inv);
+    linalg_kernels::matrix_inv(dfm, df_inv);
 
     // compute DF^{-1} v
-    struphy_cuda::matrix_vector(df_inv, v, df_inv_v);
+    linalg_kernels::matrix_vector(df_inv, v, df_inv_v);
 
     // filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
-    struphy_cuda::outer(df_inv_v, df_inv_v, filling_m);
+    linalg_kernels::outer(df_inv_v, df_inv_v, filling_m);
     double factor = f0_values[ip] / (args_markers.markers(ip, 7) * n_markers_tot);
     for (int k = 0; k < 9; ++k) filling_m[k] *= factor;
 
@@ -84,7 +86,8 @@ extern "C" __global__ void linear_vlasov_ampere(MarkerArgs args_markers, DerhamA
     for (int k = 0; k < 3; ++k) filling_v[k] = args_markers.markers(ip, 6) * df_inv_v[k];
 
     // call the appropriate matvec filler
-    struphy_cuda::m_v_fill_b_v1_symm(args_derham, eta1, eta2, eta3, mat11, mat12, mat13, mat22, mat23, mat33,
-                                     filling_m[0], filling_m[1], filling_m[2], filling_m[4], filling_m[5],
-                                     filling_m[8], vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]);
+    particle_to_mat_kernels::m_v_fill_b_v1_symm(args_derham, eta1, eta2, eta3, mat11, mat12, mat13, mat22, mat23,
+                                                mat33, filling_m[0], filling_m[1], filling_m[2], filling_m[4],
+                                                filling_m[5], filling_m[8], vec1, vec2, vec3, filling_v[0],
+                                                filling_v[1], filling_v[2]);
 }
