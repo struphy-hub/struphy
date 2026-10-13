@@ -10,9 +10,11 @@ regions that struphy already defines (``setup: allocate``, ``model.integrate``, 
 records CUDA-event device time for every region in addition to the CPU time (``use_gpu_timing``, backend
 ``cupy``), and by default synchronizes the device when a region ends (``gpu_sync_on_exit``), so the CPU time of a
 region includes its kernels and not only their launch; ``--no-gpu-sync`` records the enqueue-side CPU time instead.
-The profile is written to an HDF5 file (``--profile``) for the full scope-profiler tool chain::
+The profile is written to an HDF5 file (``--profile``) for the full scope-profiler tool chain, and its HTML report
+(call tree, charts, per-rank statistics) next to it (``--report``, ``--no-report``)::
 
     scope-profiler inspect vlasov_benchmark_VlasovAmpereOneSpecies_landau_cupy.h5
+    open vlasov_benchmark_VlasovAmpereOneSpecies_landau_cupy.html
 
 Test problems (the physics follows the verification tests in ``src/struphy/models/tests/verification``):
 
@@ -118,6 +120,7 @@ class Result:
     steps: int
     dt: float
     profile: str  # the scope-profiler HDF5 file of the run
+    report: str | None  # the scope-profiler HTML report of the run, if written
     gpu_timing: bool  # CUDA-event device times recorded per region
     gpu_sync_on_exit: bool  # device synchronized at every region end (CPU times include the kernels)
     setup: float = 0.0  # Simulation.allocate (FEEC operators, markers, initial Poisson solve)
@@ -166,6 +169,10 @@ def parse_args():
         "--profile",
         help="scope-profiler HDF5 file of the run (default: vlasov_benchmark_<model>_<case>_<backend>.h5)",
     )
+    parser.add_argument(
+        "--report", help="scope-profiler HTML report of the run (default: the profile's name with .html)"
+    )
+    parser.add_argument("--no-report", action="store_true", help="do not write the HTML report")
     parser.add_argument("--out", help="output folder (default: a temporary folder, removed afterwards)")
     parser.add_argument("--json", help="also write the result to this JSON file (rank 0)")
     args = parser.parse_args()
@@ -281,6 +288,7 @@ def make_simulation(args, out_folders: str, profile_path: str):
         steps=steps,
         dt=dt,
         profile=os.path.abspath(profile_path),
+        report=None,
         gpu_timing=opts.use_gpu_timing,
         gpu_sync_on_exit=opts.gpu_sync_on_exit,
     )
@@ -343,7 +351,13 @@ def run(args) -> Result:
 
     # scope-profiler merges the ranks into one file at the end of the session
     if comm.Get_rank() == 0:
-        collect(read_h5(profile_path), result)
+        results = read_h5(profile_path)
+        collect(results, result)
+        if not args.no_report:
+            from scope_profiler import create_html_report
+
+            report_path = args.report or os.path.splitext(profile_path)[0] + ".html"
+            result.report = os.path.abspath(create_html_report(results, report_path))
 
     comm.Barrier()
     if tmp is not None:
@@ -393,6 +407,8 @@ def report(result: Result) -> str:
     lines += _time_table("per propagator (all steps", result.propagators, result.gpu_timing)
     lines += _time_table("per kernel (whole run, including the setup", result.kernels, result.gpu_timing)
     lines += ["", f"  profile: {result.profile}  (scope-profiler inspect {os.path.basename(result.profile)})"]
+    if result.report:
+        lines.append(f"  report:  {result.report}")
     return "\n".join(lines)
 
 
