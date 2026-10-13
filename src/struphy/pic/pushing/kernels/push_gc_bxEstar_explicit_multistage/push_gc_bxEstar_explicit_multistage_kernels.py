@@ -66,7 +66,7 @@ def push_gc_bxEstar_explicit_multistage(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -79,7 +79,7 @@ def push_gc_bxEstar_explicit_multistage(
 
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[ip, first_pusher_idx] == -1.0:
             continue
 
         eta1 = markers[ip, 0]
@@ -171,7 +171,7 @@ def push_gc_bxEstar_explicit_multistage(
 
         # update positions for intermediate stages or last stage
         markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
+            markers[ip, first_pusher_idx : first_pusher_idx + 3]
             + dt * a[stage] * k
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )

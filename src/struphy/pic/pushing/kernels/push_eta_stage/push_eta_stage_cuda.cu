@@ -1,5 +1,7 @@
 #include "struphy/pic/pushing/pusher_utilities_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * One stage of an explicit Runge-Kutta position push, as in push_eta_stage_kernels.push_eta_stage.
  *
@@ -14,7 +16,7 @@
  * @param c Butcher nodes c (n_stages entries; unused, as in the pyccel kernel).
  * @param n_stages Number of stages; a raw device pointer carries no length.
  *
- * Holes (first_init_idx == -1) and boundary particles (last column == -2) are skipped.
+ * Holes (first_pusher_idx == -1) and boundary particles (last column == -2) are skipped.
  * The kinetic boundary conditions are applied per marker after the update.
  */
 extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_markers, DomainArgs args_domain,
@@ -24,12 +26,12 @@ extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_
     int n_markers = args_markers.n_markers;
     if (ip >= n_markers) return;
 
-    int first_init_idx = args_markers.first_init_idx;
+    int first_pusher_idx = args_markers.first_pusher_idx;
     int first_free_idx = args_markers.first_free_idx;
     double last = stage == n_stages - 1 ? 1. : 0.;
 
     // check if marker is a hole or a boundary particle
-    if (args_markers.markers(ip, first_init_idx) == -1. || args_markers.markers(ip, args_markers.markers.shape[1] - 1) == -2.)
+    if (args_markers.markers(ip, first_pusher_idx) == -1. || args_markers.markers(ip, args_markers.markers.shape[1] - 1) == -2.)
         return;
 
     double e1 = args_markers.markers(ip, 0);
@@ -39,22 +41,22 @@ extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_
     for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
 
     // evaluate Jacobian, result in dfm
-    struphy_cuda::df(e1, e2, e3, args_domain, dfm);
+    evaluation_kernels::df(e1, e2, e3, args_domain, dfm);
 
     // evaluate inverse Jacobian matrix
-    struphy_cuda::matrix_inv(dfm, dfinv);
+    linalg_kernels::matrix_inv(dfm, dfinv);
 
     // pull-back of velocity
-    struphy_cuda::matrix_vector(dfinv, v, k);
+    linalg_kernels::matrix_vector(dfinv, v, k);
 
     for (int j = 0; j < 3; ++j) {
         // accumulation for last stage
         args_markers.markers(ip, first_free_idx + j) += dt * b[stage] * k[j];
         // update positions for intermediate stages or last stage
-        args_markers.markers(ip, j) = args_markers.markers(ip, first_init_idx + j) + dt * a[stage] * k[j] +
+        args_markers.markers(ip, j) = args_markers.markers(ip, first_pusher_idx + j) + dt * a[stage] * k[j] +
                                       last * args_markers.markers(ip, first_free_idx + j);
     }
 
     // apply kinetic boundary conditions
-    struphy_cuda::apply_kinetic_bc_marker(ip, args_markers, args_domain, false);
+    pusher_utilities_kernels::apply_kinetic_bc_marker(ip, args_markers, args_domain, false);
 }

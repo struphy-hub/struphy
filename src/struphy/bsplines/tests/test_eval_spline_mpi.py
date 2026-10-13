@@ -256,6 +256,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
     from struphy.io.options import DerhamOptions
+    from struphy.kernel_arguments.spline_args_kernels import SplineArguments
     from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
@@ -274,6 +275,9 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
     x1, x1_psy = cera(derham.V1fem)
     x2, x2_psy = cera(derham.V2fem)
     x3, x3_psy = cera(derham.V3fem)
+
+    def args_spline(kind):
+        return SplineArguments(kind, xp.array(derham.degree), tn1, tn2, tn3, xp.array(x0_psy.starts))
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -303,12 +307,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x0_psy._data,
-            derham.V0splines.spline_types_pyccel[0],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V0splines.spline_types_pyccel[0]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -339,12 +338,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x1_psy[0]._data,
-            derham.V1splines.spline_types_pyccel[0],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V1splines.spline_types_pyccel[0]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -374,12 +368,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x1_psy[1]._data,
-            derham.V1splines.spline_types_pyccel[1],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V1splines.spline_types_pyccel[1]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -409,12 +398,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x1_psy[2]._data,
-            derham.V1splines.spline_types_pyccel[2],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V1splines.spline_types_pyccel[2]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -445,12 +429,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x2_psy[0]._data,
-            derham.V2splines.spline_types_pyccel[0],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V2splines.spline_types_pyccel[0]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -480,12 +459,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x2_psy[1]._data,
-            derham.V2splines.spline_types_pyccel[1],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V2splines.spline_types_pyccel[1]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -515,12 +489,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x2_psy[2]._data,
-            derham.V2splines.spline_types_pyccel[2],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V2splines.spline_types_pyccel[2]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -548,12 +517,7 @@ def test_eval_pointwise(num_elements, degree, bcs, n_markers=10):
             eta2,
             eta3,
             x3_psy._data,
-            derham.V3splines.spline_types_pyccel[0],
-            xp.array(derham.degree),
-            tn1,
-            tn2,
-            tn3,
-            xp.array(x0_psy.starts),
+            args_spline(derham.V3splines.spline_types_pyccel[0]),
         )
 
         assert xp.allclose(val, val_mpi)
@@ -589,6 +553,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
     from struphy.io.options import DerhamOptions
+    from struphy.kernel_arguments.spline_args_kernels import SplineArguments
     from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
@@ -605,6 +570,9 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
     # Random spline coeffs_loc
     x0, x0_psy = cera(derham.V0fem)
     x3, x3_psy = cera(derham.V3fem)
+
+    def args_spline(kind):
+        return SplineArguments(kind, xp.array(derham.degree), tn1, tn2, tn3, xp.array(x0_psy.starts))
 
     # Random points in domain of process
     dom = derham.domain_array[rank]
@@ -636,12 +604,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.V0splines.spline_types_pyccel[0],
-        xp.array(derham.degree),
-        tn1,
-        tn2,
-        tn3,
-        xp.array(x0_psy.starts),
+        args_spline(derham.V0splines.spline_types_pyccel[0]),
         vals_mpi,
     )
     t1 = time.time()
@@ -654,12 +617,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x0_psy._data,
-        derham.V0splines.spline_types_pyccel[0],
-        xp.array(derham.degree),
-        tn1,
-        tn2,
-        tn3,
-        xp.array(x0_psy.starts),
+        args_spline(derham.V0splines.spline_types_pyccel[0]),
         vals_mpi_fast,
     )
     t1 = time.time()
@@ -696,12 +654,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.V3splines.spline_types_pyccel[0],
-        xp.array(derham.degree),
-        tn1,
-        tn2,
-        tn3,
-        xp.array(x0_psy.starts),
+        args_spline(derham.V3splines.spline_types_pyccel[0]),
         vals_mpi,
     )
     t1 = time.time()
@@ -714,12 +667,7 @@ def test_eval_tensor_product(num_elements, degree, bcs, n_markers=10):
         eta2s,
         eta3s,
         x3_psy._data,
-        derham.V3splines.spline_types_pyccel[0],
-        xp.array(derham.degree),
-        tn1,
-        tn2,
-        tn3,
-        xp.array(x0_psy.starts),
+        args_spline(derham.V3splines.spline_types_pyccel[0]),
         vals_mpi_fast,
     )
     t1 = time.time()
@@ -751,7 +699,8 @@ def test_eval_tensor_product_grid(num_elements, degree, bcs, n_markers=10):
 
     import time
 
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed, evaluate_tensor_product
+    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
+    from struphy.bsplines.kernels.eval_spline_mpi_tensor_product_fixed import eval_spline_mpi_tensor_product_fixed
     from struphy.feec.basis_projection_ops import prepare_projection_of_basis
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
