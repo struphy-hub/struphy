@@ -1,5 +1,7 @@
 #include "struphy/pic/accumulation/particle_to_mat_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Accumulate the marker weights into a 0-form vector, as in charge_density_0form_kernels.charge_density_0form.
  *
@@ -32,5 +34,5 @@ extern "C" __global__ void charge_density_0form(MarkerArgs args_markers, DerhamA
     // filling is just the weights
     double filling = args_markers.markers(ip, weight_idx);
 
-    struphy_cuda::vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling);
+    particle_to_mat_kernels::vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling);
 }

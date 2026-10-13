@@ -60,6 +60,9 @@ def struphy_test(
             f"{LIBPATH}/post_processing/tests/",
             f"{LIBPATH}/propagators/tests/",
             f"{LIBPATH}/simulation/tests/",
+            # end-to-end GPU tests (NumPy reference, and the CuPy comparison on a GPU or the fake CuPy)
+            f"{LIBPATH}/models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py",
+            f"{LIBPATH}/models/tests/test_gpu_VlasovAmpereOneSpecies.py",
         ]
 
         if mpi > 1:
