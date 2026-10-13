@@ -86,6 +86,8 @@ def _write_run_metadata(
     # Struphy records the rank count it actually ran with; fall back to the requested one
     # for a run that wrote no metadata of its own.
     metadata.setdefault("mpi_ranks", job_info.get("ranks"))
+    # The cunumpy backend is chosen per launch, so it is recorded per run.
+    metadata["backend"] = job_info.get("backend")
     metadata["slurm_script"] = job_info.get("slurm_dict")
     metadata["slurm_script_str"] = job_info.get("job_script")
     metadata["packaged_files"] = {

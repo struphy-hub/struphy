@@ -66,13 +66,12 @@ def main() -> None:
         params_source=params_dir / "params_vlasov_maxwell.py",
         language=args.language,
         compiler=args.compiler,
-        backend=args.backend,
         upload=args.upload,
     )
 
     # Launch one run per rank count
     for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
-        profiling_case.launch(num_tasks)
+        profiling_case.launch(num_tasks, backend=args.backend)
 
     # Package and push each run as its own job finishes.
     profiling_case.finalize_run()

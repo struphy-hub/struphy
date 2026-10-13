@@ -7,7 +7,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   results directories. It stores everything it computes as attributes on the case
   itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so there's
   a single object to thread through the rest of the run.
-- For each rank count, the caller calls `ProfilingCase.launch(ntasks, param_flags=None)`, which builds
+- For each rank count, the caller calls `ProfilingCase.launch(ntasks, param_flags=None, backend="numpy")`, which builds
   the per-rank shell commands and either submits a `SlurmScript` (under SLURM) or
   writes and runs a plain bash script to completion (otherwise) — the caller doesn't
   need to know which. Pass `param_flags` to override the default commands (e.g. to add a
@@ -101,9 +101,6 @@ class ProfilingCase:
     params_source: Path
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
-    # cunumpy backend the runs use, "numpy" (CPU) or "cupy" (GPU): exported as CUNUMPY_BACKEND in every job
-    # script before the simulation.
-    backend: str = "numpy"
     # Whether the packaged results are pushed to the profiling-data repo. Set here rather
     # than at `finalize_run` time because `setup_run` clones that repo up front, so a
     # missing/unreachable repo fails before any job is submitted rather than after.
@@ -135,7 +132,12 @@ class ProfilingCase:
     def __post_init__(self) -> None:
         self.setup_run()
 
-    def build_commands(self, ntasks: int, param_flags: list[str] | None = None) -> list[str]:
+    def build_commands(
+        self,
+        ntasks: int,
+        param_flags: list[str] | None = None,
+        backend: str = "numpy",
+    ) -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
 
         Reads the setup computed by `setup_run` (`case_output_root`, `venv_path`,
@@ -147,6 +149,8 @@ class ProfilingCase:
             param_flags: Extra CLI flags appended to the `params_source` invocation,
                 e.g. `["--ppc", "10"]`. Omit for none. `--id` is always passed on top
                 of these.
+            backend: cunumpy backend of the run, "numpy" (CPU) or "cupy" (GPU),
+                exported as CUNUMPY_BACKEND before the simulation.
 
         Returns:
             The shell commands to run, in order, as one script.
@@ -175,13 +179,13 @@ class ProfilingCase:
             "set -e",
             f"source {activate_path!s}",
             # cunumpy reads its backend from this variable when it is imported, so it is exported before the run
-            f"export CUNUMPY_BACKEND={self.backend}",
+            f"export CUNUMPY_BACKEND={backend}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',
             f'echo "Physics problem: {self.physics_problem}"',
             f'echo "Struphy model used: {self.struphy_model_used}"',
-            f'echo "cunumpy backend: {self.backend}"',
+            f'echo "cunumpy backend: {backend}"',
             f'echo "Case directory: {output_root}"',
             'echo "----------------------------------------"',
             f'mkdir -p "{sim_dir}"',
@@ -209,6 +213,7 @@ class ProfilingCase:
         num_nodes: int | None = None,
         param_flags: list[str] | None = None,
         slurm_presets: dict[str, dict] | None = None,
+        backend: str = "numpy",
     ) -> None:
         """Build, submit/run, and record the run for a single rank count.
 
@@ -232,11 +237,17 @@ class ProfilingCase:
             slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
                 picked via `detect_machine_name` on every call. Defaults to
                 `clusters.SLURM_PRESETS`. Ignored outside SLURM.
+            backend: cunumpy backend of this run, "numpy" (CPU) or "cupy" (GPU):
+                exported as CUNUMPY_BACKEND in the job script and recorded in the
+                run's metadata, so one case can mix runs on both backends.
 
         Raises:
-            ValueError: If `num_tasks` is not evenly divisible by `num_nodes`
-                (SLURM only).
+            ValueError: If `backend` is neither "numpy" nor "cupy", or if
+                `num_tasks` is not evenly divisible by `num_nodes` (SLURM only).
         """
+        if backend not in ("numpy", "cupy"):
+            raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
+
         if not self.use_slurm:
             available = os.cpu_count() or 1
             if num_tasks > available:
@@ -249,7 +260,7 @@ class ProfilingCase:
         script_path = profiling_results_base / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
         # Build the commands to run this case with the given rank count, and write/submit
-        case_commands = self.build_commands(num_tasks, param_flags)
+        case_commands = self.build_commands(num_tasks, param_flags, backend)
 
         # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
         if self.use_slurm:
@@ -305,6 +316,7 @@ class ProfilingCase:
         job_info = {
             "launch_id": self.launch_count,
             "ranks": num_tasks,
+            "backend": backend,
             "job_id": job_id,
             "job_script_path": str(script_path),
             "job_script": script_text,
@@ -334,9 +346,6 @@ class ProfilingCase:
                 "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job.",
             )
         self.venv_path = Path(virtual_env)
-
-        if self.backend not in ("numpy", "cupy"):
-            raise ValueError(f"backend must be 'numpy' or 'cupy', got {self.backend!r}")
 
         # Compile Struphy kernels with the case's language and compiler
         self.compiler_instance = Compiler(language=self.language, compiler=self.compiler)
@@ -392,7 +401,6 @@ class ProfilingCase:
             "physics_problem": self.physics_problem,
             "struphy_model_used": self.struphy_model_used,
             "struphy_commit": self.run_commit,
-            "backend": self.backend,
             "compiler": self.compiler_instance.to_dict(),
             "scheduler": "slurm" if self.use_slurm else "local",
             "parameter_file": str(self.params_source),
