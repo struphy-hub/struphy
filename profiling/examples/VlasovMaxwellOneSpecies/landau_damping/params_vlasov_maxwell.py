@@ -12,8 +12,8 @@ perturbation of 1e-3 cos(k x), control-variate weights, cubic splines in x. The 
 rate -0.1533. alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency, velocities in
 units of c).
 
-Runs on the NumPy (CPU) or CuPy (GPU) backend, chosen by the environment variable CUNUMPY_BACKEND (the profiling
-driver exports it in the job script; `struphy backend set cupy` stores a default). All timing comes from scope-profiler: the run activates
+Runs on the NumPy (CPU) or CuPy (GPU) backend chosen with `struphy backend set` (the profiling driver runs it in
+the job script). All timing comes from scope-profiler: the run activates
 the profiling session of Simulation.run, and on the CuPy backend the session records CUDA-event device time per
 region (GPUOptions.timing) and synchronizes the device at region ends, so the CPU time of a region includes its
 kernels. The post-processing writes the scope-profiler HTML report and a summary of the cost per step and marker
@@ -175,7 +175,7 @@ model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, pe
 if __name__ == "__main__":
     import contextlib
 
-    # Without a GPU, CUNUMPY_FAKE_CUPY=1 CUNUMPY_BACKEND=cupy runs the CuPy code path on cunumpy's fake CuPy with every
+    # Without a GPU, `struphy backend set cupy` and CUNUMPY_FAKE_CUPY=1 run the CuPy code path on cunumpy's fake CuPy with every
     # CUDA launch emulated on the CPU: a check that the model runs on the device backend, not a timing. On a GPU
     # (or on NumPy) the context does nothing.
     from struphy.models.tests.gpu_e2e import device_context

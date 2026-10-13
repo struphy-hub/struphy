@@ -47,13 +47,35 @@ def test_set_rejects_unknown_backend(state_dir):
         backend_cli.struphy_backend("set")
 
 
-def test_get_reports_stored_env_and_effective(state_dir, monkeypatch, capsys):
+def test_get_with_nothing_stored(state_dir, monkeypatch, capsys):
     monkeypatch.delenv("CUNUMPY_BACKEND", raising=False)
     backend_cli.struphy_backend("get")
     out = capsys.readouterr().out
-    assert "stored backend (struphy backend set): numpy (default)" in out
-    assert "CUNUMPY_BACKEND: (not set)" in out
-    assert "backend in this process: numpy" in out
+    assert "Backend struphy runs use:  numpy  (nothing stored, cunumpy's default)" in out
+    assert "Backend available on this machine:                numpy" in out
+    assert "Warning" not in out
+
+
+def test_get_with_nothing_stored_reports_shell_variable(state_dir, monkeypatch, capsys):
+    monkeypatch.setenv("CUNUMPY_BACKEND", "xyz")
+    backend_cli.struphy_backend("get")
+    out = capsys.readouterr().out
+    assert "CUNUMPY_BACKEND=xyz in the shell is not a backend, cunumpy ignores it" in out
+    assert "Warning" not in out
+
+
+def test_get_warns_when_cupy_is_unavailable(state_dir, capsys):
+    import cunumpy as xp
+
+    if xp.get_backend() == "cupy":
+        pytest.skip("a working GPU: no fallback to warn about")
+    backend_cli.struphy_backend("set", "cupy")
+    capsys.readouterr()
+    backend_cli.struphy_backend("get")
+    out = capsys.readouterr().out
+    assert "Backend struphy runs use (struphy backend set):  cupy" in out
+    assert "Backend available on this machine:                numpy" in out
+    assert "Warning: cupy is chosen but cunumpy can only provide numpy here" in out
 
 
 def test_invalid_backend_in_state_file_is_rejected(state_dir):

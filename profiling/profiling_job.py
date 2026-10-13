@@ -102,8 +102,8 @@ class ProfilingCase:
     params_source: Path
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
-    # cunumpy backend the runs use, "numpy" (CPU) or "cupy" (GPU): exported as CUNUMPY_BACKEND in every job
-    # script. None takes the backend stored with `struphy backend set` (default numpy).
+    # cunumpy backend the runs use, "numpy" (CPU) or "cupy" (GPU): every job script runs `struphy backend set`
+    # with it before the simulation. None keeps the backend stored with `struphy backend set` (default numpy).
     backend: str | None = None
     # Whether the packaged results are pushed to the profiling-data repo. Set here rather
     # than at `finalize_run` time because `setup_run` clones that repo up front, so a
@@ -175,9 +175,9 @@ class ProfilingCase:
             ),
             "set -e",
             f"source {activate_path!s}",
-            # cunumpy reads its backend from this variable when it is imported, so it is exported before the run.
-            # Explicit, so the job script does not depend on the state file at the time it runs.
-            f"export CUNUMPY_BACKEND={self.backend}",
+            # the stored backend is the single source of truth: `import struphy` sets CUNUMPY_BACKEND from it,
+            # so the run below picks it up. Note that the state file is shared by every job of this venv.
+            f"{self.venv_path / 'bin' / 'struphy'} backend set {self.backend}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',

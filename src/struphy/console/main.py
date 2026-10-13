@@ -455,8 +455,8 @@ def add_parser_backend(subparsers):
         help="show or choose the array backend of struphy runs: numpy (CPU) or cupy (GPU)",
         description=(
             "cunumpy picks its backend from the environment variable CUNUMPY_BACKEND. 'struphy backend set' stores "
-            "a choice in the state file; 'import struphy' then sets CUNUMPY_BACKEND from it unless the variable is "
-            "already set, and the profiling driver exports it in every job script."
+            "a choice in the state file, and 'import struphy' then sets CUNUMPY_BACKEND to it (overwriting the "
+            "shell's value). The profiling driver runs 'struphy backend set' in every job script."
         ),
     )
     parser.add_argument("action", choices=("get", "set", "unset"))

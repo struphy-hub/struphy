@@ -9,8 +9,8 @@ Each generated script runs the simulation itself by invoking `params_vlasov_maxw
 directly (its `__main__` block is the worker).
 
 The run is profiled with scope-profiler. `--backend cupy` runs it on the GPU with CUDA-event
-timing per region (default: the backend stored with `struphy backend set`); the job script exports
-the choice as CUNUMPY_BACKEND. `--ppc`, `--num-elements` and `--steps` are forwarded to `params_vlasov_maxwell.py`
+timing per region (default: the backend stored with `struphy backend set`); the job script runs
+`struphy backend set` with the choice before the simulation. `--ppc`, `--num-elements` and `--steps` are forwarded to `params_vlasov_maxwell.py`
 (defaults: 1000 markers per cell on 32 cells, 20 steps).
 """
 
