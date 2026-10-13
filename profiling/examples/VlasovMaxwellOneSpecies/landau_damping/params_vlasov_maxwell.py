@@ -59,9 +59,6 @@ from struphy import (
 # Unknown flags are ignored so the driver can forward other parameters as well.
 parser = argparse.ArgumentParser()
 parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
-parser.add_argument("--num-elements", type=int, default=32, help="Cells in x (1 in y and z).")
-parser.add_argument("--ppc", type=int, default=1000, help="Markers per cell.")
-parser.add_argument("--steps", type=int, default=20, help="Number of time steps.")
 args, _ = parser.parse_known_args()
 
 # ---------------------
@@ -89,7 +86,8 @@ env = EnvironmentOptions(
 
 # Time stepping
 dt = 0.05
-time_opts = Time(dt=dt, Tend=round(args.steps * dt, 14))
+steps = 20
+time_opts = Time(dt=dt, Tend=round(steps * dt, 14))
 
 # Geometry
 Lx = 4 * math.pi  # k = 0.5
@@ -99,7 +97,8 @@ domain = domains.Cuboid(r1=Lx)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(args.num_elements, 1, 1))
+num_elements = 32  # cells in x (1 in y and z)
+grid = grids.TensorProductGrid(num_elements=(num_elements, 1, 1))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(3, 1, 1))
@@ -135,7 +134,8 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc=args.ppc, seed=1234)
+ppc = 1000
+loading_params = LoadingParameters(ppc=ppc, seed=1234)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 # sorting boxes are off: SortingBoxes does not work on the CuPy backend yet (struphy-hub/struphy#726)
@@ -206,15 +206,15 @@ if __name__ == "__main__":
         n_calls = min(len(durations) for durations in per_rank)
         step_times = np.max([durations[:n_calls] for durations in per_rank], axis=0)
         step_median = float(statistics.median(step_times[1:] if len(step_times) > 1 else step_times))
-        n_markers = args.ppc * args.num_elements
+        n_markers = ppc * num_elements
         summary = {
             "backend": xp.get_backend(),
             "gpu_timing": gpu_timing,
             "mpi_ranks": results.num_ranks,
-            "num_elements": args.num_elements,
-            "ppc": args.ppc,
+            "num_elements": num_elements,
+            "ppc": ppc,
             "n_markers": n_markers,
-            "steps": args.steps,
+            "steps": steps,
             "dt": dt,
             "step_times": step_times.tolist(),
             "step_median": step_median,

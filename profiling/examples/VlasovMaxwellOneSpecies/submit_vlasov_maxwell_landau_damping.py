@@ -9,8 +9,8 @@ Each generated script runs the simulation itself by invoking `params_vlasov_maxw
 directly (its `__main__` block is the worker).
 
 The run is profiled with scope-profiler. `--backend cupy` runs it on the GPU with CUDA-event
-timing per region; the job script exports the choice as CUNUMPY_BACKEND before the simulation. `--ppc`, `--num-elements` and `--steps` are forwarded to `params_vlasov_maxwell.py`
-(defaults: 1000 markers per cell on 32 cells, 20 steps).
+timing per region; the job script exports the choice as CUNUMPY_BACKEND before the simulation.
+The resolution (32 cells, 1000 markers per cell, 20 steps) is set in `params_vlasov_maxwell.py`.
 """
 
 import argparse
@@ -51,9 +51,6 @@ def main() -> None:
         choices=["numpy", "cupy"],
         help="cunumpy backend to run on; cupy records CUDA-event GPU times per region.",
     )
-    parser.add_argument("--ppc", type=int, default=1000, help="Markers per cell.")
-    parser.add_argument("--num-elements", type=int, default=32, help="Cells in x.")
-    parser.add_argument("--steps", type=int, default=20, help="Number of time steps.")
     args = parser.parse_args()
 
     # Paths relative to this script's location, so it can be run from anywhere.
@@ -73,18 +70,9 @@ def main() -> None:
         upload=args.upload,
     )
 
-    param_flags = [
-        "--ppc",
-        str(args.ppc),
-        "--num-elements",
-        str(args.num_elements),
-        "--steps",
-        str(args.steps),
-    ]
-
     # Launch one run per rank count
     for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
-        profiling_case.launch(num_tasks, param_flags=param_flags)
+        profiling_case.launch(num_tasks)
 
     # Package and push each run as its own job finishes.
     profiling_case.finalize_run()
