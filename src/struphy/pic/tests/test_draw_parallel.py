@@ -177,6 +177,56 @@ def test_marker_ids(loading, Np=1000):
     assert n_at_origin == 0
 
 
+@pytest.mark.parametrize("loading", ["pseudo_random", "sobol_standard", "sobol_antithetic"])
+@pytest.mark.parametrize("sort", [True, False])
+def test_draw_without_boxes_on_rank_domain(loading, sort, Np=1000):
+    """Without sorting boxes, every marker is on the domain of its process right after drawing (#764),
+    for ``sort=True`` and ``sort=False`` (which only concerns the boxes), and no marker is lost."""
+
+    import cunumpy as xp
+    from maybempi import MPI
+
+    from struphy import LoadingParameters, domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.pic.particles import Particles6D
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+
+    grid = TensorProductGrid(num_elements=[8, 5, 3])
+    derham = Derham(grid, DerhamOptions(degree=[1, 1, 1]), comm=comm)
+    domain_decomp = (derham.domain_array, derham.domain_decomposition.nprocs)
+
+    loading_params = LoadingParameters(
+        Np=Np,
+        seed=1234,
+        loading=loading,
+        moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
+    )
+
+    # no sorting_params: no sorting boxes
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=domain_decomp,
+        loading_params=loading_params,
+        domain=domains.Cuboid(),
+    )
+    assert particles.sorting_boxes is None
+
+    particles.draw_markers(sort=sort)
+
+    positions = particles.markers_wo_holes[:, :3]
+    on_rank = xp.all(particles._is_on_domain_of_rank(positions, particles.mpi_rank), axis=1)
+    n_off_rank = int(xp.sum(~on_rank))
+    n_markers = positions.shape[0]
+    if particles.mpi_size > 1:
+        n_markers = particles.mpi_comm.allreduce(n_markers)
+
+    assert n_off_rank == 0, f"rank {particles.mpi_rank}: {n_off_rank} markers off the process domain after drawing"
+    assert n_markers == Np
+
+
 if __name__ == "__main__":
     # test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
     #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
