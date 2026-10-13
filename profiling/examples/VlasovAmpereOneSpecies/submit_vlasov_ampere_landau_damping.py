@@ -9,8 +9,7 @@ Each generated script runs the simulation itself by invoking `params_vlasov_ampe
 directly (its `__main__` block is the worker).
 
 The run is profiled with scope-profiler. `--backend cupy` runs it on the GPU with CUDA-event
-timing per region (default: the backend stored with `struphy backend set`); the job script runs
-`struphy backend set` with the choice before the simulation. `--ppc`, `--num-elements` and `--steps` are forwarded to `params_vlasov_ampere.py`
+timing per region; the job script exports the choice as CUNUMPY_BACKEND before the simulation. `--ppc`, `--num-elements` and `--steps` are forwarded to `params_vlasov_ampere.py`
 (defaults: 1000 markers per cell on 32 cells, 20 steps).
 """
 
@@ -48,9 +47,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--backend",
-        default=None,
+        default="numpy",
         choices=["numpy", "cupy"],
-        help="cunumpy backend to run on (default: 'struphy backend get'); cupy records CUDA-event GPU times.",
+        help="cunumpy backend to run on; cupy records CUDA-event GPU times per region.",
     )
     parser.add_argument("--ppc", type=int, default=1000, help="Markers per cell.")
     parser.add_argument("--num-elements", type=int, default=32, help="Cells in x.")

@@ -63,7 +63,6 @@ from slurm_script_generator.squeue import SQueue, job_states
 from upload import _clone_profiling_data, _push_profiling_data
 
 from struphy import Compiler
-from struphy.console.backend import BACKENDS, configured_backend
 from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
 
 script_dir = Path(__file__).resolve().parent
@@ -102,9 +101,9 @@ class ProfilingCase:
     params_source: Path
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
-    # cunumpy backend the runs use, "numpy" (CPU) or "cupy" (GPU): every job script runs `struphy backend set`
-    # with it before the simulation. None keeps the backend stored with `struphy backend set` (default numpy).
-    backend: str | None = None
+    # cunumpy backend the runs use, "numpy" (CPU) or "cupy" (GPU): exported as CUNUMPY_BACKEND in every job
+    # script before the simulation.
+    backend: str = "numpy"
     # Whether the packaged results are pushed to the profiling-data repo. Set here rather
     # than at `finalize_run` time because `setup_run` clones that repo up front, so a
     # missing/unreachable repo fails before any job is submitted rather than after.
@@ -175,9 +174,8 @@ class ProfilingCase:
             ),
             "set -e",
             f"source {activate_path!s}",
-            # the stored backend is the single source of truth: `import struphy` sets CUNUMPY_BACKEND from it,
-            # so the run below picks it up. Note that the state file is shared by every job of this venv.
-            f"{self.venv_path / 'bin' / 'struphy'} backend set {self.backend}",
+            # cunumpy reads its backend from this variable when it is imported, so it is exported before the run
+            f"export CUNUMPY_BACKEND={self.backend}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',
@@ -337,12 +335,8 @@ class ProfilingCase:
             )
         self.venv_path = Path(virtual_env)
 
-        # The cunumpy backend of the runs: the case's own choice, else the one stored with `struphy backend set`.
-        if self.backend is None:
-            self.backend = configured_backend()
-        if self.backend not in BACKENDS:
-            raise ValueError(f"backend must be one of {BACKENDS}, got {self.backend!r}")
-        print(f"cunumpy backend: {self.backend}")
+        if self.backend not in ("numpy", "cupy"):
+            raise ValueError(f"backend must be 'numpy' or 'cupy', got {self.backend!r}")
 
         # Compile Struphy kernels with the case's language and compiler
         self.compiler_instance = Compiler(language=self.language, compiler=self.compiler)
