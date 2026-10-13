@@ -1,8 +1,9 @@
 """Inputs for the pyccel/CUDA parity tests: for every kernel with a CUDA version, the cases it is checked on.
 
 Test-only: ``test_cuda_parity.py`` (on a GPU) and ``test_cuda_emulation.py`` (without one) run each case on both
-kernel versions and compare every array. ``build(case)`` returns the kernel's positional arguments on the active
-backend; a kernel that is ported to CUDA gets an entry here.
+kernel versions and compare the arrays of the arguments the kernel declares as outputs (``OUTPUTS`` in its folder's
+``__init__.py``); the other arrays must stay unchanged. ``build(case)`` returns the kernel's positional arguments on
+the active backend; a kernel that is ported to CUDA gets an entry here.
 """
 
 from collections.abc import Callable, Sequence
@@ -14,6 +15,9 @@ import numpy as np
 
 from struphy.geometry.base import inside_logical_cube
 from struphy.geometry.domains import Cuboid
+from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.tests.kernel_test_args import (
     BOUNDARY_CONDITIONS,
@@ -44,6 +48,38 @@ class ParityCases:
     atol: float = 0.0
     n_threads: Callable[[tuple], int] | None = None
     """Launch size, if it is not one thread per row of the first array."""
+
+
+# pyccel argument class name -> the fields of its CUDA struct, the data of an argument object (the pyccel scratch
+# arrays bn1, ..., bd3 of DerhamArguments are not fields)
+STRUCT_FIELDS = {
+    cls.__name__.removeprefix("Cuda"): tuple(field.name for field in cls.struct.fields)
+    for cls in (
+        CudaMarkerArguments,
+        CudaDerhamArguments,
+        CudaDomainArguments,
+        CudaLocalProjectorsArguments,
+        CudaSplineArguments,
+    )
+}
+
+
+def argument_arrays(args, indices=None):
+    """Host copies of the arrays among `args` (or among the arguments `indices`), by name.
+
+    An array argument is named ``"argument <i>"``; a pyccel argument object contributes the arrays among its struct
+    fields, ``"argument <i>.<field>"`` (the names of ``cunumpy.kernel_testing.assert_kernels_agree``).
+    """
+    found = {}
+    for i in range(len(args)) if indices is None else (i % len(args) for i in indices):
+        value = args[i]
+        if isinstance(value, np.ndarray):
+            found[f"argument {i}"] = value.copy()
+        for field in STRUCT_FIELDS.get(type(value).__name__, ()):
+            item = getattr(value, field, None)
+            if isinstance(item, np.ndarray):
+                found[f"argument {i}.{field}"] = item.copy()
+    return found
 
 
 # ---------------------------------------------------------------- pushers
