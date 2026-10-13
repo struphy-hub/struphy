@@ -42,6 +42,7 @@ def marker_arguments(bc):
         N_MARKERS,
         *MARKER_INDICES,
         xp.asarray(bc, dtype=np.int64),
+        False,  # Cuboid has no pole
     )
     return args_markers, Cuboid().args_domain
 

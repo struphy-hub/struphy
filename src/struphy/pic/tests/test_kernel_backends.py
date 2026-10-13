@@ -48,7 +48,7 @@ def make_arguments(n_markers, seed=0):
     valid = cunumpy.asarray(rng.random(n_markers) > 0.1)
     bc = cunumpy.zeros(3, dtype=np.int64)
     args_class = CudaMarkerArguments if cunumpy.get_backend() == "cupy" else MarkerArguments
-    return args_class(markers, valid, n_markers, *MARKER_INDICES, bc), Cuboid().args_domain
+    return args_class(markers, valid, n_markers, *MARKER_INDICES, bc, False), Cuboid().args_domain
 
 
 def make_pusher(kernel):
