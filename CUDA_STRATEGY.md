@@ -25,10 +25,13 @@ Progress is tracked in struphy-hub/struphy#650.
 - [ ] **PR 16: One CPU and one GPU argument class per argument type** — every pyccel argument class (`MarkerArguments`, `DerhamArguments`, `DomainArguments`, `LocalProjectorsArguments`) has a CUDA counterpart of the same name with a `Cuda` prefix in `kernel_arguments/*_cuda.py`, with the same constructor and attributes. Each owner creates one of the two in `__init__`, depending on the backend; `PyccelStructArguments`, `__host_args__()` and host copies are no longer used. Every kernel that takes argument objects is called through `Kernel(PyccelKernel(...))`; without a CUDA version it raises on CuPy. The remaining entry kernels called from Python (spline, geometry and SPH evaluation, marker diagnostics, `reflect`, local projectors) move into one folder per kernel, like the pushers. The parity-test inputs move out of the kernel folders into `pic/tests/cuda_parity_cases.py`. Geometry evaluations have no CUDA version yet, so CuPy particle runs fail at setup until they are ported (see [PR 16 implementation notes](#pr-16-implementation-notes)).
 - [ ] **PR 17: struphy on the feectools CUDA stack** — the `feectools` submodule points at the top of the feectools CUDA stack (`cuda-4-device-kernels`, [feectools#88](https://github.com/struphy-hub/feectools/pull/88)) instead of `devel-tiny`, so the struphy CUDA PRs run against feectools with device stencil operations, MPI with device buffers and one GPU per rank. Moves along with the stack; before the struphy stack is merged into `devel`, the feectools stack is merged into `devel-tiny` and the submodule points there again (see [feectools](#feectools)).
 - [x] **PR 18: Geometry evaluation on the GPU for all analytic mappings** (#681, open) — CUDA versions of the four geometry entry kernels (`kernel_evaluate_pic`, `kernel_evaluate`, `kernel_pullpush_pic`, `kernel_pullpush` in `geometry/kernels/`), built on device versions of the whole metric chain (`f`, `df`, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`/`push`/`tran`) for every analytic mapping (`kind_map` 10–12, 20–22, 30–32). Restores CuPy particle runs (weight initialization evaluates `jacobian_det`), and removes the Cuboid-only checks in `Pusher`, the accumulators and `reflect`. Parity arguments cover every analytic mapping (see [PR 18](#pr-18-geometry-evaluation-for-all-analytic-mappings) and the [PR 18 implementation notes](#pr-18-implementation-notes)).
-- [x] **PR 19: Spline mappings on the GPU** ([#683](https://github.com/struphy-hub/struphy/pull/683)) — `kind_map` 0–2 (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC): `DomainArgs` gets array views for `t1..3`, `ind1..3` and `cx/cy/cz` (shapes needed on the device), spline-mapped `Domain`s can be created on the CuPy backend (control points fitted on the host), and `spline_3d`, `spline_2d_straight`, `spline_2d_torus` get device versions in the `kind_map` switch, so every mapping runs on CuPy and `check_mapping_on_device` is gone. Parity arguments and device-helper tests add four spline mappings. Polar splines and `EQDSKequilibrium` stay host-only (see [PR 19](#pr-19-spline-mappings) and the [PR 19 implementation notes](#pr-19-implementation-notes)).
-- [ ] **Next (order to be confirmed)**: 6D array views in cunumpy and the blocked matrix accumulations `vlasov_maxwell`, `linear_vlasov_ampere` (steps 1–2 of the [porting order](#porting-order)); one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, including when to compile the kernels, which needs the [feectools stack](#feectools) merged and released first; a decision on hand-written CUDA vs. code generation before the guiding-center kernels (step 3).
+- [x] **PR 19: Spline mappings on the GPU** ([#683](https://github.com/struphy-hub/struphy/pull/683)) — `kind_map` 0–2 (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC): `DomainArgs` gets array views for `t1..3`, `ind1..3` and `cx/cy/cz` (shapes needed on the device), spline-mapped `Domain`s can be created on the CuPy backend (control points fitted on the host), and `spline_3d`, `spline_2d_straight`, `spline_2d_torus` get device versions in the `kind_map` switch, so every mapping runs on CuPy and `check_mapping_on_device` is gone. Parity arguments and device-helper tests add four spline mappings. Polar splines were host-only at this stage; their current CuPy support is described in [Polar splines on CuPy](#polar-splines-on-cupy-695). See also the [PR 19 implementation notes](#pr-19-implementation-notes).
+- [x] **`linear_vlasov_ampere` on the GPU** (part of #688) — the first matrix accumulation: CUDA version of `linear_vlasov_ampere` (`EfieldWeightsCoupling`) on cunumpy's `Array6D` views (cunumpy 0.6.1), device versions of `fill_mat`, `fill_mat_vec`, `m_v_fill_b_v1_symm` and `outer`, and the matrix path of `Accumulator` checked on the CuPy backend (device data, ghost regions, transposed blocks, Schur operator) without a GPU through cunumpy's fake CuPy with emulated kernel launches (see the [implementation notes](#linear_vlasov_ampere-implementation-notes)).
+- [ ] **Diagnostics on the device** (struphy-hub/struphy#697) — scalar quantities, marker binning, saved markers and spline evaluation for output run on the device; the scalars reach the host in one copy per update (`Scalars.to_host`), every other saved dataset in one counted copy per output step (`DataContainer.save_data`), and the time state is host bookkeeping. CUDA version of `eval_spline_mpi_tensor_product_fixed` (`SplineFunction.eval_tp_fixed_loc`), moved into its own folder. Marker diagnostics kernels (`pic/diagnostics/kernels`) and SPH kernel density plots are follow-ups (see [Diagnostics on the device](#diagnostics-on-the-device-697)).
+- [x] **FEEC assembly kernels in kernel folders** (#411) — the 16 assembly kernels of `feec/mass.py`, `feec/boundary_mass.py` and `feec/basis_projection_ops.py` move from `feec/mass_kernels.py` and `feec/basis_projection_kernels.py` into one folder each under `feec/kernels/`; pure restructuring, ready for CUDA ports (see [FEEC assembly kernels](#feec-assembly-kernels-411)).
+- [ ] **Next (order to be confirmed)**: one complete model (`VlasovAmpereOneSpecies`) on the GPU end to end, which needs the [feectools stack](#feectools) merged and released first; the guiding-center kernels (step 3), by hand (decided in #690, see [Hand-written CUDA](#hand-written-cuda-decision-for-690)).
 - [ ] **feectools**: the FEEC side (stencil vectors and matrices, MPI exchange, GPU binding) in feectools, stacked PRs [#85](https://github.com/struphy-hub/feectools/pull/85) (merged into `cuda-development`), [#86](https://github.com/struphy-hub/feectools/pull/86), [#87](https://github.com/struphy-hub/feectools/pull/87), [#88](https://github.com/struphy-hub/feectools/pull/88), integrated by [#90](https://github.com/struphy-hub/feectools/pull/90); needed before the end-to-end model run, not for PR 18/19 (see [feectools](#feectools)).
-- [ ] **End-to-end test of `LinearVlasovAmpereOneSpecies`** (#689) — `models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py` runs a small Cuboid case (320 Sobol markers, 8 elements, 3 steps) on NumPy and CuPy, compares energies, E-field coefficients and markers, and counts the transfers of the time loop: none in `model.integrate`, scalar-sized downloads in the diagnostics, one download per saved dataset in the output. GPU-only; fails until the device Kronecker solve, the 6D stencil views, the `linear_vlasov_ampere` CUDA kernel, `MassMatrixPreconditioner` on CuPy and device inner products are merged and released.
+- [ ] **End-to-end tests of `LinearVlasovAmpereOneSpecies` and `VlasovAmpereOneSpecies`** (#689) — `models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py` and `test_gpu_VlasovAmpereOneSpecies.py` (shared helpers in `models/tests/gpu_e2e.py`) run a small Cuboid case (320 Sobol markers, 8 elements, 3 steps; for `VlasovAmpereOneSpecies` Landau damping with full-f weights and an `e1_v1` binning plot) on NumPy and CuPy, compare energies, field coefficients and markers, and count the transfers of the time loop: in `model.integrate` only the 8-byte residual norm of each Krylov iteration (feectools' convergence test), scalar-sized downloads in the diagnostics, one download per saved dataset in the output. They run on a GPU, or on the fake CuPy with every CUDA launch emulated on the CPU (`CUNUMPY_FAKE_CUPY=1`, also under `mpirun -n 2`; `CudaKernel.compile` is skipped there); without either, `test_fake_cupy_matches_numpy` runs the comparison in a serial child process. Both pass on the fake CuPy on 1 and 2 ranks (not yet on a GPU); on 2 ranks only with the markers MPI-sorted after loading (#764). CI runs them in unit shard-2 (serial and on 2 ranks on NumPy) and on the fake CuPy on 1 and 2 ranks (`test-PR-unit-mpi.yml`). The setup still assembles the mass matrices and vectors with host kernels (`kernel_1d_mat`, `kernel_3d_mat`, `kernel_3d_vec`, whose arrays are copied to the host and back at every call; outside the time loop, so not in the transfer budget); CUDA versions of these are open. Needs the device Kronecker solve, the 6D stencil views, the `linear_vlasov_ampere`/`vlasov_maxwell` CUDA kernels, `MassMatrixPreconditioner` on CuPy and device inner products, and a feectools release with them.
 - [x] **PR 13: Move the kernel infrastructure to cunumpy** — `Kernel`, `KernelCatalog`, `CudaKernel` and `Argument` are replaced by their cunumpy counterparts; each owner has a single `args_*` object on both backends, and `pusher_args.cuh` is generated (see [Moving to cunumpy](#moving-to-cunumpy-pr-13)). Kernels and device helpers only change their includes.
 - [ ] **CI**: a GPU runner that runs the CUDA tests (can happen any time; until then the GPU tests are run by hand on an H100 before each PR that touches CUDA code is merged).
 
@@ -61,11 +64,11 @@ CUDA kernels can be added one by one. If the code runs on the GPU and needs a ke
 | File | Content |
 |---|---|
 | `cunumpy.kernels`, `cunumpy.arguments`, `cunumpy.cuda` (cunumpy 0.6) | `Kernel`, `KernelCatalog`, `PyccelKernel` and `CudaKernel` in `cunumpy.kernels`; `CudaStructArguments`, `CudaStruct` and `write_cuda_header` in `cunumpy.arguments`; the device runtime (`bind_local_device`, ...) in `cunumpy.cuda`. Struphy uses cunumpy for dispatch and struct packing |
-| `src/struphy/kernel_arguments/` | the argument classes in pairs: the pyccel classes in `pusher_args_kernels.py` / `local_projectors_args_kernels.py` (NumPy backend) and their CUDA versions `Cuda<Name>` in `pusher_args_cuda.py` / `local_projectors_args_cuda.py` (CuPy backend; subclasses of `CudaStructArguments` whose `fields` define the C struct) |
-| `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()` and `write_local_projectors_header()` |
-| `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs` and `LocalProjectorsArgs`, generated from the CUDA classes, using cunumpy array views |
+| `src/struphy/kernel_arguments/` | the argument classes in pairs: the pyccel classes in `pusher_args_kernels.py` / `local_projectors_args_kernels.py` / `spline_args_kernels.py` (NumPy backend) and their CUDA versions `Cuda<Name>` in `pusher_args_cuda.py` / `local_projectors_args_cuda.py` / `spline_args_cuda.py` (CuPy backend; subclasses of `CudaStructArguments` whose `fields` define the C struct) |
+| `src/struphy/utils/cuda_arguments.py` | `CUDA_STRUCTS`, `CUDA_OPTIONS`, `write_pusher_header()`, `write_local_projectors_header()` and `write_spline_header()` |
+| `src/struphy/kernel_arguments/pusher_args.cuh`, `local_projectors_args.cuh`, `spline_args.cuh` | the C structs `MarkerArgs`, `DerhamArgs`, `DomainArgs`, `LocalProjectorsArgs` and `SplineArgs`, generated from the CUDA classes, using cunumpy array views |
 | `src/struphy/geometry/base.py`, `src/struphy/pic/base.py`, `src/struphy/feec/psydac_derham.py` | `Domain.args_domain`, `Particles.args_markers` and `Derham.args_derham` are the pyccel class on NumPy and the CUDA class on CuPy, chosen once at construction; every kernel call goes through a `Kernel` |
-| `src/struphy/*/kernels/` (`pic/pushing`, `pic/accumulation`, `pic/diagnostics`, `pic/sph`, `bsplines`, `geometry`, `feec`, `feec/local_projectors`) | every kernel called from Python with argument objects, one folder each: 44 pusher/evaluation (incl. `reflect`), 16 accumulation, 10 marker diagnostics, 4 SPH evaluation, 3 spline evaluation, 4 geometry, 1 FEEC utility and 8 local projector kernels. Each folder's `__init__.py` declares its `Kernel`; the code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`). Fifteen have CUDA versions, with parity cases in `pic/tests/cuda_parity_cases.py`, among them the four geometry kernels (PR 18) |
+| `src/struphy/*/kernels/` (`pic/pushing`, `pic/accumulation`, `pic/diagnostics`, `pic/sph`, `bsplines`, `geometry`, `feec`, `feec/local_projectors`) | every kernel called from Python with argument objects, one folder each: 44 pusher/evaluation (incl. `reflect`), 16 accumulation, 10 marker diagnostics, 4 SPH evaluation, 4 spline evaluation, 4 geometry, 1 FEEC utility, 16 FEEC assembly (#411) and 8 local projector kernels. Each folder's `__init__.py` declares its `Kernel`; the code imports it (`from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate`). Eighteen have CUDA versions (the latest `linear_vlasov_ampere`, `vlasov_maxwell`, `bstar_parallel_3form` and `eval_spline_mpi_tensor_product_fixed`), with parity cases in `pic/tests/cuda_parity_cases.py`, among them the four geometry kernels (PR 18) |
 | `src/struphy/geometry/evaluation_kernels.cuh`, `transform_kernels.cuh`, `spline_mappings_kernels.cuh`, `geometry/domains/<name>/<name>_cuda.cuh` | device versions of the mapping helpers for every mapping: `f`/`df` per analytic domain (`kind_map` 10–12, 20–22, 30–32, PR 18) and the spline mappings `spline_3d`, `spline_2d_straight`, `spline_2d_torus` (`kind_map` 0–2, PR 19), the `kind_map` switch, `det_df`, `df_inv`, `g`, `g_inv`, `select_metric_coeff`, `pull`, `push`, `tran` |
 | `src/struphy/pic/tests/test_cuda_parity.py`, `test_cuda_emulation.py` | parity of every CUDA kernel with pyccel on the cases of `pic/tests/cuda_parity_cases.py` (`PARITY_CASES`): on a GPU (`assert_kernels_agree`), and without one by CPU emulation |
 | `src/struphy/pic/tests/test_kernel_backends.py` | the generated-header tests, the check that each CUDA class mirrors its pyccel class, signature check of all kernels, owner class selection, and (on a GPU) struct layout and copy/pickle checks |
@@ -102,6 +105,7 @@ Conventions:
 - The folder name, the pyccel function name, the CUDA `extern "C" __global__` function name and the name of the declared `Kernel` are all the same.
 - The pyccel file is `<name>_kernels.py` (so `struphy compile` picks it up); the CUDA file is `<name>_cuda.cu`.
 - Shared CUDA code (device helper functions, argument structs) lives in `.cuh` headers next to the pyccel module it mirrors, e.g. `bsplines/bsplines_kernels.cuh` for `bsplines/bsplines_kernels.py`. A `.cu` file includes them relative to the source root, e.g. `#include "struphy/kernel_arguments/pusher_args.cuh"`.
+- The device functions of a header live in the namespace `struphy_cuda::<module>`, where `<module>` is the name of the pyccel module they port: `struphy_cuda::bsplines_kernels` (`bsplines/bsplines_kernels.cuh`), `struphy_cuda::evaluation_kernels` (`geometry/evaluation_kernels.cuh`), `struphy_cuda::cuboid_kernels` (`geometry/domains/cuboid/cuboid_cuda.cuh`, which ports `cuboid_kernels.py`), and so on. CUDA-only helpers and constants go into the namespace of the module whose calculation they extract (`bsplines_kernels::MAX_SPLINE_DEGREE`, `evaluation_kernels_3d::SplineScratch`). Calls into another module are qualified with the module name, as the pyccel code calls `linalg_kernels.matrix_inv`: `linalg_kernels::matrix_inv(...)`; calls within the same module are not. A `.cu` file writes `using namespace struphy_cuda;` after its includes and qualifies every helper call (`evaluation_kernels_3d::get_spans(...)`). Only `struphy_cuda::pi` (`geometry/domains/constants_cuda.cuh`) and the generated argument structs (`MarkerArgs`, `DomainArgs`, `DerhamArgs`, `LocalProjectorsArgs`, which are global because cunumpy matches the kernel signature against their names) are outside a module namespace.
 - Every function in a `.cu` or `.cuh` file has a documentation comment (`/** ... */`, the C++ equivalent of a docstring) immediately above its definition. Identify the pyccel counterpart and explain the operation, parameters, outputs or return value, array shapes/layouts, and any CUDA-specific limits or storage requirements. Document CUDA-only helpers by identifying the pyccel calculation they extract.
 - CUDA parameter, local variable and scratch-field names exactly match the corresponding pyccel names, including spelling and capitalization (e.g. `eta1`, `args_markers`, `args_domain`, `args_derham`, `df_out`, `dfm`, `dfinv`, `v_logical`, `tn`, `pn`, `pd`, `il`, `det_a`, `span1`, `bn1`, `bd1`). Do not abbreviate them to `x`, `m`, `d`, `a`, or `out` when the pyccel counterpart uses a different name. Additional CUDA-only variables or arguments, such as pointer lengths, thread indices or per-thread scratch storage, must have descriptive names and documented purposes.
 - Kernels read and write markers through the `Array2D<double>` view: `args.markers(ip, j)`. The view carries the existing device pointer, shape and element strides; no array data is copied. The column count is `args.markers.shape[1]`.
@@ -146,7 +150,7 @@ from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage  # a Kerne
 - The CUDA argument objects hold references. If an owner reallocates an array, it must rebuild its arguments at the same place, exactly like for the pyccel arguments.
 - `Domain` (PR 5): arrays that already have the dtype and layout the kernels expect (`float64`/`int64`, C-contiguous) are referenced, not copied; otherwise one device copy is made when the arguments are built (e.g. `degree`, a tuple). Arguments are recreated after deepcopy or unpickling. Spline mappings (e.g. `IGAPolarCylinder`) cannot be created on CuPy yet (`interp_mapping` passes CuPy arrays to `scipy.sparse`), so CUDA `args_domain` exists only for analytic mappings for now.
 - `Particles` (PR 6): particle arrays, validity masks and boundary-condition codes are allocated through `xp`. Scalar MPI gathers use small NumPy buffers (the own entry filled first, see `MockComm` above) and copy the result back to the active backend.
-- `Derham` (PR 7): depends on feectools running on the CuPy backend (struphy-hub/feectools#85, merged). Data that describes the spline spaces (knots, quadrature and projection grids, `spline_types_pyccel`) is host data on every backend; only coefficients and stencil matrices live on the device. `domain_array`, `index_array(_N/_D)` and `neighbours` are gathered with NumPy MPI buffers and converted with `xp.asarray`. `args_derham` is built from the host knots, degrees and starts on NumPy, and from one device copy of them on CuPy. The pyccel scratch arrays (`bn1`, ..., `bd3`) are not part of the CUDA arguments; they become per-thread local arrays in CUDA (PR 10). Not supported on CuPy yet: local projectors (`NotImplementedError` at construction), polar splines (`NotImplementedError` at construction since PR 19, see the [PR 19 implementation notes](#pr-19-implementation-notes)), and field evaluation (`SplineFunction.__call__` still calls pyccel kernels with device coefficients).
+- `Derham` (PR 7): depends on feectools running on the CuPy backend (struphy-hub/feectools#85, merged). Data that describes the spline spaces (knots, quadrature and projection grids, `spline_types_pyccel`) is host data on every backend; only coefficients and stencil matrices live on the device. `domain_array`, `index_array(_N/_D)` and `neighbours` are gathered with NumPy MPI buffers and converted with `xp.asarray`. `args_derham` is built from the host knots, degrees and starts on NumPy, and from one device copy of them on CuPy. The pyccel scratch arrays (`bn1`, ..., `bd3`) are not part of the CUDA arguments; they become per-thread local arrays in CUDA (PR 10). Polar splines run on CuPy since #695 (see [Polar splines on CuPy](#polar-splines-on-cupy-695)). Not supported on CuPy yet: local projectors (`NotImplementedError` at construction) and fixed local-grid evaluation (`SplineFunction.eval_tp_fixed_loc` still calls a pyccel helper with device coefficients).
 
 ### PR 8: Argument structs in a shared header (complete, open)
 
@@ -208,7 +212,7 @@ For each kernel: add `<name>_cuda.cu`; the parity test from PR 11 picks it up; `
 ### PR 19: Spline mappings
 
 - `DomainArgs`: `t1..t3` become `Array1D<double>` (`find_span` needs the number of knots), `ind1..3` `Array2D<long long>` and `cx/cy/cz` `Array3D<double>` (the device needs their shapes); `CudaDomainArguments.fields` and the generated `pusher_args.cuh` change, the pyccel `DomainArguments` does not.
-- Spline-mapped domains (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC) can be created on the CuPy backend: the control-point fitting (SciPy) runs on the host and the control points are copied to the device once. Polar splines (`Derham` with `polar_splines=True`) stay host-only and raise on CuPy.
+- Spline-mapped domains (`IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC, DESC) can be created on the CuPy backend: the control-point fitting (SciPy) runs on the host and the control points are copied to the device once. Polar splines (`Derham` with `polar_splines=True`) stayed host-only and raised on CuPy (on CuPy since #695).
 - Device versions of `spline_3d(_df)`, `spline_2d_straight(_df)`, `spline_2d_torus(_df)` in `geometry/spline_mappings_kernels.cuh`, using the B-spline helpers of PR 10; the parity arguments of the geometry kernels add the spline mappings.
 
 ## Moving to cunumpy (PR 13)
@@ -271,6 +275,16 @@ the `pyproject.toml` pin (today `feectools>=0.3.0, <=0.3.0`) point at that relea
 deprecated (removed in 0.6): import them from `cunumpy.cuda` and `cunumpy.mpi`, and require `cunumpy>=0.5.0, <0.6`
 like struphy.
 
+**Mass-matrix preconditioners on CuPy** (`feec/preconditioner.py`, for #689). The Kronecker preconditioners
+(`MassMatrixPreconditioner`) build their 1d mass matrices and 1d solvers
+(`FFTSolver` for circulant, `SparseSolver` otherwise) on the host on every backend; the process-local 1d stencil
+matrices (factors of the `KroneckerStencilMatrix`) and the diagonal scaling live on the device. Applying them makes
+no host copies: `KroneckerLinearSolver` solves device data with dense inverses built once from the host 1d solvers
+([feectools#96](https://github.com/struphy-hub/feectools/pull/96)). Tested with fake CuPy, emulated launches and
+`assert_no_transfers` (`feec/tests/test_preconditioner_cupy.py`). `StiffnessPreconditioner` builds its 1d data the
+same way, but `KroneckerSumSolver` (feectools 0.7.0) does not yet run on the device: its dense "solvers" hold device
+matrices, from which `KroneckerLinearSolver` tries to build dense inverses on the host.
+
 New feectools work for the GPU follows the same pattern: a `cuda-<n>-<topic>` PR, linked in the table above and
 from the struphy tracking issue ([#650](https://github.com/struphy-hub/struphy/issues/650)).
 
@@ -278,7 +292,7 @@ from the struphy tracking issue ([#650](https://github.com/struphy-hub/struphy/i
 
 Kernels are ported in the order that completes one model after the other on the GPU. Each step
 lists only the kernels it adds; P = pusher, A = accumulation, E = marker evaluation. Status:
-done (✓), in this PR (PR 14), blocked (⏸).
+done (✓), in a PR (PR 14), blocked (⏸).
 
 **Step 0 – Vlasov** (PRs 11–12, ✓): `push_eta_stage`, `push_vxb_analytic`, `push_vxb_implicit`, `reflect`.
 
@@ -290,14 +304,14 @@ done (✓), in this PR (PR 14), blocked (⏸).
 |---|---|---|---|---|
 | 1 | `push_v_with_efield` | P | `VlasovAmpereCoupling`, `PushVinForceField` | PR 14 |
 | 2 | `charge_density_0form` | A (vector) | initial Poisson solve of these models | PR 14 |
-| 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | ⏸ 6D views |
+| 3 | `vlasov_maxwell` | A (matrix + vector) | `VlasovAmpereCoupling` | ✓ (#688, see [notes](#vlasov_maxwell-implementation-notes)) |
 
 **Step 2 – LinearVlasovAmpère/Maxwell (δf)**
 
 | # | Kernel | Type | Used by | Status |
 |---|---|---|---|---|
 | 4 | `push_weights_with_efield_lin_va` | P | `EfieldWeightsCoupling` | PR 14 |
-| 5 | `linear_vlasov_ampere` | A (matrix + vector) | `EfieldWeightsCoupling` | ⏸ 6D views |
+| 5 | `linear_vlasov_ampere` | A (matrix + vector) | `EfieldWeightsCoupling` | ✓ (#688) |
 
 **Step 3 – Guiding center: ToyDrift, then DriftKineticElectrostaticAdiabatic.** The default
 algorithm is `discrete_gradient_1st_order`; its chain comes first.
@@ -316,7 +330,7 @@ algorithm is `discrete_gradient_1st_order`; its chain comes first.
 | 16–17 | `push_gc_bxEstar_discrete_gradient_2nd_order`, `push_gc_Bstar_discrete_gradient_2nd_order` | P |
 | 18–19 | `push_gc_bxEstar_explicit_multistage`, `push_gc_Bstar_explicit_multistage` | P |
 
-These are the largest kernels; evaluate code generation (see [Open questions](#open-questions)) before porting 13–19 by hand.
+These are the largest kernels. They are ported by hand like the others (decision for #690, see [Hand-written CUDA](#hand-written-cuda-decision-for-690)); `bstar_parallel_3form` (7) has its CUDA version.
 
 **Step 4 – Hybrid MHD–kinetic 6D (current and pressure coupling)**
 
@@ -348,10 +362,9 @@ The three spaces (H1vec/Hcurl/Hdiv) differ only in the basis; port one, then the
 `push_v_sph_pressure`, `push_v_sph_pressure_ideal_gas`, `push_v_viscosity`, `div_u_weak_1form`.
 
 Infrastructure that gates the steps, independent of the kernels: mappings are no gate any more (every CUDA kernel
-accepts every mapping since PR 19), except for what is still host-only around them: polar splines in `Derham` and MHD
-equilibria such as `EQDSKequilibrium` cannot be created on CuPy (see [Open questions](#open-questions)); multi-rank marker sorting without host round trips,
-and array views with more than 4 dimensions in cunumpy (all matrix accumulations write 6D stencil
-matrix data).
+accepts every mapping since PR 19); polar splines in `Derham` (#695) and MHD equilibria (#696) run on CuPy too. Multi-rank
+marker sorting stays on the device since #712. Array views with more than 4 dimensions (all matrix accumulations write 6D
+stencil matrix data) are in cunumpy since 0.6.1 (`Array6D`); `linear_vlasov_ampere` is the first kernel that uses them.
 
 ## Testing
 
@@ -366,13 +379,82 @@ matrix data).
 - **Kernel launch configuration.** One thread per marker with a fixed block size for now. Kernels over grid points (accumulation, FEEC) need their own launch sizes; `CudaKernel` needs a `grid`/`block` override (PR 12+), or cunumpy's.
 - **Accumulation strategy.** Atomics vs. sort-then-reduce; see PR 12+. Decided by measurement on the first accumulation kernel.
 - **Marker layout.** The markers array is row-major (`n_markers × n_cols`). With one thread per marker, the memory accesses are strided. This is fine for now (each thread reads a few neighbouring columns), but a column-major or struct-of-arrays layout may be faster later. This would affect the CPU code too, so it is out of scope here. The array view represents strides explicitly on the CUDA side.
-- **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. `xp.mpi_is_cuda_aware()` detects it; the exchange in `Particles.mpi_sort_markers` has to be checked for host staging buffers.
-- **Single-source alternatives.** Hand-written CUDA stays the default. Generating whole kernels from the Python source (`cupyx.jit`, numba-cuda, or a pyccel CUDA backend) is worth a look before the guiding-center kernels (the largest ones) are ported. Those tools take flat arguments, which `fields` also provides.
-- **Polar splines and MHD equilibria on the GPU** (left after PR 19): spline mappings run on the device, but
-  `Derham` with `polar_splines=True` raises on CuPy (`PolarExtractionBlocksC1` builds SciPy sparse matrices, and the
-  polar extraction operators would apply them to device stencil data; needs `cupyx.scipy.sparse` or kernels), and
-  `EQDSKequilibrium` cannot be created on CuPy (its SciPy splines get device arrays). A `Tokamak` on CuPy builds its
-  default equilibrium on the host. Needed once a model with a polar domain or an EQDSK equilibrium runs on the GPU.
+- **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. The marker exchange in `Particles.mpi_sort_markers` uses device buffers since #698 (see [Marker exchange implementation notes](#marker-exchange-implementation-notes-698)); the SPH ghost-box exchange (`_sendrecv_markers_boxes`) does not yet.
+- **Single-source alternatives.** Decided (#690): no code generation; every CUDA kernel is written by hand, see [Hand-written CUDA](#hand-written-cuda-decision-for-690).
+- **Polar splines and MHD equilibria on the GPU** (left after PR 19): both run on CuPy now, polar splines since #695
+  (see [Polar splines on CuPy](#polar-splines-on-cupy-695)) and MHD equilibria since #696 (see
+  [MHD equilibria](#mhd-equilibria-on-cupy-696)).
+- **GVEC/DESC fields on the device.** `GVECequilibrium` and `DESCequilibrium` still evaluate B, J, p and n through
+  gvec/DESC on the host, one copy per call (#696). Plan: evaluate them once at setup on a grid, interpolate onto 3d
+  tensor-product splines (`make_interp_spline` per axis + `NdBSpline`) and evaluate those on the device, with native
+  evaluation kept as an option (`evaluate="spline" | "native"`), since this trades exactness for speed. Separate PR.
+
+## MHD equilibria on CuPy (#696)
+
+- **What failed.** Creating `AdhocTorus` (`q_kind` 1, 2: SciPy `quad`/`UnivariateSpline`), `AdhocTorusQPsi` (`odeint`,
+  `fsolve`) and `EQDSKequilibrium` (`RectBivariateSpline` on `xp.linspace`) on CuPy; evaluating `GVECequilibrium` and
+  `DESCequilibrium` (gvec/DESC got device arrays). The analytic equilibria already worked.
+- **Splines on the device.** The splines of `AdhocTorus` (`q_kind` 1, 2), `AdhocTorusQPsi` and `EQDSKequilibrium`
+  are fitted on the active backend with `xp.scipy.interpolate` (SciPy or `cupyx.scipy`, looked up at the point of use)
+  and evaluated there, without host round trips (also at run time: `pic/base.py` evaluates `b_cart` and
+  `pic/particles.py` `psi_r` at markers). Only the scalar setup steps run on the host, under
+  `xp.use_backend("numpy")`: the `quad` loops, `odeint`/`fsolve`, the EQDSK file and the `minimize` for the magnetic
+  axis (on a host copy of the flux spline, so the optimizer steps don't evaluate on the device).
+  `RectBivariateSpline` is not in `cupyx.scipy`; with `s=0` it is the same spline as `make_interp_spline` along R, then
+  along Z, as an `NdBSpline` (same knots, values and derivatives equal to round-off). `NdBSpline` extrapolates, so the
+  points are clamped to the domain of the spline first, as `RectBivariateSpline` does.
+- **Field-line tracing (`Tokamak`).** One batched Newton (secant) solve over all rays per flux surface
+  (`xp.optimize.newton`, cunumpy#93) instead of one scalar `scipy.optimize.newton` per point; `psi` is evaluated on the
+  active backend, so `Tokamak` runs its setup there. The small spline interpolation (`splu`, `kron_lusolve_2d`) and the
+  other xi-parametrizations (a SciPy `root` per flux surface) run on the host. The control points agree with the
+  scalar tracing to ~1e-12, and the tracing is 6-15x faster on the CPU too.
+- **GVEC/DESC** `bv`, `jv`, `p0`, `n0`, `gradB1` go through `@xp.evaluate_on_host`: device arguments are copied to the
+  host, evaluated on the NumPy backend, and the result is copied back, once per call (see the open question
+  [GVEC/DESC fields on the device](#open-questions)).
+- **Tests.** `fields_background/tests/test_equils_cupy.py` creates every equilibrium of `equils` on CuPy, evaluates
+  the methods models call (meshgrid and markers, plus `psi`/`g_tor` with derivatives) and compares with NumPy: on a
+  GPU, and without one on the fake CuPy, where the four geometry kernels run their pyccel version on the fake arrays'
+  host buffers (`host_geometry_kernels`), since the fake CuPy cannot launch CUDA kernels. The fake `cupyx.scipy`
+  (cunumpy#93) has only the `interpolate` names CuPy has, and the evaluation of every equilibrium except GVEC/DESC runs
+  under `xp.profiling.assert_no_transfers()`. Still to check on a GPU: that CuPy's `UnivariateSpline` and `NdBSpline`
+  agree with SciPy to the test's 1e-12 (the fake runs SciPy itself).
+- **GVEC at markers (#715).** gvec evaluated the markers' `rho`, `theta`, `zeta` as a tensor grid, so `bv`/`jv` at N
+  markers returned N x N x N arrays and `absB0` failed (on NumPy too). The coordinates are now passed as
+  `xarray.DataArray`s with one shared dimension, which gvec evaluates point by point. Boozer coordinates
+  (`use_boozer=True`) are computed per flux surface, so marker evaluation raises there. Test: `test_gvec_equil.py`.
+- **Fake-CuPy child processes under MPI.** `run_fake_cupy_child` (`geometry/tests/test_domain.py`) starts the child
+  only on rank 0 (under `mpirun` every rank used to start the same child at once; on CI one of the two concurrent GVEC
+  children died with SIGILL and no output), with `faulthandler` and one OpenMP thread, and a failure reports the
+  signal and the end of stdout and stderr (gvec writes its Fortran messages to stdout).
+
+## Hand-written CUDA (decision for #690)
+
+**Decision: all CUDA kernels are written by hand, as `<name>_cuda.cu` next to the pyccel kernel, like every kernel
+so far. Kernels are not generated from the pyccel source (no numba, `cupyx.jit` or other code generation).**
+
+To decide, one guiding-center kernel, `bstar_parallel_3form` (step 3, #7: drift-kinetic B*∥ as a 3-form; mapping
+Jacobian, two 0-form spline evaluations, weighted average of old and new marker positions), was ported by hand
+(`pic/pushing/kernels/bstar_parallel_3form/bstar_parallel_3form_cuda.cu`, one to one with pyccel) and through a
+numba.cuda prototype generator. The prototype was removed after the decision. The reasons:
+
+1. **The shared part is already written.** What a generator would save is mostly the helper chain (mappings,
+   metric, splines, linear algebra, boundary conditions), which PRs 10–19 have already ported and tested by hand.
+   What is left per kernel is its body: for `bstar_parallel_3form` 36 lines that read like the pyccel code, plus one
+   5-line helper (`eval_0form_spline_mpi`).
+2. **A generator is a second compiler to maintain**, and its mistakes are silent (array lengths that change when a
+   size is known only at run time; it cannot tell which writes need atomics, so accumulation kernels would race).
+   The prototype translated only 31 of the 60 pusher and accumulation entry kernels.
+3. **It does not fit the infrastructure.** Structs, signature checks in `CudaKernel`, the compile cache, debug
+   mode, `assert_kernels_agree`, the CPU emulation of the real source and the transfer checks are all built for
+   CUDA C++ source. numba does not accept the C structs and would need a second launch and test path, plus about
+   175 MB of dependencies.
+4. **Drift between pyccel and CUDA** (the main argument for one source) is caught by the parity cases: a change to a
+   pyccel kernel that is not made in its `.cu` fails `test_emulated_parity` in the normal CI.
+
+The port of `bstar_parallel_3form` stays, with 14 parity cases in `pic/tests/cuda_parity_cases.py`: one per mapping
+(all analytic and four spline mappings), α = 1, 0 and mixed, so the evaluation point wraps around in `mod(eta, 1)`
+(Fortran `MODULO`, `eta - floor(eta)` in CUDA), a negative `eta_n`, a hole and two output columns. The CPU emulation
+agrees with pyccel to 5.7·10⁻¹⁴.
 
 ## PR 10 implementation notes
 
@@ -486,6 +568,7 @@ The argument classes come in pairs, one for each backend:
 | `pusher_args_kernels.DerhamArguments` | `pusher_args_cuda.CudaDerhamArguments` (`DerhamArgs`) |
 | `pusher_args_kernels.DomainArguments` | `pusher_args_cuda.CudaDomainArguments` (`DomainArgs`) |
 | `local_projectors_args_kernels.LocalProjectorsArguments` | `local_projectors_args_cuda.CudaLocalProjectorsArguments` (`LocalProjectorsArgs`) |
+| `spline_args_kernels.SplineArguments` | `spline_args_cuda.CudaSplineArguments` (`SplineArgs`) |
 
 The two classes of a pair take the same constructor arguments and have the same attributes; the CUDA struct
 adds only derived members that CUDA pointers cannot carry (`n_markers` is also a pyccel attribute; `nt1`,
@@ -501,7 +584,8 @@ through `Kernel(PyccelKernel(...))`, built at the call site where the owner is p
 cannot be pickled) and kept by `Pusher`, `KernelSetup`, the accumulators, reflection and the spline
 evaluation; a kernel without a CUDA version raises `NotImplementedError` when it is called on CuPy.
 `prepare_kernel()` (PR 15) is removed: kernels are no longer checked or compiled at setup, CUDA kernels
-compile on their first call. When to compile them (e.g. once at simulation start) is decided later.
+compile on their first call. When to compile them (e.g. once at simulation start) is decided later. (Since
+struphy#704 they are compiled at setup, see [Compiling at setup](#compiling-the-cuda-kernels-at-setup-struphy704).)
 
 Consequence: geometry evaluations (`Domain.__call__`, `jacobian_det`, `pull`/`push`, ...) have no CUDA
 version yet and raise on CuPy. `Particles` evaluates `jacobian_det` when it initializes weights, so
@@ -510,6 +594,10 @@ step: CUDA versions of `kernel_evaluate_pic`, `kernel_evaluate` and the pull/pus
 
 `CudaLocalProjectorsArguments` is not used by any CUDA kernel yet; local projectors are rejected on the
 CuPy backend by `Derham`.
+
+`SplineFunction` creates one `SplineArguments` (`CudaSplineArguments` on CuPy) per component, holding `kind`,
+`pn`, `tn1`, `tn2`, `tn3` and `starts`; the three `eval_spline_mpi_*` entry kernels take it as `args_spline`
+instead of six loose arguments (#678), and pass it on to the device helper `eval_spline_mpi`.
 
 ### Kernel folders
 
@@ -537,6 +625,33 @@ They are replaced by one test module, `pic/tests/cuda_parity_cases.py`: `PARITY_
 `build(case)`, the tolerances and the launch size. `test_cuda_parity.py` passes them to cunumpy's
 `assert_kernels_agree` (one test per case), `test_cuda_emulation.py` to the CPU emulation, and
 `test_cuda_kernels_have_parity_cases` checks that the CUDA kernels and the parity cases match.
+
+## Compiling the CUDA kernels at setup (struphy#704)
+
+`Simulation.run()` calls `Simulation.compile_cuda_kernels()` after `allocate()`, in the profiling region
+`setup: compile cuda kernels`, so that no CUDA kernel compiles in the first time step. The kernels come from
+`Simulation.kernels()`, which collects the `kernels()` of the owners that keep and call them: `Domain` (the four
+geometry kernels), `Derham` (the three spline evaluation kernels and feectools' `stencil_{dot,transpose,inner,axpy}_3d`),
+`Particles` (`reflect` if an axis reflects), and every propagator of the model. `Propagator.kernels()` collects
+by default from the propagator's attributes: `Kernel`s kept as attributes and the `kernels()` of `Pusher` (pusher
+kernel and its `KernelSetup`s), `KernelSetup`, `Accumulator` and `AccumulatorVector`, also inside lists, tuples
+and dicts (`utils/kernel_compilation.collect_kernels`). A propagator that calls a kernel it does not keep
+overrides `kernels()`. Diagnostics kernels and the initial solves are not listed; they run during the setup.
+
+Fail fast: on CuPy, if a listed kernel has no CUDA version, `compile_cuda_kernels()` raises
+`NotImplementedError` naming all of them, before anything is compiled (e.g. a model
+that pushes with `push_bxu_Hdiv`). On NumPy it does nothing. A test runs a model for one step on NumPy and checks that every
+`Kernel` called in the time loop is listed.
+
+**Declared kernel outputs (#342).** Each kernel folder's `__init__.py` declares the arguments its kernel writes
+to, by position, as `OUTPUTS` and passes them to cunumpy (`Kernel.from_folder(..., host_options={"outputs":
+OUTPUTS})`), the 16 FEEC assembly kernel folders of #411 (`feec/kernels/kernel_*`, `surface_kernel_3d_*`,
+`assemble_dofs_for_weighted_basisfuns_*d`) included. Scratch arrays inside argument objects (`DerhamArguments.bn1`,
+...) are not outputs. On the CuPy fallback only the outputs are copied back to the device; the GPU parity test
+(`assert_kernels_agree`) compares only the outputs; `test_declared_outputs` checks on the NumPy backend that a kernel
+changes its outputs and no other argument, and the CPU emulation test checks the same for the CUDA kernel.
+`KernelCatalog.from_package` does not see the folders' `OUTPUTS`, so `test_cuda_parity` takes the kernels from the
+folders (`DECLARED`). A new kernel folder declares `OUTPUTS` (`test_kernels_declare_outputs`).
 
 ## PR 18 implementation notes
 
@@ -599,10 +714,10 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   NumPy backend, and the control points are copied to the active backend once. Found and tested without a GPU with
   cunumpy's fake CuPy (`CUNUMPY_FAKE_CUPY=1`), which rejects host/device mixing like CuPy.
 - **Still host-only.** `EQDSKequilibrium` cannot be created on CuPy (a `Tokamak` on CuPy takes an equilibrium created
-  on the NumPy backend, or builds its default one there). Polar splines: `PolarExtractionBlocksC1` builds SciPy sparse
+  on the NumPy backend, or builds its default one there; fixed in #696). Polar splines: `PolarExtractionBlocksC1` builds SciPy sparse
   matrices from the control points, and the polar extraction operators apply them to the stencil data, which lives on
-  the device on CuPy; `Derham` raises `NotImplementedError` for `polar_splines=True` on CuPy (see
-  [Open questions](#open-questions)).
+  the device on CuPy; `Derham` raised `NotImplementedError` for `polar_splines=True` on CuPy (resolved in #695, see
+  [Polar splines on CuPy](#polar-splines-on-cupy-695)).
 - **Device helpers.** `b_splines_slim`, `b_der_splines_slim` (`bsplines/bsplines_kernels.cuh`), `evaluation_kernel_2d`
   (`bsplines/evaluation_kernels_2d.cuh`), `evaluation_kernel_3d` (`bsplines/evaluation_kernels_3d.cuh`) and the six
   spline mappings in `geometry/spline_mappings_kernels.cuh`, with the pyccel names and arguments (`const DomainArgs&`
@@ -627,3 +742,184 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   The GPU tests have not run on an H100; the CPU emulation and the CPU regression tests are the gate.
 - **Parity cases.** The spline mappings are added to the geometry kernels' entries of `pic/tests/cuda_parity_cases.py`
   (the per-folder `<name>_test_args.py` modules were replaced by that module in PR 16).
+
+## Marker exchange implementation notes (#698)
+
+- `Particles._sendrecv_markers` on CuPy (`_sendrecv_markers_device`): the rows to send (gathered on the device per
+  destination) and one device receive buffer go to `Isend`/`Irecv` through `xp.mpi.mpi_buffer`, i.e. directly after
+  `synchronize_for_mpi` with CUDA-aware MPI, staged through (pinned) host memory otherwise (with a warning, once).
+  Rows from rank `i` arrive in a contiguous slice of the receive buffer; one device scatter fills the holes.
+  Zero-count messages are skipped (both sides know the counts). The NumPy path is unchanged.
+- Whether MPI is CUDA-aware: the answer recorded by `xp.mpi.mpi_is_cuda_aware()`/`set_mpi_cuda_aware()`, else a
+  collective probe of `mpi_comm` at the first exchange (`mpi_sort_markers` is collective).
+- Counts: `send_info`/`recv_info` are small NumPy arrays on every backend. The send counts are sizes of `nonzero`
+  results, which are host integers already (CuPy synchronizes to size them), so the `Alltoall` of the counts needs no
+  copy. Uniform `alpha` is a Python scalar (no host-to-device copy of a 3-vector).
+- Tests: `pic/tests/test_sorting_device.py` sorts the same markers on NumPy and on CuPy over all ranks and compares
+  the marker arrays; with CUDA-aware MPI no transfer (`count_transfers`) and no implicit host read of a device array
+  during the exchange, staged: one `to_host` per non-empty send and one `to_device`. Without a GPU it runs on the fake
+  CuPy (`mpirun -n N env CUNUMPY_FAKE_CUPY=1 pytest --with-mpi pic/tests/test_sorting_device.py`, in the PIC MPI
+  workflow); the GPU variant has not run (no GPU here).
+
+## `linear_vlasov_ampere` implementation notes
+
+The first matrix accumulation on the GPU (part of #688, tracked in #650): `linear_vlasov_ampere`, the accumulation of
+`EfieldWeightsCoupling` in `LinearVlasovAmpereOneSpecies` (step 2 of the [porting order](#porting-order)).
+
+- **6D views.** The six blocks `mat11, mat12, mat13, mat22, mat23, mat33` are `Array6D<double>` (cunumpy 0.6.1, strided,
+  like the `Array3D<double>` vectors); `cunumpy.kernels.CudaKernel` packs the `StencilMatrix._data` blocks without
+  copying them. `f0_values` is a `const double*`, as in `push_weights_with_efield_lin_va`.
+- **Device helpers, one to one.** `filler_kernels.cuh` gets `fill_mat` and `fill_mat_vec` next to `fill_vec`,
+  `particle_to_mat_kernels.cuh` gets `m_v_fill_b_v1_symm` next to `vec_fill_b_v0`, and `linalg_kernels.cuh` gets
+  `outer`; same names, arguments and loop order as pyccel (`starts` and `pads` are `const long long*`). Every addition
+  into matrix or vector data is a `cunumpy_atomic_add`, as in `charge_density_0form`; the spline values pyccel keeps
+  in `args_derham.bn1, ..., bd3` are in the thread-local `SplineScratch`. Of the remaining `m_v_fill_*`/`mat_fill_*`
+  fillers, each one is ported with the first kernel that calls it.
+- **Kernel.** `linear_vlasov_ampere_cuda.cu`: same arguments in the same order as pyccel, one thread per marker row,
+  holes and boundary particles skipped; `df`, `matrix_inv`, `matrix_vector`, `outer`, then `m_v_fill_b_v1_symm`. The
+  3 x 3 `filling_m` is nine row-major entries; the CUDA-only `factor` is pyccel's `f0_values[ip] / (markers[ip, 7] *
+  n_markers_tot)`, computed once as pyccel does.
+- **`Accumulator` on CuPy.** Nothing in `Accumulator` had to change: on the CuPy backend `StencilMatrix._data` and
+  `StencilVector._data` are device arrays (feectools allocates them with `xp`), the accumulator zeroes them in place and
+  passes the same arrays to the kernel; `exchange_assembly_data`, `update_ghost_regions`, the transposed blocks of the
+  symmetric matrix (`StencilMatrix.transpose`, a CUDA kernel in feectools), the scaled operator of `SchurSolver` and its
+  `dot` all work on them. `test_accum_matrix_cupy.py` checks this against NumPy: the kernel data are the blocks' data
+  (no copies), the nine arrays, the dense blocks, the accumulated vector, `BC.dot(x)` and three CG iterations of the
+  Schur solve agree, and nothing is copied to the host from the accumulation to `BC.dot(x)`. On a GPU it runs with
+  `assert_no_transfers` (not run yet); without one it runs in a subprocess on cunumpy's fake CuPy, with every
+  `CudaKernel` launch emulated on the CPU in place on the fake device arrays (`emulated_launches()` in
+  `pic/tests/cuda_emulation.py`; struphy's and feectools' kernels, struct arguments included). This would fit into
+  cunumpy (fake CuPy with emulated launches).
+- **Found, not fixed here.** feectools' `StencilVector.inner` returns its result on the host (`xp.to_numpy`), so each
+  inner product of the CG solve copies a scalar from the device; the Schur solve is therefore outside the transfer
+  guard. `MassMatrixPreconditioner`, the default preconditioner of `EfieldWeightsCoupling`, cannot be created on CuPy
+  (`is_circulant` asserts a host array; the device Kronecker solve is a separate PR). `LinearVlasovAmpereOneSpecies`
+  end to end on the GPU (#689) also needs the feectools stencil 6D views and device Kronecker solve PRs and the first
+  H100 run (#687).
+- **Tests.** Parity cases `PARITY_CASES["linear_vlasov_ampere"]`: 129 markers (a hole and a boundary particle) in
+  Cuboid, Colella, HollowTorus and a 3d spline mapping, data shaped like the real accumulation matrices of clamped
+  splines of degrees 2, 3, 1 on 8 cells (`v1_symm_accumulation_data()` in `pic/tests/kernel_test_args.py`);
+  `rtol = 1e-12`, `atol = 1e-10` (atomics change the summation order; the entries reach 1e4). The CPU emulation agrees
+  with pyccel to round-off and catches a transposed `DF`. `m_v_fill_b_v1_symm` is compared with pyccel through a
+  wrapper kernel (`test_v1_symm_filler` on a GPU, `test_emulated_v1_symm_filler` by emulation). GPU tests have not run
+  on an H100.
+
+## `vlasov_maxwell` implementation notes
+
+The accumulation of `VlasovAmpereCoupling` in `VlasovAmpereOneSpecies` and `VlasovMaxwellOneSpecies` (step 1, #3 of
+the [porting order](#porting-order); part of #688).
+
+- **Kernel.** `vlasov_maxwell_cuda.cu`: same arguments in the same order as pyccel, one thread per marker row; `df`,
+  `matrix_inv`, `transpose`, `matrix_matrix`, `matrix_vector`, then `m_v_fill_b_v1_symm` with
+  `A_p = w_p DF^{-1} DF^{-T}` and `B_p = w_p DF^{-1} v_p`. As in pyccel, only holes are skipped: boundary particles
+  (`markers[ip, -1] == -2`) are accumulated (unlike `linear_vlasov_ampere`).
+- **Device helpers.** `fill_mat`, `fill_mat_vec` (`filler_kernels.cuh`) and `m_v_fill_b_v1_symm`
+  (`particle_to_mat_kernels.cuh`) with atomic adds into `Array6D<double>`/`Array3D<double>` data, byte-identical to the
+  ones of the `linear_vlasov_ampere` PR (#705), as are `v1_symm_accumulation_data()` and the `m_v_fill_b_v1_symm`
+  wrapper tests.
+- **Tests.** `PARITY_CASES["vlasov_maxwell"]`: 129 markers (a hole, a boundary particle) in Cuboid, Colella,
+  HollowTorus, ShafranovDshapedCylinder and a 3d spline mapping; the CPU emulation agrees with pyccel to 7e-12 at
+  entries up to 6e5 (spline mapping) and fails for a transposed `DF`, skipped boundary particles or unskipped holes.
+  `rtol = 1e-12`, `atol = 1e-8` for the GPU's atomic summation order. GPU tests have not run on an H100.
+- **Still missing for the models end to end on the GPU.** `MassMatrixPreconditioner` (the default of
+  `VlasovAmpereCoupling`, `MaxwellWeakAmpere` and the initial `PoissonSolve`) cannot be created on CuPy, CG inner products
+  return host scalars, the FEEC operators (`curl`, `grad`, mass matrices, Schur solves) need the feectools CUDA stack,
+  and the first H100 run (#687) is pending.
+
+## Polar splines on CuPy (#695)
+
+- **Blocks on the host.** `PolarExtractionBlocksC1` builds every block (extraction, DOF extraction, polar
+  derivatives) with NumPy/SciPy from a host copy of the control points (`xp.to_numpy(domain.cx)`), on every backend:
+  they are setup data, and `.toarray()`, `.T` and the restart left inverse (`SplineFunction._restart_extraction_op`)
+  keep working on them.
+- **Products on the device.** `PolarExtractionOperator` and `PolarLinearOperator` keep their `blocks_*` as host
+  matrices; on CuPy, `dot` uses device copies (`DeviceSparseMatrix`, a `cupyx.scipy.sparse.csr_matrix` via
+  `xp.scipy.sparse`), made once per block list and dropped by the setters. The blocks act only on the first two or
+  three radial rings (at most `3 n2 x 3 n2` in `eta1-eta2`, `n3 x n3` in `eta3`), so they are small; blocks without
+  non-zeros are not copied. On NumPy nothing changes (the SciPy blocks are applied as before).
+- **Refactored projectors and preconditioners (#746/#747).** The 2D x 1D Kronecker operators and
+  `PolarMassMatrixPreconditioner` keep coefficients and work arrays on the active backend. SciPy builds LU/ILU
+  factors on the host at setup. On CuPy, cached `cupyx.scipy.sparse.linalg.SuperLU` objects apply those factors
+  with device permutations and batched sparse triangular solves. Small 1d factors and the pole Schur complement
+  use cached dense inverses and device matrix products. The full poloidal inverse is never made dense.
+  Projectors support `schur`, `lu`, `ilu`, boundary conditions and transposed solves on both backends.
+- **Shared factorizations.** Polar spaces belonging to one Derham share identical 1d factors and poloidal
+  solvers, including their cached device copies. Keys use exact canonical sparse matrix contents, dtype,
+  solver kind/settings, Schur pole mask and outer factors, and backend/device. Changed weights and boundary
+  matrices get different factors; no approximate matching is used. Weak entries disappear when no live solver
+  uses them, so repeated weight updates do not retain obsolete factorizations. Separate Derham objects are isolated.
+- **Mass setup.** Callable weights are evaluated with coordinates on the active backend. Sampled weights and
+  spline quadrature data are copied explicitly to the host for the 2d reduction/assembly and factorization.
+  These are setup transfers; repeated operator/preconditioner applications have no coefficient transfers on
+  a single rank or with CUDA-aware MPI. Krylov methods still synchronize convergence scalars.
+- **MPI.** Kronecker `Alltoallv` redistributions, ring reductions and `PolarVector.toarray(allreduce=True)`
+  use `cunumpy.mpi.mpi_buffer`: synchronized device buffers with CUDA-aware MPI, host staging otherwise.
+  MPI capability must be established at startup through cunumpy. The pole sub-communicator and collective
+  ghost-region flags from #746 are preserved. feectools' own halo exchanges still require CUDA-aware MPI
+  on real GPUs; staging of the polar collectives does not replace that separate dependency.
+- **Tests.** `polar/tests/test_polar_cupy.py` compares NumPy and CuPy for `IGAPolarCylinder` and `IGAPolarTorus`:
+  extraction and DOF extraction operators and their transposes, `grad`/`curl`/`div` and transposes, `PolarVector`
+  arithmetic, the polar projectors, polar mass matrices (GPU only) and polar `SplineFunction` coefficients
+  (`extract_coeffs`, restart). Without a GPU it runs on the fake CuPy with two substitutes: a dense stand-in for
+  `cupyx.scipy.sparse` (`set_device_sparse_module`) and the host versions of the feectools kernels (the fake cannot
+  launch CUDA kernels). The mass matrices need struphy's CUDA geometry kernels and are compared on the GPU only.
+  Field evaluation (`SplineFunction.__call__`) is not covered: it is not ported to CuPy for any space yet.
+
+## Diagnostics on the device (#697)
+
+What a CuPy run copies to the host per output step, and where:
+
+- **Scalars** (`models/scalars.py`). The `value` of every scalar in a `Scalars` container is a view into one device
+  array of the container; `Scalars.update()` ends with `to_host()`, one `xp.to_numpy` of that array (8 bytes per
+  scalar). `FunctionScalar*` store the result of their function without `float()` (a device sync per scalar before),
+  so a device reduction stays on the device. The output (`Simulation._initialize_hdf5_datasets`) and
+  `print_scalar_quantities` read `Scalars.host_value(name)`. `BilinearEnergyFEEC` and `VolumeFormEnergyFEEC` call
+  feectools' inner products, which copy their result to the host until struphy-hub/feectools#98 (#716) is in.
+- **Output** (`io/output_handling.py`). `DataContainer._as_numpy_array` is `xp.to_numpy`: the one place where device
+  data is copied for saving, one counted copy per saved device dataset (FEEC coefficients, saved markers, binned
+  distribution functions). Before, it used `.get()`, which `count_transfers` does not see.
+- **Time state** (`simulation/sim.py`). `time_state` is NumPy on both backends: the time loop reads it with `float()`
+  every step, which was a device sync per read on CuPy.
+- **Binning** (`Particles.binning`). Failed on CuPy (`xp.count_nonzero` of a list); now gathers the valid markers once
+  and runs `xp.histogramdd` on the device. Saved markers (`update_markers_to_be_saved`) gather once, without counting
+  the mask first.
+- **Spline evaluation.** `SplineFunction.__call__` compared the process bounds as device scalars (six syncs per
+  meshgrid evaluation); the bounds are cached on the host once, and the flagging writes are masked copies.
+  `eval_tp_fixed_loc` (thermal energies of the variational models) called the pyccel kernel with device arrays; its
+  kernel `eval_spline_mpi_tensor_product_fixed` is now in `bsplines/kernels/` with a CUDA version and parity cases.
+  `Derham.prepare_eval_tp_fixed` (setup) computes on the host and copies the spans and basis values to the device once.
+- **Not counted, still there**: boolean-mask gathers (`markers[valid_mks]`, also in `KineticEnergyPIC`) wait for the
+  device to know the result size; one per gather.
+- **Follow-ups**: the marker diagnostics kernels in `pic/diagnostics/kernels/` (5D energies, magnetic moments,
+  canonical momenta, `thermal_energy`; used by the guiding-center and hybrid models) have no CUDA version; SPH kernel
+  density plots need the SPH kernels (step 6).
+
+## FEEC assembly kernels (#411)
+
+The assembly kernels of the weighted mass operators, the boundary mass operators and the basis projection
+operators are entry kernels like the pushers, so they follow the folder rule: `feec/kernels/<name>/` with
+`<name>_kernels.py` and an `__init__.py` that declares the `Kernel`. Moved, without numerical change:
+`kernel_{1,2,3}d_mat`, `kernel_{1,2,3}d_vec`, `kernel_{1,2,3}d_eval`, `kernel_3d_matrixfree`, `kernel_3d_diag`,
+`surface_kernel_3d_mat`, `surface_kernel_3d_vec` (from `feec/mass_kernels.py`) and
+`assemble_dofs_for_weighted_basisfuns_{1,2,3}d` (from `feec/basis_projection_kernels.py`); both modules are
+gone. The call sites import the kernels and pick the one for the dimension from a small dict
+(`_MAT_KERNELS[ldim]`, ...) instead of `PyccelKernel(getattr(module, name))`.
+
+None of them has a CUDA version yet. They are declared with `missing_cuda="fallback"`, which keeps the behaviour
+of the former `PyccelKernel` calls on the CuPy backend (host copies of the arrays at every call, with a warning
+once) instead of raising, so FEEC setups that worked on CuPy keep working. **They are ready for CUDA ports**: a
+port adds `<name>_cuda.cu` to the folder and its parity cases to `pic/tests/cuda_parity_cases.py`, and drops the
+fallback for that kernel. They take only arrays and scalars, no argument objects.
+  extraction/DOF operators, derivatives and transposes, vector arithmetic, all three projector solvers,
+  transposed and boundary-condition solves, mass matrices/preconditioners, callable and sampled weights,
+  and spline coefficient extraction/restart. Repeated Kronecker and preconditioner applications are checked
+  for transfers after warmup. The fake CuPy tests use CPU-emulated CUDA launches (including geometry/mass
+  kernels), with dense device-array substitutes for cuSPARSE products and triangular solves.
+  MPI parity tests decompose independently in eta1, eta2 and eta3 and exercise both device-buffer and
+  staged polar collectives; CI runs them on 1, 2, 3 and 4 ranks. Real-GPU variants are included but require
+  GPU hardware and the feectools CUDA stack. Full real-GPU MPI parity is opt-in with
+  `STRUPHY_TEST_CUDA_AWARE_MPI=1` on a known CUDA-aware MPI build; the separate staged-collective test
+  runs with regular MPI too, without involving feectools halos.
+- **Separate follow-ups.** `SplineFunction.__call__` already dispatches CUDA kernels for marker and dense/sparse
+  grid evaluation. Remaining evaluation work is the host-only `eval_tp_fixed_loc` helper and distributed
+  field-evaluation MPI handling/coverage. FFT eta3 solves are an additional optimization.
