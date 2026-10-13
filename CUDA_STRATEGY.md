@@ -631,6 +631,16 @@ Fail fast: on CuPy, if a listed kernel has no CUDA version, `compile_cuda_kernel
 that pushes with `push_bxu_Hdiv`). On NumPy it does nothing. A test runs a model for one step on NumPy and checks that every
 `Kernel` called in the time loop is listed.
 
+**Declared kernel outputs (#342).** Each kernel folder's `__init__.py` declares the arguments its kernel writes
+to, by position, as `OUTPUTS` and passes them to cunumpy (`Kernel.from_folder(..., host_options={"outputs":
+OUTPUTS})`), the 16 FEEC assembly kernel folders of #411 (`feec/kernels/kernel_*`, `surface_kernel_3d_*`,
+`assemble_dofs_for_weighted_basisfuns_*d`) included. Scratch arrays inside argument objects (`DerhamArguments.bn1`,
+...) are not outputs. On the CuPy fallback only the outputs are copied back to the device; the GPU parity test
+(`assert_kernels_agree`) compares only the outputs; `test_declared_outputs` checks on the NumPy backend that a kernel
+changes its outputs and no other argument, and the CPU emulation test checks the same for the CUDA kernel.
+`KernelCatalog.from_package` does not see the folders' `OUTPUTS`, so `test_cuda_parity` takes the kernels from the
+folders (`DECLARED`). A new kernel folder declares `OUTPUTS` (`test_kernels_declare_outputs`).
+
 ## PR 18 implementation notes
 
 Geometry evaluation runs on the GPU for every analytic mapping (`kind_map` 10–12, 20–22, 30–32).
