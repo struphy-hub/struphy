@@ -1742,6 +1742,40 @@ def test_transpose_and_copy():
             assert xp.allclose(A.T.toarray(), -A_arr, atol=1e-14)
 
 
+@pytest.mark.parametrize(
+    "num_elements, degree", [((16, 1, 1), (3, 1, 1)), ((16, 2, 1), (2, 2, 1)), ((8, 6, 4), (2, 2, 2))]
+)
+@pytest.mark.parametrize("space", ["M0", "M1", "M2", "M3"])
+def test_mass_preconditioner_diagonal_scaling_periodic_exact(num_elements, degree, space):
+    """On the periodic logical cube the mass matrices are Kronecker products, so MassMatrixPreconditioner with
+    diagonal scaling inverts them exactly; also with fewer points than the band width in a direction (one element),
+    where band entries wrap onto the main diagonal."""
+
+    import numpy as np
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = domains.Cuboid(r1=12.56)
+    derham = Derham(TensorProductGrid(num_elements=num_elements), DerhamOptions(degree=degree), comm=MPI.COMM_WORLD)
+    M = getattr(WeightedMassOperators(derham, domain), space)
+
+    rng = np.random.default_rng(0)
+    v = M.domain.zeros()
+    for block in v.blocks if hasattr(v, "blocks") else [v]:
+        block._data[:] = rng.random(block._data.shape)
+    v.update_ghost_regions()
+
+    w = MassMatrixPreconditioner(M, diagonal_scaling=True).dot(M.dot(v))
+    err = ((w - v).inner(w - v) / v.inner(v)) ** 0.5
+    assert err < 1e-12, f"{space}, {num_elements=}, {degree=}: |P M v - v| / |v| = {err}"
+
+
 if __name__ == "__main__":
     # test_mass(
     #    num_elements=(32, 32, 32),

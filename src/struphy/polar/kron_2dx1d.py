@@ -32,6 +32,7 @@ sub-communicator of processes sharing the same :math:`\eta_3` sub-domain.
 import logging
 from dataclasses import dataclass, field
 
+import cunumpy as xp
 import numpy as np
 import scipy.sparse as spa
 from feectools.fem.tensor import TensorFemSpace
@@ -43,6 +44,7 @@ from scipy.linalg import eigh, lu_factor, lu_solve
 from scipy.sparse.linalg import spilu, splu
 
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
+from struphy.polar.linear_operators import DeviceSparseMatrix, device_sparse_module
 
 logger = logging.getLogger("struphy")
 
@@ -251,6 +253,64 @@ def _ring_constant(npol: int, n_rings_outer: int, n2: int) -> spa.csr_matrix:
 # --------------------------------------------------------------------------------------
 # Poloidal solvers
 # --------------------------------------------------------------------------------------
+def _matrix_key(matrix):
+    """Exact numerical contents, independent of sparse storage order and explicit zeros."""
+    matrix = spa.csc_matrix(matrix, copy=True)
+    matrix.sum_duplicates()
+    matrix.eliminate_zeros()
+    matrix.sort_indices()
+    return (
+        matrix.shape,
+        matrix.dtype.str,
+        matrix.indptr.astype(np.int64, copy=False).tobytes(),
+        matrix.indices.astype(np.int64, copy=False).tobytes(),
+        matrix.data.tobytes(),
+    )
+
+
+def _cache_context():
+    """Keep device copies separate when solvers are built on different backends/devices."""
+    backend = xp.get_backend()
+    if backend == "cupy":
+        import cupy
+
+        return backend, cupy.cuda.runtime.getDevice()
+    return backend, None
+
+
+def _factorized_1d(matrix, cache=None):
+    key = ("1d", _cache_context(), _matrix_key(matrix))
+    factor = None if cache is None else cache.get(key)
+    if factor is None:
+        factor = _FactorizedSolve(splu(spa.csc_matrix(matrix)), dense=True)
+        if cache is not None:
+            cache[key] = factor
+    return factor
+
+
+class _FactorizedSolve:
+    """Host factorization with a cached device solve; dense inverses are only used for small 1d factors."""
+
+    def __init__(self, factor, dense=False):
+        self._factor = factor
+        self._dense = dense
+        self._device = None
+
+    def solve(self, Y):
+        if Y.shape[-1] == 0:
+            return Y.copy()
+        if not xp.is_gpu(Y):
+            return self._factor.solve(np.asarray(Y, order="F"))
+        if self._device is None:
+            if self._dense:
+                self._device = xp.asarray(self._factor.solve(np.eye(self._factor.shape[0])))
+            else:
+                # CuPy wraps the existing SciPy factors: factorization stays at
+                # setup, while permutations and batched triangular solves run on device.
+                self._device = device_sparse_module().linalg.SuperLU(self._factor)
+        return self._device @ Y if self._dense else self._device.solve(Y)
+
+
 class _SparseLU:
     """Exact (LU) or incomplete (ILU) factorization of a sparse matrix."""
 
@@ -261,34 +321,41 @@ class _SparseLU:
             self._fac = splu(A)
         else:
             self._fac = spilu(A, drop_tol=drop_tol, fill_factor=fill_factor)
+        self._solve = _FactorizedSolve(self._fac)
         self.exact = kind == "lu"
 
     def solve(self, Y: np.ndarray) -> np.ndarray:
         if Y.shape[-1] == 0:
             return Y.copy()
-        return self._fac.solve(np.asarray(Y, order="F"))
+        return self._solve.solve(Y)
 
 
 class _KroneckerBlockDiagonal:
     """Exact solver for a block diagonal matrix with Kronecker blocks A1 x A2 (C-ordering of the unknowns)."""
 
-    def __init__(self, factors: list[tuple[np.ndarray, np.ndarray]]):
+    def __init__(self, factors: list[tuple[np.ndarray, np.ndarray]], cache=None):
         self._sizes = []
         self._lus = []
         for A1, A2 in factors:
             self._sizes.append((A1.shape[0], A2.shape[0]))
-            self._lus.append((splu(spa.csc_matrix(A1)), splu(spa.csc_matrix(A2))))
+            self._lus.append(
+                (
+                    _factorized_1d(A1, cache),
+                    _factorized_1d(A2, cache),
+                )
+            )
         self.exact = True
 
     def solve(self, Y: np.ndarray) -> np.ndarray:
-        out = np.empty_like(Y)
+        arrays = xp if xp.is_gpu(Y) else np
+        out = arrays.empty_like(Y)
         m = Y.shape[-1]
         off = 0
         for (n1, n2), (lu1, lu2) in zip(self._sizes, self._lus):
             X = Y[off : off + n1 * n2].reshape(n1, n2 * m)
-            X = lu1.solve(np.asarray(X, order="F")).reshape(n1, n2, m)
-            X = np.ascontiguousarray(X.transpose(1, 0, 2)).reshape(n2, n1 * m)
-            X = lu2.solve(np.asarray(X, order="F")).reshape(n2, n1, m)
+            X = lu1.solve(X).reshape(n1, n2, m)
+            X = arrays.ascontiguousarray(X.transpose(1, 0, 2)).reshape(n2, n1 * m)
+            X = lu2.solve(X).reshape(n2, n1, m)
             out[off : off + n1 * n2] = X.transpose(1, 0, 2).reshape(n1 * n2, m)
             off += n1 * n2
         return out
@@ -319,20 +386,37 @@ class _SchurSolver:
             W = self._outer.solve(self._Aop[:, k0:k1].toarray())
             S[:, k0:k1] -= self._Apo @ W
         self._S = lu_factor(S)
+        self._device = None
         self._n = n
         logger.debug(f"Schur solver: {n = }, pole block {self._p.size}, outer block {self._o.size}")
 
     def solve(self, Y: np.ndarray) -> np.ndarray:
         if Y.shape[-1] == 0:
             return Y.copy()
-        Yp = Y[self._p]
-        Yo = Y[self._o]
+        if xp.is_gpu(Y):
+            if self._device is None:
+                self._device = (
+                    xp.asarray(self._p),
+                    xp.asarray(self._o),
+                    DeviceSparseMatrix(self._Apo),
+                    DeviceSparseMatrix(self._Aop),
+                    xp.asarray(lu_solve(self._S, np.eye(self._p.size))),
+                )
+            p, o, Apo, Aop, Sinv = self._device
+            pole_solve = lambda rhs: Sinv @ rhs
+            arrays = xp
+        else:
+            p, o, Apo, Aop = self._p, self._o, self._Apo, self._Aop
+            pole_solve = lambda rhs: lu_solve(self._S, rhs)
+            arrays = np
+        Yp = Y[p]
+        Yo = Y[o]
         t = self._outer.solve(Yo)
-        Xp = lu_solve(self._S, Yp - self._Apo @ t)
-        Xo = self._outer.solve(Yo - self._Aop @ Xp)
-        X = np.empty_like(Y)
-        X[self._p] = Xp
-        X[self._o] = Xo
+        Xp = pole_solve(Yp - Apo.dot(t))
+        Xo = self._outer.solve(Yo - Aop.dot(Xp))
+        X = arrays.empty_like(Y)
+        X[p] = Xp
+        X[o] = Xo
         return X
 
 
@@ -345,6 +429,7 @@ def make_poloidal_solver(
     schur_outer: str = "lu",
     drop_tol: float = ILU_DROP_TOL,
     fill_factor: float = ILU_FILL_FACTOR,
+    _cache=None,
 ):
     """
     Solver for the poloidal matrix A.
@@ -371,23 +456,48 @@ def make_poloidal_solver(
         Parameters of the incomplete LU factorization (``scipy.sparse.linalg.spilu``).
     """
     assert kind in POLOIDAL_SOLVERS, f"Unknown poloidal solver {kind!r}, must be one of {POLOIDAL_SOLVERS}."
-    if kind in ("lu", "ilu"):
-        return _SparseLU(A, kind, drop_tol=drop_tol, fill_factor=fill_factor)
-
-    assert pole is not None
-    if outer_kronecker is not None:
-        outer = _KroneckerBlockDiagonal(outer_kronecker)
-        if __debug__:
-            # the outer block must match the Kronecker factors
-            o = np.flatnonzero(~pole)
-            Aoo = spa.csr_matrix(A)[o][:, o]
-            K = spa.block_diag([spa.kron(spa.csr_matrix(A1), spa.csr_matrix(A2)) for A1, A2 in outer_kronecker])
-            diff = abs(Aoo - K).max() if Aoo.nnz + K.nnz > 0 else 0.0
-            assert diff <= 1e-12 * max(abs(Aoo).max(), 1.0), f"Outer block is not Kronecker ({diff = })."
+    if kind == "schur":
+        assert pole is not None
+        settings = (
+            np.asarray(pole, dtype=bool).tobytes(),
+            None if outer_kronecker is None else tuple((_matrix_key(a), _matrix_key(b)) for a, b in outer_kronecker),
+            schur_outer,
+            float(drop_tol),
+            float(fill_factor),
+        )
     else:
-        o = np.flatnonzero(~pole)
-        outer = _SparseLU(spa.csr_matrix(A)[o][:, o], schur_outer, drop_tol=drop_tol, fill_factor=fill_factor)
-    return _SchurSolver(A, pole, outer)
+        settings = (float(drop_tol), float(fill_factor)) if kind == "ilu" else ()
+    key = ("poloidal", _cache_context(), kind, _matrix_key(A), settings)
+    if _cache is not None:
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+
+    if kind in ("lu", "ilu"):
+        solver = _SparseLU(A, kind, drop_tol=drop_tol, fill_factor=fill_factor)
+    else:
+        if outer_kronecker is not None:
+            outer = _KroneckerBlockDiagonal(outer_kronecker, cache=_cache)
+            if __debug__:
+                # the outer block must match the Kronecker factors
+                o = np.flatnonzero(~pole)
+                Aoo = spa.csr_matrix(A)[o][:, o]
+                K = spa.block_diag([spa.kron(spa.csr_matrix(A1), spa.csr_matrix(A2)) for A1, A2 in outer_kronecker])
+                diff = abs(Aoo - K).max() if Aoo.nnz + K.nnz > 0 else 0.0
+                assert diff <= 1e-12 * max(abs(Aoo).max(), 1.0), f"Outer block is not Kronecker ({diff = })."
+        else:
+            o = np.flatnonzero(~pole)
+            outer = make_poloidal_solver(
+                spa.csr_matrix(A)[o][:, o],
+                schur_outer,
+                drop_tol=drop_tol,
+                fill_factor=fill_factor,
+                _cache=_cache,
+            )
+        solver = _SchurSolver(A, pole, outer)
+    if _cache is not None:
+        _cache[key] = solver
+    return solver
 
 
 def pole_mask(space: PolarDerhamSpace, comps: tuple[int, ...]) -> np.ndarray:
@@ -448,13 +558,14 @@ class _BoxTranspose:
         if self._comm is None:
             return local[..., c0:c1]
 
-        sendbuf = np.concatenate([local[..., a:b].ravel() for a, b in self._chunks])
-        recvbuf = np.empty(int(self._recv_counts.sum()), dtype=float)
-        self._comm.Alltoallv(
-            [sendbuf, (self._send_counts, self._send_displs), MPI.DOUBLE],
-            [recvbuf, (self._recv_counts, self._recv_displs), MPI.DOUBLE],
-        )
-        full = np.empty((*self._global_shape, c1 - c0), dtype=float)
+        sendbuf = xp.concatenate([local[..., a:b].ravel() for a, b in self._chunks])
+        recvbuf = xp.empty(int(self._recv_counts.sum()), dtype=float)
+        with xp.mpi.mpi_buffer(sendbuf) as send, xp.mpi.mpi_buffer(recvbuf, send=False, recv=True) as recv:
+            self._comm.Alltoallv(
+                [send, (self._send_counts, self._send_displs), MPI.DOUBLE],
+                [recv, (self._recv_counts, self._recv_displs), MPI.DOUBLE],
+            )
+        full = xp.empty((*self._global_shape, c1 - c0), dtype=float)
         for (s, e), d, n in zip(self._boxes, self._recv_displs, self._recv_counts):
             shape = tuple(ei - si + 1 for si, ei in zip(s, e))
             full[tuple(slice(si, ei + 1) for si, ei in zip(s, e))] = recvbuf[d : d + n].reshape(*shape, c1 - c0)
@@ -465,15 +576,16 @@ class _BoxTranspose:
         if self._comm is None:
             return full
 
-        sendbuf = np.concatenate(
+        sendbuf = xp.concatenate(
             [full[tuple(slice(si, ei + 1) for si, ei in zip(s, e))].ravel() for s, e in self._boxes],
         )
-        recvbuf = np.empty(int(self._send_counts.sum()), dtype=float)
-        self._comm.Alltoallv(
-            [sendbuf, (self._recv_counts, self._recv_displs), MPI.DOUBLE],
-            [recvbuf, (self._send_counts, self._send_displs), MPI.DOUBLE],
-        )
-        local = np.empty((*self._local_shape, self._m_local), dtype=float)
+        recvbuf = xp.empty(int(self._send_counts.sum()), dtype=float)
+        with xp.mpi.mpi_buffer(sendbuf) as send, xp.mpi.mpi_buffer(recvbuf, send=False, recv=True) as recv:
+            self._comm.Alltoallv(
+                [send, (self._recv_counts, self._recv_displs), MPI.DOUBLE],
+                [recv, (self._send_counts, self._send_displs), MPI.DOUBLE],
+            )
+        local = xp.empty((*self._local_shape, self._m_local), dtype=float)
         for (a, b), d, n in zip(self._chunks, self._send_displs, self._send_counts):
             local[..., a:b] = recvbuf[d : d + n].reshape(*self._local_shape, b - a)
         return local
@@ -614,7 +726,7 @@ class _PolarKron2Dx1DBase(LinearOperator):
             assert out.space == self._space
 
         V = self._space
-        out_pol = [np.zeros_like(p) for p in v.pol]
+        out_pol = [xp.zeros_like(p) for p in v.pol]
 
         for g, op_3, op_pol in zip(self._groups, ops_3, ops_pol):
             # 1. eta_3 direction (tensor-product part redistributed, polar coeffs replicated)
@@ -635,7 +747,7 @@ class _PolarKron2Dx1DBase(LinearOperator):
                 blocks.append(tmp_pol[c][:, s3 + k0 : s3 + k1])
                 n1, n2 = tp_space(V, c).npts[:2]
                 blocks.append(full[c][nr:].reshape((n1 - nr) * n2, k1 - k0))
-            Y = np.concatenate(blocks, axis=0)
+            Y = xp.concatenate(blocks, axis=0)
             Z = op_pol(Y, np.arange(s3 + k0, s3 + k1)) if k1 > k0 else Y
 
             off = 0
@@ -657,7 +769,8 @@ class _PolarKron2Dx1DBase(LinearOperator):
         comm = V.comm
         for c in range(V.n_comps):
             if comm is not None and comm.Get_size() > 1 and out_pol[c].size > 0:
-                comm.Allreduce(MPI.IN_PLACE, out_pol[c], op=MPI.SUM)
+                with xp.mpi.mpi_buffer(out_pol[c], recv=True) as buf:
+                    comm.Allreduce(MPI.IN_PLACE, buf, op=MPI.SUM)
             out.pol[c][:] = out_pol[c]
 
         # 3. eta_3 direction again
@@ -675,8 +788,8 @@ class _PolarKron2Dx1DBase(LinearOperator):
         """Apply op_3 along eta_3 to the local data L (shape (l1, l2, l3)) of component c."""
         l1, l2, l3 = L.shape
         T3 = self._t3[c]
-        X = T3.forward(np.ascontiguousarray(L.reshape(l1 * l2, l3).T))
-        return np.ascontiguousarray(T3.backward(op_3(X)).T).reshape(l1, l2, l3)
+        X = T3.forward(xp.ascontiguousarray(L.reshape(l1 * l2, l3).T))
+        return xp.ascontiguousarray(T3.backward(op_3(X)).T).reshape(l1, l2, l3)
 
 
 class PolarKron2Dx1DOperator(_PolarKron2Dx1DBase):
@@ -693,8 +806,14 @@ class PolarKron2Dx1DOperator(_PolarKron2Dx1DBase):
     """
 
     def dot(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
-        ops_3 = [lambda X, A=g.A_3: A @ X for g in self._groups]
-        ops_pol = [lambda Y, modes, A=g.A_pol: A @ Y for g in self._groups]
+        if xp.is_gpu(v.pol[0]):
+            if not hasattr(self, "_device_factors"):
+                self._device_factors = [(xp.asarray(g.A_3), DeviceSparseMatrix(g.A_pol)) for g in self._groups]
+            factors = self._device_factors
+        else:
+            factors = [(g.A_3, g.A_pol) for g in self._groups]
+        ops_3 = [lambda X, A=A: A @ X for A, _ in factors]
+        ops_pol = [lambda Y, modes, A=A: A.dot(Y) for _, A in factors]
         return self._apply(v, out, ops_3, ops_pol)
 
     def transpose(self, conjugate=False) -> "PolarKron2Dx1DOperator":
@@ -728,13 +847,14 @@ class PolarKron2Dx1DSolver(_PolarKron2Dx1DBase):
         super().__init__(space, groups)
         self._kind = poloidal_solver
         self._solver_kwargs = solver_kwargs
-        self._lu_3 = [splu(spa.csc_matrix(g.A_3)) for g in groups]
+        self._lu_3 = [_factorized_1d(g.A_3, space._factorization_cache) for g in groups]
         self._pol_solvers = [
             make_poloidal_solver(
                 g.A_pol,
                 poloidal_solver,
                 pole=g.pole if g.pole is not None else pole_mask(space, g.comps),
                 outer_kronecker=g.outer_kronecker,
+                _cache=space._factorization_cache,
                 **solver_kwargs,
             )
             for g in groups
@@ -750,7 +870,7 @@ class PolarKron2Dx1DSolver(_PolarKron2Dx1DBase):
         return self._kind
 
     def dot(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
-        ops_3 = [lambda X, lu=lu: lu.solve(np.asarray(X, order="F")) for lu in self._lu_3]
+        ops_3 = [lu.solve for lu in self._lu_3]
         ops_pol = [lambda Y, modes, s=s: s.solve(Y) for s in self._pol_solvers]
         return self._apply(v, out, ops_3, ops_pol)
 
@@ -1045,7 +1165,7 @@ def _serial_attrs_1d(derham, basis: str, d: int):
 
 def _global_quad_pts(derham, d: int) -> np.ndarray:
     """Global quadrature points (flattened over the cells) in direction d."""
-    return np.asarray(derham.H1_1d_serial_splines[d].quad_grid_pts[0][0]).ravel()
+    return xp.to_numpy(derham.H1_1d_serial_splines[d].quad_grid_pts[0][0]).ravel()
 
 
 def reduced_weight_2d(weight, derham, reduction: str = "midpoint") -> np.ndarray | None:
@@ -1083,9 +1203,12 @@ def reduced_weight_2d(weight, derham, reduction: str = "midpoint") -> np.ndarray
             nodes, wts = np.polynomial.legendre.leggauss(_N_AVG_3)
             pts3, wts3 = (nodes + 1.0) / 2.0, wts / 2.0
         E1, E2, E3 = np.meshgrid(pts1, pts2, pts3, indexing="ij")
-        return np.asarray(weight(E1, E2, E3)).reshape(E1.shape) @ wts3
+        return xp.to_numpy(weight(xp.asarray(E1), xp.asarray(E2), xp.asarray(E3))).reshape(E1.shape) @ wts3
 
-    assert isinstance(weight, np.ndarray), f"Weight must be callable, np.ndarray or None, but is {type(weight)}."
+    assert isinstance(weight, np.ndarray) or xp.is_gpu(weight), (
+        f"Weight must be callable, an array or None, but is {type(weight)}."
+    )
+    weight = xp.to_numpy(weight)
     dom = derham.domain_decomposition
     nq = derham.nquads
     s1, s2, s3 = (dom.starts[d] * nq[d] for d in range(3))
@@ -1099,7 +1222,7 @@ def reduced_weight_2d(weight, derham, reduction: str = "midpoint") -> np.ndarray
             sums[0, s1 : s1 + l1, s2 : s2 + l2] = weight[:, :, mid]
             sums[1, s1 : s1 + l1, s2 : s2 + l2] = 1.0
     else:
-        wts3 = np.asarray(derham.spline_attributes["H1"].quad_grid_wts[0][2]).ravel()
+        wts3 = xp.to_numpy(derham.spline_attributes["H1"].quad_grid_wts[0][2]).ravel()
         assert wts3.size == l3
         sums[0, s1 : s1 + l1, s2 : s2 + l2] = weight @ wts3
         sums[1, s1 : s1 + l1, s2 : s2 + l2] = wts3.sum()
@@ -1130,9 +1253,9 @@ def poloidal_mass_matrix(derham, bases_row: tuple, bases_col: tuple, weight: np.
     att_j = [_serial_attrs_1d(derham, bases_col[d], d) for d in range(2)]
 
     def data(att):
-        spans = np.asarray(att.quad_grid_spans[0][0])
-        basis = np.asarray(att.quad_grid_bases[0][0])[:, :, 0, :]  # (cells, p+1, quad points), no derivatives
-        wts = np.asarray(att.quad_grid_wts[0][0])  # (cells, quad points)
+        spans = xp.to_numpy(att.quad_grid_spans[0][0])
+        basis = xp.to_numpy(att.quad_grid_bases[0][0])[:, :, 0, :]  # (cells, p+1, quad points), no derivatives
+        wts = xp.to_numpy(att.quad_grid_wts[0][0])  # (cells, quad points)
         n = att.nbasis[0][0]
         p = basis.shape[1] - 1
         return spans, basis, wts, n, p
