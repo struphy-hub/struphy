@@ -1,10 +1,10 @@
-"""GyrokineticPoisson polar torus strong scaling profiling case: polar splines versus tensor-product splines on a torus with a hole.
+"""Poisson polar torus strong scaling profiling case: polar splines versus tensor-product splines on a torus with a hole.
 
-This file defines one variant of the GyrokineticPoisson strong scaling profiling case on a full torus (minor radius 1, major radius 3) in an ad hoc tokamak equilibrium (the
+This file defines one variant of the Poisson strong scaling profiling case on a full torus (minor radius 1, major radius 4) (the
 `ProfilingCase`) and submits it: for each rank count, `ProfilingCase.launch` builds and submits a
 SLURM script (using `clusters.SLURM_PRESETS` by default), or, without a batch system, runs directly
 on this machine. `finalize_run` then packages and uploads each run as soon as its own job finishes.
-Each generated script runs the simulation itself by invoking `params_gyrokinetic_poisson.py` directly (its `__main__`
+Each generated script runs the simulation itself by invoking `params_poisson.py` directly (its `__main__`
 block is the worker), with the flags of the variant.
 
 The variant (spline space and preconditioner) is chosen with `--variant`; run this script once per variant.
@@ -14,12 +14,12 @@ import argparse
 import sys
 from pathlib import Path
 
-# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, three levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
-# variant -> (description, flags of params_gyrokinetic_poisson.py)
+# variant -> (description, flags of params_poisson.py)
 VARIANTS = {
     "tensor_none": (
         "tensor-product splines, no preconditioner",
@@ -93,19 +93,18 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "polar_torus_strong_scaling"
 
     profiling_case = ProfilingCase(
-        label=f"gyrokinetic_poisson_polar_torus_strong_scaling_{args.variant}",
-        name=f"GyrokineticPoisson on a torus strong scaling test, {variant_description}",
+        label=f"poisson_polar_torus_strong_scaling_{args.variant}",
+        name=f"Poisson on a torus strong scaling test, {variant_description}",
         description=(
-            "Strong scaling of the GyrokineticPoisson model with a manufactured solution whose gradient is largest on the axis, "
+            "Strong scaling of the Poisson model with a manufactured solution whose gradient is largest on the axis, "
             "comparing C1 polar splines (IGAPolarTorus) with tensor-product splines on a torus with a hole "
             f"(HollowTorus, a1=1e-2): {variant_description}."
         ),
-        physics_problem="Field equation of gyrokinetic simulations with adiabatic electrons.",
-        struphy_model_used="GyrokineticPoisson",
-        params_source=params_dir / "params_gyrokinetic_poisson.py",
+        physics_problem="Occurs in many plasma applications.",
+        struphy_model_used="Poisson",
+        params_source=script_dir / "params_poisson.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

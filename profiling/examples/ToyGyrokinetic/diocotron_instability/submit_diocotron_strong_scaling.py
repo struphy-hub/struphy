@@ -15,8 +15,8 @@ import argparse
 import sys
 from pathlib import Path
 
-# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, three levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
@@ -47,7 +47,6 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "diocotron_instability"
 
     profiling_case = ProfilingCase(
         label="diocotron_instability",
@@ -55,7 +54,7 @@ def main() -> None:
         description="Scaling test running the diocotron profiling setup with multiple MPI ranks.",
         physics_problem="Diocotron instability in a non-neutral plasma.",
         struphy_model_used="ToyDrift",
-        params_source=params_dir / "params_diocotron.py",
+        params_source=script_dir / "params_diocotron.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,

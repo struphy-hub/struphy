@@ -15,8 +15,8 @@ import argparse
 import sys
 from pathlib import Path
 
-# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, two levels up
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/, three levels up
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
@@ -77,7 +77,6 @@ def main() -> None:
 
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
-    params_dir = script_dir / "hollow_cylinder_strong_scaling"
 
     profiling_case = ProfilingCase(
         label=label,
@@ -85,7 +84,7 @@ def main() -> None:
         description=description,
         physics_problem="Occurs in many plasma applications.",
         struphy_model_used="Poisson",
-        params_source=params_dir / "params_poisson.py",
+        params_source=script_dir / "params_poisson.py",
         language=args.language,
         compiler=args.compiler,
         upload=args.upload,
