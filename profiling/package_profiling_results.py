@@ -13,9 +13,10 @@ from utils import _run_command
 RUN_METADATA_FILE = "run_metadata.json"
 
 # Written by the parameter file itself (see the Poisson example), one per `sim_<id>` run
-# directory: post-processing figures and small arrays, next to the profiling output.
+# directory: post-processing figures, small arrays, scope-profiler HTML reports and JSON summaries
+# (see the Vlasov examples), next to the profiling output.
 RESULTS_DIR_NAME = "results"
-RESULTS_FILE_SUFFIXES = (".png", ".npy")
+RESULTS_FILE_SUFFIXES = (".png", ".npy", ".html", ".json")
 
 
 def _run_name(launch_id: int) -> str:
