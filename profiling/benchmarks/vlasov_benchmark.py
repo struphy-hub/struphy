@@ -2,7 +2,17 @@
 
 Runs a fixed number of time steps of :class:`~struphy.models.VlasovAmpereOneSpecies` or
 :class:`~struphy.models.VlasovMaxwellOneSpecies` on the NumPy (CPU) or CuPy (GPU) backend and reports the setup
-time, the time per step, the time per propagator, the cost per marker and the host/device transfers in the time loop.
+time, the time per step, the time per propagator and per kernel, and the cost per marker.
+
+All timing comes from scope-profiler: the run activates the profiling session of :meth:`Simulation.run`, so the
+regions that struphy already defines (``setup: allocate``, ``model.integrate``, ``prop: <name>``,
+``kernel: <name>``, ...) are recorded, and the benchmark only reads them back. On the CuPy backend the session
+records CUDA-event device time for every region in addition to the CPU time (``use_gpu_timing``, backend
+``cupy``), and by default synchronizes the device when a region ends (``gpu_sync_on_exit``), so the CPU time of a
+region includes its kernels and not only their launch; ``--no-gpu-sync`` records the enqueue-side CPU time instead.
+The profile is written to an HDF5 file (``--profile``) for the full scope-profiler tool chain::
+
+    scope-profiler inspect vlasov_benchmark_VlasovAmpereOneSpecies_landau_cupy.h5
 
 Test problems (the physics follows the verification tests in ``src/struphy/models/tests/verification``):
 
@@ -34,14 +44,13 @@ Examples::
         --case weibel --size large --json weibel_gpu.json
     mpirun -n 2 python profiling/benchmarks/vlasov_benchmark.py --size standard
 
-The backend is cunumpy's active backend (``CUNUMPY_BACKEND=numpy|cupy``, or ``--backend``). Every timed region
-ends with ``xp.synchronize()``, so GPU times include the kernels and not only their launch. Per-propagator timing
-adds one synchronization per propagator and step; ``--no-propagator-timing`` measures the step without them.
-Times are the maximum over MPI ranks. Sorting boxes are off by default, since ``SortingBoxes`` does not work on
-the CuPy backend yet (struphy-hub/struphy#726); ``--sorting-boxes N`` turns them on.
+The backend is cunumpy's active backend (``CUNUMPY_BACKEND=numpy|cupy``, or ``--backend``). Times are the maximum
+over MPI ranks. Sorting boxes are off by default, since ``SortingBoxes`` does not work on the CuPy backend yet
+(struphy-hub/struphy#726); ``--sorting-boxes N`` turns them on.
 
 Without a GPU, ``CUNUMPY_FAKE_CUPY=1 ... --backend cupy --size smoke`` runs the CuPy code path on cunumpy's fake
 CuPy with every CUDA launch emulated on the CPU: a check that the models run on the device backend, not a timing.
+The fake CuPy has no CUDA events, so GPU timing is off in that mode.
 
 CPU reference (NumPy backend, ``--size standard``, 1 rank, Apple M-series laptop, 8 October 2026): VlasovAmpere
 Landau 67 ms per step, VlasovMaxwell Landau 82 ms, VlasovMaxwell Weibel 86 ms (2.1 to 2.7 microseconds per marker
@@ -56,12 +65,13 @@ import os
 import platform
 import statistics
 import tempfile
-import time
 from dataclasses import asdict, dataclass, field
 
 import cunumpy as xp
+import numpy as np
 from cunumpy.kernel_testing import fake_cupy_active
 from maybempi import MPI
+from scope_profiler import ProfilingOptions, ProfilingResults, read_h5
 
 from struphy.models.tests.gpu_e2e import device_context
 
@@ -83,6 +93,14 @@ CASES = {
     "weibel": {"r1": 2 * math.pi / 1.25, "dt": 0.05, "rate": 0.02784, "models": ("VlasovMaxwellOneSpecies",)},
 }
 
+# scope-profiler regions of Simulation.run that the report summarizes
+SESSION_REGION = "scope_profiler.session"
+SETUP_REGION = "setup: allocate"
+COMPILE_REGION = "setup: compile cuda kernels"
+STEP_REGION = "model.integrate"
+PROPAGATOR_PREFIX = "prop: "
+KERNEL_PREFIX = "kernel: "
+
 
 @dataclass
 class Result:
@@ -98,14 +116,15 @@ class Result:
     n_markers: int
     steps: int
     dt: float
+    profile: str  # the scope-profiler HDF5 file of the run
+    gpu_timing: bool  # CUDA-event device times recorded per region
+    gpu_sync_on_exit: bool  # device synchronized at every region end (CPU times include the kernels)
     setup: float = 0.0  # Simulation.allocate (FEEC operators, markers, initial Poisson solve)
     compile_cuda: float = 0.0  # Simulation.compile_cuda_kernels (0 on NumPy)
     step_times: list = field(default_factory=list)  # model.integrate, one per step
-    diagnostics: float = 0.0  # scalars, saved markers, binned distribution functions (all steps)
-    output: float = 0.0  # DataContainer.save_data (all steps)
-    total_run: float = 0.0  # Simulation.run
-    propagators: dict = field(default_factory=dict)  # class name -> total time over all steps
-    transfers_in_loop: dict = field(default_factory=dict)  # cunumpy transfer counts during the time loop
+    total_run: float = 0.0  # the scope-profiler session, i.e. Simulation.run
+    propagators: dict = field(default_factory=dict)  # class name -> {"cpu": total, "gpu": total or None}
+    kernels: dict = field(default_factory=dict)  # kernel name -> {"cpu": total, "gpu": total or None}
     scalars_end: dict = field(default_factory=dict)  # name -> value after the last step
     host: str = field(default_factory=platform.node)
 
@@ -137,7 +156,15 @@ def parse_args():
     parser.add_argument("--backend", choices=("numpy", "cupy"), help="cunumpy backend (default: the active one)")
     parser.add_argument("--sorting-boxes", type=int, default=0, metavar="N", help="sorting boxes in x (default: off)")
     parser.add_argument("--save-step", type=int, default=1, help="compute diagnostics and save every N steps")
-    parser.add_argument("--no-propagator-timing", action="store_true", help="time only whole steps")
+    parser.add_argument(
+        "--no-gpu-sync",
+        action="store_true",
+        help="do not synchronize the device at region ends (CPU times are then launch times; GPU times unaffected)",
+    )
+    parser.add_argument(
+        "--profile",
+        help="scope-profiler HDF5 file of the run (default: vlasov_benchmark_<model>_<case>_<backend>.h5)",
+    )
     parser.add_argument("--out", help="output folder (default: a temporary folder, removed afterwards)")
     parser.add_argument("--json", help="also write the result to this JSON file (rank 0)")
     args = parser.parse_args()
@@ -146,7 +173,20 @@ def parse_args():
     return args
 
 
-def make_simulation(args, out_folders: str):
+def profiling_options(args, profile_path: str) -> ProfilingOptions:
+    """The scope-profiler settings of the run: GPU timing through CuPy's CUDA events on the CuPy backend."""
+    # the fake CuPy (no GPU) has CUDA events without elapsed time, so device timing is only possible on a GPU
+    gpu_timing = xp.get_backend() == "cupy" and not fake_cupy_active()
+    return ProfilingOptions(
+        file_path=profile_path,
+        label=f"{args.model} {args.case} {xp.get_backend()}",
+        use_gpu_timing=gpu_timing,
+        gpu_timing_backend="cupy",
+        gpu_sync_on_exit=gpu_timing and not args.no_gpu_sync,
+    )
+
+
+def make_simulation(args, out_folders: str, profile_path: str):
     """The model, markers, initial condition and options of the chosen case and size."""
     from struphy import (
         BoundaryParameters,
@@ -218,6 +258,7 @@ def make_simulation(args, out_folders: str):
         seed = perturbations.ModesCos(ls=(1,), amps=(-1e-4,), Lx=case["r1"], given_in_basis="physical", comp=2)
         model.em_fields.b_field.add_perturbation(seed)
 
+    opts = profiling_options(args, profile_path)
     sim = Simulation(
         model=model,
         env=env,
@@ -225,6 +266,7 @@ def make_simulation(args, out_folders: str):
         domain=domains.Cuboid(r1=case["r1"]),
         grid=grids.TensorProductGrid(num_elements=num_elements),
         derham_opts=DerhamOptions(degree=tuple(args.degree)),
+        profiling_opts=opts,
     )
     result = Result(
         model=args.model,
@@ -237,96 +279,47 @@ def make_simulation(args, out_folders: str):
         n_markers=ppc * math.prod(num_elements),
         steps=steps,
         dt=dt,
+        profile=os.path.abspath(profile_path),
+        gpu_timing=opts.use_gpu_timing,
+        gpu_sync_on_exit=opts.gpu_sync_on_exit,
     )
     return sim, result
 
 
-class TimedPropagator:
-    """Stands in for a propagator in ``model.prop_list`` and adds its synchronized run time to ``totals``."""
-
-    def __init__(self, propagator, totals: dict):
-        self._propagator = propagator
-        self._totals = totals
-        self._name = type(propagator).__name__
-
-    def __call__(self, dt):
-        xp.synchronize()
-        t0 = time.perf_counter()
-        self._propagator(dt)
-        xp.synchronize()
-        self._totals[self._name] = self._totals.get(self._name, 0.0) + time.perf_counter() - t0
-
-    def __getattr__(self, name):
-        return getattr(self._propagator, name)
+def max_over_ranks_per_call(region) -> list:
+    """The duration of each call of a region, the maximum over the ranks (every rank makes the same calls)."""
+    per_rank = [region[rank].durations for rank in region.ranks]
+    n_calls = min(len(durations) for durations in per_rank)
+    return np.max([durations[:n_calls] for durations in per_rank], axis=0).tolist()
 
 
-def instrument(sim, result: Result, timed_propagators: bool):
-    """Wrap the phases of ``sim.run()`` with synchronized timers and count the transfers of the time loop."""
-    from cunumpy.profiling import count_transfers
-
-    from struphy.io.output_handling import DataContainer
-
-    model = sim.model
-    in_loop = [False]
-    # the transfer counter of the time loop: count_transfers() is entered when the loop starts
-    loop = {"context": count_transfers(), "counter": None}
-
-    def timed(fn, record):
-        def wrapper(*args, **kwargs):
-            xp.synchronize()
-            t0 = time.perf_counter()
-            out = fn(*args, **kwargs)
-            xp.synchronize()
-            record(time.perf_counter() - t0)
-            return out
-
-        return wrapper
-
-    def add(name):
-        def record(t):
-            if in_loop[0]:
-                setattr(result, name, getattr(result, name) + t)
-
-        return record
-
-    def after_allocate(t):
-        result.setup = t
-        if timed_propagators:
-            model._prop_list = [TimedPropagator(p, result.propagators) for p in model.prop_list]
-
-    sim.allocate = timed(sim.allocate, after_allocate)
-    sim.compile_cuda_kernels = timed(sim.compile_cuda_kernels, lambda t: setattr(result, "compile_cuda", t))
-
-    original_init_datasets = sim._initialize_hdf5_datasets
-
-    def init_datasets(*args, **kwargs):
-        out = original_init_datasets(*args, **kwargs)
-        in_loop[0] = True  # the time loop starts after this, the last step of the setup
-        loop["counter"] = loop["context"].__enter__()
-        return out
-
-    sim._initialize_hdf5_datasets = init_datasets
-    model.integrate = timed(model.integrate, lambda t: result.step_times.append(t) if in_loop[0] else None)
-    for name in ("update_scalar_quantities", "update_markers_to_be_saved", "update_distr_functions"):
-        setattr(model, name, timed(getattr(model, name), add("diagnostics")))
-
-    original_save_data = DataContainer.save_data
-    record_output = add("output")
-
-    def save_data(self, *args, **kwargs):
-        xp.synchronize()
-        t0 = time.perf_counter()
-        out = original_save_data(self, *args, **kwargs)
-        record_output(time.perf_counter() - t0)
-        return out
-
-    DataContainer.save_data = save_data
-    return loop, lambda: setattr(DataContainer, "save_data", original_save_data)
+def totals_over_ranks(region) -> dict:
+    """The total CPU time of a region and, with GPU timing, its total device time; the maximum over the ranks."""
+    cpu = max(region.total_durations().values())
+    gpu = None
+    if region.has_gpu_timing:
+        gpu = max(region[rank].gpu_total_duration for rank in region.ranks if region[rank].has_gpu_timing)
+    return {"cpu": float(cpu), "gpu": None if gpu is None else float(gpu)}
 
 
-def reduce_max(value: float) -> float:
-    comm = MPI.COMM_WORLD
-    return comm.allreduce(value, op=MPI.MAX) if comm.Get_size() > 1 else value
+def collect(results: ProfilingResults, result: Result) -> None:
+    """Fill ``result`` from the scope-profiler regions of the run."""
+    if SETUP_REGION in results:
+        result.setup = results[SETUP_REGION].max_duration
+    if COMPILE_REGION in results:
+        result.compile_cuda = results[COMPILE_REGION].max_duration
+    if SESSION_REGION in results:
+        result.total_run = results[SESSION_REGION].max_duration
+    elif results.total_time is not None:
+        result.total_run = results.total_time
+    result.step_times = max_over_ranks_per_call(results[STEP_REGION])
+    for region in results:
+        if region.name.startswith(PROPAGATOR_PREFIX):
+            result.propagators[region.name[len(PROPAGATOR_PREFIX) :]] = totals_over_ranks(region)
+        elif region.name.startswith(KERNEL_PREFIX):
+            result.kernels[region.name[len(KERNEL_PREFIX) :]] = totals_over_ranks(region)
+    result.propagators = dict(sorted(result.propagators.items(), key=lambda item: -item[1]["cpu"]))
+    result.kernels = dict(sorted(result.kernels.items(), key=lambda item: -item[1]["cpu"]))
 
 
 def run(args) -> Result:
@@ -336,39 +329,44 @@ def run(args) -> Result:
     if out is None:
         tmp = tempfile.TemporaryDirectory(prefix="struphy_vlasov_benchmark_") if comm.Get_rank() == 0 else None
         out = comm.bcast(tmp.name if tmp else None, root=0)
+    profile_path = args.profile or f"vlasov_benchmark_{args.model}_{args.case}_{xp.get_backend()}.h5"
 
-    sim, result = make_simulation(args, out)
-    loop, restore = instrument(sim, result, timed_propagators=not args.no_propagator_timing)
-    try:
-        # on cunumpy's fake CuPy (no GPU) the CUDA launches are emulated on the CPU: a smoke test, not a timing
-        with device_context() if xp.get_backend() == "cupy" else contextlib.nullcontext():
-            xp.synchronize()
-            t0 = time.perf_counter()
-            sim.run()
-            xp.synchronize()
-            result.total_run = time.perf_counter() - t0
-    finally:
-        if loop["counter"] is not None:
-            loop["context"].__exit__(None, None, None)
-        restore()
+    sim, result = make_simulation(args, out, profile_path)
+    # on cunumpy's fake CuPy (no GPU) the CUDA launches are emulated on the CPU: a smoke test, not a timing
+    with device_context() if xp.get_backend() == "cupy" else contextlib.nullcontext():
+        sim.run(profiling_activated=True)
 
-    counter = loop["counter"]
-    kinds = ("to_host", "to_device", "kernel_conversion", "fallback", "device_copy", "sync")
-    result.transfers_in_loop = {kind: counter.count(kind) for kind in kinds}
-    result.transfers_in_loop["bytes_to_host"] = counter.bytes_to_host
     for name, scalar in sim.model.scalars.dct.items():
         value = float(xp.to_numpy(scalar.value)[0]) if hasattr(scalar, "value") else float("nan")
         result.scalars_end[name] = value
 
-    for name in ("setup", "compile_cuda", "diagnostics", "output", "total_run"):
-        setattr(result, name, reduce_max(getattr(result, name)))
-    result.step_times = [reduce_max(t) for t in result.step_times]
-    result.propagators = {k: reduce_max(v) for k, v in sorted(result.propagators.items())}
+    # scope-profiler merges the ranks into one file at the end of the session
+    if comm.Get_rank() == 0:
+        collect(read_h5(profile_path), result)
 
     comm.Barrier()
     if tmp is not None:
         tmp.cleanup()
     return result
+
+
+def _time_table(title: str, totals: dict, gpu_timing: bool) -> list:
+    """Lines of a table with the CPU and (if recorded) GPU total of every entry and its share of the CPU sum."""
+    if not totals:
+        return []
+    lines = [f"  {title}, maximum over ranks):"]
+    width = max(len(name) for name in totals)
+    cpu_sum = sum(entry["cpu"] for entry in totals.values()) or 1.0
+    header = f"    {'':<{width}} {'CPU [s]':>10} {'share':>7}"
+    if gpu_timing:
+        header += f" {'GPU [s]':>10}"
+    lines.append(header)
+    for name, entry in totals.items():
+        line = f"    {name:<{width}} {entry['cpu']:>10.3f} {100 * entry['cpu'] / cpu_sum:>6.1f}%"
+        if gpu_timing:
+            line += f" {entry['gpu']:>10.3f}" if entry["gpu"] is not None else f" {'-':>10}"
+        lines.append(line)
+    return lines
 
 
 def report(result: Result) -> str:
@@ -377,28 +375,23 @@ def report(result: Result) -> str:
         f"{result.model} | {result.case} | backend {result.backend} | {result.mpi_ranks} MPI rank(s) | host {result.host}",
         f"grid {result.num_elements}, degree {result.degree}, {result.ppc} markers per cell = {result.n_markers:,} markers, "
         f"{result.steps} steps of dt = {result.dt}",
-        "",
     ]
+    if result.gpu_timing:
+        sync = "device synchronized at region ends" if result.gpu_sync_on_exit else "no synchronization at region ends"
+        lines.append(f"GPU timing: CUDA events through CuPy, {sync}")
     lines += [
+        "",
         f"  setup (allocate + initial Poisson)  {result.setup:10.3f} s",
         f"  CUDA kernel compilation             {result.compile_cuda:10.3f} s",
         f"  time loop: model.integrate          {sum(result.step_times):10.3f} s",
-        f"             diagnostics              {result.diagnostics:10.3f} s",
-        f"             output                   {result.output:10.3f} s",
         f"  Simulation.run total                {result.total_run:10.3f} s",
         "",
         f"  step: median {1e3 * result.step_median:.3f} ms (first step {1e3 * result.step_times[0]:.3f} ms), "
         f"{result.ns_per_marker_step:.1f} ns per marker and step",
     ]
-    if result.propagators:
-        lines.append("  per propagator (all steps):")
-        total = sum(result.propagators.values()) or 1.0
-        for name, t in result.propagators.items():
-            lines.append(f"    {name:<28} {t:10.3f} s  ({100 * t / total:5.1f} %)")
-    lines.append(
-        "  host/device transfers in the time loop (through cunumpy): "
-        + ", ".join(f"{k}={v}" for k, v in result.transfers_in_loop.items())
-    )
+    lines += _time_table("per propagator (all steps", result.propagators, result.gpu_timing)
+    lines += _time_table("per kernel (whole run, including the setup", result.kernels, result.gpu_timing)
+    lines += ["", f"  profile: {result.profile}  (scope-profiler inspect {os.path.basename(result.profile)})"]
     return "\n".join(lines)
 
 
