@@ -1423,6 +1423,11 @@ class Particles(metaclass=ABCMeta):
             logger.info("\nSorting the markers into boxes after initial draw")
             self.do_sort()
             logger.info("Done.")
+        elif self.mpi_comm is not None and self.loading in ("sobol_standard", "sobol_antithetic"):
+            # Sobol markers are drawn on the whole domain on every process (pseudo-random ones only on the
+            # process domain): send them to their process, otherwise the first accumulation (e.g. the initial
+            # Poisson solve) writes outside the local arrays and corrupts the heap.
+            self.mpi_sort_markers()
 
     def initialize_weights(
         self,
