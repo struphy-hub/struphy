@@ -227,7 +227,6 @@ class SortingBoxes:
 
         n_particles = self._markers_shape[0]
         n_mkr = int(n_particles / n_box_in) + 1
-        # host-side bookkeeping: plain Python numbers, also on the CuPy backend
         n_cols = round(
             n_mkr * (1 + 1 / math.sqrt(n_mkr) + self._box_bufsize),
         )

@@ -31,6 +31,7 @@ PACKAGES = (
     "struphy.pic.accumulation.kernels",
     "struphy.pic.diagnostics.kernels",
     "struphy.pic.sph.kernels",
+    "struphy.pic.kernels",
     "struphy.bsplines.kernels",
     "struphy.geometry.kernels",
     "struphy.feec.kernels",
