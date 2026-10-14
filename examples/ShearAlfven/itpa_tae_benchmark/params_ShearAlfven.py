@@ -62,7 +62,7 @@ model.mhd.velocity.save_data = True
 env = EnvironmentOptions(
     out_folders=str(Path(__file__).resolve().parent),
     save_step=10,
-    sim_folder="sim6_higherResolution_ShearAlfven",
+    sim_folder="sim_data",
     max_runtime=470
     )
 

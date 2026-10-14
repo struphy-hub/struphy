@@ -64,7 +64,7 @@ model.mhd.pressure.save_data = True
 env = EnvironmentOptions(
     out_folders=str(Path(__file__).resolve().parent),
     save_step=2,
-    sim_folder="sim5_higherResolution",
+    sim_folder="sim_data",
     max_runtime=350
     )
 
