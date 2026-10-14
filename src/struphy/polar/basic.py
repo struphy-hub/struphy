@@ -296,6 +296,7 @@ class PolarVector(Vector):
                 "Attribute can only be set with instances of either StencilVector or BlockVector!",
             )
 
+        # also marks the ghost regions as out of sync (the copy above includes the possibly stale ghosts of v)
         self.set_tp_coeffs_to_zero()
 
     @property
@@ -560,3 +561,7 @@ def set_tp_rings_to_zero(v, n_rings):
         raise ValueError(
             "Input vector must be an instance of StencilVector of BlockVector!",
         )
+
+    # neighbouring processes in eta_1 may hold the rings in their ghost regions;
+    # the flag must be set collectively, i.e. also on processes away from the pole
+    v.ghost_regions_in_sync = False
