@@ -1,6 +1,6 @@
 """Shared machinery for running profiling jobs.
 
-A concrete profiling job (e.g. ``profile_diocotron_scaling.py``) defines its own `ProfilingCase`
+A concrete profiling job (a `submit_*.py` script next to a case in `examples/`) defines its own `ProfilingCase`
 and drives the run itself, looping over whichever rank counts it wants to profile.
 
 - `ProfilingCase.setup_run` validates the venv, compiles Struphy, and creates the
@@ -27,7 +27,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
 The remaining module-level functions are generic helpers with no case-specific
 knowledge (detecting the MPI launcher/module system).
 
-See `profile_diocotron_scaling.py` for a template.
+See `examples/Poisson/polar_cylinder_strong_scaling/submit_poisson_polar_cylinder_strong_scaling.py` for a template.
 """
 
 import getpass
@@ -100,6 +100,10 @@ class ProfilingCase:
     physics_problem: str
     struphy_model_used: str
     params_source: Path
+    # Post-processing script run (serially) after each simulation, e.g. `pproc_poisson.py`. It is passed
+    # the run's output folder and the `param_flags` of the run, and writes what is to be packaged into
+    # `<sim_dir>/results`. None for no post-processing.
+    pproc_source: Path | None = None
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
     # Whether the packaged results are pushed to the profiling-data repo. Set here rather
@@ -148,8 +152,9 @@ class ProfilingCase:
         Args:
             ntasks: Number of MPI ranks to run `params_source` with.
             param_flags: Extra CLI flags appended to the `params_source` invocation,
-                e.g. `["--ppc", "10"]`. Omit for none. `--id` is always passed on top
-                of these.
+                e.g. `["--ppc", "10"]`. Omit for none. `--out-folder` and `--sim-folder`
+                are always passed on top of these. The `pproc_source` invocation gets
+                the run's output folder and these flags.
             backend: cunumpy backend of the run, "numpy" (CPU) or "cupy" (GPU),
                 exported as CUNUMPY_BACKEND before the simulation.
 
@@ -160,11 +165,22 @@ class ProfilingCase:
         activate_path = self.venv_path / "bin" / "activate"
         # Every run is identified by its launch id alone — nothing in the naming carries
         # the rank count, so two launches that share one stay separate. The rank count is
-        # recorded in the run's `run_metadata.json`. `params_source` is passed the same
-        # counter as `--id` and names its output folder from it.
+        # recorded in the run's `run_metadata.json`. `params_source` is passed the output
+        # folder via `--out-folder` and `--sim-folder`.
         sim_dir = output_root / f"sim_{self.launch_count:02d}"
         python = self.venv_path / "bin" / "python"
-        flags = " ".join(["--id", str(self.launch_count), *(param_flags or [])])
+        param_flags = [shlex.quote(flag) for flag in (param_flags or [])]
+        flags = " ".join(["--out-folder", shlex.quote(str(output_root)), "--sim-folder", sim_dir.name, *param_flags])
+        pproc_commands = (
+            [
+                "",
+                f'echo "Post-processing {self.label} with {self.pproc_source}"',
+                f'STRUPHY_LOG_FILE="{sim_dir / "struphy.log"}" '
+                f'{python} {self.pproc_source} "{sim_dir}" {" ".join(param_flags)} > "{sim_dir / "pproc.out"}" 2>&1',
+            ]
+            if self.pproc_source is not None
+            else []
+        )
 
         return [
             # Environment modules only exist on the clusters, not on a laptop.
@@ -202,6 +218,7 @@ class ProfilingCase:
             # the same file for all of them, racing on log rotation across processes.
             f'STRUPHY_LOG_FILE="{sim_dir / "struphy.log"}" '
             f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
+            *pproc_commands,
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -500,7 +517,7 @@ class ProfilingCase:
         """Copy one finished run's output into the packaged folder.
 
         Everything one run produced goes into a folder of its own,
-        `results-run<launch_id>`: its `.h5` files, anything the parameter file
+        `results-run<launch_id>`: its `.h5` files, anything the pproc script
         post-processed into `sim_<launch_id>/results` (`.png` figures, `.npy` arrays),
         and a `run<launch_id>.json` describing all of it. Only packages what that run
         actually produced, so a run whose job never started (or failed before writing
@@ -547,7 +564,7 @@ class ProfilingCase:
             shutil.copy2(source_h5, run_dir / output_name)
             profiling_data.append(f"{run_dir.name}/{output_name}")
 
-        # Whatever the parameter file post-processed into `sim_dir/results` (figures,
+        # Whatever the pproc script wrote into `sim_dir/results` (figures,
         # small arrays) joins the run's `.h5` files in the same folder.
         results_files = _copy_run_results(sim_dir, run_dir)
         if verbose and results_files:

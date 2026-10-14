@@ -1,9 +1,12 @@
 """Post-process and plot the diocotron instability.
 
-Run as ``python pproc_diocotron.py [sim_1 sim_2 ...]`` to compare several runs; with
-more than one folder only the growth-rate comparison is shown.
+Run as ``python pproc_diocotron.py [sim_1 sim_2 ...] [flags of params_diocotron.py]`` to compare several runs;
+with more than one folder only the growth-rate comparison is shown. With ``--save-results`` (passed by
+``submit_diocotron_strong_scaling.py`` after each profiling run) the figures are written into
+``<sim_folder>/results`` instead of being shown; the profiling packaging uploads them with the run.
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -13,7 +16,12 @@ from matplotlib import pyplot as plt
 
 from struphy import Output
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_OUTPUT = SCRIPT_DIR / "sim_1"
+
+# The flags of the run are parsed by params_diocotron.py (imported from the same command line).
+sys.path.insert(0, str(SCRIPT_DIR))
+import params_diocotron as params  # noqa: E402
 
 # scalar whose exponential growth rate is fitted, and the fit window in Struphy time units
 FIT_QUANTITY = "en_phi"
@@ -67,9 +75,19 @@ def fit_growth(series, window=(None, None)):
     return rate, intercept, time[mask]
 
 
-def main(paths=(DEFAULT_OUTPUT,)):
+def main(paths=(DEFAULT_OUTPUT,), save_results=False):
     runs = [Output(path).pproc(physical=True) for path in paths]
     run = runs[0]
+
+    def show(fig, name):
+        """Show the figure, or with ``save_results`` save it as ``<name>.png`` into the results folder of the run."""
+        if save_results:
+            results_dir = run.path_out / "results"
+            results_dir.mkdir(exist_ok=True)
+            fig.savefig(results_dir / f"{name}.png")
+            plt.close(fig)
+        else:
+            plt.show()
 
     # growth rate of the electrostatic energy, one curve per run
     fig, ax = plt.subplots()
@@ -83,14 +101,14 @@ def main(paths=(DEFAULT_OUTPUT,)):
         print(f"{each.path_out.name}: growth rate = {None if result is None else result[0]}")
     ax.set(xlabel="time", yscale="log", title=f"Evolution of {FIT_QUANTITY}")
     ax.legend()
-    plt.show()
+    show(fig, FIT_QUANTITY)
 
     if len(runs) > 1:
         return
 
     if SHOW_EQUIL_PROFILE:
-        plot_equilibrium(run.path_out)
-        plt.show()
+        fig, _ = plot_equilibrium(run.path_out)
+        show(fig, "equilibrium")
 
     for path in SNAPSHOTS:
         data = product(run, path)
@@ -100,14 +118,29 @@ def main(paths=(DEFAULT_OUTPUT,)):
         fig, ax = plt.subplots()
         snapshot.plot(x="X", y="Y", ax=ax)
         ax.set(aspect="equal", title=f"{'/'.join(path)}, t = {float(snapshot.t):.3g}")
-        plt.show()
+        show(fig, "_".join(path))
 
     orbits = run.evaluate("kinetic_ions/orbits").isel(marker=slice(0, 1000))
     fig, ax = plt.subplots()
     ax.plot(orbits.x, orbits.y, lw=0.5)
     ax.set(xlabel="$x$", ylabel="$y$", title="Marker trajectories", aspect="equal")
-    plt.show()
+    show(fig, "orbits")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or [DEFAULT_OUTPUT])
+    # the flags of the run are parsed by params_diocotron.py, the rest here
+    _, other_flags = params.parser.parse_known_args()
+    parser = argparse.ArgumentParser(description="Plot saved simulation runs.")
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        default=[DEFAULT_OUTPUT],
+        help="Simulation output folders (default: sim_1 beside this script)",
+    )
+    parser.add_argument(
+        "--save-results",
+        action="store_true",
+        help="Save the figures into the results folder of the (first) run instead of showing them.",
+    )
+    args = parser.parse_args(other_flags)
+    main(args.paths, save_results=args.save_results)

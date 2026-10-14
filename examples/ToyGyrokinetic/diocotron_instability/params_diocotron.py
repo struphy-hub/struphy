@@ -18,6 +18,34 @@ to ITG turbulence'
 DOI: 10.1140/epjd/e2014-50180-9
 """
 
+import argparse
+from pathlib import Path
+
+# Command line options
+# `--out-folder` and `--sim-folder` set the output folder; the profiling driver passes its own
+# (see `ProfilingCase.build_commands`). `--setup profiling` selects the profiling setup of
+# submit_diocotron_strong_scaling.py; pproc_diocotron.py takes the same flags.
+# Unknown flags are ignored so the driver can forward other parameters as well.
+# no -h here when imported by the pproc script, which has its own help
+parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
+parser.add_argument(
+    "--out-folder",
+    default=str(Path(__file__).resolve().parent),
+    help="Folder in which the output folder is created (default: beside this file).",
+)
+parser.add_argument("--sim-folder", default="sim_1", help="Name of the output folder.")
+parser.add_argument(
+    "--setup",
+    default="example",
+    choices=["example", "profiling"],
+    help=(
+        "example: 64 x 128 cells, 16 x 16 sorting boxes; profiling: one time step with 128 x 1024 cells and "
+        "256 x 256 sorting boxes."
+    ),
+)
+args, _ = parser.parse_known_args()
+profiling = args.setup == "profiling"
+
 # ------------------
 # Import Struphy API
 # ------------------
@@ -30,8 +58,6 @@ from struphy import set_logging_level
 set_logging_level(logging.INFO)
 
 # For particles:
-from pathlib import Path
-
 import cunumpy as xp
 
 from struphy import (
@@ -76,7 +102,7 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_1", restart=False)
+env = EnvironmentOptions(out_folders=args.out_folder, sim_folder=args.sim_folder, restart=False)
 
 # Time stepping
 time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
@@ -88,7 +114,8 @@ domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
 equil = equils.HomogenSlab()
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(64, 128, 1), mpi_dims_mask=(False, True, False))
+num_elements = (128, 1024, 1) if profiling else (64, 128, 1)
+grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(False, True, False))
 
 # Derham options
 derham_opts = DerhamOptions(
@@ -119,7 +146,8 @@ ppc = 100  # run with 1000 minimum
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="disc")
 weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001)
 boundary_params = BoundaryParameters()
-sorting_params = SortingParameters(boxes_per_dim=(16, 16, 1), do_sort=True, sorting_frequency=5)
+boxes_per_dim = (256, 256, 1) if profiling else (16, 16, 1)
+sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, do_sort=True, sorting_frequency=5)
 
 # density binning
 eta_bin = BinningPlot(slice="e1_e2", n_bins=(128, 128), ranges=((0.0, 1.0), (0.0, 1.0)))
@@ -187,4 +215,5 @@ init = maxwellians.GyroMaxwellian2D(
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":
-    sim.run(profiling_activated=True)
+    # post-processing and plots: pproc_diocotron.py
+    sim.run(profiling_activated=True, one_time_step=profiling)
