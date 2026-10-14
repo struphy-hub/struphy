@@ -3,19 +3,19 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb import cc_lin_mhd_5d_curlb
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing import pusher_kernels_gc
+from struphy.pic.pushing.kernels.push_gc_cc_J1_H1vec import push_gc_cc_J1_H1vec
+from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -117,7 +117,8 @@ class CurrentCoupling5DCurlb(Propagator):
             accumulation kernel.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
-            FEEC space used for the unknown ``u`` variable.
+            FEEC space used for the unknown ``u`` variable. Only ``"Hdiv"`` and
+            ``"H1vec"`` are supported.
 
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used by :class:`SchurSolver`.
@@ -148,6 +149,12 @@ class CurrentCoupling5DCurlb(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
+
+            # the accumulation kernel cc_lin_mhd_5d_curlb only has H1vec and Hdiv branches
+            if self.u_space not in ("Hdiv", "H1vec"):
+                raise ValueError(
+                    f'{self.u_space = } is not supported by CurrentCoupling5DCurlb, choose from "Hdiv" or "H1vec".',
+                )
 
             # defaults
             if self.solver_params is None:
@@ -203,7 +210,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._ACC = Accumulator(
             self.variables.energetic_ions.particles,
             self.options.u_space,
-            PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_curlb),
+            cc_lin_mhd_5d_curlb,
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -227,15 +234,13 @@ class CurrentCoupling5DCurlb(Propagator):
         )
 
         # define Pusher
-        if self.options.u_space == "Hcurl":
-            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
-        elif self.options.u_space == "Hdiv":
-            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
+        if self.options.u_space == "Hdiv":
+            pusher_kernel = push_gc_cc_J1_Hdiv
         elif self.options.u_space == "H1vec":
-            pusher_kernel = PyccelKernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
+            pusher_kernel = push_gc_cc_J1_H1vec
         else:
             raise ValueError(
-                f'{self.options.u_space  =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
             )
 
         args_pusher_kernel = (
@@ -281,7 +286,8 @@ class CurrentCoupling5DCurlb(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self.b_tilde.spline.vector
+        if self.b_tilde is not None:
+            b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         self._ACC(

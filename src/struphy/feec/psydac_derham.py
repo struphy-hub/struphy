@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
 import logging
+from weakref import WeakValueDictionary
 
 import cunumpy as xp
 import feectools.core.bsplines as bsp
 import numpy as np
 from feectools.ddm.cart import DomainDecomposition
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
 from feectools.feec.derivatives import Curl3D, Divergence3D, Gradient3D
 from feectools.feec.global_geometric_projectors import (
     GlobalGeometricProjector,
@@ -24,10 +23,17 @@ from feectools.fem.tensor import TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockVector, BlockVectorSpace
+from feectools.linalg.kernels.stencil_axpy_3d import stencil_axpy_3d
+from feectools.linalg.kernels.stencil_dot_3d import stencil_dot_3d
+from feectools.linalg.kernels.stencil_inner_3d import stencil_inner_3d
+from feectools.linalg.kernels.stencil_transpose_3d import stencil_transpose_3d
 from feectools.linalg.stencil import StencilVector, StencilVectorSpace
+from maybempi import MPI, SerialComm
 
-from struphy.bsplines import evaluation_kernels_3d as eval_3d
-from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+from struphy.bsplines.kernels.eval_spline_mpi_markers import eval_spline_mpi_markers
+from struphy.bsplines.kernels.eval_spline_mpi_matrix import eval_spline_mpi_matrix
+from struphy.bsplines.kernels.eval_spline_mpi_sparse_meshgrid import eval_spline_mpi_sparse_meshgrid
+from struphy.bsplines.kernels.eval_spline_mpi_tensor_product_fixed import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
@@ -39,11 +45,15 @@ from struphy.initial import perturbations
 from struphy.initial.base import Perturbation
 from struphy.initial.perturbations import Noise
 from struphy.io.options import DerhamOptions, FieldsBackground, LiteralOptions
+from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.utils import check_option
 
 NonTrivialBC = LiteralOptions.OptsNonTrivialBoundaryCondition
 space_to_form = {
@@ -55,14 +65,6 @@ space_to_form = {
 }
 
 logger = logging.getLogger("struphy")
-
-
-def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for compiled kernel calls."""
-    if hasattr(value, "get"):
-        # This is a CuPy array
-        return value.get()
-    return value
 
 
 class DiscreteDerham:
@@ -423,7 +425,8 @@ class SplineAttributes1D:
             self._quad_grid_spans[-1] = tuple(self.quad_grid_spans[-1])
             self._quad_grid_bases[-1] = tuple(self.quad_grid_bases[-1])
 
-            self._spline_types_pyccel[-1] = xp.array(
+            # inputs of pyccel kernels, kept on the host
+            self._spline_types_pyccel[-1] = np.array(
                 self._spline_types_pyccel[-1],
             )
 
@@ -485,7 +488,7 @@ class SplineAttributes1D:
         return self._spline_types
 
     @property
-    def spline_types_pyccel(self) -> tuple[xp.ndarray]:
+    def spline_types_pyccel(self) -> tuple[np.ndarray]:
         """Tuple of spline types in each direction as integers (0 for 'B', 1 for 'M') for each component of the vector space."""
         return self._spline_types_pyccel
 
@@ -568,6 +571,11 @@ class Derham:
     domain : Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
+    domain_decomposition : DomainDecomposition, optional
+        Prescribed MPI decomposition of the elements, e.g. ``fine_derham.domain_decomposition.coarsen(...)``
+        for an aligned multigrid level. Must match ``grid.num_elements`` and the periodicity from ``options.bcs``,
+        and be built on ``comm``. If None (default), it is computed from ``comm`` and ``grid.mpi_dims_mask``.
+
     Notes
     -----
     The underlying base sequence is
@@ -584,6 +592,8 @@ class Derham:
         options: DerhamOptions,
         comm: MPI.Intracomm = None,
         domain: Domain = None,
+        *,
+        domain_decomposition: DomainDecomposition | None = None,
     ):
 
         # inputs
@@ -608,6 +618,10 @@ class Derham:
         polar_splines = options.polar_splines
         # local commuting projectors
         local_projectors = options.local_projectors
+        if local_projectors and (xp.get_backend() == "cupy"):
+            raise NotImplementedError(
+                "Local projectors (DerhamOptions.local_projectors=True) are not supported on the CuPy backend yet."
+            )
 
         # number of elements and spline degrees in each direction
         assert len(num_elements) == 3
@@ -657,6 +671,9 @@ class Derham:
         # smoothness at the polar singularity: default False for standard tensor product splines, or True for C1 polar splines
         self._polar_splines = polar_splines
 
+        # solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections
+        self._polar_poloidal_solver = options.polar_poloidal_solver
+
         # Other derived properties
         self._mpi_dims_mask = mpi_dims_mask
         with_projectors = True  # projectors are always built in the current implementation, but this flag can be used to skip their construction if not needed
@@ -681,6 +698,7 @@ class Derham:
             comm=self.comm,
             mpi_dims_mask=mpi_dims_mask,
             use_feectools=use_feectools,
+            domain_decomposition=domain_decomposition,
         )
 
         # FEM spaces
@@ -792,6 +810,8 @@ class Derham:
             assert self.domain is not None
             self._ck_blocks = PolarExtractionBlocksC1(self.domain, self)
 
+        # Polar spaces share live factors; obsolete mass-weight factors are not retained.
+        self._polar_factorization_cache = WeakValueDictionary()
         V0pol, V1pol, V2pol, V3pol, Vvpol = self._assemble_polar_extraction_operators()
 
         self._V0pol = V0pol
@@ -817,6 +837,7 @@ class Derham:
 
         # exterior derivatives TODO: disentagle tensor from polar spaces
         self._grad, self._curl, self._div = derham.derivatives_as_matrices
+        self._grad_tp, self._curl_tp, self._div_tp = self._grad, self._curl, self._div
 
         if self.polar_splines:
             self._grad = PolarLinearOperator(
@@ -899,13 +920,13 @@ class Derham:
 
         self._neighbours = self._get_neighbours()
 
-        # collect arguments for kernels
-        self._args_derham = DerhamArguments(
-            _to_numpy_for_kernel(xp.array(self.degree)),
-            _to_numpy_for_kernel(self.V0fem.knots[0]),
-            _to_numpy_for_kernel(self.V0fem.knots[1]),
-            _to_numpy_for_kernel(self.V0fem.knots[2]),
-            _to_numpy_for_kernel(xp.array(self.V0.starts)),
+        # collect arguments for kernels (the knots of feectools are host arrays on every array backend):
+        # the pyccel class on the NumPy backend, its CUDA version on the CuPy backend
+        args_class = CudaDerhamArguments if xp.get_backend() == "cupy" else DerhamArguments
+        self._args_derham = args_class(
+            xp.asarray(self.degree, dtype=xp.int64),
+            *(xp.asarray(t) for t in self.V0fem.knots),
+            xp.asarray(self.V0.starts, dtype=xp.int64),
         )
 
         logger.debug("\nDERHAM:")
@@ -991,6 +1012,11 @@ class Derham:
     def polar_splines(self) -> bool:
         """C^k smoothness at eta_1=0. Is False for standard tensor product splines and True for C^1 polar splines."""
         return self._polar_splines
+
+    @property
+    def polar_poloidal_solver(self) -> str:
+        """Solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections ("schur", "lu" or "ilu")."""
+        return self._polar_poloidal_solver
 
     @property
     def with_local_projectors(self) -> bool:
@@ -1477,9 +1503,42 @@ class Derham:
         return self._div_bcfree
 
     @property
-    def args_derham(self):
-        """Collection of mandatory arguments for pusher kernels."""
+    def grad_tp(self):
+        """Discrete gradient on the tensor-product spaces (no polar splines, no boundary operator)."""
+        return self._grad_tp
+
+    @property
+    def curl_tp(self):
+        """Discrete curl on the tensor-product spaces (no polar splines, no boundary operator)."""
+        return self._curl_tp
+
+    @property
+    def div_tp(self):
+        """Discrete divergence on the tensor-product spaces (no polar splines, no boundary operator)."""
+        return self._div_tp
+
+    @property
+    def args_derham(self) -> DerhamArguments | CudaDerhamArguments:
+        """Mandatory pusher kernel arguments for the backend used at initialization."""
         return self._args_derham
+
+    def kernels(self) -> tuple:
+        """The kernels called on the data of this complex.
+
+        The spline evaluation kernels of :class:`SplineFunction` (at markers, on meshgrids and on
+        sparse meshgrids) and the feectools kernels of the 3D stencil data (matrix-vector product,
+        transpose, inner product, axpy), which the FEEC operators and solvers call. Used by
+        :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (
+            eval_spline_mpi_markers,
+            eval_spline_mpi_matrix,
+            eval_spline_mpi_sparse_meshgrid,
+            stencil_dot_3d,
+            stencil_transpose_3d,
+            stencil_inner_3d,
+            stencil_axpy_3d,
+        )
 
     # --------------------------
     #      methods:
@@ -1515,6 +1574,7 @@ class Derham:
         comm=None,
         mpi_dims_mask: tuple[bool, bool, bool] = None,
         use_feectools: bool = True,
+        domain_decomposition: DomainDecomposition | None = None,
     ) -> DiscreteDerham:
         """Return a discrete Derham complex. Allows for the use of tiny-feectools.
 
@@ -1538,12 +1598,29 @@ class Derham:
 
         use_feectools: bool
             Use slimmed-down fork `feectools` of Psydac.
+
+        domain_decomposition : DomainDecomposition, optional
+            Prescribed decomposition of the elements; if None, it is computed from ``comm`` and ``mpi_dims_mask``.
         """
 
         if use_feectools:
-            self._domain_decomposition = DomainDecomposition(
-                num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask
-            )
+            if domain_decomposition is None:
+                self._domain_decomposition = DomainDecomposition(
+                    num_elements, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask
+                )
+            else:
+                assert tuple(domain_decomposition.ncells) == tuple(num_elements), (
+                    f"{domain_decomposition.ncells = } does not match {num_elements = }."
+                )
+                assert tuple(domain_decomposition.periods) == tuple(spl_kind), (
+                    f"{domain_decomposition.periods = } does not match {spl_kind = }."
+                )
+                if domain_decomposition.comm is not None and comm is not None:
+                    # (comm is None in the decomposition when feectools runs serially)
+                    assert domain_decomposition.comm == comm, (
+                        "domain_decomposition must be built on the Derham communicator."
+                    )
+                self._domain_decomposition = domain_decomposition
 
             _derham = self._discretize_derham(
                 num_elements,
@@ -1596,6 +1673,7 @@ class Derham:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        projection: LiteralOptions.OptsInitProjection = "commuting",
     ):
         """Creat a callable spline function.
 
@@ -1621,6 +1699,10 @@ class Derham:
 
         equil : FLuidEquilibrium
             Fluid background used for inital condition.
+
+        projection : str
+            Projection of the initial condition into the spline space: "commuting" (the commuting
+            projector, default) or "L2" (the L2-orthogonal projection).
         """
         return SplineFunction(
             name,
@@ -1631,6 +1713,7 @@ class Derham:
             perturbations=perturbations,
             domain=domain,
             equil=equil,
+            projection=projection,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -1778,7 +1861,7 @@ class Derham:
         )
 
         # Create uniform grid
-        grids = [xp.linspace(xmin, xmax, num=ne + 1) for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+        grids = [np.linspace(xmin, xmax, num=ne + 1) for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces_1d = [
@@ -1879,6 +1962,7 @@ class Derham:
                     dofs_extraction_op=self._dofs_extraction_ops[sp_form],
                     base_extraction_op=self._extraction_ops[sp_form],
                     boundary_op=self.boundary_ops[sp_form],
+                    poloidal_solver=self.polar_poloidal_solver,
                 )
             )
         return tuple(tmp)
@@ -1925,11 +2009,11 @@ class Derham:
         else:
             nproc = 1
 
-        # send buffer
-        dom_arr_loc = xp.zeros(9, dtype=float)
+        # send buffer (MPI buffers are host arrays on every array backend)
+        dom_arr_loc = np.zeros(9, dtype=float)
 
         # main array (receive buffers)
-        dom_arr = xp.zeros(nproc * 9, dtype=float)
+        dom_arr = np.zeros(nproc * 9, dtype=float)
 
         # Get global starts and ends of domain decomposition
         gl_s = self.domain_decomposition.starts
@@ -1942,12 +2026,12 @@ class Derham:
             dom_arr_loc[3 * n + 2] = el_end - el_sta + 1
 
         # distribute
-        if not isinstance(self.comm, (MockComm, type(None))):
+        if not isinstance(self.comm, (SerialComm, type(None))):
             self.comm.Allgather(dom_arr_loc, dom_arr)
         else:
             dom_arr[:] = dom_arr_loc
 
-        return dom_arr.reshape(nproc, 9)
+        return xp.asarray(dom_arr.reshape(nproc, 9))
 
     def _get_index_array(self, decomposition):
         """
@@ -1967,16 +2051,16 @@ class Derham:
         """
 
         # MPI info
-        if not isinstance(self.comm, (MockComm, type(None))):
+        if not isinstance(self.comm, (SerialComm, type(None))):
             nproc = self.comm.Get_size()
         else:
             nproc = 1
 
-        # send buffer
-        ind_arr_loc = xp.zeros(6, dtype=int)
+        # send buffer (MPI buffers are host arrays on every array backend)
+        ind_arr_loc = np.zeros(6, dtype=int)
 
         # main array (receive buffers)
-        ind_arr = xp.zeros(nproc * 6, dtype=int)
+        ind_arr = np.zeros(nproc * 6, dtype=int)
 
         # Get global starts and ends of cart OR domain decomposition
         gl_s = decomposition.starts
@@ -1988,12 +2072,12 @@ class Derham:
             ind_arr_loc[2 * n + 1] = end
 
         # distribute
-        if not isinstance(self.comm, (MockComm, type(None))):
+        if not isinstance(self.comm, (SerialComm, type(None))):
             self.comm.Allgather(ind_arr_loc, ind_arr)
         else:
             ind_arr[:] = ind_arr_loc
 
-        return ind_arr.reshape(nproc, 6)
+        return xp.asarray(ind_arr.reshape(nproc, 6))
 
     def _get_neighbours(self):
         """
@@ -2025,7 +2109,7 @@ class Derham:
             neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index.
         """
 
-        neighs = xp.empty((3, 3, 3), dtype=int)
+        neighs = np.empty((3, 3, 3), dtype=int)
 
         for i in range(3):
             for j in range(3):
@@ -2034,7 +2118,7 @@ class Derham:
                     ind = tuple(comp)
                     neighs[ind] = self._get_neighbour_one_component(comp)
 
-        return neighs
+        return xp.asarray(neighs)
 
     def _get_neighbour_one_component(self, comp):
         """
@@ -2070,8 +2154,9 @@ class Derham:
         if comp == [1, 1, 1]:
             return neigh_id
 
-        comp = xp.array(comp)
-        kinds = xp.array(kinds)
+        # computed on the host: the start/end indices below are an object array (with None entries)
+        comp = np.array(comp)
+        kinds = np.array(kinds)
 
         # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
         if size == 1:
@@ -2084,12 +2169,13 @@ class Derham:
             # elements with index 2n are the starts and 2n + 1 are the ends.
 
             neigh_inds = [None] * 6
+            index_array = xp.to_numpy(self.index_array)
 
             # in each direction find start/end index for neighbour
             for k, co in enumerate(comp):
                 if co == 1:
-                    neigh_inds[2 * k + 0] = self.index_array[rank, 2 * k + 0]
-                    neigh_inds[2 * k + 1] = self.index_array[rank, 2 * k + 1]
+                    neigh_inds[2 * k + 0] = index_array[rank, 2 * k + 0]
+                    neigh_inds[2 * k + 1] = index_array[rank, 2 * k + 1]
 
                 elif co == 0:
                     neigh_inds[2 * k + 1] = gl_s[k] - 1
@@ -2106,15 +2192,15 @@ class Derham:
                         "Wrong value for component; must be 0 or 1 or 2 !",
                     )
 
-            neigh_inds = xp.array(neigh_inds)
+            neigh_inds = np.array(neigh_inds)
 
             # only use indices where information is present to find the neighbours rank
-            inds = xp.where(xp.not_equal(neigh_inds, None))
+            inds = np.where(np.not_equal(neigh_inds, None))
 
             # find ranks (row index of domain_array) which agree in start/end indices
-            index_temp = xp.squeeze(self.index_array[:, inds])
-            unique_ranks = xp.where(
-                xp.equal(index_temp, neigh_inds[inds]).all(1),
+            index_temp = np.squeeze(index_array[:, inds])
+            unique_ranks = np.where(
+                np.equal(index_temp, neigh_inds[inds]).all(1),
             )[0]
 
             # if any row satisfies condition, return its index (=rank of neighbour)
@@ -2158,14 +2244,16 @@ class Derham:
         from struphy.bsplines import bsplines_kernels
 
         # Extract knot vectors, degree and kind of basis
-        Tn = Nspace.knots
+        Tn = xp.to_numpy(Nspace.knots)
         pn = Nspace.degree
 
-        spans = xp.zeros(etas.size, dtype=int)
-        bns = xp.zeros((etas.size, pn + 1), dtype=float)
-        bds = xp.zeros((etas.size, pn), dtype=float)
-        bn = xp.zeros(pn + 1, dtype=float)
-        bd = xp.zeros(pn, dtype=float)
+        # setup: computed point by point with the pyccel helpers on the host, then copied to the active backend once
+        etas = xp.to_numpy(etas)
+        spans = np.zeros(etas.size, dtype=int)
+        bns = np.zeros((etas.size, pn + 1), dtype=float)
+        bds = np.zeros((etas.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
 
         for n in range(etas.size):
             # avoid 1. --> 0. for clamped interpolation
@@ -2179,7 +2267,7 @@ class Derham:
             bns[n] = bn
             bds[n] = bd
 
-        return spans, bns, bds
+        return xp.to_cunumpy(spans), xp.to_cunumpy(bns), xp.to_cunumpy(bds)
 
 
 class SplineFunction:
@@ -2211,6 +2299,11 @@ class SplineFunction:
 
     equil : FluidEquilibrium
         Fluid background used for inital condition.
+
+    projection : str
+        Projection of the initial condition into the spline space: "commuting" (the commuting
+        projector of the Derham, default) or "L2" (the L2-orthogonal projection,
+        :class:`~struphy.feec.mass.L2Projector`, needs ``domain``).
     """
 
     def __init__(
@@ -2223,7 +2316,10 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        projection: LiteralOptions.OptsInitProjection = "commuting",
     ):
+        check_option(projection, LiteralOptions.OptsInitProjection)
+        self._projection = projection
         self._name = name
         self._space_id = space_id
         self._derham = derham
@@ -2262,6 +2358,22 @@ class SplineFunction:
 
         # dimensions in each direction
         self._nbasis = derham.spline_attributes[space_id].nbasis
+
+        # arguments of the evaluation kernels, one SplineArguments per component: the pyccel class on NumPy,
+        # the CUDA class on CuPy
+        args_class = CudaSplineArguments if xp.get_backend() == "cupy" else SplineArguments
+        degree = np.asarray(derham.degree, dtype=np.int64)
+        if xp.get_backend() == "cupy" and np.any((degree < 1) | (degree > 8)):
+            raise ValueError("CUDA spline degrees must be between 1 and 8.")
+        pn = xp.asarray(degree)
+        # the knots are host arrays; cupy.ascontiguousarray does not take NumPy arrays, xp.asarray copies them
+        knots = tuple(xp.asarray(np.ascontiguousarray(t, dtype=float)) for t in derham.V0fem.knots)
+        starts = (self.starts,) if isinstance(self._vector_stencil, StencilVector) else self.starts
+        kinds = derham.spline_attributes[self.space_key].spline_types_pyccel
+        self._args_spline = tuple(
+            args_class(xp.asarray(kind, dtype=xp.int64), pn, *knots, xp.asarray(start, dtype=xp.int64))
+            for kind, start in zip(kinds, starts)
+        )
 
         logger.debug(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
@@ -2440,6 +2552,29 @@ class SplineFunction:
         if update_ghost_regions:
             self._vector_stencil.update_ghost_regions()
 
+    @property
+    def projection(self) -> str:
+        """Projection of the initial condition into the spline space ("commuting" or "L2")."""
+        return self._projection
+
+    def _project(self, fun, domain: Domain):
+        """Coefficients of the projection of the p-form proxy ``fun`` (callable or list of callables)."""
+        if self._projection == "commuting":
+            return self.derham.projectors[self.space_key](fun)
+
+        # avoid circular imports
+        from struphy.feec.mass import L2Projector, WeightedMassOperators
+        from struphy.linear_algebra.solver import SolverParameters
+
+        assert domain is not None, "The L2 projection of the initial condition needs the domain."
+        if getattr(self, "_l2_projector", None) is None:
+            self._l2_projector = L2Projector(
+                self.space_id,
+                WeightedMassOperators(self.derham, domain),
+                solver_params=SolverParameters(tol=1e-14, maxiter=3000),
+            )
+        return self._l2_projector(fun, apply_bc=True)
+
     def initialize_coeffs(
         self,
         *,
@@ -2475,6 +2610,11 @@ class SplineFunction:
 
         if isinstance(self.perturbations, Perturbation):
             self._perturbations = [self.perturbations]
+
+        # fall back to domain/equilibrium given at instantiation
+        domain = self.domain
+        if equil is None:
+            equil = self.equil
 
         # start from zero coeffs
         self._vector *= 0.0
@@ -2534,7 +2674,7 @@ class SplineFunction:
                         ]
 
                 # perform projection
-                self.vector += self.derham.projectors[self.space_key](fun)
+                self.vector += self._project(fun, domain)
 
         # add perturbations to coefficient vector
         if self.perturbations is not None:
@@ -2582,7 +2722,7 @@ class SplineFunction:
                             ]
 
                     # peform projection
-                    self.vector += self.derham.projectors[self.space_key](fun)
+                    self.vector += self._project(fun, domain)
 
                 # TODO: re-add Eigfun and InitFromOutput in new framework
 
@@ -2631,15 +2771,58 @@ class SplineFunction:
 
     def initialize_coeffs_from_restart_file(self, file, key):
         """
-        TODO
+        Set self.vector from the restart data in the hdf5 file.
+
+        The restart data holds the tensor-product coefficients self.vector_stencil (E^T applied to self.vector).
+        In case of a PolarVector, the tp part is read from the outer rings and the polar coeffs are recovered
+        from the inner "polar rings" with the (exact) left inverse of E^T.
         """
-        if isinstance(self.vector, StencilVector):
-            self.vector._data[:] = file[key][-1]
+        is_polar = isinstance(self.vector, PolarVector)
+        vec = self._vector_stencil if is_polar else self._vector
+
+        if isinstance(vec, StencilVector):
+            vec._data[:] = file[key][-1]
         else:
             for n in range(3):
-                self.vector[n]._data[:] = file[key + "/" + str(n + 1)][-1]
+                vec[n]._data[:] = file[key + "/" + str(n + 1)][-1]
+
+        if is_polar:
+            self._restart_extraction_op().dot(vec, out=self._vector)
 
         self._vector.update_ghost_regions()
+
+    def _restart_extraction_op(self):
+        """PolarExtractionOperator mapping self.vector_stencil back to self.vector (left inverse of self.ET)."""
+        from scipy.sparse import csr_matrix
+
+        E = self.derham.extraction_ops[self.space_key]
+        W = self.vector.space
+        n_comps = W.n_comps
+
+        # stack blocks of E (polar coeffs x polar rings); incompatible blocks (None) are zero
+        # (host setup data on every backend, like the blocks of E)
+        rows = np.cumsum([0] + list(W.n_polar))
+        cols = np.cumsum([0] + [n_r * n_2 for n_r, n_2 in zip(W.n_rings, W.n2)])
+        E_full = np.zeros((rows[-1], cols[-1]), dtype=float)
+        for m in range(n_comps):
+            for n in range(n_comps):
+                if E.blocks_ten_to_pol[m][n] is not None:
+                    E_full[rows[m] : rows[m + 1], cols[n] : cols[n + 1]] = E.blocks_ten_to_pol[m][n].toarray()
+
+        # E^T has full column rank, hence pinv(E^T) @ E^T = identity on polar coeffs
+        L_full = np.linalg.pinv(E_full.T)
+
+        blocks = [
+            [
+                None
+                if E.blocks_ten_to_pol[m][n] is None
+                else csr_matrix(L_full[rows[m] : rows[m + 1], cols[n] : cols[n + 1]])
+                for n in range(n_comps)
+            ]
+            for m in range(n_comps)
+        ]
+
+        return PolarExtractionOperator(self.space, W, blocks_ten_to_pol=blocks)
 
     def eval_tp_fixed_loc(self, spans, bases, out=None):
         """Spline evaluation on pre-defined grid.
@@ -2673,15 +2856,9 @@ class SplineFunction:
             else:
                 assert out.shape == tuple([span.size for span in spans])
 
-            eval_spline_mpi_tensor_product_fixed(
-                *spans,
-                *bases,
-                vec._data,
-                self.derham.spline_attributes[self.space_key].spline_types_pyccel[0],
-                xp.array(self.derham.degree),
-                xp.array(self.starts),
-                out,
-            )
+            args = self._args_spline[0]
+            kind, pn, starts = args.kind, args.pn, args.starts
+            eval_spline_mpi_tensor_product_fixed(*spans, *bases, vec._data, kind, pn, starts, out, n_threads=out.size)
 
         else:
             out_is_none = False
@@ -2693,27 +2870,21 @@ class SplineFunction:
                 assert [span.size for span in spans] == [base.shape[0] for base in bases[i]]
 
                 if out_is_none:
-                    out += xp.empty(
-                        [span.size for span in spans],
-                        dtype=float,
+                    out.append(
+                        xp.empty(
+                            [span.size for span in spans],
+                            dtype=float,
+                        ),
                     )
                 else:
                     assert out[i].shape == tuple(
                         [span.size for span in spans],
                     )
 
+                args = self._args_spline[i]
+                kind, pn, starts = args.kind, args.pn, args.starts
                 eval_spline_mpi_tensor_product_fixed(
-                    *spans,
-                    *bases[i],
-                    vec[i]._data,
-                    self.derham.spline_attributes[self.space_key].spline_types_pyccel[i],
-                    xp.array(
-                        self.derham.degree,
-                    ),
-                    xp.array(
-                        self.starts[i],
-                    ),
-                    out[i],
+                    *spans, *bases[i], vec[i]._data, kind, pn, starts, out[i], n_threads=out[i].size
                 )
 
         return out
@@ -2753,17 +2924,15 @@ class SplineFunction:
         # extract coefficients and update ghost regions
         self.extract_coeffs(update_ghost_regions=True)
 
-        # get knot vectors
-        T1, T2, T3 = self.derham.V0fem.knots
-
         # marker evaluation
         if len(etas) == 1:
             marker_evaluation = True
             is_sparse_meshgrid = False
-            markers = etas[0]
-            assert markers.ndim == 2
+            assert etas[0].ndim == 2
+            # copy positions, such that flagging does not modify the caller's array
+            markers = xp.array(etas[0][:, :3], dtype=float)
             self._flag_pts_not_on_proc(markers)
-            tmp_shape = markers.shape[0]
+            tmp_shape = (markers.shape[0],)
         # 3D meshgrid evaluation
         else:
             marker_evaluation = False
@@ -2794,46 +2963,34 @@ class SplineFunction:
 
             if is_sparse_meshgrid:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_sparse_meshgrid(
+                eval_spline_mpi_sparse_meshgrid(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    self._args_spline[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             elif marker_evaluation:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_markers(
+                eval_spline_mpi_markers(
                     markers,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    self._args_spline[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
             else:
                 # eval_mpi needs flagged arrays E1, E2, E3 as input
-                eval_3d.eval_spline_mpi_matrix(
+                eval_spline_mpi_matrix(
                     E1,
                     E2,
                     E3,
                     self._vector_stencil._data,
-                    kind,
-                    xp.array(self.derham.degree),
-                    T1,
-                    T2,
-                    T3,
-                    xp.array(self.starts),
+                    self._args_spline[0],
                     tmp,
+                    n_threads=tmp.size,
                 )
 
             if self.derham.comm is not None:
@@ -2848,8 +3005,8 @@ class SplineFunction:
             if out is None:
                 out = tmp
             else:
-                out *= 0.0
-                out += tmp
+                # assign (not 'out *= 0'), since NaN/inf in an uninitialized out would survive
+                out[...] = tmp
 
             if squeeze_out:
                 out = xp.squeeze(out)
@@ -2866,46 +3023,34 @@ class SplineFunction:
                 logger.debug(f"{self.space_id = }, {kind = }")
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_sparse_meshgrid(
+                    eval_spline_mpi_sparse_meshgrid(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        self._args_spline[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 elif marker_evaluation:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_markers(
+                    eval_spline_mpi_markers(
                         markers,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        self._args_spline[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_matrix(
+                    eval_spline_mpi_matrix(
                         E1,
                         E2,
                         E3,
                         self._vector_stencil[n]._data,
-                        kind,
-                        xp.array(self.derham.degree),
-                        T1,
-                        T2,
-                        T3,
-                        xp.array(self.starts[n]),
+                        self._args_spline[n],
                         tmp,
+                        n_threads=tmp.size,
                     )
 
                 if self.derham.comm is not None:
@@ -2920,16 +3065,15 @@ class SplineFunction:
                 if out_is_None:
                     out += [tmp.copy()]
                 else:
-                    out[n] *= 0.0
-                    out[n] += tmp
+                    out[n][...] = tmp
 
                 tmp[:] = 0.0
 
                 if squeeze_out:
-                    out[-1] = xp.squeeze(out[-1])
+                    out[n] = xp.squeeze(out[n])
 
-                if out[-1].ndim == 0:
-                    out[-1] = out[-1].item()
+                if out[n].ndim == 0:
+                    out[n] = out[n].item()
 
         return out
 
@@ -2944,6 +3088,7 @@ class SplineFunction:
             perturbations=self.perturbations,
             domain=self.domain,
             equil=self.equil,
+            projection=self.projection,
         )
 
     #######################
@@ -2971,35 +3116,41 @@ class SplineFunction:
         if len(etas) == 1:
             markers = etas[0]
 
-            # check which particles are on the current process domain
+            # check which particles are on the current process domain;
+            # intervals are half-open [start, end) such that points on internal breaks are counted once
+            ends = dom_arr[rank, 1::3]
             is_on_proc_domain = xp.logical_and(
                 markers[:, :3] >= dom_arr[rank, 0::3],
-                markers[:, :3] <= dom_arr[rank, 1::3],
+                xp.where(ends == 1.0, markers[:, :3] <= ends, markers[:, :3] < ends),
             )
             on_proc = xp.all(is_on_proc_domain, axis=1)
 
-            markers[~on_proc, :] = -1.0
+            xp.copyto(markers, -1.0, where=~on_proc[:, None])
 
         # 3D meshgrid evaluation
         else:
             assert len(etas) == 3
             E1, E2, E3 = etas
-            # check if eval points are "interior points" in domain_array; if so, add small offset
+            # check if eval points are "interior points" in domain_array; if so, add small offset.
+            # The bounds are compared as host floats: with the device array each `if` would wait for the device.
+            if not hasattr(self, "_domain_array_host"):
+                self._domain_array_host = xp.to_numpy(dom_arr)
+            dom_arr = self._domain_array_host
 
             if dom_arr[rank, 0] != 0.0:
-                E1[E1 == dom_arr[rank, 0]] += 1e-8
+                E1 += 1e-8 * (E1 == dom_arr[rank, 0])
             if dom_arr[rank, 1] != 1.0:
-                E1[E1 == dom_arr[rank, 1]] += 1e-8
+                E1 += 1e-8 * (E1 == dom_arr[rank, 1])
 
             if dom_arr[rank, 3] != 0.0:
-                E2[E2 == dom_arr[rank, 3]] += 1e-8
+                E2 += 1e-8 * (E2 == dom_arr[rank, 3])
             if dom_arr[rank, 4] != 1.0:
-                E2[E2 == dom_arr[rank, 4]] += 1e-8
+                E2 += 1e-8 * (E2 == dom_arr[rank, 4])
 
             if dom_arr[rank, 6] != 0.0:
-                E3[E3 == dom_arr[rank, 6]] += 1e-8
+                E3 += 1e-8 * (E3 == dom_arr[rank, 6])
             if dom_arr[rank, 7] != 1.0:
-                E3[E3 == dom_arr[rank, 7]] += 1e-8
+                E3 += 1e-8 * (E3 == dom_arr[rank, 7])
 
             # True for eval points on current process
             E1_on_proc = xp.logical_and(
@@ -3015,10 +3166,10 @@ class SplineFunction:
                 E3 <= dom_arr[rank, 7],
             )
 
-            # flag eval points not on current process
-            E1[~E1_on_proc] = -1.0
-            E2[~E2_on_proc] = -1.0
-            E3[~E3_on_proc] = -1.0
+            # flag eval points not on current process (masked writes without a device sync)
+            xp.copyto(E1, -1.0, where=~E1_on_proc)
+            xp.copyto(E2, -1.0, where=~E2_on_proc)
+            xp.copyto(E3, -1.0, where=~E3_on_proc)
 
     def _add_noise(
         self,
@@ -3441,18 +3592,16 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
     histopol_loc = space_1d.histopolation_grid[start : end + 2].copy()
 
     # make sure that greville points used for interpolation are in [0, 1]
-    # Use numpy for comparison since greville points are NumPy arrays
-    greville_loc_np = greville_loc.get() if hasattr(greville_loc, "get") else greville_loc
-    assert np.all(np.logical_and(greville_loc_np >= 0.0, greville_loc_np <= 1.0))
+    assert np.all(np.logical_and(greville_loc >= 0.0, greville_loc <= 1.0))
 
     # interpolation
     if space_1d.basis == "B":
         x_grid = greville_loc
         pts = greville_loc[:, None]
-        wts = xp.ones(pts.shape, dtype=float)
+        wts = np.ones(pts.shape, dtype=float)
 
         # sub-interval index is always 0 for interpolation.
-        subs = xp.zeros(pts.shape[0], dtype=int)
+        subs = np.zeros(pts.shape[0], dtype=int)
 
         # !! shift away first interpolation point in eta_1 direction for polar domains !!
         if pts[0] == 0.0 and polar_shift:
@@ -3466,32 +3615,32 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        # tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
-        #     xp.round(union_breaks, decimals=14),
+        # tmp = set(np.round(space_1d.histopolation_grid, decimals=14)).union(
+        #     np.round(union_breaks, decimals=14),
         # )
         # tmp = list(tmp)
         # tmp.sort()
-        # tmp_a = xp.array(tmp)
+        # tmp_a = np.array(tmp)
 
-        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14).tolist()).union(
-            xp.round(union_breaks, decimals=14).tolist()
+        tmp = set(np.round(space_1d.histopolation_grid, decimals=14).tolist()).union(
+            np.round(union_breaks, decimals=14).tolist()
         )
         tmp = sorted(tmp)
-        tmp_a = xp.array(tmp)
+        tmp_a = np.array(tmp)
 
         x_grid = tmp_a[
-            xp.logical_and(
+            np.logical_and(
                 tmp_a
-                >= xp.min(
+                >= np.min(
                     histopol_loc,
                 )
                 - 1e-14,
-                tmp_a <= xp.max(histopol_loc) + 1e-14,
+                tmp_a <= np.max(histopol_loc) + 1e-14,
             )
         ]
 
         # determine subinterval index (= 0 or 1):
-        subs = xp.zeros(x_grid[:-1].size, dtype=int)
+        subs = np.zeros(x_grid[:-1].size, dtype=int)
         for n, x_h in enumerate(x_grid[:-1]):
             add = 1
             for x_g in histopol_loc:
@@ -3506,12 +3655,6 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
         pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
-        if "cupy" in xp.__name__:
-            import cupy as cp
-
-            pts_loc = cp.array(pts_loc)
-            wts_loc = cp.array(wts_loc)
-
         x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
 
         pts = x % 1.0
@@ -3523,7 +3666,7 @@ def get_pts_and_wts_quasi(
     space_1d: SplineSpace,
     *,
     polar_shift: bool = False,
-) -> tuple[xp.ndarray, xp.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     r"""Obtain local projection point sets and weights in one grid direction for the quasi-interpolation method.
     The quasi-interpolation points are :math:`\nu - \mu +p` equidistant points :math:`\{ x^i_j \}_{0 \leq j < \nu - \mu +p}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
 
@@ -3571,12 +3714,12 @@ def get_pts_and_wts_quasi(
         # interpolation
         if space_1d.basis == "B":
             if degree == 1 and h != 1.0:
-                x_grid = xp.linspace(-(degree - 1) * h, 1.0 - h + (h / 2.0), (N + degree - 1) * 2)
+                x_grid = np.linspace(-(degree - 1) * h, 1.0 - h + (h / 2.0), (N + degree - 1) * 2)
             else:
-                x_grid = xp.linspace(-(degree - 1) * h, 1.0 - h, (N + degree - 1) * 2 - 1)
+                x_grid = np.linspace(-(degree - 1) * h, 1.0 - h, (N + degree - 1) * 2 - 1)
 
             pts = x_grid[:, None] % 1.0
-            wts = xp.ones(pts.shape, dtype=float)
+            wts = np.ones(pts.shape, dtype=float)
 
             # !! shift away first interpolation point in eta_1 direction for polar domains !!
             if pts[0] == 0.0 and polar_shift:
@@ -3587,16 +3730,16 @@ def get_pts_and_wts_quasi(
             # The computation of histopolation points breaks in case we have num_elements=1 and periodic boundary conditions since we end up with only one x_grid point.
             # We need to build the histopolation points by hand in this scenario.
             if degree == 0 and h == 1.0:
-                x_grid = xp.array([0.0, 0.5, 1.0])
+                x_grid = np.array([0.0, 0.5, 1.0])
             elif degree == 0 and h != 1.0:
-                x_grid = xp.linspace(-degree * h, 1.0 - h + (h / 2.0), (N + degree) * 2)
+                x_grid = np.linspace(-degree * h, 1.0 - h + (h / 2.0), (N + degree) * 2)
             else:
-                x_grid = xp.linspace(-degree * h, 1.0 - h, (N + degree) * 2 - 1)
+                x_grid = np.linspace(-degree * h, 1.0 - h, (N + degree) * 2 - 1)
 
             n_quad = degree + 1
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             pts = x % 1.0
@@ -3610,26 +3753,26 @@ def get_pts_and_wts_quasi(
             N_b = N + degree
 
             # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
-            x_grid = xp.linspace(0.0, knots[degree + 1], degree + 1)
-            x_aux = xp.linspace(0.0, knots[degree + 1], degree + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_grid = np.linspace(0.0, knots[degree + 1], degree + 1)
+            x_aux = np.linspace(0.0, knots[degree + 1], degree + 1)
+            x_grid = np.append(x_grid, x_aux)
             # Now we append those for 1<i<degree-1
             for i in range(2, degree - 1):
-                x_aux = xp.linspace(knots[degree], knots[degree + i], degree + i)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[degree], knots[degree + i], degree + i)
+                x_grid = np.append(x_grid, x_aux)
 
             # Now we append the points for degree-1<= i <= N_b-degree
-            x_aux = xp.linspace(0.0, 1.0, 2 * N + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(0.0, 1.0, 2 * N + 1)
+            x_grid = np.append(x_grid, x_aux)
 
             # Now the points for N_b-degree < i < N_b-1
             for i in range(N_b - degree + 1, N_b - 1):
-                x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + degree - i - 1)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[i + 1], knots[N_b], N_b + degree - i - 1)
+                x_grid = np.append(x_grid, x_aux)
             # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
             i = N_b - 2
-            x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + degree - i - 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(knots[i + 1], knots[N_b], N_b + degree - i - 1)
+            x_grid = np.append(x_grid, x_aux)
 
             if polar_shift:
                 for i in range(len(x_grid)):
@@ -3637,7 +3780,7 @@ def get_pts_and_wts_quasi(
                         x_grid[i] += 0.00001
 
             pts = x_grid[:, None]
-            wts = xp.ones(pts.shape, dtype=float)
+            wts = np.ones(pts.shape, dtype=float)
 
         # histopolation
         elif space_1d.basis == "M":
@@ -3654,31 +3797,31 @@ def get_pts_and_wts_quasi(
             # Thus, we must substract 1 to all the indices of the knots here to refere to the same point.
 
             # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
-            x_grid = xp.linspace(0.0, knots[degree], degree + 1)
-            x_aux = xp.linspace(0.0, knots[degree], degree + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_grid = np.linspace(0.0, knots[degree], degree + 1)
+            x_aux = np.linspace(0.0, knots[degree], degree + 1)
+            x_grid = np.append(x_grid, x_aux)
             # Now we append those for 1<i<degree-1
             for i in range(2, degree - 1):
-                x_aux = xp.linspace(knots[degree - 1], knots[degree + i - 1], degree + i)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[degree - 1], knots[degree + i - 1], degree + i)
+                x_grid = np.append(x_grid, x_aux)
 
             # Now we append the points for degree-1<= i <= N_b-degree
-            x_aux = xp.linspace(0.0, 1.0, 2 * N + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(0.0, 1.0, 2 * N + 1)
+            x_grid = np.append(x_grid, x_aux)
 
             # Now the points for N_b-degree < i < N_b-1
             for i in range(N_b - degree + 1, N_b - 1):
-                x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + degree - i - 1)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[i], knots[N_b - 1], N_b + degree - i - 1)
+                x_grid = np.append(x_grid, x_aux)
             # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
             i = N_b - 2
-            x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + degree - i - 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(knots[i], knots[N_b - 1], N_b + degree - i - 1)
+            x_grid = np.append(x_grid, x_aux)
 
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
             n_quad = degree
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             pts = x
@@ -3691,7 +3834,7 @@ def get_span_and_basis(pts, space):
 
     Parameters
     ----------
-    pts : xp.array
+    pts : np.array
         2d array of points (ii, iq) = (interval, quadrature point).
 
     space : SplineSpace
@@ -3699,10 +3842,10 @@ def get_span_and_basis(pts, space):
 
     Returns
     -------
-    span : xp.array
+    span : np.array
         2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
-    basis : xp.array
+    basis : np.array
         3d array of values of basis functions indexed by (n, nq, basis function).
     """
 
@@ -3710,8 +3853,8 @@ def get_span_and_basis(pts, space):
     T = space.knots
     degree = space.degree
 
-    span = xp.zeros(pts.shape, dtype=int)
-    basis = xp.zeros((*pts.shape, degree + 1), dtype=float)
+    span = np.zeros(pts.shape, dtype=int)
+    basis = np.zeros((*pts.shape, degree + 1), dtype=float)
 
     for n in range(pts.shape[0]):
         for nq in range(pts.shape[1]):
@@ -3737,7 +3880,7 @@ def get_weights_local_projector(pts, fem_space):
 
     Parameters
     ----------
-    pts : xp.array
+    pts : np.array
         3d array of points. Contains the quasi-interpolation points in each direction.
 
     fem_space : SplineSpace
@@ -3745,10 +3888,10 @@ def get_weights_local_projector(pts, fem_space):
 
     Returns
     -------
-    wij : List of xp.array
+    wij : List of np.array
         List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for interpolation.
 
-    whij : List of xp.array
+    whij : List of np.array
         List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for histopolation.
     """
     wij = []
@@ -3764,7 +3907,7 @@ def get_weights_local_projector(pts, fem_space):
     #######
 
     # List with the degree of the B-splines in each spatial direction
-    plist = xp.zeros(3, dtype=int)
+    plist = np.zeros(3, dtype=int)
     # List with a bool that tell us if the B-splines in each spatial direction are periodic
     periodiclist = []
     # We iterate over each one of the spatial dimension of the 0 fem_space
@@ -3772,9 +3915,9 @@ def get_weights_local_projector(pts, fem_space):
         plist[d] = space.degree
         periodiclist.append(space.periodic)
 
-    periodiclist = xp.array(periodiclist)
+    periodiclist = np.array(periodiclist)
     # We get the maximum number of j entries for wij
-    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, xp.array([False, False, False], dtype=bool))
+    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, np.array([False, False, False], dtype=bool))
 
     maxjwij = [lenj1, lenj2, lenj3]
 
@@ -3785,7 +3928,7 @@ def get_weights_local_projector(pts, fem_space):
     #######
 
     # We get the maximum number of j entries for whij
-    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, xp.array([True, True, True], dtype=bool))
+    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, np.array([True, True, True], dtype=bool))
 
     maxjwhij = [lenj1, lenj2, lenj3]
 
@@ -3818,21 +3961,21 @@ def get_weights_local_projector(pts, fem_space):
             counter = 1
             minicol = colmatrix[xstart:xend, bstart]
             while counter < 2 * degree - 1:
-                minicol = xp.column_stack(
+                minicol = np.column_stack(
                     (minicol, colmatrix[xstart:xend, (bstart + counter) % Nbasis]),
                 )
                 counter += 1
 
             # We need to consider the case in which our minicollocation matrix ends up being just one number
-            if xp.shape(minicol)[0] == 1:
+            if np.shape(minicol)[0] == 1:
                 # There seems to be a bug with the bsp.collocation_matrix function for the case num_elements = 1, degree = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
                 if degree == 1 and Nbasis == 1:
                     minicol[0] = 1.0
                 invmini = 1.0 / minicol[0]
                 for i in range(Nbasis):
-                    wijaux.append(xp.array([invmini]))
+                    wijaux.append(np.array([invmini]))
             else:
-                invmini = xp.linalg.inv(minicol)
+                invmini = np.linalg.inv(minicol)
                 for i in range(Nbasis):
                     wijaux.append(invmini[degree - 1, :])
         else:
@@ -3844,7 +3987,7 @@ def get_weights_local_projector(pts, fem_space):
                 # We can finally build the minicollocation matrix necessary to obtain the weights wij
                 minicol = colmatrix[xstart:xend, bstart:bend]
                 # Now we get its inverse
-                invmini = xp.linalg.inv(minicol)
+                invmini = np.linalg.inv(minicol)
 
                 # Now we need to extract the row of invmini that corresponds to the ith histopolation coefficient.
                 if i == 0:
@@ -3864,9 +4007,9 @@ def get_weights_local_projector(pts, fem_space):
                 for j in range(len(auxiliar), maxjwij[d]):
                     auxiliar.append(0.0)
 
-                wijaux.append(xp.array(auxiliar))
+                wijaux.append(np.array(auxiliar))
 
-        wij.append(xp.array(wijaux))
+        wij.append(np.array(wijaux))
 
         # Now that we know the wij we must use them to compute the whij
         # We begin by adressing the special case degree=1 and periodic
@@ -3876,14 +4019,14 @@ def get_weights_local_projector(pts, fem_space):
             nD = Nbasis
             if degree == 1:
                 for i in range(nD):
-                    whijaux.append(xp.array([wijaux[i][0], wijaux[i][0]]))
+                    whijaux.append(np.array([wijaux[i][0], wijaux[i][0]]))
             else:
                 whats = [wijaux[0][0], wijaux[0][0] + wijaux[0][1]]
                 for j in range(2, 2 * degree - 1):
                     whats.append(wijaux[0][j - 1] + wijaux[0][j])
                 whats.append(wijaux[0][2 * degree - 2])
                 for i in range(nD):
-                    whijaux.append(xp.array(whats))
+                    whijaux.append(np.array(whats))
 
         else:
             # Number of D-splines
@@ -3961,9 +4104,9 @@ def get_weights_local_projector(pts, fem_space):
                         else:
                             whats.append(0.0)
 
-                whijaux.append(xp.array(whats))
+                whijaux.append(np.array(whats))
 
-        whij.append(xp.array(whijaux))
+        whij.append(np.array(whijaux))
 
     return wij, whij
 

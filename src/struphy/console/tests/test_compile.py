@@ -48,29 +48,43 @@ def deps_of(kernel_py):
 
 
 def deps_by_import(kernel_py):
-    """Reference implementation: execute the source and collect all kernel modules bound at module level.
+    """Reference implementation: execute the source and collect all kernel modules bound at module level,
+    as well as the kernel modules defining functions and classes bound at module level.
 
-    This is what get_dependencies did before it was made static.
+    The former is what get_dependencies did before it was made static.
     """
     stem = os.path.dirname(LIBPATH) + "/"
     # load under a unique name so that the already imported struphy module is not replaced
     spec = importlib.util.spec_from_file_location("_reference_" + os.path.basename(kernel_py)[:-3], kernel_py)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return {
-        stem + v.__name__.replace(".", "/") + ".py"
-        for v in vars(mod).values()
-        if isinstance(v, types.ModuleType) and "kernels" in v.__name__ and v.__name__.startswith("struphy")
-    }
+    names = set()
+    for v in vars(mod).values():
+        if isinstance(v, types.ModuleType):
+            names.add(v.__name__)
+        elif callable(v) and isinstance(getattr(v, "__module__", None), str):
+            # functions and classes, also those of compiled kernels
+            names.add(v.__module__)
+    return {stem + name.replace(".", "/") + ".py" for name in names if "kernels" in name and name.startswith("struphy")}
 
 
 @pytest.mark.mpi_skip
 def test_dependencies_static_rules(tmp_path):
-    """Only modules bound to a name at module level, with "kernels" in their name, are dependencies."""
+    """Only modules imported at module level, with "kernels" in their name, are dependencies."""
     # fake package tmp_path/struphy/pkg, so that tmp_path acts as the stem of the struphy package
     pkg = tmp_path / "struphy" / "pkg"
     pkg.mkdir(parents=True)
-    for name in ("a_kernels", "b_kernels", "d_kernels", "e_kernels", "f_kernels", "g_kernels", "plain", "__init__"):
+    for name in (
+        "a_kernels",
+        "b_kernels",
+        "d_kernels",
+        "e_kernels",
+        "f_kernels",
+        "g_kernels",
+        "h_kernels",
+        "plain",
+        "__init__",
+    ):
         (pkg / f"{name}.py").write_text("")
 
     (pkg / "c_kernels.py").write_text(
@@ -81,7 +95,7 @@ def test_dependencies_static_rules(tmp_path):
                 "from . import f_kernels",  # dependency (relative import)
                 "if True:",
                 "    import struphy.pkg.d_kernels as d_kernels",  # dependency (nested in if)
-                "from struphy.pkg.a_kernels import some_function",  # not a module
+                "from struphy.pkg.h_kernels import some_function",  # dependency (object imported from a kernel)
                 "from struphy.pkg.plain import helper",  # no "kernels" in name
                 "import struphy.pkg.plain as plain",  # no "kernels" in name
                 "import struphy.pkg.g_kernels",  # binds "struphy", not the kernel
@@ -94,7 +108,7 @@ def test_dependencies_static_rules(tmp_path):
     )
 
     kernel = str(pkg / "c_kernels.py")
-    expected = {str(pkg / f"{name}.py") for name in ("a_kernels", "b_kernels", "d_kernels", "f_kernels")}
+    expected = {str(pkg / f"{name}.py") for name in ("a_kernels", "b_kernels", "d_kernels", "f_kernels", "h_kernels")}
     assert deps_of(kernel) == expected
 
     # a kernel without dependencies
@@ -169,12 +183,74 @@ def test_compile_passes_jobs_to_make(jobs):
         mock.patch("struphy.utils.utils.read_state", return_value=state),
         mock.patch("struphy.utils.utils.save_state"),
     ):
-        struphy_compile("fortran", "GNU", None, False, False, False, False, False, False, True, **kwargs)
+        struphy_compile("fortran", "GNU", None, False, False, False, False, False, False, True, True, **kwargs)
 
     make_cmds = [c.args[0] for c in subp_run.call_args_list if c.args[0][0] == "make"]
     assert len(make_cmds) == 1
     assert f"-j{1 if jobs is None else jobs}" in make_cmds[0]
     assert "compile_struphy.mk" in make_cmds[0]
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize(
+    "previous, openmp, rebuild",
+    [("", True, True), (" --openmp", False, True), (" --openmp", True, False), (None, False, False)],
+)
+def test_compile_rebuilds_when_openmp_changes(previous, openmp, rebuild):
+    """Changing OpenMP flags must not silently reuse up-to-date serial binaries."""
+    from struphy.console.compile import struphy_compile
+
+    state = {
+        "kernels": [],
+        "last_used_language": "fortran",
+        "last_used_compiler": "GNU",
+        "last_used_omp": previous,
+    }
+    with (
+        mock.patch("struphy.console.compile.collect_kernel_files", return_value=[]),
+        mock.patch("struphy.console.compile.subp_run") as run,
+        mock.patch("struphy.utils.utils.read_state", return_value=state),
+        mock.patch("struphy.utils.utils.save_state"),
+    ):
+        struphy_compile("fortran", "GNU", None, openmp, False, False, False, False, False, True)
+
+    make = next(call.args[0] for call in run.call_args_list if call.args[0][0] == "make")
+    assert ("-B" in make) == rebuild
+    # feectools kernels are compiled with the same OpenMP setting
+    accelerate = next(call.args[0] for call in run.call_args_list if call.args[0][0] == "psydac-accelerate")
+    assert ("--openmp" in accelerate) == openmp
+    assert state["last_used_omp"].strip() == ("--openmp" if openmp else "")
+
+
+@pytest.mark.mpi_skip
+def test_failed_compile_does_not_record_requested_flags():
+    """A failed rebuild must be retried with the requested flags on the next invocation."""
+    import subprocess
+
+    from struphy.console.compile import struphy_compile
+
+    state = {
+        "kernels": [],
+        "last_used_language": "fortran",
+        "last_used_compiler": "GNU",
+        "last_used_omp": "",
+    }
+
+    def run(cmd):
+        if cmd[0] == "make":
+            raise subprocess.CalledProcessError(2, cmd)
+
+    with (
+        mock.patch("struphy.console.compile.collect_kernel_files", return_value=[]),
+        mock.patch("struphy.console.compile.subp_run", side_effect=run),
+        mock.patch("struphy.utils.utils.read_state", return_value=state),
+        mock.patch("struphy.utils.utils.save_state") as save,
+        pytest.raises(subprocess.CalledProcessError),
+    ):
+        struphy_compile("fortran", "GNU", None, True, False, False, False, False, False, True)
+
+    assert state["last_used_omp"] == ""
+    save.assert_not_called()
 
 
 @pytest.mark.mpi_skip

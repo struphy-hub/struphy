@@ -2,11 +2,10 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -19,8 +18,8 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels.gc_mag_density_0form import gc_mag_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -123,7 +122,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             Time stepping algorithm.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner for mass-matrix block.
         solver_params : SolverParameters, default=None
             Solver controls.
@@ -142,7 +141,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         butcher: ButcherTableau = None
@@ -197,7 +196,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC = AccumulatorVector(
             self.energetic_ions.particles,
             "H1",
-            PyccelKernel(accum_kernels_gc.gc_mag_density_0form),
+            gc_mag_density_0form,
             self.mass_ops,
             self.domain.args_domain,
             filter_params=self.options.filter_params,

@@ -17,14 +17,14 @@ import cunumpy as xp
 import h5py
 import numpy as np
 import xarray as xr
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 from pyevtk.hl import gridToVTK
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
+from struphy.polar.basic import PolarVector
 from struphy.post_processing import store
 from struphy.post_processing.arrays import (
     BINNED_LABELS,
@@ -39,6 +39,7 @@ from struphy.post_processing.manifest import (
     MANIFEST_SCHEMA_VERSION,
     is_processed,
     normalize_options,
+    processing_lock,
     source_fingerprint,
 )
 from struphy.post_processing.orbits import orbits_tools
@@ -56,6 +57,32 @@ Representation = Literal["0", "1", "2", "3", "v", "norm"]
 def mpi_comm_world():
     """The communicator used by output post-processing."""
     return MPI.COMM_WORLD
+
+
+PLOTS_HINT = (
+    "plots and diagnostics of Struphy output come from the plasma-plots package: "
+    "pip install plasma-plots (or struphy[pproc]); see https://struphy-hub.github.io/plasma-plots"
+)
+_plots = {"loaded": False}
+
+
+def load_plasma_plots() -> bool:
+    """Load plasma-plots if it is installed, and tell whether it is.
+
+    Importing ``plasma_plots`` registers ``out.plot``, ``out.analysis`` and the ``.plasma``
+    accessor on every product. :class:`Output` calls this when it is created, so none of that
+    needs an explicit ``import plasma_plots``. Struphy does not depend on the package.
+    """
+    if not _plots["loaded"]:
+        try:
+            import plasma_plots  # noqa: F401  (registers the accessors)
+        except ImportError:
+            return False
+        except Exception as error:  # a broken install must not break reading output
+            logger.warning("plasma-plots is installed but could not be imported: %s", error)
+            return False
+        _plots["loaded"] = True
+    return True
 
 
 class ProductMapping(Mapping[str, xr.DataArray]):
@@ -205,6 +232,20 @@ class Output:
       reconstructed lazily from saved metadata. No simulation object is created or retained.
     * Every array carries the run in ``attrs["run"]`` (:attr:`label`) and ``attrs["run_name"]``.
 
+    **Plots and diagnostics** of the output live in the separate package
+    `plasma-plots <https://struphy-hub.github.io/plasma-plots>`_ (``pip install plasma-plots``,
+    or ``pip install "struphy[pproc]"``). When it is installed, creating an ``Output`` loads it,
+    which adds:
+
+    * ``out.plot`` and ``out.analysis``: whole-run plots and diagnostics, e.g.
+      ``out.plot.energies()``, ``out.analysis.time_fft("em_fields/phi")``;
+    * ``.plasma.plot``, ``.plasma.analysis`` and ``.plasma.data`` on every product, e.g.
+      ``out.evaluate("em_fields/phi").plasma.plot.slice(x="eta1", y="eta2", t=-1)``, or
+      ``orbits.plasma.plot.poloidal()`` for an orbits Dataset.
+
+    ``import plasma_plots; help(plasma_plots)`` gives an overview of the package, and ``help()``
+    on any accessor method (e.g. ``help(phi.plasma.plot.slice)``) its parameters.
+
     Parameters
     ----------
     path_out:
@@ -212,6 +253,7 @@ class Output:
     """
 
     def __init__(self, path_out):
+        load_plasma_plots()  # out.plot, out.analysis and .plasma on every product, if installed
         self.path_out = Path(path_out).resolve()
         self._time_units = "normalized"
         self.comm = mpi_comm_world()
@@ -275,6 +317,8 @@ class Output:
         self._seconds = None
         self._spline_derham = None
         self._spline_snapshots = {}
+        # polar splines: operators recovering the polar coefficients from the saved ones, per (derham, space)
+        self._polar_restart_ops = {}
 
     def evaluate(
         self,
@@ -289,7 +333,7 @@ class Output:
         representation: Representation | None = None,
         dataset: str | None = None,
         variables: str | Sequence[str] | None = None,
-        parallel: bool = False,
+        parallel: bool | None = None,
         **coordinates: Any,
     ) -> xr.DataArray | xr.Dataset:
         """Return a named simulation product as an xarray object.
@@ -300,15 +344,16 @@ class Output:
         analysis. ``evaluate("scalars")`` returns an :class:`xarray.Dataset` containing
         all scalar histories; use ``variables=`` to select scalar names.
 
-        Under more than one MPI rank, automatic materialization is disabled unless ``parallel``
-        is set: pass ``parallel=True`` only when calling ``evaluate()`` collectively on every
-        rank, which triggers :meth:`pproc` with ``parallel=True`` on first use. Otherwise call
-        :meth:`pproc` explicitly first.
+        Under MPI, call ``evaluate()`` on every rank as long as the run is not processed yet:
+        processing is collective. It runs in parallel when the job has as many ranks as the saved
+        run, and otherwise serially on rank 0 while the other ranks wait; ``parallel`` forces
+        either, see :meth:`pproc`.
 
         Common selections can be passed directly: ``t`` selects saved snapshots
         by index (an integer, list of integers, or slice); omit it for every
-        saved timestep. The returned array always retains its ``t`` dimension.
-        A float ``t`` selects a time coordinate. Other keyword arguments select
+        saved timestep. A float ``t`` selects a time coordinate. A single snapshot (an integer
+        or float ``t``) drops the ``t`` dimension and keeps the time as a scalar ``t``
+        coordinate; lists and slices keep the dimension. Other keyword arguments select
         named coordinates, for example ``component=2``. For products other than raw FEEC
         fields (post-processed fields such as ``"em_fields/phi_xyz"``, binned distributions,
         SPH densities, ...), ``eta1``, ``eta2`` and ``eta3`` select their saved logical
@@ -316,6 +361,8 @@ class Output:
         products, a ``"species/variable"`` name selects the first matching binned
         product, then density/KDE product, then orbits. Pass ``dataset=`` to select a
         particular discovered product; use ``out.info("species/variable")`` to list them.
+        The full key of a particle product, ``"species/dataset/variable"`` (as :meth:`keys`
+        lists it, e.g. ``"kinetic_ions/e1_v1_density/f"``), selects that product directly.
 
         Supplying an ``eta`` evaluates a raw FEEC spline field directly on that logical
         grid. Each eta can be a scalar, a list, a one-dimensional array, or a ``range``;
@@ -330,15 +377,37 @@ class Output:
         after spline evaluation: one of ``"0"``, ``"1"``, ``"2"``, ``"3"``, ``"v"``, or
         ``"norm"``. The input representation is inferred from the field's FEEC space.
         Scalars default to ``"0"`` and vectors to ``"norm"``.
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``path_out`` holds no raw simulation data (``data/data_proc0.hdf5``).
         """
+        # --- Raw output must exist, whatever is requested ---
+        if not (self.path_out / "data" / "data_proc0.hdf5").exists():
+            raise FileNotFoundError(f"No simulation data to process in {self.path_out}")
+
+        # --- Validate arguments and normalize the product name ---
+        # Remaining keyword arguments are coordinate selectors, applied with .sel() at the end.
         selectors = dict(coordinates)
         if "physical" in selectors:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
         if "as_numpy" in selectors:
             raise TypeError("evaluate() always returns xarray; call .to_numpy() on its result when needed")
-        if name != "scalars" and name.count("/") != 1:
-            raise ValueError("evaluate() names must use the 'species/variable' form, or be 'scalars'")
 
+        if name.count("/") == 2:
+            # the full key of a particle product: "species/dataset/variable"
+            if dataset is not None:
+                raise ValueError("dataset= cannot be combined with a 'species/dataset/variable' name")
+            species, group, variable = name.split("/")
+            name, dataset = f"{species}/{variable}", f"{group}/{variable}"
+
+        if name != "scalars" and name.count("/") != 1:
+            raise ValueError(
+                "evaluate() names must use the 'species/variable' or 'species/dataset/variable' form, or be 'scalars'"
+            )
+
+        # --- Decide whether eta1/eta2/eta3 mean spline evaluation or coordinate selection ---
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
         if has_eta and name != "scalars" and (dataset is not None or not self._is_raw_spline_field(name)):
@@ -348,8 +417,11 @@ class Output:
                 if value is not None:
                     selectors[f"eta{direction}"] = value
             eta, has_eta = (None, None, None), False
+
         if has_eta and dataset is not None:
             raise ValueError("dataset= cannot be combined with direct FEEC eta evaluation")
+
+        # --- Scalars: read straight from the raw output ---
         if name == "scalars":
             if has_eta or representation is not None or dataset is not None:
                 raise ValueError("'scalars' accepts only time, variables, and coordinate selections")
@@ -363,32 +435,39 @@ class Output:
                 array = self.scalars[names]
         elif variables is not None:
             raise ValueError("variables= is only valid with evaluate('scalars')")
+
+        # A single snapshot drops the t dimension, as in xarray's own isel/sel.
+        single_t = isinstance(t, (int, np.integer, float, np.floating))
+
+        # --- Raw FEEC fields: evaluate the saved splines on a logical grid ---
+        # The time selection happens during evaluation, so t and method are consumed here.
         is_raw_spline_field = not has_eta and dataset is None and self._is_raw_spline_field(name)
         if name == "scalars":
             is_raw_spline_field = False
-        elif has_eta:
+        elif has_eta or is_raw_spline_field:
+            # omitted directions (all three without etas) on the cell centres of the simulation grid
             if any(value is None for value in eta):
                 defaults = self._default_logical_grid()
                 eta = tuple(default if value is None else value for value, default in zip(eta, defaults))
             array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
+            if single_t:
+                array = array.isel(t=0, drop=drop)
             t = None
             method = None
-        elif is_raw_spline_field:
-            array = self._evaluate_spline_field(
-                name, *self._default_logical_grid(), t=t, method=method, representation=representation
-            )
-            t = None
-            method = None
+
+        # --- Post-processed products: load from post_processing/ (processed on first use) ---
         if not has_eta:
             if representation is not None and not is_raw_spline_field:
                 raise ValueError("representation requires FEEC evaluation")
             if not is_raw_spline_field and name != "scalars":
-                if parallel and not self.is_processed:
-                    self.pproc(parallel=True)
+                if parallel is not None and not self.is_processed:
+                    self.pproc(parallel=parallel)
                 array = self._product(name, dataset=dataset)
+
+        # --- Time selection ---
         if t is not None:
             if isinstance(t, (int, np.integer)):
-                array = array.isel(t=[int(t)], drop=drop)
+                array = array.isel(t=int(t), drop=drop)
             elif isinstance(t, slice):
                 array = array.isel(t=t, drop=drop)
             elif isinstance(t, (list, tuple, np.ndarray)):
@@ -396,9 +475,12 @@ class Output:
                     raise TypeError("t sequences must contain saved-snapshot indices")
                 array = array.isel(t=list(t), drop=drop)
             elif isinstance(t, (float, np.floating)):
-                selectors["t"] = [float(t)]
+                # a time value, matched with the other coordinate selectors below
+                selectors["t"] = float(t)
             else:
                 raise TypeError("t must be a saved-snapshot index, index sequence, slice, or float time coordinate")
+
+        # --- Coordinate selection (eta*, component, float t, ...) ---
         if selectors:
             options = {"drop": drop}
             if method is not None:
@@ -406,6 +488,7 @@ class Output:
             array = array.sel(selectors, **options)
         elif method is not None:
             raise ValueError("method requires a direct coordinate selector")
+
         return array
 
     def _is_raw_spline_field(self, name: str) -> bool:
@@ -872,10 +955,14 @@ class Output:
 
     @cached_property
     def equil(self):
-        """Saved equilibrium, if present."""
-        from struphy.fields_background.base import FluidEquilibrium
+        """Saved equilibrium, if present, linked to the saved domain (as in :class:`~struphy.Simulation`)."""
+        from struphy.fields_background.base import FluidEquilibrium, NumericalMHDequilibrium
 
-        return self._restore("equil", FluidEquilibrium)
+        equil = self._restore("equil", FluidEquilibrium)
+        # a numerical equilibrium dictates the domain itself
+        if equil is not None and not isinstance(equil, NumericalMHDequilibrium):
+            equil.domain = self.domain
+        return equil
 
     @cached_property
     def grid(self):
@@ -917,14 +1004,16 @@ class Output:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = False,
-        parallel: bool = False,
+        parallel: bool | None = None,
         force: bool = False,
     ) -> "Output":
         """Materialize post-processed products; reuse matching existing products.
 
-        Call this on every MPI rank. Serial processing (the default) runs on rank 0 while
-        the other ranks wait. Parallel processing reconstructs the field decomposition
-        and requires the same number of ranks as the saved run.
+        Products are processed on first use with default options, so call this only to choose
+        other options. Under MPI, call it on every rank. Parallel processing reconstructs the
+        field decomposition of the saved run on as many ranks, and rank 0 gathers and writes the
+        products; serial processing runs on rank 0 while the other ranks wait. Either way rank 0
+        holds the processing lock of the run meanwhile, so concurrent jobs take turns.
 
         Parameters
         ----------
@@ -941,7 +1030,8 @@ class Output:
         create_vtk:
             Also write VTK files of the fields.
         parallel:
-            Evaluate fields on all ranks of this output's communicator.
+            Process on all ranks of this output's communicator, which must have as many ranks as
+            the saved run. By default parallel exactly when it has, and more than one.
         force:
             Reprocess even when matching products exist.
 
@@ -959,12 +1049,38 @@ class Output:
             create_vtk=create_vtk,
             force=force,
         )
+        if parallel is None:
+            parallel = self._processes_in_parallel
+        rank = self.comm.Get_rank()
         try:
-            if parallel or self.comm.Get_rank() == 0:
-                self._setup_processing(parallel)
-                self._process_raw(**options)
-            if not parallel:
-                self.comm.Barrier()
+            with ExitStack() as lock:
+                # Rank 0 holds the lock for the whole job, serial or parallel, so that no other
+                # job or script removes or rewrites the products while this one processes them.
+                if rank == 0:
+                    lock.enter_context(processing_lock(str(self.path_out)))
+                if parallel:
+                    # No rank may look at or remove products before rank 0 holds the lock.
+                    self.comm.Barrier()
+                    self._process(parallel=True, **options)
+                elif rank == 0:
+                    self._process(parallel=False, **options)
+            # Rank 0 writes the manifest last; no rank may look for products before it has.
+            self.comm.Barrier()
+        finally:
+            self._reset()  # the other ranks load the new products
+        return self
+
+    @property
+    def _processes_in_parallel(self) -> bool:
+        """Whether processing by default uses every rank: those of a job as large as the saved run."""
+        size = self.comm.Get_size()
+        return size > 1 and size == self.mpi_ranks
+
+    def _process(self, *, parallel: bool, **options):
+        """Run one processing pass on this rank (serial) or with every rank (parallel)."""
+        try:
+            self._setup_processing(parallel)
+            self._process_raw(**options)
         finally:
             self._reset()
             for name in (
@@ -981,12 +1097,11 @@ class Output:
                 "_collect_recv_bufs",
             ):
                 self.__dict__.pop(name, None)
-        return self
 
     def _setup_processing(self, parallel: bool):
         """Prepare the communicator and FEEC reconstruction for this processing run."""
         self._pproc_parallel = parallel
-        self._pproc_comm = self.comm if parallel else MockComm()
+        self._pproc_comm = self.comm if parallel else SerialComm()
         self._pproc_rank = self._pproc_comm.Get_rank()
         if parallel and self._pproc_comm.Get_size() != self.mpi_ranks:
             raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
@@ -1101,22 +1216,16 @@ class Output:
                 self._pproc_exist_fields = False
 
             if "kinetic" in file.keys():
-                self._pproc_exist_particles = {"markers": False, "f": False, "n_sph": False}
+                # per-species flags for saved markers, distribution function and sph density
+                self._pproc_exist_particles = {}
                 self._pproc_kinetic_species = []
                 self._pproc_kinetic_kinds = []
                 for name in file["kinetic"].keys():
                     self._pproc_kinetic_species += [name]
                     self._pproc_kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
-
-                    # check for saved markers
-                    if "markers" in file["kinetic"][name]:
-                        self._pproc_exist_particles["markers"] = True
-                    # check for saved distribution function
-                    if "f" in file["kinetic"][name]:
-                        self._pproc_exist_particles["f"] = True
-                    # check for saved sph density
-                    if "n_sph" in file["kinetic"][name]:
-                        self._pproc_exist_particles["n_sph"] = True
+                    self._pproc_exist_particles[name] = {
+                        key: key in file["kinetic"][name] for key in ("markers", "f", "n_sph")
+                    }
             else:
                 self._pproc_exist_particles = None
 
@@ -1269,7 +1378,7 @@ class Output:
             self._pproc_comm.Barrier()
 
             # markers
-            if self._pproc_exist_particles["markers"]:
+            if self._pproc_exist_particles[species]["markers"]:
                 self._post_process_markers(
                     path_kinetics_species,
                     step,
@@ -1285,7 +1394,7 @@ class Output:
                     orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
 
             # distribution function
-            if self._pproc_exist_particles["f"]:
+            if self._pproc_exist_particles[species]["f"]:
                 if self._pproc_kinetic_kinds[n] == "DeltaFParticles6D":
                     compute_bckgr = True
                 else:
@@ -1298,7 +1407,7 @@ class Output:
                 )
 
             # sph density
-            if self._pproc_exist_particles["n_sph"]:
+            if self._pproc_exist_particles[species]["n_sph"]:
                 self._post_process_n_sph(
                     path_kinetics_species,
                     step,
@@ -1365,6 +1474,7 @@ class Output:
         step : int
             Time-step stride of the saved snapshots.
         """
+        polar_fields = {}
         for file in files:
             for species, dset in file["feec"].items():
                 for var, ddset in dset.items():
@@ -1377,7 +1487,11 @@ class Output:
                     assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
                     assert pads.shape == (3,) or pads.shape == (3, 3)
 
-                    vector = fields[species][var].vector
+                    # the saved data are the tensor-product coefficients (for polar splines: the
+                    # extracted coefficients E^T v, from which v is recovered below)
+                    field = fields[species][var]
+                    is_polar = isinstance(field.vector, PolarVector)
+                    vector = field.vector_stencil if is_polar else field.vector
 
                     # scalar field
                     if gl_s.shape == (3,):
@@ -1405,6 +1519,16 @@ class Output:
                             ] = ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3]
 
                     vector.update_ghost_regions()
+                    if is_polar:
+                        polar_fields[(species, var)] = field
+
+        # polar splines: recover the polar coefficients once all files are loaded
+        for field in polar_fields.values():
+            key = (id(field.derham), field.space_id)
+            if key not in self._polar_restart_ops:
+                self._polar_restart_ops[key] = field._restart_extraction_op()
+            self._polar_restart_ops[key].dot(field.vector_stencil, out=field.vector)
+            field.vector.update_ghost_regions()
 
     def _create_eval_grids(self, celldivide: int | Sequence[int] = (1, 1, 1)):
         """Build the logical evaluation grids and distribute them over the MPI ranks.
@@ -1697,7 +1821,7 @@ class Output:
             quantities = cls.orbit_quantities
             break
 
-        log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
+        log_nt = int(xp.log10(max(int((nt - 1) / step), 1))) + 1
 
         # directory for .txt files and marker columns which will be saved (marker index last)
         path_orbits = os.path.join(path_kinetic_species, "orbits")
@@ -1982,15 +2106,11 @@ class Output:
     def _ensure_processed(self):
         if self.is_processed:
             return
-        if self.comm.Get_size() > 1:
-            # pproc() is collective (rank 0 works while the rest wait at a Barrier), but evaluate()
-            # is not guaranteed to be called on every rank; auto-triggering pproc() here could hang
-            # ranks that never reach this call instead of failing fast.
-            raise RuntimeError(f"{self.path_out} has no post-processed data; call out.pproc() on all ranks first")
         logger.warning(
             "\nNo post-processed data in %s, processing with default options (call out.pproc(...) to choose them)",
             self.path_out,
         )
+        # Collective under MPI, in parallel when the job is as large as the saved run.
         self.pproc()
 
     def _product_mappings(self) -> dict[str, ProductMapping]:
@@ -2037,6 +2157,10 @@ class Output:
             attribute.func(self)
         if isinstance(attribute, property):
             attribute.fget(self)  # the property raised AttributeError itself; show its own error
+        if name in ("plot", "analysis"):
+            if load_plasma_plots() and name in type(self).__dict__:
+                return getattr(self, name)
+            raise AttributeError(f"Output has no {name!r} without plasma-plots; {PLOTS_HINT}")
         # the raw output names the species, so an unknown name never starts post-processing
         if name not in self._raw_species():
             raise AttributeError(f"{name!r}; available species: {tuple(sorted(self._raw_species()))}")

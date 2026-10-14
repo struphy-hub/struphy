@@ -212,6 +212,33 @@ Compiling the kernels can take several minutes. Independent kernels can be compi
 
 This compiles at most 4 kernels at the same time; kernels that depend on each other are still compiled in the right order. The default is ``-j 1`` (one kernel after the other). Struphy does not choose the number of jobs by itself, so pick a number that suits your machine, for example ``struphy compile -j $(nproc)`` on a compute node. Avoid large values on shared login nodes, since compiling is memory-intensive. In the Python API the same option is available as ``Compiler(jobs=4)`` or ``Compiler().compile(jobs=4)``.
 
+OpenMP threading can be enabled for the kernels with::
+
+    struphy compile --openmp -j 4
+    export OMP_NUM_THREADS=4
+
+This also compiles the feectools kernels (stencil matrix-vector products,
+transposes, inner products, axpy and DOF evaluation) with OpenMP. Changing between
+OpenMP and serial compilation rebuilds the Struphy and feectools kernels even
+when their source files have not changed. ``-j`` controls compiler processes;
+``OMP_NUM_THREADS`` controls threads during simulation. With MPI, set the thread
+count per rank to fit the cores allocated to that rank.
+
+Particle accumulation uses array reductions, which require temporary output
+arrays per thread. Account for this extra memory when choosing the thread count.
+Large reductions may also require increasing the OpenMP worker stack, for
+example ``export OMP_STACKSIZE=64M``, and the main-thread stack limit. The required
+size depends on the grid, spline degree, and number of accumulated arrays.
+
+To check threaded numerical results after compilation, developers can run::
+
+    pytest -q src/struphy/pic/tests/test_openmp.py
+    pytest -q --pyargs feectools.linalg.tests.test_openmp
+
+These compare compiled execution with 1, 2, and 4 threads against serial reference
+loops, including particle deposition, spline evaluation and the stencil operations
+of feectools.
+
 In case you encounter problems during install visit :ref:`trouble_shoot`.
 
 .. _trouble_shoot:
@@ -416,4 +443,4 @@ MPCDF cluster installation
     source struphy-env/bin/activate
 
     OMPI_MCA_mpi_warn_on_fork=0
-    export OMPI_MCA_mpi_warn_on_fork 
+    export OMPI_MCA_mpi_warn_on_fork

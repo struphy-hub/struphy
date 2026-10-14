@@ -2,7 +2,6 @@ import copy
 import logging
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -14,7 +13,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
@@ -148,7 +147,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         particles_to_grid = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            PyccelKernel(accum_kernels.charge_density_0form),
+            charge_density_0form,
         )
 
         self.initial_poisson = PoissonSolve(
@@ -187,6 +186,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        # The pushers evaluate e at the markers, including in the ghost cells: grad.dot does not fill them,
+        # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
+        self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
 
     def _compute_en_w(self):
@@ -207,14 +209,15 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords.T)
 
-        # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
+        # alpha^2 * v_th^2 * N / 2 * sum_p s_0 * w_p^2 / f_{0,p}  (weights are w_p = delta f_p / (N * s_{0,p}))
         alpha = self.kinetic_ions.equation_params.alpha
         vth = self._f0.params["vth1"][0]
 
         self._tmp[0] = (
             alpha**2
             * vth**2
-            / (2 * particles.Np)
+            * particles.Np
+            / 2
             * xp.dot(
                 particles.weights**2,  # w_p^2
                 particles.sampling_density_values / self._f0_values[particles.valid_mks],  # s_{0,p} / f_{0,p}

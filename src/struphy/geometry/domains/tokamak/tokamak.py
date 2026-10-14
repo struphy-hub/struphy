@@ -1,5 +1,7 @@
 import copy
 
+import cunumpy as xp
+
 from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.geometry.base import PoloidalSplineTorus
@@ -65,6 +67,8 @@ class Tokamak(PoloidalSplineTorus):
     ):
         if r_min != 0.0:
             r0 = r_min
+        # The field-line tracing evaluates psi on the active backend (batched Newton over all rays per flux surface);
+        # its small spline interpolation runs on the host, and the control points are copied to the active backend once.
         if equilibrium is None:
             equilibrium = EQDSKequilibrium()
         else:
@@ -114,6 +118,8 @@ class Tokamak(PoloidalSplineTorus):
             p_pre=p_pre,
             r0=r0,
         )
+
+        cx, cy = xp.to_cunumpy(cx), xp.to_cunumpy(cy)
 
         # init base class
         super().__init__(

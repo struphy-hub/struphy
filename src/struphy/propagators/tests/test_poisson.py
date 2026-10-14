@@ -3,8 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import (
     BinningPlot,
@@ -21,7 +20,7 @@ from struphy.io.options import DerhamOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.accum_kernels import charge_density_0form
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.pic.particles import Particles6D
 from struphy.propagators.base import Propagator
@@ -204,7 +203,7 @@ def test_poisson_1d(
                 # sigma_2=0.0,
                 # sigma_3=1.0,
                 solver="pcg",
-                precond="MassMatrixPreconditioner",
+                precond=None,
                 solver_params=solver_params,
             )
 
@@ -344,7 +343,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = PyccelKernel(charge_density_0form)
+    kernel = charge_density_0form
     # control_variate=True, so no PICVariable.species is needed to build the analytical background term
     pic_var = PICVariable(space="Particles6D")
     pic_var._particles = particles
@@ -369,7 +368,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
         # sigma_2=0.0,
         # sigma_3=1.0,
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -427,6 +426,135 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     logger.info(f"{error=}")
 
     assert error < 0.0086
+
+
+def test_poisson_accum_full_f_background_1d():
+    """Full-f accumulator: the neutralising background must enter the rhs as (n0, Lambda^0)_L2 (issue #427)."""
+    from types import SimpleNamespace
+
+    from feectools.linalg.stencil import StencilVector
+
+    domain = domains.Cuboid(l1=0.0, r1=4.0, l2=0.0, r2=2.0, l3=0.0, r3=3.0)
+    derham = Derham(TensorProductGrid(num_elements=(16, 1, 1)), DerhamOptions(degree=(2, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    # neutral plasma: f = f0
+    backgr = Maxwellian3D(n=(1.0, None))
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=(derham.domain_array, derham.domain_decomposition.nprocs),
+        loading_params=LoadingParameters(ppc=1000, seed=765),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(),
+        domain=domain,
+        background=backgr,
+        initial_condition=Maxwellian3D(n=(1.0, None)),
+    )
+    particles.draw_markers()
+    particles.initialize_weights()
+
+    pic_var = PICVariable(space="Particles6D")
+    pic_var._particles = particles
+    pic_var._species = SimpleNamespace(charge_number=1)
+    rho = ParticlesToGrid(pic_var, "H1", charge_density_0form)
+
+    _phi = FEECVariable(space="H1")
+    _phi.allocate(derham=derham, domain=domain)
+
+    poisson_solver = PoissonSolve(rho=rho)
+    poisson_solver.variables.phi = _phi
+    poisson_solver.options = poisson_solver.Options(
+        stab_eps=1e-6,
+        solver="pcg",
+        precond=None,
+        solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
+    )
+    poisson_solver.allocate()
+
+    # background source equals the L2 dofs of -n0 (no additional mass matrix)
+    bg = poisson_solver.sources[1]
+    assert isinstance(bg, StencilVector)
+    expected = L2Projector("H1", mass_ops).get_dofs(lambda e1, e2, e3: -backgr.n(e1, e2, e3), apply_bc=True)
+    assert xp.allclose(bg.toarray(), expected.toarray())
+
+    # neutral plasma gives (almost) zero potential
+    poisson_solver(1.0)
+    e1 = xp.linspace(0.0, 1.0, 50)
+    num_values = domain.push(_phi.spline, e1, 0.0, 0.0, kind="0")
+    logger.info(f"{xp.max(xp.abs(num_values))=}")
+    assert xp.max(xp.abs(num_values)) < 0.1
+
+
+@pytest.mark.parametrize("full_f", [False, True])
+def test_poisson_rho_coeffs_1d(full_f):
+    """rho_coeffs with one entry per rho, also when a full-f accumulator adds a background source (issue #506)."""
+    from types import SimpleNamespace
+
+    domain = domains.Cuboid(l1=0.0, r1=4.0, l2=0.0, r2=2.0, l3=0.0, r3=3.0)
+    derham = Derham(TensorProductGrid(num_elements=(16, 1, 1)), DerhamOptions(degree=(2, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=(derham.domain_array, derham.domain_decomposition.nprocs),
+        loading_params=LoadingParameters(ppc=200, seed=765),
+        weights_params=WeightsParameters(control_variate=not full_f),
+        boundary_params=BoundaryParameters(),
+        domain=domain,
+        background=Maxwellian3D(n=(1.0, None)),
+        initial_condition=Maxwellian3D(n=(2.0, None)),
+    )
+    particles.draw_markers()
+    particles.initialize_weights()
+
+    pic_var = PICVariable(space="Particles6D")
+    pic_var._particles = particles
+    pic_var._species = SimpleNamespace(charge_number=1)
+    rho_pic = ParticlesToGrid(pic_var, "H1", charge_density_0form)
+
+    def rho_ext(e1, e2, e3):
+        return xp.sin(xp.pi * e1 / 2.0)
+
+    def solve(rho, rho_coeffs):
+        _phi = FEECVariable(space="H1")
+        _phi.allocate(derham=derham, domain=domain)
+        poisson_solver = PoissonSolve(rho=rho, rho_coeffs=rho_coeffs)
+        poisson_solver.variables.phi = _phi
+        poisson_solver.options = poisson_solver.Options(
+            stab_eps=1e-6,
+            solver="pcg",
+            solver_params=SolverParameters(tol=1.0e-12, maxiter=3000),
+        )
+        poisson_solver.allocate()
+        assert len(poisson_solver.coeffs) == len(poisson_solver.sources)
+        poisson_solver(1.0)
+        return _phi.spline.vector.toarray()
+
+    phi_pic = solve(rho_pic, None)
+    phi_ext = solve(rho_ext, None)
+    expected = 3.0 * phi_pic - 2.0 * phi_ext
+    scale = xp.max(xp.abs(expected))
+
+    # single rho with a one-element list
+    assert xp.allclose(solve(rho_pic, [3.0]), 3.0 * phi_pic, rtol=0.0, atol=1e-8 * scale)
+
+    # one coefficient per entry of rho, in either order; the user's list is not modified
+    coeffs = [3.0, -2.0]
+    assert xp.allclose(solve([rho_pic, rho_ext], coeffs), expected, rtol=0.0, atol=1e-8 * scale)
+    assert coeffs == [3.0, -2.0]
+    assert xp.allclose(solve([rho_ext, rho_pic], (-2.0, 3.0)), expected, rtol=0.0, atol=1e-8 * scale)
+
+    # one coefficient per collected source
+    coeffs = [3.0, 3.0, -2.0] if full_f else [3.0, -2.0]
+    assert xp.allclose(solve([rho_pic, rho_ext], coeffs), expected, rtol=0.0, atol=1e-8 * scale)
 
 
 @pytest.mark.mpi(min_size=2)
@@ -567,7 +695,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         # sigma_2=0.0,
         # sigma_3=1.0,
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -595,7 +723,7 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
         # sigma_2=0.0,
         # sigma_3=1.0,
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -655,6 +783,293 @@ def test_poisson_2d(num_elements, degree, bc_type, mapping, projected_rhs, show_
     else:
         assert error1 < 0.0053
         assert error2 < err_lim
+
+
+@pytest.mark.parametrize("degree", [[2, 2, 1], [3, 3, 1]])
+@pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
+def test_poisson_2d_multigrid(degree, bc_type):
+    """PoissonSolve with precond="MultiGrid" agrees with the unpreconditioned solve, in few iterations."""
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+
+    domain = domains.Colella(Lx=4.0, Ly=2.0, alpha=0.1, Lz=1.0)
+    bcs = {
+        "periodic": (None, None, None),
+        "dirichlet": (("dirichlet", "dirichlet"), None, None),
+        "neumann": (("free", "free"), None, None),
+    }[bc_type]
+    derham = Derham(TensorProductGrid(num_elements=[32, 32, 1]), DerhamOptions(degree=degree, bcs=bcs), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return xp.cos(2 * xp.pi * e1) * xp.sin(2 * xp.pi * e2) + 0.3 * xp.sin(4 * xp.pi * e2)
+
+    phis = []
+    infos = []
+    for precond in [None, "MultiGrid"]:
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        solver = PoissonSolve(rho=rho)
+        solver.variables.phi = phi
+        solver.options = solver.Options(
+            stab_eps=1e-8,
+            solver="pcg",
+            precond=precond,
+            # the Jacobi smoother is robust w.r.t. the mapping (the default mass smoother is robust w.r.t. the degree);
+            # no null space: the system is regularized by stab_eps
+            multigrid=MultiGridOptions(smoother_precond="jacobi"),
+            solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
+        )
+        solver.allocate()
+        solver(1.0)
+        phis.append(phi.spline.vector.toarray())
+        infos.append(solver._solver._info)
+
+    # global coefficient arrays (toarray only fills the local part)
+    if comm.Get_size() > 1:
+        phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
+    if bc_type != "dirichlet":
+        # solutions are defined up to a constant (the stabilization is tiny)
+        phis = [p - xp.mean(p) for p in phis]
+    assert xp.max(xp.abs(phis[0] - phis[1])) < 1e-6 * xp.max(xp.abs(phis[0]))
+    assert infos[1]["niter"] <= 25
+    assert infos[1]["niter"] < infos[0]["niter"]
+
+
+def test_implicit_diffusion_multigrid_dt():
+    """With divide_by_dt, the multigrid preconditioner follows changes of dt."""
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+    from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+
+    domain = domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[32, 16, 1]),
+        DerhamOptions(degree=[2, 2, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    phi = FEECVariable(space="H1")
+    phi.allocate(derham=derham, domain=domain)
+    phi.spline.vector = derham.P0(lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2))
+
+    prop = ImplicitDiffusion()
+    prop.variables.phi = phi
+    prop.options = prop.Options(
+        sigma_1=1.0,
+        sigma_2=1.0,
+        sigma_3=0.0,
+        divide_by_dt=True,
+        precond="MultiGrid",
+        multigrid=MultiGridOptions(),
+        solver_params=SolverParameters(tol=1e-12, maxiter=100, recycle=False),
+    )
+    prop.allocate()
+
+    for dt in [0.1, 0.1, 0.01]:
+        rhs = (1.0 / dt) * mass_ops.M0.dot(phi.spline.vector)
+        prop(dt)
+        A = (1.0 / dt) * mass_ops.M0 + derham.grad.T @ mass_ops.M1 @ derham.grad
+        r = rhs - A.dot(phi.spline.vector)
+        assert xp.sqrt(r.inner(r)) < 1e-9 * xp.sqrt(rhs.inner(rhs))
+        assert prop._solver._info["niter"] <= 15
+
+
+@pytest.mark.parametrize("stab_mat", ["Id", "M0"])
+def test_poisson_net_charge_periodic_1d(stab_mat):
+    """Periodic Poisson problem with a non-neutral source (net charge, e.g. Monte-Carlo noise).
+
+    The constant functions span the kernel of the periodic Laplacian. With the default options the
+    net charge is removed from the rhs (compatibility condition), such that phi stays O(1) and
+    E = -grad phi is accurate. Without it, the constant mode of phi is (net charge) / stab_eps.
+    """
+    Lx = 12.56
+    k = 2 * xp.pi / Lx
+    amp = 0.1
+    net = 0.3
+
+    domain = domains.Cuboid(r1=Lx)
+    derham = Derham(TensorProductGrid(num_elements=(16, 1, 1)), DerhamOptions(degree=(3, 1, 1)), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return net + amp * xp.cos(2 * xp.pi * e1)
+
+    # uniform points without the duplicate endpoint, such that the mean of cos(k x) vanishes
+    e1 = xp.linspace(0.0, 1.0, 100, endpoint=False)
+    x = domain(e1, 0.0, 0.0)[0][:, 0, 0]
+    phi_exact = amp / k**2 * xp.cos(k * x)
+    e_exact = amp / k * xp.sin(k * x)
+
+    def solve(**kwargs):
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        poisson = PoissonSolve(rho=rho)
+        poisson.variables.phi = phi
+        poisson.options = poisson.Options(
+            stab_mat=stab_mat,
+            solver_params=SolverParameters(tol=1e-13, maxiter=3000, recycle=False),
+            **kwargs,
+        )
+        poisson.allocate()
+        poisson(1.0)
+        e = FEECVariable(space="Hcurl")
+        e.allocate(derham=derham, domain=domain)
+        derham.grad.dot(-phi.spline.vector, out=e.spline.vector)
+        phi_vals = domain.push(phi.spline, e1, 0.0, 0.0, kind="0")[:, 0, 0]
+        e_vals = domain.push(e.spline, e1, 0.0, 0.0, kind="1")[0][:, 0, 0]
+        return poisson, phi_vals, e_vals
+
+    # default options (stab_eps -> 1e-14): phi is O(1) and E is accurate
+    poisson, phi_vals, e_vals = solve()
+    assert poisson.operator_is_singular
+    e_err = xp.max(xp.abs(e_vals - e_exact)) / xp.max(xp.abs(e_exact))
+    phi_err = xp.max(xp.abs(phi_vals - xp.mean(phi_vals) - phi_exact)) / xp.max(xp.abs(phi_exact))
+    logger.info(f"{stab_mat=}: {xp.max(xp.abs(phi_vals))=}, {e_err=}, {phi_err=}")
+    assert xp.max(xp.abs(phi_vals)) < 2.0 * xp.max(xp.abs(phi_exact))
+    assert e_err < 1e-3
+    assert phi_err < 1e-3
+
+    # without compatibility, the constant mode of phi is huge: (net charge) / stab_eps
+    _, phi_vals_nc, _ = solve(enforce_compatibility=False)
+    logger.info(f"{stab_mat=}, enforce_compatibility=False: {xp.max(xp.abs(phi_vals_nc))=}")
+    assert xp.max(xp.abs(phi_vals_nc)) > 1e10
+
+    # for stab_mat="M0" and a finite stab_eps, the projection changes phi only by a constant
+    if stab_mat == "M0":
+        _, phi1, e1_vals = solve(stab_eps=1e-2)
+        _, phi2, e2_vals = solve(stab_eps=1e-2, enforce_compatibility=False)
+        assert xp.max(xp.abs(e1_vals - e2_vals)) < 1e-10 * xp.max(xp.abs(e_exact))
+        shift = phi2 - phi1
+        assert xp.max(xp.abs(shift - xp.mean(shift))) < 1e-10 * xp.max(xp.abs(phi_exact))
+
+
+def test_poisson_dirichlet_not_singular():
+    """With Dirichlet boundary conditions the Poisson operator is regular and the rhs is not modified."""
+    domain = domains.Cuboid(r1=4.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=(8, 1, 1)),
+        DerhamOptions(degree=(2, 1, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = WeightedMassOperators(derham, domain)
+
+    phi = FEECVariable(space="H1")
+    phi.allocate(derham=derham, domain=domain)
+    poisson = PoissonSolve(rho=lambda e1, e2, e3: 1.0 + 0.0 * e1)
+    poisson.variables.phi = phi
+    poisson.allocate()
+    assert not poisson.operator_is_singular
+    assert poisson._ones is None
+
+
+@pytest.mark.parametrize("stab_mat", ["M0", "Id"])
+@pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
+def test_poisson_2d_kronecker_preconds(bc_type, stab_mat):
+    """PoissonSolve with the Kronecker preconditioners agrees with the unpreconditioned solve (pcg and cg);
+    the stiffness preconditioner needs fewer iterations than no preconditioner (the mass-matrix
+    preconditioner does not approximate the Laplacian and is only checked for the solution)."""
+    domain = domains.Colella(Lx=4.0, Ly=2.0, alpha=0.1, Lz=1.0)
+    bcs = {
+        "periodic": (None, None, None),
+        "dirichlet": (("dirichlet", "dirichlet"), None, None),
+        "neumann": (("free", "free"), None, None),
+    }[bc_type]
+    derham = Derham(TensorProductGrid(num_elements=[32, 32, 1]), DerhamOptions(degree=[2, 2, 1], bcs=bcs), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return xp.cos(2 * xp.pi * e1) * xp.sin(2 * xp.pi * e2) + 0.3 * xp.sin(4 * xp.pi * e2)
+
+    phis = []
+    infos = []
+    for solver_name, precond in [
+        ("pcg", None),
+        ("pcg", "MassMatrixPreconditioner"),
+        ("pcg", "StiffnessPreconditioner"),
+        ("cg", None),
+    ]:
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        solver = PoissonSolve(rho=rho)
+        solver.variables.phi = phi
+        solver.options = solver.Options(
+            stab_eps=1e-8,
+            stab_mat=stab_mat,
+            solver=solver_name,
+            precond=precond,
+            solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
+        )
+        solver.allocate()
+        solver(1.0)
+        phis.append(phi.spline.vector.toarray())
+        infos.append(solver._solver._info)
+
+    # global coefficient arrays (toarray only fills the local part)
+    if comm.Get_size() > 1:
+        phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
+    if bc_type != "dirichlet":
+        # solutions are defined up to a constant (the stabilization is tiny)
+        phis = [p - xp.mean(p) for p in phis]
+    for p in phis[1:]:
+        assert xp.max(xp.abs(p - phis[0])) < 1e-6 * xp.max(xp.abs(phis[0]))
+    assert all(info["success"] for info in infos)
+    assert infos[2]["niter"] < infos[0]["niter"]
+
+
+def test_implicit_diffusion_stiffness_dt():
+    """With divide_by_dt, the stiffness preconditioner follows changes of dt."""
+    from struphy.propagators.implicit_diffusion import ImplicitDiffusion
+
+    domain = domains.Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=1.0, l3=0.0, r3=1.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[32, 16, 1]),
+        DerhamOptions(degree=[2, 2, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    phi = FEECVariable(space="H1")
+    phi.allocate(derham=derham, domain=domain)
+    phi.spline.vector = derham.P0(lambda e1, e2, e3: xp.sin(xp.pi * e1) * xp.cos(2 * xp.pi * e2))
+
+    prop = ImplicitDiffusion()
+    prop.variables.phi = phi
+    prop.options = prop.Options(
+        sigma_1=1.0,
+        sigma_2=1.0,
+        sigma_3=0.0,
+        divide_by_dt=True,
+        precond="StiffnessPreconditioner",
+        solver_params=SolverParameters(tol=1e-12, maxiter=100, recycle=False),
+    )
+    prop.allocate()
+
+    for dt in [0.1, 0.1, 0.01]:
+        rhs = (1.0 / dt) * mass_ops.M0.dot(phi.spline.vector)
+        prop(dt)
+        assert prop._stiffness_pc.sigma == 1.0 / dt
+        A = (1.0 / dt) * mass_ops.M0 + derham.grad.T @ mass_ops.M1 @ derham.grad
+        r = rhs - A.dot(phi.spline.vector)
+        assert xp.sqrt(r.inner(r)) < 1e-9 * xp.sqrt(rhs.inner(rhs))
+        # exact inverse on the Cuboid (up to round-off)
+        assert prop._solver._info["niter"] <= 3
 
 
 if __name__ == "__main__":

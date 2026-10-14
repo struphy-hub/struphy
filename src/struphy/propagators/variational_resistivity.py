@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
@@ -124,7 +124,7 @@ class VariationalResistivity(Propagator):
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Linear solver for implicit subproblems.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
             Linear-solver controls.
@@ -136,6 +136,8 @@ class VariationalResistivity(Propagator):
             Physical resistivity coefficient.
         eta_a : float, default=0.0
             Artificial-resistivity coefficient.
+        fast : bool, default=False
+            If ``True`` and ``model="linear_q"``, skip the thermodynamic (energy balance) update.
         """
 
         # specific literals
@@ -144,12 +146,13 @@ class VariationalResistivity(Propagator):
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         linearize_current: bool = False
         eta: float = 0.0
         eta_a: float = 0.0
+        fast: bool = False
 
         def __post_init__(self):
             # checks
@@ -184,6 +187,7 @@ class VariationalResistivity(Propagator):
         self._eta_a = self.options.eta_a
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
+        self._fast = self.options.fast
         self._linearize_current = self.options.linearize_current
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
@@ -245,7 +249,7 @@ class VariationalResistivity(Propagator):
         total_resistivity = self._update_artificial_resistivity(bn, dt)
 
         self._scaled_stiffness._scalar = dt * self._eta
-        # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
+        # self.evol_op._multiplicands[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current:
             bn1 = self.evol_op.dot(
                 bn
@@ -261,7 +265,7 @@ class VariationalResistivity(Propagator):
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
-        if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
+        if self._model == "linear_p" or (self._model == "linear_q" and self._fast):
             self.update_feec_variables(s=sn, b=bn1)
             return
 
@@ -327,10 +331,10 @@ class VariationalResistivity(Propagator):
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
 
-        tol = self._nonlin_solver["tol"]
+        tol = self._nonlin_solver.tol
         err = tol + 1
 
-        for it in range(self._nonlin_solver["maxiter"]):
+        for it in range(self._nonlin_solver.maxiter):
             if self._model in ["deltaf_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
@@ -416,11 +420,12 @@ class VariationalResistivity(Propagator):
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
-                self.pt3 += incr
+                pt3_vec = self.pt3.spline.vector
+                pt3_vec += incr
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
+        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err =} \n {tol**2 =}",
             )
@@ -474,10 +479,10 @@ class VariationalResistivity(Propagator):
 
         #     self._get_L2dofs_V3(cb_sq_v, dofs=self._linear_form_tot_e)
 
-        #     tol = self._nonlin_solver["tol"]
+        #     tol = self._nonlin_solver.tol
         #     err = tol + 1
 
-        #     for it in range(self._nonlin_solver["maxiter"]):
+        #     for it in range(self._nonlin_solver.maxiter):
         #         self.sf1.vector = self.pt3
 
         #         sf1_values = self.sf1.eval_tp_fixed_loc(
@@ -516,8 +521,9 @@ class VariationalResistivity(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        pc_M1 = preconditioner.MassMatrixDiagonalPreconditioner(
+        pc_M1 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M1,
+            dim_reduce=None,
         )
         inv_M1 = inverse(
             self.mass_ops.M1,
@@ -528,8 +534,9 @@ class VariationalResistivity(Propagator):
             verbose=False,
         )
 
-        pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
+        pc_M3 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M3,
+            dim_reduce=None,
         )
         self._inv_M3 = inverse(
             self.mass_ops.M3,
@@ -553,7 +560,8 @@ class VariationalResistivity(Propagator):
                 preconditioner,
                 self.options.precond,
             )
-            self.pc_jac = pc_class(self.M_de_ds)
+            # dim_reduce=None: the Kronecker factors do not depend on the weights, cheap to update
+            self.pc_jac = pc_class(self.M_de_ds, dim_reduce=None)
 
         self.inv_jac = inverse(
             self.M_de_ds,
@@ -583,7 +591,7 @@ class VariationalResistivity(Propagator):
                 preconditioner,
                 self.options.precond,
             )
-            self.pc = pc_class(M2)
+            self.pc = pc_class(M2, dim_reduce=None)
 
         self.inv_lop = inverse(
             self.l_op,

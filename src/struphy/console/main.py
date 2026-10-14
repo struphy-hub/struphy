@@ -85,8 +85,8 @@ def struphy():
     # 5. "test" sub-command
     add_parser_test(subparsers, list_models)
 
-    # 6. "format" and "lint" sub-commands
-    add_parser_format(subparsers)
+    # 6. "build-init-files" sub-command
+    add_parser_build_init_files(subparsers)
 
     # 7. output inspection and post-processing
     add_parser_output(subparsers)
@@ -94,9 +94,6 @@ def struphy():
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-
-    # Set args.config if user ran struphy format / struphy lint
-    set_args_format_config(args, parser)
 
     # if no arguments are passed, print help and exit
     if all(v is None or not v for v in vars(args).values()):
@@ -126,9 +123,7 @@ def struphy():
     # load sub-command function
     command_map = {
         "compile": ("struphy.console.compile", "struphy_compile"),
-        "lint": ("struphy.console.format", "struphy_lint"),
-        "format": ("struphy.console.format", "struphy_format"),
-        "build-init-files": ("struphy.console.format", "struphy_build_init_files"),
+        "build-init-files": ("struphy.console.build_init_files", "struphy_build_init_files"),
         "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
         "params": ("struphy.console.params", "struphy_params"),
         "profile": ("struphy.console.profile", "struphy_profile"),
@@ -152,11 +147,6 @@ def struphy():
         "fluid",
         "kinetic",
         "hybrid",
-        # These options are stored in kwargs.config
-        "input_type",
-        "linters",
-        "iterations",
-        "output_format",
     ]:
         kwargs.pop(key, None)
     if not is_output:
@@ -259,6 +249,12 @@ def add_parser_compile(
     )
 
     parser_compile.add_argument(
+        "--debug",
+        help="call pyccel with --debug compiler option",
+        action="store_true",
+    )
+
+    parser_compile.add_argument(
         "--dependencies",
         help="print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen",
         action="store_true",
@@ -310,7 +306,7 @@ def add_parser_params(subparsers, list_models, model_message):
         "--check-file",
         type=str,
         metavar="FILE",
-        help="check if the parameters in the .yml file are valid",
+        help="check that the .py parameter file FILE runs and defines a Simulation of MODEL",
     )
 
     parser_params.add_argument(
@@ -325,7 +321,7 @@ def add_parser_profile(subparsers):
     parser_profile = subparsers.add_parser(
         "profile",
         help="profile finished runs",
-        description="Compare profiling data of finished Struphy runs. For each function in a predefined filter, displays: ncalls, tottime, percall and cumtime.",
+        description="Show the profiling data (profiling_data.h5) of finished Struphy runs, written by sim.run(profiling_activated=True). For each timing region, displays: calls, total time, mean time per call and share of the run; with several runs, also compares their total times. For more, use Output.profile in Python or the scope-profiler command.",
     )
 
     parser_profile.add_argument(
@@ -333,18 +329,12 @@ def add_parser_profile(subparsers):
         type=str,
         nargs="+",
         metavar="DIR",
-        help="simulation ouput folders",
-    )
-
-    parser_profile.add_argument(
-        "--replace",
-        help="replace module names with class names for better info",
-        action="store_true",
+        help="simulation output folders",
     )
 
     parser_profile.add_argument(
         "--all",
-        help="display the 50 most expensive function calls, without applying the predefined filter",
+        help="display all regions, not only the N most expensive ones",
         action="store_true",
     )
 
@@ -352,15 +342,15 @@ def add_parser_profile(subparsers):
         "--n-lines",
         type=int,
         metavar="N",
-        help="plot the N most time consuming calls in profiling analysis (default=6)",
-        default=6,
+        help="display (and plot) the N most time consuming regions (default=20)",
+        default=20,
     )
 
     parser_profile.add_argument(
-        "--print-callers",
+        "--prefix",
         type=str,
         metavar="STR",
-        help="string STR that identifies functions for which to print callers (default=None)",
+        help="only display regions whose name starts with STR, e.g. 'prop:' or 'kernel:' (default=None)",
         default=None,
     )
 
@@ -368,7 +358,7 @@ def add_parser_profile(subparsers):
         "--savefig",
         type=str,
         metavar="NAME",
-        help="save (and dont display) the profile figure under NAME, relative to current output path.",
+        help="save a bar plot of the total time of the displayed regions under NAME, relative to the current directory.",
     )
 
 
@@ -444,7 +434,12 @@ def add_parser_output(subparsers):
     parser.add_argument("action", choices=("info", "keys", "pproc", "report"))
     parser.add_argument("path", help="simulation output directory")
     parser.add_argument("--physical", action="store_true", help="materialize physical field components")
-    parser.add_argument("--parallel", action="store_true", help="use MPI.COMM_WORLD for parallel pproc")
+    parser.add_argument(
+        "--parallel",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="pproc on all ranks of MPI.COMM_WORLD (default: when as many as the run's)",
+    )
     parser.add_argument("--format", choices=("markdown", "html"), default="markdown", help="report format")
     parser.add_argument("--directory", help="report directory")
 
@@ -471,10 +466,10 @@ def add_parser_test(subparsers, list_models):
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["verification"],
+            choices=list_models + ["models", "unit", "fluid", "kinetic", "hybrid", "toy", "verification"],
             metavar="GROUP",
             help='can be either:\na) a model name \
-                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid" for testing just a sub-group) \
+                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "verification" for running all verification tests \
                                     \nd) "unit" for performing unit tests',
         )
@@ -515,145 +510,21 @@ def add_parser_test(subparsers, list_models):
         )
 
 
-def add_parser_format(subparsers):
-    try:
-        import autopep8
-        import isort
-        import ruff
+def add_parser_build_init_files(subparsers):
+    # the generated files live in the source tree, so this only makes sense for editable installs
+    if not is_installed_editable("struphy"):
+        return
 
-        add_lintformat_parser = True
-    except ModuleNotFoundError:
-        add_lintformat_parser = False
-
-    if is_installed_editable("struphy") and add_lintformat_parser:
-        parser_format = subparsers.add_parser(
-            "format",
-            help="format source files",
-            description="Format source files based on the given input.",
-        )
-
-        parser_lint = subparsers.add_parser(
-            "lint",
-            help="lint and analyze source files",
-            description="Check code statistics and formatting compliance.",
-        )
-
-        # Common argument for both 'format' and 'lint'
-        for subparser in [parser_format, parser_lint]:
-            subparser.add_argument(
-                "input_type",
-                type=str,
-                choices=["all", "staged", "branch"],
-                nargs="?",  # optional
-                help="specify the files to process",
-            )
-            subparser.add_argument(
-                "--path",
-                type=str,
-                # default=libpath,
-                help="the path to the directory or file",
-            )
-
-            subparser.add_argument(
-                "--verbose",
-                action="store_true",
-                help="use verbose output",
-            )
-
-        parser_format.add_argument(
-            "--linters",
-            type=str,
-            nargs="+",
-            default=["ruff"],
-            choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
-            help="list of linters to use",
-        )
-        parser_format.add_argument(
-            "--iterations",
-            type=int,
-            default=5,
-            help="maximum number of times to run each formatter",
-        )
-        # Avoid interfering with --yes flags in other subparsers
-        # by adding an argument group
-        format_group = parser_format.add_argument_group("format options")
-        format_group.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="say yes to prompt when asked if all files should be formatted",
-        )
-
-        parser_lint.add_argument(
-            "--linters",
-            type=str,
-            nargs="+",
-            default=["ruff", "omp_flags"],
-            choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint", "ruff", "omp_flags"],
-            help="list of linters to use",
-        )
-
-        parser_lint.add_argument(
-            "--output-format",
-            type=str,
-            default="table",
-            choices=["table", "plain", "report"],
-            help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
-        )
-
-        parser_build_init_files = subparsers.add_parser(
-            "build-init-files",
-            help="regenerate auto-generated __init__.py files",
-            description="Regenerate the auto-generated __init__.py files (e.g. struphy/models/__init__.py) and format them.",
-        )
-        parser_build_init_files.add_argument(
-            "--verbose",
-            action="store_true",
-            help="use verbose output",
-        )
-        parser_build_init_files.add_argument(
-            "--linters",
-            type=str,
-            nargs="+",
-            default=["ruff"],
-            choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
-            help="list of linters to use",
-        )
-        parser_build_init_files.add_argument(
-            "--iterations",
-            type=int,
-            default=5,
-            help="maximum number of times to run each formatter",
-        )
-        build_init_files_group = parser_build_init_files.add_argument_group("build-init-files options")
-        build_init_files_group.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="say yes to prompt when asked if all files should be formatted",
-        )
-
-
-def set_args_format_config(args, parser):
-    if args.command == "format" or args.command == "lint":
-        if not args.input_type and not args.path:
-            parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
-        args.config = {
-            "input_type": args.input_type,
-            "path": args.path,
-            "linters": args.linters,
-        }
-
-    if args.command == "format":
-        args.config["iterations"] = args.iterations
-    if args.command == "lint":
-        args.config["output_format"] = args.output_format
-
-    if args.command == "build-init-files":
-        args.config = {
-            "linters": args.linters,
-            "iterations": args.iterations,
-        }
+    parser_build_init_files = subparsers.add_parser(
+        "build-init-files",
+        help="regenerate auto-generated __init__.py files",
+        description="Regenerate the auto-generated __init__.py files (e.g. struphy/models/__init__.py) and format them with ruff.",
+    )
+    parser_build_init_files.add_argument(
+        "--verbose",
+        action="store_true",
+        help="use verbose output",
+    )
 
 
 def print_short_help(parser):

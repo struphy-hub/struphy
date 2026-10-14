@@ -107,12 +107,13 @@ class SaddlePointSolver:
                 assert isinstance(i, xp.ndarray) or isinstance(i, sc.sparse.csr_matrix)
             for i in F:
                 assert isinstance(i, xp.ndarray) or isinstance(i, sc.sparse.csr_matrix)
-            for i in Apre:
-                assert (
-                    isinstance(i, xp.ndarray)
-                    or isinstance(i, sc.sparse.csr_matrix)
-                    or isinstance(i, sc.sparse.csr_array)
-                )
+            if Apre is not None:
+                for i in Apre:
+                    assert (
+                        isinstance(i, xp.ndarray)
+                        or isinstance(i, sc.sparse.csr_matrix)
+                        or isinstance(i, sc.sparse.csr_array)
+                    )
             assert method_to_solve in ("SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse")
             assert A[0].shape[0] == B[0].shape[1]
             assert A[0].shape[1] == B[0].shape[1]
@@ -129,7 +130,7 @@ class SaddlePointSolver:
             assert A.domain == B.domain
             assert A.codomain == B.domain
             self._solver_name = solver_name
-            if solver_params["pc"] is None:
+            if "pc" in solver_params and solver_params["pc"] is None:
                 solver_params.pop("pc")
 
         # operators
@@ -234,16 +235,17 @@ class SaddlePointSolver:
     def Apre(self, a):
         if self._variant == "Uzawa":
             need_update = True
-            A0_old, A1_old = self._Apre
-            A0_new, A1_new = a
-            if self._method_to_solve in ("ScipySparse", "SparseSolver"):
-                same_A0 = (A0_old != A0_new).nnz == 0
-                same_A1 = (A1_old != A1_new).nnz == 0
-            else:
-                same_A0 = xp.allclose(A0_old, A0_new, atol=1e-10)
-                same_A1 = xp.allclose(A1_old, A1_new, atol=1e-10)
-            if same_A0 and same_A1:
-                need_update = False
+            if self._Apre is not None and a is not None:
+                A0_old, A1_old = self._Apre
+                A0_new, A1_new = a
+                if self._method_to_solve in ("ScipySparse", "SparseSolver"):
+                    same_A0 = (A0_old != A0_new).nnz == 0
+                    same_A1 = (A1_old != A1_new).nnz == 0
+                else:
+                    same_A0 = xp.allclose(A0_old, A0_new, atol=1e-10)
+                    same_A1 = xp.allclose(A1_old, A1_new, atol=1e-10)
+                if same_A0 and same_A1:
+                    need_update = False
             self._Apre = a
             if need_update:
                 self._setup_inverses()
@@ -310,16 +312,10 @@ class SaddlePointSolver:
             else:
                 self._spectralresult = []
 
-            # Initialize P to zero or given initial guess
-            if isinstance(U_init, xp.ndarray) or isinstance(U_init, sc.sparse.csr.csr_matrix):
-                self._Pnp = P_init if P_init is not None else self._P
-                self._Unp = U_init if U_init is not None else self._U
-                self._Uenp = Ue_init if U_init is not None else self._Ue
-
-            else:
-                self._Pnp = P_init.toarray() if P_init is not None else self._Pnp
-                self._Unp = U_init.toarray() if U_init is not None else self._Unp
-                self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
+            # Initialize P, U and Ue to the given initial guesses or keep the previous solution
+            self._Pnp = self._to_numpy(P_init, self._Pnp)
+            self._Unp = self._to_numpy(U_init, self._Unp)
+            self._Uenp = self._to_numpy(Ue_init, self._Uenp)
 
             logger.debug("Uzawa solver:")
             logger.debug("+---------+---------------------+")
@@ -383,6 +379,16 @@ class SaddlePointSolver:
                 _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
+    @staticmethod
+    def _to_numpy(v, default):
+        """Return the initial guess v as numpy array (feectools Vectors are converted), or default if v is None."""
+        if v is None:
+            return default
+        elif isinstance(v, xp.ndarray) or isinstance(v, sc.sparse.csr_matrix):
+            return v
+        else:
+            return v.toarray()
+
     def _setup_inverses(self):
         A0 = self._A[0]
         A1 = self._A[1]
@@ -432,8 +438,14 @@ class SaddlePointSolver:
             else:
                 self._Aenpinv = self._compute_inverse(A1, which="A[1]")
 
-        # Precompute Schur complement
-        self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
+        # Precompute Schur complement B A^{-1} B^T (with preconditioning, A^{-1} = (Apre^{-1} A)^{-1} Apre^{-1})
+        if self._preconditioner:
+            self._Precnp = (
+                self._B1np @ self._Anpinv @ self._A11npinv @ self._B1np.T
+                + self._B2np @ self._Aenpinv @ self._A22npinv @ self._B2np.T
+            )
+        else:
+            self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
 
     def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
         # try:

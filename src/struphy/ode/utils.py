@@ -115,6 +115,9 @@ class ButcherTableau:
         self._a_stage = xp.zeros(self.n_stages)
         self._a_stage[:-1] = xp.diag(self._a, k=-1)
 
+        # the 1d a_stage format can only represent tableaux with a purely sub-diagonal a
+        self._has_a_stage = bool(xp.all(xp.tril(self._a, k=-2) == 0.0))
+
         self._conv_rate = conv_rate
 
     __available_methods__ = get_args(LiteralOptions.OptsButcher)
@@ -126,7 +129,18 @@ class ButcherTableau:
 
     @property
     def a_stage(self):
-        """Characteristic coefficients of the method in old 1d format."""
+        """Sub-diagonal of ``a`` (old 1d format), as used by the ``*_stage`` particle pusher kernels.
+
+        These kernels only keep the current stage vector ``k_i`` and a running sum of ``b_i * k_i``,
+        so they can only represent tableaux where ``a`` is non-zero on the first sub-diagonal only.
+        For other tableaux (e.g. ``"3/8 rule"``) a :class:`NotImplementedError` is raised instead of
+        silently dropping the coefficients below the sub-diagonal."""
+        if not self._has_a_stage:
+            raise NotImplementedError(
+                f"Butcher tableau '{self.algo}' has non-zero entries below the sub-diagonal of a, "
+                "which cannot be represented in the 1d a_stage format used by the particle pusher kernels. "
+                f"Choose one of {[m for m in self.__available_methods__ if ButcherTableau(m)._has_a_stage]}.",
+            )
         return self._a_stage
 
     @property

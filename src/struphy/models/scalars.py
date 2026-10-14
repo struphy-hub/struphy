@@ -2,16 +2,30 @@ from abc import ABCMeta, abstractmethod
 from typing import Callable, Union
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+import numpy as np
+from maybempi import MPI
 
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import space_to_form
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.pic.particles import Particles5D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.docstring_converter import auto_convert_docstring
 
 _DUMMY_VARIABLE = object()
+
+
+def _scalar_value(value):
+    """`value` (of size 1) as something that can be written into a scalar's buffer without leaving the device.
+
+    A device result (e.g. a reduction on the CuPy backend) stays a 0-d device array; ``float()`` would wait for the
+    device and copy it to the host at every update. Host values (Python or NumPy scalars, such as the result of an
+    inner product that already went through MPI on the host) are plain floats.
+    """
+    if isinstance(value, xp.ndarray):
+        return value.reshape(())
+    return float(np.asarray(value).reshape(()))
 
 
 class Scalar(metaclass=ABCMeta):
@@ -139,7 +153,12 @@ class SPHScalar(Scalar):
 
 class Scalars:
     """Container for multiple Scalar objects.
-    Calling .update() on this container will update all contained scalars."""
+    Calling .update() on this container will update all contained scalars.
+
+    The scalars are computed where the data lives (on the device on the CuPy backend). The ``value`` of each scalar
+    in the container is a view into one array of the container, and :meth:`update` ends with :meth:`to_host`, which
+    copies that array to the host in one transfer. The output (:meth:`host_value`, printing) reads the host copy.
+    """
 
     def __init__(self, **scalars: dict[str, Scalar]):
         for name, scalar in scalars.items():
@@ -148,6 +167,14 @@ class Scalars:
             self._dct = scalars
         else:
             self._dct = {}
+
+        # one buffer for all values, so that they reach the host in a single copy
+        self._device_values = xp.zeros(len(self._dct), dtype=float)
+        self._host_values = np.zeros(len(self._dct), dtype=float)
+        self._index = {}
+        for i, (name, scalar) in enumerate(self._dct.items()):
+            scalar.value = self._device_values[i : i + 1]
+            self._index[name] = i
 
     @property
     def dct(self) -> dict[str, Scalar]:
@@ -160,6 +187,19 @@ class Scalars:
         # SumOfScalars(SumOfScalars(a, b), c), and an inner sum left up to date would keep its first value
         for scalar in self.dct.values():
             _mark_outdated(scalar)
+        self.to_host()
+
+    def to_host(self):
+        """Copy the values of all scalars to the host, in one transfer (the only one of the scalar diagnostics)."""
+        self._host_values[:] = xp.to_numpy(self._device_values)
+
+    def host_value(self, name: str) -> np.ndarray:
+        """The value of scalar `name` after the last :meth:`update`, as a NumPy array of size 1.
+
+        A view into the host buffer of the container: it follows later updates (the output registers it once).
+        """
+        i = self._index[name]
+        return self._host_values[i : i + 1]
 
 
 def _mark_outdated(scalar: Scalar):
@@ -274,7 +314,7 @@ class FunctionScalarFEEC(Scalar):
         Scalar.__init__(self, _DUMMY_VARIABLE)
 
     def _local_update(self):
-        self.local_value[0] = float(self.function())
+        self.local_value[0] = _scalar_value(self.function())
 
     def _mpi_sum(self):
         """Communication has been handled by psydac, so no additional MPI operations are needed."""
@@ -292,15 +332,26 @@ class KineticEnergyPIC(PICScalar):
     velocity of particle :math:`i`. The marker weights already carry the :math:`1/N_p` of the Monte-Carlo
     estimate (:meth:`~struphy.pic.base.Particles.initialize_weights` sets
     :math:`w_i = f_i / (s_i N_p)`), so the sum must not be divided by :math:`N_p` again.
+
+    With the control variate (``WeightsParameters(control_variate=True)``) the weights are the delta-f weights
+    :math:`w_i = (f_i - f_{0,i}) / (s_i N_p)` (:meth:`~struphy.pic.base.Particles.update_weights`), at all times
+    including :math:`t=0`, so this is the kinetic energy of :math:`f - f_0`.
+
+    For :class:`~struphy.pic.particles.Particles5D` the velocity coordinates are :math:`(v_\parallel, \mu)`,
+    so only the parallel kinetic energy :math:`v_i^2 = v_{\parallel,i}^2` is summed; the magnetic-moment
+    part :math:`\mu_i |B_0|` is tracked by a separate scalar in the models (e.g. ``en_fB``).
     """
 
     def _local_update(self):
         # `particles.velocities` and `.weights` are fancy-indexed copies of the marker array, not views,
         # so they must be read at every update: a cached copy keeps the state of the first call forever.
-        # TODO: velocities need to be redefined for Particles5d? Put magnetic moment as COM.
         particles = self.variables[0].particles
         velocities = particles.velocities
         weights = particles.weights
+
+        # Particles5D velocities are (v_par, mu): mu is not a velocity, only v_par contributes here.
+        if isinstance(particles, Particles5D):
+            velocities = velocities[:, :1]
 
         energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
         self.local_value[0] = energy
@@ -326,7 +377,7 @@ class FunctionScalarPIC(PICScalar):
         super().__init__(pic_variable)
 
     def _local_update(self):
-        self.local_value[0] = float(self.function())
+        self.local_value[0] = _scalar_value(self.function())
 
 
 class KineticEnergySPH(SPHScalar):
@@ -364,4 +415,4 @@ class FunctionScalarSPH(SPHScalar):
         super().__init__(sph_variable)
 
     def _local_update(self):
-        self.local_value[0] = float(self.function())
+        self.local_value[0] = _scalar_value(self.function())

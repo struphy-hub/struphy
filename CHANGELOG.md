@@ -1,6 +1,93 @@
 # Changelog
 
 
+## Struphy 3.4.0 - 2026-10-01
+
+* [PyPI](https://pypi.org/project/struphy/3.4.0)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.4.0)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.3.0...v3.4.0)
+
+
+### Headlines
+
+* **New lazy, xarray-based post-processing API**: `Output` replaces `PostProcessor`, `PlottingData`, `sim.pproc()` and `sim.load_plotting_data()`. `Simulation.run()` now returns an `Output`, and `Output("path/to/run")` or `open_output()` opens a finished run; post-processed fields, binned distributions, SPH densities and orbits are materialized on demand and returned as `xarray` objects with named dimensions, coordinates and units. https://github.com/struphy-hub/struphy/pull/370
+* **Parallel kernel compilation**: `struphy compile -j N` (and `Compiler(jobs=...)`) compiles the pyccel kernels in parallel while preserving their dependency order; kernel dependencies are now detected by static AST parsing instead of importing the kernels. https://github.com/struphy-hub/struphy/pull/382
+* **More efficient MPI sorting of markers**: new `Pusher` keywords `pushes_eta` (required) and `local_eval_only` call `mpi_sort_markers` only when markers have actually moved, cutting the number of sorts by 2x to 10x depending on the model with unchanged results, and giving good strong scaling for e.g. `VlasovAmpereOneSpecies` and `ColdPlasmaVlasov`. https://github.com/struphy-hub/struphy/pull/415
+* **One folder per mapping**: each of the 14 domains now lives in its own folder under `struphy/geometry/domains/`, together with its own `<name>_kernels.py` for the mapping and Jacobian kernels; this prepares the translation to other backends such as CUDA. Imports like `from struphy.geometry.domains import Cuboid` still work. https://github.com/struphy-hub/struphy/pull/418 (merged via https://github.com/struphy-hub/struphy/pull/417)
+
+### API changes
+
+* `Output` and `open_output` replace `PostProcessor` and `PlottingData` in `struphy.__all__`. On `Simulation`, `load_plotting_data()` and `plotting_data` are removed, and `Simulation.output` and `Simulation.from_output(path_out)` are new. `Domain` gains `outer_boundary_mesh()`, and the `Variable` classes gain `to_dict()`. https://github.com/struphy-hub/struphy/pull/370
+* `Compiler.__init__()` and `Compiler.compile()` take a new `jobs` argument (default 1, serial) for parallel kernel compilation. https://github.com/struphy-hub/struphy/pull/382
+* New option `HasegawaWakataniStep.Options.coupling` (default `1.0`) sets the coupling coefficient `C` for `c_fun="const"`, which was previously hard-coded to zero. https://github.com/struphy-hub/struphy/pull/388
+* The default of `parallel` in `Output.pproc()` and `Output.evaluate()` changed from `False` to `None`: post-processing now runs on all ranks when the MPI job has as many ranks as the saved run, and serially on rank 0 otherwise. https://github.com/struphy-hub/struphy/pull/410
+* New option `fast` (default `False`) in `VariationalViscosity.Options` and `VariationalResistivity.Options`, replacing the leftover `fast` key of the old dict-based solver parameters. https://github.com/struphy-hub/struphy/pull/454
+* The misspelled field `LoadingParameters.dir_exrernal` is renamed to `dir_external`, as documented. https://github.com/struphy-hub/struphy/pull/479
+* `Simulation.spawn_sister()` takes a new `comm` argument, so a sister simulation runs on the same communicator as its parent instead of `MPI.COMM_WORLD`. https://github.com/struphy-hub/struphy/pull/556
+* The `moment_factors` setters of `Maxwellian3D`, `GyroMaxwellian2D`, `GyroMaxwellian2Dvperp` and `CanonicalMaxwellian2D` now take a dict that is merged into the existing factors, e.g. `f0.moment_factors = {"n": 3.0}`; before, every assignment failed with a `TypeError`. https://github.com/struphy-hub/struphy/pull/627
+* `CanonicalMaxwellian2D.eval_psic()` takes a new keyword `use_cbufs` (default `True`) to bypass the result buffers. https://github.com/struphy-hub/struphy/pull/637
+
+### Physics models
+
+* None.
+
+### Bug fixes
+
+* Fix `create_vtk` in post-processing crashing on `log10(0)` when no time steps were saved. https://github.com/struphy-hub/struphy/pull/381
+* Fix stale values in nested scalar sums (`a + b + c`) in `Scalars.update()`, which caused apparent drifts in derived quantities such as the total energy. https://github.com/struphy-hub/struphy/pull/385
+* `KineticEnergyPIC` and `KineticEnergySPH` no longer divide by `N_p` twice, which made the kinetic energy of every PIC and SPH model `N_p` times too small. https://github.com/struphy-hub/struphy/pull/387
+* Fix `GyroMaxwellian2D.velocity_jacobian_det` for a callable `B0`, which now returns one value per marker. https://github.com/struphy-hub/struphy/pull/394
+* Zero-initialise `norm_b_prod` in the pusher kernel `push_gc_cc_J2_stage_H1vec`; its diagonal held uninitialised memory, corrupting `CurrentCoupling5DGradB` with `u_space="H1vec"`. https://github.com/struphy-hub/struphy/pull/459
+* Fix `PushRandomDiffusion` adding the full Wiener increment at every Runge-Kutta stage, which made the effective diffusion coefficient 16 D with `rk4`. Each stage now adds its `b[i]` fraction, and the default scheme is `forward_euler` (Euler-Maruyama). https://github.com/struphy-hub/struphy/pull/458
+* Fix the neutralising background in full-f `ImplicitDiffusion`/`PoissonSolve` being multiplied by the mass matrix `M0` twice, which gave a large spurious initial potential in `VlasovAmpereOneSpecies`, `ToyDrift` and `DriftKineticElectrostaticAdiabatic`. https://github.com/struphy-hub/struphy/pull/460
+* Fix the missing charge source in the initial Poisson solve of `LinearVlasovMaxwellOneSpecies`, which left the initial electric field at zero. https://github.com/struphy-hub/struphy/pull/457
+* Fix `dot_inner_tp_rings` in `PolarLinearOperator` writing the first tensor-product ring on every rank, which silently corrupted coefficients when `eta1` is split across MPI ranks. https://github.com/struphy-hub/struphy/pull/462
+* Fix the missing barotropic pressure term in `VariationalDensityEvolve` with `model="barotropic"`, which made `VariationalBarotropicFluid` behave like a pressureless fluid. https://github.com/struphy-hub/struphy/pull/463
+* Fix crashes of `VariationalViscosity` and `VariationalResistivity` for any non-zero `mu`/`eta`, caused by dict-style access to the solver dataclass, a wrong argument to `eval_3form` and an in-place update on a `FEECVariable`. https://github.com/struphy-hub/struphy/pull/454
+* Fix the missing `/poc` in the eta1-derivatives of the `HollowCylinder` Jacobian, which was wrong for any `poc != 1`. https://github.com/struphy-hub/struphy/pull/455
+* Fix the missing factor `s` in the eta1-derivatives of the `PoweredEllipticCylinder` Jacobian, a 100% error for the default `s = 0.5`. https://github.com/struphy-hub/struphy/pull/464
+* `Magnetosonic.allocate` no longer re-allocates a `b_field` passed in by the model, which dropped the initial conditions of the shared magnetic field in the linear MHD models. https://github.com/struphy-hub/struphy/pull/461
+* Fix the missing toroidal-field term in `AxisymmMHDequilibrium.gradB_xyz`; the gradient of |B| for `EQDSKequilibrium` was off by about 4%. https://github.com/struphy-hub/struphy/pull/465
+* `EQDSKequilibrium` now rescales the boundary flux `psi1` to Struphy units like `psi0`, fixing runs with non-default `base_units`. https://github.com/struphy-hub/struphy/pull/466
+* Fix a copy-paste error in the `G[0,2]` metric entry of the `hybrid_weight` kernel, wrong for any mapping with `df[2,2] != 0` such as `Cuboid` or `Colella`. https://github.com/struphy-hub/struphy/pull/468
+* Fix an `AttributeError` (undefined `_extracted_q2`) in `VariationalQBEvolve` with `linearize=True`, which made every linearized run fail on its first step. https://github.com/struphy-hub/struphy/pull/469
+* Post-processing now tracks the saved markers, `f` and `n_sph` per kinetic species, fixing a `KeyError` when only some species save particle data. https://github.com/struphy-hub/struphy/pull/470
+* Fix corner neighbour ranks left as `None` in `Particles._get_neighbouring_proc` for mixed periodic/non-periodic boundaries, which broke SPH ghost-box communication. https://github.com/struphy-hub/struphy/pull/471
+* `ButcherTableau.a_stage` now raises `NotImplementedError` for the `"3/8 rule"` instead of silently dropping coefficients and degrading particle pushes to first order. https://github.com/struphy-hub/struphy/pull/472
+* Fix `StencilMatrixFreeMassOperator.transpose` passing coefficient spaces instead of FEM spaces, which crashed `.T` and `transposed=True` for matrix-free weighted mass operators. https://github.com/struphy-hub/struphy/pull/473
+* Fix the argument order in `AverageOperator.transpose`, which made `.T` always crash. https://github.com/struphy-hub/struphy/pull/478
+* `KineticEnergyPIC` no longer counts the magnetic moment `mu` as a velocity for `Particles5D`, removing a spurious energy term in all drift-kinetic models. https://github.com/struphy-hub/struphy/pull/474
+* Add the missing equilibrium gradient `grad_PBeq` in the `H1vec` branch of the accumulation kernel `cc_lin_mhd_5d_gradB`, so both `u_space` choices of `CurrentCoupling5DGradB` give the same physics. https://github.com/struphy-hub/struphy/pull/476
+* The SPH linear smoothing-kernel gradients now vanish at zero separation, so particles no longer push on themselves. https://github.com/struphy-hub/struphy/pull/475
+* Fix `loading="external"` for particles, which failed with a `TypeError` in `Particles.draw_markers`; the parameter field is renamed to `dir_external`. https://github.com/struphy-hub/struphy/pull/479
+* Fix `BasisProjectionOperatorLocal.update_weights` for transposed operators, which kept applying the construction-time weights (e.g. in `BracketOperator`). https://github.com/struphy-hub/struphy/pull/480
+* The Uzawa path of `TwoFluidQuasiNeutralFull` now includes `M2/dt` in its `A11` block, so it solves the time step instead of the steady problem. https://github.com/struphy-hub/struphy/pull/483
+* `BasisProjectionOperatorLocal` now treats `None` weights as zero, fixing crashes of `BracketOperator` with `derham.with_local_projectors`. https://github.com/struphy-hub/struphy/pull/481
+* ... and 67 more bug fixes, see the [closed PRs](https://github.com/struphy-hub/struphy/pulls?q=is%3Apr+is%3Aclosed).
+
+### Internals
+
+* `test_pproc` gets a `show_plot` safeguard so the test doesn't open plot windows. https://github.com/struphy-hub/struphy/pull/372
+* Update the managed dependency bounds in `pyproject.toml`. https://github.com/struphy-hub/struphy/pull/374
+* Lazy imports: `import struphy` and the public API objects, models and propagators are resolved on first access, and expensive imports are moved into the operations that need them, reducing Python startup time. https://github.com/struphy-hub/struphy/pull/383
+* `M2Bn` now uses the equilibrium field components `eq_mhd.b2_*` instead of the curl of a projected vector potential, so the Hall operator keeps uniform background fields in periodic domains. https://github.com/struphy-hub/struphy/pull/384
+* `LinearMHD` and `LinearExtendedMHDuniform` get a new scalar `en_thermal` (quadratic compressional energy) that replaces the linear pressure diagnostic `en_p` in `en_tot`, removing the spurious drift of the total energy. https://github.com/struphy-hub/struphy/pull/386
+* Replace Python lists by scalars in `surface_kernel_3d_mat` of `mass_kernels.py`, removing the kernels' only dependency on gFTL and with it the need for `cmake >= 3.28` in `struphy compile`. https://github.com/struphy-hub/struphy/pull/389
+* New features for quickly plotting the kinetic initial condition with the show-distribution-function utilities. https://github.com/struphy-hub/struphy/pull/390
+* New `ProjectorNoBC` class that wraps projectors to prevent applying Dirichlet boundary conditions. https://github.com/struphy-hub/struphy/pull/395
+* Rename the post-processing dimensions `e1`, `e2`, `e3` to `eta1`, `eta2`, `eta3`, and pass slices directly to `evaluate()` instead of `isel()`. https://github.com/struphy-hub/struphy/pull/406
+* `Output` integrates the optional [plasma-plots](https://struphy-hub.github.io/plasma-plots) package: when it is installed, `out.plot`, `out.analysis` and the `.plasma` accessor on every product are available, e.g. `out.plot.energies()`. Install it with `pip install "struphy[pproc]"`. https://github.com/struphy-hub/struphy/pull/408
+* Kinetic boundary conditions are applied per marker inside the pusher kernels by the new kernel `apply_kinetic_bc_marker`, speeding up position updates 2x-4x. https://github.com/struphy-hub/struphy/pull/412
+* Particle kernel setup is refactored into explicit `KernelSetup` objects (`struphy/pic/pushing/kernel_setup.py`). https://github.com/struphy-hub/struphy/pull/413
+* Bump the `feectools` dependency to 0.1.11, which was missed in #410. https://github.com/struphy-hub/struphy/pull/453
+* CUDA strategy, part 1: proof of concept for running Struphy kernels on NVIDIA GPUs via CuPy next to the pyccel kernels (`CudaKernel` in `struphy/utils/kernel_backends.py`). https://github.com/struphy-hub/struphy/pull/643
+* CUDA strategy, part 2: `CudaKernel.from_file()` loads CUDA kernels from `<name>_cuda.cu` files next to the pyccel module. https://github.com/struphy-hub/struphy/pull/644
+* CUDA strategy, part 3: `KernelCatalog` discovers kernels from the file layout, and a missing CUDA kernel raises a clear error on the GPU backend instead of silently falling back to the CPU. https://github.com/struphy-hub/struphy/pull/645
+* CUDA strategy, part 4: `Pusher` accepts a `Kernel` (pyccel/CUDA pair) and chooses the kernel for the active backend once at setup; CPU behaviour is unchanged. https://github.com/struphy-hub/struphy/pull/646
+* CUDA strategy, part 5: `Domain.cuda_args_domain` builds the CUDA kernel arguments of a domain on the device, and `Domain` deep-copies correctly on the CuPy backend. https://github.com/struphy-hub/struphy/pull/649
+
+
 ## Struphy 3.3.0 - 2026-09-11
 
 * [PyPI](https://pypi.org/project/struphy/3.3.0)

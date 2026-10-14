@@ -3,7 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import domains
 from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -135,6 +135,56 @@ def test_l2_projectors_mappings(
             logger.info(f"Finished testing {sp_id =} for {dom_type =}")
 
         logger.info(f"Finished testing {dom_type =}")
+
+
+@pytest.mark.parametrize("space", ["H1", "Hcurl", "Hdiv", "L2"])
+def test_feec_variable_l2_projection(space):
+    """FEECVariable with projection="L2": M @ coeffs is the exact load vector (Lambda, f) of the initial condition."""
+    from struphy.initial.base import GenericPerturbation
+    from struphy.models.variables import FEECVariable
+
+    comm = MPI.COMM_WORLD
+    domain = domains.HollowCylinder(a1=0.1, a2=1.0, Lz=3.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[8, 6, 4]),
+        DerhamOptions(degree=[2, 2, 1], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    funs = (
+        lambda x, y, z: xp.exp(-(x**2) - y**2) * xp.cos(z),
+        lambda x, y, z: x * y + 0.5,
+        lambda x, y, z: xp.sin(x + 2 * z),
+    )
+    is_scalar = space in ("H1", "L2")
+
+    var = {}
+    for projection in ("commuting", "L2"):
+        v = FEECVariable(space=space, projection=projection)
+        for comp in range(1 if is_scalar else 3):
+            v.add_perturbation(GenericPerturbation(funs[comp], given_in_basis="physical", comp=comp))
+        v.allocate(derham=derham, domain=domain)
+        var[projection] = v
+    assert var["L2"].spline.projection == "L2"
+
+    # reference load vector of the pulled-back function
+    from struphy.geometry.utilities import TransformedPformComponent
+
+    key = derham.space_to_form[space]
+    ptbs = var["L2"].perturbations
+    ptbs = ptbs if isinstance(ptbs, list) else [ptbs]
+    if is_scalar:
+        fun = TransformedPformComponent(ptbs[0], "physical", key, domain=domain)
+    else:
+        fun = [TransformedPformComponent(ptbs, "physical", key, comp=c, domain=domain) for c in range(3)]
+    dofs = L2Projector(space, mass_ops).get_dofs(fun, apply_bc=True)
+    M = getattr(mass_ops, "M" + key)
+    r = M.dot(var["L2"].spline.vector) - dofs
+    assert xp.sqrt(r.inner(r)) < 1e-10 * xp.sqrt(dofs.inner(dofs))
+
+    # the commuting projection is a different spline
+    d = var["L2"].spline.vector - var["commuting"].spline.vector
+    assert xp.sqrt(d.inner(d)) > 1e-6 * xp.sqrt(dofs.inner(dofs))
 
 
 @pytest.mark.convergence
@@ -279,6 +329,57 @@ def test_l2_projectors_convergence(direction, pi, bc_kind, do_plot=False):
         plt.show()
 
 
+@pytest.mark.parametrize("num_elements", [[6, 9, 2]])
+@pytest.mark.parametrize("degree", [[2, 2, 1]])
+@pytest.mark.parametrize("bcs", [(("free", "free"), None, None), (("free", "dirichlet"), None, None)])
+def test_l2_projectors_polar(num_elements, degree, bcs):
+    """L2-projecting a polar spline function (sampled at the quadrature points) must reproduce its coefficients."""
+    from struphy.linear_algebra.solver import SolverParameters
+    from struphy.polar.basic import PolarVector
+
+    comm = MPI.COMM_WORLD
+
+    domain = domains.IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], a=1.0, Lz=3.0)
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    xp.random.seed(1234)
+    for sp_id, sp_key in derham.space_to_form.items():
+        # random polar spline function
+        tp = derham.coeff_spaces[sp_key].zeros()
+        for block in [tp] if sp_id in ("H1", "L2") else tp.blocks:
+            block._data[:] = xp.random.rand(*block._data.shape)
+        field = derham.create_spline_function("fh", sp_id)
+        field.vector.tp = tp
+        # polar coefficients are replicated on all processes, hence must be identical
+        pol = [xp.random.rand(*pol.shape) for pol in field.vector.pol]
+        for pol_i in pol:
+            comm.Bcast(pol_i, root=0)
+        field.vector.pol = pol
+        field.vector = derham.boundary_ops[sp_key].dot(field.vector)
+        field.vector.update_ghost_regions()
+
+        # sample at the (process-local) quadrature points
+        pts = derham.spline_attributes[sp_key].quad_grid_pts[0]
+        vals = field(*[pt.flatten() for pt in pts], local=True)
+
+        P_L2 = L2Projector(sp_id, mass_ops, solver_params=SolverParameters(tol=1e-13, maxiter=3000))
+
+        # dofs are the tensor-product dofs mapped with the basis extraction operator
+        dofs = P_L2.get_dofs(vals, apply_bc=True)
+        assert isinstance(dofs, PolarVector)
+        dofs_tp = P_L2.get_dofs(vals, dofs=derham.coeff_spaces[sp_key].zeros())
+        dofs_ref = derham.boundary_ops[sp_key].dot(derham.extraction_ops[sp_key].dot(dofs_tp))
+        assert xp.allclose(dofs.toarray(True), dofs_ref.toarray(True), atol=1e-14)
+
+        coeffs = P_L2.solve(dofs)
+        err = xp.max(xp.abs(coeffs.toarray(True) - field.vector.toarray(True)))
+        logger.info(f"{sp_id =}, {err =}")
+        assert err < 1e-8
+
+
 if __name__ == "__main__":
     from struphy import set_logging_level
 
@@ -291,3 +392,17 @@ if __name__ == "__main__":
     test_l2_projectors_mappings(num_elements, degree, bcs, array_input, do_plot=False, with_desc=False)
     # test_l2_projectors_convergence(0, 1, True, do_plot=False)
     # test_l2_projectors_convergence(1, 1, False, do_plot=True)
+
+
+def test_feec_variable_projection_to_dict():
+    """The projection option of a FEECVariable is serialized and restored with the model."""
+    from struphy.models import CurlCurl
+
+    model = CurlCurl()
+    model.em_fields.e_field.projection = "L2"
+    dct = model.to_dict()
+    assert dct["species"]["em_fields"]["variables"]["e_field"]["projection"] == "L2"
+
+    model2 = type(model).from_dict(dct)
+    assert model2.em_fields.e_field.projection == "L2"
+    assert model2.em_fields.source.projection == "L2"

@@ -1,18 +1,28 @@
 "Accelerated particle pushing."
 
 import logging
+from functools import cache
+from pathlib import Path
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
+from cunumpy.kernels import CudaKernel, Kernel, PyccelKernel
 from line_profiler import profile
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.utils.cuda_arguments import check_mapping_on_device
 
 logger = logging.getLogger("struphy")
+
+
+@cache
+def _prepare_push_cuda() -> CudaKernel:
+    """The CUDA kernel that fuses the column-slice assignments at the start of :meth:`Pusher._push`
+    (compiled on first call)."""
+    return CudaKernel.from_file(Path(__file__).with_name("prepare_push_cuda.cu"), "prepare_push")
 
 
 class Pusher:
@@ -32,8 +42,8 @@ class Pusher:
     for any :class:`~struphy.ode.utils.ButcherTableau`
     as well as iterative nonlinear methods.
 
-    The particle push is performed via accelerated :mod:`~struphy.pic.pushing.pusher_kernels`
-    or :mod:`~struphy.pic.pushing.pusher_kernels_gc` for guiding-center models.
+    The particle push is performed via an accelerated kernel from :mod:`struphy.pic.pushing.kernels`,
+    e.g. ``push_eta_stage`` from :mod:`struphy.pic.pushing.kernels.push_eta_stage`.
 
     Notes
     -----
@@ -60,8 +70,9 @@ class Pusher:
     particles : Particles
         Particles object holding the markers to push.
 
-    kernel : pyccelized function
-        The pusher kernel.
+    kernel : PyccelKernel | Kernel
+        The pusher kernel. A :class:`~cunumpy.kernels.Kernel` also holds its CUDA version;
+        on the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     args_kernel : tuple
         Optional arguments passed to the kernel.
@@ -114,7 +125,7 @@ class Pusher:
     def __init__(
         self,
         particles: Particles,
-        kernel: PyccelKernel,
+        kernel: PyccelKernel | Kernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
         pushes_eta: bool,
@@ -128,9 +139,11 @@ class Pusher:
         mpi_sort: str = None,
         local_eval_only: bool = False,
     ):
+        # on the CuPy backend a kernel without CUDA version (yet) raises when called, see CUDA_STRATEGY.md
+        self._kernel = kernel if isinstance(kernel, Kernel) else Kernel(kernel)
+        self._cuda = xp.cupy_backend
+
         self._particles = particles
-        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
-        self._kernel = kernel
         self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
         self._args_domain = args_domain
@@ -204,17 +217,29 @@ class Pusher:
         logger.debug(f"{residual_idx =}")
         logger.debug(f"{self.particles.n_cols =}")
 
-        init_slice = slice(first_pusher_idx, first_shift_idx)
-        shift_slice = slice(first_shift_idx, residual_idx)
+        if self._cuda:
+            # the three assignments below in one pass over the buffer (each slice is a strided pass on its own)
+            n_rows, n_cols = markers.shape
+            _prepare_push_cuda()(
+                markers,
+                n_rows,
+                n_cols,
+                first_pusher_idx,
+                3 + vdim,
+                n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
+            )
+        else:
+            init_slice = slice(first_pusher_idx, first_shift_idx)
+            shift_slice = slice(first_shift_idx, residual_idx)
 
-        # save initial phase space coordinates
-        markers[:, init_slice] = markers[:, : 3 + vdim]
+            # save initial phase space coordinates
+            markers[:, init_slice] = markers[:, : 3 + vdim]
 
-        # set boundary shifts to zero
-        markers[:, shift_slice] = 0.0
+            # set boundary shifts to zero
+            markers[:, shift_slice] = 0.0
 
-        # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-        markers[:, residual_idx:-2] = 0.0
+            # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
+            markers[:, residual_idx:-2] = 0.0
 
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
@@ -230,8 +255,9 @@ class Pusher:
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = xp.empty(1, dtype=int)
-            n_not_converged[0] = self.particles.n_mks_loc
+            if self.maxiter > 1:
+                n_not_converged = xp.empty(1, dtype=int)
+                n_not_converged[0] = self.particles.n_mks_loc
             k = 0
 
             if self.maxiter > 1:
@@ -240,7 +266,8 @@ class Pusher:
                     f"rank {rank}: {k =}, tol: {self._tol}, {n_not_converged[0] =}, {max_res =}",
                 )
 
-            n_not_converged[0] = self.particles.Np
+            if self.maxiter > 1:
+                n_not_converged[0] = self.particles.Np
             while True:
                 k += 1
 
@@ -326,8 +353,8 @@ class Pusher:
 
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
-            if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(apply_bc=False, do_test=True)
+            if self.particles.mpi_comm is not None and self.particles.mpi_size > 1:
+                self.particles.mpi_sort_markers(apply_bc=False, do_test=not self._cuda)
 
     def _sort_for_alpha(self, alpha: float | int | tuple | list, remove_ghost: bool = False):
         """MPI sort markers according to the alpha-weighted average of positions,
@@ -355,9 +382,13 @@ class Pusher:
         return self._particles
 
     @property
-    def kernel(self):
-        """The pyccelized pusher kernel."""
+    def kernel(self) -> Kernel:
+        """The pusher kernel for the active backend (pyccel or CUDA)."""
         return self._kernel
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this pusher calls: the pusher kernel and those of its init and eval kernel setups."""
+        return (self._kernel,) + tuple(setup.kernel for setup in self._init_kernels + self._eval_kernels)
 
     @property
     def init_kernels(self) -> tuple[KernelSetup, ...]:

@@ -4,12 +4,29 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from cunumpy import PyccelKernel
+from cunumpy.kernels import PyccelKernel
 
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
-from struphy.pic.pushing import eval_kernels_gc, eval_kernels_sph
+from struphy.pic import sph_smoothing_kernels
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.pic.pushing.kernels.bstar_2form import bstar_2form
+from struphy.pic.pushing.kernels.bstar_parallel_3form import bstar_parallel_3form
+from struphy.pic.pushing.kernels.driftkinetic_hamiltonian import driftkinetic_hamiltonian
+from struphy.pic.pushing.kernels.grad_driftkinetic_hamiltonian import grad_driftkinetic_hamiltonian
+from struphy.pic.pushing.kernels.push_gc_Bstar_discrete_gradient_1st_order import (
+    push_gc_Bstar_discrete_gradient_1st_order,
+)
+from struphy.pic.pushing.kernels.push_gc_Bstar_discrete_gradient_1st_order_newton import (
+    push_gc_Bstar_discrete_gradient_1st_order_newton,
+)
+from struphy.pic.pushing.kernels.push_gc_Bstar_discrete_gradient_2nd_order import (
+    push_gc_Bstar_discrete_gradient_2nd_order,
+)
+from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
+from struphy.pic.pushing.kernels.sph_pressure_coeffs import sph_pressure_coeffs
+from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
+from struphy.pic.pushing.kernels.unit_b_1form import unit_b_1form
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -21,7 +38,9 @@ def marker_args():
     markers[0, 8:14] = markers[0, :6]
     markers[0, 11] = 1.0  # Initial parallel velocity.
     markers[1, 0] = -1.0  # A hole must never be written to.
-    return MarkerArguments(markers, np.array([True, False]), 1, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=int))
+    return MarkerArguments(
+        markers, np.array([True, False]), 1, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=int), False
+    )
 
 
 @pytest.fixture
@@ -36,23 +55,23 @@ def coefficients(value):
 
 
 @pytest.mark.parametrize(
-    "kernel_name,values,expected",
+    "kernel,values,expected",
     [
-        ("driftkinetic_hamiltonian", (2.0, 5.0), (23.25,)),
-        ("bstar_parallel_3form", (2.0, 5.0), (17.0,)),
-        ("grad_driftkinetic_hamiltonian", (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (4.0, 11.0, 18.0)),
-        ("bstar_2form", (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (13.0, 17.0, 21.0)),
-        ("unit_b_1form", (1.0, 2.0, 3.0), (1.0, 2.0, 3.0)),
+        (driftkinetic_hamiltonian, (2.0, 5.0), (23.25,)),
+        (bstar_parallel_3form, (2.0, 5.0), (17.0,)),
+        (grad_driftkinetic_hamiltonian, (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (4.0, 11.0, 18.0)),
+        (bstar_2form, (1.0, 2.0, 3.0, 4.0, 5.0, 6.0), (13.0, 17.0, 21.0)),
+        (unit_b_1form, (1.0, 2.0, 3.0), (1.0, 2.0, 3.0)),
     ],
 )
-def test_guiding_center_destinations(marker_args, derham_args, kernel_name, values, expected):
+def test_guiding_center_destinations(marker_args, derham_args, kernel, values, expected):
     fields = tuple(coefficients(value) for value in values)
-    args = (derham_args, *fields) if kernel_name == "unit_b_1form" else (derham_args, 2.0, *fields)
-    if kernel_name in ("driftkinetic_hamiltonian", "grad_driftkinetic_hamiltonian"):
+    args = (derham_args, *fields) if kernel.name == "unit_b_1form" else (derham_args, 2.0, *fields)
+    if kernel.name in ("driftkinetic_hamiltonian", "grad_driftkinetic_hamiltonian"):
         args += (True,)
     indices = (30,) if len(expected) == 1 else (30, None, 24)
     setup = KernelSetup(
-        kernel=getattr(eval_kernels_gc, kernel_name),
+        kernel=kernel,
         output_indices=indices,
         args=args,
         alpha=(1.0, 0.0, 0.5, 0.5),
@@ -66,7 +85,7 @@ def test_guiding_center_destinations(marker_args, derham_args, kernel_name, valu
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
-@pytest.mark.parametrize("kernel", [eval_kernels_sph.sph_pressure_coeffs, eval_kernels_sph.sph_mean_velocity_coeffs])
+@pytest.mark.parametrize("kernel", [sph_pressure_coeffs, sph_mean_velocity_coeffs])
 def test_sph_vector_destinations(marker_args, kernel):
     boxes = np.array([[0, -1], [-1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
@@ -80,7 +99,7 @@ def test_sph_vector_destinations(marker_args, kernel):
     setup.evaluate(marker_args, Cuboid().args_domain)
     reference = before.copy()
     # One particle: density = weight * W(0) = 2 * (1 / h) = 4.
-    if kernel is eval_kernels_sph.sph_pressure_coeffs:
+    if kernel.name == "sph_pressure_coeffs":
         reference[0, 30], reference[0, 24] = 4.0, 2.0 * 4.0 ** (-1.0 / 3.0)
     else:
         reference[0, 30], reference[0, 24] = 1.0, 3.0
@@ -88,27 +107,100 @@ def test_sph_vector_destinations(marker_args, kernel):
 
 
 def test_sph_tensor_destinations(marker_args):
-    marker_args.markers[0, 18:21] = (1.0, 2.0, 3.0)
-    boxes = np.array([[0, -1], [-1, -1]])
+    # Second particle at eta1 + 0.2 (inside h = 0.5) with the same velocity coefficients.
+    marker_args.markers[1] = marker_args.markers[0]
+    marker_args.markers[1, 0] = 0.6
+    marker_args.markers[:, 18:21] = (1.0, 2.0, 3.0)
+    marker_args.valid_mks[1] = True
+    boxes = np.array([[0, 1, -1], [-1, -1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
     neighbours[0, 0] = 0
-    # The linear 1D kernel uses its right derivative at zero: 1 / h**2.
+    # Self-gradient of the linear 1D kernel vanishes; the neighbour contributes -+1 / h**2 = -+4.
     gradient = np.array([[4.0, 0.0, 0.0], [8.0, 0.0, 0.0], [12.0, 0.0, 0.0]])
+    density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
     indices = (30, 29, 28, 27, None, 25, 24, 23, 22)
     setup = KernelSetup(
-        kernel=eval_kernels_sph.sph_viscosity_tensor,
+        kernel=sph_viscosity_tensor,
         output_indices=indices,
         args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
     )
     before = marker_args.markers.copy()
     setup.evaluate(marker_args, Cuboid().args_domain)
     symmetric = (gradient + gradient.T) / 2.0
-    tensor = -3.0 * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
+    tensor = -2.0 * 3.0 * (2.0 / density) * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
     reference = before.copy()
     for value, index in zip(tensor.flat, indices):
         if index is not None:
             reference[0, index] = value
+            reference[1, index] = -value
     np.testing.assert_allclose(marker_args.markers, reference)
+
+
+# Each gradient component must vanish where its own coordinate is zero (no self-force, issue #437).
+ZERO_GRADIENT_CASES = [
+    (n + k, point)
+    for n in (100, 110, 120, 340, 350, 360, 670, 680, 690, 700)
+    for k in (1, 2, 3)
+    for point in ((0.0, 0.0, 0.0), (0.0, 0.1, 0.05), (0.1, 0.0, 0.05), (0.1, 0.05, 0.0))
+    if point[k - 1] == 0.0 and (n != 690 or not any(point))
+]
+
+
+@pytest.mark.parametrize("kernel_type,point", ZERO_GRADIENT_CASES)
+def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
+    assert sph_smoothing_kernels.smoothing_kernel(kernel_type, *point, 0.3, 0.25, 0.2) == 0.0
+
+
+@pytest.mark.parametrize(
+    "kernel,n_fields",
+    [
+        (push_gc_Bstar_discrete_gradient_1st_order, 6),
+        (push_gc_Bstar_discrete_gradient_2nd_order, 14),
+        (push_gc_Bstar_discrete_gradient_1st_order_newton, 8),
+    ],
+)
+def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel, n_fields):
+    # A marker at rest (v = mu = 0, no E-field) stays put; the residual must be 0, not NaN (issue #589).
+    markers = np.zeros((1, 40))
+    markers[0, :3] = (0.4, 0.3, 0.2)
+    markers[0, 8:11] = markers[0, :3]
+    markers[0, 18] = markers[0, 21] = 1.0  # B*_parallel and B* = (0, 0, 1) at time n.
+    args_markers = MarkerArguments(
+        markers, np.array([True]), 1, 2, 5, 6, 8, 12, 16, 17, 4, np.zeros(3, dtype=int), False
+    )
+    kernel(0.1, 0, args_markers, Cuboid().args_domain, derham_args, 1.0, *(coefficients(1.0),) * n_fields, False)
+    assert markers[0, 16] == 0.0
+    np.testing.assert_array_equal(markers[0, :4], (0.4, 0.3, 0.2, 0.0))
+
+
+def test_sph_tensor_mapped_domain(marker_args):
+    # On a mapped domain the strain uses Cartesian derivatives (grad_eta @ DF^{-1}) and the
+    # stored columns are in Piola form det(DF) * tensor @ DF^{-T}.
+    # Only the neighbour at eta1 + 0.2 carries velocity coefficients, so the result does not
+    # depend on the kernel gradient at zero; its linear 1D kernel gradient is 1 / h**2 = 4.
+    marker_args.markers[1] = marker_args.markers[0]
+    marker_args.markers[1, 0] = 0.6
+    marker_args.markers[1, 18:21] = (1.0, 2.0, 3.0)
+    marker_args.valid_mks[1] = True
+    boxes = np.array([[0, 1, -1], [-1, -1, -1]])
+    neighbours = np.ones((1, 27), dtype=int)
+    neighbours[0, 0] = 0
+    domain = Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=3.0, l3=0.0, r3=0.5)
+    jac = np.diag([2.0, 3.0, 0.5])
+    jac_inv = np.linalg.inv(jac)
+    gradient = np.array([[4.0, 0.0, 0.0], [8.0, 0.0, 0.0], [12.0, 0.0, 0.0]]) @ jac_inv
+    density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
+    indices = tuple(range(22, 31))
+    setup = KernelSetup(
+        kernel=sph_viscosity_tensor,
+        output_indices=indices,
+        args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
+    )
+    setup.evaluate(marker_args, domain.args_domain)
+    symmetric = (gradient + gradient.T) / 2.0
+    tensor = -2.0 * 3.0 * (2.0 / density) * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
+    piola = np.linalg.det(jac) * tensor @ jac_inv.T
+    np.testing.assert_allclose(marker_args.markers[0, 22:31], piola.flat)
 
 
 @pytest.mark.parametrize("indices", [(), (1, 2), (-1,), (True,), (1.5,), (None,), (1, 1, 2)])
@@ -179,6 +271,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
         n_mks_loc=1,
         Np=1,
         mpi_rank=0,
+        mpi_size=2,
         mpi_comm=SimpleNamespace(Allreduce=lambda *args, **kwargs: None),
         sorting_boxes=SimpleNamespace(communicate=True),
         put_particles_in_boxes=lambda: events.append("boxes"),

@@ -3,14 +3,14 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import Hdiv0_transport_operator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolverFull
@@ -165,7 +165,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
@@ -302,10 +302,7 @@ class VariationalMagFieldEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
-                )
+                logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
             bn1 -= incr[1]
 
@@ -328,8 +325,9 @@ class VariationalMagFieldEvolve(Propagator):
         self.curlPibT = self.curlPib.T
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
@@ -356,7 +354,7 @@ class VariationalMagFieldEvolve(Propagator):
             # initialize the jacobian differently if linear model
             self._create_Pib0()
 
-            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0

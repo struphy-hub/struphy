@@ -23,9 +23,9 @@ logger = logging.getLogger("struphy")
 )
 def test_mass_preconditioner(num_elements, degree, bcs, mapping):
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.linear_operators import InverseLinearOperator

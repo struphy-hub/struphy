@@ -5,8 +5,8 @@ import shutil
 import cunumpy as xp
 import numpy as np
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
+from maybempi import MPI
 
 from struphy import (
     BaseUnits,
@@ -365,28 +365,13 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         markers = model.fluid.density.particles.markers
         # markers columns: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
         logger.debug(
-            "Marker velocity v1: min =",
-            markers[:, 3].min(),
-            " max =",
-            markers[:, 3].max(),
-            " mean =",
-            markers[:, 3].mean(),
+            f"Marker velocity v1: min = {markers[:, 3].min()}, max = {markers[:, 3].max()}, mean = {markers[:, 3].mean()}",
         )
         logger.debug(
-            "Marker velocity v2: min =",
-            markers[:, 4].min(),
-            " max =",
-            markers[:, 4].max(),
-            " mean =",
-            markers[:, 4].mean(),
+            f"Marker velocity v2: min = {markers[:, 4].min()}, max = {markers[:, 4].max()}, mean = {markers[:, 4].mean()}",
         )
         logger.debug(
-            "Marker velocity v3: min =",
-            markers[:, 5].min(),
-            " max =",
-            markers[:, 5].max(),
-            " mean =",
-            markers[:, 5].mean(),
+            f"Marker velocity v3: min = {markers[:, 5].min()}, max = {markers[:, 5].max()}, mean = {markers[:, 5].mean()}",
         )
 
         max_j2_initial = np.max(np.abs(j2_binned[0]))

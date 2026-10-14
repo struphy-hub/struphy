@@ -1,8 +1,6 @@
 import copy
 import logging
 
-from cunumpy import PyccelKernel
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -13,7 +11,7 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.jxb_cold import JxBCold
@@ -182,7 +180,7 @@ class ColdPlasmaVlasov(StruphyModel):
         particles_to_grid = ParticlesToGrid(
             self.hot_elec.var,
             "H1",
-            PyccelKernel(accum_kernels.charge_density_0form),
+            charge_density_0form,
         )
 
         self.initial_poisson = PoissonSolve(
@@ -206,7 +204,7 @@ class ColdPlasmaVlasov(StruphyModel):
         """
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method
+        # charge of f - f0 for the Poisson right-hand side (see below for the weights of the time stepping)
         particles = self.hot_elec.var.particles
         particles.update_weights()
 
@@ -218,7 +216,15 @@ class ColdPlasmaVlasov(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        # The pushers evaluate e at the markers, including in the ghost cells: grad.dot does not fill them,
+        # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
+        self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
+
+        # The Poisson right-hand side is the charge of f - f0 in any case; the time stepping uses the delta-f
+        # weights only with the control variate (and the scalars must be computed with the same weights at t=0).
+        if not particles.control_variate:
+            particles.weights = particles.weights0.copy()
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

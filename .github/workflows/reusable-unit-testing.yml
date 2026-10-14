@@ -39,7 +39,7 @@ jobs:
           - shard: shard-1
             test_files: bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/
           - shard: shard-2
-            test_files: propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/
+            test_files: propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/ dispersion_relations/tests/ io/tests/ simulation/tests/ models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py
           - shard: shard-3
             test_files: feec/tests/
           - shard: shard-4
@@ -144,3 +144,23 @@ jobs:
           git status || true
           echo "Running $PYTEST_CMD $TEST_FILES"
           $PYTEST_CMD $TEST_FILES
+
+      - name: Compile all kernels with OpenMP
+        if: inputs.n-procs == 1 && matrix.shard == 'shard-4'
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+          openmp: "true"
+
+      - name: Check OpenMP numerical results
+        if: inputs.n-procs == 1 && matrix.shard == 'shard-4'
+        env:
+          OMP_NUM_THREADS: "4"
+          OMP_DYNAMIC: "FALSE"
+          OMP_STACKSIZE: "64M"
+          OPENBLAS_NUM_THREADS: "1"
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd "${{ env.STRUPHY_PATH }}"
+          pytest -q pic/tests/test_openmp.py console/tests/test_compile.py
+          pytest -q --pyargs feectools.linalg.tests.test_openmp

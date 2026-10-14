@@ -1,8 +1,7 @@
 import logging
 
 import pytest
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 
 logger = logging.getLogger("struphy")
 
@@ -13,7 +12,7 @@ logger = logging.getLogger("struphy")
 def test_clone_config(num_elements, Np, num_clones):
     from struphy.utils.clone_config import CloneConfig
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         comm = None
         num_clones = 1
     else:

@@ -5,7 +5,7 @@ def struphy_output(
     action: str,
     path: str,
     physical: bool = False,
-    parallel: bool = False,
+    parallel: bool | None = None,
     format: str = "markdown",
     directory: str | None = None,
 ):
@@ -23,8 +23,9 @@ def struphy_output(
     physical : bool
         With ``pproc``, also create physical field components.
 
-    parallel : bool
-        With ``pproc``, post-process on all ranks of ``MPI.COMM_WORLD``.
+    parallel : bool, optional
+        With ``pproc``, post-process on all ranks of ``MPI.COMM_WORLD``; by default exactly when
+        the job has as many ranks as the saved run.
 
     format : {"markdown", "html"}
         With ``report``, the report format.

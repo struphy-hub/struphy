@@ -46,10 +46,12 @@ def struphy_test(
         list_of_tests = [
             f"{LIBPATH}/bsplines/tests/",
             f"{LIBPATH}/console/tests/",
+            f"{LIBPATH}/dispersion_relations/tests/",
             f"{LIBPATH}/feec/tests/",
             f"{LIBPATH}/fields_background/tests/",
             f"{LIBPATH}/geometry/tests/",
             f"{LIBPATH}/initial/tests/",
+            f"{LIBPATH}/io/tests/",
             f"{LIBPATH}/kinetic_background/tests/",
             f"{LIBPATH}/linear_algebra/tests/",
             f"{LIBPATH}/ode/tests/",
@@ -58,6 +60,9 @@ def struphy_test(
             f"{LIBPATH}/post_processing/tests/",
             f"{LIBPATH}/propagators/tests/",
             f"{LIBPATH}/simulation/tests/",
+            # end-to-end GPU tests (NumPy reference, and the CuPy comparison on a GPU or the fake CuPy)
+            f"{LIBPATH}/models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py",
+            f"{LIBPATH}/models/tests/test_gpu_VlasovAmpereOneSpecies.py",
         ]
 
         if mpi > 1:

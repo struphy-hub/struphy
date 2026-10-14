@@ -4,14 +4,14 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
@@ -133,7 +133,8 @@ class VariationalDensityEvolve(Propagator):
         gamma : float, default=5/3
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver for implicit substeps.
+            Linear solver for the mass-matrix solves
+            (the non-symmetric Jacobian is always solved with "pbicgstab").
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
@@ -201,11 +202,12 @@ class VariationalDensityEvolve(Propagator):
         self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
-            "pcg",
-            pc=pc,
+            self.options.solver,
+            # "cg" takes no preconditioner
+            **({"pc": pc} if self.options.solver == "pcg" else {}),
             tol=1e-16,
             maxiter=500,
             recycle=True,
@@ -371,10 +373,7 @@ class VariationalDensityEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
-                )
+                logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
             rhon1 -= incr[1]
 
@@ -409,13 +408,15 @@ class VariationalDensityEvolve(Propagator):
         self.divPirhoT = self.divPirho.T
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
-            "pcg",
-            pc=self.pc_Mv,
+            self.options.solver,
+            # "cg" takes no preconditioner
+            **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
             tol=1e-16,
             maxiter=1000,
             verbose=False,
@@ -435,7 +436,11 @@ class VariationalDensityEvolve(Propagator):
         self._rhof_values = xp.zeros(grid_shape, dtype=float)
 
         # Other mass matrices for newton solve
-        self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
+        if self._model == "barotropic":
+            # constant second derivative of the internal energy, must be set before building the Jacobian
+            self._M_drho = -self.mass_ops.M3 / 2.0
+        else:
+            self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
 
         Jacs = BlockVectorSpace(
             self.derham.Vvpol,
@@ -527,8 +532,8 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho.spline_functions["l2_field"].vector = rho
         self._Mrho.assemble()
 
-        logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options['pc'] = }")
-        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options["pc"], MassMatrixDiagonalPreconditioner):
+        logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options.get('pc') = }")
+        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options.get("pc"), MassMatrixPreconditioner):
             self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
@@ -537,6 +542,10 @@ class VariationalDensityEvolve(Propagator):
         self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
 
         if self._model == "barotropic":
+            # discrete gradient of rho*U(rho) = rho**2/2: (rho^n + rho^{n+1})/2
+            self.rhof.vector = rhon
+            self.rhof1.vector = rhon1
+
             rhof_values = self.rhof.eval_tp_fixed_loc(
                 self.integration_grid_spans,
                 self.integration_grid_bd,
@@ -591,7 +600,8 @@ class VariationalDensityEvolve(Propagator):
         self._kinetic_evaluator.assemble_M_un1(un1)
 
         if self._model == "barotropic":
-            self._M_drho = -self.mass_ops.M3 / 2.0
+            # self._M_drho is constant (-M3/2), set in allocate
+            pass
 
         elif self._model == "full":
             self._energy_evaluator.evaluate_discrete_d2e_drho2_grid(rhon, rhon1, sn, out=self._tmp_int_grid)

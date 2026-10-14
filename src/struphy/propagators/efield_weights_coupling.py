@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner
@@ -13,9 +12,9 @@ from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels.linear_vlasov_ampere import linear_vlasov_ampere
 from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels.push_weights_with_efield_lin_va import push_weights_with_efield_lin_va
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -38,9 +37,11 @@ class EfieldWeightsCoupling(Propagator):
 
     .. math::
 
-        \frac{\text{d}}{\text{d} t} w_p &= \frac{f_{0,p}}{s_{0, p}} \frac{1}{v_{\text{th}}^2 \varepsilon} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \, ,
+        \frac{\text{d}}{\text{d} t} w_p &= \frac 1N \frac{f_{0,p}}{s_{0, p}} \frac{1}{v_{\text{th}}^2 \varepsilon} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \, ,
         \\[2mm]
-        \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} &= - \frac{\alpha^2}{\varepsilon} \frac 1N \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
+        \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} &= - \frac{\alpha^2}{\varepsilon} \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,,
+
+    with the weights :math:`w_p = f_{1,p} / (N s_{0,p})`.
 
     This is solved using the Crank-Nicolson method
 
@@ -65,9 +66,9 @@ class EfieldWeightsCoupling(Propagator):
 
     .. math::
 
-        \mathbb{E} &= \frac{\alpha^2}{\varepsilon} \frac 1N \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)  \, ,
+        \mathbb{E} &= \frac{\alpha^2}{\varepsilon} \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)  \, ,
         \\[2mm]
-        \mathbb{W} &= \frac{f_{0,p}}{s_{0,p}} \frac{1}{v_\text{th}^2 \varepsilon} \left( DF^{-1} \mathbf{v}_p \right) \cdot \left(\mathbb{\Lambda}^1\right)^T  \, ,
+        \mathbb{W} &= \frac 1N \frac{f_{0,p}}{s_{0,p}} \frac{1}{v_\text{th}^2 \varepsilon} \left( DF^{-1} \mathbf{v}_p \right) \cdot \left(\mathbb{\Lambda}^1\right)^T  \, ,
 
     based on the :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
 
@@ -190,7 +191,7 @@ class EfieldWeightsCoupling(Propagator):
         self._accum = Accumulator(
             particles,
             "Hcurl",
-            PyccelKernel(accum_kernels.linear_vlasov_ampere),
+            linear_vlasov_ampere,
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -243,7 +244,7 @@ class EfieldWeightsCoupling(Propagator):
 
         self._pusher = Pusher(
             particles,
-            PyccelKernel(pusher_kernels.push_weights_with_efield_lin_va),
+            push_weights_with_efield_lin_va,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -290,6 +291,7 @@ class EfieldWeightsCoupling(Propagator):
         self._e_sum *= 0.0
         self._e_sum += en
         self._e_sum += self._e_tmp
+        self._e_sum.update_ghost_regions()
 
         # Update weights
         self._pusher(dt)

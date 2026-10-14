@@ -141,6 +141,26 @@ def test_plotting_function(show=False):
         background.plot("e1", "v3")
 
 
+@pytest.mark.mpi_skip
+def test_get_plot_pts_invalid_dim():
+    """Invalid or non-existing dimensions must raise."""
+
+    from struphy import maxwellians
+
+    background = maxwellians.GyroMaxwellian2D()
+    assert background.vdim == 2
+
+    axe, pts = background._get_plot_pts("v2", v_lim=3.0, resol=8)
+    assert axe == 4
+    assert pts.size == 8
+
+    with pytest.raises(AssertionError):
+        background._get_plot_pts("v3", v_lim=3.0, resol=8)
+
+    with pytest.raises(AssertionError):
+        background._get_plot_pts("x", v_lim=3.0, resol=8)
+
+
 if __name__ == "__main__":
     # test_kinetic_background_magics(show_plot=True)
     test_plotting_function(show=True)
