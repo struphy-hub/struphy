@@ -50,7 +50,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
     rhs_exact = rhs_fun(E1, E2, E3)
     phi_exact = exact_solution(E1, E2, E3)
 
-    # slices in the physical planes x-y, x-z, y-z and the poloidal plane at the angle `angle`
+    # slices in the physical plane x-y and the poloidal plane at the angle `angle` (x-z, y-z: all_planes=True)
     figs = plot_physical_slices(
         out,
         sim.domain,

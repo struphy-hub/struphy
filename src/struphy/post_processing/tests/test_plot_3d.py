@@ -4,7 +4,15 @@ import numpy as np
 import pytest
 import pyvista as pv
 
-from struphy.post_processing.plot_3d import TORUS_DOMAINS, is_torus, load_field, plot_field_3d, vtk_files
+from struphy.post_processing.plot_3d import (
+    TORUS_DOMAINS,
+    is_torus,
+    load_field,
+    plot_field_3d,
+    repeat_around_axis,
+    vtk_file,
+    vtk_files,
+)
 
 
 def write_run(path_out, n=6):
@@ -77,3 +85,59 @@ def test_torus_domains_exist():
 
     for name in TORUS_DOMAINS:
         assert hasattr(domains, name) or hasattr(base, name), name
+
+
+@pytest.mark.mpi_skip
+def test_select_vtk_file_by_snapshot(tmp_path):
+    write_run(tmp_path)
+    assert vtk_file(tmp_path, snapshot=10).name == "step_10.vts"
+    assert vtk_file(tmp_path, step=1).name == "step_1.vts"
+    with pytest.raises(FileNotFoundError):
+        vtk_file(tmp_path, snapshot=2)
+    grid, _ = load_field(tmp_path, "phi", snapshot=1)
+    assert np.isclose(np.max(grid.point_data["phi"]), 1.0, rtol=0.5)
+
+
+@pytest.mark.mpi_skip
+def test_repeat_sector_around_axis():
+    # a sixth of a ring, between the angles -60 and 0 degrees
+    r, phi, z = np.meshgrid(np.linspace(3.0, 4.0, 4), np.linspace(-np.pi / 3, 0.0, 5), np.linspace(-0.5, 0.5, 3))
+    sector = pv.StructuredGrid(r * np.cos(phi), r * np.sin(phi), z)
+    sector.point_data["f"] = np.cos(6 * np.arctan2(sector.points[:, 1], sector.points[:, 0]))
+    sector.set_active_scalars("f")
+    assert repeat_around_axis(sector, 1) is sector
+    full = repeat_around_axis(sector, 6)
+    assert full.active_scalars_name == "f"
+    # the copies share their seams, which are merged
+    assert 5 * sector.n_points < full.n_points <= 6 * sector.n_points
+    x0, x1, y0, y1, _, _ = full.bounds
+    assert np.allclose([x0, x1, y0, y1], [-4.0, 4.0, -4.0, 4.0], atol=0.1)
+    # the field of the period of the sector is continued correctly
+    angles = np.arctan2(full.points[:, 1], full.points[:, 0])
+    assert np.allclose(full.point_data["f"], np.cos(6 * angles), atol=1e-12)
+
+
+@pytest.mark.mpi_skip
+def test_load_vector_component(tmp_path):
+    write_run(tmp_path)
+    # the FEEC form (logical components, all ones in the fake run)
+    grid, name = load_field(tmp_path, "e", step=1, component=1)
+    assert name == "e_2" and np.allclose(grid.point_data["e_2"], 1.0)
+    # the Cartesian component 2 y (at step 1)
+    grid, name = load_field(tmp_path, "e", step=1, component=1, physical=True)
+    assert name == "e_2" and np.allclose(grid.point_data["e_2"], 2 * grid.points[:, 1])
+    with pytest.raises(KeyError):
+        load_field(tmp_path, "phi", component=0)
+
+
+@pytest.mark.mpi_skip
+def test_cartesian_components_rotate_with_the_copies():
+    """The Cartesian components of a field turning with the torus, (-y, x, 0), are correct on every copy."""
+    r, phi, z = np.meshgrid(np.linspace(3.0, 4.0, 4), np.linspace(-np.pi / 3, 0.0, 5), np.linspace(-0.5, 0.5, 3))
+    sector = pv.StructuredGrid(r * np.cos(phi), r * np.sin(phi), z)
+    x, y, _ = sector.points.T
+    sector.point_data["e_1"], sector.point_data["e_2"] = -y, x
+    sector.set_active_scalars("e_1")
+    full = repeat_around_axis(sector, 6, cartesian=("e_1", "e_2"))
+    x, y, _ = full.points.T
+    assert np.allclose(full.point_data["e_1"], -y) and np.allclose(full.point_data["e_2"], x)
