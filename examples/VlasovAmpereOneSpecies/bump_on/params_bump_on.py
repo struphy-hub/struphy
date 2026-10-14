@@ -1,3 +1,6 @@
+"""Bump-on-tail instability with the VlasovAmpereOneSpecies model: a bump in the high-velocity tail of the
+electron distribution drives Langmuir waves that grow and saturate by particle trapping."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
