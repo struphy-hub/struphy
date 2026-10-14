@@ -1,3 +1,6 @@
+"""Ion temperature gradient (ITG) instability with the DriftKineticElectrostaticAdiabatic model in a hollow
+cylinder with a uniform axial magnetic field; also a template for setting up this model."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------

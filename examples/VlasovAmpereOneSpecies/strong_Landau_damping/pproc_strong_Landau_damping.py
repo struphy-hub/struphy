@@ -19,7 +19,8 @@ def plot_panels(data, x, y, n_panels, ncols, title=None):
 
 
 def main(path_out=DEFAULT_OUTPUT):
-    run = Output(path_out)
+    # VTK files of the fields (fields on a 1D grid, no 3D view)
+    run = Output(path_out).pproc(create_vtk=True)
 
     # electric field energy
     run.evaluate("scalars", variables="electric_energy")["electric_energy"].plot(yscale="log")

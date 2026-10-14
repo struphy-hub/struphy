@@ -1,3 +1,6 @@
+"""Strong (nonlinear) Landau damping with the VlasovAmpereOneSpecies model: a large density perturbation in a
+1D periodic box traps particles in the potential wells, forming phase-space vortices."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
