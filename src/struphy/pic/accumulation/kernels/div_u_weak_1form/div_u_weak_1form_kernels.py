@@ -42,7 +42,7 @@ def div_u_weak_1form(
     # fmt: off
     #$ omp for reduction(+: vec1, vec2, vec3)
     # fmt: on
-    for ip in range(shape(markers)[0]):
+    for ip in range(args_markers.n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if not valid_mks[ip]:
             continue

@@ -166,3 +166,86 @@ def test_markers_stay_column_major(backend):
         )
         assert f_slice.shape == (8, 8)
         check_marker_layout(particles.markers)
+
+
+def _run_with_removal(backend, track_rows: bool):
+    """Particles with removing boundaries in eta1, pushed and sorted between ranks; the valid markers by ID at the
+    end, and the bound n_rows_used checked after every step. Without `track_rows`, every row counts as used."""
+    from unittest import mock
+
+    from maybempi import MPI
+
+    from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.ode.utils import ButcherTableau
+    from struphy.pic.base import Particles
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
+    from struphy.pic.pushing.pusher import Pusher
+    from struphy.topology.grids import TensorProductGrid
+
+    def all_rows(self, n_emptied=0, n_filled=0):
+        self._set_n_rows_used(self.n_rows)
+
+    def check_bound(particles):
+        n = particles.n_rows_used
+        assert particles.args_markers.n_markers == n
+        assert bool(xp.all(particles.markers[n:, 0] == -1.0)), "a row after n_rows_used is not a hole"
+        assert bool(xp.all(particles.holes[n:]))
+
+    patches = (
+        contextlib.nullcontext()
+        if track_rows
+        else mock.patch.multiple(Particles, _track_rows=all_rows, _count_rows_used=lambda self: all_rows(self))
+    )
+    comm = MPI.COMM_WORLD
+    with xp.use_backend(backend), _device_context(backend), patches:
+        domain = domains.Cuboid(r1=2.0, r2=3.0, r3=4.0)
+        derham = Derham(TensorProductGrid(num_elements=(8, 4, 2)), DerhamOptions(degree=(2, 2, 1)), comm=comm)
+        particles = Particles6D(
+            comm_world=comm,
+            domain_decomp=(derham.domain_array, derham.domain_decomposition.nprocs),
+            loading_params=LoadingParameters(Np=2000, seed=4321, spatial="uniform"),
+            weights_params=WeightsParameters(),
+            boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic")),
+            domain=domain,
+            bufsize=0.5,
+        )
+        particles.draw_markers()
+        particles.mpi_sort_markers()
+        particles.initialize_weights()
+        if track_rows:
+            check_bound(particles)
+            assert particles.n_rows_used < particles.n_rows
+
+        butcher = ButcherTableau("forward_euler")
+        push_eta = Pusher(
+            particles,
+            push_eta_stage,
+            (xp.asarray(butcher.a_stage), xp.asarray(butcher.b), xp.asarray(butcher.c), butcher.n_stages),
+            domain.args_domain,
+            alpha_in_kernel=1.0,
+            n_stages=butcher.n_stages,
+            pushes_eta=True,
+        )
+        for _ in range(4):
+            push_eta(0.3)
+            particles.mpi_sort_markers()
+            if track_rows:
+                check_bound(particles)
+
+        assert particles.n_lost_markers > 0, "the test should remove markers"
+        valid = xp.to_numpy(particles.markers_wo_holes_and_ghost)
+        return valid[np.argsort(valid[:, -1])], particles.n_lost_markers
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_rows_used(backend):
+    """Kernels and column operations over the rows that can hold markers (n_rows_used) give the same markers as
+    over all rows, and every row after n_rows_used stays a hole through loading, pushes that remove markers at the
+    boundary and the exchange between ranks."""
+    tracked, lost_tracked = _run_with_removal(backend, track_rows=True)
+    full, lost_full = _run_with_removal(backend, track_rows=False)
+    assert lost_tracked == lost_full
+    np.testing.assert_array_equal(tracked, full)

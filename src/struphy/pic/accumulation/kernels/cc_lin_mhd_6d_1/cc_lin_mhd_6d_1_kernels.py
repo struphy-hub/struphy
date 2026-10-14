@@ -64,7 +64,7 @@ def cc_lin_mhd_6d_1(
     tmp2 = empty((3, 3), dtype=float)
 
     # get local number of markers
-    n_markers_loc = shape(markers)[0]
+    n_markers_loc = args_markers.n_markers
 
     # fmt: off
     #$ omp parallel firstprivate(b_prod) private(b, det_df, df_inv, df_inv_t, dfm, eta1, eta2, eta3, filling_m12, filling_m13, filling_m23, g_inv, ip, span1, span2, span3, thread_derham, tmp1, tmp2, weight)

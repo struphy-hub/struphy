@@ -35,7 +35,9 @@ def _time(fun, repeats: int) -> float:
     return 1e3 * statistics.median(times)
 
 
-def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str = None) -> dict:
+def run(
+    Np: int, repeats: int, num_elements: int, degree: int, save_markers: str = None, all_rows: bool = False
+) -> dict:
     import cunumpy as xp
     import numpy as np
     from maybempi import MPI
@@ -51,6 +53,16 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
     from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
     from struphy.pic.pushing.pusher import Pusher, _prepare_push_cuda
     from struphy.topology.grids import TensorProductGrid
+
+    if all_rows:
+        # every row counts as used, as before n_rows_used existed (for comparing the same build)
+        from struphy.pic.base import Particles
+
+        def _all_rows(self, n_emptied=0, n_filled=0):
+            self._set_n_rows_used(self.n_rows)
+
+        Particles._track_rows = _all_rows
+        Particles._count_rows_used = _all_rows
 
     comm = MPI.COMM_WORLD
     domain = domains.Cuboid(r1=2.0, r2=3.0, r3=4.0)
@@ -140,6 +152,7 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
         "n_cols": int(markers.shape[1]),
         "Np": Np,
         "f_contiguous": bool(markers.flags.f_contiguous),
+        "n_rows_used": int(getattr(particles, "n_rows_used", markers.shape[0])),
     }
     result = {"info": info, "ms": {name: _time(fun, repeats) for name, fun in ops.items()}}
 
@@ -153,7 +166,10 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
 def _print(result: dict):
     info = result["info"]
     order = "F (column-major)" if info["f_contiguous"] else "C (row-major)"
-    print(f"backend {info['backend']}, markers {info['n_rows']} x {info['n_cols']} in {order}, Np = {info['Np']}")
+    print(
+        f"backend {info['backend']}, markers {info['n_rows']} x {info['n_cols']} in {order}, Np = {info['Np']}, "
+        f"rows used {info.get('n_rows_used', info['n_rows'])}"
+    )
     width = max(len(name) for name in result["ms"])
     for name, ms in result["ms"].items():
         print(f"  {name:<{width}}  {ms:10.2f} ms")
@@ -177,6 +193,7 @@ if __name__ == "__main__":
     parser.add_argument("--degree", type=int, default=3, help="spline degree per direction")
     parser.add_argument("--json", help="write the timings to this file")
     parser.add_argument("--save-markers", help="save the valid markers after the run (sorted by ID) to this .npy file")
+    parser.add_argument("--all-rows", action="store_true", help="treat every row as used (no n_rows_used bound)")
     parser.add_argument("--compare", nargs=2, metavar=("BEFORE", "AFTER"), help="compare two JSON files and exit")
     args = parser.parse_args()
 
@@ -184,7 +201,7 @@ if __name__ == "__main__":
         with open(args.compare[0]) as f, open(args.compare[1]) as g:
             _compare(json.load(f), json.load(g))
     else:
-        result = run(args.Np, args.repeats, args.num_elements, args.degree, args.save_markers)
+        result = run(args.Np, args.repeats, args.num_elements, args.degree, args.save_markers, args.all_rows)
         _print(result)
         if args.json:
             with open(args.json, "w") as f:

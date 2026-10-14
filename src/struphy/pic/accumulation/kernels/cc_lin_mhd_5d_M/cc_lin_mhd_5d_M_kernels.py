@@ -65,7 +65,7 @@ def cc_lin_mhd_5d_M(
     filling_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers_loc = shape(markers)[0]
+    n_markers_loc = args_markers.n_markers
 
     # fmt: off
     #$ omp parallel private(det_df, dfm, eta1, eta2, eta3, filling_v, ip, mu, norm_b1, span1, span2, span3, thread_derham, weight)

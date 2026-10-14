@@ -217,11 +217,14 @@ class Pusher:
         logger.debug(f"{residual_idx =}")
         logger.debug(f"{self.particles.n_cols =}")
 
+        # only the rows that can hold markers; the rows after them are holes, which nothing reads
+        rows = markers[: self.particles.n_rows_used]
+
         if self._cuda:
             # the three assignments below in one launch
-            n_rows, n_cols = markers.shape
+            n_rows, n_cols = rows.shape
             _prepare_push_cuda()(
-                markers,
+                rows,
                 first_pusher_idx,
                 3 + vdim,
                 n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
@@ -231,13 +234,13 @@ class Pusher:
             shift_slice = slice(first_shift_idx, residual_idx)
 
             # save initial phase space coordinates
-            markers[:, init_slice] = markers[:, : 3 + vdim]
+            rows[:, init_slice] = rows[:, : 3 + vdim]
 
             # set boundary shifts to zero
-            markers[:, shift_slice] = 0.0
+            rows[:, shift_slice] = 0.0
 
             # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-            markers[:, residual_idx:-2] = 0.0
+            rows[:, residual_idx:-2] = 0.0
 
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
@@ -285,6 +288,7 @@ class Pusher:
                         self.particles.args_markers,
                         self._args_domain,
                         *self._args_kernel,
+                        n_threads=self.particles.args_markers.n_markers,
                     )
 
                 # markers have moved
@@ -300,14 +304,18 @@ class Pusher:
 
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
-                    self._residuals[:] = markers[:, residual_idx]
-                    max_res = xp.max(self._residuals)
+                    # the rows that can hold markers (sorting in the loop may have added some)
+                    n = self.particles.n_rows_used
+                    residuals = self._residuals[:n]
+                    converged = self._converged_loc[:n]
+                    residuals[:] = markers[:n, residual_idx]
+                    max_res = xp.max(residuals) if n > 0 else -1.0
                     if max_res < 0.0:
                         max_res = None
-                    self._converged_loc[:] = self._residuals < self._tol
-                    self._not_converged_loc[:] = ~self._converged_loc
+                    converged[:] = residuals < self._tol
+                    self._not_converged_loc[:n] = ~converged
                     n_not_converged[0] = xp.count_nonzero(
-                        self._not_converged_loc,
+                        self._not_converged_loc[:n],
                     )
 
                     logger.debug(
@@ -322,7 +330,7 @@ class Pusher:
                         )
 
                     # take converged markers out of the loop
-                    markers[self._converged_loc, first_pusher_idx] = -1.0
+                    markers[:n][converged, first_pusher_idx] = -1.0
 
                 # maxiter=1 for explicit schemes
                 if k == self.maxiter:

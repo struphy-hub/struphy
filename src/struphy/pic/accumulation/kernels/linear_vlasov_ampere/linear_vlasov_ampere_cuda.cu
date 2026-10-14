@@ -29,8 +29,8 @@ using namespace struphy_cuda;
  * @param vec3 Third component of the V1 vector data; written atomically.
  * @param f0_values Value of f0 for each marker row (n_markers entries).
  *
- * Holes (markers[ip, 0] == -1) and boundary particles (markers[ip, -1] == -2) are skipped. The pyccel loop runs over
- * all rows (shape(markers)[0]), which is n_markers here. Many threads add to the same entries, so the summation
+ * Holes (markers[ip, 0] == -1) and boundary particles (markers[ip, -1] == -2) are skipped. Both loops run over
+ * the rows that can hold markers, n_markers. Many threads add to the same entries, so the summation
  * order (and the last bits of the result) differs from the serial pyccel loop.
  */
 extern "C" __global__ void linear_vlasov_ampere(MarkerArgs args_markers, DerhamArgs args_derham, DomainArgs args_domain,

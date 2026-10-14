@@ -12,8 +12,7 @@ using namespace struphy_cuda;
  * @param args_domain Mapping arguments (unused; part of the common accumulation signature).
  * @param vec 0-form stencil vector data; written with atomic additions.
  *
- * Holes (markers[ip, 0] == -1) are skipped. The pyccel loop runs over all rows (shape(markers)[0]),
- * which is n_markers here.
+ * Holes (markers[ip, 0] == -1) are skipped. Both loops run over the rows that can hold markers, n_markers.
  */
 extern "C" __global__ void charge_density_0form(MarkerArgs args_markers, DerhamArgs args_derham,
                                                 DomainArgs args_domain, Array3D<double> vec) {

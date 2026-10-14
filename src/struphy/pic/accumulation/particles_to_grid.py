@@ -237,6 +237,7 @@ class Accumulator:
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
+                n_threads=self.particles.args_markers.n_markers,  # the rows that can hold markers
             )
 
         # apply filter
@@ -569,6 +570,7 @@ class AccumulatorVector:
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
+                n_threads=self.particles.args_markers.n_markers,  # the rows that can hold markers
             )
 
         # apply filter

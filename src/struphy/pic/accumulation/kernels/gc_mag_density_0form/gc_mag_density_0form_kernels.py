@@ -35,7 +35,7 @@ def gc_mag_density_0form(
     # fmt: off
     #$ omp for reduction ( + :vec)
     # fmt: on
-    for ip in range(shape(markers)[0]):
+    for ip in range(args_markers.n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue

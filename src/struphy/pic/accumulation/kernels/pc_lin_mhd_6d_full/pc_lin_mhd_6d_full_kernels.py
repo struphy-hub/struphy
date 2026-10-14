@@ -99,7 +99,7 @@ def pc_lin_mhd_6d_full(
     tmp_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
