@@ -14,8 +14,32 @@ the grid, the Derham options, and the initial conditions.
 Users can modify this file to set up their own simulations with different parameters and initial conditions.
 """
 
+import argparse
 import logging
 from pathlib import Path
+
+# Command line options
+# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--test-run` selects a small grid for the tests (test_examples.py).
+# Unknown flags are ignored so that a driver can forward other parameters as well.
+# no -h here when imported by another script, which has its own help
+parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
+parser.add_argument(
+    "--out-folder",
+    default=str(Path(__file__).resolve().parent),
+    help="Folder in which the output folder is created (default: beside this file).",
+)
+parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 96, 16], help="Number of elements per direction.")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (num_elements = [8, 32, 4]), for the tests (test_examples.py).",
+)
+args, _ = parser.parse_known_args()
+if args.test_run:
+    args.num_elements = [8, 32, 4]
+
 from struphy import set_logging_level
 set_logging_level(logging.INFO)
 
@@ -62,9 +86,9 @@ model.mhd.pressure.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
-    out_folders=str(Path(__file__).resolve().parent),
+    out_folders=args.out_folder,
     save_step=2,
-    sim_folder="sim_data",
+    sim_folder=args.sim_folder,
     max_runtime=350
     )
 
@@ -90,7 +114,7 @@ equil = equils.AdhocTorus(
     beta=0.0018 
     )
 # Grid
-grid = grids.TensorProductGrid(num_elements=(24,96,16))
+grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 
 # Derham options
 derham_opts = DerhamOptions(
