@@ -8,15 +8,16 @@ quasisteady state benchmark of global gyrokinetic codes'."""
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Cyclone instability"
+name = "Cyclone base case"
 description = """
-The Cyclone instability is a shear-driven instability that occurs in non-neutral plasmas confined by a magnetic field. 
-It typically appears when there is velocity shear in the E×B drift of a plasma column.
+Cyclone base case: ion temperature gradient (ITG) driven instability in a tokamak (ad hoc equilibrium with circular
+flux surfaces), with drift-kinetic ions and adiabatic electrons. The radial gradients of the ion temperature and
+density drive the instability, which grows and saturates into ITG turbulence.
 
-The parameter of this simulation file is based on a paper called:
+The parameters of this simulation file are based on the paper:
 
-'Nonlinear quasisteady state benchmark of global gyrokinetic codes',
-and is described in the part III of the article.
+'Nonlinear quasisteady state benchmark of global gyrokinetic codes' (Latu et al., 2014),
+where the case is described in part III.
 
 DOI: 10.1140/epjd/e2014-50180-9
 """
