@@ -41,8 +41,8 @@ if profiling:
     description = """
 Weak Landau damping with the VlasovAmpereOneSpecies model, the setup of the verification test in
 src/struphy/models/tests/verification: periodic box of length 4 pi (k = 0.5), Maxwellian electrons with a density
-perturbation of 1e-3 cos(k x), control-variate weights, cubic splines in x. The electric field energy decays at the
-rate -0.1533. alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency, velocities in
+perturbation of 1e-3 cos(k x), control-variate weights, cubic splines in x. The electric field decays at the
+rate -0.1533 (its energy at twice the rate). alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency, velocities in
 units of c).
 
 Runs on the NumPy (CPU) or CuPy (GPU) backend, chosen by the environment variable CUNUMPY_BACKEND (the profiling
