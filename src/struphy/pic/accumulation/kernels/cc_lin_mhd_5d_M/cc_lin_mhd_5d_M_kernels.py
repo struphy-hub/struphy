@@ -67,9 +67,17 @@ def cc_lin_mhd_5d_M(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    # -- removed omp: #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, mu, weight, norm_b1, dfm, det_df, span1, span2, span3, norm_b11, norm_b12, norm_b13, filling_v)
-    # -- removed omp: #$ omp for reduction ( + : vec1, vec2, vec3)
+    # fmt: off
+    #$ omp parallel private(det_df, dfm, eta1, eta2, eta3, filling_v, ip, mu, norm_b1, span1, span2, span3, thread_derham, weight)
+    # fmt: on
 
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
+    #$ omp for reduction ( + : vec1, vec2, vec3)
+    # fmt: on
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -85,7 +93,7 @@ def cc_lin_mhd_5d_M(
         mu = markers[ip, mu_idx]
 
         # b-field evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfm)
@@ -93,12 +101,12 @@ def cc_lin_mhd_5d_M(
         det_df = linalg_kernels.det(dfm)
 
         # norm_b1; 1form
-        eval_1form_spline_mpi(span1, span2, span3, args_derham, norm_b11, norm_b12, norm_b13, norm_b1)
+        eval_1form_spline_mpi(span1, span2, span3, thread_derham, norm_b11, norm_b12, norm_b13, norm_b1)
 
         filling_v[:] = weight * mu / det_df * scale_vec * norm_b1
 
         particle_to_mat_kernels.vec_fill_v2(
-            args_derham,
+            thread_derham,
             span1,
             span2,
             span3,
@@ -109,3 +117,7 @@ def cc_lin_mhd_5d_M(
             filling_v[1],
             filling_v[2],
         )
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

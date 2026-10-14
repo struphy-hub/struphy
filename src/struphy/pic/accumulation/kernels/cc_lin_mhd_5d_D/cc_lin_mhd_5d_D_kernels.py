@@ -87,8 +87,16 @@ def cc_lin_mhd_5d_D(
     # get local number of markers
     n_markers_loc = shape(markers)[0]
 
-    # -- removed omp: #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, b2_1, b2_2, b2_3, b, b_para, curl_norm_b, b_star, norm_b1, b_star_para, density_const, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
-    # -- removed omp: #$ omp for reduction ( + : mat12, mat13, mat23)
+    # fmt: off
+    #$ omp parallel firstprivate(b_prod) private(b, b_para, b_star, b_star_para, curl_norm_b, density_const, det_df, df_inv, df_inv_t, dfm, eta1, eta2, eta3, filling_m12, filling_m13, filling_m23, g_inv, ip, norm_b1, span1, span2, span3, thread_derham, tmp1, tmp2, v, weight)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
+    #$ omp for reduction ( + : mat12, mat13, mat23)
+    # fmt: on
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -102,15 +110,15 @@ def cc_lin_mhd_5d_D(
         v = markers[ip, 3]
 
         # b-field evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
-        eval_2form_spline_mpi(span1, span2, span3, args_derham, b2_1, b2_2, b2_3, b)
+        eval_2form_spline_mpi(span1, span2, span3, thread_derham, b2_1, b2_2, b2_3, b)
 
         # norm_b1; 1form
-        eval_1form_spline_mpi(span1, span2, span3, args_derham, norm_b11, norm_b12, norm_b13, norm_b1)
+        eval_1form_spline_mpi(span1, span2, span3, thread_derham, norm_b11, norm_b12, norm_b13, norm_b1)
 
         # curl_norm_b; 2form
-        eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
+        eval_2form_spline_mpi(span1, span2, span3, thread_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -147,7 +155,7 @@ def cc_lin_mhd_5d_D(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.mat_fill_v0vec_asym(
-                args_derham,
+                thread_derham,
                 span1,
                 span2,
                 span3,
@@ -173,7 +181,7 @@ def cc_lin_mhd_5d_D(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.mat_fill_v1_asym(
-                args_derham,
+                thread_derham,
                 span1,
                 span2,
                 span3,
@@ -193,7 +201,7 @@ def cc_lin_mhd_5d_D(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.mat_fill_v2_asym(
-                args_derham,
+                thread_derham,
                 span1,
                 span2,
                 span3,
@@ -204,3 +212,7 @@ def cc_lin_mhd_5d_D(
                 filling_m13,
                 filling_m23,
             )
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
