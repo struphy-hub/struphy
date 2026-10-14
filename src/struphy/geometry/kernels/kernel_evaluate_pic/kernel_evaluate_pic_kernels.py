@@ -10,7 +10,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
 @stack_array("tmp0", "tmp1", "tmp2", "tmp3", "out")
 def kernel_evaluate_pic(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     kind_coeff: int,
     args: "DomainArguments",
     mat_f: "float[:,:,:]",

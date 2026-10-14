@@ -13,7 +13,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 @stack_array("dfm", "dfinv", "dfinv_t", "v", "a_form", "dfta_form")
 def canonical_kinetic_particles(
     res: "float[:]",
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     a1_1: "float[:,:,:]",

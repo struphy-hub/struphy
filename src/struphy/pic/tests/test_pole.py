@@ -47,7 +47,7 @@ def test_bc_kernel_axis_map():
 
     domain = domains.HollowCylinder(a1=0.0, a2=1.0, Lz=4.0)
 
-    markers = np.zeros((3, N_COLS))
+    markers = np.zeros((3, N_COLS), order="F")
     markers[:, -1] = np.arange(3)
     markers[0, :6] = (-0.2, 0.3, 0.5, 0.1, 0.2, 0.3)
     markers[1, :6] = (-0.1, 0.7, 0.5, 0.1, 0.2, 0.3)
@@ -77,7 +77,7 @@ def test_bc_kernel_reflect_vdim(vdim):
 
     domain = domains.HollowCylinder(a1=0.2, a2=1.0, Lz=4.0)
 
-    markers = np.zeros((1, N_COLS))
+    markers = np.zeros((1, N_COLS), order="F")
     markers[0, :6] = (1.1, 0.3, 0.5, 0.4, 0.2, 0.7)
     apply_kinetic_bc_marker(0, _marker_args(markers, vdim, (1, 0, 0), False), domain.args_domain, False)
 

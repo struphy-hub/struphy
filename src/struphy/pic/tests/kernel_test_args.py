@@ -17,6 +17,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Marker
 from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.ode.utils import ButcherTableau
+from struphy.pic.marker_layout import as_marker_array
 
 N_MARKERS = 129  # not a multiple of the block size
 N_COLS = 25
@@ -39,7 +40,7 @@ def marker_arguments(bc):
     valid[:2] = False
     args_class = CudaMarkerArguments if xp.get_backend() == "cupy" else MarkerArguments
     args_markers = args_class(
-        xp.asarray(markers),
+        as_marker_array(xp.asarray(markers)),
         xp.asarray(valid),
         N_MARKERS,
         *MARKER_INDICES,
@@ -213,7 +214,8 @@ def geometry_domain(index):
 
 
 def logical_markers(n=N_MARKERS, seed=5):
-    """Logical points in marker format, shape (n, 7), away from the poles (eta1 >= 0.1).
+    """Logical points in marker format, shape (n, 7), column-major like the marker buffer, away from the poles
+    (eta1 >= 0.1).
 
     Row 0 is a hole (-1), row 1 is outside in eta1 and row 2 in eta3, so ``remove_outside`` changes the result.
     """
@@ -223,4 +225,4 @@ def logical_markers(n=N_MARKERS, seed=5):
     markers[0, :] = -1.0
     markers[1, 0] = 1.2
     markers[2, 2] = -0.3
-    return markers
+    return np.asfortranarray(markers)

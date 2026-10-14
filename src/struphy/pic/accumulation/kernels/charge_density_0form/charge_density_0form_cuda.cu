@@ -7,7 +7,7 @@ using namespace struphy_cuda;
  *
  * B_p = w_p, deposited with the N-splines of V0; one thread per marker row.
  *
- * @param args_markers Marker buffer (n_markers x n_cols, row-major) and the weight column weight_idx.
+ * @param args_markers Marker buffer (n_markers x n_cols, column-major) and the weight column weight_idx.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param args_domain Mapping arguments (unused; part of the common accumulation signature).
  * @param vec 0-form stencil vector data; written with atomic additions.

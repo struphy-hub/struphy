@@ -33,7 +33,7 @@ from struphy.propagators.base import Propagator
 
 @pytest.fixture
 def marker_args():
-    markers = np.zeros((2, 40))
+    markers = np.zeros((2, 40), order="F")
     markers[0, :7] = (0.4, 0.3, 0.2, 2.0, 4.0, 6.0, 2.0)
     markers[0, 8:14] = markers[0, :6]
     markers[0, 11] = 1.0  # Initial parallel velocity.
@@ -161,7 +161,7 @@ def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
 )
 def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel, n_fields):
     # A marker at rest (v = mu = 0, no E-field) stays put; the residual must be 0, not NaN (issue #589).
-    markers = np.zeros((1, 40))
+    markers = np.zeros((1, 40), order="F")
     markers[0, :3] = (0.4, 0.3, 0.2)
     markers[0, 8:11] = markers[0, :3]
     markers[0, 18] = markers[0, 21] = 1.0  # B*_parallel and B* = (0, 0, 1) at time n.

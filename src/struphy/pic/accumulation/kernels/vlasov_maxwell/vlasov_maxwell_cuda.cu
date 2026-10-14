@@ -13,7 +13,7 @@ using namespace struphy_cuda;
  *     B_p^mu = w_p [DF^{-1}(eta_p) v_p]_mu;
  * one thread per marker row.
  *
- * @param args_markers Marker buffer (n_markers x n_cols, row-major); the weight is in column 6, as in pyccel.
+ * @param args_markers Marker buffer (n_markers x n_cols, column-major); the weight is in column 6, as in pyccel.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param mat11 (1,1)-block data of the symmetric V1 -> V1 block matrix (the _data of a StencilMatrix, 6D, any

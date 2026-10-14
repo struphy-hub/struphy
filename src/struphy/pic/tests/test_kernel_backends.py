@@ -20,6 +20,7 @@ from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaD
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.kernel_arguments.spline_args_kernels import SplineArguments
+from struphy.pic.marker_layout import as_marker_array
 from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
 from struphy.utils.cuda_arguments import (
     CUDA_OPTIONS,
@@ -53,7 +54,7 @@ ARGUMENT_PAIRS = (
 
 def make_arguments(n_markers, seed=0):
     rng = np.random.default_rng(seed)
-    markers = cunumpy.asarray(rng.random((n_markers, N_COLS)))
+    markers = as_marker_array(cunumpy.asarray(rng.random((n_markers, N_COLS))))
     valid = cunumpy.asarray(rng.random(n_markers) > 0.1)
     bc = cunumpy.zeros(3, dtype=np.int64)
     args_class = CudaMarkerArguments if cunumpy.get_backend() == "cupy" else MarkerArguments
@@ -107,13 +108,17 @@ def test_generated_spline_header(tmp_path):
 
 
 @pytest.mark.parametrize("cuda_class, source, class_name, cuda_only, header", ARGUMENT_PAIRS)
-def test_argument_classes_correspond(cuda_class, source, class_name, cuda_only, header):
+def test_argument_classes_correspond(cuda_class, source, class_name, cuda_only, header, tmp_path):
     """Each CUDA argument class mirrors its pyccel class: same constructor, same attributes in the same order."""
     assert cuda_class.__name__ == "Cuda" + class_name
     cuda_parameters = list(inspect.signature(cuda_class.__init__).parameters)[1:]
     assert cuda_parameters == pyccel_init_parameters(source, class_name)
-    # attributes set from constructor arguments; derived ones (e.g. n_markers, bn1) are skipped by the parser
-    pyccel_fields = [field.name for field in CudaStruct.from_pyccel_class(ARGS_DIR / source, class_name).fields]
+    # attributes set from constructor arguments; derived ones (e.g. n_markers, bn1) are skipped by the parser.
+    # cunumpy's parser does not read pyccel's memory-order suffix ("float[:, :](order=F)" of the column-major
+    # markers), so it is removed in a copy of the source; only the names are compared here.
+    pyccel_source = tmp_path / source
+    pyccel_source.write_text((ARGS_DIR / source).read_text().replace("(order=F)", ""))
+    pyccel_fields = [field.name for field in CudaStruct.from_pyccel_class(pyccel_source, class_name).fields]
     cuda_fields = [field.name for field in cuda_class.struct.fields]
     assert [name for name in cuda_fields if name not in cuda_only] == pyccel_fields
 

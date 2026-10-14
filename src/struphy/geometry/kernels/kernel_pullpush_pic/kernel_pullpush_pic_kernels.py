@@ -11,7 +11,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 @stack_array("tmp1", "tmp2")
 def kernel_pullpush_pic(
     a: "float[:,:]",
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     kind_transform: int,
     kind_fun: int,
     args_domain: "DomainArguments",
@@ -26,7 +26,7 @@ def kernel_pullpush_pic(
     a : float[:,:]
         Values of scalar function a[0, ip] or values of components of a vector valued function (a[0, ip], a[1, ip], a[2, ip]).
 
-    markers : float[:,:]
+    markers : float[:,:](order=F)
         Evaluation points in marker format (eta1 = markers[:, 0], eta2 = markers[:, 1], eta3 = markers[:, 2]).
 
     kind_transform : int

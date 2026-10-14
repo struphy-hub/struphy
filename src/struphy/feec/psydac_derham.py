@@ -49,6 +49,7 @@ from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.kernel_arguments.spline_args_kernels import SplineArguments
+from struphy.pic.marker_layout import MARKER_ORDER
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
@@ -2929,8 +2930,9 @@ class SplineFunction:
             marker_evaluation = True
             is_sparse_meshgrid = False
             assert etas[0].ndim == 2
-            # copy positions, such that flagging does not modify the caller's array
-            markers = xp.array(etas[0][:, :3], dtype=float)
+            # copy positions, such that flagging does not modify the caller's array; in the column-major marker
+            # layout that the kernel takes
+            markers = xp.array(etas[0][:, :3], dtype=float, order=MARKER_ORDER)
             self._flag_pts_not_on_proc(markers)
             tmp_shape = (markers.shape[0],)
         # 3D meshgrid evaluation

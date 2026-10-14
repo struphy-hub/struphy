@@ -9,7 +9,7 @@ using namespace struphy_cuda;
  *
  * @param dt Time step.
  * @param stage Index of the current stage, 0 <= stage < n_stages.
- * @param args_markers Marker buffer (n_markers x n_cols, row-major) and column indices.
+ * @param args_markers Marker buffer (n_markers x n_cols, column-major) and column indices.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param a Butcher coefficients a_stage (n_stages entries).
  * @param b Butcher weights b (n_stages entries).

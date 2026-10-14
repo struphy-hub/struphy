@@ -218,12 +218,10 @@ class Pusher:
         logger.debug(f"{self.particles.n_cols =}")
 
         if self._cuda:
-            # the three assignments below in one pass over the buffer (each slice is a strided pass on its own)
+            # the three assignments below in one launch
             n_rows, n_cols = markers.shape
             _prepare_push_cuda()(
                 markers,
-                n_rows,
-                n_cols,
                 first_pusher_idx,
                 3 + vdim,
                 n_threads=n_rows * (n_cols - 2 - first_pusher_idx),

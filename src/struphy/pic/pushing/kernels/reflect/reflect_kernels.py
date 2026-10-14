@@ -11,7 +11,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
 @stack_array("dfm", "dfinv", "eta", "v", "v_logical")
 def reflect(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     args_domain: "DomainArguments",
     outside_inds: "int[:]",
     axis: "int",

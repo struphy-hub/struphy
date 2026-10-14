@@ -27,7 +27,8 @@ def test_reflect_in_place(backend, axis, count):
     expected = original.copy()
     expected[indices, 2 * (3 + axis)] *= -1
     with xp.use_backend(backend):
-        storage = xp.asarray(original.copy())
+        # every other column of a column-major buffer: strided, in the marker layout
+        storage = xp.asfortranarray(xp.asarray(original))
         markers = storage[:, ::2]
         outside_inds = xp.asarray(np.repeat(indices, 2))[::2]
         domain = Cuboid(r1=2.0, r2=3.0, r3=4.0)

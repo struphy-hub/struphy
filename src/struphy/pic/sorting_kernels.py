@@ -154,7 +154,7 @@ def get_next_index(box_nb: "float", next_index: "int[:]", cumul_next_index: "int
 
 
 def sort_boxed_particles(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     swap_line_1: "float[:]",
     swap_line_2: "float[:]",
     n_boxes: "int",
@@ -198,7 +198,7 @@ def sort_boxed_particles(
 
 
 def assign_box_to_each_particle(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     holes: "bool[:]",
     nx: "int",
     ny: "int",
@@ -230,7 +230,7 @@ def assign_box_to_each_particle(
 
 
 def assign_particles_to_boxes(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     holes: "bool[:]",
     boxes: "int[:,:]",
     next_index: "int[:]",

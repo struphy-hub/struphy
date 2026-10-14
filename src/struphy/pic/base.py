@@ -38,6 +38,7 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.marker_layout import marker_array, padded_n_rows
 from struphy.pic.pushing.kernels.reflect import reflect
 from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
 from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
@@ -1494,7 +1495,7 @@ class Particles(metaclass=ABCMeta):
         else:
             assert self.domain is not None, "A domain is needed to initialize weights."
 
-            if xp.size(self.markers_wo_holes_and_ghost) == 0:
+            if self.n_mks_loc == 0:
                 return
 
             # set initial condition
@@ -1555,7 +1556,7 @@ class Particles(metaclass=ABCMeta):
         """
         from struphy.pic.particles import ParticlesSPH
 
-        if xp.size(self.markers_wo_holes_and_ghost) == 0:
+        if self.n_mks_loc == 0:
             return
 
         if isinstance(self, ParticlesSPH):
@@ -1626,9 +1627,12 @@ class Particles(metaclass=ABCMeta):
         quantity, *v_axis = output_quantity.rsplit(sep="_", maxsplit=1)
         v_axis = [int(char) - 1 for char in "".join(v_axis)]  # convert dimension axis to index
 
-        # the valid markers, gathered once; everything below stays on the device of the markers
-        markers = self.markers_wo_holes_and_ghost
-        velocities = markers[:, self.index["vel"]]
+        # the rows of the valid markers, found once; below, only the columns that are used are gathered from them
+        # (each one contiguous in the column-major marker buffer), not whole rows. Everything stays on the device
+        # of the markers.
+        rows = xp.nonzero(self.valid_mks)[0]
+        if quantity != "density":
+            velocities = self.markers[rows, self.index["vel"]]
 
         # determine histogram weights multiplier
         if quantity == "density":
@@ -1642,11 +1646,11 @@ class Particles(metaclass=ABCMeta):
             multiplier = velocity_norm2 * velocities[:, v_axis[0]]
 
         # compute weights of histogram:
-        _weights0 = markers[:, self.index["w0"]] * self.Np * multiplier
-        _weights = markers[:, self.index["weights"]] * self.Np * multiplier
+        _weights0 = self.markers[rows, self.index["w0"]] * self.Np * multiplier
+        _weights = self.markers[rows, self.index["weights"]] * self.Np * multiplier
 
         if divide_by_jac:
-            jacobian_det = self.domain.jacobian_det(markers[:, self.index["pos"]], remove_outside=False)
+            jacobian_det = self.domain.jacobian_det(self.markers[rows, self.index["pos"]], remove_outside=False)
             _weights /= jacobian_det
             # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
@@ -1654,7 +1658,7 @@ class Particles(metaclass=ABCMeta):
             # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
         # the binned columns, one by one (an index list would have to be uploaded to the device first)
-        sample = xp.stack([markers[:, i] for i, binned in enumerate(slicing) if binned], axis=1)
+        sample = xp.stack([self.markers[rows, i] for i, binned in enumerate(slicing) if binned], axis=1)
 
         f_slice = xp.histogramdd(
             sample,
@@ -1888,9 +1892,8 @@ class Particles(metaclass=ABCMeta):
 
         # apply boundary conditions
         if self._remove_axes:
-            # extract the (n_rows, 3) logical coordinates once per contiguous
-            # cache line instead of re-striding into the full row-major
-            # markers array once per axis (see _find_outside_particles)
+            # snapshot of the (n_rows, 3) logical coordinates for the loop over the axes
+            # (see _find_outside_particles)
             self._eta_bc_buf[:] = self.markers[:, :3]
 
         for axis in self._remove_axes:
@@ -2603,8 +2606,9 @@ class Particles(metaclass=ABCMeta):
         n_mks_load_loc = self.n_mks_load[self._mpi_rank]
         bufsize = self.bufsize + 1.0 / xp.sqrt(n_mks_load_loc)
 
-        # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
-        self._n_rows = round(float(n_mks_load_loc * (1 + bufsize)))
+        # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer;
+        # column-major, every column starting on a 256-byte boundary (see struphy.pic.marker_layout)
+        self._n_rows = padded_n_rows(round(float(n_mks_load_loc * (1 + bufsize))))
 
         # Have at least 3 spare places in markers array
         assert self.first_free_idx + 2 < self.n_cols - 2, (
@@ -2614,7 +2618,7 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
+        self._markers = marker_array(self.n_rows, self.n_cols)
 
         # allocate auxiliary arrays
         self._holes = xp.zeros(self.n_rows, dtype=bool)
@@ -2623,10 +2627,9 @@ class Particles(metaclass=ABCMeta):
         self._is_outside_right = xp.zeros(self.n_rows, dtype=bool)
         self._is_outside_left = xp.zeros(self.n_rows, dtype=bool)
         self._is_outside = xp.zeros(self.n_rows, dtype=bool)
-        # contiguous scratch copy of markers[:, :3], refreshed once per apply_kinetic_bc
-        # boundary-condition-type loop (see there) instead of re-striding into the full
-        # (n_rows, n_cols) row-major marker array once per axis.
-        self._eta_bc_buf = xp.zeros((self.n_rows, 3), dtype=float)
+        # scratch copy of markers[:, :3], refreshed once per apply_kinetic_bc boundary-condition-type
+        # loop (see there); column-major like the markers, so the copy is three contiguous columns
+        self._eta_bc_buf = marker_array(self.n_rows, 3)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
@@ -2935,7 +2938,17 @@ class Particles(metaclass=ABCMeta):
 
         data = DataContainer(data_path, comm=self.mpi_comm)
         with h5py.File(data.file_path, "a") as file:
-            self._markers[:, :] = file["restart/" + self.loading_params.restart_key][-1, :, :]
+            saved = file["restart/" + self.loading_params.restart_key][-1, :, :]
+
+        # the number of rows is padded (see struphy.pic.marker_layout), so a file written with another padding has a
+        # different number of rows: copy the common rows; the rows after them are holes, in the buffer (set before
+        # loading) and in the file
+        n_rows = min(saved.shape[0], self.n_rows)
+        assert np.all(saved[n_rows:, 0] == -1.0), (
+            f"the restart file has {saved.shape[0]} marker rows on rank {self.mpi_rank}, but there are only "
+            f"{self.n_rows} rows here, and the extra ones are not holes"
+        )
+        self._markers[:n_rows, :] = saved[:n_rows]
 
     def _load_tesselation(self, n_quad: int = 1):
         """
@@ -2979,10 +2992,8 @@ class Particles(metaclass=ABCMeta):
             Column of the markers array (0, 1 or 2) holding the logical coordinate to check.
 
         eta : xp.ndarray[float], optional
-            Pre-extracted, contiguous ``(n_rows, 3)`` copy of ``markers[:, :3]`` (see
-            :meth:`apply_kinetic_bc`). If ``None``, reads straight from ``markers`` --
-            correct but slower, since a single-column slice of the row-major ``markers``
-            array is strided (see the comment in :meth:`apply_kinetic_bc`).
+            Snapshot ``(n_rows, 3)`` of ``markers[:, :3]`` (see :meth:`apply_kinetic_bc`).
+            If ``None``, reads straight from ``markers``.
 
         Returns
         -------
@@ -3165,11 +3176,11 @@ class Particles(metaclass=ABCMeta):
         from cunumpy.xp import array_backend
 
         if array_backend.backend == "numpy":
-            bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
+            bcount = xp.bincount(xp.int64(self.markers[~self.holes, -2]))
         else:
             import cupy as cp
 
-            indices = self.markers_wo_holes[:, -2]
+            indices = self.markers[~self.holes, -2]
             indices = indices.astype(cp.int64)
             bcount = cp.bincount(indices)
 

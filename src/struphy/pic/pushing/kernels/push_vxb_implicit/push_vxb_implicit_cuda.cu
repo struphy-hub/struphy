@@ -12,7 +12,7 @@ using namespace struphy_cuda;
  *
  * @param dt Time step.
  * @param stage Stage index (unused; part of the common pusher signature).
- * @param args_markers Marker buffer (n_markers x n_cols, row-major) and column indices.
+ * @param args_markers Marker buffer (n_markers x n_cols, column-major) and column indices.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param b2_1 Coefficients of the first component of the magnetic 2-form.

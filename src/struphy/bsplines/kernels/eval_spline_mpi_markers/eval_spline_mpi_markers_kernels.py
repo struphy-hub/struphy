@@ -8,7 +8,7 @@ from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 
 
 def eval_spline_mpi_markers(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     _data: "float[:,:,:]",
     args_spline: "SplineArguments",
     values: "float[:]",

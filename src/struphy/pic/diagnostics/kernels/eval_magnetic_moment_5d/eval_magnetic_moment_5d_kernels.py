@@ -8,7 +8,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 
 
 def eval_magnetic_moment_5d(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     args_derham: "DerhamArguments",
     first_diagnostics_idx: int,
     absB: "float[:,:,:]",

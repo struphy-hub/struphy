@@ -11,7 +11,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 
 @stack_array("dfm", "eta")
 def eval_magnetic_energy_PBb(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     first_diagnostics_idx: int,

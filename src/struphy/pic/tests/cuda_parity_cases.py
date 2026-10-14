@@ -103,7 +103,7 @@ def push_weights_with_efield_lin_va_args(bc):
 
 def reflect_args(axis):
     """Reverse one logical velocity component of 10 markers in a Cuboid."""
-    markers = np.random.default_rng(32).random((140, 8))
+    markers = np.asfortranarray(np.random.default_rng(32).random((140, 8)))
     outside_inds = np.arange(139, 129, -1, dtype=np.int64)
     return (xp.asarray(markers), Cuboid(r1=2.0, r2=3.0, r3=4.0).args_domain, xp.asarray(outside_inds), axis)
 
@@ -167,7 +167,7 @@ def vlasov_maxwell_args(domain):
 
 def eval_spline_mpi_markers_args(kind):
     """Spline values at 129 markers, one of them flagged."""
-    markers = np.random.default_rng(5).random((129, 3))
+    markers = np.asfortranarray(np.random.default_rng(5).random((129, 3)))
     markers[0, 0] = -1.0  # not on the process domain: skipped
     return (xp.asarray(markers), *spline_evaluation_arguments(kind), xp.zeros(129))
 

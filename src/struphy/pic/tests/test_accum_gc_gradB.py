@@ -36,7 +36,7 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
     zero = derham.coeff_spaces["Hcurl"].zeros()
 
     n_mk = 5
-    markers = np.zeros((n_mk, 40))
+    markers = np.zeros((n_mk, 40), order="F")
     markers[:, :3] = rng.uniform(0.05, 0.95, (n_mk, 3))
     markers[:, 3] = rng.standard_normal(n_mk)
     markers[:, 4] = rng.uniform(0.1, 1.0, n_mk)

@@ -11,6 +11,13 @@ Particle base class
     :exclude-members: __init__
 
 
+Marker array layout
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.pic.marker_layout
+    :members:
+
+
 Particle subclasses
 ^^^^^^^^^^^^^^^^^^^
 

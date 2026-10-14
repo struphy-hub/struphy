@@ -19,6 +19,7 @@ from struphy.geometry.kernels.kernel_pullpush_pic import kernel_pullpush_pic
 from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.pic.marker_layout import as_marker_array
 from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
@@ -1054,7 +1055,8 @@ class Domain(metaclass=DomainMeta):
 
         # markers evaluation
         if len(etas) == 1:
-            markers = etas[0]
+            # the kernel takes markers in the column-major marker layout (no copy for the marker buffer)
+            markers = as_marker_array(etas[0])
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
@@ -1220,6 +1222,8 @@ class Domain(metaclass=DomainMeta):
                 markers = xp.stack(etas, axis=1)
             else:
                 markers = etas[0]
+            # the kernel takes markers in the column-major marker layout (no copy for the marker buffer)
+            markers = as_marker_array(markers)
 
             # coordinates (:, 3) and argument evaluation (without holes)
             if callable(a):

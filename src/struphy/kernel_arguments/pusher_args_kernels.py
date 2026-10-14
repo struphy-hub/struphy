@@ -11,7 +11,7 @@ class MarkerArguments:
     Paramaters
     ----------
     markers : array[float]
-        Markers array.
+        Markers array, column-major (see :mod:`struphy.pic.marker_layout`).
 
     Np : int
         Total number of particles.
@@ -53,7 +53,7 @@ class MarkerArguments:
 
     def __init__(
         self,
-        markers: "float[:, :]",
+        markers: "float[:, :](order=F)",  # noqa: F821
         valid_mks: "bool[:]",
         Np: int,
         vdim: int,

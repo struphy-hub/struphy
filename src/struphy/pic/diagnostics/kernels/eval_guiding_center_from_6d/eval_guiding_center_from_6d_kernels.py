@@ -12,7 +12,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
 def eval_guiding_center_from_6d(
-    markers: "float[:,:]",
+    markers: "float[:,:](order=F)",  # noqa: F821
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     first_diagnostics_idx: int,

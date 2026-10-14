@@ -12,7 +12,7 @@ using namespace struphy_cuda;
  *
  * @param alpha Weights of the average (at least four entries): alpha[0:3] for eta, alpha[3] for v_parallel.
  * @param output_indices Marker column of the result in output_indices[0]; -1 skips the output.
- * @param args_markers Marker buffer (n_markers x n_cols, row-major) and column indices.
+ * @param args_markers Marker buffer (n_markers x n_cols, column-major) and column indices.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param epsilon Scaling parameter epsilon in front of v_parallel.
