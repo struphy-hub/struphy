@@ -427,6 +427,71 @@ def test_polar_ops_eta1_decomposition():
         assert _rel_err(x, ref) < 1e-14, A.transposed
 
 
+def test_polar_vector_ghost_sync():
+    """Writing the tp part of a PolarVector (tp setter, set_tp_coeffs_to_zero) marks its ghost regions
+    as out of sync on all processes, also if they were in sync before. Otherwise a following stencil dot
+    skips the halo exchange and reads stale ghost values (issue #748)."""
+    from maybempi import MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+
+    degree = [2, 2, 1]
+    num_elements = [16, 6, 4]
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, False, False))
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=comm, domain=domain)
+
+    def tp_blocks(vec):
+        return [vec] if not hasattr(vec, "blocks") else list(vec.blocks)
+
+    def synced_rand_polar_vector(space, seed):
+        v = _rand_polar_vector(derham, space, seed=seed)
+        v.tp.update_ghost_regions()
+        assert v.ghost_regions_in_sync
+        return v
+
+    def assert_out_of_sync(vec, label):
+        flags = [vec.ghost_regions_in_sync] + [b.ghost_regions_in_sync for b in tp_blocks(vec)]
+        if comm.Get_size() > 1:
+            all_flags = comm.allgather(flags)
+            assert all(f == flags for f in all_flags), (label, all_flags)
+        assert not any(flags), (label, flags)
+
+    for k, space, op in (
+        ("0", derham.V0pol, derham.grad_bcfree),
+        ("1", derham.V1pol, derham.curl_bcfree),
+        ("2", derham.V2pol, derham.div_bcfree),
+    ):
+        fem_space = derham.fem_spaces[derham.space_to_form[space.space_id]]
+
+        # set_tp_coeffs_to_zero on a synced vector
+        y = synced_rand_polar_vector(space, seed=1)
+        y.set_tp_coeffs_to_zero()
+        assert_out_of_sync(y.tp, f"set_tp_coeffs_to_zero V{k}")
+
+        # tp setter: synced target, source with stale (zero) ghost regions
+        y = synced_rand_polar_vector(space, seed=1)
+        x_tp = create_equal_random_arrays(fem_space, seed=2)[1]
+        y.tp = x_tp
+        assert_out_of_sync(y.tp, f"tp setter V{k}")
+
+        # stencil dot must exchange the ghost regions; reference starts from a fresh (unsynced) vector
+        ref = PolarVector(space)
+        ref.tp = x_tp
+        res = op.tp_operator.dot(y.tp)
+        exp = op.tp_operator.dot(ref.tp)
+        diff = res - exp
+        assert diff.inner(diff) <= 1e-28 * exp.inner(exp), k
+
+
 def _rand_polar_vector(derham, space, seed):
     """Random PolarVector (equal on all processes for the same seed)."""
     import cunumpy as xp
