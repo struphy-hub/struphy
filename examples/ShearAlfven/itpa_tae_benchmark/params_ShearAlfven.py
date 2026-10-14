@@ -15,6 +15,7 @@ Users can modify this file to set up their own simulations with different parame
 """
 
 import logging
+from pathlib import Path
 from struphy import set_logging_level
 set_logging_level(logging.INFO)
 
@@ -59,6 +60,7 @@ model.mhd.velocity.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
+    out_folders=str(Path(__file__).resolve().parent),
     save_step=10,
     sim_folder="sim6_higherResolution_ShearAlfven",
     max_runtime=470
