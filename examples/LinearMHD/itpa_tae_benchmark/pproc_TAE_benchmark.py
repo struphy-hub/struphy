@@ -75,8 +75,8 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
             name = f"{species}/{variable}"
             field = (key, f"{label} at t = {t:.3g}", name, n, None, bases[name])
             slices = plot_physical_slices(run, run.domain, run.grid.num_elements, [field], components=True)
-            # e.g. u1_slices_rz_t1.00 for the first component of U in the R-z plane at t = 1
-            finish({f"{fig_name}_t{t:.2f}": fig for fig_name, fig in slices.items()}, results_dir, save_figs)
+            # e.g. u1_slices_rz_t1.5 for the first component of U in the R-z plane at t = 1.5
+            finish({f"{fig_name}_t{t:.6g}": fig for fig_name, fig in slices.items()}, results_dir, save_figs)
 
         figs = {}
         for key, name in HARMONICS:
@@ -90,7 +90,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
                 xlabel="minor radius r",
                 top=4,
             )
-            figs[f"{key}_harmonics_t{t:.2f}"] = result.fig
+            figs[f"{key}_harmonics_t{t:.6g}"] = result.fig
         finish(figs, results_dir, save_figs)
 
         # 3D views of the scalar fields and of the first (radial eta1, in a logical basis) components, saved as
@@ -98,11 +98,11 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
         for key, _, species, variable, _ in FIELDS:
             basis = bases[f"{species}/{variable}"]
             if basis is None:
-                filename = os.path.join(results_dir, f"{key}_3d_t{t:.2f}.png")
+                filename = os.path.join(results_dir, f"{key}_3d_t{t:.6g}.png")
                 plot_field_3d(run.path_out, variable, species=species, snapshot=n, filename=filename)
             elif basis in (run.field_form(f"{species}/{variable}"), "physical"):
                 # the VTK files hold the components in the FEEC form and the Cartesian ones
-                filename = os.path.join(results_dir, f"{key}1_3d_t{t:.2f}.png")
+                filename = os.path.join(results_dir, f"{key}1_3d_t{t:.6g}.png")
                 plot_field_3d(
                     run.path_out,
                     variable,

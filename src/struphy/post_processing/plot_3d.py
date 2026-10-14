@@ -81,7 +81,10 @@ def load_field(
             # all three Cartesian components, so that copies of a torus sector can rotate them (repeat_around_axis)
             phy = close_periodic(pv.read(vtk_file(path_out, species, physical=True, step=step, snapshot=snapshot)))
             for k in (1, 2, 3):
-                grid.point_data[f"{variable}_{k}"] = phy.point_data[f"{variable}_{k}"]
+                values = np.array(phy.point_data[f"{variable}_{k}"]).reshape(grid.dimensions, order="F")
+                # the push-forward is singular on the axis of polar domains (eta1 = 0): take the values of the next ring
+                values[0] = np.where(np.isfinite(values[0]), values[0], values[1])
+                grid.point_data[f"{variable}_{k}"] = values.reshape(-1, order="F")
         elif name not in grid.point_data:
             raise KeyError(f"No vector field {variable!r} in {species}; available: {sorted(grid.point_data.keys())}.")
         grid.set_active_scalars(name)

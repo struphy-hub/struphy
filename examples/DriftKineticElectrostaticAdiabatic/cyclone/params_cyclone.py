@@ -22,6 +22,32 @@ where the case is described in part III.
 DOI: 10.1140/epjd/e2014-50180-9
 """
 
+import argparse
+from pathlib import Path
+
+# Command line options
+# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--test-run` selects a small grid, few markers and a short run (three saved time steps) for the tests
+# (test_examples.py). Unknown flags are ignored so that a driver can forward other parameters as well.
+# no -h here when imported by the pproc script, which has its own help
+parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
+parser.add_argument(
+    "--out-folder",
+    default=str(Path(__file__).resolve().parent),
+    help="Folder in which the output folder is created (default: beside this file).",
+)
+parser.add_argument("--sim-folder", default="sim_1", help="Name of the output folder.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[32, 135, 5], help="Number of elements per direction.")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (num_elements = [8, 27, 4]), few markers and three saved time steps, for the tests "
+    "(test_examples.py).",
+)
+args, _ = parser.parse_known_args()
+if args.test_run:
+    args.num_elements = [8, 27, 4]
+
 # ------------------
 # Import Struphy API
 # ------------------
@@ -32,8 +58,6 @@ import logging
 from struphy import set_logging_level
 
 set_logging_level(logging.INFO)
-
-from pathlib import Path
 
 import cunumpy as xp
 
@@ -84,13 +108,15 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_1", restart=False)
+env = EnvironmentOptions(out_folders=args.out_folder, sim_folder=args.sim_folder, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.001, Tend=0.01, split_algo="LieTrotter")
+dt = 0.001
+# --test-run: the initial, a middle and a final saved time step
+time_opts = Time(dt=dt, Tend=2 * dt if args.test_run else 0.01, split_algo="LieTrotter")
 
 a, r_min, R0 = 0.36, 0.01, 1.0
-num_elements = (32, 5 * 27, 5)
+num_elements = tuple(args.num_elements)
 degree = (3, 3, 3)
 
 # Fluid equilibrium (can be used as part of initial conditions)
@@ -130,11 +156,13 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-ppc = 50  # run with 200 minimum
+ppc = 5 if args.test_run else 50  # run with 200 minimum
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="uniform", moments=(0, 0, 4, 4))
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"))
-sorting_params = SortingParameters(boxes_per_dim=(12, 12, 6), do_sort=True, sorting_frequency=5)
+sorting_params = SortingParameters(
+    boxes_per_dim=(4, 4, 2) if args.test_run else (12, 12, 6), do_sort=True, sorting_frequency=5
+)
 
 # density binning
 eta_bin = BinningPlot(slice="e1_e2", n_bins=(64, 64), ranges=((0.01, 0.99), (0.0, 1.0)))

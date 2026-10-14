@@ -64,10 +64,12 @@ parser.add_argument("--save-step", type=int, default=20, help="Save (and bin) ev
 parser.add_argument(
     "--test-run",
     action="store_true",
-    help="Small resolution (num_elements = [8, 18, 18]; ppc = 5), for the tests (test_examples.py).",
+    help="Small resolution (num_elements = [8, 18, 18]; ppc = 5) and three saved time steps, for the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
 if args.test_run:
+    # the initial, a middle and a final saved time step
+    args.tend = 2 * args.save_step * args.dt
     args.num_elements = [8, 18, 18]
     args.ppc = 5
 
