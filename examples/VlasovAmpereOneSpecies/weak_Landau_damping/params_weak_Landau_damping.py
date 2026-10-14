@@ -1,3 +1,7 @@
+"""Weak (linear) Landau damping with the VlasovAmpereOneSpecies model: a small density perturbation in a 1D
+periodic box is damped by phase mixing. The pproc compares the electric field energy with the analytical
+damping; `--setup profiling` selects the setup used for profiling."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
@@ -10,7 +14,7 @@ from pathlib import Path
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; the profiling driver passes its own
 # (see `ProfilingCase.build_commands`). `--setup profiling` selects the profiling setup of
-# submit_vlasov_ampere_landau_damping.py; pproc_weak_Landau_damping.py takes the same flags.
+# submit_weak_Landau_damping.py; pproc_weak_Landau_damping.py takes the same flags.
 # Unknown flags are ignored so the driver can forward other parameters as well.
 # no -h here when imported by the pproc script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
@@ -25,7 +29,7 @@ parser.add_argument(
     default="example",
     choices=["example", "profiling"],
     help=(
-        "example: 32 cells, 400 steps, binning plots; profiling: strong scaling setup profiled with scope-profiler "
+        "example: 32 cells, 400 steps, binning plots; profiling: setup of the profiling runs profiled with scope-profiler "
         "(1024 cells, 20 steps, no marker output, no sorting boxes, NumPy or CuPy backend)."
     ),
 )

@@ -27,7 +27,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
 The remaining module-level functions are generic helpers with no case-specific
 knowledge (detecting the MPI launcher/module system).
 
-See `examples/Poisson/polar_cylinder_strong_scaling/submit_poisson_polar_cylinder_strong_scaling.py` for a template.
+See `examples/Poisson/gaussian_on_axis_cylinder/submit_gaussian_on_axis_cylinder.py` for a template.
 """
 
 import getpass
@@ -100,7 +100,7 @@ class ProfilingCase:
     physics_problem: str
     struphy_model_used: str
     params_source: Path
-    # Post-processing script run (serially) after each simulation, e.g. `pproc_poisson.py`. It is passed
+    # Post-processing script run (serially) after each simulation, e.g. `pproc_gaussian_cube.py`. It is passed
     # the run's output folder and the `param_flags` of the run, and writes what is to be packaged into
     # `<sim_dir>/results`. None for no post-processing.
     pproc_source: Path | None = None

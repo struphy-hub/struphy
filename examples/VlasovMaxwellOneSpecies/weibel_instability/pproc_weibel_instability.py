@@ -1,7 +1,7 @@
 """Post-process and plot the Weibel instability.
 
 Run as ``python pproc_weibel_instability.py [sim_folder] [flags of params_weibel_instability.py]``; the flags must
-be those of the run. With ``--save-results`` (passed by ``submit_vlasov_maxwell_weibel_instability.py`` after each
+be those of the run. With ``--save-results`` (passed by ``submit_weibel_instability.py`` after each
 profiling run) the scope-profiler HTML report and a summary of the cost per step and marker are written into
 ``<sim_folder>/results`` instead of showing the plots; the profiling packaging uploads them with the run.
 """

@@ -1,3 +1,7 @@
+"""Cyclone base case of the DriftKineticElectrostaticAdiabatic model: ion temperature gradient (ITG)
+instability in an ad hoc tokamak equilibrium, following the global gyrokinetic benchmark 'Nonlinear
+quasisteady state benchmark of global gyrokinetic codes'."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------

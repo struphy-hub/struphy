@@ -2,7 +2,7 @@
 
 Run as ``python pproc_diocotron.py [sim_1 sim_2 ...] [flags of params_diocotron.py]`` to compare several runs;
 with more than one folder only the growth-rate comparison is shown. With ``--save-results`` (passed by
-``submit_diocotron_strong_scaling.py`` after each profiling run) the figures are written into
+``submit_diocotron_instability.py`` after each profiling run) the figures are written into
 ``<sim_folder>/results`` instead of being shown; the profiling packaging uploads them with the run.
 """
 

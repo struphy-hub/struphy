@@ -1,3 +1,7 @@
+"""Diocotron instability with the ToyDrift model: a density ring in a hollow cylinder with a uniform
+axial magnetic field is unstable due to the shear of its E x B rotation. The pproc fits the growth rate of
+the electrostatic energy; `--setup profiling` selects the setup used for profiling."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
@@ -24,7 +28,7 @@ from pathlib import Path
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; the profiling driver passes its own
 # (see `ProfilingCase.build_commands`). `--setup profiling` selects the profiling setup of
-# submit_diocotron_strong_scaling.py; pproc_diocotron.py takes the same flags.
+# submit_diocotron_instability.py; pproc_diocotron.py takes the same flags.
 # Unknown flags are ignored so the driver can forward other parameters as well.
 # no -h here when imported by the pproc script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")

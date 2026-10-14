@@ -1,3 +1,7 @@
+"""Weibel instability with the VlasovMaxwellOneSpecies model: electrons with an anisotropic temperature in
+a 1D periodic box drive the growth of a transverse magnetic field. `--setup profiling` selects the setup of
+Kraus et al. (2017) used for profiling."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
@@ -10,7 +14,7 @@ from pathlib import Path
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; the profiling driver passes its own
 # (see `ProfilingCase.build_commands`). `--setup profiling` selects the profiling setup of
-# submit_vlasov_maxwell_weibel_instability.py; pproc_weibel_instability.py takes the same flags.
+# submit_weibel_instability.py; pproc_weibel_instability.py takes the same flags.
 # Unknown flags are ignored so the driver can forward other parameters as well.
 # no -h here when imported by the pproc script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")

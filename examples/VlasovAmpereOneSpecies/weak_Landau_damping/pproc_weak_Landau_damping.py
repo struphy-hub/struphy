@@ -1,7 +1,7 @@
 """Post-process and plot weak Landau damping.
 
 Run as ``python pproc_weak_Landau_damping.py [sim_folder] [flags of params_weak_Landau_damping.py]``; the flags
-must be those of the run. With ``--save-results`` (passed by ``submit_vlasov_ampere_landau_damping.py`` after each
+must be those of the run. With ``--save-results`` (passed by ``submit_weak_Landau_damping.py`` after each
 profiling run) the scope-profiler HTML report and a summary of the cost per step and marker are written into
 ``<sim_folder>/results`` instead of showing the plots; the profiling packaging uploads them with the run.
 """

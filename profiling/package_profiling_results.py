@@ -107,7 +107,7 @@ def _copy_run_results(sim_dir: Path, destination_dir: Path) -> list[str]:
     """Copy the figures and arrays a run wrote into `<sim_dir>/results`.
 
     The post-processing script of a case (`ProfilingCase.pproc_source`, e.g. the
-    `pproc_poisson.py` of the Poisson cases) may write `.png`/`.npy` files into a
+    `pproc_gaussian_cube.py` of the Poisson cube case) may write `.png`/`.npy` files into a
     `results` folder inside its run directory. They are copied straight into `destination_dir`, the run's own packaged
     folder, next to its `.h5` and run metadata; any subfolder structure of `results` is
     kept.
