@@ -84,6 +84,13 @@ def load_plasma_plots() -> bool:
     return True
 
 
+def _to_host(value):
+    """`value` (an array, or a list/tuple of arrays for vector-valued fields) as NumPy array(s)."""
+    if isinstance(value, (list, tuple)):
+        return type(value)(_to_host(v) for v in value)
+    return xp.to_numpy(value)
+
+
 class ProductMapping(Mapping[str, xr.DataArray]):
     """A discoverable mapping whose products are loaded on first access."""
 
@@ -565,13 +572,14 @@ class Output:
         self, array: xr.DataArray, etas: tuple[Any, Any, Any], dims: tuple[str, ...]
     ) -> xr.DataArray:
         """Map a raw FEEC evaluation grid and attach its Cartesian coordinates."""
-        grids = [np.atleast_1d(np.asarray(eta, dtype=float)) for eta in etas]
-        mapped = self.domain(*grids)
+        # the logical grids may be device arrays (CuPy backend): map them where they live, keep the coordinates on the host
+        grids = [np.atleast_1d(np.asarray(xp.to_numpy(eta), dtype=float)) for eta in etas]
+        mapped = self.domain(*(xp.asarray(grid) for grid in grids))
         shape = tuple(len(grid) for grid in grids)
         keep = tuple(slice(None) if dim in dims else 0 for dim in ("eta1", "eta2", "eta3"))
         coordinates = {}
         for name, values in zip(("X", "Y", "Z"), mapped):
-            values = np.asarray(values).reshape(shape)[keep]
+            values = np.asarray(xp.to_numpy(values)).reshape(shape)[keep]
             coordinates[name] = (dims, values) if dims else values.item()
         return array.assign_coords(coordinates)
 
@@ -1278,7 +1286,9 @@ class Output:
 
         # the physical grid is only needed for output, hence it is only built on rank 0
         if self._pproc_rank == 0:
-            grids_phy = list(self.domain(*grids_log))
+            # output coordinates, on the host (the logical grids stay on the device for the field evaluation)
+            grids_phy = [xp.to_numpy(grid) for grid in self.domain(*grids_log)]
+            grids_log_host = [xp.to_numpy(grid) for grid in grids_log]
         else:
             grids_phy = None
 
@@ -1310,8 +1320,9 @@ class Output:
                 if self._pproc_rank == 0:
                     for species, vars in vals.items():
                         for name, val in vars.items():
-                            point_data[species][name][t] = val
-                            point_data_phy[species][name][t] = vals_phy[species][name]
+                            # evaluated on the device on the CuPy backend; written to files from the host
+                            point_data[species][name][t] = _to_host(val)
+                            point_data_phy[species][name][t] = _to_host(vals_phy[species][name])
 
         # directory for the vtk files
         path_fields = os.path.join(self.path_pproc, "fields_data")
@@ -1321,10 +1332,10 @@ class Output:
             for species, vars in point_data.items():
                 variables = {}
                 for name, val in vars.items():
-                    variables[name] = wrap_field_data(val, grids_log, grids_phy=grids_phy, name=name)
+                    variables[name] = wrap_field_data(val, grids_log_host, grids_phy=grids_phy, name=name)
                     if physical:
                         variables[name + "_xyz"] = wrap_field_data(
-                            point_data_phy[species][name], grids_log, grids_phy=grids_phy, name=name + "_xyz"
+                            point_data_phy[species][name], grids_log_host, grids_phy=grids_phy, name=name + "_xyz"
                         )
                 store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset(variables))
 
@@ -1495,7 +1506,7 @@ class Output:
                             s1 : e1 + 1,
                             s2 : e2 + 1,
                             s3 : e3 + 1,
-                        ] = ddset[n * step, p1:-p1, p2:-p2, p3:-p3]
+                        ] = xp.asarray(ddset[n * step, p1:-p1, p2:-p2, p3:-p3])  # HDF5 data is on the host
 
                     # vector-valued field
                     else:
@@ -1508,7 +1519,7 @@ class Output:
                                 s1 : e1 + 1,
                                 s2 : e2 + 1,
                                 s3 : e3 + 1,
-                            ] = ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3]
+                            ] = xp.asarray(ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3])
 
                     vector.update_ghost_regions()
 
