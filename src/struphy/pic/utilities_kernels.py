@@ -44,7 +44,14 @@ def eval_magnetic_energy(
     n_markers = shape(markers)[0]
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, b, b_para, abs_B, norm_b1, dfm, det_df)
+    #$ omp parallel private(abs_B, b, b_para, det_df, dfm, eta1, eta2, eta3, ip, mu, norm_b1, span1, span2, span3, thread_derham)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
+    #$ omp for
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -58,7 +65,7 @@ def eval_magnetic_energy(
         mu = markers[ip, first_diagnostics_idx + 1]
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -76,7 +83,7 @@ def eval_magnetic_energy(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             abs_B0,
         )
 
@@ -85,7 +92,7 @@ def eval_magnetic_energy(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             b1,
             b2,
             b3,
@@ -97,7 +104,7 @@ def eval_magnetic_energy(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             norm_b11,
             norm_b12,
             norm_b13,
@@ -108,14 +115,6 @@ def eval_magnetic_energy(
         b_para /= det_df
 
         markers[ip, first_diagnostics_idx] = mu * (abs_B + b_para)
-
-    # fmt: off
-    #$ omp end parallel
-    # fmt: on
-
-    # fmt: off
-    #$ omp end parallel
-    # fmt: on
 
     # fmt: off
     #$ omp end parallel

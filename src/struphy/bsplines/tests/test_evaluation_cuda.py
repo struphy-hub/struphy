@@ -106,7 +106,8 @@ def test_spline_function_backends(space, mode, local, target_backend):
                 coords = tuple(xp.asarray(a) for a in axes)
                 shape = (2, 2, 1)
             expected = spline(*coords, local=local)
-            out = xp.empty(shape) if len(components) == 1 else [xp.empty(shape) for _ in components]
+            # NaN-filled out must be overwritten, not scaled by zero
+            out = xp.full(shape, xp.nan) if len(components) == 1 else [xp.full(shape, xp.nan) for _ in components]
             tmp = xp.full(shape, 99.0)
             actual = spline(*coords, out=out, tmp=tmp, local=local)
             assert actual is out

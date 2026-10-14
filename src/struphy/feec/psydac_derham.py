@@ -3005,8 +3005,8 @@ class SplineFunction:
             if out is None:
                 out = tmp
             else:
-                out *= 0.0
-                out += tmp
+                # assign (not 'out *= 0'), since NaN/inf in an uninitialized out would survive
+                out[...] = tmp
 
             if squeeze_out:
                 out = xp.squeeze(out)
@@ -3065,8 +3065,7 @@ class SplineFunction:
                 if out_is_None:
                     out += [tmp.copy()]
                 else:
-                    out[n] *= 0.0
-                    out[n] += tmp
+                    out[n][...] = tmp
 
                 tmp[:] = 0.0
 

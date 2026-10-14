@@ -52,3 +52,7 @@ def push_random_diffusion_stage(
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

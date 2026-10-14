@@ -1,0 +1,125 @@
+{
+    "name": "",
+    "description": "",
+    "model": {
+        "model": "ColdPlasma",
+        "params": {
+            "base_units": {
+                "BaseUnits": {
+                    "x": 1.0,
+                    "B": 1.0,
+                    "n": 1.0,
+                    "kBT": null
+                }
+            },
+            "charge_number": -1,
+            "mass_number": 0.0005446623093681918,
+            "alpha": null,
+            "epsilon": null
+        }
+    },
+    "params_path": "/home/maxlinadmin/git_repos/struphy-hub/struphy/src/struphy/struphy_model_test/params_ColdPlasma.py",
+    "env": {
+        "out_folders": "/home/maxlinadmin/git_repos/struphy-hub/struphy/src/struphy/struphy_model_test",
+        "sim_folder": "ColdPlasma",
+        "sim_label": null,
+        "restart": false,
+        "max_runtime": 300,
+        "save_step": 1,
+        "save_restart": true,
+        "sort_step": 0,
+        "num_clones": 1
+    },
+    "time_opts": {
+        "dt": 0.01,
+        "Tend": 0.03,
+        "split_algo": "LieTrotter"
+    },
+    "domain": {
+        "type": "Cuboid",
+        "params": {
+            "l1": 0.0,
+            "r1": 1.0,
+            "l2": 0.0,
+            "r2": 1.0,
+            "l3": 0.0,
+            "r3": 1.0
+        }
+    },
+    "equil": {
+        "type": "HomogenSlab",
+        "params": {
+            "B0x": 0.0,
+            "B0y": 0.0,
+            "B0z": 1.0,
+            "beta": 0.1,
+            "n0": 1.0
+        }
+    },
+    "grid": {
+        "num_elements": [
+            24,
+            10,
+            1
+        ],
+        "mpi_dims_mask": [
+            true,
+            true,
+            true
+        ]
+    },
+    "derham_opts": {
+        "degree": [
+            1,
+            1,
+            1
+        ],
+        "bcs": [
+            null,
+            null,
+            null
+        ],
+        "nquads": null,
+        "nquads_proj": null,
+        "polar_splines": false,
+        "local_projectors": false
+    },
+    "profiling_opts": {
+        "file_path": null,
+        "label": null,
+        "use_likwid": null,
+        "perf_events": null,
+        "use_line_profiler": null,
+        "use_memray": null,
+        "memory_profile_path": null,
+        "memray_native_traces": null,
+        "memray_trace_python_allocators": null,
+        "memray_follow_fork": null,
+        "deactivate_profiling": null,
+        "use_nvtx": null,
+        "use_gpu_timing": null,
+        "gpu_timing_backend": null,
+        "deactivate_file_output": null,
+        "recursive_profile": null,
+        "aggregation_mode": null,
+        "profile_mpi_calls": null,
+        "track_threads": null,
+        "track_async": null,
+        "capture_region_source": null,
+        "buffer_limit": null,
+        "output_mode": null,
+        "hdf5_compression": null,
+        "hdf5_compression_level": null,
+        "hdf5_chunk_size": null,
+        "memray": null,
+        "gpu": null,
+        "hdf5": null
+    },
+    "model_name": "ColdPlasma",
+    "mpi_ranks": 1,
+    "use_mpi_comm_world": true,
+    "particle_species": {},
+    "started_at_epoch_s": 1790153474.7869532,
+    "one_time_step": false,
+    "profiling_activated": true
+}

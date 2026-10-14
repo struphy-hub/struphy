@@ -32,8 +32,16 @@ def div_u_weak_1form(
     density_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
-    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
-    # -- removed omp: #$ omp for reduction ( + :vec)
+    # fmt: off
+    #$ omp parallel private(density, eta1, eta2, eta3, fill1, fill2, fill3, ip, thread_derham, v1, v2, v3, weight)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
+    #$ omp for reduction(+: vec1, vec2, vec3)
+    # fmt: on
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if not valid_mks[ip]:
@@ -57,7 +65,7 @@ def div_u_weak_1form(
         fill3 = weight * v3 / density
 
         particle_to_mat_kernels.vec_fill_b_v1(
-            args_derham,
+            thread_derham,
             eta1,
             eta2,
             eta3,
@@ -68,3 +76,7 @@ def div_u_weak_1form(
             fill2,
             fill3,
         )
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
