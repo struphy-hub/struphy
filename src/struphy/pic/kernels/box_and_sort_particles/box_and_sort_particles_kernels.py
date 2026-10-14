@@ -1,12 +1,7 @@
 """Assign boxes, sort by box and rebuild the box array in one call, see :meth:`~struphy.pic.base.Particles.do_sort`."""
 
-from struphy.pic.sorting_kernels import (
-    assign_box_to_each_particle,
-    assign_particles_to_boxes,
-    count_particles_in_boxes,
-    find_holes,
-    sort_boxed_particles,
-)
+# module import (not names): the module may still be an older compiled version until `struphy compile` runs
+import struphy.pic.sorting_kernels as sorting_kernels
 
 
 def box_and_sort_particles(
@@ -30,10 +25,10 @@ def box_and_sort_particles(
     Returns the largest number of particles in a box; if it is ``>= boxes.shape[1]``, nothing is sorted, ``boxes`` is
     left untouched and the caller must raise.
     """
-    assign_box_to_each_particle(markers, holes, nx, ny, nz, domain_array, box_index)
-    max_in_box = count_particles_in_boxes(markers, holes, next_index, box_index)
+    sorting_kernels.assign_box_to_each_particle(markers, holes, nx, ny, nz, domain_array, box_index)
+    max_in_box = sorting_kernels.count_particles_in_boxes(markers, holes, next_index, box_index)
     if max_in_box < boxes.shape[1]:
-        sort_boxed_particles(
+        sorting_kernels.sort_boxed_particles(
             markers,
             swap_line_1,
             swap_line_2,
@@ -42,7 +37,7 @@ def box_and_sort_particles(
             cumul_next_index,
             box_index,
         )
-        find_holes(markers, holes)
+        sorting_kernels.find_holes(markers, holes)
         # the number of particles per box is unchanged, so they still fit into the box array
-        assign_particles_to_boxes(markers, holes, boxes, next_index, box_index)
+        sorting_kernels.assign_particles_to_boxes(markers, holes, boxes, next_index, box_index)
     return max_in_box

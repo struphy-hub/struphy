@@ -1,10 +1,7 @@
 """Sort the boxed particles and rebuild the box array, see :meth:`~struphy.pic.base.Particles.do_sort`."""
 
-from struphy.pic.sorting_kernels import (
-    assign_particles_to_boxes,
-    find_holes,
-    sort_boxed_particles,
-)
+# module import (not names): the module may still be an older compiled version until `struphy compile` runs
+import struphy.pic.sorting_kernels as sorting_kernels
 
 
 def sort_and_fill_boxes(
@@ -23,7 +20,7 @@ def sort_and_fill_boxes(
     ``next_index`` must hold the number of particles per box, as left by ``box_particles`` or ``fill_boxes``. The
     swap lines are scratch buffers.
     """
-    sort_boxed_particles(
+    sorting_kernels.sort_boxed_particles(
         markers,
         swap_line_1,
         swap_line_2,
@@ -32,6 +29,6 @@ def sort_and_fill_boxes(
         cumul_next_index,
         box_index,
     )
-    find_holes(markers, holes)
+    sorting_kernels.find_holes(markers, holes)
     # the number of particles per box is unchanged, so they still fit into the box array
-    assign_particles_to_boxes(markers, holes, boxes, next_index, box_index)
+    sorting_kernels.assign_particles_to_boxes(markers, holes, boxes, next_index, box_index)

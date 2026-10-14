@@ -1,10 +1,7 @@
 """Assign the box to each particle and fill the box array, see :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`."""
 
-from struphy.pic.sorting_kernels import (
-    assign_box_to_each_particle,
-    assign_particles_to_boxes,
-    count_particles_in_boxes,
-)
+# module import (not names): the module may still be an older compiled version until `struphy compile` runs
+import struphy.pic.sorting_kernels as sorting_kernels
 
 
 def box_particles(
@@ -25,8 +22,8 @@ def box_particles(
     Returns the largest number of particles in a box; if it is ``>= boxes.shape[1]``, ``boxes`` is left untouched and
     the caller must raise.
     """
-    assign_box_to_each_particle(markers, holes, nx, ny, nz, domain_array, box_index)
-    max_in_box = count_particles_in_boxes(markers, holes, next_index, box_index)
+    sorting_kernels.assign_box_to_each_particle(markers, holes, nx, ny, nz, domain_array, box_index)
+    max_in_box = sorting_kernels.count_particles_in_boxes(markers, holes, next_index, box_index)
     if max_in_box < boxes.shape[1]:
-        assign_particles_to_boxes(markers, holes, boxes, next_index, box_index)
+        sorting_kernels.assign_particles_to_boxes(markers, holes, boxes, next_index, box_index)
     return max_in_box
