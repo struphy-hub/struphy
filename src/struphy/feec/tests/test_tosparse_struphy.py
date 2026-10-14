@@ -25,8 +25,8 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.basic import LinearOperator
+    from maybempi import MPI, SerialComm
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -79,37 +79,37 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
 
     # ========= test toarray_struphy =================
 
-    M0arr = M0.toarray_struphy(is_sparse=True, format="csr")
-    M1arr = M1.toarray_struphy(is_sparse=True, format="csc")
-    M2arr = M2.toarray_struphy(is_sparse=True, format="bsr")
-    M3arr = M3.toarray_struphy(is_sparse=True, format="lil")
-    M0arrad = M0.toarray_struphy(is_sparse=True, format="dok")
-    M1arrad = M1.toarray_struphy(is_sparse=True, format="coo")
-    M2arrad = M2.toarray_struphy(is_sparse=True, format="dia")
+    M0arr = LinearOperator.toarray(M0, is_sparse=True, format="csr")
+    M1arr = LinearOperator.toarray(M1, is_sparse=True, format="csc")
+    M2arr = LinearOperator.toarray(M2, is_sparse=True, format="bsr")
+    M3arr = LinearOperator.toarray(M3, is_sparse=True, format="lil")
+    M0arrad = LinearOperator.toarray(M0, is_sparse=True, format="dok")
+    M1arrad = LinearOperator.toarray(M1, is_sparse=True, format="coo")
+    M2arrad = LinearOperator.toarray(M2, is_sparse=True, format="dia")
 
     v0_local = M0.dot(v0).toarray()
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         v0_global = v0_local
     else:
         v0_global = M0.domain.zeros().toarray()
         comm.Allreduce(v0_local, v0_global, op=MPI.SUM)
 
     v1_local = M1.dot(v1).toarray()
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         v1_global = v1_local
     else:
         v1_global = M1.domain.zeros().toarray()
         comm.Allreduce(v1_local, v1_global, op=MPI.SUM)
 
     v2_local = M2.dot(v2).toarray()
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         v2_global = v2_local
     else:
         v2_global = M2.domain.zeros().toarray()
         comm.Allreduce(v2_local, v2_global, op=MPI.SUM)
 
     v3_local = M3.dot(v3).toarray()
-    if isinstance(comm, MockComm):
+    if isinstance(comm, SerialComm):
         v3_global = v3_local
     else:
         v3_global = M3.domain.zeros().toarray()
@@ -125,6 +125,92 @@ def test_tosparse_struphy(num_elements, degree, bcs, mapping):
     assert xp.allclose(v2_global, M2arrad.dot(v2arr))
 
     logger.info("test_tosparse_struphy passed!")
+
+
+@pytest.mark.parametrize("op_name", ["M0", "M1", "M2"])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("dirichlet", "dirichlet"), None, None),
+        (("free", "dirichlet"), ("dirichlet", "free"), None),
+    ],
+)
+def test_weighted_mass_conversion_api(op_name, bcs):
+    """Public conversion API of WeightedMassOperator with essential boundary conditions:
+    toarray()/tosparse() (inherited from LinearOperator) represent dot(), including the boundary
+    projection, whereas to_array_mat_only()/to_sparse_mat_only() represent the stencil matrix only."""
+
+    import cunumpy as xp
+    from maybempi import MPI, SerialComm
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+
+    def to_global(arr):
+        """Sum the rank-local contributions (rows owned by each rank) of a global-size array."""
+        if isinstance(comm, SerialComm):
+            return arr
+        out = xp.zeros_like(arr)
+        comm.Allreduce(arr, out, op=MPI.SUM)
+        return out
+
+    domain = domains.Cuboid(l1=1.0, r1=2.0, l2=10.0, r2=20.0, l3=100.0, r3=200.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[6, 5, 2]),
+        DerhamOptions(degree=[2, 2, 1], bcs=bcs),
+        comm=comm,
+    )
+    op = getattr(WeightedMassOperators(derham, domain), op_name)
+
+    xarr, x = create_equal_random_arrays(derham.fem_spaces[op_name[1]], seed=1234)
+    x_glob = xp.concatenate([a.flatten() for a in xarr])
+
+    y_full = to_global(op.dot(x).toarray())
+    y_mat = to_global(op.dot(x, apply_bc=False).toarray())
+
+    # the boundary operators are non-trivial
+    assert not xp.allclose(y_full, y_mat)
+
+    # inherited conversions agree with dot(), including the boundary projection
+    assert xp.allclose(op.tosparse() @ x_glob, y_full)
+    assert xp.allclose(op.toarray() @ x_glob, y_full)
+
+    # matrix-only conversions agree with op.matrix and omit the boundary projection
+    assert xp.allclose(to_global(op.matrix.dot(x).toarray()), y_mat)
+    assert xp.allclose(to_global(op.to_sparse_mat_only() @ x_glob), y_mat)
+    assert xp.allclose(to_global(op.to_array_mat_only() @ x_glob), y_mat)
+
+
+def test_weighted_mass_mat_only_conversions_polar():
+    """The matrix-only conversions are not implemented for polar extraction operators."""
+
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = domains.IGAPolarCylinder(num_elements=(8, 12), degree=(2, 2), a=1.0, Lz=3.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=[8, 12, 6]),
+        DerhamOptions(degree=[2, 2, 3], bcs=(("free", "free"), None, None), polar_splines=True),
+        comm=MPI.COMM_WORLD,
+        domain=domain,
+    )
+    M1 = WeightedMassOperators(derham, domain).M1
+
+    with pytest.raises(NotImplementedError):
+        M1.to_array_mat_only()
+    with pytest.raises(NotImplementedError):
+        M1.to_sparse_mat_only()
 
 
 if __name__ == "__main__":

@@ -4,14 +4,14 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy import PyccelKernel
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
 
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
+from struphy.pic.pushing.kernels.push_vxb_implicit import push_vxb_implicit
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -108,7 +108,10 @@ class PushVxB(Propagator):
         self._epsilon = self.variables.ions.species.equation_params.epsilon
         assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
 
-        # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
+        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
+        self._E2T: LinearOperator = self.derham.extraction_ops["2"].transpose()
+
+        # the projected equilibrium is already extracted to the tensor-product space
         if self.projected_equil is not None:
             self.b2_0 = self.projected_equil.b2
             assert self.b2_0.space == self.derham.V2
@@ -116,7 +119,7 @@ class PushVxB(Propagator):
             self.b2_0 = self.derham.V2.zeros()
 
         if self.b2_var is not None:
-            assert self.b2_var.spline.vector.space == self.derham.V2
+            assert self.b2_var.spline.vector.space == self._E2T.domain
 
         # allocate dummy vectors to avoid temporary array allocations
         self._tmp = self.derham.V2.zeros()
@@ -124,9 +127,9 @@ class PushVxB(Propagator):
 
         # define pusher kernel
         if self.options.algo == "analytic":
-            kernel = PyccelKernel(pusher_kernels.push_vxb_analytic)
+            kernel = push_vxb_analytic
         elif self.options.algo == "implicit":
-            kernel = PyccelKernel(pusher_kernels.push_vxb_implicit)
+            kernel = push_vxb_implicit
         else:
             raise ValueError(f"{self.options.algo =} not supported.")
 
@@ -147,18 +150,12 @@ class PushVxB(Propagator):
             pushes_eta=False,
         )
 
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T: LinearOperator = self.derham.extraction_ops["2"].transpose()
-
     @profile
     def __call__(self, dt):
-        # sum up total magnetic field
-        tmp = self.b2_0.copy(out=self._tmp)
+        # sum up total magnetic field in the tensor-product space (the variable is extracted first)
+        b_full: BlockVector = self.b2_0.copy(out=self._b_full)
         if self.b2_var is not None:
-            tmp += self.b2_var.spline.vector
-
-        # extract coefficients to tensor product space
-        b_full: BlockVector = self._E2T.dot(tmp, out=self._b_full)
+            b_full += self._E2T.dot(self.b2_var.spline.vector, out=self._tmp)
         b_full.update_ghost_regions()
         b_full /= self._epsilon
 

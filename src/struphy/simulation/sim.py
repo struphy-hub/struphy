@@ -18,12 +18,13 @@ from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
+import numpy as np
 import yaml
-from feectools.ddm.mpi import MockMPI
-from feectools.ddm.mpi import mpi as MPI
+from cunumpy.kernels import Kernel
 from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
+from maybempi import MPI, SerialMPI
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
 
@@ -78,6 +79,7 @@ from struphy.post_processing.output import Output
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.kernel_compilation import collect_kernels, missing_cuda
 from struphy.utils.progress import tqdm
 from struphy.utils.utils import ruff_autofix_and_format
 
@@ -211,14 +213,14 @@ class Simulation(SimulationBase):
 
     def show_propagator_options(self):
         # Display propagator options and intial conditions:
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             print("\nPROPAGATOR OPTIONS:")
             for prop in self.model.prop_list:
                 assert isinstance(prop, Propagator)
                 print(prop)
 
     def show_initial_conditions(self):
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             print("\nINITIAL CONDITIONS:")
             for species in self.model.species.values():
                 assert isinstance(species, Species)
@@ -243,22 +245,85 @@ class Simulation(SimulationBase):
 
         with ProfileManager.profile_region("setup: allocate"):
             # feec
-            with ProfileManager.profile_region("setup: feec", functions=[self._allocate_feec]):
+            with ProfileManager.profile_region("allocate feec", functions=[self._allocate_feec]):
                 self._allocate_feec(self.grid, self.derham_opts)
 
             # allocate model variables
-            with ProfileManager.profile_region("setup: variables", functions=[self._allocate_variables]):
+            with ProfileManager.profile_region("allocate variables", functions=[self._allocate_variables]):
                 self._allocate_variables()
 
             # pass info to propagators
-            with ProfileManager.profile_region("setup: propagators", functions=[self._allocate_propagators]):
+            with ProfileManager.profile_region("allocate propagators", functions=[self._allocate_propagators]):
                 self._allocate_propagators()
 
             # allocate helper fields and perform initial solves if needed
-            with ProfileManager.profile_region("setup: helpers", functions=[self.model.post_allocate]):
+            with ProfileManager.profile_region("model post allocate", functions=[self.model.post_allocate]):
                 self.model.post_allocate()
 
         logger.debug("... Done.")
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The :class:`~cunumpy.kernels.Kernel` objects the time stepping calls, each once.
+
+        Collected after :meth:`allocate` from the domain (:meth:`Domain.kernels
+        <struphy.geometry.base.Domain.kernels>`), the Derham complex (:meth:`Derham.kernels
+        <struphy.feec.psydac_derham.Derham.kernels>`), the particles of every kinetic variable
+        (:meth:`Particles.kernels <struphy.pic.base.Particles.kernels>`) and the propagators of the model
+        (:meth:`Propagator.kernels <struphy.propagators.base.Propagator.kernels>`). Kernels that only
+        diagnostics or the initial solves call are not included; they run during the setup anyway.
+        """
+        owners = [self.domain, self.derham]
+        for species in self.model.species.values():
+            for variable in species.variables.values():
+                if isinstance(variable, (PICVariable, SPHVariable)):
+                    owners.append(variable.particles)
+        owners += self.model.prop_list
+        return collect_kernels(*owners)
+
+    def compile_cuda_kernels(self) -> tuple[Kernel, ...]:
+        """Compile the CUDA versions of the kernels of :meth:`kernels` now, before the time stepping.
+
+        A CUDA kernel is otherwise compiled on its first call, which puts the compile time into the
+        first time step (and its profiling regions). :meth:`run` calls this method after
+        :meth:`allocate`, in the profiling region ``"setup: compile cuda kernels"``. CuPy caches the
+        compiled kernels on disk, so a second run on the same machine mostly loads them.
+
+        On the NumPy backend this does nothing (the pyccel kernels are compiled by ``struphy compile``).
+
+        Returns
+        -------
+        tuple[Kernel, ...]
+            The kernels whose CUDA version was compiled; empty on the NumPy backend.
+
+        Raises
+        ------
+        NotImplementedError
+            On the CuPy backend, if a kernel the time stepping calls has no CUDA version. All such
+            kernels are listed, and nothing is compiled; without this check the run would fail at the
+            first call of the first one, in the time loop.
+        """
+        if xp.get_backend() != "cupy":
+            return ()
+
+        kernels = self.kernels()
+        missing = missing_cuda(kernels)
+        if missing:
+            lines = "\n".join(
+                f"  - {kernel.name}" + (f" (expected at {kernel.cuda_path})" if kernel.cuda_path else "")
+                for kernel in missing
+            )
+            raise NotImplementedError(
+                f"Model {self.model_name} cannot run on the CuPy backend: {len(missing)} of the "
+                f"{len(kernels)} kernels its time stepping calls have no CUDA version:\n{lines}",
+            )
+
+        compiled = []
+        with ProfileManager.profile_region("setup: compile cuda kernels"):
+            for kernel in kernels:
+                if kernel.compile():
+                    compiled.append(kernel)
+        logger.info(f"Compiled {len(compiled)} CUDA kernels: {', '.join(k.name for k in compiled)}")
+        return tuple(compiled)
 
     def estimate_mem(self, print_report: bool = False) -> dict:
         """Estimate the memory footprint of all model variables and FEEC matrices, in bytes,
@@ -308,7 +373,7 @@ class Simulation(SimulationBase):
             )
 
         if self.clone_config is None:
-            derham_comm = MPI.COMM_WORLD
+            derham_comm = self.comm
         else:
             derham_comm = self.clone_config.sub_comm
 
@@ -596,15 +661,16 @@ class Simulation(SimulationBase):
         """
 
         # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
-        # use MPI.COMM_WORLD as communicator when storing the outputs
+        # use the simulation communicator when storing the outputs
 
         self.data = DataContainer(self.env.path_out, comm=self.comm)
 
-        # time quantities (current time value, value in seconds and index)
+        # time quantities (current time value, value in seconds and index); host bookkeeping of the time loop,
+        # NumPy on both backends, so that reading them for the loop control and saving them never waits for the device
         self.time_state = {}
-        self.time_state["value"] = xp.zeros(1, dtype=float)
-        self.time_state["value_sec"] = xp.zeros(1, dtype=float)
-        self.time_state["index"] = xp.zeros(1, dtype=int)
+        self.time_state["value"] = np.zeros(1, dtype=float)
+        self.time_state["value_sec"] = np.zeros(1, dtype=float)
+        self.time_state["index"] = np.zeros(1, dtype=int)
 
         # add time quantities to data object for saving
         for key, val in self.time_state.items():
@@ -658,6 +724,9 @@ class Simulation(SimulationBase):
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
                 self.allocate()
+
+                # CUDA kernels (CuPy backend only): compile them now rather than in the first time step
+                self.compile_cuda_kernels()
                 with ProfileManager.profile_region("setup: run metadata", functions=[self._write_run_metadata]):
                     self._write_run_metadata(
                         one_time_step=one_time_step,
@@ -931,7 +1000,7 @@ class Simulation(SimulationBase):
         units_affix["mass"] = " kg"
         units_affix["charge"] = " C"
         units_affix["density"] = " m⁻³"
-        units_affix["pressure"] = " bar"
+        units_affix["pressure"] = " Pa"
         units_affix["kBT"] = " keV"
         units_affix["v_A"] = " m/s"
         units_affix["v_th"] = " m/s"
@@ -1003,6 +1072,7 @@ class Simulation(SimulationBase):
         grid: grids.TensorProductGrid = None,
         derham_opts: DerhamOptions = None,
         profiling_opts: ProfilingOptions = None,
+        comm: MPI.Intracomm = None,
     ):
         """Spawn a sister simulation with parameters that default to the current instance.
         This can be used to quickly generate multiple similar simulations."""
@@ -1024,6 +1094,8 @@ class Simulation(SimulationBase):
             derham_opts = self.derham_opts
         if profiling_opts is None:
             profiling_opts = self.profiling_opts
+        if comm is None:
+            comm = self.comm
 
         sister = Simulation(
             model=model,
@@ -1035,6 +1107,7 @@ class Simulation(SimulationBase):
             grid=grid,
             derham_opts=derham_opts,
             profiling_opts=profiling_opts,
+            comm=comm,
         )
         return sister
 
@@ -1046,7 +1119,7 @@ class Simulation(SimulationBase):
         """
         Setup output folders.
         """
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             # create output folder if it does not exit
             if not os.path.exists(self.env.path_out):
                 os.makedirs(self.env.path_out, exist_ok=True)
@@ -1060,7 +1133,7 @@ class Simulation(SimulationBase):
     def _remove_existing_output_files(self):
         """Removes post_processing/, meta.txt and profile_tmp.
         If not restart, also removes existing hdf5 and png files in output folder."""
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if self.rank == 0:
             # remove post_processing folder
             folder = os.path.join(self.env.path_out, "post_processing")
             if os.path.exists(folder):
@@ -1134,14 +1207,16 @@ class Simulation(SimulationBase):
         """
         # check for polar singularity
         if self.domain.pole:
-            assert derham_opts.polar_ck == 1, """Polar singularity detected in domain but derham_opts.polar_ck != 1. 
+            assert (
+                derham_opts.polar_splines
+            ), """Polar singularity detected in domain but derham_opts.polar_splines is False.
             You have two options:
-            a) set derham_opts.polar_ck = 1 to use polar splines 
+            a) set derham_opts.polar_splines = True to use polar splines
             b) modify your domain definition to cut a hole around the singularity."""
 
         # create discrete derham sequence
         if self.clone_config is None:
-            derham_comm = MPI.COMM_WORLD
+            derham_comm = self.comm
         else:
             derham_comm = self.clone_config.sub_comm
 
@@ -1213,7 +1288,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, FieldSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                    with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1226,7 +1301,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, FluidSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                    with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1239,7 +1314,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, ParticleSpecies)
                 for k, v in spec.variables.items():
                     if isinstance(v, PICVariable):
-                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                        with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                             v.allocate(
                                 clone_config=self.clone_config,
                                 derham=self.derham,
@@ -1248,7 +1323,7 @@ class Simulation(SimulationBase):
                                 projected_equil=self.projected_equil,
                             )
                     if isinstance(v, SPHVariable):
-                        with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                        with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                             v.allocate(
                                 derham=self.derham,
                                 domain=self.domain,
@@ -1262,7 +1337,7 @@ class Simulation(SimulationBase):
                 assert isinstance(spec, DiagnosticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    with ProfileManager.profile_region(f"setup var: {species}.{k}", functions=[v.allocate]):
+                    with ProfileManager.profile_region(f"allocate var: {species}.{k}", functions=[v.allocate]):
                         v.allocate(
                             derham=self.derham,
                             domain=self.domain,
@@ -1305,7 +1380,7 @@ class Simulation(SimulationBase):
         assert len(self.model.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.model.prop_list:
             assert isinstance(prop, Propagator)
-            with ProfileManager.profile_region("setup prop: " + prop.__class__.__name__, functions=[prop.allocate]):
+            with ProfileManager.profile_region("allocate prop: " + prop.__class__.__name__, functions=[prop.allocate]):
                 prop.allocate()
             logger.debug(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
@@ -1354,10 +1429,10 @@ class Simulation(SimulationBase):
         """
 
         # save scalar quantities in group 'scalar/'
-        for key, scalar in self.model.scalars.dct.items():
-            val = scalar.value
+        # the host copies of the scalars (Scalars.to_host): saving them copies nothing from the device
+        for key in self.model.scalars.dct:
             key_scalar = "scalar/" + key
-            data.add_data({key_scalar: val})
+            data.add_data({key_scalar: self.model.scalars.host_value(key)})
 
         with h5py.File(data.file_path, "a") as file:
             # store grid_info only for runs with 512 ranks or smaller
@@ -1438,8 +1513,9 @@ class Simulation(SimulationBase):
                     data.add_data({key_spec_restart: obj.markers})
 
                 # marker data
-                key_mks = os.path.join(key_spec, "markers")
-                data.add_data({key_mks: var.saved_markers})
+                if var.n_to_save > 0:
+                    key_mks = os.path.join(key_spec, "markers")
+                    data.add_data({key_mks: var.saved_markers})
 
                 # binning plot data
                 for bin_plot in species.saving_params.binning_plots:
@@ -1544,12 +1620,15 @@ class Simulation(SimulationBase):
                             key=key_restart,
                         )
 
-                    # initialize pic variables
-                    elif isinstance(subval, PICVariable):
+                    # initialize pic and sph variables
+                    elif isinstance(subval, (PICVariable, SPHVariable)):
                         key_restart = os.path.join("restart", species)
                         subval.particles._markers[:, :] = file[key_restart][-1, :, :]
+                        # refresh the cached hole/ghost masks for the restored rows
+                        subval.particles.update_holes()
+                        subval.particles._update_ghost_particles()
 
-                        if MPI.COMM_WORLD.Get_size() > 1:
+                        if self.comm_size > 1:
                             subval.particles.mpi_sort_markers(do_test=True)
 
     def to_dict(self) -> dict:
@@ -2012,10 +2091,16 @@ from struphy.models import {self.model.__class__.__name__}
             sim_setup += f"domain = domains.{self.domain.__repr__()}\n"
             sim_class_def += "domain=domain,"
 
-            sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
+            if self.grid is None:
+                sim_setup += "grid = None\n"
+            else:
+                sim_setup += f"grid = grids.{self.grid.__repr__()}\n"
             sim_class_def += "grid=grid,"
 
-            sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
+            if self.derham_opts is None:
+                sim_setup += "derham_opts = None\n"
+            else:
+                sim_setup += f"derham_opts = {self.derham_opts.__repr__()}\n"
             sim_class_def += "derham_opts=derham_opts,"
 
             sim_setup += f"profiling_opts = {self.profiling_opts.__repr__()}\n"
@@ -2036,10 +2121,17 @@ from struphy.models import {self.model.__class__.__name__}
             if not self.domain.is_default:
                 sim_setup += f"domain = domains.{self.domain.__repr_no_defaults__()}\n"
                 sim_class_def += "domain=domain,"
-            if not self.grid.is_default:
+            # None (no FEEC Derham) is not the constructor default, so pass it explicitly
+            if self.grid is None:
+                sim_setup += "grid = None\n"
+                sim_class_def += "grid=grid,"
+            elif not self.grid.is_default:
                 sim_setup += f"grid = grids.{self.grid.__repr_no_defaults__()}\n"
                 sim_class_def += "grid=grid,"
-            if not self.derham_opts.is_default:
+            if self.derham_opts is None:
+                sim_setup += "derham_opts = None\n"
+                sim_class_def += "derham_opts=derham_opts,"
+            elif not self.derham_opts.is_default:
                 sim_setup += f"derham_opts = {self.derham_opts.__repr_no_defaults__()}\n"
                 sim_class_def += "derham_opts=derham_opts,"
             if self.profiling_opts != ProfilingOptions():
@@ -2243,11 +2335,11 @@ if __name__ == "__main__":
         return self._comm
 
     @comm.setter
-    # NOTE: string annotation, MPI.Intracomm is a dummy function if mpi4py is not installed (MockMPI)
+    # NOTE: string annotation, MPI.Intracomm is maybempi's stand-in in serial runs
     def comm(self, value: "MPI.Intracomm | None"):
         """Set the MPI communicator; this also updates :attr:`rank`, :attr:`comm_size` and :attr:`Barrier`.
         If None is passed, MPI.COMM_WORLD is used (unless MPI is not available)."""
-        if isinstance(MPI, MockMPI):
+        if isinstance(MPI, SerialMPI):
             self._comm = None
             self._rank = 0
             self._comm_size = 1

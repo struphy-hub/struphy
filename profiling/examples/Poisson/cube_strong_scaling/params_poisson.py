@@ -4,20 +4,51 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Poisson strong scaling on 3D cube"
-description = """
-Strong scaling test for Poisson equation on a 3D cube.
-The manufactured solution is a simple product of sines and cosines.
-Homogeneous Dirichlet boundary conditions are set in direction x.
+import argparse
+
+# Command line options
+# `--id` distinguishes runs that share a rank count but differ in something else; the
+# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
+# `--precond` selects the preconditioner (the variant), see the submit script.
+# Unknown flags are ignored so the driver can forward other parameters as well.
+parser = argparse.ArgumentParser()
+parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+parser.add_argument(
+    "--precond",
+    default="None",
+    choices=["None", "MultiGrid", "StiffnessPreconditioner"],
+    help="Name of the preconditioner (None for no preconditioner).",
+)
+parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 64], help="Number of elements per direction.")
+args, _ = parser.parse_known_args()
+
+precond = None if args.precond == "None" else args.precond
+
+# preconditioner -> (name suffix, linear solver) for the name and the description
+PRECONDS = {
+    None: ("no preconditioner", "unpreconditioned CG"),
+    "MultiGrid": ("multigrid preconditioner", "CG preconditioned by geometric multigrid"),
+    "StiffnessPreconditioner": (
+        "stiffness preconditioner",
+        "CG preconditioned by the Kronecker approximation of the inverse Laplacian (StiffnessPreconditioner)",
+    ),
+}
+
+name = f"Poisson strong scaling on 3D cube, {PRECONDS[precond][0]}"
+description = f"""
+Strong scaling test for Poisson equation on a 3D cube (Cuboid).
+The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
+exciting the full spectrum.
+Homogeneous Dirichlet boundary conditions are set in direction eta1.
+The linear system is solved with {PRECONDS[precond][1]}.
 """
 
 import logging
 
 from struphy import set_logging_level
 
-set_logging_level(logging.WARNING)
+set_logging_level(logging.INFO)
 
-import argparse
 
 # ------------------
 # Import Struphy API
@@ -27,6 +58,7 @@ from struphy import (
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    ProfilingOptions,
     Simulation,
     Time,
     domains,
@@ -55,13 +87,6 @@ model.em_fields.source.save_data = True
 # --------------------------
 
 # Environment options
-# `--id` distinguishes runs that share a rank count but differ in something else; the
-# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
-# Unknown flags are ignored so the driver can forward other parameters as well.
-parser = argparse.ArgumentParser()
-parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
-args, _ = parser.parse_known_args()
-
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
     restart=False,
@@ -80,10 +105,15 @@ domain = domains.Cuboid(r1=Lx, l2=-Ly / 2, r2=Ly / 2, r3=Lz)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(256, 256, 256), mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
+
+# Profilinig options
+profiling_opts = ProfilingOptions(
+    use_line_profiler=True,
+)
 
 # Simulation object
 sim = Simulation(
@@ -97,6 +127,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
+    profiling_opts=profiling_opts,
 )
 
 # ------------------
@@ -105,11 +136,11 @@ sim = Simulation(
 
 from struphy.linear_algebra.solver import SolverParameters
 
-solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=True)
+solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=False)
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
     solver="pcg",
-    precond=None,
+    precond=precond,
     solver_params=solver_params,
 )
 
@@ -120,154 +151,133 @@ import numpy as np
 
 from struphy.initial.base import GenericPerturbation
 
+# The exact solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5).
+# Its value at the Dirichlet boundary eta1 = 0, 1 is exp(-0.25 / w**2) ~ 1e-11, and it is periodic
+# in eta2 and eta3 up to the same accuracy. Being localized, it excites the whole spectrum of the
+# Laplacian, so CG has to work for convergence. Both the solution and the right-hand side
+# -Laplace(phi) are 0-forms given as functions of the logical coordinates (given_in_basis="0");
+# the pushed-forward solution at x = F(eta) is phi(eta).
+w = 0.1
+eta0 = (0.5, 0.5, 0.5)
 
-def exact_solution(x, y, z):
-    return np.sin(np.pi / Lx * x) * np.cos(12 * np.pi / Ly * y + 4 * np.pi / Lz * z)
+
+def gaussian_derivatives(e1, e2, e3):
+    """The Gaussian and its first and second derivatives with respect to eta1, eta2, eta3."""
+    eta = (e1, e2, e3)
+    g = np.exp(-sum((e - c) ** 2 for e, c in zip(eta, eta0)) / w**2)
+    d = [-2 * (e - c) / w**2 * g for e, c in zip(eta, eta0)]
+    dd = [(4 * (e - c) ** 2 / w**4 - 2 / w**2) * g for e, c in zip(eta, eta0)]
+    return g, d, dd
 
 
-def rhs_fun(x, y, z):
-    return exact_solution(x, y, z) * ((np.pi / Lx) ** 2 + (12 * np.pi / Ly) ** 2 + (4 * np.pi / Lz) ** 2)
+def exact_solution(e1, e2, e3):
+    return gaussian_derivatives(e1, e2, e3)[0]
 
 
-rhs_perturbation = GenericPerturbation(rhs_fun, given_in_basis="physical")
+def laplacian(e1, e2, e3):
+    """Physical Laplacian of the exact solution, in logical coordinates (Cuboid: x_i = l_i + L_i * eta_i)."""
+    g, d, dd = gaussian_derivatives(e1, e2, e3)
+    return dd[0] / Lx**2 + dd[1] / Ly**2 + dd[2] / Lz**2
+
+
+def rhs_fun(e1, e2, e3):
+    return -laplacian(e1, e2, e3)
+
+
+rhs_perturbation = GenericPerturbation(rhs_fun, given_in_basis="0")
 
 model.em_fields.source.add_perturbation(rhs_perturbation)
 
 
 if __name__ == "__main__":
-    run = sim.run(profiling_activated=True, one_time_step=True)
-    run.pproc(create_vtk=True, parallel=True)
+    # switches for debugging and testing
+    estimate_mem = False
+    run = True
+    pproc = True
+    save_figs = True
 
-    def plot_slices(num, exact, name, slice_pt_x=0, slice_pt_y=0, slice_pt_z=0):
-        from matplotlib import pyplot as plt
+    if estimate_mem:
+        sim.estimate_mem(print_report=True)
+        exit()
 
+    if run:
+        out = sim.run(profiling_activated=True, one_time_step=True)
+    else:
+        # use this for working with existing sim data from a previous run
+        out = sim.output
+
+    if pproc:
+        out.pproc(create_vtk=True, parallel=True)
+
+    from matplotlib import pyplot as plt
+
+    def slice_axes(k, X, Y, Z, E1, E2, E3):
+        """Axes (horizontal, vertical, labels) for plotting the slice eta_k = 0.5 in physical coordinates."""
+        if k == 0:
+            return Y, Z, "y", "z"
+        elif k == 1:
+            return X, Z, "x", "z"
+        else:
+            return X, Y, "x", "y"
+
+    def plot_slices(num, exact, name):
+        """Numerical solution, exact solution and error on the slices eta_k = 0.5 (k = 1, 2, 3)."""
         fig = plt.figure(figsize=(16, 12))
-
-        plt.subplot(3, 3, 1)
-        plt.pcolor(y[slice_pt_x, :, :], z[slice_pt_x, :, :], num[slice_pt_x, :, :])
-        plt.colorbar()
-        plt.xlabel("y")
-        plt.ylabel("z")
-        plt.title("{} from struphy, slice at x = {:.2f}".format(name, x[slice_pt_x, 0, 0]))
-
-        plt.subplot(3, 3, 4)
-        plt.pcolor(
-            y[slice_pt_x, :, :],
-            z[slice_pt_x, :, :],
-            exact(x[slice_pt_x, :, :], y[slice_pt_x, :, :], z[slice_pt_x, :, :]),
-        )
-        plt.colorbar()
-        plt.xlabel("y")
-        plt.ylabel("z")
-        plt.title("{} exact, slice at x = {:.2f}".format(name, x[slice_pt_x, 0, 0]))
-
-        plt.subplot(3, 3, 7)
-        plt.pcolor(
-            y[slice_pt_x, :, :],
-            z[slice_pt_x, :, :],
-            np.abs(num[slice_pt_x, :, :] - exact(x[slice_pt_x, :, :], y[slice_pt_x, :, :], z[slice_pt_x, :, :])),
-        )
-        plt.colorbar()
-        plt.xlabel("y")
-        plt.ylabel("z")
-        plt.title("{} error, slice at x = {:.2f}".format(name, x[slice_pt_x, 0, 0]))
-
-        plt.subplot(3, 3, 2)
-        plt.pcolor(x[:, slice_pt_y, :], z[:, slice_pt_y, :], num[:, slice_pt_y, :])
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("z")
-        plt.title("{} from struphy, slice at y = {:.2f}".format(name, y[0, slice_pt_y, 0]))
-
-        plt.subplot(3, 3, 5)
-        plt.pcolor(
-            x[:, slice_pt_y, :],
-            z[:, slice_pt_y, :],
-            exact(x[:, slice_pt_y, :], y[:, slice_pt_y, :], z[:, slice_pt_y, :]),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("z")
-        plt.title("{} exact, slice at y = {:.2f}".format(name, y[0, slice_pt_y, 0]))
-
-        plt.subplot(3, 3, 8)
-        plt.pcolor(
-            x[:, slice_pt_y, :],
-            z[:, slice_pt_y, :],
-            np.abs(num[:, slice_pt_y, :] - exact(x[:, slice_pt_y, :], y[:, slice_pt_y, :], z[:, slice_pt_y, :])),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("z")
-        plt.title("{} error, slice at y = {:.2f}".format(name, y[0, slice_pt_y, 0]))
-
-        plt.subplot(3, 3, 3)
-        plt.pcolor(x[:, :, slice_pt_z], y[:, :, slice_pt_z], num[:, :, slice_pt_z])
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.title("{} from struphy, slice at z = {:.2f}".format(name, z[0, 0, slice_pt_z]))
-
-        plt.subplot(3, 3, 6)
-        plt.pcolor(
-            x[:, :, slice_pt_z],
-            y[:, :, slice_pt_z],
-            exact(x[:, :, slice_pt_z], y[:, :, slice_pt_z], z[:, :, slice_pt_z]),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.title("{} exact, slice at z = {:.2f}".format(name, z[0, 0, slice_pt_z]))
-
-        plt.subplot(3, 3, 9)
-        plt.pcolor(
-            x[:, :, slice_pt_z],
-            y[:, :, slice_pt_z],
-            np.abs(num[:, :, slice_pt_z] - exact(x[:, :, slice_pt_z], y[:, :, slice_pt_z], z[:, :, slice_pt_z])),
-        )
-        plt.colorbar()
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.title("{} error, slice at z = {:.2f}".format(name, z[0, 0, slice_pt_z]))
-
+        for k in range(3):
+            idx = tuple(num.shape[k] // 2 if i == k else slice(None) for i in range(3))
+            h, v, hlabel, vlabel = slice_axes(k, X[idx], Y[idx], Z[idx], E1[idx], E2[idx], E3[idx])
+            eta_k = (E1, E2, E3)[k][idx].flat[0]
+            for row, (data, what) in enumerate(
+                [(num[idx], "from struphy"), (exact[idx], "exact"), (np.abs(num[idx] - exact[idx]), "error")]
+            ):
+                plt.subplot(3, 3, 3 * row + k + 1)
+                plt.pcolormesh(h, v, data, shading="gouraud")
+                plt.colorbar()
+                plt.xlabel(hlabel)
+                plt.ylabel(vlabel)
+                plt.title(f"{name} {what}, slice at eta{k + 1} = {eta_k:.2f}")
+        fig.tight_layout()
         return fig
 
-    if sim.comm.rank == 0:
-        rhs_data = run.evaluate("em_fields/source_log")
-        print(rhs_data)
-        rhs = rhs_data.isel(t=0).values
+    if sim.rank == 0:
+        # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
+        # cell centres of the simulation grid (serial Derham, safe on rank 0 only).
+        rhs = out.evaluate("em_fields/source", t=0).values
 
-        phi_data = run.evaluate("em_fields/phi_log")
-        print(phi_data)
-        phi = phi_data.isel(t=-1).values
-        x, y, z = run.grids_phy
+        phi_data = out.evaluate("em_fields/phi", t=-1)
+        phi = phi_data.values
 
-        slice_pt_x = x.shape[0] // 2
-        slice_pt_y = y.shape[1] // 2
-        slice_pt_z = 0
-
-        fig_rhs = plot_slices(rhs, rhs_fun, "RHS", slice_pt_x=slice_pt_x, slice_pt_y=slice_pt_y, slice_pt_z=slice_pt_z)
-        fig_phi = plot_slices(
-            phi, exact_solution, "Phi", slice_pt_x=slice_pt_x, slice_pt_y=slice_pt_y, slice_pt_z=slice_pt_z
+        # logical coordinates of the evaluation points and their images x = F(eta)
+        E1, E2, E3 = np.meshgrid(
+            *(phi_data.coords[c].values for c in ("eta1", "eta2", "eta3")),
+            indexing="ij",
         )
+        X, Y, Z = (phi_data.coords[c].values for c in ("X", "Y", "Z"))
 
-        rel_err_rhs = np.max(np.abs(rhs - rhs_fun(x, y, z))) / np.max(np.abs(rhs_fun(x, y, z)))
-        rel_err_phi = np.max(np.abs(phi - exact_solution(x, y, z))) / np.max(np.abs(exact_solution(x, y, z)))
+        # pushed-forward exact solutions: the 0-forms at x = F(eta) are their values at eta
+        rhs_exact = rhs_fun(E1, E2, E3)
+        phi_exact = exact_solution(E1, E2, E3)
+
+        fig_rhs = plot_slices(rhs, rhs_exact, "RHS")
+        fig_phi = plot_slices(phi, phi_exact, "Phi")
+
+        rel_err_rhs = np.max(np.abs(rhs - rhs_exact)) / np.max(np.abs(rhs_exact))
+        rel_err_phi = np.max(np.abs(phi - phi_exact)) / np.max(np.abs(phi_exact))
 
         print(f"Max relative error in RHS: {rel_err_rhs:.2e}")
         print(f"Max relative error in Phi: {rel_err_phi:.2e}")
 
-        assert rel_err_rhs < 1e-3, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
-        assert rel_err_phi < 1e-2, (
+        assert rel_err_rhs < 1.7e-2, f"The computed RHS does not match the exact RHS, max rel error = {rel_err_rhs}."
+        assert rel_err_phi < 1.2e-2, (
             f"The computed solution does not match the exact solution, max rel error = {rel_err_phi}."
         )
 
         import os
 
-        # `path_out` is the run's output folder; `sim_folder` alone is a bare name
-        # resolved against the CWD. The profiling packaging picks these files up from
-        # here and uploads them as `results-run<id>`.
-        results_dir = os.path.join(sim.env.path_out, "results")
+        # `out.path_out` is the out's (absolute) output folder; `sim_folder` alone is a bare
+        # name resolved against the CWD. The profiling packaging picks these files up from
+        # here and uploads them as `results-out<id>`.
+        results_dir = os.path.join(out.path_out, "results")
         os.makedirs(results_dir, exist_ok=True)
 
         np.save(os.path.join(results_dir, "rel_err_rhs.npy"), rel_err_rhs)
@@ -275,5 +285,8 @@ if __name__ == "__main__":
         np.save(os.path.join(results_dir, "resolution.npy"), sim.grid.num_elements)
         np.save(os.path.join(results_dir, "spline_degree.npy"), sim.derham_opts.degree)
 
-        fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
-        fig_phi.savefig(os.path.join(results_dir, "phi_slices.png"))
+        if save_figs:
+            fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
+            fig_phi.savefig(os.path.join(results_dir, "phi_slices.png"))
+        else:
+            plt.show()

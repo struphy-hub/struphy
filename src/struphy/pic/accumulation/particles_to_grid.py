@@ -3,14 +3,12 @@
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
+from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
-import struphy.pic.accumulation.accum_kernels as accums
-import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import LiteralOptions
@@ -18,7 +16,15 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
+from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.utils import __dataclass_repr_no_defaults__, check_option
+
+
+def _accumulation_kernel(kernel) -> Kernel:
+    """The kernel as a :class:`cunumpy.kernels.Kernel` (pyccel or CUDA depending on the backend)."""
+    if not isinstance(kernel, Kernel):
+        kernel = Kernel(kernel)
+    return kernel
 
 
 class Accumulator:
@@ -67,8 +73,9 @@ class Accumulator:
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    kernel : pyccelized function
-        The accumulation kernel.
+    kernel : Kernel | PyccelKernel
+        The accumulation kernel, e.g. ``charge_density_0form`` from ``struphy.pic.accumulation.kernels.charge_density_0form``.
+        On the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     derham : Derham
         Discrete FE spaces object.
@@ -87,16 +94,15 @@ class Accumulator:
 
     Note
     ----
-        Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py``
-        (6D particles) or ``struphy/pic/accumulation/accum_kernels_gc.py`` (5D particles), see :ref:`accum_kernels`
-        and :ref:`accum_kernels_gc` for details.
+        Struphy accumulation kernels live in ``struphy/pic/accumulation/kernels/``, one folder per kernel
+        (see :mod:`struphy.pic.accumulation.kernels`).
     """
 
     def __init__(
         self,
         particles: Particles,
         space_id: str,
-        kernel: PyccelKernel,
+        kernel: Kernel | PyccelKernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
@@ -106,8 +112,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
-        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
-        self._kernel = kernel
+        self._kernel = _accumulation_kernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
@@ -196,9 +201,9 @@ class Accumulator:
         # initialize filter
         self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
-    def __call__(self, *optional_args, **args_control):
+    def __call__(self, *optional_args):
         """
-        Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
+        Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel.
 
         Parameters
         ----------
@@ -210,19 +215,15 @@ class Accumulator:
             which are prepared automatically (spline bases info, mapping info, data arrays).
             Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
             Entries must be pyccel-conform types.
-
-        args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
         with ProfileManager.profile_region(self._region_name):
-            self._accumulate(*optional_args, **args_control)
+            self._accumulate(*optional_args)
 
-    def _accumulate(self, *optional_args, **args_control):
+    def _accumulate(self, *optional_args):
         """Body of :meth:`__call__`, see there."""
 
         # flags for break
         vec_finished = False
-        mat_finished = False
 
         # reset data
         for dat in self._args_data:
@@ -262,23 +263,6 @@ class Accumulator:
                         op=MPI.SUM,
                     )
 
-        # add analytical contribution (control variate) to vector
-        if "control_vec" in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(
-                args_control["control_vec"],
-                dofs=self._vectors[0],
-                clear=False,
-            )
-            vec_finished = True
-
-        # add analytical contribution (control variate) to matrix and finish
-        if "control_mat" in args_control:
-            self._operators[0].assemble(
-                weights=args_control["control_mat"],
-                clear=False,
-            )
-            mat_finished = True
-
         # finish vector: accumulate ghost regions and update ghost regions
         if not vec_finished:
             with ProfileManager.profile_region(self._comm_region_name):
@@ -287,48 +271,47 @@ class Accumulator:
                     vec.update_ghost_regions()
 
         # finish matrix: accumulate ghost regions, update ghost regions and copy data for symmetric/antisymmetric block matrices
-        if not mat_finished:
-            with ProfileManager.profile_region(self._comm_region_name):
-                for op in self._operators:
-                    op.matrix.exchange_assembly_data()
-                    op.matrix.update_ghost_regions()
+        with ProfileManager.profile_region(self._comm_region_name):
+            for op in self._operators:
+                op.matrix.exchange_assembly_data()
+                op.matrix.update_ghost_regions()
 
-            if self.symmetry == "symm":
-                self._operators[0].matrix[0, 1].transpose(
-                    out=self._operators[0].matrix[1, 0],
-                )
-                self._operators[0].matrix[0, 2].transpose(
-                    out=self._operators[0].matrix[2, 0],
-                )
-                self._operators[0].matrix[1, 2].transpose(
-                    out=self._operators[0].matrix[2, 1],
-                )
+        if self.symmetry == "symm":
+            self._operators[0].matrix[0, 1].transpose(
+                out=self._operators[0].matrix[1, 0],
+            )
+            self._operators[0].matrix[0, 2].transpose(
+                out=self._operators[0].matrix[2, 0],
+            )
+            self._operators[0].matrix[1, 2].transpose(
+                out=self._operators[0].matrix[2, 1],
+            )
 
-            elif self.symmetry == "asym":
-                self._operators[0].matrix[0, 1].transpose(
-                    out=self._operators[0].matrix[1, 0],
-                )
-                self._operators[0].matrix[1, 0] *= -1
-                self._operators[0].matrix[0, 2].transpose(
-                    out=self._operators[0].matrix[2, 0],
-                )
-                self._operators[0].matrix[2, 0] *= -1
-                self._operators[0].matrix[1, 2].transpose(
-                    out=self._operators[0].matrix[2, 1],
-                )
-                self._operators[0].matrix[2, 1] *= -1
+        elif self.symmetry == "asym":
+            self._operators[0].matrix[0, 1].transpose(
+                out=self._operators[0].matrix[1, 0],
+            )
+            self._operators[0].matrix[1, 0] *= -1
+            self._operators[0].matrix[0, 2].transpose(
+                out=self._operators[0].matrix[2, 0],
+            )
+            self._operators[0].matrix[2, 0] *= -1
+            self._operators[0].matrix[1, 2].transpose(
+                out=self._operators[0].matrix[2, 1],
+            )
+            self._operators[0].matrix[2, 1] *= -1
 
-            elif self.symmetry == "pressure":
-                for i in range(6):
-                    self._operators[i].matrix[0, 1].transpose(
-                        out=self._operators[i].matrix[1, 0],
-                    )
-                    self._operators[i].matrix[0, 2].transpose(
-                        out=self._operators[i].matrix[2, 0],
-                    )
-                    self._operators[i].matrix[1, 2].transpose(
-                        out=self._operators[i].matrix[2, 1],
-                    )
+        elif self.symmetry == "pressure":
+            for i in range(6):
+                self._operators[i].matrix[0, 1].transpose(
+                    out=self._operators[i].matrix[1, 0],
+                )
+                self._operators[i].matrix[0, 2].transpose(
+                    out=self._operators[i].matrix[2, 0],
+                )
+                self._operators[i].matrix[1, 2].transpose(
+                    out=self._operators[i].matrix[2, 1],
+                )
 
     @property
     def particles(self):
@@ -336,9 +319,13 @@ class Accumulator:
         return self._particles
 
     @property
-    def kernel(self) -> PyccelKernel:
+    def kernel(self) -> Kernel:
         """The accumulation kernel."""
         return self._kernel
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this accumulator calls (the accumulation kernel)."""
+        return (self._kernel,)
 
     @property
     def derham(self):
@@ -385,14 +372,6 @@ class Accumulator:
     def accfilter(self):
         """Callable filters"""
         return self._accfilter
-
-    def init_control_variate(self, mass_ops):
-        """Set up the use of noise reduction by control variate."""
-
-        from struphy.feec.mass import L2Projector
-
-        # L2 projector for dofs
-        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
     def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
         r"""1D plot of the spline field corresponding to the accumulated vector.
@@ -478,8 +457,9 @@ class AccumulatorVector:
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    kernel : pyccelized function
-        The accumulation kernel.
+    kernel : Kernel | PyccelKernel
+        The accumulation kernel, e.g. ``charge_density_0form`` from ``struphy.pic.accumulation.kernels.charge_density_0form``.
+        On the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     derham : Derham
         Discrete FE spaces object.
@@ -493,15 +473,14 @@ class AccumulatorVector:
         self,
         particles: Particles,
         space_id: str,
-        kernel: PyccelKernel,
+        kernel: Kernel | PyccelKernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         filter_params: FilterParameters = None,
     ):
         self._particles = particles
         self._space_id = space_id
-        assert isinstance(kernel, PyccelKernel), f"{kernel} is not of type PyccelKernel"
-        self._kernel = kernel
+        self._kernel = _accumulation_kernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
@@ -557,10 +536,9 @@ class AccumulatorVector:
         # initialize filter
         self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
-    def __call__(self, *optional_args, **args_control):
+    def __call__(self, *optional_args):
         """
-        Performs the accumulation into the vector by calling the chosen accumulation kernel
-        and additional analytical contributions (control variate, optional).
+        Performs the accumulation into the vector by calling the chosen accumulation kernel.
 
         Parameters
         ----------
@@ -569,16 +547,11 @@ class AccumulatorVector:
             which are prepared automatically (spline bases info, mapping info, data arrays).
             Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
             Entries must be pyccel-conform types.
-
-        args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step.
-            Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
-            Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
         with ProfileManager.profile_region(self._region_name):
-            self._accumulate(*optional_args, **args_control)
+            self._accumulate(*optional_args)
 
-    def _accumulate(self, *optional_args, **args_control):
+    def _accumulate(self, *optional_args):
         """Body of :meth:`__call__`, see there."""
 
         # flags for break
@@ -622,15 +595,6 @@ class AccumulatorVector:
                         op=MPI.SUM,
                     )
 
-        # add analytical contribution (control variate) to vector
-        if "control_vec" in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(
-                args_control["control_vec"],
-                dofs=self._vectors[0],
-                clear=False,
-            )
-            vec_finished = True
-
         # finish vector: accumulate ghost regions and update ghost regions
         if not vec_finished:
             with ProfileManager.profile_region(self._comm_region_name):
@@ -644,9 +608,13 @@ class AccumulatorVector:
         return self._particles
 
     @property
-    def kernel(self) -> PyccelKernel:
+    def kernel(self) -> Kernel:
         """The accumulation kernel."""
         return self._kernel
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this accumulator calls (the accumulation kernel)."""
+        return (self._kernel,)
 
     @property
     def derham(self):
@@ -683,14 +651,6 @@ class AccumulatorVector:
     def accfilter(self):
         """Callable filters"""
         return self._accfilter
-
-    def init_control_variate(self, mass_ops):
-        """Set up the use of noise reduction by control variate."""
-
-        from struphy.feec.mass import L2Projector
-
-        # L2 projector for dofs
-        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
     def show_accumulated_spline_field(self, mass_ops, eta_direction=(True, False, False), save_L2=False):
         r"""1 or 2D plot of the spline field corresponding to the accumulated vector.
@@ -775,33 +735,32 @@ class ParticlesToGrid:
     accum_space : {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
         FEEC space identifier of the vector to accumulate into.
 
-    accum_kernel : PyccelKernel
-        Pyccelized accumulation kernel matching ``accum_space``, for example
-        ``PyccelKernel(accum_kernels.charge_density_0form)``.
+    accum_kernel : Kernel | PyccelKernel
+        Accumulation kernel matching ``accum_space``, for example
+        ``charge_density_0form`` from ``struphy.pic.accumulation.kernels.charge_density_0form``.
 
     Examples
     --------
-    >>> from struphy.pic.accumulation import accum_kernels
+    >>> from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
     >>> from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
     >>> from struphy.propagators.poisson_solve import PoissonSolve
-    >>> from cunumpy import PyccelKernel
     >>> rho = ParticlesToGrid(
     ...     kinetic_ions.var,
     ...     "H1",
-    ...     PyccelKernel(accum_kernels.charge_density_0form),
+    ...     charge_density_0form,
     ... )
     >>> poisson = PoissonSolve(rho=rho, rho_coeffs=alpha**2 / epsilon)
     """
 
     pic_variable: PICVariable | SPHVariable = None
     accum_space: LiteralOptions.OptsFEECSpace = None
-    accum_kernel: PyccelKernel = None
+    accum_kernel: Kernel | PyccelKernel = None
 
     def __post_init__(self):
         if self.accum_space is not None:
             check_option(self.accum_space, LiteralOptions.OptsFEECSpace)
 
-        assert isinstance(self.accum_kernel, PyccelKernel) or self.accum_kernel is None
+        assert isinstance(self.accum_kernel, (Kernel, PyccelKernel)) or self.accum_kernel is None
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)

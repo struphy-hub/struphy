@@ -1,7 +1,6 @@
 import copy
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
 
 from struphy import BaseUnits
 from struphy.feec.mass import AverageOperator, L2Projector
@@ -15,10 +14,10 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels_gc
+from struphy.pic.accumulation.kernels.gc_density_0form import gc_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
-from struphy.propagators.poisson_adiabatic_gyrokinetic import PoissonAdiabaticGyrokinetic
+from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
@@ -90,7 +89,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             Z: int = 1,
             diagnostic: FEECVariable | None = None,
         ):
-            self.gc_poisson = PoissonAdiabaticGyrokinetic(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
+            self.gc_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
             self.push_gc_bxe = PushGuidingCenterBxEstar(phi=phi)
             self.push_gc_para = PushGuidingCenterParallel(phi=phi)
 
@@ -132,7 +131,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         rho = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            PyccelKernel(accum_kernels_gc.gc_density_0form),
+            gc_density_0form,
         )
         self.propagators = self.Propagators(
             phi=self.em_fields.phi, rho=rho, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic
@@ -203,7 +202,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def _compute_en_particle_magnetic(self):
         particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
-        return 1 / particles.Np * xp.sum(particles.markers_wo_holes_and_ghost[:, 8])
+        # The weights (column 5) already carry the 1/N_p of the Monte-Carlo estimate, see KineticEnergyPIC.
+        markers = particles.markers_wo_holes_and_ghost
+        return markers[:, 5].dot(markers[:, 8])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -281,7 +282,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         """
         doc = rf"""**1. ImplicitDiffusion:**
 
-{PoissonAdiabaticGyrokinetic.__doc__}
+{GyrokineticPoissonSolve.__doc__}
 
 **2. PushGuidingCenterBxEstar:**
 

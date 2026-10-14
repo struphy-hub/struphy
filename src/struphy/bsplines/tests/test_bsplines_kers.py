@@ -3,7 +3,7 @@ import time
 
 import cunumpy as xp
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 logger = logging.getLogger("struphy")
 

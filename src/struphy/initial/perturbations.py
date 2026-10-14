@@ -181,7 +181,7 @@ class ModesSin(Perturbation):
                 self.pfuns += [lambda eta3: 1.0]
             elif pfun == "localize":
                 self.pfuns += [
-                    lambda eta3: xp.tanh((eta3 - 0.5) / params) / xp.cosh((eta3 - 0.5) / params),
+                    lambda eta3, p=params: xp.tanh((eta3 - 0.5) / p) / xp.cosh((eta3 - 0.5) / p),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -1030,20 +1030,20 @@ class TorusModesSin(Perturbation):
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
+                self._pfuns += [lambda eta1, ls=ls: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2)) / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        -(eta1 - params[0])
-                        / params[1] ** 2
-                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        -(eta1 - p[0])
+                        / p[1] ** 2
+                        * xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             else:
@@ -1173,22 +1173,22 @@ class TorusModesCos(Perturbation):
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
+                self._pfuns += [lambda eta1, ls=ls: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "cos":
                 self._pfuns += [lambda eta1: xp.cos(xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2)) / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2)) / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: (
-                        -(eta1 - params[0])
-                        / params[1] ** 2
-                        * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                        / xp.sqrt(2 * xp.pi * params[1] ** 2)
+                    lambda eta1, p=params: (
+                        -(eta1 - p[0])
+                        / p[1] ** 2
+                        * xp.exp(-((eta1 - p[0]) ** 2) / (2 * p[1] ** 2))
+                        / xp.sqrt(2 * xp.pi * p[1] ** 2)
                     ),
                 ]
             else:
@@ -2179,7 +2179,7 @@ class ITPA_density(Perturbation):
         val = 0.0
 
         if self._c[2] == 0.0:
-            val = self._c[3] - 0 * eta1
+            val = self._n0 * self._c[3] - 0 * eta1
         else:
             val = (
                 self._n0

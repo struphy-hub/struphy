@@ -5,8 +5,8 @@ import shutil
 import cunumpy as xp
 import numpy as np
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
+from maybempi import MPI
 from scipy.fft import fft2, fftfreq
 from scipy.signal import argrelextrema
 from scipy.special import jv, yn

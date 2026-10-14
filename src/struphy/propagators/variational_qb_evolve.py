@@ -11,7 +11,7 @@ from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
     Pressure_transport_operator,
@@ -243,11 +243,12 @@ class VariationalQBEvolve(Propagator):
         else:
             self._bt2 = self.bt2.spline.vector
 
+        self._rank = self.derham.comm.Get_rank() if self.derham.comm is not None else 0
         self._info = self._nonlin_solver.info and (self.rank == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
@@ -457,10 +458,7 @@ class VariationalQBEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
-                )
+                logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
             bn1 -= incr[1]
             qn1 -= incr[2]
@@ -520,8 +518,9 @@ class VariationalQBEvolve(Propagator):
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
@@ -669,7 +668,7 @@ class VariationalQBEvolve(Propagator):
         qn12 += qn1
         qn12 *= 0.5
         if self._linearize:
-            wq = self.mass_ops.M3.dot(qn12 - self._extracted_q2, out=self._linear_form_dl_dq)
+            wq = self.mass_ops.M3.dot(qn12 - self._extracted_q3, out=self._linear_form_dl_dq)
         else:
             wq = self.mass_ops.M3.dot(qn12, out=self._linear_form_dl_dq)
         wq *= -2 / (self._gamma - 1)

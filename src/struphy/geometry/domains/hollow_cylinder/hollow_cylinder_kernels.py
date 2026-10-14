@@ -50,10 +50,10 @@ def hollow_cyl_df(eta1: float, eta2: float, a1: float, a2: float, lz: float, poc
 
     da = a2 - a1
 
-    df_out[0, 0] = da * cos(2 * pi * eta2)
+    df_out[0, 0] = da * cos(2 * pi * eta2 / poc)
     df_out[0, 1] = -2 * pi / poc * (a1 + eta1 * da) * sin(2 * pi * eta2 / poc)
     df_out[0, 2] = 0.0
-    df_out[1, 0] = da * sin(2 * pi * eta2)
+    df_out[1, 0] = da * sin(2 * pi * eta2 / poc)
     df_out[1, 1] = 2 * pi / poc * (a1 + eta1 * da) * cos(2 * pi * eta2 / poc)
     df_out[1, 2] = 0.0
     df_out[2, 0] = 0.0

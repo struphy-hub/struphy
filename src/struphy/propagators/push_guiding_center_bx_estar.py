@@ -4,14 +4,24 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels_gc
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.pic.pushing.kernels.bstar_parallel_3form import bstar_parallel_3form
+from struphy.pic.pushing.kernels.driftkinetic_hamiltonian import driftkinetic_hamiltonian
+from struphy.pic.pushing.kernels.grad_driftkinetic_hamiltonian import grad_driftkinetic_hamiltonian
+from struphy.pic.pushing.kernels.push_gc_bxEstar_dg_1st_order_newton import push_gc_bxEstar_dg_1st_order_newton
+from struphy.pic.pushing.kernels.push_gc_bxEstar_discrete_gradient_1st_order import (
+    push_gc_bxEstar_discrete_gradient_1st_order,
+)
+from struphy.pic.pushing.kernels.push_gc_bxEstar_discrete_gradient_2nd_order import (
+    push_gc_bxEstar_discrete_gradient_2nd_order,
+)
+from struphy.pic.pushing.kernels.push_gc_bxEstar_explicit_multistage import push_gc_bxEstar_explicit_multistage
+from struphy.pic.pushing.kernels.unit_b_1form import unit_b_1form
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -42,9 +52,9 @@ class PushGuidingCenterBxEstar(Propagator):
     Available algorithms:
 
     - Explicit from :class:`~struphy.ode.utils.ButcherTableau`
-    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
-    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
-    - :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
+    - :func:`~struphy.pic.pushing.kernels.push_gc_bxEstar_discrete_gradient_1st_order.push_gc_bxEstar_discrete_gradient_1st_order_kernels.push_gc_bxEstar_discrete_gradient_1st_order`
+    - :func:`~struphy.pic.pushing.kernels.push_gc_bxEstar_dg_1st_order_newton.push_gc_bxEstar_dg_1st_order_newton_kernels.push_gc_bxEstar_dg_1st_order_newton`
+    - :func:`~struphy.pic.pushing.kernels.push_gc_bxEstar_discrete_gradient_2nd_order.push_gc_bxEstar_discrete_gradient_2nd_order_kernels.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
 
     class Variables:
@@ -168,31 +178,33 @@ class PushGuidingCenterBxEstar(Propagator):
         self._absB0 = self.projected_equil.absB0
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
+        # the kernels need tensor-product coefficients: transposed extraction operators
+        # PolarVector --> Stencil-/BlockVector (identity maps in case of no polar splines)
+        self._E0T = self.derham.extraction_ops["0"].transpose()
+        self._E1T = self.derham.extraction_ops["1"].transpose()
+
         # magnetic perturbation
         if self.b_tilde is not None:
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
+            self._B_dot_b_pol = self._PB.codomain.zeros()
+            self._grad_b_pol = self.derham.grad.codomain.zeros()
 
-            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
-            B_dot_b.update_ghost_regions()
-
-            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
-            grad_b_full.update_ghost_regions()
-
-            grad_b_full += self._gradB1
-            B_dot_b += self._absB0
+            self._update_b_tilde()
         else:
             self._grad_b_full = self._gradB1
             self._B_dot_b = self._absB0
 
-        # allocate electric field
+        # allocate electric potential (self._phi holds its tensor-product coefficients)
         if self._allocate_phi:
             self.phi.allocate(self.derham, self.domain)
-        self._phi = self.phi.spline.vector
+        self._phi = self.derham.V0.zeros()
+        self._update_phi()
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.V1.zeros()
+        self._e_field_pol = self.derham.grad.codomain.zeros()
 
         # choose method
         particles = self.variables.ions.particles
@@ -205,7 +217,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 # init kernels
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        kernel=driftkinetic_hamiltonian,
                         output_indices=(first_free_idx,),
                         args=(
                             self.derham.args_derham,
@@ -219,7 +231,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.bstar_parallel_3form,
+                        kernel=bstar_parallel_3form,
                         output_indices=(first_free_idx + 1,),
                         args=(
                             self.derham.args_derham,
@@ -232,7 +244,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.unit_b_1form,
+                        kernel=unit_b_1form,
                         output_indices=(first_free_idx + 2, first_free_idx + 3, first_free_idx + 4),
                         args=(
                             self.derham.args_derham,
@@ -247,7 +259,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     # eval kernels
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            kernel=driftkinetic_hamiltonian,
                             output_indices=(first_free_idx + 5,),
                             args=(
                                 self.derham.args_derham,
@@ -262,7 +274,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            kernel=driftkinetic_hamiltonian,
                             output_indices=(first_free_idx + 6,),
                             args=(
                                 self.derham.args_derham,
@@ -277,7 +289,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                            kernel=grad_driftkinetic_hamiltonian,
                             output_indices=(first_free_idx + 7, None, None),
                             args=(
                                 self.derham.args_derham,
@@ -296,7 +308,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                            kernel=grad_driftkinetic_hamiltonian,
                             output_indices=(first_free_idx + 8, first_free_idx + 9, None),
                             args=(
                                 self.derham.args_derham,
@@ -314,7 +326,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton)
+                    kernel = push_gc_bxEstar_dg_1st_order_newton
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -335,7 +347,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     # eval kernels
                     self.add_eval_kernel(
                         KernelSetup(
-                            kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                            kernel=driftkinetic_hamiltonian,
                             output_indices=(first_free_idx + 5,),
                             args=(
                                 self.derham.args_derham,
@@ -349,7 +361,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )  # evaluate at eta^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order)
+                    kernel = push_gc_bxEstar_discrete_gradient_1st_order
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -368,7 +380,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 # init kernels (evaluate at eta^n and save)
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        kernel=driftkinetic_hamiltonian,
                         output_indices=(first_free_idx,),
                         args=(
                             self.derham.args_derham,
@@ -383,7 +395,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 # eval kernels
                 self.add_eval_kernel(
                     KernelSetup(
-                        kernel=eval_kernels_gc.driftkinetic_hamiltonian,
+                        kernel=driftkinetic_hamiltonian,
                         output_indices=(first_free_idx + 1,),
                         args=(
                             self.derham.args_derham,
@@ -397,7 +409,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 )  # evaluate at eta^{n+1,k} and save)
 
                 # pusher kernel
-                kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order)
+                kernel = push_gc_bxEstar_discrete_gradient_2nd_order
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -439,7 +451,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
 
-            kernel = PyccelKernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
+            kernel = push_gc_bxEstar_explicit_multistage
 
             args_kernel = (
                 self.derham.args_derham,
@@ -472,24 +484,39 @@ class PushGuidingCenterBxEstar(Propagator):
                 pushes_eta=True,
             )
 
+    def _update_phi(self):
+        """Extract the electric potential to the tensor-product space."""
+        phi = self._E0T.dot(self.phi.spline.vector, out=self._phi)
+        phi.update_ghost_regions()
+
+    def _update_b_tilde(self):
+        """Parallel magnetic perturbation and its gradient (plus equilibrium) in the tensor-product spaces."""
+        B_dot_b_pol = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b_pol)
+        B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
+        B_dot_b.update_ghost_regions()
+
+        grad_b_pol = self.derham.grad.dot(B_dot_b_pol, out=self._grad_b_pol)
+        grad_b_full = self._E1T.dot(grad_b_pol, out=self._grad_b_full)
+        grad_b_full.update_ghost_regions()
+
+        grad_b_full += self._gradB1
+        B_dot_b += self._absB0
+
     @profile
     def __call__(self, dt):
+        # electric potential
+        self._update_phi()
+
         # electric field
         # TODO: add out to __neg__ of StencilVector
         if self._evaluate_e_field:
-            e_field = self.derham.grad.dot(-self._phi, out=self._e_field)
+            e_field_pol = self.derham.grad.dot(-self.phi.spline.vector, out=self._e_field_pol)
+            e_field = self._E1T.dot(e_field_pol, out=self._e_field)
             e_field.update_ghost_regions()
 
         # magnetic perturbation
         if self.b_tilde is not None:
-            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
-            B_dot_b.update_ghost_regions()
-
-            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
-            grad_b_full.update_ghost_regions()
-
-            grad_b_full += self._gradB1
-            B_dot_b += self._absB0
+            self._update_b_tilde()
 
         # call pusher
         self._pusher(dt)

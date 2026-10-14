@@ -179,7 +179,23 @@ class ViscoResistiveMHD_with_p(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "pressure.add_background" in line:
+                if "variat_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_p')\n",
+                    ]
+                elif "variat_pb.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='full_p')\n",
+                    ]
+                elif "variat_viscous.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_p')\n",
+                    ]
+                elif "variat_resist.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_p')\n",
+                    ]
+                elif "pressure.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:

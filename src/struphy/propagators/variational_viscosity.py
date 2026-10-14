@@ -4,14 +4,14 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import CoordinateProjector
 from struphy.feec.mass import L2Projector
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import InternalEnergyEvaluator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -130,7 +130,7 @@ class VariationalViscosity(Propagator):
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Linear solver for implicit subproblems.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
             Linear-solver controls.
@@ -142,6 +142,8 @@ class VariationalViscosity(Propagator):
             Artificial-viscosity coefficient.
         alpha : float, default=0.0
             Optional linear damping/regularization parameter.
+        fast : bool, default=False
+            If ``True`` and ``model="linear_q"``, skip the thermodynamic (energy balance) update.
         """
 
         # specific literals
@@ -150,12 +152,13 @@ class VariationalViscosity(Propagator):
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         mu: float = 0.0
         mu_a: float = 0.0
         alpha: float = 0.0
+        fast: bool = False
 
         def __post_init__(self):
             # checks
@@ -188,6 +191,7 @@ class VariationalViscosity(Propagator):
         self._gamma = self.options.gamma
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
+        self._fast = self.options.fast
         self._mu_a = self.options.mu_a
         self._alpha = self.options.alpha
         self._mu = self.options.mu
@@ -196,7 +200,7 @@ class VariationalViscosity(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
@@ -268,12 +272,12 @@ class VariationalViscosity(Propagator):
 
         self._scaled_stiffness._scalar = dt * self._mu  # /2.
         self._scaled_Mv._scalar = dt * self._alpha
-        # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
+        # self.evol_op._multiplicands[1]._addends[0]._scalar = - dt*self._mu/2.
         un1 = self.evol_op.dot(un, out=self._tmp_un1)
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
-        if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
+        if self._model == "linear_p" or (self._model == "linear_q" and self._fast):
             self.update_feec_variables(s=sn, u=un1)
             return
 
@@ -281,7 +285,7 @@ class VariationalViscosity(Propagator):
         # 1) Pointwize energy change
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
-        rho = self.rho
+        rho = self.rho.spline.vector
         if self._model in ["deltaf_q", "linear_q"]:
             self.sf.vector = self.pt3.spline.vector
         else:
@@ -334,10 +338,10 @@ class VariationalViscosity(Propagator):
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
 
-        tol = self._nonlin_solver["tol"]
+        tol = self._nonlin_solver.tol
         err = tol + 1
 
-        for it in range(self._nonlin_solver["maxiter"]):
+        for it in range(self._nonlin_solver.maxiter):
             if self._model in ["deltaf_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
@@ -425,11 +429,12 @@ class VariationalViscosity(Propagator):
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
             if self._model in ["deltaf_q", "linear_q"]:
-                self.pt3 += incr
+                pt3_vec = self.pt3.spline.vector
+                pt3_vec += incr
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
+        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err =} \n {tol**2 =}",
             )
@@ -459,8 +464,9 @@ class VariationalViscosity(Propagator):
         M1 = self.mass_ops.M1
         self.M1_du = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl")
 
-        self.pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_M3 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M3,
+            dim_reduce=None,
         )
         self._inv_M3 = inverse(
             self.mass_ops.M3,
@@ -480,7 +486,8 @@ class VariationalViscosity(Propagator):
                 preconditioner,
                 self.options.precond,
             )
-            self.pc_jac = pc_class(self.M_de_ds)
+            # dim_reduce=None: the Kronecker factors do not depend on the weights, cheap to update
+            self.pc_jac = pc_class(self.M_de_ds, dim_reduce=None)
 
         self.inv_jac = inverse(
             self.M_de_ds,

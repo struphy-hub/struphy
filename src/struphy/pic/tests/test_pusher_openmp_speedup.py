@@ -1,10 +1,10 @@
 """
 Demonstrates and checks the OpenMP speedup of the Vlasov pusher kernel
-``struphy.pic.pushing.pusher_kernels.push_vxb_analytic``.
+``struphy.pic.pushing.kernels.push_vxb_analytic.push_vxb_analytic_kernels.push_vxb_analytic``.
 
 The kernel loops over all markers (particles) and is embarrassingly parallel,
 so it is a good candidate for the ``#$ omp parallel``/``#$ omp for`` pragmas
-in :mod:`struphy.pic.pushing.pusher_kernels`.
+in :mod:`struphy.pic.pushing.kernels.push_vxb_analytic.push_vxb_analytic_kernels`.
 
 This test only produces a meaningful result if Struphy's PIC kernels were
 compiled with OpenMP support, e.g.::

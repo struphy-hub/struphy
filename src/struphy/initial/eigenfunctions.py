@@ -39,8 +39,8 @@ class InitialMHDAxisymHdivEigFun:
         params_default = {
             "spec": "sim_1/spec_n_-1.npy",
             "spec_abs": None,
-            "eig_freq_upper": 0.02,
-            "eig_freq_lower": 0.03,
+            "eig_freq_upper": 0.03,
+            "eig_freq_lower": 0.02,
             "kind": "r",
             "scaling": 1.0,
         }

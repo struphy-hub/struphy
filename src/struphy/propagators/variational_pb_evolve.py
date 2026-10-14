@@ -4,15 +4,15 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
     Pressure_transport_operator,
@@ -247,7 +247,7 @@ class VariationalPBEvolve(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
@@ -465,10 +465,7 @@ class VariationalPBEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
-                )
+                logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
             bn1 -= incr[1]
 
@@ -527,8 +524,9 @@ class VariationalPBEvolve(Propagator):
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,

@@ -203,9 +203,9 @@ def get_one_spline(a, values, eval_indeces):
     for i in range(xp.shape(values)[0]):
         for j in range(xp.shape(values)[1]):
             for k in range(xp.shape(values)[2]):
+                # For periodic spaces with Nbasis < degree + 1 the same spline index appears several times, so we must sum.
                 if eval_indeces[i, j, k] == a:
-                    my_values[i * xp.shape(values)[1] + j] = values[i, j, k]
-                    break
+                    my_values[i * xp.shape(values)[1] + j] += values[i, j, k]
     return my_values
 
 

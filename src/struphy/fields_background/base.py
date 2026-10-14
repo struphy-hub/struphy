@@ -586,7 +586,7 @@ class FluidEquilibriumWithB(FluidEquilibrium):
             a_kwargs={"squeeze_out": False},
             squeeze_out=squeeze_out,
         )
-        return gradB_out, self.domain(*etas)
+        return gradB_out, self.domain(*etas, squeeze_out=squeeze_out)
 
     def a1(self, *etas, squeeze_out=False):
         """1-form components of vector potential on logical cube [0, 1]^3."""
@@ -1559,13 +1559,18 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
                     dZ=1,
                 )
                 + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=2)
+                + self.g_tor(R, Z) * self.g_tor(R, Z, dR=1)
             )
             / RabsB
             / R
         )
         gradBP = 0.0
         gradBZ = (
-            (self.psi(R, Z, dZ=1) * self.psi(R, Z, dZ=2) + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=1, dZ=1))
+            (
+                self.psi(R, Z, dZ=1) * self.psi(R, Z, dZ=2)
+                + self.psi(R, Z, dR=1) * self.psi(R, Z, dR=1, dZ=1)
+                + self.g_tor(R, Z) * self.g_tor(R, Z, dZ=1)
+            )
             / RabsB
             / R
         )

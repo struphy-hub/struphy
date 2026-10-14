@@ -2,6 +2,7 @@
 
 import json
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -133,6 +134,35 @@ def save_raw_field(run, *names):
             file["feec/em_fields"].create_dataset(name, data=np.empty(0))
 
 
+# Environment prefixes through which MPI launchers tell a process which rank of a job it is.
+MPI_LAUNCHER_ENV_PREFIXES = (
+    "OMPI_",
+    "OPAL_",
+    "PMIX_",
+    "PMI_",
+    "PRTE_",
+    "MV2_",
+    "HYDRA_",
+    "I_MPI_",
+    "MPI_LOCALRANKID",
+    "ALPS_",
+    "PALS_",
+)
+
+
+@pytest.fixture
+def outside_mpi_job(monkeypatch):
+    """Let child processes start as independent programs, not as ranks of this test's MPI job.
+
+    Importing struphy initializes MPI. A child that inherits the launcher variables of an
+    ``mpirun`` rank initializes as that same rank, which hangs or corrupts the parent job.
+    """
+    for name in list(os.environ):
+        if name.startswith(MPI_LAUNCHER_ENV_PREFIXES):
+            monkeypatch.delenv(name)
+    monkeypatch.setenv("MAYBEMPI", "0")
+
+
 @pytest.fixture
 def run(tmp_path):
     return Output(write_tree(str(tmp_path)))
@@ -262,24 +292,40 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
     assert run.with_time_units("physical").model.to_dict() == run.model.to_dict()
 
 
+def test_evaluate_raises_without_raw_data(tmp_path):
+    root = write_tree(str(tmp_path))
+    os.remove(os.path.join(root, "data", "data_proc0.hdf5"))
+    with pytest.raises(FileNotFoundError, match="No simulation data"):
+        Output(root).evaluate("em_fields/E")
+
+
 def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    # Automatic processing is serial only; the multi-rank refusal is tested separately.
     run = output_with_comm(monkeypatch, root, FakeComm())
     calls = []
 
-    def fake_pproc(self, **options):
-        calls.append(options)
+    def fake_process(self, *, parallel, **options):
+        calls.append(dict(parallel=parallel, **options))
         write_manifest(root)
         self._reset()
-        return self
 
-    monkeypatch.setattr(Output, "pproc", fake_pproc)
+    monkeypatch.setattr(Output, "_process", fake_process)
     assert set(run.scalars.data_vars) == {"en_tot"}
     assert calls == [], "scalars come from the raw output"
     assert run.evaluate("em_fields/E").name == "E"
-    assert calls == [{}]
+    assert calls == [
+        dict(
+            parallel=False,
+            step=1,
+            celldivide=1,
+            physical=False,
+            guiding_center=False,
+            classify=False,
+            create_vtk=False,
+            force=False,
+        )
+    ]
 
 
 def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
@@ -291,8 +337,9 @@ def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
 
 def test_evaluate_selects_positions_coordinates_and_slices(run):
     field = run.evaluate("em_fields/E", t=-1, component=2)
-    assert field.dims == ("t", "eta1", "eta2", "eta3")
-    assert field.sizes["t"] == 1
+    assert field.dims == ("eta1", "eta2", "eta3")
+    assert field.t.ndim == 0, "a single snapshot keeps its time as a scalar coordinate"
+    assert run.evaluate("em_fields/E", t=[-1], component=2).dims == ("t", "eta1", "eta2", "eta3")
     np.testing.assert_allclose(field, 3.0)
 
     every_second = run.evaluate("em_fields/E", t=slice(0, None, 2))
@@ -321,7 +368,7 @@ def test_evaluate_scalars_and_particle_defaults(run):
     scalars = run.evaluate("scalars", variables="en_tot", t=-1)
     assert isinstance(scalars, xr.Dataset)
     assert list(scalars.data_vars) == ["en_tot"]
-    assert scalars.sizes["t"] == 1
+    assert "t" not in scalars.dims
 
     distribution = run.evaluate("kinetic_ions/f")
     assert distribution.name == "f"
@@ -336,6 +383,18 @@ def test_evaluate_scalars_and_particle_defaults(run):
 
     selected = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/delta_f")
     assert selected.name == "delta_f"
+
+    # the full key selects the same product, with selections as keywords
+    by_key = run.evaluate("kinetic_ions/e1_v1_density/delta_f")
+    xr.testing.assert_identical(by_key, selected)
+    first = float(by_key.eta1[0])
+    xr.testing.assert_identical(
+        run.evaluate("kinetic_ions/e1_v1_density/delta_f", eta1=first), selected.sel(eta1=first)
+    )
+    with pytest.raises(ValueError, match="dataset="):
+        run.evaluate("kinetic_ions/e1_v1_density/f", dataset="e1_v1_density/f")
+    with pytest.raises(KeyError):
+        run.evaluate("kinetic_ions/no_such_density/f")
 
     orbits = run.evaluate("kinetic_ions/orbits")
     assert isinstance(orbits, xr.Dataset) and "weight" in orbits.data_vars
@@ -370,8 +429,8 @@ def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
     assert calls == [(0.25, 0.5, 0.75)] * NT
 
     last = run.evaluate("em_fields/e_field", eta1=0.25, eta2=0.5, eta3=0.75, t=-1)
-    assert last.dims == ("t", "component")
-    assert last.sizes["t"] == 1
+    assert last.dims == ("component",)
+    assert float(last.t) == 1.0
 
 
 def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
@@ -388,10 +447,10 @@ def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
 
     values = run.evaluate("em_fields/phi", eta1=[0.25, 0.5], eta2=range(2), eta3=0.75, t=0)
 
-    assert values.dims == ("t", "eta1", "eta2")
+    assert values.dims == ("eta1", "eta2")
     np.testing.assert_allclose(values.eta1, [0.25, 0.5])
     np.testing.assert_allclose(values.eta2, [0.0, 1.0])
-    np.testing.assert_allclose(values[0], [[75.25, 85.25], [75.5, 85.5]])
+    np.testing.assert_allclose(values, [[75.25, 85.25], [75.5, 85.5]])
 
 
 def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run, monkeypatch):
@@ -415,8 +474,8 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
 
     values = run.evaluate("em_fields/phi", t=0)
 
-    assert values.dims == ("t", "eta1", "eta2", "eta3")
-    assert values.shape == (1, 2, 3, 4)
+    assert values.dims == ("eta1", "eta2", "eta3")
+    assert values.shape == (2, 3, 4)
     np.testing.assert_allclose(values.eta1, [0.25, 0.75])
     np.testing.assert_allclose(values.eta2, [1 / 6, 0.5, 5 / 6])
     np.testing.assert_allclose(values.eta3, [0.125, 0.375, 0.625, 0.875])
@@ -441,10 +500,10 @@ def test_evaluate_raw_spline_field_keeps_omitted_directions_on_the_default_grid(
 
     plane = run.evaluate("em_fields/phi", t=0, eta3=0)
 
-    assert plane.dims == ("t", "eta1", "eta2")
+    assert plane.dims == ("eta1", "eta2")
     np.testing.assert_allclose(plane.eta1, eta1_default)
     np.testing.assert_allclose(plane.eta2, eta2_default)
-    np.testing.assert_allclose(plane[0], eta1_default[:, None] + 10 * eta2_default[None, :])
+    np.testing.assert_allclose(plane, eta1_default[:, None] + 10 * eta2_default[None, :])
 
 
 def test_evaluate_raw_spline_field_rejects_coordinates_outside_unit_cube(run):
@@ -528,16 +587,75 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
             )
         )
         expected = np.squeeze(np.asarray(expected))
-        np.testing.assert_allclose(result.isel(t=0), expected)
-        assert result.dims == ("t", "component", "eta1", "eta2")
+        np.testing.assert_allclose(result, expected)
+        assert result.dims == ("component", "eta1", "eta2")
 
 
-def test_products_refuse_implicit_processing_on_many_ranks(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "size, saved_ranks, parallel", [(1, 1, False), (2, 2, True), (4, 4, True), (2, 1, False), (2, 4, False)]
+)
+def test_first_use_processes_in_parallel_when_the_job_is_as_large_as_the_run(
+    tmp_path, monkeypatch, size, saved_ranks, parallel
+):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
-    comm = FakeComm(size=2)
-    with pytest.raises(RuntimeError, match="on all ranks"):
-        output_with_comm(monkeypatch, root, comm).fields
+    calls = []
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: write_manifest(root))
+    comm = FakeComm(size=size)
+    run = output_with_comm(monkeypatch, root, comm)
+    run.metadata["mpi_ranks"] = saved_ranks
+    assert tuple(run.fields) == ("em_fields",)
+    assert calls == [parallel]
+    # no rank looks for products before rank 0 has written them, nor processes before it holds the lock
+    assert comm.barriers == (2 if parallel else 1)
+
+
+@pytest.mark.parametrize("parallel", [True, False])
+def test_evaluate_passes_parallel_on_to_processing(tmp_path, monkeypatch, parallel):
+    root = write_tree(str(tmp_path))
+    os.remove(os.path.join(root, "post_processing", "manifest.json"))
+    calls = []
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: calls.append(parallel))
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: write_manifest(root))
+    run = output_with_comm(monkeypatch, root, FakeComm(size=2))
+    run.metadata["mpi_ranks"] = 2
+    assert run.evaluate("em_fields/E", parallel=parallel).name == "E"
+    assert calls == [parallel]
+
+
+# Holds the lock in a separate program that loads only the manifest module: importing
+# struphy would initialize MPI in the child, which under mpirun makes it join the test's job.
+HOLD_LOCK = """
+import importlib.util, sys, time
+
+spec = importlib.util.spec_from_file_location("manifest", sys.argv[1])
+manifest = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(manifest)
+with manifest.processing_lock(sys.argv[2]):
+    with open(sys.argv[3], "a") as stream:
+        stream.write("enter\\n")
+    time.sleep(0.3)
+    with open(sys.argv[3], "a") as stream:
+        stream.write("exit\\n")
+"""
+
+
+def test_processing_lock_is_exclusive_between_processes(tmp_path):
+    import subprocess
+    import sys
+
+    from struphy.post_processing import manifest
+
+    log = tmp_path / "log"
+    command = [sys.executable, "-c", HOLD_LOCK, manifest.__file__, str(tmp_path), str(log)]
+    workers = [subprocess.Popen(command) for _ in range(3)]
+    for worker in workers:
+        assert worker.wait(60) == 0
+    lines = log.read_text().split()
+    assert lines == ["enter", "exit"] * 3  # never two holders at once
+    with manifest.processing_lock(str(tmp_path)):
+        pass
 
 
 def test_processing_options_are_part_of_the_manifest(tmp_path):
@@ -581,6 +699,32 @@ def test_parallel_process_runs_on_every_rank(tmp_path, monkeypatch):
     monkeypatch.setattr(Output, "_process_raw", lambda self, **options: None)
     output_with_comm(monkeypatch, write_tree(str(tmp_path)), FakeComm(rank=3, size=4)).pproc(parallel=True)
     assert calls == [True]
+
+
+@pytest.mark.parametrize("parallel", [True, False])
+@pytest.mark.parametrize("rank", [0, 1])
+def test_rank_zero_holds_the_processing_lock_for_the_job(tmp_path, monkeypatch, parallel, rank):
+    events = []
+
+    @contextmanager
+    def fake_lock(path_out):
+        events.append("lock")
+        yield
+        events.append("unlock")
+
+    comm = FakeComm(rank=rank, size=2)
+    comm.Barrier = lambda: events.append("barrier")
+    monkeypatch.setattr(output_module, "processing_lock", fake_lock)
+    monkeypatch.setattr(Output, "_setup_processing", lambda self, parallel: None)
+    monkeypatch.setattr(Output, "_process_raw", lambda self, **options: events.append("process"))
+    output_with_comm(monkeypatch, write_tree(str(tmp_path)), comm).pproc(parallel=parallel)
+
+    if parallel:
+        # every rank processes, and none starts before rank 0 holds the lock
+        held = ["lock", "barrier", "process", "unlock"] if rank == 0 else ["barrier", "process"]
+    else:
+        held = ["lock", "process", "unlock"] if rank == 0 else []
+    assert events == held + ["barrier"]
 
 
 def test_unknown_species_never_starts_processing(tmp_path, monkeypatch):
@@ -683,7 +827,7 @@ def test_saved_rank_count_does_not_block_serial_implicit_processing(tmp_path, mo
     run.metadata["mpi_ranks"] = 8
     (run.path_pproc / "manifest.json").unlink()
     calls = []
-    monkeypatch.setattr(Output, "pproc", lambda self: calls.append(self.path_out))
+    monkeypatch.setattr(Output, "_process", lambda self, **options: calls.append(self.path_out))
     run._ensure_processed()
     assert calls == [run.path_out]
 
@@ -715,3 +859,38 @@ def test_stores_of_schema_version_1_are_read_with_eta_dimensions(tmp_path):
     assert tree["em_fields"].ds.phi.dims == ("t", "eta1", "eta2")
     tree.close()
     assert store.SCHEMA_VERSION == 2
+
+
+def test_processing_lock_falls_back_to_an_exclusive_file(tmp_path, monkeypatch):
+    from struphy.post_processing import manifest
+
+    monkeypatch.setattr(manifest, "fcntl", None)
+    held = tmp_path / (manifest.LOCK_NAME + ".held")
+    with manifest.processing_lock(str(tmp_path)):
+        assert held.exists()
+    assert not held.exists()
+
+
+def test_particle_processing_checks_saved_data_per_species(tmp_path, monkeypatch):
+    root = write_tree(str(tmp_path))
+    with h5py.File(os.path.join(root, "data", "data_proc0.hdf5"), "a") as file:
+        del file["kinetic"]
+        file.create_group("kinetic/with_data/markers")
+        file.create_group("kinetic/with_data/f")
+        file.create_group("kinetic/with_data/n_sph")
+        file.create_group("kinetic/without_data")
+    run = Output(root)
+    variable = SimpleNamespace(space="Particles6D")
+    species = {name: SimpleNamespace(variables={"var": variable}) for name in ("with_data", "without_data")}
+    run.__dict__["model"] = SimpleNamespace(species=species)
+
+    calls = []
+    monkeypatch.setattr(Output, "_process_fields", lambda self, **kwargs: None)
+    for kind in ("markers", "f", "n_sph"):
+        monkeypatch.setattr(
+            Output,
+            f"_post_process_{kind}",
+            lambda self, path, step, kind=kind, **kwargs: calls.append((os.path.basename(path), kind)),
+        )
+    run._process(parallel=False, force=True)
+    assert calls == [("with_data", "markers"), ("with_data", "f"), ("with_data", "n_sph")]

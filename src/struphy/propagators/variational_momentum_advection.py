@@ -2,13 +2,13 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import BracketOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -81,7 +81,8 @@ class VariationalMomentumAdvection(Propagator):
         Parameters
         ----------
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver for mass-matrix related solves.
+            Linear solver for mass-matrix related solves
+            (the non-symmetric Jacobian is always solved with "gmres").
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
@@ -129,11 +130,12 @@ class VariationalMomentumAdvection(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
-            "pcg",
-            pc=pc,
+            self.options.solver,
+            # "cg" takes no preconditioner
+            **({"pc": pc} if self.options.solver == "pcg" else {}),
             tol=1e-16,
             maxiter=500,
             recycle=True,
@@ -213,10 +215,7 @@ class VariationalMomentumAdvection(Propagator):
                 pc_diff = self._Mrho_inv.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
-                logger.info(
-                    "information on the linear solver : ",
-                    self.inv_derivative._info,
-                )
+                logger.info(f"information on the linear solver : {self.inv_derivative._info}")
             un1 -= update
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
@@ -277,13 +276,15 @@ class VariationalMomentumAdvection(Propagator):
     def _initialize_mass(self):
         """Initialization of the mass matrix solver"""
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
-            "pcg",
-            pc=self.pc_Mv,
+            self.options.solver,
+            # "cg" takes no preconditioner
+            **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
             tol=1e-16,
             maxiter=1000,
             verbose=False,

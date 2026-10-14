@@ -2,19 +2,18 @@ import copy
 import logging
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
@@ -138,7 +137,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             "en_tot": electric_energy + magnetic_energy + particle_energy,
         }
         if measure_gauss_law:
-            scalars_dict["gauss_error"] = FunctionScalarPIC(self.calculate_gauss_error, self.kinetic_ions.var)
+            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
+            scalars_dict["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
         self.scalars = Scalars(**scalars_dict)
 
         # initial Poisson (not a propagator used in time stepping)
@@ -147,7 +147,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         particles_to_grid = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
-            PyccelKernel(accum_kernels.charge_density_0form),
+            charge_density_0form,
         )
 
         self.initial_poisson = PoissonSolve(
@@ -178,12 +178,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         if self.measure_gauss_law:
             self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
-            self.subcom_residual = xp.empty(shape=particles.mpi_size, dtype=float)
-            self.intercom_residual = xp.empty(shape=particles.num_clones, dtype=float)
 
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # use control variate method (reset weights after Poisson solve)
+        # charge of f - f0 for the Poisson right-hand side (see below for the weights of the time stepping)
         particles.update_weights()
 
         self.initial_poisson.allocate()
@@ -197,36 +195,46 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         phi = self.initial_poisson.variables.phi.spline.vector
         Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        # The pushers evaluate e at the markers, including in the ghost cells: grad.dot does not fill them,
+        # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
+        self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
 
-        # reset particle weights
-        particles.weights = particles.weights0.copy()
+        # The Poisson right-hand side is the charge of f - f0 in any case; the time stepping uses the delta-f
+        # weights only with the control variate (and the scalars must be computed with the same weights at t=0).
+        if not particles.control_variate:
+            particles.weights = particles.weights0.copy()
 
     def calculate_gauss_error(self):
+        r"""Maximum norm of the weak Gauss-law residual
+
+        .. math::
+
+            \mathbb G^\top \mathbb M^1 \mathbf e + \frac{\alpha^2}{\varepsilon} \boldsymbol \rho\,,
+
+        where :math:`\boldsymbol \rho` is the charge density of :math:`f - f_0` deposited as in the initial
+        Poisson solve. Since :math:`\mathbf e = -\mathbb G \boldsymbol \phi` it vanishes at :math:`t=0`,
+        up to the net charge (the kernel of the periodic Poisson problem)."""
         # control variate method
         particles = self.kinetic_ions.var.particles
         particles.update_weights()
         self.charge_accum()
-        rhs = self.charge_accum.vectors[0]
-        # reset particle weights
-        particles.weights = particles.weights0.copy()
+        rho = self.charge_accum.vectors[0]
+        # restore the weights of the time stepping (full-f without the control variate)
+        if not particles.control_variate:
+            particles.weights = particles.weights0.copy()
 
-        # non control variate method
         e = self.em_fields.e_field.spline.vector
-        lhs = self.op.dot(e)
+        residual = self.op.dot(e)
+        residual += self.initial_poisson.coeffs[0] * rho
 
-        # calculate local residual of local MPI rank
-        loc_residual = xp.max(xp.abs(lhs.toarray() - rhs.toarray()))
+        # maximum residual over the local MPI rank, then over all ranks of the domain decomposition
+        # (all clones hold the same accumulated charge density)
+        self._tmp[0] = xp.max(xp.abs(residual.toarray()))
+        if Propagator.derham.comm is not None:
+            Propagator.derham.comm.Allreduce(MPI.IN_PLACE, self._tmp, op=MPI.MAX)
 
-        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(lhs.toarray())) = }")
-        # logger.info(f"{MPI.COMM_WORLD.Get_rank() = }, {xp.max(xp.abs(rhs.toarray())) = }")
-        # logger.info(f"{loc_residual = }")
-
-        # return the maximum residual across all MPI rank
-        particles.gather_scalar_in_subcomm_array(scalar=loc_residual, out=self.subcom_residual)
-        particles.gather_scalar_in_intercomm_array(scalar=loc_residual, out=self.intercom_residual)
-
-        return xp.max([xp.max(self.subcom_residual), xp.max(self.intercom_residual)])
+        return self._tmp[0]
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

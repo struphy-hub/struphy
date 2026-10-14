@@ -9,13 +9,17 @@ from abc import ABCMeta, abstractmethod
 import cunumpy as xp
 import h5py
 import numpy as np
-from cunumpy import PyccelKernel
 from scipy.sparse import csc_matrix, kron
 
 import struphy.bsplines.bsplines as bsp
-from struphy.geometry import evaluation_kernels, transform_kernels
+from struphy.geometry.kernels.kernel_evaluate import kernel_evaluate
+from struphy.geometry.kernels.kernel_evaluate_pic import kernel_evaluate_pic
+from struphy.geometry.kernels.kernel_pullpush import kernel_pullpush
+from struphy.geometry.kernels.kernel_pullpush_pic import kernel_pullpush_pic
+from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
@@ -23,11 +27,15 @@ from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_clas
 logger = logging.getLogger("struphy")
 
 
-def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for passing to compiled kernels."""
-    if hasattr(value, "get"):  # CuPy array
-        return value.get()
-    return value
+def inside_logical_cube(markers):
+    """Mask of the markers whose logical position ``markers[:, :3]`` lies in [0, 1]^3.
+
+    The test of the pyccel and CUDA geometry kernels (``e1 < 0.0 or e1 > 1.0 or ...`` marks a marker as outside, so a
+    NaN coordinate counts as inside). The geometry kernels are called with ``remove_outside=False`` and the rows of
+    outside markers are removed with this mask, on both backends.
+    """
+    positions = markers[:, :3]
+    return ~xp.any((positions < 0.0) | (positions > 1.0), axis=1)
 
 
 class DomainMeta(ABCMeta):
@@ -219,36 +227,26 @@ class Domain(metaclass=DomainMeta):
             "tran": dict_tran,
         }
 
-        self._args_domain = DomainArguments(
-            self.kind_map,
-            _to_numpy_for_kernel(self.params_numpy),
-            _to_numpy_for_kernel(xp.array(self.degree)),
-            _to_numpy_for_kernel(self.T[0]),
-            _to_numpy_for_kernel(self.T[1]),
-            _to_numpy_for_kernel(self.T[2]),
-            _to_numpy_for_kernel(self.indN[0]),
-            _to_numpy_for_kernel(self.indN[1]),
-            _to_numpy_for_kernel(self.indN[2]),
-            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
-        )
+        self._args_backend = xp.get_backend()
+        self._initialize_domain_args()
 
-    def _build_args_domain(self):
-        """Build runtime mapping arguments used by compiled evaluation kernels."""
-        return DomainArguments(
+    def _build_domain_args(self):
+        """Reference owner arrays; normalize metadata/layout once at setup.
+
+        The pyccel class on the NumPy backend, its CUDA version on the CuPy backend.
+        """
+        array_module = xp.get_array_module(self.params_numpy)
+        args_class = CudaDomainArguments if self._args_backend == "cupy" else DomainArguments
+        return args_class(
             self.kind_map,
-            self.params_numpy,
-            _to_numpy_for_kernel(xp.array(self.degree)),
-            _to_numpy_for_kernel(self.T[0]),
-            _to_numpy_for_kernel(self.T[1]),
-            _to_numpy_for_kernel(self.T[2]),
-            _to_numpy_for_kernel(self.indN[0]),
-            _to_numpy_for_kernel(self.indN[1]),
-            _to_numpy_for_kernel(self.indN[2]),
-            _to_numpy_for_kernel(self.cx.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cy.copy()),  # make sure we don't have stride = 0
-            _to_numpy_for_kernel(self.cz.copy()),  # make sure we don't have stride = 0
+            array_module.ascontiguousarray(self.params_numpy, dtype=np.float64),
+            array_module.asarray(self.degree, dtype=np.int64),
+            *(array_module.ascontiguousarray(t, dtype=np.float64) for t in self.T),
+            *(array_module.ascontiguousarray(ind, dtype=np.int64) for ind in self.indN),
+            # The control points may be broadcast views with a zero stride on a
+            # singleton axis. ascontiguousarray() can preserve those strides,
+            # which the compiled Pyccel DomainArguments constructor cannot handle.
+            *(array_module.array(c, dtype=np.float64, order="C", copy=True) for c in (self.cx, self.cy, self.cz)),
         )
 
     def _can_build_args_domain(self):
@@ -263,11 +261,8 @@ class Domain(metaclass=DomainMeta):
         )
         return all(hasattr(self, attr) for attr in required_attrs)
 
-    def _rebuild_args_domain(self):
-        if self._can_build_args_domain():
-            self._args_domain = self._build_args_domain()
-        else:
-            self._args_domain = None
+    def _initialize_domain_args(self):
+        self._args_domain = self._build_domain_args() if self._can_build_args_domain() else None
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -279,7 +274,7 @@ class Domain(metaclass=DomainMeta):
                 continue
             setattr(result, key, copy.deepcopy(value, memo))
 
-        result._rebuild_args_domain()
+        result._initialize_domain_args()
         return result
 
     def __getstate__(self):
@@ -289,8 +284,11 @@ class Domain(metaclass=DomainMeta):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        if "_args_backend" not in self.__dict__:
+            arrays = (getattr(self, "_cx", None), getattr(self, "_cy", None), getattr(self, "_cz", None))
+            self._args_backend = "cupy" if any(hasattr(arr, "__cuda_array_interface__") for arr in arrays) else "numpy"
         self._args_domain = None
-        self._rebuild_args_domain()
+        self._initialize_domain_args()
 
     def __repr__(self):
         out = f"{self.__class__.__name__}(\n"
@@ -466,14 +464,17 @@ class Domain(metaclass=DomainMeta):
 
     @property
     def args_domain(self):
-        """Object for all parameters needed for evaluation of metric coefficients."""
-        if getattr(self, "_args_domain", None) is None:
-            self._rebuild_args_domain()
-
+        """Arguments for the backend selected when this domain was created."""
         if self._args_domain is None:
             raise AttributeError("DomainArguments are not available because the domain state is incomplete.")
-
         return self._args_domain
+
+    def kernels(self) -> tuple:
+        """The geometry evaluation kernels (evaluation and pull/push, on grids and at markers).
+
+        Used by :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
+        """
+        return (kernel_evaluate, kernel_evaluate_pic, kernel_pullpush, kernel_pullpush_pic)
 
     @property
     def dict_transformations(self):
@@ -1057,13 +1058,14 @@ class Domain(metaclass=DomainMeta):
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = xp.empty((markers.shape[0], 3, 3), dtype=float)
-            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate_pic)
-            n_inside = kernel(
+            # one row per marker (remove_outside=False): a CUDA kernel cannot return the number of inside
+            # markers, so the rows of outside markers are removed below, the same way on both backends
+            kernel_evaluate_pic(
                 markers,
                 which,
                 self.args_domain,
                 out,
-                remove_outside,
+                False,
                 avoid_round_off,
             )
 
@@ -1071,7 +1073,8 @@ class Domain(metaclass=DomainMeta):
             out = xp.transpose(out, axes=(1, 2, 0))
 
             # remove holes
-            out = out[:, :, :n_inside]
+            if remove_outside:
+                out = out[:, :, inside_logical_cube(markers)]
 
             if transposed:
                 out = xp.transpose(out, axes=(1, 0, 2))
@@ -1101,8 +1104,7 @@ class Domain(metaclass=DomainMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-            kernel = PyccelKernel(evaluation_kernels.kernel_evaluate)
-            kernel(
+            kernel_evaluate(
                 E1,
                 E2,
                 E3,
@@ -1111,6 +1113,7 @@ class Domain(metaclass=DomainMeta):
                 out,
                 is_sparse_meshgrid,
                 avoid_round_off,
+                n_threads=out.shape[0] * out.shape[1] * out.shape[2],  # CUDA: one thread per grid point
             )
 
             # move the (3, 3)-part to front
@@ -1119,7 +1122,7 @@ class Domain(metaclass=DomainMeta):
             if transposed:
                 out = xp.transpose(out, axes=(1, 0, 2, 3, 4))
 
-            if which == 0:
+            if which == 0 or which == -1:
                 out = out[:, 0, :, :, :]
                 if change_out_order:
                     out = xp.transpose(out, axes=(1, 2, 3, 0))
@@ -1229,11 +1232,13 @@ class Domain(metaclass=DomainMeta):
                             remove_outside=remove_outside,
                             identity_map=True,
                         ),
+                        a_kwargs=a_kwargs,
                     )
                 else:
                     A = Domain.prepare_arg(
                         a,
                         self(markers, change_out_order=True, remove_outside=remove_outside),
+                        a_kwargs=a_kwargs,
                     )
 
             elif isinstance(a, (list, tuple)):
@@ -1247,11 +1252,13 @@ class Domain(metaclass=DomainMeta):
                                 remove_outside=remove_outside,
                                 identity_map=True,
                             ),
+                            a_kwargs=a_kwargs,
                         )
                     else:
                         A = Domain.prepare_arg(
                             a,
                             self(markers, change_out_order=True, remove_outside=remove_outside),
+                            a_kwargs=a_kwargs,
                         )
                 else:
                     A = Domain.prepare_arg(a, markers)
@@ -1266,34 +1273,40 @@ class Domain(metaclass=DomainMeta):
                 A_has_holes = False
 
             # call evaluation kernel
-            # Always create output as NumPy since compiled kernels require NumPy arrays
-            out_np = np.empty((markers.shape[0], 3), dtype=float)
+            out = xp.empty((markers.shape[0], 3), dtype=float)
+            inside = inside_logical_cube(markers)
 
-            # make sure we don't have stride = 0
-            A = A.copy()
+            # make sure we don't have stride = 0; give A one row per marker, as the kernel is called with
+            # remove_outside=False (a CUDA kernel cannot return the number of inside markers, so the rows of
+            # outside markers are removed below, the same way on both backends)
+            if A_has_holes:
+                A = A.copy()
+            else:
+                A_values = A
+                A = xp.zeros((markers.shape[0], A_values.shape[1]), dtype=float)
+                A[inside] = A_values
 
-            n_inside = transform_kernels.kernel_pullpush_pic(
-                _to_numpy_for_kernel(A),
-                _to_numpy_for_kernel(markers),
-                _to_numpy_for_kernel(self._transformation_ids[which]),
-                _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
-                out_np,
-                _to_numpy_for_kernel(remove_outside),
+            kernel_pullpush_pic(
+                A,
+                markers,
+                self._transformation_ids[which],
+                kind_int,
+                self.args_domain,
+                out,
+                False,
+                n_threads=markers.shape[0],  # CUDA: one thread per marker (the first array is A)
             )
-
-            # Convert back to current backend if needed
-            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(1, 0))
 
             # remove holes
-            out = out[:, :n_inside]
+            if remove_outside:
+                out = out[:, inside]
 
             # check if A has correct shape
             if not A_has_holes and remove_outside:
-                assert A.shape[0] == out.shape[1]
+                assert A_values.shape[0] == out.shape[1]
 
             # change output order
             if kind_int < 10:
@@ -1327,25 +1340,22 @@ class Domain(metaclass=DomainMeta):
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
             # call evaluation kernel
-            # Always create output as NumPy since compiled kernels require NumPy arrays
-            out_np = np.empty(
+            out = xp.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
-            transform_kernels.kernel_pullpush(
-                _to_numpy_for_kernel(A),
-                _to_numpy_for_kernel(E1),
-                _to_numpy_for_kernel(E2),
-                _to_numpy_for_kernel(E3),
-                _to_numpy_for_kernel(self._transformation_ids[which]),
-                _to_numpy_for_kernel(kind_int),
-                _to_numpy_for_kernel(self.args_domain),
-                _to_numpy_for_kernel(is_sparse_meshgrid),
-                out_np,
+            kernel_pullpush(
+                A,
+                E1,
+                E2,
+                E3,
+                self._transformation_ids[which],
+                kind_int,
+                self.args_domain,
+                is_sparse_meshgrid,
+                out,
+                n_threads=out.shape[0] * out.shape[1] * out.shape[2],  # CUDA: one thread per grid point
             )
-
-            # Convert back to current backend if needed
-            out = xp.asarray(out_np)
 
             # move the (3, 3)-part to front
             out = xp.transpose(out, axes=(3, 0, 1, 2))
@@ -2223,9 +2233,9 @@ class Spline(Domain):
 
     def __init__(
         self,
-        num_elements: tuple[int] = (8, 24, 6),
-        degree: tuple[int] = (2, 3, 1),
-        spl_kind: tuple[bool] = (False, True, True),
+        num_elements: tuple[int] = (16, 16, 16),
+        degree: tuple[int] = (3, 3, 3),
+        spl_kind: tuple[bool] = (False, True, False),
         cx: xp.ndarray | None = None,
         cy: xp.ndarray | None = None,
         cz: xp.ndarray | None = None,
@@ -2233,13 +2243,14 @@ class Spline(Domain):
         self.kind_map = 0
 
         # get default control points from default GVEC equilibrium
+        # (default num_elements, degree and spl_kind match those of GVECunit with default GVECequilibrium)
         if cx is None or cy is None or cz is None:
             from struphy.fields_background.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
             cx = mhd_equil.domain.cx
-            cx = mhd_equil.domain.cy
-            cx = mhd_equil.domain.cz
+            cy = mhd_equil.domain.cy
+            cz = mhd_equil.domain.cz
         # assign control points
         self._cx = cx
         self._cy = cy
@@ -2471,8 +2482,24 @@ def interp_mapping(num_elements, degree, spl_kind, X, Y, Z=None):
     Returns
     --------
     cx, cy (, cz) : array-like
-        The control points.
+        The control points, as arrays of the active backend.
+
+    Notes
+    -----
+    The interpolation is a one-time setup step solved with SciPy on the host, so it runs on the NumPy backend
+    (``X``, ``Y``, ``Z`` are called with NumPy arrays and must return NumPy arrays). On the CuPy backend, the
+    control points are copied to the device once at the end.
     """
+    backend = xp.get_backend()
+    with xp.use_backend("numpy"):
+        coeffs = _interp_mapping_host(num_elements, degree, spl_kind, X, Y, Z)
+    if backend == "numpy" or not isinstance(coeffs, tuple):
+        return coeffs
+    return tuple(xp.to_cunumpy(c) for c in coeffs)
+
+
+def _interp_mapping_host(num_elements, degree, spl_kind, X, Y, Z=None):
+    """Host part of :func:`interp_mapping`; returns NumPy arrays (call it on the NumPy backend)."""
 
     from scipy.sparse.linalg import splu, spsolve
 

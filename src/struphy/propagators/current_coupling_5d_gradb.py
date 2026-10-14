@@ -5,21 +5,25 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic import utilities_kernels
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB import cc_lin_mhd_5d_gradB
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg import cc_lin_mhd_5d_gradB_dg
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg_init import cc_lin_mhd_5d_gradB_dg_init
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.pushing import pusher_kernels_gc
+from struphy.pic.diagnostics.kernels.eval_gradB_ediff import eval_gradB_ediff
+from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_Hdiv import push_gc_cc_J2_dg_Hdiv
+from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_init_Hdiv import push_gc_cc_J2_dg_init_Hdiv
+from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_H1vec import push_gc_cc_J2_stage_H1vec
+from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_Hdiv import push_gc_cc_J2_stage_Hdiv
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -129,7 +133,9 @@ class CurrentCoupling5DGradB(Propagator):
             ``algo="explicit"``, defaults to ``ButcherTableau()``.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
-            FEEC space used for the unknown ``u`` variable.
+            FEEC space used for the unknown ``u`` variable. ``"Hdiv"`` and
+            ``"H1vec"`` are supported for ``algo="explicit"``, only ``"Hdiv"``
+            for ``algo="discrete_gradient"``.
 
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used for mass-matrix inversions.
@@ -174,6 +180,17 @@ class CurrentCoupling5DGradB(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
+
+            # supported u_space per algorithm (pusher kernels exist only for these)
+            if self.algo == "explicit":
+                supported_u_spaces = ("Hdiv", "H1vec")
+            else:
+                supported_u_spaces = ("Hdiv",)
+            if self.u_space not in supported_u_spaces:
+                raise ValueError(
+                    f"{self.u_space = } is not supported by CurrentCoupling5DGradB with {self.algo = }, "
+                    f"choose from {supported_u_spaces}.",
+                )
 
             # defaults
             if self.algo == "explicit" and self.butcher is None:
@@ -252,7 +269,7 @@ class CurrentCoupling5DGradB(Propagator):
             self._ACC = Accumulator(
                 self.variables.energetic_ions.particles,
                 self.options.u_space,
-                PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB),
+                cc_lin_mhd_5d_gradB,
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=True,
@@ -283,12 +300,12 @@ class CurrentCoupling5DGradB(Propagator):
 
             # define Pusher
             if self.options.u_space == "Hdiv":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+                self._pusher_kernel = push_gc_cc_J2_stage_Hdiv
             elif self.options.u_space == "H1vec":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+                self._pusher_kernel = push_gc_cc_J2_stage_H1vec
             else:
                 raise ValueError(
-                    f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec.',
+                    f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
                 )
 
             # temp fix due to refactoring of ButcherTableau:
@@ -327,17 +344,23 @@ class CurrentCoupling5DGradB(Propagator):
             self._ku = self.variables.u.spline.vector.space.zeros()
             self._u_temp = self.variables.u.spline.vector.space.zeros()
 
+            # magnetic perturbation (zero if not given)
+            if self.b_tilde is None:
+                b_tilde = self._b2.space.zeros()
+            else:
+                b_tilde = self.b_tilde.spline.vector
+
             # Call the accumulation and Pusher class
-            accum_kernel_init = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg
-            self._accum_kernel_en_fB_mid = utilities_kernels.eval_gradB_ediff
+            accum_kernel_init = cc_lin_mhd_5d_gradB_dg_init
+            accum_kernel = cc_lin_mhd_5d_gradB_dg
+            self._accum_kernel_en_fB_mid = eval_gradB_ediff
 
             self._args_accum_kernel = (
                 epsilon,
                 self.options.ep_scale,
-                self.b_tilde.spline.vector[0]._data,
-                self.b_tilde.spline.vector[1]._data,
-                self.b_tilde.spline.vector[2]._data,
+                b_tilde[0]._data,
+                b_tilde[1]._data,
+                b_tilde[2]._data,
                 self._b2[0]._data,
                 self._b2[1]._data,
                 self._b2[2]._data,
@@ -424,8 +447,8 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[2]._data,
             )
 
-            self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
-            self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv
+            self._pusher_kernel_init = push_gc_cc_J2_dg_init_Hdiv
+            self._pusher_kernel = push_gc_cc_J2_dg_Hdiv
 
     def __call__(self, dt):
         # current FE coeffs
@@ -436,25 +459,27 @@ class CurrentCoupling5DGradB(Propagator):
         holes = particles.holes
         args_markers = particles.args_markers
         markers = args_markers.markers
-        first_init_idx = args_markers.first_init_idx
+        first_pusher_idx = args_markers.first_pusher_idx
         first_free_idx = args_markers.first_free_idx
 
         # clear buffer
-        markers[:, first_init_idx:-2] = 0.0
+        markers[:, first_pusher_idx:-2] = 0.0
 
         # save old marker positions
-        markers[:, first_init_idx : first_init_idx + 3] = markers[:, :3]
+        markers[:, first_pusher_idx : first_pusher_idx + 3] = markers[:, :3]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
 
-        b_full += self.b_tilde.spline.vector
+        if self.b_tilde is not None:
+            b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
         if self.options.algo == "explicit":
-            PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
-            grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
-            grad_PB_b.update_ghost_regions()
+            if self.b_tilde is not None:
+                PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
+                grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
+                grad_PB_b.update_ghost_regions()
 
             # save old u
             u_new = un.copy(out=self._u_new)
@@ -505,7 +530,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_init_idx:-2] = 0.0
+            markers[:, first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:
@@ -523,10 +548,12 @@ class CurrentCoupling5DGradB(Propagator):
             alpha = self.options.dg_solver_params.relaxation_factor
 
             # eval parallel tilde b and its gradient
-            PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
-            PB_b.update_ghost_regions()
-            grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
-            grad_PB_b.update_ghost_regions()
+            PB_b = self._PB_b
+            if self.b_tilde is not None:
+                PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
+                PB_b.update_ghost_regions()
+                grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
+                grad_PB_b.update_ghost_regions()
 
             # save old u
             u_old = un.copy(out=self._u_old)
@@ -634,7 +661,7 @@ class CurrentCoupling5DGradB(Propagator):
                 sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
                 sum_H_diff_loc = xp.sum(
-                    (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2,
+                    (markers[~holes, :3] - markers[~holes, first_pusher_idx : first_pusher_idx + 3]) ** 2,
                 )
 
                 buffer_array = xp.array([sum_u_diff_loc])
@@ -826,7 +853,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_init_idx:-2] = 0.0
+            markers[:, first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:
