@@ -4,13 +4,50 @@
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Curl-curl strong scaling on hollow cylinder, no preconditioner"
-description = """
+import argparse
+
+# Command line options
+# `--id` distinguishes runs that share a rank count but differ in something else; the
+# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
+# `--precond` selects the preconditioner (the variant), see the submit script.
+# Unknown flags are ignored so the driver can forward other parameters as well.
+parser = argparse.ArgumentParser()
+parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
+parser.add_argument(
+    "--precond",
+    default="None",
+    choices=["None", "HiptmairXu", "MultiGrid", "StiffnessPreconditioner"],
+    help="Name of the preconditioner (None for no preconditioner).",
+)
+parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 64], help="Number of elements per direction.")
+args, _ = parser.parse_known_args()
+
+precond = None if args.precond == "None" else args.precond
+
+# preconditioner -> (name suffix, linear solver) for the name and the description
+PRECONDS = {
+    None: ("no preconditioner", "unpreconditioned CG"),
+    "HiptmairXu": (
+        "Hiptmair-Xu preconditioner",
+        "CG preconditioned by the auxiliary space preconditioner of Hiptmair and Xu (HiptmairXuPreconditioner)",
+    ),
+    "MultiGrid": (
+        "multigrid preconditioner",
+        "CG preconditioned by geometric multigrid with the hybrid smoother of Hiptmair",
+    ),
+    "StiffnessPreconditioner": (
+        "stiffness preconditioner",
+        "CG preconditioned by the Kronecker approximation of the inverse curl-curl operator with gradient correction (StiffnessPreconditioner)",
+    ),
+}
+
+name = f"Curl-curl strong scaling on hollow cylinder, {PRECONDS[precond][0]}"
+description = f"""
 Strong scaling test for the curl-curl problem curl curl E + sigma E = J on a hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=4).
 The manufactured solution is a Gaussian vector field E = g(x) c in Cartesian coordinates, with a constant
 vector c and a Gaussian g centered at x0 inside the domain, exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions (vanishing tangential E) are set in direction eta1.
-The linear system is solved with unpreconditioned CG.
+The linear system is solved with {PRECONDS[precond][1]}.
 """
 
 import logging
@@ -19,7 +56,6 @@ from struphy import set_logging_level
 
 set_logging_level(logging.INFO)
 
-import argparse
 
 # ------------------
 # Import Struphy API
@@ -55,13 +91,6 @@ model.em_fields.source.save_data = True
 # --------------------------
 
 # Environment options
-# `--id` distinguishes runs that share a rank count but differ in something else; the
-# profiling driver passes its launch counter (see `ProfilingJob.build_commands`).
-# Unknown flags are ignored so the driver can forward other parameters as well.
-parser = argparse.ArgumentParser()
-parser.add_argument("--id", type=int, default=0, help="Run id, used to name the output folder.")
-args, _ = parser.parse_known_args()
-
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
     restart=False,
@@ -80,7 +109,7 @@ domain = domains.HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 equil = None
 
 # Grid
-grid = grids.TensorProductGrid(num_elements=(64, 64, 64), mpi_dims_mask=(True, True, True))
+grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_mask=(True, True, True))
 
 # Derham options
 derham_opts = DerhamOptions(degree=(2, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
@@ -114,11 +143,11 @@ from struphy.linear_algebra.solver import SolverParameters
 # coefficient of the mass term; small values make the kernel of the curl (the gradients) hard to precondition
 sigma = 1e-2
 
-solver_params = SolverParameters(tol=1e-8, maxiter=10000, info=True, recycle=False)
+solver_params = SolverParameters(tol=1e-8, maxiter=10000 if precond is None else 3000, info=True, recycle=False)
 model.propagators.curl_curl.options = model.propagators.curl_curl.Options(
     sigma=sigma,
     solver="pcg",
-    precond=None,
+    precond=precond,
     solver_params=solver_params,
 )
 

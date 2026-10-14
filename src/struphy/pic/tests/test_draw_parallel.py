@@ -227,6 +227,46 @@ def test_draw_without_boxes_on_rank_domain(loading, sort, Np=1000):
     assert n_markers == Np
 
 
+@pytest.mark.parametrize("loading", ["pseudo_random", "sobol_standard"])
+def test_draw_disc_on_own_process(loading, ppc=50):
+    """Markers drawn uniformly on the disc are on their own process after `draw_markers` (without sorting boxes)."""
+
+    import numpy as np
+    from maybempi import MPI
+
+    from struphy import LoadingParameters, domains
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.pic.particles import Particles6D
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+
+    domain = domains.HollowCylinder(a1=0.1, a2=1.0, Lz=4.0)
+    derham = Derham(TensorProductGrid(num_elements=(8, 9, 4)), DerhamOptions(degree=(1, 1, 1)), comm=comm)
+    domain_decomp = (derham.domain_array, derham.domain_decomposition.nprocs)
+
+    particles = Particles6D(
+        comm_world=comm,
+        domain_decomp=domain_decomp,
+        loading_params=LoadingParameters(ppc=ppc, loading=loading, seed=1234, spatial="disc"),
+        domain=domain,
+    )
+    particles.draw_markers()
+
+    # all markers are on their own process and none is lost
+    # (reduce before asserting, such that a failure on one process does not deadlock the others)
+    positions = particles.positions
+    on_own_process = comm.allreduce(bool(np.all(particles._is_on_domain_of_rank(positions, rank))), op=MPI.LAND)
+    assert on_own_process
+    assert comm.allreduce(positions.shape[0]) == particles.Np
+
+    # uniform on the disc: eta1 has the density 2 eta1 with mean 2/3 and variance 1/18
+    mean = comm.allreduce(np.sum(positions[:, 0])) / particles.Np
+    assert abs(mean - 2.0 / 3.0) < 5.0 * np.sqrt(1.0 / 18.0 / particles.Np)
+
+
 if __name__ == "__main__":
     # test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
     #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])

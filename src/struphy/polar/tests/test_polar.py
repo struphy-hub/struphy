@@ -611,6 +611,92 @@ def test_polar_mass_preconditioner(mapping, bcs, poloidal_solver):
         assert _rel_err(y, x) < 1e-8, name
 
 
+@pytest.mark.parametrize("mapping", ["IGAPolarCylinder", "IGAPolarTorus"])
+@pytest.mark.parametrize(
+    "bcs",
+    [
+        (("free", "dirichlet"), None, None),
+        (("free", "dirichlet"), None, ("dirichlet", "dirichlet")),
+    ],
+)
+@pytest.mark.parametrize("poloidal_solver", ["schur", "lu", "ilu"])
+def test_polar_stiffness_preconditioner(mapping, bcs, poloidal_solver):
+    """The polar stiffness preconditioner (dispatched from StiffnessPreconditioner) is exact for the
+    Laplacian on axisymmetric domains with exact poloidal solvers, and a good preconditioner for curl-curl."""
+    from feectools.linalg.basic import IdentityOperator
+    from feectools.linalg.solvers import inverse
+    from maybempi import MPI
+
+    from struphy.feec.mass import WeightedAverageProjection, WeightedMassOperators
+    from struphy.feec.preconditioner import PolarStiffnessPreconditioner, StiffnessPreconditioner, _parse_directions
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    num_elements, degree = [8, 12, 6], [3, 3, 2]
+    domain = getattr(domains, mapping)(num_elements=num_elements[:2], degree=degree[:2])
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+    mass = WeightedMassOperators(derham, domain)
+
+    with pytest.raises(NotImplementedError):
+        StiffnessPreconditioner(mass, "div", sigma=1.0)
+
+    cases = [
+        ("grad", 0.0, mass.M0, None, None),
+        ("grad", 1.0, mass.M0, None, None),
+        ("grad", 1.0, mass.M0, "Id", None),
+        ("grad", 10.0, mass.M0, None, "eta3"),
+        ("grad", 10.0, mass.M0, "Id", "eta3"),
+        ("grad", 10.0, mass.M0, None, "eta2 eta3"),
+        ("grad", 10.0, mass.M0, "Id", "eta2 eta3"),
+        ("grad", 10.0, mass.M0, None, "eta2"),
+        ("curl", 1.0, mass.M1, None, None),
+        ("curl", 1e-3, mass.M1, None, None),
+    ]
+    for derivative, sigma, M, stab, stab_average in cases:
+        # incomplete LU is not symmetric; for curl with small sigma the poloidal matrices are nearly
+        # singular on the gradients, the asymmetry is large and PCG fails
+        if poloidal_solver == "ilu" and derivative == "curl" and sigma < 1.0:
+            continue
+        d = getattr(derham, derivative)
+        mid = mass.M1 if derivative == "grad" else mass.M2
+        A = d.T @ mid @ d
+        if sigma != 0.0:
+            S = M if stab is None else IdentityOperator(M.domain)
+            if stab_average is not None:
+                avg = WeightedAverageProjection(derham, S, _parse_directions(stab_average))
+                S = S @ (IdentityOperator(M.domain) - avg)
+            A = A + sigma * S
+        pc = StiffnessPreconditioner(
+            mass, derivative, sigma=sigma, stab=stab, stab_average=stab_average, poloidal_solver=poloidal_solver
+        )
+        assert isinstance(pc, PolarStiffnessPreconditioner)
+        assert pc.exact == (poloidal_solver != "ilu")
+
+        x = M._V_boundary_op.dot(_rand_polar_vector(derham, M.domain, seed=4321))
+        b = A.dot(x)
+
+        # exact for the Laplacian on axisymmetric domains; with Dirichlet conditions in eta_3, the identity
+        # stabilization and the averages over eta_3 are approximated
+        periodic_3 = bcs[2] is None
+        exact = pc.exact and derivative == "grad" and (periodic_3 or (stab is None and stab_average is None))
+        if exact:
+            assert _rel_err(pc.dot(b), x) < 1e-10, (derivative, sigma, stab, stab_average)
+
+        solver = inverse(A, "pcg", pc=pc, tol=1e-10, maxiter=200)
+        y = solver.dot(b)
+        info = solver.get_info()
+        logger.info(
+            f"{mapping}, {bcs = }, {poloidal_solver = }, {derivative}, {sigma = }, {stab = }: {info['niter']} iterations"
+        )
+        assert info["success"], (derivative, sigma, stab)
+        assert info["niter"] <= (2 if exact else 30), (derivative, sigma, stab, info["niter"])
+        assert _rel_err(y, x) < 1e-8, (derivative, sigma, stab)
+
+
 @pytest.mark.parametrize("space_id", ["H1", "Hcurl", "Hdiv", "L2", "H1vec"])
 def test_restart_polar(space_id, tmp_path):
     """Write restart data (vector_stencil) like Simulation does and re-initialize a polar SplineFunction from it."""
@@ -657,6 +743,59 @@ def test_restart_polar(space_id, tmp_path):
         g.initialize_coeffs_from_restart_file(file, key)
 
     assert xp.allclose(g.vector.toarray(), f.vector.toarray(), atol=1e-12)
+
+
+@pytest.mark.parametrize("mapping", ["IGAPolarCylinder", "IGAPolarTorus"])
+@pytest.mark.parametrize("stab", ["M0", "Id"])
+@pytest.mark.parametrize("directions", [(2,), (1, 2), (1,)])
+def test_polar_weighted_average_projection(mapping, stab, directions):
+    """The weighted average on polar 0-forms is a projection onto functions constant in the averaged
+    directions, and S (I - P) is symmetric."""
+    import numpy as np
+    from feectools.linalg.basic import IdentityOperator
+    from maybempi import MPI
+
+    from struphy.feec.mass import PolarWeightedAverageProjection, WeightedAverageProjection, WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.kron_2dx1d import _interior
+    from struphy.topology.grids import TensorProductGrid
+
+    num_elements, degree = [8, 12, 6], [3, 3, 2]
+    domain = getattr(domains, mapping)(num_elements=num_elements[:2], degree=degree[:2])
+    grid = TensorProductGrid(num_elements=num_elements)
+    derham_opts = DerhamOptions(degree=degree, bcs=(("free", "dirichlet"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, comm=MPI.COMM_WORLD, domain=domain)
+    mass = WeightedMassOperators(derham, domain)
+    V = mass.M0.domain
+    S = mass.M0 if stab == "M0" else IdentityOperator(V)
+
+    with pytest.raises(NotImplementedError):
+        WeightedAverageProjection(derham, S, (0, 2))
+
+    P = WeightedAverageProjection(derham, S, directions)
+    assert isinstance(P, PolarWeightedAverageProjection)
+
+    x = mass.M0._V_boundary_op.dot(_rand_polar_vector(derham, V, seed=3))
+    y = mass.M0._V_boundary_op.dot(_rand_polar_vector(derham, V, seed=5))
+    Px = P.dot(x)
+
+    # projection, onto functions constant in the averaged directions (local tensor-product part)
+    assert _rel_err(P.dot(Px), Px) < 1e-12
+    tp = np.asarray(_interior(Px.tp))
+    if 2 in directions:
+        assert np.allclose(Px.pol[0], Px.pol[0][:, :1])
+        assert np.allclose(tp, tp[:, :, :1])
+    if 1 in directions:
+        assert np.allclose(tp, tp[:, :1, :])
+
+    # S (I - P) is symmetric and vanishes on the averages
+    A = S @ (IdentityOperator(V) - P)
+    assert abs(A.dot(x).dot(y) - x.dot(A.dot(y))) < 1e-12 * abs(x.dot(A.dot(y)))
+    r = A.dot(Px)
+    s = S.dot(Px)
+    assert r.dot(r) ** 0.5 < 1e-12 * s.dot(s) ** 0.5
 
 
 if __name__ == "__main__":

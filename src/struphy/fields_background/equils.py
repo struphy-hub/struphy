@@ -1242,24 +1242,26 @@ class AdhocTorus(AxisymmMHDequilibrium):
         if dR == 0 and dZ == 0:
             out = self.psi_r(r, der=0)
         else:
-            dr_dR = (R - self.params["R0"]) / r
-            dr_dZ = Z / r
-
-            d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
-            d2r_dZ2 = (r - Z * dr_dZ) / r**2
-
-            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
+            # regular on the magnetic axis r=0: with g = psi'(r)/r -> psi''(0) and the direction cosines
+            # c_R = (R - R0)/r, c_Z = Z/r (set to 0 on the axis), the derivatives below have the correct limits
+            on_axis = r == 0.0
+            r_safe = xp.where(on_axis, 1.0, r)
+            dpsi = self.psi_r(r, der=1)
+            d2psi = self.psi_r(r, der=2)
+            g = xp.where(on_axis, d2psi, dpsi / r_safe)
+            c_R = (R - self.params["R0"]) / r_safe
+            c_Z = Z / r_safe
 
             if dR == 1 and dZ == 0:
-                out = self.psi_r(r, der=1) * dr_dR
+                out = g * (R - self.params["R0"])
             elif dR == 0 and dZ == 1:
-                out = self.psi_r(r, der=1) * dr_dZ
+                out = g * Z
             elif dR == 2 and dZ == 0:
-                out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
+                out = d2psi * c_R**2 + g * (1.0 - c_R**2)
             elif dR == 0 and dZ == 2:
-                out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2
+                out = d2psi * c_Z**2 + g * (1.0 - c_Z**2)
             elif dR == 1 and dZ == 1:
-                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + self.psi_r(r, der=1) * d2r_dRdZ
+                out = (d2psi - g) * c_R * c_Z
             else:
                 raise NotImplementedError(
                     "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
@@ -1588,24 +1590,26 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         if dR == 0 and dZ == 0:
             out = self.psi_r(r, der=0)
         else:
-            dr_dR = (R - self.params["R0"]) / r
-            dr_dZ = Z / r
-
-            d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
-            d2r_dZ2 = (r - Z * dr_dZ) / r**2
-
-            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
+            # regular on the magnetic axis r=0: with g = psi'(r)/r -> psi''(0) and the direction cosines
+            # c_R = (R - R0)/r, c_Z = Z/r (set to 0 on the axis), the derivatives below have the correct limits
+            on_axis = r == 0.0
+            r_safe = xp.where(on_axis, 1.0, r)
+            dpsi = self.psi_r(r, der=1)
+            d2psi = self.psi_r(r, der=2)
+            g = xp.where(on_axis, d2psi, dpsi / r_safe)
+            c_R = (R - self.params["R0"]) / r_safe
+            c_Z = Z / r_safe
 
             if dR == 1 and dZ == 0:
-                out = self.psi_r(r, der=1) * dr_dR
+                out = g * (R - self.params["R0"])
             elif dR == 0 and dZ == 1:
-                out = self.psi_r(r, der=1) * dr_dZ
+                out = g * Z
             elif dR == 2 and dZ == 0:
-                out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
+                out = d2psi * c_R**2 + g * (1.0 - c_R**2)
             elif dR == 0 and dZ == 2:
-                out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2
+                out = d2psi * c_Z**2 + g * (1.0 - c_Z**2)
             elif dR == 1 and dZ == 1:
-                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + self.psi_r(r, der=1) * d2r_dRdZ
+                out = (d2psi - g) * c_R * c_Z
             else:
                 raise NotImplementedError(
                     "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
