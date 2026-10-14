@@ -194,7 +194,7 @@ def plot_modes(out, t_index, fields=(("v", "r"), ("b", "r")), m_list=(9, 10, 11,
 
 def main():
     # ------------------------- settings -------------------------
-    sim_folder = "sim4_higherResolution"
+    sim_folder = "sim5_higherResolution"
     run_pproc = False  # True the first time for a new run
 
     field, comp = "v", "pol"  # fields: "v", "b", "density", "pressure"; components: "r", "pol", "tor"
