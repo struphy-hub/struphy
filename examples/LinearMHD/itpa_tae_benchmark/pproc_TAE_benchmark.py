@@ -67,7 +67,7 @@ def save(fig, run, name):
 
 def plot_profiles(run, field, comp):
     """Radial profile at the outboard midplane (eta2=0, eta3=ETA3), one curve per time."""
-    data = get_field(run, field, comp, t=list(T_PROFILES), eta2=0.0, eta3=ETA3)
+    data = get_field(run, field, comp, t=list(T_PROFILES), eta1=ETA1, eta2=0.0, eta3=ETA3)
     data = data.assign_coords(r=minor_radius(run, data.eta1))
     fig, ax = plt.subplots(figsize=(7, 4.5), layout="constrained")
     data.plot.line(x="r", hue="t", ax=ax)
