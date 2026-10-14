@@ -54,11 +54,24 @@ def close_periodic(grid: pv.StructuredGrid) -> pv.StructuredGrid:
     return closed
 
 
-def load_field(path_out, variable, species="em_fields", step=-1) -> tuple[pv.StructuredGrid, str]:
-    """The grid of the saved time step ``step`` (an index into the saved steps, -1 for the last one) with the field
-    as active scalars, and the name of these scalars: ``variable`` for a scalar field, ``|variable|`` for the
-    magnitude of a vector field."""
-    grid = close_periodic(pv.read(vtk_files(path_out, species)[step]))
+def vtk_file(path_out, species="em_fields", physical=False, step=-1, snapshot=None) -> Path:
+    """The VTK file of one time step: the ``step``-th of the files (-1 for the last one), or with ``snapshot`` the
+    file of that post-processed time step (``step_<snapshot>.vts``, see ``Output.pproc(vtk_steps=...)``)."""
+    files = vtk_files(path_out, species, physical)
+    if snapshot is None:
+        return files[step]
+    for file in files:
+        if int(re.search(r"step_(\d+)", file.name).group(1)) == snapshot:
+            return file
+    raise FileNotFoundError(f"No VTK file of the time step {snapshot} in {files[0].parent}.")
+
+
+def load_field(path_out, variable, species="em_fields", step=-1, snapshot=None) -> tuple[pv.StructuredGrid, str]:
+    """The grid of the saved time step ``step`` (an index into the saved steps, -1 for the last one; or with
+    ``snapshot`` the post-processed time step of that number, see :func:`vtk_file`) with the field as active
+    scalars, and the name of these scalars: ``variable`` for a scalar field, ``|variable|`` for the magnitude of a
+    vector field."""
+    grid = close_periodic(pv.read(vtk_file(path_out, species, step=step, snapshot=snapshot)))
     if variable in grid.point_data:
         grid.set_active_scalars(variable)
         return grid, variable
@@ -66,7 +79,7 @@ def load_field(path_out, variable, species="em_fields", step=-1) -> tuple[pv.Str
         raise KeyError(f"No field {variable!r} in {species}; available: {sorted(grid.point_data.keys())}.")
     # vector field: the Cartesian components are written by pproc(physical=True)
     try:
-        phy = close_periodic(pv.read(vtk_files(path_out, species, physical=True)[step]))
+        phy = close_periodic(pv.read(vtk_file(path_out, species, physical=True, step=step, snapshot=snapshot)))
     except FileNotFoundError as error:
         raise FileNotFoundError(
             f"{variable!r} is a vector field; its magnitude needs the Cartesian components of "
@@ -145,6 +158,32 @@ def crop_image(image, margin=10, background=240):
 TORUS_DOMAINS = ("HollowTorus", "PoloidalSplineTorus", "IGAPolarTorus", "Tokamak", "GVECunit", "DESCunit")
 
 
+def toroidal_period(path_out) -> int:
+    """``tor_period`` of the domain of the run: the number of copies of the domain around the vertical axis that
+    make up the full torus (1 without the simulation data of the run, or for other domains)."""
+    try:
+        from struphy.post_processing.output import Output
+
+        domain = Output(path_out).domain
+    except Exception:
+        return 1
+    if not any(cls.__name__ in TORUS_DOMAINS for cls in type(domain).__mro__):
+        return 1
+    return int(domain.params.get("tor_period", 1))
+
+
+def repeat_around_axis(grid, copies):
+    """``grid`` and its ``copies - 1`` copies rotated about the vertical axis by multiples of 2 pi / copies, as one
+    grid: the full torus from a domain covering 1 / copies of it (``tor_period``), whose fields repeat that way."""
+    if copies <= 1:
+        return grid
+    active = grid.active_scalars_name
+    rotated = [grid.rotate_z(360.0 * k / copies, point=(0.0, 0.0, 0.0), inplace=False) for k in range(1, copies)]
+    full = grid.merge(rotated)
+    full.set_active_scalars(active)
+    return full
+
+
 def is_torus(path_out, grid=None) -> bool:
     """Whether the domain of the run is a torus around the vertical axis x = y = 0 (one of :data:`TORUS_DOMAINS` or
     a subclass). Without the simulation data of the run, guessed from ``grid``: no point close to that axis."""
@@ -166,6 +205,7 @@ def plot_field_3d(
     *,
     species="em_fields",
     step=-1,
+    snapshot=None,
     filename=None,
     show=False,
     cutaway=True,
@@ -190,6 +230,9 @@ def plot_field_3d(
         Species of the field (``"em_fields"`` for the electromagnetic fields).
     step : int
         Index of the saved time step (-1 for the last one).
+    snapshot : int | None
+        Number of the post-processed time step instead of ``step`` (for VTK files of selected steps,
+        ``Output.pproc(vtk_steps=...)``).
     filename : str | Path | None
         Save the image there (e.g. ``"phi_3d.png"``).
     show : bool
@@ -222,7 +265,9 @@ def plot_field_3d(
     pyvista.Plotter
         The plotter (closed unless ``show``).
     """
-    grid, scalars = load_field(path_out, variable, species, step)
+    grid, scalars = load_field(path_out, variable, species, step, snapshot)
+    # a torus with tor_period n covers 1 / n of the angle: show the full torus
+    grid = repeat_around_axis(grid, toroidal_period(path_out))
     default_cmap, clim = default_colormap(*grid.get_data_range(scalars))
     cmap = cmap or default_cmap
 

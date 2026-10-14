@@ -1004,6 +1004,7 @@ class Output:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = False,
+        vtk_steps: Sequence[int] | None = None,
         parallel: bool | None = None,
         force: bool = False,
     ) -> "Output":
@@ -1029,6 +1030,9 @@ class Output:
             Classify orbits (passing, trapped, lost); requires ``guiding_center``.
         create_vtk:
             Also write VTK files of the fields.
+        vtk_steps:
+            Positions of the post-processed time steps (as in ``t``, e.g. ``[0, -1]``) for which VTK files are
+            written; by default all. The other products cover every post-processed step regardless.
         parallel:
             Process on all ranks of this output's communicator, which must have as many ranks as
             the saved run. By default parallel exactly when it has, and more than one.
@@ -1047,6 +1051,7 @@ class Output:
             guiding_center=guiding_center,
             classify=classify,
             create_vtk=create_vtk,
+            vtk_steps=vtk_steps,
             force=force,
         )
         if parallel is None:
@@ -1155,6 +1160,7 @@ class Output:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
+        vtk_steps: Sequence[int] | None = None,
         force: bool = False,
     ):
         """Output post-processing for fields and particle data in ``self.path_out``.
@@ -1175,6 +1181,8 @@ class Output:
             If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        vtk_steps : sequence of int, optional
+            Positions of the post-processed time steps for which VTK files are written (default: all).
         force : bool
             Reprocess even when output already exists. Set False to reuse a previous
             run's results, so a plotting script can be re-run cheaply.
@@ -1191,6 +1199,7 @@ class Output:
             guiding_center=guiding_center,
             classify=classify,
             create_vtk=create_vtk,
+            vtk_steps=vtk_steps,
         )
         if not force and is_processed(str(self.path_out), options):
             logger.warning(f"\nReusing existing post-processing in {self.path_pproc}")
@@ -1231,7 +1240,9 @@ class Output:
 
         # feec variables
         try:
-            self._process_fields(step=step, celldivide=celldivide, physical=physical, create_vtk=create_vtk)
+            self._process_fields(
+                step=step, celldivide=celldivide, physical=physical, create_vtk=create_vtk, vtk_steps=vtk_steps
+            )
             self._process_particles(step=step, guiding_center=guiding_center, classify=classify)
         except Exception as error:
             self._write_manifest("failed", options=options, error=error)
@@ -1247,6 +1258,7 @@ class Output:
         celldivide: int | Sequence[int] = (1, 1, 1),
         physical: bool = False,
         create_vtk: bool = True,
+        vtk_steps: Sequence[int] | None = None,
     ):
         """Evaluate the FEEC fields of all saved time steps and write them to disk.
 
@@ -1266,6 +1278,8 @@ class Output:
             If True, also compute push-forwarded physical (x,y,z) components of fields.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        vtk_steps : sequence of int, optional
+            Positions of the time steps for which VTK files are written (default: all).
         """
         if not self._pproc_exist_fields:
             logger.warning("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
@@ -1337,9 +1351,9 @@ class Output:
                 except FileExistsError:
                     shutil.rmtree(path_fields)
                     os.mkdir(path_fields)
-                self._create_vtk(path_fields, t_grid, grids_phy, point_data)
+                self._create_vtk(path_fields, t_grid, grids_phy, point_data, steps=vtk_steps)
                 if physical:
-                    self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+                    self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True, steps=vtk_steps)
         self._pproc_comm.Barrier()
 
     def _process_particles(
@@ -1734,6 +1748,7 @@ class Output:
         point_data: dict,
         *,
         physical: bool = False,
+        steps: Sequence[int] | None = None,
     ):
         """Write evaluated field arrays to VTK (.vts) files for visualization.
 
@@ -1749,7 +1764,11 @@ class Output:
             Evaluated field values as returned by :meth:`_eval_femfields`.
         physical : bool, optional
             If True, writes files for push-forwarded physical components (folder suffix "_phy").
+        steps : sequence of int, optional
+            Positions in ``t_grid`` (negative ones count from the end) for which files are written; by default
+            all. The files keep the number of their position, ``step_<n>.vts``.
         """
+        selected = None if steps is None else {int(n) % len(t_grid) for n in steps}
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
             if os.path.exists(species_path):
@@ -1762,6 +1781,8 @@ class Output:
 
         logger.warning(f"\nCreating vtk in {path} ...")
         for n, t in enumerate(tqdm(t_grid)):
+            if selected is not None and n not in selected:
+                continue
             point_data_n = {}
 
             for species, vars in point_data.items():
@@ -2239,6 +2260,17 @@ class Output:
             self._ensure_processed()
             self._time = np.load(self.path_pproc / "t_grid.npy", mmap_mode="r") * self.time_scale
         return self._time
+
+    def standard_snapshots(self) -> list[int]:
+        """Positions of the first, middle and last saved time step, at which the examples make their standard plots.
+
+        Read from the raw output, so no post-processing is triggered. Fewer saved steps give fewer positions,
+        e.g. ``[0]`` for a single one. The positions select snapshots in ``evaluate(..., t=...)`` and
+        ``pproc(vtk_steps=...)`` (with the default ``step=1`` of :meth:`pproc`).
+        """
+        with h5py.File(self.path_out / "data" / "data_proc0.hdf5", "r") as file:
+            last = file["time/value"].shape[0] - 1
+        return sorted({0, last // 2, last})
 
     def _first_field(self) -> xr.Dataset | None:
         """The dataset of a field species, which carries the evaluation grids."""

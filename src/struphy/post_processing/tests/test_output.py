@@ -323,6 +323,7 @@ def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch
             guiding_center=False,
             classify=False,
             create_vtk=False,
+            vtk_steps=None,
             force=False,
         )
     ]
@@ -666,9 +667,42 @@ def test_processing_options_are_part_of_the_manifest(tmp_path):
     assert not is_processed(root, dict(step=1, celldivide=2, physical=True))
 
 
+def test_vtk_steps_are_part_of_the_manifest_only_when_given(tmp_path):
+    root = write_tree(str(tmp_path))
+    # products processed before the option existed match a request without it
+    write_manifest(root, step=1, celldivide=1, physical=False)
+    assert "vtk_steps" not in normalize_options(step=1, vtk_steps=None)
+    assert is_processed(root, dict(step=1, celldivide=1, physical=False, vtk_steps=None))
+    assert not is_processed(root, dict(step=1, celldivide=1, physical=False, vtk_steps=[0, -1]))
+    write_manifest(root, step=1, celldivide=1, physical=False, vtk_steps=[-1, 0, 0])
+    assert is_processed(root, dict(step=1, celldivide=1, physical=False, vtk_steps=(0, -1)))
+
+
+@pytest.mark.parametrize("saved, expected", [(1, [0]), (2, [0, 1]), (3, [0, 1, 2]), (501, [0, 250, 500])])
+def test_standard_snapshots_are_first_middle_and_last(tmp_path, saved, expected):
+    run = Output(write_tree(str(tmp_path)))
+    with h5py.File(run.path_out / "data" / "data_proc0.hdf5", "a") as file:
+        del file["time/value"]
+        file.create_dataset("time/value", data=np.arange(saved, dtype=float))
+    assert run.standard_snapshots() == expected
+
+
+def test_create_vtk_writes_only_the_selected_steps(run, tmp_path):
+    shape = (3, 4, 5)
+    grids_phy = list(np.meshgrid(*(np.linspace(0, 1, n) for n in shape), indexing="ij"))
+    t_grid = np.arange(5.0)
+    point_data = {"em_fields": {"phi": {t: [np.full(shape, t)] for t in t_grid}}}
+    run._create_vtk(str(tmp_path), t_grid, grids_phy, point_data, steps=[0, 2, -1])
+    written = sorted(f.name for f in (tmp_path / "em_fields" / "vtk").glob("*.vts"))
+    assert written == ["step_0.vts", "step_2.vts", "step_4.vts"]
+
+
 def test_manifest_is_stale_when_raw_output_changes(tmp_path):
     root = write_tree(str(tmp_path))
-    os.utime(os.path.join(root, "data", "data_proc0.hdf5"), None)
+    # a later modification time; not utime(None), which may fall into the same tick of the file system clock
+    path = os.path.join(root, "data", "data_proc0.hdf5")
+    stat = os.stat(path)
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
     assert not is_processed(root)
 
 
@@ -685,7 +719,14 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
         (
             "process",
             dict(
-                step=1, celldivide=1, physical=True, guiding_center=False, classify=False, create_vtk=False, force=False
+                step=1,
+                celldivide=1,
+                physical=True,
+                guiding_center=False,
+                classify=False,
+                create_vtk=False,
+                vtk_steps=None,
+                force=False,
             ),
         ),
     ]

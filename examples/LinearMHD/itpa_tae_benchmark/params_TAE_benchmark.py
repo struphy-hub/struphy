@@ -1,7 +1,7 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 name = "Default LinearMHD"
@@ -20,7 +20,7 @@ from pathlib import Path
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
-# `--test-run` selects a small grid for the tests (test_examples.py).
+# `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
@@ -34,18 +34,22 @@ parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 96, 16], h
 parser.add_argument(
     "--test-run",
     action="store_true",
-    help="Small resolution (num_elements = [8, 32, 4]), for the tests (test_examples.py).",
+    help="Small resolution (num_elements = [8, 32, 4]) and a short run with three saved time steps, for the tests "
+    "(test_examples.py).",
 )
 args, _ = parser.parse_known_args()
 if args.test_run:
     args.num_elements = [8, 32, 4]
 
 from struphy import set_logging_level
+
 set_logging_level(logging.INFO)
 
 # ------------------
 # Import Struphy API
 # ------------------
+
+import numpy as np
 
 from struphy import (
     BaseUnits,
@@ -60,12 +64,10 @@ from struphy import (
     grids,
     perturbations,
 )
-import numpy as np
 
 # ---------------------
 # Instance of the model
 # ---------------------
-
 from struphy.models import LinearMHD
 
 # Units
@@ -85,47 +87,26 @@ model.mhd.pressure.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(
-    out_folders=args.out_folder,
-    save_step=2,
-    sim_folder=args.sim_folder,
-    max_runtime=350
-    )
+env = EnvironmentOptions(out_folders=args.out_folder, save_step=2, sim_folder=args.sim_folder, max_runtime=350)
 
 # Time stepping
-time_opts = Time(dt=0.5, Tend=500.)
+dt = 0.5
+# --test-run: the initial, a middle and a final saved time step
+time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else 500.0)
 
 # Geometry
-domain = domains.HollowTorus(
-    a1=0.1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6
-)
+domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6)
 
 # Fluid equilibrium (can be used as part of initial conditions)
-equil = equils.AdhocTorus(
-    a=1.0,
-    R0=10.0,
-    B0=3.0,
-    q_kind=0,
-    p_kind=1,
-    q0=1.71,
-    q1=1.87,
-    p1=0.95,
-    p2=0.05,
-    beta=0.0018 
-    )
+equil = equils.AdhocTorus(a=1.0, R0=10.0, B0=3.0, q_kind=0, p_kind=1, q0=1.71, q1=1.87, p1=0.95, p2=0.05, beta=0.0018)
 # Grid
 grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 
 # Derham options
-derham_opts = DerhamOptions(
-    degree=(3, 3, 3),
-    bcs=(("dirichlet", "dirichlet"), None, None)
-)
+derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profiling options
-profiling_opts = ProfilingOptions(
-    use_line_profiler=True
-)
+profiling_opts = ProfilingOptions(use_line_profiler=True)
 
 # Simulation object
 sim = Simulation(
@@ -139,7 +120,7 @@ sim = Simulation(
     equil=equil,
     grid=grid,
     derham_opts=derham_opts,
-    profiling_opts=profiling_opts
+    profiling_opts=profiling_opts,
 )
 
 # ------------------
@@ -159,26 +140,25 @@ model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
 # Perturbations for (some) FEEC variables
 ms_radial_1, ms_radial_2 = 10, 11
 perturbation_radial = perturbations.TorusModesSin(
-    ms              = (ms_radial_1, ms_radial_2),
-    ns              = (-1, -1),
-    amps            = (1e-3, 1e-3),
-    pfuns           = ("exp", "exp"),
-    pfun_params     = ([0.5,0.1], [0.5,0.1]),
-    comp            = 0,
-    given_in_basis="2"
+    ms=(ms_radial_1, ms_radial_2),
+    ns=(-1, -1),
+    amps=(1e-3, 1e-3),
+    pfuns=("exp", "exp"),
+    pfun_params=([0.5, 0.1], [0.5, 0.1]),
+    comp=0,
+    given_in_basis="2",
 )
 perturbation_poloidal = perturbations.TorusModesCos(
-    ms              = (10, 11),
-    ns              = (-1, -1),
-    amps            = (1e-3 * 1 / (2*np.pi * ms_radial_1), 1e-3 * 1 / (2*np.pi * ms_radial_2)),
-    pfuns           = ("d_exp", "d_exp"),
-    pfun_params     = ([0.5,0.1], [0.5,0.1]),
-    comp            = 1,
-    given_in_basis="2"
+    ms=(10, 11),
+    ns=(-1, -1),
+    amps=(1e-3 * 1 / (2 * np.pi * ms_radial_1), 1e-3 * 1 / (2 * np.pi * ms_radial_2)),
+    pfuns=("d_exp", "d_exp"),
+    pfun_params=([0.5, 0.1], [0.5, 0.1]),
+    comp=1,
+    given_in_basis="2",
 )
 model.mhd.velocity.add_perturbation(perturbation=perturbation_radial)
 model.mhd.velocity.add_perturbation(perturbation=perturbation_poloidal)
-
 
 
 if __name__ == "__main__":

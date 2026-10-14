@@ -36,6 +36,11 @@ def normalize_options(**options) -> dict:
     celldivide = options.get("celldivide")
     if celldivide is not None:
         options["celldivide"] = [int(celldivide)] * 3 if isinstance(celldivide, int) else [int(c) for c in celldivide]
+    # recorded only when given, so that products processed before the option existed still match
+    if options.get("vtk_steps", ...) is None:
+        del options["vtk_steps"]
+    elif "vtk_steps" in options:
+        options["vtk_steps"] = sorted({int(n) for n in options["vtk_steps"]})
     return options
 
 
