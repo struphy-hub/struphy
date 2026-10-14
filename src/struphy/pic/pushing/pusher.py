@@ -220,14 +220,7 @@ class Pusher:
         if self._cuda:
             # the three assignments below in one pass over the buffer (each slice is a strided pass on its own)
             n_rows, n_cols = markers.shape
-            _prepare_push_cuda()(
-                markers,
-                n_rows,
-                n_cols,
-                first_pusher_idx,
-                3 + vdim,
-                n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
-            )
+            _prepare_push_cuda()(markers, first_pusher_idx, 3 + vdim, n_threads=(n_rows, n_cols - 2 - first_pusher_idx))
         else:
             init_slice = slice(first_pusher_idx, first_shift_idx)
             shift_slice = slice(first_shift_idx, residual_idx)

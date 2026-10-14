@@ -2569,7 +2569,12 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
+        # column-major on the GPU: the kernels (and the column operations on the Python side) access a few columns of
+        # many markers, so with a row-major buffer every access touches the whole row (n_cols * 8 bytes) and the
+        # threads of a warp read addresses a row apart. The CUDA kernels address the buffer through its strides
+        # (Array2D<double> in MarkerArgs). The pyccel kernels expect C order, so NumPy keeps it.
+        order = "F" if xp.get_backend() == "cupy" else "C"
+        self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float, order=order)
 
         # allocate auxiliary arrays
         self._holes = xp.zeros(self.n_rows, dtype=bool)

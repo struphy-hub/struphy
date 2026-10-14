@@ -5,24 +5,20 @@
  *     markers[:, first_shift_idx:residual_idx] = 0.0
  *     markers[:, residual_idx:-2] = 0.0
  *
- * One thread per entry of the contiguous column range [first_pusher_idx, n_cols - 2) of every row, so that
- * neighbouring threads write neighbouring addresses of the row-major buffer and the whole range is written
- * in a single pass (instead of one strided pass over the buffer per slice).
+ * A 2D launch, n_threads = (n_rows, n_cols - 2 - first_pusher_idx): x is the row, y the column within the range
+ * [first_pusher_idx, n_cols - 2), so the whole range is written in a single pass. The buffer is addressed through
+ * a strided view: on the CuPy backend it is column-major (Particles allocates it in Fortran order), so neighbouring
+ * threads (rows) of one column write neighbouring addresses.
  *
- * @param markers Marker buffer (n_rows x n_cols, row-major), every row including holes.
- * @param n_rows Number of rows of the buffer.
- * @param n_cols Number of columns of the buffer.
+ * @param markers Marker buffer (n_rows x n_cols, any strides), every row including holes.
  * @param first_pusher_idx First column of the saved initial phase space coordinates.
  * @param n_init Number of saved coordinates, 3 + vdim (first_shift_idx = first_pusher_idx + n_init).
  */
-extern "C" __global__ void prepare_push(double* markers, long long n_rows, int n_cols, int first_pusher_idx,
-                                        int n_init) {
-    long long width = n_cols - 2 - first_pusher_idx;
-    long long t = (long long)blockDim.x * blockIdx.x + threadIdx.x;
-    if (t >= n_rows * width) return;
+#include "cunumpy/array_view.cuh"
 
-    long long ip = t / width;
-    int col = first_pusher_idx + (int)(t - ip * width);
-    double* row = markers + ip * n_cols;
-    row[col] = col < first_pusher_idx + n_init ? row[col - first_pusher_idx] : 0.0;
+extern "C" __global__ void prepare_push(Array2D<double> markers, int first_pusher_idx, int n_init) {
+    const long long ip = (long long)blockDim.x * blockIdx.x + threadIdx.x;
+    const long long k = (long long)blockDim.y * blockIdx.y + threadIdx.y;
+    if (ip >= markers.shape[0] || k >= markers.shape[1] - 2 - first_pusher_idx) return;
+    markers(ip, first_pusher_idx + k) = k < n_init ? markers(ip, k) : 0.0;
 }
