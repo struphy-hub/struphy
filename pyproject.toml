@@ -27,7 +27,7 @@ dependencies = [
     "cunumpy @ git+https://github.com/max-models/cunumpy.git@f9963935338b323ed6c4b212020776062a029038",
     "pyccel>=2.2.0, <=2.2.3",
     "maybempi>=0.1.2",
-    "feectools>=0.8.0, <=0.8.0",
+    "feectools>=0.9.0, <=0.9.0",
     "scipy<=1.18.0",
     "h5py<=3.16.0",
     "h5netcdf<=1.8.1",

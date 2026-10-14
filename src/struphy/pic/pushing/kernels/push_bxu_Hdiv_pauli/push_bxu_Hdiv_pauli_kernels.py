@@ -94,7 +94,13 @@ def push_bxu_Hdiv_pauli(
     n_markers = args_markers.n_markers
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, der1, der2, der3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
+    #$ omp parallel private(b_cart, b_diff, b_form, b_grad, der1, der2, der3, det_df, dfinv, dfinv_t, dfm, e_cart, eta1, eta2, eta3, ip, span1, span2, span3, thread_derham, u_cart, u_form)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -122,18 +128,24 @@ def push_bxu_Hdiv_pauli(
         linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
-        bsplines_kernels.b_der_splines_slim(args_derham.tn1, args_derham.pn[0], eta1, span1, args_derham.bn1, der1)
-        bsplines_kernels.b_der_splines_slim(args_derham.tn2, args_derham.pn[1], eta2, span2, args_derham.bn2, der2)
-        bsplines_kernels.b_der_splines_slim(args_derham.tn3, args_derham.pn[2], eta3, span3, args_derham.bn3, der3)
+        bsplines_kernels.b_der_splines_slim(
+            thread_derham.tn1, thread_derham.pn[0], eta1, span1, thread_derham.bn1, der1
+        )
+        bsplines_kernels.b_der_splines_slim(
+            thread_derham.tn2, thread_derham.pn[1], eta2, span2, thread_derham.bn2, der2
+        )
+        bsplines_kernels.b_der_splines_slim(
+            thread_derham.tn3, thread_derham.pn[2], eta3, span3, thread_derham.bn3, der3
+        )
 
         # magnetic field: 2-form components
         eval_2form_spline_mpi(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             b2_1,
             b2_2,
             b2_3,
@@ -146,43 +158,43 @@ def push_bxu_Hdiv_pauli(
 
         # magnetic field: evaluation of gradient (vector field)
         b_diff[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            args_derham.pn[0],
-            args_derham.pn[1],
-            args_derham.pn[2],
+            thread_derham.pn[0],
+            thread_derham.pn[1],
+            thread_derham.pn[2],
             der1,
-            args_derham.bn2,
-            args_derham.bn3,
+            thread_derham.bn2,
+            thread_derham.bn3,
             span1,
             span2,
             span3,
             b0,
-            args_derham.starts,
+            thread_derham.starts,
         )
         b_diff[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            args_derham.pn[0],
-            args_derham.pn[1],
-            args_derham.pn[2],
-            args_derham.bn1,
+            thread_derham.pn[0],
+            thread_derham.pn[1],
+            thread_derham.pn[2],
+            thread_derham.bn1,
             der2,
-            args_derham.bn3,
+            thread_derham.bn3,
             span1,
             span2,
             span3,
             b0,
-            args_derham.starts,
+            thread_derham.starts,
         )
         b_diff[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            args_derham.pn[0],
-            args_derham.pn[1],
-            args_derham.pn[2],
-            args_derham.bn1,
-            args_derham.bn2,
+            thread_derham.pn[0],
+            thread_derham.pn[1],
+            thread_derham.pn[2],
+            thread_derham.bn1,
+            thread_derham.bn2,
             der3,
             span1,
             span2,
             span3,
             b0,
-            args_derham.starts,
+            thread_derham.starts,
         )
 
         # magnetic field: evaluation of gradient (Cartesian components)
@@ -193,7 +205,7 @@ def push_bxu_Hdiv_pauli(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             u2_1,
             u2_2,
             u2_3,
@@ -211,3 +223,7 @@ def push_bxu_Hdiv_pauli(
 
         # update velocities
         markers[ip, 3:6] += dt * e_cart
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

@@ -19,6 +19,7 @@ from struphy.geometry.base import Domain
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.polar.basic import PolarVector
 from struphy.utils.kernel_compilation import collect_kernels
 from struphy.utils.utils import check_option
 
@@ -126,7 +127,7 @@ class Propagator(metaclass=ABCMeta):
         diffs = {}
         for var, new in new_coeffs.items():
             assert "_" + var in self.variables.__dict__, f"{var} not in {self.variables.__dict__}."
-            assert isinstance(new, (StencilVector, BlockVector))
+            assert isinstance(new, (StencilVector, BlockVector, PolarVector))
             old_var = getattr(self.variables, var)
             assert isinstance(old_var, FEECVariable)
             old = old_var.spline.vector

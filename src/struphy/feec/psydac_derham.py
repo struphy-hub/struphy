@@ -837,6 +837,7 @@ class Derham:
 
         # exterior derivatives TODO: disentagle tensor from polar spaces
         self._grad, self._curl, self._div = derham.derivatives_as_matrices
+        self._grad_tp, self._curl_tp, self._div_tp = self._grad, self._curl, self._div
 
         if self.polar_splines:
             self._grad = PolarLinearOperator(
@@ -1500,6 +1501,21 @@ class Derham:
     def div_bcfree(self):
         """Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2) w/o boundary operator."""
         return self._div_bcfree
+
+    @property
+    def grad_tp(self):
+        """Discrete gradient on the tensor-product spaces (no polar splines, no boundary operator)."""
+        return self._grad_tp
+
+    @property
+    def curl_tp(self):
+        """Discrete curl on the tensor-product spaces (no polar splines, no boundary operator)."""
+        return self._curl_tp
+
+    @property
+    def div_tp(self):
+        """Discrete divergence on the tensor-product spaces (no polar splines, no boundary operator)."""
+        return self._div_tp
 
     @property
     def args_derham(self) -> DerhamArguments | CudaDerhamArguments:
@@ -2989,8 +3005,8 @@ class SplineFunction:
             if out is None:
                 out = tmp
             else:
-                out *= 0.0
-                out += tmp
+                # assign (not 'out *= 0'), since NaN/inf in an uninitialized out would survive
+                out[...] = tmp
 
             if squeeze_out:
                 out = xp.squeeze(out)
@@ -3049,8 +3065,7 @@ class SplineFunction:
                 if out_is_None:
                     out += [tmp.copy()]
                 else:
-                    out[n] *= 0.0
-                    out[n] += tmp
+                    out[n][...] = tmp
 
                 tmp[:] = 0.0
 

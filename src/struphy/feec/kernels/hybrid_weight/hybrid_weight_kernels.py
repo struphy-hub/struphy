@@ -38,7 +38,8 @@ def hybrid_weight(
     value_new = empty(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
+    #$ omp parallel private(G, df_out, eta1, eta2, eta3, iel1, iel2, iel3, overn, q1, q2, q3, value1, value2, value3, value_new)
+    #$ omp for
     # fmt: on
     for iel1 in range(nel1):
         for iel2 in range(nel2):
@@ -94,3 +95,7 @@ def hybrid_weight(
                             data1[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3] = value_new[0]
                             data2[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3] = value_new[1]
                             data3[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3] = value_new[2]
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

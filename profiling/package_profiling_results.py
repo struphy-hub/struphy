@@ -12,7 +12,7 @@ from utils import _run_command
 # Written by `Simulation.run()`, one per `sim_<id>` run directory.
 RUN_METADATA_FILE = "run_metadata.json"
 
-# Written by the parameter file itself (see the Poisson example), one per `sim_<id>` run
+# Written by the post-processing script of the case (`pproc_*.py`), one per `sim_<id>` run
 # directory: post-processing figures, small arrays, scope-profiler HTML reports and JSON summaries
 # (see the Vlasov examples), next to the profiling output.
 RESULTS_DIR_NAME = "results"
@@ -33,7 +33,7 @@ def _run_folder_name(launch_id: int) -> str:
     """Name of a run's own folder inside the packaged case folder: `results-run03`.
 
     Everything a run produced lives in there together: its `.h5` files, its metadata
-    file, and whatever the parameter file post-processed into `results`.
+    file, and whatever the post-processing script of the case wrote into `results`.
     """
     return f"{RESULTS_DIR_NAME}-{_run_name(launch_id)}"
 
@@ -106,9 +106,9 @@ def _write_run_metadata(
 def _copy_run_results(sim_dir: Path, destination_dir: Path) -> list[str]:
     """Copy the figures and arrays a run wrote into `<sim_dir>/results`.
 
-    The parameter file of a case may post-process its own output (see the Poisson
-    example), writing `.png`/`.npy` files into a `results` folder inside its run
-    directory. They are copied straight into `destination_dir`, the run's own packaged
+    The post-processing script of a case (`ProfilingCase.pproc_source`, e.g. the
+    `pproc_gaussian_cube.py` of the Poisson cube case) may write `.png`/`.npy` files into a
+    `results` folder inside its run directory. They are copied straight into `destination_dir`, the run's own packaged
     folder, next to its `.h5` and run metadata; any subfolder structure of `results` is
     kept.
 

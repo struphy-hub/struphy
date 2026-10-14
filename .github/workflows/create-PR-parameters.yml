@@ -33,7 +33,9 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-            cp -r ../examples/. ./
+            # the submit_*.py scripts of the profiling cases need the profiling driver in profiling/,
+            # which is not part of the parameter files repo
+            rsync -a --exclude 'submit_*.py' ../examples/ ./
             git status
             git add .
             git commit -m "Changes to parameter files from struphy (on push to main)"
