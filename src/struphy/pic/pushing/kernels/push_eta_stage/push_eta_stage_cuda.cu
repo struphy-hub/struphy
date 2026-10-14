@@ -26,6 +26,9 @@ extern "C" __global__ void push_eta_stage(double dt, int stage, MarkerArgs args_
     int n_markers = args_markers.n_markers;
     if (ip >= n_markers) return;
 
+    // CUDA-only: prepare this row here instead of in a separate pass of prepare_push (Pusher._push)
+    if (stage == 0 && args_markers.prepare_rows) pusher_utilities_kernels::prepare_marker_row(ip, args_markers);
+
     int first_pusher_idx = args_markers.first_pusher_idx;
     int first_free_idx = args_markers.first_free_idx;
     double last = stage == n_stages - 1 ? 1. : 0.;

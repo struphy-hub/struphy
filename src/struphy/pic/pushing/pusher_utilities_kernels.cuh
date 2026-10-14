@@ -42,6 +42,20 @@ __device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
  * the host. The marker view carries shape and strides; j is a CUDA-only
  * column index replacing Pyccel array slices.
  */
+/**
+ * Prepare marker row ip for a push, as the kernel prepare_push (prepare_push_cuda.cu) does for every row: copy the
+ * phase space coordinates (columns 0 to 3 + vdim) to the columns from first_pusher_idx and zero the columns after
+ * them up to n_cols - 2. Called at stage 0 by the push kernels that take over the preparation from prepare_push
+ * (args_markers.prepare_rows, see Pusher._push), for every row including holes, so that it is exactly the same.
+ */
+__device__ inline void prepare_marker_row(int ip, const MarkerArgs& args_markers) {
+    const int first = args_markers.first_pusher_idx;
+    const int n_init = 3 + args_markers.vdim;
+    const int end = (int)args_markers.markers.shape[1] - 2;
+    for (int col = first; col < end; ++col)
+        args_markers.markers(ip, col) = col < first + n_init ? args_markers.markers(ip, col - first) : 0.0;
+}
+
 __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_markers,
                                              const DomainArgs& args_domain, bool newton) {
     const long long* bc_type = args_markers.bc_type;
