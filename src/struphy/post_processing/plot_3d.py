@@ -141,6 +141,21 @@ def crop_image(image, margin=10, background=240):
     return image[top:bottom, left:right]
 
 
+def is_torus(path_out, grid=None) -> bool:
+    """Whether the domain of the run is a torus around the vertical axis x = y = 0 (a class with "Torus" in its name,
+    or Tokamak). Without the simulation data of the run, guessed from ``grid``: no point close to that axis."""
+    try:
+        from struphy.post_processing.output import Output
+
+        kind = type(Output(path_out).domain).__name__
+        return "Torus" in kind or kind == "Tokamak"
+    except Exception:
+        if grid is None:
+            return False
+        horizontal = np.hypot(grid.points[:, 0], grid.points[:, 1])
+        return bool(np.min(horizontal) > 0.1 * np.max(horizontal))
+
+
 def plot_field_3d(
     path_out,
     variable,
@@ -207,10 +222,14 @@ def plot_field_3d(
     default_cmap, clim = default_colormap(*grid.get_data_range(scalars))
     cmap = cmap or default_cmap
 
-    # the azimuth of the largest |value| around the vertical axis through the center of the domain
+    # the vertical axis of the cut: through the center of the domain, for a torus its axis x = y = 0
     x0, x1, y0, y1, z0, z1 = grid.bounds
     center = np.array([0.5 * (x0 + x1), 0.5 * (y0 + y1), 0.5 * (z0 + z1)])
     diagonal = np.linalg.norm([x1 - x0, y1 - y0, z1 - z0])
+    toroidal = is_torus(path_out, grid)
+    if toroidal:
+        center[:2] = 0.0
+    # the azimuth of the largest |value| around that axis
     offset = grid.points[np.nanargmax(np.abs(grid.point_data[scalars]))] - center
     azimuth = np.arctan2(offset[1], offset[0]) if np.hypot(offset[0], offset[1]) > 1e-6 * diagonal else 0.0
 
@@ -239,9 +258,6 @@ def plot_field_3d(
         plotter.add_text(title, font_size=12, color="black")
     # look into the wedge from above, framing the removed wedge (between the two faces of the cut) and some of the
     # domain around it, so that the cut fills the view and the rest of the domain gives the 3D context
-    # a domain around the vertical axis (a torus): no point is close to the axis
-    horizontal = np.hypot(grid.points[:, 0] - center[0], grid.points[:, 1] - center[1])
-    toroidal = np.min(horizontal) > 0.1 * np.max(horizontal)
     # elevation of the camera above the horizontal plane: about 39 degrees, half of it for a torus
     elevation = np.arctan(0.8) / (2 if toroidal else 1)
     # azimuth of the camera: along the bisector of the wedge, for a torus more in front of the cut face at `azimuth`

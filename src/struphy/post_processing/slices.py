@@ -37,8 +37,13 @@ def physical_planes(domain, phi=np.pi) -> dict[str, Plane]:
     HollowTorus, IGAPolarTorus).
 
     For the spline mappings (IGAPolar...) the poloidal angle is only approximately 2 pi eta2, so the planes cut at
-    eta2 are approximate."""
+    eta2 are approximate. Domains covering only part of an angle (``poc``, ``pol_period`` or ``tor_period`` other
+    than 1) raise a ValueError."""
     kind = type(domain).__name__
+    # the cuts below assume full angles: theta = 2 pi eta2 and phi = -2 pi eta3
+    periods = {k: domain.params.get(k, 1) for k in ("poc", "pol_period", "tor_period")}
+    if any(v != 1 for v in periods.values()):
+        raise ValueError(f"Physical planes of {kind} only for full angles (periods 1), got {periods}.")
     if kind == "Cuboid":
         return {
             "xy": Plane("x", "y", "z at the center", "eta3", (0.5,)),
@@ -54,11 +59,9 @@ def physical_planes(domain, phi=np.pi) -> dict[str, Plane]:
             "rz": Plane("r", "z", f"phi = {phi:.3g}", "eta2", ((phi / (2 * np.pi)) % 1.0,)),
         }
     if kind in ("HollowTorus", "IGAPolarTorus"):
-        # theta = 2 pi eta2, toroidal angle phi = -2 pi eta3 / tor_period (y = R sin(-2 pi eta3 / tor_period))
-        tor_period = domain.params.get("tor_period", 1)
-
+        # theta = 2 pi eta2, toroidal angle phi = -2 pi eta3 (y = R sin(-2 pi eta3))
         def eta3(angle):
-            return (-angle * tor_period / (2 * np.pi)) % 1.0
+            return (-angle / (2 * np.pi)) % 1.0
 
         return {
             "xy": Plane("x", "y", "z = 0", "eta2", (0.0, 0.5)),

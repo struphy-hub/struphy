@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import pyvista as pv
 
-from struphy.post_processing.plot_3d import load_field, plot_field_3d, vtk_files
+from struphy.post_processing.plot_3d import is_torus, load_field, plot_field_3d, vtk_files
 
 
 def write_run(path_out, n=6):
@@ -54,3 +54,17 @@ def test_render_to_file(tmp_path, variable):
     filename = tmp_path / f"{variable}_3d.png"
     plot_field_3d(tmp_path, variable, filename=filename)
     assert filename.stat().st_size > 0
+
+
+@pytest.mark.mpi_skip
+def test_is_torus_without_simulation_data(tmp_path):
+    # no simulation data: guessed from the grid, a cylinder reaching close to its axis is no torus
+    write_run(tmp_path)
+    grid, _ = load_field(tmp_path, "phi")
+    assert not is_torus(tmp_path, grid)
+    # the same grid moved away from the axis (radius + 3): a ring
+    ring = grid.copy()
+    x, y, z = ring.points.T
+    radius = np.hypot(x, y)
+    ring.points = np.column_stack([(radius + 3.0) * x / radius, (radius + 3.0) * y / radius, z])
+    assert is_torus(tmp_path, ring)

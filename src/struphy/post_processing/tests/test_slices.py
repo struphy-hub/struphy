@@ -55,3 +55,14 @@ def test_cuboid_has_no_poloidal_plane():
 def test_unknown_domain_raises():
     with pytest.raises(NotImplementedError):
         physical_planes(domains.Colella())
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize(
+    "domain",
+    [domains.HollowTorus(tor_period=3), domains.HollowCylinder(poc=2), domains.HollowTorus(tor_period=1, pol_period=2)],
+    ids=["tor_period", "poc", "pol_period"],
+)
+def test_partial_angles_raise(domain):
+    with pytest.raises(ValueError):
+        physical_planes(domain)

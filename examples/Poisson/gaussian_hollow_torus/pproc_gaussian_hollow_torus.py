@@ -91,6 +91,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
     if save_figs:
         for fig_name, fig in figs.items():
             fig.savefig(os.path.join(results_dir, f"{fig_name}.png"))
+            plt.close(fig)
     else:
         plt.show()
 
