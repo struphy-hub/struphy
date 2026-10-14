@@ -23,6 +23,7 @@ from struphy.feec.kernels.kernel_2d_mat import kernel_2d_mat
 from struphy.feec.kernels.kernel_3d_diag import kernel_3d_diag
 from struphy.feec.kernels.kernel_3d_eval import kernel_3d_eval
 from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
+from struphy.feec.kronecker_mass import kronecker_apply_operator
 from struphy.feec.kernels.kernel_3d_matrixfree import kernel_3d_matrixfree
 from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
 from struphy.feec.linear_operators import BoundaryOperator
@@ -1628,6 +1629,8 @@ class WeightedMassOperator(LinearOperator):
             blocks, self._weights = self._init_blocks_from_weights(weights_info)
 
         self._mat = self._wrap_blocks(blocks)
+        # the operator dot() applies self._mat with (Kronecker blocks replaced), built on first use, see _apply_mat
+        self._apply_mat_cache = None
 
         # the weights are stored in the block order of the (possibly transposed) operator
         if transposed:
@@ -2047,6 +2050,17 @@ class WeightedMassOperator(LinearOperator):
         return self._mat
 
     @property
+    def _apply_mat(self):
+        """The operator :meth:`dot` applies: :attr:`matrix`, with its blocks that are Kronecker products of 1D banded
+        matrices (constant weights, e.g. on a Cuboid) applied as such (:mod:`struphy.feec.kronecker_mass`).
+
+        Built on first use after every change of the matrix (assembly, copy into, in-place arithmetic).
+        """
+        if self._apply_mat_cache is None:
+            self._apply_mat_cache = kronecker_apply_operator(self._mat, name=self.name)
+        return self._apply_mat_cache
+
+    @property
     def nquads(self):
         if self._nquads is None:
             return self.derham.nquads
@@ -2095,23 +2109,23 @@ class WeightedMassOperator(LinearOperator):
             if self._transposed:
                 self._W_boundary_op_T.dot(v, out=self._temp_WB)
                 self._W_extraction_op_T.dot(self._temp_WB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_VE)
                 self._V_extraction_op.dot(self._temp_VE, out=self._temp_VB)
                 out = self._V_boundary_op.dot(self._temp_VB, out=out)
             else:
                 self._V_boundary_op_T.dot(v, out=self._temp_VB)
                 self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_WE)
                 self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
                 out = self._W_boundary_op.dot(self._temp_WB, out=out)
         else:
             if self._transposed:
                 self._W_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_VE)
                 out = self._V_extraction_op.dot(self._temp_VE, out=out)
             else:
                 self._V_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_WE)
                 out = self._W_extraction_op.dot(self._temp_WE, out=out)
 
         return out
@@ -2202,6 +2216,7 @@ class WeightedMassOperator(LinearOperator):
             Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
         """
+        self._apply_mat_cache = None  # the matrix changes
         assert not self._dry_run, (
             "A dry-run operator has no matrix data and cannot be assembled (memory estimation only)."
         )
@@ -2477,6 +2492,7 @@ class WeightedMassOperator(LinearOperator):
             out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
+        out._apply_mat_cache = None
 
         if self._creation_info is None:
             out._creation_info = None
@@ -2487,6 +2503,7 @@ class WeightedMassOperator(LinearOperator):
 
     def __imul__(self, a):
         self._mat *= a
+        self._apply_mat_cache = None
         self._creation_info = None
         return self
 
@@ -2497,11 +2514,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat += M._mat
+            self._apply_mat_cache = None
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat += M
+            self._apply_mat_cache = None
             return self
 
         else:
@@ -2514,11 +2533,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat -= M._mat
+            self._apply_mat_cache = None
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat -= M
+            self._apply_mat_cache = None
             return self
 
         else:
