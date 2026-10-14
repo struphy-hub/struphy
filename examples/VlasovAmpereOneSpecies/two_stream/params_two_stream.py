@@ -1,3 +1,6 @@
+"""Two-stream instability with the VlasovAmpereOneSpecies model: two counter-streaming electron beams in a 1D
+periodic box become unstable; the nonlinear phase shows particle trapping and phase-space vortices."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
