@@ -2261,6 +2261,33 @@ class Output:
             self._time = np.load(self.path_pproc / "t_grid.npy", mmap_mode="r") * self.time_scale
         return self._time
 
+    def field_form(self, name: str) -> str:
+        """The FEEC form of the raw field ``name`` (``"species/variable"``): ``"0"``, ``"1"``, ``"2"``, ``"3"`` or
+        ``"v"`` for the spaces H1, Hcurl, Hdiv, L2 and H1vec."""
+        species, variable = name.split("/")
+        with h5py.File(self.path_out / "data" / "data_proc0.hdf5", "r") as file:
+            return PUSH_KINDS[file[f"feec/{species}/{variable}"].attrs["space_id"]]
+
+    def field_basis(self, name: str) -> str:
+        """The basis in which the components of the raw field ``name`` (``"species/variable"``) are shown: the
+        ``given_in_basis`` of the perturbations of its initial condition, ``"physical"`` (Cartesian components) for
+        perturbations given in physical components. Without perturbations, or when they are given in different
+        bases, its FEEC form (see :meth:`field_form`)."""
+        species, variable = name.split("/")
+        form = self.field_form(name)
+        try:
+            perturbations = self.initial_conditions.get(species, {}).get(variable, {}).get("perturbations")
+        except (KeyError, ValueError):
+            return form
+        if perturbations is None:
+            return form
+        if not isinstance(perturbations, (list, tuple)):
+            perturbations = [perturbations]
+        bases = {
+            "physical" if str(p.given_in_basis).startswith("physical") else str(p.given_in_basis) for p in perturbations
+        }
+        return bases.pop() if len(bases) == 1 else form
+
     def standard_snapshots(self) -> list[int]:
         """Positions of the first, middle and last saved time step, at which the examples make their standard plots.
 

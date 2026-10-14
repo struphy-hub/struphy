@@ -66,12 +66,24 @@ def vtk_file(path_out, species="em_fields", physical=False, step=-1, snapshot=No
     raise FileNotFoundError(f"No VTK file of the time step {snapshot} in {files[0].parent}.")
 
 
-def load_field(path_out, variable, species="em_fields", step=-1, snapshot=None) -> tuple[pv.StructuredGrid, str]:
+def load_field(
+    path_out, variable, species="em_fields", step=-1, snapshot=None, component=None, physical=False
+) -> tuple[pv.StructuredGrid, str]:
     """The grid of the saved time step ``step`` (an index into the saved steps, -1 for the last one; or with
     ``snapshot`` the post-processed time step of that number, see :func:`vtk_file`) with the field as active
     scalars, and the name of these scalars: ``variable`` for a scalar field, ``|variable|`` for the magnitude of a
-    vector field."""
+    vector field, ``variable_<component + 1>`` for one ``component`` (0, 1 or 2) of a vector field, in its FEEC
+    form or, with ``physical``, Cartesian."""
     grid = close_periodic(pv.read(vtk_file(path_out, species, step=step, snapshot=snapshot)))
+    if component is not None:
+        name = f"{variable}_{component + 1}"
+        if physical:
+            phy = close_periodic(pv.read(vtk_file(path_out, species, physical=True, step=step, snapshot=snapshot)))
+            grid.point_data[name] = phy.point_data[name]
+        elif name not in grid.point_data:
+            raise KeyError(f"No vector field {variable!r} in {species}; available: {sorted(grid.point_data.keys())}.")
+        grid.set_active_scalars(name)
+        return grid, name
     if variable in grid.point_data:
         grid.set_active_scalars(variable)
         return grid, variable
@@ -206,6 +218,8 @@ def plot_field_3d(
     species="em_fields",
     step=-1,
     snapshot=None,
+    component=None,
+    physical=False,
     filename=None,
     show=False,
     cutaway=True,
@@ -233,6 +247,11 @@ def plot_field_3d(
     snapshot : int | None
         Number of the post-processed time step instead of ``step`` (for VTK files of selected steps,
         ``Output.pproc(vtk_steps=...)``).
+    component : int | None
+        Show this component (0, 1 or 2) of a vector field instead of its magnitude: in its FEEC form (e.g. the
+        2-form components of an Hdiv field) or, with ``physical``, the Cartesian one.
+    physical : bool
+        With ``component``, the Cartesian component (needs ``Output.pproc(physical=True)``).
     filename : str | Path | None
         Save the image there (e.g. ``"phi_3d.png"``).
     show : bool
@@ -265,7 +284,7 @@ def plot_field_3d(
     pyvista.Plotter
         The plotter (closed unless ``show``).
     """
-    grid, scalars = load_field(path_out, variable, species, step, snapshot)
+    grid, scalars = load_field(path_out, variable, species, step, snapshot, component, physical)
     # a torus with tor_period n covers 1 / n of the angle: show the full torus
     grid = repeat_around_axis(grid, toroidal_period(path_out))
     default_cmap, clim = default_colormap(*grid.get_data_range(scalars))

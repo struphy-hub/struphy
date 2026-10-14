@@ -2,8 +2,10 @@
 
 Run as ``python pproc_ShearAlfven.py [sim_folder] [flags of params_ShearAlfven.py] [--show]``. The standard
 plots of the examples (slices in the physical planes and 3D views of the fields) are made at the first, middle and
-last saved time, together with the energy budget and the (m, n) harmonics of the radial components. Figures are
-written into ``<sim_folder>/results``. The energy and harmonics plots use plasma-plots
+last saved time, together with the energy budget and the (m, n) harmonics of the radial components. Vector fields
+are shown by their components in the basis of their initial condition (``given_in_basis``, else their FEEC form,
+see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
+radial (eta1) components. Figures are written into ``<sim_folder>/results``. The energy and harmonics plots use plasma-plots
 (``pip install "struphy[pproc]"``).
 """
 
@@ -26,13 +28,12 @@ from params_ShearAlfven import args, parser  # noqa: E402
 
 DEFAULT_OUTPUT = Path(args.out_folder) / args.sim_folder
 
-# standard plots: (key, label, species, variable, kind) per field; kind is None for a scalar field and the
-# push-forward of a vector field, which is shown by its magnitude
+# standard plots: (key, label, species, variable, vector) per field
 FIELDS = [
-    ("u", "|U|", "mhd", "velocity", "2"),
-    ("b", "|B|", "em_fields", "b_field", "2"),
+    ("u", "U", "mhd", "velocity", True),
+    ("b", "B", "em_fields", "b_field", True),
 ]
-# (m, n) harmonics of the radial 2-form components (radial direction eta1)
+# (m, n) harmonics of the radial (eta1) components
 HARMONICS = [("u_r", "mhd/velocity"), ("b_r", "em_fields/b_field")]
 ENERGIES = ("en_U", "en_B")  # energy scalars shown next to en_tot
 
@@ -62,17 +63,24 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     results_dir = os.path.join(run.path_out, "results")
     os.makedirs(results_dir, exist_ok=True)
 
+    # the basis of the components of each vector field (None for a scalar field)
+    bases = {f"{s}/{v}": run.field_basis(f"{s}/{v}") if vector else None for _, _, s, v, vector in FIELDS}
+
     finish({"energies": run.plot.energies(parts=ENERGIES).fig}, results_dir, save_figs)
     for n, t in zip(snapshots, times):
-        figs = {}
-        fields = [
-            (f"{key}_t{t:.2f}", f"{label}, t = {t:.3g},", f"{species}/{variable}", n, None, kind)
-            for key, label, species, variable, kind in FIELDS
-        ]
-        figs.update(plot_physical_slices(run, run.domain, run.grid.num_elements, fields))
+        # one field at a time, saved right away, so that few figures are open at once
+        for key, label, species, variable, _ in FIELDS:
+            name = f"{species}/{variable}"
+            field = (key, f"{label} at t = {t:.3g}", name, n, None, bases[name])
+            slices = plot_physical_slices(run, run.domain, run.grid.num_elements, [field], components=True)
+            # e.g. u1_slices_rz_t1.00 for the first component of U in the R-z plane at t = 1
+            finish({f"{fig_name}_t{t:.2f}": fig for fig_name, fig in slices.items()}, results_dir, save_figs)
 
+        figs = {}
         for key, name in HARMONICS:
-            data = run.evaluate(name, representation="2", t=n, component=0)
+            # the logical radial component: in the basis of the initial condition unless it is Cartesian
+            basis = bases[name] if bases[name] != "physical" else run.field_form(name)
+            data = run.evaluate(name, representation=basis, t=n, component=0)
             data.name = key
             result = data.plasma.plot.mode_profiles(
                 scale=(1, run.domain.params["tor_period"]),
@@ -81,13 +89,29 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
                 top=4,
             )
             figs[f"{key}_harmonics_t{t:.2f}"] = result.fig
-        # saved per snapshot, so that only the figures of one snapshot are open at a time
         finish(figs, results_dir, save_figs)
 
-        # 3D views of the fields, saved as <field>_3d_t<time>.png
+        # 3D views of the scalar fields and of the radial (eta1) components of the vector fields, saved as
+        # <field>_3d_t<time>.png and <field>1_3d_t<time>.png
         for key, _, species, variable, _ in FIELDS:
-            filename = os.path.join(results_dir, f"{key}_3d_t{t:.2f}.png")
-            plot_field_3d(run.path_out, variable, species=species, snapshot=n, filename=filename)
+            basis = bases[f"{species}/{variable}"]
+            if basis is None:
+                filename = os.path.join(results_dir, f"{key}_3d_t{t:.2f}.png")
+                plot_field_3d(run.path_out, variable, species=species, snapshot=n, filename=filename)
+            elif basis in (run.field_form(f"{species}/{variable}"), "physical"):
+                # the VTK files hold the components in the FEEC form and the Cartesian ones
+                filename = os.path.join(results_dir, f"{key}1_3d_t{t:.2f}.png")
+                plot_field_3d(
+                    run.path_out,
+                    variable,
+                    species=species,
+                    snapshot=n,
+                    component=0,
+                    physical=basis == "physical",
+                    filename=filename,
+                )
+            else:
+                print(f"No 3D view of {species}/{variable}: its basis {basis!r} is not in the VTK files.")
 
     if not save_figs:
         plt.show()

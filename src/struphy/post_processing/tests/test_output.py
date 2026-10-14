@@ -687,6 +687,34 @@ def test_standard_snapshots_are_first_middle_and_last(tmp_path, saved, expected)
     assert run.standard_snapshots() == expected
 
 
+@pytest.mark.parametrize(
+    "bases, expected",
+    [
+        (None, "2"),
+        (["v"], "v"),
+        (["2", "2"], "2"),
+        (["1", "v"], "2"),  # different bases: the FEEC form
+        (["physical_at_eta"], "physical"),
+    ],
+)
+def test_field_basis_is_that_of_the_initial_condition(tmp_path, monkeypatch, bases, expected):
+    from types import SimpleNamespace
+
+    run = Output(write_tree(str(tmp_path)))
+    with h5py.File(run.path_out / "data" / "data_proc0.hdf5", "a") as file:
+        file["feec/em_fields"].create_dataset("b_field", data=np.empty(0)).attrs["space_id"] = "Hdiv"
+    if bases is None:
+        conditions = {}
+    else:
+        perturbations = [SimpleNamespace(given_in_basis=basis) for basis in bases]
+        conditions = {
+            "em_fields": {"b_field": {"perturbations": perturbations[0] if len(bases) == 1 else perturbations}}
+        }
+    monkeypatch.setattr(Output, "initial_conditions", conditions)
+    assert run.field_form("em_fields/b_field") == "2"
+    assert run.field_basis("em_fields/b_field") == expected
+
+
 def test_create_vtk_writes_only_the_selected_steps(run, tmp_path):
     shape = (3, 4, 5)
     grids_phy = list(np.meshgrid(*(np.linspace(0, 1, n) for n in shape), indexing="ij"))

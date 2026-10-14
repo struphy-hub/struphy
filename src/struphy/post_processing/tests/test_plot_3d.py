@@ -115,3 +115,16 @@ def test_repeat_sector_around_axis():
     # the field of the period of the sector is continued correctly
     angles = np.arctan2(full.points[:, 1], full.points[:, 0])
     assert np.allclose(full.point_data["f"], np.cos(6 * angles), atol=1e-12)
+
+
+@pytest.mark.mpi_skip
+def test_load_vector_component(tmp_path):
+    write_run(tmp_path)
+    # the FEEC form (logical components, all ones in the fake run)
+    grid, name = load_field(tmp_path, "e", step=1, component=1)
+    assert name == "e_2" and np.allclose(grid.point_data["e_2"], 1.0)
+    # the Cartesian component 2 y (at step 1)
+    grid, name = load_field(tmp_path, "e", step=1, component=1, physical=True)
+    assert name == "e_2" and np.allclose(grid.point_data["e_2"], 2 * grid.points[:, 1])
+    with pytest.raises(KeyError):
+        load_field(tmp_path, "phi", component=0)

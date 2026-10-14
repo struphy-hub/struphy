@@ -1,10 +1,12 @@
 """Standard slice plots of FEEC fields in physical planes (used e.g. by the pproc scripts of the FEEC examples).
 
-For each field, :func:`plot_physical_slices` makes one figure per physical plane, each with the Struphy result on top
-of its error (with respect to an exact solution, if given) below:
+For each field, :func:`plot_physical_slices` makes one figure per physical plane (and per component of a vector field
+with ``components=True``), each with the Struphy result on top of its error (with respect to an exact solution, if
+given) below:
 
 * ``xy``, ``xz``, ``yz``: the planes z = const, y = 0 and x = 0 through the domain, as functions of the Cartesian
-  coordinates of the plane,
+  coordinates of the plane (for tori only ``xy`` by default: ``xz`` and ``yz`` are poloidal cross-sections like
+  ``rz``; ``all_planes=True`` adds them),
 * ``rz`` (cylinders and tori only): the poloidal plane at the angle ``phi`` (atan2(y, x), default pi), as a function
   of the distance to the axis (r for a cylinder, the major radius R for a torus) and z.
 
@@ -24,6 +26,15 @@ from matplotlib import pyplot as plt
 
 from struphy.post_processing.output import Output
 
+# descriptions of the bases of vector components, for the titles
+BASES = {
+    "1": "1-form",
+    "2": "2-form",
+    "v": "vector field",
+    "norm": "normalized basis",
+    "physical": "Cartesian",
+}
+
 
 @dataclass
 class Plane:
@@ -40,13 +51,15 @@ class Plane:
     tiles: int = 1
 
 
-def physical_planes(domain, phi=np.pi) -> dict[str, Plane]:
+def physical_planes(domain, phi=np.pi, all_planes=False) -> dict[str, Plane]:
     """The physical planes through ``domain`` as logical surfaces (Cuboid, HollowCylinder, IGAPolarCylinder,
     HollowTorus, IGAPolarTorus).
 
     For the spline mappings (IGAPolar...) the poloidal angle is only approximately 2 pi eta2, so the planes cut at
     eta2 are approximate. Tori may cover part of the toroidal angle (``tor_period`` > 1, see the module docstring);
-    domains covering only part of the poloidal angle (``poc`` or ``pol_period`` other than 1) raise a ValueError."""
+    domains covering only part of the poloidal angle (``poc`` or ``pol_period`` other than 1) raise a ValueError.
+    For tori, the planes ``xz`` and ``yz`` (poloidal cross-sections at the toroidal angles 0, pi and +-pi/2, like
+    ``rz``) are only included with ``all_planes``."""
     kind = type(domain).__name__
     # the cuts below assume the full poloidal angle theta = 2 pi eta2
     periods = {k: domain.params.get(k, 1) for k in ("poc", "pol_period")}
@@ -76,44 +89,62 @@ def physical_planes(domain, phi=np.pi) -> dict[str, Plane]:
             rotations = tuple(angle + 2 * np.pi * value / n for angle, value in zip(angles, values))
             return dict(where=where, cut="eta3", values=values, rotations=rotations)
 
-        return {
+        planes = {
             "xy": Plane("x", "y", "z = 0", "eta2", (0.0, 0.5), tiles=n),
             "xz": Plane("x", "z", **toroidal("y = 0", 0.0, np.pi)),
             "yz": Plane("y", "z", **toroidal("x = 0", np.pi / 2, 3 * np.pi / 2)),
             "rz": Plane("R", "z", **toroidal(f"phi = {phi:.3g}", phi)),
         }
+        return planes if all_planes else {name: planes[name] for name in ("xy", "rz")}
     raise NotImplementedError(f"No physical planes defined for the domain {kind}.")
 
 
-def evaluate_plane(out: Output, domain, name, t, exact, plane: Plane, n_pts, kind=None):
+def evaluate_plane(out: Output, domain, name, t, exact, plane: Plane, n_pts, kind=None, components=False):
     """Numerical and exact values of the field ``name`` on the logical surfaces of ``plane``, and the physical
     coordinates of the evaluation points (including r = R = sqrt(x^2 + y^2)).
 
-    A scalar field (``kind`` None) is plotted as it is. A vector field is given by the ``kind`` of its
-    push-forward ("1", "2" or "v"): it is pushed forward to its Cartesian components and its magnitude is plotted.
+    A scalar field (``kind`` None) is plotted as it is. Without ``components``, a vector field is given by the
+    ``kind`` of its push-forward ("1", "2" or "v"): it is pushed forward to its Cartesian components and its
+    magnitude is plotted. With ``components``, ``kind`` is the basis of its three components ("1", "2", "v",
+    "norm", or "physical" for the Cartesian ones, see :meth:`Output.field_basis`), which are returned along a first
+    axis of length 3 (the exact values too).
     ``exact(eta1, eta2, eta3, x, y, z)`` returns the exact values of what is plotted, or None without an exact
     solution. All arrays have the axis ``cut`` of length ``len(plane.values)``; the copies of ``plane.tiles`` are
     appended along eta3."""
     etas = {e: np.linspace(0.0, 1.0, n_pts) for e in ("eta1", "eta2", "eta3")}
     etas[plane.cut] = list(plane.values)
-    data = out.evaluate(name, t=t, representation=kind, **etas)
+    # Cartesian components are rotated with the coordinates of a torus sector (logical ones are not)
+    cartesian = kind is not None and (not components or kind == "physical")
+    form = (out.field_form(name) if kind == "physical" else kind) if cartesian else None
+    data = out.evaluate(name, t=t, representation=form if cartesian else kind, **etas)
     grids = [data.coords[e].values for e in ("eta1", "eta2", "eta3")]
     if kind is None:
         values = data.values
+    elif cartesian:
+        values = domain.push([data.isel(component=k).values for k in range(3)], *grids, kind=form)
+        values = np.stack([xp.to_numpy(c) for c in values])
     else:
-        cartesian = domain.push([data.isel(component=k).values for k in range(3)], *grids, kind=kind)
-        values = np.linalg.norm(np.stack([xp.to_numpy(c) for c in cartesian]), axis=0)
+        values = np.stack([data.isel(component=k).values for k in range(3)])
     E1, E2, E3 = np.meshgrid(*grids, indexing="ij")
     x, y, z = (data.coords[c].values for c in ("X", "Y", "Z"))
     if plane.rotations is not None:
         shape = [1, 1, 1]
         shape[("eta1", "eta2", "eta3").index(plane.cut)] = -1
-        x, y = rotate(x, y, np.reshape(plane.rotations, shape))
+        rotations = np.reshape(plane.rotations, shape)
+        x, y = rotate(x, y, rotations)
+        if cartesian:
+            values[0], values[1] = rotate(values[0], values[1], rotations)
     if plane.tiles > 1:
         # in the direction of increasing eta3 (decreasing phi), so that the copies continue each other
-        copies = [rotate(x, y, -2 * np.pi * k / plane.tiles) for k in range(plane.tiles)]
-        x, y = (np.concatenate([copy[i] for copy in copies], axis=2) for i in (0, 1))
-        values, z, E1, E2, E3 = (np.concatenate([a] * plane.tiles, axis=2) for a in (values, z, E1, E2, E3))
+        angles = [-2 * np.pi * k / plane.tiles for k in range(plane.tiles)]
+        x, y = (np.concatenate([rotate(x, y, a)[i] for a in angles], axis=-1) for i in (0, 1))
+        if cartesian:
+            values = np.concatenate([np.stack([*rotate(values[0], values[1], a), values[2]]) for a in angles], axis=-1)
+        else:
+            values = np.concatenate([values] * plane.tiles, axis=-1)
+        z, E1, E2, E3 = (np.concatenate([a] * plane.tiles, axis=-1) for a in (z, E1, E2, E3))
+    if cartesian and not components:
+        values = np.linalg.norm(values, axis=0)
     coords = {"x": x, "y": y, "z": z}
     coords["r"] = coords["R"] = np.sqrt(x**2 + y**2)
     exact_values = None if exact is None else exact(E1, E2, E3, x, y, z)
@@ -154,7 +185,9 @@ def plot_plane(num, exact, coords, plane: Plane, label):
     return fig
 
 
-def plot_physical_slices(out: Output, domain, num_elements, fields, phi=np.pi, points_per_cell=2):
+def plot_physical_slices(
+    out: Output, domain, num_elements, fields, phi=np.pi, points_per_cell=2, components=False, all_planes=False
+):
     """Figures of the fields in the physical planes of ``domain`` (see :func:`physical_planes`).
 
     Parameters
@@ -173,6 +206,14 @@ def plot_physical_slices(out: Output, domain, num_elements, fields, phi=np.pi, p
         what is plotted; with ``exact`` None, the figure shows the Struphy result only.
     phi : float
         Angle of the poloidal plane ``rz``.
+    points_per_cell : int
+        Evaluation points per cell of the simulation grid.
+    components : bool
+        Show the three components of each vector field, one figure each (``<key><1|2|3>_slices_<plane>``), in the
+        basis ``kind`` ("1", "2", "v", "norm" or "physical", see :meth:`Output.field_basis`), instead of the
+        magnitude of its push-forward. ``exact`` then returns the three components along a first axis.
+    all_planes : bool
+        For tori, also the planes ``xz`` and ``yz`` (see :func:`physical_planes`).
 
     Returns
     -------
@@ -181,8 +222,18 @@ def plot_physical_slices(out: Output, domain, num_elements, fields, phi=np.pi, p
     """
     n_pts = points_per_cell * max(num_elements) + 1
     figs = {}
-    for plane_name, plane in physical_planes(domain, phi).items():
+    for plane_name, plane in physical_planes(domain, phi, all_planes).items():
         for key, label, name, t, exact, kind in fields:
-            num, exact_values, coords = evaluate_plane(out, domain, name, t, exact, plane, n_pts, kind)
-            figs[f"{key}_slices_{plane_name}"] = plot_plane(num, exact_values, coords, plane, label)
+            num, exact_values, coords = evaluate_plane(out, domain, name, t, exact, plane, n_pts, kind, components)
+            if components and kind is not None:
+                for k in range(3):
+                    figs[f"{key}{k + 1}_slices_{plane_name}"] = plot_plane(
+                        num[k],
+                        None if exact_values is None else exact_values[k],
+                        coords,
+                        plane,
+                        f"{label}, component {k + 1} ({BASES.get(kind, kind)})",
+                    )
+            else:
+                figs[f"{key}_slices_{plane_name}"] = plot_plane(num, exact_values, coords, plane, label)
     return figs
