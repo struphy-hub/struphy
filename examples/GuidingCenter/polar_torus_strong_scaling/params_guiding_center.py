@@ -57,7 +57,15 @@ parser.add_argument(
 parser.add_argument("--dt", type=float, default=0.2, help="Time step.")
 parser.add_argument("--tend", type=float, default=100.0, help="End time.")
 parser.add_argument("--save-step", type=int, default=20, help="Save (and bin) every save_step time steps.")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (num_elements = [8, 18, 18]; ppc = 5), for the tests (test_examples.py).",
+)
 args, _ = parser.parse_known_args()
+if args.test_run:
+    args.num_elements = [8, 18, 18]
+    args.ppc = 5
 
 name = f"GuidingCenter {args.init} Maxwellian in an ad hoc tokamak, {args.algo}"
 description = f"""

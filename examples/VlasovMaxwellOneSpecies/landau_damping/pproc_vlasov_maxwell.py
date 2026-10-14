@@ -31,7 +31,12 @@ from params_vlasov_maxwell import dt, gpu_timing, num_elements, parser, ppc, ste
 def main(path_out=DEFAULT_OUTPUT):
     out = Output(path_out)
 
-    results = out.profile.results  # the scope-profiler results of the run, all ranks merged
+    try:
+        results = out.profile.results  # the scope-profiler results of the run, all ranks merged
+    except FileNotFoundError:
+        # e.g. in test_examples.py, which runs the simulation without profiling
+        print(f"No profiling data in {out.path_out}; run with Simulation.run(profiling_activated=True).")
+        return
     results_dir = out.path_out / "results"
     results_dir.mkdir(exist_ok=True)
 

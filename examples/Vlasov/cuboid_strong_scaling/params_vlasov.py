@@ -39,7 +39,15 @@ parser.add_argument("--num-elements", type=int, nargs=3, default=[16, 16, 16], h
 parser.add_argument("--dt", type=float, default=0.05, help="Time step.")
 parser.add_argument("--tend", type=float, default=100.0, help="End time (about 16 cyclotron periods).")
 parser.add_argument("--save-step", type=int, default=20, help="Save (and bin) every save_step time steps.")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (num_elements = [8, 8, 8]; ppc = 10), for the tests (test_examples.py).",
+)
 args, _ = parser.parse_known_args()
+if args.test_run:
+    args.num_elements = [8, 8, 8]
+    args.ppc = 10
 
 name = f"Vlasov Maxwellian equilibrium in a periodic cube, push_vxb {args.vxb_algo}, push_eta {args.butcher}"
 description = f"""

@@ -53,7 +53,14 @@ parser.add_argument(
     choices=["free", "dirichlet"],
     help="Boundary condition at the hole of the tensor-product domain (default dirichlet; the natural boundary condition contradicts the solution, whose curl is largest on the axis, and the error is amplified by 1/sigma).",
 )
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (num_elements = [16, 18, 16]), for the tests (test_examples.py).",
+)
 args, _ = parser.parse_known_args()
+if args.test_run:
+    args.num_elements = [16, 18, 16]
 
 precond = None if args.precond == "None" else args.precond
 

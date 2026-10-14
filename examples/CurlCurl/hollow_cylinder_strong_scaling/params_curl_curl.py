@@ -28,7 +28,14 @@ parser.add_argument(
     help="Name of the preconditioner (None for no preconditioner).",
 )
 parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 64], help="Number of elements per direction.")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (num_elements = [16, 16, 16]), for the tests (test_examples.py).",
+)
 args, _ = parser.parse_known_args()
+if args.test_run:
+    args.num_elements = [16, 16, 16]
 
 precond = None if args.precond == "None" else args.precond
 

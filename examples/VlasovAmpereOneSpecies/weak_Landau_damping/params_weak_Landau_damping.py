@@ -171,7 +171,8 @@ if profiling:
         label=profiling_label,
         use_gpu_timing=gpu_timing,
         gpu_timing_backend="cupy",
-        gpu_sync_on_exit=gpu_timing,
+        # synchronize the device at region ends (needs a scope-profiler newer than struphy's pin, GPU timing only)
+        **({"gpu_sync_on_exit": True} if gpu_timing else {}),
     )
 else:
     profiling_opts = ProfilingOptions()

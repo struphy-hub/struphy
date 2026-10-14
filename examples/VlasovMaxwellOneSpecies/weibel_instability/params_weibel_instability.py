@@ -116,8 +116,8 @@ import cunumpy as xp
 k = 1.25
 B_pert_amp = -1e-4
 
-vth1_background_val = 0.02 / xp.sqrt(2)
-vth2_background_val = vth1_background_val * xp.sqrt(12)
+vth1_background_val = 0.02 / math.sqrt(2)  # plain floats, also on the CuPy backend
+vth2_background_val = vth1_background_val * math.sqrt(12)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -176,7 +176,8 @@ if profiling:
         label=profiling_label,
         use_gpu_timing=gpu_timing,
         gpu_timing_backend="cupy",
-        gpu_sync_on_exit=gpu_timing,
+        # synchronize the device at region ends (needs a scope-profiler newer than struphy's pin, GPU timing only)
+        **({"gpu_sync_on_exit": True} if gpu_timing else {}),
     )
 else:
     profiling_opts = ProfilingOptions()
