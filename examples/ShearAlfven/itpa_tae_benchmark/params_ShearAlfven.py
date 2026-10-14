@@ -60,7 +60,6 @@ model.mhd.velocity.save_data = True
 # Environment options
 env = EnvironmentOptions(
     save_step=10,
-    out_folders="/u/shrusi/git_repos/struphy/examples/ShearAlfven/itpa_tae_benchmark/",
     sim_folder="sim6_higherResolution_ShearAlfven",
     max_runtime=470
     )

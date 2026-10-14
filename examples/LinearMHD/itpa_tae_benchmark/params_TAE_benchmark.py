@@ -62,7 +62,6 @@ model.mhd.pressure.save_data = True
 # Environment options
 env = EnvironmentOptions(
     save_step=2,
-    out_folders="/u/shrusi/git_repos/struphy/examples/LinearMHD/itpa_tae_benchmark/",
     sim_folder="sim5_higherResolution",
     max_runtime=350
     )
