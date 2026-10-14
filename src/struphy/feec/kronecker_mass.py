@@ -38,8 +38,10 @@ def kronecker_mass_enabled() -> bool:
 def _band_pass_cuda():
     """The CUDA kernel of one banded pass (compiled on first call)."""
     from cunumpy.kernels import CudaKernel
+    from feectools.utilities.cached_launch import CachedLaunch
 
-    return CudaKernel.from_file(Path(__file__).with_name("kron_band_pass_cuda.cu"), "kron_band_pass")
+    # launched with the same buffers in every solver iteration: cache the launch preparation
+    return CachedLaunch(CudaKernel.from_file(Path(__file__).with_name("kron_band_pass_cuda.cu"), "kron_band_pass"))
 
 
 def _band_pass(A, inp, out, axis, offset):

@@ -82,12 +82,24 @@ parser.add_argument(
     default=1,
     help="Number of time steps, i.e. Poisson solves with the same matrices (assembled once in the setup).",
 )
+parser.add_argument(
+    "--solver",
+    choices=["pcg", "pcg_sr"],
+    default="pcg",
+    help="CG variant: 'pcg_sr' does one global reduction per iteration instead of two (for many ranks/GPUs).",
+)
+parser.add_argument(
+    "--no-output",
+    action="store_true",
+    help="Write only the profiling data: no field or restart data, no post-processing, no error check or figures.",
+)
 args, _ = parser.parse_known_args()
 
 env = EnvironmentOptions(
     sim_folder=f"sim_{args.id:02d}",
     restart=False,
     save_step=args.steps,  # save the first and the last snapshot only
+    save_restart=not args.no_output,
 )
 
 # Time stepping
@@ -161,7 +173,7 @@ from struphy.linear_algebra.solver import SolverParameters
 solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=False)
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
-    solver="pcg",
+    solver=args.solver,
     precond=None,
     solver_params=solver_params,
 )
@@ -210,12 +222,16 @@ rhs_perturbation = GenericPerturbation(rhs_fun, given_in_basis="0")
 
 model.em_fields.source.add_perturbation(rhs_perturbation)
 
+if args.no_output:
+    for variable in (model.em_fields.phi, model.em_fields.source):
+        variable.save_data = False
+
 
 if __name__ == "__main__":
     # switches for debugging and testing
     estimate_mem = False
     run = True
-    pproc = True
+    pproc = not args.no_output
     save_figs = True
 
     if estimate_mem:
@@ -228,8 +244,10 @@ if __name__ == "__main__":
         # use this for working with existing sim data from a previous run
         out = sim.output
 
-    if pproc:
-        out.pproc(create_vtk=True, parallel=True)
+    if not pproc:
+        exit()
+
+    out.pproc(create_vtk=True, parallel=True)
 
     from matplotlib import pyplot as plt
 

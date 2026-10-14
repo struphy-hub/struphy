@@ -1,8 +1,19 @@
+import cunumpy as xp
 from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
-from feectools.linalg.stencil import StencilVectorSpace
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
+
+
+def _blocks(v):
+    """The StencilVector blocks of a StencilVector or BlockVector (of StencilVectors), else None."""
+    if isinstance(v, StencilVector):
+        return [v]
+    if isinstance(v, BlockVector) and all(isinstance(b, StencilVector) for b in v.blocks):
+        return list(v.blocks)
+    return None
 
 
 class BoundaryOperator(LinearOperator):
@@ -196,12 +207,45 @@ class BoundaryOperator(LinearOperator):
         else:
             assert isinstance(out, Vector)
             assert out.space == self._codomain
+            masks = self._device_masks(v)
+            if masks is not None:
+                # copy and boundary conditions in one kernel per block (see _device_masks)
+                in_sync = True
+                for v_blk, out_blk, (mask, stale) in zip(_blocks(v), _blocks(out), masks):
+                    xp.multiply(v_blk._data, mask, out=out_blk._data)
+                    in_sync = in_sync and v_blk.ghost_regions_in_sync and not stale
+                # one flag for all blocks: a BlockVector flagged in sync with stale blocks would have them updated
+                # one at a time by the operators that check each block, instead of together
+                out.ghost_regions_in_sync = in_sync
+                return out
             v.copy(out=out)
 
         # apply boundary conditions to output vector
         apply_essential_bc_to_array(self._space_id, out, self.bc)
 
         return out
+
+    def _device_masks(self, v):
+        """Per block of ``v``: (0/1 mask of the entries the boundary conditions keep, whether they stale the ghosts).
+
+        For device (CuPy) data of Stencil/Block vectors, ``dot`` computes ``out = v * mask`` (one kernel per block)
+        instead of a copy and one fill per boundary and component. The masks are found once, by applying
+        :func:`apply_essential_bc_to_array` to a vector of ones, so they zero exactly the entries it zeroes (ghost
+        entries included) and flag the same blocks as having stale ghost regions. None on the host backend and for
+        other vectors (e.g. polar vectors), which use the copy and :func:`apply_essential_bc_to_array`.
+        """
+        if not hasattr(self, "_masks_cache"):
+            self._masks_cache = None
+            blocks = _blocks(v)
+            if blocks is not None and all(xp.is_gpu(b._data) for b in blocks):
+                probe = v.space.zeros()
+                probe_blocks = _blocks(probe)
+                for b in probe_blocks:
+                    b._data[...] = 1.0
+                    b.ghost_regions_in_sync = True
+                apply_essential_bc_to_array(self._space_id, probe, self.bc)
+                self._masks_cache = [(b._data.copy(), not b.ghost_regions_in_sync) for b in probe_blocks]
+        return self._masks_cache
 
     def transpose(self, conjugate=False):
         """

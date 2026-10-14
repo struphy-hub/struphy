@@ -1793,10 +1793,25 @@ class Particles(metaclass=ABCMeta):
         (staged through host memory otherwise), see :meth:`_sendrecv_markers_device`. The
         per-rank counts are small host arrays on every backend (:meth:`_sendrecv_all_to_all`).
         """
-        if remove_ghost:
-            self._remove_ghost_particles()
+        # Ghost particles (last column -2) only exist with sorting boxes (SPH ghost boxes,
+        # _prepare_ghost_particles); without them the ghost mask stays all False and its
+        # bookkeeping (full passes over the buffer, a nonzero) can be skipped.
+        ghosts_possible = self._initialized_sorting
 
-        self._Barrier()
+        # On the GPU the marker rows go through cunumpy.mpi.exchange, which waits for every send and
+        # receive (_sendrecv_markers_device): no barriers are needed around the exchange. The host path
+        # does not wait for its sends, so it keeps them.
+        barriers = xp.get_array_backend(self._markers) != "cupy"
+
+        if remove_ghost:
+            if ghosts_possible:
+                self._remove_ghost_particles()
+            else:
+                # what _remove_ghost_particles leaves when there are no ghosts: refreshed holes
+                self.update_holes()
+
+        if barriers:
+            self._Barrier()
 
         # before sorting, apply kinetic bc
         if apply_bc:
@@ -1826,7 +1841,8 @@ class Particles(metaclass=ABCMeta):
         # refresh ghost mask: received markers may land in rows that previously held
         # ghost particles. update_holes alone recomputes valid_mks from a stale
         # _ghost_particles mask, which would wrongly exclude these incoming real markers.
-        self._update_ghost_particles()
+        if ghosts_possible:
+            self._update_ghost_particles()
 
         # check if all markers are on the right process after sorting
         if do_test:
@@ -1840,7 +1856,8 @@ class Particles(metaclass=ABCMeta):
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
-        self._Barrier()
+        if barriers:
+            self._Barrier()
 
     @profile
     @ProfileManager.profile("apply_kinetic_bc")
@@ -4423,10 +4440,19 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             assert alpha.size == 3
             assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        self._sorting_etas[:] = (
-            alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
-            + (1.0 - alpha) * self.markers[:, bi : bi + 3]
-        )
+        if isinstance(alpha, float) and alpha == 1.0:
+            # the common case: alpha * (pos + shift) + 0 * init is exactly pos + shift for finite values,
+            # computed with one kernel instead of five
+            xp.add(
+                self.markers[:, :3],
+                self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3],
+                out=self._sorting_etas,
+            )
+        else:
+            self._sorting_etas[:] = (
+                alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
+                + (1.0 - alpha) * self.markers[:, bi : bi + 3]
+            )
 
         # for non-periodic axes, eta = 1 is the right end of the domain and must not be wrapped to eta = 0
         non_periodic_axes = [axis for axis in range(3) if axis not in self._periodic_axes]
