@@ -78,8 +78,10 @@ def load_field(
     if component is not None:
         name = f"{variable}_{component + 1}"
         if physical:
+            # all three Cartesian components, so that copies of a torus sector can rotate them (repeat_around_axis)
             phy = close_periodic(pv.read(vtk_file(path_out, species, physical=True, step=step, snapshot=snapshot)))
-            grid.point_data[name] = phy.point_data[name]
+            for k in (1, 2, 3):
+                grid.point_data[f"{variable}_{k}"] = phy.point_data[f"{variable}_{k}"]
         elif name not in grid.point_data:
             raise KeyError(f"No vector field {variable!r} in {species}; available: {sorted(grid.point_data.keys())}.")
         grid.set_active_scalars(name)
@@ -184,13 +186,23 @@ def toroidal_period(path_out) -> int:
     return int(domain.params.get("tor_period", 1))
 
 
-def repeat_around_axis(grid, copies):
+def repeat_around_axis(grid, copies, cartesian=None):
     """``grid`` and its ``copies - 1`` copies rotated about the vertical axis by multiples of 2 pi / copies, as one
-    grid: the full torus from a domain covering 1 / copies of it (``tor_period``), whose fields repeat that way."""
+    grid: the full torus from a domain covering 1 / copies of it (``tor_period``), whose fields repeat that way.
+    ``cartesian`` names the point arrays of the x- and y-components of a Cartesian vector field, which are rotated
+    with the copies."""
     if copies <= 1:
         return grid
     active = grid.active_scalars_name
-    rotated = [grid.rotate_z(360.0 * k / copies, point=(0.0, 0.0, 0.0), inplace=False) for k in range(1, copies)]
+    rotated = []
+    for k in range(1, copies):
+        copy = grid.rotate_z(360.0 * k / copies, point=(0.0, 0.0, 0.0), inplace=False)
+        if cartesian is not None:
+            angle = 2 * np.pi * k / copies
+            vx, vy = (np.array(copy.point_data[name]) for name in cartesian)
+            copy.point_data[cartesian[0]] = np.cos(angle) * vx - np.sin(angle) * vy
+            copy.point_data[cartesian[1]] = np.sin(angle) * vx + np.cos(angle) * vy
+        rotated.append(copy)
     full = grid.merge(rotated)
     full.set_active_scalars(active)
     return full
@@ -286,7 +298,8 @@ def plot_field_3d(
     """
     grid, scalars = load_field(path_out, variable, species, step, snapshot, component, physical)
     # a torus with tor_period n covers 1 / n of the angle: show the full torus
-    grid = repeat_around_axis(grid, toroidal_period(path_out))
+    cartesian = (f"{variable}_1", f"{variable}_2") if component is not None and physical else None
+    grid = repeat_around_axis(grid, toroidal_period(path_out), cartesian)
     default_cmap, clim = default_colormap(*grid.get_data_range(scalars))
     cmap = cmap or default_cmap
 

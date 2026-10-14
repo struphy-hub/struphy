@@ -1768,6 +1768,8 @@ class Output:
             Positions in ``t_grid`` (negative ones count from the end) for which files are written; by default
             all. The files keep the number of their position, ``step_<n>.vts``.
         """
+        if steps is not None and any(not -len(t_grid) <= int(n) < len(t_grid) for n in steps):
+            raise IndexError(f"vtk_steps {list(steps)} outside the {len(t_grid)} post-processed time steps.")
         selected = None if steps is None else {int(n) % len(t_grid) for n in steps}
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
@@ -2283,9 +2285,9 @@ class Output:
             return form
         if not isinstance(perturbations, (list, tuple)):
             perturbations = [perturbations]
-        bases = {
-            "physical" if str(p.given_in_basis).startswith("physical") else str(p.given_in_basis) for p in perturbations
-        }
+        # None is the default of a perturbation, a vector field
+        bases = {"v" if p.given_in_basis is None else str(p.given_in_basis) for p in perturbations}
+        bases = {"physical" if basis.startswith("physical") else basis for basis in bases}
         return bases.pop() if len(bases) == 1 else form
 
     def standard_snapshots(self) -> list[int]:

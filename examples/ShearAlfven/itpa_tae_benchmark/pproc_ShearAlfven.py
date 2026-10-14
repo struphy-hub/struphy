@@ -1,11 +1,11 @@
 """Post-process and plot the ITPA TAE benchmark run (ShearAlfven).
 
-Run as ``python pproc_ShearAlfven.py [sim_folder] [flags of params_ShearAlfven.py] [--show]``. The standard
+Run as ``python pproc_ShearAlfven.py [path_out] [flags of params_ShearAlfven.py] [--show]``. The standard
 plots of the examples (slices in the physical planes and 3D views of the fields) are made at the first, middle and
 last saved time, together with the energy budget and the (m, n) harmonics of the radial components. Vector fields
 are shown by their components in the basis of their initial condition (``given_in_basis``, else their FEEC form,
 see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
-radial (eta1) components. Figures are written into ``<sim_folder>/results``. The energy and harmonics plots use plasma-plots
+first components (radial eta1 in a logical basis). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
 (``pip install "struphy[pproc]"``).
 """
 
@@ -91,7 +91,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
             figs[f"{key}_harmonics_t{t:.2f}"] = result.fig
         finish(figs, results_dir, save_figs)
 
-        # 3D views of the scalar fields and of the radial (eta1) components of the vector fields, saved as
+        # 3D views of the scalar fields and of the first (radial eta1, in a logical basis) components, saved as
         # <field>_3d_t<time>.png and <field>1_3d_t<time>.png
         for key, _, species, variable, _ in FIELDS:
             basis = bases[f"{species}/{variable}"]

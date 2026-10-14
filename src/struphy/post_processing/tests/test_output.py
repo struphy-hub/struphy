@@ -695,6 +695,7 @@ def test_standard_snapshots_are_first_middle_and_last(tmp_path, saved, expected)
         (["2", "2"], "2"),
         (["1", "v"], "2"),  # different bases: the FEEC form
         (["physical_at_eta"], "physical"),
+        ([None], "v"),  # the default of a perturbation
     ],
 )
 def test_field_basis_is_that_of_the_initial_condition(tmp_path, monkeypatch, bases, expected):
@@ -723,6 +724,8 @@ def test_create_vtk_writes_only_the_selected_steps(run, tmp_path):
     run._create_vtk(str(tmp_path), t_grid, grids_phy, point_data, steps=[0, 2, -1])
     written = sorted(f.name for f in (tmp_path / "em_fields" / "vtk").glob("*.vts"))
     assert written == ["step_0.vts", "step_2.vts", "step_4.vts"]
+    with pytest.raises(IndexError):
+        run._create_vtk(str(tmp_path), t_grid, grids_phy, point_data, steps=[5])
 
 
 def test_manifest_is_stale_when_raw_output_changes(tmp_path):

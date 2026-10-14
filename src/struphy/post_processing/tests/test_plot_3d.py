@@ -128,3 +128,16 @@ def test_load_vector_component(tmp_path):
     assert name == "e_2" and np.allclose(grid.point_data["e_2"], 2 * grid.points[:, 1])
     with pytest.raises(KeyError):
         load_field(tmp_path, "phi", component=0)
+
+
+@pytest.mark.mpi_skip
+def test_cartesian_components_rotate_with_the_copies():
+    """The Cartesian components of a field turning with the torus, (-y, x, 0), are correct on every copy."""
+    r, phi, z = np.meshgrid(np.linspace(3.0, 4.0, 4), np.linspace(-np.pi / 3, 0.0, 5), np.linspace(-0.5, 0.5, 3))
+    sector = pv.StructuredGrid(r * np.cos(phi), r * np.sin(phi), z)
+    x, y, _ = sector.points.T
+    sector.point_data["e_1"], sector.point_data["e_2"] = -y, x
+    sector.set_active_scalars("e_1")
+    full = repeat_around_axis(sector, 6, cartesian=("e_1", "e_2"))
+    x, y, _ = full.points.T
+    assert np.allclose(full.point_data["e_1"], -y) and np.allclose(full.point_data["e_2"], x)
