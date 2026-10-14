@@ -51,7 +51,7 @@ def get_field(run, field, comp, **selection):
     if "component" in data.dims:
         data = data.isel(component=COMPONENTS[comp], drop=True)
         label = f"{field}_{comp}"
-    data.attrs["label"] = label
+    data.name = data.attrs["label"] = label
     return data
 
 
@@ -71,7 +71,7 @@ def save(result, run, name):
 
 
 def plot_field(run, field, comp, times):
-    """Radial profiles, poloidal and midplane cross-sections and (m, n) harmonics at the given times."""
+    """Radial profiles, poloidal and midplane (Z=0) cross-sections and (m, n) harmonics at the given times."""
     colors = dict(coords="physical", symmetric=True, cmap="RdBu_r", nrows=1, ncols=len(times))
 
     poloidal = get_field(run, field, comp, t=times, eta1=ETA1, eta2=ETA2, eta3=ETA3)
@@ -87,8 +87,9 @@ def plot_field(run, field, comp, times):
     save(profiles, run, f"{label}_vs_r.png")
     save(poloidal.plasma.plot.panels(plane="RZ", **colors), run, f"{label}_poloidal.png")
 
-    midplane = get_field(run, field, comp, t=times, eta1=ETA1, eta2=0.0, eta3=ETA3_GRID)
-    save(midplane.plasma.plot.panels(plane="XY", **colors), run, f"{label}_midplane.png")
+    for side, eta2 in (("outboard", 0.0), ("inboard", 0.5)):
+        midplane = get_field(run, field, comp, t=times, eta1=ETA1, eta2=eta2, eta3=ETA3_GRID)
+        save(midplane.plasma.plot.panels(plane="XY", **colors), run, f"{label}_midplane_{side}.png")
 
     for t in times:
         data = get_field(run, field, comp, t=t)
