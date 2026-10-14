@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import pyvista as pv
 
-from struphy.post_processing.plot_3d import is_torus, load_field, plot_field_3d, vtk_files
+from struphy.post_processing.plot_3d import TORUS_DOMAINS, is_torus, load_field, plot_field_3d, vtk_files
 
 
 def write_run(path_out, n=6):
@@ -68,3 +68,12 @@ def test_is_torus_without_simulation_data(tmp_path):
     radius = np.hypot(x, y)
     ring.points = np.column_stack([(radius + 3.0) * x / radius, (radius + 3.0) * y / radius, z])
     assert is_torus(tmp_path, ring)
+
+
+@pytest.mark.mpi_skip
+def test_torus_domains_exist():
+    """The names in TORUS_DOMAINS are domain classes of struphy (renaming one would silently break is_torus)."""
+    from struphy.geometry import base, domains
+
+    for name in TORUS_DOMAINS:
+        assert hasattr(domains, name) or hasattr(base, name), name

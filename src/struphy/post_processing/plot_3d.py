@@ -141,19 +141,23 @@ def crop_image(image, margin=10, background=240):
     return image[top:bottom, left:right]
 
 
+# domain classes of tori around the vertical axis x = y = 0 (with their subclasses)
+TORUS_DOMAINS = ("HollowTorus", "PoloidalSplineTorus", "IGAPolarTorus", "Tokamak", "GVECunit", "DESCunit")
+
+
 def is_torus(path_out, grid=None) -> bool:
-    """Whether the domain of the run is a torus around the vertical axis x = y = 0 (a class with "Torus" in its name,
-    or Tokamak). Without the simulation data of the run, guessed from ``grid``: no point close to that axis."""
+    """Whether the domain of the run is a torus around the vertical axis x = y = 0 (one of :data:`TORUS_DOMAINS` or
+    a subclass). Without the simulation data of the run, guessed from ``grid``: no point close to that axis."""
     try:
         from struphy.post_processing.output import Output
 
-        kind = type(Output(path_out).domain).__name__
-        return "Torus" in kind or kind == "Tokamak"
+        domain = Output(path_out).domain
     except Exception:
         if grid is None:
             return False
         horizontal = np.hypot(grid.points[:, 0], grid.points[:, 1])
         return bool(np.min(horizontal) > 0.1 * np.max(horizontal))
+    return any(cls.__name__ in TORUS_DOMAINS for cls in type(domain).__mro__)
 
 
 def plot_field_3d(
