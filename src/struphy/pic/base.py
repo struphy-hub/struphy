@@ -1217,7 +1217,10 @@ class Particles(metaclass=ABCMeta):
                 # counting integers
                 num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
                 num_loaded_particles_glob = 0  # number of particles already loaded (each clone)
-                chunk_size = 10000  # TODO: number of particle chunk
+                # markers drawn per chunk: large chunks keep the number of iterations (each a few small kernels and
+                # a device sync on the GPU) low, e.g. 16 instead of 1600 for 16M markers; a chunk of temporaries
+                # takes ~(3 + vdim + 4) * 8 bytes per marker (~50 MB). The NumPy draws do not depend on it.
+                chunk_size = 2**20
 
                 # Total number of markers to draw (sum over all clones)
                 while num_loaded_particles_glob < int(self.Np):
