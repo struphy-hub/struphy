@@ -82,15 +82,21 @@ def load_field(path_out, variable, species="em_fields", step=-1) -> tuple[pv.Str
     return grid, name
 
 
-def cut_wedge(grid, center, azimuth):
-    """``grid`` without the wedge of 90 degrees around the vertical axis through ``center`` that starts at
-    ``azimuth``: its two faces are the vertical half planes at ``azimuth`` and ``azimuth + pi/2``. The wedge is
-    where ``min(left, start) > 0`` (the distances to the two faces), clipped in one go so that no other seams arise."""
-    rel = grid.points - np.asarray(center)
+def wedge_distance(points, center, azimuth):
+    """``min(start, left)`` of the ``points``, with ``start`` and ``left`` their distances to the two faces of the
+    wedge of 90 degrees around the vertical axis through ``center`` that starts at ``azimuth`` (the vertical half
+    planes at ``azimuth`` and ``azimuth + pi/2``): positive inside the wedge."""
+    rel = np.asarray(points) - np.asarray(center)
     start = np.cos(azimuth) * rel[:, 0] + np.sin(azimuth) * rel[:, 1]  # along the first face
     left = -np.sin(azimuth) * rel[:, 0] + np.cos(azimuth) * rel[:, 1]  # normal to the first face, into the wedge
+    return np.minimum(start, left)
+
+
+def cut_wedge(grid, center, azimuth):
+    """``grid`` without the wedge of 90 degrees around the vertical axis through ``center`` that starts at
+    ``azimuth`` (see :func:`wedge_distance`), clipped in one go so that no other seams arise."""
     marked = grid.copy()
-    marked.point_data["wedge"] = np.minimum(start, left)
+    marked.point_data["wedge"] = wedge_distance(grid.points, center, azimuth)
     active = grid.active_scalars_name
     shown = marked.clip_scalar(scalars="wedge", value=0.0, invert=True)
     shown.set_active_scalars(active)
@@ -124,9 +130,10 @@ def default_colormap(vmin, vmax, noise=1e-2):
     return NEGATIVE, (vmin, 0.0)
 
 
-def crop_image(image, margin=10, background=255):
-    """``image`` (an RGB array) cropped to the pixels that differ from the white ``background``, plus ``margin``."""
-    rows, cols = np.nonzero(np.any(image < background, axis=-1))
+def crop_image(image, margin=10, background=240):
+    """``image`` (an RGB array) cropped to the pixels darker than ``background`` (nearly white pixels, e.g. at the
+    border of an anti-aliased render, count as background), plus ``margin``."""
+    rows, cols = np.nonzero(np.any(image[..., :3] < background, axis=-1))
     if rows.size == 0:
         return image
     top, bottom = max(rows.min() - margin, 0), min(rows.max() + margin + 1, image.shape[0])
@@ -145,11 +152,12 @@ def plot_field_3d(
     cutaway=True,
     title=None,
     cmap=None,
-    window_size=(1600, 1200),
+    window_size=(1600, 1600),
     crop=True,
     margin=10,
     show_axes=False,
     show_scalar_bar=False,
+    context=1.2,
 ):
     """Render ``variable`` of ``species`` at the saved time step ``step`` in 3D.
 
@@ -184,6 +192,11 @@ def plot_field_3d(
         Show the orientation of the x-y-z axes.
     show_scalar_bar : bool
         Show the color bar.
+    context : float
+        The camera frames the removed wedge enlarged by this factor, i.e. the cut and some of the domain around it
+        for the 3D context (the whole domain is framed without ``cutaway``). For a domain around the vertical axis
+        (a torus), the face of the cut through the largest absolute value is framed instead, enlarged by twice
+        this factor.
 
     Returns
     -------
@@ -224,12 +237,45 @@ def plot_field_3d(
         plotter.add_axes()
     if title is not None:
         plotter.add_text(title, font_size=12, color="black")
-    # look into the wedge from above
-    view = np.array([np.cos(azimuth + np.pi / 4), np.sin(azimuth + np.pi / 4), 0.8])
+    # look into the wedge from above, framing the removed wedge (between the two faces of the cut) and some of the
+    # domain around it, so that the cut fills the view and the rest of the domain gives the 3D context
+    # a domain around the vertical axis (a torus): no point is close to the axis
+    horizontal = np.hypot(grid.points[:, 0] - center[0], grid.points[:, 1] - center[1])
+    toroidal = np.min(horizontal) > 0.1 * np.max(horizontal)
+    # elevation of the camera above the horizontal plane: about 39 degrees, half of it for a torus
+    elevation = np.arctan(0.8) / (2 if toroidal else 1)
+    # azimuth of the camera: along the bisector of the wedge, for a torus more in front of the cut face at `azimuth`
+    # (whose normal points to azimuth + pi/2)
+    turn = 3 * np.pi / 8 if toroidal else np.pi / 4
+    view = np.array([np.cos(azimuth + turn), np.sin(azimuth + turn), np.tan(elevation)])
     plotter.camera.focal_point = center
     plotter.camera.position = center + 2.0 * diagonal * view / np.linalg.norm(view)
     plotter.camera.up = (0.0, 0.0, 1.0)
     plotter.reset_camera()
+    if cutaway:
+        framed = grid.points[wedge_distance(grid.points, center, azimuth) > 0]
+        # a domain around the vertical axis (a torus): frame only the face of the cut through the largest |value|
+        # (a poloidal cross-section), enlarged by twice the context
+        rel = shown.points - center
+        if toroidal:
+            start = np.cos(azimuth) * rel[:, 0] + np.sin(azimuth) * rel[:, 1]
+            left = -np.sin(azimuth) * rel[:, 0] + np.cos(azimuth) * rel[:, 1]
+            face = shown.points[(np.abs(left) < 1e-6 * diagonal) & (start > 0)]
+            if len(face):
+                framed, context = face, 2 * context
+        if len(framed):
+            lo, hi = framed.min(axis=0), framed.max(axis=0)
+            mid, half = 0.5 * (lo + hi), 0.5 * context * (hi - lo)
+            plotter.reset_camera(
+                bounds=[
+                    mid[0] - half[0],
+                    mid[0] + half[0],
+                    mid[1] - half[1],
+                    mid[1] + half[1],
+                    mid[2] - half[2],
+                    mid[2] + half[2],
+                ]
+            )
 
     if filename is not None:
         image = plotter.screenshot(return_img=True)
@@ -255,6 +301,9 @@ def main():
     parser.add_argument("--axes", action="store_true", help="Show the orientation of the x-y-z axes.")
     parser.add_argument("--colorbar", action="store_true", help="Show the color bar.")
     parser.add_argument("--title", default=None, help="Title of the image.")
+    parser.add_argument(
+        "--context", type=float, default=1.2, help="Framed region: the removed wedge enlarged by this factor."
+    )
     args = parser.parse_args()
     plot_field_3d(
         args.path_out,
@@ -268,6 +317,7 @@ def main():
         crop=not args.no_crop,
         show_axes=args.axes,
         show_scalar_bar=args.colorbar,
+        context=args.context,
     )
 
 
