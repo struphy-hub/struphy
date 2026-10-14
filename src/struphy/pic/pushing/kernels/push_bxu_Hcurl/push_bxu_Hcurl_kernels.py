@@ -61,7 +61,13 @@ def push_bxu_Hcurl(
     n_markers = args_markers.n_markers
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(b_cart, b_form, det_df, dfinv, dfinv_t, dfm, e_cart, eta1, eta2, eta3, ip, span1, span2, span3, thread_derham, u_cart, u_form)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -93,14 +99,14 @@ def push_bxu_Hcurl(
         linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
         # magnetic field: 2-form components
         eval_2form_spline_mpi(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             b2_1,
             b2_2,
             b2_3,
@@ -116,7 +122,7 @@ def push_bxu_Hcurl(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             u1_1,
             u1_2,
             u1_3,
@@ -131,3 +137,7 @@ def push_bxu_Hcurl(
 
         # update velocities
         markers[ip, 3:6] += dt * e_cart
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
