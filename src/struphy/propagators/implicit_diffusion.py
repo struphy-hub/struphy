@@ -303,9 +303,23 @@ class ImplicitDiffusion(Propagator):
     @profile
     def allocate(self):
         # always stabilize
+        auto_stabilized = False
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
+            auto_stabilized = True
             logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+
+        # The automatic stabilization only makes singular problems (e.g. periodic in all directions) solvable. With a
+        # Dirichlet boundary in some direction, grad.T @ M1 @ grad is already positive definite and 1e-14 * stab_mat
+        # changes the solution only at round-off, but applying it costs a whole stab_mat product per solver iteration;
+        # it is then left out of the solver's operator. (M1perp can be degenerate, so it keeps the stabilization.)
+        self._stabilize_lhs = not (
+            auto_stabilized
+            and self.options.diffusion_mat == "M1"
+            and any(any(sides) for sides in self.derham.dirichlet_bc)
+        )
+        if not self._stabilize_lhs:
+            logger.info("Dirichlet boundary present: the automatic stabilization is left out of the solver operator")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
@@ -534,8 +548,13 @@ class ImplicitDiffusion(Propagator):
 
         # compute rhs
         phin = self.variables.phi.spline.vector
-        rhs = self._stab_mat.dot(phin, out=self._rhs)
-        rhs *= sig_2
+        if sig_2 == 0.0:
+            # no stab_mat product only to multiply it by zero (e.g. Poisson: sigma_2 = 0)
+            rhs = self._rhs
+            rhs *= 0.0
+        else:
+            rhs = self._stab_mat.dot(phin, out=self._rhs)
+            rhs *= sig_2
 
         self._rhs2 *= 0.0
         for src, coeff in zip(self.sources, self.coeffs):
@@ -579,7 +598,10 @@ class ImplicitDiffusion(Propagator):
             self.diagnostic.spline.vector = proj.solve(rhs)
 
         # compute lhs
-        self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        if self._stabilize_lhs:
+            self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        else:
+            self._solver.linop = self._diffusion_op
         if sig_1 != self._pc_sig_1:
             if self._mg is not None:
                 self._mg.update(self._solver.linop)
