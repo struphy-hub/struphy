@@ -17,6 +17,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.slices import plot_physical_slices
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT = SCRIPT_DIR / "sim_1"
@@ -26,29 +27,8 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from params_gaussian_on_axis_cylinder import args, distance_to_axis, exact_solution, parser, rhs_fun, sim  # noqa: E402
 
 
-def main(path_out=DEFAULT_OUTPUT, save_figs=True):
+def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
     out = Output(path_out).pproc(create_vtk=True)
-
-    def plot_slices(num, exact, name):
-        """Numerical solution, exact solution and error on the cross-section at eta3 = 0.5 and the
-        half plane at eta2 = 0.5, as functions of (x, y) and (x, z)."""
-        fig = plt.figure(figsize=(12, 12))
-        idx3 = (slice(None), slice(None), num.shape[2] // 2)
-        idx2 = (slice(None), num.shape[1] // 2, slice(None))
-        for col, (idx, h, v, labels) in enumerate(
-            [(idx3, X, Y, ("x", "y")), (idx2, X, Z, ("x", "z"))],
-        ):
-            for row, (data, what) in enumerate(
-                [(num[idx], "from struphy"), (exact[idx], "exact"), (np.abs(num[idx] - exact[idx]), "error")]
-            ):
-                plt.subplot(3, 2, 2 * row + col + 1)
-                plt.pcolormesh(h[idx], v[idx], data, shading="gouraud")
-                plt.colorbar()
-                plt.xlabel(labels[0])
-                plt.ylabel(labels[1])
-                plt.title(f"{name} {what}")
-        fig.tight_layout()
-        return fig
 
     # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
     # cell centres of the simulation grid.
@@ -61,8 +41,17 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     rhs_exact = rhs_fun(X, Y, Z)
     phi_exact = exact_solution(X, Y, Z)
 
-    fig_rhs = plot_slices(rhs, rhs_exact, "RHS")
-    fig_phi = plot_slices(phi, phi_exact, "Phi")
+    # slices in the physical planes x-y, x-z, y-z and the poloidal plane at the angle `angle`
+    figs = plot_physical_slices(
+        out,
+        sim.domain,
+        sim.grid.num_elements,
+        [
+            ("rhs", "RHS", "em_fields/source", 0, lambda e1, e2, e3, x, y, z: rhs_fun(x, y, z), None),
+            ("phi", "Phi", "em_fields/phi", -1, lambda e1, e2, e3, x, y, z: exact_solution(x, y, z), None),
+        ],
+        phi=angle,
+    )
 
     rel_err_rhs = np.max(np.abs(rhs - rhs_exact)) / np.max(np.abs(rhs_exact))
     rel_err_phi = np.max(np.abs(phi - phi_exact)) / np.max(np.abs(phi_exact))
@@ -95,8 +84,8 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
         )
 
     if save_figs:
-        fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
-        fig_phi.savefig(os.path.join(results_dir, "phi_slices.png"))
+        for fig_name, fig in figs.items():
+            fig.savefig(os.path.join(results_dir, f"{fig_name}.png"))
     else:
         plt.show()
 
@@ -112,5 +101,8 @@ if __name__ == "__main__":
         help="Simulation output folder (default: sim_1 beside this script)",
     )
     pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
+    pproc_parser.add_argument(
+        "--phi", type=float, default=np.pi, help="Angle of the poloidal plane in the slice plots (default: pi)."
+    )
     pproc_args = pproc_parser.parse_args(other_flags)
-    main(pproc_args.path_out, save_figs=not pproc_args.show)
+    main(pproc_args.path_out, save_figs=not pproc_args.show, angle=pproc_args.phi)

@@ -16,6 +16,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.slices import plot_physical_slices
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT = SCRIPT_DIR / "sim_1"
@@ -25,25 +26,13 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from params_gaussian_hollow_cylinder import args, exact_solution, parser, rhs, sim  # noqa: E402
 
 
-def plot_slices(num, exact, name):
-    """Numerical solution, exact solution and error of the magnitude on the logical slices eta_k = 0.5 (k = 1, 2, 3)."""
-    fig = plt.figure(figsize=(16, 12))
-    for k in range(3):
-        idx = tuple(num.shape[k] // 2 if i == k else slice(None) for i in range(3))
-        for row, (data, what) in enumerate(
-            [(num[idx], "from struphy"), (exact[idx], "exact"), (np.abs(num[idx] - exact[idx]), "error")]
-        ):
-            plt.subplot(3, 3, 3 * row + k + 1)
-            plt.pcolormesh(data, shading="gouraud")
-            plt.colorbar()
-            plt.xlabel(f"eta{[2, 1, 1][k]} index")
-            plt.ylabel(f"eta{[3, 3, 2][k]} index")
-            plt.title(f"|{name}| {what}, slice at eta{k + 1} = 0.5")
-    fig.tight_layout()
-    return fig
+def exact_norm(fun):
+    """Magnitude of the exact vector field with the Cartesian components fun(k)(x, y, z), as a function of
+    (eta1, eta2, eta3, x, y, z) for the slice plots."""
+    return lambda e1, e2, e3, x, y, z: np.linalg.norm(np.stack([fun(k)(x, y, z) for k in range(3)]), axis=0)
 
 
-def main(path_out=DEFAULT_OUTPUT, save_figs=True):
+def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
     out = Output(path_out).pproc(create_vtk=True, physical=True)
 
     # Cartesian components of the fields at the cell centres of the simulation grid
@@ -56,8 +45,17 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     e_exact = np.stack([exact_solution(k)(X, Y, Z) for k in range(3)])
     j_exact = np.stack([rhs(k)(X, Y, Z) for k in range(3)])
 
-    fig_rhs = plot_slices(np.linalg.norm(j, axis=0), np.linalg.norm(j_exact, axis=0), "J")
-    fig_e = plot_slices(np.linalg.norm(e, axis=0), np.linalg.norm(e_exact, axis=0), "E")
+    # magnitudes in the physical planes x-y, x-z, y-z and (cylinder, torus) the poloidal plane at the angle `angle`
+    figs = plot_physical_slices(
+        out,
+        sim.domain,
+        sim.grid.num_elements,
+        [
+            ("rhs", "|J|", "em_fields/source", 0, exact_norm(rhs), "1"),
+            ("e", "|E|", "em_fields/e_field", -1, exact_norm(exact_solution), "1"),
+        ],
+        phi=angle,
+    )
 
     rel_err_rhs = np.max(np.abs(j - j_exact)) / np.max(np.abs(j_exact))
     rel_err_e = np.max(np.abs(e - e_exact)) / np.max(np.abs(e_exact))
@@ -82,8 +80,8 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     np.save(os.path.join(results_dir, "spline_degree.npy"), sim.derham_opts.degree)
 
     if save_figs:
-        fig_rhs.savefig(os.path.join(results_dir, "rhs_slices.png"))
-        fig_e.savefig(os.path.join(results_dir, "e_slices.png"))
+        for fig_name, fig in figs.items():
+            fig.savefig(os.path.join(results_dir, f"{fig_name}.png"))
     else:
         plt.show()
 
@@ -99,5 +97,8 @@ if __name__ == "__main__":
         help="Simulation output folder (default: sim_1 beside this script)",
     )
     pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
+    pproc_parser.add_argument(
+        "--phi", type=float, default=np.pi, help="Angle of the poloidal plane in the slice plots (default: pi)."
+    )
     pproc_args = pproc_parser.parse_args(other_flags)
-    main(pproc_args.path_out, save_figs=not pproc_args.show)
+    main(pproc_args.path_out, save_figs=not pproc_args.show, angle=pproc_args.phi)
