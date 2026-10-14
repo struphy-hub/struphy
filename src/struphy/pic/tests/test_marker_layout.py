@@ -50,6 +50,11 @@ def test_layout_helpers(backend):
         assert has_marker_layout(converted)
         np.testing.assert_array_equal(xp.to_numpy(converted), xp.to_numpy(rows))
 
+        # a single row in C order is F-contiguous for NumPy, but its strides decrease, which pyccel rejects
+        row = xp.asarray([[0.2, 0.4, 0.6]])
+        assert row.flags.f_contiguous and not has_marker_layout(row)
+        assert has_marker_layout(as_marker_array(row))
+
 
 def test_pyccel_rejects_row_major_markers():
     """pyccel checks the memory order of the marker arrays at every call, so a missed conversion fails loudly."""
@@ -59,6 +64,12 @@ def test_pyccel_rejects_row_major_markers():
     MarkerArguments(np.zeros((4, 25), order="F"), *args)
     with pytest.raises(TypeError, match="ordering"):
         MarkerArguments(np.zeros((4, 25)), *args)
+
+    # a single row: as_marker_array gives it the strides pyccel accepts
+    one = (np.ones(1, dtype=bool), 1, *args[2:])
+    with pytest.raises(TypeError, match="ordering"):
+        MarkerArguments(np.zeros((1, 25)), *one)
+    MarkerArguments(as_marker_array(np.zeros((1, 25))), *one)
 
 
 def _device_context(backend):

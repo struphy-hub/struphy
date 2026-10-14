@@ -40,13 +40,19 @@ def marker_array(n_rows: int, n_cols: int):
 
 
 def as_marker_array(markers):
-    """``markers`` in :data:`MARKER_ORDER`, for passing to a kernel; no copy if it already has that order."""
-    return xp.asfortranarray(markers)
+    """``markers`` in :data:`MARKER_ORDER`, for passing to a kernel; no copy if it already has that layout."""
+    if has_marker_layout(markers):
+        return markers
+    return xp.array(markers, order=MARKER_ORDER, copy=True)
 
 
 def has_marker_layout(markers) -> bool:
-    """Whether ``markers`` is a 2D array in :data:`MARKER_ORDER` (as the kernels expect)."""
-    return markers.ndim == 2 and bool(markers.flags.f_contiguous)
+    """Whether ``markers`` is a 2D array in :data:`MARKER_ORDER`, as the kernels expect.
+
+    Besides the F-contiguity, the strides must not decrease along the axes, which is what pyccel checks for
+    ``order=F``: a single row in C order is F-contiguous for NumPy, but its strides are ``(8 * n_cols, 8)``.
+    """
+    return markers.ndim == 2 and bool(markers.flags.f_contiguous) and markers.strides[0] <= markers.strides[1]
 
 
 def check_marker_layout(markers, name: str = "markers"):

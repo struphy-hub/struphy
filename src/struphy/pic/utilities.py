@@ -3,6 +3,7 @@ import cunumpy as xp
 from struphy.feec.utilities import get_quad_grids
 from struphy.pic.diagnostics.kernels.canonical_kinetic_particles import canonical_kinetic_particles
 from struphy.pic.diagnostics.kernels.thermal_energy import thermal_energy
+from struphy.pic.marker_layout import as_marker_array
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
@@ -24,7 +25,7 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     res = xp.empty(1, dtype=float)
     canonical_kinetic_particles(
         res,
-        particles.markers,
+        as_marker_array(particles.markers),
         derham.args_derham,
         domain.args_domain,
         fe_coeffs.blocks[0]._data,
