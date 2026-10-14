@@ -1,4 +1,5 @@
-"""Post-processing shared by the particle profiling cases (Vlasov, GuidingCenter), called by their ``pproc_*.py``.
+"""Long-time equilibrium diagnostics of particle runs from their binned distributions (used e.g. by the pproc
+scripts of the Vlasov and GuidingCenter examples).
 
 The cases test whether an equilibrium distribution stays in equilibrium for long times. From the binned
 distributions (``BinningPlot``) of a run, :func:`save_equilibrium_diagnostics` writes to ``<path_out>/results``:

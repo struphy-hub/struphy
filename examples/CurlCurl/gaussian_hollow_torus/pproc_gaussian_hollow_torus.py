@@ -16,10 +16,14 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.plot_3d import plot_field_3d
 from struphy.post_processing.slices import plot_physical_slices
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT = SCRIPT_DIR / "sim_1"
+
+# evaluation points per cell of the VTK files, i.e. the resolution of the 3D plots
+CELLDIVIDE = 2
 
 # The exact solution, the variant flags and the simulation of the run (parsed from the same command line).
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -33,7 +37,8 @@ def exact_norm(fun):
 
 
 def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
-    out = Output(path_out).pproc(create_vtk=True, physical=True)
+    # the errors below are computed on the post-processing grid of celldivide=1 (the cell boundaries)
+    out = Output(path_out).pproc(physical=True)
 
     # Cartesian components of the fields at the cell centres of the simulation grid
     e_xyz = out.evaluate("em_fields/e_field_xyz", t=-1)
@@ -78,6 +83,11 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
     np.save(os.path.join(results_dir, "rel_err_e.npy"), rel_err_e)
     np.save(os.path.join(results_dir, "resolution.npy"), sim.grid.num_elements)
     np.save(os.path.join(results_dir, "spline_degree.npy"), sim.derham_opts.degree)
+
+    # 3D views of the fields from VTK files of a finer post-processing, saved as <field>_3d.png
+    out.pproc(create_vtk=True, physical=True, celldivide=CELLDIVIDE, force=True)
+    for key, variable in (("rhs", "source"), ("e", "e_field")):
+        plot_field_3d(out.path_out, variable, filename=os.path.join(results_dir, f"{key}_3d.png"))
 
     if save_figs:
         for fig_name, fig in figs.items():

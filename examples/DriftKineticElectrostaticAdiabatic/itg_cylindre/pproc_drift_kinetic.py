@@ -6,8 +6,12 @@ import pyvista as pv
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.plot_3d import plot_field_3d
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
+
+# evaluation points per cell of the VTK files, i.e. the resolution of the 3D plots
+CELLDIVIDE = 2
 
 # scalar whose exponential growth rate is fitted, and the fit window in Struphy time units
 FIT_QUANTITY = "phi_integral"
@@ -94,7 +98,7 @@ def plot_trajectories(orbits, max_markers=1000):
 
 
 def main(path_out=DEFAULT_OUTPUT):
-    run = Output(path_out).pproc(physical=True)
+    run = Output(path_out).pproc(physical=True, create_vtk=True, celldivide=CELLDIVIDE)
 
     # growth rate of the electrostatic potential
     plot_growth(run.evaluate("scalars", variables=FIT_QUANTITY)[FIT_QUANTITY], window=FIT_WINDOW)
@@ -106,6 +110,13 @@ def main(path_out=DEFAULT_OUTPUT):
         plot_plane(product(run, name), plane, fixed)
 
     plot_trajectories(run.evaluate("kinetic_ions/orbits"), max_markers=1000)
+
+    # 3D view of the potential at the last saved time (from the VTK files)
+    results_dir = Path(run.path_out) / "results"
+    results_dir.mkdir(exist_ok=True)
+    plot_field_3d(run.path_out, "phi", filename=results_dir / "phi_3d.png")
+    print(f"3D view of phi saved to {results_dir / 'phi_3d.png'}")
+
     plt.show()
 
 

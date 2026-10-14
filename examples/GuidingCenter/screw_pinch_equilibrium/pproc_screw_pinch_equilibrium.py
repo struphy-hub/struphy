@@ -2,7 +2,7 @@
 
 Run as ``python pproc_screw_pinch_equilibrium.py [sim_folder] [variant flags of params_screw_pinch_equilibrium.py]``. The variant flags must be those
 of the run; the exact profile and the run parameters are taken from ``params_screw_pinch_equilibrium.py``, which reads them. The
-diagnostics of ``examples/particle_diagnostics.py`` are written into ``<sim_folder>/results``, where the profiling
+diagnostics of ``struphy.post_processing.particle_diagnostics`` are written into ``<sim_folder>/results``, where the profiling
 packaging picks them up and uploads them with the run (``submit_screw_pinch_equilibrium.py`` calls this script after each simulation).
 """
 
@@ -11,13 +11,11 @@ import sys
 from pathlib import Path
 
 from struphy import Output
+from struphy.post_processing.particle_diagnostics import save_equilibrium_diagnostics
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT = SCRIPT_DIR / "sim_1"
 
-# the shared post-processing of the particle profiling cases lives in examples/
-sys.path.insert(0, str(SCRIPT_DIR.parents[1]))
-from particle_diagnostics import save_equilibrium_diagnostics  # noqa: E402
 
 # The exact profile and the variant flags of the run (parsed from the same command line).
 sys.path.insert(0, str(SCRIPT_DIR))

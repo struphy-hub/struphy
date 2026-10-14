@@ -79,7 +79,8 @@ def save_profiling_results(path_out):
 
 
 def main(path_out=DEFAULT_OUTPUT):
-    run = Output(path_out).with_time_units("normalized")
+    # VTK files of the fields (fields on a 1D grid, no 3D view)
+    run = Output(path_out).pproc(create_vtk=True).with_time_units("normalized")
     time = run.time
     Tend = run.time_opts.Tend
     algo = run.time_opts.split_algo

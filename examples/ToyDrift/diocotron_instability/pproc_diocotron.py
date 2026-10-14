@@ -15,9 +15,13 @@ import pyvista as pv
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.plot_3d import plot_field_3d
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT = SCRIPT_DIR / "sim_1"
+
+# evaluation points per cell of the VTK files, i.e. the resolution of the 3D plots
+CELLDIVIDE = 2
 
 # The flags of the run are parsed by params_diocotron.py (imported from the same command line).
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -76,7 +80,7 @@ def fit_growth(series, window=(None, None)):
 
 
 def main(paths=(DEFAULT_OUTPUT,), save_results=False):
-    runs = [Output(path).pproc(physical=True) for path in paths]
+    runs = [Output(path).pproc(physical=True, create_vtk=True, celldivide=CELLDIVIDE) for path in paths]
     run = runs[0]
 
     def show(fig, name):
@@ -125,6 +129,12 @@ def main(paths=(DEFAULT_OUTPUT,), save_results=False):
     ax.plot(orbits.x, orbits.y, lw=0.5)
     ax.set(xlabel="$x$", ylabel="$y$", title="Marker trajectories", aspect="equal")
     show(fig, "orbits")
+
+    # 3D view of the potential at the last saved time (from the VTK files)
+    results_dir = run.path_out / "results"
+    results_dir.mkdir(exist_ok=True)
+    plot_field_3d(run.path_out, "phi", filename=results_dir / "phi_3d.png")
+    print(f"3D view of phi saved to {results_dir / 'phi_3d.png'}")
 
 
 if __name__ == "__main__":
