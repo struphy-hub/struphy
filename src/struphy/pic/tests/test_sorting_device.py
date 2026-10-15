@@ -11,6 +11,7 @@ CUDA-aware path (the probe of :func:`cunumpy.mpi.mpi_is_cuda_aware` succeeds) is
 default. The staged path is forced with :func:`cunumpy.mpi.set_mpi_cuda_aware`.
 """
 
+import contextlib
 import sys
 from contextlib import contextmanager
 
@@ -137,7 +138,8 @@ def check_mpi_sort_markers_device(cuda_aware: bool | None, bc: str = "periodic",
             with on_device():
                 dev.markers[:] = xp.to_cupy(new)
                 dev.update_holes()
-                with xp.profiling.count_transfers() as transfers, _count_host_reads() as reads:
+                reads_ctx = _count_host_reads() if count_reads else contextlib.nullcontext([])
+                with xp.profiling.count_transfers() as transfers, reads_ctx as reads:
                     dev.mpi_sort_markers()
 
             if cuda_aware:

@@ -120,16 +120,35 @@ class KroneckerBandMatrix(LinearOperator):
         A2 = xp.ascontiguousarray(data[p[0], p[1] : p[1] + m[1], p[2], q[0], :, q[2]] / den)
         A3 = xp.ascontiguousarray(data[p[0], p[1], p[2] : p[2] + m[2], q[0], q[1], :] / den)
 
-        # compare with every owned row, one plane (row along direction 1) at a time
+        # compare with every owned row: planes (rows along direction 1) in chunks, the maxima kept on the device
+        # (one read at the end); a few planes first, which rejects most matrices that are not Kronecker products
+        # (e.g. ones assembled from particle data, checked again after every change) at once
         owned = data[p[0] : p[0] + m[0], p[1] : p[1] + m[1], p[2] : p[2] + m[2]]
         A23 = A2[:, None, None, :, None] * A3[None, :, None, None, :]  # (m2, m3, 1, n2, n3)
-        max_diff = 0.0
-        max_abs = 0.0
-        for i in range(m[0]):
-            recon = A1[i][None, None, :, None, None] * A23
-            max_diff = max(max_diff, float(xp.max(xp.abs(owned[i] - recon))))
-            max_abs = max(max_abs, float(xp.max(xp.abs(owned[i]))))
-        if max_abs == 0.0 or max_diff > rtol * max_abs:
+
+        def max_diff_and_abs(rows):
+            block = owned[rows]
+            recon = A1[rows][:, None, None, :, None, None] * A23[None]
+            return xp.max(xp.abs(block - recon)), xp.max(xp.abs(block))
+
+        def fails(max_diff, max_abs):
+            max_diff, max_abs = float(max_diff), float(max_abs)
+            return max_abs == 0.0 or max_diff > rtol * max_abs
+
+        quick = sorted({0, m[0] // 2, m[0] - 1})
+        if fails(*max_diff_and_abs(xp.asarray(quick))):
+            return None
+
+        # chunks of at most ~64 MB of temporaries
+        plane = max(1, owned[0].size)
+        chunk = max(1, min(m[0], (8 << 20) // plane))
+        max_diff = xp.zeros(())
+        max_abs = xp.zeros(())
+        for start in range(0, m[0], chunk):
+            d, a = max_diff_and_abs(slice(start, min(start + chunk, m[0])))
+            max_diff = xp.maximum(max_diff, d)
+            max_abs = xp.maximum(max_abs, a)
+        if fails(max_diff, max_abs):
             return None
         return cls(S, (A1, A2, A3))
 

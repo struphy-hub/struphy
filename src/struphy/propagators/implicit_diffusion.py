@@ -10,6 +10,7 @@ from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
+from struphy.feec.fused_derivatives import fuse_boundary_gradient
 from struphy.feec.mass import L2Projector, WeightedAverageProjection, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
@@ -422,7 +423,20 @@ class ImplicitDiffusion(Propagator):
 
         # Set lhs matrices (without dt)
         self._stab_mat = stab_mat
-        self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
+        # grad = B1 G B0^T already applies the boundary operator B1 of the 1-forms on both sides of diffusion_mat; if
+        # diffusion_mat applies the same one, it is left out there (the same operator, see MassWithoutBoundaryOps),
+        # except for the multigrid preconditioner, which coarsens the operator by its structure
+        mid = diffusion_mat
+        grad, grad_t = self.derham.grad, self.derham.grad.T
+        B1 = self.derham.boundary_ops["1"]
+        if self.options.precond != "MultiGrid" and all(
+            op is B1 for op in getattr(diffusion_mat, "boundary_ops", (None,))
+        ):
+            mid = diffusion_mat.without_boundary_ops()
+        if self.options.precond != "MultiGrid":
+            # on the GPU, the gradient and its transpose with their boundary operators as one kernel each
+            grad, grad_t = fuse_boundary_gradient(grad), fuse_boundary_gradient(grad_t)
+        self._diffusion_op = grad_t @ mid @ grad
 
         # preconditioner and solver for Ax=b
         # the multigrid and stiffness preconditioners depend on sigma_1, they are updated in __call__
