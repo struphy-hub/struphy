@@ -72,10 +72,12 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     print(f"scalars written to {run.save_scalars()}")
 
     # electric field growth against the analytical growth rate gamma of the field amplitude (in Struphy units, from
-    # the kinetic dispersion relation for k = 0.2): the electric energy grows as exp(2 gamma t)
+    # the kinetic dispersion relation for k = 0.2): the electric energy grows as exp(2 gamma t); the initial density
+    # perturbation (without velocity perturbation) puts about half of its amplitude into the growing mode
+    # (cold beams: cosh(gamma t)), i.e. a quarter of the initial energy
     gamma = 0.2845
     energy = run.evaluate("scalars", variables="electric_energy")["electric_energy"]
-    analytical = energy.isel(t=0) * np.exp(2 * gamma * energy.t)
+    analytical = energy.isel(t=0) / 4 * np.exp(2 * gamma * energy.t)
     fig, ax = plt.subplots()
     ax.plot(energy.t, energy, label="numerical")
     ax.plot(energy.t, analytical, "--", label=rf"analytical, $\exp(2 \gamma t)$, $\gamma = {gamma}$")

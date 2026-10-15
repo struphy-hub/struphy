@@ -40,7 +40,7 @@ i.e. R0/L_n = kappa_n = 2.23 and R0/L_T = kappa_T = 6.96 at r0, with widths Delt
 T_e = T_i. The base units (kBT = 0.1916) give epsilon = 1.4142e-3, i.e. rho* = rho_s/a = 1/180. The domain is a
 HollowTorus (inner radius 0.01, straight field line angle) with a 1/19 toroidal period: the logical mode n = 1
 is the toroidal mode n = 19. The initial density perturbation of amplitude 1e-6 is the (m, n) = (27, 19) mode in
-the straight field line angle, localized around r0 (Gaussian width 0.02), with k_theta rho_s = n q(r0)/r0 rho_s
+the geometric poloidal angle, localized around r0 (Gaussian width 0.02), with k_theta rho_s = n q(r0)/r0 rho_s
 of about 0.3, near the maximum of the ITG spectrum. Ions are loaded as a gyro-Maxwellian with the above
 profiles (delta-f with control variate); markers leaving at the radial boundary are removed. The charge density
 is filtered to the logical toroidal Fourier mode 1 (n = 19) in the Poisson solve. Time step dt = 0.001, end time

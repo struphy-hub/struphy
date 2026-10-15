@@ -51,7 +51,7 @@ electron plasma wave that is damped without collisions, by the resonant electron
 """
 _physics = """
 Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p,
-velocities in units of c; with vth = 1 lengths are in Debye lengths) and no background magnetic field
+with vth = 1 lengths are in Debye lengths) and no background magnetic field
 (with_B0=False) the model solves
     df/dt + v . grad_x f - E . grad_v f = 0,
     dE/dt = int v f d^3v       (Ampere's law; the current density of the electrons is -int v f d^3v),

@@ -17,7 +17,7 @@ damping). The wave is electrostatic (E along k, no magnetic field is generated),
 the Vlasov-Ampere model; the case is used for profiling the Vlasov-Maxwell propagators.
 
 Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p,
-velocities in units of c; with vth = 1 lengths are in Debye lengths) the model solves
+with vth = 1 lengths are in Debye lengths) the model solves
     df/dt + v . grad_x f - (E + v x B) . grad_v f = 0,
     dE/dt = curl B + int v f d^3v       (the current density of the electrons is -int v f d^3v),
     dB/dt = -curl E,
