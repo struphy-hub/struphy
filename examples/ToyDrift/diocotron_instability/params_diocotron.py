@@ -47,6 +47,11 @@ parser.add_argument(
         "256 x 256 sorting boxes."
     ),
 )
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (16 x 32 cells), few markers and three saved time steps, for the tests (test_examples.py).",
+)
 args, _ = parser.parse_known_args()
 profiling = args.setup == "profiling"
 
@@ -109,7 +114,9 @@ model.kinetic_ions.var.save_data = False
 env = EnvironmentOptions(out_folders=args.out_folder, sim_folder=args.sim_folder, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.01, Tend=51.0, split_algo="LieTrotter")
+dt = 0.01
+# --test-run: the initial, a middle and a final saved time step
+time_opts = Time(dt=dt, Tend=2 * dt if args.test_run else 51.0, split_algo="LieTrotter")
 
 # Geometry
 domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
@@ -118,7 +125,7 @@ domain = domains.HollowCylinder(a1=1.0, a2=10.0, Lz=10.0)
 equil = equils.HomogenSlab()
 
 # Grid
-num_elements = (128, 1024, 1) if profiling else (64, 128, 1)
+num_elements = (128, 1024, 1) if profiling else (16, 32, 1) if args.test_run else (64, 128, 1)
 grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(False, True, False))
 
 # Derham options
@@ -146,11 +153,11 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-ppc = 100  # run with 1000 minimum
+ppc = 10 if args.test_run else 100  # run with 1000 minimum
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="disc")
 weights_params = WeightsParameters(control_variate=True, reject_weights=True, threshold=0.0001)
 boundary_params = BoundaryParameters()
-boxes_per_dim = (256, 256, 1) if profiling else (16, 16, 1)
+boxes_per_dim = (256, 256, 1) if profiling else (4, 4, 1) if args.test_run else (16, 16, 1)
 sorting_params = SortingParameters(boxes_per_dim=boxes_per_dim, do_sort=True, sorting_frequency=5)
 
 # density binning

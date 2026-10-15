@@ -4,8 +4,9 @@ scripts of the Vlasov and GuidingCenter examples).
 The cases test whether an equilibrium distribution stays in equilibrium for long times. From the binned
 distributions (``BinningPlot``) of a run, :func:`save_equilibrium_diagnostics` writes to ``<path_out>/results``:
 
-* ``binning_<slice>.png``: the binned distribution at the first and last time (and the exact profile if given);
-  2d slices as maps of the first and last time and of their difference,
+* ``binning_<slice>.png``: the binned distribution at the first, middle and last saved time (the standard
+  snapshots of the examples, see :meth:`Output.standard_snapshots`) and the exact profile if given; 2d slices as
+  maps at these times and of the difference between the last and the first,
 * ``deviation.png`` and ``deviation_<slice>.npy``: the relative L2 deviation of the binned distribution from
   the first time (and from the exact profile) over time,
 * ``scalars.png`` and ``<scalar>.npy``: the relative drift of the given scalars (e.g. the energy) over time,
@@ -64,6 +65,7 @@ def save_equilibrium_diagnostics(out, species, results_dir=None, exact=None, sca
     exact = {} if exact is None else exact
 
     time = None
+    snapshots = out.standard_snapshots()
     fig_dev, ax_dev = plt.subplots(figsize=(7, 4.5))
     for key in out.distribution_catalog:
         spec, slice_name, name = key.split("/")
@@ -90,21 +92,18 @@ def save_equilibrium_diagnostics(out, species, results_dir=None, exact=None, sca
 
         if len(dims) == 1:
             fig, ax = plt.subplots(figsize=(6, 4))
-            ax.plot(centers[0], f[0], label=f"t={time[0]:.3g}")
-            ax.plot(centers[0], f[-1], label=f"t={time[-1]:.3g}")
+            for n in snapshots:
+                ax.plot(centers[0], f[n], label=f"t={time[n]:.3g}")
             if f_exact is not None:
                 ax.plot(centers[0], f_exact, "k--", label="exact")
             ax.set_xlabel(dims[0])
             ax.set_ylabel("f")
             ax.legend()
         elif len(dims) == 2:
-            fig, axs = plt.subplots(1, 3, figsize=(15, 4))
-            vmin, vmax = np.min(f[[0, -1]]), np.max(f[[0, -1]])
-            for ax, values, title in zip(
-                axs,
-                (f[0], f[-1], f[-1] - f[0]),
-                (f"t={time[0]:.3g}", f"t={time[-1]:.3g}", "difference"),
-            ):
+            panels = [(f[n], f"t={time[n]:.3g}") for n in snapshots] + [(f[-1] - f[0], "difference")]
+            fig, axs = plt.subplots(1, len(panels), figsize=(5 * len(panels), 4))
+            vmin, vmax = np.min(f[snapshots]), np.max(f[snapshots])
+            for ax, (values, title) in zip(axs, panels):
                 kwargs = {} if title == "difference" else {"vmin": vmin, "vmax": vmax}
                 im = ax.pcolormesh(centers[0], centers[1], values.T, shading="nearest", **kwargs)
                 fig.colorbar(im, ax=ax)

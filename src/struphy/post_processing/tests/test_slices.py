@@ -4,7 +4,14 @@ import numpy as np
 import pytest
 
 from struphy import domains
-from struphy.post_processing.slices import Plane, evaluate_plane, physical_planes, plot_plane, rotate
+from struphy.post_processing.slices import (
+    Plane,
+    evaluate_plane,
+    physical_planes,
+    plot_line_profiles,
+    plot_plane,
+    rotate,
+)
 
 DOMAINS = [
     domains.Cuboid(r1=2.0, l2=-1.0, r2=1.0, r3=4.0),
@@ -198,3 +205,45 @@ def test_component_figures(monkeypatch):
     figs = slices.plot_physical_slices(out, domain, (4, 4, 4), [("u", "U", "f", 0, None, "2")], components=True)
     assert set(figs) == {f"u{k}_slices_{plane}" for k in (1, 2, 3) for plane in ("xy", "xz", "yz")}
     assert "component 1 (2-form)" in figs["u1_slices_xy"].axes[0].get_title()
+
+
+class FakeTimeOutput:
+    """A field on a Cuboid with saved time steps t = 0, 1, 2: phi = (1 + t) x, E = (1 + t) (x, 2, 3)."""
+
+    def __init__(self, domain):
+        self.domain = domain
+
+    def field_form(self, name):
+        return "v"
+
+    def evaluate(self, name, t=None, representation=None, eta1=None, eta2=None, eta3=None):
+        import xarray as xr
+
+        e1 = np.asarray(eta1, dtype=float)
+        x, y, z = (np.asarray(c).reshape(-1) for c in self.domain(e1, np.array([eta2]), np.array([eta3])))
+        times = np.asarray(t, dtype=float)
+        coords = {"t": times, "eta1": e1, "X": ("eta1", x)}
+        if name == "phi":
+            return xr.DataArray((1 + times)[:, None] * x[None], dims=("t", "eta1"), coords=coords)
+        comps = np.stack([x, 2 + 0 * x, 3 + 0 * x])
+        values = (1 + times)[:, None, None] * comps[None]
+        return xr.DataArray(values, dims=("t", "component", "eta1"), coords=coords)
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("kind", [None, "v", "physical"])
+def test_line_profiles(kind):
+    domain = domains.Cuboid(r1=2.0)
+    out = FakeTimeOutput(domain)
+    name = "phi" if kind is None else "e"
+    fig = plot_line_profiles(out, domain, name, name, [0, 1, 2], kind=kind, n_pts=11)
+    axes = fig.axes
+    assert len(axes) == (1 if kind is None else 3)
+    # one curve per time step, against x in [0, 2]
+    lines = axes[0].lines
+    assert len(lines) == 3
+    assert np.allclose(lines[0].get_xdata(), np.linspace(0, 2, 11))
+    # the first component at t = 2: 3 x (for the vector field "v" on a Cuboid, the push-forward is the identity
+    # times the stretching 2: 3 * 2 x)
+    expected = 3 * lines[2].get_xdata() * (2 if kind == "physical" else 1)
+    assert np.allclose(lines[2].get_ydata(), expected)

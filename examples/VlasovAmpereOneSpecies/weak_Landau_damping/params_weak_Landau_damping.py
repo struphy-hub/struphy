@@ -33,6 +33,11 @@ parser.add_argument(
         "(1024 cells, 20 steps, no marker output, no sorting boxes, NumPy or CuPy backend)."
     ),
 )
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Few markers and three saved time steps of the example setup, for the tests (test_examples.py).",
+)
 args, _ = parser.parse_known_args()
 profiling = args.setup == "profiling"
 
@@ -133,7 +138,8 @@ if profiling:
     steps = 20
     time_opts = Time(dt=dt, Tend=round(steps * dt, 14))
 else:
-    time_opts = Time(dt=dt, Tend=20.0, split_algo="LieTrotter")
+    # --test-run: the initial, a middle and a final saved time step
+    time_opts = Time(dt=dt, Tend=2 * dt if args.test_run else 20.0, split_algo="LieTrotter")
 
 # Geometry
 if profiling:
@@ -200,7 +206,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-ppc = 1000
+ppc = 50 if args.test_run and not profiling else 1000
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 if profiling:
