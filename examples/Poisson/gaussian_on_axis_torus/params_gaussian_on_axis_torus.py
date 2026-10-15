@@ -1,6 +1,7 @@
-"""Poisson equation on a torus with a manufactured Gaussian ring whose gradient is largest on the magnetic axis.
-Compares C1 polar splines (no hole) with tensor-product splines on a torus with a small hole; the pproc
-reports the max. relative error, also close to the axis."""
+"""Poisson equation -Laplace phi = rho (electrostatic potential of a charge density) on a torus with a
+manufactured solution whose gradient is largest on the magnetic axis. Compares C1 polar splines (no hole) with
+tensor-product splines on a torus with a small hole; the pproc reports the max. relative error, also close to
+the axis."""
 
 # -----------------------------
 # Description of the simulation
@@ -69,11 +70,45 @@ precond = None if args.precond == "None" else args.precond
 
 name = f"Poisson on a torus, {args.splines} splines, preconditioner {precond}"
 description = f"""
-Poisson equation on a full torus of minor radius 1 and major radius 4, comparing C1 polar
-splines (IGAPolarTorus, no hole) with tensor-product splines on a torus with a hole (HollowTorus, a1=1e-2).
+Poisson equation -Laplace phi = rho for the electrostatic potential phi of a given charge density rho on a
+full torus of minor radius 1 and major radius 4, with a manufactured solution that is largest near the magnetic
+axis, comparing C1 polar splines with tensor-product splines.
+
+Physics. Poisson's equation -Laplace phi = rho determines the electrostatic potential phi, and
+thereby the electric field E = -grad phi, of a given charge density rho (Gauss's law div E = rho for a curl-free
+E, in Struphy units). It is the field equation of electrostatic models such as Vlasov-Poisson and the prototype
+of the elliptic problems in Struphy. The Poisson model solves -div(D0 grad phi) + n0 phi = rho; here D0 is the
+identity and the stabilization term is switched off (stab_eps = 0), i.e. the pure Laplacian with phi in the
+spline space V0 of H1 of the discrete de Rham complex (FEEC).
+
+The case tests the treatment of the coordinate singularity at the magnetic axis r = 0 of the torus,
+the center of the polar coordinates (r, theta) of the cross-section: physical fields, such as the potential and
+the electric field of a plasma column, are smooth there and in general have a non-zero value and gradient on the
+axis. Tensor-product splines in (r, theta) are not smooth across the axis, so they are used on a domain with a
+small hole and a boundary condition at the hole. C1 polar splines, linear combinations of the tensor-product
+splines of the first two rings of control points around the pole, are C1-smooth across the axis and need no hole.
+The manufactured solution is placed such that its gradient is largest on the axis, where the two approaches
+differ most.
+
+Setup. Comparing C1 polar splines (IGAPolarTorus, no hole) with tensor-product splines on a torus with a hole
+(HollowTorus, a1=1e-2), splines of degree 3.
 The manufactured solution is a Gaussian ring whose gradient is largest on the magnetic axis r=0.
 Homogeneous Dirichlet boundary conditions are set at r=1 (boundary condition {args.hole_bc} at the hole).
 The linear system is solved with CG, preconditioner {precond} (poloidal solver {args.poloidal_solver}).
+
+Expected result. The pproc script compares the computed phi and the projected right-hand side rho
+with the exact fields and prints the max. relative errors, in the whole domain and close to the axis (r < 0.1),
+where the tensor-product splines on the domain with a hole are expected to be less accurate than the polar
+splines. No thresholds are asserted. The number of CG iterations shows the efficiency of the preconditioner.
+
+References:
+- D. Toshniwal, H. Speleers, R. R. Hiemstra and T. J. R. Hughes, "Multi-degree smooth polar splines: A
+  framework for geometric modeling and isogeometric analysis", Comput. Methods Appl. Mech. Engrg. 316, 1005
+  (2017).
+- A. Buffa, J. Rivas, G. Sangalli and R. Vazquez, "Isogeometric discrete differential forms in three
+  dimensions", SIAM J. Numer. Anal. 49, 818 (2011).
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite
+  elements with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging

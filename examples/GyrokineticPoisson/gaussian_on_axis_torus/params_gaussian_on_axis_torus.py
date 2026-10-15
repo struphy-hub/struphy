@@ -1,6 +1,7 @@
-"""Gyrokinetic Poisson equation with adiabatic electrons on a torus in an ad hoc tokamak equilibrium, with a
-manufactured Gaussian ring whose gradient is largest on the magnetic axis. Compares C1 polar splines (no
-hole) with tensor-product splines on a torus with a small hole."""
+"""Gyrokinetic Poisson equation (quasineutrality with the ion polarization density and adiabatic electrons) on a
+torus in an ad hoc tokamak equilibrium, with a manufactured solution whose gradient is largest on the magnetic
+axis. Compares C1 polar splines (no hole) with tensor-product splines on a torus with a small hole; the pproc
+reports the max. relative error, also close to the axis."""
 
 # -----------------------------
 # Description of the simulation
@@ -69,13 +70,57 @@ precond = None if args.precond == "None" else args.precond
 
 name = f"GyrokineticPoisson on a torus, {args.splines} splines, preconditioner {precond}"
 description = f"""
-Gyrokinetic Poisson equation with adiabatic electrons on a full torus of minor radius 1
-and major radius 3 in an ad hoc tokamak equilibrium (AdhocTorus, a=1, R0=3), comparing C1 polar splines
-(IGAPolarTorus, no hole) with tensor-product splines on a torus with a hole (HollowTorus, a1=1e-2).
+Gyrokinetic Poisson equation (quasineutrality) with adiabatic electrons for the electrostatic potential phi
+of a given gyrocenter charge density rho on a full torus of minor radius 1 and major radius 3 in an ad hoc
+tokamak equilibrium, with a manufactured solution that is largest near the magnetic axis, comparing C1 polar
+splines with tensor-product splines.
+
+Physics. In gyrokinetic models the electrostatic potential follows from quasineutrality instead of
+Poisson's equation: the ion gyrocenter density plus the ion polarization density equals the electron density.
+In the long-wavelength limit the polarization density is proportional to div(n0 / B0^2 grad_perp phi), the
+gyrokinetic counterpart of the polarization drift (Lee 1983). With adiabatic (Boltzmann) electrons, which respond
+to the potential along the field lines, the electron density perturbation is proportional to
+n0/Te (phi - <phi>); the flux-surface average <phi> is removed since the electrons cannot respond adiabatically
+to the zonal (surface-averaged) potential. In Struphy units this is the GyrokineticPoisson equation
+    1/(Z eps^2) n0/T0 (phi - <phi>) - div(n0/|B0|^2 grad_perp phi) = rho / eps,
+with grad_perp = (I - b0 b0^T) grad, b0 = B0/|B0|, the gyrokinetic parameter eps (here 1) and the ion charge
+number Z (here 1); it is the field equation of the DriftKineticElectrostaticAdiabatic model. n0, T0 = p/n0
+(with the pressure p) and B0 are taken from the MHD equilibrium. The operator is strongly anisotropic, since
+along b0 only the adiabatic term acts, and the average <phi> couples all points of a surface; both make it harder
+to precondition than the Laplacian. phi lives in the spline space V0 of H1 of the discrete de Rham complex (FEEC).
+
+The case tests the treatment of the coordinate singularity at the magnetic axis r = 0 of the torus,
+the center of the polar coordinates (r, theta) of the cross-section: physical fields, such as the potential and
+the electric field of a plasma column, are smooth there and in general have a non-zero value and gradient on the
+axis. Tensor-product splines in (r, theta) are not smooth across the axis, so they are used on a domain with a
+small hole and a boundary condition at the hole. C1 polar splines, linear combinations of the tensor-product
+splines of the first two rings of control points around the pole, are C1-smooth across the axis and need no hole.
+The manufactured solution is placed such that its gradient is largest on the axis, where the two approaches
+differ most.
+
+Setup. Ad hoc tokamak equilibrium (AdhocTorus, a=1, R0=3) with circular flux surfaces; comparing C1 polar
+splines (IGAPolarTorus, no hole) with tensor-product splines on a torus with a hole (HollowTorus, a1=1e-2),
+splines of degree 3; <phi> is the average over eta2 and eta3 (poloidal and toroidal angle), the flux-surface
+average.
 The manufactured solution is a Gaussian ring whose gradient is largest on the magnetic axis r=0, with a non-zero
-flux-surface average.
+flux-surface average, so that the average term is tested as well.
 Homogeneous Dirichlet boundary conditions are set at r=1 (boundary condition {args.hole_bc} at the hole).
 The linear system is solved with CG, preconditioner {precond} (poloidal solver {args.poloidal_solver}).
+
+Expected result. The pproc script compares the computed phi and the projected right-hand side rho
+with the exact fields and prints the max. relative errors, in the whole domain and close to the axis (r < 0.1),
+where the tensor-product splines on the domain with a hole are expected to be less accurate than the polar
+splines. No thresholds are asserted. The number of CG iterations shows the efficiency of the preconditioner.
+
+References:
+- W. W. Lee, "Gyrokinetic approach in particle simulation", Phys. Fluids 26, 556 (1983).
+- D. Toshniwal, H. Speleers, R. R. Hiemstra and T. J. R. Hughes, "Multi-degree smooth polar splines: A
+  framework for geometric modeling and isogeometric analysis", Comput. Methods Appl. Mech. Engrg. 316, 1005
+  (2017).
+- A. Buffa, J. Rivas, G. Sangalli and R. Vazquez, "Isogeometric discrete differential forms in three
+  dimensions", SIAM J. Numer. Anal. 49, 818 (2011).
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite
+  elements with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging

@@ -1,6 +1,7 @@
-"""Curl-curl problem curl curl E + sigma E = J on a cylinder with a manufactured field whose gradient is
-largest on the axis. Compares C1 polar splines (no hole) with tensor-product splines on a cylinder with a
-small hole; the pproc reports the max. relative error, also close to the axis."""
+"""Curl-curl problem curl curl E + sigma E = J (implicit time step of Maxwell's equations, eddy-current or
+magnetostatic problems) on a cylinder with a manufactured field whose gradient is largest on the axis.
+Compares C1 polar splines (no hole) with tensor-product splines on a cylinder with a small hole; the pproc
+reports the max. relative error, also close to the axis."""
 
 # -----------------------------
 # Description of the simulation
@@ -70,12 +71,57 @@ precond = None if args.precond == "None" else args.precond
 
 name = f"Curl-curl on a cylinder, {args.splines} splines, preconditioner {precond}"
 description = f"""
-Curl-curl problem curl curl E + sigma E = J on a cylinder of radius 1 and length 4,
-comparing C1 polar splines (IGAPolarCylinder, no hole) with tensor-product splines on a cylinder with a hole
-(HollowCylinder, a1=1e-2). The manufactured solution E = g c (constant Cartesian vector c) has a Gaussian g whose
-gradient is largest on the axis r=0.
-Homogeneous Dirichlet boundary conditions (vanishing tangential E) are set at r=1 (boundary condition {args.hole_bc} at the hole).
+Curl-curl problem curl curl E + sigma E = J for the vector field E (e.g. the electric field) with a given
+source J on a cylinder of radius 1 and length 4, with a manufactured solution that is largest near the axis,
+comparing C1 polar splines with tensor-product splines.
+
+Physics. The curl-curl problem is the elliptic core of low-frequency and time-implicit electromagnetics.
+A backward Euler step of Maxwell's equations, dE/dt = c^2 curl B - J/eps0 and dB/dt = -curl E,
+leads after elimination of the new B to
+    curl curl E + E / (c dt)^2 = (terms of the old time step and the current),
+i.e. sigma = 1/(c dt)^2. The same operator appears in eddy-current problems (sigma = mu0 sigma_c / dt with the
+electric conductivity sigma_c), and for sigma -> 0 it becomes the magnetostatic operator curl curl A = mu0 J of the
+vector potential. Here sigma = 1e-2 is small: on the kernel of the curl, the gradient fields grad psi, the
+operator reduces to sigma times the identity, so its spectrum has a cluster of small eigenvalues on all length
+scales which point smoothers and preconditioners designed for the Laplacian do not reduce. The Hiptmair-Xu
+preconditioner and the hybrid smoother of Hiptmair (multigrid) treat this kernel separately in the H1 space of
+the potentials. E lives in the spline space V1 of H(curl) of the discrete de Rham complex (FEEC), so the discrete
+gradients are exactly in the kernel of the discrete curl, as in the continuous case. The manufactured solution
+E = g c has both a curl-free and a divergence-free part (div E = c . grad g, curl E = grad g x c); being
+localized, it excites the whole spectrum of the operator, including the near-kernel of the gradients.
+
+The case tests the treatment of the coordinate singularity at the axis r = 0 of the cylinder,
+the center of the polar coordinates (r, theta) of the cross-section: physical fields, such as the potential and
+the electric field of a plasma column, are smooth there and in general have a non-zero value and gradient on the
+axis. Tensor-product splines in (r, theta) are not smooth across the axis, so they are used on a domain with a
+small hole and a boundary condition at the hole. C1 polar splines, linear combinations of the tensor-product
+splines of the first two rings of control points around the pole, are C1-smooth across the axis and need no hole.
+The manufactured solution is placed such that its gradient is largest on the axis, where the two approaches
+differ most.
+
+Setup. Comparing C1 polar splines (IGAPolarCylinder, no hole) with tensor-product splines on a cylinder with a
+hole (HollowCylinder, a1=1e-2), splines of degree 3, sigma = 1e-2. The manufactured solution E = g c (constant
+Cartesian vector c) has a Gaussian g whose gradient is largest on the axis r=0.
+Homogeneous Dirichlet boundary conditions (vanishing tangential E) are set at r=1
+(boundary condition {args.hole_bc} at the hole).
 The linear system is solved with CG, preconditioner {precond} (poloidal solver {args.poloidal_solver}).
+
+Expected result. The pproc script compares the computed E and the projected right-hand side J
+with the exact fields and prints the max. relative errors, in the whole domain and close to the axis (r < 0.1),
+where the tensor-product splines on the domain with a hole are expected to be less accurate than the polar
+splines. No thresholds are asserted. The number of CG iterations shows the efficiency of the preconditioner.
+
+References:
+- D. Toshniwal, H. Speleers, R. R. Hiemstra and T. J. R. Hughes, "Multi-degree smooth polar splines: A
+  framework for geometric modeling and isogeometric analysis", Comput. Methods Appl. Mech. Engrg. 316, 1005
+  (2017).
+- R. Hiptmair and J. Xu, "Nodal auxiliary space preconditioning in H(curl) and H(div) spaces",
+  SIAM J. Numer. Anal. 45, 2483 (2007).
+- R. Hiptmair, "Multigrid method for Maxwell's equations", SIAM J. Numer. Anal. 36, 204 (1998).
+- A. Buffa, J. Rivas, G. Sangalli and R. Vazquez, "Isogeometric discrete differential forms in three
+  dimensions", SIAM J. Numer. Anal. 49, 818 (2011).
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite
+  elements with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging

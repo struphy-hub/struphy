@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
@@ -38,16 +39,15 @@ from struphy.particles.parameters import (
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.kernels.box_and_sort_particles import box_and_sort_particles
+from struphy.pic.kernels.box_particles import box_particles
+from struphy.pic.kernels.fill_boxes import fill_boxes
+from struphy.pic.kernels.sort_and_fill_boxes import sort_and_fill_boxes
 from struphy.pic.marker_layout import marker_array, padded_n_rows
 from struphy.pic.pushing.kernels.reflect import reflect
 from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
 from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 from struphy.pic.sorting import SortingBoxes
-from struphy.pic.sorting_kernels import (
-    assign_box_to_each_particle,
-    assign_particles_to_boxes,
-    sort_boxed_particles,
-)
 from struphy.pic.sph.kernels.box_based_evaluation_flat import box_based_evaluation_flat
 from struphy.pic.sph.kernels.box_based_evaluation_meshgrid import box_based_evaluation_meshgrid
 from struphy.pic.sph.kernels.naive_evaluation_flat import naive_evaluation_flat
@@ -66,14 +66,6 @@ logger = logging.getLogger("struphy")
 
 # smallest eta1 of a marker on a domain with a pole at eta1=0 (as in pusher_utilities_kernels)
 POLE_ETA1_MIN = 1e-10
-
-
-def _to_numpy_for_kernel(value):
-    """Convert CuPy arrays to NumPy for compiled kernel calls."""
-    if hasattr(value, "get"):
-        # This is a CuPy array
-        return value.get()
-    return value
 
 
 ORBIT_POSITIONS = (
@@ -289,9 +281,12 @@ class Particles(metaclass=ABCMeta):
         else:
             self._domain_array = domain_decomp[0]
             self._nprocs = domain_decomp[1]
+        # domain_array does not change after setup: one host copy for the host-side bookkeeping
+        # (Python numbers) and the host kernels, also on the CuPy backend
+        self._domain_array_host = xp.to_numpy(self._domain_array)
 
         # total number of cells (equal to mpi_size if no grid)
-        n_cells = xp.sum(xp.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
+        n_cells = int(np.sum(np.prod(self._domain_array_host[:, 2::3], axis=1, dtype=int))) * self.num_clones
 
         # total number of boxes
         if self.boxes_per_dim is None:
@@ -303,7 +298,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
-            n_boxes = xp.prod(xp.array(self.boxes_per_dim), dtype=int) * self.num_clones
+            n_boxes = math.prod(self.boxes_per_dim) * self.num_clones
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -960,13 +955,16 @@ class Particles(metaclass=ABCMeta):
         return self._args_markers
 
     def kernels(self) -> tuple:
-        """The kernels these particles call when they apply their boundary conditions.
+        """The kernels these particles call when they apply their boundary conditions and sort into boxes.
 
         :func:`~struphy.pic.pushing.kernels.reflect.reflect` if an axis has reflecting boundary
-        conditions, otherwise none. Used by
+        conditions, and the box kernels of :mod:`struphy.pic.kernels` if there are sorting boxes. Used by
         :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels`.
         """
-        return (reflect,) if self._reflect_axes else ()
+        kernels = (reflect,) if self._reflect_axes else ()
+        if self._sorting_boxes is not None:
+            kernels += (box_particles, fill_boxes, sort_and_fill_boxes, box_and_sort_particles)
+        return kernels
 
     # -------------------------------------------
     # Initial condition and background -> weights
@@ -2068,20 +2066,22 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbouring processes are also communicated (as ghost particles)."""
         self._remove_ghost_particles()
 
-        assign_box_to_each_particle(
+        max_in_box = box_particles(
             self.markers,
             self.holes,
             self._sorting_boxes.nx,
             self._sorting_boxes.ny,
             self._sorting_boxes.nz,
-            self.domain_array[self.mpi_rank],
+            self._domain_array_host[self.mpi_rank],
+            self._sorting_boxes._boxes,
+            self._sorting_boxes._next_index,
+            self._sorting_boxes.box_index,
         )
-
-        self._check_and_assign_particles_to_boxes()
+        self._check_box_capacity(max_in_box)
 
         if self.sorting_boxes.communicate:
             self._communicate_boxes()
-            self._check_and_assign_particles_to_boxes()
+            self._fill_boxes()
             self._update_ghost_particles()
 
         # if self.verbose:
@@ -2097,30 +2097,53 @@ class Particles(metaclass=ABCMeta):
         """Assign the particles to their sorting boxes and reorder the markers array accordingly,
         so that markers in the same box occupy contiguous columns.
 
+        The box array :attr:`~struphy.pic.sorting.SortingBoxes.boxes` is rebuilt for the sorted markers,
+        so it stays valid after the sort.
+
         Parameters
         ----------
         use_numpy_argsort : bool
-            If True, sort via :func:`numpy.argsort` on the box column; if False (default),
-            use the Pyccel kernel :func:`~struphy.pic.sorting_kernels.sort_boxed_particles`.
+            If True, sort via :func:`numpy.argsort` on the box row; if False (default),
+            use the kernel :func:`~struphy.pic.kernels.sort_and_fill_boxes.sort_and_fill_boxes`.
         """
-        nx = self._sorting_boxes.nx
-        ny = self._sorting_boxes.ny
-        nz = self._sorting_boxes.nz
-        nboxes = (nx + 2) * (ny + 2) * (nz + 2)
-
-        self.put_particles_in_boxes()
-
+        boxes = self._sorting_boxes
         if use_numpy_argsort:
+            self.put_particles_in_boxes()
             self._sort_boxed_particles_numpy()
-        else:
-            sort_boxed_particles(
+            self.update_holes()
+            self._fill_boxes()
+        elif boxes.communicate:
+            # SPH: the ghost particles are exchanged between assigning the boxes and sorting
+            self.put_particles_in_boxes()
+            sort_and_fill_boxes(
                 self._markers,
-                self._sorting_boxes._swap_line_1,
-                self._sorting_boxes._swap_line_2,
-                nboxes + 1,
-                self._sorting_boxes._next_index,
-                self._sorting_boxes._cumul_next_index,
+                self._holes,
+                boxes._boxes,
+                boxes._next_index,
+                boxes._cumul_next_index,
+                boxes._swap_line_1,
+                boxes._swap_line_2,
+                boxes.box_index,
             )
+        else:
+            # assign the boxes, sort and rebuild the box array in one kernel call
+            # (on the CuPy backend one host round trip of the markers, #694)
+            self._remove_ghost_particles()
+            max_in_box = box_and_sort_particles(
+                self._markers,
+                self._holes,
+                boxes.nx,
+                boxes.ny,
+                boxes.nz,
+                self._domain_array_host[self.mpi_rank],
+                boxes._boxes,
+                boxes._next_index,
+                boxes._cumul_next_index,
+                boxes._swap_line_1,
+                boxes._swap_line_2,
+                boxes.box_index,
+            )
+            self._check_box_capacity(max_in_box)
 
         # The markers have just been reordered. The masks are per marker index,
         # so they must be rebuilt before any later use of valid_mks/f_coords;
@@ -2600,14 +2623,11 @@ class Particles(metaclass=ABCMeta):
         """Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i,
         and 2) an array of size num_clones where the i-th entry corresponds to the number of markers on clone i."""
         # number of cells on current process
-        n_cells_loc = xp.prod(
-            self.domain_array[self.mpi_rank, 2::3],
-            dtype=int,
-        )
+        n_cells_loc = int(np.prod(self._domain_array_host[self.mpi_rank, 2::3], dtype=int))
 
         # array of number of markers on each process at loading stage
         if self.clone_config is not None:
-            _n_cells_clone = xp.sum(xp.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
+            _n_cells_clone = int(np.sum(np.prod(self._domain_array_host[:, 2::3], axis=1, dtype=int)))
             _n_mks_load_tot = self.clone_config.get_Np_clone(self.Np)
             _ppc = _n_mks_load_tot / _n_cells_clone
         else:
@@ -2721,14 +2741,9 @@ class Particles(metaclass=ABCMeta):
             # split boxes across MPI processes
             nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
 
-            # check whether this process touches the domain boundary
+            # check whether this process touches the domain boundary (Python bools, also on the CuPy backend)
+            x_l, x_r, _, y_l, y_r, _, z_l, z_r, _ = self._domain_array_host[self.mpi_rank].tolist()
             is_domain_boundary = {}
-            x_l = self.domain_array[self.mpi_rank, 0]
-            x_r = self.domain_array[self.mpi_rank, 1]
-            y_l = self.domain_array[self.mpi_rank, 3]
-            y_r = self.domain_array[self.mpi_rank, 4]
-            z_l = self.domain_array[self.mpi_rank, 6]
-            z_r = self.domain_array[self.mpi_rank, 7]
             is_domain_boundary["x_m"] = x_l == 0.0
             is_domain_boundary["x_p"] = x_r == 1.0
             is_domain_boundary["y_m"] = y_l == 0.0
@@ -3219,22 +3234,22 @@ class Particles(metaclass=ABCMeta):
 
         self._markers[:] = self._markers[:, self._argsort_array]
 
-    def _check_and_assign_particles_to_boxes(self):
-        """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
-        and then assign the particles to boxes."""
+    def _fill_boxes(self):
+        """Assign the particles to boxes from the box row of the markers, after checking that the box
+        array has enough columns (see :meth:`_check_box_capacity`)."""
+        max_in_box = fill_boxes(
+            self.markers,
+            self.holes,
+            self._sorting_boxes._boxes,
+            self._sorting_boxes._next_index,
+            self._sorting_boxes.box_index,
+        )
+        self._check_box_capacity(max_in_box)
 
-        from cunumpy.xp import array_backend
-
-        if array_backend.backend == "numpy":
-            bcount = xp.bincount(xp.int64(self.markers[-2, ~self.holes]))
-        else:
-            import cupy as cp
-
-            indices = self.markers[-2, ~self.holes]
-            indices = indices.astype(cp.int64)
-            bcount = cp.bincount(indices)
-
-        max_in_box = xp.max(bcount)
+    def _check_box_capacity(self, max_in_box: int):
+        """Raise (or abort under MPI) if the largest number of markers in a box, as returned by the box
+        kernels (counted on the host, a Python int), does not fit into the box array; the kernels then
+        leave the box array untouched. This detects load imbalance with respect to the sorting boxes."""
         # the last column must stay -1 (terminator for the box readers), hence >=
         if max_in_box >= self._sorting_boxes.boxes.shape[1]:
             msg = f'Strong load imbalance detected in sorting boxes: \
@@ -3245,13 +3260,6 @@ Increase the value of "box_bufsize" in the markers parameters for the next run.'
                 raise RuntimeError(msg)
             warnings.warn(msg)
             self.mpi_comm.Abort()
-
-        assign_particles_to_boxes(
-            self.markers,
-            self.holes,
-            self._sorting_boxes._boxes,
-            self._sorting_boxes._next_index,
-        )
 
     def _update_ghost_particles(self):
         """Refresh :attr:`~struphy.pic.base.Particles.ghost_particles`: a marker is flagged
@@ -4028,8 +4036,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         periodic2 = self.bc_sph[1] == "periodic"
         periodic3 = self.bc_sph[2] == "periodic"
 
-        # Determine which proc are on which side
-        dd = self.domain_array
+        # Determine which proc are on which side (on the host copy, also on the CuPy backend)
+        dd = self._domain_array_host
         rank = self.mpi_rank
 
         x_l = dd[rank][0]
@@ -4622,9 +4630,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         non_neighbor_ranks : list[int]
             Every other rank (excluding this one and ``neighbor_ranks``).
         """
-        # Tiny (mpi_size, 9) array -- brought to the host once so the O(mpi_size)
+        # Tiny (mpi_size, 9) array -- the host copy, so the O(mpi_size)
         # comparisons below don't pay a device sync per rank checked.
-        domain_array_host = _to_numpy_for_kernel(self.domain_array)
+        domain_array_host = self._domain_array_host
         own = domain_array_host[self.mpi_rank]
         tol = 1e-12
 

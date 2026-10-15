@@ -1,6 +1,6 @@
-"""Cyclone base case of the DriftKineticElectrostaticAdiabatic model: ion temperature gradient (ITG)
-instability in an ad hoc tokamak equilibrium, following the global gyrokinetic benchmark 'Nonlinear
-quasisteady state benchmark of global gyrokinetic codes'."""
+"""Cyclone base case with the DriftKineticElectrostaticAdiabatic model: toroidal ion temperature gradient (ITG)
+instability of an n = 19 mode in an ad hoc tokamak with circular flux surfaces, with the profiles of the global
+gyrokinetic benchmark of Lapillonne et al. (2010), based on the Cyclone base case of Dimits et al. (2000)."""
 
 # -----------------------------
 # Description of the simulation
@@ -8,19 +8,82 @@ quasisteady state benchmark of global gyrokinetic codes'."""
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Cyclone base case"
+name = "Cyclone base case (DriftKineticElectrostaticAdiabatic)"
 description = """
-Cyclone base case: ion temperature gradient (ITG) driven instability in a tokamak (ad hoc equilibrium with circular
-flux surfaces), with drift-kinetic ions and adiabatic electrons. The radial gradients of the ion temperature and
-density drive the instability, which grows and saturates into ITG turbulence.
+Cyclone base case: ion temperature gradient (ITG) driven instability in a tokamak with circular flux surfaces,
+with drift-kinetic ions and adiabatic electrons (DriftKineticElectrostaticAdiabatic). The radial gradients of the
+ion temperature and density drive the instability, which grows exponentially from a small perturbation and
+saturates into ITG turbulence.
 
-The parameters of this simulation file are based on the paper:
+Physics. The ion guiding-center distribution f(X, v_par, mu, t) is advected along the characteristics
+    dX/dt     = v_par B*/B*_par + E* x b0 / B*_par,
+    dv_par/dt = (1/epsilon) B*/B*_par . E*,
+with E* = -grad phi - epsilon mu grad|B0|, B* = B0 + epsilon v_par curl b0 and B*_par = B* . b0, i.e. parallel
+streaming, mirror force and the E x B, grad-B and curvature drifts (epsilon = normalized cyclotron period, mu the
+magnetic moment). The electrons respond adiabatically, n_e = n0 (1 + e phi / T_e), and the electrostatic
+potential follows from the quasi-neutrality (gyrokinetic Poisson) equation
+    -div_perp( n0/|B0|^2 grad_perp phi ) + n0 phi / (Z epsilon^2 T0) = (1/epsilon) int (f - f0) B*_par dv_par dmu,
+where the first term is the ion polarization density and the second the adiabatic electron response (control
+variate: only the deviation f - f0 from the background enters). In a torus, the grad-B and curvature drifts of
+the ions on the outboard side (bad curvature) together with a steep ion temperature gradient release the free
+energy of the profiles: a temperature perturbation causes a vertical charge separation through the
+temperature-dependent drifts, whose E x B flow carries hot ions outwards and amplifies the perturbation once the
+normalized gradient R/L_T exceeds a threshold. The unstable modes balloon at the outboard side and are nearly
+aligned with the field lines, m approximately n q(r0).
 
-'Nonlinear quasisteady state benchmark of global gyrokinetic codes' (Latu et al., 2014),
-where the case is described in part III.
+Setup (global Cyclone base case of Lapillonne et al.). Ad hoc tokamak (AdhocTorus) with major radius R0 = 1,
+minor radius a = 0.36, B0 = 1 and safety factor q(r) = 0.86 - 0.16 r/a + 2.52 r^2/a^2 (q = 1.41 and magnetic shear
+(r/q) dq/dr = 0.84 at r0 = a/2). Density and temperature profiles
+    n(r) = exp(-kappa_n a Delta_n tanh((r - r0)/(Delta_n a))),
+    T(r) = exp(-kappa_T a Delta_T tanh((r - r0)/(Delta_T a))),
+i.e. R0/L_n = kappa_n = 2.23 and R0/L_T = kappa_T = 6.96 at r0, with widths Delta_n = Delta_T = 0.3, and
+T_e = T_i. The base units (kBT = 0.1916) give epsilon = 1.4142e-3, i.e. rho* = rho_s/a = 1/180. The domain is a
+HollowTorus (inner radius 0.01, straight field line angle) with a 1/19 toroidal period: the logical mode n = 1
+is the toroidal mode n = 19. The initial density perturbation of amplitude 1e-6 is the (m, n) = (27, 19) mode in
+the geometric poloidal angle, localized around r0 (Gaussian width 0.02), with k_theta rho_s = n q(r0)/r0 rho_s
+of about 0.3, near the maximum of the ITG spectrum. Ions are loaded as a gyro-Maxwellian with the above
+profiles (delta-f with control variate); markers leaving at the radial boundary are removed. The charge density
+is filtered to the logical toroidal Fourier mode 1 (n = 19) in the Poisson solve. Time step dt = 0.001, end time
+Tend = 0.01 (a short demonstration run; increase Tend for the full linear growth phase).
 
-DOI: 10.1140/epjd/e2014-50180-9
+Expected result. The pproc fits an exponential to phi_integral, the poloidally and toroidally averaged phi^2 at
+mid radius, which grows at twice the linear growth rate of the ITG mode in the linear phase; it also shows the
+potential, the charge density and the perturbed distribution in the poloidal plane at the first, middle and last
+saved time. In the benchmark the linear phase is followed by the saturation into ITG turbulence.
+
+References:
+- X. Lapillonne, B. F. McMillan, T. Goerler, S. Brunner, T. Dannert, F. Jenko, F. Merz and L. Villard,
+  "Nonlinear quasisteady state benchmark of global gyrokinetic codes", Phys. Plasmas 17, 112321 (2010).
+- A. M. Dimits et al., "Comparisons and physics basis of tokamak transport models and turbulence simulations",
+  Phys. Plasmas 7, 969 (2000).
+- A. J. Brizard and T. S. Hahm, "Foundations of nonlinear gyrokinetic theory", Rev. Mod. Phys. 79, 421 (2007).
 """
+
+import argparse
+from pathlib import Path
+
+# Command line options
+# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--test-run` selects a small grid, few markers and a short run (three saved time steps) for the tests
+# (test_examples.py). Unknown flags are ignored so that a driver can forward other parameters as well.
+# no -h here when imported by the pproc script, which has its own help
+parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
+parser.add_argument(
+    "--out-folder",
+    default=str(Path(__file__).resolve().parent),
+    help="Folder in which the output folder is created (default: beside this file).",
+)
+parser.add_argument("--sim-folder", default="sim_1", help="Name of the output folder.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[32, 135, 5], help="Number of elements per direction.")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Small resolution (num_elements = [8, 27, 4]), few markers and three saved time steps, for the tests "
+    "(test_examples.py).",
+)
+args, _ = parser.parse_known_args()
+if args.test_run:
+    args.num_elements = [8, 27, 4]
 
 # ------------------
 # Import Struphy API
@@ -32,8 +95,6 @@ import logging
 from struphy import set_logging_level
 
 set_logging_level(logging.INFO)
-
-from pathlib import Path
 
 import cunumpy as xp
 
@@ -84,13 +145,15 @@ model.kinetic_ions.var.save_data = False
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_1", restart=False)
+env = EnvironmentOptions(out_folders=args.out_folder, sim_folder=args.sim_folder, restart=False)
 
 # Time stepping
-time_opts = Time(dt=0.001, Tend=0.01, split_algo="LieTrotter")
+dt = 0.001
+# --test-run: the initial, a middle and a final saved time step
+time_opts = Time(dt=dt, Tend=2 * dt if args.test_run else 0.01, split_algo="LieTrotter")
 
 a, r_min, R0 = 0.36, 0.01, 1.0
-num_elements = (32, 5 * 27, 5)
+num_elements = tuple(args.num_elements)
 degree = (3, 3, 3)
 
 # Fluid equilibrium (can be used as part of initial conditions)
@@ -130,11 +193,13 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-ppc = 50  # run with 200 minimum
+ppc = 5 if args.test_run else 50  # run with 200 minimum
 loading_params = LoadingParameters(ppc=ppc, loading="sobol_standard", spatial="uniform", moments=(0, 0, 4, 4))
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"))
-sorting_params = SortingParameters(boxes_per_dim=(12, 12, 6), do_sort=True, sorting_frequency=5)
+sorting_params = SortingParameters(
+    boxes_per_dim=(4, 4, 2) if args.test_run else (12, 12, 6), do_sort=True, sorting_frequency=5
+)
 
 # density binning
 eta_bin = BinningPlot(slice="e1_e2", n_bins=(64, 64), ranges=((0.01, 0.99), (0.0, 1.0)))

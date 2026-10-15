@@ -10,18 +10,47 @@ GPU (CuPy) backend; the pproc writes the scope-profiler report and the cost per 
 
 name = "Vlasov-Maxwell weak Landau damping"
 description = """
-Weak Landau damping with the VlasovMaxwellOneSpecies model, the setup of the verification test in
-src/struphy/models/tests/verification: periodic box of length 4 pi (k = 0.5), Maxwellian electrons with a density
-perturbation of 1e-3 cos(k x), control-variate weights, cubic splines in x. The electric field decays at the
-rate -0.1533 (its energy at twice the rate). alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency, velocities in
-units of c).
+Weak (linear) Landau damping with the VlasovMaxwellOneSpecies model: 1D-3V kinetic electrons (PIC) with the full
+Maxwell equations in a periodic box with a neutralizing ion background. A small density perturbation of a
+Maxwellian launches an electron plasma wave that is damped without collisions, by the resonant electrons (Landau
+damping). The wave is electrostatic (E along k, no magnetic field is generated), so the result is the same as with
+the Vlasov-Ampere model; the case is used for profiling the Vlasov-Maxwell propagators.
+
+Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p,
+with vth = 1 lengths are in Debye lengths) the model solves
+    df/dt + v . grad_x f - (E + v x B) . grad_v f = 0,
+    dE/dt = curl B + int v f d^3v       (the current density of the electrons is -int v f d^3v),
+    dB/dt = -curl E,
+where the initial field follows from Poisson's equation div E = n0 - n with n = int f d^3v and the ion density
+n0 = int f0 d^3v of the background f0. Linearized around a Maxwellian with vth = 1, longitudinal perturbations
+exp(i (k x - omega t)) obey the dispersion relation
+    1 + 1/k^2 [1 + xi Z(xi)] = 0,   xi = omega / (sqrt(2) k),
+with the plasma dispersion function Z (Landau's analytic continuation). For small k the solution is the Langmuir
+wave omega^2 = 1 + 3 k^2 (Bohm-Gross) with a small negative imaginary part. Electrons with velocities close to the
+phase velocity omega/k exchange energy with the wave; in a Maxwellian there are more slower than faster ones, so
+the wave loses energy to them. Equivalently, the perturbation of f is sheared in phase space (phase mixing) and
+its density moment, which drives the field, decays.
+
+Setup (profiling). The setup of the verification test in src/struphy/models/tests/verification: periodic box of
+length 4 pi (k = 0.5), 32 cells and cubic splines in x, Maxwellian electrons with vth = 1 and the density
+n = 1 + 1e-3 cos(k x), control-variate (delta-f) weights with 1000 markers per cell (seed 1234), no sorting boxes,
+no marker output; 20 steps of dt = 0.05.
 
 Runs on the NumPy (CPU) or CuPy (GPU) backend, chosen by the environment variable CUNUMPY_BACKEND (the profiling
 driver exports it in the job script). All timing comes from scope-profiler: the run activates
 the profiling session of Simulation.run, and on the CuPy backend the session records CUDA-event device time per
 region (GPUOptions.timing) and synchronizes the device at region ends, so the CPU time of a region includes its
-kernels. The post-processing writes the scope-profiler HTML report and a summary of the cost per step and marker
-into the run's results folder.
+kernels.
+
+Expected result. For k = 0.5 the dispersion relation gives omega = 1.4156 - 0.1533 i: the electric field oscillates
+with the frequency 1.4156 and its amplitude decays at the rate 0.1533 (the energy at twice the rate). The 20 steps
+(t = 1) are too short to see the damping; the post-processing writes the scope-profiler HTML report and a summary
+of the cost per step and marker into the run's results folder.
+
+References:
+- L. D. Landau, "On the vibrations of the electronic plasma", J. Phys. USSR 10, 25 (1946).
+- E. Sonnendruecker, J. Roche, P. Bertrand and A. Ghizzo, "The semi-Lagrangian method for the numerical
+  resolution of the Vlasov equation", J. Comput. Phys. 149, 201 (1999).
 """
 
 import argparse

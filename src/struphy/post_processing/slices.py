@@ -237,3 +237,65 @@ def plot_physical_slices(
             else:
                 figs[f"{key}_slices_{plane_name}"] = plot_plane(num, exact_values, coords, plane, label)
     return figs
+
+
+def plot_line_profiles(out: Output, domain, name, label, snapshots, kind=None, n_pts=201):
+    """Profiles of a field along eta1 (at eta2 = eta3 = 0.5) at the saved time steps ``snapshots``, as functions of
+    the physical coordinate x: one panel per component, one curve per time step. For effectively one-dimensional
+    runs (e.g. a Cuboid with one cell in eta2 and eta3), where the slices and 3D views show nothing more.
+
+    Parameters
+    ----------
+    out : Output
+        Output of the run.
+    domain : Domain
+        Domain of the run (``sim.domain`` or ``out.domain``).
+    name : str
+        Raw FEEC field, ``"species/variable"``.
+    label : str
+        Name of the field in the titles.
+    snapshots : list[int]
+        Positions of the saved time steps, e.g. ``out.standard_snapshots()``.
+    kind : str | None
+        None for a scalar field, else the basis of the components of a vector field ("1", "2", "v", "norm", or
+        "physical" for the Cartesian ones, see :meth:`Output.field_basis`).
+    n_pts : int
+        Number of points along eta1.
+
+    Returns
+    -------
+    Figure
+    """
+    eta1 = np.linspace(0.0, 1.0, n_pts)
+    cartesian = kind == "physical"
+    form = out.field_form(name) if cartesian else kind
+    data = out.evaluate(name, t=list(snapshots), representation=form, eta1=eta1, eta2=0.5, eta3=0.5)
+    x = data.coords["X"].values  # along eta1
+    times = np.asarray(data.coords["t"].values)
+    if kind is None:
+        values = data.values[:, None]  # (t, 1, eta1)
+    else:
+        values = np.stack([data.isel(component=k).values for k in range(3)], axis=1)  # (t, 3, eta1)
+        if cartesian:
+            grids = (eta1, np.array([0.5]), np.array([0.5]))
+            values = np.stack(
+                [
+                    np.stack(
+                        [xp.to_numpy(c).reshape(-1) for c in domain.push([*v[:, :, None, None]], *grids, kind=form)]
+                    )
+                    for v in values
+                ]
+            )
+    n_comps = values.shape[1]
+    fig, axes = plt.subplots(n_comps, 1, figsize=(7, 2.6 * n_comps + 0.8), sharex=True, squeeze=False)
+    for k, ax in enumerate(axes[:, 0]):
+        for i, t in enumerate(times):
+            ax.plot(x, values[i, k], label=f"t = {t:.3g}")
+        what = label if kind is None else f"{label}, component {k + 1} ({BASES.get(kind, kind)})"
+        ax.set(ylabel=what)
+        ax.grid(alpha=0.3)
+    axes[0, 0].legend()
+    axes[0, 0].set_title(f"{label} along x (eta2 = eta3 = 0.5)")
+    axes[-1, 0].set_xlabel("x")
+    fig.tight_layout()
+    return fig
