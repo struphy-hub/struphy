@@ -34,6 +34,11 @@ parser.add_argument(
         "no marker output, no sorting boxes, NumPy or CuPy backend)."
     ),
 )
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Few markers and three saved time steps of the example setup, for the tests (test_examples.py).",
+)
 args, _ = parser.parse_known_args()
 profiling = args.setup == "profiling"
 
@@ -146,7 +151,8 @@ if profiling:
     steps = 20
     time_opts = Time(dt=dt, Tend=round(steps * dt, 14))
 else:
-    time_opts = Time(dt=dt, Tend=400, split_algo="LieTrotter")
+    # --test-run: the initial, a middle and a final saved time step
+    time_opts = Time(dt=dt, Tend=2 * dt if args.test_run else 400, split_algo="LieTrotter")
 
 # Geometry
 Lx = 2 * math.pi / k
@@ -216,7 +222,7 @@ if profiling:
     bufsize = 0.4
 else:
     loading_params = LoadingParameters(
-        Np=100000,
+        Np=2000 if args.test_run else 100000,
         set_zero_velocity=(False, False, True),
         moments=(0.0, 0.0, 0.0, vth1_background_val, vth2_background_val, 1.0),
         seed=1234,

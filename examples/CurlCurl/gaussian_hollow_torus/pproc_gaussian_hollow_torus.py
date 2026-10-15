@@ -30,10 +30,18 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from params_gaussian_hollow_torus import args, exact_solution, parser, rhs, sim  # noqa: E402
 
 
-def exact_norm(fun):
-    """Magnitude of the exact vector field with the Cartesian components fun(k)(x, y, z), as a function of
-    (eta1, eta2, eta3, x, y, z) for the slice plots."""
-    return lambda e1, e2, e3, x, y, z: np.linalg.norm(np.stack([fun(k)(x, y, z) for k in range(3)]), axis=0)
+def exact_components(fun):
+    """The exact vector field with the Cartesian components fun(k)(x, y, z), as a function of
+    (eta1, eta2, eta3, x, y, z) for the slice plots: its three components along a first axis."""
+    return lambda e1, e2, e3, x, y, z: np.stack([fun(k)(x, y, z) for k in range(3)])
+
+
+def save(figs, results_dir, save_figs):
+    """Save the figures to ``results_dir`` and close them (``save_figs``), or keep them open for ``plt.show()``."""
+    if save_figs:
+        for fig_name, fig in figs.items():
+            fig.savefig(os.path.join(results_dir, f"{fig_name}.png"))
+            plt.close(fig)
 
 
 def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
@@ -49,18 +57,6 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
     j = np.stack([j_xyz.isel(component=k).values for k in range(3)])
     e_exact = np.stack([exact_solution(k)(X, Y, Z) for k in range(3)])
     j_exact = np.stack([rhs(k)(X, Y, Z) for k in range(3)])
-
-    # magnitudes in the physical plane x-y and the poloidal plane at the angle `angle` (x-z, y-z: all_planes=True)
-    figs = plot_physical_slices(
-        out,
-        sim.domain,
-        sim.grid.num_elements,
-        [
-            ("rhs", "|J|", "em_fields/source", 0, exact_norm(rhs), "1"),
-            ("e", "|E|", "em_fields/e_field", -1, exact_norm(exact_solution), "1"),
-        ],
-        phi=angle,
-    )
 
     rel_err_rhs = np.max(np.abs(j - j_exact)) / np.max(np.abs(j_exact))
     rel_err_e = np.max(np.abs(e - e_exact)) / np.max(np.abs(e_exact))
@@ -84,16 +80,32 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
     np.save(os.path.join(results_dir, "resolution.npy"), sim.grid.num_elements)
     np.save(os.path.join(results_dir, "spline_degree.npy"), sim.derham_opts.degree)
 
-    # 3D views of the fields from VTK files of a finer post-processing, saved as <field>_3d.png
-    out.pproc(create_vtk=True, physical=True, celldivide=CELLDIVIDE, force=True)
-    for key, variable in (("rhs", "source"), ("e", "e_field")):
-        plot_field_3d(out.path_out, variable, filename=os.path.join(results_dir, f"{key}_3d.png"))
+    # The Cartesian components of J (given in Cartesian components) and E (whose exact solution is Cartesian) in the
+    # physical planes (see plot_physical_slices), and 3D views of their x-components from VTK files of a finer
+    # post-processing, at the first, middle and last saved time, saved as e.g. e1_slices_xy_t1.5.png, e1_3d_t1.5.png
+    snapshots = out.standard_snapshots()
+    out.pproc(create_vtk=True, physical=True, celldivide=CELLDIVIDE, vtk_steps=snapshots, force=True)
+    for n in snapshots:
+        t = float(out.time[n])
+        fields = [
+            ("rhs", f"J at t = {t:.3g}", "em_fields/source", n, exact_components(rhs), "physical"),
+            # E is the solution of the last time step; it is zero at the start, where no exact solution is shown
+            (
+                "e",
+                f"E at t = {t:.3g}",
+                "em_fields/e_field",
+                n,
+                exact_components(exact_solution) if n > 0 else None,
+                "physical",
+            ),
+        ]
+        figs = plot_physical_slices(out, sim.domain, sim.grid.num_elements, fields, phi=angle, components=True)
+        save({f"{name}_t{t:.6g}": fig for name, fig in figs.items()}, results_dir, save_figs)
+        for key, variable in (("rhs", "source"), ("e", "e_field")):
+            filename = os.path.join(results_dir, f"{key}1_3d_t{t:.6g}.png")
+            plot_field_3d(out.path_out, variable, snapshot=n, component=0, physical=True, filename=filename)
 
-    if save_figs:
-        for fig_name, fig in figs.items():
-            fig.savefig(os.path.join(results_dir, f"{fig_name}.png"))
-            plt.close(fig)
-    else:
+    if not save_figs:
         plt.show()
 
 

@@ -16,11 +16,31 @@ This benchmark tests the ability of the particle-in-cell method to capture nonli
 and validates the long-term stability and accuracy of the Vlasov-Ampère discretization.
 """
 
+import argparse
+from pathlib import Path
+
+# Command line options
+# `--out-folder` and `--sim-folder` set the output folder. `--test-run` selects few markers and a short run (three
+# saved time steps) for the tests (test_examples.py). Unknown flags are ignored so that a driver can forward other
+# parameters as well.
+# no -h here when imported by the pproc script, which has its own help
+parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
+parser.add_argument(
+    "--out-folder",
+    default=str(Path(__file__).resolve().parent),
+    help="Folder in which the output folder is created (default: beside this file).",
+)
+parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Few markers (ppc = 50) and three saved time steps, for the tests (test_examples.py).",
+)
+args, _ = parser.parse_known_args()
+
 # ------------------
 # Import Struphy API
 # ------------------
-
-from pathlib import Path
 
 # For particles:
 from struphy import (
@@ -66,10 +86,12 @@ model.kinetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=str(Path(__file__).resolve().parent), sim_folder="sim_data")
+env = EnvironmentOptions(out_folders=args.out_folder, sim_folder=args.sim_folder)
 
 # Time stepping
-time_opts = Time(dt=0.05, Tend=75.0, split_algo="LieTrotter")
+dt = 0.05
+# --test-run: the initial, a middle and a final saved time step
+time_opts = Time(dt=dt, Tend=2 * dt if args.test_run else 75.0, split_algo="LieTrotter")
 
 # Geometry
 domain = domains.Cuboid(r1=12.56)
@@ -99,7 +121,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc=1000)
+loading_params = LoadingParameters(ppc=50 if args.test_run else 1000)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)

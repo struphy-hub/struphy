@@ -1,4 +1,4 @@
-"""Marker exchange between ranks on the CuPy backend (:meth:`Particles.mpi_sort_markers`).
+"""Marker exchange between ranks (:meth:`Particles.mpi_sort_markers`) and sorting boxes on the CuPy backend.
 
 The marker rows are exchanged as device buffers with CUDA-aware MPI, and staged through
 host memory otherwise. Without a GPU, the tests run on cunumpy's fake CuPy, which must be
@@ -21,8 +21,9 @@ import pytest
 from cunumpy.kernel_testing import requires_cupy
 from maybempi import MPI
 
-from struphy import BoundaryParameters, LoadingParameters
-from struphy.pic.particles import Particles6D
+from struphy import BoundaryParameters, LoadingParameters, SortingParameters
+from struphy.pic.particles import Particles6D, ParticlesSPH
+from struphy.pic.tests.test_sorting import assert_boxes_match_markers
 
 
 def _fake_cupy_active() -> bool:
@@ -189,6 +190,104 @@ def test_mpi_sort_markers_gpu(bc):
     """On a GPU (``mpirun -n 2``, one GPU per rank): the exchange gives the NumPy result; with
     CUDA-aware MPI without host/device copies."""
     check_mpi_sort_markers_device(None, bc=bc, count_reads=False)
+
+
+# divisible by the number of processes in each direction for 1 to 4 ranks
+BOXES_PER_DIM = (12, 12, 12)
+
+
+def check_sorting_boxes_device():
+    """Sorting boxes on NumPy and CuPy across all ranks: the same setup, and one :meth:`do_sort` of the same markers.
+
+    On a rank > 0 the box kernels and the setup read the row of that rank from the host copy of ``domain_array``, and
+    SPH particles find their neighbouring processes with a real domain decomposition (for more than one rank).
+    """
+    comm = MPI.COMM_WORLD
+    rank, size = comm.Get_rank(), comm.Get_size()
+
+    def make_particles():
+        return Particles6D(
+            comm_world=comm,
+            loading_params=LoadingParameters(Np=4000, seed=1234),
+            sorting_params=SortingParameters(boxes_per_dim=BOXES_PER_DIM),
+        )
+
+    ref = make_particles()
+    ref.draw_markers(sort=False)
+    ref.mpi_sort_markers()
+    markers_in = ref.markers.copy()
+    ref.do_sort()
+    assert_boxes_match_markers(ref)
+    assert ref.n_mks_loc > 0
+    # all markers of this rank lie in its domain, so none is in the out-of-domain box (last row of the box array):
+    # the boxes were found with the domain_array row of this rank
+    out_box = ref.sorting_boxes.boxes.shape[0] - 1
+    assert np.all(ref.markers[ref.valid_mks, ref.sorting_boxes.box_index] < out_box)
+
+    with xp.use_backend("cupy"):
+        dev = make_particles()
+        assert xp.get_array_backend(dev.domain_array) == "cupy"
+        assert isinstance(dev._domain_array_host, np.ndarray)
+        assert np.array_equal(dev._domain_array_host, ref.domain_array)
+
+        dev.markers[:] = xp.to_cupy(markers_in)
+        dev.update_holes()
+        with xp.profiling.count_transfers() as transfers:
+            dev.do_sort()
+        assert np.array_equal(xp.to_numpy(dev.markers), ref.markers)
+        for name in ("_boxes", "_next_index", "_cumul_next_index"):
+            assert np.array_equal(xp.to_numpy(getattr(dev.sorting_boxes, name)), getattr(ref.sorting_boxes, name))
+        assert_boxes_match_markers(dev)
+
+    # the markers cross between device and host once in each direction (#694: no CUDA box kernels yet)
+    markers_bytes = ref.markers.nbytes
+    assert sum(e.kind == "to_host" and e.nbytes == markers_bytes for e in transfers.events) == 1, transfers.report()
+    assert sum(e.kind == "to_device" and e.nbytes == markers_bytes for e in transfers.events) == 1, transfers.report()
+
+    def make_sph():
+        return ParticlesSPH(
+            comm_world=comm,
+            loading_params=LoadingParameters(Np=4000, seed=1234),
+            sorting_params=SortingParameters(boxes_per_dim=BOXES_PER_DIM),
+        )
+
+    ref_sph = make_sph()
+    with xp.use_backend("cupy"):
+        dev_sph = make_sph()
+
+    assert dev_sph.sorting_boxes.communicate
+    is_domain_boundary = dev_sph.sorting_boxes.is_domain_boundary
+    assert is_domain_boundary == ref_sph.sorting_boxes.is_domain_boundary
+    assert all(type(v) is bool for v in is_domain_boundary.values())
+    assert np.array_equal(xp.to_numpy(dev_sph.sorting_boxes.neighbours), ref_sph.sorting_boxes.neighbours)
+    for side in ("x_m", "x_p", "y_m", "y_p", "z_m", "z_p"):
+        name = f"_bnd_boxes_{side}"
+        assert getattr(dev_sph.sorting_boxes, name) == getattr(ref_sph.sorting_boxes, name), name
+
+    # the neighbouring process in each of the 26 directions
+    procs = sorted(name for name in vars(ref_sph) if name.endswith("_proc"))
+    assert len(procs) == 26, procs
+    dev_procs = {name: getattr(dev_sph, name) for name in procs}
+    ref_procs = {name: getattr(ref_sph, name) for name in procs}
+    assert all(p is None or isinstance(p, (int, np.integer)) for p in dev_procs.values()), dev_procs
+    assert dev_procs == ref_procs
+    if size > 1:
+        # a real decomposition: some neighbours are other ranks
+        assert any(p is not None and p != rank for p in ref_procs.values()), ref_procs
+
+
+@requires_fake_cupy
+@pytest.mark.mpi
+def test_sorting_boxes_fake_cupy():
+    """On the fake CuPy, on every rank: sorting boxes and :meth:`do_sort` give the NumPy result."""
+    check_sorting_boxes_device()
+
+
+@requires_cupy
+@pytest.mark.mpi
+def test_sorting_boxes_gpu():
+    """On a GPU (``mpirun -n 2``, one GPU per rank): sorting boxes and :meth:`do_sort` give the NumPy result."""
+    check_sorting_boxes_device()
 
 
 if __name__ == "__main__":
