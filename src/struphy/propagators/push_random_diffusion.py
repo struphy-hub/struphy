@@ -110,8 +110,8 @@ class PushRandomDiffusion(Propagator):
 
         particles = self.variables.var.particles
 
-        # C-ordered, as the kernel declares it (a copy of the column-major markers would keep their order)
-        self._noise = array(particles.markers[:, :3], order="C")
+        # one column per marker, like the markers
+        self._noise = array(particles.markers[:3])
 
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
@@ -150,8 +150,8 @@ class PushRandomDiffusion(Propagator):
         self._noise[:] = random.multivariate_normal(
             self._mean,
             self._cov,
-            len(particles.markers),
-        )
+            particles.n_rows,
+        ).T
 
         # push markers
         self._pusher(dt)

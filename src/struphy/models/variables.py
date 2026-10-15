@@ -659,7 +659,7 @@ class PICVariable(Variable):
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
-                (self._n_to_save, self.particles.markers.shape[1]),
+                (self.particles.n_cols, self._n_to_save),
                 dtype=float,
             )
 
@@ -955,7 +955,7 @@ class SPHVariable(Variable):
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
-                (self._n_to_save, self.particles.markers.shape[1]),
+                (self.particles.n_cols, self._n_to_save),
                 dtype=float,
             )
 

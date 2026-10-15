@@ -202,12 +202,12 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             else:
                 self._f0 = backgrounds
             self._f0_values = xp.zeros(
-                self.kinetic_ions.var.particles.markers.shape[0],
+                self.kinetic_ions.var.particles.n_rows,
                 dtype=float,
             )
             assert isinstance(self._f0, Maxwellian3D)
 
-        self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords.T)
+        self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords)
 
         # alpha^2 * v_th^2 * N / 2 * sum_p s_0 * w_p^2 / f_{0,p}  (weights are w_p = delta f_p / (N * s_{0,p}))
         alpha = self.kinetic_ions.equation_params.alpha
