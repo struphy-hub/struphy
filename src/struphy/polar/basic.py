@@ -27,9 +27,12 @@ class PolarDerhamSpace(VectorSpace):
     def __init__(self, derham: "Derham", space_id: str):
         assert not derham.spl_kind[0], "Spline basis in eta1 must be clamped"
         assert derham.spl_kind[1], "Spline basis in eta2 must be periodic"
-        assert (derham.num_elements[1] / 3) % 1 == 0.0, "Number of elements in eta2 must be a multiple of 3"
 
-        assert derham.degree[0] > 1 and derham.degree[1] > 1, "Spline degrees in (eta1, eta2) must be at least two"
+        # high-order (homotopy) polar splines provide their own layout of polar coefficients and rings
+        layout = getattr(derham.ck_blocks, "space_layout", None)
+        if layout is None:
+            assert (derham.num_elements[1] / 3) % 1 == 0.0, "Number of elements in eta2 must be a multiple of 3"
+            assert derham.degree[0] > 1 and derham.degree[1] > 1, "Spline degrees in (eta1, eta2) must be at least two"
 
         # other properties
         self._dtype = float
@@ -48,7 +51,25 @@ class PolarDerhamSpace(VectorSpace):
         self._ends = self._parent_space.ends
 
         # polar properties
-        if space_id == "H1":
+        if layout is not None:
+            form = derham.space_to_form[space_id]
+            self._n_polar, self._n_rings = layout(form)
+            spaces = {
+                "H1": derham.V0splines,
+                "Hcurl": derham.V1splines,
+                "Hdiv": derham.V2splines,
+                "L2": derham.V3splines,
+                "H1vec": derham.Vvsplines,
+            }[space_id]
+            nbasis = spaces.nbasis  # per component, per direction
+            self._n2 = tuple(nb[1] for nb in nbasis)
+            self._n3 = tuple(nb[2] for nb in nbasis)
+            self._type_of_basis_3 = tuple(st[2] for st in spaces.spline_types)
+            self._dimension = sum(
+                (nb[0] - nr) * nb[1] * nb[2] + npol * nb[2]
+                for nb, nr, npol in zip(nbasis, self._n_rings, self._n_polar)
+            )
+        elif space_id == "H1":
             self._n_polar = (3,)
             self._n_rings = (2,)
             self._dimension = ((self.n[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]

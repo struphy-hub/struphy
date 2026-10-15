@@ -674,6 +674,13 @@ class Derham:
         # solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections
         self._polar_poloidal_solver = options.polar_poloidal_solver
 
+        # construction of the polar splines: C1 or high-order (homotopy) polar subspaces
+        self._polar_method = options.polar_method
+        self._polar_regularity = options.polar_regularity
+        self._polar_enrichment = options.polar_enrichment
+        self._polar_polynomial_projection = options.polar_polynomial_projection
+        self._polar_cross_section = options.polar_cross_section
+
         # Other derived properties
         self._mpi_dims_mask = mpi_dims_mask
         with_projectors = True  # projectors are always built in the current implementation, but this flag can be used to skip their construction if not needed
@@ -715,35 +722,35 @@ class Derham:
             derham.V0,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines,
+            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._V1splines = SplineAttributes1D(
             derham.V1,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines,
+            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._V2splines = SplineAttributes1D(
             derham.V2,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines,
+            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._V3splines = SplineAttributes1D(
             derham.V3,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines,
+            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._Vvsplines = SplineAttributes1D(
             derham.Vv,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines,
+            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
 
@@ -806,6 +813,17 @@ class Derham:
         # polar spaces, these will be just the tensor prodict spaces if polar_splines=False, and the polar subspaces if polar_splines=True, TODO: separate clearly tensor from polar
         if not self.polar_splines:
             self._ck_blocks = None
+        elif self.polar_method == "homotopy":
+            from struphy.polar.homotopy.derham_blocks import PolarExtractionBlocksHomotopy
+
+            self._ck_blocks = PolarExtractionBlocksHomotopy(
+                self.domain,
+                self,
+                regularity=self.polar_regularity,
+                enrichment=self.polar_enrichment,
+                polynomial_projection=self.polar_polynomial_projection,
+                cross_section=self.polar_cross_section,
+            )
         else:
             assert self.domain is not None
             self._ck_blocks = PolarExtractionBlocksC1(self.domain, self)
@@ -1017,6 +1035,31 @@ class Derham:
     def polar_poloidal_solver(self) -> str:
         """Solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections ("schur", "lu" or "ilu")."""
         return self._polar_poloidal_solver
+
+    @property
+    def polar_method(self) -> str:
+        """Construction of the polar splines: "c1" or "homotopy" (high-order polar subspaces)."""
+        return self._polar_method
+
+    @property
+    def polar_regularity(self) -> int:
+        """Regularity at the pole of the "homotopy" polar splines."""
+        return self._polar_regularity
+
+    @property
+    def polar_enrichment(self) -> str:
+        """Enrichment of the "homotopy" polar spaces."""
+        return self._polar_enrichment
+
+    @property
+    def polar_polynomial_projection(self) -> str:
+        """Projection of the polynomials in the "homotopy" polar construction."""
+        return self._polar_polynomial_projection
+
+    @property
+    def polar_cross_section(self) -> str:
+        """Reference cross-section of the "homotopy" polar complex."""
+        return self._polar_cross_section
 
     @property
     def with_local_projectors(self) -> bool:
@@ -1954,8 +1997,14 @@ class Derham:
         return tuple(Vh_pol)
 
     def _assemble_projectors(self, *projectors: GlobalGeometricProjector) -> tuple[CommutingProjector, ...]:
+        homotopy = self.polar_splines and self.polar_method == "homotopy"
         tmp = []
         for (sp_id, sp_form), projector in zip(self.space_to_form.items(), projectors):
+            if homotopy:
+                # the polar commuting projection is pi_bar = F~^T pi (paper): the polar "DOFs" are the polar
+                # coefficients F~^T I^{-1} dofs, and the polar inter-/histopolation matrix is the identity
+                self._dofs_extraction_ops[sp_form] = self._dofs_extraction_ops[sp_form] @ projector.solver
+                self._dofs_extraction_ops[sp_id] = self._dofs_extraction_ops[sp_form]
             tmp.append(
                 CommutingProjector(
                     projector,
@@ -1963,6 +2012,7 @@ class Derham:
                     base_extraction_op=self._extraction_ops[sp_form],
                     boundary_op=self.boundary_ops[sp_form],
                     poloidal_solver=self.polar_poloidal_solver,
+                    homotopy=homotopy,
                 )
             )
         return tuple(tmp)

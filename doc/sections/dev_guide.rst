@@ -54,6 +54,7 @@ This command is only available when Struphy is installed in editable mode, and i
    ../_collections/tutorials/dev_tutorial_feec_basics
    ../_collections/tutorials/dev_tutorial_feec_bcs
    ../_collections/tutorials/dev_tutorial_data_structs
+   ../_collections/tutorials/dev_tutorial_polar_homotopy
 
 
 .. toctree::

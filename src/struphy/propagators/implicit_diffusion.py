@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Callable, Literal
 
 import cunumpy as xp
-from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.basic import IdentityOperator, Vector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
@@ -542,7 +542,8 @@ class ImplicitDiffusion(Propagator):
 
         self._rhs2 *= 0.0
         for src, coeff in zip(self.sources, self.coeffs):
-            if isinstance(src, StencilVector):
+            # StencilVector, or PolarVector with polar splines
+            if isinstance(src, Vector):
                 self._rhs2 += sig_3 * coeff * src
             elif isinstance(src, FEECVariable):
                 v = src.spline.vector

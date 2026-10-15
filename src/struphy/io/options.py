@@ -79,6 +79,9 @@ class LiteralOptions:
     OptsMassPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None]
     OptsShearAlfvenPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", "MultiGrid", None]
     OptsPoloidalSolver = Literal["schur", "lu", "ilu"]
+    OptsPolarMethod = Literal["c1", "homotopy"]
+    OptsPolarEnrichment = Literal["cochain_chain", "cochain", "none"]
+    OptsPolarPolynomialProjection = Literal["commuting", "l2"]
     OptsDiffusionPrecond = Literal[
         "MultiGrid",
         "StiffnessPreconditioner",
@@ -257,6 +260,28 @@ class DerhamOptions(OptionsBase):
         solves of the polar commuting projectors (only used with ``polar_splines=True``):
         ``"schur"`` (exact, block elimination of the pole block), ``"lu"``
         (exact, sparse LU) or ``"ilu"`` (incomplete LU as preconditioner).
+
+    polar_method : str
+        Construction of the polar splines (only used with ``polar_splines=True``): ``"c1"`` (C1 polar splines of
+        Holderied & Possanner, 2022) or ``"homotopy"`` (high-order polar subspaces of regularity
+        ``polar_regularity`` built with homotopy operators, see :mod:`struphy.polar.homotopy`).
+
+    polar_regularity : int
+        Regularity ``r`` at the pole of the ``"homotopy"`` polar splines: 0-forms are ``C^r``, 1-forms ``C^{r-1}``
+        and 2-forms ``C^{r-2}`` at the pole (conforming for ``r >= 1``). Requires ``r <= degree[0]`` and
+        ``num_elements[1] >= 2r + 1``.
+
+    polar_enrichment : str
+        Enrichment of the ``"homotopy"`` polar spaces: ``"cochain_chain"`` (the paper's construction),
+        ``"cochain"`` (no compact 2-forms) or ``"none"`` (external tensor-product functions only).
+
+    polar_polynomial_projection : str
+        Projection of the polynomials onto the tensor-product spaces in the ``"homotopy"`` construction:
+        ``"commuting"`` (geometric degrees of freedom, the paper's choice) or ``"l2"``.
+
+    polar_cross_section : str
+        Reference cross-section of the ``"homotopy"`` polar complex: ``"domain"`` (the domain at ``eta_3 = 0``)
+        or ``"unit_disk"``.
     """
 
     degree: tuple[int, int, int] = (1, 1, 1)
@@ -270,9 +295,21 @@ class DerhamOptions(OptionsBase):
     polar_splines: bool = False
     local_projectors: bool = False
     polar_poloidal_solver: LiteralOptions.OptsPoloidalSolver = "schur"
+    polar_method: LiteralOptions.OptsPolarMethod = "c1"
+    polar_regularity: int = 1
+    polar_enrichment: LiteralOptions.OptsPolarEnrichment = "cochain_chain"
+    polar_polynomial_projection: LiteralOptions.OptsPolarPolynomialProjection = "commuting"
+    polar_cross_section: str = "domain"
 
     def __post_init__(self):
         check_option(self.polar_poloidal_solver, LiteralOptions.OptsPoloidalSolver)
+        check_option(self.polar_method, LiteralOptions.OptsPolarMethod)
+        check_option(self.polar_enrichment, LiteralOptions.OptsPolarEnrichment)
+        check_option(self.polar_polynomial_projection, LiteralOptions.OptsPolarPolynomialProjection)
+        assert self.polar_regularity >= 0, "polar_regularity must be nonnegative"
+        assert self.polar_cross_section in ("domain", "unit_disk"), (
+            "polar_cross_section must be 'domain' or 'unit_disk'"
+        )
         for bc in self.bcs:
             if bc is not None:
                 assert isinstance(bc, tuple) and len(bc) == 2, (

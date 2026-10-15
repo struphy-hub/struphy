@@ -380,8 +380,10 @@ class CommutingProjector:
         polar_maxiter: int = 1000,
         poloidal_solver: str = "schur",
         poloidal_solver_kwargs: dict | None = None,
+        homotopy: bool = False,
     ):
         self._projector_tensor = projector_tensor
+        self._is_homotopy = homotopy
 
         if dofs_extraction_op is not None:
             self._dofs_extraction_op = dofs_extraction_op
@@ -402,7 +404,7 @@ class CommutingProjector:
         else:
             self._boundary_op = IdentityOperator(self.space.coeff_space)
 
-        self._is_polar = isinstance(self.dofs_extraction_op, PolarExtractionOperator)
+        self._is_polar = homotopy or isinstance(self.dofs_extraction_op, PolarExtractionOperator)
         self._imat = projector_tensor.imat_kronecker
         self._imatT = self._imat.T
 
@@ -416,7 +418,16 @@ class CommutingProjector:
         self._poloidal_solver = poloidal_solver
         self._poloidal_solver_kwargs = poloidal_solver_kwargs or {}
 
-        if self._is_polar:
+        if homotopy:
+            # high-order polar splines: the dofs extraction operator is F~^T I^{-1}, so that the polar "DOFs" are the
+            # polar coefficients of the commuting projection pi_bar = F~^T pi and P I E^T is the identity
+            polar_space = self._dofs_extraction_op.codomain
+            self._I = IdentityOperator(polar_space)
+            self._I0 = B @ B.T
+            self._IT = self._I
+            self._I0T = self._I0
+            self._pc = self._pc0 = self._pcT = self._pc0T = IdentityOperator(polar_space)
+        elif self._is_polar:
             # 2D x 1D Kronecker structure (P_pol (I_1 x I_2) E_pol^T) x I_3 of the polar inter-/histopolation matrix
             polar_space = P.codomain
             groups = projector_groups(polar_space, self.space, P, E)
@@ -496,6 +507,11 @@ class CommutingProjector:
         return self._is_polar
 
     @property
+    def is_homotopy(self):
+        """Whether the projector maps to high-order (homotopy) polar splines."""
+        return self._is_homotopy
+
+    @property
     def polar_info(self):
         """Info dict of the iterative solver of the last polar projection (None before the first one)."""
         return self._polar_info
@@ -523,22 +539,22 @@ class CommutingProjector:
     @property
     def pc(self):
         """(Approximate) inverse of I: Kronecker solver (tensor product), resp. 2D x 1D Kronecker solver (polar)."""
-        return self._polar_solver(False, False) if self.is_polar else self._pc
+        return self._polar_solver(False, False) if self.is_polar and not self._is_homotopy else self._pc
 
     @property
     def pc0(self):
         """(Approximate) inverse of I0 (with boundary conditions)."""
-        return self._polar_solver(False, True) if self.is_polar else self._pc0
+        return self._polar_solver(False, True) if self.is_polar and not self._is_homotopy else self._pc0
 
     @property
     def pcT(self):
         """(Approximate) inverse of the transposed I."""
-        return self._polar_solver(True, False) if self.is_polar else self._pcT
+        return self._polar_solver(True, False) if self.is_polar and not self._is_homotopy else self._pcT
 
     @property
     def pc0T(self):
         """(Approximate) inverse of the transposed I0 (with boundary conditions)."""
-        return self._polar_solver(True, True) if self.is_polar else self._pc0T
+        return self._polar_solver(True, True) if self.is_polar and not self._is_homotopy else self._pc0T
 
     @property
     def poloidal_solver(self) -> str:
@@ -583,6 +599,16 @@ class CommutingProjector:
 
         assert isinstance(rhs, Vector)
         assert rhs.space == self._I.domain
+
+        # high-order polar splines: the polar inter-/histopolation matrix is the identity
+        if self._is_homotopy:
+            if out is None:
+                out = rhs.copy()
+            else:
+                rhs.copy(out=out)
+            if apply_bc:
+                out = self._boundary_op.dot(out)
+            return out
 
         # standard (tensor product) case (Kronecker solver)
         if not self.is_polar:

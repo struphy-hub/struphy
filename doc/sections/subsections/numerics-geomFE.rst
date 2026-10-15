@@ -313,3 +313,70 @@ and dense/sparse grid evaluation. The fixed local-grid helper ``eval_tp_fixed_lo
 host-only; distributed field-evaluation MPI handling and coverage are separate follow-ups.
 
 .. image:: ../../pics/polar_derham.png
+
+
+.. _polar_splines_homotopy:
+
+High-order polar splines (homotopy construction)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``DerhamOptions(polar_splines=True, polar_method="homotopy", polar_regularity=r)`` builds the high-order polar
+subspaces of R. Remmerswaal (*High-order FEEC discretization on 2D and 3D domains with a disk-like coordinate
+singularity*, draft, and the Julia package `PolarFEEC.jl <https://gitlab.mpcdf.mpg.de/rwr/polarfeec.jl>`_).
+For a regularity :math:`\mathfrak r` the 2D polar spaces of the cross-section are
+
+.. math::
+
+    \bar V^{0,\mathfrak r} = \pi^0 T^{\mathfrak r} \oplus V^{0,\mathfrak r}_\textnormal{ext}\,,\qquad
+    \bar V^{1,\mathfrak r} = \nabla \pi^0 T^{\mathfrak r} \oplus \textnormal{curl}^\dagger \tilde\pi^{2,1} T^{\mathfrak r-2}
+        \oplus V^{1,\mathfrak r}_\textnormal{ext}\,,\qquad
+    \bar V^{2,\mathfrak r} = \tilde\pi^{2,1} T^{\mathfrak r-2} \oplus V^{2,\mathfrak r}_\textnormal{ext}\,,
+
+where :math:`T^{\mathfrak r}` are the Cartesian polynomials of total degree :math:`\mathfrak r`, :math:`\pi^k` the
+commuting tensor-product projections, :math:`\tilde\pi^{2,1}` a conforming 2-form projection and
+:math:`\textnormal{curl}^\dagger` the Poincaré homotopy operator (a radial integration in logical coordinates).
+The external spaces consist of the tensor-product splines of the rings :math:`i > \mathfrak r` (resp. the
+corresponding rings of the 1- and 2-forms). The spaces are conforming for :math:`\mathfrak r \geq 1`,
+:math:`C^{\mathfrak r}`, :math:`C^{\mathfrak r-1}` and :math:`C^{\mathfrak r-2}` at the pole (exactly when the mapping
+is :math:`\mathfrak r`-compatible with the logical spaces), they form a cochain and a chain complex with the
+cohomology of the disk, and the commuting projections :math:`\bar\pi^k = \bar\Pi^k \circ \pi^k` commute with the
+derivatives and with the homotopies. In 3D the polar complex is the total complex
+:math:`\bar W^m = \bigoplus_{p+q=m} \bar V^{p,\mathfrak r} \otimes V^q_3` with the 1D complex in :math:`\eta_3`;
+it has the cohomology of the solid torus.
+
+The polar spaces are built from the serial core :mod:`struphy.polar.homotopy` (2D spaces, extraction matrices
+:math:`E` and duals :math:`F` with :math:`F^T E = I`, homotopies and solvers, also with trigonometric functions in
+:math:`\eta_2`) by :class:`~struphy.polar.homotopy.derham_blocks.PolarExtractionBlocksHomotopy`, which provides
+the blocks of the polar operators of :mod:`struphy.polar.linear_operators`:
+
+* per tensor-product component the first ``n_rings`` rings hold the polar coefficients:
+  :math:`\mathfrak r + 2` rings for 0-forms, :math:`(\mathfrak r + 1, \mathfrak r + 2)` for the two components of
+  2D 1-forms and :math:`\mathfrak r + 1` for 2D 2-forms, so that the extraction and the duals are the identity on
+  the outer rings and the derivatives map no tensor-product coefficient into the polar coefficients;
+* the duals are those of the paper with the non-conforming ring-0 :math:`\eta_2`-component removed; on the
+  coefficients of physical fields both coincide;
+* the commuting projectors apply the tensor-product projection followed by the polar duals, so that the polar
+  inter-/histopolation matrix is the identity (no shift of the projection points off the pole is needed);
+* the polynomials are projected on the reference cross-section ``polar_cross_section``: the domain at
+  :math:`\eta_3 = 0` (default) or the unit disk.
+
+The options ``polar_enrichment`` (``"cochain_chain"``, ``"cochain"``, ``"none"``) and
+``polar_polynomial_projection`` (``"commuting"``, ``"l2"``) select the variants of the paper. The requirements are
+:math:`\mathfrak r \leq p_1` and ``num_elements[1]`` :math:`\geq 2\mathfrak r + 1`; any domain with a pole can be
+used, e.g. ``HollowCylinder(a1=0)``, ``HollowTorus(a1=0)``, ``IGAPolarTorus`` and the analytic
+``PerturbedDiskCylinder`` and ``RoundedSquareCylinder``. See the tutorials ``tutorial_polar_splines`` and
+``dev_tutorial_polar_homotopy``.
+
+========================================================================  ==========================================================
+Paper / PolarFEEC.jl                                                      Struphy
+========================================================================  ==========================================================
+1D spaces, scaled spaces, derivative and histopolation matrices           :mod:`struphy.polar.homotopy.spaces1d`
+tensor-product and physical form spaces, Piola maps, GDOFs                :mod:`struphy.polar.homotopy.forms2d`
+disk-like mappings                                                        :mod:`struphy.polar.homotopy.mappings`
+Zernike basis, centre-shifted polynomial basis                            :mod:`struphy.polar.homotopy.polynomials`
+``PolarComplex``: extraction, duals, :math:`\tilde\Pi^{2,\mathfrak r}`,   :class:`~struphy.polar.homotopy.complex2d.PolarComplex2D`
+homotopies, boundary homotopies, mean projection :math:`\mathfrak B`
+``stiffness_solver``, ``range_projection`` (2D curl-curl "free lunch")    :mod:`struphy.polar.homotopy.solvers`
+``TensorProductComplex``, ``PeriodicComplex``, ``PolarComplex3D``         :mod:`struphy.polar.homotopy.complex3d`
+3D polar complex of a domain                                              ``DerhamOptions(polar_method="homotopy")``
+========================================================================  ==========================================================

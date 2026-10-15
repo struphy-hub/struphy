@@ -33,9 +33,10 @@ def grad_1d_matrix(spl_kind, NbaseN):
 
     grad = xp.zeros((NbaseD, NbaseN), dtype=float)
 
+    # accumulate: for a single periodic basis function both entries coincide and the derivative is zero
     for i in range(NbaseD):
-        grad[i, i] = -1.0
-        grad[i, (i + 1) % NbaseN] = 1.0
+        grad[i, i] += -1.0
+        grad[i, (i + 1) % NbaseN] += 1.0
 
     return grad
 
