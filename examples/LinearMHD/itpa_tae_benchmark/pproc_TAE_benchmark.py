@@ -80,7 +80,11 @@ def tae_frequency(run, basis):
     # projected on the initial phase; without initial amplitude in this harmonic its real part
     phase = initial / abs(initial) if abs(initial) > 0 else 1.0
     signal = (coefficient * np.conj(phase)).real
-    measured = float(signal.plasma.analysis.spectral_peaks(n_peaks=1).omega_refined[0])
+    # a frequency needs a time series (not e.g. the single saved step of a one-step test)
+    if signal.sizes["t"] < 3:
+        measured = float("nan")
+    else:
+        measured = float(signal.plasma.analysis.spectral_peaks(n_peaks=1).omega_refined[0])
     print(
         f"TAE (m = {M_TAE}, {M_TAE + 1}, n = {n}) at r_c = {r_c:.3g}: omega = {measured:.4g}, expected {expected:.4g}"
     )
