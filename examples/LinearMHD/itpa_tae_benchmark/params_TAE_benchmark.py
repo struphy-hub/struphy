@@ -69,6 +69,13 @@ parser.add_argument(
 parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
 parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 96, 16], help="Number of elements per direction.")
 parser.add_argument(
+    "--precond",
+    default="MassMatrixPreconditioner",
+    choices=["MassMatrixPreconditioner", "MultiGrid"],
+    help="Preconditioner of the shear Alfven solve: of the mass matrix, or a geometric multigrid V-cycle of the "
+    "whole Schur operator.",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 32, 4]) and a short run with three saved time steps, for the tests "
@@ -164,7 +171,7 @@ sim = Simulation(
 # Propagator options
 # ------------------
 
-model.propagators.shear_alf.options = model.propagators.shear_alf.Options()
+model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond=args.precond)
 model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
 
 # ------------------
