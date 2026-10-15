@@ -384,13 +384,17 @@ class ProfilingCase:
         # pushing a run is just a commit — there is no intermediate export folder to
         # copy out of. Without `--upload` the clone is pointless, so the packaged
         # folders are simply written into the same, plain directory.
+        # Prepared once per process: the cases of a sweep (see `begin_sweep`) share the folder, and
+        # preparing it again (deleting or re-cloning it) would drop what the others packaged.
         self.output_root = profiling_results_base / "profiling-data"
-        if self.upload:
-            _clone_profiling_data(self.output_root)
-        else:
-            if self.output_root.exists():
-                shutil.rmtree(self.output_root)
-            self.output_root.mkdir(parents=True, exist_ok=True)
+        if self.output_root not in _PREPARED_OUTPUT_ROOTS:
+            if self.upload:
+                _clone_profiling_data(self.output_root)
+            else:
+                if self.output_root.exists():
+                    shutil.rmtree(self.output_root)
+                self.output_root.mkdir(parents=True, exist_ok=True)
+            _PREPARED_OUTPUT_ROOTS.add(self.output_root)
 
         # Determine the current git commit hash for the Struphy repo
         self.run_commit = _git_commit(repo_root)
@@ -664,45 +668,64 @@ class ProfilingCase:
 
         Whether the pushes happen at all is the case's `upload` flag, set at construction.
 
+        Inside a sweep (see `sweep.py` and `begin_sweep`), this only registers the case:
+        `finalize_all` then waits on the runs of all cases of the sweep together.
+
         Args:
             poll_interval: Seconds between polls for finished runs.
         """
-        print(
-            f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
-        )
-        case_info = self.case_info_dict()
-        (self.case_output_root / "profiling_case_info.json").write_text(
-            json.dumps(case_info, indent=2),
-            encoding="utf-8",
-        )
+        if _SWEEP_CASES is not None:
+            _SWEEP_CASES.append(self)
+            print(f"Submitted {len(self.job_infos)} run(s) of '{self.label}'; packaging deferred to the sweep.")
+            return
 
-        # Package and push the case-level metadata before waiting on any run, so the
-        # packaged folder is already in place when the per-run pushes start updating it.
-        self.package_case_metadata(case_info)
-        print(f"Packaged case metadata for '{self.label}' into {self.destination_dir}")
+        self.package_case_start()
         if self.upload:
             print("Uploading case metadata to the profiling-data repo ...")
             _push_profiling_data(self.output_root, self.run_commit)
 
         # Then package and push each run's results as soon as its own job finishes,
         # rather than waiting for every run to complete first.
-        num_runs = len(self.job_infos)
-        print(f"Waiting for {num_runs} run(s) of '{self.label}' to complete...")
-        packaged_launch_ids = []
+        print(f"Waiting for {len(self.job_infos)} run(s) of '{self.label}' to complete...")
         for job_info in self._iter_finished_runs(poll_interval=poll_interval):
-            # The launch id identifies the run; the rank count is just context.
-            run = f"run {job_info['launch_id']:02d} ({job_info['ranks']} MPI ranks)"
-            if not self.package_run(job_info, verbose=True):
-                print(f"No profiling output for '{self.label}' {run}; nothing to package.")
-                continue
-            packaged_launch_ids.append(job_info["launch_id"])
-            # Refresh `case_metadata.json` so it lists the runs packaged so far.
-            self.package_case_metadata(case_info)
-            print(f"Packaged '{self.label}' {run} into {self.destination_dir}")
-            if self.upload:
-                print(f"Uploading '{self.label}' {run} to the profiling-data repo ...")
+            if self.package_finished_run(job_info) and self.upload:
+                print(f"Uploading '{self.label}' run {job_info['launch_id']:02d} to the profiling-data repo ...")
                 _push_profiling_data(self.output_root, self.run_commit)
 
+        self.report_packaged()
+
+    def package_case_start(self) -> None:
+        """Write `profiling_case_info.json` and package the case-level metadata (the first step of packaging)."""
+        print(
+            f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
+        )
+        self._case_info = self.case_info_dict()
+        (self.case_output_root / "profiling_case_info.json").write_text(
+            json.dumps(self._case_info, indent=2),
+            encoding="utf-8",
+        )
+        # The case-level metadata goes in before any run, so the packaged folder is already in
+        # place when the per-run packaging starts updating it.
+        self.package_case_metadata(self._case_info)
+        self._packaged_launch_ids = []
+        print(f"Packaged case metadata for '{self.label}' into {self.destination_dir}")
+
+    def package_finished_run(self, job_info: dict) -> bool:
+        """Package one finished run and refresh the case metadata; whether there was output to package."""
+        # The launch id identifies the run; the rank count is just context.
+        run = f"run {job_info['launch_id']:02d} ({job_info['ranks']} MPI ranks)"
+        if not self.package_run(job_info, verbose=True):
+            print(f"No profiling output for '{self.label}' {run}; nothing to package.")
+            return False
+        self._packaged_launch_ids.append(job_info["launch_id"])
+        # Refresh `case_metadata.json` so it lists the runs packaged so far.
+        self.package_case_metadata(self._case_info)
+        print(f"Packaged '{self.label}' {run} into {self.destination_dir}")
+        return True
+
+    def report_packaged(self) -> None:
+        """Print what was packaged for this case (and how to push or plot it if it was not uploaded)."""
+        packaged_launch_ids = self._packaged_launch_ids
         if packaged_launch_ids:
             print(f"Packaged {len(packaged_launch_ids)} run(s) of '{self.label}' (ids {sorted(packaged_launch_ids)}):")
             print(f" - {self.destination_dir}")
@@ -719,3 +742,97 @@ class ProfilingCase:
                 )
         else:
             print(f"No profiling output found for '{self.label}'; nothing to package.")
+
+
+# ---------------------------------------------------------------------------
+# Sweeps: many cases in one process (see sweep.py)
+# ---------------------------------------------------------------------------
+# Cases whose `finalize_run` was deferred, or None outside a sweep.
+_SWEEP_CASES: list | None = None
+# Packaging folders prepared by `ProfilingCase.setup_run` in this process.
+_PREPARED_OUTPUT_ROOTS: set = set()
+
+
+def begin_sweep() -> None:
+    """Start collecting cases: from now on `ProfilingCase.finalize_run` only registers its case.
+
+    Several drivers running at the same time would each prepare (delete or re-clone) the
+    shared packaging folder `_profiling_jobs/profiling-data` and push to it, so a sweep runs
+    all cases in one process instead: every case submits its jobs right away (SLURM runs them
+    concurrently), and `finalize_all` packages them one at a time as they finish.
+    """
+    global _SWEEP_CASES
+    _SWEEP_CASES = []
+
+
+def end_sweep() -> list:
+    """Stop collecting cases; returns the cases registered since `begin_sweep`."""
+    global _SWEEP_CASES
+    cases, _SWEEP_CASES = _SWEEP_CASES or [], None
+    return cases
+
+
+def _iter_finished_jobs(cases: list, poll_interval: float = 10.0):
+    """Yield `(case, job_info)` for every run of `cases` as soon as it finishes, in completion order.
+
+    One poll of the SLURM queue serves all cases. Runs without a SLURM job (local runs, which
+    `launch` already ran to completion) are yielded first, in launch order.
+    """
+    pending = {}
+    for case in cases:
+        for info in case.job_infos:
+            if info.get("job_id") is None:
+                yield case, info
+            else:
+                pending[info["job_id"]] = (case, info)
+
+    queue = SQueue(user=getpass.getuser()) if pending else None
+    while pending:
+        queue.refresh()
+        active = {job.job_id for job in queue.jobs() if job.is_active}
+        finished = [job_id for job_id in pending if job_id not in active]
+        states = job_states(finished)
+        for job_id in finished:
+            case, info = pending.pop(job_id)
+            state = states.get(job_id)
+            if state is not None and state != "COMPLETED":
+                print(f"WARNING: job {job_id} for '{case.label}' ({info['ranks']} MPI ranks) ended in state {state}.")
+            else:
+                print(f"Job {job_id} for '{case.label}' ({info['ranks']} MPI ranks) finished.")
+            yield case, info
+        if pending:
+            n_cases = len({id(case) for case, _ in pending.values()})
+            print(f"{len(pending)} run(s) of {n_cases} case(s) still pending ...", flush=True)
+            time.sleep(poll_interval)
+
+
+def finalize_all(cases: list, poll_interval: float = 30.0) -> None:
+    """`ProfilingCase.finalize_run` for several cases at once: package (and push) every run as it finishes.
+
+    The case metadata of all cases is packaged first (one push), then every finished run is
+    packaged into its case and pushed, one at a time, in the order the jobs finish.
+
+    Args:
+        cases: The cases, e.g. from `end_sweep`. With `upload`, all must share one packaging
+            folder (`output_root`), as cases of one process do.
+        poll_interval: Seconds between polls of the SLURM queue.
+    """
+    if not cases:
+        print("No cases to finalize.")
+        return
+    for case in cases:
+        case.package_case_start()
+    uploads = [case for case in cases if case.upload]
+    if uploads:
+        print("Uploading the case metadata to the profiling-data repo ...")
+        _push_profiling_data(uploads[0].output_root, uploads[0].run_commit)
+
+    n_runs = sum(len(case.job_infos) for case in cases)
+    print(f"Waiting for {n_runs} run(s) of {len(cases)} case(s) to complete ...")
+    for case, info in _iter_finished_jobs(cases, poll_interval=poll_interval):
+        if case.package_finished_run(info) and case.upload:
+            print(f"Uploading '{case.label}' run {info['launch_id']:02d} to the profiling-data repo ...")
+            _push_profiling_data(case.output_root, case.run_commit)
+
+    for case in cases:
+        case.report_packaged()
