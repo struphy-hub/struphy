@@ -224,7 +224,7 @@ class SortingBoxes:
         self._n_boxes = (self._nx + 2) * (self._ny + 2) * (self._nz + 2)
         n_box_in = self._nx * self._ny * self._nz
 
-        n_particles = self._markers_shape[0]
+        n_particles = self._markers_shape[1]
         n_mkr = int(n_particles / n_box_in) + 1
         n_cols = round(
             n_mkr * (1 + 1 / math.sqrt(n_mkr) + self._box_bufsize),
@@ -240,8 +240,8 @@ class SortingBoxes:
         initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
         # logger.info(f"{self._rank = }\n{self._neighbours = }")
 
-        self._swap_line_1 = xp.zeros(self._markers_shape[1])
-        self._swap_line_2 = xp.zeros(self._markers_shape[1])
+        self._swap_line_1 = xp.zeros(self._markers_shape[0])
+        self._swap_line_2 = xp.zeros(self._markers_shape[0])
 
     def _set_boundary_boxes(self):
         """Collect the (flat) indices of all non-ghost boxes that lie on the outer surface
