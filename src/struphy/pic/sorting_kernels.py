@@ -247,3 +247,31 @@ def assign_particles_to_boxes(
             a = int(markers[p, l + box_index])
             boxes[a, next_index[a]] = p
             next_index[a] += 1
+
+
+def count_particles_in_boxes(
+    markers: "float[:,:]",
+    holes: "bool[:]",
+    next_index: "int[:]",
+    box_index: "int" = -2,
+) -> "int":
+    """Count the particles in each box (box number in column ``box_index``) into ``next_index`` and return the
+    largest count."""
+    next_index[:] = 0
+    l = markers.shape[1]
+    for p in range(markers.shape[0]):
+        if not holes[p]:
+            a = int(markers[p, l + box_index])
+            next_index[a] += 1
+
+    max_in_box = 0
+    for a in range(next_index.shape[0]):
+        if next_index[a] > max_in_box:
+            max_in_box = next_index[a]
+    return max_in_box
+
+
+def find_holes(markers: "float[:,:]", holes: "bool[:]"):
+    """Mark the empty rows of the marker array (``markers[:, 0] == -1``), as ``Particles.update_holes``."""
+    for p in range(markers.shape[0]):
+        holes[p] = markers[p, 0] == -1.0
