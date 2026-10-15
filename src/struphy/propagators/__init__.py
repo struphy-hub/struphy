@@ -12,10 +12,12 @@ _LAZY_IMPORTS = {
     "CurrentCoupling6DDensity": "struphy.propagators.current_coupling_6d_density",
     "EfieldWeightsCoupling": "struphy.propagators.efield_weights_coupling",
     "FaradayExtended": "struphy.propagators.faraday_extended",
-    "GyroDriftCoupling": "struphy.propagators.gyrokinetic_maxwell_zlr",
-    "GyroEparCoupling": "struphy.propagators.gyrokinetic_maxwell_zlr",
-    "MaxwellGyroMagnetisation": "struphy.propagators.gyrokinetic_maxwell_zlr",
-    "PushGuidingCenterParallelFullB": "struphy.propagators.gyrokinetic_maxwell_zlr",
+    "DarwinFieldCoupling": "struphy.propagators.gyrokinetic_darwin",
+    "GyroDriftCoupling": "struphy.propagators.gyrokinetic_maxwell",
+    "GyroEparCoupling": "struphy.propagators.gyrokinetic_maxwell",
+    "GyroParallelPush": "struphy.propagators.gyrokinetic_maxwell",
+    "MaxwellGyroMagnetisation": "struphy.propagators.gyrokinetic_maxwell",
+    "PushGuidingCenterParallelFullB": "struphy.propagators.gyrokinetic_maxwell",
     "GyrokineticPoissonSolve": "struphy.propagators.gyrokinetic_poisson_solve",
     "Hall": "struphy.propagators.hall",
     "HasegawaWakataniStep": "struphy.propagators.hasegawa_wakatani_step",
@@ -63,9 +65,11 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
     from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
     from struphy.propagators.faraday_extended import FaradayExtended
-    from struphy.propagators.gyrokinetic_maxwell_zlr import (
+    from struphy.propagators.gyrokinetic_darwin import DarwinFieldCoupling
+    from struphy.propagators.gyrokinetic_maxwell import (
         GyroDriftCoupling,
         GyroEparCoupling,
+        GyroParallelPush,
         MaxwellGyroMagnetisation,
         PushGuidingCenterParallelFullB,
     )
@@ -115,8 +119,10 @@ __all__ = [
     "CurrentCoupling6DDensity",
     "EfieldWeightsCoupling",
     "FaradayExtended",
+    "DarwinFieldCoupling",
     "GyroDriftCoupling",
     "GyroEparCoupling",
+    "GyroParallelPush",
     "MaxwellGyroMagnetisation",
     "PushGuidingCenterParallelFullB",
     "GyrokineticPoissonSolve",

@@ -190,7 +190,12 @@ Vlasov-Maxwell coupling
 Gyrokinetic-Maxwell coupling
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.propagators.gyrokinetic_maxwell_zlr
+.. automodule:: struphy.propagators.gyrokinetic_maxwell
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.gyrokinetic_darwin
     :members:
     :exclude-members: options, allocate
     :show-inheritance:

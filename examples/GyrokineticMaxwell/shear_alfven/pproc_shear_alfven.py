@@ -1,4 +1,4 @@
-"""Post-process and plot the shear Alfvén waves of GyrokineticMaxwellZLR with plasma-plots.
+"""Post-process and plot the shear Alfvén waves of GyrokineticMaxwell with plasma-plots.
 
 Run as ``python pproc_shear_alfven.py [flags of params_shear_alfven.py] [--save-results]``; the flags must be those
 of the run. The figures:
@@ -47,7 +47,9 @@ def alfven_branch():
         species.var.species.equation_params.alpha**2 for species in (model.kinetic_ions, model.kinetic_electrons)
     )
     n0_over_B02 = params.equil.params["n0"] / params.equil.params["B0z"] ** 2
-    v_alfven = 1.0 / np.sqrt(1.0 + polarization * n0_over_B02)
+    # the Darwin model drops the vacuum displacement current (quasi-neutrality)
+    vacuum = 0.0 if params.args.model == "darwin" else 1.0
+    v_alfven = 1.0 / np.sqrt(vacuum + polarization * n0_over_B02)
     L_z = params.domain.params["r3"]
     return lambda k: np.abs(k) / L_z * v_alfven
 

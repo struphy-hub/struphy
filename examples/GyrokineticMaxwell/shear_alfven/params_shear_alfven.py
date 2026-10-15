@@ -1,4 +1,4 @@
-"""Shear Alfvén wave with the GyrokineticMaxwellZLR model: a standing wave B_y ~ cos(2 pi z / L_z) at k_perp = 0
+"""Shear Alfvén wave with the GyrokineticMaxwell model: a standing wave B_y ~ cos(2 pi z / L_z) at k_perp = 0
 in a periodic slab with B_0 = e_z, ions and (heavy) electrons. The pproc checks the oscillation frequency of the
 magnetic energy against omega = k_par / sqrt(1 + sum_s alpha_s^2 n_0 / B_0^2) (light units) and the energy conservation."""
 
@@ -45,6 +45,18 @@ parser.add_argument("--vti", type=float, default=1e-3, help="Ion thermal speed i
 parser.add_argument("--vte", type=float, default=1e-2, help="Electron thermal speed in units of c.")
 parser.add_argument("--no-drifts", action="store_true", help="Switch off the perpendicular drifts and their currents.")
 parser.add_argument(
+    "--model",
+    default="maxwell",
+    choices=["maxwell", "darwin"],
+    help="GyrokineticMaxwell (default, with the fast waves) or its quasi-neutral Darwin approximation GyrokineticDarwin.",
+)
+parser.add_argument(
+    "--n-gyro",
+    type=int,
+    default=0,
+    help="Points of the gyro-average of the fields at the gyrocentres (0: zero Larmor radius).",
+)
+parser.add_argument(
     "--oblique",
     action="store_true",
     help="3D variant: 8 x 8 x 32 cells and oblique seeds B_y ~ cos(2 pi x / L_x + 2 pi n z / L_z) (k_perp != 0), "
@@ -65,7 +77,7 @@ if args.test_run:
     args.Np = 200
     num_elements = (4, 1, 8)
 
-name = "GyrokineticMaxwellZLR shear Alfvén wave"
+name = f"{'GyrokineticDarwin' if args.model == 'darwin' else 'GyrokineticMaxwell'} shear Alfvén wave"
 description = f"""
 Shear Alfvén wave with the gauge-invariant gyrokinetic Maxwell model in the zero-Larmor-radius limit
 (Remmerswaal, Hatzky, Sonnendrücker, J. Plasma Phys. 91, E127, 2025).
@@ -74,8 +86,9 @@ Ions (m_i = m_p, v_ti = {args.vti} c) and electrons (m_i / m_e = {args.mass_rati
 {args.Np} markers per species, loaded at the same positions (marker-level quasi-neutrality).
 Seed: B_y = {args.amp} sum_n cos({"2 pi x / L_x + " if args.oblique else ""}2 pi n z) for n in {args.modes}, standing
 shear Alfvén waves{" (oblique, k_perp = 2 pi / L_x)" if args.oblique else " at k_perp = 0"}, which oscillate with
-omega = k_par / sqrt(1 + sum_s alpha_s^2 n_0 / B_0^2) (undamped at k_perp = 0, since then E_par = 0).
-Time step dt = {args.dt}, end time {args.tend}, drifts {"off" if args.no_drifts else "on"}.
+omega = k_par / sqrt({"" if args.model == "darwin" else "1 + "}sum_s alpha_s^2 n_0 / B_0^2){"" if args.oblique else " (undamped at k_perp = 0, since then E_par = 0)"}.
+Time step dt = {args.dt}, end time {args.tend}, drifts {"off" if args.no_drifts else "on"}, model {args.model},
+gyro-average points {args.n_gyro}.
 """
 
 import logging
@@ -107,17 +120,18 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import GyrokineticMaxwellZLR
+from struphy.models import GyrokineticDarwin, GyrokineticMaxwell
 
 # Units: x_hat = 1 m, B_hat = 1 T, n_hat = 1e20 / m^3 (v_hat = c)
 base_units = BaseUnits(x=1.0, B=1.0, n=1.0)
 
 # Model instance
-model = GyrokineticMaxwellZLR(
+model_class = GyrokineticDarwin if args.model == "darwin" else GyrokineticMaxwell
+model = model_class(
     base_units=base_units,
-    ion_mass_number=1.0,
-    electron_mass_number=1.0 / args.mass_ratio,
+    species=(("ions", 1, 1.0), ("electrons", -1, 1.0 / args.mass_ratio)),
     with_drifts=not args.no_drifts,
+    n_gyro=args.n_gyro,
 )
 
 # List all variables and decide whether to save their data
@@ -174,13 +188,10 @@ for species, vth in ((model.kinetic_ions, args.vti), (model.kinetic_electrons, a
 # Propagator options
 # ------------------
 
-model.propagators.maxwell.options = model.propagators.maxwell.Options()
-model.propagators.epar_ions.options = model.propagators.epar_ions.Options()
-model.propagators.epar_electrons.options = model.propagators.epar_electrons.Options()
-model.propagators.push_para_ions.options = model.propagators.push_para_ions.Options()
-model.propagators.push_para_electrons.options = model.propagators.push_para_electrons.Options()
-if not args.no_drifts:
-    model.propagators.drifts.options = model.propagators.drifts.Options()
+# default options of all propagators (Maxwell: maxwell, epar_<species>, push_para_<species>, drifts;
+# Darwin: fields, push_para_<species>)
+for propagator in vars(model.propagators).values():
+    propagator.options = propagator.Options()
 
 # ------------------
 # Initial conditions
