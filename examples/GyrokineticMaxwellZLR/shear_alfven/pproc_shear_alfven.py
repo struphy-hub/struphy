@@ -163,13 +163,22 @@ def main(path_out=DEFAULT_OUTPUT, save_results=False):
         b_full[dict(component=2)] = b_full.sel(component=2) + params.equil.params["B0z"]
         b_full.name = "B"
         cuts = {"eta3": [0.0, 0.25, 0.5, 0.75], "eta1": 0.0}
+        # the snapshot: the time of the largest magnetic energy after the first quarter period of the n = 1 mode
+        # (the oblique waves are damped, so the end of the run is mostly noise)
+        en_B = run.evaluate("scalars", variables="en_B")["en_B"]
+        t_quarter = 0.5 * np.pi / omega_of_k(2 * np.pi * min(params.args.modes))
+        later = en_B.where(en_B.t >= t_quarter, drop=True)
+        t_snap = float(later.t[int(np.argmax(later.values))]) if later.sizes["t"] > 0 else float(en_B.t[-1])
+        b_snap = b_y_3d.sel(t=t_snap, method="nearest")
+        level = 0.3 * float(np.abs(b_snap).max())
         views = {
-            "slices_3d": b_y_3d.plasma.plot.slices_3d(cuts=cuts, cmap="RdBu_r", symmetric=True, t=-1),
+            "slices_3d": b_y_3d.plasma.plot.slices_3d(cuts=cuts, cmap="RdBu_r", symmetric=True, t=t_snap),
             "isosurface_3d": b_y_3d.plasma.plot.isosurface(
-                values=[-0.5 * params.args.amp, 0.5 * params.args.amp], cmap="RdBu_r", symmetric=True, t=-1
+                values=[-level, level], cmap="RdBu_r", symmetric=True, t=t_snap
             ),
-            "field_lines_3d": b_full.plasma.plot.streamlines(n_points=40, cmap="plasma", t=-1),
+            "field_lines_3d": b_full.plasma.plot.streamlines(n_points=40, cmap="plasma", t=t_snap),
         }
+        print(f"3D views at t = {t_snap:g}")
         for name, plotter in views.items():
             if save_results:
                 results_dir.mkdir(exist_ok=True)
@@ -177,9 +186,11 @@ def main(path_out=DEFAULT_OUTPUT, save_results=False):
                 plotter.close()
             else:
                 plotter.show()
+        # movie of the slices over the first two periods of the n = 1 mode
         if save_results and n_times >= 2:
-            step = max(1, n_times // 40)
-            b_y_3d.plasma.plot.movie(
+            first_periods = b_y_3d.where(b_y_3d.t <= 8 * t_quarter, drop=True)
+            step = max(1, first_periods.sizes["t"] // 40)
+            first_periods.plasma.plot.movie(
                 results_dir / "slices_3d.gif", kind="slices", step=step, cuts=cuts, cmap="RdBu_r", symmetric=True
             )
 

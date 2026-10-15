@@ -9,6 +9,7 @@ magnetic energy against omega = k_par / sqrt(1 + sum_s alpha_s^2 n_0 / B_0^2) (l
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 import argparse
+import sys
 from pathlib import Path
 
 # Command line options
@@ -57,6 +58,9 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 num_elements = (8, 8, 32) if args.oblique else (4, 1, 32)
+if args.oblique and "--Np" not in sys.argv:
+    # 8 x 8 x 32 cells need as many markers per cell as the default variant (about 7 minutes on one core)
+    args.Np = 64000
 if args.test_run:
     args.Np = 200
     num_elements = (4, 1, 8)
