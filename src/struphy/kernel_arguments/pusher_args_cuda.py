@@ -11,21 +11,17 @@ CuPy backend.
 import numpy as np
 from cunumpy.arguments import CudaStructArguments
 
-from struphy.pic.marker_layout import MARKER_ORDER
 
-
-def _device_array(name, arr, dtype, ndim=None, order="C"):
-    """Check that ``arr`` is a CuPy array of ``dtype`` (and ``ndim``), contiguous in ``order`` ("C" or "F"),
-    on the current device (never copies)."""
+def _device_array(name, arr, dtype, ndim=None):
+    """Check that ``arr`` is a C-contiguous CuPy array of ``dtype`` (and ``ndim``) on the current device (never copies)."""
     import cupy as cp
 
     if not isinstance(arr, cp.ndarray):
         raise TypeError(f"{name} must be a CuPy array, got {type(arr)}")
     if arr.device.id != cp.cuda.runtime.getDevice():
         raise ValueError(f"{name} must be on the current CUDA device")
-    contiguous = arr.flags.f_contiguous if order == "F" else arr.flags.c_contiguous
-    if arr.dtype != dtype or not contiguous:
-        raise TypeError(f"{name} must be a {order}-contiguous array of dtype {np.dtype(dtype)}")
+    if arr.dtype != dtype or not arr.flags.c_contiguous:
+        raise TypeError(f"{name} must be a C-contiguous array of dtype {np.dtype(dtype)}")
     if ndim is not None and arr.ndim != ndim:
         raise TypeError(f"{name} must be a {ndim}-dimensional array, got {arr.ndim} dimensions")
     return arr
@@ -68,13 +64,13 @@ class CudaMarkerArguments(CudaStructArguments):
         bc_type,
         pole: bool,
     ):
-        # column-major like the marker buffer (struphy.pic.marker_layout); Array2D carries the strides
-        self.markers = _device_array("markers", markers, np.float64, ndim=2, order=MARKER_ORDER)
+        # shape (n_cols, n_rows), one column per marker (struphy.pic.marker_layout)
+        self.markers = _device_array("markers", markers, np.float64, ndim=2)
         self.valid_mks = _device_array("valid_mks", valid_mks, np.bool_)
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
-        self.n_markers = markers.shape[0]
+        self.n_markers = markers.shape[1]
         self.first_diagnostics_idx = first_diagnostics_idx
         self.first_pusher_idx = first_pusher_idx
         self.first_shift_idx = first_shift_idx

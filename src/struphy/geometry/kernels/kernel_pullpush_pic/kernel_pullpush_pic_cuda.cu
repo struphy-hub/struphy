@@ -9,14 +9,14 @@ using namespace struphy_cuda;
  *
  * CUDA-only helper for the condition `e1 < 0.0 or e1 > 1.0 or ...` (a NaN coordinate counts as inside, as in pyccel).
  *
- * @param markers Marker array view; the logical position is in columns 0-2.
- * @param i Marker row.
+ * @param markers Marker array view; the logical position is in rows 0-2 (one column per marker).
+ * @param i Marker index.
  * @return True if the marker is outside (a hole has coordinates -1).
  */
 __device__ inline bool marker_is_outside(const Array2D<double>& markers, long long i) {
-    double e1 = markers(i, 0);
-    double e2 = markers(i, 1);
-    double e3 = markers(i, 2);
+    double e1 = markers(0, i);
+    double e2 = markers(1, i);
+    double e3 = markers(2, i);
     return e1 < 0.0 || e1 > 1.0 || e2 < 0.0 || e2 > 1.0 || e3 < 0.0 || e3 > 1.0;
 }
 
@@ -24,7 +24,7 @@ __device__ inline bool marker_is_outside(const Array2D<double>& markers, long lo
  * Pull-backs, push-forwards and transformations for given markers, as in
  * kernel_pullpush_pic_kernels.kernel_pullpush_pic.
  *
- * One thread per marker row i (launched with n_threads = markers.shape[0], since the first array is a). The pyccel
+ * One thread per marker i (launched with n_threads = markers.shape[1]). The pyccel
  * kernel reads row `counter_a` of a and writes row `counter_o` of out, and returns the final counter_o. A CUDA kernel
  * returns nothing, so the counter is not returned; struphy's caller (Domain._pull_push_transform) passes
  * remove_outside=false and an `a` with one row per marker, for which counter_a == counter_o == i, and removes the
@@ -33,7 +33,7 @@ __device__ inline bool marker_is_outside(const Array2D<double>& markers, long lo
  *
  * @param a Values to transform, shape (N, n_comp) (with holes: one row per marker) or (n_inside, n_comp) (without
  *        holes), n_comp 1 (scalar kinds) or 3 (vector kinds), any strides.
- * @param markers Evaluation points in marker format (eta1, eta2, eta3 = markers[:, 0:3]), any strides.
+ * @param markers Evaluation points in marker format (eta1, eta2, eta3 = markers[0:3], one column per marker), any strides.
  * @param kind_transform Which general transformation: 0 pull, 1 push, otherwise tran.
  * @param kind_fun Which detailed transformation (see pull, push, tran in transform_kernels.cuh).
  * @param args_domain Mapping arguments; every spline and analytic mapping.
@@ -45,7 +45,7 @@ extern "C" __global__ void kernel_pullpush_pic(Array2D<double> a, Array2D<double
                                                int kind_fun, DomainArgs args_domain, Array2D<double> out,
                                                bool remove_outside) {
     long long i = (long long)blockDim.x * blockIdx.x + threadIdx.x;
-    long long np = markers.shape[0];
+    long long np = markers.shape[1];
     if (i >= np) return;
 
     // CUDA-only: per-thread copies of the pyccel stack arrays tmp1 (length a.shape[1]) and tmp2 (out.shape[1]),
@@ -57,9 +57,9 @@ extern "C" __global__ void kernel_pullpush_pic(Array2D<double> a, Array2D<double
     // check if a has holes or not
     bool a_has_holes = a.shape[0] == np;
 
-    double e1 = markers(i, 0);
-    double e2 = markers(i, 1);
-    double e3 = markers(i, 2);
+    double e1 = markers(0, i);
+    double e2 = markers(1, i);
+    double e3 = markers(2, i);
     bool outside = marker_is_outside(markers, i);
 
     if (outside && remove_outside) return;

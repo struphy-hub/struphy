@@ -13,7 +13,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 @stack_array("dfm", "dfinv", "dfinv_t", "v", "a_form", "dfta_form")
 def canonical_kinetic_particles(
     res: "float[:]",
-    markers: "float[:,:](order=F)",  # noqa: F821
+    markers: "float[:,:]",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     a1_1: "float[:,:,:]",
@@ -41,7 +41,7 @@ def canonical_kinetic_particles(
     v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
     # fmt: off
     #$ omp parallel private(a_form, dfinv, dfinv_t, dfm, dfta_form, eta1, eta2, eta3, ip, span1, span2, span3, thread_derham, v, w)
     # fmt: on
@@ -54,14 +54,14 @@ def canonical_kinetic_particles(
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
-        w = markers[ip, 6]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v[:] = markers[3:6, ip]
+        w = markers[6, ip]
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
             eta1,

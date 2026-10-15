@@ -11,7 +11,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 @stack_array("tmp1", "tmp2")
 def kernel_pullpush_pic(
     a: "float[:,:]",
-    markers: "float[:,:](order=F)",  # noqa: F821
+    markers: "float[:,:]",
     kind_transform: int,
     kind_fun: int,
     args_domain: "DomainArguments",
@@ -26,8 +26,8 @@ def kernel_pullpush_pic(
     a : float[:,:]
         Values of scalar function a[0, ip] or values of components of a vector valued function (a[0, ip], a[1, ip], a[2, ip]).
 
-    markers : float[:,:](order=F)
-        Evaluation points in marker format (eta1 = markers[:, 0], eta2 = markers[:, 1], eta3 = markers[:, 2]).
+    markers : float[:,:]
+        Evaluation points in marker format (eta1 = markers[0, :], eta2 = markers[1, :], eta3 = markers[2, :]).
 
     kind_transform : int
         Which general transformation to be performed (pull, push or tran).
@@ -50,7 +50,7 @@ def kernel_pullpush_pic(
     # tmp1 = zeros((3,), dtype=float)
     # tmp2 = zeros((3,), dtype=float)
 
-    np = shape(markers)[0]
+    np = shape(markers)[1]
 
     # check if a has holes or not
     if shape(a)[0] == np:
@@ -62,9 +62,9 @@ def kernel_pullpush_pic(
     counter_o = 0
 
     for i in range(np):
-        e1 = markers[i, 0]
-        e2 = markers[i, 1]
-        e3 = markers[i, 2]
+        e1 = markers[0, i]
+        e2 = markers[1, i]
+        e3 = markers[2, i]
 
         # treatment of a hole
         if e1 < 0.0 or e1 > 1.0 or e2 < 0.0 or e2 > 1.0 or e3 < 0.0 or e3 > 1.0:

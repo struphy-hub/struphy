@@ -82,11 +82,11 @@ class Pusher:
 
     alpha_in_kernel: float | int | tuple | list
         For i=0,1,2, the spline/geometry evaluations in kernel are at
-        alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
+        alpha[i]*markers[i] + (1 - alpha[i])*markers[buffer_idx + i].
         If float or int or then alpha = (alpha, alpha, alpha).
         alpha must be between 0 and 1.
         alpha[i]=0 means that evaluation is at the initial positions (time n),
-        stored at markers[:, buffer_idx + i].
+        stored at markers[buffer_idx + i].
 
     init_kernels : tuple[KernelSetup, ...]
         Evaluations at the initial state, executed once per push in tuple order.
@@ -177,7 +177,7 @@ class Pusher:
         # profiling region names (cached, they are looked up on every call)
         self._region_name = "pusher: " + self.kernel.name
 
-        self._residuals = xp.zeros(self.particles.markers.shape[0])
+        self._residuals = xp.zeros(self.particles.n_rows)
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
@@ -219,7 +219,7 @@ class Pusher:
 
         if self._cuda:
             # the three assignments below in one launch
-            n_rows, n_cols = markers.shape
+            n_cols, n_rows = markers.shape
             _prepare_push_cuda()(
                 markers,
                 first_pusher_idx,
@@ -231,13 +231,13 @@ class Pusher:
             shift_slice = slice(first_shift_idx, residual_idx)
 
             # save initial phase space coordinates
-            markers[:, init_slice] = markers[:, : 3 + vdim]
+            markers[init_slice] = markers[: 3 + vdim]
 
             # set boundary shifts to zero
-            markers[:, shift_slice] = 0.0
+            markers[shift_slice] = 0.0
 
-            # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-            markers[:, residual_idx:-2] = 0.0
+            # clear buffer rows starting from residual index, dont clear ID (last row) and loc_box
+            markers[residual_idx:-2] = 0.0
 
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
@@ -285,6 +285,7 @@ class Pusher:
                         self.particles.args_markers,
                         self._args_domain,
                         *self._args_kernel,
+                        n_threads=self.particles.args_markers.n_markers,  # CUDA: one thread per marker
                     )
 
                 # markers have moved
@@ -300,7 +301,7 @@ class Pusher:
 
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
-                    self._residuals[:] = markers[:, residual_idx]
+                    self._residuals[:] = markers[residual_idx]
                     max_res = xp.max(self._residuals)
                     if max_res < 0.0:
                         max_res = None
@@ -322,7 +323,7 @@ class Pusher:
                         )
 
                     # take converged markers out of the loop
-                    markers[self._converged_loc, first_pusher_idx] = -1.0
+                    markers[first_pusher_idx, self._converged_loc] = -1.0
 
                 # maxiter=1 for explicit schemes
                 if k == self.maxiter:

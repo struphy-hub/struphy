@@ -1,32 +1,28 @@
 """Memory layout of the marker buffer.
 
-:attr:`Particles.markers <struphy.pic.base.Particles.markers>` has shape ``(n_rows, n_cols)``, one row per marker,
-and is stored column-major (Fortran order, struct-of-arrays): every column is one contiguous block of ``n_rows``
-values. Column operations (``markers[:, j]``, ``markers[:, a:b] = ...``, a mask on one column) then touch only
-the columns involved, and on the GPU neighbouring threads (markers) read neighbouring addresses. Indexing is
-unchanged: ``markers[ip, j]`` is still the ``j``-th entry of marker ``ip``.
+:attr:`Particles.markers <struphy.pic.base.Particles.markers>` has shape ``(n_cols, n_rows)``, one column per marker,
+and is stored in C order (struct-of-arrays): every quantity (row ``j``) is one contiguous block of ``n_rows`` values.
+``markers[j, ip]`` is the ``j``-th entry of marker ``ip``; ``markers[j]`` is quantity ``j`` of all markers, and
+``markers[:, ip]`` all quantities of marker ``ip``. Operations on quantities (``markers[j]``, ``markers[a:b] = ...``,
+a mask on one row) then touch only the rows involved, and on the GPU neighbouring threads (markers) read neighbouring
+addresses.
 
-Kernels see the buffer as follows:
+The same convention, one column per point, holds for every array of markers or points passed to an evaluation
+(:class:`~struphy.geometry.base.Domain`, :class:`~struphy.feec.psydac_derham.SplineFunction`, the equilibria):
+``(k, n)`` with the logical coordinates in rows 0 to 2.
 
-* pyccel kernels declare it as ``float[:, :](order=F)`` (in :class:`~struphy.kernel_arguments.pusher_args_kernels.MarkerArguments`
-  and in the kernels that take ``markers`` directly); pyccel checks the order at every call, so a C-ordered array
-  raises a ``TypeError`` instead of being read wrongly.
-* CUDA kernels read it through ``Array2D`` views, which carry the strides of the array.
-
-Copies made by fancy or boolean row indexing (``markers[valid_mks]``), ``.copy()`` and ``xp.concatenate`` are
-C-ordered. They are fine to read, or to write back into the buffer with ``markers[rows] = ...``; to pass such an
-array to a kernel, convert it with :func:`as_marker_array` first.
+The kernels take C-ordered arrays of this shape. Selecting markers (``markers[:, valid_mks]``) gives a Fortran-ordered
+copy (NumPy keeps the selected axis innermost): fine to read or to write back with ``markers[:, idx] = ...``, but convert
+it with ``xp.ascontiguousarray`` before passing it to a kernel or to MPI.
 
 See struphy-hub/struphy#707.
 """
 
 import cunumpy as xp
 
-MARKER_ORDER = "F"
-"""Memory order of the marker buffer and of every marker array passed to a kernel."""
-
 ROW_ALIGNMENT = 32
-"""The number of rows is a multiple of this, so that every column starts on a 256-byte boundary (32 doubles)."""
+"""The number of markers ``n_rows`` is a multiple of this, so that every row of the buffer starts on a 256-byte
+boundary (32 doubles)."""
 
 
 def padded_n_rows(n_rows: int) -> int:
@@ -34,32 +30,6 @@ def padded_n_rows(n_rows: int) -> int:
     return -(-int(n_rows) // ROW_ALIGNMENT) * ROW_ALIGNMENT
 
 
-def marker_array(n_rows: int, n_cols: int):
-    """Zero marker array of shape ``(n_rows, n_cols)`` in :data:`MARKER_ORDER` on the active backend."""
-    return xp.zeros((n_rows, n_cols), dtype=float, order=MARKER_ORDER)
-
-
-def as_marker_array(markers):
-    """``markers`` in :data:`MARKER_ORDER`, for passing to a kernel; no copy if it already has that layout."""
-    if has_marker_layout(markers):
-        return markers
-    return xp.array(markers, order=MARKER_ORDER, copy=True)
-
-
-def has_marker_layout(markers) -> bool:
-    """Whether ``markers`` is a 2D array in :data:`MARKER_ORDER`, as the kernels expect.
-
-    Besides the F-contiguity, the strides must not decrease along the axes, which is what pyccel checks for
-    ``order=F``: a single row in C order is F-contiguous for NumPy, but its strides are ``(8 * n_cols, 8)``.
-    """
-    return markers.ndim == 2 and bool(markers.flags.f_contiguous) and markers.strides[0] <= markers.strides[1]
-
-
-def check_marker_layout(markers, name: str = "markers"):
-    """Raise a ``TypeError`` if ``markers`` is not a 2D array in :data:`MARKER_ORDER`."""
-    if not has_marker_layout(markers):
-        raise TypeError(
-            f"{name} must be a 2D Fortran-ordered (column-major) array, got shape {markers.shape} with "
-            f"C_CONTIGUOUS={markers.flags.c_contiguous}, F_CONTIGUOUS={markers.flags.f_contiguous}; "
-            "see struphy.pic.marker_layout"
-        )
+def marker_array(n_cols: int, n_rows: int):
+    """Zero marker array of shape ``(n_cols, n_rows)`` on the active backend."""
+    return xp.zeros((n_cols, n_rows), dtype=float)
