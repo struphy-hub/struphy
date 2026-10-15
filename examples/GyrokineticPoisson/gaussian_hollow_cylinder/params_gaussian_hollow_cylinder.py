@@ -1,6 +1,6 @@
-"""Gyrokinetic Poisson equation with adiabatic electrons on a hollow cylinder in a screw pinch equilibrium,
-with a manufactured Gaussian solution, solved with CG and a choice of preconditioners. The pproc reports
-the max. relative error of the right-hand side and the solution."""
+"""Gyrokinetic Poisson equation (quasineutrality with the ion polarization density and adiabatic electrons) on a
+hollow cylinder in a screw pinch equilibrium, with a manufactured Gaussian solution, solved with CG and a choice
+of preconditioners. The pproc reports the max. relative error of the right-hand side and the solution."""
 
 # -----------------------------
 # Description of the simulation
@@ -55,12 +55,44 @@ PRECONDS = {
 
 name = f"GyrokineticPoisson on hollow cylinder, {PRECONDS[precond][0]}"
 description = f"""
-Gyrokinetic Poisson equation with adiabatic electrons on a hollow cylinder
-(HollowCylinder, a1=1e-2, a2=1, Lz=2*pi) in a screw pinch equilibrium (ScrewPinch, a=1, R0=1).
+Gyrokinetic Poisson equation (quasineutrality) with adiabatic electrons for the electrostatic potential phi
+of a given gyrocenter charge density rho on a hollow cylinder in a screw pinch equilibrium, with a manufactured
+localized solution, to test the accuracy and the preconditioners of the field solver of gyrokinetic models.
+
+Physics. In gyrokinetic models the electrostatic potential follows from quasineutrality instead of
+Poisson's equation: the ion gyrocenter density plus the ion polarization density equals the electron density.
+In the long-wavelength limit the polarization density is proportional to div(n0 / B0^2 grad_perp phi), the
+gyrokinetic counterpart of the polarization drift (Lee 1983). With adiabatic (Boltzmann) electrons, which respond
+to the potential along the field lines, the electron density perturbation is proportional to
+n0/Te (phi - <phi>); the flux-surface average <phi> is removed since the electrons cannot respond adiabatically
+to the zonal (surface-averaged) potential. In Struphy units this is the GyrokineticPoisson equation
+    1/(Z eps^2) n0/T0 (phi - <phi>) - div(n0/|B0|^2 grad_perp phi) = rho / eps,
+with grad_perp = (I - b0 b0^T) grad, b0 = B0/|B0|, the gyrokinetic parameter eps (here 1) and the ion charge
+number Z (here 1); it is the field equation of the DriftKineticElectrostaticAdiabatic model. n0, T0 = p/n0
+(with the pressure p) and B0 are taken from the MHD equilibrium. The operator is strongly anisotropic, since
+along b0 only the adiabatic term acts, and the average <phi> couples all points of a surface; both make it harder
+to precondition than the Laplacian. phi lives in the spline space V0 of H1 of the discrete de Rham complex (FEEC).
+The manufactured solution is a localized potential perturbation; being localized, it excites the whole
+spectrum of the operator, so unpreconditioned CG needs many iterations.
+
+Setup. Hollow cylinder (HollowCylinder, a1=1e-2, a2=1, Lz=2*pi) in a screw pinch equilibrium (ScrewPinch, a=1,
+R0=1), splines of degree (1, 2, 3); <phi> is the average over eta3 (along the cylinder axis).
 The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
 exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions are set in direction eta1.
 The linear system is solved with {PRECONDS[precond][1]}.
+
+Expected result. The pproc script compares the computed phi and the projected right-hand side rho with
+the exact fields and prints the max. relative errors; at the default resolution (not with --test-run) it asserts
+that they are below 2.2e-2 (rho) and 1.3e-2 (phi). The number of CG iterations shows the efficiency of the
+preconditioner.
+
+References:
+- W. W. Lee, "Gyrokinetic approach in particle simulation", Phys. Fluids 26, 556 (1983).
+- A. Buffa, J. Rivas, G. Sangalli and R. Vazquez, "Isogeometric discrete differential forms in three
+  dimensions", SIAM J. Numer. Anal. 49, 818 (2011).
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite
+  elements with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging
