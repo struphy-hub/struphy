@@ -19,7 +19,6 @@ from struphy.geometry.kernels.kernel_pullpush_pic import kernel_pullpush_pic
 from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from struphy.pic.marker_layout import as_marker_array
 from struphy.utils.cuda_arguments import check_mapping_on_device
 from struphy.utils.docstring_converter import rst_to_html, rst_to_latex, rst_to_markdown
 from struphy.utils.ipython_compat import HTML, display
@@ -29,14 +28,14 @@ logger = logging.getLogger("struphy")
 
 
 def inside_logical_cube(markers):
-    """Mask of the markers whose logical position ``markers[:, :3]`` lies in [0, 1]^3.
+    """Mask of the markers whose logical position ``markers[:3]`` lies in [0, 1]^3.
 
     The test of the pyccel and CUDA geometry kernels (``e1 < 0.0 or e1 > 1.0 or ...`` marks a marker as outside, so a
-    NaN coordinate counts as inside). The geometry kernels are called with ``remove_outside=False`` and the rows of
+    NaN coordinate counts as inside). The geometry kernels are called with ``remove_outside=False`` and the values of
     outside markers are removed with this mask, on both backends.
     """
-    positions = markers[:, :3]
-    return ~xp.any((positions < 0.0) | (positions > 1.0), axis=1)
+    positions = markers[:3]
+    return ~xp.any((positions < 0.0) | (positions > 1.0), axis=0)
 
 
 class DomainMeta(ABCMeta):
@@ -500,7 +499,7 @@ class Domain(metaclass=DomainMeta):
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         change_out_order : bool
@@ -589,7 +588,7 @@ class Domain(metaclass=DomainMeta):
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         squeeze_out : bool
@@ -628,7 +627,7 @@ class Domain(metaclass=DomainMeta):
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         transposed : bool
@@ -679,7 +678,7 @@ class Domain(metaclass=DomainMeta):
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         transposed : bool
@@ -730,7 +729,7 @@ class Domain(metaclass=DomainMeta):
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         transposed : bool
@@ -786,7 +785,7 @@ class Domain(metaclass=DomainMeta):
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
 
-            1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+            1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
             2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         flat_eval : bool
@@ -820,7 +819,7 @@ class Domain(metaclass=DomainMeta):
 
             - ``kind in ('0', '3')`` (scalar p-form): no component axis is added.
 
-              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+              - Markers / flat eval (``etas`` is a single ``(3, N)`` array, one column per point, or three 1d arrays of length ``N``
                 with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
                 removed points outside :math:`(0, 1)^3`, else ``n == N``.
               - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
@@ -872,7 +871,7 @@ class Domain(metaclass=DomainMeta):
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
 
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         flat_eval : bool
@@ -902,7 +901,7 @@ class Domain(metaclass=DomainMeta):
 
             - ``kind in ('0', '3')`` (scalar field): no component axis is added.
 
-              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+              - Markers / flat eval (``etas`` is a single ``(3, N)`` array, one column per point, or three 1d arrays of length ``N``
                 with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
                 removed points outside :math:`(0, 1)^3`, else ``n == N``.
               - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
@@ -953,7 +952,7 @@ class Domain(metaclass=DomainMeta):
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
 
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         flat_eval : bool
@@ -983,7 +982,7 @@ class Domain(metaclass=DomainMeta):
 
             - ``kind in ('0_to_3', '3_to_0')`` (scalar-to-scalar): no component axis is added.
 
-              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+              - Markers / flat eval (``etas`` is a single ``(3, N)`` array, one column per point, or three 1d arrays of length ``N``
                 with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
                 removed points outside :math:`(0, 1)^3`, else ``n == N``.
               - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
@@ -1031,7 +1030,7 @@ class Domain(metaclass=DomainMeta):
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
 
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         which : int
@@ -1055,11 +1054,11 @@ class Domain(metaclass=DomainMeta):
 
         # markers evaluation
         if len(etas) == 1:
-            # the kernel takes markers in the column-major marker layout (no copy for the marker buffer)
-            markers = as_marker_array(etas[0])
+            # one column per marker (see struphy.pic.marker_layout); no copy for a contiguous array
+            markers = xp.ascontiguousarray(etas[0])
 
             # to keep C-ordering the (3, 3)-part is in the last indices
-            out = xp.empty((markers.shape[0], 3, 3), dtype=float)
+            out = xp.empty((markers.shape[1], 3, 3), dtype=float)
             # one row per marker (remove_outside=False): a CUDA kernel cannot return the number of inside
             # markers, so the rows of outside markers are removed below, the same way on both backends
             kernel_evaluate_pic(
@@ -1069,6 +1068,7 @@ class Domain(metaclass=DomainMeta):
                 out,
                 False,
                 avoid_round_off,
+                n_threads=markers.shape[1],  # CUDA: one thread per marker
             )
 
             # move the (3, 3)-part to front
@@ -1166,7 +1166,7 @@ class Domain(metaclass=DomainMeta):
         *etas : array-like| tuple
             Logical coordinates at which to evaluate. Two cases are possible:
 
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         flat_eval : bool
@@ -1185,7 +1185,7 @@ class Domain(metaclass=DomainMeta):
             - ``kind_int < 10`` (scalar-valued result, e.g. kinds ``'0'``, ``'3'``, ``'0_to_3'``, ``'3_to_0'``):
               no component axis is added.
 
-              - Markers / flat eval (``etas`` is a single ``(N, 3)`` array, or three 1d arrays of length ``N``
+              - Markers / flat eval (``etas`` is a single ``(3, N)`` array, one column per point, or three 1d arrays of length ``N``
                 with ``flat_eval=True``): ``out`` has shape ``(n,)``, where ``n <= N`` if ``remove_outside=True``
                 removed points outside :math:`(0, 1)^3`, else ``n == N``.
               - Tensor-product eval (``etas`` is a tuple ``(eta1, eta2, eta3)`` broadcast to shape
@@ -1219,20 +1219,18 @@ class Domain(metaclass=DomainMeta):
                 assert len(etas) == 3
                 assert etas[0].shape == etas[1].shape == etas[2].shape
                 assert etas[0].ndim == 1
-                markers = xp.stack(etas, axis=1)
+                markers = xp.stack(etas, axis=0)
             else:
-                markers = etas[0]
-            # the kernel takes markers in the column-major marker layout (no copy for the marker buffer)
-            markers = as_marker_array(markers)
+                # one column per marker (see struphy.pic.marker_layout); no copy for a contiguous array
+                markers = xp.ascontiguousarray(etas[0])
 
-            # coordinates (:, 3) and argument evaluation (without holes)
+            # coordinates (3, :) and argument evaluation (without holes)
             if callable(a):
                 if coordinates == "logical":
                     A = Domain.prepare_arg(
                         a,
                         self(
                             markers,
-                            change_out_order=True,
                             remove_outside=remove_outside,
                             identity_map=True,
                         ),
@@ -1241,7 +1239,7 @@ class Domain(metaclass=DomainMeta):
                 else:
                     A = Domain.prepare_arg(
                         a,
-                        self(markers, change_out_order=True, remove_outside=remove_outside),
+                        self(markers, remove_outside=remove_outside),
                         a_kwargs=a_kwargs,
                     )
 
@@ -1252,7 +1250,6 @@ class Domain(metaclass=DomainMeta):
                             a,
                             self(
                                 markers,
-                                change_out_order=True,
                                 remove_outside=remove_outside,
                                 identity_map=True,
                             ),
@@ -1261,7 +1258,7 @@ class Domain(metaclass=DomainMeta):
                     else:
                         A = Domain.prepare_arg(
                             a,
-                            self(markers, change_out_order=True, remove_outside=remove_outside),
+                            self(markers, remove_outside=remove_outside),
                             a_kwargs=a_kwargs,
                         )
                 else:
@@ -1271,13 +1268,13 @@ class Domain(metaclass=DomainMeta):
                 A = Domain.prepare_arg(a, markers)
 
             # check if A includes holes or not
-            if A.shape[0] == markers.shape[0]:
+            if A.shape[0] == markers.shape[1]:
                 A_has_holes = True
             else:
                 A_has_holes = False
 
             # call evaluation kernel
-            out = xp.empty((markers.shape[0], 3), dtype=float)
+            out = xp.empty((markers.shape[1], 3), dtype=float)
             inside = inside_logical_cube(markers)
 
             # make sure we don't have stride = 0; give A one row per marker, as the kernel is called with
@@ -1287,7 +1284,7 @@ class Domain(metaclass=DomainMeta):
                 A = A.copy()
             else:
                 A_values = A
-                A = xp.zeros((markers.shape[0], A_values.shape[1]), dtype=float)
+                A = xp.zeros((markers.shape[1], A_values.shape[1]), dtype=float)
                 A[inside] = A_values
 
             kernel_pullpush_pic(
@@ -1298,7 +1295,7 @@ class Domain(metaclass=DomainMeta):
                 self.args_domain,
                 out,
                 False,
-                n_threads=markers.shape[0],  # CUDA: one thread per marker (the first array is A)
+                n_threads=markers.shape[1],  # CUDA: one thread per marker
             )
 
             # move the (3, 3)-part to front
@@ -1564,7 +1561,7 @@ class Domain(metaclass=DomainMeta):
         # vector-valued function -> must return a 4d array of shape (3,:,:,:)
         elif callable(a_in):
             if flat_eval:
-                a_out = a_in(Xs[0][:, 0], Xs[0][:, 1], Xs[0][:, 2], **a_kwargs)
+                a_out = a_in(Xs[0][0], Xs[0][1], Xs[0][2], **a_kwargs)
                 if a_out.ndim == 1:
                     a_out = a_out[None, :]
             else:
@@ -1596,9 +1593,9 @@ class Domain(metaclass=DomainMeta):
                     if flat_eval:
                         a_out += [
                             component(
-                                Xs[0][:, 0],
-                                Xs[0][:, 1],
-                                Xs[0][:, 2],
+                                Xs[0][0],
+                                Xs[0][1],
+                                Xs[0][2],
                                 **a_kwargs,
                             ),
                         ]
@@ -1830,7 +1827,7 @@ class Domain(metaclass=DomainMeta):
                 * a 2d array with information about MPI decomposition.
 
         markers : array-like
-            Markers to be plotted. Can be of shape (Np, 3) or (:, Np, 3). For the former, all markers are plotted with the same color. For the latter, with different colors (are interpreted as orbits in time).
+            Markers to be plotted, one column per marker. Can be of shape (3, Np) or (:, 3, Np). For the former, all markers are plotted with the same color. For the latter, with different colors (are interpreted as orbits in time).
 
         marker_coords : bool
             Whether the marker coordinates are logical or physical.
@@ -2135,16 +2132,13 @@ class Domain(metaclass=DomainMeta):
             if markers.ndim == 2:
                 if not logical and marker_coords == "logical":
                     tmp = markers.copy()  # TODO: needed for eta3=0
-                    tmp[:, 2] = 0.0  # TODO: needed for eta3=0
+                    tmp[2] = 0.0  # TODO: needed for eta3=0
                     X = self(tmp, remove_outside=True)
                 else:
                     X = (
-                        markers[:, 0].copy(),
-                        markers[
-                            :,
-                            1,
-                        ].copy(),
-                        markers[:, 2].copy(),
+                        markers[0].copy(),
+                        markers[1].copy(),
+                        markers[2].copy(),
                     )
 
                 ax.scatter(X[co1], X[co2], s=1, color="b")
@@ -2153,21 +2147,17 @@ class Domain(metaclass=DomainMeta):
             elif markers.ndim == 3:
                 colors = ["k", "m", "b", "g", "r", "c", "y"]
 
-                for i in range(markers.shape[1]):
+                for i in range(markers.shape[2]):
                     if not logical and marker_coords == "logical":
                         # TODO: needed for eta3=0
-                        tmp = markers[:, i, :].copy()
-                        tmp[:, 2] = 0.0  # TODO: needed for eta3 = 0
+                        tmp = markers[:, :, i].T.copy()
+                        tmp[2] = 0.0  # TODO: needed for eta3 = 0
                         X = self(tmp, remove_outside=True, squeeze_out=True)
                     else:
                         X = (
-                            markers[:, i, 0].copy(),
-                            markers[
-                                :,
-                                i,
-                                1,
-                            ].copy(),
-                            markers[:, i, 2].copy(),
+                            markers[:, 0, i].copy(),
+                            markers[:, 1, i].copy(),
+                            markers[:, 2, i].copy(),
                         )
 
                     # ax.scatter(X[co1], X[co2], s=2, color=colors[i%len(colors)])

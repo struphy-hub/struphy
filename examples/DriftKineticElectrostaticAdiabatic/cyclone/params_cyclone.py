@@ -199,7 +199,7 @@ def n_r(r):
 
 def n_init(*etas):
     if len(etas) == 1:
-        eta1 = etas[0][:, 0]
+        eta1 = etas[0][0]
     else:
         eta1 = etas[0]
     r = r_min + (a - r_min) * eta1
@@ -212,7 +212,7 @@ def Ti_r(r):
 
 def vth_init(*etas):
     if len(etas) == 1:
-        eta1 = etas[0][:, 0]
+        eta1 = etas[0][0]
     else:
         eta1 = etas[0]
     r = r_min + (a - r_min) * eta1
@@ -235,7 +235,7 @@ equil.n_xyz = n_xyz
 
 def pert_func(*etas):
     if len(etas) == 1:
-        e1, e2, e3 = etas[0][:, 0], etas[0][:, 1], etas[0][:, 2]
+        e1, e2, e3 = etas[0][0], etas[0][1], etas[0][2]
     else:
         e1, e2, e3 = etas[0], etas[1], etas[2]
     r = (a - r_min) * e1 + r_min
