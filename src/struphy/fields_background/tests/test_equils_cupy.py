@@ -192,7 +192,7 @@ def check_equil_on_cupy(case):
     e1 = np.sort(rng.uniform(0.1, 0.9, 4))
     e2 = np.sort(rng.uniform(0.0, 1.0, 5))
     e3 = np.sort(rng.uniform(0.0, 1.0, 3))
-    markers = np.column_stack([rng.uniform(0.1, 0.9, 7), rng.uniform(0.0, 1.0, 7), rng.uniform(0.0, 1.0, 7)])
+    markers = np.stack([rng.uniform(0.1, 0.9, 7), rng.uniform(0.0, 1.0, 7), rng.uniform(0.0, 1.0, 7)])
 
     with cunumpy.use_backend("numpy"):
         equil = _build(case)

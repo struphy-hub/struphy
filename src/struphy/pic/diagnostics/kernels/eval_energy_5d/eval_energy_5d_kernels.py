@@ -1,4 +1,4 @@
-"""Evaluate total energy of each particles and assign it into markers[ip,first_diagnostics_idx]."""
+"""Evaluate total energy of each particles and assign it into markers[first_diagnostics_idx, ip]."""
 
 from numpy import shape
 
@@ -8,30 +8,30 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 
 
 def eval_energy_5d(
-    markers: "float[:,:](order=F)",  # noqa: F821
+    markers: "float[:,:]",
     args_derham: "DerhamArguments",
     first_diagnostics_idx: int,
     mu_idx: int,
     absB: "float[:,:,:]",
 ):
     """
-    Evaluate total energy of each particles and assign it into markers[ip,first_diagnostics_idx].
+    Evaluate total energy of each particles and assign it into markers[first_diagnostics_idx, ip].
     """
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
-        v_parallel = markers[ip, 3]
-        mu = markers[ip, mu_idx]
+        v_parallel = markers[3, ip]
+        mu = markers[mu_idx, ip]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -45,4 +45,4 @@ def eval_energy_5d(
         )
 
         # total energy
-        markers[ip, first_diagnostics_idx] = 1 / 2 * v_parallel**2 + mu * abs_B
+        markers[first_diagnostics_idx, ip] = 1 / 2 * v_parallel**2 + mu * abs_B

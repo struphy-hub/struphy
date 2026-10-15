@@ -10,7 +10,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
 @stack_array("tmp0", "tmp1", "tmp2", "tmp3", "out")
 def kernel_evaluate_pic(
-    markers: "float[:,:](order=F)",  # noqa: F821
+    markers: "float[:,:]",
     kind_coeff: int,
     args: "DomainArguments",
     mat_f: "float[:,:,:]",
@@ -36,13 +36,13 @@ def kernel_evaluate_pic(
     tmp3 = zeros((3, 3), dtype=float)
     out = zeros((3, 3), dtype=float)
 
-    np = shape(markers)[0]
+    np = shape(markers)[1]
     counter = 0
 
     for i in range(np):
-        e1 = markers[i, 0]
-        e2 = markers[i, 1]
-        e3 = markers[i, 2]
+        e1 = markers[0, i]
+        e2 = markers[1, i]
+        e3 = markers[2, i]
 
         if e1 < 0.0 or e1 > 1.0 or e2 < 0.0 or e2 > 1.0 or e3 < 0.0 or e3 > 1.0:
             if remove_outside:

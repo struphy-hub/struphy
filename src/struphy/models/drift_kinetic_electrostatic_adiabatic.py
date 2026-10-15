@@ -205,7 +205,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # The weights (column 5) already carry the 1/N_p of the Monte-Carlo estimate, see KineticEnergyPIC.
         # only the two columns needed, not the whole rows of the valid markers
         valid_mks = particles.valid_mks
-        return particles.markers[valid_mks, 5].dot(particles.markers[valid_mks, 8])
+        return particles.markers[5, valid_mks].dot(particles.markers[8, valid_mks])
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

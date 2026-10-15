@@ -208,7 +208,7 @@ class Accumulator:
         Parameters
         ----------
         particles : Particles
-            Particles object holding the markers information in format particles.markers.shape == (n_markers, :).
+            Particles object holding the markers information in format particles.markers.shape == (:, n_markers).
 
         optional_args : any
             Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
@@ -237,7 +237,7 @@ class Accumulator:
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
-                n_threads=self.particles.args_markers.n_markers,  # the rows that can hold markers
+                n_threads=self.particles.args_markers.n_markers,  # the markers (columns) that can hold markers
             )
 
         # apply filter
@@ -570,7 +570,7 @@ class AccumulatorVector:
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
-                n_threads=self.particles.args_markers.n_markers,  # the rows that can hold markers
+                n_threads=self.particles.args_markers.n_markers,  # the markers (columns) that can hold markers
             )
 
         # apply filter

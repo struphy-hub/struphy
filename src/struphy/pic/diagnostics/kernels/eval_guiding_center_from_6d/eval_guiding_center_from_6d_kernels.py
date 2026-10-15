@@ -12,7 +12,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
 def eval_guiding_center_from_6d(
-    markers: "float[:,:](order=F)",  # noqa: F821
+    markers: "float[:,:]",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     first_diagnostics_idx: int,
@@ -24,9 +24,9 @@ def eval_guiding_center_from_6d(
 ):
     r"""
     Evaluate guiding center phase space of each particles:
-    markers[ip, first_diagnostics_idx: first_diagnostics_idx+3] : logical guiding center positions
-    markers[ip, first_diagnostics_idx + 4] :  magnetic moment
-    markers[ip, first_diagnostics_idx + 6] :  parallel velocity
+    markers[first_diagnostics_idx: first_diagnostics_idx+3, ip] : logical guiding center positions
+    markers[first_diagnostics_idx + 4, ip] :  magnetic moment
+    markers[first_diagnostics_idx + 6, ip] :  parallel velocity
     """
 
     v = empty(3, dtype=float)
@@ -38,20 +38,20 @@ def eval_guiding_center_from_6d(
     Larmor_r = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        x = markers[ip, first_diagnostics_idx]
-        y = markers[ip, first_diagnostics_idx + 1]
-        z = markers[ip, first_diagnostics_idx + 2]
-        v[:] = markers[ip, 3:6]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        x = markers[first_diagnostics_idx, ip]
+        y = markers[first_diagnostics_idx + 1, ip]
+        z = markers[first_diagnostics_idx + 2, ip]
+        v[:] = markers[3:6, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -104,10 +104,10 @@ def eval_guiding_center_from_6d(
         v_perp_square = v_perp[0] ** 2 + v_perp[1] ** 2 + v_perp[2] ** 2
 
         # parallel velocity
-        markers[ip, first_diagnostics_idx + 6] = v_parallel
+        markers[first_diagnostics_idx + 6, ip] = v_parallel
 
         # magnetic moment
-        markers[ip, first_diagnostics_idx + 4] = 1 / 2 * v_perp_square / abs_B
+        markers[first_diagnostics_idx + 4, ip] = 1 / 2 * v_perp_square / abs_B
 
         # calculate Larmor radius vector
         linalg_kernels.cross(norm_b_cart, v_perp, Larmor_r)
@@ -115,6 +115,6 @@ def eval_guiding_center_from_6d(
         Larmor_r *= epsilon
 
         # calculate cartesian guiding center positions
-        markers[ip, first_diagnostics_idx] = x - Larmor_r[0]
-        markers[ip, first_diagnostics_idx + 1] = y - Larmor_r[1]
-        markers[ip, first_diagnostics_idx + 2] = z - Larmor_r[2]
+        markers[first_diagnostics_idx, ip] = x - Larmor_r[0]
+        markers[first_diagnostics_idx + 1, ip] = y - Larmor_r[1]
+        markers[first_diagnostics_idx + 2, ip] = z - Larmor_r[2]

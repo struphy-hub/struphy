@@ -360,8 +360,8 @@ def test_restart_restores_sph_markers(tmp_path, monkeypatch):
     sim.time_opts.Tend += sim.time_opts.dt
     sim.run()
 
-    valid = saved[:, 0] != -1.0
-    assert np.array_equal(restored["markers"][valid, :6], saved[valid, :6])
+    valid = saved[0] != -1.0
+    assert np.array_equal(restored["markers"][:6, valid], saved[:6, valid])
 
 
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):

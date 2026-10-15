@@ -17,7 +17,6 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Marker
 from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.marker_layout import as_marker_array
 
 N_MARKERS = 129  # not a multiple of the block size
 N_COLS = 25
@@ -26,21 +25,21 @@ BOUNDARY_CONDITIONS = ((0, 0, 0), (1, 1, 1), (2, 0, 1))  # periodic, reflect, mi
 
 
 def marker_arguments(bc):
-    """Markers with a hole (row 0) and a boundary particle (row 1), in a Cuboid."""
+    """Markers with a hole (marker 0) and a boundary particle (marker 1), in a Cuboid."""
     rng = np.random.default_rng(7)
-    markers = rng.random((N_MARKERS, N_COLS))
-    markers[:, 3:6] = rng.uniform(-2, 2, (N_MARKERS, 3))
-    markers[:, 8:14] = markers[:, :6]
-    markers[:, 18:21] = 0.0
-    # Row 0 is a hole. Struphy marks every column of a hole with -1: pushers test column first_pusher_idx (8),
-    # accumulation kernels test column 0.
-    markers[0, :] = -1.0
-    markers[1, -1] = -2.0
+    markers = rng.random((N_COLS, N_MARKERS))
+    markers[3:6] = rng.uniform(-2, 2, (3, N_MARKERS))
+    markers[8:14] = markers[:6]
+    markers[18:21] = 0.0
+    # Marker 0 is a hole. Struphy marks every entry of a hole with -1: pushers test row first_pusher_idx (8),
+    # accumulation kernels test row 0.
+    markers[:, 0] = -1.0
+    markers[-1, 1] = -2.0
     valid = np.ones(N_MARKERS, dtype=bool)
     valid[:2] = False
     args_class = CudaMarkerArguments if xp.get_backend() == "cupy" else MarkerArguments
     args_markers = args_class(
-        as_marker_array(xp.asarray(markers)),
+        xp.asarray(markers),
         xp.asarray(valid),
         N_MARKERS,
         *MARKER_INDICES,
@@ -214,15 +213,15 @@ def geometry_domain(index):
 
 
 def logical_markers(n=N_MARKERS, seed=5):
-    """Logical points in marker format, shape (n, 7), column-major like the marker buffer, away from the poles
-    (eta1 >= 0.1).
+    """Logical points in marker format, shape (7, n), one column per point like the marker buffer, away from the
+    poles (eta1 >= 0.1).
 
-    Row 0 is a hole (-1), row 1 is outside in eta1 and row 2 in eta3, so ``remove_outside`` changes the result.
+    Point 0 is a hole (-1), point 1 is outside in eta1 and point 2 in eta3, so ``remove_outside`` changes the result.
     """
     rng = np.random.default_rng(seed)
-    markers = rng.random((n, 7))
-    markers[:, 0] = rng.uniform(0.1, 0.95, n)
-    markers[0, :] = -1.0
-    markers[1, 0] = 1.2
+    markers = rng.random((7, n))
+    markers[0] = rng.uniform(0.1, 0.95, n)
+    markers[:, 0] = -1.0
+    markers[0, 1] = 1.2
     markers[2, 2] = -0.3
-    return np.asfortranarray(markers)
+    return markers

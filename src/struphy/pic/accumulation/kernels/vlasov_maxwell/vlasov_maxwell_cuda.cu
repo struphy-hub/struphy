@@ -11,9 +11,9 @@ using namespace struphy_cuda;
  * Filling functions:
  *     A_p^{mu, nu} = w_p G^{-1}_{mu, nu}(eta_p),   G^{-1} = DF^{-1} DF^{-T},
  *     B_p^mu = w_p [DF^{-1}(eta_p) v_p]_mu;
- * one thread per marker row.
+ * one thread per marker.
  *
- * @param args_markers Marker buffer (n_markers x n_cols, column-major); the weight is in column 6, as in pyccel.
+ * @param args_markers Marker buffer (n_cols x n_markers, one column per marker); the weight is in column 6, as in pyccel.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param mat11 (1,1)-block data of the symmetric V1 -> V1 block matrix (the _data of a StencilMatrix, 6D, any
@@ -27,15 +27,15 @@ using namespace struphy_cuda;
  * @param vec2 Second component of the V1 vector data; written atomically.
  * @param vec3 Third component of the V1 vector data; written atomically.
  *
- * Holes (markers[ip, 0] == -1) are skipped; boundary particles are not, as in pyccel. Both loops run over the
- * rows that can hold markers, n_markers. Many threads add to the same entries, so the summation order
+ * Holes (markers[0, ip] == -1) are skipped; boundary particles are not, as in pyccel. Both loops run over the
+ * columns that can hold markers, n_markers. Many threads add to the same entries, so the summation order
  * (and the last bits of the result) differs from the serial pyccel loop.
  */
 extern "C" __global__ void vlasov_maxwell(MarkerArgs args_markers, DerhamArgs args_derham, DomainArgs args_domain,
                                           Array6D<double> mat11, Array6D<double> mat12, Array6D<double> mat13,
                                           Array6D<double> mat22, Array6D<double> mat23, Array6D<double> mat33,
                                           Array3D<double> vec1, Array3D<double> vec2, Array3D<double> vec3) {
-    // CUDA-only: the marker row of this thread replaces the pyccel loop variable
+    // CUDA-only: the marker of this thread replaces the pyccel loop variable
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     if (ip >= args_markers.n_markers) return;
 
@@ -46,20 +46,20 @@ extern "C" __global__ void vlasov_maxwell(MarkerArgs args_markers, DerhamArgs ar
     double v[3], df_inv_times_v[3], filling_m[9], filling_v[3];
 
     // only do something if particle is a "true" particle (i.e. not a hole)
-    if (args_markers.markers(ip, 0) == -1.) return;
+    if (args_markers.markers(0, ip) == -1.) return;
 
     // marker positions
-    double eta1 = args_markers.markers(ip, 0);
-    double eta2 = args_markers.markers(ip, 1);
-    double eta3 = args_markers.markers(ip, 2);
+    double eta1 = args_markers.markers(0, ip);
+    double eta2 = args_markers.markers(1, ip);
+    double eta3 = args_markers.markers(2, ip);
 
     // evaluate Jacobian, result in dfm
     evaluation_kernels::df(eta1, eta2, eta3, args_domain, dfm);
 
     // compute shifted and stretched velocity
-    v[0] = args_markers.markers(ip, 3);
-    v[1] = args_markers.markers(ip, 4);
-    v[2] = args_markers.markers(ip, 5);
+    v[0] = args_markers.markers(3, ip);
+    v[1] = args_markers.markers(4, ip);
+    v[2] = args_markers.markers(5, ip);
 
     // filling functions
     linalg_kernels::matrix_inv(dfm, df_inv);
@@ -68,10 +68,10 @@ extern "C" __global__ void vlasov_maxwell(MarkerArgs args_markers, DerhamArgs ar
     linalg_kernels::matrix_vector(df_inv, v, df_inv_times_v);
 
     // filling_m = w_p * DF^{-1} * DF^{-T}
-    for (int k = 0; k < 9; ++k) filling_m[k] = args_markers.markers(ip, 6) * g_inv[k];
+    for (int k = 0; k < 9; ++k) filling_m[k] = args_markers.markers(6, ip) * g_inv[k];
 
     // filling_v = w_p * DF^{-1} * \V
-    for (int k = 0; k < 3; ++k) filling_v[k] = args_markers.markers(ip, 6) * df_inv_times_v[k];
+    for (int k = 0; k < 3; ++k) filling_v[k] = args_markers.markers(6, ip) * df_inv_times_v[k];
 
     // call the appropriate matvec filler
     particle_to_mat_kernels::m_v_fill_b_v1_symm(args_derham, eta1, eta2, eta3, mat11, mat12, mat13, mat22, mat23,

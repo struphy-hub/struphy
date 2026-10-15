@@ -2178,9 +2178,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
             # flat (marker) evaluation
             if len(etas) == 1:
                 assert etas[0].ndim == 2
-                eta1 = etas[0][:, 0]
-                eta2 = etas[0][:, 1]
-                eta3 = etas[0][:, 2]
+                eta1 = etas[0][0]
+                eta2 = etas[0][1]
+                eta3 = etas[0][2]
                 flat_eval = True
             # meshgrid evaluation
             else:
@@ -2215,9 +2215,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2434,9 +2434,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2510,9 +2510,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2552,9 +2552,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2584,9 +2584,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2640,9 +2640,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:

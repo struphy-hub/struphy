@@ -37,17 +37,17 @@ def gc_mag_density_0form(
     # fmt: on
     for ip in range(args_markers.n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # marker weight and magnetic moment
-        weight = markers[ip, 5]
-        mu = markers[ip, mu_idx]
+        weight = markers[5, ip]
+        mu = markers[mu_idx, ip]
 
         # filling =mu*w_p/N
         filling = mu * weight * scale

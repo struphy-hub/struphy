@@ -116,17 +116,17 @@ def test_emulated_v1_symm_filler():
 @requires_compiler
 @pytest.mark.parametrize("n_rows", [96, 129])
 def test_emulated_prepare_push(n_rows):
-    """The fused preamble of Pusher._push (prepare_push_cuda.cu) writes the column-major buffer like the three column
-    assignments, and leaves the columns before first_pusher_idx and the last two columns alone."""
+    """The fused preamble of Pusher._push (prepare_push_cuda.cu) writes the marker buffer (one column per marker) like
+    the three row assignments, and leaves the rows before first_pusher_idx and the last two rows alone."""
     from struphy.pic.marker_layout import marker_array
     from struphy.pic.pushing.pusher import _prepare_push_cuda
 
     n_cols, first_pusher_idx, n_init = 26, 8, 6
-    markers = marker_array(n_rows, n_cols)
-    markers[:] = np.random.default_rng(11).random((n_rows, n_cols))
+    markers = marker_array(n_cols, n_rows)
+    markers[:] = np.random.default_rng(11).random((n_cols, n_rows))
     expected = markers.copy()
-    expected[:, first_pusher_idx : first_pusher_idx + n_init] = expected[:, :n_init]
-    expected[:, first_pusher_idx + n_init : -2] = 0.0
+    expected[first_pusher_idx : first_pusher_idx + n_init] = expected[:n_init]
+    expected[first_pusher_idx + n_init : -2] = 0.0
 
     width = n_cols - 2 - first_pusher_idx
     emulate_struct_kernel(_prepare_push_cuda(), markers, first_pusher_idx, n_init, n_threads=n_rows * width)

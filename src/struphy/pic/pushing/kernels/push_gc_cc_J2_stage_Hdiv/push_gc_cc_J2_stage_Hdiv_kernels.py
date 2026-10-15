@@ -94,17 +94,17 @@ def push_gc_cc_J2_stage_Hdiv(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # if particle is refilled
-        if markers[ip, first_pusher_idx] == -1.0:
+        if markers[first_pusher_idx, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v = markers[3, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -200,13 +200,13 @@ def push_gc_cc_J2_stage_Hdiv(
         e /= det_df
 
         # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] -= dt * b[stage] * e
+        markers[first_free_idx : first_free_idx + 3, ip] -= dt * b[stage] * e
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_pusher_idx : first_pusher_idx + 3]
+        markers[0:3, ip] = (
+            markers[first_pusher_idx : first_pusher_idx + 3, ip]
             - dt * a[stage] * e
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
+            + last * markers[first_free_idx : first_free_idx + 3, ip]
         )
 
         # apply kinetic boundary conditions
