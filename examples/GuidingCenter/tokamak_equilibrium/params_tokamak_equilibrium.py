@@ -75,16 +75,48 @@ if args.test_run:
 
 name = f"GuidingCenter {args.init} Maxwellian in an ad hoc tokamak, {args.algo}"
 description = f"""
-Long-time equilibrium test of the GuidingCenter model in a full torus without hole (IGAPolarTorus, minor radius 1,
-major radius 3, C1 polar splines) with an ad hoc tokamak equilibrium (AdhocTorus). Markers drift through the axis.
-Initial condition: {args.init} Maxwellian. A canonical Maxwellian (density and thermal speed functions of the canonical
-toroidal momentum psi_c) is an exact equilibrium; a gyro-Maxwellian with the same profiles in the flux label of the
-position is not (radial drifts in the torus), it serves as a control.
-The binned distributions in position (eta1, eta1-eta2) and velocity space (v_parallel, mu, eta1-v_parallel)
-are compared with their initial profiles up to t={args.tend} (dt={args.dt}). The density vanishes at the edge r=a,
-where markers on drift orbits leaving the plasma are removed; this small loss is not part of the equilibrium.
-Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if explicit), epsilon={args.epsilon},
-{args.ppc} markers per cell on a grid with {args.num_elements} elements.
+Long-time equilibrium test of the GuidingCenter model (guiding centers in a static magnetic field) in an ad hoc
+tokamak: a canonical Maxwellian, a function of the constants of motion, must stay stationary; a gyro-Maxwellian
+with the same profiles in the position serves as a control that is not an equilibrium. It tests the
+guiding-center pushers on passing and trapped (banana) orbits and the C1 polar splines at the magnetic axis.
+
+Physics. The guiding-center distribution f(X, v_par, mu, t) is advected along the characteristics
+    dX/dt     = v_par B*/B*_par + E* x b0 / B*_par,
+    dv_par/dt = (1/epsilon) B*/B*_par . E*,
+with E* = -epsilon mu grad|B0| (no electric field), B* = B0 + epsilon v_par curl b0 and B*_par = B* . b0, i.e.
+parallel streaming, the mirror force and the grad-B and curvature drifts, of order epsilon (the normalized
+cyclotron period). In the torus |B0| varies along the field lines (about 1/R): particles with small v_par/v are
+reflected by the mirror force and trapped on the low-field (outboard) side (banana orbits), the others circulate
+(passing), and the vertical grad-B and curvature drifts shift both kinds of orbits radially off the flux surfaces,
+by an amount of order epsilon q v / (inverse aspect ratio)^(1/2) for trapped particles. Hence a distribution
+that depends only on the flux surface of the position, like the gyro-Maxwellian, is not stationary. The exact
+constants of motion are the energy v_par^2/2 + mu |B0|, the magnetic moment mu and, by axisymmetry, the canonical
+toroidal momentum psi_c = psi + epsilon F v_par / |B0| (normalized form, psi the poloidal flux, F = R B_phi;
+Struphy evaluates a variant of psi_c, see CanonicalMaxwellian2D). By Jeans' theorem the canonical Maxwellian
+    f0 = n(psi_c) / (2 pi)^(3/2) / vth(psi_c)^3 * exp(-(v_par^2/2 + mu |B0|) / vth(psi_c)^2)
+is an exact equilibrium.
+
+Setup. Full torus without hole (IGAPolarTorus, minor radius a = 1, major radius R0 = 3, C1 polar splines at the
+axis) with an ad hoc tokamak equilibrium (AdhocTorus, circular concentric flux surfaces, B0 = 1 on axis, q(r) =
+1.71 + 0.16 r^2/a^2). With the normalized poloidal flux s in [0, 1], the profiles are n = (1 - s)^2 and vth =
+0.15 + 0.10 (1 - s), as functions of psi_c (canonical) or of the flux label s = eta1^2 of the position (gyro).
+Markers drift through the axis. Initial condition: {args.init} Maxwellian. Binned distributions in position
+(eta1, eta1-eta2) and velocity space (v_parallel, mu, eta1-v_parallel) up to t={args.tend} (dt={args.dt}). The
+density vanishes at the edge r=a, where markers on drift orbits leaving the plasma are removed; this small loss is
+not part of the equilibrium. Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if
+explicit), epsilon={args.epsilon}, {args.ppc} markers per cell on a grid with {args.num_elements} elements.
+
+Expected result. For the canonical Maxwellian, the relative L2 deviation of the binned distributions from their
+initial profiles stays at the level of the Monte-Carlo noise of the binning, without a systematic drift. The
+gyro-Maxwellian control is expected to relax (phase mixing along the drift orbits) towards a different state,
+visible as a systematic deviation from the initial profiles. The pproc also shows the relative drift of the total
+energy en_tot and the number of lost markers.
+
+References:
+- R. G. Littlejohn, "Variational principles of guiding centre motion", J. Plasma Phys. 29, 111 (1983).
+- A. J. Brizard and T. S. Hahm, "Foundations of nonlinear gyrokinetic theory", Rev. Mod. Phys. 79, 421 (2007).
+- R. I. McLachlan, G. R. W. Quispel and N. Robidoux, "Geometric integration using discrete gradients",
+  Phil. Trans. R. Soc. Lond. A 357, 1021 (1999).
 """
 
 import logging

@@ -7,13 +7,43 @@ electron distribution drives Langmuir waves that grow and saturate by particle t
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
+name = "Vlasov-Ampere bump-on-tail instability"
 description = """
-Nonlinear bump-on-tail instability: A kinetic plasma instability test case for the Vlasov-Ampère model.
-This test features a "bump" (localized excess) in the high-velocity tail of the electron velocity distribution.
-The bump-on-tail configuration is unstable to the generation of Langmuir waves, leading to energy transfer
-from the hot electron population to the growing wave field. This nonlinear process exhibits complex dynamics
-including mode coupling and particle trapping in the wave potential.
-This benchmark validates the particle-in-cell treatment of velocity-space instabilities and wave-particle interactions.
+Bump-on-tail instability with the VlasovAmpereOneSpecies model: electrostatic 1D-3V kinetic electrons (PIC) in a
+periodic box with a neutralizing ion background. A small, fast electron population (the "bump") on the tail of the
+bulk distribution drives Langmuir (electron plasma) waves unstable; the waves grow, trap the resonant electrons
+and saturate.
+
+Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p) and
+no background magnetic field (with_B0=False) the model solves
+    df/dt + v . grad_x f - E . grad_v f = 0,
+    dE/dt = int v f d^3v       (Ampere's law; the current density of the electrons is -int v f d^3v),
+where the initial field follows from Poisson's equation div E = n0 - n with n = int f d^3v and the ion density
+n0 = int f0 d^3v of the background f0; Gauss's law is then kept by the Ampere equation. Small perturbations
+exp(i (k x - omega t)) obey the kinetic dispersion relation
+    1 + sum_s n_s / (k vth_s)^2 [1 + xi_s Z(xi_s)] = 0,   xi_s = (omega - k u_s) / (sqrt(2) k vth_s),
+with the plasma dispersion function Z and the density n_s, drift u_s and thermal speed vth_s of each Maxwellian.
+For a single Maxwellian the waves are Landau damped, because there are more slow than fast resonant electrons.
+Between the bulk and the bump the slope of f has the opposite sign: waves with their phase velocity omega/k in
+this region take more energy from the resonant electrons than they give (inverse Landau damping) and grow. Once
+the bounce frequency of the electrons trapped in the wave potential is comparable to the growth rate, trapping
+flattens the bump (phase-space vortices, plateau) and the wave saturates and oscillates.
+
+Setup. Periodic box of length L = 62.83 (about 20 pi, so k = 2 pi / L = 0.1), 32 cells and cubic splines in x.
+The electrons are the sum of two Maxwellians: a bulk with n = 0.9, drift u1 = 3 and vth = 1, and a bump with
+n = 0.1, drift u1 = -4.5 (7.5 bulk thermal speeds away from the bulk) and vth1 = 0.5. Only the bump density is
+perturbed, by 0.05 cos(k x). Control-variate (delta-f) weights with 1000 markers per cell, drawn from a Maxwellian
+with vth1 = 3 that covers both populations; time step dt = 0.1 up to t = 60 (Lie-Trotter splitting).
+
+Expected result. The numerical solution of the dispersion relation above for this distribution gives growth rates
+of about 0.20 for k = 0.1 and 0.22 for k = 0.2 (larger k are stable); the pproc does not compare with them. It
+shows the initial velocity distribution with the bump, the electric energy on a log scale (exponential growth,
+then saturation with trapping oscillations), the distribution function in the (x, v1) plane over time (vortices
+of trapped electrons at the bump) and the fields along x at the first, middle and last saved time.
+
+References:
+- L. D. Landau, "On the vibrations of the electronic plasma", J. Phys. USSR 10, 25 (1946).
+- T. O'Neil, "Collisionless damping of nonlinear plasma oscillations", Phys. Fluids 8, 2255 (1965).
 """
 
 import argparse
@@ -108,6 +138,8 @@ derham_opts = DerhamOptions(degree=(3, 1, 1))
 # Simulation object
 sim = Simulation(
     model=model,
+    name=name,
+    description=description,
     params_path=__file__,
     env=env,
     time_opts=time_opts,

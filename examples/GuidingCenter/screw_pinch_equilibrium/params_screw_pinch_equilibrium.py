@@ -68,14 +68,41 @@ if args.test_run:
 
 name = f"GuidingCenter gyro-Maxwellian equilibrium in a screw pinch, {args.algo}"
 description = f"""
-Long-time equilibrium test of the GuidingCenter model in a straight cylinder without hole
-(IGAPolarCylinder, minor radius 1, length 2 pi R0, C1 polar splines) with a screw pinch equilibrium (ScrewPinch).
-The guiding-center drifts keep the radius constant, hence a gyro-Maxwellian whose density and thermal speed
-depend only on r (taken from the equilibrium) is an exact equilibrium. Markers move through the axis.
-The binned distributions in position (eta1, eta1-eta2) and velocity space (v_parallel, mu, eta1-v_parallel)
-are compared with their initial profiles (and the radial density with the exact one) up to t={args.tend} (dt={args.dt}).
-Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if explicit), epsilon={args.epsilon},
-{args.ppc} markers per cell on a grid with {args.num_elements} elements.
+Long-time equilibrium test of the GuidingCenter model (guiding centers in a static magnetic field) in a screw
+pinch: a gyro-Maxwellian with radial profiles must stay stationary. It tests the guiding-center pushers and the
+C1 polar splines at the magnetic axis over many transit times.
+
+Physics. The guiding-center distribution f(X, v_par, mu, t) is advected along the characteristics
+    dX/dt     = v_par B*/B*_par + E* x b0 / B*_par,
+    dv_par/dt = (1/epsilon) B*/B*_par . E*,
+with E* = -epsilon mu grad|B0| (no electric field), B* = B0 + epsilon v_par curl b0 and B*_par = B* . b0, i.e.
+parallel streaming along the field, the mirror force and the grad-B and curvature drifts, of order epsilon (the
+normalized cyclotron period). The magnetic moment mu and the energy v_par^2/2 + mu |B0| are invariants. In the
+screw pinch B0 = B0 (e_z + r/(q(r) R0) e_theta), the field strength |B0| depends only on r and the field lines lie
+on the cylinders r = const: the mirror force vanishes (v_par is constant), and the grad-B and curvature drifts
+(along b0 x grad|B0| and b0 x (b0 . grad b0), with radial grad|B0| and curvature) are perpendicular to e_r. Each
+guiding center thus keeps its radius, v_par and mu, and any distribution f(r, v_par, mu) is an exact equilibrium,
+in particular the gyro-Maxwellian
+    f0 = n(r) / (2 pi)^(3/2) / vth(r)^3 * exp(-(v_par^2/2 + mu |B0|) / vth(r)^2).
+
+Setup. Straight cylinder without hole (IGAPolarCylinder, minor radius a = 1, length 2 pi R0 with R0 = 5, C1
+polar splines at the axis), ScrewPinch with B0 = 1 and q(r) = 1.05 + 0.75 r^2/a^2. The gyro-Maxwellian has the
+density n(r) = 0.2 + 0.8 (1 - r^2/a^2) and the thermal speed vth(r) = sqrt(p(r)/n(r)) of the equilibrium (pressure
+from the radial force balance plus the offset p0 = 0.005). Markers move through the axis region. Binned
+distributions in position (eta1, eta1-eta2) and velocity space (v_parallel, mu, eta1-v_parallel) up to
+t={args.tend} (dt={args.dt}). Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if
+explicit), epsilon={args.epsilon}, {args.ppc} markers per cell on a grid with {args.num_elements} elements.
+
+Expected result. The binned distributions stay at their initial profiles (and the radial density at the exact
+one): the relative L2 deviation over time stays at the level of the Monte-Carlo noise of the binning, without a
+systematic drift. The pproc also shows the relative drift of the total energy en_tot and the number of lost
+markers, both of which should stay small.
+
+References:
+- R. G. Littlejohn, "Variational principles of guiding centre motion", J. Plasma Phys. 29, 111 (1983).
+- A. J. Brizard and T. S. Hahm, "Foundations of nonlinear gyrokinetic theory", Rev. Mod. Phys. 79, 421 (2007).
+- R. I. McLachlan, G. R. W. Quispel and N. Robidoux, "Geometric integration using discrete gradients",
+  Phil. Trans. R. Soc. Lond. A 357, 1021 (1999).
 """
 
 import logging

@@ -1,17 +1,55 @@
+"""Toroidal Alfven eigenmode (TAE) of the ITPA benchmark with the ShearAlfven model: an n = 6 shear Alfven wave
+in the gap of the Alfven continuum at the crossing of the m = 10 and m = 11 branches (q = 1.75, r = 0.5) in a
+large-aspect-ratio tokamak."""
+
 # -----------------------------
 # Description of the simulation
 # -----------------------------
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Default ShearAlfven"
+name = "ITPA TAE benchmark (ShearAlfven)"
 description = """
-This is the default simulation for the model ShearAlfven. 
-It is meant to be a template for users to set up their own simulations with this model. 
-It contains all the necessary components of a Struphy simulation, including the model, 
-the environment options, the time stepping options, the geometry, the equilibrium, 
-the grid, the Derham options, and the initial conditions. 
-Users can modify this file to set up their own simulations with different parameters and initial conditions.
+Toroidal Alfven eigenmode (TAE) with the ShearAlfven model: the shear Alfven part of linear ideal MHD around a
+static (zero-flow) equilibrium, without pressure and density perturbations (no coupling to the magnetosonic waves;
+compare with the LinearMHD version of this benchmark). No energetic particles: the TAE is excited by the initial
+condition, not driven.
+
+Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
+    omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
+where, for a mode with poloidal mode number m and toroidal mode number n in a torus of major radius R with safety
+factor q(r), the parallel wave number is
+    k_par(r) = (n q(r) - m) / (q(r) R).
+The frequencies of two counter-propagating modes with the same n and poloidal mode numbers m and m + 1 cross where
+k_par,m = -k_par,m+1, i.e. at the radius r_c with
+    q(r_c) = (2m + 1) / (2n).
+Toroidicity couples the two harmonics and opens a gap in the shear Alfven continuum at this crossing, in which the
+toroidal Alfven eigenmode (TAE) exists with the frequency
+    omega_TAE = n / (2m + 1) * v_A(r_c) / R.
+In Struphy units, v_A = v' v_unit and R = R' x_unit, so omega_TAE = n / (2m + 1) * v'(r_c) / R' * v_unit / x_unit,
+with the velocity unit v_unit (the Alfven velocity of the base units, set by the model) and the length unit x_unit
+(base units).
+
+Setup (ITPA TAE benchmark). Large-aspect-ratio tokamak with circular flux surfaces (AdhocTorus): major radius
+R0 = 10, minor radius a = 1, toroidal field B0 = 3, safety factor q(r) = 1.71 + 0.16 r^2/a^2, number density
+n(r) = 0.2 + 0.8 (1 - r^2/a^2) and on-axis beta 0.0018. Only the toroidal mode number n = 6 is computed, on a sixth
+of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1): the logical mode number -1 along eta3 is
+the physical n = 6. The velocity is initialized with the m = 10 and m = 11 harmonics, localized around r = 0.5
+(given as 2-form components).
+
+Expected result. With n = 6 and m = 10 the gap is at q(r_c) = 21/12 = 1.75, i.e. r_c = 0.5, where n = 0.8 and
+|B| = 3.0 (flux-surface average), so v_A(r_c) = 3.36 v_unit and
+    omega_TAE = 6/21 * 3.36/10 = 0.096 v_unit / x_unit,
+a period of about 65 time units (about 33 kHz with the default base units x_unit = 1 m, B = 1 T, n = 1e20 m^-3 and
+hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 7.6 periods; the pproc script shows the
+energies, the components of the fields and the radial profiles of the (m, n) harmonics.
+
+References:
+- W. W. Heidbrink, "Basic physics of Alfven instabilities in toroidal plasmas", Phys. Plasmas 15, 055501 (2008).
+- C. Z. Cheng, L. Chen and M. S. Chance, "High-n ideal and resistive shear Alfven waves in tokamaks",
+  Ann. Phys. 161, 21 (1985).
+- A. Koenies et al., "Benchmark of gyrokinetic, kinetic MHD and gyrofluid codes for the linear calculation of fast
+  particle driven TAE dynamics", Nucl. Fusion 58, 126027 (2018).
 """
 
 import argparse
