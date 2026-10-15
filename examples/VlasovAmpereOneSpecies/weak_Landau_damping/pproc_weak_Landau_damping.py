@@ -1,9 +1,11 @@
 """Post-process and plot weak Landau damping.
 
-Run as ``python pproc_weak_Landau_damping.py [sim_folder] [flags of params_weak_Landau_damping.py]``; the flags
-must be those of the run. With ``--save-results`` (passed by ``submit_weak_Landau_damping.py`` after each
-profiling run) the scope-profiler HTML report and a summary of the cost per step and marker are written into
-``<sim_folder>/results`` instead of showing the plots; the profiling packaging uploads them with the run.
+Run as ``python pproc_weak_Landau_damping.py [sim_folder] [flags of params_weak_Landau_damping.py] [--show]``; the
+flags must be those of the run. The figures are written into ``<sim_folder>/results`` (``--show`` shows them
+instead), among them the fields along x at the first, middle and last saved time. With ``--save-results`` (passed by
+``submit_weak_Landau_damping.py`` after each profiling run) the scope-profiler HTML report and a summary of the cost
+per step and marker are written into ``<sim_folder>/results`` instead; the profiling packaging uploads them with the
+run.
 """
 
 import argparse
@@ -17,13 +19,15 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.slices import plot_line_profiles
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_OUTPUT = SCRIPT_DIR / "sim_data"
 
 # The setup of the run (parsed from the same command line).
 sys.path.insert(0, str(SCRIPT_DIR))
 import params_weak_Landau_damping as params  # noqa: E402
+
+DEFAULT_OUTPUT = Path(params.args.out_folder) / params.args.sim_folder
 
 
 def plot_panels(data, x, y, n_panels, ncols, title=None):
@@ -87,9 +91,40 @@ def save_profiling_results(path_out):
     results.print_summary(include=["^prop: ", "^kernel: "], sort="total", title="propagators and kernels")
 
 
-def main(path_out=DEFAULT_OUTPUT, amplitude=0.001):
-    # VTK files of the fields (fields on a 1D grid, no 3D view)
-    run = Output(path_out).pproc(create_vtk=True)
+# fields shown along x at the first, middle and last saved time: (key, label, name, vector)
+FIELDS = [("e_field", "E", "em_fields/e_field", True), ("phi", "phi", "em_fields/phi", False)]
+
+
+def field_profiles(run, snapshots):
+    """The fields along x at the first, middle and last saved time: the standard plots of runs on a 1D grid."""
+    return {
+        f"{key}_profiles": plot_line_profiles(
+            run, run.domain, name, label, snapshots, run.field_basis(name) if vector else None
+        )
+        for key, label, name, vector in FIELDS
+    }
+
+
+def saver(run, save_figs):
+    """A function saving figures as ``<name>.png`` into ``<path_out>/results`` and closing them (``save_figs``)."""
+    results_dir = Path(run.path_out) / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    def save(figs):
+        if save_figs:
+            for name, fig in figs.items():
+                fig.savefig(results_dir / f"{name}.png")
+                plt.close(fig)
+
+    return save
+
+
+def main(path_out=DEFAULT_OUTPUT, save_figs=True, amplitude=0.001):
+    run = Output(path_out)
+    snapshots = run.standard_snapshots()
+    # VTK files of the fields at the first, middle and last saved time (fields on a 1D grid, no 3D view)
+    run.pproc(create_vtk=True, vtk_steps=snapshots)
+    save = saver(run, save_figs)
 
     # electric field energy against the analytical damping
     energy = run.evaluate("scalars", variables="electric_energy")["electric_energy"]
@@ -99,12 +134,18 @@ def main(path_out=DEFAULT_OUTPUT, amplitude=0.001):
     ax.plot(energy.t, analytical, "--", label="analytical")
     ax.set(xlabel="time", yscale="log", title="Electric energy")
     ax.legend()
-    plt.show()
+    save({"electric_energy": fig})
 
     # full f and delta f in the e1-v1 plane at four times
     for quantity, title in (("f", "full-$f$"), ("delta_f", r"$\delta f$")):
         data = run.evaluate(f"kinetic_ions/{quantity}", dataset=f"e1_v1_density/{quantity}")
-        plot_panels(data, x="eta1", y="v1", n_panels=4, ncols=4, title=title)
+        grid = plot_panels(data, x="eta1", y="v1", n_panels=4, ncols=4, title=title)
+        save({f"{quantity}_e1_v1": grid.fig})
+
+    # the fields along x at the first, middle and last saved time
+    save(field_profiles(run, snapshots))
+
+    if not save_figs:
         plt.show()
 
 
@@ -116,8 +157,9 @@ if __name__ == "__main__":
         "path_out",
         nargs="?",
         default=DEFAULT_OUTPUT,
-        help="Simulation output folder (default: sim_data beside this script)",
+        help="Simulation output folder (default: the output folder of the run flags, sim_data beside this script)",
     )
+    parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
     parser.add_argument(
         "--amplitude",
         type=float,
@@ -127,7 +169,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save-results",
         action="store_true",
-        help="Write the profiling results (scope-profiler report, cost summary) instead of showing the plots.",
+        help="Write the profiling results (scope-profiler report, cost summary) instead of the plots.",
     )
     args = parser.parse_args(other_flags)
     if args.save_results and not params.profiling:
@@ -135,4 +177,4 @@ if __name__ == "__main__":
     if args.save_results:
         save_profiling_results(args.path_out)
     else:
-        main(args.path_out, amplitude=args.amplitude)
+        main(args.path_out, save_figs=not args.show, amplitude=args.amplitude)

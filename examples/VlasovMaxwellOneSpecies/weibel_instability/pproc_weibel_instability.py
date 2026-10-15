@@ -1,9 +1,12 @@
 """Post-process and plot the Weibel instability.
 
-Run as ``python pproc_weibel_instability.py [sim_folder] [flags of params_weibel_instability.py]``; the flags must
-be those of the run. With ``--save-results`` (passed by ``submit_weibel_instability.py`` after each
-profiling run) the scope-profiler HTML report and a summary of the cost per step and marker are written into
-``<sim_folder>/results`` instead of showing the plots; the profiling packaging uploads them with the run.
+Run as ``python pproc_weibel_instability.py [sim_folder] [flags of params_weibel_instability.py] [--show]``; the
+flags must be those of the run. The figures are written into ``<sim_folder>/results`` (``--show`` shows them
+instead): the Gauss law violation, the energy of the EM field and its growth rate, the binned distributions over
+time, and the EM field and the current density at the first, middle and last saved time. With ``--save-results``
+(passed by ``submit_weibel_instability.py`` after each profiling run) the scope-profiler HTML report and a summary of
+the cost per step and marker are written into ``<sim_folder>/results`` instead; the profiling packaging uploads them
+with the run.
 """
 
 import argparse
@@ -19,11 +22,12 @@ from matplotlib import pyplot as plt
 from struphy import Output
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_OUTPUT = SCRIPT_DIR / "sim_data"
 
 # The setup of the run (parsed from the same command line).
 sys.path.insert(0, str(SCRIPT_DIR))
 import params_weibel_instability as params  # noqa: E402
+
+DEFAULT_OUTPUT = Path(params.args.out_folder) / params.args.sim_folder
 
 
 def plot_panels(data, x, y, n_panels, ncols, title=None):
@@ -78,9 +82,21 @@ def save_profiling_results(path_out):
     results.print_summary(include=["^prop: ", "^kernel: "], sort="total", title="propagators and kernels")
 
 
-def main(path_out=DEFAULT_OUTPUT):
-    # VTK files of the fields (fields on a 1D grid, no 3D view)
-    run = Output(path_out).pproc(create_vtk=True).with_time_units("normalized")
+def main(path_out=DEFAULT_OUTPUT, save_figs=True):
+    run = Output(path_out)
+    snapshots = run.standard_snapshots()
+    # VTK files of the fields at the first, middle and last saved time (fields on a 1D grid, no 3D view)
+    run = run.pproc(create_vtk=True, vtk_steps=snapshots).with_time_units("normalized")
+    results_dir = run.path_out / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    def save(figs):
+        """Save the figures as ``<name>.png`` into the results folder and close them, or keep them for plt.show()."""
+        if save_figs:
+            for name, fig in figs.items():
+                fig.savefig(results_dir / f"{name}.png")
+                plt.close(fig)
+
     time = run.time
     Tend = run.time_opts.Tend
     algo = run.time_opts.split_algo
@@ -100,7 +116,7 @@ def main(path_out=DEFAULT_OUTPUT):
         ax.set_title("Gauss law violation as function of time")
         ax.grid()
         plt.tight_layout()
-        plt.show()
+        save({"gauss_error": fig})
 
     # ------------------
     # progression of EM-field energy along different directions
@@ -135,16 +151,21 @@ def main(path_out=DEFAULT_OUTPUT):
     xf = xp.abs(time - tf).argmin() + 1
 
     fitting = xp.polyfit(time[xi:xf], xp.log10(magnetic_energy[2][xi:xf]), deg=1)
+    # the magnetic energy grows as exp(2 gamma t), with the growth rate gamma of the amplitude of B3: log10 of the
+    # energy has the slope 2 gamma / ln(10)
+    gamma = 0.02784  # analytical (Kraus et al. 2017)
+    gamma_fit = fitting[0] * xp.log(10) / 2
+    print(f"growth rate of B3: fitted {gamma_fit:.5f}, analytical {gamma}")
     ax.plot(
         time,
         exp_func(time, *fitting),
-        label="fitted growth rate\n" + rf"$10^{{{fitting[0]:.5f}x {fitting[1]:.0f}}}$",
+        label="fitted growth rate\n" + rf"$\gamma = {gamma_fit:.5f}$",
         color="cyan",
     )
     ax.plot(
         time,
-        exp_func(time, 0.02784, fitting[1]),
-        label="analytical growth rate\n" + rf"$10^{{0.02784x {fitting[1]:.0f}}}$",
+        exp_func(time, 2 * gamma / xp.log(10), fitting[1]),
+        label="analytical growth rate\n" + rf"$\gamma = {gamma}$",
         color="cyan",
         ls="--",
         alpha=0.5,
@@ -161,7 +182,7 @@ def main(path_out=DEFAULT_OUTPUT):
 
     fig.suptitle(f"VlasovMaxwellOneSpecies simulation:\n {algo=}")
     plt.tight_layout()
-    plt.show()
+    save({"em_energy": fig})
 
     # ------------------
     # Binning distribution evolution
@@ -172,11 +193,11 @@ def main(path_out=DEFAULT_OUTPUT):
     ):
         for quantity in ("f", "delta_f"):
             data = run.evaluate(f"kinetic_ions/{quantity}", dataset=f"{bin_name}/{quantity}")
-            plot_panels(data, x=x, y=y, n_panels=20, ncols=4)
-            plt.show()
+            grid = plot_panels(data, x=x, y=y, n_panels=20, ncols=4)
+            save({f"{quantity}_{bin_name}": grid.fig})
 
     # ------------------
-    # EM field at selected times
+    # EM field at the first, middle and last saved time
     # ------------------
     def plot_EM_state(time_step: float, n_dim=3):
         electric_field = e_field.sel(t=time_step, method="nearest").isel(eta2=0, eta3=0)
@@ -197,11 +218,10 @@ def main(path_out=DEFAULT_OUTPUT):
         axs[1, 0].set_ylim(-5e-3, 5e-3)
 
         fig.suptitle(f"EM-field at time step: {float(electric_field.t):.2f}")
-        plt.show()
-        plt.close()
+        save({f"em_fields_t{float(electric_field.t):.6g}": fig})
 
-    for t in xp.linspace(0, time[-1], 2):
-        plot_EM_state(t)
+    for t in time[snapshots]:
+        plot_EM_state(float(t))
 
     # ------------------
     # Current density evolution
@@ -224,10 +244,13 @@ def main(path_out=DEFAULT_OUTPUT):
 
         fig.suptitle(f"Current density at time {time_step:.2f}")
         plt.tight_layout()
-        plt.show()
+        save({f"current_t{time_step:.6g}": fig})
 
-    for t in xp.linspace(0, time[-1], 2):
-        current_1D(t)
+    for t in time[snapshots]:
+        current_1D(float(t))
+
+    if not save_figs:
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -238,12 +261,13 @@ if __name__ == "__main__":
         "path_out",
         nargs="?",
         default=DEFAULT_OUTPUT,
-        help="Simulation output folder (default: sim_data beside this script)",
+        help="Simulation output folder (default: the output folder of the run flags, sim_data beside this script)",
     )
+    parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
     parser.add_argument(
         "--save-results",
         action="store_true",
-        help="Write the profiling results (scope-profiler report, cost summary) instead of showing the plots.",
+        help="Write the profiling results (scope-profiler report, cost summary) instead of the plots.",
     )
     args = parser.parse_args(other_flags)
     if args.save_results and not params.profiling:
@@ -251,4 +275,4 @@ if __name__ == "__main__":
     if args.save_results:
         save_profiling_results(args.path_out)
     else:
-        main(args.path_out)
+        main(args.path_out, save_figs=not args.show)

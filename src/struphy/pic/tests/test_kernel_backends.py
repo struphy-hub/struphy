@@ -198,6 +198,7 @@ def test_catalog_signatures():
         "pic.accumulation.kernels": 16,
         "pic.diagnostics.kernels": 10,
         "pic.sph.kernels": 4,
+        "pic.kernels": 4,
         "bsplines.kernels": 4,
         "geometry.kernels": 4,
         "feec.kernels": 17,
