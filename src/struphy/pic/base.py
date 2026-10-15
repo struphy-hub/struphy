@@ -63,6 +63,9 @@ if TYPE_CHECKING:  # importing mpi4py.MPI initializes MPI, which is slow; only n
 
 logger = logging.getLogger("struphy")
 
+# smallest eta1 of a marker on a domain with a pole at eta1=0 (as in pusher_utilities_kernels)
+POLE_ETA1_MIN = 1e-10
+
 
 def _to_numpy_for_kernel(value):
     """Convert CuPy arrays to NumPy for compiled kernel calls."""
@@ -343,6 +346,18 @@ class Particles(metaclass=ABCMeta):
         self._bc_in_python = bc_refill is not None
         bc_codes = {"periodic": 0, "reflect": 1, "remove": 3 if self._bc_in_python else 2}
         self._bc_type = xp.array([bc_codes.get(b_c, 3) for b_c in bc], dtype=int)
+
+        # pole at eta1=0 (no hole around the axis): markers move through the axis,
+        # the boundary condition of axis 0 then applies at eta1=1 only
+        # (see apply_kinetic_bc_marker and update_position_stage in pusher_utilities_kernels)
+        self._pole = domain is not None and domain.pole
+        if self._pole:
+            if domain.params.get("poc", 1) != 1 or domain.params.get("pol_period", 1) != 1:
+                raise NotImplementedError(
+                    "Markers on a domain with a pole need the full poloidal angle (poc=1 or pol_period=1)."
+                )
+            if self._args_backend == "cupy":
+                raise NotImplementedError("Markers on a domain with a pole are not supported on the CuPy backend yet.")
 
         # create marker array
         self._bufsize = bufsize
@@ -1227,6 +1242,9 @@ class Particles(metaclass=ABCMeta):
                     # Generate a chunk of random particles
                     num_to_add_glob = min(chunk_size, int(self.Np) - num_loaded_particles_glob)
                     temp = xp.random.rand(num_to_add_glob, 3 + self.vdim)
+                    # inversion method for drawing uniformly on the disc, before the domain check
+                    if self.spatial == "disc":
+                        temp[:, 0] = xp.sqrt(temp[:, 0])
                     # check which particles are on the current process domain
                     is_on_proc_domain = self._is_on_domain_of_rank(temp[:, :3], self.mpi_rank)
                     valid_idx = xp.nonzero(xp.all(is_on_proc_domain, axis=1))[0]
@@ -1383,11 +1401,12 @@ class Particles(metaclass=ABCMeta):
                         "Inverse transform sampling of given vdim is not implemented!",
                     )
 
-            # inversion method for drawing uniformly on the disc
+            # inversion method for drawing uniformly on the disc (done above for pseudo-random markers)
             if self.spatial == "disc":
-                self._markers[:n_mks_load_loc, 0] = xp.sqrt(
-                    self._markers[:n_mks_load_loc, 0],
-                )
+                if self.loading != "pseudo_random":
+                    self._markers[:n_mks_load_loc, 0] = xp.sqrt(
+                        self._markers[:n_mks_load_loc, 0],
+                    )
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
@@ -1415,10 +1434,16 @@ class Particles(metaclass=ABCMeta):
             assert xp.all(~self.holes[:n_mks_load_loc])
             assert xp.all(self.holes[n_mks_load_loc:])
 
+        # keep markers off a pole at eta1=0, where the mapping is singular (holes have eta1=-1)
+        if self._pole:
+            eta1 = self._markers[:, 0]
+            eta1[xp.logical_and(eta1 >= 0.0, eta1 < POLE_ETA1_MIN)] = POLE_ETA1_MIN
+
         # send the markers to the process of their domain: needed on several processes whether or not there are
-        # sorting boxes, since accumulations before the first push (e.g. an initial Poisson solve) assume it (#764)
+        # sorting boxes, since accumulations before the first push (e.g. an initial Poisson solve) assume it (#764);
+        # not for restart loading without boxes (the holes of the restart markers array are not updated yet)
         sort_boxes = self._initialized_sorting and sort
-        if self.mpi_comm is not None and (self.mpi_size > 1 or sort_boxes):
+        if self.mpi_comm is not None and (sort_boxes or (self.mpi_size > 1 and self.loading != "restart")):
             logger.info("\nSending the markers to their processes after initial draw")
             self.mpi_sort_markers()
 
@@ -1872,6 +1897,15 @@ class Particles(metaclass=ABCMeta):
             for a Newton step or for a strandard (explicit or Picard) step.
         """
 
+        # pole at eta1=0: markers with eta1 < 0 have crossed the axis (as in apply_kinetic_bc_marker)
+        if self._pole:
+            self._find_outside_particles(0)
+            crossed = xp.nonzero(self._is_outside_left)[0]
+            self.markers[crossed, 0] *= -1.0
+            self.markers[crossed, 1] = (self.markers[crossed, 1] + 0.5) % 1.0
+            near_pole = xp.logical_and(self.valid_mks, self.markers[:, 0] < POLE_ETA1_MIN)
+            self.markers[near_pole, 0] = POLE_ETA1_MIN
+
         # apply boundary conditions
         if self._remove_axes:
             # extract the (n_rows, 3) logical coordinates once per contiguous
@@ -1951,6 +1985,9 @@ class Particles(metaclass=ABCMeta):
 
         for axis in self._reflect_axes:
             if len(outside_inds_per_axis[axis]) == 0:
+                continue
+            # only Cartesian velocities are reflected (columns 3:6 hold other data for vdim != 3)
+            if self.vdim != 3:
                 continue
             # flip velocity
             outside_inds = outside_inds_per_axis[axis]
@@ -2552,7 +2589,15 @@ class Particles(metaclass=ABCMeta):
             _n_mks_load_tot = self.Np
             _ppc = self.ppc
 
-        n_mks_load = self.gather_scalar_in_subcomm_array(int(_ppc * n_cells_loc))
+        if self.spatial == "disc":
+            # markers drawn uniformly on the disc have the density 2*eta1 in eta1
+            # (more markers on processes at larger eta1)
+            d = self.domain_array[self.mpi_rank]
+            n_mks_loc = max(1, int(_n_mks_load_tot * (d[1] ** 2 - d[0] ** 2) * (d[4] - d[3]) * (d[7] - d[6])))
+        else:
+            n_mks_loc = int(_ppc * n_cells_loc)
+
+        n_mks_load = self.gather_scalar_in_subcomm_array(n_mks_loc)
 
         # add deviation from Np to rank 0
         n_mks_load[0] += _n_mks_load_tot - xp.sum(n_mks_load)
@@ -2627,6 +2672,7 @@ class Particles(metaclass=ABCMeta):
             self.first_free_idx,
             self.mu_idx,
             self._bc_type,
+            self._pole,
         )
 
         # on the CuPy backend with several ranks, find out now (collectively, in the setup) whether MPI takes device

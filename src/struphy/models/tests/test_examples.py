@@ -1,5 +1,6 @@
 import logging
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,9 @@ def test_examples(params_path: Path, monkeypatch):
     logger.info(f"{pproc_path = }")
     logger.info(f"{regress_path = }")
 
+    # parameter files with command line options (e.g. the profiling cases) run at a small resolution
+    # with `--test-run`; the others ignore the command line
+    monkeypatch.setattr(sys, "argv", [str(params_path), "--test-run"])
     params = import_parameters_py(str(params_path), name=example_name)
     params.sim.run(one_time_step=True)
 

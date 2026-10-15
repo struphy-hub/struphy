@@ -82,6 +82,7 @@ class LiteralOptions:
         "MultiGrid",
         "StiffnessPreconditioner",
         "MassMatrixPreconditioner",
+        "PolarMassMatrixPreconditioner",
         None,
     ]
     OptsCurlCurlPrecond = Literal[
@@ -89,6 +90,7 @@ class LiteralOptions:
         "HiptmairXu",
         "StiffnessPreconditioner",
         "MassMatrixPreconditioner",
+        "PolarMassMatrixPreconditioner",
         None,
     ]
     OptsSaddlePointSolver = Literal["uzawa"]

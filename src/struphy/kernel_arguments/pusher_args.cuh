@@ -18,6 +18,7 @@ struct MarkerArgs {
     int first_free_idx;
     int mu_idx;
     long long* bc_type;
+    bool pole;
     int prepare_rows;
 };
 

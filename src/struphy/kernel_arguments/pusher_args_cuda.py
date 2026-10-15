@@ -51,6 +51,7 @@ class CudaMarkerArguments(CudaStructArguments):
         ("first_free_idx", "int"),
         ("mu_idx", "int"),
         ("bc_type", "long long*"),
+        ("pole", "bool"),
         # CUDA-only: 1 while a pusher has its kernel prepare each marker row at stage 0 (Pusher._push), else 0
         ("prepare_rows", "int"),
     )
@@ -69,6 +70,7 @@ class CudaMarkerArguments(CudaStructArguments):
         first_free_idx: int,
         mu_idx: int,
         bc_type,
+        pole: bool,
     ):
         # a strided view in MarkerArgs: Particles allocates the buffer column-major on the GPU
         self.markers = _device_array("markers", markers, np.float64, strided=True)
@@ -86,6 +88,7 @@ class CudaMarkerArguments(CudaStructArguments):
         self.first_free_idx = first_free_idx
         self.mu_idx = mu_idx
         self.bc_type = _device_array("bc_type", bc_type, np.int64)
+        self.pole = pole
         self.prepare_rows = 0
         self.pack()
 

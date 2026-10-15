@@ -1225,9 +1225,11 @@ class Simulation(SimulationBase):
         """
         # check for polar singularity
         if self.domain.pole:
-            assert derham_opts.polar_ck == 1, """Polar singularity detected in domain but derham_opts.polar_ck != 1. 
+            assert (
+                derham_opts.polar_splines
+            ), """Polar singularity detected in domain but derham_opts.polar_splines is False.
             You have two options:
-            a) set derham_opts.polar_ck = 1 to use polar splines 
+            a) set derham_opts.polar_splines = True to use polar splines
             b) modify your domain definition to cut a hole around the singularity."""
 
         # create discrete derham sequence

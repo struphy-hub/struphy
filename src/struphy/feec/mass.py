@@ -3584,7 +3584,8 @@ class WeightedAverageProjection(LinearOperator):
     Parameters
     ----------
     derham : Derham
-        Discrete de Rham sequence (0-forms, no polar splines).
+        Discrete de Rham sequence (0-forms). With polar splines, the constructor returns a
+        :class:`PolarWeightedAverageProjection` instead.
 
     S : LinearOperator
         Symmetric operator on the 0-form coefficients (e.g. a weighted mass operator), positive
@@ -3594,6 +3595,12 @@ class WeightedAverageProjection(LinearOperator):
     directions : tuple[int]
         The averaged directions (0, 1 and/or 2; all three for the global mean).
     """
+
+    def __new__(cls, derham: Derham | None = None, *args, **kwargs):
+        # polar splines: the projection on the polar 0-forms
+        if cls is WeightedAverageProjection and derham is not None and derham.polar_splines:
+            return PolarWeightedAverageProjection(derham, *args, **kwargs)
+        return super().__new__(cls)
 
     def __init__(self, derham: Derham, S: LinearOperator, directions: tuple[int, ...]):
         import numpy as np
@@ -3707,6 +3714,215 @@ class WeightedAverageProjection(LinearOperator):
             out = self._space.zeros()
         red = self._K_lu.solve(self._ET(self._S.dot(v, out=self._tmp)).ravel()).reshape(self._red_shape)
         return self._E(red, out)
+
+    def transpose(self, conjugate=False):
+        raise NotImplementedError("Only S @ (I - P) is symmetric; P itself is not.")
+
+    def tosparse(self):
+        raise NotImplementedError
+
+    def toarray(self):
+        raise NotImplementedError
+
+
+class PolarWeightedAverageProjection(LinearOperator):
+    r"""
+    :class:`WeightedAverageProjection` on polar 0-forms,
+
+    .. math::
+
+        \Pi_{\mathbb S} = \mathbb B \, (\mathbb B^\top \mathbb S \, \mathbb B)^{-1} \, \mathbb B^\top \mathbb S \,,
+
+    where :math:`\mathbb B` embeds the polar 0-forms that are constant in the averaged directions:
+
+    * :math:`\eta_3`: the polar unknowns of the poloidal plane (polar coefficients and outer tensor-product rings),
+      constant in :math:`\eta_3`;
+    * :math:`\eta_2`: the functions of :math:`\eta_1` only, i.e. the function that is 1 on the inner rings (in polar
+      coefficients) and the constants in :math:`\eta_2` on the outer rings
+      (:func:`~struphy.polar.kron_2dx1d.poloidal_average_basis`).
+
+    Averages over :math:`\eta_1` (across the pole) are not implemented. The reduced matrix
+    :math:`\mathbb B^\top \mathbb S \, \mathbb B` is assembled once by probing :math:`\mathbb S` with colored vectors
+    and factorized on every process.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence (with polar splines).
+
+    S : LinearOperator
+        Symmetric operator on the polar 0-forms (e.g. a weighted mass operator), positive definite on the
+        functions constant in the averaged directions (up to essential boundary conditions, whose reduced
+        rows are replaced by the identity).
+
+    directions : tuple[int]
+        The averaged directions (1 and/or 2).
+    """
+
+    def __init__(self, derham: Derham, S: LinearOperator, directions: tuple[int, ...]):
+        import numpy as np
+        from scipy import sparse
+        from scipy.sparse.linalg import splu
+
+        from struphy.polar.basic import PolarDerhamSpace
+        from struphy.polar.kron_2dx1d import poloidal_average_basis, poloidal_extraction_matrix, poloidal_mass_matrix
+
+        V = S.domain
+        assert isinstance(V, PolarDerhamSpace) and V.space_id == "H1", "S must act on the polar 0-forms."
+        assert S.codomain == V
+        directions = tuple(sorted(set(directions)))
+        if 0 in directions:
+            raise NotImplementedError("Averages over eta1 (across the pole) are not implemented for polar splines.")
+        assert directions and all(d in (1, 2) for d in directions)
+
+        self._derham = derham
+        self._S = S
+        self._space = V
+        self._directions = directions
+        self._comm = None if isinstance(derham.comm, (SerialComm, type(None))) else derham.comm
+        if self._comm is not None and self._comm.Get_size() == 1:
+            self._comm = None
+        self._tmp = V.zeros()
+        self._tmp2 = V.zeros()
+
+        tp = V.parent_space
+        n1, n2, n3 = tp.npts
+        self._npol, self._nr = V.n_polar[0], V.n_rings[0]
+        self._n2, self._n3 = n2, n3
+        n_unknowns = self._npol + (n1 - self._nr) * n2
+        E_op = derham.extraction_ops["H1"]
+        self._B_pol = poloidal_average_basis(V, E_op) if 1 in directions else sparse.eye(n_unknowns, format="csr")
+        self._avg3 = 2 in directions
+        self._red_shape = (self._B_pol.shape[1], 1 if self._avg3 else n3)
+
+        # sparsity of the reduced matrix: poloidal coupling of the polar 0-forms, band in eta_3
+        Ep = abs(poloidal_extraction_matrix(V, (0,), E_op.blocks_ten_to_pol, None))
+        P_pol = Ep @ abs(poloidal_mass_matrix(derham, ("B", "B"), ("B", "B"), None)) @ Ep.T
+        P_pol = abs(self._B_pol).T @ P_pol @ abs(self._B_pol)
+        if self._avg3:
+            P_3 = sparse.csr_matrix(np.ones((1, 1)))
+        else:
+            p3 = derham.degree[2]
+            k = np.arange(n3)
+            dist = np.abs(k[:, None] - k[None, :])
+            if derham.spl_kind[2]:
+                dist = np.minimum(dist, n3 - dist)
+            P_3 = sparse.csr_matrix((dist <= p3).astype(float))
+        P = (sparse.kron(P_pol, P_3, format="csc") != 0).astype(float).tocsc()
+        n_red = P.shape[0]
+
+        # greedy coloring: columns of one color have disjoint rows
+        conflict = (P.T @ P).tocsr()
+        colors = -np.ones(n_red, dtype=int)
+        for a in range(n_red):
+            used = set(colors[conflict.indices[conflict.indptr[a] : conflict.indptr[a + 1]]])
+            c = 0
+            while c in used:
+                c += 1
+            colors[a] = c
+
+        rows, cols, vals = [], [], []
+        for color in range(colors.max() + 1):
+            probe_cols = np.flatnonzero(colors == color)
+            probe = np.zeros(n_red)
+            probe[probe_cols] = 1.0
+            col = self._BT(self._S.dot(self._B(probe.reshape(self._red_shape), out=self._tmp), out=self._tmp2)).ravel()
+            for a in probe_cols:
+                b = P.indices[P.indptr[a] : P.indptr[a + 1]]
+                rows.append(b)
+                cols.append(np.full(b.size, a))
+                vals.append(col[b])
+        K = sparse.coo_matrix(
+            (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(n_red, n_red)
+        ).tocsc()
+        # rows without entries (essential boundary conditions of S): identity
+        diag = K.diagonal()
+        empty = np.abs(diag) <= 1e-14 * max(np.abs(diag).max(), 1e-300)
+        if np.any(empty):
+            K = K + sparse.diags(empty.astype(float))
+        self._K_lu = splu(K.tocsc())
+        logger.debug(f"PolarWeightedAverageProjection: reduced size {n_red}, {colors.max() + 1} probes")
+
+    def _BT(self, v: PolarVector):
+        """B^T v as global array of the reduced shape (all processes)."""
+        import numpy as np
+
+        from struphy.polar.kron_2dx1d import _interior
+
+        nr, n2 = self._nr, self._n2
+        tp = self._space.parent_space
+        s, e = tp.starts, tp.ends
+        n1 = tp.npts[0]
+
+        # outer rings: local part (summed over eta_3 if averaged), then summed over the processes
+        r3 = self._red_shape[1]
+        outer = np.zeros((n1 - nr, n2, r3))
+        L = xp.to_numpy(_interior(v.tp))
+        i0 = max(s[0], nr)
+        if i0 <= e[0]:
+            loc = L[i0 - s[0] :]
+            loc = loc.sum(axis=2, keepdims=True) if self._avg3 else loc
+            k = slice(None) if self._avg3 else slice(s[2], e[2] + 1)
+            outer[i0 - nr : e[0] + 1 - nr, s[1] : e[1] + 1, k] = loc
+        if self._comm is not None:
+            outer = self._comm.allreduce(outer, op=MPI.SUM)
+
+        # polar coefficients are held by all processes
+        pol = np.asarray(v.pol[0])
+        pol = pol.sum(axis=1, keepdims=True) if self._avg3 else pol
+        Y = np.concatenate((pol, outer.reshape(-1, r3)), axis=0)
+        return self._B_pol.T @ Y
+
+    def _B(self, red, out: PolarVector) -> PolarVector:
+        """B red: the polar 0-form constant in the averaged directions."""
+        import numpy as np
+
+        from struphy.polar.kron_2dx1d import _interior
+
+        nr, n2, npol = self._nr, self._n2, self._npol
+        tp = self._space.parent_space
+        s, e = tp.starts, tp.ends
+        n1 = tp.npts[0]
+
+        X = self._B_pol @ red
+        out.pol[0][:] = X[:npol]
+        outer = X[npol:].reshape(n1 - nr, n2, -1)
+        L = _interior(out.tp)
+        L[...] = 0.0
+        i0 = max(s[0], nr)
+        if i0 <= e[0]:
+            k = slice(None) if self._avg3 else slice(s[2], e[2] + 1)
+            L[i0 - s[0] :] = xp.asarray(outer[i0 - nr : e[0] + 1 - nr, s[1] : e[1] + 1, k])
+        out.tp.update_ghost_regions()
+        return out
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    @property
+    def directions(self) -> tuple[int, ...]:
+        """The averaged directions."""
+        return self._directions
+
+    @property
+    def basis_pol(self):
+        """The poloidal factor of B (columns in the polar unknowns of the poloidal plane)."""
+        return self._B_pol
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._space.zeros()
+        red = self._K_lu.solve(self._BT(self._S.dot(v, out=self._tmp)).ravel()).reshape(self._red_shape)
+        return self._B(red, out)
 
     def transpose(self, conjugate=False):
         raise NotImplementedError("Only S @ (I - P) is symmetric; P itself is not.")
