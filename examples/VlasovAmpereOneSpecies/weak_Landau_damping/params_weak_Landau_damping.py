@@ -41,31 +41,82 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 profiling = args.setup == "profiling"
 
+name = "Vlasov-Ampere weak Landau damping"
+
+# the parts of the description common to both setups
+_summary = """
+Weak (linear) Landau damping with the VlasovAmpereOneSpecies model: electrostatic 1D-3V kinetic electrons (PIC)
+in a periodic box with a neutralizing ion background. A small density perturbation of a Maxwellian launches an
+electron plasma wave that is damped without collisions, by the resonant electrons (Landau damping).
+"""
+_physics = """
+Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p,
+with vth = 1 lengths are in Debye lengths) and no background magnetic field
+(with_B0=False) the model solves
+    df/dt + v . grad_x f - E . grad_v f = 0,
+    dE/dt = int v f d^3v       (Ampere's law; the current density of the electrons is -int v f d^3v),
+where the initial field follows from Poisson's equation div E = n0 - n with n = int f d^3v and the ion density
+n0 = int f0 d^3v of the background f0; Gauss's law is then kept by the Ampere equation. Linearized around a
+Maxwellian with vth = 1, perturbations exp(i (k x - omega t)) obey the dispersion relation
+    1 + 1/k^2 [1 + xi Z(xi)] = 0,   xi = omega / (sqrt(2) k),
+with the plasma dispersion function Z (Landau's analytic continuation). For small k the solution is the Langmuir
+wave omega^2 = 1 + 3 k^2 (Bohm-Gross) with a small negative imaginary part. Electrons with velocities close to the
+phase velocity omega/k exchange energy with the wave; in a Maxwellian there are more slower than faster ones, so
+the wave loses energy to them. Equivalently, the perturbation of f is sheared in phase space (filamentation in v,
+phase mixing) and its density moment, which drives the field, decays. The perturbation is small enough that
+trapping of the resonant electrons plays no role during the run.
+"""
+_expected = """
+Expected result. For k = 0.5 the dispersion relation gives omega = 1.4156 - 0.1533 i: the electric field oscillates
+with the frequency 1.4156 and its amplitude decays at the rate 0.1533 (the energy at twice the rate, with
+oscillations at twice the frequency).
+"""
+_references = """
+References:
+- L. D. Landau, "On the vibrations of the electronic plasma", J. Phys. USSR 10, 25 (1946).
+- E. Sonnendruecker, J. Roche, P. Bertrand and A. Ghizzo, "The semi-Lagrangian method for the numerical
+  resolution of the Vlasov equation", J. Comput. Phys. 149, 201 (1999).
+"""
+
 if profiling:
-    name = "Vlasov-Ampere weak Landau damping"
-    description = """
-Weak Landau damping with the VlasovAmpereOneSpecies model, the setup of the verification test in
-src/struphy/models/tests/verification: periodic box of length 4 pi (k = 0.5), Maxwellian electrons with a density
-perturbation of 1e-3 cos(k x), control-variate weights, cubic splines in x. The electric field decays at the
-rate -0.1533 (its energy at twice the rate). alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency, velocities in
-units of c).
+    description = (
+        _summary
+        + _physics
+        + """
+Setup (profiling). The setup of the verification test in src/struphy/models/tests/verification: periodic box of
+length 4 pi (k = 0.5), 1024 cells and cubic splines in x (only x is decomposed, up to 256 ranks), Maxwellian
+electrons with vth = 1 and the density n = 1 + 1e-3 cos(k x), control-variate (delta-f) weights with 1000 markers
+per cell (seed 1234), no sorting boxes, no marker output; 20 steps of dt = 0.05.
 
 Runs on the NumPy (CPU) or CuPy (GPU) backend, chosen by the environment variable CUNUMPY_BACKEND (the profiling
 driver exports it in the job script). All timing comes from scope-profiler: the run activates
 the profiling session of Simulation.run, and on the CuPy backend the session records CUDA-event device time per
 region (GPUOptions.timing) and synchronizes the device at region ends, so the CPU time of a region includes its
-kernels. The post-processing writes the scope-profiler HTML report and a summary of the cost per step and marker
-into the run's results folder.
+kernels.
 """
+        + _expected
+        + """The 20 steps (t = 1) are too short to see the damping; the post-processing writes the scope-profiler
+HTML report and a summary of the cost per step and marker into the run's results folder.
+"""
+        + _references
+    )
 else:
-    name = ""
-    description = """
-Weak Landau damping: A linear test case for the VlasovAmpereOneSpecies model.
-This test involves a small amplitude electrostatic perturbation in a uniform, collisionless plasma.
-The perturbation is damped due to phase mixing effects (Landau damping) as particles interact with 
-the self-consistent electric field. This benchmark validates the numerical discretization of the 
-Vlasov-Ampère system and the accuracy of particle-in-cell methods.
+    description = (
+        _summary
+        + _physics
+        + """
+Setup. Periodic box of length L = 12.56 (about 4 pi, so k = 2 pi / L = 0.5), 32 cells and cubic splines in x.
+Maxwellian electrons with vth = 1 and the density n = 1 + 1e-3 cos(k x). Control-variate (delta-f) weights with
+1000 markers per cell; time step dt = 0.05 up to t = 20 (Lie-Trotter splitting).
 """
+        + _expected
+        + """The pproc compares the electric energy with the analytical curve
+    W_E(t) = pi (4 eps r exp(-0.1533 t) cos(1.4156 t - phi))^2,   eps = 1e-3, r = 0.3677, phi = 0.5362,
+and shows the full f and delta f in the (x, v1) plane at four times (filamentation in v) and the fields along x
+at the first, middle and last saved time.
+"""
+        + _references
+    )
 
 # ------------------
 # Import Struphy API

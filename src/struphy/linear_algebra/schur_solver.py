@@ -82,6 +82,7 @@ class SchurSolver:
         kwargs.pop("info")
         if precond is not None:
             kwargs["pc"] = precond
+        self._solver_kwargs = kwargs
 
         self._solver = inverse(A, solver_name, **kwargs)
 
@@ -97,6 +98,19 @@ class SchurSolver:
     def BC(self):
         """Product from [[A B], [C Id]]."""
         return self._BC
+
+    @property
+    def precond(self):
+        """Preconditioner of the Schur system (None without preconditioner)."""
+        return self._solver_kwargs.get("pc")
+
+    @precond.setter
+    def precond(self, pc):
+        """Replace the preconditioner, e.g. by one of the Schur system for the current dt (built at the first solve)."""
+        self._solver_kwargs.pop("pc", None)
+        if pc is not None:
+            self._solver_kwargs["pc"] = pc
+        self._solver = inverse(self._A, self._solver_name, **self._solver_kwargs)
 
     @A.setter
     def A(self, a):

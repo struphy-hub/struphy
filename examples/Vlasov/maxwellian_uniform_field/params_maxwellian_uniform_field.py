@@ -57,13 +57,36 @@ if args.test_run:
 
 name = f"Vlasov Maxwellian equilibrium in a periodic cube, push_vxb {args.vxb_algo}, push_eta {args.butcher}"
 description = f"""
-Long-time equilibrium test of the Vlasov model (particles in a static magnetic field):
-a Maxwellian with constant moments (n=1, u=0, vth=1) in a periodic cube (Cuboid, side 2 pi) with
-a uniform magnetic field B0 = e_z (HomogenSlab) is an exact equilibrium. The binned distributions in
-position (eta1, eta1-eta2) and velocity (v1, v3, v1-v2) are compared with their initial and exact profiles
-up to t={args.tend} (dt={args.dt}, {args.split} splitting).
-Propagators: push_vxb ({args.vxb_algo}), push_eta ({args.butcher}). Loading {args.loading}, {args.ppc} markers per cell
-on a grid with {args.num_elements} elements.
+Long-time equilibrium test of the Vlasov model (charged particles in a static magnetic field, no self-consistent
+fields): a homogeneous Maxwellian in a uniform magnetic field must stay stationary. It tests the particle pushers,
+the splitting schemes and the marker loading over many cyclotron periods.
+
+Physics. The distribution f(x, v, t) solves the Vlasov equation
+    df/dt + v . grad_x f + (v x B0) . grad_v f = 0,
+whose characteristics are the particle orbits dx/dt = v, dv/dt = v x B0 (in units where the cyclotron frequency
+of the base units is one). In the uniform field B0 = e_z the particles gyrate with the cyclotron period 2 pi
+around the field lines at the Larmor radius |v_perp| (vth = 1 for a thermal particle) and stream freely along z,
+conserving |v_perp| and v_z. Any spatially homogeneous distribution that depends on v only through |v_perp| and
+v_z is therefore an exact equilibrium, in particular the Maxwellian
+    f0 = n / (2 pi)^(3/2) / vth^3 * exp(-|v|^2 / (2 vth^2)).
+Numerically, the Lie-Trotter or Strang splitting into the rotation of v (push_vxb, analytic: exact rotation;
+implicit) and the free streaming of x (push_eta, explicit Runge-Kutta) must preserve this equilibrium.
+
+Setup. Maxwellian with constant moments (n=1, u=0, vth=1) in a periodic cube (Cuboid, side 2 pi) with a uniform
+magnetic field B0 = e_z (HomogenSlab). Binned distributions in position (eta1, eta1-eta2) and velocity (v1, v3,
+v1-v2) up to t={args.tend} (dt={args.dt}, {args.split} splitting), i.e. about {args.tend / (2 * 3.141592653589793):.1f}
+cyclotron periods. Propagators: push_vxb ({args.vxb_algo}), push_eta ({args.butcher}). Loading {args.loading},
+{args.ppc} markers per cell on a grid with {args.num_elements} elements.
+
+Expected result. The binned distributions stay at their initial and exact profiles (uniform in position,
+Gaussian in each velocity component): the relative L2 deviation from the exact profiles stays at the level of the
+Monte-Carlo noise of the binning (lower for the quasi-random sobol_standard loading), without a systematic drift.
+The kinetic energy is invariant under the exact (analytic) rotation of v and under the free streaming; the
+pproc shows its relative drift.
+
+References:
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements
+  with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging

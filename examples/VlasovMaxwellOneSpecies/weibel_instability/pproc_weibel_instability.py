@@ -151,16 +151,21 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     xf = xp.abs(time - tf).argmin() + 1
 
     fitting = xp.polyfit(time[xi:xf], xp.log10(magnetic_energy[2][xi:xf]), deg=1)
+    # the magnetic energy grows as exp(2 gamma t), with the growth rate gamma of the amplitude of B3: log10 of the
+    # energy has the slope 2 gamma / ln(10)
+    gamma = 0.02784  # analytical (Kraus et al. 2017)
+    gamma_fit = fitting[0] * xp.log(10) / 2
+    print(f"growth rate of B3: fitted {gamma_fit:.5f}, analytical {gamma}")
     ax.plot(
         time,
         exp_func(time, *fitting),
-        label="fitted growth rate\n" + rf"$10^{{{fitting[0]:.5f}x {fitting[1]:.0f}}}$",
+        label="fitted growth rate\n" + rf"$\gamma = {gamma_fit:.5f}$",
         color="cyan",
     )
     ax.plot(
         time,
-        exp_func(time, 0.02784, fitting[1]),
-        label="analytical growth rate\n" + rf"$10^{{0.02784x {fitting[1]:.0f}}}$",
+        exp_func(time, 2 * gamma / xp.log(10), fitting[1]),
+        label="analytical growth rate\n" + rf"$\gamma = {gamma}$",
         color="cyan",
         ls="--",
         alpha=0.5,

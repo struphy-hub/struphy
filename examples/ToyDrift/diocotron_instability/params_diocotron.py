@@ -1,6 +1,7 @@
 """Diocotron instability with the ToyDrift model: a density ring in a hollow cylinder with a uniform
-axial magnetic field is unstable due to the shear of its E x B rotation. The pproc fits the growth rate of
-the electrostatic energy; `--setup profiling` selects the setup used for profiling."""
+axial magnetic field is unstable due to the shear of its E x B rotation (Kelvin-Helmholtz-like), see Davidson,
+"Physics of Nonneutral Plasmas", and Crouseilles et al. (2014). The pproc fits the growth rate of the
+electrostatic energy; `--setup profiling` selects the setup used for profiling."""
 
 # -----------------------------
 # Description of the simulation
@@ -8,18 +9,44 @@ the electrostatic energy; `--setup profiling` selects the setup used for profili
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Diocotron instability"
+name = "Diocotron instability (ToyDrift)"
 description = """
-The Diocotron instability is a shear-driven instability that occurs in non-neutral plasmas confined by a magnetic field. 
-It typically appears when there is velocity shear in the E×B drift of a plasma column.
+Diocotron instability of an annular non-neutral plasma (a ring of charge of a single sign) in a uniform axial
+magnetic field, between two conducting cylinders, with the ToyDrift model: guiding centers that move with the
+E x B drift in their own electrostatic field.
 
-The parameter of this simulation file is based on a paper called:
+Physics. The guiding-center distribution f(X, v_par, mu, t) is advected by the E x B drift only,
+    df/dt + (E x b0 / B*_par) . grad_X f = 0,   E = -grad phi,
+and the potential is given by the charge density through the Poisson equation
+    -Laplace(phi) = int f B*_par dv_par dmu
+(with control variate: f - f0 on the right-hand side). In the uniform field B0 = e_z, the drift velocity
+v = E x e_z is divergence free and its vorticity is proportional to the density, so the density is advected like
+the vorticity of a 2D incompressible fluid (guiding-center plasma = 2D Euler equations). The ring rotates
+differentially (shear of the E x B rotation). Its inner and outer edges carry surface waves that propagate in
+opposite directions relative to the local flow; for azimuthal mode numbers l below a cutoff they phase-lock and
+grow, as in the Kelvin-Helmholtz instability of a shear layer. For a step profile between conducting walls the
+linear dispersion relation is a quadratic in the frequency omega for each l (see Davidson); in the nonlinear
+phase the ring rolls up into l vortices, which later merge.
 
-'A new fully two-dimensional conservative semi-Lagrangian
-method: applications on polar grids, from diocotron instability
-to ITG turbulence'
+Setup. HollowCylinder with r in [1, 10] and length Lz = 10 (one element along z, i.e. a 2D problem), uniform
+field B0 = e_z (HomogenSlab), epsilon = alpha = 1, phi = 0 on both walls (Dirichlet). The density is n = 1 in
+the ring 4 <= r < 5 and zero elsewhere, perturbed by 1e-6 cos(l theta) with l = 4 inside the ring. Markers are
+loaded uniformly on the disc with weights rejected below 1e-4 (background f0 = 0); the E x B pusher is the
+first-order discrete gradient method (Newton iteration). Grid 64 x 128 x 1 elements (example) or 128 x 1024 x 1
+(profiling, one time step), splines of degree (3, 3, 1). Time step dt = 0.01, end time Tend = 51.
 
-DOI: 10.1140/epjd/e2014-50180-9
+Expected result. Linear theory of this step profile with conducting walls at r = 1 and r = 10 gives for l = 4 the
+growth rate gamma = 0.19 (time unit of the model; l = 3: 0.18, l = 5: 0.16), i.e. the energy of the perturbation
+grows like exp(2 gamma t) = exp(0.38 t). The pproc fits an exponential to en_phi in 0 <= t <= 42 (en_phi is the
+total electrostatic energy, including the constant energy of the equilibrium field), and shows the equilibrium
+profiles and the density, its perturbation and phi at the first, middle and last saved time (roll-up of the ring
+into 4 vortices).
+
+References:
+- R. C. Davidson, "Physics of Nonneutral Plasmas", Addison-Wesley, Redwood City (1990).
+- N. Crouseilles, P. Glanc, S. A. Hirstoaga, E. Madaule, M. Mehrenberger and J. Petri, "A new fully
+  two-dimensional conservative semi-Lagrangian method: applications on polar grids, from diocotron instability to
+  ITG turbulence", Eur. Phys. J. D 68, 252 (2014).
 """
 
 import argparse
