@@ -95,7 +95,10 @@ class ShearAlfvenPropagator(Propagator):
             ``"PolarMassMatrixPreconditioner"``), or a geometric multigrid V-cycle of the whole Schur operator
             (``"MultiGrid"``, :class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`;
             implicit algorithm with ``solver="pcg"`` only). The Schur operator depends on the time step, so the
-            multigrid preconditioner is built at the first time step (and again if the time step changes).
+            multigrid preconditioner is built at the first time step (and updated if the time step changes).
+            Experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG iterations than the mass
+            matrix preconditioner and is much slower (the smoother does not treat the large kernel of the curl
+            term on 2-forms).
         multigrid : MultiGridOptions, default=None
             Options of the multigrid preconditioner (if ``precond="MultiGrid"``); defaults to
             ``MultiGridOptions()``.
@@ -234,12 +237,16 @@ class ShearAlfvenPropagator(Propagator):
         bn = self.variables.b.spline.vector
 
         if self.options.algo == "implicit":
-            # the multigrid preconditioner of the Schur operator A - dt^2 B C, for the current time step
+            # the multigrid preconditioner of the Schur operator A - dt^2 B C, for the current time step: built at the
+            # first time step, updated (re-using the coarse mass and derivative operators) when dt changes
             if self.options.precond == "MultiGrid" and dt != self._multigrid_dt:
                 schur = self._schur_solver.A - dt**2 * self._schur_solver.BC
-                self._schur_solver.precond = MultiGridPreconditioner(
-                    schur, self.derham, self.domain, self.options.multigrid, mass_ops=self.mass_ops
-                )
+                if self._schur_solver.precond is None:
+                    self._schur_solver.precond = MultiGridPreconditioner(
+                        schur, self.derham, self.domain, self.options.multigrid, mass_ops=self.mass_ops
+                    )
+                else:
+                    self._schur_solver.precond.update(schur)
                 self._multigrid_dt = dt
 
             # solve for new u coeffs

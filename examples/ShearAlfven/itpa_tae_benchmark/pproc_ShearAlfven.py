@@ -69,10 +69,14 @@ def tae_frequency(run, basis):
     density = np.mean(equil.n0(eta1, eta2, eta3))
     expected = n / (2 * M_TAE + 1) * abs_b / np.sqrt(density) / R0
 
+    # the radial component is the first one of a logical basis (the FEEC form for Cartesian initial conditions)
+    basis = run.field_form("mhd/velocity") if basis == "physical" else basis
     u_r = run.evaluate("mhd/velocity", representation=basis, eta1=eta1, eta2=eta2, eta3=eta3, component=0)
     modes = u_r.squeeze("eta1", drop=True).plasma.analysis.mode_spectrum()
     coefficient = modes.sel(m=M_TAE, n=N_LOGICAL)
-    phase = coefficient.isel(t=0) / abs(coefficient.isel(t=0))
+    initial = complex(coefficient.isel(t=0))
+    # projected on the initial phase; without initial amplitude in this harmonic its real part
+    phase = initial / abs(initial) if abs(initial) > 0 else 1.0
     signal = (coefficient * np.conj(phase)).real
     measured = float(signal.plasma.analysis.spectral_peaks(n_peaks=1).omega_refined[0])
     print(

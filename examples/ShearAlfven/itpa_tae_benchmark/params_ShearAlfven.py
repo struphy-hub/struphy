@@ -73,8 +73,8 @@ parser.add_argument(
     "--precond",
     default="MassMatrixPreconditioner",
     choices=["MassMatrixPreconditioner", "MultiGrid"],
-    help="Preconditioner of the shear Alfven solve: of the mass matrix, or a geometric multigrid V-cycle of the "
-    "whole Schur operator.",
+    help="Preconditioner of the shear Alfven solve: of the mass matrix (default), or a geometric multigrid V-cycle of "
+    "the whole Schur operator (experimental, currently slower here).",
 )
 parser.add_argument(
     "--test-run",
