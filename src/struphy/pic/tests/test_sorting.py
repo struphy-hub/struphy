@@ -181,6 +181,8 @@ def test_mpi_sort_markers_on_rank_boundary(bc):
         particles.markers[rows] = 0.0
         particles.markers[rows, :3] = xp.array(special)
         particles.markers[rows, 3] = tags
+        # markers written into holes by hand: count the rows that can hold markers again
+        particles.count_rows_used()
         particles.update_holes()
 
     n_before = mpi_comm.allreduce(particles.n_mks_loc)

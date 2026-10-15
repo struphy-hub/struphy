@@ -197,7 +197,7 @@ def _run_with_removal(backend, track_rows: bool):
     patches = (
         contextlib.nullcontext()
         if track_rows
-        else mock.patch.multiple(Particles, _track_rows=all_rows, _count_rows_used=lambda self: all_rows(self))
+        else mock.patch.multiple(Particles, _track_rows=all_rows, count_rows_used=lambda self: all_rows(self))
     )
     comm = MPI.COMM_WORLD
     with xp.use_backend(backend), _device_context(backend), patches:

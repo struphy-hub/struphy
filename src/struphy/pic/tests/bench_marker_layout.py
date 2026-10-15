@@ -62,7 +62,7 @@ def run(
             self._set_n_rows_used(self.n_rows)
 
         Particles._track_rows = _all_rows
-        Particles._count_rows_used = _all_rows
+        Particles.count_rows_used = _all_rows
 
     comm = MPI.COMM_WORLD
     domain = domains.Cuboid(r1=2.0, r2=3.0, r3=4.0)

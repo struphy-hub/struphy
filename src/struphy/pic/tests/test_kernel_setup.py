@@ -262,6 +262,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
 
     particles = SimpleNamespace(
         markers=marker_args.markers,
+        n_rows_used=marker_args.markers.shape[0],
         args_markers=marker_args,
         n_cols=40,
         vdim=3,

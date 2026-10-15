@@ -1440,7 +1440,7 @@ class Particles(metaclass=ABCMeta):
             eta1[xp.logical_and(eta1 >= 0.0, eta1 < POLE_ETA1_MIN)] = POLE_ETA1_MIN
 
         # the loaded markers occupy the first rows (fresh loading) or any rows (restart)
-        self._count_rows_used()
+        self.count_rows_used()
 
         # send the markers to the process of their domain: needed on several processes whether or not there are
         # sorting boxes, since accumulations before the first push (e.g. an initial Poisson solve) assume it (#764);
@@ -2027,7 +2027,8 @@ class Particles(metaclass=ABCMeta):
         Kernels loop over these rows only (``args_markers.n_markers``), and so do the column operations of the
         pushers and the boundary conditions. It is an upper bound kept on the host, so that it never waits for the
         device: markers always fill the lowest holes, so ``k`` incoming rows end below (occupied rows) + ``k``
-        (see :meth:`_track_rows`). Loading and box sorting count it exactly (:meth:`_count_rows_used`).
+        (see :meth:`_track_rows`). Loading and box sorting count it exactly (:meth:`count_rows_used`), and so must
+        code that writes markers into holes itself, outside the methods of this class.
         """
         return self._n_rows_used
 
@@ -2036,9 +2037,11 @@ class Particles(metaclass=ABCMeta):
         self._n_rows_used = min(int(n_rows_used), self.n_rows)
         self._args_markers.n_markers = self._n_rows_used
 
-    def _count_rows_used(self):
+    def count_rows_used(self):
         """Set :attr:`n_rows_used` to one past the last row that is not a hole, and count the occupied rows.
-        Reads two numbers from the device on the CuPy backend; called in the setup and after box sorting."""
+
+        Called after loading and after box sorting; call it, before :meth:`update_holes`, after writing markers
+        into holes outside the methods of this class. Reads two numbers from the device on the CuPy backend."""
         occupied = xp.nonzero(self.markers[:, 0] != -1.0)[0]
         n_occupied = int(occupied.size)
         self._n_occupied_bound = n_occupied
@@ -2138,7 +2141,7 @@ class Particles(metaclass=ABCMeta):
         # The marker rows have just been reordered. The masks are row-based,
         # so they must be rebuilt before any later use of valid_mks/f_coords;
         # the holes may have moved anywhere, so the used rows are counted again.
-        self._count_rows_used()
+        self.count_rows_used()
         self.update_holes()
         self._update_ghost_particles()
         self._update_valid_mks()
@@ -4556,17 +4559,16 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         for axis, mask in at_right_end.items():
             sorting_etas[mask, axis] = 1.0
 
-        # check which particles are on the current process domain
-        self._is_on_proc_domain = self._is_on_domain_of_rank(sorting_etas, self.mpi_rank)
+        # check which particles are on the current process domain (into the first rows of the full-size buffer)
+        on_domain = self._is_on_proc_domain[:n]
+        on_domain[:] = self._is_on_domain_of_rank(sorting_etas, self.mpi_rank)
 
         # to stay on the current process, all three columns must be True.
         # Reducing over a size-3 trailing axis of an array with many rows is slow
         # This is faster
         # Improvement of approximately 10x (both numpy and cupy)
-        self._can_stay = xp.ones(self.n_rows, dtype=bool)
-        self._can_stay[:n] = (
-            self._is_on_proc_domain[:, 0] & self._is_on_proc_domain[:, 1] & self._is_on_proc_domain[:, 2]
-        )
+        self._can_stay[:n] = on_domain[:, 0] & on_domain[:, 1] & on_domain[:, 2]
+        self._can_stay[n:] = True
 
         # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
