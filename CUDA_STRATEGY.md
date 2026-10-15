@@ -108,7 +108,7 @@ Conventions:
 - The device functions of a header live in the namespace `struphy_cuda::<module>`, where `<module>` is the name of the pyccel module they port: `struphy_cuda::bsplines_kernels` (`bsplines/bsplines_kernels.cuh`), `struphy_cuda::evaluation_kernels` (`geometry/evaluation_kernels.cuh`), `struphy_cuda::cuboid_kernels` (`geometry/domains/cuboid/cuboid_cuda.cuh`, which ports `cuboid_kernels.py`), and so on. CUDA-only helpers and constants go into the namespace of the module whose calculation they extract (`bsplines_kernels::MAX_SPLINE_DEGREE`, `evaluation_kernels_3d::SplineScratch`). Calls into another module are qualified with the module name, as the pyccel code calls `linalg_kernels.matrix_inv`: `linalg_kernels::matrix_inv(...)`; calls within the same module are not. A `.cu` file writes `using namespace struphy_cuda;` after its includes and qualifies every helper call (`evaluation_kernels_3d::get_spans(...)`). Only `struphy_cuda::pi` (`geometry/domains/constants_cuda.cuh`) and the generated argument structs (`MarkerArgs`, `DomainArgs`, `DerhamArgs`, `LocalProjectorsArgs`, which are global because cunumpy matches the kernel signature against their names) are outside a module namespace.
 - Every function in a `.cu` or `.cuh` file has a documentation comment (`/** ... */`, the C++ equivalent of a docstring) immediately above its definition. Identify the pyccel counterpart and explain the operation, parameters, outputs or return value, array shapes/layouts, and any CUDA-specific limits or storage requirements. Document CUDA-only helpers by identifying the pyccel calculation they extract.
 - CUDA parameter, local variable and scratch-field names exactly match the corresponding pyccel names, including spelling and capitalization (e.g. `eta1`, `args_markers`, `args_domain`, `args_derham`, `df_out`, `dfm`, `dfinv`, `v_logical`, `tn`, `pn`, `pd`, `il`, `det_a`, `span1`, `bn1`, `bd1`). Do not abbreviate them to `x`, `m`, `d`, `a`, or `out` when the pyccel counterpart uses a different name. Additional CUDA-only variables or arguments, such as pointer lengths, thread indices or per-thread scratch storage, must have descriptive names and documented purposes.
-- Kernels read and write markers through the `Array2D<double>` view: `args.markers(ip, j)`. The view carries the existing device pointer, shape and element strides; no array data is copied. The column count is `args.markers.shape[1]`.
+- Kernels read and write markers through the `Array2D<double>` view: `args.markers(j, ip)` (one column per marker, see the marker layout below). The view carries the existing device pointer, shape and element strides; no array data is copied. The number of marker quantities (`n_cols`) is `args.markers.shape[0]`.
 
 The geometry domains already follow a similar layout (`geometry/domains/cuboid/cuboid_kernels.py`), which can be extended with `cuboid_cuda.cuh` for the device version of the mapping.
 
@@ -181,7 +181,7 @@ The pusher kernels call helpers from other pyccel modules: B-spline evaluation (
 
 - First: run the PR 8 GPU tests (`test_cuda_struct_layout`, `test_cuda_struct_scalars_are_checked`, the demo kernels) on an H100. Everything below assumes structs arrive by value correctly.
 - Port only what `push_eta_stage` needs: `get_spans` and the basis functions for the spline degrees in use, the analytic mapping evaluation (`kind_map` switch, starting with `Cuboid`), the 3×3 linear algebra, and the kinetic boundary conditions. Everything else comes with the kernel that needs it.
-- Device helpers take the argument structs by reference (`const DomainArgs&`), exactly like the pyccel helpers take `args_domain`, and read markers through `args.markers(ip, j)`.
+- Device helpers take the argument structs by reference (`const DomainArgs&`), exactly like the pyccel helpers take `args_domain`, and read markers through `args.markers(j, ip)`.
 - Scratch arrays that the pyccel classes allocate once (e.g. `DerhamArguments.bn1`, ..., `bd3`) become per-thread local arrays in CUDA with a fixed maximum spline degree (compile-time constant, checked against `pn` when the arguments are built) or a template parameter.
 - Tests: each device helper is called from a small elementwise test kernel (one thread per evaluation point, inputs and outputs as arrays) and compared with its pyccel version from Python. One generic test-kernel template in `test_kernel_backends.py` (or a new `test_device_helpers.py`) serves all scalar-returning helpers. Tests are skipped without a GPU.
 - Headers are included through the source root (`#include "struphy/bsplines/bsplines_kernels.cuh"`). Remember the CuPy cache caveat from PR 2 when editing headers.
@@ -190,7 +190,7 @@ The pusher kernels call helpers from other pyccel modules: B-spline evaluation (
 
 - Write `push_eta_stage_cuda.cu`, using the device helpers from PR 10; one thread per marker, `if (ip >= args_markers.n_markers) return;`.
 - Parity: same markers on both backends, results agree to round-off (`rtol ~ 1e-13`). The test is written once against the catalog: it parametrizes over every kernel that has a CUDA version (`[n for n in catalog.names if n not in catalog.missing_cuda]`), builds the arguments with a per-kernel factory, runs the pyccel and the CUDA kernel, and compares every array argument. Later kernels then only add their factory.
-- `Pusher` on the CuPy backend passes `n_threads=particles.markers.shape[0]` and device arrays in `args_kernel` (the Butcher tableau arrays `a_stage`, `b`, `c` are tiny NumPy arrays today; `PushEta` makes device copies once at setup).
+- `Pusher` on the CuPy backend passes `n_threads=args_markers.n_markers` (`particles.markers.shape[1]`) and device arrays in `args_kernel` (the Butcher tableau arrays `a_stage`, `b`, `c` are tiny NumPy arrays today; `PushEta` makes device copies once at setup).
 - End-to-end: run `PushEta` (a propagator that only needs this kernel) with `CUNUMPY_BACKEND=cupy` on 1 and 2 ranks, and check that no host/device transfers happen inside the time loop: `nsys profile` (look for `cudaMemcpy` between the kernel launches) or monkeypatch `cupy.ndarray.get`/`cupy.asarray` to count calls during the loop.
 
 ### PR 12+: Port kernels and particle boundary handling
@@ -224,7 +224,7 @@ cunumpy 0.5.0 contains equivalents of everything struphy built in PRs 1–8, wit
 | `utils.kernel_backends.Kernel`, `KernelCatalog`, `CudaKernel` | `xp.Kernel`, `xp.KernelCatalog.from_package` (same folder convention, source root on the include path by default), `xp.CudaKernel` (parses the `__global__` signature once and checks every call: argument count, array dtypes and contiguity, scalars cast and range-checked; 1D–3D launches via `n_threads` or `grid`; header-aware compile cache; `compile()` at setup; debug mode with `-lineinfo`, bounds checks and synchronized launches) |
 | `utils.cuda_arguments.Argument` + `_pack()` | `xp.CudaStructArguments` (`struct_name`, `fields`, `pack()`, repack on copy/unpickle, `cls.struct.declaration`/`to_header()`), `xp.CudaStruct.from_signature` to derive a struct from pyccel-style annotations |
 | the two bundles per owner (`args_*` and `_pyccel_args_*`) | `xp.KernelArguments`: one object with `__host_args__()` (the pyccel instance) and `__cuda_args__()` (the packed struct), resolved by `Kernel` and `PyccelKernel`, so call sites never branch on the backend |
-| Local `Array2D<double>` marker view | `Array2D<double>` view (pointer, shape, strides) from `cunumpy/array_view.cuh`; kernels write `markers(ip, j)` |
+| Local `Array2D<double>` marker view | `Array2D<double>` view (pointer, shape, strides) from `cunumpy/array_view.cuh`; kernels write `markers(j, ip)` |
 | the "reference or copy once" rule, written by hand | `xp.as_device_array(value, dtype, ndim)` |
 | the parity test of PR 11 | `cunumpy.testing.assert_kernels_agree`, `KernelCatalog.parity_cases()`, `requires_cupy`, `backend` fixture |
 | the device-helper test kernels of PR 10 | `cunumpy.testing.device_function_kernel(header, prototype)` |
@@ -378,7 +378,7 @@ stencil matrix data) are in cunumpy since 0.6.1 (`Array6D`); `linear_vlasov_ampe
 - **Scalar types.** Members of the argument structs are checked when they are packed (PR 8). Scalars passed directly to a kernel (`dt`, `stage`) are not checked against the kernel signature: a Python `float` for an `int` parameter arrives wrong without an error. Either `CudaKernel` parses the `extern "C"` signature once and casts/checks (what cunumpy's `CudaKernel` does), or we accept it until the move to cunumpy. Until then: kernels take `double dt, int stage` in exactly this order, and the pyccel signature is the reference.
 - **Kernel launch configuration.** One thread per marker with a fixed block size for now. Kernels over grid points (accumulation, FEEC) need their own launch sizes; `CudaKernel` needs a `grid`/`block` override (PR 12+), or cunumpy's.
 - **Accumulation strategy.** Atomics vs. sort-then-reduce; see PR 12+. Decided by measurement on the first accumulation kernel.
-- **Marker layout.** Decided (#707): the markers array (`n_markers × n_cols`) is column-major (struct-of-arrays, `order="F"`) on both backends, see `struphy.pic.marker_layout`. Neighbouring threads (markers) read neighbouring addresses, and column operations (the pusher preamble, hole detection, masks in the diagnostics) touch only the columns involved. Indexing is unchanged (`markers[ip, j]`); the pyccel kernels declare `float[:, :](order=F)`, and the CUDA kernels read the buffer through `Array2D`, which carries the strides. `n_rows` is a multiple of 32, so every column starts on a 256-byte boundary.
+- **Marker layout.** Decided (#707): the markers array is a C-ordered `n_cols × n_markers` array, one column per marker (struct-of-arrays), on both backends, see `struphy.pic.marker_layout`; it is indexed `markers[j, ip]` (pyccel) and `markers(j, ip)` (CUDA). Neighbouring threads (markers) read neighbouring addresses, and operations on one quantity (the pusher preamble, hole detection, masks in the diagnostics) touch only the rows involved. The pyccel kernels declare a plain `float[:, :]`; the marker count is `markers.shape[1]`, so every launch over markers passes `n_threads=args_markers.n_markers` (cunumpy's default inference takes the first axis of the first array). Arrays of evaluation points (`Domain`, `SplineFunction`, the equilibria) follow the same convention, `(k, n)` with the logical coordinates in rows 0 to 2. `n_rows` (the number of markers including holes) is a multiple of 32, so every row starts on a 256-byte boundary.
 - **MPI + GPUs.** One GPU per MPI rank (`xp.bind_local_device()` before `MPI_Init`, with feectools#86/#87), and GPU-aware MPI for the marker exchange, so markers do not go through the host. The marker exchange in `Particles.mpi_sort_markers` uses device buffers since #698 (see [Marker exchange implementation notes](#marker-exchange-implementation-notes-698)); the SPH ghost-box exchange (`_sendrecv_markers_boxes`) does not yet.
 - **Single-source alternatives.** Decided (#690): no code generation; every CUDA kernel is written by hand, see [Hand-written CUDA](#hand-written-cuda-decision-for-690).
 - **Polar splines and MHD equilibria on the GPU** (left after PR 19): both run on CuPy now, polar splines since #695
@@ -547,7 +547,8 @@ at setup instead of `get_kernel()`: on CuPy a kernel without CUDA version raises
 is compiled. Launch sizes are not passed any more where cunumpy infers them: the first array of a pusher
 or accumulation call is `args_markers.markers`, so one thread per marker row. `KernelSetup` passes
 `n_threads=args_markers.n_markers` because its first array is `alpha`; `reflect` and the spline evaluation
-pass theirs explicitly.
+pass theirs explicitly. (Since #707 the marker array has one column per marker, and pushers and accumulators
+pass `n_threads=args_markers.n_markers` too.)
 
 Parity tests follow cunumpy's convention (replaced in PR 16 by `pic/tests/cuda_parity_cases.py`): `<name>_test_args.py` in the kernel folder defines
 `make_args(backend, seed)`; struphy adds `CASES` (the test cases, selected by `seed`) and the tolerances.
@@ -666,9 +667,8 @@ Geometry evaluation runs on the GPU for every analytic mapping (`kind_map` 10–
   the determinant with `det()` like pyccel (it used a different expansion, which differed in round-off). Spline
   mappings (`kind_map` 0–2) trap on the device.
 - **Entry kernels.** `<name>_cuda.cu` in the four `geometry/kernels/<name>/` folders, same arguments in the same order.
-  `kernel_evaluate_pic` launches one thread per marker row (the default: its first array is `markers`).
-  `kernel_pullpush_pic` launches one thread per marker row, passed as `n_threads=markers.shape[0]` because its first
-  array is `a`. `kernel_evaluate` and `kernel_pullpush` launch one thread per grid point (`n_threads=n1 * n2 * n3`).
+  `kernel_evaluate_pic` and `kernel_pullpush_pic` launch one thread per marker, passed as
+  `n_threads=markers.shape[1]` (the markers have one column per marker since #707). `kernel_evaluate` and `kernel_pullpush` launch one thread per grid point (`n_threads=n1 * n2 * n3`).
   `kernel_evaluate`'s `mat_f` has five dimensions, more than cunumpy's views, so it is a C-contiguous `double*`.
 - **`n_inside`.** The pyccel `_pic` kernels compact the rows of inside markers (`remove_outside=True`) and return their
   number; a CUDA kernel returns nothing, and compaction needs a prefix count over all markers. `Domain` therefore
@@ -777,7 +777,7 @@ The first matrix accumulation on the GPU (part of #688, tracked in #650): `linea
   fillers, each one is ported with the first kernel that calls it.
 - **Kernel.** `linear_vlasov_ampere_cuda.cu`: same arguments in the same order as pyccel, one thread per marker row,
   holes and boundary particles skipped; `df`, `matrix_inv`, `matrix_vector`, `outer`, then `m_v_fill_b_v1_symm`. The
-  3 x 3 `filling_m` is nine row-major entries; the CUDA-only `factor` is pyccel's `f0_values[ip] / (markers[ip, 7] *
+  3 x 3 `filling_m` is nine row-major entries; the CUDA-only `factor` is pyccel's `f0_values[ip] / (markers[7, ip] *
   n_markers_tot)`, computed once as pyccel does.
 - **`Accumulator` on CuPy.** Nothing in `Accumulator` had to change: on the CuPy backend `StencilMatrix._data` and
   `StencilVector._data` are device arrays (feectools allocates them with `xp`), the accumulator zeroes them in place and
@@ -812,7 +812,7 @@ the [porting order](#porting-order); part of #688).
 - **Kernel.** `vlasov_maxwell_cuda.cu`: same arguments in the same order as pyccel, one thread per marker row; `df`,
   `matrix_inv`, `transpose`, `matrix_matrix`, `matrix_vector`, then `m_v_fill_b_v1_symm` with
   `A_p = w_p DF^{-1} DF^{-T}` and `B_p = w_p DF^{-1} v_p`. As in pyccel, only holes are skipped: boundary particles
-  (`markers[ip, -1] == -2`) are accumulated (unlike `linear_vlasov_ampere`).
+  (`markers[-1, ip] == -2`) are accumulated (unlike `linear_vlasov_ampere`).
 - **Device helpers.** `fill_mat`, `fill_mat_vec` (`filler_kernels.cuh`) and `m_v_fill_b_v1_symm`
   (`particle_to_mat_kernels.cuh`) with atomic adds into `Array6D<double>`/`Array3D<double>` data, byte-identical to the
   ones of the `linear_vlasov_ampere` PR (#705), as are `v1_symm_accumulation_data()` and the `m_v_fill_b_v1_symm`
