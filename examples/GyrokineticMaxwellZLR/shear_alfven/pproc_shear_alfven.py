@@ -1,15 +1,27 @@
-"""Post-process and plot the shear Alfvén wave of GyrokineticMaxwellZLR.
+"""Post-process and plot the shear Alfvén waves of GyrokineticMaxwellZLR with plasma-plots.
 
-Run as ``python pproc_shear_alfven.py [flags of params_shear_alfven.py]``; the flags must be those of the run.
-Plots the energies (fields, species, total) over time and compares the oscillation frequency of the magnetic
-energy with the shear Alfvén frequency omega_A = k_par / sqrt(1 + sum_s alpha_s^2 n_0 / B_0^2) of the model
-at k_perp = 0 (light units), see Remmerswaal, Hatzky, Sonnendrücker, J. Plasma Phys. 91, E127 (2025).
+Run as ``python pproc_shear_alfven.py [flags of params_shear_alfven.py] [--save-results]``; the flags must be those
+of the run. The figures:
+
+* ``energies``: the energy budget (fields, ions, electrons), the relative drift of the total energy and the energy
+  exchanged between fields and particles (``out.plot.energies``);
+* ``space_time``: :math:`B_y(z, t)` and :math:`E_x(z, t)`, the standing waves as space-time maps;
+* ``dispersion``: the :math:`(k, \\omega)` power spectrum of :math:`B_y(z, t)` with the shear Alfvén branch
+  :math:`\\omega = k_\\parallel / \\sqrt{1 + \\sum_s \\alpha_s^2 n_0 / B_0^2}` of the model (light units);
+* ``frequencies``: the measured frequency of each seeded mode against that branch, with the relative error;
+* ``orbits``: the paths of the saved markers, streaming along the perturbed field lines (magnetic flutter);
+* ``waves.gif``: an animation of the :math:`B_y` and :math:`E_x` profiles with the field energies alongside.
+
+See Remmerswaal, Hatzky, Sonnendrücker, J. Plasma Phys. 91, E127 (2025) for the model.
 """
 
 import sys
 from pathlib import Path
 
+import matplotlib
 import numpy as np
+import plasma_plots
+import xarray as xr
 from matplotlib import pyplot as plt
 
 from struphy import Output
@@ -22,83 +34,146 @@ import params_shear_alfven as params  # noqa: E402
 
 DEFAULT_OUTPUT = Path(params.args.out_folder) / params.args.sim_folder
 
+ENERGIES = ("en_E", "en_B", "en_ions", "en_electrons")
+GROUPS = {"fields": ["en_E", "en_B"], "ions": ["en_ions"], "electrons": ["en_electrons"]}
 
-def alfven_frequency(run):
-    """Shear Alfvén frequency k_par / sqrt(1 + sum_s alpha_s^2 n_0 / B_0^2) of the run (light units, k_par = 2 pi / L_z)."""
+
+def alfven_branch():
+    """The shear Alfvén branch omega(k) of the run, k per unit eta3 (light units, k_par = k / L_z)."""
     model = params.model
     polarization = sum(
         species.var.species.equation_params.alpha**2 for species in (model.kinetic_ions, model.kinetic_electrons)
     )
     n0_over_B02 = params.equil.params["n0"] / params.equil.params["B0z"] ** 2
-    k_par = 2 * np.pi / params.domain.params["r3"]
-    return k_par / np.sqrt(1.0 + polarization * n0_over_B02)
+    v_alfven = 1.0 / np.sqrt(1.0 + polarization * n0_over_B02)
+    L_z = params.domain.params["r3"]
+    return lambda k: np.abs(k) / L_z * v_alfven
 
 
-def oscillation_frequency(time, values):
-    """Angular frequency of a signal: a least-squares fit of ``c0 + c1 cos(omega t + phi)``,
-    started from the dominant peak of the (zero-padded) spectrum."""
+def fit_cosine_frequency(time, values, omega_guess):
+    """Angular frequency of ``values(time)`` from a least-squares fit of ``c0 + c1 cos(omega t + phi)``; NaN if it fails."""
     from scipy.optimize import curve_fit
-
-    values = values - np.mean(values)
-    n = 16 * len(values)
-    spectrum = np.abs(np.fft.rfft(values, n=n))
-    freqs = np.fft.rfftfreq(n, d=time[1] - time[0])
-    omega_fft = 2 * np.pi * freqs[np.argmax(spectrum[1:]) + 1]
 
     def model(t, c0, c1, omega, phi):
         return c0 + c1 * np.cos(omega * t + phi)
 
     try:
-        popt, _ = curve_fit(model, time, values, p0=(0.0, np.max(np.abs(values)), omega_fft, 0.0))
-        return abs(popt[2])
+        popt, _ = curve_fit(model, time, values, p0=(0.0, np.max(np.abs(values)), omega_guess, 0.0))
     except RuntimeError:
-        return omega_fft
+        return np.nan
+    return abs(popt[2])
 
 
 def main(path_out=DEFAULT_OUTPUT, save_results=False):
     run = Output(path_out).pproc().with_time_units("normalized")
+    results_dir = run.path_out / "results"
 
-    names = ("en_E", "en_B", "en_ions", "en_electrons", "en_tot")
-    scalars = run.evaluate("scalars", variables=names)
-    time = scalars["en_tot"].t.values
-
-    def show(fig, name):
-        """Show the figure, or with ``save_results`` save it as ``<name>.png`` into the results folder of the run."""
+    def finish(result, name):
+        """Save the figure as ``<name>.png`` into the results folder (``save_results``), or keep it for ``plt.show()``."""
         if save_results:
-            results_dir = run.path_out / "results"
             results_dir.mkdir(exist_ok=True)
-            fig.savefig(results_dir / f"{name}.png")
-            plt.close(fig)
-        else:
-            plt.show()
+            result.save(results_dir / f"{name}.png")
+            plt.close(result.fig)
 
-    # energies
-    fig, axs = plt.subplots(1, 2, figsize=(12, 4.5))
-    for name in ("en_E", "en_B"):
-        axs[0].plot(time, scalars[name], label=name)
-    axs[0].set(xlabel="time", ylabel="energy", title="Field energies")
-    axs[0].legend()
-
-    en_tot = scalars["en_tot"].values
-    axs[1].plot(time, (en_tot - en_tot[0]) / en_tot[0])
-    axs[1].set(xlabel="time", ylabel=r"$(H - H_0) / H_0$", title="Relative energy error")
-    fig.tight_layout()
-    show(fig, "energies")
-
-    # shear Alfvén frequency: the magnetic energy of a standing wave oscillates at 2 omega
-    omega_A = alfven_frequency(run)
-    period = 2 * np.pi / omega_A
-    print(f"Shear Alfvén frequency of the model: omega_A = {omega_A:.5f} (period {period:.2f})")
-    if time[-1] - time[0] >= period:
-        omega = oscillation_frequency(time, scalars["en_B"].values) / 2
-        print(
-            f"Measured from the magnetic energy:   omega   = {omega:.5f} (relative deviation {omega / omega_A - 1:+.3f})"
-        )
-    else:
-        print("Run too short to measure the frequency (needs at least one period).")
-
+    # energy budget: the fields gain what the particles lose (mu B_parallel through the magnetisation current)
+    finish(run.plot.energies(parts=ENERGIES, groups=GROUPS), "energies")
+    en_tot = run.evaluate("scalars", variables="en_tot")["en_tot"].values
     print(f"Relative energy error at the end: {(en_tot[-1] - en_tot[0]) / en_tot[0]:.3e}")
+
+    # the waves along z (eta3) at the first x, y point, as (eta3, t) arrays
+    b_y = run.evaluate("em_fields/b_field", component=1).isel(eta1=0, eta2=0)
+    e_x = run.evaluate("em_fields/e_field", component=0).isel(eta1=0, eta2=0)
+    b_y.name, e_x.name = "B_y", "E_x"
+    b_y.attrs["label"], e_x.attrs["label"] = r"$B_y$", r"$E_x$"
+
+    # space-time maps of the standing waves
+    with plasma_plots.figure(1, 2, figsize=(12, 4.5), title="Standing shear Alfvén waves") as fig:
+        b_y.plasma.plot.slice(x="eta3", y="t", symmetric=True, cmap="RdBu_r", ax=fig[0])
+        e_x.plasma.plot.slice(x="eta3", y="t", symmetric=True, cmap="RdBu_r", ax=fig[1])
+    finish(fig, "space_time")
+
+    omega_of_k = alfven_branch()
+    # the same branch as the Crank-Nicolson field solver (dt of the run) reproduces it: omega_CN = 2/dt atan(omega dt/2)
+    dt = params.args.dt
+    omega_cn_of_k = lambda k: 2.0 / dt * np.arctan(omega_of_k(k) * dt / 2.0)  # noqa: E731
+    n_times = b_y.sizes["t"]
+    k_max = 2 * np.pi * (max(params.args.modes) + 1)
+    if n_times >= 8:
+        # dispersion relation: the power of B_y(z, t) over (k, omega) with the shear Alfvén branch of the model
+        omega_max = 1.5 * omega_of_k(k_max)
+        finish(
+            b_y.plasma.plot.dispersion(
+                dim="eta3",
+                branches={"shear Alfvén branch": omega_of_k, f"Crank-Nicolson, dt = {dt:g}": omega_cn_of_k},
+                kmin=0.0,
+                kmax=k_max,
+                omega_max=omega_max,
+                title=r"Dispersion of $B_y(z, t)$",
+            ),
+            "dispersion",
+        )
+
+        # the frequency of each seeded mode: a cosine fit of its Fourier coefficient along z (a standing wave),
+        # more precise than a frequency bin of the spectrum, against the branch
+        coefficients = np.fft.rfft(b_y.transpose("t", "eta3").values, axis=1) / b_y.sizes["eta3"]
+        modes = np.asarray(params.args.modes, dtype=float)
+        omegas = [
+            fit_cosine_frequency(b_y.t.values, coefficients[:, n].real, omega_cn_of_k(2 * np.pi * n))
+            for n in params.args.modes
+        ]
+        omega = xr.DataArray(
+            omegas,
+            dims="k",
+            coords={"k": 2 * np.pi * modes},
+            name="omega",
+            attrs={"label": r"$\omega$"},
+        ).dropna("k")
+        if omega.sizes["k"] > 0:
+            finish(
+                omega.plasma.plot.against_theory(
+                    omega_cn_of_k,
+                    xlabel=r"$k$ (per unit $\eta_3$)",
+                    ylabel=r"$\omega$",
+                    title=f"Shear Alfvén frequencies: measured vs. model (Crank-Nicolson, dt = {dt:g})",
+                ),
+                "frequencies",
+            )
+            for k, w in zip(omega.k.values, omega.values):
+                w_th, w_cn = omega_of_k(k), omega_cn_of_k(k)
+                print(
+                    f"n = {k / (2 * np.pi):.0f}: omega = {w:.5f}, model {w_th:.5f} ({w / w_th - 1:+.3f}), "
+                    f"Crank-Nicolson {w_cn:.5f} ({w / w_cn - 1:+.3f})"
+                )
+    else:
+        print(f"Only {n_times} saved times: no dispersion plots (run longer).")
+
+    # saved marker orbits: streaming along the perturbed field lines
+    for species in ("kinetic_ions", "kinetic_electrons"):
+        try:
+            orbits = run.evaluate(f"{species}/orbits")
+        except (KeyError, ValueError):
+            continue
+        finish(orbits.plasma.plot.trajectories(), f"orbits_{species}")
+
+    # animation of the profiles with the field energies alongside (saved as GIF, or shown interactively)
+    if n_times >= 2 and (save_results or matplotlib.get_backend().lower() != "agg"):
+        en_E = run.evaluate("scalars", variables="en_E")["en_E"]
+        en_B = run.evaluate("scalars", variables="en_B")["en_B"]
+        animation = b_y.plasma.plot.line_animation(
+            x="eta3",
+            alongside=[e_x, [en_E, en_B]],
+            max_frames=120,
+            interval=60,
+            title=r"$B_y$ along $z$",
+        )
+        if save_results:
+            results_dir.mkdir(exist_ok=True)
+            animation.save(results_dir / "waves.gif", writer="pillow")
+            plt.close("all")
+
+    if not save_results:
+        plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    main(save_results="--save-results" in sys.argv)
