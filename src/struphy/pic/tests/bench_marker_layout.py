@@ -1,7 +1,7 @@
 """
 Standalone benchmark (not a pytest test) of the operations on the marker buffer that depend on its memory layout
-(see :mod:`struphy.pic.marker_layout` and struphy-hub/struphy#707): the column assignments at the start of every
-push, two pushers, one accumulation kernel, hole detection, boundary conditions, the MPI sort, binning and the
+(see :mod:`struphy.pic.marker_layout` and struphy-hub/struphy#707; one column per marker, C-ordered): the row
+assignments at the start of every push, two pushers, one accumulation kernel, hole detection, boundary conditions, the MPI sort, binning and the
 gathers of valid markers used by the diagnostics.
 
 Runs on the active cunumpy backend (``CUNUMPY_BACKEND=numpy`` or ``cupy``); on the GPU every timing ends with a
@@ -76,9 +76,9 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
     n_init = 3 + particles.vdim
 
     def preamble():
-        """The column assignments at the start of Pusher._push."""
+        """The row assignments at the start of Pusher._push."""
         if xp.get_backend() == "cupy":
-            n_rows, n_cols = markers.shape
+            n_cols, n_rows = markers.shape
             _prepare_push_cuda()(
                 markers,
                 first_pusher_idx,
@@ -86,9 +86,9 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
                 n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
             )
         else:
-            markers[:, first_pusher_idx:first_shift_idx] = markers[:, :n_init]
-            markers[:, first_shift_idx:residual_idx] = 0.0
-            markers[:, residual_idx:-2] = 0.0
+            markers[first_pusher_idx:first_shift_idx] = markers[:n_init]
+            markers[first_shift_idx:residual_idx] = 0.0
+            markers[residual_idx:-2] = 0.0
 
     butcher = ButcherTableau("rk4")
     push_eta = Pusher(
@@ -122,7 +122,7 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
     components = (True, False, False, True, False, False)
 
     ops = {
-        "preamble (column assignments)": preamble,
+        "preamble (row assignments)": preamble,
         "push_eta_stage (RK4 pusher)": lambda: push_eta(1e-3),
         "push_vxb_analytic (pusher)": lambda: push_vxb(1e-3),
         "charge_density_0form (accumulation)": accumulate,
@@ -130,30 +130,34 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
         "apply_kinetic_bc (periodic)": particles.apply_kinetic_bc,
         "mpi_sort_markers": particles.mpi_sort_markers,
         "binning e1_v1": lambda: particles.binning(components, bin_edges),
-        "gather valid rows (markers_wo_holes_and_ghost)": lambda: particles.markers_wo_holes_and_ghost,
+        "gather valid markers (markers_wo_holes_and_ghost)": lambda: particles.markers_wo_holes_and_ghost,
         "gather weights of valid markers": lambda: particles.weights,
     }
 
     info = {
         "backend": xp.get_backend(),
-        "n_rows": int(markers.shape[0]),
-        "n_cols": int(markers.shape[1]),
+        "n_rows": particles.n_rows,
+        "n_cols": particles.n_cols,
         "Np": Np,
-        "f_contiguous": bool(markers.flags.f_contiguous),
+        "c_contiguous": bool(markers.flags.c_contiguous),
     }
     result = {"info": info, "ms": {name: _time(fun, repeats) for name, fun in ops.items()}}
 
     if save_markers is not None:
-        # the valid markers after all timed calls, sorted by ID, for a bit-for-bit comparison of two runs
+        # the valid markers after all timed calls, sorted by ID, for a bit-for-bit comparison of two runs; saved with
+        # one row per marker, as by runs with the earlier (n_rows, n_cols) buffer
         valid = xp.to_numpy(particles.markers_wo_holes_and_ghost)
-        np.save(save_markers, valid[np.argsort(valid[:, -1])])
+        np.save(save_markers, valid[:, np.argsort(valid[-1])].T)
     return result
 
 
 def _print(result: dict):
     info = result["info"]
-    order = "F (column-major)" if info["f_contiguous"] else "C (row-major)"
-    print(f"backend {info['backend']}, markers {info['n_rows']} x {info['n_cols']} in {order}, Np = {info['Np']}")
+    order = "C-ordered" if info["c_contiguous"] else "not C-contiguous"
+    print(
+        f"backend {info['backend']}, markers {info['n_cols']} x {info['n_rows']} (one column per marker, {order}), "
+        f"Np = {info['Np']}"
+    )
     width = max(len(name) for name in result["ms"])
     for name, ms in result["ms"].items():
         print(f"  {name:<{width}}  {ms:10.2f} ms")

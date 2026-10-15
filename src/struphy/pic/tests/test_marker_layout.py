@@ -1,4 +1,5 @@
-"""The marker buffer is column-major (struct-of-arrays), see :mod:`struphy.pic.marker_layout`.
+"""The marker buffer has one column per marker and is C-ordered (struct-of-arrays), see
+:mod:`struphy.pic.marker_layout`.
 
 The CuPy cases run on a GPU, or without one on cunumpy's fake CuPy with every CUDA launch emulated on the CPU::
 
@@ -13,17 +14,13 @@ import numpy as np
 import pytest
 
 from struphy.models.tests.gpu_e2e import device_context, requires_cupy_backend
-from struphy.pic.marker_layout import (
-    ROW_ALIGNMENT,
-    as_marker_array,
-    check_marker_layout,
-    has_marker_layout,
-    marker_array,
-    padded_n_rows,
-)
+from struphy.pic.marker_layout import ROW_ALIGNMENT, marker_array, padded_n_rows
 
 # CuPy on a GPU, or cunumpy's fake CuPy
 BACKENDS = ["numpy", pytest.param("cupy", marks=requires_cupy_backend)]
+
+N_COLS = 25
+MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)  # vdim, weight_idx, ..., mu_idx
 
 
 def test_padded_n_rows():
@@ -32,44 +29,22 @@ def test_padded_n_rows():
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_layout_helpers(backend):
+def test_marker_array(backend):
     with xp.use_backend(backend):
-        markers = marker_array(64, 7)
-        assert markers.shape == (64, 7) and has_marker_layout(markers)
-        check_marker_layout(markers)
-        # no copy for an array in the marker layout, nor for a block of its columns
-        assert as_marker_array(markers) is markers
-        assert has_marker_layout(markers[:, 2:5])
-
-        # row gathers and .copy() are C-ordered: converted (with a copy) before they go to a kernel
-        rows = markers[xp.arange(0, 64, 2)]
-        assert not has_marker_layout(rows)
-        with pytest.raises(TypeError, match="Fortran-ordered"):
-            check_marker_layout(rows)
-        converted = as_marker_array(rows)
-        assert has_marker_layout(converted)
-        np.testing.assert_array_equal(xp.to_numpy(converted), xp.to_numpy(rows))
-
-        # a single row in C order is F-contiguous for NumPy, but its strides decrease, which pyccel rejects
-        row = xp.asarray([[0.2, 0.4, 0.6]])
-        assert row.flags.f_contiguous and not has_marker_layout(row)
-        assert has_marker_layout(as_marker_array(row))
+        markers = marker_array(7, 64)
+        assert markers.shape == (7, 64) and markers.flags.c_contiguous
+        assert xp.all(markers == 0.0)
+        # one quantity of all markers is contiguous
+        assert markers[2].flags.c_contiguous and markers[2:5].flags.c_contiguous
 
 
-def test_pyccel_rejects_row_major_markers():
-    """pyccel checks the memory order of the marker arrays at every call, so a missed conversion fails loudly."""
+def _marker_arguments(markers, valid):
+    from struphy.kernel_arguments.pusher_args_cuda import CudaMarkerArguments
     from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 
-    args = (np.ones(4, dtype=bool), 4, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=np.int64), False)
-    MarkerArguments(np.zeros((4, 25), order="F"), *args)
-    with pytest.raises(TypeError, match="ordering"):
-        MarkerArguments(np.zeros((4, 25)), *args)
-
-    # a single row: as_marker_array gives it the strides pyccel accepts
-    one = (np.ones(1, dtype=bool), 1, *args[2:])
-    with pytest.raises(TypeError, match="ordering"):
-        MarkerArguments(np.zeros((1, 25)), *one)
-    MarkerArguments(as_marker_array(np.zeros((1, 25))), *one)
+    args_class = CudaMarkerArguments if xp.get_backend() == "cupy" else MarkerArguments
+    n = markers.shape[1]
+    return args_class(markers, valid, n, *MARKER_INDICES, xp.zeros(3, dtype=np.int64), False)
 
 
 def _device_context(backend):
@@ -78,9 +53,52 @@ def _device_context(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_markers_stay_column_major(backend):
+def test_kernel_accepts_marker_copies(backend):
+    """A C-ordered copy of the valid markers (``xp.ascontiguousarray(markers[:, valid])``) goes to MarkerArguments and
+    a kernel like the buffer, and the kernel moves the copied markers like the markers of the buffer."""
+    from struphy.geometry.domains import Cuboid
+    from struphy.ode.utils import ButcherTableau
+    from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
+
+    rng = np.random.default_rng(7)
+    host = rng.random((N_COLS, 64))
+    host[3:6] = rng.uniform(-2, 2, (3, 64))
+    host[8:14] = host[:6]
+    host[18:21] = 0.0
+    host[:, 0] = -1.0  # a hole
+    host_valid = np.ones(64, dtype=bool)
+    host_valid[0] = False
+
+    with xp.use_backend(backend), _device_context(backend):
+        markers, valid = xp.array(host), xp.asarray(host_valid)
+        # selecting markers gives a Fortran-ordered copy on NumPy; the kernels take C-ordered arrays
+        if backend == "numpy":
+            assert markers[:, valid].flags.f_contiguous and not markers[:, valid].flags.c_contiguous
+        copy = xp.ascontiguousarray(markers[:, valid])
+        single = xp.ascontiguousarray(markers[:, 5:6])
+        assert copy.flags.c_contiguous and single.flags.c_contiguous
+
+        args_buffer = _marker_arguments(markers, valid)
+        args_copy = _marker_arguments(copy, xp.ones(copy.shape[1], dtype=bool))
+        args_single = _marker_arguments(single, xp.ones(1, dtype=bool))
+        assert args_buffer.n_markers == 64 and args_copy.n_markers == 63 and args_single.n_markers == 1
+
+        butcher = ButcherTableau("forward_euler")
+        butcher_args = (xp.asarray(butcher.a_stage), xp.asarray(butcher.b), xp.asarray(butcher.c), butcher.n_stages)
+        args_domain = Cuboid(r1=2.0, r2=3.0, r3=4.0).args_domain
+        for args in (args_buffer, args_copy, args_single):
+            push_eta_stage(0.1, 0, args, args_domain, *butcher_args, n_threads=args.n_markers)
+
+        np.testing.assert_array_equal(xp.to_numpy(copy), xp.to_numpy(markers[:, valid]))
+        np.testing.assert_array_equal(xp.to_numpy(single), xp.to_numpy(markers[:, 5:6]))
+        assert not np.array_equal(xp.to_numpy(copy[:3]), host[:3, 1:])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_marker_buffer_layout(backend):
     """Loading, pushing, boundary conditions, sorting between ranks, evaluation at markers and binning keep the
-    buffer column-major, and evaluation at row-major copies of the markers gives the same values."""
+    buffer of shape (n_cols, n_rows) and C-ordered, and evaluation at copies of the valid markers gives the values
+    at the buffer."""
     from maybempi import MPI
 
     from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains, perturbations
@@ -111,8 +129,8 @@ def test_markers_stay_column_major(backend):
         particles.initialize_weights()
 
         buffer = particles.markers
-        check_marker_layout(buffer)
-        assert buffer.shape[0] % ROW_ALIGNMENT == 0
+        assert buffer.shape == (particles.n_cols, particles.n_rows) and buffer.flags.c_contiguous
+        assert particles.n_rows % ROW_ALIGNMENT == 0
 
         butcher = ButcherTableau("rk4")
         push_eta = Pusher(
@@ -140,29 +158,35 @@ def test_markers_stay_column_major(backend):
 
         # the buffer is never replaced, only written to
         assert particles.markers is buffer
-        check_marker_layout(particles.markers)
+        assert buffer.shape == (particles.n_cols, particles.n_rows) and buffer.flags.c_contiguous
 
-        # evaluation at row-major copies of the markers equals evaluation at the buffer (converted at the entry)
-        rows = particles.markers_wo_holes_and_ghost
-        assert rows.flags.c_contiguous
-        n_valid = rows.shape[0]
-        det_buffer = domain.jacobian_det(particles.markers, remove_outside=False)[particles.valid_mks]
-        np.testing.assert_array_equal(xp.to_numpy(domain.jacobian_det(rows)), xp.to_numpy(det_buffer))
+        # evaluation at copies of the valid markers (Fortran-ordered on NumPy, converted by Domain and SplineFunction)
+        # equals evaluation at the buffer
+        valid = particles.valid_mks
+        columns = particles.markers_wo_holes_and_ghost
+        if backend == "numpy":
+            assert columns.flags.f_contiguous and not columns.flags.c_contiguous
+        n_valid = columns.shape[1]
+        assert n_valid == int(xp.count_nonzero(valid))
+        det_buffer = domain.jacobian_det(buffer, remove_outside=False)[valid]
+        np.testing.assert_array_equal(xp.to_numpy(domain.jacobian_det(columns)), xp.to_numpy(det_buffer))
+        pulled = domain.pull(lambda x, y, z: x * y + z, columns, kind="3")
+        assert pulled.shape == (n_valid,)
         np.testing.assert_array_equal(
-            xp.to_numpy(domain.pull(lambda x, y, z: x * y + z, rows, kind="3")),
-            xp.to_numpy(domain.pull(lambda x, y, z: x * y + z, as_marker_array(rows), kind="3")),
+            xp.to_numpy(pulled),
+            xp.to_numpy(domain.pull(lambda x, y, z: x * y + z, buffer, kind="3", remove_outside=False)[valid]),
         )
 
-        # spline evaluation at row-major markers (local: every rank has its own markers)
+        # spline evaluation at the markers (local: every rank has its own markers)
         field = derham.create_spline_function("f", "H1")
         field.initialize_coeffs(perturbations=perturbations.ModesCos(ls=(1,), ms=(1,), ns=(1,), amps=(1.0,)))
-        values = field(rows, local=True)
+        values = field(columns, local=True)
         assert values.shape == (n_valid,)
-        np.testing.assert_array_equal(xp.to_numpy(values), xp.to_numpy(field(as_marker_array(rows), local=True)))
+        np.testing.assert_array_equal(xp.to_numpy(values), xp.to_numpy(field(buffer, local=True)[valid]))
 
-        # binning reads single columns of the valid markers
+        # binning reads single rows of the valid markers
         f_slice, _ = particles.binning(
             (True, False, False, True, False, False), (xp.linspace(0.0, 1.0, 9), xp.linspace(-4.0, 4.0, 9))
         )
         assert f_slice.shape == (8, 8)
-        check_marker_layout(particles.markers)
+        assert particles.markers is buffer and buffer.flags.c_contiguous

@@ -149,7 +149,7 @@ def test_sorting(num_elements, degree, bcs, mapping, Np):
 
     logger.info("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
 
-    box_markers = particles.markers[:, -2]
+    box_markers = particles.markers[-2]
     assert all(box_markers[i] <= box_markers[i + 1] for i in range(len(box_markers) - 1))
 
 
@@ -177,10 +177,10 @@ def test_mpi_sort_markers_on_rank_boundary(bc):
     tags = 1000.0 + xp.arange(len(special))
 
     if mpi_comm.Get_rank() == 0:
-        rows = xp.nonzero(particles.holes)[0][: len(special)]
-        particles.markers[rows] = 0.0
-        particles.markers[rows, :3] = xp.array(special)
-        particles.markers[rows, 3] = tags
+        holes = xp.nonzero(particles.holes)[0][: len(special)]
+        particles.markers[:, holes] = 0.0
+        particles.markers[:3, holes] = xp.array(special).T
+        particles.markers[3, holes] = tags
         particles.update_holes()
 
     n_before = mpi_comm.allreduce(particles.n_mks_loc)
@@ -188,7 +188,7 @@ def test_mpi_sort_markers_on_rank_boundary(bc):
     n_after = mpi_comm.allreduce(particles.n_mks_loc)
     assert n_after == n_before
 
-    v1 = particles.markers[particles.valid_mks, 3]
+    v1 = particles.markers[3, particles.valid_mks]
     for tag, eta in zip(tags, special):
         n_found = mpi_comm.allreduce(int(xp.count_nonzero(v1 == tag)))
         assert n_found == 1, f"marker at {eta} found on {n_found} processes"
