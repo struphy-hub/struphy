@@ -10,6 +10,8 @@ of the run. The figures:
   :math:`\\omega = k_\\parallel / \\sqrt{1 + \\sum_s \\alpha_s^2 n_0 / B_0^2}` of the model (light units);
 * ``frequencies``: the measured frequency of each seeded mode against that branch, with the relative error;
 * ``orbits``: the paths of the saved markers, streaming along the perturbed field lines (magnetic flutter);
+* for a run with ``--oblique`` (3D, :math:`k_\\perp \\neq 0`): PyVista views ``slices_3d``, ``isosurface_3d`` of
+  :math:`B_y`, ``field_lines_3d`` of :math:`\\mathbf B_0 + \\tilde{\\mathbf B}`, and the movie ``slices_3d.gif``;
 * ``waves.gif``: an animation of the :math:`B_y` and :math:`E_x` profiles with the field energies alongside.
 
 See Remmerswaal, Hatzky, Sonnendrücker, J. Plasma Phys. 91, E127 (2025) for the model.
@@ -146,6 +148,40 @@ def main(path_out=DEFAULT_OUTPUT, save_results=False):
                 )
     else:
         print(f"Only {n_times} saved times: no dispersion plots (run longer).")
+
+    # 3D views (PyVista) of a run with more than one cell in x and y (``--oblique``): slices of B_y through the
+    # slab, its isosurfaces, the field lines of B_0 + B_tilde, and a movie of the slices
+    b_field = run.evaluate("em_fields/b_field")
+    if b_field.sizes["eta1"] > 1 and b_field.sizes["eta2"] > 1:
+        import pyvista as pv
+
+        pv.OFF_SCREEN = save_results
+        b_y_3d = b_field.sel(component=1)
+        b_y_3d.name = "B_y"
+        b_y_3d.attrs["label"] = r"$B_y$"
+        b_full = b_field.copy()
+        b_full[dict(component=2)] = b_full.sel(component=2) + params.equil.params["B0z"]
+        b_full.name = "B"
+        cuts = {"eta3": [0.0, 0.25, 0.5, 0.75], "eta1": 0.0}
+        views = {
+            "slices_3d": b_y_3d.plasma.plot.slices_3d(cuts=cuts, cmap="RdBu_r", symmetric=True, t=-1),
+            "isosurface_3d": b_y_3d.plasma.plot.isosurface(
+                values=[-0.5 * params.args.amp, 0.5 * params.args.amp], cmap="RdBu_r", symmetric=True, t=-1
+            ),
+            "field_lines_3d": b_full.plasma.plot.streamlines(n_points=40, cmap="plasma", t=-1),
+        }
+        for name, plotter in views.items():
+            if save_results:
+                results_dir.mkdir(exist_ok=True)
+                plotter.screenshot(results_dir / f"{name}.png", window_size=(1000, 900))
+                plotter.close()
+            else:
+                plotter.show()
+        if save_results and n_times >= 2:
+            step = max(1, n_times // 40)
+            b_y_3d.plasma.plot.movie(
+                results_dir / "slices_3d.gif", kind="slices", step=step, cuts=cuts, cmap="RdBu_r", symmetric=True
+            )
 
     # saved marker orbits: streaming along the perturbed field lines
     for species in ("kinetic_ions", "kinetic_electrons"):

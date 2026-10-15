@@ -44,13 +44,19 @@ parser.add_argument("--vti", type=float, default=1e-3, help="Ion thermal speed i
 parser.add_argument("--vte", type=float, default=1e-2, help="Electron thermal speed in units of c.")
 parser.add_argument("--no-drifts", action="store_true", help="Switch off the perpendicular drifts and their currents.")
 parser.add_argument(
+    "--oblique",
+    action="store_true",
+    help="3D variant: 8 x 8 x 32 cells and oblique seeds B_y ~ cos(2 pi x / L_x + 2 pi n z / L_z) (k_perp != 0), "
+    "for the 3D views of the pproc.",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (Np = 200, 8 elements in z), for the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
 
-num_elements = (4, 1, 32)
+num_elements = (8, 8, 32) if args.oblique else (4, 1, 32)
 if args.test_run:
     args.Np = 200
     num_elements = (4, 1, 8)
@@ -62,8 +68,9 @@ Shear Alfvén wave with the gauge-invariant gyrokinetic Maxwell model in the zer
 Periodic slab 0.25 x 0.25 x 1 m with B_0 = 1 T e_z and n_0 = 1e20 / m^3 (light units: x_hat = 1 m, t_hat = x_hat / c).
 Ions (m_i = m_p, v_ti = {args.vti} c) and electrons (m_i / m_e = {args.mass_ratio}, v_te = {args.vte} c),
 {args.Np} markers per species, loaded at the same positions (marker-level quasi-neutrality).
-Seed: B_y = {args.amp} sum_n cos(2 pi n z) for n in {args.modes}, standing shear Alfvén waves at k_perp = 0, which
-oscillate with omega = k_par / sqrt(1 + sum_s alpha_s^2 n_0 / B_0^2) (undamped, since E_par = 0 at k_perp = 0).
+Seed: B_y = {args.amp} sum_n cos({"2 pi x / L_x + " if args.oblique else ""}2 pi n z) for n in {args.modes}, standing
+shear Alfvén waves{" (oblique, k_perp = 2 pi / L_x)" if args.oblique else " at k_perp = 0"}, which oscillate with
+omega = k_par / sqrt(1 + sum_s alpha_s^2 n_0 / B_0^2) (undamped at k_perp = 0, since then E_par = 0).
 Time step dt = {args.dt}, end time {args.tend}, drifts {"off" if args.no_drifts else "on"}.
 """
 
@@ -185,7 +192,15 @@ for species, vth in ((model.kinetic_ions, args.vti), (model.kinetic_electrons, a
 # shear Alfvén seed B_y ~ cos(2 pi z): the amplitude must exceed the marker noise of the magnetisation current
 # (full-f, sum_s alpha_s^2 = c^2 / v_A^2 is large), which otherwise drives fields of comparable size
 model.em_fields.b_field.add_perturbation(
-    perturbations.ModesCos(ns=tuple(args.modes), amps=(args.amp,) * len(args.modes), given_in_basis="physical", comp=1),
+    perturbations.ModesCos(
+        ls=(1,) * len(args.modes) if args.oblique else None,
+        ns=tuple(args.modes),
+        amps=(args.amp,) * len(args.modes),
+        Lx=domain.params["r1"],
+        Lz=domain.params["r3"],
+        given_in_basis="physical",
+        comp=1,
+    ),
 )
 
 if __name__ == "__main__":
