@@ -38,7 +38,7 @@ from a Maxwellian with vth1 = 3 that covers both beams; time step dt = 0.1 up to
 Expected result. The kinetic dispersion relation above gives, for k = 0.2, a purely growing mode (omega = 0 + i
 gamma) with gamma = 0.2845 (cold beams: 0.353); the electric field grows as exp(gamma t) and the electric energy
 as exp(2 gamma t), followed by the nonlinear saturation. The pproc plots the electric energy on a log scale
-together with an analytical reference curve built from 0.2845, the distribution function in the (x, v1) plane
+together with the analytical growth exp(2 gamma t), the distribution function in the (x, v1) plane
 over time (the roll-up of the beams into a vortex) and the fields along x at the first, middle and last saved
 time.
 

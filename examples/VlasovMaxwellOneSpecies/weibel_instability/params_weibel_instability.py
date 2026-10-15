@@ -119,7 +119,8 @@ up to t = 400 (Lie-Trotter splitting).
 """
         + _expected
         + """The pproc plots the Gauss law violation, the energies of E1, E2 and B3 with a straight line fitted to
-log10 of the magnetic energy (between t = Tend/5 and 2 Tend/5) and a reference line with the slope 0.02784, the
+log10 of the magnetic energy (between t = Tend/5 and 2 Tend/5), the fitted and analytical gamma (the slope of log10
+of the energy is 2 gamma / ln 10 = 0.0242), the
 binned distributions in (x, v1) and (v1, v2) over time (isotropization) and the EM field and the current density
 at the first, middle and last saved time.
 """
