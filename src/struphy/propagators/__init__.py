@@ -33,6 +33,7 @@ _LAZY_IMPORTS = {
     "PushVinSPHpressure": "struphy.propagators.push_v_in_sph_pressure",
     "PushVinViscousPotential": "struphy.propagators.push_v_in_viscous_potential",
     "PushVxB": "struphy.propagators.push_vxb",
+    "ScalarWaveLeapfrog": "struphy.propagators.scalar_wave_leapfrog",
     "ShearAlfvenB1": "struphy.propagators.shear_alfven_b1",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
@@ -80,6 +81,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.push_v_in_sph_pressure import PushVinSPHpressure
     from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
     from struphy.propagators.push_vxb import PushVxB
+    from struphy.propagators.scalar_wave_leapfrog import ScalarWaveLeapfrog
     from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
@@ -126,6 +128,7 @@ __all__ = [
     "PushVinSPHpressure",
     "PushVinViscousPotential",
     "PushVxB",
+    "ScalarWaveLeapfrog",
     "ShearAlfvenB1",
     "ShearAlfvenCurrentCoupling5D",
     "ShearAlfvenPropagator",

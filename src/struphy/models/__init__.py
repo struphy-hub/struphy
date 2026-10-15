@@ -29,6 +29,7 @@ _LAZY_IMPORTS = {
     "Poisson": "struphy.models.poisson",
     "PressureLessSPH": "struphy.models.pressure_less_sph",
     "RandomParticleDiffusion": "struphy.models.random_particle_diffusion",
+    "ScalarWave": "struphy.models.scalar_wave",
     "ShearAlfven": "struphy.models.shear_alfven",
     "ToyDrift": "struphy.models.toy_drift",
     "TwoFluidQuasiNeutralToy": "struphy.models.two_fluid_quasi_neutral_toy",
@@ -70,6 +71,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.poisson import Poisson
     from struphy.models.pressure_less_sph import PressureLessSPH
     from struphy.models.random_particle_diffusion import RandomParticleDiffusion
+    from struphy.models.scalar_wave import ScalarWave
     from struphy.models.shear_alfven import ShearAlfven
     from struphy.models.toy_drift import ToyDrift
     from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
@@ -110,6 +112,7 @@ __all__ = [
     "Poisson",
     "PressureLessSPH",
     "RandomParticleDiffusion",
+    "ScalarWave",
     "ShearAlfven",
     "ToyDrift",
     "TwoFluidQuasiNeutralToy",

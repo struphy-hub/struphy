@@ -22,6 +22,7 @@ from struphy.models.maxwell import Maxwell
 from struphy.models.poisson import Poisson
 from struphy.models.pressure_less_sph import PressureLessSPH
 from struphy.models.random_particle_diffusion import RandomParticleDiffusion
+from struphy.models.scalar_wave import ScalarWave
 from struphy.models.shear_alfven import ShearAlfven
 from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
@@ -63,6 +64,7 @@ __all__ = [
     "Poisson",
     "PressureLessSPH",
     "RandomParticleDiffusion",
+    "ScalarWave",
     "ShearAlfven",
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",

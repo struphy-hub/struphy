@@ -14,7 +14,9 @@ def _derham(domain, num_elements=(8, 12, 1), degree=(3, 3, 1), regularity=2, bcs
     opts = DerhamOptions(
         degree=degree, bcs=bcs, polar_splines=True, polar_method="homotopy", polar_regularity=regularity, **kw
     )
-    return Derham(TensorProductGrid(num_elements=num_elements), opts, comm=MPI.COMM_WORLD, domain=domain)
+    # eta1 is not decomposed: the process at the pole holds all polar rings
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(False, True, True))
+    return Derham(grid, opts, comm=MPI.COMM_WORLD, domain=domain)
 
 
 def _domain(name):
@@ -32,7 +34,7 @@ def _domain(name):
 @pytest.mark.parametrize("domain_name", ["PerturbedDiskCylinder", "HollowCylinder", "IGAPolarCylinder"])
 @pytest.mark.parametrize("regularity", [1, 2, 3])
 def test_dimensions_match_total_complex(domain_name, regularity):
-    derham = _derham(_domain(domain_name), regularity=regularity, num_elements=(8, 12, 3), degree=(3, 3, 2))
+    derham = _derham(_domain(domain_name), regularity=regularity, num_elements=(8, 12, 4), degree=(3, 3, 2))
     c = derham.ck_blocks.complex2d
     n3B, n3M = derham.ck_blocks.n3["B"], derham.ck_blocks.n3["M"]
     d0, d1, d2 = (c.dimension(k) for k in range(3))
@@ -68,7 +70,7 @@ def test_exactness(domain_name):
     """d o d = 0 for the polar operators (polar and tensor-product parts)."""
     from struphy.polar.tests.test_polar import _rand_polar_vector
 
-    derham = _derham(_domain(domain_name), regularity=2, num_elements=(6, 9, 2), degree=(3, 3, 1))
+    derham = _derham(_domain(domain_name), regularity=2, num_elements=(6, 12, 4), degree=(3, 3, 1))
     spaces = [derham.polar_coeff_spaces[f] for f in ("0", "1", "2", "3")]
     ops = [derham.grad_bcfree, derham.curl_bcfree, derham.div_bcfree]
     for k in range(2):

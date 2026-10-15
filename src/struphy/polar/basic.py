@@ -127,17 +127,20 @@ class PolarDerhamSpace(VectorSpace):
 
         self._n_comps = len(self.n_polar)
 
+        # the process(es) at the pole must hold all polar rings and the first tensor-product ring; the check is
+        # collective, such that all processes raise (otherwise the processes without the pole would wait forever)
         if self.n_comps == 1:
             self._is_pole_rank = self.starts[0] == 0
-            if self.is_pole_rank:
-                assert self.ends[0] > self.n_rings[0], "MPI coeff decomposition in eta_1 too small for polar splines!"
+            decomposition_ok = not self.is_pole_rank or self.ends[0] > self.n_rings[0]
         else:
             self._is_pole_rank = self.starts[0][0] == 0
-            for n in range(3):
-                if self.starts[n][0] == 0:
-                    assert self.ends[n][0] > self.n_rings[n], (
-                        "MPI coeff decomposition in eta_1 too small for polar splines!"
-                    )
+            decomposition_ok = all(self.starts[n][0] != 0 or self.ends[n][0] > self.n_rings[n] for n in range(3))
+        if self.comm is not None and self.comm.Get_size() > 1:
+            decomposition_ok = self.comm.allreduce(bool(decomposition_ok), op=MPI.LAND)
+        assert decomposition_ok, (
+            f"MPI coeff decomposition in eta_1 too small for polar splines: the process at the pole needs more than "
+            f"{max(self.n_rings)} coefficients in eta_1 (use more elements in eta_1 or mpi_dims_mask=(False, True, True))."
+        )
 
         # sub-communicator of the processes at the pole (the only ones holding the inner tp rings)
         if self.comm is not None and self.comm.Get_size() > 1:

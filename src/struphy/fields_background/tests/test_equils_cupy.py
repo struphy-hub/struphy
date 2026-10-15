@@ -51,14 +51,15 @@ EQUIL_CASES = {
     "CurrentSheet": ("CurrentSheet", {}, "Cuboid", {}),
     "GenericCartesianFluidEquilibrium": ("GenericCartesianFluidEquilibrium", {}, "Cuboid", {}),
     "GenericCartesianFluidEquilibriumWithB": ("GenericCartesianFluidEquilibriumWithB", {}, "Cuboid", {}),
+    "HelicalVacuumField": ("HelicalVacuumField", {}, "HollowCylinder", {"a1": 0.0, "a2": 0.3, "Lz": 2 * np.pi}),
 }
 
 # equilibria that need an optional package (skipped without it)
 NEEDS = {"GVECequilibrium": "gvec", "DESCequilibrium": "desc"}
 
-# equilibria evaluated through their native code on the host (one round trip per call); all others are evaluated on
-# the device only, without host/device transfers
-HOST_EVALUATION = {"GVECequilibrium", "DESCequilibrium"}
+# equilibria evaluated through their native code on the host (one round trip per call; HelicalVacuumField: the Bessel
+# functions of SciPy); all others are evaluated on the device only, without host/device transfers
+HOST_EVALUATION = {"GVECequilibrium", "DESCequilibrium", "HelicalVacuumField"}
 
 # methods that models and projections call on the logical domain; those an equilibrium does not provide are skipped
 METHODS = (

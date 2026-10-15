@@ -34,6 +34,17 @@ class MaxwellWeakAmpere(Propagator):
 
     - implicit: Crank-Nicolson (implicit mid-point)
     - explicit: explicit RK methods from ButcherTableau
+    - leapfrog: symplectic velocity Verlet (one mass solve per half step),
+
+      .. math::
+
+          \mathbf e^{n+1/2} = \mathbf e^n + \tfrac{\Delta t}{2} \mathbb M^{1,-1} \mathbb C^\top \mathbb M^2 \mathbf b^n\,,\quad
+          \mathbf b^{n+1} = \mathbf b^n - \Delta t\, \mathbb C \mathbf e^{n+1/2}\,,\quad
+          \mathbf e^{n+1} = \mathbf e^{n+1/2} + \tfrac{\Delta t}{2} \mathbb M^{1,-1} \mathbb C^\top \mathbb M^2 \mathbf b^{n+1}\,,
+
+      i.e. the staggered leapfrog of the 1-form wave equation :math:`\ddot{\mathbf a} + \mathbb M^{1,-1}\mathbb C^\top
+      \mathbb M^2 \mathbb C \mathbf a = 0` for :math:`\mathbf b = \mathbb C \mathbf a`, :math:`\mathbf e = -\dot{\mathbf a}`
+      (stable for :math:`\Delta t < 2/\sqrt{\lambda_\textnormal{max}}`).
 
     System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
@@ -114,7 +125,7 @@ class MaxwellWeakAmpere(Propagator):
         """
 
         # specific literals
-        OptsAlgo = Literal["implicit", "explicit"]
+        OptsAlgo = Literal["implicit", "explicit", "leapfrog"]
         # propagator options
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
@@ -183,6 +194,18 @@ class MaxwellWeakAmpere(Propagator):
 
             # pre-allocate arrays
             self._byn = self._B.codomain.zeros()
+        elif self.options.algo == "leapfrog":
+            self._info = False
+            M1_inv = inverse(
+                M1,
+                self.options.solver,
+                pc=pc,
+                tol=self.options.solver_params.tol,
+                maxiter=self.options.solver_params.maxiter,
+                verbose=self.options.solver_params.verbose,
+            )
+            self._weak_curl = M1_inv @ curl.T @ M2
+            self._curl = curl
         else:
             self._info = False
 
@@ -240,6 +263,20 @@ class MaxwellWeakAmpere(Propagator):
             bn1 += bn
 
             diffs = self.update_feec_variables(e=en1, b=bn1)
+        elif self.options.algo == "leapfrog":
+            # e^{n+1/2}
+            e_half = self._weak_curl.dot(bn, out=self._e_tmp1)
+            e_half *= dt / 2
+            e_half += en
+            # b^{n+1}
+            bn1 = self._curl.dot(e_half, out=self._b_tmp1)
+            bn1 *= -dt
+            bn1 += bn
+            # e^{n+1}
+            en1 = self._weak_curl.dot(bn1, out=self._e_tmp2)
+            en1 *= dt / 2
+            en1 += e_half
+            self.update_feec_variables(e=en1, b=bn1)
         else:
             self._ode_solver(0.0, dt)
 

@@ -17,6 +17,7 @@ _LAZY_IMPORTS = {
     "Cuboid": "struphy.geometry.domains.cuboid",
     "DESCunit": "struphy.geometry.domains.desc_unit",
     "GVECunit": "struphy.geometry.domains.gvec_unit",
+    "HelicalTube": "struphy.geometry.domains.helical_tube",
     "HollowCylinder": "struphy.geometry.domains.hollow_cylinder",
     "HollowTorus": "struphy.geometry.domains.hollow_torus",
     "IGAPolarCylinder": "struphy.geometry.domains.iga_polar_cylinder",
@@ -36,6 +37,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.geometry.domains.cuboid import Cuboid
     from struphy.geometry.domains.desc_unit import DESCunit
     from struphy.geometry.domains.gvec_unit import GVECunit
+    from struphy.geometry.domains.helical_tube import HelicalTube
     from struphy.geometry.domains.hollow_cylinder import HollowCylinder
     from struphy.geometry.domains.hollow_torus import HollowTorus
     from struphy.geometry.domains.iga_polar_cylinder import IGAPolarCylinder
@@ -54,6 +56,7 @@ __all__ = [
     "Cuboid",
     "DESCunit",
     "GVECunit",
+    "HelicalTube",
     "HollowCylinder",
     "HollowTorus",
     "IGAPolarCylinder",

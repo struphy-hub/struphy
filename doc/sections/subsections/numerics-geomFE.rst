@@ -380,3 +380,34 @@ homotopies, boundary homotopies, mean projection :math:`\mathfrak B`
 ``TensorProductComplex``, ``PeriodicComplex``, ``PolarComplex3D``         :mod:`struphy.polar.homotopy.complex3d`
 3D polar complex of a domain                                              ``DerhamOptions(polar_method="homotopy")``
 ========================================================================  ==========================================================
+
+The studies of PolarFEEC.jl and of the NMPP seminar talk (2026) are reproduced by the demos
+:mod:`struphy.polar.homotopy.demos` (used by the tutorials), the tests ``src/struphy/polar/tests/test_homotopy_*.py``
+and the examples:
+
+==================================================================  ==================================================================
+Study                                                               Struphy
+==================================================================  ==================================================================
+1D spaces, forms on the square and on a mapped domain (jl 01-03)    ``demos.spaces``
+polar bases, regularity at the centre (talk; jl 04)                 ``demos.basis``, ``demos.regularity``
+convergence and commutativity of the polar projections (talk)       ``demos.projections``
+Poisson and curl-curl on a rounded square (jl 05)                   ``demos.pde``; ``examples/Poisson/polar_rounded_square``,
+                                                                    ``examples/CurlCurl/polar_rounded_square``
+Maxwell spectrum on the disk (jl 06)                                ``demos.maxwell``
+field lines in a twisted tube, :math:`\iota(r)` (jl 07)             ``demos.fieldlines`` with the domain ``HelicalTube("islands")``
+assembly cost of the polar masses (jl 08)                           ``demos.performance``
+0- and 1-form wave equations, regularity and convergence (talk)     ``demos.waves``; model ``ScalarWave`` and ``Maxwell`` with
+                                                                    ``algo="leapfrog"``; ``examples/ScalarWave/gaussian_perturbed_disk``,
+                                                                    ``examples/Maxwell/gaussian_perturbed_disk``
+3D 1-form wave in a helical tube (talk)                             ``examples/Maxwell/gaussian_helical_tube`` (``HelicalTube("stellarator")``)
+guiding-centre orbits near the magnetic axis (talk)                 ``examples/GuidingCenter/vacuum_near_axis`` with the equilibrium
+                                                                    ``HelicalVacuumField``
+==================================================================  ==================================================================
+
+The wave and guiding-centre scripts of the talk were not available; these studies follow the methods stated in the
+talk and in the wave script of the PolarFEEC.jl history (staggered leapfrog at :math:`0.9` times the stability limit
+:math:`2/\sqrt{\lambda_\textnormal{max}}`, Gaussian initial data next to the axis, maximum relative
+:math:`L^\infty` error during the final 10%, RK4 orbits with the relative energy error
+:math:`\max_t |E(t) - E(0)| / (\mu |B|)`). The reference solutions (the finest mesh of the highest regularity), the
+sampling of the :math:`L^\infty` norm, the final time :math:`T = 1`, the helical-tube geometries and the vacuum field
+(a single helical harmonic :math:`B = B_0 \nabla(z + \delta\, I_m(kr)\sin(m\theta - kz)/k)`) are choices of Struphy.
