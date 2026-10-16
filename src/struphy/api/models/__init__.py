@@ -23,6 +23,8 @@ from struphy.models.poisson import Poisson
 from struphy.models.pressure_less_sph import PressureLessSPH
 from struphy.models.random_particle_diffusion import RandomParticleDiffusion
 from struphy.models.shear_alfven import ShearAlfven
+from struphy.models.shear_alfven_curl_curl import ShearAlfvenCurlCurl
+from struphy.models.shear_alfven_curl_curl_with_proj import ShearAlfvenCurlCurlwithProj
 from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
 from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
@@ -64,6 +66,8 @@ __all__ = [
     "PressureLessSPH",
     "RandomParticleDiffusion",
     "ShearAlfven",
+    "ShearAlfvenCurlCurl",
+    "ShearAlfvenCurlCurlwithProj",
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
