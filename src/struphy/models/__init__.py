@@ -15,6 +15,8 @@ _LAZY_IMPORTS = {
     "DeterministicParticleDiffusion": "struphy.models.deterministic_particle_diffusion",
     "DriftKineticElectrostaticAdiabatic": "struphy.models.drift_kinetic_electrostatic_adiabatic",
     "GuidingCenter": "struphy.models.guiding_center",
+    "GyrokineticDarwin": "struphy.models.gyrokinetic_darwin",
+    "GyrokineticMaxwell": "struphy.models.gyrokinetic_maxwell",
     "GyrokineticPoisson": "struphy.models.gyrokinetic_poisson",
     "HasegawaWakatani": "struphy.models.hasegawa_wakatani",
     "IncompressibleNavierStokesSPH": "struphy.models.incompressible_navier_stokes_sph",
@@ -56,6 +58,8 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.deterministic_particle_diffusion import DeterministicParticleDiffusion
     from struphy.models.drift_kinetic_electrostatic_adiabatic import DriftKineticElectrostaticAdiabatic
     from struphy.models.guiding_center import GuidingCenter
+    from struphy.models.gyrokinetic_darwin import GyrokineticDarwin
+    from struphy.models.gyrokinetic_maxwell import GyrokineticMaxwell
     from struphy.models.gyrokinetic_poisson import GyrokineticPoisson
     from struphy.models.hasegawa_wakatani import HasegawaWakatani
     from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
@@ -96,6 +100,8 @@ __all__ = [
     "DeterministicParticleDiffusion",
     "DriftKineticElectrostaticAdiabatic",
     "GuidingCenter",
+    "GyrokineticDarwin",
+    "GyrokineticMaxwell",
     "GyrokineticPoisson",
     "HasegawaWakatani",
     "IncompressibleNavierStokesSPH",

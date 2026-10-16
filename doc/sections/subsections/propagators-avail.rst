@@ -187,6 +187,19 @@ Vlasov-Maxwell coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+Gyrokinetic-Maxwell coupling
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.propagators.gyrokinetic_maxwell
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.gyrokinetic_darwin
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 MHD-kinetic coupling
 ^^^^^^^^^^^^^^^^^^^^
 
