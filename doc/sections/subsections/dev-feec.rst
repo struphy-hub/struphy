@@ -37,3 +37,12 @@ Projection of spline functions
     :special-members:
     :show-inheritance:
     :exclude-members: __init__
+
+Kronecker approximations of operators
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.feec.kronecker_block
+    :members:
+    :special-members:
+    :show-inheritance:
+    :exclude-members: __init__
