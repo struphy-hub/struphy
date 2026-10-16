@@ -27,8 +27,8 @@ using namespace struphy_cuda;
  * @param vec2 Second component of the V1 vector data; written atomically.
  * @param vec3 Third component of the V1 vector data; written atomically.
  *
- * Holes (markers[ip, 0] == -1) are skipped; boundary particles are not, as in pyccel. The pyccel loop runs over all
- * rows (shape(markers)[0]), which is n_markers here. Many threads add to the same entries, so the summation order
+ * Holes (markers[0, ip] == -1) are skipped; boundary particles are not, as in pyccel. Both loops run over the
+ * columns that can hold markers, n_markers. Many threads add to the same entries, so the summation order
  * (and the last bits of the result) differs from the serial pyccel loop.
  */
 extern "C" __global__ void vlasov_maxwell(MarkerArgs args_markers, DerhamArgs args_derham, DomainArgs args_domain,

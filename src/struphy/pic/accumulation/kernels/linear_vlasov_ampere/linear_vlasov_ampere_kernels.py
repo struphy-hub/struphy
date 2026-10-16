@@ -58,7 +58,7 @@ def linear_vlasov_ampere(
     filling_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[1]
+    n_markers = args_markers.n_markers
 
     # total number of markers (weights are w_p = delta f_p / (N * s_0))
     n_markers_tot = args_markers.Np
