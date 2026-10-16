@@ -8,12 +8,13 @@ large-aspect-ratio tokamak."""
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "ITPA TAE benchmark (ShearAlfven)"
+name = "ITPA TAE benchmark (ShearAlfven)"  # or ShearAlfvenCurlCurl with --model ShearAlfvenCurlCurl
 description = """
 Toroidal Alfven eigenmode (TAE) with the ShearAlfven model: the shear Alfven part of linear ideal MHD around a
 static (zero-flow) equilibrium, without pressure and density perturbations (no coupling to the magnetosonic waves;
 compare with the LinearMHD version of this benchmark). No energetic particles: the TAE is excited by the initial
-condition, not driven.
+condition, not driven. With --model ShearAlfvenCurlCurl, the magnetic field is in H(curl) and the implicit step
+solves a curl-curl system for it, preconditioned by Hiptmair-Xu (same physics, same expected frequency).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -70,11 +71,19 @@ parser.add_argument(
 parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
 parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 96, 16], help="Number of elements per direction.")
 parser.add_argument(
+    "--model",
+    default="ShearAlfven",
+    choices=["ShearAlfven", "ShearAlfvenCurlCurl"],
+    help="ShearAlfven (default, magnetic field in H(div), implicit solve for the velocity) or ShearAlfvenCurlCurl "
+    "(magnetic field in H(curl), implicit curl-curl solve for the magnetic field).",
+)
+parser.add_argument(
     "--precond",
-    default="MassMatrixPreconditioner",
-    choices=["MassMatrixPreconditioner", "MultiGrid"],
-    help="Preconditioner of the shear Alfven solve: of the mass matrix (default), or a geometric multigrid V-cycle of "
-    "the whole Schur operator (experimental, currently slower here).",
+    default=None,
+    choices=["MassMatrixPreconditioner", "MultiGrid", "HiptmairXu"],
+    help="Preconditioner of the shear Alfven solve: of the mass matrix (default for ShearAlfven), a geometric "
+    "multigrid V-cycle of the whole Schur operator (ShearAlfven only; experimental, currently slower here), or "
+    "Hiptmair-Xu for the curl-curl operator (ShearAlfvenCurlCurl only, its default).",
 )
 parser.add_argument(
     "--test-run",
@@ -83,6 +92,10 @@ parser.add_argument(
     "(test_examples.py).",
 )
 args, _ = parser.parse_known_args()
+if args.precond is None:
+    args.precond = "HiptmairXu" if args.model == "ShearAlfvenCurlCurl" else "MassMatrixPreconditioner"
+if args.precond == ("HiptmairXu" if args.model == "ShearAlfven" else "MultiGrid"):
+    parser.error(f"--precond {args.precond} is not available for --model {args.model}.")
 if args.test_run:
     args.num_elements = [8, 32, 4]
 
@@ -113,13 +126,14 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import ShearAlfven
+from struphy.models import ShearAlfven, ShearAlfvenCurlCurl
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model = ShearAlfven(base_units=base_units)
+model_class = ShearAlfvenCurlCurl if args.model == "ShearAlfvenCurlCurl" else ShearAlfven
+model = model_class(base_units=base_units)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True

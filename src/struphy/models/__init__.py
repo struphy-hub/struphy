@@ -30,6 +30,7 @@ _LAZY_IMPORTS = {
     "PressureLessSPH": "struphy.models.pressure_less_sph",
     "RandomParticleDiffusion": "struphy.models.random_particle_diffusion",
     "ShearAlfven": "struphy.models.shear_alfven",
+    "ShearAlfvenCurlCurl": "struphy.models.shear_alfven_curl_curl",
     "ToyDrift": "struphy.models.toy_drift",
     "TwoFluidQuasiNeutralToy": "struphy.models.two_fluid_quasi_neutral_toy",
     "VariationalBarotropicFluid": "struphy.models.variational_barotropic_fluid",
@@ -71,6 +72,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.pressure_less_sph import PressureLessSPH
     from struphy.models.random_particle_diffusion import RandomParticleDiffusion
     from struphy.models.shear_alfven import ShearAlfven
+    from struphy.models.shear_alfven_curl_curl import ShearAlfvenCurlCurl
     from struphy.models.toy_drift import ToyDrift
     from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
     from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
@@ -111,6 +113,7 @@ __all__ = [
     "PressureLessSPH",
     "RandomParticleDiffusion",
     "ShearAlfven",
+    "ShearAlfvenCurlCurl",
     "ToyDrift",
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",
