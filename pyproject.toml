@@ -138,6 +138,9 @@ struphy = "struphy.console.main:struphy"
     "run_03/*.ini",
     "run_03/*.nc",
 ]
+"struphy.polar.tests" = [
+    "data/*.npz",
+]
 struphy = [
     "compile_struphy.mk",
     "**/*.cu",

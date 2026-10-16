@@ -25,6 +25,8 @@ requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GP
 MAPPINGS = ("IGAPolarCylinder", "IGAPolarTorus")
 FORMS = ("0", "1", "2", "3", "v")
 SPACE_IDS = {"0": "H1", "1": "Hcurl", "2": "Hdiv", "3": "L2", "v": "H1vec"}
+# polar constructions (and the poloidal solvers of the C1 projectors)
+METHODS = (("c1", "schur"), ("c1", "lu"), ("c1", "ilu"), ("homotopy", "schur"))
 
 
 class DenseDeviceSparse:
@@ -63,7 +65,7 @@ def make_domain(mapping, num_elements=(6, 6)):
     raise ValueError(mapping)
 
 
-def make_polar_derham(mapping, with_mass=True, poloidal_solver="schur", mpi_dims_mask=None):
+def make_polar_derham(mapping, with_mass=True, poloidal_solver="schur", mpi_dims_mask=None, polar_method="homotopy"):
     """Polar Derham (with projectors), its domain and mass matrices (or None), on the active backend."""
     from maybempi import MPI
 
@@ -73,7 +75,8 @@ def make_polar_derham(mapping, with_mass=True, poloidal_solver="schur", mpi_dims
     from struphy.topology.grids import TensorProductGrid
 
     size = MPI.COMM_WORLD.Get_size()
-    num_elements = (max(6, 4 * size), max(6, 3 * size), 4)
+    # the process at the pole holds the polar rings and two tensor-product rings in eta1
+    num_elements = (max(6, 6 * size), max(6, 3 * size), 4)
     domain = make_domain(mapping, num_elements[:2])
     options = DerhamOptions(
         degree=(domain.degree[0], domain.degree[1], 1),
@@ -81,6 +84,8 @@ def make_polar_derham(mapping, with_mass=True, poloidal_solver="schur", mpi_dims
         nquads_proj=(4, 4, 2),
         polar_splines=True,
         polar_poloidal_solver=poloidal_solver,
+        polar_method=polar_method,
+        polar_regularity=1,
     )
     derham = Derham(
         TensorProductGrid(
@@ -132,13 +137,15 @@ def assert_on_backend(vec, backend):
         assert cunumpy.is_gpu(a) == (backend == "cupy"), type(a)
 
 
-def polar_results(mapping, backend, with_mass=True, poloidal_solver="schur", mpi_dims_mask=None):
+def polar_results(
+    mapping, backend, with_mass=True, poloidal_solver="schur", mpi_dims_mask=None, polar_method="homotopy"
+):
     """Results of the polar operations on `backend`, as host arrays (dict name -> list of arrays)."""
     from struphy.polar.basic import PolarVector
 
     res = {}
     with cunumpy.use_backend(backend):
-        domain, derham, mass = make_polar_derham(mapping, with_mass, poloidal_solver, mpi_dims_mask)
+        domain, derham, mass = make_polar_derham(mapping, with_mass, poloidal_solver, mpi_dims_mask, polar_method)
 
         def record(name, vec):
             assert_on_backend(vec, backend)
@@ -259,10 +266,10 @@ def polar_results(mapping, backend, with_mass=True, poloidal_solver="schur", mpi
     return res
 
 
-def check_polar_backends(mapping, with_mass=True, poloidal_solver="schur", mpi_dims_mask=None):
+def check_polar_backends(mapping, with_mass=True, poloidal_solver="schur", mpi_dims_mask=None, polar_method="homotopy"):
     """The polar operations agree on the NumPy and the CuPy backend."""
-    host = polar_results(mapping, "numpy", with_mass, poloidal_solver, mpi_dims_mask)
-    device = polar_results(mapping, "cupy", with_mass, poloidal_solver, mpi_dims_mask)
+    host = polar_results(mapping, "numpy", with_mass, poloidal_solver, mpi_dims_mask, polar_method)
+    device = polar_results(mapping, "cupy", with_mass, poloidal_solver, mpi_dims_mask, polar_method)
     assert host.keys() == device.keys()
     for name in host:
         assert len(host[name]) == len(device[name]), name
@@ -270,7 +277,7 @@ def check_polar_backends(mapping, with_mass=True, poloidal_solver="schur", mpi_d
             np.testing.assert_allclose(b, a, rtol=1e-9, atol=1e-11, err_msg=name)
 
 
-def check_polar_backends_fake_cupy(mapping, poloidal_solver="schur"):
+def check_polar_backends_fake_cupy(mapping, poloidal_solver="schur", polar_method="homotopy"):
     """Full polar parity, including mass matrices, with CPU-emulated CUDA launches."""
     from struphy.pic.tests.cuda_emulation import emulated_launches
     from struphy.polar import linear_operators
@@ -278,7 +285,7 @@ def check_polar_backends_fake_cupy(mapping, poloidal_solver="schur"):
     previous = linear_operators.set_device_sparse_module(DenseDeviceSparse)
     try:
         with emulated_launches():
-            check_polar_backends(mapping, poloidal_solver=poloidal_solver)
+            check_polar_backends(mapping, poloidal_solver=poloidal_solver, polar_method=polar_method)
     finally:
         linear_operators.set_device_sparse_module(previous)
 
@@ -300,7 +307,9 @@ def test_device_blocks_numpy_backend():
         previous = set_device_sparse_module(DenseDeviceSparse)
         try:
             rng = np.random.default_rng(0)
-            for row in derham.dofs_extraction_ops["1"].blocks_ten_to_ten + E.blocks_ten_to_pol:
+            # the polar dofs of the homotopy construction are F~^T I^{-1} (a composition without own blocks)
+            dofs = derham.dofs_extraction_ops["1"]
+            for row in getattr(dofs, "blocks_ten_to_ten", []) + E.blocks_ten_to_pol:
                 for blk in row:
                     if blk is None:
                         continue
@@ -314,15 +323,15 @@ def test_device_blocks_numpy_backend():
 
 @pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
 @pytest.mark.parametrize("mapping", MAPPINGS)
-@pytest.mark.parametrize("poloidal_solver", ("schur", "lu", "ilu"))
-def test_polar_fake_cupy(mapping, poloidal_solver):
+@pytest.mark.parametrize("polar_method, poloidal_solver", METHODS)
+def test_polar_fake_cupy(mapping, polar_method, poloidal_solver):
     """Without a GPU: polar Derham on cunumpy's fake CuPy agrees with the NumPy backend.
 
     Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
     """
     code = (
         "from struphy.polar.tests.test_polar_cupy import check_polar_backends_fake_cupy; "
-        f"check_polar_backends_fake_cupy({mapping!r}, {poloidal_solver!r})"
+        f"check_polar_backends_fake_cupy({mapping!r}, {poloidal_solver!r}, {polar_method!r})"
     )
     result = subprocess.run(
         [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
@@ -332,13 +341,13 @@ def test_polar_fake_cupy(mapping, poloidal_solver):
 
 @requires_cupy
 @pytest.mark.parametrize("mapping", MAPPINGS)
-@pytest.mark.parametrize("poloidal_solver", ("schur", "lu", "ilu"))
-def test_polar_on_cupy(mapping, poloidal_solver):
+@pytest.mark.parametrize("polar_method, poloidal_solver", METHODS)
+def test_polar_on_cupy(mapping, polar_method, poloidal_solver):
     """Polar Derham on the GPU (cupyx.scipy.sparse for the polar blocks) agrees with the NumPy backend."""
-    check_polar_backends(mapping, poloidal_solver=poloidal_solver)
+    check_polar_backends(mapping, poloidal_solver=poloidal_solver, polar_method=polar_method)
 
 
-def check_polar_mpi(cuda_aware, mpi_dims_mask, fake=True):
+def check_polar_mpi(cuda_aware, mpi_dims_mask, fake=True, polar_method="homotopy"):
     """Backend parity with both Kronecker redistributions and ranks away from the pole."""
     from contextlib import nullcontext
 
@@ -356,7 +365,9 @@ def check_polar_mpi(cuda_aware, mpi_dims_mask, fake=True):
             cuda_aware = True
         cunumpy.mpi.set_mpi_cuda_aware(cuda_aware)
         with emulated_launches() if fake else nullcontext():
-            check_polar_backends("IGAPolarCylinder", with_mass=False, mpi_dims_mask=mpi_dims_mask)
+            check_polar_backends(
+                "IGAPolarCylinder", with_mass=False, mpi_dims_mask=mpi_dims_mask, polar_method=polar_method
+            )
     finally:
         cunumpy.mpi.set_mpi_cuda_aware(previous_mpi)
         if fake:
@@ -369,8 +380,9 @@ def check_polar_mpi(cuda_aware, mpi_dims_mask, fake=True):
 @pytest.mark.mpi
 @pytest.mark.parametrize("cuda_aware", (True, False))
 @pytest.mark.parametrize("mpi_dims_mask", ((True, False, False), (False, True, False), (False, False, True)))
-def test_polar_mpi_fake_cupy(cuda_aware, mpi_dims_mask):
-    check_polar_mpi(cuda_aware, mpi_dims_mask)
+@pytest.mark.parametrize("polar_method", ("c1", "homotopy"))
+def test_polar_mpi_fake_cupy(cuda_aware, mpi_dims_mask, polar_method):
+    check_polar_mpi(cuda_aware, mpi_dims_mask, polar_method=polar_method)
 
 
 @requires_cupy

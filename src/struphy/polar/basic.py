@@ -138,8 +138,9 @@ class PolarDerhamSpace(VectorSpace):
         if self.comm is not None and self.comm.Get_size() > 1:
             decomposition_ok = self.comm.allreduce(bool(decomposition_ok), op=MPI.LAND)
         assert decomposition_ok, (
-            f"MPI coeff decomposition in eta_1 too small for polar splines: the process at the pole needs more than "
-            f"{max(self.n_rings)} coefficients in eta_1 (use more elements in eta_1 or mpi_dims_mask=(False, True, True))."
+            f"MPI coeff decomposition in eta_1 too small for polar splines: the process at the pole needs at least "
+            f"{max(self.n_rings) + 2} coefficients in eta_1, the polar rings and two tensor-product rings (use more "
+            f"elements in eta_1 or mpi_dims_mask=(False, True, True))."
         )
 
         # sub-communicator of the processes at the pole (the only ones holding the inner tp rings)

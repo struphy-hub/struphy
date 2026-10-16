@@ -20,6 +20,7 @@ coefficients of physical (conforming) fields both coincide, and ``F~^T E = I``, 
 are unchanged.
 """
 
+import cunumpy as xp
 import numpy as np
 import scipy.sparse as sp
 
@@ -29,6 +30,13 @@ from struphy.polar.homotopy.spaces1d import ClampedBSplineSpace, PeriodicBSpline
 
 
 # ------------------------------------------------------------------------------------------------- cross-sections
+def _host(values):
+    """Domain evaluations (arrays or tuples of arrays of the active backend) as one NumPy array."""
+    if isinstance(values, (tuple, list)):
+        return np.stack([xp.to_numpy(v) for v in values])
+    return xp.to_numpy(values)
+
+
 class DomainCrossSection(Mapping2D):
     """The poloidal cross-section ``eta3 = const`` of a struphy :class:`~struphy.geometry.base.Domain` as a 2D map.
 
@@ -41,9 +49,9 @@ class DomainCrossSection(Mapping2D):
     def __init__(self, domain, eta3=0.0):
         self.domain, self.eta3 = domain, float(eta3)
         e3 = np.array([self.eta3])
-        pole = np.asarray(domain(np.array([0.0]), np.array([0.0]), e3)).reshape(3)
-        a = np.asarray(domain(np.array([1.0]), np.array([0.0]), e3)).reshape(3) - pole
-        b = np.asarray(domain(np.array([1.0]), np.array([0.25]), e3)).reshape(3) - pole
+        pole = self._map(np.array([0.0]), np.array([0.0]), e3).reshape(3)
+        a = self._map(np.array([1.0]), np.array([0.0]), e3).reshape(3) - pole
+        b = self._map(np.array([1.0]), np.array([0.25]), e3).reshape(3) - pole
         q1 = a / np.linalg.norm(a)
         b = b - (b @ q1) * q1
         q2 = b / np.linalg.norm(b)
@@ -51,6 +59,10 @@ class DomainCrossSection(Mapping2D):
         J = self.jacobian_matrix(np.array([0.5]), np.array([0.3]))
         if np.linalg.det(J[0]) < 0:
             self.basis[:, 1] *= -1
+
+    def _map(self, e1, e2, e3):
+        """Physical points of the domain on a tensor grid, on the host (the domain evaluates on any backend)."""
+        return _host(self.domain(*(xp.asarray(e) for e in (e1, e2, e3))))
 
     def _evaluate(self, function, x, y):
         x, y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
@@ -71,7 +83,7 @@ class DomainCrossSection(Mapping2D):
         out = np.empty((2, x.size))
         for unique_y in np.unique(y):
             mask = y == unique_y
-            P = np.asarray(self.domain(x[mask], np.array([unique_y]), np.array([self.eta3]))).reshape(3, -1)
+            P = self._map(x[mask], np.array([unique_y]), np.array([self.eta3])).reshape(3, -1)
             out[:, mask] = self.basis.T @ (P - self.pole[:, None])
         return out
 
@@ -79,7 +91,7 @@ class DomainCrossSection(Mapping2D):
         out = np.empty((x.size, 2, 2))
         for unique_y in np.unique(y):
             mask = y == unique_y
-            DF = np.asarray(self.domain.jacobian(x[mask], np.array([unique_y]), np.array([self.eta3])))
+            DF = _host(self.domain.jacobian(*(xp.asarray(e) for e in (x[mask], [unique_y], [self.eta3]))))
             DF = DF.reshape(3, 3, -1)[:, :2, :]
             out[mask] = np.einsum("ka,kbn->nab", self.basis, DF)
         return out
