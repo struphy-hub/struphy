@@ -224,7 +224,7 @@ def _run_with_removal(backend, track_rows: bool):
         else mock.patch.multiple(Particles, _track_rows=all_rows, count_rows_used=lambda self: all_rows(self))
     )
     comm = MPI.COMM_WORLD
-    with xp.use_backend(backend), device_context(backend), patches:
+    with xp.use_backend(backend), _device_context(backend), patches:
         domain = domains.Cuboid(r1=2.0, r2=3.0, r3=4.0)
         derham = Derham(TensorProductGrid(num_elements=(8, 4, 2)), DerhamOptions(degree=(2, 2, 1)), comm=comm)
         particles = Particles6D(
