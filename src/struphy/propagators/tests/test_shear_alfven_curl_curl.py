@@ -4,15 +4,21 @@ import pytest
 from struphy import EnvironmentOptions, Simulation, Time, equils, perturbations
 from struphy.io.options import DerhamOptions
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models import ShearAlfvenCurlCurl
+from struphy.models import ShearAlfvenCurlCurl, ShearAlfvenCurlCurlwithProj
 from struphy.propagators.base import Propagator
 from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
-from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
+from struphy.propagators.shear_alfven_curl_curl_propagator import (
+    ShearAlfvenCurlCurlPropagator,
+    ShearAlfvenCurlCurlwithProjPropagator,
+)
 from struphy.topology import grids
 
 
 def test_options():
     assert ShearAlfvenCurlCurlPropagator.Options().precond == "HiptmairXu"
+    assert not ShearAlfvenCurlCurlPropagator.Options().aux_correction
+    assert ShearAlfvenCurlCurlwithProjPropagator.Options().precond == "MassMatrixPreconditioner"
+    assert isinstance(ShearAlfvenCurlCurlwithProjPropagator.Options(), ShearAlfvenCurlCurlPropagator.Options)
     with pytest.raises(AssertionError):
         ShearAlfvenCurlCurlPropagator.Options(solver="cg")
     options = ShearAlfvenCurlCurlPropagator.Options(algo="explicit")
@@ -20,10 +26,10 @@ def test_options():
     assert options.butcher is not None
 
 
-def allocate_model(tmp_path, name, options, num_elements=(8, 8, 4), noise=False):
-    """A ShearAlfvenCurlCurl model in a slab with an oblique background field and a velocity perturbation (smooth
-    modes, or noise in all directions and components), allocated."""
-    model = ShearAlfvenCurlCurl()
+def allocate_model(tmp_path, name, options, num_elements=(8, 8, 4), noise=False, model_class=ShearAlfvenCurlCurl):
+    """A ShearAlfvenCurlCurl(withProj) model in a slab with an oblique background field and a velocity perturbation
+    (smooth modes, or noise in all directions and components), allocated."""
+    model = model_class()
     model.propagators.shear_alf.options = options
     if noise:
         for comp in range(3):
@@ -64,11 +70,12 @@ def state(model):
     "precond, aux_weight", [("HiptmairXu", 1.0), ("HiptmairXu", 0.0), ("MassMatrixPreconditioner", 1.0)]
 )
 def test_energy_conservation(tmp_path, precond, aux_weight):
-    """The implicit step conserves the perturbed energy up to the solver tolerance (also when dt changes)."""
-    options = ShearAlfvenCurlCurlPropagator.Options(
+    """With the projection, the implicit step conserves the perturbed energy up to the solver tolerance (also when dt
+    changes)."""
+    options = ShearAlfvenCurlCurlwithProjPropagator.Options(
         precond=precond, hx_aux_weight=aux_weight, solver_params=SolverParameters(tol=1e-13, maxiter=1000)
     )
-    model = allocate_model(tmp_path, f"{precond}_{aux_weight}", options)
+    model = allocate_model(tmp_path, f"{precond}_{aux_weight}", options, model_class=ShearAlfvenCurlCurlwithProj)
     shear_alf = model.propagators.shear_alf
     en0 = energy(model)
     for dt in (0.5, 0.5, 0.2):
@@ -79,12 +86,40 @@ def test_energy_conservation(tmp_path, precond, aux_weight):
     assert abs(energy(model) - en0) < 1e-10 * en0
 
 
+def test_energy_dissipation(tmp_path):
+    """Without the projection in the curl-curl term, the implicit step does not increase the perturbed energy (the
+    curl-curl term with M2gyro bounds the projected one from above), and changes it little for smooth modes."""
+    options = ShearAlfvenCurlCurlPropagator.Options(solver_params=SolverParameters(tol=1e-13, maxiter=1000))
+    model = allocate_model(tmp_path, "dissipation", options)
+    shear_alf = model.propagators.shear_alf
+    en = [energy(model)]
+    for dt in (0.5, 0.5, 0.2):
+        shear_alf(dt)
+        assert shear_alf._hx_dt == dt
+        en.append(energy(model))
+    assert all(b <= a * (1 + 1e-12) for a, b in zip(en[:-1], en[1:])), en
+    assert en[-1] > 0.9 * en[0], en
+
+
+def test_formulations_agree(tmp_path):
+    """For a smooth mode, the steps with and without the projection in the curl-curl term differ by the projection
+    error only."""
+    sols = {}
+    for model_class in (ShearAlfvenCurlCurl, ShearAlfvenCurlCurlwithProj):
+        options = model_class.Propagators().shear_alf.Options(solver_params=SolverParameters(tol=1e-13, maxiter=1000))
+        model = allocate_model(tmp_path, model_class.__name__, options, model_class=model_class)
+        model.propagators.shear_alf(0.1)
+        sols[model_class.__name__] = state(model)
+    for a, b in zip(sols["ShearAlfvenCurlCurl"], sols["ShearAlfvenCurlCurlwithProj"]):
+        assert xp.linalg.norm(a - b) < 1e-2 * xp.linalg.norm(b)
+
+
 def test_same_step_as_shear_alfven_b1(tmp_path):
-    """The b-Schur solve (curl-curl, Hiptmair-Xu) gives the same Crank-Nicolson step as the u-Schur solve of
+    """With the projection, the b-Schur solve (curl-curl) gives the same Crank-Nicolson step as the u-Schur solve of
     ShearAlfvenB1 (the same discrete system)."""
     dt = 0.5
-    options = ShearAlfvenCurlCurlPropagator.Options(solver_params=SolverParameters(tol=1e-13, maxiter=1000))
-    model = allocate_model(tmp_path, "b1", options)
+    options = ShearAlfvenCurlCurlwithProjPropagator.Options(solver_params=SolverParameters(tol=1e-13, maxiter=1000))
+    model = allocate_model(tmp_path, "b1", options, model_class=ShearAlfvenCurlCurlwithProj)
     u0, b0 = (v.copy() for v in (model.mhd.velocity.spline.vector, model.em_fields.b_field.spline.vector))
 
     model.propagators.shear_alf(dt)
@@ -109,22 +144,29 @@ def test_same_step_as_shear_alfven_b1(tmp_path):
 
 
 def test_hiptmair_xu_iterations(tmp_path):
-    """Hiptmair-Xu needs fewer PCG iterations than the mass matrix preconditioner for a large time step and rough
-    initial data, with the same solution."""
+    """Without the projection, Hiptmair-Xu with the field-aligned auxiliary space corrections needs fewer PCG
+    iterations than Hiptmair-Xu alone and than the mass matrix preconditioner, for a large time step, an oblique
+    background field and rough initial data, with the same solution."""
     sols, niter = {}, {}
-    for precond in ("HiptmairXu", "MassMatrixPreconditioner"):
+    for label, precond, aux in (
+        ("HX+aux", "HiptmairXu", True),
+        ("HX", "HiptmairXu", False),
+        ("mass", "MassMatrixPreconditioner", False),
+    ):
         options = ShearAlfvenCurlCurlPropagator.Options(
-            precond=precond, solver_params=SolverParameters(tol=1e-10, maxiter=1000)
+            precond=precond, aux_correction=aux, solver_params=SolverParameters(tol=1e-10, maxiter=1000)
         )
-        model = allocate_model(tmp_path, f"it_{precond}", options, num_elements=(16, 16, 8), noise=True)
+        model = allocate_model(tmp_path, f"it_{label}", options, num_elements=(16, 16, 8), noise=True)
         shear_alf = model.propagators.shear_alf
         shear_alf(2.0)
-        niter[precond] = shear_alf._schur_solver._solver._info["niter"]
-        sols[precond] = state(model)
+        niter[label] = shear_alf._schur_solver._solver._info["niter"]
+        sols[label] = state(model)
     print(f"{niter =}")
-    assert niter["HiptmairXu"] < niter["MassMatrixPreconditioner"]
-    for a, b in zip(sols["HiptmairXu"], sols["MassMatrixPreconditioner"]):
-        assert xp.linalg.norm(a - b) < 1e-6 * xp.linalg.norm(b)
+    assert niter["HX+aux"] < niter["HX"]
+    assert niter["HX+aux"] < niter["mass"]
+    for label in ("HX", "mass"):
+        for a, b in zip(sols["HX+aux"], sols[label]):
+            assert xp.linalg.norm(a - b) < 1e-6 * xp.linalg.norm(b)
 
 
 def test_explicit(tmp_path):

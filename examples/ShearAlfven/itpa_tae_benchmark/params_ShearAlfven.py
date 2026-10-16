@@ -14,7 +14,10 @@ Toroidal Alfven eigenmode (TAE) with the ShearAlfven model: the shear Alfven par
 static (zero-flow) equilibrium, without pressure and density perturbations (no coupling to the magnetosonic waves;
 compare with the LinearMHD version of this benchmark). No energetic particles: the TAE is excited by the initial
 condition, not driven. With --model ShearAlfvenCurlCurl, the magnetic field is in H(curl) and the implicit step
-solves a curl-curl system for it, preconditioned by Hiptmair-Xu (same physics, same expected frequency).
+solves a curl-curl system for it, preconditioned by Hiptmair-Xu
+(same physics, same expected frequency; the time step is not exactly energy conserving and damps the wave
+numerically). --model ShearAlfvenCurlCurlwithProj is the exactly energy conserving version (mass matrix
+preconditioner).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -73,9 +76,10 @@ parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 96, 16], h
 parser.add_argument(
     "--model",
     default="ShearAlfven",
-    choices=["ShearAlfven", "ShearAlfvenCurlCurl"],
-    help="ShearAlfven (default, magnetic field in H(div), implicit solve for the velocity) or ShearAlfvenCurlCurl "
-    "(magnetic field in H(curl), implicit curl-curl solve for the magnetic field).",
+    choices=["ShearAlfven", "ShearAlfvenCurlCurl", "ShearAlfvenCurlCurlwithProj"],
+    help="ShearAlfven (default, magnetic field in H(div), implicit solve for the velocity), ShearAlfvenCurlCurl "
+    "(magnetic field in H(curl), implicit curl-curl solve for the magnetic field, numerically damped) or "
+    "ShearAlfvenCurlCurlwithProj (as ShearAlfvenCurlCurl, exactly energy conserving).",
 )
 parser.add_argument(
     "--precond",
@@ -85,8 +89,8 @@ parser.add_argument(
     "multigrid V-cycle of the whole Schur operator (ShearAlfven only; experimental, currently slower here), the "
     "Kronecker (fast diagonalization) preconditioner of the whole Schur operator with the E x B auxiliary space "
     "correction (ShearAlfven only; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
-    "larger gains for larger time steps), or Hiptmair-Xu for the curl-curl operator (ShearAlfvenCurlCurl only, its "
-    "default).",
+    "larger gains for larger time steps), or Hiptmair-Xu for the curl-curl operator (curl-curl models only; the "
+    "default of ShearAlfvenCurlCurl).",
 )
 parser.add_argument(
     "--test-run",
@@ -97,10 +101,16 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 if args.precond is None:
     args.precond = "HiptmairXu" if args.model == "ShearAlfvenCurlCurl" else "MassMatrixPreconditioner"
-if args.precond == ("HiptmairXu" if args.model == "ShearAlfven" else "MultiGrid"):
+only = {"MultiGrid": "ShearAlfven", "StiffnessPreconditioner": "ShearAlfven"}
+if (
+    args.precond in only
+    and args.model != only[args.precond]
+    or args.precond == "HiptmairXu"
+    and args.model == "ShearAlfven"
+):
     parser.error(f"--precond {args.precond} is not available for --model {args.model}.")
-if args.model == "ShearAlfvenCurlCurl":
-    name = "ITPA TAE benchmark (ShearAlfvenCurlCurl)"
+if args.model != "ShearAlfven":
+    name = f"ITPA TAE benchmark ({args.model})"
 if args.test_run:
     args.num_elements = [8, 32, 4]
 
@@ -131,13 +141,17 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import ShearAlfven, ShearAlfvenCurlCurl
+from struphy.models import ShearAlfven, ShearAlfvenCurlCurl, ShearAlfvenCurlCurlwithProj
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model_class = ShearAlfvenCurlCurl if args.model == "ShearAlfvenCurlCurl" else ShearAlfven
+model_class = {
+    "ShearAlfven": ShearAlfven,
+    "ShearAlfvenCurlCurl": ShearAlfvenCurlCurl,
+    "ShearAlfvenCurlCurlwithProj": ShearAlfvenCurlCurlwithProj,
+}[args.model]
 model = model_class(base_units=base_units)
 
 # List all variables and decide whether to save their data
