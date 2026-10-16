@@ -120,7 +120,7 @@ def run_model(backend: str, out_folders: str) -> RunResult:
 
 def check_reference(ref: RunResult):
     """Physics sanity of the NumPy run: the comparison is only meaningful if the reference is right."""
-    assert ref.markers.shape[0] == PPC * int(np.prod(NUM_ELEMENTS))
+    assert ref.markers.shape[1] == PPC * int(np.prod(NUM_ELEMENTS))
     if MPI.COMM_WORLD.Get_rank() == 0:
         en_E, en_tot = ref.scalars["en_E"], ref.scalars["en_tot"]
         assert en_tot.size == N_STEPS + 1
@@ -148,11 +148,11 @@ def compare_runs(ref: RunResult, gpu: RunResult):
       entry) leaves a factor 100 against that and is still far below the change per step (~1e-2).
     """
     rtol = 1e-8
-    np.testing.assert_array_equal(gpu.markers[:, -1], ref.markers[:, -1])  # same markers
-    np.testing.assert_allclose(gpu.markers[:, 3:6], ref.markers[:, 3:6], rtol=1e-13, atol=1e-13)
-    np.testing.assert_allclose(gpu.markers[:, 0:3], ref.markers[:, 0:3], rtol=1e-13, atol=1e-13)
+    np.testing.assert_array_equal(gpu.markers[-1], ref.markers[-1])  # same markers
+    np.testing.assert_allclose(gpu.markers[3:6], ref.markers[3:6], rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(gpu.markers[0:3], ref.markers[0:3], rtol=1e-13, atol=1e-13)
 
-    w_ref, w_gpu = ref.markers[:, 6], gpu.markers[:, 6]
+    w_ref, w_gpu = ref.markers[6], gpu.markers[6]
     np.testing.assert_allclose(w_gpu, w_ref, rtol=0, atol=rtol * np.max(np.abs(w_ref)))
 
     e_ref, e_gpu = ref.fields["e_field"], gpu.fields["e_field"]

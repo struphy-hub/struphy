@@ -49,8 +49,8 @@ def push_v_sph_pressure_ideal_gas(
 
     This kernel requires:
 
-    * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[:, first_free_idx]``)
-    * The coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` to be pre-computed for each particle and stored at ``markers[:, first_free_idx + 2]``)
+    * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[first_free_idx, :]``)
+    * The coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` to be pre-computed for each particle and stored at ``markers[first_free_idx + 2, :]``)
 
     This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
     to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
@@ -64,7 +64,7 @@ def push_v_sph_pressure_ideal_gas(
         Array containing the 27 neighbouring boxes of each box.
 
     holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+        1D array of length markers.shape[1]. True if markers[:, i] is a hole.
 
     periodic1, periodic2, periodic3 : bool
         True if periodic in that dimension.
@@ -94,7 +94,7 @@ def push_v_sph_pressure_ideal_gas(
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
-    n_cols = shape(markers)[1]
+    n_cols = shape(markers)[0]
 
     gamma = 5 / 3
 
@@ -106,11 +106,11 @@ def push_v_sph_pressure_ideal_gas(
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        n_at_eta = markers[ip, first_free_idx]
-        loc_box = int(markers[ip, n_cols - 2])
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        n_at_eta = markers[first_free_idx, ip]
+        loc_box = int(markers[n_cols - 2, ip])
 
         # first component
         grad_u[0] = sph_eval_kernels.box_based_kernel(
@@ -254,7 +254,7 @@ def push_v_sph_pressure_ideal_gas(
         linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
 
         # update velocities
-        markers[ip, 3:6] -= dt * (grad_u_cart - gravity)
+        markers[3:6, ip] -= dt * (grad_u_cart - gravity)
 
     # fmt: off
     #$ omp end parallel

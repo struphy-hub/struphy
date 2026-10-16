@@ -46,14 +46,14 @@ def push_v_viscosity(
 
     * :math:`- w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
       / \rho^{N,h}(\boldsymbol \eta_i)` to be
-      pre-computed for each particle and stored at ``markers[:, first_free_idx + 3*(j+1) + k]``
+      pre-computed for each particle and stored at ``markers[first_free_idx + 3*(j+1) + k, :]``
       for :math:`j, k = 0, 1, 2`
 
     This is accomplished by the kernel
     :func:`~struphy.pic.pushing.eval_kernels_sph.sph_viscosity_tensor`, which itself requires
     the mean velocity coefficients
     :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` to be stored at
-    ``markers[:, first_free_idx:first_free_idx + 3]`` via
+    ``markers[first_free_idx:first_free_idx + 3, :]`` via
     :func:`~struphy.pic.pushing.eval_kernels_sph.sph_mean_velocity_coeffs`.
     Both kernels must be passed as ``init_kernel`` entries to the
     :class:`~struphy.pic.pushing.pusher.Pusher`.
@@ -67,7 +67,7 @@ def push_v_viscosity(
         Array containing the 27 neighbouring boxes of each box.
 
     holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+        1D array of length markers.shape[1]. True if markers[:, i] is a hole.
 
     periodic1, periodic2, periodic3 : bool
         True if periodic in that dimension.
@@ -86,7 +86,7 @@ def push_v_viscosity(
     n_markers = args_markers.n_markers
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
-    n_cols = shape(markers)[1]
+    n_cols = shape(markers)[0]
     f_visc = zeros(3, dtype=float)
 
     # fmt: off
@@ -97,10 +97,10 @@ def push_v_viscosity(
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        loc_box = int(markers[ip, n_cols - 2])
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        loc_box = int(markers[n_cols - 2, ip])
 
         f_visc[:] = 0.0
         for j in range(3):  # row of viscosity tensor
@@ -149,7 +149,7 @@ def push_v_viscosity(
         )
 
         # update velocities
-        markers[ip, 3:6] -= dt * f_visc / detdf
+        markers[3:6, ip] -= dt * f_visc / detdf
 
     # fmt: off
     #$ omp end parallel

@@ -15,9 +15,9 @@ def box_particles(
     next_index: "int[:]",
     box_index: "int" = -2,
 ) -> "int":
-    """Write the box of each particle into column ``box_index`` of the markers, count the particles per box into
+    """Write the box of each particle into row ``box_index`` of the markers, count the particles per box into
     ``next_index`` and, if every box fits into a row of ``boxes`` (the last column stays -1 as terminator), write the
-    particle rows into ``boxes``.
+    particle indices into ``boxes``.
 
     Returns the largest number of particles in a box; if it is ``>= boxes.shape[1]``, ``boxes`` is left untouched and
     the caller must raise.

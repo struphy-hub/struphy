@@ -21,26 +21,26 @@ def eval_magnetic_energy_PBb(
 ):
     r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
-    The result is stored at markers[:, first_diagnostics_idx].
+    The result is stored at markers[first_diagnostics_idx, :].
     """
     eta = empty(3, dtype=float)
 
     dfm = empty((3, 3), dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta[:] = mod(markers[ip, 0:3], 1.0)
+        eta[:] = mod(markers[0:3, ip], 1.0)
 
-        weight = markers[ip, 7]
-        dweight = markers[ip, 5]
+        weight = markers[7, ip]
+        dweight = markers[5, ip]
 
-        mu = markers[ip, mu_idx]
+        mu = markers[mu_idx, ip]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
@@ -72,4 +72,4 @@ def eval_magnetic_energy_PBb(
             PBb,
         )
 
-        markers[ip, first_diagnostics_idx] = mu * (abs_B + PB_b)
+        markers[first_diagnostics_idx, ip] = mu * (abs_B + PB_b)

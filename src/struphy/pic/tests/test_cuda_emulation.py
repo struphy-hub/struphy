@@ -111,3 +111,23 @@ def test_emulated_v1_symm_filler():
     for result, reference in zip(data, expected):
         assert np.any(reference != 0.0)
         np.testing.assert_allclose(result, reference, rtol=1e-12, atol=1e-13)
+
+
+@requires_compiler
+@pytest.mark.parametrize("n_markers", [96, 129])
+def test_emulated_prepare_push(n_markers):
+    """The fused preamble of Pusher._push (prepare_push_cuda.cu) writes the marker buffer (one column per marker) like
+    the three row assignments, and leaves the rows before first_pusher_idx and the last two rows alone."""
+    from struphy.pic.marker_layout import marker_array
+    from struphy.pic.pushing.pusher import _prepare_push_cuda
+
+    n_cols, first_pusher_idx, n_init = 26, 8, 6
+    markers = marker_array(n_cols, n_markers)
+    markers[:] = np.random.default_rng(11).random((n_cols, n_markers))
+    expected = markers.copy()
+    expected[first_pusher_idx : first_pusher_idx + n_init] = expected[:n_init]
+    expected[first_pusher_idx + n_init : -2] = 0.0
+
+    width = n_cols - 2 - first_pusher_idx
+    emulate_struct_kernel(_prepare_push_cuda(), markers, first_pusher_idx, n_init, n_threads=n_markers * width)
+    np.testing.assert_array_equal(markers, expected)
