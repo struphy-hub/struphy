@@ -188,8 +188,12 @@ else:
 equil = None
 
 # Profiling options
+from maybempi import MPI, SerialMPI
+
+num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+profiling_label = f"{num_ranks} rank" + ("s" if num_ranks != 1 else "")
 profiling_opts = ProfilingOptions(
-    label=name,
+    label=profiling_label,
     use_line_profiler=False,
 )
 

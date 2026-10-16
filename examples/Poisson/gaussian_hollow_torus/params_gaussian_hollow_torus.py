@@ -159,8 +159,12 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_m
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profilinig options
+from maybempi import MPI, SerialMPI
+
+num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+profiling_label = f"{num_ranks} rank" + ("s" if num_ranks != 1 else "")
 profiling_opts = ProfilingOptions(
-    label=name,
+    label=profiling_label,
     use_line_profiler=False,
 )
 
