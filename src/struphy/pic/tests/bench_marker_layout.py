@@ -36,7 +36,7 @@ def _time(fun, repeats: int) -> float:
 
 
 def run(
-    Np: int, repeats: int, num_elements: int, degree: int, save_markers: str = None, all_rows: bool = False
+    Np: int, repeats: int, num_elements: int, degree: int, save_markers: str = None, all_markers_used: bool = False
 ) -> dict:
     import cunumpy as xp
     import numpy as np
@@ -54,15 +54,15 @@ def run(
     from struphy.pic.pushing.pusher import Pusher, _prepare_push_cuda
     from struphy.topology.grids import TensorProductGrid
 
-    if all_rows:
-        # every column counts as used, as before n_rows_used existed (for comparing the same build)
+    if all_markers_used:
+        # every column counts as used, as before n_markers_used existed (for comparing the same build)
         from struphy.pic.base import Particles
 
-        def _all_rows(self, n_emptied=0, n_filled=0):
-            self._set_n_rows_used(self.n_rows)
+        def _all_markers_used(self, n_emptied=0, n_filled=0):
+            self._set_n_markers_used(self.n_markers_max)
 
-        Particles._track_rows = _all_rows
-        Particles.count_rows_used = _all_rows
+        Particles._track_markers = _all_markers_used
+        Particles.count_markers_used = _all_markers_used
 
     comm = MPI.COMM_WORLD
     domain = domains.Cuboid(r1=2.0, r2=3.0, r3=4.0)
@@ -90,12 +90,12 @@ def run(
     def preamble():
         """The row assignments at the start of Pusher._push."""
         if xp.get_backend() == "cupy":
-            n_cols, n_rows = markers.shape
+            n_cols, n_markers = markers.shape
             _prepare_push_cuda()(
                 markers,
                 first_pusher_idx,
                 n_init,
-                n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
+                n_threads=n_markers * (n_cols - 2 - first_pusher_idx),
             )
         else:
             markers[first_pusher_idx:first_shift_idx] = markers[:n_init]
@@ -148,17 +148,17 @@ def run(
 
     info = {
         "backend": xp.get_backend(),
-        "n_rows": particles.n_rows,
+        "n_markers_max": particles.n_markers_max,
         "n_cols": particles.n_cols,
         "Np": Np,
         "c_contiguous": bool(markers.flags.c_contiguous),
-        "n_rows_used": int(getattr(particles, "n_rows_used", particles.n_rows)),
+        "n_markers_used": int(getattr(particles, "n_markers_used", particles.n_markers_max)),
     }
     result = {"info": info, "ms": {name: _time(fun, repeats) for name, fun in ops.items()}}
 
     if save_markers is not None:
         # the valid markers after all timed calls, sorted by ID, for a bit-for-bit comparison of two runs; saved with
-        # one row per marker, as by runs with the earlier (n_rows, n_cols) buffer
+        # one row per marker, as by runs with the earlier (n_markers_max, n_cols) buffer
         valid = xp.to_numpy(particles.markers_wo_holes_and_ghost)
         np.save(save_markers, valid[:, np.argsort(valid[-1])].T)
     return result
@@ -168,8 +168,8 @@ def _print(result: dict):
     info = result["info"]
     order = "C-ordered" if info["c_contiguous"] else "not C-contiguous"
     print(
-        f"backend {info['backend']}, markers {info['n_cols']} x {info['n_rows']} (one column per marker, {order}), "
-        f"Np = {info['Np']}, columns used {info.get('n_rows_used', info['n_rows'])}"
+        f"backend {info['backend']}, markers {info['n_cols']} x {info['n_markers_max']} (one column per marker, {order}), "
+        f"Np = {info['Np']}, markers used {info.get('n_markers_used', info['n_markers_max'])}"
     )
     width = max(len(name) for name in result["ms"])
     for name, ms in result["ms"].items():
@@ -195,7 +195,7 @@ if __name__ == "__main__":
     parser.add_argument("--json", help="write the timings to this file")
     parser.add_argument("--save-markers", help="save the valid markers after the run (sorted by ID) to this .npy file")
     parser.add_argument(
-        "--all-rows", action="store_true", help="treat every marker column as used (no n_rows_used bound)"
+        "--all-markers-used", action="store_true", help="treat every marker column as used (no n_markers_used bound)"
     )
     parser.add_argument("--compare", nargs=2, metavar=("BEFORE", "AFTER"), help="compare two JSON files and exit")
     args = parser.parse_args()
@@ -204,7 +204,7 @@ if __name__ == "__main__":
         with open(args.compare[0]) as f, open(args.compare[1]) as g:
             _compare(json.load(f), json.load(g))
     else:
-        result = run(args.Np, args.repeats, args.num_elements, args.degree, args.save_markers, args.all_rows)
+        result = run(args.Np, args.repeats, args.num_elements, args.degree, args.save_markers, args.all_markers_used)
         _print(result)
         if args.json:
             with open(args.json, "w") as f:

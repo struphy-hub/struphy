@@ -64,14 +64,14 @@ class CudaMarkerArguments(CudaStructArguments):
         bc_type,
         pole: bool,
     ):
-        # shape (n_cols, n_rows), one column per marker (struphy.pic.marker_layout)
+        # shape (n_cols, n_markers_max), one column per marker (struphy.pic.marker_layout)
         self.markers = _device_array("markers", markers, np.float64, ndim=2)
         self.valid_mks = _device_array("valid_mks", valid_mks, np.bool_)
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
         # markers (columns) the kernels loop over; Particles lowers it to the columns that can hold markers
-        # (Particles.n_rows_used)
+        # (Particles.n_markers_used)
         self.n_markers = markers.shape[1]
         self.first_diagnostics_idx = first_diagnostics_idx
         self.first_pusher_idx = first_pusher_idx

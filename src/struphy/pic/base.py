@@ -43,7 +43,7 @@ from struphy.pic.kernels.box_and_sort_particles import box_and_sort_particles
 from struphy.pic.kernels.box_particles import box_particles
 from struphy.pic.kernels.fill_boxes import fill_boxes
 from struphy.pic.kernels.sort_and_fill_boxes import sort_and_fill_boxes
-from struphy.pic.marker_layout import marker_array, padded_n_rows
+from struphy.pic.marker_layout import marker_array, padded_n_markers
 from struphy.pic.pushing.kernels.reflect import reflect
 from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
 from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
@@ -80,10 +80,10 @@ class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
 
-    The marker information is stored in a 2D array of shape ``(n_cols, n_rows)``, one column per marker
+    The marker information is stored in a 2D array of shape ``(n_cols, n_markers_max)``, one column per marker
     (see :mod:`struphy.pic.marker_layout`).
     In ``markers[j, ip]`` the index ``ip`` refers to a specific particle,
-    the index ``j`` to its attributes; ``n_cols`` is the number of attributes and ``n_rows`` the number of markers
+    the index ``j`` to its attributes; ``n_cols`` is the number of attributes and ``n_markers_max`` the number of markers
     (including holes), and the attribute indices are called "columns" below and in the rest of the code.
     They are as follows:
 
@@ -185,7 +185,7 @@ class Particles(metaclass=ABCMeta):
         Normalization parameters (epsilon, alpha, ...)
 
     dry_run : bool
-        If True, only compute the sizing of the marker array (:attr:`n_rows`, :attr:`n_cols`, ...)
+        If True, only compute the sizing of the marker array (:attr:`n_markers_max`, :attr:`n_cols`, ...)
         and return early, without allocating any of the (potentially large) marker/sorting/buffer
         arrays. Used by :attr:`nbytes_local` to estimate the memory footprint before actually
         allocating the particles, see :meth:`~struphy.models.variables.PICVariable.estimate_mem`.
@@ -417,9 +417,9 @@ class Particles(metaclass=ABCMeta):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
-        self._sorting_etas = xp.zeros((3, self.n_rows), dtype=float)
-        self._is_on_proc_domain = xp.zeros((3, self.n_rows), dtype=bool)
-        self._can_stay = xp.zeros(self.n_rows, dtype=bool)
+        self._sorting_etas = xp.zeros((3, self.n_markers_max), dtype=float)
+        self._is_on_proc_domain = xp.zeros((3, self.n_markers_max), dtype=bool)
+        self._can_stay = xp.zeros(self.n_markers_max, dtype=bool)
         self._reqs = [None] * self.mpi_size
         self._recvbufs = [None] * self.mpi_size
         self._send_to_i = [None] * self.mpi_size
@@ -550,12 +550,13 @@ class Particles(metaclass=ABCMeta):
         return self.first_free_idx + self.n_cols_aux + 2
 
     @property
-    def n_rows(self):
-        """Total number of markers (columns) in markers array, including holes."""
-        if not hasattr(self, "_n_rows"):
+    def n_markers_max(self):
+        """Number of marker slots (columns of :attr:`markers`), holes included: the most markers this process can
+        hold."""
+        if not hasattr(self, "_n_markers_max"):
             input("\nWarning: marker array not yet created, creating now ...")
             self._allocate_marker_array()
-        return self._n_rows
+        return self._n_markers_max
 
     @property
     def mean_velocity_index(self):
@@ -565,22 +566,22 @@ class Particles(metaclass=ABCMeta):
     @property
     def nbytes_local(self) -> int:
         """Estimated local (per-MPI-rank) memory footprint, in bytes, of all marker-related arrays
-        (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_rows` and
+        (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_markers_max` and
         :attr:`n_cols`, so it is valid whether or not the arrays were actually allocated
         (see the ``dry_run`` argument of :meth:`__init__`)."""
         float_size = 8  # dtype=float
         bool_size = 1  # dtype=bool
-        n_rows = self.n_rows
+        n_markers_max = self.n_markers_max
         n_cols = self.n_cols
 
         nbytes = 0
-        nbytes += n_rows * n_cols * float_size  # markers
-        nbytes += n_rows * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
-        nbytes += n_rows * 3 * bool_size  # is_on_proc_domain
-        nbytes += n_rows * bool_size  # can_stay
+        nbytes += n_markers_max * n_cols * float_size  # markers
+        nbytes += n_markers_max * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
+        nbytes += n_markers_max * 3 * bool_size  # is_on_proc_domain
+        nbytes += n_markers_max * bool_size  # can_stay
         # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
-        nbytes += n_rows * bool_size * 6
-        nbytes += int(n_rows * 0.5) * 10 * float_size  # lost_markers
+        nbytes += n_markers_max * bool_size * 6
+        nbytes += int(n_markers_max * 0.5) * 10 * float_size  # lost_markers
         return int(nbytes)
 
     @property
@@ -761,7 +762,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def markers(self):
-        """2D array of shape ``(n_cols, n_rows)`` holding the marker information, including holes.
+        """2D array of shape ``(n_cols, n_markers_max)`` holding the marker information, including holes.
         The i-th column holds the i-th marker info (see :mod:`struphy.pic.marker_layout`).
 
         ===== ============== ======================= ======= ====== ====== ========== === === ===
@@ -1183,7 +1184,7 @@ class Particles(metaclass=ABCMeta):
         # fill holes in markers array with -1 (all holes are at end of array at loading stage); every column can hold
         # a loaded marker until they are counted below (restart files can have markers in any column)
         self._markers[:, n_mks_load_loc:] = -1.0
-        self._set_n_rows_used(self.n_rows)
+        self._set_n_markers_used(self.n_markers_max)
 
         # number of holes and markers on process
         self.update_holes()
@@ -1439,7 +1440,7 @@ class Particles(metaclass=ABCMeta):
             eta1[xp.logical_and(eta1 >= 0.0, eta1 < POLE_ETA1_MIN)] = POLE_ETA1_MIN
 
         # the loaded markers occupy the first columns (fresh loading) or any columns (restart)
-        self.count_rows_used()
+        self.count_markers_used()
 
         # send the markers to the process of their domain: needed on several processes whether or not there are
         # sorting boxes, since accumulations before the first push (e.g. an initial Poisson solve) assume it (#764);
@@ -1851,7 +1852,7 @@ class Particles(metaclass=ABCMeta):
 
         # the sent markers are holes now, the received ones filled the lowest holes (host counts, no device read)
         n_received = int(np.sum(recv_info)) - int(recv_info[self.mpi_rank])
-        self._track_rows(n_emptied=int(send_inds.size), n_filled=n_received)
+        self._track_markers(n_emptied=int(send_inds.size), n_filled=n_received)
 
         # new holes and new number of holes and markers on process
         self.update_holes()
@@ -1899,9 +1900,9 @@ class Particles(metaclass=ABCMeta):
 
         # apply boundary conditions
         if self._remove_axes:
-            # snapshot of the (3, n_rows) logical coordinates for the loop over the axes
+            # snapshot of the (3, n_markers_max) logical coordinates for the loop over the axes
             # (see _find_outside_particles)
-            self._eta_bc_buf[:, : self.n_rows_used] = self.markers[:3, : self.n_rows_used]
+            self._eta_bc_buf[:, : self.n_markers_used] = self.markers[:3, : self.n_markers_used]
 
         for axis in self._remove_axes:
             outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
@@ -1915,7 +1916,7 @@ class Particles(metaclass=ABCMeta):
             self._markers[:-1, self._is_outside] = -1.0
             n_removed = len(xp.nonzero(self._is_outside)[0])
             self._n_lost_markers += n_removed
-            self._track_rows(n_emptied=n_removed)
+            self._track_markers(n_emptied=n_removed)
 
             # removed markers are holes now and refilled markers have moved: refresh both,
             # such that a marker outside on several axes is only counted (and refilled) once
@@ -1923,7 +1924,7 @@ class Particles(metaclass=ABCMeta):
             self._eta_bc_buf[:, outside_inds] = self.markers[:3, outside_inds]
 
         if self._periodic_axes:
-            self._eta_bc_buf[:, : self.n_rows_used] = self.markers[:3, : self.n_rows_used]
+            self._eta_bc_buf[:, : self.n_markers_used] = self.markers[:3, : self.n_markers_used]
 
         for axis in self._periodic_axes:
             outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
@@ -1940,14 +1941,14 @@ class Particles(metaclass=ABCMeta):
                 self.markers[self.first_pusher_idx + 3 + self.vdim + axis, outside_right_inds] += 1.0
                 self.markers[self.first_pusher_idx + 3 + self.vdim + axis, outside_left_inds] += -1.0
             else:
-                self.markers[self.first_pusher_idx + 3 + self.vdim + axis, : self.n_rows_used] = 0.0
+                self.markers[self.first_pusher_idx + 3 + self.vdim + axis, : self.n_markers_used] = 0.0
                 self.markers[self.first_pusher_idx + 3 + self.vdim + axis, outside_right_inds] = 1.0
                 self.markers[self.first_pusher_idx + 3 + self.vdim + axis, outside_left_inds] = -1.0
 
         # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
         outside_inds_per_axis = {}
         if self._reflect_axes:
-            self._eta_bc_buf[:, : self.n_rows_used] = self.markers[:3, : self.n_rows_used]
+            self._eta_bc_buf[:, : self.n_markers_used] = self.markers[:3, : self.n_markers_used]
 
         for axis in self._reflect_axes:
             outside_inds = self._find_outside_particles(axis, eta=self._eta_bc_buf)
@@ -1990,49 +1991,50 @@ class Particles(metaclass=ABCMeta):
             self.update_holes()
             n_removed = int(xp.count_nonzero(self.holes) - n_holes_before)
             self._n_lost_markers += n_removed
-            self._track_rows(n_emptied=n_removed)
+            self._track_markers(n_emptied=n_removed)
 
     def update_holes(self):
         """Recompute the :attr:`~struphy.pic.base.Particles.holes` mask (markers with ``markers[0] == -1``)
         and, from it, refresh :attr:`~struphy.pic.base.Particles.valid_mks`.
         Must be called after any operation that creates, removes or moves markers
         (e.g. sorting, boundary conditions, refilling), since holes are tracked per marker index.
-        The markers (columns) from :attr:`n_rows_used` on are holes and are not read."""
-        n = self._n_rows_used
+        The markers (columns) from :attr:`n_markers_used` on are holes and are not read."""
+        n = self._n_markers_used
         self._holes[:n] = self.markers[0, :n] == -1.0
         self._holes[n:] = True
         self._update_valid_mks()
 
     @property
-    def n_rows_used(self) -> int:
-        """Number of columns (of the :attr:`n_rows` marker slots) of :attr:`markers` that can hold markers: every
-        column from this one on is a hole.
+    def n_markers_used(self) -> int:
+        """Number of marker slots (columns of :attr:`markers`, out of :attr:`n_markers_max`) that can hold markers:
+        every slot from this one on is a hole.
 
         Kernels loop over these markers only (``args_markers.n_markers``), and so do the row operations of the
-        pushers and the boundary conditions (``markers[j, :n_rows_used]``). It is an upper bound kept on the host,
+        pushers and the boundary conditions (``markers[j, :n_markers_used]``). It is an upper bound kept on the host,
         so that it never waits for the device: markers always fill the lowest holes, so ``k`` incoming markers end
-        below (occupied columns) + ``k`` (see :meth:`_track_rows`). Loading and box sorting count it exactly (:meth:`count_rows_used`), and so must
-        code that writes markers into holes itself, outside the methods of this class.
+        below (occupied slots) + ``k`` (see :meth:`_track_markers`). Loading and box sorting count it exactly
+        (:meth:`count_markers_used`), and so must code that writes markers into holes itself, outside the methods of
+        this class.
         """
-        return self._n_rows_used
+        return self._n_markers_used
 
-    def _set_n_rows_used(self, n_rows_used: int):
-        """Set :attr:`n_rows_used`, and the number of markers the kernels loop over."""
-        self._n_rows_used = min(int(n_rows_used), self.n_rows)
-        self._args_markers.n_markers = self._n_rows_used
+    def _set_n_markers_used(self, n_markers_used: int):
+        """Set :attr:`n_markers_used`, and the number of markers the kernels loop over."""
+        self._n_markers_used = min(int(n_markers_used), self.n_markers_max)
+        self._args_markers.n_markers = self._n_markers_used
 
-    def count_rows_used(self):
-        """Set :attr:`n_rows_used` to one past the last column that is not a hole, and count the occupied columns.
+    def count_markers_used(self):
+        """Set :attr:`n_markers_used` to one past the last column that is not a hole, and count the occupied columns.
 
         Called after loading and after box sorting; call it, before :meth:`update_holes`, after writing markers
         into holes outside the methods of this class. Reads two numbers from the device on the CuPy backend."""
         occupied = xp.nonzero(self.markers[0] != -1.0)[0]
         n_occupied = int(occupied.size)
         self._n_occupied_bound = n_occupied
-        self._set_n_rows_used(int(occupied[-1]) + 1 if n_occupied > 0 else 0)
+        self._set_n_markers_used(int(occupied[-1]) + 1 if n_occupied > 0 else 0)
 
-    def _track_rows(self, n_emptied: int = 0, n_filled: int = 0):
-        """Update :attr:`n_rows_used` on the host after ``n_emptied`` occupied columns became holes and then
+    def _track_markers(self, n_emptied: int = 0, n_filled: int = 0):
+        """Update :attr:`n_markers_used` on the host after ``n_emptied`` occupied columns became holes and then
         ``n_filled`` markers were written into the lowest holes.
 
         At most :attr:`_n_occupied_bound` columns are occupied, so the ``n_filled`` lowest holes lie below
@@ -2041,8 +2043,8 @@ class Particles(metaclass=ABCMeta):
         """
         occupied = max(0, self._n_occupied_bound - int(n_emptied))
         if n_filled > 0:
-            self._set_n_rows_used(max(self._n_rows_used, occupied + int(n_filled)))
-        self._n_occupied_bound = min(self.n_rows, occupied + int(n_filled))
+            self._set_n_markers_used(max(self._n_markers_used, occupied + int(n_filled)))
+        self._n_occupied_bound = min(self.n_markers_max, occupied + int(n_filled))
 
     def set_velocities_comp(self, velocity, comp):
         """Set one or several velocity components to the same constant value, for all valid markers.
@@ -2148,7 +2150,7 @@ class Particles(metaclass=ABCMeta):
         # The markers have just been reordered. The masks are per marker index,
         # so they must be rebuilt before any later use of valid_mks/f_coords;
         # the holes may have moved anywhere, so the used columns are counted again.
-        self.count_rows_used()
+        self.count_markers_used()
         self.update_holes()
         self._update_ghost_particles()
         self._update_valid_mks()
@@ -2659,7 +2661,7 @@ class Particles(metaclass=ABCMeta):
     def _allocate_marker_array(self, dry_run: bool = False):
         """Create marker array :attr:`~struphy.pic.base.Particles.markers`.
 
-        If dry_run is True, only :attr:`n_rows` (and :attr:`n_cols`) are computed and no array
+        If dry_run is True, only :attr:`n_markers_max` (and :attr:`n_cols`) are computed and no array
         is actually allocated; see :attr:`nbytes_local`."""
         if not hasattr(self, "_n_mks_load"):
             self._n_mks_load, self._Np_per_clone = self._n_mks_load_and_Np_per_clone()
@@ -2670,7 +2672,7 @@ class Particles(metaclass=ABCMeta):
 
         # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer;
         # one column per marker, every row starting on a 256-byte boundary (see struphy.pic.marker_layout)
-        self._n_rows = padded_n_rows(round(float(n_mks_load_loc * (1 + bufsize))))
+        self._n_markers_max = padded_n_markers(round(float(n_mks_load_loc * (1 + bufsize))))
 
         # Have at least 3 spare places in markers array
         assert self.first_free_idx + 2 < self.n_cols - 2, (
@@ -2680,22 +2682,22 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = marker_array(self.n_cols, self.n_rows)
+        self._markers = marker_array(self.n_cols, self.n_markers_max)
 
         # allocate auxiliary arrays
-        self._holes = xp.zeros(self.n_rows, dtype=bool)
-        self._ghost_particles = xp.zeros(self.n_rows, dtype=bool)
-        self._valid_mks = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside_right = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside_left = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside = xp.zeros(self.n_rows, dtype=bool)
+        self._holes = xp.zeros(self.n_markers_max, dtype=bool)
+        self._ghost_particles = xp.zeros(self.n_markers_max, dtype=bool)
+        self._valid_mks = xp.zeros(self.n_markers_max, dtype=bool)
+        self._is_outside_right = xp.zeros(self.n_markers_max, dtype=bool)
+        self._is_outside_left = xp.zeros(self.n_markers_max, dtype=bool)
+        self._is_outside = xp.zeros(self.n_markers_max, dtype=bool)
         # scratch copy of markers[:3], refreshed once per apply_kinetic_bc boundary-condition-type
         # loop (see there)
-        self._eta_bc_buf = marker_array(3, self.n_rows)
+        self._eta_bc_buf = marker_array(3, self.n_markers_max)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
-        self._lost_markers = xp.zeros((10, int(self.n_rows * 0.5)), dtype=float)
+        self._lost_markers = xp.zeros((10, int(self.n_markers_max * 0.5)), dtype=float)
 
         # arguments for kernels: the pyccel class on the NumPy backend, its CUDA version on the CuPy backend
         args_class = CudaMarkerArguments if self._args_backend == "cupy" else MarkerArguments
@@ -2715,9 +2717,9 @@ class Particles(metaclass=ABCMeta):
             self._pole,
         )
 
-        # every column can hold a marker until the markers are loaded (see n_rows_used)
-        self._n_rows_used = self.n_rows
-        self._n_occupied_bound = self.n_rows
+        # every column can hold a marker until the markers are loaded (see n_markers_used)
+        self._n_markers_used = self.n_markers_max
+        self._n_occupied_bound = self.n_markers_max
 
         # on the CuPy backend with several ranks, find out now (collectively, in the setup) whether MPI takes device
         # buffers; otherwise the probe runs on the first marker exchange, inside the first time step.
@@ -3001,15 +3003,15 @@ class Particles(metaclass=ABCMeta):
         with h5py.File(data.file_path, "a") as file:
             saved = file["restart/" + self.loading_params.restart_key][-1, :, :]
 
-        # the number of markers n_rows is padded (see struphy.pic.marker_layout), so a file written with another
-        # padding has a different number of markers: copy the common ones; the markers after them are holes, in the
+        # the number of marker slots n_markers_max is padded (see struphy.pic.marker_layout), so a file written with
+        # another padding has a different number of slots: copy the common ones; the slots after them are holes, in the
         # buffer (set before loading) and in the file
-        n_rows = min(saved.shape[1], self.n_rows)
-        assert np.all(saved[0, n_rows:] == -1.0), (
+        n_common = min(saved.shape[1], self.n_markers_max)
+        assert np.all(saved[0, n_common:] == -1.0), (
             f"the restart file has {saved.shape[1]} markers on rank {self.mpi_rank}, but there are only "
-            f"{self.n_rows} here, and the extra ones are not holes"
+            f"{self.n_markers_max} here, and the extra ones are not holes"
         )
-        self._markers[:, :n_rows] = saved[:, :n_rows]
+        self._markers[:, :n_common] = saved[:, :n_common]
 
     def _load_tesselation(self, n_quad: int = 1):
         """
@@ -3053,7 +3055,7 @@ class Particles(metaclass=ABCMeta):
             Row of the markers array (0, 1 or 2) holding the logical coordinate to check.
 
         eta : xp.ndarray[float], optional
-            Snapshot ``(3, n_rows)`` of ``markers[:3]`` (see :meth:`apply_kinetic_bc`).
+            Snapshot ``(3, n_markers_max)`` of ``markers[:3]`` (see :meth:`apply_kinetic_bc`).
             If ``None``, reads straight from ``markers``.
 
         Returns
@@ -3062,7 +3064,7 @@ class Particles(metaclass=ABCMeta):
             Indices of the markers that are outside the logical unit cube.
         """
         # only the markers (columns) that can hold markers (the others are holes)
-        n = self.n_rows_used
+        n = self.n_markers_used
         col = self.markers[axis, :n] if eta is None else eta[axis, :n]
 
         # determine particles outside of the logical unit cube
@@ -3229,7 +3231,7 @@ class Particles(metaclass=ABCMeta):
         sorting_axis = self._sorting_boxes.box_index
 
         if not hasattr(self, "_argsort_array"):
-            self._argsort_array = xp.zeros(self.n_rows, dtype=int)
+            self._argsort_array = xp.zeros(self.n_markers_max, dtype=int)
         self._argsort_array[:] = self._markers[sorting_axis].argsort()
 
         self._markers[:] = self._markers[:, self._argsort_array]
@@ -3926,7 +3928,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             self.markers[:, holes_inds[xp.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[
                 self.mpi_rank
             ]
-            self._track_rows(n_filled=int(self._send_info_box[self.mpi_rank]))
+            self._track_markers(n_filled=int(self._send_info_box[self.mpi_rank]))
 
     def _sendrecv_all_to_all_boxes(self):
         """
@@ -3991,7 +3993,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             req.Wait()
 
         # the received ghost particles filled the lowest holes (counted with the own slot of first_hole)
-        self._track_rows(n_filled=int(xp.sum(self._recv_info_box)))
+        self._track_markers(n_filled=int(xp.sum(self._recv_info_box)))
 
         self._Barrier()
 
@@ -4552,7 +4554,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Indices of empty columns in markers after send.
 
             sorting_etas : array[float]
-                Eta-values of shape (3, n_rows) according to which the sorting is performed.
+                Eta-values of shape (3, n_markers_max) according to which the sorting is performed.
         """
         # position that determines the sorting (including periodic shift of boundary conditions)
         if not isinstance(alpha, xp.ndarray):
@@ -4571,7 +4573,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
             alpha = alpha.reshape(3, 1)
         # only the markers (columns) that can hold markers; the columns after them are holes, which stay
-        n = self.n_rows_used
+        n = self.n_markers_used
         bi = self.first_pusher_idx
         sorting_etas = self._sorting_etas[:, :n]
         sorting_etas[:] = (

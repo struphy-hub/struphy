@@ -57,7 +57,7 @@ def main():
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process before sorting : ")
-    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_rows}")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_markers_max}")
 
     domain.show(
         grid_info=derham.domain_array,
@@ -70,7 +70,7 @@ def main():
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process after sorting : ")
-    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_rows}")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_markers_max}")
 
     domain.show(
         grid_info=derham.domain_array,

@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from struphy.models.tests.gpu_e2e import device_context, requires_cupy_backend
-from struphy.pic.marker_layout import ROW_ALIGNMENT, marker_array, padded_n_rows
+from struphy.pic.marker_layout import MARKER_ALIGNMENT, marker_array, padded_n_markers
 
 # CuPy on a GPU, or cunumpy's fake CuPy
 BACKENDS = ["numpy", pytest.param("cupy", marks=requires_cupy_backend)]
@@ -23,9 +23,9 @@ N_COLS = 25
 MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)  # vdim, weight_idx, ..., mu_idx
 
 
-def test_padded_n_rows():
-    assert [padded_n_rows(n) for n in (0, 1, 31, 32, 33, 64, 65)] == [0, 32, 32, 32, 64, 64, 96]
-    assert ROW_ALIGNMENT == 32
+def test_padded_n_markers():
+    assert [padded_n_markers(n) for n in (0, 1, 31, 32, 33, 64, 65)] == [0, 32, 32, 32, 64, 64, 96]
+    assert MARKER_ALIGNMENT == 32
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -97,7 +97,7 @@ def test_kernel_accepts_marker_copies(backend):
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_marker_buffer_layout(backend):
     """Loading, pushing, boundary conditions, sorting between ranks, evaluation at markers and binning keep the
-    buffer of shape (n_cols, n_rows) and C-ordered, and evaluation at copies of the valid markers gives the values
+    buffer of shape (n_cols, n_markers_max) and C-ordered, and evaluation at copies of the valid markers gives the values
     at the buffer."""
     from maybempi import MPI
 
@@ -129,8 +129,8 @@ def test_marker_buffer_layout(backend):
         particles.initialize_weights()
 
         buffer = particles.markers
-        assert buffer.shape == (particles.n_cols, particles.n_rows) and buffer.flags.c_contiguous
-        assert particles.n_rows % ROW_ALIGNMENT == 0
+        assert buffer.shape == (particles.n_cols, particles.n_markers_max) and buffer.flags.c_contiguous
+        assert particles.n_markers_max % MARKER_ALIGNMENT == 0
 
         butcher = ButcherTableau("rk4")
         push_eta = Pusher(
@@ -158,7 +158,7 @@ def test_marker_buffer_layout(backend):
 
         # the buffer is never replaced, only written to
         assert particles.markers is buffer
-        assert buffer.shape == (particles.n_cols, particles.n_rows) and buffer.flags.c_contiguous
+        assert buffer.shape == (particles.n_cols, particles.n_markers_max) and buffer.flags.c_contiguous
 
         # evaluation at copies of the valid markers (Fortran-ordered on NumPy, converted by Domain and SplineFunction)
         # equals evaluation at the buffer
@@ -192,9 +192,9 @@ def test_marker_buffer_layout(backend):
         assert particles.markers is buffer and buffer.flags.c_contiguous
 
 
-def _run_with_removal(backend, track_rows: bool):
+def _run_with_removal(backend, track_markers: bool):
     """Particles with removing boundaries in eta1, pushed and sorted between ranks; the valid markers by ID at the
-    end, and the bound n_rows_used checked after every step. Without `track_rows`, every column counts as used."""
+    end, and the bound n_markers_used checked after every step. Without `track_markers`, every column counts as used."""
     from unittest import mock
 
     from maybempi import MPI
@@ -209,19 +209,21 @@ def _run_with_removal(backend, track_rows: bool):
     from struphy.pic.pushing.pusher import Pusher
     from struphy.topology.grids import TensorProductGrid
 
-    def all_rows(self, n_emptied=0, n_filled=0):
-        self._set_n_rows_used(self.n_rows)
+    def all_markers_used(self, n_emptied=0, n_filled=0):
+        self._set_n_markers_used(self.n_markers_max)
 
     def check_bound(particles):
-        n = particles.n_rows_used
+        n = particles.n_markers_used
         assert particles.args_markers.n_markers == n
-        assert bool(xp.all(particles.markers[0, n:] == -1.0)), "a column after n_rows_used is not a hole"
+        assert bool(xp.all(particles.markers[0, n:] == -1.0)), "a column after n_markers_used is not a hole"
         assert bool(xp.all(particles.holes[n:]))
 
     patches = (
         contextlib.nullcontext()
-        if track_rows
-        else mock.patch.multiple(Particles, _track_rows=all_rows, count_rows_used=lambda self: all_rows(self))
+        if track_markers
+        else mock.patch.multiple(
+            Particles, _track_markers=all_markers_used, count_markers_used=lambda self: all_markers_used(self)
+        )
     )
     comm = MPI.COMM_WORLD
     with xp.use_backend(backend), _device_context(backend), patches:
@@ -239,9 +241,9 @@ def _run_with_removal(backend, track_rows: bool):
         particles.draw_markers()
         particles.mpi_sort_markers()
         particles.initialize_weights()
-        if track_rows:
+        if track_markers:
             check_bound(particles)
-            assert particles.n_rows_used < particles.n_rows
+            assert particles.n_markers_used < particles.n_markers_max
 
         butcher = ButcherTableau("forward_euler")
         push_eta = Pusher(
@@ -256,7 +258,7 @@ def _run_with_removal(backend, track_rows: bool):
         for _ in range(4):
             push_eta(0.3)
             particles.mpi_sort_markers()
-            if track_rows:
+            if track_markers:
                 check_bound(particles)
 
         assert particles.n_lost_markers > 0, "the test should remove markers"
@@ -265,11 +267,11 @@ def _run_with_removal(backend, track_rows: bool):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_rows_used(backend):
-    """Kernels and row operations over the markers (columns) that can hold markers (n_rows_used) give the same
-    markers as over all columns, and every column after n_rows_used stays a hole through loading, pushes that remove
+def test_markers_used(backend):
+    """Kernels and row operations over the markers (columns) that can hold markers (n_markers_used) give the same
+    markers as over all columns, and every column after n_markers_used stays a hole through loading, pushes that remove
     markers at the boundary and the exchange between ranks."""
-    tracked, lost_tracked = _run_with_removal(backend, track_rows=True)
-    full, lost_full = _run_with_removal(backend, track_rows=False)
+    tracked, lost_tracked = _run_with_removal(backend, track_markers=True)
+    full, lost_full = _run_with_removal(backend, track_markers=False)
     assert lost_tracked == lost_full
     np.testing.assert_array_equal(tracked, full)
