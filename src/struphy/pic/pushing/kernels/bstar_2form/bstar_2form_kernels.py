@@ -55,17 +55,17 @@ def bstar_2form(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx : first_shift_idx + 3]
-        eta_n[:] = markers[ip, first_pusher_idx : first_pusher_idx + 3]
+        eta_k[:] = markers[0:3, ip] + markers[first_shift_idx : first_shift_idx + 3, ip]
+        eta_n[:] = markers[first_pusher_idx : first_pusher_idx + 3, ip]
 
         eta[:] = alpha[:3] * eta_k + (1.0 - alpha[:3]) * eta_n
         eta[:] = mod(eta, 1.0)
 
-        v_k = markers[ip, 3]
-        v_n = markers[ip, first_pusher_idx + 3]
+        v_k = markers[3, ip]
+        v_n = markers[first_pusher_idx + 3, ip]
         v = alpha[3] * v_k + (1.0 - alpha[3]) * v_n
 
         # spline evaluation
@@ -100,4 +100,4 @@ def bstar_2form(
         # save
         for j in range(3):
             if output_indices[j] >= 0:
-                markers[ip, output_indices[j]] = b_star[j]
+                markers[output_indices[j], ip] = b_star[j]

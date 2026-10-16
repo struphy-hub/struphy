@@ -233,20 +233,11 @@ class VlasovAmpereCoupling(Propagator):
             logger.info(f"Iterations  for VlasovMaxwell: {info['niter']}")
             logger.info(f"Maxdiff e1  for VlasovMaxwell: {max_de}")
             particles = self.variables.ions.particles
-            buffer_idx = particles.bufferindex
-            max_diff = xp.max(
-                xp.abs(
-                    xp.sqrt(
-                        particles.markers_wo_holes[:, 3] ** 2
-                        + particles.markers_wo_holes[:, 4] ** 2
-                        + particles.markers_wo_holes[:, 5] ** 2,
-                    )
-                    - xp.sqrt(
-                        particles.markers_wo_holes[:, buffer_idx + 3] ** 2
-                        + particles.markers_wo_holes[:, buffer_idx + 4] ** 2
-                        + particles.markers_wo_holes[:, buffer_idx + 5] ** 2,
-                    ),
-                ),
-            )
+            # the velocities before the push are saved at first_pusher_idx + 3 (see Pusher._push);
+            # gather only the six rows (quantities) needed, not all quantities of the markers
+            not_holes = ~particles.holes
+            v_new = particles.markers[3:6, not_holes]
+            v_old = particles.markers[particles.first_pusher_idx + 3 : particles.first_pusher_idx + 6, not_holes]
+            max_diff = xp.max(xp.abs(xp.linalg.norm(v_new, axis=0) - xp.linalg.norm(v_old, axis=0)))
             logger.info(f"Maxdiff |v| for VlasovMaxwell: {max_diff}")
             logger.info("")

@@ -55,7 +55,7 @@ def _struct_field(value, name):
     if name in ("nt1", "nt2", "nt3"):
         return len(getattr(value, "tn" + name[-1]))
     if name == "prepare_rows":
-        # CUDA-only flag of MarkerArgs (set by Pusher._push around a launch); 0: the rows are prepared beforehand
+        # CUDA-only flag of MarkerArgs (set by Pusher._push around a launch); 0: the markers are prepared beforehand
         return getattr(value, name, 0)
     return getattr(value, name)
 

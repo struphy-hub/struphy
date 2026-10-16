@@ -178,7 +178,7 @@ def sort_boxed_particles(
         loc_i += next_index[box]
         # loop through the rest of the box
         while loc_i < cumul_next_index[box + 1]:
-            box_i = int(markers[loc_i, l + box_index])
+            box_i = int(markers[l + box_index, loc_i])
             if box_i == box:
                 # is it in good position? if yes go to the next one
                 # and say that this position is no longer available
@@ -187,12 +187,12 @@ def sort_boxed_particles(
             else:
                 # swap elements until comming back
                 swap_i = -1
-                swap_line_1[:] = markers[loc_i, :]
+                swap_line_1[:] = markers[:, loc_i]
                 while swap_i != loc_i:
                     # where should the actual particule go, put it and save data from the particle that should now move
                     swap_i = get_next_index(swap_line_1[l + box_index], next_index, cumul_next_index)
-                    swap_line_2[:] = markers[swap_i, :]
-                    markers[swap_i, :] = swap_line_1[:]
+                    swap_line_2[:] = markers[:, swap_i]
+                    markers[:, swap_i] = swap_line_1[:]
                     swap_line_1[:] = swap_line_2[:]
                 loc_i += 1
 
@@ -206,16 +206,16 @@ def assign_box_to_each_particle(
     domain_array: "float[:]",
     box_index: "int" = -2,
 ):
-    """Assign the right box to each particle, written into column -2 or marker array."""
-    l = markers.shape[1]
-    for p in range(markers.shape[0]):
+    """Assign the right box to each particle, written into row -2 of the marker array."""
+    l = markers.shape[0]
+    for p in range(markers.shape[1]):
         if holes[p]:
             n_box = (nx + 2) * (ny + 2) * (nz + 2)
         else:
             a = find_box(
-                markers[p, 0],
-                markers[p, 1],
-                markers[p, 2],
+                markers[0, p],
+                markers[1, p],
+                markers[2, p],
                 nx,
                 ny,
                 nz,
@@ -226,7 +226,7 @@ def assign_box_to_each_particle(
             else:
                 n_box = a
         b = float(n_box)
-        markers[p, l + box_index] = b
+        markers[l + box_index, p] = b
 
 
 def assign_particles_to_boxes(
@@ -239,12 +239,12 @@ def assign_particles_to_boxes(
     """Write particle indices into box array."""
     boxes[:, :] = -1
     next_index[:] = 0
-    l = markers.shape[1]
-    for p in range(markers.shape[0]):
+    l = markers.shape[0]
+    for p in range(markers.shape[1]):
         if holes[p]:
             continue
         else:
-            a = int(markers[p, l + box_index])
+            a = int(markers[l + box_index, p])
             boxes[a, next_index[a]] = p
             next_index[a] += 1
 
@@ -255,13 +255,13 @@ def count_particles_in_boxes(
     next_index: "int[:]",
     box_index: "int" = -2,
 ) -> "int":
-    """Count the particles in each box (box number in column ``box_index``) into ``next_index`` and return the
+    """Count the particles in each box (box number in row ``box_index``) into ``next_index`` and return the
     largest count."""
     next_index[:] = 0
-    l = markers.shape[1]
-    for p in range(markers.shape[0]):
+    l = markers.shape[0]
+    for p in range(markers.shape[1]):
         if not holes[p]:
-            a = int(markers[p, l + box_index])
+            a = int(markers[l + box_index, p])
             next_index[a] += 1
 
     max_in_box = 0
@@ -272,6 +272,6 @@ def count_particles_in_boxes(
 
 
 def find_holes(markers: "float[:,:]", holes: "bool[:]"):
-    """Mark the empty rows of the marker array (``markers[:, 0] == -1``), as ``Particles.update_holes``."""
-    for p in range(markers.shape[0]):
-        holes[p] = markers[p, 0] == -1.0
+    """Mark the empty columns of the marker array (``markers[0] == -1``), as ``Particles.update_holes``."""
+    for p in range(markers.shape[1]):
+        holes[p] = markers[0, p] == -1.0
