@@ -37,7 +37,7 @@ SPLINE_HEADER = ARGS_DIR / "spline_args.cuh"
 
 # (CUDA class, pyccel source, pyccel class, struct members that only the CUDA class has, its header)
 ARGUMENT_PAIRS = (
-    (CudaMarkerArguments, "pusher_args_kernels.py", "MarkerArguments", {"n_markers"}, HEADER),
+    (CudaMarkerArguments, "pusher_args_kernels.py", "MarkerArguments", {"n_markers", "prepare_rows"}, HEADER),
     (CudaDerhamArguments, "pusher_args_kernels.py", "DerhamArguments", {"nt1", "nt2", "nt3"}, HEADER),
     (CudaDomainArguments, "pusher_args_kernels.py", "DomainArguments", set(), HEADER),
     (

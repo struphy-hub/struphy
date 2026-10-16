@@ -50,10 +50,13 @@ def _struct_field(value, name):
     """Field `name` of a struct, read from the pyccel argument object `value`.
 
     The CUDA structs have the attributes of their pyccel classes plus the knot lengths ``nt1``, ``nt2``,
-    ``nt3`` of ``DerhamArgs``, which pyccel gets from ``len(tn1)``.
+    ``nt3`` of ``DerhamArgs``, which pyccel gets from ``len(tn1)``, and the flag ``prepare_rows`` of ``MarkerArgs``.
     """
     if name in ("nt1", "nt2", "nt3"):
         return len(getattr(value, "tn" + name[-1]))
+    if name == "prepare_rows":
+        # CUDA-only flag of MarkerArgs (set by Pusher._push around a launch); 0: the markers are prepared beforehand
+        return getattr(value, name, 0)
     return getattr(value, name)
 
 
