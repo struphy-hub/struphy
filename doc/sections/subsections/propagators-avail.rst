@@ -39,6 +39,11 @@ Linear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.shear_alfven_curl_curl_propagator
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.magnetosonic
     :members:
     :exclude-members: options, allocate

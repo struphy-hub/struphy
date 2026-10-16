@@ -446,6 +446,44 @@ class WeightedMassOperators:
 
     @auto_convert_docstring
     @property
+    def M2gyro(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{2,\textnormal{gyro}}_{(\mu,ijk), (\nu,mno)} = \int \frac{\|B_0(\boldsymbol{\eta})\|^2}{n^0_{\textnormal{eq}}(\boldsymbol{\eta})} \vec{\Lambda}^2_{\mu,ijk} \left(G - \hat b^1_0 (\hat b^1_0)^\top \right) \vec{\Lambda}^2_{\nu,mno} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta},
+
+        where :math:`\hat b^1_0` are the covariant (1-form) components of the unit vector along :math:`\mathbf B_0`. For
+        2-forms :math:`\mathbf j, \mathbf j'` it is the discrete
+        :math:`\int (\mathbf J \times \mathbf B_0) \cdot (\mathbf J' \times \mathbf B_0) / n^0_{\textnormal{eq}} \,\textnormal d \mathbf x`,
+        the counterpart of :attr:`M1gyro` on :math:`H(\textnormal{div})`.
+        """
+        if not hasattr(self, "_M2gyro"):
+            assert self.eq_mhd is not None, (
+                "M2gyro requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_b1_1, self.eq_mhd.unit_b1_2, self.eq_mhd.unit_b1_3)
+            weight = lambda *etas: self.eq_mhd.absB0(*etas) ** 2 / self.eq_mhd.n0(*etas)
+            M2_B = self.create_weighted_mass(
+                "Hdiv",
+                "Hdiv",
+                weights=("G", "1/sqrt_g", weight),
+                name="M2_Bn",
+                assemble=True,
+            )
+            M2para_B = self.create_weighted_mass(
+                "Hdiv",
+                "Hdiv",
+                weights=(bb, "1/sqrt_g", weight),
+                name="M2para_Bn",
+                assemble=True,
+            )
+            self._M2gyro = M2_B - M2para_B
+        return self._M2gyro
+
+    @auto_convert_docstring
+    @property
     def Mvn(self):
         r"""
         Mass matrix
