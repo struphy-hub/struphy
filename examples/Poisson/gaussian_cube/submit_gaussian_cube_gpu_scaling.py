@@ -2,8 +2,8 @@
 
 This file defines the profiling case (the `ProfilingCase`) and submits its three runs of the same
 problem as `submit_gaussian_cube_cpu_vs_gpu.py` (manufactured Gaussian solution on a Cuboid,
-degree (1, 2, 3), unpreconditioned CG, 5 solves), by default on 192 x 192 x 192 cells (`--cells`), on the
-CuPy backend with 1, 2 and 4 MPI ranks (`--gpus`), one GPU per rank (feectools binds each rank to the GPU of its
+degree (1, 2, 3), unpreconditioned CG, 5 solves), by default on 128 x 128 x 128 cells (`--cells`), the grid of
+the CPU scaling in `submit_gaussian_cube.py`, on the CuPy backend with 1, 2 and 4 MPI ranks (`--gpus`), one GPU per rank (feectools binds each rank to the GPU of its
 node-local rank), one thread per rank. `--solver pcg_sr` selects the CG variant with one global reduction
 per iteration. The runs write only their profiling data (`--no-output` of the params file), so there is no
 post-processing. Each run uses the `pitagora_booster` preset (one node, its 4 GPUs).
@@ -14,10 +14,10 @@ directly (its `__main__` block is the worker).
 
 The runs are profiled with scope-profiler (CUDA-event timing per region) and labelled
 "GPU: N MPI ranks, N GPUs". The case label contains the size (and the solver if not pcg), e.g.
-`poisson_cube_gpu_scaling_192`.
+`poisson_cube_gpu_scaling_128`.
 
-Recommended runs: the default (192^3 on 1, 2 and 4 GPUs) for the strong scaling from one GPU, and
-`--cells 256 --gpus 2 4` for a larger problem (256^3 does not fit on one H100: the setup assembles M0 and M1 as
+Recommended runs: the default (128^3 on 1, 2 and 4 GPUs) for the strong scaling from one GPU, comparable with
+the CPU runs, and `--cells 192` or `--cells 256 --gpus 2 4` for a larger problem (256^3 does not fit on one H100: the setup assembles M0 and M1 as
 3D stencil matrices and evaluates the metric at all quadrature points at once). The fixed cost per CG
 iteration (ghost exchanges, reductions) weighs less on the larger problem: 4 vs 2 GPUs gave 1.30x at 192^3 and
 1.61x at 256^3 (Oct 2026).
@@ -58,8 +58,11 @@ def main() -> None:
     parser.add_argument(
         "--cells",
         type=int,
-        default=192,
-        help="Number of cells in each direction. 192^3 fits on one H100; 256^3 needs at least 2 (--gpus 2 4).",
+        default=128,
+        help=(
+            "Number of cells in each direction (default: 128, the grid of the CPU scaling). "
+            "192^3 fits on one H100; 256^3 needs at least 2 (--gpus 2 4)."
+        ),
     )
     parser.add_argument(
         "--gpus",

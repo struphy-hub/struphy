@@ -196,35 +196,39 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_m
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profiling options
+import os
+
+import cunumpy as xp
+from cunumpy.kernel_testing import fake_cupy_active
 from maybempi import MPI, SerialMPI
 
 num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+# on a real GPU: the CuPy backend, not cunumpy's fake CuPy (which runs on the CPU)
+on_gpu = xp.get_backend() == "cupy" and not fake_cupy_active()
+
+# OpenMP threads per rank and their placement, as set by the job script (see ProfilingCase.launch)
+num_threads = int(os.environ.get("OMP_NUM_THREADS", "1").split(",")[0])
+omp_proc_bind = os.environ.get("OMP_PROC_BIND")
+
+# scope-profiler run label, the name of the run in the reports and comparison plots, e.g.
+# "CPU: 28 MPI ranks", "CPU: 8 MPI ranks, spread", "CPU: 1 MPI rank, 16 threads, close" and
+# "GPU: 4 MPI ranks, 4 GPUs"
+profiling_label = (
+    f"{'GPU' if on_gpu else 'CPU'}: {num_ranks} MPI rank{'s' if num_ranks != 1 else ''}"
+    + (f", {num_ranks} GPU{'s' if num_ranks != 1 else ''}" if on_gpu else "")
+    + (f", {num_threads} threads" if num_threads > 1 and not on_gpu else "")
+    + (f", {args.pinning}" if args.pinning is not None else "")
+    + (f", {omp_proc_bind}" if omp_proc_bind and not on_gpu else "")
+)
 if args.gpu_timing:
     # CUDA-event device times per region on the CuPy backend (not on cunumpy's fake CuPy, whose CUDA events have no
     # elapsed time). No line profiler: it would distort the CPU/GPU comparison.
-    import cunumpy as xp
-    from cunumpy.kernel_testing import fake_cupy_active
-
-    gpu_timing = xp.get_backend() == "cupy" and not fake_cupy_active()
-
-    # scope-profiler run label, the name of the run in the reports and comparison plots, e.g.
-    # "CPU: 28 MPI ranks" and "GPU: 4 MPI ranks, 4 GPUs"
-    profiling_label = (
-        f"{'GPU' if xp.get_backend() == 'cupy' else 'CPU'}: "
-        f"{num_ranks} MPI rank{'s' if num_ranks != 1 else ''}"
-        + (f", {num_ranks} GPU{'s' if num_ranks != 1 else ''}" if xp.get_backend() == "cupy" else "")
-    )
-    if args.pinning is not None:
-        profiling_label += f", {args.pinning}"
     profiling_opts = ProfilingOptions(
         label=profiling_label,
-        use_gpu_timing=gpu_timing,
+        use_gpu_timing=on_gpu,
         gpu_timing_backend="cupy",
     )
 else:
-    profiling_label = f"{num_ranks} rank" + ("s" if num_ranks != 1 else "")
-    if args.pinning is not None:
-        profiling_label += f", {args.pinning}"
     profiling_opts = ProfilingOptions(
         label=profiling_label,
         use_line_profiler=True,

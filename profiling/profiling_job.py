@@ -65,6 +65,7 @@ from slurm_script_generator.squeue import SQueue, job_states
 from upload import _clone_profiling_data, _push_profiling_data
 
 from struphy import Compiler
+from struphy.utils.utils import read_state
 from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
 
 script_dir = Path(__file__).resolve().parent
@@ -111,6 +112,8 @@ class ProfilingCase:
     pproc_source: Path | None = None
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
+    # Compile the Struphy and feectools kernels with OpenMP, for runs with several threads per rank (`launch`).
+    openmp: bool = False
     # Whether the packaged results are pushed to the profiling-data repo. Set here rather
     # than at `finalize_run` time because `setup_run` clones that repo up front, so a
     # missing/unreachable repo fails before any job is submitted rather than after.
@@ -148,6 +151,8 @@ class ProfilingCase:
         param_flags: list[str] | None = None,
         backend: str = "numpy",
         launcher_args: list[str] | None = None,
+        num_threads: int = 1,
+        omp_proc_bind: str | None = None,
     ) -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
 
@@ -165,6 +170,9 @@ class ProfilingCase:
                 exported as CUNUMPY_BACKEND before the simulation.
             launcher_args: Extra options of the MPI launcher, e.g. the `srun` cpu binding.
                 Omit for none.
+            num_threads: OpenMP threads per rank, exported as OMP_NUM_THREADS.
+            omp_proc_bind: OpenMP thread placement, "close" or "spread", exported as
+                OMP_PROC_BIND (with OMP_PLACES=cores). Omit to leave it to the OpenMP runtime.
 
         Returns:
             The shell commands to run, in order, as one script.
@@ -206,8 +214,9 @@ class ProfilingCase:
             f"source {activate_path!s}",
             # cunumpy reads its backend from this variable when it is imported, so it is exported before the run
             f"export CUNUMPY_BACKEND={backend}",
-            # pure MPI runs: one thread per rank, also when a rank is given several cpus to spread the ranks out
-            "export OMP_NUM_THREADS=1",
+            # always set, so a rank never starts one thread per cpu it is given (e.g. to spread the ranks out)
+            f"export OMP_NUM_THREADS={num_threads}",
+            *(["export OMP_PLACES=cores", f"export OMP_PROC_BIND={omp_proc_bind}"] if omp_proc_bind else []),
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',
@@ -245,6 +254,8 @@ class ProfilingCase:
         slurm_preset: str | None = None,
         slurm_options: dict | None = None,
         pinning: str | None = None,
+        num_threads: int = 1,
+        omp_proc_bind: str | None = None,
     ) -> None:
         """Build, submit/run, and record the run for a single rank count.
 
@@ -280,11 +291,17 @@ class ProfilingCase:
                 one core with `srun --cpu-bind=map_cpu`, and the job allocates all cores of
                 its nodes. Needs SLURM and a `topology` in the preset's `HARDWARE_INFO`.
                 Omit to leave the placement to SLURM.
+            num_threads: OpenMP threads per rank (OMP_NUM_THREADS). Each rank gets as many
+                cpus; the kernels must be compiled with OpenMP (the case's `openmp`).
+            omp_proc_bind: OpenMP thread placement within the node, "close" (the threads of a
+                rank on neighbouring cores) or "spread" (as far apart as possible). The job then
+                allocates all cores of its nodes, so that the threads can spread over them.
+                Omit to give each rank just `num_threads` cpus and leave the placement to OpenMP.
 
         Raises:
             ValueError: If `backend` is neither "numpy" nor "cupy", if `pinning` is
-                unknown or used without SLURM, or if `num_tasks` is not evenly divisible
-                by `num_nodes` (SLURM only).
+                unknown, used without SLURM or together with threads, if `omp_proc_bind` is
+                unknown, or if `num_tasks` is not evenly divisible by `num_nodes` (SLURM only).
         """
         if backend not in ("numpy", "cupy"):
             raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
@@ -292,11 +309,18 @@ class ProfilingCase:
             raise ValueError(f"pinning must be one of {PINNINGS}, got {pinning!r}")
         if pinning is not None and not self.use_slurm:
             raise ValueError("pinning needs SLURM (srun --cpu-bind).")
+        if pinning is not None and (num_threads > 1 or omp_proc_bind is not None):
+            raise ValueError("pinning binds each rank to one core; it cannot be combined with threads.")
+        if omp_proc_bind not in (None, "close", "spread"):
+            raise ValueError(f"omp_proc_bind must be 'close' or 'spread', got {omp_proc_bind!r}")
 
         if not self.use_slurm:
             available = os.cpu_count() or 1
-            if num_tasks > available:
-                print(f"Skipping '{self.label}' ({num_tasks} MPI ranks): exceeds the {available} local cores.")
+            if num_tasks * num_threads > available:
+                print(
+                    f"Skipping '{self.label}' ({num_tasks} MPI ranks x {num_threads} threads): "
+                    f"exceeds the {available} local cores.",
+                )
                 return
 
         # Increment the launch count first: it identifies both the script filename and
@@ -328,13 +352,30 @@ class ProfilingCase:
                     f"--cpus-per-task={cpus_per_task}",
                     f"--cpu-bind=verbose,map_cpu:{','.join(map(str, cpu_map))}",
                 ]
+            elif num_threads > 1 or omp_proc_bind is not None:
+                # one cpu per thread, or with an OpenMP placement all cores of the node, which OMP_PROC_BIND
+                # then distributes the threads over; srun gets them too, so the job step has the same cpus
+                if omp_proc_bind is not None:
+                    cpus_per_task = HARDWARE_INFO[preset_name]["cpus_per_node"] // (num_tasks // num_nodes)
+                else:
+                    cpus_per_task = num_threads
+                if cpus_per_task < num_threads:
+                    raise ValueError(f"{num_threads} threads per rank do not fit on {cpus_per_task} cpus per rank.")
+                cluster_preset["cpus_per_task"] = cpus_per_task
+                launcher_args = [f"--cpus-per-task={cpus_per_task}", "--cpu-bind=verbose,cores"]
 
         # Build the commands to run this case with the given rank count, and write/submit
-        case_commands = self.build_commands(num_tasks, param_flags, backend, launcher_args)
+        case_commands = self.build_commands(
+            num_tasks,
+            param_flags,
+            backend,
+            launcher_args,
+            num_threads=num_threads,
+            omp_proc_bind=omp_proc_bind,
+        )
 
         # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
         if self.use_slurm:
-
             # Build the slurm script
             script = SlurmScript(
                 # The job name is what `%x` expands to in the preset's output/error
@@ -375,6 +416,8 @@ class ProfilingCase:
             "ranks": num_tasks,
             "backend": backend,
             "pinning": pinning,
+            "threads": num_threads,
+            "omp_proc_bind": omp_proc_bind,
             "job_id": job_id,
             "job_script_path": str(script_path),
             "job_script": script_text,
@@ -406,8 +449,12 @@ class ProfilingCase:
         self.venv_path = Path(virtual_env)
 
         # Compile Struphy kernels with the case's language and compiler
-        self.compiler_instance = Compiler(language=self.language, compiler=self.compiler)
-        if not self.compiler_instance.compiled(language=self.language):
+        self.compiler_instance = Compiler(language=self.language, compiler=self.compiler, openmp=self.openmp)
+        # `compiled` only checks that the kernels exist, so a build with the other OpenMP setting is redone too
+        last_used_omp = (read_state().get("last_used_omp") or "").strip()
+        if not self.compiler_instance.compiled(language=self.language) or last_used_omp != (
+            "--openmp" if self.openmp else ""
+        ):
             print("Compiling Struphy kernels ...")
             self.compiler_instance.compile()
         print("Done compiling Struphy kernels.")
@@ -691,27 +738,29 @@ class ProfilingCase:
     def write_reports(self, launch_ids: list[int]) -> None:
         """Write the scope-profiler HTML report of the finished runs into `case_output_root`.
 
-        One strong-scaling comparison per pinning (see `launch`), its runs ordered by rank
-        count so the smallest one is the baseline: `report_<label>.html`, or
-        `report_<label>_<pinning>.html` for pinned runs. The full report of each run is
-        written next to it and linked from it. A failing report is reported, not raised,
-        so it never costs the packaged results.
+        One strong-scaling comparison per placement (the `pinning` or `omp_proc_bind` of
+        `launch`), its runs ordered by rank and thread count so the smallest one is the
+        baseline: `report_<label>.html`, or `report_<label>_<placement>.html` for placed runs.
+        The full report of each run is written next to it and linked from it. A failing
+        report is reported, not raised, so it never costs the packaged results.
 
         Args:
             launch_ids: Launch ids of the runs to report, e.g. those with profiling output.
         """
         from scope_profiler.html_report import create_html_report
 
-        series: dict[str | None, list[tuple[int, Path]]] = {}
+        series: dict[str | None, list[tuple[tuple[int, int], Path]]] = {}
         for job_info in self.job_infos:
             if job_info["launch_id"] not in launch_ids:
                 continue
+            placement = job_info.get("pinning") or job_info.get("omp_proc_bind")
+            size = (job_info["ranks"], job_info.get("threads", 1))
             sim_dir = self.case_output_root / f"sim_{job_info['launch_id']:02d}"
             for h5_file in sorted(sim_dir.glob("*.h5")):
-                series.setdefault(job_info.get("pinning"), []).append((job_info["ranks"], h5_file))
+                series.setdefault(placement, []).append((size, h5_file))
 
-        for pinning, runs in series.items():
-            suffix = "" if pinning is None else f"_{pinning}"
+        for placement, runs in series.items():
+            suffix = "" if placement is None else f"_{placement}"
             report_path = self.case_output_root / f"report_{self.label}{suffix}.html"
             h5_files = [h5_file for _, h5_file in sorted(runs, key=lambda run: run[0])]
             try:
