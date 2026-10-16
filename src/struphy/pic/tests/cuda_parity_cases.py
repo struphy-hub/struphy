@@ -313,6 +313,30 @@ def kernel_pullpush_args(case):
     )
 
 
+def kernel_3d_mat_threads(args):
+    """One thread per (element, codomain basis function, domain basis function), as the kernel's launch size."""
+    from struphy.feec.kernels.kernel_3d_mat import _n_threads
+
+    return _n_threads(args)
+
+
+def kernel_3d_mat_args(case):
+    """Mass-matrix assembly on 3 x 2 x 2 elements with mixed degrees and random quadrature data; `case` is the start
+    index of the rows in direction 1 (1: the first row is a ghost row, local index -1)."""
+    rng = np.random.default_rng(20 + case)
+    ne, nq = (3, 2, 2), (3, 2, 2)
+    pi, pj, pads = (2, 1, 1), (1, 2, 1), (2, 2, 2)
+    starts = (case, 0, 0)
+    spans = [xp.asarray(np.arange(n, dtype=np.int64) + p) for n, p in zip(ne, pi)]
+    w = [xp.asarray(rng.random((n, q))) for n, q in zip(ne, nq)]
+    bi = [xp.asarray(rng.random((n, p + 1, 1, q))) for n, p, q in zip(ne, pi, nq)]
+    bj = [xp.asarray(rng.random((n, p + 1, 1, q))) for n, p, q in zip(ne, pj, nq)]
+    mat_fun = xp.asarray(rng.normal(size=tuple(n * q for n, q in zip(ne, nq))))
+    rows = tuple(n + p + 2 * pad for n, p, pad in zip(ne, pi, pads))
+    data = xp.asarray(rng.normal(size=rows + tuple(2 * pad + 1 for pad in pads)))  # added to, not overwritten
+    return (*spans, *pi, *pj, *starts, *pads, *w, *bi, *bj, mat_fun, data)
+
+
 # ---------------------------------------------------------------- all kernels with a CUDA version
 
 PUSHER_TOLERANCES = {"rtol": 1e-13, "atol": 1e-14}
@@ -331,6 +355,8 @@ def size_of(index, per_thread=1):
 
 
 PARITY_CASES = {
+    # atomic additions: the summation order over elements differs from pyccel
+    "kernel_3d_mat": ParityCases((0, 1), kernel_3d_mat_args, rtol=1e-12, atol=1e-13, n_threads=kernel_3d_mat_threads),
     "push_eta_stage": ParityCases(
         [
             (bc, method, stage)
