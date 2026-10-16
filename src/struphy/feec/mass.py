@@ -2208,6 +2208,15 @@ class WeightedMassOperator(LinearOperator):
             y = op.dot(y, out=target)
         return y
 
+    def without_boundary_ops(self) -> "MassWithoutBoundaryOps":
+        """This operator applied without its boundary operators, see :class:`MassWithoutBoundaryOps`."""
+        return MassWithoutBoundaryOps(self)
+
+    @property
+    def boundary_ops(self):
+        """The boundary operators ``(B_V, B_W)`` applied on the domain and codomain side."""
+        return self._V_boundary_op, self._W_boundary_op
+
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
@@ -2750,6 +2759,49 @@ class WeightedMassOperator(LinearOperator):
 
     def info(self, use_rst=False):
         return info(self, use_rst=use_rst)
+
+
+class MassWithoutBoundaryOps(LinearOperator):
+    """A :class:`WeightedMassOperator` applied without its boundary operators: ``E_W M E_V^T`` instead of
+    ``B_W E_W M E_V^T B_V^T`` (:meth:`WeightedMassOperator.dot` with ``apply_bc=False``).
+
+    Between operators that apply the same boundary operators on the outside, e.g. in ``grad.T @ M1 @ grad`` with
+    ``grad = B1 G B0^T``, this is the same operator: boundary operators are 0/1 diagonal masks, hence symmetric and
+    idempotent (``B1^T B1 = B1``), and the masked products are bit for bit the same, with two fewer passes over the
+    vectors per product. Get it with :meth:`WeightedMassOperator.without_boundary_ops`.
+    """
+
+    def __init__(self, mass: "WeightedMassOperator"):
+        self._mass = mass
+
+    @property
+    def mass(self):
+        """The wrapped mass operator."""
+        return self._mass
+
+    @property
+    def domain(self):
+        return self._mass.domain
+
+    @property
+    def codomain(self):
+        return self._mass.codomain
+
+    @property
+    def dtype(self):
+        return self._mass.dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return MassWithoutBoundaryOps(self._mass.transpose(conjugate=conjugate))
+
+    def dot(self, v, out=None):
+        return self._mass.dot(v, out=out, apply_bc=False)
 
 
 class StencilMatrixFreeMassOperator(LinearOperator):
