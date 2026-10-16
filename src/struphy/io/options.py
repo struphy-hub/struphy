@@ -77,7 +77,9 @@ class LiteralOptions:
     OptsSymmSolver = Literal["pcg", "cg"]
     OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
     OptsMassPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None]
-    OptsShearAlfvenPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", "MultiGrid", None]
+    OptsShearAlfvenPrecond = Literal[
+        "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", None
+    ]
     OptsPoloidalSolver = Literal["schur", "lu", "ilu"]
     OptsDiffusionPrecond = Literal[
         "MultiGrid",
