@@ -255,7 +255,7 @@ model.kinetic_ions.var.add_background(background)
 
 # exact radial profile of the binned distribution (normalized to the binned data): the binning divides by the
 # spatial Jacobian only, the velocity-space Jacobian |B0| of (v_parallel, mu) remains
-exact = {"e1_density": lambda e1: n_profile(e1, 0 * e1, 0 * e1) / equil.absB0(np.stack((e1, 0 * e1, 0 * e1), axis=1))}
+exact = {"e1_density": lambda e1: n_profile(e1, 0 * e1, 0 * e1) / equil.absB0(np.stack((e1, 0 * e1, 0 * e1), axis=0))}
 
 if __name__ == "__main__":
     # post-processing and plots: pproc_screw_pinch_equilibrium.py
