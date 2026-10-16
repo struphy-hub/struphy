@@ -192,15 +192,15 @@ B_min = 1.0
 
 
 def n_profile(*etas):
-    """Density n(r) of the screw pinch, r = a * eta1 (called with eta1, eta2, eta3 or one (n, 3) array)."""
-    eta1 = etas[0] if len(etas) == 3 else etas[0][:, 0]
+    """Density n(r) of the screw pinch, r = a * eta1 (called with eta1, eta2, eta3 or one (3, n) array)."""
+    eta1 = etas[0] if len(etas) == 3 else etas[0][0]
     r = a * eta1
     return 0.2 + 0.8 * (1.0 - r**2 / a**2)
 
 
 def vth_profile(*etas):
     """Thermal speed sqrt(p(r)/n(r)) of the screw pinch."""
-    eta1 = etas[0] if len(etas) == 3 else etas[0][:, 0]
+    eta1 = etas[0] if len(etas) == 3 else etas[0][0]
     r = a * eta1
     q = 1.05 + (1.8 - 1.05) * r**2 / a**2
     p = 0.005 + 1.0**2 * a**2 * 1.05 / (2 * R0**2 * (1.8 - 1.05)) * (1 / q**2 - 1 / 1.8**2)
@@ -255,7 +255,7 @@ model.kinetic_ions.var.add_background(background)
 
 # exact radial profile of the binned distribution (normalized to the binned data): the binning divides by the
 # spatial Jacobian only, the velocity-space Jacobian |B0| of (v_parallel, mu) remains
-exact = {"e1_density": lambda e1: n_profile(e1, 0 * e1, 0 * e1) / equil.absB0(np.stack((e1, 0 * e1, 0 * e1), axis=1))}
+exact = {"e1_density": lambda e1: n_profile(e1, 0 * e1, 0 * e1) / equil.absB0(np.stack((e1, 0 * e1, 0 * e1), axis=0))}
 
 if __name__ == "__main__":
     # post-processing and plots: pproc_screw_pinch_equilibrium.py

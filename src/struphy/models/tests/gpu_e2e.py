@@ -199,18 +199,18 @@ class RunResult:
 
     scalars: dict  # name -> time series (rank 0 only, else empty)
     fields: dict  # FEEC variable name -> local coefficients at the end
-    markers: np.ndarray  # all valid markers (gathered from all ranks), sorted by marker ID
+    markers: np.ndarray  # all valid markers (gathered from all ranks, one column each), sorted by marker ID
     n_scalars: int
     budget: TransferBudget
 
 
 def gather_markers(particles) -> np.ndarray:
-    """The valid markers of all ranks on the host, sorted by marker ID (the last column)."""
+    """The valid markers of all ranks on the host (one column each), sorted by marker ID (the last row)."""
     comm = MPI.COMM_WORLD
     local = np.asarray(xp.to_numpy(particles.markers_wo_holes_and_ghost))
     parts = comm.allgather(local) if comm.Get_size() > 1 else [local]
-    markers = np.concatenate(parts, axis=0)
-    return markers[np.argsort(markers[:, -1])]
+    markers = np.concatenate(parts, axis=1)
+    return markers[:, np.argsort(markers[-1])]
 
 
 def run(

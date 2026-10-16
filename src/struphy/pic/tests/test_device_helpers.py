@@ -94,7 +94,7 @@ extern "C" __global__ void evaluate(MarkerArgs m, DomainArgs d, int newton) {
         with cunumpy.use_backend(backend):
             m, d = make_arguments(129)
             m.bc_type[:] = cunumpy.asarray(bc)
-            m.markers[:, :3] = cunumpy.asarray(np.random.default_rng(2).uniform(-0.5, 1.5, (129, 3)))
+            m.markers[:3] = cunumpy.asarray(np.random.default_rng(2).uniform(-0.5, 1.5, (3, 129)))
             if backend == "numpy":
                 for i in range(129):
                     apply_kinetic_bc_marker(i, m, d, newton)
@@ -291,7 +291,7 @@ def metric_helper_case(domain_index, avoid_round_off):
         "bool avoid_round_off, const DomainArgs& args)",
         **CUDA_OPTIONS,
     )
-    points = logical_markers()[3:, :3]  # inside the logical cube
+    points = logical_markers()[:3, 3:].T  # inside the logical cube, one row per point
     rows = [(p, kind, entry) for p in points for kind in range(6) for entry in range(9)]
     eta = np.array([r[0] for r in rows])
     kinds = np.array([r[1] for r in rows], dtype=np.int32)
@@ -339,7 +339,7 @@ def transform_helper_case(domain_index):
     )
     kinds = [(0, k) for k in (0, 1, 10, 11, 12)] + [(1, k) for k in (0, 1, 10, 11, 12)]
     kinds += [(2, k) for k in (0, 1, *range(10, 22))]
-    points = logical_markers()[3:20, :3]
+    points = logical_markers()[:3, 3:20].T  # one row per point
     values = np.random.default_rng(12).normal(size=(len(points), 3))
     rows = [(i, t, k, e) for i in range(len(points)) for t, k in kinds for e in range(3 if k >= 10 else 1)]
 

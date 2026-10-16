@@ -102,7 +102,7 @@ def test_plotting_function(show=False):
 
     def n_init(*etas):
         if len(etas) == 1:
-            e1, e2, e3 = etas[0][:, 0], etas[0][:, 1], etas[0][:, 1]
+            e1, e2, e3 = etas[0][0], etas[0][1], etas[0][1]
         else:
             assert len(etas) == 3
             e1, e2, e3 = etas[0], etas[1], etas[2]
@@ -110,7 +110,7 @@ def test_plotting_function(show=False):
 
     def vth(*etas):
         if len(etas) == 1:
-            e1, e2, e3 = etas[0][:, 0], etas[0][:, 1], etas[0][:, 1]
+            e1, e2, e3 = etas[0][0], etas[0][1], etas[0][1]
         else:
             assert len(etas) == 3
             e1, e2, e3 = etas[0], etas[1], etas[2]

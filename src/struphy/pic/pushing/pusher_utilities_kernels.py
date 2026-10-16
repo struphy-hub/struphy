@@ -18,7 +18,7 @@ def apply_kinetic_bc_marker(
     args_domain: "DomainArguments",
     newton: bool,
 ):
-    r"""Apply the kinetic boundary conditions to the single marker ``markers[ip]``,
+    r"""Apply the kinetic boundary conditions to the single marker ``markers[:, ip]``,
     to be called at the end of a pusher kernel's particle loop, after the position update.
     Same result as :meth:`~struphy.pic.base.Particles.apply_kinetic_bc` for this marker.
 
@@ -59,56 +59,56 @@ def apply_kinetic_bc_marker(
 
     # pole at eta1=0
     if args_markers.pole:
-        if markers[ip, 0] < 0.0:
-            markers[ip, 0] = -markers[ip, 0]
-            markers[ip, 1] = mod(markers[ip, 1] + 0.5, 1.0)
-        if markers[ip, 0] < 1e-10:
-            markers[ip, 0] = 1e-10
+        if markers[0, ip] < 0.0:
+            markers[0, ip] = -markers[0, ip]
+            markers[1, ip] = mod(markers[1, ip] + 0.5, 1.0)
+        if markers[0, ip] < 1e-10:
+            markers[0, ip] = 1e-10
 
     # remove
     for axis in range(3):
         if bc_type[axis] == 2:
-            if markers[ip, axis] > 1.0 or markers[ip, axis] < 0.0:
-                n_cols = shape(markers)[1]
-                markers[ip, 0 : n_cols - 1] = -1.0
+            if markers[axis, ip] > 1.0 or markers[axis, ip] < 0.0:
+                n_cols = shape(markers)[0]
+                markers[0 : n_cols - 1, ip] = -1.0
                 return
 
     # periodic
     for axis in range(3):
         if bc_type[axis] == 0:
-            if markers[ip, axis] > 1.0:
-                markers[ip, axis] = mod(markers[ip, axis], 1.0)
+            if markers[axis, ip] > 1.0:
+                markers[axis, ip] = mod(markers[axis, ip], 1.0)
                 if newton:
-                    markers[ip, first_shift_idx + axis] += 1.0
+                    markers[first_shift_idx + axis, ip] += 1.0
                 else:
-                    markers[ip, first_shift_idx + axis] = 1.0
-            elif markers[ip, axis] < 0.0:
-                markers[ip, axis] = mod(markers[ip, axis], 1.0)
+                    markers[first_shift_idx + axis, ip] = 1.0
+            elif markers[axis, ip] < 0.0:
+                markers[axis, ip] = mod(markers[axis, ip], 1.0)
                 if newton:
-                    markers[ip, first_shift_idx + axis] += -1.0
+                    markers[first_shift_idx + axis, ip] += -1.0
                 else:
-                    markers[ip, first_shift_idx + axis] = -1.0
+                    markers[first_shift_idx + axis, ip] = -1.0
             elif not newton:
-                markers[ip, first_shift_idx + axis] = 0.0
+                markers[first_shift_idx + axis, ip] = 0.0
 
     # reflect positions
     reflected = zeros(3, dtype=bool)
     n_reflected = 0
     for axis in range(3):
         if bc_type[axis] == 1:
-            if markers[ip, axis] > 1.0:
-                markers[ip, axis] = 2.0 - markers[ip, axis]
+            if markers[axis, ip] > 1.0:
+                markers[axis, ip] = 2.0 - markers[axis, ip]
                 reflected[axis] = True
                 n_reflected += 1
-            elif markers[ip, axis] < 0.0:
-                markers[ip, axis] = -markers[ip, axis]
+            elif markers[axis, ip] < 0.0:
+                markers[axis, ip] = -markers[axis, ip]
                 reflected[axis] = True
                 n_reflected += 1
 
     if n_reflected == 0:
         return
 
-    markers[ip, first_pusher_idx] = -1.0
+    markers[first_pusher_idx, ip] = -1.0
 
     # only Cartesian velocities are reflected (columns 3:6 hold other data for vdim != 3)
     if args_markers.vdim != 3:
@@ -124,12 +124,12 @@ def apply_kinetic_bc_marker(
         if not reflected[axis]:
             continue
 
-        v[:] = markers[ip, 3:6]
+        v[:] = markers[3:6, ip]
 
         evaluation_kernels.df(
-            markers[ip, 0],
-            markers[ip, 1],
-            markers[ip, 2],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
             args_domain,
             dfm,
         )
@@ -141,7 +141,7 @@ def apply_kinetic_bc_marker(
         v_logical[axis] *= -1.0
         linalg_kernels.matrix_vector(dfm, v_logical, v)
 
-        markers[ip, 3:6] = v[:]
+        markers[3:6, ip] = v[:]
 
 
 def update_position_stage(
@@ -153,9 +153,9 @@ def update_position_stage(
     last: float,
     args_markers: "MarkerArguments",
 ):
-    r"""Position update of one stage of an explicit Runge-Kutta pusher for the marker ``markers[ip]``,
+    r"""Position update of one stage of an explicit Runge-Kutta pusher for the marker ``markers[:, ip]``,
     to be called after the logical velocity :math:`\mathbf k = \dot{\boldsymbol \eta}` has been evaluated at
-    the current position ``markers[ip, 0:3]``.
+    the current position ``markers[0:3, ip]``.
 
     The stage contribution :math:`\Delta t\, b_\textrm{stage}\, \mathbf k` is accumulated at
     ``first_free_idx``, and the new position is
@@ -207,33 +207,33 @@ def update_position_stage(
 
     if not args_markers.pole:
         # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b_stage * k
+        markers[first_free_idx : first_free_idx + 3, ip] += dt * b_stage * k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_pusher_idx : first_pusher_idx + 3]
+        markers[0:3, ip] = (
+            markers[first_pusher_idx : first_pusher_idx + 3, ip]
             + dt * a_stage * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
+            + last * markers[first_free_idx : first_free_idx + 3, ip]
         )
         return
 
     # velocity in the regular coordinates (xi1, xi2), at the current position
-    theta = 2.0 * pi * markers[ip, 1]
-    k_xi1 = cos(theta) * k[0] - 2.0 * pi * markers[ip, 0] * sin(theta) * k[1]
-    k_xi2 = sin(theta) * k[0] + 2.0 * pi * markers[ip, 0] * cos(theta) * k[1]
+    theta = 2.0 * pi * markers[1, ip]
+    k_xi1 = cos(theta) * k[0] - 2.0 * pi * markers[0, ip] * sin(theta) * k[1]
+    k_xi2 = sin(theta) * k[0] + 2.0 * pi * markers[0, ip] * cos(theta) * k[1]
 
     # accumulation for last stage
-    markers[ip, first_free_idx] += dt * b_stage * k_xi1
-    markers[ip, first_free_idx + 1] += dt * b_stage * k_xi2
-    markers[ip, first_free_idx + 2] += dt * b_stage * k[2]
+    markers[first_free_idx, ip] += dt * b_stage * k_xi1
+    markers[first_free_idx + 1, ip] += dt * b_stage * k_xi2
+    markers[first_free_idx + 2, ip] += dt * b_stage * k[2]
 
     # update positions for intermediate stages or last stage
-    theta = 2.0 * pi * markers[ip, first_pusher_idx + 1]
-    xi1 = markers[ip, first_pusher_idx] * cos(theta) + dt * a_stage * k_xi1 + last * markers[ip, first_free_idx]
-    xi2 = markers[ip, first_pusher_idx] * sin(theta) + dt * a_stage * k_xi2 + last * markers[ip, first_free_idx + 1]
+    theta = 2.0 * pi * markers[first_pusher_idx + 1, ip]
+    xi1 = markers[first_pusher_idx, ip] * cos(theta) + dt * a_stage * k_xi1 + last * markers[first_free_idx, ip]
+    xi2 = markers[first_pusher_idx, ip] * sin(theta) + dt * a_stage * k_xi2 + last * markers[first_free_idx + 1, ip]
 
-    markers[ip, 0] = sqrt(xi1**2 + xi2**2)
-    if markers[ip, 0] < 1e-10:
-        markers[ip, 0] = 1e-10
-    markers[ip, 1] = mod(arctan2(xi2, xi1) / (2.0 * pi), 1.0)
-    markers[ip, 2] = markers[ip, first_pusher_idx + 2] + dt * a_stage * k[2] + last * markers[ip, first_free_idx + 2]
+    markers[0, ip] = sqrt(xi1**2 + xi2**2)
+    if markers[0, ip] < 1e-10:
+        markers[0, ip] = 1e-10
+    markers[1, ip] = mod(arctan2(xi2, xi1) / (2.0 * pi), 1.0)
+    markers[2, ip] = markers[first_pusher_idx + 2, ip] + dt * a_stage * k[2] + last * markers[first_free_idx + 2, ip]

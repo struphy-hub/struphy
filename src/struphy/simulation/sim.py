@@ -1642,7 +1642,7 @@ class Simulation(SimulationBase):
                     elif isinstance(subval, (PICVariable, SPHVariable)):
                         key_restart = os.path.join("restart", species)
                         subval.particles._markers[:, :] = file[key_restart][-1, :, :]
-                        # refresh the cached hole/ghost masks for the restored rows
+                        # refresh the cached hole/ghost masks for the restored markers
                         subval.particles.update_holes()
                         subval.particles._update_ghost_particles()
 

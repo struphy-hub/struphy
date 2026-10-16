@@ -590,7 +590,7 @@ class ImplicitDiffusion(Propagator):
                     first_free_idx = src.particles.first_free_idx
                     density = src.particles.f0.n0(eta)
 
-                    src.particles.markers[valid_mks, first_free_idx] = density
+                    src.particles.markers[first_free_idx, valid_mks] = density
                     # 2. accumulate
                     src()
                     # 3. take weak divergence

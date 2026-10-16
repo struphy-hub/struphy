@@ -560,14 +560,14 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
             if var.n_to_save > 0:
                 markers_on_proc = xp.logical_and(
-                    obj.markers[:, -1] >= 0.0,
-                    obj.markers[:, -1] < var.n_to_save,
+                    obj.markers[-1] >= 0.0,
+                    obj.markers[-1] < var.n_to_save,
                 )
-                # the number of rows is known on the host after the gather; counting the mask first
+                # the number of markers is known on the host after the gather; counting the mask first
                 # (xp.count_nonzero) would wait for the device a second time
-                rows = obj.markers[markers_on_proc]
+                saved = obj.markers[:, markers_on_proc]
                 var.saved_markers[:] = -1.0
-                var.saved_markers[: rows.shape[0]] = rows
+                var.saved_markers[:, : saved.shape[1]] = saved
 
     @profile
     def update_distr_functions(self):

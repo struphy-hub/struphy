@@ -257,7 +257,7 @@ from struphy.initial.base import GenericPerturbation
 
 def n_init(*etas):
     if len(etas) == 1:
-        eta1 = etas[0][:, 0]
+        eta1 = etas[0][0]
     else:
         eta1 = etas[0]
     r = a1 + (a2 - a1) * eta1
@@ -266,7 +266,7 @@ def n_init(*etas):
 
 def pert_func(*etas):
     if len(etas) == 1:
-        e1, e2, e3 = etas[0][:, 0], etas[0][:, 1], etas[0][:, 2]
+        e1, e2, e3 = etas[0][0], etas[0][1], etas[0][2]
     else:
         e1, e2, e3 = etas[0], etas[1], etas[2]
     r = a1 + (a2 - a1) * e1
@@ -281,7 +281,7 @@ def Ti(r):
 
 def vth_i(*etas):
     if len(etas) == 1:
-        eta1 = etas[0][:, 0]
+        eta1 = etas[0][0]
     else:
         eta1 = etas[0]
     r = a1 + (a2 - a1) * eta1
@@ -290,7 +290,7 @@ def vth_i(*etas):
 
 def vth_e(*etas):
     if len(etas) == 1:
-        eta1 = etas[0][:, 0]
+        eta1 = etas[0][0]
     else:
         eta1 = etas[0]
     r = a1 + (a2 - a1) * eta1

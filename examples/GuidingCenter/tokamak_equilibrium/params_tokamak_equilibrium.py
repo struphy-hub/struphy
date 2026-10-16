@@ -229,13 +229,13 @@ def vth_canonical(psi_c):
 
 def n_position(*etas):
     """Density at the position, with the flux label s = eta1**2 (r = a * eta1, nearly constant q)."""
-    eta1 = etas[0] if len(etas) == 3 else etas[0][:, 0]
+    eta1 = etas[0] if len(etas) == 3 else etas[0][0]
     return n_of_s(eta1**2)
 
 
 def vth_position(*etas):
     """Thermal speed at the position, with the flux label s = eta1**2."""
-    eta1 = etas[0] if len(etas) == 3 else etas[0][:, 0]
+    eta1 = etas[0] if len(etas) == 3 else etas[0][0]
     return vth_of_s(eta1**2)
 
 

@@ -126,22 +126,22 @@ def cc_lin_mhd_5d_gradB(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # if particle is refilled
-        if markers[ip, first_pusher_idx] == -1.0:
+        if markers[first_pusher_idx, ip] == -1.0:
             continue
 
         # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # marker weight and velocity
-        weight = markers[ip, 5]
-        v = markers[ip, 3]
-        mu = markers[ip, mu_idx]
+        weight = markers[5, ip]
+        v = markers[3, ip]
+        mu = markers[mu_idx, ip]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
