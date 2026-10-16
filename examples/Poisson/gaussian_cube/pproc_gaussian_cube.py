@@ -31,6 +31,10 @@ from params_gaussian_cube import args, exact_solution, parser, rhs_fun, sim  # n
 
 
 def main(path_out=DEFAULT_OUTPUT, save_figs=True, angle=np.pi):
+    if args.no_output:
+        print("The run wrote no field data (--no-output): nothing to post-process.")
+        return
+
     out = Output(path_out).pproc(create_vtk=True, celldivide=CELLDIVIDE)
 
     # Raw FEEC fields are evaluated directly from the saved spline coefficients at the
