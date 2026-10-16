@@ -29,6 +29,10 @@ import os
 for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
     os.environ[_var] = "1"
 
+# Column-major marker buffer on the GPU (no effect on the NumPy backend): both pushers of this case have CUDA versions
+# that prepare the marker rows themselves, see struphy.pic.base.markers_column_major
+os.environ.setdefault("STRUPHY_MARKERS_COLUMN_MAJOR", "1")
+
 import argparse
 import logging
 from pathlib import Path
