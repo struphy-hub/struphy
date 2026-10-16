@@ -216,8 +216,13 @@ def basis_projection_operator(op, derham, rtol: float = 1e-10) -> KroneckerBlock
     """
     from struphy.feec.basis_projection_ops import BasisProjectionOperator
 
-    assert isinstance(op, BasisProjectionOperator)
+    if not isinstance(op, BasisProjectionOperator):
+        raise NotImplementedError(
+            f"Only global BasisProjectionOperators are supported (got {type(op).__name__}, e.g. local projectors)."
+        )
     assert not op.transposed, "Approximate the operator itself and transpose the result."
+    if any(w is not None and not callable(w) for row in op._weights for w in row):
+        raise NotImplementedError("Weights given as arrays are not supported (separable approximation of callables).")
     P, V = op._P, op._V
     assert not P.is_polar, "Polar splines are not supported."
     dom, cod = op._domain_symbolic_name, op._codomain_symbolic_name
@@ -247,6 +252,7 @@ def basis_projection_operator(op, derham, rtol: float = 1e-10) -> KroneckerBlock
                 derham.nquads_proj[d],
                 tgt_bc[r][d],
                 src_bc[c][d],
+                polar_shift=d == 0 and op._polar_shift,
             )
             for d in range(3)
         )
@@ -318,18 +324,24 @@ def _projection_1d(
     nquad: int,
     target_bc: tuple[bool, bool],
     source_bc: tuple[bool, bool],
+    polar_shift: bool = False,
 ) -> np.ndarray | None:
     r"""
     1d projection :math:`\hat \Pi[\phi \Lambda_j]` of the weighted source basis functions into the target space:
     interpolation at the Greville points for B-splines, histopolation on the extended Greville grid for M-splines
     (as in the 3d commuting projectors). With essential boundary conditions, the boundary degrees of freedom of the
     target (before the inversion), the boundary coefficients of the target and the boundary basis functions of the
-    source are set to zero. Returns None for the identity (unit weight, same space, no boundary conditions).
+    source are set to zero. With ``polar_shift``, an interpolation point at 0 is shifted to 1e-5 (as in the 3d operator
+    on domains with a pole, where metric weights are singular). Returns None for the identity (unit weight, same space,
+    no boundary conditions).
     """
     if target.basis == "B":
         x = np.asarray(target.greville, dtype=float)
-        dofs = _values(source, x) * shape(x)[:, None]
         imat = _values(target, x)
+        x_w = x.copy()
+        if polar_shift and x_w[0] == 0.0:
+            x_w[0] += 1e-5
+        dofs = _values(source, x_w) * shape(x_w)[:, None]
     else:
         # the points of BasisProjectionOperator: Greville cells split at the breaks for even degree (exact integration
         # of the piecewise polynomials); the integrals over the sub-intervals (subs = 1) add up to one degree of freedom

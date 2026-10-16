@@ -760,7 +760,16 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                 )
                 for op, m in zip(ops, mids)
             ]
+            for op, mid_terms in self._general_pairs:
+                ref = getattr(mass_ops, f"M{derham.space_to_form[op.codomain_space]}")
+                for _, t in mid_terms:
+                    assert t.domain == ref.domain and t.codomain == ref.codomain, (
+                        f"Each mid must have the domain and codomain of the mass operator of the codomain "
+                        f"({op.codomain_space}) of its operator."
+                    )
             mid = mids[0]
+        elif len(ops) > 1 or not isinstance(derivative, str):
+            raise TypeError("derivative must be 'grad', 'curl', 'div', a KroneckerBlockOperator or a list of these.")
         else:
             assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
             k = self._FORMS[derivative]
@@ -1779,6 +1788,7 @@ class AuxiliarySpacePreconditioner(LinearOperator):
         assert v.space == self._space
         if out is None:
             out = self._space.zeros()
+        assert out is not v, "In-place application is not supported."
         self._P0.dot(v, out=out)
         for N, NT, P, z, w in self._corrections:
             NT.dot(v, out=z)

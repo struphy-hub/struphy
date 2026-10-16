@@ -106,9 +106,10 @@ class ShearAlfvenPropagator(Propagator):
             the :math:`\mathbf E \times \mathbf B` flows if ``exb_correction`` (see there). Both need the implicit
             algorithm with ``solver="pcg"``. The Schur operator depends on the time step, so these preconditioners are
             built at the first time step (and updated if the time step changes).
-            Experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG iterations than the mass
-            matrix preconditioner and is much slower (the smoother does not treat the large kernel of the curl
-            term on 2-forms).
+            The multigrid preconditioner is experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG
+            iterations than the mass matrix preconditioner and is much slower (the smoother does not treat the large
+            kernel of the curl term on 2-forms). The Kronecker preconditioner (with ``exb_correction``) needs about 11
+            instead of 31 PCG iterations per step there (dt = 0.1), with larger gains for larger time steps.
         exb_correction : bool, default=True
             For ``precond="StiffnessPreconditioner"``: add the auxiliary space correction
             :math:`\mathbb N P_\phi \mathbb N^\top` (:class:`~struphy.feec.preconditioner.AuxiliarySpacePreconditioner`)
@@ -192,6 +193,9 @@ class ShearAlfvenPropagator(Propagator):
         self._schur_precond_dt = None
         if self.options.precond == "StiffnessPreconditioner":
             assert not self.derham.polar_splines, 'precond="StiffnessPreconditioner" does not support polar splines.'
+            assert not self.derham.with_local_projectors, (
+                'precond="StiffnessPreconditioner" needs the global commuting projectors.'
+            )
             # Kronecker approximation of the curl of the basis projection (built once, independent of dt)
             self._kron_curl_T = derivative_operator(self.derham, "curl") @ basis_projection_operator(_T, self.derham)
             if self.options.exb_correction:
@@ -209,6 +213,7 @@ class ShearAlfvenPropagator(Propagator):
                 self._kron_exb = basis_projection_operator(Pi_exb, self.derham) @ derivative_operator(
                     self.derham, "grad"
                 )
+                self._kron_curl_T_exb = self._kron_curl_T @ self._kron_exb
         if self.options.precond in (None, "MultiGrid", "StiffnessPreconditioner"):
             pc = None
         else:
@@ -303,7 +308,7 @@ class ShearAlfvenPropagator(Propagator):
                     # N^T S N = N^T M N + dt^2/4 (C T N)^T M2 (C T N) on V0
                     pc_phi = preconditioner.StiffnessPreconditioner(
                         self.mass_ops,
-                        [self._kron_exb, self._kron_curl_T @ self._kron_exb],
+                        [self._kron_exb, self._kron_curl_T_exb],
                         sigma=0.0,
                         mid=[self._id_M, mid],
                     )
