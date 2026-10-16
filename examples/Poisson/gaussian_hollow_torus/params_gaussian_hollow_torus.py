@@ -160,7 +160,8 @@ derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), N
 
 # Profilinig options
 profiling_opts = ProfilingOptions(
-    use_line_profiler=True,
+    label=name,
+    use_line_profiler=False,
 )
 
 # Simulation object

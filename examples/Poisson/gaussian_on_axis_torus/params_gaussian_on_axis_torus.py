@@ -189,7 +189,8 @@ equil = None
 
 # Profiling options
 profiling_opts = ProfilingOptions(
-    use_line_profiler=True,
+    label=name,
+    use_line_profiler=False,
 )
 
 # Simulation object
