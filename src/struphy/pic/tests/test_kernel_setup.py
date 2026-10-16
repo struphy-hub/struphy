@@ -33,11 +33,11 @@ from struphy.propagators.base import Propagator
 
 @pytest.fixture
 def marker_args():
-    markers = np.zeros((2, 40))
-    markers[0, :7] = (0.4, 0.3, 0.2, 2.0, 4.0, 6.0, 2.0)
-    markers[0, 8:14] = markers[0, :6]
-    markers[0, 11] = 1.0  # Initial parallel velocity.
-    markers[1, 0] = -1.0  # A hole must never be written to.
+    markers = np.zeros((40, 2))
+    markers[:7, 0] = (0.4, 0.3, 0.2, 2.0, 4.0, 6.0, 2.0)
+    markers[8:14, 0] = markers[:6, 0]
+    markers[11, 0] = 1.0  # Initial parallel velocity.
+    markers[0, 1] = -1.0  # A hole must never be written to.
     return MarkerArguments(
         markers, np.array([True, False]), 1, 3, 6, 7, 8, 14, 17, 18, 4, np.zeros(3, dtype=int), False
     )
@@ -81,7 +81,7 @@ def test_guiding_center_destinations(marker_args, derham_args, kernel, values, e
     reference = before.copy()
     for component, index in enumerate(indices):
         if index is not None:
-            reference[0, index] = expected[component]
+            reference[index, 0] = expected[component]
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
@@ -100,17 +100,17 @@ def test_sph_vector_destinations(marker_args, kernel):
     reference = before.copy()
     # One particle: density = weight * W(0) = 2 * (1 / h) = 4.
     if kernel.name == "sph_pressure_coeffs":
-        reference[0, 30], reference[0, 24] = 4.0, 2.0 * 4.0 ** (-1.0 / 3.0)
+        reference[30, 0], reference[24, 0] = 4.0, 2.0 * 4.0 ** (-1.0 / 3.0)
     else:
-        reference[0, 30], reference[0, 24] = 1.0, 3.0
+        reference[30, 0], reference[24, 0] = 1.0, 3.0
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
 def test_sph_tensor_destinations(marker_args):
     # Second particle at eta1 + 0.2 (inside h = 0.5) with the same velocity coefficients.
-    marker_args.markers[1] = marker_args.markers[0]
-    marker_args.markers[1, 0] = 0.6
-    marker_args.markers[:, 18:21] = (1.0, 2.0, 3.0)
+    marker_args.markers[:, 1] = marker_args.markers[:, 0]
+    marker_args.markers[0, 1] = 0.6
+    marker_args.markers[18:21] = np.array([1.0, 2.0, 3.0])[:, None]
     marker_args.valid_mks[1] = True
     boxes = np.array([[0, 1, -1], [-1, -1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
@@ -131,8 +131,8 @@ def test_sph_tensor_destinations(marker_args):
     reference = before.copy()
     for value, index in zip(tensor.flat, indices):
         if index is not None:
-            reference[0, index] = value
-            reference[1, index] = -value
+            reference[index, 0] = value
+            reference[index, 1] = -value
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
@@ -161,16 +161,16 @@ def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
 )
 def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel, n_fields):
     # A marker at rest (v = mu = 0, no E-field) stays put; the residual must be 0, not NaN (issue #589).
-    markers = np.zeros((1, 40))
-    markers[0, :3] = (0.4, 0.3, 0.2)
-    markers[0, 8:11] = markers[0, :3]
-    markers[0, 18] = markers[0, 21] = 1.0  # B*_parallel and B* = (0, 0, 1) at time n.
+    markers = np.zeros((40, 1))
+    markers[:3, 0] = (0.4, 0.3, 0.2)
+    markers[8:11, 0] = markers[:3, 0]
+    markers[18, 0] = markers[21, 0] = 1.0  # B*_parallel and B* = (0, 0, 1) at time n.
     args_markers = MarkerArguments(
         markers, np.array([True]), 1, 2, 5, 6, 8, 12, 16, 17, 4, np.zeros(3, dtype=int), False
     )
     kernel(0.1, 0, args_markers, Cuboid().args_domain, derham_args, 1.0, *(coefficients(1.0),) * n_fields, False)
-    assert markers[0, 16] == 0.0
-    np.testing.assert_array_equal(markers[0, :4], (0.4, 0.3, 0.2, 0.0))
+    assert markers[16, 0] == 0.0
+    np.testing.assert_array_equal(markers[:4, 0], (0.4, 0.3, 0.2, 0.0))
 
 
 def test_sph_tensor_mapped_domain(marker_args):
@@ -178,9 +178,9 @@ def test_sph_tensor_mapped_domain(marker_args):
     # stored columns are in Piola form det(DF) * tensor @ DF^{-T}.
     # Only the neighbour at eta1 + 0.2 carries velocity coefficients, so the result does not
     # depend on the kernel gradient at zero; its linear 1D kernel gradient is 1 / h**2 = 4.
-    marker_args.markers[1] = marker_args.markers[0]
-    marker_args.markers[1, 0] = 0.6
-    marker_args.markers[1, 18:21] = (1.0, 2.0, 3.0)
+    marker_args.markers[:, 1] = marker_args.markers[:, 0]
+    marker_args.markers[0, 1] = 0.6
+    marker_args.markers[18:21, 1] = (1.0, 2.0, 3.0)
     marker_args.valid_mks[1] = True
     boxes = np.array([[0, 1, -1], [-1, -1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
@@ -200,7 +200,7 @@ def test_sph_tensor_mapped_domain(marker_args):
     symmetric = (gradient + gradient.T) / 2.0
     tensor = -2.0 * 3.0 * (2.0 / density) * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
     piola = np.linalg.det(jac) * tensor @ jac_inv.T
-    np.testing.assert_allclose(marker_args.markers[0, 22:31], piola.flat)
+    np.testing.assert_allclose(marker_args.markers[22:31, 0], piola.flat)
 
 
 @pytest.mark.parametrize("indices", [(), (1, 2), (-1,), (True,), (1.5,), (None,), (1, 1, 2)])
@@ -242,16 +242,16 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
 
     def initialize(alpha, indices, markers, domain, values):
         events.append("init")
-        markers.markers[0, indices[0]] = values[0]
+        markers.markers[indices[0], 0] = values[0]
 
     def evaluate(alpha, indices, markers, domain):
         events.append("eval")
-        markers.markers[0, indices[0]] = markers.markers[0, 20] + alpha[0]
+        markers.markers[indices[0], 0] = markers.markers[20, 0] + alpha[0]
 
     def push(dt, stage, markers, domain):
         events.append("push")
-        assert markers.markers[0, 21] == field[0] + 0.5
-        markers.markers[0, markers.residual_idx] = 1.0  # Force both iterations.
+        assert markers.markers[21, 0] == field[0] + 0.5
+        markers.markers[markers.residual_idx, 0] = 1.0  # Force both iterations.
 
     def sort(**kwargs):
         # Final sort after the last stage uses current positions (no alpha).
@@ -263,6 +263,7 @@ def test_pusher_evaluation_order_and_live_arguments(marker_args):
     particles = SimpleNamespace(
         markers=marker_args.markers,
         args_markers=marker_args,
+        n_markers_max=2,
         n_cols=40,
         vdim=3,
         first_pusher_idx=8,

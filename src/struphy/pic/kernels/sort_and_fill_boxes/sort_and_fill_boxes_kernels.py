@@ -14,7 +14,7 @@ def sort_and_fill_boxes(
     swap_line_2: "float[:]",
     box_index: "int" = -2,
 ):
-    """Reorder the marker rows by box, then update ``holes`` and rebuild ``boxes`` for the new rows, so that the box
+    """Reorder the markers (columns) by box, then update ``holes`` and rebuild ``boxes`` for the new order, so that the box
     array stays valid after the sort.
 
     ``next_index`` must hold the number of particles per box, as left by ``box_particles`` or ``fill_boxes``. The

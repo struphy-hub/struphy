@@ -1834,8 +1834,9 @@ class Output:
 
         # open hdf5 files and get names and number of saved markers of kinetic species
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
-            # get number of time steps and markers
-            nt, n_markers, n_cols = file_0["kinetic/" + species + "/markers"].shape
+            # get number of time steps and markers (the saved markers have the layout of the marker array, one
+            # column per marker)
+            nt, n_cols, n_markers = file_0["kinetic/" + species + "/markers"].shape
 
         # get the saved orbit quantities from the particle class of the species
         for _, var in species_obj.variables.items():
@@ -1883,9 +1884,9 @@ class Output:
             for rank in self._pproc_ranks:
                 with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                     markers = file["kinetic/" + species + "/markers"]
-                    ids = markers[n * step, :, -1].astype("int")
+                    ids = markers[n * step, -1, :].astype("int")
                     ids = ids[ids != -1]  # exclude holes
-                    temp[ids] = markers[n * step, : ids.size, save_index]
+                    temp[ids] = markers[n * step, save_index, : ids.size].T
 
             if self._pproc_parallel:
                 if self._pproc_rank == 0:
@@ -1909,7 +1910,7 @@ class Output:
             assert xp.all(sorted(ids) == xp.arange(n_markers))
 
             # compute physical positions (x, y, z)
-            pos_phys = self.domain(xp.array(temp[~lost_particles_mask, :3]), change_out_order=True)
+            pos_phys = self.domain(xp.array(temp[~lost_particles_mask, :3].T), change_out_order=True)
             temp[~lost_particles_mask, :3] = pos_phys
 
             if self._pproc_rank == 0:

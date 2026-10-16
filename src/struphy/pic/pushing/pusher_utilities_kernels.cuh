@@ -6,7 +6,7 @@ namespace struphy_cuda::pusher_utilities_kernels {
 /**
  * Reflect one marker's velocity using the Pyccel boundary helper's calculation.
  *
- * @param ip Marker row index.
+ * @param ip Marker index.
  * @param markers Marker array view.
  * @param args_domain Mapping arguments for the Jacobian at the reflected position.
  * @param axis Logical velocity component to reverse (0, 1 or 2).
@@ -19,13 +19,13 @@ namespace struphy_cuda::pusher_utilities_kernels {
 __device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
                                        const DomainArgs& args_domain, int axis) {
     double dfm[9], dfinv[9], v[3], v_logical[3];
-    evaluation_kernels::df(markers(ip, 0), markers(ip, 1), markers(ip, 2), args_domain, dfm);
+    evaluation_kernels::df(markers(0, ip), markers(1, ip), markers(2, ip), args_domain, dfm);
     linalg_kernels::matrix_inv(dfm, dfinv);
-    for (int j = 0; j < 3; ++j) v[j] = markers(ip, 3 + j);
+    for (int j = 0; j < 3; ++j) v[j] = markers(3 + j, ip);
     linalg_kernels::matrix_vector(dfinv, v, v_logical);
     v_logical[axis] *= -1.;
     linalg_kernels::matrix_vector(dfm, v_logical, v);
-    for (int j = 0; j < 3; ++j) markers(ip, 3 + j) = v[j];
+    for (int j = 0; j < 3; ++j) markers(3 + j, ip) = v[j];
 }
 
 /**
@@ -51,20 +51,20 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
 
     // Pole at eta1=0: a marker with eta1 < 0 has crossed the axis.
     if (args_markers.pole) {
-        if (args_markers.markers(ip, 0) < 0.) {
-            args_markers.markers(ip, 0) = -args_markers.markers(ip, 0);
-            double e2 = args_markers.markers(ip, 1) + 0.5;
-            args_markers.markers(ip, 1) = e2 - floor(e2);
+        if (args_markers.markers(0, ip) < 0.) {
+            args_markers.markers(0, ip) = -args_markers.markers(0, ip);
+            double e2 = args_markers.markers(1, ip) + 0.5;
+            args_markers.markers(1, ip) = e2 - floor(e2);
         }
-        if (args_markers.markers(ip, 0) < 1e-10) args_markers.markers(ip, 0) = 1e-10;
+        if (args_markers.markers(0, ip) < 1e-10) args_markers.markers(0, ip) = 1e-10;
     }
 
     // Remove markers before applying periodic or reflecting boundaries.
     for (int axis = 0; axis < 3; ++axis) {
         if (bc_type[axis] == 2 &&
-            (args_markers.markers(ip, axis) > 1. || args_markers.markers(ip, axis) < 0.)) {
-            int n_cols = args_markers.markers.shape[1];
-            for (int j = 0; j < n_cols - 1; ++j) args_markers.markers(ip, j) = -1.;
+            (args_markers.markers(axis, ip) > 1. || args_markers.markers(axis, ip) < 0.)) {
+            int n_cols = args_markers.markers.shape[0];
+            for (int j = 0; j < n_cols - 1; ++j) args_markers.markers(j, ip) = -1.;
             return;
         }
     }
@@ -72,16 +72,16 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
     // Wrap positions and update the shift exactly as in the Pyccel helper.
     for (int axis = 0; axis < 3; ++axis) {
         if (bc_type[axis] == 0) {
-            if (args_markers.markers(ip, axis) > 1.) {
-                args_markers.markers(ip, axis) -= floor(args_markers.markers(ip, axis));
-                if (newton) args_markers.markers(ip, first_shift_idx + axis) += 1.;
-                else args_markers.markers(ip, first_shift_idx + axis) = 1.;
-            } else if (args_markers.markers(ip, axis) < 0.) {
-                args_markers.markers(ip, axis) -= floor(args_markers.markers(ip, axis));
-                if (newton) args_markers.markers(ip, first_shift_idx + axis) += -1.;
-                else args_markers.markers(ip, first_shift_idx + axis) = -1.;
+            if (args_markers.markers(axis, ip) > 1.) {
+                args_markers.markers(axis, ip) -= floor(args_markers.markers(axis, ip));
+                if (newton) args_markers.markers(first_shift_idx + axis, ip) += 1.;
+                else args_markers.markers(first_shift_idx + axis, ip) = 1.;
+            } else if (args_markers.markers(axis, ip) < 0.) {
+                args_markers.markers(axis, ip) -= floor(args_markers.markers(axis, ip));
+                if (newton) args_markers.markers(first_shift_idx + axis, ip) += -1.;
+                else args_markers.markers(first_shift_idx + axis, ip) = -1.;
             } else if (!newton) {
-                args_markers.markers(ip, first_shift_idx + axis) = 0.;
+                args_markers.markers(first_shift_idx + axis, ip) = 0.;
             }
         }
     }
@@ -90,19 +90,19 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
     int n_reflected = 0;
     for (int axis = 0; axis < 3; ++axis) {
         if (bc_type[axis] == 1) {
-            if (args_markers.markers(ip, axis) > 1.) {
-                args_markers.markers(ip, axis) = 2. - args_markers.markers(ip, axis);
+            if (args_markers.markers(axis, ip) > 1.) {
+                args_markers.markers(axis, ip) = 2. - args_markers.markers(axis, ip);
                 reflected[axis] = true;
                 ++n_reflected;
-            } else if (args_markers.markers(ip, axis) < 0.) {
-                args_markers.markers(ip, axis) = -args_markers.markers(ip, axis);
+            } else if (args_markers.markers(axis, ip) < 0.) {
+                args_markers.markers(axis, ip) = -args_markers.markers(axis, ip);
                 reflected[axis] = true;
                 ++n_reflected;
             }
         }
     }
     if (n_reflected == 0) return;
-    args_markers.markers(ip, first_pusher_idx) = -1.;
+    args_markers.markers(first_pusher_idx, ip) = -1.;
     // Only Cartesian velocities are reflected (columns 3:6 hold other data for vdim != 3).
     if (args_markers.vdim != 3) return;
     for (int axis = 0; axis < 3; ++axis) {

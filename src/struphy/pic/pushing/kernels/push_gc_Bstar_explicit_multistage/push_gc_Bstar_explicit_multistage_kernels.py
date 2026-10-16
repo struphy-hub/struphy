@@ -93,18 +93,18 @@ def push_gc_Bstar_explicit_multistage(
 
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_pusher_idx] == -1.0:
+        if markers[first_pusher_idx, ip] == -1.0:
             continue
 
         # if stage == 0.:
         #     # save initial parallel velocity
-        #     markers[ip, 14] = markers[ip, 3]
+        #     markers[14, ip] = markers[3, ip]
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
-        mu = markers[ip, mu_idx]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v = markers[3, ip]
+        mu = markers[mu_idx, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -205,9 +205,9 @@ def push_gc_Bstar_explicit_multistage(
         pusher_utilities_kernels.update_position_stage(ip, k, dt, a[stage], b[stage], last, args_markers)
 
         # same for v_parallel
-        markers[ip, first_free_idx + 3] += dt * b[stage] * k_v
-        markers[ip, 3] = (
-            markers[ip, first_pusher_idx + 3] + dt * a[stage] * k_v + last * markers[ip, first_free_idx + 3]
+        markers[first_free_idx + 3, ip] += dt * b[stage] * k_v
+        markers[3, ip] = (
+            markers[first_pusher_idx + 3, ip] + dt * a[stage] * k_v + last * markers[first_free_idx + 3, ip]
         )
 
         # apply kinetic boundary conditions

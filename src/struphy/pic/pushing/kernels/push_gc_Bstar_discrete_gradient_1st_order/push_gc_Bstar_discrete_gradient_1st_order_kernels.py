@@ -89,32 +89,32 @@ def push_gc_Bstar_discrete_gradient_1st_order(
 
     for ip in range(n_markers):
         # check if marker is converged or a hole
-        if markers[ip, first_pusher_idx] == -1.0:
+        if markers[first_pusher_idx, ip] == -1.0:
             continue
 
-        eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx : first_shift_idx + 3]
-        eta_n[:] = markers[ip, first_pusher_idx : first_pusher_idx + 3]
+        eta_k[:] = markers[0:3, ip] + markers[first_shift_idx : first_shift_idx + 3, ip]
+        eta_n[:] = markers[first_pusher_idx : first_pusher_idx + 3, ip]
 
         eta_mid[:] = (eta_k + eta_n) / 2.0
         eta_mid[:] = mod(eta_mid, 1.0)
         eta_diff[:] = eta_k - eta_n
 
-        v_k = markers[ip, 3]
-        v_n = markers[ip, first_pusher_idx + 3]
+        v_k = markers[3, ip]
+        v_n = markers[first_pusher_idx + 3, ip]
         v_mid = (v_k + v_n) / 2.0
         v_diff = v_k - v_n
 
-        mu = markers[ip, mu_idx]
+        mu = markers[mu_idx, ip]
 
         # Hamiltonian at n (from init_kernel)
-        H_n = markers[ip, first_free_idx]
+        H_n = markers[first_free_idx, ip]
 
         # Poisson matrix at n (from init_kernel)
-        b_star_parallel = epsilon * markers[ip, first_free_idx + 1]
-        b_star[:] = markers[ip, first_free_idx + 2 : first_free_idx + 5]
+        b_star_parallel = epsilon * markers[first_free_idx + 1, ip]
+        b_star[:] = markers[first_free_idx + 2 : first_free_idx + 5, ip]
 
         # Hamiltonian at (n+1, k) (from eval_kernel)
-        H_k = markers[ip, first_free_idx + 5]
+        H_k = markers[first_free_idx + 5, ip]
 
         # mid-point spline evaluation
         span1, span2, span3 = get_spans(
@@ -174,19 +174,19 @@ def push_gc_Bstar_discrete_gradient_1st_order(
         k_v /= -b_star_parallel
 
         # compute values at (n+1, k+1)
-        markers[ip, 0:3] = eta_n + dt * k
-        markers[ip, 3] = v_n + dt * k_v
+        markers[0:3, ip] = eta_n + dt * k
+        markers[3, ip] = v_n + dt * k_v
 
         # residual (relative in v, absolute if v_k == 0)
         v_scale = abs(v_k)
         if v_scale == 0.0:
             v_scale = 1.0
 
-        markers[ip, residual_idx] = sqrt(
-            (markers[ip, 0] - eta_k[0]) ** 2
-            + (markers[ip, 1] - eta_k[1]) ** 2
-            + (markers[ip, 2] - eta_k[2]) ** 2
-            + ((markers[ip, 3] - v_k) / v_scale) ** 2,
+        markers[residual_idx, ip] = sqrt(
+            (markers[0, ip] - eta_k[0]) ** 2
+            + (markers[1, ip] - eta_k[1]) ** 2
+            + (markers[2, ip] - eta_k[2]) ** 2
+            + ((markers[3, ip] - v_k) / v_scale) ** 2,
         )
 
         # apply kinetic boundary conditions
