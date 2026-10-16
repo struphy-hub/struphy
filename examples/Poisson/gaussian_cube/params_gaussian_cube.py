@@ -37,6 +37,11 @@ parser.add_argument(
     action="store_true",
     help="Small resolution (num_elements = [16, 16, 16]), for the tests (test_examples.py).",
 )
+parser.add_argument(
+    "--pinning",
+    default=None,
+    help="Placement of the ranks set by the submit script (compact, spread, balanced); only added to the profiling label.",
+)
 args, _ = parser.parse_known_args()
 if args.test_run:
     args.num_elements = [16, 16, 16]
@@ -160,9 +165,11 @@ from maybempi import MPI, SerialMPI
 
 num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
 profiling_label = f"{num_ranks} rank" + ("s" if num_ranks != 1 else "")
+if args.pinning is not None:
+    profiling_label += f", {args.pinning}"
 profiling_opts = ProfilingOptions(
     label=profiling_label,
-    use_line_profiler=False,
+    use_line_profiler=True,
 )
 
 # Simulation object
