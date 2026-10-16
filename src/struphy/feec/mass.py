@@ -2205,6 +2205,19 @@ class WeightedMassOperator(LinearOperator):
 
         return M
 
+    def _quad_grid(self, space_name, attribute, component):
+        """Quadrature-grid arrays (spans, weights or basis values) of one component of a space, as backend arrays.
+
+        The Derham keeps them as host arrays; on the CuPy backend the assembly kernel needs them on the device,
+        so they are copied there once and cached (they do not change between assemblies).
+        """
+        cache = self.__dict__.setdefault("_quad_grid_cache", {})
+        key = (space_name, attribute, component)
+        if key not in cache:
+            arrays = getattr(self.derham.spline_attributes[space_name], attribute)[component]
+            cache[key] = [xp.asarray(array) for array in arrays]
+        return cache[key]
+
     def assemble(self, weights=None, clear=True):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
@@ -2281,7 +2294,7 @@ class WeightedMassOperator(LinearOperator):
             # loop over codomain spaces (rows)
             for a, codomain_space in enumerate(codomain_spaces):
                 # knot span indices of elements of local domain
-                codomain_spans = spline_attr[W_name].quad_grid_spans[a]
+                codomain_spans = self._quad_grid(W_name, "quad_grid_spans", a)
 
                 # global start spline index on process
                 codomain_starts = [int(start) for start in codomain_space.coeff_space.starts]
@@ -2293,10 +2306,10 @@ class WeightedMassOperator(LinearOperator):
                 pts = self._quad_pts(W_name, a)
 
                 # global quadrature weights in format (local element, local weight)
-                wts = spline_attr[W_name].quad_grid_wts[a]
+                wts = self._quad_grid(W_name, "quad_grid_wts", a)
 
                 # evaluated basis functions at quadrature points of codomain space
-                codomain_basis = spline_attr[W_name].quad_grid_bases[a]
+                codomain_basis = self._quad_grid(W_name, "quad_grid_bases", a)
 
                 # loop over domain spaces (columns)
                 for b, domain_space in enumerate(domain_spaces):
@@ -2336,7 +2349,7 @@ class WeightedMassOperator(LinearOperator):
                     )
 
                     # evaluated basis functions at quadrature points of domain space
-                    domain_basis = spline_attr[V_name].quad_grid_bases[b]
+                    domain_basis = self._quad_grid(V_name, "quad_grid_bases", b)
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
