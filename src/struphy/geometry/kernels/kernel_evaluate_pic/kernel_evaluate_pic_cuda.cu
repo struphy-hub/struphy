@@ -9,27 +9,27 @@ using namespace struphy_cuda;
  *
  * CUDA-only helper for the condition `e1 < 0.0 or e1 > 1.0 or ...` (a NaN coordinate counts as inside, as in pyccel).
  *
- * @param markers Marker array view; the logical position is in columns 0-2.
- * @param i Marker row.
+ * @param markers Marker array view; the logical position is in rows 0-2 (one column per marker).
+ * @param i Marker index.
  * @return True if the marker is outside (a hole has coordinates -1).
  */
 __device__ inline bool marker_is_outside(const Array2D<double>& markers, long long i) {
-    double e1 = markers(i, 0);
-    double e2 = markers(i, 1);
-    double e3 = markers(i, 2);
+    double e1 = markers(0, i);
+    double e2 = markers(1, i);
+    double e3 = markers(2, i);
     return e1 < 0.0 || e1 > 1.0 || e2 < 0.0 || e2 > 1.0 || e3 < 0.0 || e3 > 1.0;
 }
 
 /**
  * Evaluation of metric coefficients for given markers, as in kernel_evaluate_pic_kernels.kernel_evaluate_pic.
  *
- * One thread per marker row i. The pyccel kernel writes the result of the i-th marker to row `counter` of mat_f
+ * One thread per marker i. The pyccel kernel writes the result of the i-th marker to row `counter` of mat_f
  * and returns the final counter. A CUDA kernel returns nothing, so the counter is not returned; struphy's caller
  * (Domain._evaluate_metric_coefficient) passes remove_outside=false, for which counter == i, and removes the rows of
  * outside markers itself, on both backends. With remove_outside=true each thread counts the inside markers before
  * row i (O(i) work per thread, O(N^2) in total): correct, so that both versions fill mat_f identically, but slow.
  *
- * @param markers Evaluation points in marker format (eta1, eta2, eta3 = markers[:, 0:3]), any strides.
+ * @param markers Evaluation points in marker format (eta1, eta2, eta3 = markers[0:3], one column per marker), any strides.
  * @param kind_coeff Which coefficient: -1 identity, 0 mapping F, 1 DF, 2 det(DF), 3 DF^(-1), 4 G, 5 G^(-1).
  * @param args Mapping arguments; every spline and analytic mapping.
  * @param mat_f Output of shape (N, 3, 3), any strides. Rows of outside markers are set to -1 (identity: their
@@ -40,13 +40,13 @@ __device__ inline bool marker_is_outside(const Array2D<double>& markers, long lo
 extern "C" __global__ void kernel_evaluate_pic(Array2D<double> markers, int kind_coeff, DomainArgs args,
                                                Array3D<double> mat_f, bool remove_outside, bool avoid_round_off) {
     long long i = (long long)blockDim.x * blockIdx.x + threadIdx.x;
-    if (i >= markers.shape[0]) return;
+    if (i >= markers.shape[1]) return;
 
     double tmp0[3], tmp1[9], tmp2[9], tmp3[9], out[9];
 
-    double e1 = markers(i, 0);
-    double e2 = markers(i, 1);
-    double e3 = markers(i, 2);
+    double e1 = markers(0, i);
+    double e2 = markers(1, i);
+    double e3 = markers(2, i);
     bool outside = marker_is_outside(markers, i);
 
     if (outside && remove_outside) return;

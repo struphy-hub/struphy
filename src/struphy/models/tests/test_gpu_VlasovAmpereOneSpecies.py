@@ -130,7 +130,7 @@ def run_model(backend: str, out_folders: str) -> RunResult:
 
 def check_reference(ref: RunResult):
     """Physics sanity of the NumPy run: the comparison is only meaningful if the reference is right."""
-    assert ref.markers.shape[0] == PPC * int(np.prod(NUM_ELEMENTS))
+    assert ref.markers.shape[1] == PPC * int(np.prod(NUM_ELEMENTS))
     if MPI.COMM_WORLD.Get_rank() == 0:
         en_E = ref.scalars["electric_energy"]
         en_tot = ref.scalars["total_energy"]
@@ -156,14 +156,14 @@ def compare_runs(ref: RunResult, gpu: RunResult):
     the change per step (~5e-2 in the electric energy). Full-f weights do not change, so they must agree to round-off.
     """
     rtol = 1e-8
-    np.testing.assert_array_equal(gpu.markers[:, -1], ref.markers[:, -1])  # same markers
+    np.testing.assert_array_equal(gpu.markers[-1], ref.markers[-1])  # same markers
 
     def close(a, b, name):
         np.testing.assert_allclose(a, b, rtol=0, atol=rtol * max(np.max(np.abs(b)), 1e-300), err_msg=name)
 
-    close(gpu.markers[:, 0:3], ref.markers[:, 0:3], "positions")
-    close(gpu.markers[:, 3:6], ref.markers[:, 3:6], "velocities")
-    np.testing.assert_allclose(gpu.markers[:, 6], ref.markers[:, 6], rtol=1e-13, atol=0, err_msg="weights")
+    close(gpu.markers[0:3], ref.markers[0:3], "positions")
+    close(gpu.markers[3:6], ref.markers[3:6], "velocities")
+    np.testing.assert_allclose(gpu.markers[6], ref.markers[6], rtol=1e-13, atol=0, err_msg="weights")
     for name, coeffs in ref.fields.items():
         assert gpu.fields[name].shape == coeffs.shape, name
         close(gpu.fields[name], coeffs, name)

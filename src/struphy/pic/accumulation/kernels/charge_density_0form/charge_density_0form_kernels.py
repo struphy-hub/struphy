@@ -36,18 +36,18 @@ def charge_density_0form(
     # fmt: off
     #$ omp for reduction ( + :vec)
     # fmt: on
-    for ip in range(shape(markers)[0]):
+    for ip in range(args_markers.n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # filling is just the weights
-        filling = markers[ip, weight_idx]
+        filling = markers[weight_idx, ip]
 
         particle_to_mat_kernels.vec_fill_b_v0(
             thread_derham,

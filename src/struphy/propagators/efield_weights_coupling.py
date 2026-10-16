@@ -204,8 +204,8 @@ class EfieldWeightsCoupling(Propagator):
         self._e_sum = e.space.zeros()
 
         # marker storage
-        self._f0_values = xp.zeros(particles.markers.shape[0], dtype=float)
-        self._old_weights = xp.empty(particles.markers.shape[0], dtype=float)
+        self._f0_values = xp.zeros(particles.n_markers_max, dtype=float)
+        self._old_weights = xp.empty(particles.n_markers_max, dtype=float)
 
         # ================================
         # ========= Schur Solver =========
@@ -257,12 +257,12 @@ class EfieldWeightsCoupling(Propagator):
 
         # evaluate f0 and accumulate
         self._f0_values[:] = self._f0(
-            particles.markers[:, 0],
-            particles.markers[:, 1],
-            particles.markers[:, 2],
-            particles.markers[:, 3],
-            particles.markers[:, 4],
-            particles.markers[:, 5],
+            particles.markers[0],
+            particles.markers[1],
+            particles.markers[2],
+            particles.markers[3],
+            particles.markers[4],
+            particles.markers[5],
         )
 
         self._accum(self._f0_values)
@@ -285,7 +285,7 @@ class EfieldWeightsCoupling(Propagator):
         )
 
         # Store old weights
-        self._old_weights[~particles.holes] = particles.markers_wo_holes[:, 6]
+        self._old_weights[~particles.holes] = particles.markers_wo_holes[6]
 
         # Compute (e^{n+1} + e^n) (no tmps created here)
         self._e_sum *= 0.0
@@ -306,7 +306,7 @@ class EfieldWeightsCoupling(Propagator):
             logger.info(f"Maxdiff    e1   for StepEfieldWeights: {max_de}")
             max_diff = xp.max(
                 xp.abs(
-                    self._old_weights[~particles.holes] - particles.markers[~particles.holes, 6],
+                    self._old_weights[~particles.holes] - particles.markers[6, ~particles.holes],
                 ),
             )
             logger.info(f"Maxdiff weights for StepEfieldWeights: {max_diff}")

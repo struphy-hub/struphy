@@ -22,13 +22,14 @@ def test_reflect_in_place(backend, axis, count):
         # SIGFPE on x86-64). Particles.apply_kinetic_bc never passes an empty index array; the CUDA launch of
         # zero threads is a no-op and stays tested.
         pytest.skip("pyccel kernels must not be called with zero-size arrays")
-    original = np.random.default_rng(32).random((140, 16))
+    original = np.random.default_rng(32).random((16, 140))
     indices = np.arange(139, 139 - count, -1, dtype=np.int64)
     expected = original.copy()
-    expected[indices, 2 * (3 + axis)] *= -1
+    expected[2 * (3 + axis), indices] *= -1
     with xp.use_backend(backend):
-        storage = xp.asarray(original.copy())
-        markers = storage[:, ::2]
+        # every other row of a marker buffer (one column per marker): strided, in the marker layout
+        storage = xp.asarray(original)
+        markers = storage[::2]
         outside_inds = xp.asarray(np.repeat(indices, 2))[::2]
         domain = Cuboid(r1=2.0, r2=3.0, r3=4.0)
         reflect(markers, domain.args_domain, outside_inds, axis, n_threads=outside_inds.size)
@@ -68,7 +69,7 @@ def test_reflect_rejects_unsupported_mapping():
 def test_reflect_rejects_wrong_index_dtype(dtype):
     with xp.use_backend("cupy"):
         with pytest.raises(TypeError, match="Array1D<long long>"):
-            reflect(xp.zeros((2, 6)), Cuboid().args_domain, xp.asarray([0], dtype=dtype), 0, n_threads=1)
+            reflect(xp.zeros((6, 2)), Cuboid().args_domain, xp.asarray([0], dtype=dtype), 0, n_threads=1)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -76,13 +77,13 @@ def test_particle_boundary_reflection(backend):
     with xp.use_backend(backend):
         particles = reflecting_particles(Cuboid())
         selected = xp.nonzero(particles.valid_mks)[0][:3]
-        particles.markers[selected, :3] = xp.asarray([[-0.1, 0.5, 0.5], [0.5, 1.1, 0.5], [-0.2, 1.2, -0.3]])
-        particles.markers[selected, 3:6] = xp.asarray([1.0, 2.0, 3.0])
+        particles.markers[:3, selected] = xp.asarray([[-0.1, 0.5, 0.5], [0.5, 1.1, 0.5], [-0.2, 1.2, -0.3]]).T
+        particles.markers[3:6, selected] = xp.asarray([1.0, 2.0, 3.0])[:, None]
         particles.apply_kinetic_bc()
         np.testing.assert_allclose(
-            xp.to_numpy(particles.markers[selected, :3]), [[0.1, 0.5, 0.5], [0.5, 0.9, 0.5], [0.2, 0.8, 0.3]]
+            xp.to_numpy(particles.markers[:3, selected]).T, [[0.1, 0.5, 0.5], [0.5, 0.9, 0.5], [0.2, 0.8, 0.3]]
         )
         np.testing.assert_allclose(
-            xp.to_numpy(particles.markers[selected, 3:6]), [[-1.0, 2.0, 3.0], [1.0, -2.0, 3.0], [-1.0, -2.0, -3.0]]
+            xp.to_numpy(particles.markers[3:6, selected]).T, [[-1.0, 2.0, 3.0], [1.0, -2.0, 3.0], [-1.0, -2.0, -3.0]]
         )
-        assert bool(xp.all(particles.markers[selected, particles.first_pusher_idx] == -1.0))
+        assert bool(xp.all(particles.markers[particles.first_pusher_idx, selected] == -1.0))

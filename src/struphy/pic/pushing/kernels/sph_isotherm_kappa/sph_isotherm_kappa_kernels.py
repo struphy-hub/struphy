@@ -21,8 +21,8 @@ def sph_isotherm_kappa(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         if output_indices[0] >= 0:
-            markers[ip, output_indices[0]] = 1.0
+            markers[output_indices[0], ip] = 1.0

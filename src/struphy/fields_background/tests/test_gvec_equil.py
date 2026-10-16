@@ -11,8 +11,8 @@ GVEC_PARAMS = {"dat_file": "run_01/CIRCTOK_State_0000_00000000.dat", "param_file
 def _markers(n=7, seed=3):
     """``n`` markers at random logical positions, away from the hole at the axis."""
     rng = np.random.default_rng(seed)
-    markers = rng.uniform(0.0, 1.0, (n, 3))
-    markers[:, 0] = rng.uniform(0.1, 0.9, n)
+    markers = rng.uniform(0.0, 1.0, (3, n))
+    markers[0] = rng.uniform(0.1, 0.9, n)
     return markers
 
 
@@ -33,11 +33,11 @@ def test_gvec_marker_evaluation_matches_grid(name, with_gvec=False):
     flat = getattr(equil, name)(markers)
     flat = flat if isinstance(flat, tuple) else (flat,)
 
-    for ip, (e1, e2, e3) in enumerate(markers):
+    for ip, (e1, e2, e3) in enumerate(markers.T):
         grid = getattr(equil, name)(np.array([e1]), np.array([e2]), np.array([e3]))
         grid = grid if isinstance(grid, tuple) else (grid,)
         for f, g in zip(flat, grid):
-            assert f.shape == (len(markers),)
+            assert f.shape == (markers.shape[1],)
             assert np.isclose(f[ip], g.ravel()[0], rtol=1e-12, atol=1e-14)
 
 
