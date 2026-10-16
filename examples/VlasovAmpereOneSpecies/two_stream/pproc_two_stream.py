@@ -71,12 +71,16 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     # every scalar time series as CSV: post_processing/scalars.csv
     print(f"scalars written to {run.save_scalars()}")
 
-    # electric field growth against the analytical rate (0.2845 in units of m/c)
+    # electric field growth against the analytical growth rate gamma of the field amplitude (in Struphy units, from
+    # the kinetic dispersion relation for k = 0.2): the electric energy grows as exp(2 gamma t); the initial density
+    # perturbation (without velocity perturbation) puts about half of its amplitude into the growing mode
+    # (cold beams: cosh(gamma t)), i.e. a quarter of the initial energy
+    gamma = 0.2845
     energy = run.evaluate("scalars", variables="electric_energy")["electric_energy"]
-    analytical = 10 ** (0.2845 * energy.t - 5.3)  # t is in Struphy units
+    analytical = energy.isel(t=0) / 4 * np.exp(2 * gamma * energy.t)
     fig, ax = plt.subplots()
     ax.plot(energy.t, energy, label="numerical")
-    ax.plot(energy.t, analytical, "--", label="analytical")
+    ax.plot(energy.t, analytical, "--", label=rf"analytical, $\exp(2 \gamma t)$, $\gamma = {gamma}$")
     ax.set(xlabel="time", yscale="log", title="Electric energy")
     ax.legend()
     save({"electric_energy": fig})

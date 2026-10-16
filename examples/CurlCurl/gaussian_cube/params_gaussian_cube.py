@@ -1,6 +1,7 @@
-"""Curl-curl problem curl curl E + sigma E = J on a cube with a manufactured Gaussian vector field (vanishing
-tangential E in eta1), solved with CG and a choice of preconditioners (e.g. Hiptmair-Xu, multigrid). The
-pproc reports the max. relative error of the right-hand side and the solution."""
+"""Curl-curl problem curl curl E + sigma E = J on a cube, the elliptic problem of an implicit time step of
+Maxwell's equations (or of eddy-current and magnetostatic problems). A manufactured Gaussian vector field
+(vanishing tangential E in eta1) is solved with CG and a choice of preconditioners (e.g. Hiptmair-Xu,
+multigrid). The pproc reports the max. relative error of the right-hand side and the solution."""
 
 # -----------------------------
 # Description of the simulation
@@ -62,11 +63,45 @@ PRECONDS = {
 
 name = f"Curl-curl on 3D cube, {PRECONDS[precond][0]}"
 description = f"""
-Curl-curl problem curl curl E + sigma E = J on a 3D cube (Cuboid).
+Curl-curl problem curl curl E + sigma E = J for the vector field E (e.g. the electric field) with a given
+source J on a 3D cube (Cuboid), with a manufactured localized solution, to test the accuracy and the
+preconditioners of the solver.
+
+Physics. The curl-curl problem is the elliptic core of low-frequency and time-implicit electromagnetics.
+A backward Euler step of Maxwell's equations, dE/dt = c^2 curl B - J/eps0 and dB/dt = -curl E,
+leads after elimination of the new B to
+    curl curl E + E / (c dt)^2 = (terms of the old time step and the current),
+i.e. sigma = 1/(c dt)^2. The same operator appears in eddy-current problems (sigma = mu0 sigma_c / dt with the
+electric conductivity sigma_c), and for sigma -> 0 it becomes the magnetostatic operator curl curl A = mu0 J of the
+vector potential. Here sigma = 1e-2 is small: on the kernel of the curl, the gradient fields grad psi, the
+operator reduces to sigma times the identity, so its spectrum has a cluster of small eigenvalues on all length
+scales which point smoothers and preconditioners designed for the Laplacian do not reduce. The Hiptmair-Xu
+preconditioner and the hybrid smoother of Hiptmair (multigrid) treat this kernel separately in the H1 space of
+the potentials. E lives in the spline space V1 of H(curl) of the discrete de Rham complex (FEEC), so the discrete
+gradients are exactly in the kernel of the discrete curl, as in the continuous case. The manufactured solution
+E = g c has both a curl-free and a divergence-free part (div E = c . grad g, curl E = grad g x c); being
+localized, it excites the whole spectrum of the operator, including the near-kernel of the gradients.
+
+Setup. Cube [0, 2] x [-1.5, 1.5] x [0, 4] (Cuboid), splines of degree (2, 2, 3), sigma = 1e-2.
 The manufactured solution is a Gaussian vector field E = g(x) c in Cartesian coordinates, with a constant
-vector c and a Gaussian g centered at x0 inside the domain, exciting the full spectrum.
-Homogeneous Dirichlet boundary conditions (vanishing tangential E) are set in direction eta1.
+vector c and a Gaussian g (width 0.15) centered at x0 = (1, 0, 2) inside the domain, exciting the full spectrum.
+Homogeneous Dirichlet boundary conditions (vanishing tangential E) are set in direction eta1, periodic ones in
+eta2 and eta3.
 The linear system is solved with {PRECONDS[precond][1]}.
+
+Expected result. The pproc script compares the computed E and the projected right-hand side J with the
+exact fields and prints the max. relative errors; at the default resolution (not with --test-run) it asserts that
+they are below 2.5e-2 (J) and 1.7e-2 (E). The number of CG iterations shows the efficiency of the
+preconditioner.
+
+References:
+- R. Hiptmair and J. Xu, "Nodal auxiliary space preconditioning in H(curl) and H(div) spaces",
+  SIAM J. Numer. Anal. 45, 2483 (2007).
+- R. Hiptmair, "Multigrid method for Maxwell's equations", SIAM J. Numer. Anal. 36, 204 (1998).
+- A. Buffa, J. Rivas, G. Sangalli and R. Vazquez, "Isogeometric discrete differential forms in three
+  dimensions", SIAM J. Numer. Anal. 49, 818 (2011).
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite
+  elements with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging

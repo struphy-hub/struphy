@@ -18,6 +18,7 @@ from pathlib import Path
 # the profiling driver (profiling_job.py, clusters.py, ...) lives in profiling/ at the repo root, three levels up
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "profiling"))
 
+from clusters import PINNINGS  # noqa: E402
 from profiling_job import ProfilingCase  # noqa: E402
 
 # variant -> (label, name, description, flags of the params file); the labels identify the
@@ -72,6 +73,17 @@ def main() -> None:
         default="GNU",
         help='Pyccel compiler family ("GNU", "intel", "PGI", "nvidia" or "LLVM").',
     )
+    parser.add_argument(
+        "--pinning",
+        nargs="+",
+        choices=PINNINGS,
+        default=None,
+        help=(
+            "Placement of the ranks on the cores of the node; one scaling run per given pinning. compact: "
+            "consecutive cores; spread: round robin over sockets and CCDs (chiplets); balanced: the cores of "
+            "spread, neighbouring ranks on the same CCD. Omit to leave the placement to SLURM."
+        ),
+    )
     args = parser.parse_args()
     label, name, description, param_flags = VARIANTS[args.variant]
 
@@ -91,9 +103,11 @@ def main() -> None:
         upload=args.upload,
     )
 
-    # Launch one run per rank count
-    for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
-        profiling_case.launch(num_tasks, param_flags=param_flags)
+    # Launch one run per pinning and rank count; the pinning is passed on to the label of the run
+    for pinning in args.pinning or [None]:
+        pinning_flags = [] if pinning is None else ["--pinning", pinning]
+        for num_tasks in (1, 2, 4, 8, 16, 32, 64, 128, 256):
+            profiling_case.launch(num_tasks, param_flags=param_flags + pinning_flags, pinning=pinning)
 
     # Package and push each run as its own job finishes.
     profiling_case.finalize_run()

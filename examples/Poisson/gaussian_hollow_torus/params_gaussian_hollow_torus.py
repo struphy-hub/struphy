@@ -1,5 +1,6 @@
-"""Poisson equation on a hollow torus (HollowTorus) with a manufactured Gaussian solution, solved with CG and
-a choice of preconditioners. The pproc reports the max. relative error of the right-hand side and the
+"""Poisson equation -Laplace phi = rho (electrostatic potential of a charge density) on a hollow torus
+(HollowTorus) with a manufactured Gaussian solution (homogeneous Dirichlet boundary conditions in eta1), solved
+with CG and a choice of preconditioners. The pproc reports the max. relative error of the right-hand side and the
 solution."""
 
 # -----------------------------
@@ -31,7 +32,7 @@ parser.add_argument(
     choices=["None", "MultiGrid", "StiffnessPreconditioner"],
     help="Name of the preconditioner (None for no preconditioner).",
 )
-parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 64], help="Number of elements per direction.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[128, 128, 128], help="Number of elements per direction.")
 parser.add_argument(
     "--test-run",
     action="store_true",
@@ -55,11 +56,37 @@ PRECONDS = {
 
 name = f"Poisson on hollow torus, {PRECONDS[precond][0]}"
 description = f"""
-Poisson equation on a full hollow torus (HollowTorus, a1=1e-2, a2=1, R0=4).
+Poisson equation -Laplace phi = rho for the electrostatic potential phi of a given charge density rho on a
+full hollow torus, with a manufactured localized solution, to test the accuracy and the preconditioners of the
+solver in tokamak-like toroidal geometry.
+
+Physics. Poisson's equation -Laplace phi = rho determines the electrostatic potential phi, and
+thereby the electric field E = -grad phi, of a given charge density rho (Gauss's law div E = rho for a curl-free
+E, in Struphy units). It is the field equation of electrostatic models such as Vlasov-Poisson and the prototype
+of the elliptic problems in Struphy. The Poisson model solves -div(D0 grad phi) + n0 phi = rho; here D0 is the
+identity and the stabilization term is switched off (stab_eps = 0), i.e. the pure Laplacian with phi in the
+spline space V0 of H1 of the discrete de Rham complex (FEEC).
+The Gaussian potential corresponds to a localized charge distribution, a positive core inside a
+negative shell with zero net charge (the integral of Laplace phi vanishes), hence there is no long-range 1/r tail.
+Being localized, it excites the whole spectrum of the Laplacian, whose condition number grows like h^-2 with the
+mesh size h, so unpreconditioned CG needs many iterations.
+
+Setup. Full hollow torus (HollowTorus, a1=1e-2, a2=1, R0=4), splines of degree (1, 2, 3).
 The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
 exciting the full spectrum.
 Homogeneous Dirichlet boundary conditions are set in direction eta1.
 The linear system is solved with {PRECONDS[precond][1]}.
+
+Expected result. The pproc script compares the computed phi and the projected right-hand side rho with
+the exact fields and prints the max. relative errors; at the default resolution (not with --test-run) it asserts
+that they are below 2.2e-2 (rho) and 1.3e-2 (phi). The number of CG iterations shows the efficiency of the
+preconditioner.
+
+References:
+- A. Buffa, J. Rivas, G. Sangalli and R. Vazquez, "Isogeometric discrete differential forms in three
+  dimensions", SIAM J. Numer. Anal. 49, 818 (2011).
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite
+  elements with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging
@@ -132,8 +159,13 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_m
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profilinig options
+from maybempi import MPI, SerialMPI
+
+num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+profiling_label = f"{num_ranks} rank" + ("s" if num_ranks != 1 else "")
 profiling_opts = ProfilingOptions(
-    use_line_profiler=True,
+    label=profiling_label,
+    use_line_profiler=False,
 )
 
 # Simulation object

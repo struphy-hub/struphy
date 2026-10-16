@@ -9,6 +9,7 @@ from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
+from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
@@ -89,8 +90,18 @@ class ShearAlfvenPropagator(Propagator):
             Time stepping algorithm.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used by implicit or explicit operators.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Preconditioner for the mass-matrix block.
+        precond : LiteralOptions.OptsShearAlfvenPrecond, default="MassMatrixPreconditioner"
+            Preconditioner of the linear solve: of the mass-matrix block (``"MassMatrixPreconditioner"``,
+            ``"PolarMassMatrixPreconditioner"``), or a geometric multigrid V-cycle of the whole Schur operator
+            (``"MultiGrid"``, :class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`;
+            implicit algorithm with ``solver="pcg"`` only). The Schur operator depends on the time step, so the
+            multigrid preconditioner is built at the first time step (and updated if the time step changes).
+            Experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG iterations than the mass
+            matrix preconditioner and is much slower (the smoother does not treat the large kernel of the curl
+            term on 2-forms).
+        multigrid : MultiGridOptions, default=None
+            Options of the multigrid preconditioner (if ``precond="MultiGrid"``); defaults to
+            ``MultiGridOptions()``.
         solver_params : SolverParameters, default=None
             Solver controls; defaults to ``SolverParameters()``.
         butcher : ButcherTableau, default=None
@@ -103,7 +114,8 @@ class ShearAlfvenPropagator(Propagator):
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsShearAlfvenPrecond = "MassMatrixPreconditioner"
+        multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
         butcher: ButcherTableau = None
 
@@ -112,7 +124,12 @@ class ShearAlfvenPropagator(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
-            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
+            if self.precond == "MultiGrid":
+                assert self.algo == "implicit", 'precond="MultiGrid" requires algo="implicit".'
+                assert self.solver == "pcg", 'precond="MultiGrid" requires solver="pcg".'
+                if self.multigrid is None:
+                    self.multigrid = MultiGridOptions()
 
             # defaults
             if self.solver_params is None:
@@ -147,8 +164,9 @@ class ShearAlfvenPropagator(Propagator):
         _M2 = self.mass_ops.M2
         curl = self.derham.curl
 
-        # Preconditioner
-        if self.options.precond is None:
+        # Preconditioner (the multigrid preconditioner of the Schur operator depends on dt and is built in __call__)
+        self._multigrid_dt = None
+        if self.options.precond is None or self.options.precond == "MultiGrid":
             pc = None
         else:
             pc_class = getattr(preconditioner, self.options.precond)
@@ -219,6 +237,18 @@ class ShearAlfvenPropagator(Propagator):
         bn = self.variables.b.spline.vector
 
         if self.options.algo == "implicit":
+            # the multigrid preconditioner of the Schur operator A - dt^2 B C, for the current time step: built at the
+            # first time step, updated (re-using the coarse mass and derivative operators) when dt changes
+            if self.options.precond == "MultiGrid" and dt != self._multigrid_dt:
+                schur = self._schur_solver.A - dt**2 * self._schur_solver.BC
+                if self._schur_solver.precond is None:
+                    self._schur_solver.precond = MultiGridPreconditioner(
+                        schur, self.derham, self.domain, self.options.multigrid, mass_ops=self.mass_ops
+                    )
+                else:
+                    self._schur_solver.precond.update(schur)
+                self._multigrid_dt = dt
+
             # solve for new u coeffs
             byn = self._B.dot(bn, out=self._byn)
 

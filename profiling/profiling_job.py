@@ -48,7 +48,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name
+from clusters import HARDWARE_INFO, PINNINGS, SLURM_PRESETS, detect_machine_name, pinning_cpu_map
 from package_profiling_results import (
     RESULTS_DIR_NAME,
     _build_output_name,
@@ -147,6 +147,7 @@ class ProfilingCase:
         ntasks: int,
         param_flags: list[str] | None = None,
         backend: str = "numpy",
+        launcher_args: list[str] | None = None,
     ) -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
 
@@ -162,6 +163,8 @@ class ProfilingCase:
                 the run's output folder and these flags.
             backend: cunumpy backend of the run, "numpy" (CPU) or "cupy" (GPU),
                 exported as CUNUMPY_BACKEND before the simulation.
+            launcher_args: Extra options of the MPI launcher, e.g. the `srun` cpu binding.
+                Omit for none.
 
         Returns:
             The shell commands to run, in order, as one script.
@@ -174,6 +177,7 @@ class ProfilingCase:
         # folder via `--out-folder` and `--sim-folder`.
         sim_dir = output_root / f"sim_{self.launch_count:02d}"
         python = self.venv_path / "bin" / "python"
+        launcher = " ".join([self.launcher, *(shlex.quote(arg) for arg in (launcher_args or []))])
         param_flags = [shlex.quote(flag) for flag in (param_flags or [])]
         flags = " ".join(["--out-folder", shlex.quote(str(output_root)), "--sim-folder", sim_dir.name, *param_flags])
         pproc_commands = (
@@ -202,6 +206,8 @@ class ProfilingCase:
             f"source {activate_path!s}",
             # cunumpy reads its backend from this variable when it is imported, so it is exported before the run
             f"export CUNUMPY_BACKEND={backend}",
+            # pure MPI runs: one thread per rank, also when a rank is given several cpus to spread the ranks out
+            "export OMP_NUM_THREADS=1",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',
@@ -222,7 +228,7 @@ class ProfilingCase:
             # jobs), and struphy's default relative "struphy.log" would otherwise resolve to
             # the same file for all of them, racing on log rotation across processes.
             f'STRUPHY_LOG_FILE="{sim_dir / "struphy.log"}" '
-            f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
+            f'{launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
             *pproc_commands,
             "",
             'echo "----------------------------------------"',
@@ -238,6 +244,7 @@ class ProfilingCase:
         backend: str = "numpy",
         slurm_preset: str | None = None,
         slurm_options: dict | None = None,
+        pinning: str | None = None,
     ) -> None:
         """Build, submit/run, and record the run for a single rank count.
 
@@ -268,13 +275,23 @@ class ProfilingCase:
                 Ignored outside SLURM.
             slurm_options: SLURM pragmas that override those of the preset, e.g.
                 `{"time": "00:30:00"}`. Ignored outside SLURM.
+            pinning: Placement of the ranks on the cores of a node, one of
+                `clusters.PINNINGS` (see `clusters.pinning_cpu_map`): each rank is bound to
+                one core with `srun --cpu-bind=map_cpu`, and the job allocates all cores of
+                its nodes. Needs SLURM and a `topology` in the preset's `HARDWARE_INFO`.
+                Omit to leave the placement to SLURM.
 
         Raises:
-            ValueError: If `backend` is neither "numpy" nor "cupy", or if
-                `num_tasks` is not evenly divisible by `num_nodes` (SLURM only).
+            ValueError: If `backend` is neither "numpy" nor "cupy", if `pinning` is
+                unknown or used without SLURM, or if `num_tasks` is not evenly divisible
+                by `num_nodes` (SLURM only).
         """
         if backend not in ("numpy", "cupy"):
             raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
+        if pinning is not None and pinning not in PINNINGS:
+            raise ValueError(f"pinning must be one of {PINNINGS}, got {pinning!r}")
+        if pinning is not None and not self.use_slurm:
+            raise ValueError("pinning needs SLURM (srun --cpu-bind).")
 
         if not self.use_slurm:
             available = os.cpu_count() or 1
@@ -287,10 +304,7 @@ class ProfilingCase:
         self.launch_count += 1
         script_path = profiling_results_base / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
-        # Build the commands to run this case with the given rank count, and write/submit
-        case_commands = self.build_commands(num_tasks, param_flags, backend)
-
-        # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
+        launcher_args = []
         if self.use_slurm:
             # The preset of this run: the caller's choice, or the one of the detected cluster.
             preset_name = slurm_preset or detect_machine_name()
@@ -301,6 +315,25 @@ class ProfilingCase:
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
             cluster_preset = {**SLURM_PRESETS[preset_name], **(slurm_options or {})}
+
+            if pinning is not None:
+                # map_cpu needs all cores of the node in the allocation (and in the job step,
+                # hence --cpus-per-task on srun too); each rank is then bound to its one core.
+                hardware = HARDWARE_INFO[preset_name]
+                ntasks_per_node = num_tasks // num_nodes
+                cpus_per_task = hardware["cpus_per_node"] // ntasks_per_node
+                cluster_preset["cpus_per_task"] = cpus_per_task
+                cpu_map = pinning_cpu_map(pinning, ntasks_per_node, hardware["topology"])
+                launcher_args = [
+                    f"--cpus-per-task={cpus_per_task}",
+                    f"--cpu-bind=verbose,map_cpu:{','.join(map(str, cpu_map))}",
+                ]
+
+        # Build the commands to run this case with the given rank count, and write/submit
+        case_commands = self.build_commands(num_tasks, param_flags, backend, launcher_args)
+
+        # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
+        if self.use_slurm:
 
             # Build the slurm script
             script = SlurmScript(
@@ -341,6 +374,7 @@ class ProfilingCase:
             "launch_id": self.launch_count,
             "ranks": num_tasks,
             "backend": backend,
+            "pinning": pinning,
             "job_id": job_id,
             "job_script_path": str(script_path),
             "job_script": script_text,
@@ -654,6 +688,39 @@ class ProfilingCase:
             # here every one of them has already finished, in launch order.
             yield from self.job_infos
 
+    def write_reports(self, launch_ids: list[int]) -> None:
+        """Write the scope-profiler HTML report of the finished runs into `case_output_root`.
+
+        One strong-scaling comparison per pinning (see `launch`), its runs ordered by rank
+        count so the smallest one is the baseline: `report_<label>.html`, or
+        `report_<label>_<pinning>.html` for pinned runs. The full report of each run is
+        written next to it and linked from it. A failing report is reported, not raised,
+        so it never costs the packaged results.
+
+        Args:
+            launch_ids: Launch ids of the runs to report, e.g. those with profiling output.
+        """
+        from scope_profiler.html_report import create_html_report
+
+        series: dict[str | None, list[tuple[int, Path]]] = {}
+        for job_info in self.job_infos:
+            if job_info["launch_id"] not in launch_ids:
+                continue
+            sim_dir = self.case_output_root / f"sim_{job_info['launch_id']:02d}"
+            for h5_file in sorted(sim_dir.glob("*.h5")):
+                series.setdefault(job_info.get("pinning"), []).append((job_info["ranks"], h5_file))
+
+        for pinning, runs in series.items():
+            suffix = "" if pinning is None else f"_{pinning}"
+            report_path = self.case_output_root / f"report_{self.label}{suffix}.html"
+            h5_files = [h5_file for _, h5_file in sorted(runs, key=lambda run: run[0])]
+            try:
+                create_html_report(h5_files, report_path, scaling="strong")
+            except Exception as error:  # noqa: BLE001
+                print(f"WARNING: could not write the report {report_path}: {error}")
+                continue
+            print(f"Wrote the report of {len(h5_files)} run(s) of '{self.label}' to {report_path}")
+
     def finalize_run(self, poll_interval: float = 10.0) -> None:
         """Package and push the case metadata up front, then each run as its job finishes.
 
@@ -727,6 +794,7 @@ class ProfilingCase:
         """Print what was packaged for this case (and how to push or plot it if it was not uploaded)."""
         packaged_launch_ids = self._packaged_launch_ids
         if packaged_launch_ids:
+            self.write_reports(packaged_launch_ids)
             print(f"Packaged {len(packaged_launch_ids)} run(s) of '{self.label}' (ids {sorted(packaged_launch_ids)}):")
             print(f" - {self.destination_dir}")
             if not self.upload:

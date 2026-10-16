@@ -1,6 +1,6 @@
-"""Poisson equation on a cube with a manufactured Gaussian solution (homogeneous Dirichlet boundary
-conditions in eta1), solved with CG and a choice of preconditioners. The pproc reports the max. relative
-error of the right-hand side and the solution."""
+"""Poisson equation -Laplace phi = rho (electrostatic potential of a charge density) on a cube with a
+manufactured Gaussian solution (homogeneous Dirichlet boundary conditions in eta1), solved with CG and a choice of
+preconditioners. The pproc reports the max. relative error of the right-hand side and the solution."""
 
 # -----------------------------
 # Description of the simulation
@@ -31,7 +31,7 @@ parser.add_argument(
     choices=["None", "MultiGrid", "StiffnessPreconditioner"],
     help="Name of the preconditioner (None for no preconditioner).",
 )
-parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 64], help="Number of elements per direction.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[128, 128, 128], help="Number of elements per direction.")
 parser.add_argument(
     "--test-run",
     action="store_true",
@@ -60,6 +60,11 @@ parser.add_argument(
     action="store_true",
     help="Write only the profiling data: no field or restart data (the pproc script then does nothing).",
 )
+parser.add_argument(
+    "--pinning",
+    default=None,
+    help="Placement of the ranks set by the submit script (compact, spread, balanced); only added to the profiling label.",
+)
 args, _ = parser.parse_known_args()
 if args.test_run:
     args.num_elements = [16, 16, 16]
@@ -86,11 +91,36 @@ PRECONDS = {
 
 name = f"Poisson on 3D cube, {PRECONDS[precond][0]}"
 description = f"""
-Poisson equation on a 3D cube (Cuboid).
+Poisson equation -Laplace phi = rho for the electrostatic potential phi of a given charge density rho on a 3D
+cube (Cuboid), with a manufactured localized solution, to test the accuracy and the preconditioners of the solver.
+
+Physics. Poisson's equation -Laplace phi = rho determines the electrostatic potential phi, and
+thereby the electric field E = -grad phi, of a given charge density rho (Gauss's law div E = rho for a curl-free
+E, in Struphy units). It is the field equation of electrostatic models such as Vlasov-Poisson and the prototype
+of the elliptic problems in Struphy. The Poisson model solves -div(D0 grad phi) + n0 phi = rho; here D0 is the
+identity and the stabilization term is switched off (stab_eps = 0), i.e. the pure Laplacian with phi in the
+spline space V0 of H1 of the discrete de Rham complex (FEEC).
+The Gaussian potential corresponds to a localized charge distribution, a positive core inside a
+negative shell with zero net charge (the integral of Laplace phi vanishes), hence there is no long-range 1/r tail.
+Being localized, it excites the whole spectrum of the Laplacian, whose condition number grows like h^-2 with the
+mesh size h, so unpreconditioned CG needs many iterations.
+
+Setup. Cube [0, 2] x [-1.5, 1.5] x [0, 4] (Cuboid), splines of degree (1, 2, 3).
 The manufactured solution is a Gaussian 0-form on the logical domain, centered at eta = (0.5, 0.5, 0.5),
 exciting the full spectrum.
-Homogeneous Dirichlet boundary conditions are set in direction eta1.
+Homogeneous Dirichlet boundary conditions are set in direction eta1, periodic ones in eta2 and eta3.
 The linear system is solved with {PRECONDS[precond][1]}.
+
+Expected result. The pproc script compares the computed phi and the projected right-hand side rho with
+the exact fields and prints the max. relative errors; at the default resolution (not with --test-run) it asserts
+that they are below 1.7e-2 (rho) and 1.2e-2 (phi). The number of CG iterations shows the efficiency of the
+preconditioner.
+
+References:
+- A. Buffa, J. Rivas, G. Sangalli and R. Vazquez, "Isogeometric discrete differential forms in three
+  dimensions", SIAM J. Numer. Anal. 49, 818 (2011).
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite
+  elements with particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import logging
@@ -166,30 +196,37 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_m
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profiling options
+from maybempi import MPI, SerialMPI
+
+num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
 if args.gpu_timing:
     # CUDA-event device times per region on the CuPy backend (not on cunumpy's fake CuPy, whose CUDA events have no
     # elapsed time). No line profiler: it would distort the CPU/GPU comparison.
     import cunumpy as xp
     from cunumpy.kernel_testing import fake_cupy_active
-    from maybempi import MPI, SerialMPI
 
     gpu_timing = xp.get_backend() == "cupy" and not fake_cupy_active()
 
     # scope-profiler run label, the name of the run in the reports and comparison plots, e.g.
     # "CPU: 28 MPI ranks" and "GPU: 4 MPI ranks, 4 GPUs"
-    num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
     profiling_label = (
         f"{'GPU' if xp.get_backend() == 'cupy' else 'CPU'}: "
         f"{num_ranks} MPI rank{'s' if num_ranks != 1 else ''}"
         + (f", {num_ranks} GPU{'s' if num_ranks != 1 else ''}" if xp.get_backend() == "cupy" else "")
     )
+    if args.pinning is not None:
+        profiling_label += f", {args.pinning}"
     profiling_opts = ProfilingOptions(
         label=profiling_label,
         use_gpu_timing=gpu_timing,
         gpu_timing_backend="cupy",
     )
 else:
+    profiling_label = f"{num_ranks} rank" + ("s" if num_ranks != 1 else "")
+    if args.pinning is not None:
+        profiling_label += f", {args.pinning}"
     profiling_opts = ProfilingOptions(
+        label=profiling_label,
         use_line_profiler=True,
     )
 

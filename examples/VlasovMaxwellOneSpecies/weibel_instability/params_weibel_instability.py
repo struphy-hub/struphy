@@ -42,34 +42,90 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 profiling = args.setup == "profiling"
 
+name = "Vlasov-Maxwell Weibel instability"
+
+# the parts of the description common to both setups
+_summary = """
+Weibel instability with the VlasovMaxwellOneSpecies model: 1D-3V kinetic electrons (PIC) with the full Maxwell
+equations in a periodic box with a neutralizing ion background. The electrons are hotter in v2 than in v1 (along
+the wave vector); this temperature anisotropy makes a small transverse magnetic field B3 grow exponentially, with
+the electrons gathering in current filaments, until magnetic trapping saturates it.
+"""
+_physics = """
+Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p,
+velocities in units of c, lengths in units of the electron skin depth c/omega_p) the model solves
+    df/dt + v . grad_x f - (E + v x B) . grad_v f = 0,
+    dE/dt = curl B + int v f d^3v       (the current density of the electrons is -int v f d^3v),
+    dB/dt = -curl E,
+where the initial field follows from Poisson's equation div E = n0 - n with n = int f d^3v and the ion density
+n0 = int f0 d^3v of the background f0. A perturbation B3 cos(k x) deflects the electrons moving in +y and -y
+(force -v2 B3 along x) into opposite half-wavelengths; the resulting current filaments j2 amplify B3. The free
+energy is the excess thermal energy in v2. For a bi-Maxwellian with thermal speeds vth1 (along k) and vth2, the
+transverse mode (E2, B3) obeys
+    omega^2 - k^2 - 1 + (vth2^2 / vth1^2) [1 + xi Z(xi)] = 0,   xi = omega / (sqrt(2) k vth1),
+with the plasma dispersion function Z. The mode is purely growing (omega = i gamma) for k^2 < vth2^2 / vth1^2 - 1.
+The growth stops when the electrons are trapped in the magnetic field (bounce frequency comparable to gamma); the
+distribution in (v1, v2) then becomes more isotropic.
+"""
+_expected = """
+Expected result. Here vth2^2 / vth1^2 = 12, so all k < sqrt(11) = 3.3 are unstable, and for k = 1.25 the dispersion
+relation gives gamma = 0.02784, the growth rate of the amplitude of B3 (Kraus et al. 2017); the magnetic energy
+grows as exp(2 gamma t). The electrostatic field stays small, its growth measures the numerical noise and errors
+in Gauss's law.
+"""
+_references = """
+References:
+- E. S. Weibel, "Spontaneously growing transverse waves in a plasma due to an anisotropic velocity distribution",
+  Phys. Rev. Lett. 2, 83 (1959).
+- M. Kraus, K. Kormann, P. J. Morrison and E. Sonnendruecker, "GEMPIC: geometric electromagnetic particle-in-cell
+  methods", J. Plasma Phys. 83, 905830401 (2017).
+"""
+
 if profiling:
-    name = "Vlasov-Maxwell Weibel instability"
-    description = """
-Weibel instability with the VlasovMaxwellOneSpecies model, the setup of Kraus et al., J. Plasma Phys. 83 (2017),
-Sec. 6.2, as in the verification test in src/struphy/models/tests/verification: periodic box of length 2 pi / 1.25,
-anisotropic Maxwellian electrons (vth1 = vth3 = 0.02 / sqrt(2), vth2 = sqrt(12) vth1), seed field
-B3 = -1e-4 cos(k x), no density perturbation, control-variate weights, cubic splines in x. The magnetic field energy
-grows at the rate 0.02784. alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency,
-velocities in units of c).
+    description = (
+        _summary
+        + _physics
+        + """
+Setup (profiling). The setup of Kraus et al. (2017), Sec. 6.2, as in the verification test in
+src/struphy/models/tests/verification: periodic box of length 2 pi / k with k = 1.25, 32 cells and cubic splines
+in x, Maxwellian electrons with n = 1 and the thermal speeds vth1 = vth3 = 0.02 / sqrt(2), vth2 = sqrt(12) vth1,
+the seed field B3 = -1e-4 cos(k x) (given in physical components), no density perturbation, control-variate
+(delta-f) weights with 1000 markers per cell (seed 1234), no sorting boxes, no marker output; 20 steps of
+dt = 0.05.
 
 Runs on the NumPy (CPU) or CuPy (GPU) backend, chosen by the environment variable CUNUMPY_BACKEND (the profiling
 driver exports it in the job script). All timing comes from scope-profiler: the run activates
 the profiling session of Simulation.run, and on the CuPy backend the session records CUDA-event device time per
 region (GPUOptions.timing) and synchronizes the device at region ends, so the CPU time of a region includes its
-kernels. The post-processing writes the scope-profiler HTML report and a summary of the cost per step and marker
-into the run's results folder.
+kernels.
 """
+        + _expected
+        + """The 20 steps (t = 1) are too short to see the growth; the post-processing writes the scope-profiler HTML
+report and a summary of the cost per step and marker into the run's results folder.
+"""
+        + _references
+    )
 else:
-    name = ""
-    description = """
-Weibel instability: A linear test case for the VlasovMaxwellOneSpecies model.
-This test considers a plasma with an anisotropic velocity distribution, where 
-temperature differs between directions. Small magnetic perturbations grow due to the anisotropy, 
-leading to the generation of transverse magnetic fields. 
-
-Note that for this simulaiton, the control_variate is set to False as it violates the Gauss law, 
-and create growth in electric field.
+    description = (
+        _summary
+        + _physics
+        + """
+Setup. Periodic box of length 2 pi / k with k = 1.25, 32 cells and cubic splines in x. Maxwellian electrons with
+n = 1 and the thermal speeds vth1 = 0.02 / sqrt(2), vth2 = sqrt(12) vth1 (the markers are loaded with v3 = 0,
+which plays no role in this 1D mode), the seed field B3 = -1e-4 cos(k x), no density perturbation. 100000 markers
+(seed 1234) with full-f weights: the control variate is switched off here because in this setup it violates
+Gauss's law and makes the electric field grow; the Gauss law error is measured as a scalar. Time step dt = 0.05
+up to t = 400 (Lie-Trotter splitting).
 """
+        + _expected
+        + """The pproc plots the Gauss law violation, the energies of E1, E2 and B3 with a straight line fitted to
+log10 of the magnetic energy (between t = Tend/5 and 2 Tend/5), the fitted and analytical gamma (the slope of log10
+of the energy is 2 gamma / ln 10 = 0.0242), the
+binned distributions in (x, v1) and (v1, v2) over time (isotropization) and the EM field and the current density
+at the first, middle and last saved time.
+"""
+        + _references
+    )
 
 # ------------------
 # Import Struphy API
