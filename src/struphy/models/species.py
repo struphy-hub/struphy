@@ -1,9 +1,9 @@
 import logging
+import math
 import warnings
 from abc import ABCMeta, abstractmethod
 from dataclasses import fields, is_dataclass
 
-import cunumpy as xp
 from maybempi import MPI
 
 from struphy.models.variables import Variable
@@ -203,7 +203,7 @@ class Species(metaclass=ABCMeta):
             con = ConstantsOfNature()
 
             # relevant frequencies
-            om_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            om_p = math.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
             om_c = Z * con.e * units.B / (A * con.mH)
 
             # compute equation parameters
