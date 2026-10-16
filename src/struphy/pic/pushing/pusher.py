@@ -82,11 +82,11 @@ class Pusher:
 
     alpha_in_kernel: float | int | tuple | list
         For i=0,1,2, the spline/geometry evaluations in kernel are at
-        alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
+        alpha[i]*markers[i] + (1 - alpha[i])*markers[buffer_idx + i].
         If float or int or then alpha = (alpha, alpha, alpha).
         alpha must be between 0 and 1.
         alpha[i]=0 means that evaluation is at the initial positions (time n),
-        stored at markers[:, buffer_idx + i].
+        stored at markers[buffer_idx + i].
 
     init_kernels : tuple[KernelSetup, ...]
         Evaluations at the initial state, executed once per push in tuple order.
@@ -177,7 +177,7 @@ class Pusher:
         # profiling region names (cached, they are looked up on every call)
         self._region_name = "pusher: " + self.kernel.name
 
-        self._residuals = xp.zeros(self.particles.markers.shape[0])
+        self._residuals = xp.zeros(self.particles.n_markers_max)
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
@@ -217,29 +217,30 @@ class Pusher:
         logger.debug(f"{residual_idx =}")
         logger.debug(f"{self.particles.n_cols =}")
 
+        # only the markers (columns) that can hold markers; the columns after them are holes, which nothing reads
+        used = markers[:, : self.particles.n_markers_used]
+
         if self._cuda:
-            # the three assignments below in one pass over the buffer (each slice is a strided pass on its own)
-            n_rows, n_cols = markers.shape
+            # the three assignments below in one launch
+            n_cols, n_markers = used.shape
             _prepare_push_cuda()(
-                markers,
-                n_rows,
-                n_cols,
+                used,
                 first_pusher_idx,
                 3 + vdim,
-                n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
+                n_threads=n_markers * (n_cols - 2 - first_pusher_idx),
             )
         else:
             init_slice = slice(first_pusher_idx, first_shift_idx)
             shift_slice = slice(first_shift_idx, residual_idx)
 
             # save initial phase space coordinates
-            markers[:, init_slice] = markers[:, : 3 + vdim]
+            used[init_slice] = used[: 3 + vdim]
 
             # set boundary shifts to zero
-            markers[:, shift_slice] = 0.0
+            used[shift_slice] = 0.0
 
-            # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-            markers[:, residual_idx:-2] = 0.0
+            # clear buffer rows starting from residual index, dont clear ID (last row) and loc_box
+            used[residual_idx:-2] = 0.0
 
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
@@ -287,6 +288,7 @@ class Pusher:
                         self.particles.args_markers,
                         self._args_domain,
                         *self._args_kernel,
+                        n_threads=self.particles.args_markers.n_markers,  # CUDA: one thread per marker
                     )
 
                 # markers have moved
@@ -302,14 +304,18 @@ class Pusher:
 
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
-                    self._residuals[:] = markers[:, residual_idx]
-                    max_res = xp.max(self._residuals)
+                    # the markers (columns) that can hold markers (sorting in the loop may have added some)
+                    n = self.particles.n_markers_used
+                    residuals = self._residuals[:n]
+                    converged = self._converged_loc[:n]
+                    residuals[:] = markers[residual_idx, :n]
+                    max_res = xp.max(residuals) if n > 0 else -1.0
                     if max_res < 0.0:
                         max_res = None
-                    self._converged_loc[:] = self._residuals < self._tol
-                    self._not_converged_loc[:] = ~self._converged_loc
+                    converged[:] = residuals < self._tol
+                    self._not_converged_loc[:n] = ~converged
                     n_not_converged[0] = xp.count_nonzero(
-                        self._not_converged_loc,
+                        self._not_converged_loc[:n],
                     )
 
                     logger.debug(
@@ -324,7 +330,7 @@ class Pusher:
                         )
 
                     # take converged markers out of the loop
-                    markers[self._converged_loc, first_pusher_idx] = -1.0
+                    markers[first_pusher_idx, :n][converged] = -1.0
 
                 # maxiter=1 for explicit schemes
                 if k == self.maxiter:

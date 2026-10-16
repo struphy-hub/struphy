@@ -463,10 +463,10 @@ class CurrentCoupling5DGradB(Propagator):
         first_free_idx = args_markers.first_free_idx
 
         # clear buffer
-        markers[:, first_pusher_idx:-2] = 0.0
+        markers[first_pusher_idx:-2] = 0.0
 
         # save old marker positions
-        markers[:, first_pusher_idx : first_pusher_idx + 3] = markers[:, :3]
+        markers[first_pusher_idx : first_pusher_idx + 3] = markers[:3]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
@@ -530,7 +530,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_pusher_idx:-2] = 0.0
+            markers[first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:
@@ -565,7 +565,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_old
             particles.save_magnetic_energy(PB_b)
-            en_fB_old = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_old = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
             en_fB_old /= n_mks_tot
 
             buffer_array = xp.array([en_fB_old])
@@ -611,7 +611,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_new
             particles.save_magnetic_energy(PB_b)
-            en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
             en_fB_new /= n_mks_tot
 
             buffer_array = xp.array([en_fB_new])
@@ -655,13 +655,13 @@ class CurrentCoupling5DGradB(Propagator):
                 u_mid.update_ghost_regions()
 
                 # save H^{n+1, k}
-                markers[~holes, first_free_idx : first_free_idx + 3] = markers[~holes, 0:3]
+                markers[first_free_idx : first_free_idx + 3, ~holes] = markers[0:3, ~holes]
 
                 # calculate denominator ||z^{n+1, k} - z^n||^2
                 sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
                 sum_H_diff_loc = xp.sum(
-                    (markers[~holes, :3] - markers[~holes, first_pusher_idx : first_pusher_idx + 3]) ** 2,
+                    (markers[:3, ~holes] - markers[first_pusher_idx : first_pusher_idx + 3, ~holes]) ** 2,
                 )
 
                 buffer_array = xp.array([sum_u_diff_loc])
@@ -702,7 +702,7 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_accum_kernel_en_fB_mid,
                     first_free_idx + 3,
                 )
-                en_fB_mid = xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_mid = xp.sum(markers[first_free_idx + 3, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
 
                 en_fB_mid /= n_mks_tot
 
@@ -755,7 +755,7 @@ class CurrentCoupling5DGradB(Propagator):
                 )
 
                 sum_H_diff_loc = xp.sum(
-                    xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3]),
+                    xp.abs(markers[0:3, ~holes] - markers[first_free_idx : first_free_idx + 3, ~holes]),
                 )
 
                 if particles.mpi_comm is not None:
@@ -763,7 +763,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # update en_fB_new
                 particles.save_magnetic_energy(PB_b)
-                en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
                 en_fB_new /= n_mks_tot
 
                 buffer_array = xp.array([en_fB_new])
@@ -853,7 +853,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_pusher_idx:-2] = 0.0
+            markers[first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:

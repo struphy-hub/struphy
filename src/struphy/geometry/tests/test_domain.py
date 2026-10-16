@@ -32,7 +32,7 @@ def test_domain_deepcopy(mapping):
     assert domain_copy.args_domain.params is not domain.args_domain.params
     assert domain_copy.args_domain.degree is not domain.args_domain.degree
 
-    markers = xp.array([[0.2, 0.4, 0.6]])
+    markers = xp.array([[0.2], [0.4], [0.6]])
     assert xp.allclose(domain(markers), domain_copy(markers))
     assert xp.allclose(domain.jacobian(markers), domain_copy.jacobian(markers))
 
@@ -53,7 +53,7 @@ def test_domain_pickle_roundtrip(mapping):
     assert restored.args_domain is not None
     assert restored.args_domain.kind_map == domain.args_domain.kind_map
 
-    markers = xp.array([[0.3, 0.5, 0.7]])
+    markers = xp.array([[0.3], [0.5], [0.7]])
     assert xp.allclose(domain(markers), restored(markers))
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
@@ -77,7 +77,7 @@ def test_spline_default(with_gvec=False):
     assert xp.allclose(domain.cy, ref.cy)
     assert xp.allclose(domain.cz, ref.cz)
 
-    markers = xp.array([[0.3, 0.5, 0.7]])
+    markers = xp.array([[0.3], [0.5], [0.7]])
     assert xp.allclose(domain(markers), ref(markers))
     assert xp.allclose(domain.jacobian_det(markers), ref.jacobian_det(markers))
 
@@ -166,10 +166,10 @@ def test_prepare_arg():
     assert Domain.prepare_arg([A1, A2, A3], E1, E2, E3).shape == shape_vector
 
     # ============== markers evaluation ==========================
-    markers = xp.random.rand(10, 6)
+    markers = xp.random.rand(6, 10)
 
-    shape_scalar = (markers.shape[0], 1)
-    shape_vector = (markers.shape[0], 3)
+    shape_scalar = (markers.shape[1], 1)
+    shape_vector = (markers.shape[1], 3)
 
     # ======== callables ============
 
@@ -193,11 +193,11 @@ def test_prepare_arg():
 
     # ======== arrays ===============
 
-    A1 = a1(markers[:, 0], markers[:, 1], markers[:, 2])
-    A2 = a2(markers[:, 0], markers[:, 1], markers[:, 2])
-    A3 = a3(markers[:, 0], markers[:, 1], markers[:, 2])
+    A1 = a1(markers[0], markers[1], markers[2])
+    A2 = a2(markers[0], markers[1], markers[2])
+    A3 = a3(markers[0], markers[1], markers[2])
 
-    A = a_vec(markers[:, 0], markers[:, 1], markers[:, 2])
+    A = a_vec(markers[0], markers[1], markers[2])
 
     # scalar function
     assert Domain.prepare_arg(A1, markers).shape == shape_scalar
@@ -229,18 +229,18 @@ def test_hollow_torus_inverse_map(sfl, pol_period):
     domain = HollowTorus(sfl=sfl, pol_period=pol_period)
 
     xp.random.seed(1234)
-    etas = xp.random.rand(50, 3)
+    etas = xp.random.rand(3, 50)
     # eta2 = 0 and eta2 = 0.5 lie on the midplane
-    etas[:10, 1] = 0.0
-    etas[10:20, 1] = 0.5
+    etas[1, :10] = 0.0
+    etas[1, 10:20] = 0.5
 
     x, y, z = domain(etas, remove_outside=False)
     e1, e2, e3 = domain.inverse_map(x, y, z)
 
-    assert xp.allclose(domain(xp.stack([e1, e2, e3], axis=1), remove_outside=False), xp.stack([x, y, z]))
-    assert xp.allclose(e1, etas[:, 0])
-    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[:, 1]), 1 - xp.abs(e2 - etas[:, 1])), 0.0)
-    assert xp.allclose(e3, etas[:, 2])
+    assert xp.allclose(domain(xp.stack([e1, e2, e3]), remove_outside=False), xp.stack([x, y, z]))
+    assert xp.allclose(e1, etas[0])
+    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[1]), 1 - xp.abs(e2 - etas[1])), 0.0)
+    assert xp.allclose(e3, etas[2])
 
 
 @pytest.mark.parametrize(
@@ -274,7 +274,7 @@ def test_evaluation_mappings(mapping):
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    arrm = xp.random.rand(10, 8)
+    arrm = xp.random.rand(8, 10)
     logger.info("")
     logger.info('Testing "evaluate"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape} {arrm.shape}")
@@ -306,12 +306,12 @@ def test_evaluation_mappings(mapping):
 
     # markers evaluation:
     logger.info(f"markers evaluation, shape: {domain(arrm).shape}")
-    assert domain(arrm).shape == (3, arrm.shape[0])
-    assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.jacobian_det(arrm).shape == (arrm.shape[0],)
-    assert domain.jacobian_inv(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.metric(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[0])
+    assert domain(arrm).shape == (3, arrm.shape[1])
+    assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.jacobian_det(arrm).shape == (arrm.shape[1],)
+    assert domain.jacobian_inv(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.metric(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[1])
 
     # eta1-array evaluation:
     logger.info(f"eta1 array evaluation, shape: {domain(arr1, 0.5, 0.5, squeeze_out=True).shape}")
@@ -473,7 +473,7 @@ def test_pullback():
     logger.info('Testing "pull"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # physical function to pull back (used as components of forms too):
     def fun(x, y, z):
@@ -504,9 +504,9 @@ def test_pullback():
 
         # markers pullback:
         if p_str == "0" or p_str == "3":
-            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (markers.shape[0],)
+            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (markers.shape[1],)
         else:
-            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (3, markers.shape[0])
+            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (3, markers.shape[1])
 
         # eta1-array pullback:
         # logger.info('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
@@ -633,7 +633,7 @@ def test_pushforward():
     logger.info('Testing "push"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
@@ -664,9 +664,9 @@ def test_pushforward():
 
         # markers push:
         if p_str == "0" or p_str == "3":
-            assert domain.push(fun_form, markers, kind=p_str).shape == (markers.shape[0],)
+            assert domain.push(fun_form, markers, kind=p_str).shape == (markers.shape[1],)
         else:
-            assert domain.push(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
+            assert domain.push(fun_form, markers, kind=p_str).shape == (3, markers.shape[1])
 
         # eta1-array push:
         # logger.info('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
@@ -793,7 +793,7 @@ def test_transform():
     logger.info('Testing "transform"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
@@ -824,9 +824,9 @@ def test_transform():
 
         # markers transform:
         if p_str == "0_to_3" or p_str == "3_to_0":
-            assert domain.transform(fun_form, markers, kind=p_str).shape == (markers.shape[0],)
+            assert domain.transform(fun_form, markers, kind=p_str).shape == (markers.shape[1],)
         else:
-            assert domain.transform(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
+            assert domain.transform(fun_form, markers, kind=p_str).shape == (3, markers.shape[1])
 
         # eta1-array transform:
         # logger.info('eta1 array transform, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)

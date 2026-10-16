@@ -147,10 +147,7 @@ class Particles6D(Particles):
         idx_can_momentum = self.first_diagnostics_idx + 5
 
         # save cartesian positions
-        self.markers[~self.holes, slice_gc] = self.domain(
-            self.positions,
-            change_out_order=True,
-        )
+        self.markers[slice_gc, ~self.holes] = self.domain(self.positions)
 
         # eval guiding center phase space
         eval_guiding_center_from_6d(
@@ -169,14 +166,11 @@ class Particles6D(Particles):
         # TODO: currently only possible with the geometry where its inverse map is defined.
         assert hasattr(self.domain, "inverse_map")
 
-        self.markers[~self.holes, slice_gc] = self.domain.inverse_map(
-            *self.markers[~self.holes, slice_gc].T,
-            change_out_order=True,
-        )
+        self.markers[slice_gc, ~self.holes] = xp.stack(self.domain.inverse_map(*self.markers[slice_gc, ~self.holes]))
 
         # eval energy
-        self.markers[~self.holes, idx_energy] = (
-            self.markers[~self.holes, 3] ** 2 + self.markers[~self.holes, 4] ** 2 + self.markers[~self.holes, 5] ** 2
+        self.markers[idx_energy, ~self.holes] = (
+            self.markers[3, ~self.holes] ** 2 + self.markers[4, ~self.holes] ** 2 + self.markers[5, ~self.holes] ** 2
         ) / (2)
 
         # eval psi at etas
@@ -184,13 +178,12 @@ class Particles6D(Particles):
         R0 = self.equil.params["R0"]
         B0 = self.equil.params["B0"]
 
-        r = self.markers[~self.holes, idx_gc_r] * (1 - a1) + a1
-        self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
+        r = self.markers[idx_gc_r, ~self.holes] * (1 - a1) + a1
+        self.markers[idx_can_momentum, ~self.holes] = self.equil.psi_r(r)
 
         # send particles to the guiding center positions
-        self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
-            ~self.holes,
-            slice_gc,
+        self.markers[self.first_pusher_idx : self.first_pusher_idx + 3, ~self.holes] = self.markers[
+            slice_gc, ~self.holes
         ]
         if self.mpi_comm is not None:
             self.mpi_sort_markers(alpha=1)
@@ -208,7 +201,7 @@ class Particles6D(Particles):
         # send back and clear buffer
         if self.mpi_comm is not None:
             self.mpi_sort_markers()
-        self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
+        self.markers[self.first_pusher_idx : self.first_pusher_idx + 3, ~self.holes] = 0
 
 
 class DeltaFParticles6D(Particles6D):
@@ -457,8 +450,8 @@ class Particles5D(Particles):
         R0 = self.equil.params["R0"]
         B0 = self.equil.params["B0"]
 
-        r = self.markers[~self.holes, 0] * (1 - a1) + a1
-        self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
+        r = self.markers[0, ~self.holes] * (1 - a1) + a1
+        self.markers[idx_can_momentum, ~self.holes] = self.equil.psi_r(r)
 
         eval_canonical_toroidal_moment_5d(
             self.markers,
@@ -742,8 +735,8 @@ class Particles5Dvperp(Particles):
         R0 = self.equil.params["R0"]
         B0 = self.equil.params["B0"]
 
-        r = self.markers[~self.holes, 0] * (1 - a1) + a1
-        self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
+        r = self.markers[0, ~self.holes] * (1 - a1) + a1
+        self.markers[idx_can_momentum, ~self.holes] = self.equil.psi_r(r)
 
         eval_canonical_toroidal_moment_5d(
             self.markers,

@@ -1,4 +1,4 @@
-"""Fill the box array from the box column of the markers, see :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`."""
+"""Fill the box array from the box row of the markers, see :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`."""
 
 # module import (not names): the module may still be an older compiled version until `struphy compile` runs
 import struphy.pic.sorting_kernels as sorting_kernels
@@ -11,8 +11,8 @@ def fill_boxes(
     next_index: "int[:]",
     box_index: "int" = -2,
 ) -> "int":
-    """Count the particles per box (box number in column ``box_index`` of the markers) into ``next_index`` and, if
-    every box fits into a row of ``boxes`` (the last column stays -1 as terminator), write the particle rows into
+    """Count the particles per box (box number in row ``box_index`` of the markers) into ``next_index`` and, if
+    every box fits into a row of ``boxes`` (the last column stays -1 as terminator), write the particle indices into
     ``boxes``.
 
     Returns the largest number of particles in a box; if it is ``>= boxes.shape[1]``, ``boxes`` is left untouched and
