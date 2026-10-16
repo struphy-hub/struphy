@@ -212,6 +212,14 @@ class Magnetosonic(Propagator):
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros()
 
+        # cumulative work done by the J0 x b force on u (diagnostic)
+        self._work_jxb = 0.0
+
+    @property
+    def work_jxb(self):
+        """Cumulative work dt * (u^n + u^{n+1})/2 . M2J b of the J0 x b force, summed over all calls."""
+        return self._work_jxb
+
     @profile
     def __call__(self, dt):
         # current FE coeffs
@@ -231,6 +239,11 @@ class Magnetosonic(Propagator):
         # new p, n, b coeffs (no tmps created here)
         _u = un.copy(out=self._u_tmp2)
         _u += un1
+
+        if self.options.with_jxb:
+            # exact jxB contribution to the change of 1/2 u^T Mn u in this Crank-Nicolson step
+            self._work_jxb += dt * byn2.inner(_u)
+
         pn1 = self._C.dot(_u, out=self._p_tmp1)
         pn1 *= -dt
         pn1 += pn

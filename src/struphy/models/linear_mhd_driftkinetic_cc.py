@@ -8,6 +8,7 @@ from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import (
     BilinearEnergyFEEC,
+    FunctionScalarFEEC,
     FunctionScalarPIC,
     KineticEnergyPIC,
     LostMarkersPIC,
@@ -186,6 +187,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
             + lost_energy
             + refill_energy,
             n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
+            work_jxb=FunctionScalarFEEC(self._compute_work_jxb),
+            power_jxb=FunctionScalarFEEC(self._compute_power_jxb),
         )
 
     @property
@@ -219,6 +222,21 @@ class LinearMHDDriftkineticCC(StruphyModel):
         particles = self.energetic_ions.var.particles
         self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
         particles.save_magnetic_energy(self._PBb)
+
+    def _compute_work_jxb(self):
+        """Cumulative work of the J0 x b force (accumulated in Magnetosonic)."""
+        magnetosonic = getattr(self.propagators, "magnetosonic", None)
+        if magnetosonic is None or not hasattr(magnetosonic, "_work_jxb"):
+            return 0.0
+        return magnetosonic.work_jxb
+
+    def _compute_power_jxb(self):
+        """Instantaneous power u . (J0 x b) = u^T M2J b."""
+        if not hasattr(self, "_M2Jb"):
+            self._M2J = Propagator.mass_ops.M2J
+            self._M2Jb = self._M2J.codomain.zeros()
+        self._M2J.dot(self.em_fields.b_field.spline.vector, out=self._M2Jb)
+        return self._M2Jb.inner(self.mhd.velocity.spline.vector)
 
     def _compute_en_fv(self):
         Ab = self.mhd.mass_number
@@ -345,6 +363,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         - Energy carried away by lost particles (cumulative, included in ``en_tot``): ``en_lost``
         - Energy lost by particles when refilled (cumulative, included in ``en_tot``): ``en_refill``
         - Total energy: ``en_tot``
+        - Cumulative work of the J0 x b force in Magnetosonic: ``work_jxb``
+        - Instantaneous power of the J0 x b force, u . (J0 x b): ``power_jxb``
         - Lost particles: ``n_lost_particles``"""
 
     @classmethod
