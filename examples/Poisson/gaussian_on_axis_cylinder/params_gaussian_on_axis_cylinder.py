@@ -49,7 +49,7 @@ parser.add_argument(
     choices=["schur", "lu", "ilu"],
     help="Poloidal solver of the polar preconditioners and projectors.",
 )
-parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 66, 64], help="Number of elements per direction.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[128, 132, 128], help="Number of elements per direction.")
 parser.add_argument(
     "--hole-bc",
     default="free",

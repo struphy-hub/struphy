@@ -31,7 +31,7 @@ parser.add_argument(
     choices=["None", "MultiGrid", "StiffnessPreconditioner"],
     help="Name of the preconditioner (None for no preconditioner).",
 )
-parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 64], help="Number of elements per direction.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[128, 128, 128], help="Number of elements per direction.")
 parser.add_argument(
     "--test-run",
     action="store_true",
