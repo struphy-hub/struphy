@@ -72,13 +72,13 @@ def push_gc_cc_J2_dg_init_Hdiv(
 
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_pusher_idx] == -1.0:
+        if markers[first_pusher_idx, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v = markers[3, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -173,4 +173,4 @@ def push_gc_cc_J2_dg_init_Hdiv(
         e /= abs_b_star_para
         e /= det_df
 
-        markers[ip, 0:3] -= dt * e
+        markers[0:3, ip] -= dt * e

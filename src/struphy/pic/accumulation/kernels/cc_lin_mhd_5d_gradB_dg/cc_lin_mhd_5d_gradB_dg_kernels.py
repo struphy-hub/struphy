@@ -100,23 +100,23 @@ def cc_lin_mhd_5d_gradB_dg(
     tmp_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers_loc = shape(markers)[0]
+    n_markers_loc = args_markers.n_markers
 
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_pusher_idx : first_pusher_idx + 3]) / 2.0
+        eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        eta_diff[:] = markers[ip, 0:3] - markers[ip, first_pusher_idx : first_pusher_idx + 3]
+        eta_diff[:] = markers[0:3, ip] - markers[first_pusher_idx : first_pusher_idx + 3, ip]
 
         # marker weight and velocity
-        weight = markers[ip, 5]
-        v = markers[ip, 3]
-        mu = markers[ip, mu_idx]
+        weight = markers[5, ip]
+        v = markers[3, ip]
+        mu = markers[mu_idx, ip]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)

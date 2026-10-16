@@ -69,9 +69,9 @@ def push_v_with_efield(
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -105,7 +105,7 @@ def push_v_with_efield(
         linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
-        markers[ip, 3:6] += dt * const_factor * e_cart
+        markers[3:6, ip] += dt * const_factor * e_cart
 
     # fmt: off
     #$ omp end parallel

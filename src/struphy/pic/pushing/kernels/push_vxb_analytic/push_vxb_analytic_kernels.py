@@ -68,13 +68,13 @@ def push_vxb_analytic(
     # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_pusher_idx] == -1.0 or markers[ip, -1] == -2.0:
+        if markers[first_pusher_idx, ip] == -1.0 or markers[-1, ip] == -2.0:
             continue
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+        e1 = markers[0, ip]
+        e2 = markers[1, ip]
+        e3 = markers[2, ip]
+        v[:] = markers[3:6, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -126,7 +126,7 @@ def push_vxb_analytic(
             linalg_kernels.cross(b_norm, vperp, b_normxvperp)
 
             # analytic rotation
-            markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+            markers[3:6, ip] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
 
     # fmt: off
     #$ omp end parallel

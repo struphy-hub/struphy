@@ -466,7 +466,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     # correct valid_mks mask (excludes holes and ghosts).                #
     # ------------------------------------------------------------------ #
     eta = particles.positions
-    particles.markers[particles.valid_mks, particles.first_free_idx] = n_xyz(eta[:, 0], eta[:, 1], eta[:, 2])
+    particles.markers[particles.first_free_idx, particles.valid_mks] = n_xyz(eta[0], eta[1], eta[2])
 
     # ------------------------------------------------------------------ #
     # Accumulate the weak-divergence-1form RHS vector V^1.                #

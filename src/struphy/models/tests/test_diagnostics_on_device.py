@@ -26,18 +26,18 @@ from cunumpy.kernel_testing import requires_cupy
 
 from struphy.geometry.tests.test_domain import _cupy_installed, serial_child_env
 
-N_ROWS = 12  # marker rows: 8 valid markers, 2 ghosts, 2 holes
-N_COLS = 13  # Particles6D columns: eta (3), v (3), w, s0, w0, 2 auxiliary, box, ID
+N_ROWS = 12  # markers (one column each): 8 valid markers, 2 ghosts, 2 holes
+N_COLS = 13  # Particles6D quantities (one row each): eta (3), v (3), w, s0, w0, 2 auxiliary, box, ID
 
 
 def _markers():
     """Particles6D-like markers on the host: 8 valid markers, 2 ghosts (ID -2) and 2 holes (all -1)."""
     rng = np.random.default_rng(697)
-    markers = rng.random((N_ROWS, N_COLS))
-    markers[:, 3:6] = rng.normal(size=(N_ROWS, 3))
-    markers[:, -1] = np.arange(N_ROWS)
-    markers[8:10, -1] = -2.0  # ghosts
-    markers[10:] = -1.0  # holes
+    markers = rng.random((N_COLS, N_ROWS))
+    markers[3:6] = rng.normal(size=(3, N_ROWS))
+    markers[-1] = np.arange(N_ROWS)
+    markers[-1, 8:10] = -2.0  # ghosts
+    markers[:, 10:] = -1.0  # holes
     return markers
 
 
@@ -45,6 +45,7 @@ class _MockParticles:
     """The parts of :class:`~struphy.pic.base.Particles` used by the diagnostics, on the active backend."""
 
     vdim = 3
+    n_cols = N_COLS
     Np = 8
     n_lost_markers = 3
     clone_config = None
@@ -52,7 +53,7 @@ class _MockParticles:
 
     def __init__(self):
         self._markers = xp.asarray(_markers())
-        self._valid_mks = ~xp.logical_or(self._markers[:, 0] == -1.0, self._markers[:, -1] == -2.0)
+        self._valid_mks = ~xp.logical_or(self._markers[0] == -1.0, self._markers[-1] == -2.0)
 
     @property
     def markers(self):
@@ -64,15 +65,15 @@ class _MockParticles:
 
     @property
     def markers_wo_holes_and_ghost(self):
-        return self.markers[self.valid_mks]
+        return self.markers[:, self.valid_mks]
 
     @property
     def velocities(self):
-        return self.markers[self.valid_mks, self.index["vel"]]
+        return self.markers[self.index["vel"], self.valid_mks]
 
     @property
     def weights(self):
-        return self.markers[self.valid_mks, self.index["weights"]]
+        return self.markers[self.index["weights"], self.valid_mks]
 
 
 def _fake_cupy_active():
@@ -142,7 +143,7 @@ def _scalar_values(backend):
         values = {key: scalars.host_value(key).copy() for key in scalars.dct}
 
         # the host values follow the next update, and are views of one host buffer
-        particles.markers[:, 6] *= 2.0
+        particles.markers[6] *= 2.0
         scalars.update()
         doubled = scalars.host_value("en_kin")[0]
     return values, counter, doubled
@@ -214,7 +215,7 @@ def _saved_markers(backend):
             def __init__(self):
                 self._particles = particles
                 self._n_to_save = 5
-                self._saved_markers = xp.zeros((5, N_COLS))
+                self._saved_markers = xp.zeros((N_COLS, 5))
 
         class _Species(ParticleSpecies):
             def __init__(self):
@@ -233,7 +234,7 @@ def check_saved_markers():
     reference, _ = _saved_markers("numpy")
     assert counter.events == [], counter.report()
     # IDs 0-4 are valid markers here; the ghosts and holes have no ID below n_to_save
-    np.testing.assert_array_equal(reference[:, -1], [0.0, 1.0, 2.0, 3.0, 4.0])
+    np.testing.assert_array_equal(reference[-1], [0.0, 1.0, 2.0, 3.0, 4.0])
     np.testing.assert_array_equal(saved, reference)
 
 
@@ -271,7 +272,7 @@ def _flagged(backend):
         spline = SplineFunction.__new__(SplineFunction)
         spline._derham = SimpleNamespace(domain_array=xp.asarray(domain_array), comm=None)
         E1, E2, E3 = (xp.asarray(a) for a in np.meshgrid(*[np.linspace(0.0, 1.0, 5)] * 3, indexing="ij"))
-        markers = xp.asarray(np.random.default_rng(1).random((10, 3)))
+        markers = xp.asarray(np.random.default_rng(1).random((3, 10)))
         spline._flag_pts_not_on_proc(E1, E2, E3)  # first call: caches the host bounds
         with xp.profiling.count_transfers() as counter, no_implicit_syncs():
             spline._flag_pts_not_on_proc(E1, E2, E3)

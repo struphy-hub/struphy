@@ -351,9 +351,9 @@ class KineticEnergyPIC(PICScalar):
 
         # Particles5D velocities are (v_par, mu): mu is not a velocity, only v_par contributes here.
         if isinstance(particles, Particles5D):
-            velocities = velocities[:, :1]
+            velocities = velocities[:1]
 
-        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
+        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=0))
         self.local_value[0] = energy
 
 
@@ -399,7 +399,7 @@ class KineticEnergySPH(SPHScalar):
         velocities = particles.velocities
         weights = particles.weights
 
-        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=1))
+        energy = self.normalization * 0.5 * xp.sum(weights * xp.sum(velocities**2, axis=0))
         self.local_value[0] = energy
 
 

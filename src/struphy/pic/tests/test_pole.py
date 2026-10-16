@@ -22,7 +22,7 @@ FIRST_FREE_IDX = 18
 def _marker_args(markers, vdim, bc_type, pole):
     from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 
-    n_mks = markers.shape[0]
+    n_mks = markers.shape[1]
     return MarkerArguments(
         markers,
         np.ones(n_mks, dtype=bool),
@@ -47,26 +47,26 @@ def test_bc_kernel_axis_map():
 
     domain = domains.HollowCylinder(a1=0.0, a2=1.0, Lz=4.0)
 
-    markers = np.zeros((3, N_COLS))
-    markers[:, -1] = np.arange(3)
-    markers[0, :6] = (-0.2, 0.3, 0.5, 0.1, 0.2, 0.3)
-    markers[1, :6] = (-0.1, 0.7, 0.5, 0.1, 0.2, 0.3)
-    markers[2, :6] = (0.0, 0.7, 0.5, 0.1, 0.2, 0.3)
+    markers = np.zeros((N_COLS, 3))
+    markers[-1] = np.arange(3)
+    markers[:6, 0] = (-0.2, 0.3, 0.5, 0.1, 0.2, 0.3)
+    markers[:6, 1] = (-0.1, 0.7, 0.5, 0.1, 0.2, 0.3)
+    markers[:6, 2] = (0.0, 0.7, 0.5, 0.1, 0.2, 0.3)
     args_markers = _marker_args(markers, 3, (2, 0, 0), True)
 
     for ip in range(3):
         apply_kinetic_bc_marker(ip, args_markers, domain.args_domain, False)
 
-    assert np.allclose(markers[0, :3], (0.2, 0.8, 0.5))
-    assert np.allclose(markers[1, :3], (0.1, 0.2, 0.5))
-    assert markers[2, 0] == 1e-10
+    assert np.allclose(markers[:3, 0], (0.2, 0.8, 0.5))
+    assert np.allclose(markers[:3, 1], (0.1, 0.2, 0.5))
+    assert markers[0, 2] == 1e-10
     # Cartesian velocities are unchanged, the marker is not removed
-    assert np.all(markers[:, 3:6] == (0.1, 0.2, 0.3))
+    assert np.all(markers[3:6].T == (0.1, 0.2, 0.3))
 
     # without a pole, the same marker is removed
-    markers[0, :6] = (-0.2, 0.3, 0.5, 0.1, 0.2, 0.3)
+    markers[:6, 0] = (-0.2, 0.3, 0.5, 0.1, 0.2, 0.3)
     apply_kinetic_bc_marker(0, _marker_args(markers, 3, (2, 0, 0), False), domain.args_domain, False)
-    assert np.all(markers[0, :-1] == -1.0)
+    assert np.all(markers[:-1, 0] == -1.0)
 
 
 @pytest.mark.mpi_skip
@@ -77,19 +77,19 @@ def test_bc_kernel_reflect_vdim(vdim):
 
     domain = domains.HollowCylinder(a1=0.2, a2=1.0, Lz=4.0)
 
-    markers = np.zeros((1, N_COLS))
-    markers[0, :6] = (1.1, 0.3, 0.5, 0.4, 0.2, 0.7)
+    markers = np.zeros((N_COLS, 1))
+    markers[:6, 0] = (1.1, 0.3, 0.5, 0.4, 0.2, 0.7)
     apply_kinetic_bc_marker(0, _marker_args(markers, vdim, (1, 0, 0), False), domain.args_domain, False)
 
     assert np.isclose(markers[0, 0], 0.9)
-    assert markers[0, FIRST_PUSHER_IDX] == -1.0
+    assert markers[FIRST_PUSHER_IDX, 0] == -1.0
     if vdim == 3:
         # the radial velocity is reversed, the speed is kept (orthogonal mapping)
-        assert not np.allclose(markers[0, 3:6], (0.4, 0.2, 0.7))
-        assert np.isclose(np.linalg.norm(markers[0, 3:6]), np.linalg.norm((0.4, 0.2, 0.7)))
+        assert not np.allclose(markers[3:6, 0], (0.4, 0.2, 0.7))
+        assert np.isclose(np.linalg.norm(markers[3:6, 0]), np.linalg.norm((0.4, 0.2, 0.7)))
     else:
         # v_parallel, mu and the weight are unchanged
-        assert np.all(markers[0, 3:6] == (0.4, 0.2, 0.7))
+        assert np.all(markers[3:6, 0] == (0.4, 0.2, 0.7))
 
 
 def _particles_on_pole_domain(comm, domain, ppc=10, num_elements=(8, 9, 4), bufsize=0.25):
@@ -135,21 +135,21 @@ def test_python_bc_axis_map():
     particles = _particles_on_pole_domain(comm, domain)
 
     assert particles.args_markers.pole
-    assert np.all(particles.positions[:, 0] >= 1e-10)
+    assert np.all(particles.positions[0] >= 1e-10)
 
     valid = np.nonzero(particles.valid_mks)[0][:4]
     markers = particles.markers
-    markers[valid[:3], 0] = -0.25
-    markers[valid[:3], 1] = 0.6
+    markers[0, valid[:3]] = -0.25
+    markers[1, valid[:3]] = 0.6
     # outside at eta1=1: removed (boundary condition of axis 0), not mapped through the axis
-    markers[valid[3], 0] = 1.05
+    markers[0, valid[3]] = 1.05
     n_valid = np.count_nonzero(particles.valid_mks)
 
     particles.apply_kinetic_bc()
 
-    assert np.allclose(markers[valid[:3], 0], 0.25)
-    assert np.allclose(markers[valid[:3], 1], 0.1)
-    assert np.all(markers[valid[3], :-1] == -1.0)
+    assert np.allclose(markers[0, valid[:3]], 0.25)
+    assert np.allclose(markers[1, valid[:3]], 0.1)
+    assert np.all(markers[:-1, valid[3]] == -1.0)
     assert particles.n_lost_markers == 1
     assert np.count_nonzero(particles.valid_mks) == n_valid - 1
 
@@ -174,14 +174,14 @@ def test_push_eta_through_pole(algo):
     dt, n_steps = 0.1, 10
     T = dt * n_steps
     valid = particles.valid_mks
-    x0, y0, z0 = domain(markers[valid, :3].copy())
-    markers[valid, 3] = (-1.8 * x0 + 0.01) / T
-    markers[valid, 4] = (-1.8 * y0 - 0.02) / T
-    markers[valid, 5] = 0.3
+    x0, y0, z0 = domain(markers[:3, valid].copy())
+    markers[3, valid] = (-1.8 * x0 + 0.01) / T
+    markers[4, valid] = (-1.8 * y0 - 0.02) / T
+    markers[5, valid] = 0.3
 
     # expected positions per marker ID (markers change rank while being pushed)
-    expected = np.stack((x0 + markers[valid, 3] * T, y0 + markers[valid, 4] * T, z0 + markers[valid, 5] * T), axis=1)
-    expected_by_id = _by_unique_id(comm, markers[valid, -1], expected)
+    expected = np.stack((x0 + markers[3, valid] * T, y0 + markers[4, valid] * T, z0 + markers[5, valid] * T), axis=1)
+    expected_by_id = _by_unique_id(comm, markers[-1, valid], expected)
     n_valid_0 = comm.allreduce(np.count_nonzero(valid))
 
     butcher = ButcherTableau(algo=algo)
@@ -202,10 +202,10 @@ def test_push_eta_through_pole(algo):
     assert comm.allreduce(np.count_nonzero(valid)) == n_valid_0
     assert particles.n_lost_markers == 0
 
-    ids = markers[valid, -1]
+    ids = markers[-1, valid]
     compare = np.array([i in expected_by_id for i in ids], dtype=bool)
     assert comm.allreduce(np.count_nonzero(compare)) > 0.9 * n_valid_0
-    x, y, z = domain(markers[valid, :3][compare].copy())
+    x, y, z = domain(markers[:3, valid][:, compare].copy())
     x_expected, y_expected, z_expected = np.array([expected_by_id[i] for i in ids[compare]]).T
     assert np.allclose(x, x_expected, atol=1e-10)
     assert np.allclose(y, y_expected, atol=1e-10)
@@ -259,8 +259,8 @@ def _read_scalars(sim, names):
 
 
 def _inner_density(*etas):
-    # called with (eta1, eta2, eta3) or with one (n, 3) array of positions
-    eta1 = etas[0] if len(etas) == 3 else etas[0][:, 0]
+    # called with (eta1, eta2, eta3) or with one (3, n) array of positions
+    eta1 = etas[0] if len(etas) == 3 else etas[0][0]
     return np.where(eta1 < 0.6, 1.0, 0.0)
 
 
@@ -304,9 +304,9 @@ def _gc_energies(sim, particles):
     particles.save_magnetic_background_energy()
     markers = particles.markers
     valid = particles.valid_mks
-    eta = markers[valid, :3].copy()
-    energy = 0.5 * markers[valid, 3] ** 2 + markers[valid, particles.first_diagnostics_idx]
-    return markers[valid, -1].copy(), eta, energy
+    eta = markers[:3, valid].T.copy()  # one row per marker
+    energy = 0.5 * markers[3, valid] ** 2 + markers[particles.first_diagnostics_idx, valid]
+    return markers[-1, valid].copy(), eta, energy
 
 
 @pytest.mark.mpi(min_size=1)
