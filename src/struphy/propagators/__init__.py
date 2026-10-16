@@ -34,6 +34,8 @@ _LAZY_IMPORTS = {
     "PushVinViscousPotential": "struphy.propagators.push_v_in_viscous_potential",
     "PushVxB": "struphy.propagators.push_vxb",
     "ShearAlfvenB1": "struphy.propagators.shear_alfven_b1",
+    "ShearAlfvenCurlCurlPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
+    "ShearAlfvenCurlCurlwithProjPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
     "TimeDependentSource": "struphy.propagators.time_dependent_source",
@@ -81,6 +83,10 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
     from struphy.propagators.push_vxb import PushVxB
     from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
+    from struphy.propagators.shear_alfven_curl_curl_propagator import (
+        ShearAlfvenCurlCurlPropagator,
+        ShearAlfvenCurlCurlwithProjPropagator,
+    )
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
     from struphy.propagators.time_dependent_source import TimeDependentSource
@@ -127,6 +133,8 @@ __all__ = [
     "PushVinViscousPotential",
     "PushVxB",
     "ShearAlfvenB1",
+    "ShearAlfvenCurlCurlPropagator",
+    "ShearAlfvenCurlCurlwithProjPropagator",
     "ShearAlfvenCurrentCoupling5D",
     "ShearAlfvenPropagator",
     "TimeDependentSource",
