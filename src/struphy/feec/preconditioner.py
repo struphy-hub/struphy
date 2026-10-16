@@ -29,6 +29,7 @@ from line_profiler import profile
 from maybempi import MPI, SerialComm
 from scipy import sparse
 
+from struphy.feec.kronecker_block import KroneckerBlockOperator
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedAverageProjection, WeightedMassOperator, WeightedMassOperators
 from struphy.polar.basic import PolarDerhamSpace
@@ -639,6 +640,31 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     The identity (``stab="Id"``) is replaced by its diagonal in that eigenbasis; its average is
     Euclidean, i.e. :math:`M_d` is replaced by the identity and :math:`c_d = \mathbb 1`.
 
+    **General operators.** Instead of a derivative, ``derivative`` can be a
+    :class:`~struphy.feec.kronecker_block.KroneckerBlockOperator` :math:`\mathbb L` (blocks that are sums of
+    Kronecker products of 1d matrices), e.g. :math:`\mathbb L = \mathbb C \, \tilde{\mathbb T}` with the Kronecker
+    approximation :math:`\tilde{\mathbb T}` of a basis projection operator
+    (:func:`~struphy.feec.kronecker_block.basis_projection_operator`). The preconditioner then approximates
+
+    .. math::
+
+        A = \mathbb L^T \mathbb M_{\textrm{mid}} \mathbb L + \sigma \, \mathbb S \,,
+
+    with ``mid`` (default: the mass operator of the codomain of :math:`\mathbb L`) and ``stab`` (default: of its
+    domain). The weights of ``mid`` and ``stab`` are approximated by separable shapes (separately), times the
+    mean of each block; the off-diagonal blocks of ``mid`` are neglected. Each diagonal block of :math:`A` is then a
+    sum of Kronecker products :math:`\sum_t c_t F_{t,1} \otimes F_{t,2} \otimes F_{t,3} + \sigma_c M_1 \otimes M_2
+    \otimes M_3` (block Jacobi in the components of the domain). It is inverted in the basis
+    :math:`U_1 \otimes U_2 \otimes U_3` of the generalized eigenproblems :math:`\hat S_d U_d = M_d U_d \Lambda_d` of
+    the stabilization :math:`M_d` and a summary stiffness
+    :math:`\hat S_d = \sum_t |c_t| F_{t,d} \prod_{e \neq d} \textrm{tr}(M_e^{-1} F_{t,e}) / n_e` (over the
+    symmetric terms), where every term is replaced by its diagonal in that basis. This is the diagonal of
+    the Kronecker approximation of :math:`A` in the eigenbasis, hence positive. It is exact if the eigenbasis
+    diagonalizes all terms, e.g. for derivatives as above, or for circulant 1d factors (periodic directions with
+    constant weights); otherwise, e.g. for the mixed terms of a field-aligned operator, it is an approximation.
+    ``diagonal_scaling``, ``kernel_correction`` and ``stab_average`` are not supported (the diagonal of the exact
+    operator is not available, since basis projection operators contain inverse inter-/histopolation matrices).
+
     With polar splines (``mass_ops.derham.polar_splines``), the constructor returns a
     :class:`PolarStiffnessPreconditioner` instead (``grad`` and ``curl`` only; ``diagonal_scaling``
     and ``weights`` are ignored there, and its own options such as ``poloidal_solver`` can be passed
@@ -649,8 +675,10 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     mass_ops : WeightedMassOperators
         The mass operators :math:`\mathbb M_k`.
 
-    derivative : str
-        ``"grad"``, ``"curl"`` or ``"div"``.
+    derivative : str | KroneckerBlockOperator | list[KroneckerBlockOperator]
+        ``"grad"``, ``"curl"`` or ``"div"``, or a general operator :math:`\mathbb L` (see above), or a list of general
+        operators :math:`\mathbb L_i` with the same domain, for :math:`A = \sum_i \mathbb L_i^T \mathbb M_{\textrm{mid},i}
+        \mathbb L_i + \sigma \mathbb S` (then ``mid`` is a list as well, or one entry for all).
 
     sigma : float
         Coefficient of the mass term.
@@ -670,8 +698,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         ``"average"`` (separable approximation of the weights, see above; default) or
         ``"unit"`` (operator on the logical cube).
 
-    mid : str | LinearOperator | None
-        Matrix in the middle: the name of a mass operator of ``mass_ops`` (e.g. ``"M1gyro"``,
+    mid : str | LinearOperator | None | list
+        Matrix in the middle (a list for a list of general operators): the name of a mass operator of ``mass_ops`` (e.g. ``"M1gyro"``,
         ``"M1perp"``) or the operator itself (a WeightedMassOperator, or a sum or multiple of such),
         with the domain and codomain of :math:`\mathbb M_{k+1}`. Default :math:`\mathbb M_{k+1}`.
 
@@ -706,37 +734,65 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         stab: str | LinearOperator | None = None,
         stab_average: str | None = None,
     ):
-        assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
+        derham = mass_ops.derham
+        ops = list(derivative) if isinstance(derivative, (list, tuple)) else [derivative]
+        self._general = all(isinstance(op, KroneckerBlockOperator) for op in ops)
+        if self._general:
+            # general operators L_i: no diagonal scaling, kernel correction or averaged stabilization
+            if stab_average is not None:
+                raise NotImplementedError("stab_average is not supported for a general operator.")
+            diagonal_scaling = False
+            kernel_correction = False
+            assert len({op.domain_space for op in ops}) == 1, "The operators L_i must have the same domain."
+            mids = list(mid) if isinstance(mid, (list, tuple)) else [mid] * len(ops)
+            assert len(mids) == len(ops), "Give one mid per operator L_i."
+            form_dom = derham.space_to_form[ops[0].domain_space]
+            form_mid = derham.space_to_form[ops[0].codomain_space]
+            # pairs (L_i, terms of mid_i)
+            self._general_pairs = [
+                (
+                    op,
+                    _mass_terms(
+                        _resolve_mass_operator(
+                            mass_ops, m, getattr(mass_ops, f"M{derham.space_to_form[op.codomain_space]}")
+                        )
+                    ),
+                )
+                for op, m in zip(ops, mids)
+            ]
+            mid = mids[0]
+        else:
+            assert derivative in self._FORMS, f"derivative must be one of {tuple(self._FORMS)}, got {derivative!r}."
+            k = self._FORMS[derivative]
+            form_dom, form_mid = str(k), str(k + 1)
         assert sigma >= 0.0
         assert weights in ("unit", "average"), f"weights must be 'unit' or 'average', got {weights!r}."
         kernel_correction = kernel_correction and derivative != "grad"
         if kernel_correction and sigma == 0.0:
             raise ValueError("The kernel correction needs sigma > 0 (or kernel_correction=False).")
 
-        derham = mass_ops.derham
         if derham.polar_splines:
             raise NotImplementedError("Use PolarStiffnessPreconditioner for polar splines.")
 
-        k = self._FORMS[derivative]
         self._mass_ops = mass_ops
         self._derivative = derivative
         self._sigma = sigma
         self._weights = weights
 
         # matrix in the middle and stabilization, as sums of weighted mass operators
-        mass_mid_default = getattr(mass_ops, f"M{k + 1}")
+        mass_mid_default = getattr(mass_ops, f"M{form_mid}")
         self._mid = mid
         self._mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, mass_mid_default))
         self._stab = stab
         self._stab_is_identity = isinstance(stab, str) and stab == "Id"
-        mass_k = getattr(mass_ops, f"M{k}")
+        mass_k = getattr(mass_ops, f"M{form_dom}")
         self._stab_terms = (
             None if self._stab_is_identity else _mass_terms(_resolve_mass_operator(mass_ops, stab, mass_k))
         )
         for terms, ref, name in ((self._mid_terms, mass_mid_default, "mid"), (self._stab_terms or [], mass_k, "stab")):
             for _, op in terms:
                 assert op.domain == ref.domain and op.codomain == ref.codomain, (
-                    f"{name} must have the domain and codomain of M{k + 1 if name == 'mid' else k}."
+                    f"{name} must have the domain and codomain of M{form_mid if name == 'mid' else form_dom}."
                 )
 
         # averaged directions of the stabilization (gradient only)
@@ -745,8 +801,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         if self._average_dirs and derivative != "grad":
             raise NotImplementedError("stab_average is only implemented for derivative='grad'.")
 
-        # tensor-product derivative without boundary operators (no polar splines)
-        self._d = getattr(derham, f"{derivative}_bcfree")
+        # tensor-product derivative without boundary operators (no polar splines), or the general operator
+        self._d = derivative if self._general else getattr(derham, f"{derivative}_bcfree")
 
         super().__init__(mass_k, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
 
@@ -769,8 +825,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             self._tmp_kernel = self.codomain.zeros()
 
     @property
-    def derivative(self) -> str:
-        """``"grad"``, ``"curl"`` or ``"div"``."""
+    def derivative(self) -> str | KroneckerBlockOperator:
+        """``"grad"``, ``"curl"`` or ``"div"``, or the general operator."""
         return self._derivative
 
     @property
@@ -817,6 +873,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         return self._core(with_average=True)
 
     def _core(self, with_average: bool) -> LinearOperator:
+        if self._general:
+            raise NotImplementedError("The core operator of a general (Kronecker) operator is not available.")
         A = self._d.T @ _terms_matrix(self._mid_terms) @ self._d
         if self._sigma != 0.0:
             space = self._mass_operator.matrix.domain
@@ -828,6 +886,9 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         return A
 
     def _build_approximation(self, bc):
+        if self._general:
+            return self._build_general_approximation(bc)
+
         femspace = self._femspace
         is_scalar = isinstance(femspace, TensorFemSpace)
         comps = (femspace,) if is_scalar else femspace.spaces
@@ -925,6 +986,120 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             self._matrix_without_average = scalingblocks[0]
             return matrixblocks[0], solverblocks[0]
         self._matrix_without_average = _block_diagonal(femspace.coeff_space, scalingblocks)
+        return (
+            _block_diagonal(femspace.coeff_space, matrixblocks),
+            _block_diagonal(femspace.coeff_space, solverblocks),
+        )
+
+    def _build_general_approximation(self, bc):
+        """Block Jacobi approximation of L^T M_mid L + sigma S for a general KroneckerBlockOperator L (see the class
+        docstring): the Kronecker terms of each diagonal block, inverted approximately by fast diagonalization."""
+        femspace = self._femspace
+        is_scalar = isinstance(femspace, TensorFemSpace)
+        comps = (femspace,) if is_scalar else femspace.spaces
+        derham = self._mass_operator.derham
+        n_dom = len(self._mass_operator.weights)
+
+        # separable weights of stab (shapes per direction, means per block); unit weights keep the coefficients of the
+        # terms (e.g. of a scaled mass operator)
+        if self._stab_is_identity:
+            stab_shapes, dom_means = [_ones_1d] * 3, [1.0] * n_dom
+        elif self._weights == "average":
+            stab_shapes, dom_means = _separable_weight(_block_weights(self._stab_terms, n_dom), derham)
+        else:
+            stab_shapes, dom_means = [_ones_1d] * 3, _unit_means(self._stab_terms, n_dom)
+
+        # per operator L_i: its blocks, the means of the blocks of mid_i and their 1d mass matrices (with the essential
+        # boundary conditions of mid_i as zero rows and columns)
+        pairs = []
+        for L, mid_terms in self._general_pairs:
+            assert L.domain_shapes == [tuple(V.nbasis for V in comp.spaces) for comp in comps]
+            mid_op = mid_terms[0][1]
+            n_mid = len(mid_op.weights)
+            if self._weights == "average":
+                mid_shapes, mid_means = _separable_weight(_block_weights(mid_terms, n_mid), derham)
+            else:
+                mid_shapes, mid_means = [_ones_1d] * 3, _unit_means(mid_terms, n_mid)
+            mid_femspace = mid_op.domain_femspace
+            mid_comps = (mid_femspace,) if isinstance(mid_femspace, TensorFemSpace) else mid_femspace.spaces
+            mid_bc = _boundary_conditions(mid_op, bc is not None)
+            mid_1d = []
+            for r, comp in enumerate(mid_comps):
+                mats = []
+                for d in range(3):
+                    basis = comp.spaces[d].basis
+                    M_d, _ = _dense_mass_1d(mid_op, basis, d, mid_shapes[d])
+                    if mid_bc is not None and _has_essential_bc(mid_op, basis, r, d):
+                        M_d = _zero_bc_dense(M_d, mid_bc[d])
+                    mats.append(M_d)
+                mid_1d.append(mats)
+            pairs.append((L, mid_means, mid_1d))
+
+        matrixblocks = []
+        solverblocks = []
+        for c, comp in enumerate(comps):
+            coeff_space = femspace.coeff_space if is_scalar else femspace.coeff_space[c]
+
+            # stabilization (defines the eigenbasis together with the summary stiffness)
+            mass, local_mass, has_bc = [], [], []
+            for d in range(3):
+                basis = comp.spaces[d].basis
+                M_d, domain_decomposition = _dense_mass_1d(self._mass_operator, basis, d, stab_shapes[d])
+                if self._stab_is_identity:
+                    M_d = np.eye(M_d.shape[0])
+                essential = bc is not None and _has_essential_bc(self._mass_operator, basis, c, d)
+                has_bc.append(essential)
+                if essential:
+                    M_d = _apply_bc_dense(M_d, bc[d])
+                mass.append(M_d)
+                local_mass.append(_process_local_matrix_1d(M_d, comp.coeff_space, d, domain_decomposition))
+
+            # terms of the diagonal block: sum_i sum_r sum_{a, b} c_a c_b mean_{i,r} F_a^T M_{mid_i,r} F_b
+            terms, symmetric = [], []
+            for L, mid_means, mid_1d in pairs:
+                for r in range(len(mid_means)):
+                    block = L.blocks.get((r, c), [])
+                    for i, (ca, Fa) in enumerate(block):
+                        for j, (cb, Fb) in enumerate(block):
+                            coeff = mid_means[r] * ca * cb
+                            if coeff == 0.0:
+                                continue
+                            factors = []
+                            for d in range(3):
+                                M_rd = mid_1d[r][d]
+                                left = M_rd if Fa[d] is None else Fa[d].T @ M_rd
+                                F = left if Fb[d] is None else left @ Fb[d]
+                                if has_bc[d]:
+                                    F = _zero_bc_dense(F, bc[d])
+                                factors.append(F)
+                            terms.append((coeff, factors))
+                            symmetric.append(i == j)
+
+            # summary stiffness per direction (from the symmetric terms), defining the eigenbasis
+            stiffness = []
+            for d in range(3):
+                S_d = np.zeros_like(mass[d])
+                for (coeff, factors), sym in zip(terms, symmetric):
+                    if sym:
+                        scale = abs(coeff)
+                        for e in range(3):
+                            if e != d:
+                                scale *= np.trace(np.linalg.solve(mass[e], factors[e])) / mass[e].shape[0]
+                        S_d += scale * factors[d]
+                S_d = 0.5 * (S_d + S_d.T)
+                stiffness.append(S_d if np.any(S_d) else None)
+
+            sigma_c = self._sigma * dom_means[c]
+            assert terms or sigma_c != 0.0, f"The diagonal block {c} of the operator vanishes."
+            solverblocks.append(
+                KroneckerSumSolver(
+                    coeff_space, stiffness, mass, sigma=sigma_c, stiffness_coeffs=[0.0] * 3, mass_terms=terms
+                )
+            )
+            matrixblocks.append(_kronecker_sum(coeff_space, [None] * 3, local_mass, sigma_c, terms))
+
+        if is_scalar:
+            return matrixblocks[0], solverblocks[0]
         return (
             _block_diagonal(femspace.coeff_space, matrixblocks),
             _block_diagonal(femspace.coeff_space, solverblocks),
@@ -1544,6 +1719,82 @@ class HiptmairXuPreconditioner(LinearOperator):
         return self
 
 
+class AuxiliarySpacePreconditioner(LinearOperator):
+    r"""
+    Additive auxiliary space preconditioner
+
+    .. math::
+
+        P = P_0 + \sum_i \mathbb N_i \, P_i \, \mathbb N_i^T \,,
+
+    where :math:`P_0` is a preconditioner of :math:`A` (e.g. a smoother, or a block Jacobi
+    :class:`StiffnessPreconditioner`) and :math:`P_i` approximates the inverse of :math:`\mathbb N_i^T A \mathbb N_i` on an
+    auxiliary space, mapped into the space of :math:`A` by :math:`\mathbb N_i`. The auxiliary spaces correct the modes
+    that :math:`P_0` does not reduce, e.g. the gradients in :class:`HiptmairXuPreconditioner`.
+
+    Parameters
+    ----------
+    P0 : LinearOperator
+        The preconditioner on the space of :math:`A`.
+
+    corrections : list
+        Per auxiliary space, the triple ``(N, NT, P)``: the map :math:`\mathbb N_i`, its transpose and :math:`P_i`.
+    """
+
+    def __init__(self, P0: LinearOperator, corrections: list[tuple[LinearOperator, LinearOperator, LinearOperator]]):
+        assert P0.domain == P0.codomain
+        self._P0 = P0
+        self._space = P0.domain
+        self._corrections = []
+        for N, NT, P in corrections:
+            assert N.codomain == self._space and NT.domain == self._space
+            assert P.domain == NT.codomain and P.codomain == N.domain
+            self._corrections.append((N, NT, P, NT.codomain.zeros(), P.codomain.zeros()))
+        self._tmp = self._space.zeros()
+
+    @property
+    def domain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def codomain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    @property
+    def P0(self) -> LinearOperator:
+        """The preconditioner on the space of :math:`A`."""
+        return self._P0
+
+    @property
+    def corrections(self) -> list[tuple[LinearOperator, LinearOperator, LinearOperator]]:
+        """The triples ``(N, NT, P)`` of the auxiliary spaces."""
+        return [c[:3] for c in self._corrections]
+
+    def dot(self, v: Vector, out: Vector | None = None) -> Vector:
+        """Apply the preconditioner to ``v``."""
+        assert v.space == self._space
+        if out is None:
+            out = self._space.zeros()
+        self._P0.dot(v, out=out)
+        for N, NT, P, z, w in self._corrections:
+            NT.dot(v, out=z)
+            P.dot(z, out=w)
+            out += N.dot(w, out=self._tmp)
+        return out
+
+    def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
+        """Same as ``dot`` (approximate inverse of :math:`A`)."""
+        return self.dot(rhs, out=out)
+
+    def transpose(self, conjugate: bool = False) -> AuxiliarySpacePreconditioner:
+        """Symmetric if :math:`P_0` and the :math:`P_i` are."""
+        return self
+
+
 def _copy_owned(src: StencilVector, dst: StencilVector) -> None:
     """Copy the owned coefficients of ``src`` into ``dst`` (stencil vectors of equal shape on different spaces)."""
     assert tuple(src.space.starts) == tuple(dst.space.starts) and tuple(src.space.ends) == tuple(dst.space.ends)
@@ -2152,6 +2403,16 @@ def _apply_bc_dense(A: np.ndarray, bc_d: tuple[bool, bool]) -> np.ndarray:
     return A
 
 
+def _zero_bc_dense(A: np.ndarray, bc_d: tuple[bool, bool]) -> np.ndarray:
+    """Impose essential boundary conditions on a dense 1d matrix by zero rows and columns."""
+    A = A.copy()
+    for i, is_essential in zip((0, -1), bc_d):
+        if is_essential:
+            A[i, :] = 0.0
+            A[:, i] = 0.0
+    return A
+
+
 def _kronecker_sum(
     space: StencilVectorSpace,
     stiffness: list[StencilMatrix | None],
@@ -2281,6 +2542,12 @@ def _block_weights(terms: list[tuple[float, WeightedMassOperator]], n: int) -> l
     """Diagonal blocks of the weights of a sum of mass operators: per block, the ``(coefficient, weight)`` terms
     (a stored weight None is a zero block and is left out)."""
     return [[(c, t.weights[r][r]) for c, t in terms if t.weights[r][r] is not None] for r in range(n)]
+
+
+def _unit_means(terms: list[tuple[float, WeightedMassOperator]], n: int) -> list[float]:
+    """Means of the diagonal blocks of a sum of mass operators with unit weights: the sum of the coefficients of the
+    terms with a non-zero block."""
+    return [sum(c for c, t in terms if t.weights[r][r] is not None) for r in range(n)]
 
 
 def _parse_directions(spec: str | None) -> tuple[int, ...]:
