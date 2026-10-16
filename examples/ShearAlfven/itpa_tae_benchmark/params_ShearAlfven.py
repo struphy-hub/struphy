@@ -8,7 +8,7 @@ large-aspect-ratio tokamak."""
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "ITPA TAE benchmark (ShearAlfven)"  # or ShearAlfvenCurlCurl with --model ShearAlfvenCurlCurl
+name = "ITPA TAE benchmark (ShearAlfven)"
 description = """
 Toroidal Alfven eigenmode (TAE) with the ShearAlfven model: the shear Alfven part of linear ideal MHD around a
 static (zero-flow) equilibrium, without pressure and density perturbations (no coupling to the magnetosonic waves;
@@ -96,6 +96,8 @@ if args.precond is None:
     args.precond = "HiptmairXu" if args.model == "ShearAlfvenCurlCurl" else "MassMatrixPreconditioner"
 if args.precond == ("HiptmairXu" if args.model == "ShearAlfven" else "MultiGrid"):
     parser.error(f"--precond {args.precond} is not available for --model {args.model}.")
+if args.model == "ShearAlfvenCurlCurl":
+    name = "ITPA TAE benchmark (ShearAlfvenCurlCurl)"
 if args.test_run:
     args.num_elements = [8, 32, 4]
 

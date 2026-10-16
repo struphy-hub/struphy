@@ -162,7 +162,7 @@ class ShearAlfvenCurlCurl(StruphyModel):
         :math:`H(\textnormal{div})`. The momentum equation is the
         :math:`\rho_0`-weighted :math:`L^2` projection onto
         :math:`H(\textnormal{div})`, and the induction equation is weak, so
-        the perturbed energy is conserved exactly. Eliminating the velocity
+        the perturbed energy is conserved up to the solver tolerances. Eliminating the velocity
         in the implicit time step gives a field-aligned curl-curl system for
         the magnetic field, which the Hiptmair-Xu auxiliary space
         preconditioner targets."""

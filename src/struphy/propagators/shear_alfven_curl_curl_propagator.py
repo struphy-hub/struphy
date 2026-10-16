@@ -116,7 +116,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             Preconditioner of the Schur system: Hiptmair-Xu for the curl-curl operator with ``M2gyro`` in the middle
             (``"HiptmairXu"``, implicit algorithm with ``solver="pcg"`` only, no polar splines; it depends on the time
             step, so it is built at the first time step and rebuilt when the time step changes), or a preconditioner
-            of the mass matrix ``M1`` (``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``).
+            of the mass matrix ``M1`` (``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``). With
+            ``algo="explicit"``, ``"HiptmairXu"`` is replaced by ``"MassMatrixPreconditioner"`` (for ``M1``).
         hx_aux_weight : float, default=1.0
             Factor of the vector auxiliary space correction of the Hiptmair-Xu preconditioner (``aux_weight`` of
             :class:`~struphy.feec.preconditioner.HiptmairXuPreconditioner`, 0 switches it off; ``M2gyro`` vanishes
@@ -156,8 +157,10 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             check_option(self.solver_M2n, LiteralOptions.OptsSymmSolver)
             check_option(self.precond_M2n, LiteralOptions.OptsMassPrecond)
             if self.precond == "HiptmairXu":
-                assert self.algo == "implicit", 'precond="HiptmairXu" requires algo="implicit".'
-                assert self.solver == "pcg", 'precond="HiptmairXu" requires solver="pcg".'
+                if self.algo == "explicit":
+                    self.precond = "MassMatrixPreconditioner"
+                else:
+                    assert self.solver == "pcg", 'precond="HiptmairXu" requires solver="pcg".'
 
             # defaults
             if self.solver_params is None:

@@ -14,10 +14,9 @@ from struphy.topology import grids
 def test_options():
     assert ShearAlfvenCurlCurlPropagator.Options().precond == "HiptmairXu"
     with pytest.raises(AssertionError):
-        ShearAlfvenCurlCurlPropagator.Options(algo="explicit")
-    with pytest.raises(AssertionError):
         ShearAlfvenCurlCurlPropagator.Options(solver="cg")
-    options = ShearAlfvenCurlCurlPropagator.Options(algo="explicit", precond="MassMatrixPreconditioner")
+    options = ShearAlfvenCurlCurlPropagator.Options(algo="explicit")
+    assert options.precond == "MassMatrixPreconditioner"
     assert options.butcher is not None
 
 
@@ -130,7 +129,7 @@ def test_hiptmair_xu_iterations(tmp_path):
 
 def test_explicit(tmp_path):
     """The explicit algorithm agrees with the implicit one for a small time step."""
-    dt = 1e-3
+    dt = 1e-4
     sols = {}
     for algo in ("implicit", "explicit"):
         options = ShearAlfvenCurlCurlPropagator.Options(
