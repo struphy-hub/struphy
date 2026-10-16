@@ -148,7 +148,7 @@ class ShearAlfvenPropagator(Propagator):
             check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
             if self.precond in ("MultiGrid", "StiffnessPreconditioner"):
                 assert self.algo == "implicit", f'precond="{self.precond}" requires algo="implicit".'
-                assert self.solver == "pcg", f'precond="{self.precond}" requires solver="pcg".'
+                assert self.solver in ("pcg", "pcg_sr"), f'precond="{self.precond}" requires solver="pcg" or "pcg_sr".'
             if self.precond == "StiffnessPreconditioner":
                 assert self.u_space == "Hdiv", 'precond="StiffnessPreconditioner" requires u_space="Hdiv".'
             if self.precond == "MultiGrid" and self.multigrid is None:
