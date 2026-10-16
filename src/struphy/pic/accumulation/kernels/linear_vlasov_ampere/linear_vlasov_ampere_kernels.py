@@ -58,7 +58,7 @@ def linear_vlasov_ampere(
     filling_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = args_markers.n_markers
 
     # total number of markers (weights are w_p = delta f_p / (N * s_0))
     n_markers_tot = args_markers.Np
@@ -75,18 +75,18 @@ def linear_vlasov_ampere(
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+        if markers[0, ip] == -1.0 or markers[-1, ip] == -2.0:
             continue
 
         # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # get velocity
-        v[0] = markers[ip, 3]
-        v[1] = markers[ip, 4]
-        v[2] = markers[ip, 5]
+        v[0] = markers[3, ip]
+        v[1] = markers[4, ip]
+        v[2] = markers[5, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -105,10 +105,10 @@ def linear_vlasov_ampere(
 
         # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
         linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
-        filling_m[:, :] *= f0_values[ip] / (markers[ip, 7] * n_markers_tot)
+        filling_m[:, :] *= f0_values[ip] / (markers[7, ip] * n_markers_tot)
 
         # filling_v = alpha^2 * kappa * w_p * DL^{-1} * v_p
-        filling_v[:] = markers[ip, 6] * df_inv_v
+        filling_v[:] = markers[6, ip] * df_inv_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(

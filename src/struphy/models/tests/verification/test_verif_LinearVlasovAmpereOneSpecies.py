@@ -4,6 +4,7 @@ import shutil
 
 import cunumpy as xp
 import h5py
+import numpy as np
 from maybempi import MPI
 
 from struphy import (
@@ -100,11 +101,17 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
     # 1. no net charge: the weights of a cosine perturbation cancel over the box, so their
     # mean is Monte-Carlo noise, small against their own spread. The control variate applied
     # by mistake made every weight equal, i.e. |mean| == max|w|.
-    # Checked per rank: each one holds a random subset of the markers, so its own mean is
-    # as good an estimator of the net charge as the global one.
-    weights = xp.asarray(model.kinetic_ions.var.particles.weights)
-    mean = float(weights.mean())
-    rms = float(xp.sqrt((weights**2).mean()))
+    # Summed over the ranks of the clone: the markers are sorted into the domain of their rank,
+    # so on more than two ranks each one holds a part of the cosine with a net charge of its
+    # own. Each clone holds a random subset of all markers, so its mean is as good an estimator
+    # of the net charge as the global one.
+    particles = model.kinetic_ions.var.particles
+    weights = xp.to_numpy(particles.weights)
+    sums = np.array([weights.sum(), (weights**2).sum(), weights.size], dtype=float)
+    if particles.mpi_comm is not None:
+        particles.mpi_comm.Allreduce(MPI.IN_PLACE, sums, op=MPI.SUM)
+    mean = sums[0] / sums[2]
+    rms = np.sqrt(sums[1] / sums[2])
     assert abs(mean) < 0.1 * rms, (
         f"Assertion for delta-f weights failed: net charge {mean =} is not small against {rms =}; "
         "the markers do not carry the density perturbation alone."

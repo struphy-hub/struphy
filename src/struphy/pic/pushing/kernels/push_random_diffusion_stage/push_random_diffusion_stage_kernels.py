@@ -45,10 +45,10 @@ def push_random_diffusion_stage(
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        markers[ip, 0:3] += scale * noise[ip, :]
+        markers[0:3, ip] += scale * noise[:, ip]
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)

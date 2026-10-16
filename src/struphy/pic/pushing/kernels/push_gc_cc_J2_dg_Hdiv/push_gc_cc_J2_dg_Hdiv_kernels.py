@@ -85,15 +85,15 @@ def push_gc_cc_J2_dg_Hdiv(
 
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker positions, mid point
-        eta_old[:] = markers[ip, 0:3]
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_pusher_idx : first_pusher_idx + 3]) / 2.0
+        eta_old[:] = markers[0:3, ip]
+        eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        v = markers[ip, 3]
+        v = markers[3, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -204,6 +204,6 @@ def push_gc_cc_J2_dg_Hdiv(
         e /= abs_b_star_para
         e /= det_df
 
-        markers[ip, 0:3] = markers[ip, first_pusher_idx : first_pusher_idx + 3] - dt * e
-        markers[ip, 0:3] *= alpha
-        markers[ip, 0:3] += eta_old * (1.0 - alpha)
+        markers[0:3, ip] = markers[first_pusher_idx : first_pusher_idx + 3, ip] - dt * e
+        markers[0:3, ip] *= alpha
+        markers[0:3, ip] += eta_old * (1.0 - alpha)
