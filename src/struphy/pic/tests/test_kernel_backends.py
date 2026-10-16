@@ -53,7 +53,7 @@ ARGUMENT_PAIRS = (
 
 def make_arguments(n_markers, seed=0):
     rng = np.random.default_rng(seed)
-    markers = cunumpy.asarray(rng.random((n_markers, N_COLS)))
+    markers = cunumpy.asarray(rng.random((N_COLS, n_markers)))
     valid = cunumpy.asarray(rng.random(n_markers) > 0.1)
     bc = cunumpy.zeros(3, dtype=np.int64)
     args_class = CudaMarkerArguments if cunumpy.get_backend() == "cupy" else MarkerArguments
@@ -112,7 +112,7 @@ def test_argument_classes_correspond(cuda_class, source, class_name, cuda_only, 
     assert cuda_class.__name__ == "Cuda" + class_name
     cuda_parameters = list(inspect.signature(cuda_class.__init__).parameters)[1:]
     assert cuda_parameters == pyccel_init_parameters(source, class_name)
-    # attributes set from constructor arguments; derived ones (e.g. n_markers, bn1) are skipped by the parser
+    # attributes set from constructor arguments; derived ones (e.g. n_markers, bn1) are skipped by the parser.
     pyccel_fields = [field.name for field in CudaStruct.from_pyccel_class(ARGS_DIR / source, class_name).fields]
     cuda_fields = [field.name for field in cuda_class.struct.fields]
     assert [name for name in cuda_fields if name not in cuda_only] == pyccel_fields
@@ -149,7 +149,7 @@ def test_cuda_struct_layout(cuda_class, source, class_name, cuda_only, header):
 @requires_cupy
 def test_cuda_classes_reject_host_arrays():
     with cunumpy.use_backend("numpy"):
-        markers = np.zeros((10, N_COLS))
+        markers = np.zeros((N_COLS, 10))
         with pytest.raises(TypeError, match="CuPy array"):
             CudaMarkerArguments(
                 markers, np.ones(10, dtype=bool), 10, *MARKER_INDICES, np.zeros(3, dtype=np.int64), False
@@ -231,7 +231,7 @@ def test_geometry_evaluation_on_cupy(domain_index):
     """Geometry evaluations run on CuPy for every analytic mapping and four spline mappings and agree with NumPy."""
     from struphy.pic.tests.kernel_test_args import geometry_domain
 
-    markers = np.random.default_rng(3).uniform(-0.1, 1.0, (50, 3))
+    markers = np.random.default_rng(3).uniform(-0.1, 1.0, (3, 50))
     eta = (np.linspace(0.1, 0.9, 5), np.linspace(0.0, 1.0, 4), np.linspace(0.2, 0.8, 3))
     results = []
     for backend in ("numpy", "cupy"):

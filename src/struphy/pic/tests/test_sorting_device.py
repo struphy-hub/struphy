@@ -83,10 +83,10 @@ def _make_particles(comm, bc):
 
 
 def _shift_positions(markers: np.ndarray, valid: np.ndarray, step: int) -> np.ndarray:
-    """New positions in [0, 1) for the valid rows, far enough away that most markers change rank."""
+    """New positions in [0, 1) for the valid markers, far enough away that most markers change rank."""
     new = markers.copy()
-    shift = np.array([0.37, 0.21, 0.53]) * (step + 1)
-    new[valid, :3] = (markers[valid, :3] + shift) % 1.0
+    shift = np.array([0.37, 0.21, 0.53])[:, None] * (step + 1)
+    new[:3, valid] = (markers[:3, valid] + shift) % 1.0
     return new
 
 
@@ -122,11 +122,11 @@ def check_mpi_sort_markers_device(cuda_aware: bool | None, bc: str = "periodic",
         for step in range(2):
             new = _shift_positions(ref.markers, ref.valid_mks, step)
 
-            # number of rows this rank has to send, from the host reference
-            etas = new[ref.valid_mks, :3]
-            left, right = ref.domain_array[rank, 0::3], ref.domain_array[rank, 1::3]
+            # number of markers this rank has to send, from the host reference
+            etas = new[:3, ref.valid_mks]
+            left, right = ref.domain_array[rank, 0::3, None], ref.domain_array[rank, 1::3, None]
             right = np.where(right == 1.0, np.nextafter(right, 2.0), right)
-            n_send = int(np.count_nonzero(~np.all((etas >= left) & (etas < right), axis=1)))
+            n_send = int(np.count_nonzero(~np.all((etas >= left) & (etas < right), axis=0)))
             n_send_total = comm.allreduce(n_send)
             assert size == 1 or n_send_total > 0
 
@@ -147,14 +147,14 @@ def check_mpi_sort_markers_device(cuda_aware: bool | None, bc: str = "periodic",
                 assert transfers.total == 0, transfers.report()
             else:
                 # exchange stages each non-empty send and receive buffer separately
-                n_dest = sum(1 for i in range(size) if i != rank and dev._send_list[i].shape[0] > 0)
-                n_sources = sum(1 for i in range(size) if i != rank and ref._recvbufs[i].shape[0] > 0)
+                n_dest = sum(1 for i in range(size) if i != rank and dev._send_list[i].shape[1] > 0)
+                n_sources = sum(1 for i in range(size) if i != rank and ref._recvbufs[i].shape[1] > 0)
                 assert transfers.to_host == n_dest, transfers.report()
                 assert transfers.to_device == n_sources, transfers.report()
                 sent_bytes = sum(e.nbytes for e in transfers.events if e.kind == "to_host")
-                assert sent_bytes == n_send * ref.markers.shape[1] * 8
+                assert sent_bytes == n_send * ref.n_cols * 8
                 received_bytes = sum(e.nbytes for e in transfers.events if e.kind == "to_device")
-                assert received_bytes == n_recv * ref.markers.shape[1] * 8
+                assert received_bytes == n_recv * ref.n_cols * 8
 
             if count_reads and cuda_aware:
                 # (the staged exchange reads the send buffers with .get(), counted above)
@@ -222,7 +222,7 @@ def check_sorting_boxes_device():
     # all markers of this rank lie in its domain, so none is in the out-of-domain box (last row of the box array):
     # the boxes were found with the domain_array row of this rank
     out_box = ref.sorting_boxes.boxes.shape[0] - 1
-    assert np.all(ref.markers[ref.valid_mks, ref.sorting_boxes.box_index] < out_box)
+    assert np.all(ref.markers[ref.sorting_boxes.box_index, ref.valid_mks] < out_box)
 
     with xp.use_backend("cupy"):
         dev = make_particles()

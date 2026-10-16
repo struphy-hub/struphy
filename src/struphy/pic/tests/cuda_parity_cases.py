@@ -47,7 +47,7 @@ class ParityCases:
     rtol: float = 1e-12
     atol: float = 0.0
     n_threads: Callable[[tuple], int] | None = None
-    """Launch size, if it is not one thread per row of the first array."""
+    """Launch size, if it is not one thread per row (first axis) of the first array."""
 
 
 # pyccel argument class name -> the fields of its CUDA struct, the data of an argument object (the pyccel scratch
@@ -103,7 +103,7 @@ def push_weights_with_efield_lin_va_args(bc):
 
 def reflect_args(axis):
     """Reverse one logical velocity component of 10 markers in a Cuboid."""
-    markers = np.random.default_rng(32).random((140, 8))
+    markers = np.random.default_rng(32).random((8, 140))
     outside_inds = np.arange(139, 129, -1, dtype=np.int64)
     return (xp.asarray(markers), Cuboid(r1=2.0, r2=3.0, r3=4.0).args_domain, xp.asarray(outside_inds), axis)
 
@@ -117,11 +117,12 @@ BSTAR_PARALLEL_3FORM_CASES = tuple(
 
 
 def bstar_parallel_3form_args(case):
-    """Markers with shifts in [0, 1), so eta + shift wraps around, a negative eta_n in row 0 and a hole in row 2."""
+    """Markers with shifts in [0, 1), so eta + shift wraps around, a negative eta_n in marker 0 and a hole in
+    marker 2."""
     domain, alpha, output_column = case
     args_markers, _ = marker_arguments((0, 0, 0))
-    args_markers.markers[0, 8] = -0.75  # eta_n[0] = mod(-0.75, 1.0) = 0.25 (not 0, where some Jacobians are singular)
-    args_markers.markers[2, 0] = -1.0  # a hole: pyccel tests markers[ip, 0] == -1, not valid_mks
+    args_markers.markers[8, 0] = -0.75  # eta_n[0] = mod(-0.75, 1.0) = 0.25 (not 0, where some Jacobians are singular)
+    args_markers.markers[0, 2] = -1.0  # a hole: pyccel tests markers[0, ip] == -1, not valid_mks
     return (
         xp.asarray(alpha),
         xp.asarray([output_column], dtype=np.int64),
@@ -155,7 +156,7 @@ def linear_vlasov_ampere_args(domain):
 
 
 def vlasov_maxwell_args(domain):
-    """129 markers (a hole in row 0, a boundary particle in row 1, which is accumulated as in pyccel) in domain
+    """129 markers (a hole, marker 0, and a boundary particle, marker 1, which is accumulated as in pyccel) in domain
     `domain` of geometry_domain(); zeroed V1 data."""
     args_markers, _ = marker_arguments((0, 0, 0))
     args_markers.markers[0, 0] = -1.0
@@ -167,7 +168,7 @@ def vlasov_maxwell_args(domain):
 
 def eval_spline_mpi_markers_args(kind):
     """Spline values at 129 markers, one of them flagged."""
-    markers = np.random.default_rng(5).random((129, 3))
+    markers = np.random.default_rng(5).random((3, 129))
     markers[0, 0] = -1.0  # not on the process domain: skipped
     return (xp.asarray(markers), *spline_evaluation_arguments(kind), xp.zeros(129))
 
@@ -204,7 +205,7 @@ KERNEL_EVALUATE_PIC_CASES = tuple(
 def kernel_evaluate_pic_args(case):
     domain, kind_coeff, remove_outside, avoid_round_off = case
     markers = logical_markers()
-    mat_f = np.random.default_rng(6).random((markers.shape[0], 3, 3))
+    mat_f = np.random.default_rng(6).random((markers.shape[1], 3, 3))
     return (
         xp.asarray(markers),
         kind_coeff,
@@ -263,15 +264,16 @@ KERNEL_PULLPUSH_PIC_CASES = tuple(
 
 
 def kernel_pullpush_pic_args(case):
-    """Every third case passes `a` without holes (one row per inside marker)."""
+    """Every third case passes `a` without holes (one row per inside marker); `a` and `out` have one row per
+    marker."""
     domain, kind_transform, kind_fun, a_has_holes, remove_outside = case
     markers = logical_markers()
     rng = np.random.default_rng(9)
     n_comp = 1 if kind_fun < 10 else 3
-    a = rng.normal(size=(markers.shape[0], n_comp))
+    a = rng.normal(size=(markers.shape[1], n_comp))
     if not a_has_holes:
         a = a[inside_logical_cube(markers)]
-    out = rng.random((markers.shape[0], 3))
+    out = rng.random((markers.shape[1], 3))
     return (
         xp.asarray(a),
         xp.asarray(markers),
@@ -344,9 +346,14 @@ GEOMETRY_TOLERANCES = {"rtol": 1e-10, "atol": 1e-10}
 SPLINE_KINDS = ((0, 0, 0), (1, 0, 1))
 
 
-def rows_of(index):
-    """One thread per row of argument `index`."""
-    return lambda args: args[index].shape[0]
+def markers_of(index):
+    """One thread per marker of argument `index`, a marker argument object."""
+    return lambda args: args[index].n_markers
+
+
+def columns_of(index):
+    """One thread per column of argument `index`, an array of markers (one column per marker)."""
+    return lambda args: args[index].shape[1]
 
 
 def size_of(index, per_thread=1):
@@ -365,44 +372,54 @@ PARITY_CASES = {
             for stage in range(ButcherTableau(method).n_stages)
         ],
         push_eta_stage_args,
+        n_threads=markers_of(2),
         **PUSHER_TOLERANCES,
     ),
     "push_v_with_efield": ParityCases(
         BOUNDARY_CONDITIONS,
         lambda bc: (0.2, 0, *marker_arguments(bc), derham_arguments(), *spline_coefficients(), 0.7),
+        n_threads=markers_of(2),
         **PUSHER_TOLERANCES,
     ),
     "push_vxb_analytic": ParityCases(
         BOUNDARY_CONDITIONS,
         lambda bc: (0.2, 0, *marker_arguments(bc), derham_arguments(), *spline_coefficients()),
+        n_threads=markers_of(2),
         **PUSHER_TOLERANCES,
     ),
     "push_vxb_implicit": ParityCases(
         BOUNDARY_CONDITIONS,
         lambda bc: (0.2, 0, *marker_arguments(bc), derham_arguments(), *spline_coefficients()),
+        n_threads=markers_of(2),
         **PUSHER_TOLERANCES,
     ),
     "push_weights_with_efield_lin_va": ParityCases(
-        BOUNDARY_CONDITIONS, push_weights_with_efield_lin_va_args, **PUSHER_TOLERANCES
+        BOUNDARY_CONDITIONS, push_weights_with_efield_lin_va_args, n_threads=markers_of(2), **PUSHER_TOLERANCES
     ),
     "reflect": ParityCases((0, 1, 2), reflect_args, n_threads=size_of(2)),
-    # one thread per marker row; the first array, alpha, does not tell the launch size
+    # one thread per marker
     "bstar_parallel_3form": ParityCases(
         BSTAR_PARALLEL_3FORM_CASES,
         bstar_parallel_3form_args,
-        n_threads=lambda args: args[2].n_markers,
+        n_threads=markers_of(2),
         **GEOMETRY_TOLERANCES,
     ),
     # atomics add in another order than the serial loop
-    "charge_density_0form": ParityCases(((0, 0, 0), (2, 0, 1)), charge_density_0form_args, rtol=1e-12, atol=1e-13),
+    "charge_density_0form": ParityCases(
+        ((0, 0, 0), (2, 0, 1)), charge_density_0form_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-13
+    ),
     # Cuboid, Colella and HollowTorus (non-diagonal DF) and a 3d spline mapping, by index into geometry_domain();
     # atomics add in another order than the serial loop, and the entries reach 1e4 (atol for cancelling sums)
-    "linear_vlasov_ampere": ParityCases((0, 2, 5, 12), linear_vlasov_ampere_args, rtol=1e-12, atol=1e-10),
+    "linear_vlasov_ampere": ParityCases(
+        (0, 2, 5, 12), linear_vlasov_ampere_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-10
+    ),
     # Cuboid, then Colella, HollowTorus, ShafranovDshapedCylinder (non-diagonal DF) and a 3d spline mapping, by index into
     # geometry_domain(); atomics add in another order than the serial loop, and G^{-1} of the spline mapping makes
     # entries of 6e5 (atol for cancelling sums)
-    "vlasov_maxwell": ParityCases((0, 2, 5, 9, 12), vlasov_maxwell_args, rtol=1e-12, atol=1e-8),
-    "eval_spline_mpi_markers": ParityCases(SPLINE_KINDS, eval_spline_mpi_markers_args),
+    "vlasov_maxwell": ParityCases(
+        (0, 2, 5, 9, 12), vlasov_maxwell_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-8
+    ),
+    "eval_spline_mpi_markers": ParityCases(SPLINE_KINDS, eval_spline_mpi_markers_args, n_threads=columns_of(0)),
     "eval_spline_mpi_matrix": ParityCases(SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=False), n_threads=size_of(-1)),
     "eval_spline_mpi_sparse_meshgrid": ParityCases(
         SPLINE_KINDS, eval_spline_mpi_grid_args(sparse=True), n_threads=size_of(-1)
@@ -410,14 +427,16 @@ PARITY_CASES = {
     "eval_spline_mpi_tensor_product_fixed": ParityCases(
         SPLINE_KINDS, eval_spline_mpi_tensor_product_fixed_args, n_threads=size_of(-1)
     ),
-    "kernel_evaluate_pic": ParityCases(KERNEL_EVALUATE_PIC_CASES, kernel_evaluate_pic_args, **GEOMETRY_TOLERANCES),
+    "kernel_evaluate_pic": ParityCases(
+        KERNEL_EVALUATE_PIC_CASES, kernel_evaluate_pic_args, n_threads=columns_of(0), **GEOMETRY_TOLERANCES
+    ),
     # one thread per grid point: the first three axes of mat_f, shape (n1, n2, n3, 3, 3)
     "kernel_evaluate": ParityCases(
         KERNEL_EVALUATE_CASES, kernel_evaluate_args, n_threads=size_of(5, per_thread=9), **GEOMETRY_TOLERANCES
     ),
-    # one thread per marker row; the first array, a, has fewer rows when it has no holes
+    # one thread per marker (column of the markers); the first array, a, has fewer rows when it has no holes
     "kernel_pullpush_pic": ParityCases(
-        KERNEL_PULLPUSH_PIC_CASES, kernel_pullpush_pic_args, n_threads=rows_of(1), **GEOMETRY_TOLERANCES
+        KERNEL_PULLPUSH_PIC_CASES, kernel_pullpush_pic_args, n_threads=columns_of(1), **GEOMETRY_TOLERANCES
     ),
     # one thread per grid point: the first three axes of out, shape (n1, n2, n3, 3)
     "kernel_pullpush": ParityCases(

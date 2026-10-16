@@ -105,13 +105,13 @@ def push_bxu_Hdiv_pauli(
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker data
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -222,7 +222,7 @@ def push_bxu_Hdiv_pauli(
         e_cart[:] = e_cart - mu[ip] * b_grad
 
         # update velocities
-        markers[ip, 3:6] += dt * e_cart
+        markers[3:6, ip] += dt * e_cart
 
     # fmt: off
     #$ omp end parallel

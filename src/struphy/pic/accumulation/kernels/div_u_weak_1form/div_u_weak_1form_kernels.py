@@ -42,22 +42,22 @@ def div_u_weak_1form(
     # fmt: off
     #$ omp for reduction(+: vec1, vec2, vec3)
     # fmt: on
-    for ip in range(shape(markers)[0]):
+    for ip in range(args_markers.n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if not valid_mks[ip]:
             continue
 
         # marker positions and velocites
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v1 = markers[ip, 3]
-        v2 = markers[ip, 4]
-        v3 = markers[ip, 5]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v1 = markers[3, ip]
+        v2 = markers[4, ip]
+        v3 = markers[5, ip]
 
         # weight and density
-        weight = markers[ip, weight_idx]
-        density = markers[ip, density_idx]
+        weight = markers[weight_idx, ip]
+        density = markers[density_idx, ip]
 
         # filling is just the weights
         fill1 = weight * v1 / density

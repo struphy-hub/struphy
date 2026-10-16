@@ -7,11 +7,11 @@ using namespace struphy_cuda;
 /**
  * Velocity update in an electric field, as in push_v_with_efield_kernels.push_v_with_efield.
  *
- * v_p += dt * const_factor * DF^{-T}(eta_p) e(eta_p), with e the 1-form spline field; one thread per marker row.
+ * v_p += dt * const_factor * DF^{-T}(eta_p) e(eta_p), with e the 1-form spline field; one thread per marker.
  *
  * @param dt Time step.
  * @param stage Stage index (unused; part of the common pusher signature).
- * @param args_markers Marker buffer (n_markers x n_cols, row-major), validity mask and column indices.
+ * @param args_markers Marker buffer (n_cols x n_markers, one column per marker), validity mask and column indices.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param e1_1 Coefficients of the first component of the electric 1-form.
@@ -24,7 +24,7 @@ using namespace struphy_cuda;
 extern "C" __global__ void push_v_with_efield(double dt, int stage, MarkerArgs args_markers, DomainArgs args_domain,
                                               DerhamArgs args_derham, Array3D<double> e1_1, Array3D<double> e1_2,
                                               Array3D<double> e1_3, double const_factor) {
-    // CUDA-only: the marker row of this thread replaces the pyccel loop variable
+    // CUDA-only: the marker of this thread replaces the pyccel loop variable
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     int n_markers = args_markers.n_markers;
     if (ip >= n_markers) return;
@@ -32,9 +32,9 @@ extern "C" __global__ void push_v_with_efield(double dt, int stage, MarkerArgs a
     // only do something if particle is valid (i.e. not a hole or ghost)
     if (!args_markers.valid_mks[ip]) return;
 
-    double eta1 = args_markers.markers(ip, 0);
-    double eta2 = args_markers.markers(ip, 1);
-    double eta3 = args_markers.markers(ip, 2);
+    double eta1 = args_markers.markers(0, ip);
+    double eta2 = args_markers.markers(1, ip);
+    double eta3 = args_markers.markers(2, ip);
     double dfm[9], dfinv[9], dfinvt[9], e_form[3], e_cart[3];
 
     // evaluate Jacobian, result in dfm
@@ -56,5 +56,5 @@ extern "C" __global__ void push_v_with_efield(double dt, int stage, MarkerArgs a
     linalg_kernels::matrix_vector(dfinvt, e_form, e_cart);
 
     // update velocities
-    for (int j = 0; j < 3; ++j) args_markers.markers(ip, 3 + j) += dt * const_factor * e_cart[j];
+    for (int j = 0; j < 3; ++j) args_markers.markers(3 + j, ip) += dt * const_factor * e_cart[j];
 }

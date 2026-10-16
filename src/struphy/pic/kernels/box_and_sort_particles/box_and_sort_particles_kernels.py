@@ -18,9 +18,9 @@ def box_and_sort_particles(
     swap_line_2: "float[:]",
     box_index: "int" = -2,
 ) -> "int":
-    """``box_particles`` followed by ``sort_and_fill_boxes``: write the box of each particle into column ``box_index``,
-    count the particles per box, reorder the marker rows by box, then update ``holes`` and fill ``boxes`` for the
-    sorted rows. On the CuPy backend the markers cross between device and host once in each direction.
+    """``box_particles`` followed by ``sort_and_fill_boxes``: write the box of each particle into row ``box_index``,
+    count the particles per box, reorder the markers (columns) by box, then update ``holes`` and fill ``boxes`` for
+    the sorted markers. On the CuPy backend the markers cross between device and host once in each direction.
 
     Returns the largest number of particles in a box; if it is ``>= boxes.shape[1]``, nothing is sorted, ``boxes`` is
     left untouched and the caller must raise.

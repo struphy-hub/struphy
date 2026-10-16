@@ -10,7 +10,7 @@ using namespace struphy_cuda;
  *
  * @param markers Marker array view; positions are already inside the logical cube.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
- * @param outside_inds View of the marker row indices to reflect.
+ * @param outside_inds View of the marker indices to reflect.
  * @param axis Logical velocity component to reverse (0, 1 or 2).
  */
 extern "C" __global__ void reflect(Array2D<double> markers, DomainArgs args_domain,
