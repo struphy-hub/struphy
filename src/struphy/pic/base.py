@@ -43,7 +43,7 @@ from struphy.pic.kernels.box_and_sort_particles import box_and_sort_particles
 from struphy.pic.kernels.box_particles import box_particles
 from struphy.pic.kernels.fill_boxes import fill_boxes
 from struphy.pic.kernels.sort_and_fill_boxes import sort_and_fill_boxes
-from struphy.pic.marker_layout import marker_array, padded_n_rows
+from struphy.pic.marker_layout import marker_array, padded_n_markers
 from struphy.pic.pushing.kernels.reflect import reflect
 from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
 from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
@@ -80,10 +80,10 @@ class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
 
-    The marker information is stored in a 2D array of shape ``(n_cols, n_rows)``, one column per marker
+    The marker information is stored in a 2D array of shape ``(n_cols, n_markers_max)``, one column per marker
     (see :mod:`struphy.pic.marker_layout`).
     In ``markers[j, ip]`` the index ``ip`` refers to a specific particle,
-    the index ``j`` to its attributes; ``n_cols`` is the number of attributes and ``n_rows`` the number of markers
+    the index ``j`` to its attributes; ``n_cols`` is the number of attributes and ``n_markers_max`` the number of markers
     (including holes), and the attribute indices are called "columns" below and in the rest of the code.
     They are as follows:
 
@@ -185,7 +185,7 @@ class Particles(metaclass=ABCMeta):
         Normalization parameters (epsilon, alpha, ...)
 
     dry_run : bool
-        If True, only compute the sizing of the marker array (:attr:`n_rows`, :attr:`n_cols`, ...)
+        If True, only compute the sizing of the marker array (:attr:`n_markers_max`, :attr:`n_cols`, ...)
         and return early, without allocating any of the (potentially large) marker/sorting/buffer
         arrays. Used by :attr:`nbytes_local` to estimate the memory footprint before actually
         allocating the particles, see :meth:`~struphy.models.variables.PICVariable.estimate_mem`.
@@ -417,9 +417,9 @@ class Particles(metaclass=ABCMeta):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
-        self._sorting_etas = xp.zeros((3, self.n_rows), dtype=float)
-        self._is_on_proc_domain = xp.zeros((3, self.n_rows), dtype=bool)
-        self._can_stay = xp.zeros(self.n_rows, dtype=bool)
+        self._sorting_etas = xp.zeros((3, self.n_markers_max), dtype=float)
+        self._is_on_proc_domain = xp.zeros((3, self.n_markers_max), dtype=bool)
+        self._can_stay = xp.zeros(self.n_markers_max, dtype=bool)
         self._reqs = [None] * self.mpi_size
         self._recvbufs = [None] * self.mpi_size
         self._send_to_i = [None] * self.mpi_size
@@ -550,12 +550,13 @@ class Particles(metaclass=ABCMeta):
         return self.first_free_idx + self.n_cols_aux + 2
 
     @property
-    def n_rows(self):
-        """Total number of markers (columns) in markers array, including holes."""
-        if not hasattr(self, "_n_rows"):
+    def n_markers_max(self):
+        """Number of marker slots (columns of :attr:`markers`), holes included: the most markers this process can
+        hold."""
+        if not hasattr(self, "_n_markers_max"):
             input("\nWarning: marker array not yet created, creating now ...")
             self._allocate_marker_array()
-        return self._n_rows
+        return self._n_markers_max
 
     @property
     def mean_velocity_index(self):
@@ -565,22 +566,22 @@ class Particles(metaclass=ABCMeta):
     @property
     def nbytes_local(self) -> int:
         """Estimated local (per-MPI-rank) memory footprint, in bytes, of all marker-related arrays
-        (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_rows` and
+        (markers, sorting buffers, lost-marker container). Only depends on :attr:`n_markers_max` and
         :attr:`n_cols`, so it is valid whether or not the arrays were actually allocated
         (see the ``dry_run`` argument of :meth:`__init__`)."""
         float_size = 8  # dtype=float
         bool_size = 1  # dtype=bool
-        n_rows = self.n_rows
+        n_markers_max = self.n_markers_max
         n_cols = self.n_cols
 
         nbytes = 0
-        nbytes += n_rows * n_cols * float_size  # markers
-        nbytes += n_rows * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
-        nbytes += n_rows * 3 * bool_size  # is_on_proc_domain
-        nbytes += n_rows * bool_size  # can_stay
+        nbytes += n_markers_max * n_cols * float_size  # markers
+        nbytes += n_markers_max * 3 * float_size  # sorting_etas (mpi_sort_markers buffer)
+        nbytes += n_markers_max * 3 * bool_size  # is_on_proc_domain
+        nbytes += n_markers_max * bool_size  # can_stay
         # holes, ghost_particles, valid_mks, is_outside_right, is_outside_left, is_outside
-        nbytes += n_rows * bool_size * 6
-        nbytes += int(n_rows * 0.5) * 10 * float_size  # lost_markers
+        nbytes += n_markers_max * bool_size * 6
+        nbytes += int(n_markers_max * 0.5) * 10 * float_size  # lost_markers
         return int(nbytes)
 
     @property
@@ -761,7 +762,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def markers(self):
-        """2D array of shape ``(n_cols, n_rows)`` holding the marker information, including holes.
+        """2D array of shape ``(n_cols, n_markers_max)`` holding the marker information, including holes.
         The i-th column holds the i-th marker info (see :mod:`struphy.pic.marker_layout`).
 
         ===== ============== ======================= ======= ====== ====== ========== === === ===
@@ -1890,7 +1891,7 @@ class Particles(metaclass=ABCMeta):
 
         # apply boundary conditions
         if self._remove_axes:
-            # snapshot of the (3, n_rows) logical coordinates for the loop over the axes
+            # snapshot of the (3, n_markers_max) logical coordinates for the loop over the axes
             # (see _find_outside_particles)
             self._eta_bc_buf[:] = self.markers[:3]
 
@@ -2600,7 +2601,7 @@ class Particles(metaclass=ABCMeta):
     def _allocate_marker_array(self, dry_run: bool = False):
         """Create marker array :attr:`~struphy.pic.base.Particles.markers`.
 
-        If dry_run is True, only :attr:`n_rows` (and :attr:`n_cols`) are computed and no array
+        If dry_run is True, only :attr:`n_markers_max` (and :attr:`n_cols`) are computed and no array
         is actually allocated; see :attr:`nbytes_local`."""
         if not hasattr(self, "_n_mks_load"):
             self._n_mks_load, self._Np_per_clone = self._n_mks_load_and_Np_per_clone()
@@ -2611,7 +2612,7 @@ class Particles(metaclass=ABCMeta):
 
         # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer;
         # one column per marker, every row starting on a 256-byte boundary (see struphy.pic.marker_layout)
-        self._n_rows = padded_n_rows(round(float(n_mks_load_loc * (1 + bufsize))))
+        self._n_markers_max = padded_n_markers(round(float(n_mks_load_loc * (1 + bufsize))))
 
         # Have at least 3 spare places in markers array
         assert self.first_free_idx + 2 < self.n_cols - 2, (
@@ -2621,22 +2622,22 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = marker_array(self.n_cols, self.n_rows)
+        self._markers = marker_array(self.n_cols, self.n_markers_max)
 
         # allocate auxiliary arrays
-        self._holes = xp.zeros(self.n_rows, dtype=bool)
-        self._ghost_particles = xp.zeros(self.n_rows, dtype=bool)
-        self._valid_mks = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside_right = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside_left = xp.zeros(self.n_rows, dtype=bool)
-        self._is_outside = xp.zeros(self.n_rows, dtype=bool)
+        self._holes = xp.zeros(self.n_markers_max, dtype=bool)
+        self._ghost_particles = xp.zeros(self.n_markers_max, dtype=bool)
+        self._valid_mks = xp.zeros(self.n_markers_max, dtype=bool)
+        self._is_outside_right = xp.zeros(self.n_markers_max, dtype=bool)
+        self._is_outside_left = xp.zeros(self.n_markers_max, dtype=bool)
+        self._is_outside = xp.zeros(self.n_markers_max, dtype=bool)
         # scratch copy of markers[:3], refreshed once per apply_kinetic_bc boundary-condition-type
         # loop (see there)
-        self._eta_bc_buf = marker_array(3, self.n_rows)
+        self._eta_bc_buf = marker_array(3, self.n_markers_max)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
-        self._lost_markers = xp.zeros((10, int(self.n_rows * 0.5)), dtype=float)
+        self._lost_markers = xp.zeros((10, int(self.n_markers_max * 0.5)), dtype=float)
 
         # arguments for kernels: the pyccel class on the NumPy backend, its CUDA version on the CuPy backend
         args_class = CudaMarkerArguments if self._args_backend == "cupy" else MarkerArguments
@@ -2938,15 +2939,15 @@ class Particles(metaclass=ABCMeta):
         with h5py.File(data.file_path, "a") as file:
             saved = file["restart/" + self.loading_params.restart_key][-1, :, :]
 
-        # the number of markers n_rows is padded (see struphy.pic.marker_layout), so a file written with another
-        # padding has a different number of markers: copy the common ones; the markers after them are holes, in the
+        # the number of marker slots n_markers_max is padded (see struphy.pic.marker_layout), so a file written with
+        # another padding has a different number of slots: copy the common ones; the slots after them are holes, in the
         # buffer (set before loading) and in the file
-        n_rows = min(saved.shape[1], self.n_rows)
-        assert np.all(saved[0, n_rows:] == -1.0), (
+        n_common = min(saved.shape[1], self.n_markers_max)
+        assert np.all(saved[0, n_common:] == -1.0), (
             f"the restart file has {saved.shape[1]} markers on rank {self.mpi_rank}, but there are only "
-            f"{self.n_rows} here, and the extra ones are not holes"
+            f"{self.n_markers_max} here, and the extra ones are not holes"
         )
-        self._markers[:, :n_rows] = saved[:, :n_rows]
+        self._markers[:, :n_common] = saved[:, :n_common]
 
     def _load_tesselation(self, n_quad: int = 1):
         """
@@ -2990,7 +2991,7 @@ class Particles(metaclass=ABCMeta):
             Row of the markers array (0, 1 or 2) holding the logical coordinate to check.
 
         eta : xp.ndarray[float], optional
-            Snapshot ``(3, n_rows)`` of ``markers[:3]`` (see :meth:`apply_kinetic_bc`).
+            Snapshot ``(3, n_markers_max)`` of ``markers[:3]`` (see :meth:`apply_kinetic_bc`).
             If ``None``, reads straight from ``markers``.
 
         Returns
@@ -3162,7 +3163,7 @@ class Particles(metaclass=ABCMeta):
         sorting_axis = self._sorting_boxes.box_index
 
         if not hasattr(self, "_argsort_array"):
-            self._argsort_array = xp.zeros(self.n_rows, dtype=int)
+            self._argsort_array = xp.zeros(self.n_markers_max, dtype=int)
         self._argsort_array[:] = self._markers[sorting_axis].argsort()
 
         self._markers[:] = self._markers[:, self._argsort_array]
@@ -4481,7 +4482,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 Indices of empty columns in markers after send.
 
             sorting_etas : array[float]
-                Eta-values of shape (3, n_rows) according to which the sorting is performed.
+                Eta-values of shape (3, n_markers_max) according to which the sorting is performed.
         """
         # position that determines the sorting (including periodic shift of boundary conditions)
         if not isinstance(alpha, xp.ndarray):

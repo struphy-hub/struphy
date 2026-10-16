@@ -105,7 +105,7 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process before sorting : ")
-    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_rows}")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_markers_max}")
 
     # sort particles according to domain decomposition
     comm.Barrier()
@@ -113,7 +113,7 @@ def test_draw(num_elements, degree, bcs, mapping, ppc=10):
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process after sorting : ")
-    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_rows}")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_markers_max}")
 
     # are all markers in the correct domain?
     conds = xp.logical_and(

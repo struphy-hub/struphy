@@ -202,7 +202,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             else:
                 self._f0 = backgrounds
             self._f0_values = xp.zeros(
-                self.kinetic_ions.var.particles.n_rows,
+                self.kinetic_ions.var.particles.n_markers_max,
                 dtype=float,
             )
             assert isinstance(self._f0, Maxwellian3D)

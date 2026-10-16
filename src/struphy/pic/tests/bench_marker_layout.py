@@ -78,12 +78,12 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
     def preamble():
         """The row assignments at the start of Pusher._push."""
         if xp.get_backend() == "cupy":
-            n_cols, n_rows = markers.shape
+            n_cols, n_markers = markers.shape
             _prepare_push_cuda()(
                 markers,
                 first_pusher_idx,
                 n_init,
-                n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
+                n_threads=n_markers * (n_cols - 2 - first_pusher_idx),
             )
         else:
             markers[first_pusher_idx:first_shift_idx] = markers[:n_init]
@@ -136,7 +136,7 @@ def run(Np: int, repeats: int, num_elements: int, degree: int, save_markers: str
 
     info = {
         "backend": xp.get_backend(),
-        "n_rows": particles.n_rows,
+        "n_markers_max": particles.n_markers_max,
         "n_cols": particles.n_cols,
         "Np": Np,
         "c_contiguous": bool(markers.flags.c_contiguous),
@@ -155,7 +155,7 @@ def _print(result: dict):
     info = result["info"]
     order = "C-ordered" if info["c_contiguous"] else "not C-contiguous"
     print(
-        f"backend {info['backend']}, markers {info['n_cols']} x {info['n_rows']} (one column per marker, {order}), "
+        f"backend {info['backend']}, markers {info['n_cols']} x {info['n_markers_max']} (one column per marker, {order}), "
         f"Np = {info['Np']}"
     )
     width = max(len(name) for name in result["ms"])

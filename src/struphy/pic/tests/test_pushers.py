@@ -578,7 +578,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
         flattened=True,
     )
 
-    mu0 = xp.zeros(particles.n_rows, dtype=float)
+    mu0 = xp.zeros(particles.n_markers_max, dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -708,7 +708,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
 
     n_mks_load = xp.zeros(size, dtype=int)
 
-    comm.Allgather(xp.array(particles.n_rows), n_mks_load)
+    comm.Allgather(xp.array(particles.n_markers_max), n_mks_load)
 
     sendcounts = xp.zeros(size, dtype=int)
     displacements = xp.zeros(size, dtype=int)

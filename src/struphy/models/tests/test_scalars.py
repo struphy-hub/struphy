@@ -148,9 +148,9 @@ class _MarkersWithGhosts:
     """Particles5D-like markers (weight in row 5, mu * |B| in row 8), plus holes and ghost copies of the first markers."""
 
     def __init__(self, n_valid, n_ghosts):
-        n_rows = n_valid + n_ghosts + 2
+        n_markers_max = n_valid + n_ghosts + 2
         self.Np = n_valid
-        self.markers = xp.zeros((10, n_rows), dtype=float)
+        self.markers = xp.zeros((10, n_markers_max), dtype=float)
         self.markers[5, :n_valid] = xp.linspace(0.5, 1.5, n_valid)
         self.markers[8, :n_valid] = 3.0
         self.markers[:, n_valid : n_valid + n_ghosts] = self.markers[:, :n_ghosts]

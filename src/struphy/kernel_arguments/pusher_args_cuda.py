@@ -64,7 +64,7 @@ class CudaMarkerArguments(CudaStructArguments):
         bc_type,
         pole: bool,
     ):
-        # shape (n_cols, n_rows), one column per marker (struphy.pic.marker_layout)
+        # shape (n_cols, n_markers_max), one column per marker (struphy.pic.marker_layout)
         self.markers = _device_array("markers", markers, np.float64, ndim=2)
         self.valid_mks = _device_array("valid_mks", valid_mks, np.bool_)
         self.Np = Np

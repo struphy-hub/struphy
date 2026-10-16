@@ -177,7 +177,7 @@ class Pusher:
         # profiling region names (cached, they are looked up on every call)
         self._region_name = "pusher: " + self.kernel.name
 
-        self._residuals = xp.zeros(self.particles.n_rows)
+        self._residuals = xp.zeros(self.particles.n_markers_max)
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
@@ -219,12 +219,12 @@ class Pusher:
 
         if self._cuda:
             # the three assignments below in one launch
-            n_cols, n_rows = markers.shape
+            n_cols, n_markers = markers.shape
             _prepare_push_cuda()(
                 markers,
                 first_pusher_idx,
                 3 + vdim,
-                n_threads=n_rows * (n_cols - 2 - first_pusher_idx),
+                n_threads=n_markers * (n_cols - 2 - first_pusher_idx),
             )
         else:
             init_slice = slice(first_pusher_idx, first_shift_idx)

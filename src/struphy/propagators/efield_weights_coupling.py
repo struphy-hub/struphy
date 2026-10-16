@@ -204,8 +204,8 @@ class EfieldWeightsCoupling(Propagator):
         self._e_sum = e.space.zeros()
 
         # marker storage
-        self._f0_values = xp.zeros(particles.n_rows, dtype=float)
-        self._old_weights = xp.empty(particles.n_rows, dtype=float)
+        self._f0_values = xp.zeros(particles.n_markers_max, dtype=float)
+        self._old_weights = xp.empty(particles.n_markers_max, dtype=float)
 
         # ================================
         # ========= Schur Solver =========

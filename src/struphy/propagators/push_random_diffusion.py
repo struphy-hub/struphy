@@ -150,7 +150,7 @@ class PushRandomDiffusion(Propagator):
         self._noise[:] = random.multivariate_normal(
             self._mean,
             self._cov,
-            particles.n_rows,
+            particles.n_markers_max,
         ).T
 
         # push markers

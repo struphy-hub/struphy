@@ -11,7 +11,7 @@ class MarkerArguments:
     Paramaters
     ----------
     markers : array[float]
-        Markers array of shape (n_cols, n_rows), one column per marker (see :mod:`struphy.pic.marker_layout`).
+        Markers array of shape (n_cols, n_markers_max), one column per marker (see :mod:`struphy.pic.marker_layout`).
 
     Np : int
         Total number of particles.

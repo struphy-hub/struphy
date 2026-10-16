@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from struphy.models.tests.gpu_e2e import device_context, requires_cupy_backend
-from struphy.pic.marker_layout import ROW_ALIGNMENT, marker_array, padded_n_rows
+from struphy.pic.marker_layout import MARKER_ALIGNMENT, marker_array, padded_n_markers
 
 # CuPy on a GPU, or cunumpy's fake CuPy
 BACKENDS = ["numpy", pytest.param("cupy", marks=requires_cupy_backend)]
@@ -24,8 +24,8 @@ MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)  # vdim, weight_idx, ..., mu_idx
 
 
 def test_padded_n_rows():
-    assert [padded_n_rows(n) for n in (0, 1, 31, 32, 33, 64, 65)] == [0, 32, 32, 32, 64, 64, 96]
-    assert ROW_ALIGNMENT == 32
+    assert [padded_n_markers(n) for n in (0, 1, 31, 32, 33, 64, 65)] == [0, 32, 32, 32, 64, 64, 96]
+    assert MARKER_ALIGNMENT == 32
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -97,7 +97,7 @@ def test_kernel_accepts_marker_copies(backend):
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_marker_buffer_layout(backend):
     """Loading, pushing, boundary conditions, sorting between ranks, evaluation at markers and binning keep the
-    buffer of shape (n_cols, n_rows) and C-ordered, and evaluation at copies of the valid markers gives the values
+    buffer of shape (n_cols, n_markers_max) and C-ordered, and evaluation at copies of the valid markers gives the values
     at the buffer."""
     from maybempi import MPI
 
@@ -129,8 +129,8 @@ def test_marker_buffer_layout(backend):
         particles.initialize_weights()
 
         buffer = particles.markers
-        assert buffer.shape == (particles.n_cols, particles.n_rows) and buffer.flags.c_contiguous
-        assert particles.n_rows % ROW_ALIGNMENT == 0
+        assert buffer.shape == (particles.n_cols, particles.n_markers_max) and buffer.flags.c_contiguous
+        assert particles.n_markers_max % MARKER_ALIGNMENT == 0
 
         butcher = ButcherTableau("rk4")
         push_eta = Pusher(
@@ -158,7 +158,7 @@ def test_marker_buffer_layout(backend):
 
         # the buffer is never replaced, only written to
         assert particles.markers is buffer
-        assert buffer.shape == (particles.n_cols, particles.n_rows) and buffer.flags.c_contiguous
+        assert buffer.shape == (particles.n_cols, particles.n_markers_max) and buffer.flags.c_contiguous
 
         # evaluation at copies of the valid markers (Fortran-ordered on NumPy, converted by Domain and SplineFunction)
         # equals evaluation at the buffer
