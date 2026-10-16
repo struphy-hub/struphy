@@ -19,7 +19,7 @@ using namespace struphy_cuda;
  * @param B_dot_b_coeffs Coefficients of the 0-form B . b.
  * @param curl_unit_b_dot_b0 Coefficients of the 0-form (curl b_0) . b_0.
  *
- * Holes (markers[ip, 0] == -1) are skipped, as in pyccel (which does not use valid_mks here).
+ * Holes (markers[0, ip] == -1) are skipped, as in pyccel (which does not use valid_mks here).
  */
 extern "C" __global__ void bstar_parallel_3form(const double* alpha, const long long* output_indices,
                                                 MarkerArgs args_markers, DomainArgs args_domain,

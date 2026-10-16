@@ -66,7 +66,7 @@ def vlasov_maxwell(
     # fmt: off
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     # fmt: on
-    for ip in range(shape(markers)[1]):
+    for ip in range(args_markers.n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[0, ip] == -1.0:
             continue

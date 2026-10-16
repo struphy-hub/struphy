@@ -72,6 +72,8 @@ class MarkerArguments:
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
+        # markers (columns) the kernels loop over; Particles lowers it to the columns that can hold markers
+        # (Particles.n_markers_used)
         self.n_markers = markers.shape[1]
 
         # useful indices
