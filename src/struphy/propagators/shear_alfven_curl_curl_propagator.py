@@ -179,6 +179,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             check_option(self.precond, LiteralOptions.OptsShearAlfvenCurlCurlPrecond)
             check_option(self.solver_M2n, LiteralOptions.OptsSymmSolver)
             check_option(self.precond_M2n, LiteralOptions.OptsMassPrecond)
+            if self.aux_correction and self.precond != "HiptmairXu":
+                raise ValueError('aux_correction=True requires precond="HiptmairXu".')
             if self.precond == "HiptmairXu":
                 if self.algo == "explicit":
                     self.precond = "MassMatrixPreconditioner"

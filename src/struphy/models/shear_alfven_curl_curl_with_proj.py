@@ -1,4 +1,3 @@
-from struphy.io.options import BaseUnits
 from struphy.models.shear_alfven_curl_curl import ShearAlfvenCurlCurl
 from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlwithProjPropagator
 
@@ -24,9 +23,6 @@ class ShearAlfvenCurlCurlwithProj(ShearAlfvenCurlCurl):
     class Propagators:
         def __init__(self) -> None:
             self.shear_alf = ShearAlfvenCurlCurlwithProjPropagator()
-
-    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
-        super().__init__(base_units=base_units, mass_number=mass_number)
 
     @classmethod
     def doc_scalar_quantities(cls):

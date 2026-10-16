@@ -139,7 +139,9 @@ class ShearAlfvenCurlCurl(StruphyModel):
         - Perturbed magnetic energy: ``en_B``
         - Background magnetic energy: ``en_B_eq``
         - Total magnetic energy including background: ``en_B_tot``
-        - Perturbation total energy: ``en_tot`` (conserved by the implicit time step up to the solver tolerance)
+        - Perturbation total energy: ``en_tot`` (not increased by the implicit time step: numerical damping that vanishes
+          with the resolution along the background field; exactly conserved in
+          :class:`~struphy.models.shear_alfven_curl_curl_with_proj.ShearAlfvenCurlCurlwithProj`)
         - Total energy including background contribution: ``en_tot2``"""
 
     @classmethod
@@ -161,11 +163,18 @@ class ShearAlfvenCurlCurl(StruphyModel):
         perturbed magnetic field in :math:`H(\textnormal{curl})` instead of
         :math:`H(\textnormal{div})`. The momentum equation is the
         :math:`\rho_0`-weighted :math:`L^2` projection onto
-        :math:`H(\textnormal{div})`, and the induction equation is weak, so
-        the perturbed energy is conserved up to the solver tolerances. Eliminating the velocity
-        in the implicit time step gives a field-aligned curl-curl system for
-        the magnetic field, which the Hiptmair-Xu auxiliary space
-        preconditioner targets."""
+        :math:`H(\textnormal{div})`, and the induction equation is weak.
+        In the implicit time step, the velocity update is inserted into the
+        induction equation before the projection, which gives a field-aligned
+        curl-curl system for the magnetic field, preconditioned by the
+        Hiptmair-Xu auxiliary space preconditioner. This step is not exactly
+        energy conserving: it damps the waves numerically, with a damping that
+        vanishes quickly with the resolution along the background field (see
+        :class:`~struphy.models.shear_alfven_curl_curl_with_proj.ShearAlfvenCurlCurlwithProj`
+        for the exactly energy conserving version). With essential boundary
+        conditions in the de Rham sequence, the tangential components of the
+        magnetic field (a 1-form) vanish on that boundary (stronger than
+        :math:`\mathbf B \cdot \mathbf n = 0` of ShearAlfven)."""
 
     @classmethod
     def doc_examples(cls):
