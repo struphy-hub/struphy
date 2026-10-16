@@ -10,6 +10,7 @@ from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
+from struphy.feec.fused_derivatives import fuse_boundary_gradient
 from struphy.feec.mass import L2Projector, WeightedAverageProjection, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
@@ -280,7 +281,7 @@ class ImplicitDiffusion(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             if self.precond is not None:
-                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
             preconditioner._parse_directions(self.stab_average)
 
             # defaults
@@ -306,9 +307,23 @@ class ImplicitDiffusion(Propagator):
     @profile
     def allocate(self):
         # always stabilize
+        auto_stabilized = False
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
+            auto_stabilized = True
             logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+
+        # The automatic stabilization only makes singular problems (e.g. periodic in all directions) solvable. With a
+        # Dirichlet boundary in some direction, grad.T @ M1 @ grad is already positive definite and 1e-14 * stab_mat
+        # changes the solution only at round-off, but applying it costs a whole stab_mat product per solver iteration;
+        # it is then left out of the solver's operator. (M1perp can be degenerate, so it keeps the stabilization.)
+        self._stabilize_lhs = not (
+            auto_stabilized
+            and self.options.diffusion_mat == "M1"
+            and any(any(sides) for sides in self.derham.dirichlet_bc)
+        )
+        if not self._stabilize_lhs:
+            logger.info("Dirichlet boundary present: the automatic stabilization is left out of the solver operator")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
@@ -408,7 +423,20 @@ class ImplicitDiffusion(Propagator):
 
         # Set lhs matrices (without dt)
         self._stab_mat = stab_mat
-        self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
+        # grad = B1 G B0^T already applies the boundary operator B1 of the 1-forms on both sides of diffusion_mat; if
+        # diffusion_mat applies the same one, it is left out there (the same operator, see MassWithoutBoundaryOps),
+        # except for the multigrid preconditioner, which coarsens the operator by its structure
+        mid = diffusion_mat
+        grad, grad_t = self.derham.grad, self.derham.grad.T
+        B1 = self.derham.boundary_ops["1"]
+        if self.options.precond != "MultiGrid" and all(
+            op is B1 for op in getattr(diffusion_mat, "boundary_ops", (None,))
+        ):
+            mid = diffusion_mat.without_boundary_ops()
+        if self.options.precond != "MultiGrid":
+            # on the GPU, the gradient and its transpose with their boundary operators as one kernel each
+            grad, grad_t = fuse_boundary_gradient(grad), fuse_boundary_gradient(grad_t)
+        self._diffusion_op = grad_t @ mid @ grad
 
         # preconditioner and solver for Ax=b
         # the multigrid and stiffness preconditioners depend on sigma_1, they are updated in __call__
@@ -436,8 +464,8 @@ class ImplicitDiffusion(Propagator):
             pc = pc_class(self.mass_ops.M0, **self.options.precond_params)
 
         # solver just with A_2, but will be set during call with dt
-        # (only "pcg" takes a preconditioner)
-        pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
+        # (only "pcg" and "pcg_sr" take a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}
         self._solver = inverse(
             self._diffusion_op,
             self.options.solver,
@@ -537,8 +565,13 @@ class ImplicitDiffusion(Propagator):
 
         # compute rhs
         phin = self.variables.phi.spline.vector
-        rhs = self._stab_mat.dot(phin, out=self._rhs)
-        rhs *= sig_2
+        if sig_2 == 0.0:
+            # no stab_mat product only to multiply it by zero (e.g. Poisson: sigma_2 = 0)
+            rhs = self._rhs
+            rhs *= 0.0
+        else:
+            rhs = self._stab_mat.dot(phin, out=self._rhs)
+            rhs *= sig_2
 
         self._rhs2 *= 0.0
         for src, coeff in zip(self.sources, self.coeffs):
@@ -582,7 +615,10 @@ class ImplicitDiffusion(Propagator):
             self.diagnostic.spline.vector = proj.solve(rhs)
 
         # compute lhs
-        self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        if self._stabilize_lhs:
+            self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        else:
+            self._solver.linop = self._diffusion_op
         if sig_1 != self._pc_sig_1:
             if self._mg is not None:
                 self._mg.update(self._solver.linop)

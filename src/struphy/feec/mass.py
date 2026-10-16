@@ -23,6 +23,7 @@ from struphy.feec.kernels.kernel_2d_mat import kernel_2d_mat
 from struphy.feec.kernels.kernel_3d_diag import kernel_3d_diag
 from struphy.feec.kernels.kernel_3d_eval import kernel_3d_eval
 from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
+from struphy.feec.kronecker_mass import kronecker_apply_operator
 from struphy.feec.kernels.kernel_3d_matrixfree import kernel_3d_matrixfree
 from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
 from struphy.feec.linear_operators import BoundaryOperator
@@ -1628,6 +1629,8 @@ class WeightedMassOperator(LinearOperator):
             blocks, self._weights = self._init_blocks_from_weights(weights_info)
 
         self._mat = self._wrap_blocks(blocks)
+        # the operator dot() applies self._mat with (Kronecker blocks replaced), built on first use, see _apply_mat
+        self._apply_mat_cache = None
 
         # the weights are stored in the block order of the (possibly transposed) operator
         if transposed:
@@ -2047,6 +2050,32 @@ class WeightedMassOperator(LinearOperator):
         return self._mat
 
     @property
+    def _apply_mat(self):
+        """The operator :meth:`dot` applies: :attr:`matrix`, with its blocks that are Kronecker products of 1D banded
+        matrices (constant weights, e.g. on a Cuboid) applied as such (:mod:`struphy.feec.kronecker_mass`).
+
+        Built on first use after every change of the matrix (assembly, copy into, in-place arithmetic).
+        """
+        if self._apply_mat_cache is None:
+            if getattr(self, "_kronecker_rejected", False):
+                self._apply_mat_cache = self._mat
+            else:
+                self._apply_mat_cache = kronecker_apply_operator(self._mat, name=self.name)
+                # a matrix changed by in-place arithmetic that is not a Kronecker product (e.g. the Schur complement
+                # M1 - dt^2 BC with particle data, rebuilt every step) is not checked again after further arithmetic:
+                # the check reads the whole matrix. Assembly and copies check again.
+                if getattr(self, "_changed_by_arithmetic", False) and self._apply_mat_cache is self._mat:
+                    self._kronecker_rejected = True
+        return self._apply_mat_cache
+
+    def _matrix_changed(self, by_arithmetic: bool):
+        """Invalidate :attr:`_apply_mat` after a change of the matrix (in-place arithmetic, or assembly/copy)."""
+        self._apply_mat_cache = None
+        self._changed_by_arithmetic = by_arithmetic
+        if not by_arithmetic:
+            self._kronecker_rejected = False
+
+    @property
     def nquads(self):
         if self._nquads is None:
             return self.derham.nquads
@@ -2093,28 +2122,62 @@ class WeightedMassOperator(LinearOperator):
 
         if apply_bc:
             if self._transposed:
-                self._W_boundary_op_T.dot(v, out=self._temp_WB)
-                self._W_extraction_op_T.dot(self._temp_WB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
-                self._V_extraction_op.dot(self._temp_VE, out=self._temp_VB)
-                out = self._V_boundary_op.dot(self._temp_VB, out=out)
+                ops_in = (self._W_boundary_op_T, self._W_extraction_op_T)
+                ops_out = (self._V_extraction_op, self._V_boundary_op)
+                tmps_in = (self._temp_WB, self._temp_mat)
+                tmps_out = (self._temp_VE, self._temp_VB)
             else:
-                self._V_boundary_op_T.dot(v, out=self._temp_VB)
-                self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
-                self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
-                out = self._W_boundary_op.dot(self._temp_WB, out=out)
+                ops_in = (self._V_boundary_op_T, self._V_extraction_op_T)
+                ops_out = (self._W_extraction_op, self._W_boundary_op)
+                tmps_in = (self._temp_VB, self._temp_mat)
+                tmps_out = (self._temp_WE, self._temp_WB)
+            out = self._apply_chain(v, ops_in, tmps_in, ops_out, tmps_out, out)
         else:
             if self._transposed:
                 self._W_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_VE)
                 out = self._V_extraction_op.dot(self._temp_VE, out=out)
             else:
                 self._V_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_WE)
                 out = self._W_extraction_op.dot(self._temp_WE, out=out)
 
         return out
+
+    def _apply_chain(self, v, ops_in, tmps_in, ops_out, tmps_out, out):
+        """``out = B_out E_out M E_in B_in v`` (boundary and extraction operators around the matrix), see :meth:`dot`.
+
+        Identity operators (e.g. the extraction operators without polar splines, or boundary operators without
+        essential boundary conditions) are skipped instead of applied as copies: each vector is passed on as it is,
+        and the matrix writes into the next temporary that is actually used (or into ``out``).
+        """
+        if out is v:
+            # in place: the chain must not read v after writing the output, so it reads a copy
+            v = v.copy()
+
+        x = v
+        for op, tmp in zip(ops_in, tmps_in):
+            if not isinstance(op, IdentityOperator):
+                x = op.dot(x, out=tmp)
+
+        # the first output operator that is not an identity reads the matrix product from its temporary
+        remaining = [(op, tmp) for op, tmp in zip(ops_out, tmps_out) if not isinstance(op, IdentityOperator)]
+        if not remaining:
+            return self._apply_mat.dot(x, out=out)
+        y = self._apply_mat.dot(x, out=remaining[0][1])
+        for k, (op, _) in enumerate(remaining):
+            target = out if k == len(remaining) - 1 else remaining[k + 1][1]
+            y = op.dot(y, out=target)
+        return y
+
+    def without_boundary_ops(self) -> "MassWithoutBoundaryOps":
+        """This operator applied without its boundary operators, see :class:`MassWithoutBoundaryOps`."""
+        return MassWithoutBoundaryOps(self)
+
+    @property
+    def boundary_ops(self):
+        """The boundary operators ``(B_V, B_W)`` applied on the domain and codomain side."""
+        return self._V_boundary_op, self._W_boundary_op
 
     def transpose(self, conjugate=False):
         """
@@ -2167,6 +2230,19 @@ class WeightedMassOperator(LinearOperator):
 
         return M
 
+    def _quad_grid(self, space_name, attribute, component):
+        """Quadrature-grid arrays (spans, weights or basis values) of one component of a space, as backend arrays.
+
+        The Derham keeps them as host arrays; on the CuPy backend the assembly kernel needs them on the device,
+        so they are copied there once and cached (they do not change between assemblies).
+        """
+        cache = self.__dict__.setdefault("_quad_grid_cache", {})
+        key = (space_name, attribute, component)
+        if key not in cache:
+            arrays = getattr(self.derham.spline_attributes[space_name], attribute)[component]
+            cache[key] = [xp.asarray(array) for array in arrays]
+        return cache[key]
+
     def assemble(self, weights=None, clear=True):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
@@ -2189,6 +2265,7 @@ class WeightedMassOperator(LinearOperator):
             Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
         """
+        self._matrix_changed(by_arithmetic=False)  # the matrix changes
         assert not self._dry_run, (
             "A dry-run operator has no matrix data and cannot be assembled (memory estimation only)."
         )
@@ -2243,7 +2320,7 @@ class WeightedMassOperator(LinearOperator):
             # loop over codomain spaces (rows)
             for a, codomain_space in enumerate(codomain_spaces):
                 # knot span indices of elements of local domain
-                codomain_spans = spline_attr[W_name].quad_grid_spans[a]
+                codomain_spans = self._quad_grid(W_name, "quad_grid_spans", a)
 
                 # global start spline index on process
                 codomain_starts = [int(start) for start in codomain_space.coeff_space.starts]
@@ -2255,10 +2332,10 @@ class WeightedMassOperator(LinearOperator):
                 pts = self._quad_pts(W_name, a)
 
                 # global quadrature weights in format (local element, local weight)
-                wts = spline_attr[W_name].quad_grid_wts[a]
+                wts = self._quad_grid(W_name, "quad_grid_wts", a)
 
                 # evaluated basis functions at quadrature points of codomain space
-                codomain_basis = spline_attr[W_name].quad_grid_bases[a]
+                codomain_basis = self._quad_grid(W_name, "quad_grid_bases", a)
 
                 # loop over domain spaces (columns)
                 for b, domain_space in enumerate(domain_spaces):
@@ -2298,7 +2375,7 @@ class WeightedMassOperator(LinearOperator):
                     )
 
                     # evaluated basis functions at quadrature points of domain space
-                    domain_basis = spline_attr[V_name].quad_grid_bases[b]
+                    domain_basis = self._quad_grid(V_name, "quad_grid_bases", b)
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
@@ -2464,6 +2541,7 @@ class WeightedMassOperator(LinearOperator):
             out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
+        out._matrix_changed(by_arithmetic=False)
 
         if self._creation_info is None:
             out._creation_info = None
@@ -2474,6 +2552,7 @@ class WeightedMassOperator(LinearOperator):
 
     def __imul__(self, a):
         self._mat *= a
+        self._matrix_changed(by_arithmetic=True)
         self._creation_info = None
         return self
 
@@ -2484,11 +2563,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat += M._mat
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat += M
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         else:
@@ -2501,11 +2582,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat -= M._mat
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat -= M
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         else:
@@ -2638,6 +2721,49 @@ class WeightedMassOperator(LinearOperator):
 
     def info(self, use_rst=False):
         return info(self, use_rst=use_rst)
+
+
+class MassWithoutBoundaryOps(LinearOperator):
+    """A :class:`WeightedMassOperator` applied without its boundary operators: ``E_W M E_V^T`` instead of
+    ``B_W E_W M E_V^T B_V^T`` (:meth:`WeightedMassOperator.dot` with ``apply_bc=False``).
+
+    Between operators that apply the same boundary operators on the outside, e.g. in ``grad.T @ M1 @ grad`` with
+    ``grad = B1 G B0^T``, this is the same operator: boundary operators are 0/1 diagonal masks, hence symmetric and
+    idempotent (``B1^T B1 = B1``), and the masked products are bit for bit the same, with two fewer passes over the
+    vectors per product. Get it with :meth:`WeightedMassOperator.without_boundary_ops`.
+    """
+
+    def __init__(self, mass: "WeightedMassOperator"):
+        self._mass = mass
+
+    @property
+    def mass(self):
+        """The wrapped mass operator."""
+        return self._mass
+
+    @property
+    def domain(self):
+        return self._mass.domain
+
+    @property
+    def codomain(self):
+        return self._mass.codomain
+
+    @property
+    def dtype(self):
+        return self._mass.dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return MassWithoutBoundaryOps(self._mass.transpose(conjugate=conjugate))
+
+    def dot(self, v, out=None):
+        return self._mass.dot(v, out=out, apply_bc=False)
 
 
 class StencilMatrixFreeMassOperator(LinearOperator):

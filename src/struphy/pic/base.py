@@ -1230,7 +1230,10 @@ class Particles(metaclass=ABCMeta):
                 # counting integers
                 num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
                 num_loaded_particles_glob = 0  # number of particles already loaded (each clone)
-                chunk_size = 10000  # TODO: number of particle chunk
+                # markers drawn per chunk: large chunks keep the number of iterations (each a few small kernels and
+                # a device sync on the GPU) low, e.g. 16 instead of 1600 for 16M markers; a chunk of temporaries
+                # takes ~(3 + vdim + 4) * 8 bytes per marker (~50 MB). The NumPy draws do not depend on it.
+                chunk_size = 2**20
 
                 # Total number of markers to draw (sum over all clones)
                 while num_loaded_particles_glob < int(self.Np):
@@ -1553,8 +1556,16 @@ class Particles(metaclass=ABCMeta):
         """
         from struphy.pic.particles import ParticlesSPH
 
-        if xp.size(self.markers_wo_holes_and_ghost) == 0:
+        # the rows of the valid markers, found once: each property (positions, weights0, ...) would select them
+        # again with the boolean mask, and gathering markers_wo_holes_and_ghost just to test for markers copies
+        # every column of every valid row
+        rows = xp.flatnonzero(self.valid_mks)
+        if rows.size == 0:
             return
+        markers = self._markers
+
+        def column(c):
+            return xp.take(markers[:, c], rows)
 
         if isinstance(self, ParticlesSPH):
             f0 = self.f0.n0(self.positions)
@@ -1562,7 +1573,9 @@ class Particles(metaclass=ABCMeta):
             # in case of CanonicalMaxwellian, evaluate constants_of_motion
             # if isinstance(self.f0, CanonicalMaxwellian):
             #     self.save_constants_of_motion()
-            f0 = self.f0(*self.f_coords.T)
+            idx = self.f_coords_index
+            cols = range(markers.shape[1])[idx] if isinstance(idx, slice) else np.atleast_1d(idx).tolist()
+            f0 = self.f0(*[column(c) for c in cols])
 
         # if f_init is vol-form, transform to 0-form
         if self.is_volume_form[0]:
@@ -1571,7 +1584,7 @@ class Particles(metaclass=ABCMeta):
         if self.is_volume_form[1]:
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
-        self.weights = self.weights0 - f0 / self.sampling_density_values / self.Np
+        markers[rows, self.index["weights"]] = column(self.index["w0"]) - f0 / column(self.index["s0"]) / self.Np
 
     @profile
     def binning(
@@ -1813,10 +1826,25 @@ class Particles(metaclass=ABCMeta):
         (staged through host memory otherwise), see :meth:`_sendrecv_markers_device`. The
         per-rank counts are small host arrays on every backend (:meth:`_sendrecv_all_to_all`).
         """
-        if remove_ghost:
-            self._remove_ghost_particles()
+        # Ghost particles (last column -2) only exist with sorting boxes (SPH ghost boxes,
+        # _prepare_ghost_particles); without them the ghost mask stays all False and its
+        # bookkeeping (full passes over the buffer, a nonzero) can be skipped.
+        ghosts_possible = self._initialized_sorting
 
-        self._Barrier()
+        # On the GPU the marker rows go through cunumpy.mpi.exchange, which waits for every send and
+        # receive (_sendrecv_markers_device): no barriers are needed around the exchange. The host path
+        # does not wait for its sends, so it keeps them.
+        barriers = xp.get_array_backend(self._markers) != "cupy"
+
+        if remove_ghost:
+            if ghosts_possible:
+                self._remove_ghost_particles()
+            else:
+                # what _remove_ghost_particles leaves when there are no ghosts: refreshed holes
+                self.update_holes()
+
+        if barriers:
+            self._Barrier()
 
         # before sorting, apply kinetic bc
         if apply_bc:
@@ -1825,20 +1853,24 @@ class Particles(metaclass=ABCMeta):
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = (alpha, alpha, alpha)
 
-        # create new markers_to_be_sent array and make corresponding holes in markers array
-        hole_inds_after_send, send_inds = self._sendrecv_determine_mtbs(alpha=alpha)
+        if self._use_device_sort():
+            # destinations in one kernel pass, one contiguous send buffer (see _mpi_sort_device)
+            self._mpi_sort_device(alpha)
+        else:
+            # create new markers_to_be_sent array and make corresponding holes in markers array
+            hole_inds_after_send, send_inds = self._sendrecv_determine_mtbs(alpha=alpha)
 
-        # determine where to send markers_to_be_sent
-        send_info = self._sendrecv_get_destinations(send_inds)
+            # determine where to send markers_to_be_sent
+            send_info = self._sendrecv_get_destinations(send_inds)
 
-        # set new holes in markers array to -1
-        self._markers[send_inds] = -1.0
+            # set new holes in markers array to -1
+            self._markers[send_inds] = -1.0
 
-        # transpose send_info
-        recv_info = self._sendrecv_all_to_all(send_info)
+            # transpose send_info
+            recv_info = self._sendrecv_all_to_all(send_info)
 
-        # send and receive markers
-        self._sendrecv_markers(recv_info, hole_inds_after_send)
+            # send and receive markers
+            self._sendrecv_markers(recv_info, hole_inds_after_send)
 
         # new holes and new number of holes and markers on process
         self.update_holes()
@@ -1846,7 +1878,8 @@ class Particles(metaclass=ABCMeta):
         # refresh ghost mask: received markers may land in rows that previously held
         # ghost particles. update_holes alone recomputes valid_mks from a stale
         # _ghost_particles mask, which would wrongly exclude these incoming real markers.
-        self._update_ghost_particles()
+        if ghosts_possible:
+            self._update_ghost_particles()
 
         # check if all markers are on the right process after sorting
         if do_test:
@@ -1860,7 +1893,8 @@ class Particles(metaclass=ABCMeta):
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
-        self._Barrier()
+        if barriers:
+            self._Barrier()
 
     @profile
     @ProfileManager.profile("apply_kinetic_bc")
@@ -2634,7 +2668,12 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
+        # column-major on the GPU: the kernels (and the column operations on the Python side) access a few columns of
+        # many markers, so with a row-major buffer every access touches the whole row (n_cols * 8 bytes) and the
+        # threads of a warp read addresses a row apart. The CUDA kernels address the buffer through its strides
+        # (Array2D<double> in MarkerArgs). The pyccel kernels expect C order, so NumPy keeps it.
+        order = "F" if xp.get_backend() == "cupy" else "C"
+        self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float, order=order)
 
         # allocate auxiliary arrays
         self._holes = xp.zeros(self.n_rows, dtype=bool)
@@ -4469,10 +4508,19 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             assert alpha.size == 3
             assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        self._sorting_etas[:] = (
-            alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
-            + (1.0 - alpha) * self.markers[:, bi : bi + 3]
-        )
+        if isinstance(alpha, float) and alpha == 1.0:
+            # the common case: alpha * (pos + shift) + 0 * init is exactly pos + shift for finite values,
+            # computed with one kernel instead of five
+            xp.add(
+                self.markers[:, :3],
+                self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3],
+                out=self._sorting_etas,
+            )
+        else:
+            self._sorting_etas[:] = (
+                alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
+                + (1.0 - alpha) * self.markers[:, bi : bi + 3]
+            )
 
         # for non-periodic axes, eta = 1 is the right end of the domain and must not be wrapped to eta = 0
         non_periodic_axes = [axis for axis in range(3) if axis not in self._periodic_axes]
@@ -4502,6 +4550,125 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         hole_inds_after_send = xp.nonzero(xp.logical_or(~self._can_stay, self.holes))[0]
 
         return hole_inds_after_send, send_inds
+
+    def _use_device_sort(self) -> bool:
+        """Whether :meth:`mpi_sort_markers` uses :meth:`_mpi_sort_device` (markers on a real GPU, not on cunumpy's
+        fake CuPy, which has no raw kernels)."""
+        if not hasattr(self, "_device_sort"):
+            from cunumpy.kernel_testing import fake_cupy_active
+
+            self._device_sort = xp.get_array_backend(self._markers) == "cupy" and not fake_cupy_active()
+        return self._device_sort
+
+    def _mpi_sort_device(self, alpha):
+        """The exchange of :meth:`mpi_sort_markers` for markers on the GPU.
+
+        Same result as :meth:`_sendrecv_determine_mtbs`, :meth:`_sendrecv_get_destinations` and
+        :meth:`_sendrecv_markers` (the same markers in the same rows), with fewer passes over the marker buffer:
+
+        - one kernel computes the destination of every row (:func:`~struphy.pic.mpi_sort_cuda.sort_destinations`);
+        - the leaving rows are listed once, stably sorted by destination and gathered into one contiguous send
+          buffer, whose slices go to the ranks (so the rows to each rank keep their order, as before);
+        - the counts per rank come from one ``bincount`` of the (few) leaving rows.
+
+        Rows that leave towards no rank's domain (e.g. a NaN position) become holes and are not sent, as before.
+
+        Parameters
+        ----------
+        alpha : tuple
+            Weights of the sorting position, see :meth:`mpi_sort_markers`.
+        """
+        from struphy.pic import mpi_sort_cuda
+
+        alpha_host = np.array(alpha, dtype=float)
+        assert alpha_host.size == 3
+        assert np.all(alpha_host >= 0.0) and np.all(alpha_host <= 1.0)
+
+        if not hasattr(self, "_dev_sort_bufs"):
+            ranks = np.array(self._neighbor_ranks + self._non_neighbor_ranks, dtype=np.int32)
+            periodic = np.array([1 if axis in self._periodic_axes else 0 for axis in range(3)], dtype=np.int32)
+            bounds = mpi_sort_cuda.domain_bounds(_to_numpy_for_kernel(self.domain_array))
+            self._dev_sort_bufs = {
+                "ranks": xp.asarray(ranks),
+                "periodic": xp.asarray(periodic),
+                "bounds": xp.asarray(bounds),
+                "dest": xp.empty(self.markers.shape[0], dtype=np.int32),
+                "counts": xp.zeros(self.mpi_size + 2, dtype=np.uint64),
+            }
+        bufs = self._dev_sort_bufs
+        alpha_dev = None if np.all(alpha_host == 1.0) else xp.asarray(alpha_host)
+
+        bi = self.first_pusher_idx
+        dest = bufs["dest"]
+        counts_dev = bufs["counts"]
+        counts_dev.fill(0)
+        mpi_sort_cuda.sort_destinations(
+            self._markers,
+            self.holes,
+            self.ghost_particles,
+            bi + 3 + self.vdim,
+            bi,
+            alpha_dev,
+            bufs["periodic"],
+            bufs["bounds"],
+            bufs["ranks"],
+            self.mpi_rank,
+            dest,
+            counts_dev,
+        )
+        # rows per destination (-2 first): a read of 8 bytes per rank to size the messages, like the one nonzero()
+        # makes to size its result (marker data stays on the device)
+        counts = counts_dev.get().astype(int)
+
+        # the leaving rows, sorted by destination (stable: ascending rows per destination); lost rows (-2) first
+        leave_inds = xp.nonzero(dest != -1)[0]
+        leave_dest = dest[leave_inds]
+        order = xp.argsort(leave_dest, kind="stable")
+        leave_sorted = leave_inds[order]
+        n_lost = int(counts[0])
+        send_info = counts[2:]
+
+        sendbuf = xp.ascontiguousarray(self._markers[leave_sorted[n_lost:]])
+
+        # the leaving rows are holes now; the received rows fill the lowest holes
+        hole_inds_after_send = xp.nonzero(xp.logical_or(self.holes, dest != -1))[0]
+
+        recv_info = self._sendrecv_all_to_all(send_info)
+        n_recv = int(recv_info.sum())
+
+        # mark the leaving rows as holes (-1), except those the received rows overwrite below: writing scattered rows
+        # of the column-major buffer costs one memory segment per column, and most leaving rows are refilled
+        if n_recv == 0:
+            self._markers[leave_inds] = -1.0
+        elif hole_inds_after_send.size >= n_recv:
+            last_filled = hole_inds_after_send[n_recv - 1]
+            self._markers[leave_inds[leave_inds > last_filled]] = -1.0
+        if hole_inds_after_send.size < n_recv:
+            warnings.warn(
+                f"Strong load imbalance detected: number of holes ({hole_inds_after_send.size}) on rank "
+                f"{self.mpi_rank} is smaller than number of incoming particles ({n_recv}). "
+                'Increase "bufsize" in the markers parameters for the next run.',
+            )
+            self.mpi_comm.Abort()
+
+        recvbuf = xp.empty((n_recv, self.markers.shape[1]), dtype=self.markers.dtype)
+        first_send = np.cumsum(send_info) - send_info
+        first_recv = np.cumsum(recv_info) - recv_info
+        sends, receives = [], []
+        for rank in range(self.mpi_size):
+            # the rows sent to each rank, as in _sendrecv_get_destinations
+            self._send_list[rank] = sendbuf[first_send[rank] : first_send[rank] + send_info[rank]]
+            if rank == self.mpi_rank:
+                continue
+            if send_info[rank] > 0:
+                sends.append((self._send_list[rank], rank, self.mpi_rank))
+            if recv_info[rank] > 0:
+                receives.append((recvbuf[first_recv[rank] : first_recv[rank] + recv_info[rank]], rank, rank))
+
+        xp.mpi.exchange(self.mpi_comm, sends=sends, receives=receives, cuda_aware=self._mpi_cuda_aware())
+
+        if n_recv > 0:
+            self._markers[hole_inds_after_send[:n_recv]] = recvbuf
 
     def _compute_neighbor_ranks(self) -> tuple[list[int], list[int]]:
         """Split every other rank into geometric neighbours of this rank's sub-domain

@@ -2,6 +2,7 @@
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
+#include "struphy/pic/pushing/pusher_utilities_kernels.cuh"
 
 using namespace struphy_cuda;
 
@@ -29,6 +30,9 @@ extern "C" __global__ void push_vxb_analytic(double dt, int stage, MarkerArgs ar
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     int n_markers = args_markers.n_markers;
     if (ip >= n_markers) return;
+
+    // CUDA-only: prepare this row here instead of in a separate pass of prepare_push (Pusher._push)
+    if (stage == 0 && args_markers.prepare_rows) pusher_utilities_kernels::prepare_marker_row(ip, args_markers);
 
     int first_pusher_idx = args_markers.first_pusher_idx;
 
