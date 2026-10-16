@@ -9,17 +9,17 @@ using namespace struphy_cuda;
  * push_weights_with_efield_lin_va_kernels.push_weights_with_efield_lin_va.
  *
  * w_p += kappa * dt / (2 * N * s_0 * v_th^2) * f_0 * (DF^{-1} v_p) . e(eta_p), with e the 1-form spline field
- * (the sum of the old and new electric field); one thread per marker row.
+ * (the sum of the old and new electric field); one thread per marker.
  *
  * @param dt Time step.
  * @param stage Stage index (unused; part of the common pusher signature).
- * @param args_markers Marker buffer (n_markers x n_cols, row-major), total marker number Np and column indices.
+ * @param args_markers Marker buffer (n_cols x n_markers, one column per marker), total marker number Np and column indices.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
  * @param args_derham Spline degrees (1 to 8), knots and start indices.
  * @param e1_1 Coefficients of the first component of the electric 1-form.
  * @param e1_2 Coefficients of the second component of the electric 1-form.
  * @param e1_3 Coefficients of the third component of the electric 1-form.
- * @param f0_values Value of f0 for each marker row (n_markers entries).
+ * @param f0_values Value of f0 for each marker (n_markers entries).
  * @param kappa Coupling strength between particles and fields.
  * @param vth Thermal velocity.
  *
@@ -30,7 +30,7 @@ extern "C" __global__ void push_weights_with_efield_lin_va(double dt, int stage,
                                                            Array3D<double> e1_1, Array3D<double> e1_2,
                                                            Array3D<double> e1_3, const double* f0_values,
                                                            double kappa, double vth) {
-    // CUDA-only: the marker row of this thread replaces the pyccel loop variable
+    // CUDA-only: the marker of this thread replaces the pyccel loop variable
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     int n_markers = args_markers.n_markers;
     if (ip >= n_markers) return;
@@ -38,16 +38,16 @@ extern "C" __global__ void push_weights_with_efield_lin_va(double dt, int stage,
     // total number of markers (weights are w_p = delta f_p / (N * s_0))
     int n_markers_tot = args_markers.Np;
 
-    if (args_markers.markers(ip, 0) == -1. || args_markers.markers(ip, args_markers.markers.shape[1] - 1) == -2.) return;
+    if (args_markers.markers(0, ip) == -1. || args_markers.markers(args_markers.markers.shape[0] - 1, ip) == -2.) return;
 
     // position
-    double eta1 = args_markers.markers(ip, 0);
-    double eta2 = args_markers.markers(ip, 1);
-    double eta3 = args_markers.markers(ip, 2);
+    double eta1 = args_markers.markers(0, ip);
+    double eta2 = args_markers.markers(1, ip);
+    double eta3 = args_markers.markers(2, ip);
     double v[3], dfm[9], df_inv[9], df_inv_v[3], e_vec[3];
 
     // get velocity
-    for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(ip, 3 + j);
+    for (int j = 0; j < 3; ++j) v[j] = args_markers.markers(3 + j, ip);
 
     // spline evaluation; CUDA-only scratch holds the spline values pyccel keeps in args_derham
     evaluation_kernels_3d::SplineScratch scratch;
@@ -68,6 +68,6 @@ extern "C" __global__ void push_weights_with_efield_lin_va(double dt, int stage,
 
     // w_{n+1} = w_n + kappa * dt / (2 * N * s_0 * v_th^2) * f_0 * ( DF^{-1} v_p ) \cdot ( e_{n+1} + e_n )
     double update = (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2]) * f0_values[ip] *
-                    kappa * dt / (2 * n_markers_tot * args_markers.markers(ip, 7) * (vth * vth));
-    args_markers.markers(ip, 6) += update;
+                    kappa * dt / (2 * n_markers_tot * args_markers.markers(7, ip) * (vth * vth));
+    args_markers.markers(6, ip) += update;
 }

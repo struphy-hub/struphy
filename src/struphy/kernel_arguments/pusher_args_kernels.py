@@ -11,7 +11,7 @@ class MarkerArguments:
     Paramaters
     ----------
     markers : array[float]
-        Markers array.
+        Markers array of shape (n_cols, n_markers_max), one column per marker (see :mod:`struphy.pic.marker_layout`).
 
     Np : int
         Total number of particles.
@@ -72,7 +72,7 @@ class MarkerArguments:
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
-        self.n_markers = markers.shape[0]
+        self.n_markers = markers.shape[1]
 
         # useful indices
         self.first_diagnostics_idx = first_diagnostics_idx

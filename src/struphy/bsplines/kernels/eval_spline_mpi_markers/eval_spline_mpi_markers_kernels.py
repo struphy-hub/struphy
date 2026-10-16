@@ -19,8 +19,8 @@ def eval_spline_mpi_markers(
     Parameters
     ----------
         markers : array[float]
-            Marker coordinates in format [Np, 3]; markers not on local process domain must be flagged as -1.
-            Spline values are obtained as S_p = S(*markers[p, :]).
+            Marker coordinates in format [3, Np], one column per marker; markers not on local process domain must be flagged as -1.
+            Spline values are obtained as S_p = S(*markers[:, p]).
 
         _data : array[float]
             The spline coefficients c_ijk.
@@ -30,19 +30,19 @@ def eval_spline_mpi_markers(
             current process.
 
         values : array[float]
-            Return 1D array for spline values S_p = S(*markers[p, :]).
+            Return 1D array for spline values S_p = S(*markers[:, p]).
     """
 
-    Np = shape(markers)[0]
+    Np = shape(markers)[1]
 
     for ip in range(Np):
-        if markers[ip, 0] == -1:
+        if markers[0, ip] == -1:
             continue  # point not in process domain
 
         values[ip] = eval_spline_mpi(
-            markers[ip, 0],
-            markers[ip, 1],
-            markers[ip, 2],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
             _data,
             args_spline,
         )

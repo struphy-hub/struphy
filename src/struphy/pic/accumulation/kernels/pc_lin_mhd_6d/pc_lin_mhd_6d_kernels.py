@@ -98,21 +98,21 @@ def pc_lin_mhd_6d(
     tmp_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # marker weight and velocity
-        weight = markers[ip, 6]
-        v[:] = markers[ip, 3:6]
+        weight = markers[6, ip]
+        v[:] = markers[3:6, ip]
 
         # evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)

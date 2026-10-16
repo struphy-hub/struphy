@@ -97,7 +97,7 @@ def cc_lin_mhd_6d_2(
     tmp_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers_loc = shape(markers)[0]
+    n_markers_loc = shape(markers)[1]
 
     # fmt: off
     #$ omp parallel firstprivate(b_prod) private(b, det_df, df_inv, df_inv_t, dfm, eta1, eta2, eta3, filling_m, filling_v, g_inv, ip, span1, span2, span3, thread_derham, tmp1, tmp2, tmp_m, tmp_t, tmp_v, v, weight)
@@ -111,17 +111,17 @@ def cc_lin_mhd_6d_2(
     # fmt: on
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # boundary cut
-        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
+        if markers[0, ip] < boundary_cut or markers[0, ip] > 1.0 - boundary_cut:
             continue
 
         # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
@@ -157,8 +157,8 @@ def cc_lin_mhd_6d_2(
         det_df = linalg_kernels.det(dfm)
 
         # marker weight and velocity
-        weight = markers[ip, 6]
-        v[:] = markers[ip, 3:6]
+        weight = markers[6, ip]
+        v[:] = markers[3:6, ip]
 
         if basis_u == 0:
             # needed metric coefficients

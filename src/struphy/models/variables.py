@@ -659,7 +659,7 @@ class PICVariable(Variable):
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
-                (self._n_to_save, self.particles.markers.shape[1]),
+                (self.particles.n_cols, self._n_to_save),
                 dtype=float,
             )
 
@@ -678,7 +678,7 @@ class PICVariable(Variable):
         without allocating them.
 
         Constructs the same :class:`~struphy.pic.base.Particles` object as :meth:`allocate` would, but with
-        ``dry_run=True`` so that only the marker array sizing (:attr:`~struphy.pic.base.Particles.n_rows`,
+        ``dry_run=True`` so that only the marker array sizing (:attr:`~struphy.pic.base.Particles.n_markers_max`,
         :attr:`~struphy.pic.base.Particles.n_cols`) is computed."""
         assert isinstance(self.backgrounds, KineticBackground), (
             "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
@@ -955,7 +955,7 @@ class SPHVariable(Variable):
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
-                (self._n_to_save, self.particles.markers.shape[1]),
+                (self.particles.n_cols, self._n_to_save),
                 dtype=float,
             )
 
@@ -974,7 +974,7 @@ class SPHVariable(Variable):
 
         Constructs the same :class:`~struphy.pic.particles.ParticlesSPH` object as :meth:`allocate` would,
         but with ``dry_run=True`` so that only the marker array sizing
-        (:attr:`~struphy.pic.base.Particles.n_rows`, :attr:`~struphy.pic.base.Particles.n_cols`) is computed."""
+        (:attr:`~struphy.pic.base.Particles.n_markers_max`, :attr:`~struphy.pic.base.Particles.n_cols`) is computed."""
         assert isinstance(self.backgrounds, FluidEquilibrium), (
             "List input not allowed; you can sum FluidEquilibrium objects before passing them to add_background."
         )

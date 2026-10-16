@@ -66,18 +66,18 @@ def push_weights_with_efield_lin_va(
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
-        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+        if markers[0, ip] == -1.0 or markers[-1, ip] == -2.0:
             continue
 
         # position
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # get velocity
-        v[0] = markers[ip, 3]
-        v[1] = markers[ip, 4]
-        v[2] = markers[ip, 5]
+        v[0] = markers[3, ip]
+        v[1] = markers[4, ip]
+        v[2] = markers[5, ip]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
@@ -115,9 +115,9 @@ def push_weights_with_efield_lin_va(
             * f0_values[ip]
             * kappa
             * dt
-            / (2 * n_markers_tot * markers[ip, 7] * vth**2)
+            / (2 * n_markers_tot * markers[7, ip] * vth**2)
         )
-        markers[ip, 6] += update
+        markers[6, ip] += update
 
     # fmt: off
     #$ omp end parallel

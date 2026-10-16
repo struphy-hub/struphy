@@ -2900,7 +2900,7 @@ class SplineFunction:
         *etas : array-like | tuple
         Logical coordinates at which to evaluate. Two cases are possible:
 
-            1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+            1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
             2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
         out : array[float] or list
@@ -2929,10 +2929,10 @@ class SplineFunction:
             marker_evaluation = True
             is_sparse_meshgrid = False
             assert etas[0].ndim == 2
-            # copy positions, such that flagging does not modify the caller's array
-            markers = xp.array(etas[0][:, :3], dtype=float)
+            # copy positions, such that flagging does not modify the caller's array; C order, as the kernel takes
+            markers = xp.array(etas[0][:3], dtype=float, order="C")
             self._flag_pts_not_on_proc(markers)
-            tmp_shape = (markers.shape[0],)
+            tmp_shape = (markers.shape[1],)
         # 3D meshgrid evaluation
         else:
             marker_evaluation = False
@@ -3102,7 +3102,7 @@ class SplineFunction:
         *etas : array-like | tuple
         Logical coordinates at which to evaluate. Two cases are possible:
 
-            1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+            1. 2d numpy array, where coordinates are taken from eta1 = etas[0], eta2 = etas[1], etc. (like markers, one column per point).
             2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes."""
 
         # get domain decompoistion info
@@ -3118,14 +3118,15 @@ class SplineFunction:
 
             # check which particles are on the current process domain;
             # intervals are half-open [start, end) such that points on internal breaks are counted once
-            ends = dom_arr[rank, 1::3]
+            starts = dom_arr[rank, 0::3, None]
+            ends = dom_arr[rank, 1::3, None]
             is_on_proc_domain = xp.logical_and(
-                markers[:, :3] >= dom_arr[rank, 0::3],
-                xp.where(ends == 1.0, markers[:, :3] <= ends, markers[:, :3] < ends),
+                markers[:3] >= starts,
+                xp.where(ends == 1.0, markers[:3] <= ends, markers[:3] < ends),
             )
-            on_proc = xp.all(is_on_proc_domain, axis=1)
+            on_proc = xp.all(is_on_proc_domain, axis=0)
 
-            xp.copyto(markers, -1.0, where=~on_proc[:, None])
+            xp.copyto(markers, -1.0, where=~on_proc[None, :])
 
         # 3D meshgrid evaluation
         else:
