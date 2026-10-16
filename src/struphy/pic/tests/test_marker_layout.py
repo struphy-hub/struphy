@@ -23,7 +23,7 @@ N_COLS = 25
 MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)  # vdim, weight_idx, ..., mu_idx
 
 
-def test_padded_n_rows():
+def test_padded_n_markers():
     assert [padded_n_markers(n) for n in (0, 1, 31, 32, 33, 64, 65)] == [0, 32, 32, 32, 64, 64, 96]
     assert MARKER_ALIGNMENT == 32
 
