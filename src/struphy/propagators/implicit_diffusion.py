@@ -10,6 +10,7 @@ from line_profiler import profile
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
+from struphy.feec.fused_derivatives import fuse_boundary_gradient
 from struphy.feec.mass import L2Projector, WeightedAverageProjection, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
@@ -432,6 +433,9 @@ class ImplicitDiffusion(Propagator):
             op is B1 for op in getattr(diffusion_mat, "boundary_ops", (None,))
         ):
             mid = diffusion_mat.without_boundary_ops()
+        if self.options.precond != "MultiGrid":
+            # on the GPU, the gradient and its transpose with their boundary operators as one kernel each
+            grad, grad_t = fuse_boundary_gradient(grad), fuse_boundary_gradient(grad_t)
         self._diffusion_op = grad_t @ mid @ grad
 
         # preconditioner and solver for Ax=b
