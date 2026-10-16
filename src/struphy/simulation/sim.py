@@ -243,6 +243,8 @@ class Simulation(SimulationBase):
 
         logger.debug("\nAllocating simulation data ...")
 
+        self._compile_setup_cuda_kernels()
+
         with ProfileManager.profile_region("setup: allocate"):
             # feec
             with ProfileManager.profile_region("allocate feec", functions=[self._allocate_feec]):
@@ -279,6 +281,22 @@ class Simulation(SimulationBase):
                     owners.append(variable.particles)
         owners += self.model.prop_list
         return collect_kernels(*owners)
+
+    def _compile_setup_cuda_kernels(self) -> None:
+        """Compile the CUDA kernels that :meth:`allocate` itself calls (mass-matrix assembly) before it calls them.
+
+        :meth:`compile_cuda_kernels` runs after :meth:`allocate`, so without this the first assembly would include
+        the compilation (~1 s per kernel on a node whose CuPy cache does not have it yet), in the assembly's
+        profiling regions. Here it is counted in ``"setup: compile cuda kernels (assembly)"``. Nothing happens on
+        the NumPy backend.
+        """
+        if xp.get_backend() != "cupy":
+            return
+
+        from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
+
+        with ProfileManager.profile_region("setup: compile cuda kernels (assembly)"):
+            kernel_3d_mat.compile()
 
     def compile_cuda_kernels(self) -> tuple[Kernel, ...]:
         """Compile the CUDA versions of the kernels of :meth:`kernels` now, before the time stepping.
