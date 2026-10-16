@@ -280,7 +280,7 @@ class ImplicitDiffusion(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             if self.precond is not None:
-                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
             preconditioner._parse_directions(self.stab_average)
 
             # defaults
@@ -436,8 +436,8 @@ class ImplicitDiffusion(Propagator):
             pc = pc_class(self.mass_ops.M0, **self.options.precond_params)
 
         # solver just with A_2, but will be set during call with dt
-        # (only "pcg" takes a preconditioner)
-        pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
+        # (only "pcg" and "pcg_sr" take a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}
         self._solver = inverse(
             self._diffusion_op,
             self.options.solver,

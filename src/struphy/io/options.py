@@ -74,7 +74,7 @@ class LiteralOptions:
     GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
 
     # solvers
-    OptsSymmSolver = Literal["pcg", "cg"]
+    OptsSymmSolver = Literal["pcg", "pcg_sr", "cg"]
     OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
     OptsMassPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None]
     OptsShearAlfvenPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", "MultiGrid", None]

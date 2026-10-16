@@ -207,7 +207,7 @@ class VariationalDensityEvolve(Propagator):
             self._Mrho,
             self.options.solver,
             # "cg" takes no preconditioner
-            **({"pc": pc} if self.options.solver == "pcg" else {}),
+            **({"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}),
             tol=1e-16,
             maxiter=500,
             recycle=True,
@@ -416,7 +416,7 @@ class VariationalDensityEvolve(Propagator):
             self.mass_ops.Mv,
             self.options.solver,
             # "cg" takes no preconditioner
-            **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
+            **({"pc": self.pc_Mv} if self.options.solver in ("pcg", "pcg_sr") else {}),
             tol=1e-16,
             maxiter=1000,
             verbose=False,
