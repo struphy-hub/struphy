@@ -72,13 +72,13 @@ def push_pc_eta_stage_Hcurl(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+        e1 = markers[0, ip]
+        e2 = markers[1, ip]
+        e3 = markers[2, ip]
+        v[:] = markers[3:6, ip]
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
@@ -123,13 +123,13 @@ def push_pc_eta_stage_Hcurl(
         k[:] = k_v + k_u
 
         # accum k
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
+        markers[first_free_idx : first_free_idx + 3, ip] += dt * b[stage] * k
 
         # update markers for the next stage
-        markers[ip, 0:3] = (
-            markers[ip, first_pusher_idx : first_pusher_idx + 3]
+        markers[0:3, ip] = (
+            markers[first_pusher_idx : first_pusher_idx + 3, ip]
             + dt * k * a[stage]
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
+            + last * markers[first_free_idx : first_free_idx + 3, ip]
         )
 
         # apply kinetic boundary conditions

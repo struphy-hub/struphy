@@ -228,7 +228,7 @@ def n_init(etas, r_minus=r_minus, r_plus=r_plus):
 
     # transform logical coordinate to polar
     a1, a2 = domain.params["a1"], domain.params["a2"]
-    radial = a1 + (a2 - a1) * etas[:, 0]
+    radial = a1 + (a2 - a1) * etas[0]
 
     return 1.0 * ((r_minus <= radial) & (radial < r_plus))
 

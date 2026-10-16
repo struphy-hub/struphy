@@ -1,4 +1,4 @@
-"""Evaluate canonical toroidal momentum of each particles and assign it into markers[ip,first_diagnostics_idx+5]."""
+"""Evaluate canonical toroidal momentum of each particles and assign it into markers[first_diagnostics_idx+5, ip]."""
 
 from numpy import shape, sign, sqrt
 
@@ -17,25 +17,25 @@ def eval_canonical_toroidal_moment_6d(
     absB: "float[:,:,:]",
 ):
     """
-    Evaluate canonical toroidal momentum of each particles and assign it into markers[ip,first_diagnostics_idx+5].
+    Evaluate canonical toroidal momentum of each particles and assign it into markers[first_diagnostics_idx+5, ip].
     """
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
-        energy = markers[ip, first_diagnostics_idx + 3]
-        mu = markers[ip, first_diagnostics_idx + 4]
-        psi = markers[ip, first_diagnostics_idx + 5]
-        v_para = markers[ip, first_diagnostics_idx + 6]
+        energy = markers[first_diagnostics_idx + 3, ip]
+        mu = markers[first_diagnostics_idx + 4, ip]
+        psi = markers[first_diagnostics_idx + 5, ip]
+        v_para = markers[first_diagnostics_idx + 6, ip]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -49,7 +49,7 @@ def eval_canonical_toroidal_moment_6d(
         )
 
         # shifted canonical toroidal momentum
-        markers[ip, first_diagnostics_idx + 5] = psi - epsilon * B0 * R0 / abs_B * v_para
+        markers[first_diagnostics_idx + 5, ip] = psi - epsilon * B0 * R0 / abs_B * v_para
 
         if energy - mu * B0 > 0:
-            markers[ip, first_diagnostics_idx + 5] += epsilon * sign(v_para) * sqrt(2 * (energy - mu * B0)) * R0
+            markers[first_diagnostics_idx + 5, ip] += epsilon * sign(v_para) * sqrt(2 * (energy - mu * B0)) * R0

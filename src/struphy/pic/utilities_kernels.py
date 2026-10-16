@@ -33,7 +33,7 @@ def eval_magnetic_energy(
 ):
     r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
-    The result is stored at markers[:, first_diagnostics_idx].
+    The result is stored at markers[first_diagnostics_idx, :].
     """
     norm_b1 = empty(3, dtype=float)
     b = empty(3, dtype=float)
@@ -41,7 +41,7 @@ def eval_magnetic_energy(
     dfm = empty((3, 3), dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
 
     # fmt: off
     #$ omp parallel private(abs_B, b, b_para, det_df, dfm, eta1, eta2, eta3, ip, mu, norm_b1, span1, span2, span3, thread_derham)
@@ -55,14 +55,14 @@ def eval_magnetic_energy(
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
-        mu = markers[ip, first_diagnostics_idx + 1]
+        mu = markers[first_diagnostics_idx + 1, ip]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
@@ -114,7 +114,7 @@ def eval_magnetic_energy(
         b_para = linalg_kernels.scalar_dot(norm_b1, b)
         b_para /= det_df
 
-        markers[ip, first_diagnostics_idx] = mu * (abs_B + b_para)
+        markers[first_diagnostics_idx, ip] = mu * (abs_B + b_para)
 
     # fmt: off
     #$ omp end parallel

@@ -63,16 +63,16 @@ def grad_driftkinetic_hamiltonian(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx : first_shift_idx + 3]
-        eta_n[:] = markers[ip, first_pusher_idx : first_pusher_idx + 3]
+        eta_k[:] = markers[0:3, ip] + markers[first_shift_idx : first_shift_idx + 3, ip]
+        eta_n[:] = markers[first_pusher_idx : first_pusher_idx + 3, ip]
 
         eta[:] = alpha[:3] * eta_k + (1.0 - alpha[:3]) * eta_n
         eta[:] = mod(eta, 1.0)
 
-        mu = markers[ip, mu_idx]
+        mu = markers[mu_idx, ip]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
@@ -108,4 +108,4 @@ def grad_driftkinetic_hamiltonian(
         # save
         for j in range(3):
             if output_indices[j] >= 0:
-                markers[ip, output_indices[j]] = grad_H[j]
+                markers[output_indices[j], ip] = grad_H[j]

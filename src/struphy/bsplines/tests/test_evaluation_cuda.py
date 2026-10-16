@@ -37,11 +37,11 @@ def test_evaluation_parity(mode, kind, empty):
                 xp.asarray([1, 1, 1], dtype=xp.int64),
             )
             if mode == "markers":
-                points = xp.full((0 if empty else 129, 6), 0.5)[:, ::2]
+                points = xp.full((6, 0 if empty else 129), 0.5)[::2]
                 if not empty:
                     points[0, 0] = -1.0
                 coords = (points,)
-                storage = xp.full((points.shape[0] * 2,), 17.0)
+                storage = xp.full((points.shape[1] * 2,), 17.0)
                 out = storage[::2]
             else:
                 axes = [xp.linspace(0.3, 0.7, n) for n in (0 if empty else 7, 5, 4)]
@@ -97,7 +97,7 @@ def test_spline_function_backends(space, mode, local, target_backend):
                 component._data[:] = i + 1.0
             axes = [np.array([0.2, 0.6]), np.array([0.3, 0.7]), np.array([0.4])]
             if mode == "markers":
-                coords = (xp.asarray([[0.2, 0.3, 0.4], [0.6, 0.7, 0.4], [-0.1, 0.3, 0.4]]),)
+                coords = (xp.asarray([[0.2, 0.6, -0.1], [0.3, 0.7, 0.3], [0.4, 0.4, 0.4]]),)
                 shape = (3,)
             elif mode == "matrix":
                 coords = tuple(xp.asarray(a) for a in np.meshgrid(*axes, indexing="ij"))
