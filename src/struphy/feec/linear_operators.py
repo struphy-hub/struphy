@@ -36,7 +36,12 @@ extern "C" __global__ void masked_copy(const unsigned long long* __restrict__ pt
 def _masked_copy_fused(op, v_blocks, out_blocks, masks) -> bool:
     """``out_blocks[c] = v_blocks[c] * masks[c]`` for all blocks with one kernel (pointer tables cached on ``op``).
 
-    False (nothing done) unless every block is C-contiguous float64 of the shape of its mask."""
+    False (nothing done) unless every block is C-contiguous float64 of the shape of its mask, and on cunumpy's fake
+    CuPy (tests without a GPU), which cannot launch raw kernels."""
+    from cunumpy.kernel_testing import fake_cupy_active
+
+    if fake_cupy_active():
+        return False
     arrays = [(vb._data, ob._data, m) for vb, ob, (m, _) in zip(v_blocks, out_blocks, masks)]
     for a, b, m in arrays:
         if not (
