@@ -75,6 +75,16 @@ ORBIT_POSITIONS = (
 """Orbit quantities of the position columns, which post-processing maps to physical coordinates."""
 
 
+def markers_column_major() -> bool:
+    """Whether the marker buffer is allocated column-major on the CuPy backend (``STRUPHY_MARKERS_COLUMN_MAJOR=1``).
+
+    Off by default: kernels without a CUDA version run on host copies of the device arrays, which keep the F order
+    (``cunumpy.to_numpy``), and the pyccel kernels reject it (e.g. the sorting-box kernels). Switch it on for runs
+    whose marker kernels all have CUDA versions (e.g. the Vlasov push profiling case).
+    """
+    return os.environ.get("STRUPHY_MARKERS_COLUMN_MAJOR", "0").lower() in ("1", "true", "yes")
+
+
 class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
@@ -2634,11 +2644,12 @@ class Particles(metaclass=ABCMeta):
         if dry_run:
             return
 
-        # column-major on the GPU: the kernels (and the column operations on the Python side) access a few columns of
-        # many markers, so with a row-major buffer every access touches the whole row (n_cols * 8 bytes) and the
-        # threads of a warp read addresses a row apart. The CUDA kernels address the buffer through its strides
-        # (Array2D<double> in MarkerArgs). The pyccel kernels expect C order, so NumPy keeps it.
-        order = "F" if xp.get_backend() == "cupy" else "C"
+        # column-major on the GPU (opt-in, see markers_column_major): the kernels (and the column operations on the
+        # Python side) access a few columns of many markers, so with a row-major buffer every access touches the whole
+        # row (n_cols * 8 bytes) and the threads of a warp read addresses a row apart. The CUDA kernels address the
+        # buffer through its strides (Array2D<double> in MarkerArgs). The pyccel kernels expect C order, so NumPy
+        # keeps it.
+        order = "F" if xp.get_backend() == "cupy" and markers_column_major() else "C"
         self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float, order=order)
 
         # allocate auxiliary arrays
