@@ -25,6 +25,7 @@ from struphy.feec.kernels.kernel_3d_eval import kernel_3d_eval
 from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
 from struphy.feec.kernels.kernel_3d_matrixfree import kernel_3d_matrixfree
 from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
+from struphy.feec.kronecker_mass import kronecker_apply_operator
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
@@ -1628,6 +1629,8 @@ class WeightedMassOperator(LinearOperator):
             blocks, self._weights = self._init_blocks_from_weights(weights_info)
 
         self._mat = self._wrap_blocks(blocks)
+        # the operator dot() applies self._mat with (Kronecker blocks replaced), built on first use, see _apply_mat
+        self._apply_mat_cache = None
 
         # the weights are stored in the block order of the (possibly transposed) operator
         if transposed:
@@ -2047,6 +2050,32 @@ class WeightedMassOperator(LinearOperator):
         return self._mat
 
     @property
+    def _apply_mat(self):
+        """The operator :meth:`dot` applies: :attr:`matrix`, with its blocks that are Kronecker products of 1D banded
+        matrices (constant weights, e.g. on a Cuboid) applied as such (:mod:`struphy.feec.kronecker_mass`).
+
+        Built on first use after every change of the matrix (assembly, copy into, in-place arithmetic).
+        """
+        if self._apply_mat_cache is None:
+            if getattr(self, "_kronecker_rejected", False):
+                self._apply_mat_cache = self._mat
+            else:
+                self._apply_mat_cache = kronecker_apply_operator(self._mat, name=self.name)
+                # a matrix changed by in-place arithmetic that is not a Kronecker product (e.g. the Schur complement
+                # M1 - dt^2 BC with particle data, rebuilt every step) is not checked again after further arithmetic:
+                # the check reads the whole matrix. Assembly and copies check again.
+                if getattr(self, "_changed_by_arithmetic", False) and self._apply_mat_cache is self._mat:
+                    self._kronecker_rejected = True
+        return self._apply_mat_cache
+
+    def _matrix_changed(self, by_arithmetic: bool):
+        """Invalidate :attr:`_apply_mat` after a change of the matrix (in-place arithmetic, or assembly/copy)."""
+        self._apply_mat_cache = None
+        self._changed_by_arithmetic = by_arithmetic
+        if not by_arithmetic:
+            self._kronecker_rejected = False
+
+    @property
     def nquads(self):
         if self._nquads is None:
             return self.derham.nquads
@@ -2093,28 +2122,53 @@ class WeightedMassOperator(LinearOperator):
 
         if apply_bc:
             if self._transposed:
-                self._W_boundary_op_T.dot(v, out=self._temp_WB)
-                self._W_extraction_op_T.dot(self._temp_WB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
-                self._V_extraction_op.dot(self._temp_VE, out=self._temp_VB)
-                out = self._V_boundary_op.dot(self._temp_VB, out=out)
+                ops_in = (self._W_boundary_op_T, self._W_extraction_op_T)
+                ops_out = (self._V_extraction_op, self._V_boundary_op)
+                tmps_in = (self._temp_WB, self._temp_mat)
+                tmps_out = (self._temp_VE, self._temp_VB)
             else:
-                self._V_boundary_op_T.dot(v, out=self._temp_VB)
-                self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
-                self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
-                out = self._W_boundary_op.dot(self._temp_WB, out=out)
+                ops_in = (self._V_boundary_op_T, self._V_extraction_op_T)
+                ops_out = (self._W_extraction_op, self._W_boundary_op)
+                tmps_in = (self._temp_VB, self._temp_mat)
+                tmps_out = (self._temp_WE, self._temp_WB)
+            out = self._apply_chain(v, ops_in, tmps_in, ops_out, tmps_out, out)
         else:
             if self._transposed:
                 self._W_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_VE)
                 out = self._V_extraction_op.dot(self._temp_VE, out=out)
             else:
                 self._V_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_WE)
                 out = self._W_extraction_op.dot(self._temp_WE, out=out)
 
         return out
+
+    def _apply_chain(self, v, ops_in, tmps_in, ops_out, tmps_out, out):
+        """``out = B_out E_out M E_in B_in v`` (boundary and extraction operators around the matrix), see :meth:`dot`.
+
+        Identity operators (e.g. the extraction operators without polar splines, or boundary operators without
+        essential boundary conditions) are skipped instead of applied as copies: each vector is passed on as it is,
+        and the matrix writes into the next temporary that is actually used (or into ``out``).
+        """
+        if out is v:
+            # in place: the chain must not read v after writing the output, so it reads a copy
+            v = v.copy()
+
+        x = v
+        for op, tmp in zip(ops_in, tmps_in):
+            if not isinstance(op, IdentityOperator):
+                x = op.dot(x, out=tmp)
+
+        # the first output operator that is not an identity reads the matrix product from its temporary
+        remaining = [(op, tmp) for op, tmp in zip(ops_out, tmps_out) if not isinstance(op, IdentityOperator)]
+        if not remaining:
+            return self._apply_mat.dot(x, out=out)
+        y = self._apply_mat.dot(x, out=remaining[0][1])
+        for k, (op, _) in enumerate(remaining):
+            target = out if k == len(remaining) - 1 else remaining[k + 1][1]
+            y = op.dot(y, out=target)
+        return y
 
     def transpose(self, conjugate=False):
         """
@@ -2202,6 +2256,7 @@ class WeightedMassOperator(LinearOperator):
             Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
         """
+        self._matrix_changed(by_arithmetic=False)  # the matrix changes
         assert not self._dry_run, (
             "A dry-run operator has no matrix data and cannot be assembled (memory estimation only)."
         )
@@ -2477,6 +2532,7 @@ class WeightedMassOperator(LinearOperator):
             out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
+        out._matrix_changed(by_arithmetic=False)
 
         if self._creation_info is None:
             out._creation_info = None
@@ -2487,6 +2543,7 @@ class WeightedMassOperator(LinearOperator):
 
     def __imul__(self, a):
         self._mat *= a
+        self._matrix_changed(by_arithmetic=True)
         self._creation_info = None
         return self
 
@@ -2497,11 +2554,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat += M._mat
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat += M
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         else:
@@ -2514,11 +2573,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat -= M._mat
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat -= M
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         else:
