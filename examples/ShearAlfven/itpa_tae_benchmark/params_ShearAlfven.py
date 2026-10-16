@@ -80,10 +80,13 @@ parser.add_argument(
 parser.add_argument(
     "--precond",
     default=None,
-    choices=["MassMatrixPreconditioner", "MultiGrid", "HiptmairXu"],
+    choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
     help="Preconditioner of the shear Alfven solve: of the mass matrix (default for ShearAlfven), a geometric "
-    "multigrid V-cycle of the whole Schur operator (ShearAlfven only; experimental, currently slower here), or "
-    "Hiptmair-Xu for the curl-curl operator (ShearAlfvenCurlCurl only, its default).",
+    "multigrid V-cycle of the whole Schur operator (ShearAlfven only; experimental, currently slower here), the "
+    "Kronecker (fast diagonalization) preconditioner of the whole Schur operator with the E x B auxiliary space "
+    "correction (ShearAlfven only; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
+    "larger gains for larger time steps), or Hiptmair-Xu for the curl-curl operator (ShearAlfvenCurlCurl only, its "
+    "default).",
 )
 parser.add_argument(
     "--test-run",
