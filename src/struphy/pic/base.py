@@ -1240,7 +1240,10 @@ class Particles(metaclass=ABCMeta):
                 # counting integers
                 num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
                 num_loaded_particles_glob = 0  # number of particles already loaded (each clone)
-                chunk_size = 10000  # TODO: number of particle chunk
+                # markers drawn per chunk: large chunks keep the number of iterations (each a few small kernels and
+                # a device sync on the GPU) low, e.g. 16 instead of 1600 for 16M markers; a chunk of temporaries
+                # takes ~(3 + vdim + 4) * 8 bytes per marker (~50 MB). The NumPy draws do not depend on it.
+                chunk_size = 2**20
 
                 # Total number of markers to draw (sum over all clones)
                 while num_loaded_particles_glob < int(self.Np):
@@ -1563,8 +1566,16 @@ class Particles(metaclass=ABCMeta):
         """
         from struphy.pic.particles import ParticlesSPH
 
-        if xp.size(self.markers_wo_holes_and_ghost) == 0:
+        # the rows of the valid markers, found once: each property (positions, weights0, ...) would select them
+        # again with the boolean mask, and gathering markers_wo_holes_and_ghost just to test for markers copies
+        # every column of every valid row
+        rows = xp.flatnonzero(self.valid_mks)
+        if rows.size == 0:
             return
+        markers = self._markers
+
+        def column(c):
+            return xp.take(markers[:, c], rows)
 
         if isinstance(self, ParticlesSPH):
             f0 = self.f0.n0(self.positions)
@@ -1572,7 +1583,9 @@ class Particles(metaclass=ABCMeta):
             # in case of CanonicalMaxwellian, evaluate constants_of_motion
             # if isinstance(self.f0, CanonicalMaxwellian):
             #     self.save_constants_of_motion()
-            f0 = self.f0(*self.f_coords.T)
+            idx = self.f_coords_index
+            cols = range(markers.shape[1])[idx] if isinstance(idx, slice) else np.atleast_1d(idx).tolist()
+            f0 = self.f0(*[column(c) for c in cols])
 
         # if f_init is vol-form, transform to 0-form
         if self.is_volume_form[0]:
@@ -1581,7 +1594,7 @@ class Particles(metaclass=ABCMeta):
         if self.is_volume_form[1]:
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
-        self.weights = self.weights0 - f0 / self.sampling_density_values / self.Np
+        markers[rows, self.index["weights"]] = column(self.index["w0"]) - f0 / column(self.index["s0"]) / self.Np
 
     @profile
     def binning(
@@ -1823,10 +1836,25 @@ class Particles(metaclass=ABCMeta):
         (staged through host memory otherwise), see :meth:`_sendrecv_markers_device`. The
         per-rank counts are small host arrays on every backend (:meth:`_sendrecv_all_to_all`).
         """
-        if remove_ghost:
-            self._remove_ghost_particles()
+        # Ghost particles (last column -2) only exist with sorting boxes (SPH ghost boxes,
+        # _prepare_ghost_particles); without them the ghost mask stays all False and its
+        # bookkeeping (full passes over the buffer, a nonzero) can be skipped.
+        ghosts_possible = self._initialized_sorting
 
-        self._Barrier()
+        # On the GPU the marker rows go through cunumpy.mpi.exchange, which waits for every send and
+        # receive (_sendrecv_markers_device): no barriers are needed around the exchange. The host path
+        # does not wait for its sends, so it keeps them.
+        barriers = xp.get_array_backend(self._markers) != "cupy"
+
+        if remove_ghost:
+            if ghosts_possible:
+                self._remove_ghost_particles()
+            else:
+                # what _remove_ghost_particles leaves when there are no ghosts: refreshed holes
+                self.update_holes()
+
+        if barriers:
+            self._Barrier()
 
         # before sorting, apply kinetic bc
         if apply_bc:
@@ -1856,7 +1884,8 @@ class Particles(metaclass=ABCMeta):
         # refresh ghost mask: received markers may land in rows that previously held
         # ghost particles. update_holes alone recomputes valid_mks from a stale
         # _ghost_particles mask, which would wrongly exclude these incoming real markers.
-        self._update_ghost_particles()
+        if ghosts_possible:
+            self._update_ghost_particles()
 
         # check if all markers are on the right process after sorting
         if do_test:
@@ -1870,7 +1899,8 @@ class Particles(metaclass=ABCMeta):
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
-        self._Barrier()
+        if barriers:
+            self._Barrier()
 
     @profile
     @ProfileManager.profile("apply_kinetic_bc")
@@ -4485,10 +4515,19 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             assert alpha.size == 3
             assert xp.all(alpha >= 0.0) and xp.all(alpha <= 1.0)
         bi = self.first_pusher_idx
-        self._sorting_etas[:] = (
-            alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
-            + (1.0 - alpha) * self.markers[:, bi : bi + 3]
-        )
+        if isinstance(alpha, float) and alpha == 1.0:
+            # the common case: alpha * (pos + shift) + 0 * init is exactly pos + shift for finite values,
+            # computed with one kernel instead of five
+            xp.add(
+                self.markers[:, :3],
+                self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3],
+                out=self._sorting_etas,
+            )
+        else:
+            self._sorting_etas[:] = (
+                alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
+                + (1.0 - alpha) * self.markers[:, bi : bi + 3]
+            )
 
         # for non-periodic axes, eta = 1 is the right end of the domain and must not be wrapped to eta = 0
         non_periodic_axes = [axis for axis in range(3) if axis not in self._periodic_axes]
