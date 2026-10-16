@@ -12,15 +12,21 @@ import numpy as np
 from cunumpy.arguments import CudaStructArguments
 
 
-def _device_array(name, arr, dtype, ndim=None):
-    """Check that ``arr`` is a C-contiguous CuPy array of ``dtype`` (and ``ndim``) on the current device (never copies)."""
+def _device_array(name, arr, dtype, ndim=None, strided=False):
+    """Check that ``arr`` is a CuPy array of ``dtype`` (and ``ndim``) on the current device (never copies).
+
+    It must be C-contiguous, unless ``strided``: arrays passed as strided views (``Array2D<double>``, e.g. the
+    column-major marker buffer) may have any strides.
+    """
     import cupy as cp
 
     if not isinstance(arr, cp.ndarray):
         raise TypeError(f"{name} must be a CuPy array, got {type(arr)}")
     if arr.device.id != cp.cuda.runtime.getDevice():
         raise ValueError(f"{name} must be on the current CUDA device")
-    if arr.dtype != dtype or not arr.flags.c_contiguous:
+    if arr.dtype != dtype:
+        raise TypeError(f"{name} must be an array of dtype {np.dtype(dtype)}")
+    if not strided and not arr.flags.c_contiguous:
         raise TypeError(f"{name} must be a C-contiguous array of dtype {np.dtype(dtype)}")
     if ndim is not None and arr.ndim != ndim:
         raise TypeError(f"{name} must be a {ndim}-dimensional array, got {arr.ndim} dimensions")
@@ -46,6 +52,8 @@ class CudaMarkerArguments(CudaStructArguments):
         ("mu_idx", "int"),
         ("bc_type", "long long*"),
         ("pole", "bool"),
+        # CUDA-only: 1 while a pusher has its kernel prepare each marker row at stage 0 (Pusher._push), else 0
+        ("prepare_rows", "int"),
     )
 
     def __init__(
@@ -64,7 +72,8 @@ class CudaMarkerArguments(CudaStructArguments):
         bc_type,
         pole: bool,
     ):
-        self.markers = _device_array("markers", markers, np.float64)
+        # a strided view in MarkerArgs: Particles allocates the buffer column-major on the GPU
+        self.markers = _device_array("markers", markers, np.float64, strided=True)
         if markers.ndim != 2:
             raise TypeError("markers must be a two-dimensional array.")
         self.valid_mks = _device_array("valid_mks", valid_mks, np.bool_)
@@ -80,6 +89,7 @@ class CudaMarkerArguments(CudaStructArguments):
         self.mu_idx = mu_idx
         self.bc_type = _device_array("bc_type", bc_type, np.int64)
         self.pole = pole
+        self.prepare_rows = 0
         self.pack()
 
 
