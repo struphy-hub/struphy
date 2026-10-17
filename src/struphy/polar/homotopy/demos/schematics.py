@@ -8,91 +8,97 @@ import numpy as np
 from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import DIVERGING, clean_axis, draw_mesh
 
-
 # ---------------------------------------------------------------------------------------------------------- diagrams
-def _diagram(rows, horizontal, vertical, column_sep="1.7cm", row_sep="1.25cm", origin=(0, 0), name="m"):
-    """TikZ code of a commutative diagram: ``rows`` (math entries), ``horizontal[(i, j)] = (label, reversed)``
-    arrows from column ``j`` to ``j + 1`` in row ``i`` and ``vertical[j] = label`` arrows from the last to the first
-    row in column ``j``."""
-    entries = " \\\\\n".join(" & ".join(row) for row in rows)
-    code = [
-        f"\\matrix ({name}) [matrix of math nodes, row sep={row_sep}, column sep={column_sep}, "
-        f"shift={{({origin[0]}cm, {origin[1]}cm)}}] {{\n{entries} \\\\\n}};"
-    ]
-    for (i, j), (label, reverse) in horizontal.items():
-        a, b = f"{name}-{i + 1}-{j + 1}", f"{name}-{i + 1}-{j + 2}"
-        if reverse:
-            a, b = b, a
-        code.append(f"\\draw[-{{Latex}}] ({a}) -- node[above]{{\\scriptsize {label}}} ({b});")
-    last = len(rows)
-    for j, label in vertical.items():
-        code.append(
-            f"\\draw[-{{Latex}}, color=struphyblue] ({name}-{last}-{j + 1}) -- "
-            f"node[left]{{\\scriptsize ${label}$}} ({name}-1-{j + 1});"
-        )
-    return "\n".join(code)
+ARROW = "-{Latex}"
+LABEL = r"font=\scriptsize"
 
 
-def _figure(code):
+def _figure():
     from tikzfigure import TikzFigure
+    from tikzfigure.core.matrix import Matrix
 
+    if not hasattr(Matrix, "arrow"):
+        raise ImportError("the diagrams need tikzfigure >= 0.5.0 (Matrix.arrow): pip install -U tikzfigure")
     fig = TikzFigure()
     fig.add_package("amssymb")
-    fig.usetikzlibrary("matrix", "arrows.meta")
-    fig.add_raw("\\definecolor{struphyblue}{rgb}{0.0, 0.447, 0.741}\n" + code)
+    fig.usetikzlibrary("arrows.meta")
+    fig.colorlet("struphyblue", "rgb,1:red,0;green,0.447;blue,0.741")
     return fig
+
+
+def _diagram(fig, rows, maps, projections, label, x=0, reverse=False):
+    """A commutative diagram (a ``tikzfigure`` matrix of math nodes): ``maps`` label the arrows between neighbouring
+    columns in every row (right to left with ``reverse``), ``projections`` the arrows from the last to the first row."""
+    matrix = fig.add_matrix(
+        rows,
+        x=x,
+        y=0,
+        label=label,
+        options="matrix of math nodes",
+        row_sep="1.25cm",
+        column_sep="1.7cm",
+        cell_style="text height=1.6ex, text depth=0.4ex",
+    )
+    for row in range(1, len(rows) + 1):
+        for col, name in enumerate(maps, start=1):
+            ends = ((row, col + 1), (row, col)) if reverse else ((row, col), (row, col + 1))
+            matrix.arrow(*ends, label=name, label_options=LABEL, arrows=ARROW)
+    for col, name in enumerate(projections, start=1):
+        matrix.arrow(
+            (len(rows), col),
+            (1, col),
+            label=f"${name}$",
+            label_position="left",
+            label_options=LABEL,
+            arrows=ARROW,
+            color="struphyblue",
+        )
+    return matrix
 
 
 def derham_logical_and_physical():
     """The commuting projections of the logical and of the physical 2D de Rham complex."""
-    spaces = ["H^1", r"H(\mathrm{curl})", "L^2"]
-    logical = _diagram(
-        [
-            [r"\hat V^0_h", r"\hat V^1_h", r"\hat V^2_h"],
-            [r"\hat " + s if s != r"H(\mathrm{curl})" else r"\hat H(\mathrm{curl})" for s in spaces],
-        ],
-        {(0, 0): ("grad", False), (0, 1): ("curl", False), (1, 0): ("grad", False), (1, 1): ("curl", False)},
-        {0: r"\hat\pi^0", 1: r"\hat\pi^1", 2: r"\hat\pi^2"},
-        name="l",
+    fig = _figure()
+    _diagram(
+        fig,
+        [[r"\hat V^0_h", r"\hat V^1_h", r"\hat V^2_h"], [r"\hat H^1", r"\hat H(\mathrm{curl})", r"\hat L^2"]],
+        ("grad", "curl"),
+        (r"\hat\pi^0", r"\hat\pi^1", r"\hat\pi^2"),
+        "l",
     )
     physical = _diagram(
-        [["V^0_h", "V^1_h", "V^2_h"], spaces],
-        {(0, 0): ("grad", False), (0, 1): ("curl", False), (1, 0): ("grad", False), (1, 1): ("curl", False)},
-        {0: r"\pi^0", 1: r"\pi^1", 2: r"\pi^2"},
-        origin=(9, 0),
-        name="p",
+        fig,
+        [["V^0_h", "V^1_h", "V^2_h"], ["H^1", r"H(\mathrm{curl})", "L^2"]],
+        ("grad", "curl"),
+        (r"\pi^0", r"\pi^1", r"\pi^2"),
+        "p",
+        x=9,
     )
-    link = (
-        "\\draw[-{Latex}, dashed] (l-1-3.east) ++(0.6, -1.1) -- node[above]{\\scriptsize pushforward $F_*$} ++(2.2, 0);"
+    # an arrow is drawn after its matrix: the arrow between the two belongs to the second
+    physical.arrow(
+        "l.east",
+        "p.west",
+        label="pushforward $F_*$",
+        label_options=LABEL,
+        arrows=ARROW,
+        options=["dashed", "shorten >=8mm"],
     )
-    return _figure(logical + "\n" + physical + "\n" + link)
+    return fig
 
 
 def derham_polar_cochain_chain():
     """The polar subspaces form a cochain complex (grad, curl) and a chain complex (the homotopies) with commuting
     projections ``pi_bar^{k, r}``."""
-    top = [r"\bar V^{0,\mathfrak r}", r"\bar V^{1,\mathfrak r}", r"\bar V^{2,\mathfrak r}"]
-    bottom = ["H^1", r"H(\mathrm{curl})", "L^2"]
-    vertical = {0: r"\bar\pi^{0,\mathfrak r}", 1: r"\bar\pi^{1,\mathfrak r}", 2: r"\bar\pi^{2,\mathfrak r}"}
-    cochain = _diagram(
-        [top, bottom],
-        {(0, 0): ("grad", False), (0, 1): ("curl", False), (1, 0): ("grad", False), (1, 1): ("curl", False)},
-        vertical,
-        name="c",
-    )
-    chain = _diagram(
-        [top, bottom],
-        {
-            (0, 0): (r"$\mathrm{grad}^\dagger$", True),
-            (0, 1): (r"$\mathrm{curl}^\dagger$", True),
-            (1, 0): (r"$\mathrm{grad}^\dagger$", True),
-            (1, 1): (r"$\mathrm{curl}^\dagger$", True),
-        },
-        vertical,
-        origin=(9, 0),
-        name="h",
-    )
-    return _figure(cochain + "\n" + chain)
+    rows = [
+        [r"\bar V^{0,\mathfrak r}", r"\bar V^{1,\mathfrak r}", r"\bar V^{2,\mathfrak r}"],
+        ["H^1", r"H(\mathrm{curl})", "L^2"],
+    ]
+    projections = (r"\bar\pi^{0,\mathfrak r}", r"\bar\pi^{1,\mathfrak r}", r"\bar\pi^{2,\mathfrak r}")
+    fig = _figure()
+    _diagram(fig, rows, ("grad", "curl"), projections, "c")
+    homotopies = (r"$\mathrm{grad}^\dagger$", r"$\mathrm{curl}^\dagger$")
+    _diagram(fig, rows, homotopies, projections, "h", x=9, reverse=True)
+    return fig
 
 
 # ---------------------------------------------------------------------------------------------------------- geometry

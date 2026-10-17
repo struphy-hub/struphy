@@ -150,3 +150,19 @@ def test_wave_convergence_is_finite():
     )
     for errors in study["final"].values():
         assert np.all(np.isfinite(errors))
+
+
+def test_schematic_diagrams():
+    """The de Rham diagrams are tikzfigure matrices with labelled arrows (TikZ code only, no LaTeX needed)."""
+    matrix = pytest.importorskip("tikzfigure.core.matrix")
+    if not hasattr(matrix.Matrix, "arrow"):
+        pytest.skip("needs tikzfigure >= 0.5.0")
+    from struphy.polar.homotopy.demos import schematics
+
+    code = schematics.derham_logical_and_physical().generate_tikz()
+    assert code.count("\\matrix") == 2
+    assert "(l-1-1) to node[above, font=\\scriptsize] {grad} (l-1-2)" in code
+    assert "(l.east) to node[above, font=\\scriptsize] {pushforward $F_*$} (p.west)" in code
+    code = schematics.derham_polar_cochain_chain().generate_tikz()
+    assert "(h-1-2) to node[above, font=\\scriptsize] {$\\mathrm{grad}^\\dagger$} (h-1-1)" in code
+    assert code.count("color=struphyblue") == 6
