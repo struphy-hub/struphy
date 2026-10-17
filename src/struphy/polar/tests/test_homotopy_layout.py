@@ -31,9 +31,10 @@ def _dense(A):
 def _complexes(degree, cells, regularity, boundary, enrichment="cochain_chain"):
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.polar.homotopy import ClampedBSplineSpace, PeriodicBSplineSpace, PolarComplex2D, perturbed_disk
+    from struphy.polar.homotopy import PolarComplex2D
     from struphy.polar.homotopy.derham_spaces import derham_factors
     from struphy.polar.homotopy.layout import STRUPHY
+    from struphy.polar.tests.reference_core import ClampedBSplineSpace, PeriodicBSplineSpace, perturbed_disk
     from struphy.topology.grids import TensorProductGrid
 
     derham = Derham(
@@ -148,3 +149,30 @@ def test_cross_sections():
         domains.HelicalTube("islands", num_elements=(6, 24, 32), degree=(3, 3, 3)), 2, polar_cross_section="unit_disk"
     )
     assert unit.ck_blocks.regularity == 2
+
+
+@pytest.mark.parametrize("domain_name", ["PerturbedDiskCylinder", "HollowCylinder"])
+def test_complex_masses_equal_struphy_masses(domain_name):
+    """The polar masses ``E^T M E`` of the Derham-based polar complex equal those with Struphy's weighted mass operators
+    on a cylinder of length one (2D 0-forms: V0, 1-forms: the eta1-eta2 components of V1, 2-forms: the eta3 component
+    of V2). (The tensor-product 1-form masses themselves are only formal at the pole: the ring-0 eta2-components have
+    divergent integrals, which the polar functions do not use.)"""
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.geometry import domains
+    from struphy.polar.homotopy.derham_blocks import derham_polar_complex, poloidal_derham
+
+    kwargs = {"Lz": 1.0} if domain_name == "PerturbedDiskCylinder" else {"a1": 0.0, "a2": 1.0, "Lz": 1.0}
+    domain = getattr(domains, domain_name)(**kwargs)
+    nquads = 12
+    derham = poloidal_derham((3, 3), (6, 12), domain=domain, nquads=(nquads, nquads))
+    c = derham_polar_complex(derham, domain, 2)
+    mass = WeightedMassOperators(derham, domain)
+    M0, M1, M2 = (getattr(mass, name).matrix.tosparse().toarray() for name in ("M0", "M1", "M2"))
+    n1 = c.spaces[1].n
+    M2z = M2[-c.spaces[2].n :, -c.spaces[2].n :]
+    for k, struphy in ((0, M0), (1, M1[:n1, :n1]), (2, M2z)):
+        E = c.extraction(k).toarray()
+        # the same Gauss rule (nquads points per cell) as Struphy's mass operators
+        full = c.spaces[k].mass_matrix(coefficient=lambda X, Y: 1.0 + 0 * X, additional_quadrature_order=nquads - 4)
+        own, reference = E.T @ full.toarray() @ E, E.T @ struphy @ E
+        assert np.max(np.abs(own - reference)) < 1e-10 * np.max(np.abs(reference)), k

@@ -6,7 +6,7 @@ from pyccel.decorators import pure
 
 @pure
 def perturbed_disk(
-    eta1: float, eta2: float, eta3: float, r1: float, eps: float, k: float, lz: float, f_out: "float[:]"
+    eta1: float, eta2: float, eta3: float, r1: float, eps: float, k: float, lz: float, q: float, f_out: "float[:]"
 ):
     r"""Point-wise evaluation of
 
@@ -15,7 +15,7 @@ def perturbed_disk(
         F_x &= R(\eta_1, \eta_2) \cos(2\pi\,\eta_2)\,, \quad F_y = R(\eta_1, \eta_2) \sin(2\pi\,\eta_2)\,,
         \quad F_z = L_z\,\eta_3\,,
 
-        R &= R_1\,\eta_1\,\left(1 + \varepsilon\,\eta_1 \cos(2\pi k\,\eta_2)\right)\,.
+        R &= R_1\,\eta_1\,\left(1 + \varepsilon\,\eta_1^q \cos(2\pi k\,\eta_2)\right)\,.
 
     Parameters
     ----------
@@ -34,11 +34,14 @@ def perturbed_disk(
     lz : float
         Length in third direction.
 
+    q : float
+        Power of eta1 in the perturbation (1: the perturbed disk of the paper, 0: a star-shaped disk).
+
     f_out : array[float]
         Output: (x, y, z) = F(eta1, eta2, eta3).
     """
 
-    radius = r1 * eta1 * (1.0 + eps * eta1 * cos(2 * pi * k * eta2))
+    radius = r1 * eta1 * (1.0 + eps * eta1**q * cos(2 * pi * k * eta2))
 
     f_out[0] = radius * cos(2 * pi * eta2)
     f_out[1] = radius * sin(2 * pi * eta2)
@@ -46,14 +49,16 @@ def perturbed_disk(
 
 
 @pure
-def perturbed_disk_df(eta1: float, eta2: float, r1: float, eps: float, k: float, lz: float, df_out: "float[:,:]"):
+def perturbed_disk_df(
+    eta1: float, eta2: float, r1: float, eps: float, k: float, lz: float, q: float, df_out: "float[:,:]"
+):
     """Jacobian matrix for :meth:`perturbed_disk_cylinder_kernels.perturbed_disk`."""
 
     ck = cos(2 * pi * k * eta2)
     sk = sin(2 * pi * k * eta2)
-    radius = r1 * eta1 * (1.0 + eps * eta1 * ck)
-    dr1 = r1 * (1.0 + 2.0 * eps * eta1 * ck)
-    dr2 = -2 * pi * k * r1 * eps * eta1 * eta1 * sk
+    radius = r1 * eta1 * (1.0 + eps * eta1**q * ck)
+    dr1 = r1 * (1.0 + (q + 1.0) * eps * eta1**q * ck)
+    dr2 = -2 * pi * k * r1 * eps * eta1 ** (q + 1.0) * sk
     c = cos(2 * pi * eta2)
     s = sin(2 * pi * eta2)
 

@@ -161,6 +161,7 @@ def f(
             args.params[1],
             args.params[2],
             args.params[3],
+            args.params[4],
             f_out,
         )
     elif args.kind_map == 24:
@@ -339,6 +340,7 @@ def df(
             args.params[1],
             args.params[2],
             args.params[3],
+            args.params[4],
             df_out,
         )
     elif args.kind_map == 24:

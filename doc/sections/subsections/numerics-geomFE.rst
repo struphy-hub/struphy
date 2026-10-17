@@ -378,12 +378,23 @@ used, e.g. ``HollowCylinder(a1=0)``, ``HollowTorus(a1=0)``, ``IGAPolarTorus`` an
 ``PerturbedDiskCylinder`` and ``RoundedSquareCylinder``. See the tutorials ``tutorial_polar_splines`` and
 ``dev_tutorial_polar_homotopy``.
 
+**Trigonometric functions in** :math:`\eta_2`. With ``DerhamOptions(angular_basis="trig")`` the :math:`\eta_2`-direction
+uses the ``n = num_elements[1]`` (odd) nodal trigonometric functions of :mod:`struphy.feec.trig_space` instead of
+periodic B-splines: the 0-forms are the cardinal functions of the nodes :math:`\eta_2 = i/n`, the 1-forms their cell
+histopolants, so that the derivative is the forward difference and the inter- and histopolation matrices are the
+identity. These are the compatible angular spaces of the paper: the polar splines are then exactly
+:math:`C^{\mathfrak r}` at the pole for every :math:`\mathfrak r \leq (n - 1)/2`. Mass matrices, global projectors,
+derivatives, field evaluation and the polar splines support them; :math:`\eta_2` must not be MPI-decomposed, and
+particles, local projectors and ``BasisProjectionOperator`` need B-splines in every direction (a clear error is
+raised).
+
 ========================================================================  ==========================================================
 Paper / PolarFEEC.jl                                                      Struphy
 ========================================================================  ==========================================================
-1D spaces, scaled spaces, derivative and histopolation matrices           :mod:`struphy.polar.homotopy.spaces1d`
+1D spaces, scaled spaces, derivative and histopolation matrices           :class:`~struphy.polar.homotopy.derham_spaces.DerhamSpace1D` (the 1D spaces of ``Derham``)
+trigonometric spaces                                                      :mod:`struphy.feec.trig_space` (``angular_basis="trig"``)
 tensor-product and physical form spaces, Piola maps, GDOFs                :mod:`struphy.polar.homotopy.forms2d`
-disk-like mappings                                                        :mod:`struphy.polar.homotopy.mappings`
+disk-like mappings                                                        Struphy domains (:class:`~struphy.polar.homotopy.derham_blocks.DomainCrossSection`)
 Zernike basis, centre-shifted polynomial basis                            :mod:`struphy.polar.homotopy.polynomials`
 ``PolarComplex``: extraction, duals, :math:`\tilde\Pi^{2,\mathfrak r}`,   :class:`~struphy.polar.homotopy.complex2d.PolarComplex2D`
 homotopies, boundary homotopies, mean projection :math:`\mathfrak B`
@@ -410,9 +421,14 @@ assembly cost of the polar masses (jl 08)                           ``demos.perf
 0- and 1-form wave equations, regularity and convergence (talk)     ``demos.waves``; model ``ScalarWave`` and ``Maxwell`` with
                                                                     ``algo="leapfrog"``; ``examples/ScalarWave/gaussian_perturbed_disk``,
                                                                     ``examples/Maxwell/gaussian_perturbed_disk``
-3D 1-form wave in a helical tube (talk)                             ``examples/Maxwell/gaussian_helical_tube`` (``HelicalTube("stellarator")``)
-guiding-centre orbits near the magnetic axis (talk)                 ``examples/GuidingCenter/vacuum_near_axis`` with the equilibrium
-                                                                    ``HelicalVacuumField``
+3D 1-form wave in a helical tube (talk)                             ``demos.waves3d``; ``examples/Maxwell/gaussian_helical_tube``
+                                                                    (``HelicalTube("stellarator")``)
+guiding-centre orbits near the magnetic axis (talk)                 ``demos.orbits``; ``examples/GuidingCenter/vacuum_near_axis`` with
+                                                                    the equilibrium ``HelicalVacuumField``
+spectrum explorer of the curl-curl operator (talk)                  ``demos.spectrum`` (``write_explorer(folder)``: an HTML page)
+de Rham diagrams, coordinate transformation, boundary homotopy      ``demos.schematics`` (diagrams with ``tikzfigure``)
+all figures and videos of the talk                                  ``python -m struphy.polar.homotopy.demos.talk_figures OUT``
+                                                                    (``--full``: the talk's resolution, hours; ``--videos``)
 ==================================================================  ==================================================================
 
 The wave and guiding-centre scripts of the talk were not available; these studies follow the methods stated in the
@@ -422,3 +438,6 @@ talk and in the wave script of the PolarFEEC.jl history (staggered leapfrog at :
 :math:`\max_t |E(t) - E(0)| / (\mu |B|)`). The reference solutions (the finest mesh of the highest regularity), the
 sampling of the :math:`L^\infty` norm, the final time :math:`T = 1`, the helical-tube geometries and the vacuum field
 (a single helical harmonic :math:`B = B_0 \nabla(z + \delta\, I_m(kr)\sin(m\theta - kz)/k)`) are choices of Struphy.
+With these choices the orbit study does not show the strong dependence of the energy error on :math:`\mathfrak r`
+reported in the talk; the spectrum explorer, the regularity study and the projection studies reproduce the talk
+(the eigenvalues and dimensions of the explorer agree with the talk's data to :math:`10^{-13}`).

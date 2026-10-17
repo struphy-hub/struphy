@@ -7,8 +7,8 @@ one); within a component the coefficients are ordered by a :class:`~struphy.pola
 ``i * n_y + j`` (:data:`~struphy.polar.homotopy.layout.STRUPHY`) or PolarFEEC.jl's ``i + j * n_x``
 (:data:`~struphy.polar.homotopy.layout.CORE`, the default). The derivatives are ``G = [dx (x) I; I (x) dy]`` and
 ``C = [-I (x) dy, dx (x) I]`` (radial factor first). The 1D factors are
-:class:`~struphy.polar.homotopy.derham_spaces.DerhamSpace1D` (the spaces of a Derham complex) or the reference spaces
-of :mod:`struphy.polar.homotopy.spaces1d`.
+:class:`~struphy.polar.homotopy.derham_spaces.DerhamSpace1D` (the spaces of a Derham complex) or the test-only
+reference spaces of ``struphy.polar.tests.reference_core``.
 """
 
 from functools import cached_property
@@ -18,7 +18,28 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
 from struphy.polar.homotopy.layout import CORE
-from struphy.polar.homotopy.spaces1d import _drop_small, mass_additional_order
+
+
+def _drop_small(M):
+    M = sp.csr_matrix(M)
+    if M.nnz:
+        scale = np.max(np.abs(M.data))
+        M.data[np.abs(M.data) < 100 * np.finfo(float).eps * scale] = 0.0
+        M.eliminate_zeros()
+    return M
+
+
+def mass_additional_order(coefficient, requested):
+    """Additional quadrature order of a mass matrix: 0 without and 2 (default) with a coefficient."""
+    if coefficient is None:
+        if requested not in (None, 0):
+            raise ValueError("additional_quadrature_order must be zero when no coefficient is supplied")
+        return 0
+    if requested is None:
+        return 2
+    if int(requested) != requested or requested < 0:
+        raise ValueError("additional quadrature order must be a nonnegative integer")
+    return int(requested)
 
 
 class FormComponent:

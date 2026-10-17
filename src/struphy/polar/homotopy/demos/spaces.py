@@ -6,31 +6,37 @@
 * 02: 0-, 1- and 2-forms on the unit square (clamped x periodic), ``curl o grad = 0`` exactly, projections that
   commute with the derivatives to round-off; commuting and L2 projections converge at order ``p + 1`` for 0-forms and
   ``p`` for 1- and 2-forms.
-* 03: a warped quarter annulus; physical 0-, 1- and 2-forms (scalar, covariant Piola and density pushforwards) with
-  commuting projections ``grad pi^0 phi = pi^1 grad phi`` and ``curl pi^1 u = pi^2 curl u``.
+* 03: a quarter annulus (``HollowCylinder(a1=1, a2=2, poc=4)``; the Julia example warps it); physical 0-, 1- and
+  2-forms (scalar, covariant Piola and density pushforwards) with commuting projections
+  ``grad pi^0 phi = pi^1 grad phi`` and ``curl pi^1 u = pi^2 curl u``.
+
+The 1D spaces are the spline spaces of Struphy's Derham complex (feectools ``SplineSpace``) and the trigonometric
+spaces of :mod:`struphy.feec.trig_space`; the square and the annulus are Struphy domains.
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from struphy.polar.homotopy import (
-    ClampedBSplineSpace,
-    CoordinateTransformation2D,
-    PeriodicBSplineSpace,
-    PhysicalFormSpace2D,
-    TrigonometricSpace,
-)
+from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import CATEGORICAL, DIVERGING
-from struphy.polar.homotopy.mappings import complex_step
+from struphy.polar.homotopy.forms2d import PhysicalFormSpace2D
+from struphy.polar.homotopy.layout import STRUPHY
+
+
+def complex_step(f, x, *args, argnum=0, h=1e-30):
+    """Derivative of the (analytic) function ``f`` in its argument ``argnum`` by the complex step."""
+    values = [np.asarray(x, dtype=complex), *[np.asarray(a, dtype=complex) for a in args]]
+    values[argnum] = values[argnum] + 1j * h
+    return np.imag(f(*values)) / h
 
 
 # ---------------------------------------------------------------------------------------------------- 01
 def spaces_1d(verbose=True):
     """Commuting-diagram residuals ``|d pi^0 f - pi^1 f'|`` of the three 1D families."""
     families = {
-        "clamped B-splines (3, 6)": (ClampedBSplineSpace(3, 6), lambda x: np.exp(-x) * np.sin(4 * np.pi * x)),
-        "periodic B-splines (3, 6)": (PeriodicBSplineSpace(3, 6), lambda x: np.exp(np.sin(2 * np.pi * x))),
-        "trigonometric (2 modes)": (TrigonometricSpace(2), lambda x: np.exp(np.sin(2 * np.pi * x))),
+        "clamped B-splines (3, 6)": (common.spline_space_1d(3, 6), lambda x: np.exp(-x) * np.sin(4 * np.pi * x)),
+        "periodic B-splines (3, 6)": (common.spline_space_1d(3, 6, True), lambda x: np.exp(np.sin(2 * np.pi * x))),
+        "trigonometric (2 modes)": (common.trigonometric_space_1d(5), lambda x: np.exp(np.sin(2 * np.pi * x))),
     }
     residuals = {}
     for name, (space, f) in families.items():
@@ -62,7 +68,11 @@ def figure_spaces_1d():
 
 # ---------------------------------------------------------------------------------------------------- 02
 def identity():
-    return CoordinateTransformation2D(lambda x, y: (x, y))
+    """The unit square (the Struphy domain ``Cuboid``)."""
+    from struphy.geometry import domains
+    from struphy.polar.homotopy.derham_blocks import DomainCrossSection
+
+    return DomainCrossSection(domains.Cuboid(), centered=False)
 
 
 def _g(x):
@@ -90,7 +100,9 @@ def curl_A(x, y):
 
 def tensor_spaces(p, n):
     return [
-        PhysicalFormSpace2D.from_factors(k, ClampedBSplineSpace(p, n), PeriodicBSplineSpace(p, n), identity())
+        PhysicalFormSpace2D.from_factors(
+            k, common.spline_space_1d(p, n), common.spline_space_1d(p, n, True), identity(), STRUPHY
+        )
         for k in range(3)
     ]
 
@@ -171,13 +183,11 @@ def figure_convergence(errors, cells=(8, 16, 32, 64, 128)):
 
 # ---------------------------------------------------------------------------------------------------- 03
 def quarter_annulus():
-    """``r = 1 + x (1 + 0.15 sin 4 pi y)``, angle ``pi y / 2``."""
+    """The quarter annulus ``1 < r < 2`` (the Struphy domain ``HollowCylinder(a1=1, a2=2, poc=4)``)."""
+    from struphy.geometry import domains
+    from struphy.polar.homotopy.derham_blocks import DomainCrossSection
 
-    def F(x, y):
-        r = 1 + x * (1 + 0.15 * np.sin(4 * np.pi * y))
-        return r * np.cos(np.pi * y / 2), r * np.sin(np.pi * y / 2)
-
-    return CoordinateTransformation2D(F)
+    return DomainCrossSection(domains.HollowCylinder(a1=1.0, a2=2.0, Lz=1.0, poc=4), centered=False)
 
 
 def vortices(x, y):
@@ -191,7 +201,9 @@ def vortices(x, y):
 def mapped_spaces(n=8):
     mapping = quarter_annulus()
     return [
-        PhysicalFormSpace2D.from_factors(k, ClampedBSplineSpace(3, n), ClampedBSplineSpace(3, 2 * n), mapping)
+        PhysicalFormSpace2D.from_factors(
+            k, common.spline_space_1d(3, n), common.spline_space_1d(3, 2 * n), mapping, STRUPHY
+        )
         for k in range(3)
     ]
 

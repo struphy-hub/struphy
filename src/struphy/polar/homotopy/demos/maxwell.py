@@ -13,7 +13,7 @@ import numpy as np
 import scipy.linalg as sla
 from scipy.special import jv, jvp
 
-from struphy.polar.homotopy import ClampedBSplineSpace, DiskMapping, PeriodicBSplineSpace, PolarComplex2D, zernike_basis
+from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import CATEGORICAL, DIVERGING, clean_axis
 
 DEGREE = 4
@@ -44,24 +44,32 @@ def dbessel_zeros(m, xmax, step=0.05):
 
 
 def exact_spectrum(lambda_max=2000.0):
-    """Sorted exact eigenvalues below ``lambda_max`` with multiplicity, as ``(lambda, m, k)``."""
+    """Sorted exact eigenvalues below ``lambda_max`` with multiplicity, as ``(lambda, m, k)`` (zeros of ``J_m'`` from
+    ``scipy.special.jnp_zeros``)."""
+    from scipy.special import jnp_zeros
+
     xmax = np.sqrt(lambda_max)
     modes = []
-    for m in range(int(np.ceil(xmax)) + 1):
-        for k, j in enumerate(dbessel_zeros(m, xmax), start=1):
+    m = 0
+    while True:
+        count = 1
+        zeros = jnp_zeros(m, count)
+        if zeros[0] >= xmax:
+            break
+        while zeros[-1] < xmax:
+            count *= 2
+            zeros = jnp_zeros(m, count)
+        for k, j in enumerate(zeros[zeros < xmax], start=1):
             modes += [(j**2, m, k)] * (1 if m == 0 else 2)
+        m += 1
     return sorted(modes)
 
 
 def eigenproblem(radial_cells, angular_cells, degree=DEGREE, regularity=REGULARITY):
-    """Dense generalized eigenproblem ``C^T M_2 C a = lambda M_1 a`` in the Dirichlet polar 1-form space."""
-    polar = PolarComplex2D(
-        ClampedBSplineSpace(degree, radial_cells),
-        PeriodicBSplineSpace(degree, angular_cells),
-        DiskMapping(),
-        regularity=regularity,
-        boundary="dirichlet",
-        basis=zernike_basis(regularity, radius=degree / radial_cells),
+    """Dense generalized eigenproblem ``C^T M_2 C a = lambda M_1 a`` in the Dirichlet polar 1-form space (2D Struphy
+    Derham complex on the unit disk ``HollowCylinder(a1=0)``)."""
+    polar = common.polar_complex(
+        regularity, degree, (radial_cells, angular_cells), domain=common.unit_disk(), boundary="dirichlet"
     )
     C = polar.derivative(1)
     K = (C.T @ polar.mass_matrix(2) @ C).toarray()

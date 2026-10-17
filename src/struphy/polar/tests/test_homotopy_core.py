@@ -5,20 +5,18 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
-from struphy.polar.homotopy import (
+from struphy.polar.homotopy import PolarComplex2D, monomial_basis, zernike_basis
+from struphy.polar.homotopy.linalg import as_dense
+from struphy.polar.homotopy.solvers import curl_curl_free_lunch, range_projection
+from struphy.polar.tests.reference_core import (
     ClampedBSplineSpace,
     CoordinateTransformation2D,
     DiskMapping,
     PeriodicBSplineSpace,
-    PolarComplex2D,
     TrigonometricSpace,
-    monomial_basis,
+    complex_step,
     perturbed_disk,
-    zernike_basis,
 )
-from struphy.polar.homotopy.linalg import as_dense
-from struphy.polar.homotopy.mappings import complex_step
-from struphy.polar.homotopy.solvers import curl_curl_free_lunch, range_projection
 
 DISC = DiskMapping()
 

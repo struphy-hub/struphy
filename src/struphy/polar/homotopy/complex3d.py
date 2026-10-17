@@ -159,7 +159,7 @@ class PolarComplex3D(TensorProductComplex):
     ----------
     polar2d : PolarComplex2D
         Polar complex of the reference cross-section.
-    toroidal : PeriodicBSplineSpace or TrigonometricSpace
+    toroidal : DerhamSpace1D (periodic B-splines or trigonometric functions)
         Periodic toroidal 0-form space.
     """
 

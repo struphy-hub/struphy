@@ -6,22 +6,31 @@ polynomials of degree ``<= r``, so its 0-forms are ``C^r`` at the centre. A func
 when, for each ``j <= k``, its ``j``-th derivative along the ray at angle ``alpha`` contains only the angular harmonics
 ``j, j - 2, ...``. The size ``delta_j`` of the remaining harmonics is measured by polynomial fits along 48 rays.
 
-The defaults are those of the Julia example: the star-shaped disk ``R = x (1 + 0.2 cos(6 pi y))``, B-splines of
-degree 5 on 8 cells in ``x`` and 24 Fourier modes in ``y``, regularities ``r = 0, ..., 3``.
+The defaults are those of the Julia example: the star-shaped disk ``R = x (1 + 0.2 cos(6 pi y))`` (the Struphy
+domain ``PerturbedDiskCylinder(power=0)``), B-splines of degree 5 on 8 cells in ``x`` and 24 Fourier modes in ``y``
+(``angular="trig"``; ``angular="bspline"``: 24 periodic B-spline cells), regularities ``r = 0, ..., 3``. The spaces are
+those of a 2D Struphy Derham complex (see :mod:`.common`).
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from struphy.polar.homotopy import ClampedBSplineSpace, DiskMapping, PeriodicBSplineSpace, PolarComplex2D
+from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import CATEGORICAL, DIVERGING, clean_axis
 from struphy.polar.homotopy.forms2d import PhysicalFormSpace2D
-from struphy.polar.homotopy.spaces1d import TrigonometricSpace
+
+#: the default angular space; the talk uses 24 Fourier modes (``"trig"``)
+ANGULAR = "trig"
+
+
+def angular_cells(angular):
+    """24 periodic B-spline cells, or 24 Fourier modes (49 trigonometric functions)."""
+    return 24 if angular == "bspline" else 49
 
 
 def star_disk():
-    """The star-shaped disk of the Julia example (radius linear in ``x``)."""
-    return DiskMapping(radius=lambda r, t: r * (1 + 0.2 * np.cos(6 * np.pi * t)))
+    """The cross-section of the star-shaped disk of the Julia example (radius linear in ``x``)."""
+    return common.cross_section(common.star_disk())
 
 
 def f(x, y):
@@ -151,19 +160,22 @@ def field_smoothness_defects(field, domain, eta3=0.0, a=0.06, degree=10, samples
     return np.array([nonpolynomial_part(D[k], alpha, k) / np.max(np.abs(D[k])) for k in range(1, 4)])
 
 
-def build(radial=None, angular=None, regularities=(0, 1, 2, 3), mapping=None):
-    """Tensor-product 0-form space and the polar complexes of the study."""
-    mapping = star_disk() if mapping is None else mapping
-    radial = ClampedBSplineSpace(5, 8) if radial is None else radial
-    angular = TrigonometricSpace(24) if angular is None else angular
-    tensor = PhysicalFormSpace2D.from_factors(0, radial, angular, mapping)
-    polar = {r: PolarComplex2D(radial, angular, mapping, regularity=r) for r in regularities}
-    return mapping, tensor, polar
+def build(angular=None, regularities=(0, 1, 2, 3), degree=5, radial_cells=8):
+    """Tensor-product 0-form space and the polar complexes of the study (Struphy Derham spaces on the star disk)."""
+    angular = ANGULAR if angular is None else angular
+    domain = common.star_disk()
+    cells = (radial_cells, angular_cells(angular))
+    tensor = common.tensor_space(0, degree, cells, domain=domain, angular=angular)
+    polar = {
+        r: common.polar_complex(r, degree, cells, domain=domain, angular=angular, check_assumptions=False)
+        for r in regularities
+    }
+    return tensor.mapping, tensor, polar
 
 
-def study(radial=None, angular=None, regularities=(0, 1, 2, 3), verbose=True):
+def study(angular=None, regularities=(0, 1, 2, 3), verbose=True, **kwargs):
     """Dimensions, cohomology and the defects of the commuting projections of ``f``; returns a dict of results."""
-    mapping, tensor, polar = build(radial, angular, regularities)
+    mapping, tensor, polar = build(angular, regularities, **kwargs)
     lines = ["  r   dim V0  dim V1  dim V2   central 0/1/2   cohomology"]
     for r, c in polar.items():
         dims = tuple(c.dimension(k) for k in range(3))
@@ -301,7 +313,85 @@ def figure_regularity(results, radii=None):
 
 def bspline_angular_defects(regularity=3):
     """The defects with a B-spline angular factor: regularity up to the spline approximation of the polynomials."""
-    mapping = star_disk()
-    c = PolarComplex2D(ClampedBSplineSpace(5, 8), PeriodicBSplineSpace(5, 24), mapping, regularity=regularity)
+    c = common.polar_complex(regularity, 5, (8, 24), domain=common.star_disk(), check_assumptions=False)
     u = c[0](f)
     return smoothness_defects(lambda X, Y: c.spaces[0].evaluate_physical(u, X, Y))
+
+
+# ---------------------------------------------------------------------------------------------------- line figures
+def line_derivatives(complex_, form, coefficients, k_max, cells=2, samples=24, fit_degree=10):
+    """``d^k u / dx^k`` (``k <= k_max``) of the 0-form (``form=0``) or the 2-form density (``form=2``) along the line
+    ``y = 0`` through the pole (the rays ``eta2 = 0`` and ``1/2``), on the first ``cells`` radial cells each side.
+
+    On each radial cell the field is fitted by a polynomial in ``x`` (exact for 0-forms on the star disk, where ``x``
+    is linear in ``eta1`` along these rays). Returns ``x``, the derivative curves ``(k_max + 1, len(x))`` and the
+    one-sided limits ``(k_max + 1, 2)`` at the pole."""
+    space = complex_.spaces[form]
+    mapping = space.mapping
+    breaks = np.linspace(0, 1, complex_.radial.cells + 1)[: cells + 1]
+    xs, curves, limits = [], [], np.zeros((k_max + 1, 2))
+    for side, eta2 in ((0, 0.5), (1, 0.0)):
+        pieces_x, pieces_d = [], []
+        for c in range(cells):
+            t = breaks[c] + (breaks[c + 1] - breaks[c]) * (1 - np.cos(np.pi * (np.arange(samples) + 0.5) / samples)) / 2
+            X, Y = mapping(t, np.full_like(t, eta2))
+            x = X if side else X  # signed distance along y = 0 (X < 0 on the ray eta2 = 1/2)
+            u = np.asarray(space.evaluate_points(coefficients, t, np.full_like(t, eta2)))
+            fit = np.polynomial.Polynomial.fit(x, u, min(fit_degree, samples - 1))
+            grid = np.linspace(x.min(), x.max(), 60)
+            pieces_x.append(grid)
+            pieces_d.append(np.array([fit.deriv(k)(grid) if k else fit(grid) for k in range(k_max + 1)]))
+            if c == 0:
+                x0 = 0.0
+                limits[:, side] = [fit.deriv(k)(x0) if k else fit(x0) for k in range(k_max + 1)]
+        order = np.argsort(np.concatenate(pieces_x))
+        xs.append(np.concatenate(pieces_x)[order])
+        curves.append(np.concatenate(pieces_d, axis=1)[:, order])
+    x = np.concatenate([xs[0], [np.nan], xs[1]])
+    curve = np.concatenate([curves[0], np.full((k_max + 1, 1), np.nan), curves[1]], axis=1)
+    return x, curve, limits
+
+
+def random_polar_element(complex_, form, seed=3):
+    """Full coefficients of a random element of the polar space of degree ``form``."""
+    rng = np.random.default_rng(seed)
+    E = complex_.extraction(form)
+    return E @ rng.standard_normal(E.shape[1])
+
+
+def figure_regularity_lines(form=0, regularities=None, orders=None, angular=None, degree=5, radial_cells=8, seed=3):
+    """The talk's regularity figures: ``d^k`` of a random polar ``form``-form (0-forms: ``r = 0..3``, ``k = 1..4``;
+    2-form densities: ``r = 1..4``, ``k = 0..3``) along a line through the pole; grey panels jump at the pole."""
+    angular = ANGULAR if angular is None else angular
+    regularities = (0, 1, 2, 3) if form == 0 else (1, 2, 3, 4) if regularities is None else regularities
+    regularities = regularities if regularities is not None else (0, 1, 2, 3)
+    orders = (1, 2, 3, 4) if form == 0 else (0, 1, 2, 3) if orders is None else orders
+    cells = (radial_cells, angular_cells(angular))
+    smooth_up_to = (lambda r: r) if form == 0 else (lambda r: r - 2)
+    fig, axes = plt.subplots(len(orders), len(regularities), figsize=(2.3 * len(regularities), 1.6 * len(orders)))
+    for col, r in enumerate(regularities):
+        c = common.polar_complex(r, degree, cells, domain=common.star_disk(), angular=angular, check_assumptions=False)
+        x, curves, limits = line_derivatives(c, form, random_polar_element(c, form, seed), max(orders))
+        color = CATEGORICAL[col % len(CATEGORICAL)]
+        for row, k in enumerate(orders):
+            ax = axes[row, col]
+            jump = k > smooth_up_to(r)
+            ax.set_facecolor("0.94" if jump else "white")
+            ax.plot(x, curves[k], color=color, linewidth=1.6)
+            ax.plot([0, 0], limits[k], "o", color=color, markersize=4)
+            ax.axvline(0, color="0.7", linewidth=0.8)
+            for b in np.linspace(0, 1, radial_cells + 1)[1:3]:
+                for sign_x in (np.nanmax(x) / (2 / radial_cells), np.nanmin(x) / (2 / radial_cells)):
+                    ax.axvline(b * sign_x, color="0.7", linestyle=":", linewidth=0.8)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if row == 0:
+                ax.set_title(f"$r = {r}$", color=color, fontsize=13)
+            if col == 0:
+                ax.set_ylabel(f"$k = {k}$", rotation=0, labelpad=22, fontsize=12)
+            if row == len(orders) - 1:
+                ax.set_xlabel("$x = 0$")
+    name = "0-form $u$" if form == 0 else "2-form density"
+    fig.suptitle(rf"$d^k/dx^k$ of a random polar {name} along $y = 0$ (grey: discontinuous at the pole)", fontsize=11)
+    fig.tight_layout()
+    return fig

@@ -25,14 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse.linalg as spla
 
-from struphy.polar.homotopy import (
-    ClampedBSplineSpace,
-    DiskMapping,
-    PeriodicBSplineSpace,
-    PolarComplex2D,
-    TrigonometricSpace,
-    zernike_basis,
-)
+from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import CATEGORICAL, DIVERGING, clean_axis, draw_mesh
 from struphy.polar.homotopy.linalg import as_dense
 
@@ -41,7 +34,8 @@ CENTER, WIDTH = (0.05, 0.0), 0.04
 
 
 def perturbed_disk():
-    return DiskMapping(radius=lambda r, t: r * (1 + AMPLITUDE * r * np.cos(2 * np.pi * PETALS * t)))
+    """The cross-section of the Struphy domain ``PerturbedDiskCylinder`` of the talk."""
+    return common.cross_section(common.perturbed_disk(AMPLITUDE, PETALS))
 
 
 def gaussian(x, y, center=CENTER, width=WIDTH):
@@ -59,21 +53,13 @@ def bump(x, y, center=(0.38, 0.0), radius=0.24):
     return out
 
 
-def angular_space(kind, degree, cells):
-    """``"bspline"``: periodic B-splines with ``cells`` cells; ``"trig"``: ``cells`` (odd) real trigonometric functions."""
-    if kind == "bspline":
-        return PeriodicBSplineSpace(degree, cells)
-    if cells % 2 == 0:
-        raise ValueError("the number of trigonometric functions must be odd")
-    return TrigonometricSpace((cells - 1) // 2)
-
-
 class WaveProblem:
-    """Polar wave semidiscretization of degree ``form`` and regularity ``r``.
+    """Polar wave semidiscretization of degree ``form`` and regularity ``r`` on a 2D Struphy Derham complex.
 
-    ``mapping`` defines the pushforward; ``space_mapping`` (default: the same) the logical spaces of the polar
-    complex (the "non-matching" study of the talk uses the unit disk for the spaces and the perturbed disk for the
-    pushforward).
+    ``domain`` (default: the perturbed disk) defines the pushforward. With ``non_matching=True`` the polar spaces are
+    constructed on the unit disk (``polar_cross_section="unit_disk"``) and pushed forward with ``domain`` (the
+    "non-matching" study of the talk). ``angular`` is ``"bspline"`` (``angular_cells`` periodic B-spline cells) or
+    ``"trig"`` (``angular_cells`` trigonometric functions, odd).
     """
 
     def __init__(
@@ -85,27 +71,28 @@ class WaveProblem:
         angular="bspline",
         angular_cells=16,
         enrichment="cochain_chain",
-        mapping=None,
-        space_mapping=None,
+        domain=None,
+        non_matching=False,
         initial=gaussian,
     ):
+        from struphy.polar.homotopy.derham_blocks import DomainCrossSection
+
         self.form, self.regularity = form, regularity
-        mapping = perturbed_disk() if mapping is None else mapping
-        radial = ClampedBSplineSpace(degree, radial_cells)
-        ang = angular_space(angular, degree, angular_cells)
-        # the polynomial projections use space_mapping; the physical spaces (masses, observables) use mapping
-        construction = mapping if space_mapping is None else space_mapping
-        complex_ = PolarComplex2D(
-            radial,
-            ang,
-            construction,
+        domain = common.perturbed_disk(AMPLITUDE, PETALS) if domain is None else domain
+        complex_ = common.polar_complex(
             regularity,
-            enrichment=enrichment,
+            degree,
+            (radial_cells, angular_cells),
+            domain=domain,
+            angular=angular,
             boundary="dirichlet",
-            basis=zernike_basis(regularity, radius=degree / radial_cells),
+            enrichment=enrichment,
+            cross_section="unit_disk" if non_matching else "domain",
             check_assumptions=False,
         )
-        if space_mapping is not None:
+        if non_matching:
+            # the physical spaces (masses, observables) use the pushforward of the domain
+            mapping = DomainCrossSection(domain)
             for space in complex_.spaces:
                 space.mapping = mapping
             complex_._cache.clear()
@@ -172,7 +159,9 @@ def sample_points(n=121, radius=1.0):
     x = np.linspace(-1.2 * radius, 1.2 * radius, n)
     X, Y = np.meshgrid(x, x, indexing="ij")
     logical_x, logical_y = mapping.inverse(X.ravel(), Y.ravel())
-    inside = logical_x < 1 - 1e-12
+    # the pole itself is left out: the pushforward of 2-forms divides by det J = 0 there (and the 2-forms of r = 0
+    # have no limit at the pole)
+    inside = (logical_x < 1 - 1e-12) & (logical_x > 1e-12)
     return logical_x[inside], logical_y[inside]
 
 

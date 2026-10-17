@@ -77,13 +77,18 @@ class DomainCrossSection(CrossSection):
     """The poloidal cross-section ``eta3 = const`` of a struphy :class:`~struphy.geometry.base.Domain` as a 2D map.
 
     Physical points are expressed in an orthonormal basis ``(q1, q2)`` of the (planar) cross-section, centred at the
-    pole; the Jacobian is ``[q1 q2]^T DF[:, :2]`` from the domain's analytic Jacobian. Tensor grids (``"ij"``
-    meshgrids) are evaluated with one call of the domain.
+    pole (``centered=False``: the absolute ``x, y`` coordinates of a cross-section ``z = const``); the Jacobian is
+    ``[q1 q2]^T DF[:, :2]`` from the domain's analytic Jacobian. Tensor grids (``"ij"`` meshgrids) are evaluated with
+    one call of the domain.
     """
 
-    def __init__(self, domain, eta3=0.0):
+    def __init__(self, domain, eta3=0.0, centered=True):
         self.domain, self.eta3 = domain, float(eta3)
         e3 = np.array([self.eta3])
+        if not centered:
+            # absolute coordinates of a cross-section in the plane z = const (domains without a pole)
+            self.pole, self.basis = np.zeros(3), np.eye(3)[:, :2]
+            return
         pole = self._map(np.array([0.0]), np.array([0.0]), e3).reshape(3)
         a = self._map(np.array([1.0]), np.array([0.0]), e3).reshape(3) - pole
         b = self._map(np.array([1.0]), np.array([0.25]), e3).reshape(3) - pole
@@ -116,12 +121,8 @@ class DomainCrossSection(CrossSection):
             P = self._map(axes[0], axes[1], np.array([self.eta3])).reshape(3, -1)
             Q = (self.basis.T @ (P - self.pole[:, None])).reshape(2, *x.shape)
             return Q[0], Q[1]
-        flat_x, flat_y = x.ravel(), y.ravel()
-        out = np.empty((2, flat_x.size))
-        for unique_y in np.unique(flat_y):
-            mask = flat_y == unique_y
-            P = self._map(flat_x[mask], np.array([unique_y]), np.array([self.eta3])).reshape(3, -1)
-            out[:, mask] = self.basis.T @ (P - self.pole[:, None])
+        P = _host(self.domain(self._markers(x, y))).reshape(3, -1)
+        out = self.basis.T @ (P - self.pole[:, None])
         return out[0].reshape(x.shape), out[1].reshape(x.shape)
 
     def jacobian_matrix(self, x, y):
@@ -130,13 +131,31 @@ class DomainCrossSection(CrossSection):
         if axes is not None:
             DF = self._domain_jacobian(axes[0], axes[1]).reshape(3, 3, -1)[:, :2, :]
             return np.einsum("ka,kbn->nab", self.basis, DF).reshape(x.shape + (2, 2))
+        DF = _host(self.domain.jacobian(self._markers(x, y))).reshape(3, 3, -1)[:, :2, :]
+        return np.einsum("ka,kbn->nab", self.basis, DF).reshape(x.shape + (2, 2))
+
+    def _markers(self, x, y):
+        """Scattered logical points as Struphy markers ``(N, 3)`` on the active backend."""
         flat_x, flat_y = x.ravel(), y.ravel()
-        out = np.empty((flat_x.size, 2, 2))
-        for unique_y in np.unique(flat_y):
-            mask = flat_y == unique_y
-            DF = self._domain_jacobian(flat_x[mask], [unique_y]).reshape(3, 3, -1)[:, :2, :]
-            out[mask] = np.einsum("ka,kbn->nab", self.basis, DF)
-        return out.reshape(x.shape + (2, 2))
+        return xp.asarray(np.column_stack([flat_x, flat_y % 1.0, np.full(flat_x.size, self.eta3)]))
+
+    def inverse(self, X, Y, tol=1e-13, maxiter=50):
+        """Logical coordinates of physical points of the cross-section (Newton's method started at the polar angle,
+        for cross-sections parametrized by ``eta2`` as an angle around the pole)."""
+        X, Y = np.broadcast_arrays(np.asarray(X, dtype=float), np.asarray(Y, dtype=float))
+        target = np.stack([X.ravel(), Y.ravel()])
+        size = float(np.mean(np.hypot(*self(np.ones(16), np.arange(16) / 16))))
+        x = np.clip(np.hypot(*target) / size, 0.0, 1.0)
+        y = (np.arctan2(target[1], target[0]) / (2 * np.pi)) % 1.0
+        for _ in range(maxiter):
+            residual = np.stack(self(x, y)) - target
+            if np.max(np.abs(residual)) < tol * size:
+                break
+            J = self.jacobian_matrix(np.maximum(x, 1e-12), y)
+            step = np.linalg.solve(J, -residual.T[..., None])[..., 0]
+            x = np.clip(x + step[:, 0], 0.0, 1.0)
+            y = (y + step[:, 1]) % 1.0
+        return x.reshape(X.shape), y.reshape(X.shape)
 
 
 def cross_section_mapping(domain, cross_section="domain"):
@@ -192,6 +211,69 @@ def scaled_zernike_basis(regularity, radius):
 
 
 # ------------------------------------------------------------------------------------------------- blocks
+def poloidal_derham(degree, num_elements, domain=None, nquads=None, comm=None, angular="bspline"):
+    """A 2D Derham complex of the cross-section: ``num_elements = (N1, N2)`` cells and ``degree = (p1, p2)`` in the
+    poloidal plane, one periodic cell of degree one in ``eta3`` (tensor-product splines; the polar complexes of the 2D
+    studies are built on it with :func:`derham_polar_complex`). With ``angular="trig"``, ``N2`` (odd) trigonometric
+    functions in ``eta2``."""
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    p1, p2 = degree
+    options = DerhamOptions(
+        degree=(p1, p2, 1),
+        bcs=(("free", "free"), None, None),
+        nquads=None if nquads is None else (nquads[0], nquads[1], 2),
+        nquads_proj=(p1 + 3, p2 + 3, 2),
+        angular_basis=angular,
+    )
+    # (eta2 is never decomposed with trigonometric functions)
+    mask = (True, False, False) if angular == "trig" else (False, True, False)
+    grid = TensorProductGrid(num_elements=(num_elements[0], num_elements[1], 1), mpi_dims_mask=mask)
+    return Derham(grid, options, comm=comm, domain=domain)
+
+
+def derham_polar_complex(
+    derham,
+    domain,
+    regularity,
+    boundary="free",
+    enrichment="cochain_chain",
+    polynomial_projection="commuting",
+    cross_section="domain",
+    check_assumptions=True,
+):
+    """The 2D polar complex of a Struphy Derham complex: built from the Derham's 1D spline spaces (eta1, eta2), on the
+    cross-section of the Struphy ``domain``, in Struphy's coefficient ordering.
+
+    This is the complex of the polar splines of the Derham complex (``boundary="free"``); with
+    ``boundary="dirichlet"`` it is the relative complex of the 2D studies (``P = 0``, ``A x n = 0`` at ``eta1 = 1``).
+    The polynomials are the Zernike polynomials scaled to the polar rings (:func:`scaled_zernike_basis`)."""
+    assert not derham.spl_kind[0], "polar splines need clamped splines in eta1"
+    assert derham.spl_kind[1], "polar splines need periodic splines in eta2"
+    r = int(regularity)
+    radial, angular, _ = derham_factors(derham)
+    mapping = cross_section_mapping(domain, cross_section)
+    if isinstance(mapping, DomainCrossSection) and r >= 2:
+        _warn_if_cross_section_varies(mapping)
+    radius = polar_radius(mapping, min(1.0, derham.degree[0] / derham.num_elements[0]))
+    c = PolarComplex2D(
+        radial,
+        angular,
+        mapping,
+        r,
+        enrichment=enrichment,
+        boundary=boundary,
+        polynomial_projection=polynomial_projection,
+        basis=scaled_zernike_basis(r, radius),
+        check_assumptions=check_assumptions,
+        layout=STRUPHY,
+    )
+    c.polar_radius = radius
+    return c
+
+
 class PolarExtractionBlocksHomotopy:
     """High-order polar extraction blocks for :class:`~struphy.feec.psydac_derham.Derham`.
 
@@ -226,26 +308,18 @@ class PolarExtractionBlocksHomotopy:
     ):
         assert not derham.spl_kind[0], "polar splines need clamped splines in eta1"
         assert derham.spl_kind[1], "polar splines need periodic splines in eta2"
-        p1 = derham.degree[0]
-        N1, N2 = derham.num_elements[0], derham.num_elements[1]
+        N2 = derham.num_elements[1]
         self.regularity = r = int(regularity)
-        # the 1D spaces of the Derham complex, coefficients in Struphy's ordering
-        radial, angular, _ = derham_factors(derham)
-        mapping = cross_section_mapping(domain, cross_section)
-        if isinstance(mapping, DomainCrossSection) and r >= 2:
-            _warn_if_cross_section_varies(mapping)
-        self.polar_radius = polar_radius(mapping, min(1.0, p1 / N1))
-        self.complex2d = c = PolarComplex2D(
-            radial,
-            angular,
-            mapping,
+        self.complex2d = c = derham_polar_complex(
+            derham,
+            domain,
             r,
             enrichment=enrichment,
             polynomial_projection=polynomial_projection,
-            basis=scaled_zernike_basis(r, self.polar_radius),
+            cross_section=cross_section,
             check_assumptions=check_assumptions,
-            layout=STRUPHY,
         )
+        self.polar_radius = c.polar_radius
         nx0, ny0, nx1, ny1 = c._shapes
         # shapes (rings, angular coefficients) of the 2D tensor-product components
         self.shapes = {"0": (nx0, ny0), "1x": (nx1, ny0), "1y": (nx0, ny1), "2": (nx1, ny1)}

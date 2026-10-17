@@ -7,13 +7,14 @@ commuting projections commute with ``grad``, ``curl`` and with the homotopies ``
 round-off (and quadrature), the L2 projections only up to the approximation error.
 
 The test functions, the mesh (``N`` radial and ``4 N`` angular cells) and the perturbed disk are choices of this port;
-the talk does not state them.
+the talk does not state them. The spaces are those of 2D Struphy Derham complexes on the domain
+``PerturbedDiskCylinder`` (see :mod:`.common`).
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from struphy.polar.homotopy import ClampedBSplineSpace, PeriodicBSplineSpace, PolarComplex2D, perturbed_disk
+from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import CATEGORICAL
 
 
@@ -70,15 +71,11 @@ def poincare_curl(B):
     return h
 
 
-def complexes(regularity, cells=(4, 8, 16, 32), angular_factor=4, mapping=None):
-    mapping = perturbed_disk() if mapping is None else mapping
+def complexes(regularity, cells=(4, 8, 16, 32), angular_factor=4, domain=None):
+    """Polar complexes with B-splines of degree ``r`` on ``N`` radial and ``4 N`` angular cells."""
+    domain = common.perturbed_disk() if domain is None else domain
     return [
-        PolarComplex2D(
-            ClampedBSplineSpace(regularity, n),
-            PeriodicBSplineSpace(regularity, angular_factor * n),
-            mapping,
-            regularity=regularity,
-        )
+        common.polar_complex(regularity, regularity, (n, angular_factor * n), domain=domain, check_assumptions=False)
         for n in cells
     ]
 

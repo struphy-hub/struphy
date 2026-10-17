@@ -1674,6 +1674,14 @@ class BasisProjectionOperator(LinearOperator):
         polar_shift: bool = False,
         use_cache: bool = False,
     ):
+        if getattr(P.space, "spaces", None) is not None and any(
+            getattr(sp, "is_trigonometric", False)
+            for comp in getattr(P.space, "spaces", [])
+            for sp in getattr(comp, "spaces", [comp])
+        ):
+            raise NotImplementedError(
+                "BasisProjectionOperator needs B-splines in every direction (not angular_basis='trig')"
+            )
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 

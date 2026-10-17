@@ -37,6 +37,7 @@ from struphy.bsplines.kernels.eval_spline_mpi_tensor_product_fixed import eval_s
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
+from struphy.feec.trig_space import TrigonometricSpace, tensor_fem_space
 from struphy.feec.utilities import get_quad_grids
 from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
 from struphy.geometry.base import Domain
@@ -146,8 +147,8 @@ class DiscreteDerham:
                 [L2_space.ncells],
                 [L2_space.periodic],
             )
-            H1_space_tensor = TensorFemSpace(H1_domain_decomp, H1_space)
-            L2_space_tensor = TensorFemSpace(L2_domain_decomp, L2_space)
+            H1_space_tensor = tensor_fem_space(H1_domain_decomp, H1_space)
+            L2_space_tensor = tensor_fem_space(L2_domain_decomp, L2_space)
 
             H1_space_tensor.symbolic_space = f"H1_1d_eta{d + 1}"
             L2_space_tensor.symbolic_space = f"L2_1d_eta{d + 1}"
@@ -654,6 +655,18 @@ class Derham:
         # smoothness at the polar singularity: False for standard tensor product splines, True for polar splines of
         # regularity polar_regularity
         self._polar_splines = polar_splines
+
+        # basis in eta2: periodic B-splines or trigonometric functions (num_elements[1] of them, odd)
+        self._angular_basis = options.angular_basis
+        if self._angular_basis == "trig":
+            assert self.spl_kind[1], "trigonometric functions need a periodic eta2 (bcs[1] = None)"
+            assert num_elements[1] % 2 == 1 and num_elements[1] >= 3, (
+                "with angular_basis='trig', num_elements[1] is the (odd) number of trigonometric functions"
+            )
+            assert mpi_dims_mask is None or not mpi_dims_mask[1], (
+                "trigonometric functions in eta2 need an undecomposed eta2: use mpi_dims_mask = (., False, .)"
+            )
+            assert not local_projectors, "local projectors do not support trigonometric functions"
         self._polar_regularity = options.polar_regularity
         self._polar_enrichment = options.polar_enrichment
         self._polar_polynomial_projection = options.polar_polynomial_projection
@@ -999,6 +1012,11 @@ class Derham:
         """Smoothness at eta_1=0: False for standard tensor product splines, True for polar splines of regularity
         ``polar_regularity``."""
         return self._polar_splines
+
+    @property
+    def angular_basis(self) -> str:
+        """Basis in eta2: ``"bspline"`` (periodic B-splines) or ``"trig"`` (trigonometric functions)."""
+        return getattr(self, "_angular_basis", "bspline")
 
     @property
     def polar_regularity(self) -> int:
@@ -1523,7 +1541,16 @@ class Derham:
     @property
     def args_derham(self) -> DerhamArguments | CudaDerhamArguments:
         """Mandatory pusher kernel arguments for the backend used at initialization."""
+        self._require_splines("particles (pusher and accumulation kernels)")
         return self._args_derham
+
+    def _require_splines(self, feature):
+        """Raise for features whose kernels evaluate B-splines in every direction."""
+        if self.angular_basis == "trig":
+            raise NotImplementedError(
+                f"{feature} need B-splines in every direction; trigonometric functions in eta2 "
+                "(DerhamOptions(angular_basis='trig')) support FEEC operations only"
+            )
 
     def kernels(self) -> tuple:
         """The kernels called on the data of this complex.
@@ -1738,6 +1765,7 @@ class Derham:
         bds : 3-tuple of 3d float arrays
             Values of degree non-zero D-Splines at quadrature points in format (n, nq, basis).
         """
+        self._require_splines("prepare_eval_tp_fixed (fixed-grid spline evaluation)")
 
         # spline degree and knot vectors must come from N-spline spaces (V0 space)
         spans, bns, bds = [], [], []
@@ -1871,10 +1899,13 @@ class Derham:
             SplineSpace(degree, multiplicity=m, grid=grid, periodic=P)
             for degree, m, grid, P in zip(degree_i, multiplicity_i, grids, periodic)
         ]
+        # trigonometric functions in eta2 (num_elements[1] functions, see struphy.feec.trig_space)
+        if getattr(self, "_angular_basis", "bspline") == "trig":
+            spaces_1d[1] = TrigonometricSpace(ncells[1], "B")
 
         carts = create_cart([ddm], [spaces_1d])
 
-        Vh = TensorFemSpace(ddm, *spaces_1d, cart=carts[0])
+        Vh = tensor_fem_space(ddm, *spaces_1d, cart=carts[0])
 
         if V == "H1":
             Wh = Vh
@@ -2897,6 +2928,43 @@ class SplineFunction:
 
         return out
 
+    def _eval_with_1d_bases(self, *etas, squeeze_out=False):
+        """Evaluation by contracting the global coefficients with the 1D basis values of each direction (B-/M-splines
+        or trigonometric functions); markers ``(N, 3)`` or tensor grids, as :meth:`__call__`."""
+        import numpy
+
+        stencils = [self._vector_stencil] if isinstance(self._vector_stencil, StencilVector) else self._vector_stencil
+        fem = self.fem_space
+        components = [fem] if isinstance(fem, TensorFemSpace) else list(fem.spaces)
+
+        def basis_1d(space, x):
+            from struphy.polar.homotopy.derham_spaces import basis_values_1d
+
+            return basis_values_1d(space, numpy.asarray(xp.to_numpy(x), dtype=float))
+
+        if len(etas) == 1:
+            markers = numpy.asarray(xp.to_numpy(etas[0]))[:, :3]
+            axes = None
+        else:
+            E1, E2, E3, _ = Domain.prepare_eval_pts(*etas)
+            axes = [numpy.asarray(xp.to_numpy(E))[:, 0, 0] for E in (E1,)]
+            axes += [numpy.asarray(xp.to_numpy(E2))[0, :, 0], numpy.asarray(xp.to_numpy(E3))[0, 0, :]]
+        values = []
+        for space, stencil in zip(components, stencils):
+            coefficients = numpy.asarray(xp.to_numpy(stencil.toarray())).reshape(stencil.space.npts)
+            if self.derham.comm is not None and self.derham.comm.Get_size() > 1:
+                coefficients = self.derham.comm.allreduce(coefficients)
+            if axes is None:
+                B = [basis_1d(V, markers[:, d]) for d, V in enumerate(space.spaces)]
+                values.append(numpy.einsum("ijk,mi,mj,mk->m", coefficients, *B))
+            else:
+                B = [basis_1d(V, axes[d]) for d, V in enumerate(space.spaces)]
+                values.append(numpy.einsum("ijk,ai,bj,ck->abc", coefficients, *B))
+        if squeeze_out:
+            values = [numpy.squeeze(v) for v in values]
+        values = [xp.asarray(v) for v in values]
+        return values[0] if len(values) == 1 else values
+
     def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
         """
         Evaluates the spline function on the global domain, unless local=True,
@@ -2931,6 +2999,10 @@ class SplineFunction:
 
         # extract coefficients and update ghost regions
         self.extract_coeffs(update_ghost_regions=True)
+
+        # trigonometric functions in eta2: evaluation with the 1D bases (the spline kernels assume B-splines)
+        if self.derham.angular_basis == "trig":
+            return self._eval_with_1d_bases(*etas, squeeze_out=squeeze_out)
 
         # marker evaluation
         if len(etas) == 1:

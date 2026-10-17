@@ -20,7 +20,7 @@ rates are ``p + 1`` for ``u`` and ``p`` for ``curl A`` (regularity ``r = p``).
 import matplotlib.pyplot as plt
 import numpy as np
 
-from struphy.polar.homotopy import ClampedBSplineSpace, DiskMapping, PeriodicBSplineSpace, PolarComplex2D
+from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import CATEGORICAL, DIVERGING, draw_mesh, field_on_disk
 from struphy.polar.homotopy.solvers import stiffness_solver
 
@@ -34,7 +34,14 @@ def boundary_radius(t):
 
 
 def rounded_square():
-    return DiskMapping(radius=lambda r, t: r * boundary_radius(t))
+    """The cross-section of the Struphy domain ``RoundedSquareCylinder`` (``R = x rho_b(y)``)."""
+    return common.cross_section(rounded_square_domain())
+
+
+def rounded_square_domain():
+    from struphy.geometry import domains
+
+    return domains.RoundedSquareCylinder(a=1.0, eps=EPS, Lz=1.0)
 
 
 # ---------------------------------------------------------------- manufactured solutions as (value, gradient, laplacian)
@@ -111,12 +118,12 @@ EXACT = dict(
 )
 
 
-def solve_all(p, n, mapping=None):
-    """Free and Dirichlet complexes of degree p with n radial and 6n angular cells, and the four solutions."""
-    mapping = rounded_square() if mapping is None else mapping
-    radial, angular = ClampedBSplineSpace(p, n), PeriodicBSplineSpace(p, 6 * n)
-    free = PolarComplex2D(radial, angular, mapping, regularity=p)
-    dirichlet = PolarComplex2D(radial, angular, mapping, regularity=p, boundary="dirichlet")
+def solve_all(p, n, domain=None):
+    """Free and Dirichlet complexes of degree p with n radial and 6n angular cells (2D Struphy Derham complexes on
+    ``RoundedSquareCylinder``), and the four solutions."""
+    domain = rounded_square_domain() if domain is None else domain
+    free = common.polar_complex(p, p, (n, 6 * n), domain=domain)
+    dirichlet = common.polar_complex(p, p, (n, 6 * n), domain=domain, boundary="dirichlet")
     q = QUADRATURE
     return dict(
         free=free,

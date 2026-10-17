@@ -81,6 +81,7 @@ class LiteralOptions:
     OptsShearAlfvenPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", "MultiGrid", None]
     OptsPoloidalSolver = Literal["schur", "lu", "ilu"]
     OptsPolarMethod = Literal["c1", "homotopy"]
+    OptsAngularBasis = Literal["bspline", "trig"]
     OptsPolarEnrichment = Literal["cochain_chain", "cochain", "none"]
     OptsPolarPolynomialProjection = Literal["commuting", "l2"]
     OptsDiffusionPrecond = Literal[
@@ -247,6 +248,14 @@ class DerhamOptions(OptionsBase):
         projector/histopolation integrals. If ``None``, backend defaults are
         used.
 
+    angular_basis : str
+        Basis in the periodic direction ``eta_2``: ``"bspline"`` (periodic B-splines of degree ``degree[1]`` on
+        ``num_elements[1]`` cells) or ``"trig"`` (``num_elements[1]`` trigonometric functions, odd, ``degree[1]`` is
+        ignored; see :mod:`struphy.feec.trig_space`). With trigonometric functions the polar splines of a disk-like
+        mapping that is exactly representable (``r``-compatible) are exactly ``C^r`` at the pole. FEEC only:
+        particles, local projectors and spline-kernel field evaluation are not supported, and ``eta_2`` must not be
+        MPI-decomposed.
+
     polar_splines : bool
         Smoothness at a possible polar singularity at ``eta_1 = 0``.
         ``False`` gives standard tensor-product splines, ``True`` gives polar
@@ -295,6 +304,7 @@ class DerhamOptions(OptionsBase):
     nquads_proj: tuple[int, int, int] | None = None
     polar_splines: bool = False
     local_projectors: bool = False
+    angular_basis: LiteralOptions.OptsAngularBasis = "bspline"
     polar_poloidal_solver: LiteralOptions.OptsPoloidalSolver | None = None
     polar_method: LiteralOptions.OptsPolarMethod | None = None
     polar_regularity: int = 1
@@ -303,6 +313,7 @@ class DerhamOptions(OptionsBase):
     polar_cross_section: str = "domain"
 
     def __post_init__(self):
+        check_option(self.angular_basis, LiteralOptions.OptsAngularBasis)
         if self.polar_poloidal_solver is not None:
             check_option(self.polar_poloidal_solver, LiteralOptions.OptsPoloidalSolver)
             warnings.warn(

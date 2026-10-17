@@ -15,6 +15,31 @@ import numpy as np
 import scipy.sparse as sp
 
 
+def basis_values_1d(space, x):
+    """Values ``(len(x), nbasis)`` of the basis functions of a 1D space of the Derham complex: B-/M-splines (periodic
+    splines with all their periodic copies, also when there are fewer functions than ``degree + 1``) or the nodal
+    trigonometric functions of :mod:`struphy.feec.trig_space`."""
+    from feectools.core.bsplines import collocation_matrix
+
+    x = np.atleast_1d(np.asarray(x, dtype=float)).ravel()
+    if getattr(space, "is_trigonometric", False):
+        return space.basis_values(x)[0]
+    periodic, n = bool(space.periodic), int(space.nbasis)
+    points = x % 1.0 if periodic else x
+    # (feectools returns a 1 x 1 matrix for a single point: evaluate at least two)
+    padded = points if points.size > 1 else np.concatenate([points, points])
+    # the unrolled basis of the (extended) knot vector; periodic copies are folded onto their index
+    values = np.asarray(collocation_matrix(space.knots, space.degree, False, space.basis, padded), dtype=float)
+    values = values[: points.size]
+    if not periodic:
+        values[(x < 0) | (x > 1)] = 0.0
+        return values
+    folded = np.zeros((points.size, n))
+    for j in range(values.shape[1]):
+        folded[:, j % n] += values[:, j]
+    return folded
+
+
 def _gauss(n):
     return np.polynomial.legendre.leggauss(max(int(n), 1))
 
@@ -27,7 +52,8 @@ def _drop_small(matrix):
 
 
 class DerhamSpace1D:
-    """A uni-variate spline space of the Derham complex (``space.basis`` ``"B"``: 0-forms, ``"M"``: 1-forms).
+    """A uni-variate space of the Derham complex (``space.basis`` ``"B"``: 0-forms, ``"M"``: 1-forms): B-/M-splines,
+    or the nodal trigonometric functions of :mod:`struphy.feec.trig_space` (``angular_basis="trig"``).
 
     Parameters
     ----------
@@ -77,16 +103,7 @@ class DerhamSpace1D:
     # ------------------------------------------------------------------ basis and derivative
     def basis_matrix(self, x):
         """Sparse matrix of basis values with rows for the points ``x`` and columns for the basis functions."""
-        from feectools.core.bsplines import collocation_matrix
-
-        x = np.atleast_1d(np.asarray(x, dtype=float))
-        if self.periodic:
-            x = x % 1.0
-        values = collocation_matrix(self.space.knots, self.degree, self.periodic, self.space.basis, x)
-        values = np.asarray(values, dtype=float)
-        if not self.periodic:
-            values[(x < 0) | (x > 1)] = 0.0
-        return sp.csr_matrix(values)
+        return sp.csr_matrix(basis_values_1d(self.space, x))
 
     def derivative_matrix(self):
         """Coefficient derivative into the M-splines, ``(D u)_i = u_{i+1} - u_i`` (periodically wrapped)."""
@@ -135,7 +152,12 @@ class DerhamSpace1D:
 
     @cached_property
     def histopolation_matrix(self):
-        """Square matrix from coefficients to geometric degrees of freedom (exact for the spline integrands)."""
+        """Square matrix from coefficients to geometric degrees of freedom (exact for the spline integrands; the
+        identity for the nodal trigonometric functions, which interpolate and histopolate on the nodes)."""
+        from struphy.feec.trig_space import is_trigonometric
+
+        if is_trigonometric(self.space):
+            return sp.identity(self.n, format="csr")
         points, R = self.gdof_rule_matrix(0)
         return _drop_small(R @ self.basis_matrix(points))
 

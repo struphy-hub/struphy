@@ -8,7 +8,8 @@ mapping.
 import numpy as np
 import pytest
 
-from struphy.polar.homotopy import ClampedBSplineSpace, PeriodicBSplineSpace, PolarComplex2D, perturbed_disk
+from struphy.polar.homotopy import PolarComplex2D
+from struphy.polar.tests.reference_core import ClampedBSplineSpace, PeriodicBSplineSpace, perturbed_disk
 
 
 def f(x, y):

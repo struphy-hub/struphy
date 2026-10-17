@@ -6,25 +6,27 @@
 * the polar 0-forms for ``r = 1, 2, 3``: the first ``r + 1`` rings are replaced by ``(r + 1)(r + 2)/2`` projected
   polynomials,
 * the central polar 0-, 1- and 2-forms for ``r = 3``.
+
+The spaces are those of a 2D Struphy Derham complex on the domain ``PerturbedDiskCylinder`` (see :mod:`.common`).
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from struphy.polar.homotopy import ClampedBSplineSpace, PeriodicBSplineSpace, PolarComplex2D, perturbed_disk
+from struphy.polar.homotopy.demos import common
 from struphy.polar.homotopy.demos.plotting import DIVERGING, clean_axis, draw_mesh
-from struphy.polar.homotopy.forms2d import PhysicalFormSpace2D
-from struphy.polar.homotopy.spaces1d import TrigonometricSpace
 
 RS = np.linspace(0, 1, 121)
 TS = np.linspace(0, 1, 241)
 
 
-def default_spaces(angular="bspline"):
-    radial = ClampedBSplineSpace(3, 5)
-    if angular == "bspline":
-        return radial, PeriodicBSplineSpace(3, 12)
-    return radial, TrigonometricSpace(6)
+#: cells of the talk's basis figures: cubic splines on N^x = 5 radial cells and N^y = 12 angular cells (B-splines) or
+#: 13 trigonometric functions
+CELLS = {"bspline": (5, 12), "trig": (5, 13)}
+
+
+def _complex(regularity, angular="bspline", domain=None):
+    return common.polar_complex(regularity, 3, CELLS[angular], domain=domain, angular=angular)
 
 
 def _panel(ax, mapping, values, title=None, mesh=None):
@@ -41,7 +43,7 @@ def _panel(ax, mapping, values, title=None, mesh=None):
 
 def figure_mapping(mapping=None, cells=(5, 12)):
     """The disk-like coordinate transformation: logical mesh and its image."""
-    mapping = perturbed_disk() if mapping is None else mapping
+    mapping = common.cross_section() if mapping is None else mapping
     fig, axes = plt.subplots(1, 2, figsize=(9, 4.4))
     rb, tb = np.linspace(0, 1, cells[0] + 1), np.linspace(0, 1, cells[1] + 1)
     for r in rb:
@@ -63,15 +65,15 @@ def figure_mapping(mapping=None, cells=(5, 12)):
 
 def figure_tensor_basis(angular="bspline", mapping=None, rings=(0, 1, 2, 3), angles=(0, 1, 2, 3)):
     """Physical tensor-product 0-form basis functions ``B_i(x) U_j(y)`` (rows: rings, columns: angular index)."""
-    mapping = perturbed_disk() if mapping is None else mapping
-    radial, ang = default_spaces(angular)
-    space = PhysicalFormSpace2D.from_factors(0, radial, ang, mapping)
+    mapping = common.cross_section() if mapping is None else mapping
+    space = common.tensor_space(0, 3, CELLS[angular], angular=angular)
+    radial, ang = space.logical.x, space.logical.y
     fig, axes = plt.subplots(len(rings), len(angles), figsize=(2.4 * len(angles), 2.4 * len(rings)))
     mesh = (np.linspace(0, 1, radial.cells + 1), np.linspace(0, 1, 13))
     for a, i in enumerate(rings):
         for b, j in enumerate(angles):
             coefficients = np.zeros(space.n)
-            coefficients[i + j * radial.n] = 1.0
+            coefficients[space.layout.index(i, j, radial.n, ang.n)] = 1.0
             _panel(axes[a, b], mapping, space.evaluate(coefficients, RS, TS), rf"$B_{i} U_{j}$", mesh)
     kind = "cubic periodic B-splines" if angular == "bspline" else "trigonometric functions"
     fig.suptitle(f"tensor-product 0-forms: cubic clamped B-splines ($N^x = 5$) x {kind}")
@@ -81,9 +83,9 @@ def figure_tensor_basis(angular="bspline", mapping=None, rings=(0, 1, 2, 3), ang
 
 def figure_polar_zero_forms(regularity, angular="bspline", mapping=None):
     """The central polar 0-forms of regularity ``r`` (they replace the first ``r + 1`` rings)."""
-    mapping = perturbed_disk() if mapping is None else mapping
-    radial, ang = default_spaces(angular)
-    c = PolarComplex2D(radial, ang, mapping, regularity=regularity)
+    mapping = common.cross_section() if mapping is None else mapping
+    c = _complex(regularity, angular)
+    radial, ang = c.radial, c.angular
     central = c[0].central_elements()
     n = central.shape[1]
     columns = min(n, 5)
@@ -109,9 +111,8 @@ def figure_polar_zero_forms(regularity, angular="bspline", mapping=None):
 
 def figure_all_forms(regularity=3, angular="bspline", mapping=None):
     """Central polar 0-forms, 1-forms (magnitude and arrows) and 2-forms of regularity ``r``."""
-    mapping = perturbed_disk() if mapping is None else mapping
-    radial, ang = default_spaces(angular)
-    c = PolarComplex2D(radial, ang, mapping, regularity=regularity)
+    mapping = common.cross_section() if mapping is None else mapping
+    c = _complex(regularity, angular)
     counts = c.central_counts()
     columns = max(counts)
     fig, axes = plt.subplots(3, columns, figsize=(1.8 * columns, 6), squeeze=False)
@@ -145,9 +146,8 @@ def figure_all_forms(regularity=3, angular="bspline", mapping=None):
 
 def figure_discontinuity(mapping=None):
     """A tensor-product 0-form is discontinuous at the origin: ``P(0) = sum_j p_1j U_j(y)`` depends on the angle."""
-    mapping = perturbed_disk() if mapping is None else mapping
-    radial, ang = default_spaces("bspline")
-    space = PhysicalFormSpace2D.from_factors(0, radial, ang, mapping)
+    mapping = common.cross_section() if mapping is None else mapping
+    space = common.tensor_space(0, 3, CELLS["bspline"])
     rng = np.random.default_rng(1)
     coefficients = 1 + 0.3 * rng.standard_normal(space.n)
     fig, axes = plt.subplots(1, 2, figsize=(9, 4))

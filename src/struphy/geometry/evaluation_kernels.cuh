@@ -71,7 +71,7 @@ __device__ inline void f(double eta1, double eta2, double eta3, const DomainArgs
             return;
         case 23:
             perturbed_disk_cylinder_kernels::perturbed_disk(eta1, eta2, eta3, args.params[0], args.params[1],
-                                                            args.params[2], args.params[3], f_out);
+                                                            args.params[2], args.params[3], args.params[4], f_out);
             return;
         case 24:
             rounded_square_cylinder_kernels::rounded_square(eta1, eta2, eta3, args.params[0], args.params[1],
@@ -147,7 +147,7 @@ __device__ inline void df(double eta1, double eta2, double eta3, const DomainArg
             return;
         case 23:
             perturbed_disk_cylinder_kernels::perturbed_disk_df(eta1, eta2, args.params[0], args.params[1],
-                                                               args.params[2], args.params[3], df_out);
+                                                               args.params[2], args.params[3], args.params[4], df_out);
             return;
         case 24:
             rounded_square_cylinder_kernels::rounded_square_df(eta1, eta2, args.params[0], args.params[1],

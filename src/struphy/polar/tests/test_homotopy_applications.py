@@ -25,6 +25,9 @@ def test_spaces_demos_commute():
     assert max(residuals.values()) < 1e-12
     curl_grad, grad_residual, curl_residual = spaces.identities(verbose=False)
     assert curl_grad == 0 and grad_residual < 1e-12 and curl_residual < 1e-12
+    # the quarter annulus HollowCylinder(a1=1, a2=2, poc=4)
+    V0, V1, _ = spaces.mapped_identities(verbose=False)["spaces"]
+    assert abs(V1.derivative_matrix @ V0.derivative_matrix).max() == 0
 
 
 # ---------------------------------------------------------------------------------------------------- geometry

@@ -157,10 +157,10 @@ class PolarComplex2D:
 
     Parameters
     ----------
-    radial : DerhamSpace1D or ClampedBSplineSpace
+    radial : DerhamSpace1D
         Radial (clamped) 0-form space (logical ``x``), e.g. of a Derham complex
         (:func:`~struphy.polar.homotopy.derham_spaces.derham_factors`).
-    angular : DerhamSpace1D, PeriodicBSplineSpace or TrigonometricSpace
+    angular : DerhamSpace1D (periodic B-splines or trigonometric functions)
         Angular (periodic) 0-form space (logical ``y``).
     mapping : Mapping2D
         Disk-like mapping that collapses ``x = 0`` to the pole (e.g. the cross-section of a Struphy domain,

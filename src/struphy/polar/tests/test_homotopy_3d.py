@@ -4,15 +4,15 @@
 import numpy as np
 import pytest
 
-from struphy.polar.homotopy import (
+from struphy.polar.homotopy import PolarComplex2D
+from struphy.polar.homotopy.complex3d import PeriodicComplex, PolarComplex3D
+from struphy.polar.homotopy.linalg import as_dense
+from struphy.polar.tests.reference_core import (
     ClampedBSplineSpace,
     DiskMapping,
     PeriodicBSplineSpace,
-    PolarComplex2D,
     TrigonometricSpace,
 )
-from struphy.polar.homotopy.complex3d import PeriodicComplex, PolarComplex3D
-from struphy.polar.homotopy.linalg import as_dense
 
 SECTION = DiskMapping(radius=lambda r, t: 0.5 * r * (1 + 0.1 * r * np.cos(4 * np.pi * t)))
 
