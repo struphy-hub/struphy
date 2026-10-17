@@ -48,7 +48,7 @@ parser.add_argument(
     "--poloidal-solver",
     default="schur",
     choices=["schur", "lu", "ilu"],
-    help="Poloidal solver of the polar preconditioners and projectors.",
+    help="Poloidal solver of the polar preconditioners.",
 )
 parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 66, 64], help="Number of elements per direction.")
 parser.add_argument(
@@ -160,7 +160,7 @@ env = EnvironmentOptions(
 # Time stepping
 time_opts = Time()
 
-# Grid (polar splines need a multiple of 3 elements in eta2)
+# Grid
 num_elements = tuple(args.num_elements)
 degree = (3, 3, 3)
 grid = grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, True, True))
@@ -177,7 +177,6 @@ if args.splines == "polar":
         degree=degree,
         bcs=(("free", "dirichlet"), None, None),
         polar_splines=True,
-        polar_poloidal_solver=args.poloidal_solver,
     )
 else:
     a1 = 1e-2

@@ -52,6 +52,8 @@ It is recommended to use the same Python environment as for Struphy, e.g., by in
 
    ../_collections/tutorials/tutorial_domains
    ../_collections/tutorials/tutorial_mhd_equilibria
+   ../_collections/tutorials/tutorial_polar_derham
+   ../_collections/tutorials/tutorial_polar_splines
 
 
 .. toctree::

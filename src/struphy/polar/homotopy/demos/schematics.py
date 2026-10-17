@@ -1,0 +1,221 @@
+"""The schematic diagrams of the talk: de Rham diagrams (drawn with ``tikzfigure``, needs LaTeX), the 3D coordinate
+transformation of the helical tube and the steps of the boundary-compatible homotopy (computed with the Struphy
+domains and polar complexes, drawn with matplotlib)."""
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from struphy.polar.homotopy.demos import common
+from struphy.polar.homotopy.demos.plotting import DIVERGING, clean_axis, draw_mesh
+
+# ---------------------------------------------------------------------------------------------------------- diagrams
+ARROW = "-{Latex}"
+LABEL = r"font=\scriptsize"
+
+
+def _figure():
+    from tikzfigure import TikzFigure
+    from tikzfigure.core.matrix import Matrix
+
+    if not hasattr(Matrix, "arrow"):
+        raise ImportError("the diagrams need tikzfigure >= 0.5.0 (Matrix.arrow): pip install -U tikzfigure")
+    fig = TikzFigure()
+    fig.add_package("amssymb")
+    fig.usetikzlibrary("arrows.meta")
+    fig.colorlet("struphyblue", "rgb,1:red,0;green,0.447;blue,0.741")
+    return fig
+
+
+def _diagram(fig, rows, maps, projections, label, x=0, reverse=False):
+    """A commutative diagram (a ``tikzfigure`` matrix of math nodes): ``maps`` label the arrows between neighbouring
+    columns in every row (right to left with ``reverse``), ``projections`` the arrows from the last to the first row."""
+    matrix = fig.add_matrix(
+        rows,
+        x=x,
+        y=0,
+        label=label,
+        options="matrix of math nodes",
+        row_sep="1.25cm",
+        column_sep="1.7cm",
+        cell_style="text height=1.6ex, text depth=0.4ex",
+    )
+    for row in range(1, len(rows) + 1):
+        for col, name in enumerate(maps, start=1):
+            ends = ((row, col + 1), (row, col)) if reverse else ((row, col), (row, col + 1))
+            matrix.arrow(*ends, label=name, label_options=LABEL, arrows=ARROW)
+    for col, name in enumerate(projections, start=1):
+        matrix.arrow(
+            (len(rows), col),
+            (1, col),
+            label=f"${name}$",
+            label_position="left",
+            label_options=LABEL,
+            arrows=ARROW,
+            color="struphyblue",
+        )
+    return matrix
+
+
+def derham_logical_and_physical():
+    """The commuting projections of the logical and of the physical 2D de Rham complex."""
+    fig = _figure()
+    _diagram(
+        fig,
+        [[r"\hat V^0_h", r"\hat V^1_h", r"\hat V^2_h"], [r"\hat H^1", r"\hat H(\mathrm{curl})", r"\hat L^2"]],
+        ("grad", "curl"),
+        (r"\hat\pi^0", r"\hat\pi^1", r"\hat\pi^2"),
+        "l",
+    )
+    physical = _diagram(
+        fig,
+        [["V^0_h", "V^1_h", "V^2_h"], ["H^1", r"H(\mathrm{curl})", "L^2"]],
+        ("grad", "curl"),
+        (r"\pi^0", r"\pi^1", r"\pi^2"),
+        "p",
+        x=9,
+    )
+    # an arrow is drawn after its matrix: the arrow between the two belongs to the second
+    physical.arrow(
+        "l.east",
+        "p.west",
+        label="pushforward $F_*$",
+        label_options=LABEL,
+        arrows=ARROW,
+        options=["dashed", "shorten >=8mm"],
+    )
+    return fig
+
+
+def derham_polar_cochain_chain():
+    """The polar subspaces form a cochain complex (grad, curl) and a chain complex (the homotopies) with commuting
+    projections ``pi_bar^{k, r}``."""
+    rows = [
+        [r"\bar V^{0,\mathfrak r}", r"\bar V^{1,\mathfrak r}", r"\bar V^{2,\mathfrak r}"],
+        ["H^1", r"H(\mathrm{curl})", "L^2"],
+    ]
+    projections = (r"\bar\pi^{0,\mathfrak r}", r"\bar\pi^{1,\mathfrak r}", r"\bar\pi^{2,\mathfrak r}")
+    fig = _figure()
+    _diagram(fig, rows, ("grad", "curl"), projections, "c")
+    homotopies = (r"$\mathrm{grad}^\dagger$", r"$\mathrm{curl}^\dagger$")
+    _diagram(fig, rows, homotopies, projections, "h", x=9, reverse=True)
+    return fig
+
+
+# ---------------------------------------------------------------------------------------------------------- geometry
+def coordinate_transformation_3d(n=(8, 16, 48)):
+    """The logical cube (the face ``eta1 = 0`` collapses to the magnetic axis) and the helical tube with two
+    cross-sections, the mesh lines and the axis."""
+    from struphy.geometry import domains
+
+    domain = domains.HelicalTube("stellarator", num_elements=(8, 24, 64), degree=(4, 4, 4))
+    fig = plt.figure(figsize=(11, 4.2))
+    ax = fig.add_subplot(1, 2, 1, projection="3d")
+    for t in np.linspace(0, 1, 5):
+        for s in np.linspace(0, 1, 5):
+            ax.plot([t, t], [s, s], [0, 1], color="0.6", linewidth=0.5)
+            ax.plot([t, t], [0, 1], [s, s], color="0.6", linewidth=0.5)
+            ax.plot([0, 1], [t, t], [s, s], color="0.6", linewidth=0.5)
+    face = np.linspace(0, 1, 2)
+    Y, Z = np.meshgrid(face, face)
+    ax.plot_surface(np.zeros_like(Y), Y, Z, color="#E69F00", alpha=0.5)
+    ax.set_xlabel(r"$\eta_1$")
+    ax.set_ylabel(r"$\eta_2$")
+    ax.set_zlabel(r"$\eta_3$")
+    ax.set_title(r"logical cube ($\eta_1 = 0$: the axis)")
+    ax = fig.add_subplot(1, 2, 2, projection="3d")
+    e1, e2, e3 = np.array([1.0]), np.linspace(0, 1, 49), np.linspace(0, 0.8, 120)
+    X, Y, Z = (np.asarray(c)[0] for c in domain(e1, e2, e3))
+    ax.plot_surface(X, Y, Z, color="0.85", alpha=0.35, linewidth=0)
+    for z in np.linspace(0, 0.8, 9):
+        ring = np.asarray(domain(e1, e2, np.array([z])))[:, 0, :, 0]
+        ax.plot(*ring, color="0.4", linewidth=0.5)
+    for z in (0.0, 0.8):
+        r, t = np.linspace(0, 1, 9), np.linspace(0, 1, 49)
+        S = np.asarray(domain(r, t, np.array([z])))[:, :, :, 0]
+        ax.plot_surface(*S, color="0.95", edgecolor="0.4", linewidth=0.3)
+    axis = np.asarray(domain(np.array([0.0]), np.array([0.0]), e3))[:, 0, 0, :]
+    ax.plot(*axis, color="#E69F00", linewidth=2)
+    ax.set_box_aspect((1, 1, 0.6))
+    ax.set_axis_off()
+    ax.set_title("HelicalTube (magnetic axis in orange)")
+    fig.tight_layout()
+    return fig
+
+
+def boundary_homotopy(regularity=3):
+    """The boundary-compatible homotopy ``curl^dagger_partial`` of a zero-mean 2-form ``B``: the radial homotopy
+    ``curl^dagger B`` has a tangential trace on the boundary; its periodic primitive, extended into the domain, is
+    subtracted as a gradient, which leaves a potential ``A`` with ``curl A = B`` and ``A x n = 0``."""
+    c = common.polar_complex(regularity, 4, (6, 18), boundary="dirichlet")
+    mapping = c.spaces[0].mapping
+
+    def B(x, y):
+        return np.sin(3 * x + 1) * np.cos(2 * y) + x * y
+
+    b = c[2](B)
+    # zero mean in polar coefficients, then back to full coefficients
+    polar = c.duals(2).T @ b
+    polar = polar - np.asarray(c.cohomology_projection(2) @ polar).ravel()
+    b0 = c.extraction(2) @ polar
+    radial = c.curl_homotopy_matrix @ b0
+    bounded = c.extraction(1) @ np.asarray(c.homotopy(2) @ polar).ravel()
+    rs, ts = np.linspace(1e-3, 1, 81), np.linspace(0, 1, 181)
+    X, Y = mapping(*np.meshgrid(rs, ts, indexing="ij"))
+    panels = [
+        (c.spaces[2].evaluate(b0, rs, ts), r"$B$ (zero mean)"),
+        (
+            np.hypot(*c.spaces[1].evaluate(radial, rs, ts)),
+            r"$|\mathrm{curl}^\dagger B|$: tangential trace on $\partial\Omega$",
+        ),
+        (
+            np.hypot(*c.spaces[1].evaluate(radial - bounded, rs, ts)),
+            r"$|\mathrm{grad}\,\phi|$: boundary primitive (outer ring)",
+        ),
+        (np.hypot(*c.spaces[1].evaluate(bounded, rs, ts)), r"$|\mathrm{curl}^\dagger_\partial B|$: $A \times n = 0$"),
+    ]
+    fig, axes = plt.subplots(1, 4, figsize=(14, 3.8))
+    # one colour range for the potentials (the extension of the boundary primitive lives in the outer ring and
+    # saturates there)
+    common_limit = np.max(panels[1][0]) or 1.0
+    for index, (ax, (values, title)) in enumerate(zip(axes, panels)):
+        signed = np.min(values) < 0
+        limit = (np.max(np.abs(values)) or 1.0) if index == 0 else common_limit
+        ax.pcolormesh(
+            X,
+            Y,
+            values,
+            cmap=DIVERGING if signed else "viridis",
+            vmin=-limit if signed else 0,
+            vmax=limit,
+            shading="gouraud",
+        )
+        draw_mesh(ax, mapping, np.linspace(0, 1, 7), np.linspace(0, 1, 19), alpha=0.15)
+        ax.set_aspect("equal")
+        clean_axis(ax)
+        ax.set_title(title, fontsize=10)
+    fig.tight_layout()
+    return fig
+
+
+def write_all(folder):
+    """Write all schematics into ``folder`` (``.pdf`` for the TikZ diagrams and ``.png``)."""
+    from pathlib import Path
+
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, make in (
+        ("derham_logical_and_physical_2d", derham_logical_and_physical),
+        ("derham_polar_cochain_chain_2d", derham_polar_cochain_chain),
+    ):
+        fig = make()
+        for ext in ("pdf", "png"):
+            fig.savefig(folder / f"{name}.{ext}")
+        print("wrote", folder / f"{name}.png")
+    for name, make in (
+        ("coordinate_transformation_3d", coordinate_transformation_3d),
+        ("bdy_homotopy", boundary_homotopy),
+    ):
+        fig = make()
+        fig.savefig(folder / f"{name}.png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print("wrote", folder / f"{name}.png")

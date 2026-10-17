@@ -1,6 +1,6 @@
 """Polar splines on the CuPy backend (struphy-hub/struphy#695, CUDA_STRATEGY.md).
 
-The polar blocks (:class:`~struphy.polar.extraction_operators.PolarExtractionBlocksC1`) are built on the host on
+The polar blocks (:class:`~struphy.polar.homotopy.derham_blocks.PolarExtractionBlocksHomotopy`) are built on the host on
 every backend; on CuPy the polar operators apply device copies of them (``cupyx.scipy.sparse``) to the device
 coefficients. :func:`check_polar_backends` builds the same polar Derham on the NumPy and the CuPy backend and
 compares extraction operators, derivatives, ``PolarVector`` arithmetic, mass matrices, projectors and polar
@@ -73,14 +73,14 @@ def make_polar_derham(mapping, with_mass=True, poloidal_solver="schur", mpi_dims
     from struphy.topology.grids import TensorProductGrid
 
     size = MPI.COMM_WORLD.Get_size()
-    num_elements = (max(6, 4 * size), max(6, 3 * size), 4)
+    # the process at the pole holds the polar rings and two tensor-product rings in eta1
+    num_elements = (max(6, 6 * size), max(6, 3 * size), 4)
     domain = make_domain(mapping, num_elements[:2])
     options = DerhamOptions(
         degree=(domain.degree[0], domain.degree[1], 1),
         bcs=(("dirichlet", "free"), None, None),
         nquads_proj=(4, 4, 2),
         polar_splines=True,
-        polar_poloidal_solver=poloidal_solver,
     )
     derham = Derham(
         TensorProductGrid(
@@ -300,7 +300,9 @@ def test_device_blocks_numpy_backend():
         previous = set_device_sparse_module(DenseDeviceSparse)
         try:
             rng = np.random.default_rng(0)
-            for row in derham.dofs_extraction_ops["1"].blocks_ten_to_ten + E.blocks_ten_to_pol:
+            # the polar dofs of the homotopy construction are F~^T I^{-1} (a composition without own blocks)
+            dofs = derham.dofs_extraction_ops["1"]
+            for row in getattr(dofs, "blocks_ten_to_ten", []) + E.blocks_ten_to_pol:
                 for blk in row:
                     if blk is None:
                         continue

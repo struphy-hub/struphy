@@ -27,9 +27,10 @@ class PolarDerhamSpace(VectorSpace):
     def __init__(self, derham: "Derham", space_id: str):
         assert not derham.spl_kind[0], "Spline basis in eta1 must be clamped"
         assert derham.spl_kind[1], "Spline basis in eta2 must be periodic"
-        assert (derham.num_elements[1] / 3) % 1 == 0.0, "Number of elements in eta2 must be a multiple of 3"
 
-        assert derham.degree[0] > 1 and derham.degree[1] > 1, "Spline degrees in (eta1, eta2) must be at least two"
+        # the polar extraction blocks define the layout of the polar coefficients and rings
+        assert derham.ck_blocks is not None, "the Derham complex has no polar splines (polar_splines=False)"
+        layout = derham.ck_blocks.space_layout
 
         # other properties
         self._dtype = float
@@ -48,75 +49,41 @@ class PolarDerhamSpace(VectorSpace):
         self._ends = self._parent_space.ends
 
         # polar properties
-        if space_id == "H1":
-            self._n_polar = (3,)
-            self._n_rings = (2,)
-            self._dimension = ((self.n[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]
-            self._n2 = (self.n[1],)
-            self._n3 = (self.n[2],)
-            self._type_of_basis_3 = (derham.V0splines.spline_types[0][2],)
-        elif space_id == "Hcurl":
-            self._n_polar = (0, 2, 3)
-            self._n_rings = (1, 2, 2)
-            dim1 = ((self.d[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]
-            dim2 = ((self.n[0] - self.n_rings[1]) * self.d[1] + self.n_polar[1]) * self.n[2]
-            dim3 = ((self.n[0] - self.n_rings[2]) * self.n[1] + self.n_polar[2]) * self.d[2]
-            self._dimension = dim1 + dim2 + dim3
-            self._n2 = (self.n[1], self.d[1], self.n[1])
-            self._n3 = (self.n[2], self.n[2], self.d[2])
-            self._type_of_basis_3 = (
-                derham.V1splines.spline_types[0][2],
-                derham.V1splines.spline_types[1][2],
-                derham.V1splines.spline_types[2][2],
-            )
-        elif space_id == "Hdiv":
-            self._n_polar = (2, 0, 0)
-            self._n_rings = (2, 1, 1)
-            dim1 = ((self.n[0] - self.n_rings[0]) * self.d[1] + self.n_polar[0]) * self.d[2]
-            dim2 = ((self.d[0] - self.n_rings[1]) * self.n[1] + self.n_polar[1]) * self.d[2]
-            dim3 = ((self.d[0] - self.n_rings[2]) * self.d[1] + self.n_polar[2]) * self.n[2]
-            self._dimension = dim1 + dim2 + dim3
-            self._n2 = (self.d[1], self.n[1], self.d[1])
-            self._n3 = (self.d[2], self.d[2], self.n[2])
-            self._type_of_basis_3 = (
-                derham.V2splines.spline_types[0][2],
-                derham.V2splines.spline_types[1][2],
-                derham.V2splines.spline_types[2][2],
-            )
-        elif space_id == "L2":
-            self._n_polar = (0,)
-            self._n_rings = (1,)
-            self._dimension = ((self.d[0] - self.n_rings[0]) * self.d[1] + self.n_polar[0]) * self.d[2]
-            self._n2 = (self.d[1],)
-            self._n3 = (self.d[2],)
-            self._type_of_basis_3 = (derham.V3splines.spline_types[0][2],)
-        elif space_id == "H1vec":
-            self._n_polar = (3, 3, 3)
-            self._n_rings = (2, 2, 2)
-            self._dimension = (((self.n[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]) * 3
-            self._n2 = (self.n[1], self.n[1], self.n[1])
-            self._n3 = (self.n[2], self.n[2], self.n[2])
-            self._type_of_basis_3 = (
-                derham.Vvsplines.spline_types[0][2],
-                derham.Vvsplines.spline_types[1][2],
-                derham.Vvsplines.spline_types[2][2],
-            )
-        else:
-            raise ValueError("Space not supported.")
+        assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec"), "Space not supported."
+        form = derham.space_to_form[space_id]
+        self._n_polar, self._n_rings = layout(form)
+        spaces = {
+            "H1": derham.V0splines,
+            "Hcurl": derham.V1splines,
+            "Hdiv": derham.V2splines,
+            "L2": derham.V3splines,
+            "H1vec": derham.Vvsplines,
+        }[space_id]
+        nbasis = spaces.nbasis  # per component, per direction
+        self._n2 = tuple(nb[1] for nb in nbasis)
+        self._n3 = tuple(nb[2] for nb in nbasis)
+        self._type_of_basis_3 = tuple(st[2] for st in spaces.spline_types)
+        self._dimension = sum(
+            (nb[0] - nr) * nb[1] * nb[2] + npol * nb[2] for nb, nr, npol in zip(nbasis, self._n_rings, self._n_polar)
+        )
 
         self._n_comps = len(self.n_polar)
 
+        # the process(es) at the pole must hold all polar rings and the first tensor-product ring; the check is
+        # collective, such that all processes raise (otherwise the processes without the pole would wait forever)
         if self.n_comps == 1:
             self._is_pole_rank = self.starts[0] == 0
-            if self.is_pole_rank:
-                assert self.ends[0] > self.n_rings[0], "MPI coeff decomposition in eta_1 too small for polar splines!"
+            decomposition_ok = not self.is_pole_rank or self.ends[0] > self.n_rings[0]
         else:
             self._is_pole_rank = self.starts[0][0] == 0
-            for n in range(3):
-                if self.starts[n][0] == 0:
-                    assert self.ends[n][0] > self.n_rings[n], (
-                        "MPI coeff decomposition in eta_1 too small for polar splines!"
-                    )
+            decomposition_ok = all(self.starts[n][0] != 0 or self.ends[n][0] > self.n_rings[n] for n in range(3))
+        if self.comm is not None and self.comm.Get_size() > 1:
+            decomposition_ok = self.comm.allreduce(bool(decomposition_ok), op=MPI.LAND)
+        assert decomposition_ok, (
+            f"MPI coeff decomposition in eta_1 too small for polar splines: the process at the pole needs at least "
+            f"{max(self.n_rings) + 2} coefficients in eta_1, the polar rings and two tensor-product rings (use more "
+            f"elements in eta_1 or mpi_dims_mask=(False, True, True))."
+        )
 
         # sub-communicator of the processes at the pole (the only ones holding the inner tp rings)
         if self.comm is not None and self.comm.Get_size() > 1:

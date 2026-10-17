@@ -11,6 +11,8 @@
 #include "struphy/geometry/domains/orthogonal/orthogonal_cuda.cuh"
 #include "struphy/geometry/domains/colella/colella_cuda.cuh"
 #include "struphy/geometry/domains/hollow_cylinder/hollow_cylinder_cuda.cuh"
+#include "struphy/geometry/domains/perturbed_disk_cylinder/perturbed_disk_cylinder_cuda.cuh"
+#include "struphy/geometry/domains/rounded_square_cylinder/rounded_square_cylinder_cuda.cuh"
 #include "struphy/geometry/domains/powered_elliptic_cylinder/powered_elliptic_cylinder_cuda.cuh"
 #include "struphy/geometry/domains/hollow_torus/hollow_torus_cuda.cuh"
 #include "struphy/geometry/domains/shafranov_shift_cylinder/shafranov_shift_cylinder_cuda.cuh"
@@ -66,6 +68,14 @@ __device__ inline void f(double eta1, double eta2, double eta3, const DomainArgs
         case 22:
             hollow_torus_kernels::hollow_torus(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2],
                                                args.params[3], args.params[4], args.params[5], f_out);
+            return;
+        case 23:
+            perturbed_disk_cylinder_kernels::perturbed_disk(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                            args.params[2], args.params[3], args.params[4], f_out);
+            return;
+        case 24:
+            rounded_square_cylinder_kernels::rounded_square(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                            args.params[2], f_out);
             return;
         case 30:
             shafranov_shift_cylinder_kernels::shafranov_shift(eta1, eta2, eta3, args.params[0], args.params[1],
@@ -134,6 +144,14 @@ __device__ inline void df(double eta1, double eta2, double eta3, const DomainArg
         case 22:
             hollow_torus_kernels::hollow_torus_df(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2],
                                                   args.params[3], args.params[4], args.params[5], df_out);
+            return;
+        case 23:
+            perturbed_disk_cylinder_kernels::perturbed_disk_df(eta1, eta2, args.params[0], args.params[1],
+                                                               args.params[2], args.params[3], args.params[4], df_out);
+            return;
+        case 24:
+            rounded_square_cylinder_kernels::rounded_square_df(eta1, eta2, args.params[0], args.params[1],
+                                                               args.params[2], df_out);
             return;
         case 30:
             shafranov_shift_cylinder_kernels::shafranov_shift_df(eta1, eta2, eta3, args.params[0], args.params[1],
@@ -231,6 +249,18 @@ __device__ inline void df_inv(double eta1, double eta2, double eta3, const Domai
                 dfinv_out[6] = 0.0;  // [2, 0]
                 dfinv_out[7] = 0.0;  // [2, 1]
                 break;
+            case 23:
+                dfinv_out[2] = 0.0;  // [0, 2]
+                dfinv_out[5] = 0.0;  // [1, 2]
+                dfinv_out[6] = 0.0;  // [2, 0]
+                dfinv_out[7] = 0.0;  // [2, 1]
+                break;
+            case 24:
+                dfinv_out[2] = 0.0;  // [0, 2]
+                dfinv_out[5] = 0.0;  // [1, 2]
+                dfinv_out[6] = 0.0;  // [2, 0]
+                dfinv_out[7] = 0.0;  // [2, 1]
+                break;
             case 22:
                 dfinv_out[8] = 0.0;  // [2, 2]
                 break;
@@ -320,6 +350,18 @@ __device__ inline void g(double eta1, double eta2, double eta3, const DomainArgs
                 g_out[7] = 0.0;  // [2, 1]
                 break;
             case 21:
+                g_out[2] = 0.0;  // [0, 2]
+                g_out[5] = 0.0;  // [1, 2]
+                g_out[6] = 0.0;  // [2, 0]
+                g_out[7] = 0.0;  // [2, 1]
+                break;
+            case 23:
+                g_out[2] = 0.0;  // [0, 2]
+                g_out[5] = 0.0;  // [1, 2]
+                g_out[6] = 0.0;  // [2, 0]
+                g_out[7] = 0.0;  // [2, 1]
+                break;
+            case 24:
                 g_out[2] = 0.0;  // [0, 2]
                 g_out[5] = 0.0;  // [1, 2]
                 g_out[6] = 0.0;  // [2, 0]
@@ -429,6 +471,18 @@ __device__ inline void g_inv(double eta1, double eta2, double eta3, const Domain
                 ginv_out[7] = 0.0;  // [2, 1]
                 break;
             case 21:
+                ginv_out[2] = 0.0;  // [0, 2]
+                ginv_out[5] = 0.0;  // [1, 2]
+                ginv_out[6] = 0.0;  // [2, 0]
+                ginv_out[7] = 0.0;  // [2, 1]
+                break;
+            case 23:
+                ginv_out[2] = 0.0;  // [0, 2]
+                ginv_out[5] = 0.0;  // [1, 2]
+                ginv_out[6] = 0.0;  // [2, 0]
+                ginv_out[7] = 0.0;  // [2, 1]
+                break;
+            case 24:
                 ginv_out[2] = 0.0;  // [0, 2]
                 ginv_out[5] = 0.0;  // [1, 2]
                 ginv_out[6] = 0.0;  // [2, 0]

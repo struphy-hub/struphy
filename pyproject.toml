@@ -69,6 +69,7 @@ phys = [
 ]
 pproc = [
     "plasma-plots>=0.1.0",
+    "tikzfigure>=0.5.0",
 ]
 dev = [
     "struphy[mpi]",
@@ -137,6 +138,9 @@ struphy = "struphy.console.main:struphy"
     "run_03/*.dat",
     "run_03/*.ini",
     "run_03/*.nc",
+]
+"struphy.polar.tests" = [
+    "data/*.npz",
 ]
 struphy = [
     "compile_struphy.mk",

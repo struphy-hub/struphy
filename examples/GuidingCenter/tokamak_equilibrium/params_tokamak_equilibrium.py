@@ -167,7 +167,7 @@ env = EnvironmentOptions(
 
 time_opts = Time(dt=args.dt, Tend=args.tend, split_algo="LieTrotter")
 
-# Grid (polar splines need a multiple of 3 elements in eta2); eta1 is not decomposed, such that the process
+# Grid; eta1 is not decomposed, such that the process
 # with the pole has all rings of the polar splines and each process has at least degree elements per direction
 num_elements = tuple(args.num_elements)
 degree = (3, 3, 3)

@@ -29,6 +29,7 @@ _LAZY_IMPORTS = {
     "Poisson": "struphy.models.poisson",
     "PressureLessSPH": "struphy.models.pressure_less_sph",
     "RandomParticleDiffusion": "struphy.models.random_particle_diffusion",
+    "ScalarWave": "struphy.models.scalar_wave",
     "ShearAlfven": "struphy.models.shear_alfven",
     "ShearAlfvenCurlCurl": "struphy.models.shear_alfven_curl_curl",
     "ShearAlfvenCurlCurlwithProj": "struphy.models.shear_alfven_curl_curl_with_proj",
@@ -72,6 +73,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.poisson import Poisson
     from struphy.models.pressure_less_sph import PressureLessSPH
     from struphy.models.random_particle_diffusion import RandomParticleDiffusion
+    from struphy.models.scalar_wave import ScalarWave
     from struphy.models.shear_alfven import ShearAlfven
     from struphy.models.shear_alfven_curl_curl import ShearAlfvenCurlCurl
     from struphy.models.shear_alfven_curl_curl_with_proj import ShearAlfvenCurlCurlwithProj
@@ -114,6 +116,7 @@ __all__ = [
     "Poisson",
     "PressureLessSPH",
     "RandomParticleDiffusion",
+    "ScalarWave",
     "ShearAlfven",
     "ShearAlfvenCurlCurl",
     "ShearAlfvenCurlCurlwithProj",

@@ -10,6 +10,7 @@ from time import time
 from typing import TYPE_CHECKING
 
 import cunumpy as xp
+import numpy as np
 from line_profiler import profile
 
 import struphy
@@ -822,6 +823,94 @@ class ScrewPinch(CartesianMHDequilibrium):
         gradBz = 0 * x
 
         return gradBx, gradBy, gradBz
+
+
+class HelicalVacuumField(CartesianMHDequilibrium):
+    r"""Straight helical vacuum field (stellarator-like near the axis), :math:`\mathbf B = B_0 \nabla \Phi` with the
+    harmonic potential
+
+    .. math::
+
+        \Phi = z + \frac{\delta}{k} I_m(k r) \sin(m \theta - k z)\,,
+
+    where :math:`I_m` is the modified Bessel function. The field is current-free (:math:`\nabla \times \mathbf B = 0`),
+    with constant density and pressure. Near the axis the :math:`m = 2` field has elliptical, rotating flux surfaces
+    and a rotational transform of order :math:`\delta^2`: the vacuum field of the guiding-centre orbit study of the
+    high-order polar splines (orbits near the magnetic axis, energy conservation).
+
+    Parameters
+    ----------
+    B0 : float
+        Field strength on the axis.
+    delta : float
+        Amplitude of the helical harmonic.
+    m : int
+        Poloidal mode number.
+    k : float
+        Axial wave number (``k = 2 pi N / L_z`` for ``N`` periods on a cylinder of length ``L_z``).
+    n0, p0 : float
+        Constant density and pressure.
+    """
+
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            \mathbf B = B_0 \left( \delta I_m'(kr) \sin\varphi\, \mathbf e_r
+            + \delta \frac{m}{kr} I_m(kr) \cos\varphi\, \mathbf e_\theta
+            + (1 - \delta I_m(kr) \cos\varphi)\, \mathbf e_z \right)\,,\qquad \varphi = m\theta - kz\,.
+        """
+
+    def __init__(
+        self, B0: float = 1.0, delta: float = 0.5, m: int = 2, k: float = 3.0, n0: float = 1.0, p0: float = 1.0
+    ):
+        self.params = copy.deepcopy(locals())
+
+    def _cylindrical(self, x, y, z):
+        from scipy.special import iv, ivp
+
+        x, y, z = (np.asarray(xp.to_numpy(xp.asarray(c)), dtype=float) for c in (x, y, z))
+        B0, delta, m, k = (self.params[key] for key in ("B0", "delta", "m", "k"))
+        r = np.sqrt(x**2 + y**2)
+        theta = np.arctan2(y, x)
+        phase = m * theta - k * z
+        b_r = B0 * delta * ivp(m, k * r) * np.sin(phase)
+        # (m / (k r)) I_m(k r) = (I_{m-1} - I_{m+1}) / 2, regular at the axis
+        b_theta = B0 * delta * (iv(m - 1, k * r) - iv(m + 1, k * r)) / 2 * np.cos(phase)
+        b_z = B0 * (1 - delta * iv(m, k * r) * np.cos(phase))
+        return theta, b_r, b_theta, b_z
+
+    def b_xyz(self, x, y, z):
+        """Magnetic field."""
+        theta, b_r, b_theta, b_z = self._cylindrical(x, y, z)
+        c, s = np.cos(theta), np.sin(theta)
+        return xp.asarray(b_r * c - b_theta * s), xp.asarray(b_r * s + b_theta * c), xp.asarray(b_z)
+
+    def j_xyz(self, x, y, z):
+        """Current density (zero: vacuum field)."""
+        return 0 * x, 0 * x, 0 * x
+
+    def p_xyz(self, x, y, z):
+        """Pressure."""
+        return self.params["p0"] + 0 * x
+
+    def n_xyz(self, x, y, z):
+        """Number density."""
+        return self.params["n0"] + 0 * x
+
+    def gradB_xyz(self, x, y, z, h=1e-6):
+        """Gradient of the field strength (central differences)."""
+
+        def absB(x, y, z):
+            bx, by, bz = self.b_xyz(x, y, z)
+            return (bx**2 + by**2 + bz**2) ** 0.5
+
+        return (
+            (absB(x + h, y, z) - absB(x - h, y, z)) / (2 * h),
+            (absB(x, y + h, z) - absB(x, y - h, z)) / (2 * h),
+            (absB(x, y, z + h) - absB(x, y, z - h)) / (2 * h),
+        )
 
 
 class AdhocTorus(AxisymmMHDequilibrium):

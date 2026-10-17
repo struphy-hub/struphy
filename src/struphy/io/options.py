@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 from dataclasses import dataclass, fields
 from typing import Any, Callable, Literal
 
@@ -84,6 +85,10 @@ class LiteralOptions:
         "HiptmairXu", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
     ]
     OptsPoloidalSolver = Literal["schur", "lu", "ilu"]
+    OptsPolarMethod = Literal["c1", "homotopy"]
+    OptsAngularBasis = Literal["bspline", "trig"]
+    OptsPolarEnrichment = Literal["cochain_chain", "cochain", "none"]
+    OptsPolarPolynomialProjection = Literal["commuting", "l2"]
     OptsDiffusionPrecond = Literal[
         "MultiGrid",
         "StiffnessPreconditioner",
@@ -248,20 +253,50 @@ class DerhamOptions(OptionsBase):
         projector/histopolation integrals. If ``None``, backend defaults are
         used.
 
+    angular_basis : str
+        Basis in the periodic direction ``eta_2``: ``"bspline"`` (periodic B-splines of degree ``degree[1]`` on
+        ``num_elements[1]`` cells) or ``"trig"`` (``num_elements[1]`` trigonometric functions, odd, ``degree[1]`` is
+        ignored; see :mod:`struphy.feec.trig_space`). With trigonometric functions the polar splines of a disk-like
+        mapping that is exactly representable (``r``-compatible) are exactly ``C^r`` at the pole. FEEC only:
+        particles, local projectors and spline-kernel field evaluation are not supported, and ``eta_2`` must not be
+        MPI-decomposed.
+
     polar_splines : bool
         Smoothness at a possible polar singularity at ``eta_1 = 0``.
-        ``False`` gives standard tensor-product splines, ``True`` gives C1 polar
-        splines.
+        ``False`` gives standard tensor-product splines, ``True`` gives polar
+        splines of regularity ``polar_regularity`` (built with homotopy
+        operators, see :mod:`struphy.polar.homotopy`; regularity 1 spans the C1
+        polar splines of Toshniwal et al. 2017 and Holderied & Possanner 2022).
 
     local_projectors : bool
         Whether to build local commuting projectors based on
         quasi-inter-/histopolation.
 
-    polar_poloidal_solver : str
-        Solver for the poloidal (eta_1-eta_2) matrices in the 2D x 1D Kronecker
-        solves of the polar commuting projectors (only used with ``polar_splines=True``):
-        ``"schur"`` (exact, block elimination of the pole block), ``"lu"``
-        (exact, sparse LU) or ``"ilu"`` (incomplete LU as preconditioner).
+    polar_poloidal_solver : str | None
+        Deprecated and ignored: the polar commuting projectors need no poloidal solver (their polar
+        inter-/histopolation matrix is the identity).
+
+    polar_method : str | None
+        Deprecated: there is one polar construction. ``"c1"`` gives ``polar_regularity=1`` (the same spaces as the
+        former C1 polar splines), ``"homotopy"`` keeps ``polar_regularity``.
+
+    polar_regularity : int
+        Regularity ``r`` of the polar splines at the pole: 0-forms are ``C^r``, 1-forms ``C^{r-1}``
+        and 2-forms ``C^{r-2}`` at the pole (conforming for ``r >= 1``). Requires ``r <= degree[0]`` and
+        ``num_elements[1] >= 2r + 1``.
+
+    polar_enrichment : str
+        Enrichment of the polar spaces: ``"cochain_chain"`` (the paper's construction),
+        ``"cochain"`` (no compact 2-forms) or ``"none"`` (external tensor-product functions only).
+
+    polar_polynomial_projection : str
+        Projection of the polynomials onto the tensor-product spaces in the polar construction:
+        ``"commuting"`` (geometric degrees of freedom, the paper's choice) or ``"l2"`` (a research option, well-defined
+        only when the polynomials are exactly representable, i.e. not with B-splines in ``eta_2``).
+
+    polar_cross_section : str
+        Reference cross-section of the polar complex: ``"domain"`` (the domain at ``eta_3 = 0``)
+        or ``"unit_disk"``.
     """
 
     degree: tuple[int, int, int] = (1, 1, 1)
@@ -274,10 +309,40 @@ class DerhamOptions(OptionsBase):
     nquads_proj: tuple[int, int, int] | None = None
     polar_splines: bool = False
     local_projectors: bool = False
-    polar_poloidal_solver: LiteralOptions.OptsPoloidalSolver = "schur"
+    angular_basis: LiteralOptions.OptsAngularBasis = "bspline"
+    polar_poloidal_solver: LiteralOptions.OptsPoloidalSolver | None = None
+    polar_method: LiteralOptions.OptsPolarMethod | None = None
+    polar_regularity: int = 1
+    polar_enrichment: LiteralOptions.OptsPolarEnrichment = "cochain_chain"
+    polar_polynomial_projection: LiteralOptions.OptsPolarPolynomialProjection = "commuting"
+    polar_cross_section: str = "domain"
 
     def __post_init__(self):
-        check_option(self.polar_poloidal_solver, LiteralOptions.OptsPoloidalSolver)
+        check_option(self.angular_basis, LiteralOptions.OptsAngularBasis)
+        if self.polar_poloidal_solver is not None:
+            check_option(self.polar_poloidal_solver, LiteralOptions.OptsPoloidalSolver)
+            warnings.warn(
+                "DerhamOptions.polar_poloidal_solver is deprecated and ignored: the polar commuting projectors need "
+                "no poloidal solver.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+        if self.polar_method is not None:
+            check_option(self.polar_method, LiteralOptions.OptsPolarMethod)
+            warnings.warn(
+                "DerhamOptions.polar_method is deprecated: there is one polar construction, of regularity "
+                "polar_regularity ('c1' is polar_regularity=1, which spans the former C1 polar splines).",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            if self.polar_method == "c1":
+                self.polar_regularity = 1
+        check_option(self.polar_enrichment, LiteralOptions.OptsPolarEnrichment)
+        check_option(self.polar_polynomial_projection, LiteralOptions.OptsPolarPolynomialProjection)
+        assert self.polar_regularity >= 0, "polar_regularity must be nonnegative"
+        assert self.polar_cross_section in ("domain", "unit_disk"), (
+            "polar_cross_section must be 'domain' or 'unit_disk'"
+        )
         for bc in self.bcs:
             if bc is not None:
                 assert isinstance(bc, tuple) and len(bc) == 2, (

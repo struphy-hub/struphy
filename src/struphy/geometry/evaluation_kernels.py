@@ -11,7 +11,9 @@ import struphy.geometry.domains.cuboid.cuboid_kernels as cuboid_kernels
 import struphy.geometry.domains.hollow_cylinder.hollow_cylinder_kernels as hollow_cylinder_kernels
 import struphy.geometry.domains.hollow_torus.hollow_torus_kernels as hollow_torus_kernels
 import struphy.geometry.domains.orthogonal.orthogonal_kernels as orthogonal_kernels
+import struphy.geometry.domains.perturbed_disk_cylinder.perturbed_disk_cylinder_kernels as perturbed_disk_cylinder_kernels
 import struphy.geometry.domains.powered_elliptic_cylinder.powered_elliptic_cylinder_kernels as powered_elliptic_cylinder_kernels
+import struphy.geometry.domains.rounded_square_cylinder.rounded_square_cylinder_kernels as rounded_square_cylinder_kernels
 import struphy.geometry.domains.shafranov_dshaped_cylinder.shafranov_dshaped_cylinder_kernels as shafranov_dshaped_cylinder_kernels
 import struphy.geometry.domains.shafranov_shift_cylinder.shafranov_shift_cylinder_kernels as shafranov_shift_cylinder_kernels
 import struphy.geometry.domains.shafranov_sqrt_cylinder.shafranov_sqrt_cylinder_kernels as shafranov_sqrt_cylinder_kernels
@@ -148,6 +150,28 @@ def f(
             args.params[3],
             args.params[4],
             args.params[5],
+            f_out,
+        )
+    elif args.kind_map == 23:
+        perturbed_disk_cylinder_kernels.perturbed_disk(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            f_out,
+        )
+    elif args.kind_map == 24:
+        rounded_square_cylinder_kernels.rounded_square(
+            eta1,
+            eta2,
+            eta3,
+            args.params[0],
+            args.params[1],
+            args.params[2],
             f_out,
         )
     elif args.kind_map == 30:
@@ -308,6 +332,26 @@ def df(
             args.params[5],
             df_out,
         )
+    elif args.kind_map == 23:
+        perturbed_disk_cylinder_kernels.perturbed_disk_df(
+            eta1,
+            eta2,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            args.params[3],
+            args.params[4],
+            df_out,
+        )
+    elif args.kind_map == 24:
+        rounded_square_cylinder_kernels.rounded_square_df(
+            eta1,
+            eta2,
+            args.params[0],
+            args.params[1],
+            args.params[2],
+            df_out,
+        )
     elif args.kind_map == 30:
         shafranov_shift_cylinder_kernels.shafranov_shift_df(
             eta1,
@@ -454,6 +498,16 @@ def df_inv(
             dfinv_out[1, 2] = 0.0
             dfinv_out[2, 0] = 0.0
             dfinv_out[2, 1] = 0.0
+        elif args.kind_map == 23:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args.kind_map == 24:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
         elif args.kind_map == 22:
             dfinv_out[2, 2] = 0.0
         elif args.kind_map == 30:
@@ -551,6 +605,16 @@ def g(
             g_out[2, 0] = 0.0
             g_out[2, 1] = 0.0
         elif args.kind_map == 21:
+            g_out[0, 2] = 0.0
+            g_out[1, 2] = 0.0
+            g_out[2, 0] = 0.0
+            g_out[2, 1] = 0.0
+        elif args.kind_map == 23:
+            g_out[0, 2] = 0.0
+            g_out[1, 2] = 0.0
+            g_out[2, 0] = 0.0
+            g_out[2, 1] = 0.0
+        elif args.kind_map == 24:
             g_out[0, 2] = 0.0
             g_out[1, 2] = 0.0
             g_out[2, 0] = 0.0
@@ -670,6 +734,16 @@ def g_inv(
             ginv_out[2, 0] = 0.0
             ginv_out[2, 1] = 0.0
         elif args.kind_map == 21:
+            ginv_out[0, 2] = 0.0
+            ginv_out[1, 2] = 0.0
+            ginv_out[2, 0] = 0.0
+            ginv_out[2, 1] = 0.0
+        elif args.kind_map == 23:
+            ginv_out[0, 2] = 0.0
+            ginv_out[1, 2] = 0.0
+            ginv_out[2, 0] = 0.0
+            ginv_out[2, 1] = 0.0
+        elif args.kind_map == 24:
             ginv_out[0, 2] = 0.0
             ginv_out[1, 2] = 0.0
             ginv_out[2, 0] = 0.0

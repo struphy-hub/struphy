@@ -26,6 +26,11 @@ Field solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.scalar_wave_leapfrog
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 Linear MHD solvers
 ^^^^^^^^^^^^^^^^^^
 

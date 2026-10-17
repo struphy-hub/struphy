@@ -22,6 +22,7 @@ from struphy.models.maxwell import Maxwell
 from struphy.models.poisson import Poisson
 from struphy.models.pressure_less_sph import PressureLessSPH
 from struphy.models.random_particle_diffusion import RandomParticleDiffusion
+from struphy.models.scalar_wave import ScalarWave
 from struphy.models.shear_alfven import ShearAlfven
 from struphy.models.shear_alfven_curl_curl import ShearAlfvenCurlCurl
 from struphy.models.shear_alfven_curl_curl_with_proj import ShearAlfvenCurlCurlwithProj
@@ -65,6 +66,7 @@ __all__ = [
     "Poisson",
     "PressureLessSPH",
     "RandomParticleDiffusion",
+    "ScalarWave",
     "ShearAlfven",
     "ShearAlfvenCurlCurl",
     "ShearAlfvenCurlCurlwithProj",

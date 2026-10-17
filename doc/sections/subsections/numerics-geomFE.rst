@@ -266,15 +266,21 @@ See Fig. 5 for an example with :math:`p=4`.
 Polar splines
 ^^^^^^^^^^^^^
 
-For domains with a polar singularity at :math:`\eta_1 = 0` (e.g. ``IGAPolarCylinder``, ``IGAPolarTorus``),
-``DerhamOptions(polar_splines=True)`` builds the C1 polar spline spaces of
-`Holderied and Possanner (JCP 2022) <https://doi.org/10.1016/j.jcp.2022.111329>`_.
-The first two rings of tensor-product splines around the pole are replaced by a few polar basis functions,
-via extraction operators :math:`\mathbb E` (basis) and :math:`\mathbb P` (degrees of freedom) that act in the
-poloidal plane :math:`(\eta_1, \eta_2)` only.
+For domains with a polar singularity at :math:`\eta_1 = 0` (e.g. ``HollowCylinder(a1=0)``, ``IGAPolarCylinder``,
+``IGAPolarTorus``), ``DerhamOptions(polar_splines=True, polar_regularity=r)`` builds polar spline spaces that are
+:math:`C^{\mathfrak r}` at the pole (see :ref:`polar_splines_homotopy` for the construction). Regularity
+:math:`\mathfrak r = 1` (the default) spans exactly the C1 polar spline spaces of
+`Toshniwal et al. (CMAME 2017) <https://doi.org/10.1016/j.cma.2017.04.028>`_ and
+`Holderied and Possanner (JCP 2022) <https://doi.org/10.1016/j.jcp.2022.111329>`_, which Struphy used before
+(``src/struphy/polar/tests/test_polar_regularity_one.py`` compares all degrees with the former C1 extraction
+matrices); unlike the former construction, it needs neither a spline mapping nor a multiple of 3 elements in
+:math:`\eta_2`. The innermost rings of tensor-product splines around the pole are replaced by polar basis
+functions, via extraction operators :math:`\mathbb E` (basis) and dual coefficients :math:`\tilde{\mathbb F}` that act
+in the poloidal plane :math:`(\eta_1, \eta_2)` only. The commuting projectors are the tensor-product projections
+followed by the polar duals, :math:`\bar\pi = \tilde{\mathbb F}^T \pi`, so that their polar inter-/histopolation
+matrix is the identity.
 
-Hence, the inter-/histopolation matrices of the commuting projectors, :math:`\mathbb P \mathcal I \mathbb E^T`,
-and the mass matrices with weights independent of :math:`\eta_3` have a 2D x 1D Kronecker structure
+The mass matrices with weights independent of :math:`\eta_3` have a 2D x 1D Kronecker structure
 :math:`\mathbb A_\textnormal{pol} \otimes \mathbb A_3` (:mod:`struphy.polar.kron_2dx1d`).
 They are solved with a 1d direct solver in :math:`\eta_3` and one of the following solvers for the
 sparse poloidal matrix :math:`\mathbb A_\textnormal{pol}`:
@@ -284,7 +290,6 @@ sparse poloidal matrix :math:`\mathbb A_\textnormal{pol}`:
 * ``"lu"``: sparse LU factorization,
 * ``"ilu"``: incomplete LU factorization, used as preconditioner of an iterative solver.
 
-The solver of the projectors is set with ``DerhamOptions(polar_poloidal_solver=...)``.
 For weighted mass matrices, use :class:`~struphy.feec.preconditioner.PolarMassMatrixPreconditioner`
 (``precond="PolarMassMatrixPreconditioner"`` in the propagator options);
 it is exact for axisymmetric weights and mappings.
@@ -305,7 +310,7 @@ and are included in the polar stiffness preconditioner (the average over :math:`
 On the CuPy backend, extraction, derivatives, Kronecker operators and these solves keep their
 coefficients on the device. Factorization and mass-preconditioner assembly run once on the host;
 cached device factors apply subsequent solves. Identical factors are shared across polar spaces
-and projector/preconditioner instances of the same Derham. Matrix contents and solver settings
+and preconditioner instances of the same Derham. Matrix contents and solver settings
 are matched exactly; updated weights use new factors, and unused entries are released. Polar MPI collectives support CUDA-aware device
 buffers or host staging through ``cunumpy.mpi.mpi_buffer``. The feectools halo exchanges require
 CUDA-aware MPI on real GPUs. ``SplineFunction.__call__`` dispatches CUDA kernels for marker
@@ -313,3 +318,126 @@ and dense/sparse grid evaluation. The fixed local-grid helper ``eval_tp_fixed_lo
 host-only; distributed field-evaluation MPI handling and coverage are separate follow-ups.
 
 .. image:: ../../pics/polar_derham.png
+
+
+.. _polar_splines_homotopy:
+
+Construction of the polar splines (homotopy operators)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``DerhamOptions(polar_splines=True, polar_regularity=r)`` builds the polar subspaces of R. Remmerswaal (*High-order FEEC discretization on 2D and 3D domains with a disk-like coordinate
+singularity*, draft, and the Julia package `PolarFEEC.jl <https://gitlab.mpcdf.mpg.de/rwr/polarfeec.jl>`_).
+For a regularity :math:`\mathfrak r` the 2D polar spaces of the cross-section are
+
+.. math::
+
+    \bar V^{0,\mathfrak r} = \pi^0 T^{\mathfrak r} \oplus V^{0,\mathfrak r}_\textnormal{ext}\,,\qquad
+    \bar V^{1,\mathfrak r} = \nabla \pi^0 T^{\mathfrak r} \oplus \textnormal{curl}^\dagger \tilde\pi^{2,1} T^{\mathfrak r-2}
+        \oplus V^{1,\mathfrak r}_\textnormal{ext}\,,\qquad
+    \bar V^{2,\mathfrak r} = \tilde\pi^{2,1} T^{\mathfrak r-2} \oplus V^{2,\mathfrak r}_\textnormal{ext}\,,
+
+where :math:`T^{\mathfrak r}` are the Cartesian polynomials of total degree :math:`\mathfrak r`, :math:`\pi^k` the
+commuting tensor-product projections, :math:`\tilde\pi^{2,1}` a conforming 2-form projection and
+:math:`\textnormal{curl}^\dagger` the Poincaré homotopy operator (a radial integration in logical coordinates).
+The external spaces consist of the tensor-product splines of the rings :math:`i > \mathfrak r` (resp. the
+corresponding rings of the 1- and 2-forms). The spaces are conforming for :math:`\mathfrak r \geq 1`,
+:math:`C^{\mathfrak r}`, :math:`C^{\mathfrak r-1}` and :math:`C^{\mathfrak r-2}` at the pole (exactly when the mapping
+is :math:`\mathfrak r`-compatible with the logical spaces), they form a cochain and a chain complex with the
+cohomology of the disk, and the commuting projections :math:`\bar\pi^k = \bar\Pi^k \circ \pi^k` commute with the
+derivatives and with the homotopies. In 3D the polar complex is the total complex
+:math:`\bar W^m = \bigoplus_{p+q=m} \bar V^{p,\mathfrak r} \otimes V^q_3` with the 1D complex in :math:`\eta_3`;
+it has the cohomology of the solid torus.
+
+The polar spaces are built by :class:`~struphy.polar.homotopy.complex2d.PolarComplex2D` (extraction matrices
+:math:`E` and duals :math:`F` with :math:`F^T E = I`, homotopies and cohomology projections) from the 1D spline
+spaces of the ``Derham`` complex itself (:class:`~struphy.polar.homotopy.derham_spaces.DerhamSpace1D`: feectools
+basis values, the derivative ``grad_1d_matrix`` and the projection grids of ``get_pts_and_wts``), in Struphy's
+coefficient ordering (:mod:`struphy.polar.homotopy.layout`) and on the cross-section of the Struphy domain
+(:class:`~struphy.polar.homotopy.derham_blocks.DomainCrossSection`). The central polynomials are scaled to the size
+of the polar rings, which keeps the polar matrices as well conditioned as the tensor-product ones.
+:class:`~struphy.polar.homotopy.derham_blocks.PolarExtractionBlocksHomotopy` provides the blocks of the polar
+operators of :mod:`struphy.polar.linear_operators`:
+
+* per tensor-product component the first ``n_rings`` rings hold the polar coefficients:
+  :math:`\mathfrak r + 2` rings for 0-forms, :math:`(\mathfrak r + 1, \mathfrak r + 2)` for the two components of
+  2D 1-forms and :math:`\mathfrak r + 1` for 2D 2-forms, so that the extraction and the duals are the identity on
+  the outer rings and the derivatives map no tensor-product coefficient into the polar coefficients;
+* the duals are those of the paper with the non-conforming ring-0 :math:`\eta_2`-component removed; on the
+  coefficients of physical fields both coincide;
+* the commuting projectors apply the tensor-product projection followed by the polar duals, so that the polar
+  inter-/histopolation matrix is the identity (no shift of the projection points off the pole is needed);
+* the polynomials are projected on the reference cross-section ``polar_cross_section``: the (planar) domain at
+  :math:`\eta_3 = 0` (default) or the unit disk; for regularity :math:`\mathfrak r \geq 2` a warning is given if the
+  cross-sections change shape along :math:`\eta_3` (the splines are then only approximately
+  :math:`C^{\mathfrak r}` away from :math:`\eta_3 = 0`).
+
+The options ``polar_enrichment`` (``"cochain_chain"``, ``"cochain"``, ``"none"``) and
+``polar_polynomial_projection`` (``"commuting"``, ``"l2"``) select the variants of the paper. The requirements are
+:math:`\mathfrak r \leq p_1` and ``num_elements[1]`` :math:`\geq 2\mathfrak r + 1`; any domain with a pole can be
+used, e.g. ``HollowCylinder(a1=0)``, ``HollowTorus(a1=0)``, ``IGAPolarTorus`` and the analytic
+``PerturbedDiskCylinder`` and ``RoundedSquareCylinder``. See the tutorials ``tutorial_polar_splines`` and
+``dev_tutorial_polar_homotopy``.
+
+**Trigonometric functions in** :math:`\eta_2`. With ``DerhamOptions(angular_basis="trig")`` the :math:`\eta_2`-direction
+uses the ``n = num_elements[1]`` (odd) nodal trigonometric functions of :mod:`struphy.feec.trig_space` instead of
+periodic B-splines: the 0-forms are the cardinal functions of the nodes :math:`\eta_2 = i/n`, the 1-forms their cell
+histopolants, so that the derivative is the forward difference and the inter- and histopolation matrices are the
+identity. These are the compatible angular spaces of the paper: the polar splines are then exactly
+:math:`C^{\mathfrak r}` at the pole for every :math:`\mathfrak r \leq (n - 1)/2`. Mass matrices, global projectors,
+derivatives, field evaluation and the polar splines support them; :math:`\eta_2` must not be MPI-decomposed, and
+particles, local projectors and ``BasisProjectionOperator`` need B-splines in every direction (a clear error is
+raised).
+
+========================================================================  ==========================================================
+Paper / PolarFEEC.jl                                                      Struphy
+========================================================================  ==========================================================
+1D spaces, scaled spaces, derivative and histopolation matrices           :class:`~struphy.polar.homotopy.derham_spaces.DerhamSpace1D` (the 1D spaces of ``Derham``)
+trigonometric spaces                                                      :mod:`struphy.feec.trig_space` (``angular_basis="trig"``)
+tensor-product and physical form spaces, Piola maps, GDOFs                :mod:`struphy.polar.homotopy.forms2d`
+disk-like mappings                                                        Struphy domains (:class:`~struphy.polar.homotopy.derham_blocks.DomainCrossSection`)
+Zernike basis, centre-shifted polynomial basis                            :mod:`struphy.polar.homotopy.polynomials`
+``PolarComplex``: extraction, duals, :math:`\tilde\Pi^{2,\mathfrak r}`,   :class:`~struphy.polar.homotopy.complex2d.PolarComplex2D`
+homotopies, boundary homotopies, mean projection :math:`\mathfrak B`
+``stiffness_solver``, ``range_projection`` (2D curl-curl "free lunch")    :mod:`struphy.polar.homotopy.solvers`
+``TensorProductComplex``, ``PeriodicComplex``, ``PolarComplex3D``         :mod:`struphy.polar.homotopy.complex3d`
+3D polar complex of a domain                                              ``DerhamOptions(polar_splines=True)``
+========================================================================  ==========================================================
+
+The studies of PolarFEEC.jl and of the NMPP seminar talk (2026) are reproduced by the demos
+:mod:`struphy.polar.homotopy.demos` (used by the tutorials), the tests ``src/struphy/polar/tests/test_homotopy_*.py``
+and the examples:
+
+==================================================================  ==================================================================
+Study                                                               Struphy
+==================================================================  ==================================================================
+1D spaces, forms on the square and on a mapped domain (jl 01-03)    ``demos.spaces``
+polar bases, regularity at the centre (talk; jl 04)                 ``demos.basis``, ``demos.regularity``
+convergence and commutativity of the polar projections (talk)       ``demos.projections``
+Poisson and curl-curl on a rounded square (jl 05)                   ``demos.pde``; ``examples/Poisson/polar_rounded_square``,
+                                                                    ``examples/CurlCurl/polar_rounded_square``
+Maxwell spectrum on the disk (jl 06)                                ``demos.maxwell``
+field lines in a twisted tube, :math:`\iota(r)` (jl 07)             ``demos.fieldlines`` with the domain ``HelicalTube("islands")``
+assembly cost of the polar masses (jl 08)                           ``demos.performance``
+0- and 1-form wave equations, regularity and convergence (talk)     ``demos.waves``; model ``ScalarWave`` and ``Maxwell`` with
+                                                                    ``algo="leapfrog"``; ``examples/ScalarWave/gaussian_perturbed_disk``,
+                                                                    ``examples/Maxwell/gaussian_perturbed_disk``
+3D 1-form wave in a helical tube (talk)                             ``demos.waves3d``; ``examples/Maxwell/gaussian_helical_tube``
+                                                                    (``HelicalTube("stellarator")``)
+guiding-centre orbits near the magnetic axis (talk)                 ``demos.orbits``; ``examples/GuidingCenter/vacuum_near_axis`` with
+                                                                    the equilibrium ``HelicalVacuumField``
+spectrum explorer of the curl-curl operator (talk)                  ``demos.spectrum`` (``write_explorer(folder)``: an HTML page)
+de Rham diagrams, coordinate transformation, boundary homotopy      ``demos.schematics`` (diagrams with ``tikzfigure``)
+all figures and videos of the talk                                  ``python -m struphy.polar.homotopy.demos.talk_figures OUT``
+                                                                    (``--full``: the talk's resolution, hours; ``--videos``)
+==================================================================  ==================================================================
+
+The wave and guiding-centre scripts of the talk were not available; these studies follow the methods stated in the
+talk and in the wave script of the PolarFEEC.jl history (staggered leapfrog at :math:`0.9` times the stability limit
+:math:`2/\sqrt{\lambda_\textnormal{max}}`, Gaussian initial data next to the axis, maximum relative
+:math:`L^\infty` error during the final 10%, RK4 orbits with the relative energy error
+:math:`\max_t |E(t) - E(0)| / (\mu |B|)`). The reference solutions (the finest mesh of the highest regularity), the
+sampling of the :math:`L^\infty` norm, the final time :math:`T = 1`, the helical-tube geometries and the vacuum field
+(a single helical harmonic :math:`B = B_0 \nabla(z + \delta\, I_m(kr)\sin(m\theta - kz)/k)`) are choices of Struphy.
+With these choices the orbit study does not show the strong dependence of the energy error on :math:`\mathfrak r`
+reported in the talk; the spectrum explorer, the regularity study and the projection studies reproduce the talk
+(the eigenvalues and dimensions of the explorer agree with the talk's data to :math:`10^{-13}`).

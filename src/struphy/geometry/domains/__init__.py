@@ -17,12 +17,15 @@ _LAZY_IMPORTS = {
     "Cuboid": "struphy.geometry.domains.cuboid",
     "DESCunit": "struphy.geometry.domains.desc_unit",
     "GVECunit": "struphy.geometry.domains.gvec_unit",
+    "HelicalTube": "struphy.geometry.domains.helical_tube",
     "HollowCylinder": "struphy.geometry.domains.hollow_cylinder",
     "HollowTorus": "struphy.geometry.domains.hollow_torus",
     "IGAPolarCylinder": "struphy.geometry.domains.iga_polar_cylinder",
     "IGAPolarTorus": "struphy.geometry.domains.iga_polar_torus",
     "Orthogonal": "struphy.geometry.domains.orthogonal",
+    "PerturbedDiskCylinder": "struphy.geometry.domains.perturbed_disk_cylinder",
     "PoweredEllipticCylinder": "struphy.geometry.domains.powered_elliptic_cylinder",
+    "RoundedSquareCylinder": "struphy.geometry.domains.rounded_square_cylinder",
     "ShafranovDshapedCylinder": "struphy.geometry.domains.shafranov_dshaped_cylinder",
     "ShafranovShiftCylinder": "struphy.geometry.domains.shafranov_shift_cylinder",
     "ShafranovSqrtCylinder": "struphy.geometry.domains.shafranov_sqrt_cylinder",
@@ -34,12 +37,15 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.geometry.domains.cuboid import Cuboid
     from struphy.geometry.domains.desc_unit import DESCunit
     from struphy.geometry.domains.gvec_unit import GVECunit
+    from struphy.geometry.domains.helical_tube import HelicalTube
     from struphy.geometry.domains.hollow_cylinder import HollowCylinder
     from struphy.geometry.domains.hollow_torus import HollowTorus
     from struphy.geometry.domains.iga_polar_cylinder import IGAPolarCylinder
     from struphy.geometry.domains.iga_polar_torus import IGAPolarTorus
     from struphy.geometry.domains.orthogonal import Orthogonal
+    from struphy.geometry.domains.perturbed_disk_cylinder import PerturbedDiskCylinder
     from struphy.geometry.domains.powered_elliptic_cylinder import PoweredEllipticCylinder
+    from struphy.geometry.domains.rounded_square_cylinder import RoundedSquareCylinder
     from struphy.geometry.domains.shafranov_dshaped_cylinder import ShafranovDshapedCylinder
     from struphy.geometry.domains.shafranov_shift_cylinder import ShafranovShiftCylinder
     from struphy.geometry.domains.shafranov_sqrt_cylinder import ShafranovSqrtCylinder
@@ -50,12 +56,15 @@ __all__ = [
     "Cuboid",
     "DESCunit",
     "GVECunit",
+    "HelicalTube",
     "HollowCylinder",
     "HollowTorus",
     "IGAPolarCylinder",
     "IGAPolarTorus",
     "Orthogonal",
+    "PerturbedDiskCylinder",
     "PoweredEllipticCylinder",
+    "RoundedSquareCylinder",
     "ShafranovDshapedCylinder",
     "ShafranovShiftCylinder",
     "ShafranovSqrtCylinder",

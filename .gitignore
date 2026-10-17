@@ -115,3 +115,7 @@ pyvenv.cfg
 *kernels.txt
 struphy.log
 struphy.log.*
+polarfeec.jl/
+
+# output of the polar-splines tutorial (spectrum explorer)
+tutorials/spectrum_explorer/

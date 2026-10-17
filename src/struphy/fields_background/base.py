@@ -18,6 +18,15 @@ from struphy.utils.utils import (
 logger = logging.getLogger("struphy")
 
 
+def _cartesian_vector(function, domain, etas, squeeze_out):
+    """Cartesian vector field ``function(x, y, z)`` at the logical points, without pull-back and push-forward (which
+    need the inverse Jacobian and are singular on a polar axis). Returns also (x, y, z)."""
+    xyz = domain(*etas, squeeze_out=squeeze_out)
+    values = function(xyz[0], xyz[1], xyz[2])
+    out = xp.array([xp.broadcast_to(xp.asarray(c, dtype=float), xp.shape(xyz[0])) for c in values], dtype=float)
+    return out, xyz
+
+
 class FluidEquilibrium(metaclass=ABCMeta):
     """
     Abstract base class for callable fluid equilibria on arbitrary domains.
@@ -818,6 +827,24 @@ class CartesianFluidEquilibriumWithB(CartesianFluidEquilibrium, FluidEquilibrium
     def domain(self, new_domain):
         super(CartesianFluidEquilibriumWithB, type(self)).domain.fset(self, new_domain)
 
+    def b_cart(self, *etas, squeeze_out=False):
+        """Cartesian components of magnetic field evaluated on logical cube [0, 1]^3 (directly from ``b_xyz``, also on
+        a polar axis). Returns also (x,y,z)."""
+        return _cartesian_vector(self.b_xyz, self.domain, etas, squeeze_out)
+
+    def gradB_cart(self, *etas, squeeze_out=False):
+        """Cartesian components of gradient of magnetic field strength (directly from ``gradB_xyz``). Returns also
+        (x,y,z)."""
+        return _cartesian_vector(self.gradB_xyz, self.domain, etas, squeeze_out)
+
+    def b1(self, *etas, squeeze_out=False):
+        """1-form components of magnetic field (pulled back from ``b_xyz``, also on a polar axis)."""
+        return self.domain.pull(self.b_cart(*etas, squeeze_out=False)[0], *etas, kind="1", squeeze_out=squeeze_out)
+
+    def b2(self, *etas, squeeze_out=False):
+        """2-form components of magnetic field (pulled back from ``b_xyz``, also on a polar axis)."""
+        return self.domain.pull(self.b_cart(*etas, squeeze_out=False)[0], *etas, kind="2", squeeze_out=squeeze_out)
+
 
 class LogicalFluidEquilibriumWithB(LogicalFluidEquilibrium, FluidEquilibriumWithB):
     r"""
@@ -1455,6 +1482,36 @@ class CartesianMHDequilibrium(MHDequilibrium):
     @MHDequilibrium.domain.setter
     def domain(self, new_domain):
         super(CartesianMHDequilibrium, type(self)).domain.fset(self, new_domain)
+
+    def b_cart(self, *etas, squeeze_out=False):
+        """Cartesian components of magnetic field evaluated on logical cube [0, 1]^3 (directly from ``b_xyz``, also on
+        a polar axis). Returns also (x,y,z)."""
+        return _cartesian_vector(self.b_xyz, self.domain, etas, squeeze_out)
+
+    def j_cart(self, *etas, squeeze_out=False):
+        """Cartesian components of current (directly from ``j_xyz``). Returns also (x,y,z)."""
+        return _cartesian_vector(self.j_xyz, self.domain, etas, squeeze_out)
+
+    def gradB_cart(self, *etas, squeeze_out=False):
+        """Cartesian components of gradient of magnetic field strength (directly from ``gradB_xyz``). Returns also
+        (x,y,z)."""
+        return _cartesian_vector(self.gradB_xyz, self.domain, etas, squeeze_out)
+
+    def b1(self, *etas, squeeze_out=False):
+        """1-form components of magnetic field (pulled back from ``b_xyz``, also on a polar axis)."""
+        return self.domain.pull(self.b_cart(*etas, squeeze_out=False)[0], *etas, kind="1", squeeze_out=squeeze_out)
+
+    def b2(self, *etas, squeeze_out=False):
+        """2-form components of magnetic field (pulled back from ``b_xyz``, also on a polar axis)."""
+        return self.domain.pull(self.b_cart(*etas, squeeze_out=False)[0], *etas, kind="2", squeeze_out=squeeze_out)
+
+    def j1(self, *etas, squeeze_out=False):
+        """1-form components of current (pulled back from ``j_xyz``, also on a polar axis)."""
+        return self.domain.pull(self.j_cart(*etas, squeeze_out=False)[0], *etas, kind="1", squeeze_out=squeeze_out)
+
+    def j2(self, *etas, squeeze_out=False):
+        """2-form components of current (pulled back from ``j_xyz``, also on a polar axis)."""
+        return self.domain.pull(self.j_cart(*etas, squeeze_out=False)[0], *etas, kind="2", squeeze_out=squeeze_out)
 
 
 class AxisymmMHDequilibrium(CartesianMHDequilibrium):
