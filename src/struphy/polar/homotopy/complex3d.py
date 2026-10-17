@@ -15,8 +15,8 @@ problems; the distributed 3D operators live in :class:`~struphy.feec.psydac_derh
 import numpy as np
 import scipy.sparse as sp
 
+from struphy.polar.homotopy.complex2d import periodic_primitive_matrix
 from struphy.polar.homotopy.linalg import SparsePlusLowRank, as_dense
-from struphy.polar.homotopy.spaces1d import PeriodicBSplineSpace, TrigonometricSpace, periodic_primitive_matrix
 
 
 def _sparse(A):
@@ -37,7 +37,7 @@ class PeriodicComplex:
     top_degree = 1
 
     def __init__(self, space, base_point=None):
-        if not isinstance(space, (PeriodicBSplineSpace, TrigonometricSpace)):
+        if not getattr(space, "periodic", False):
             raise TypeError("the periodic complex needs a periodic B-spline or trigonometric space")
         self.space = space
         self.base_point = float(space.greville_points()[0] if base_point is None else base_point)

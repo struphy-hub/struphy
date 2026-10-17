@@ -25,9 +25,9 @@ import numpy as np
 import scipy.sparse as sp
 
 from struphy.polar.homotopy.complex2d import PolarComplex2D
-from struphy.polar.homotopy.mappings import DiskMapping, Mapping2D
+from struphy.polar.homotopy.derham_spaces import derham_factors
+from struphy.polar.homotopy.layout import STRUPHY
 from struphy.polar.homotopy.polynomials import PolynomialBasis, zernike_basis
-from struphy.polar.homotopy.spaces1d import ClampedBSplineSpace, PeriodicBSplineSpace
 
 
 # ------------------------------------------------------------------------------------------------- cross-sections
@@ -38,14 +38,48 @@ def _host(values):
     return xp.to_numpy(values)
 
 
-class DomainCrossSection(Mapping2D):
+class CrossSection:
+    """A 2D map ``(x, y) -> (X, Y)`` of the logical square onto a cross-section (``__call__``, ``jacobian_matrix``,
+    ``jacobian``), as used by the polar construction."""
+
+    has_polar_axis = True
+
+    def jacobian(self, x, y):
+        J = self.jacobian_matrix(x, y)
+        return J[..., 0, 0] * J[..., 1, 1] - J[..., 0, 1] * J[..., 1, 0]
+
+
+class UnitDiskCrossSection(CrossSection):
+    """The unit disk ``(X, Y) = x (cos 2 pi y, sin 2 pi y)``, the reference cross-section ``"unit_disk"``."""
+
+    def __call__(self, x, y):
+        x, y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
+        return x * np.cos(2 * np.pi * y), x * np.sin(2 * np.pi * y)
+
+    def jacobian_matrix(self, x, y):
+        x, y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
+        c, s = np.cos(2 * np.pi * y), np.sin(2 * np.pi * y)
+        J = np.empty(x.shape + (2, 2))
+        J[..., 0, 0], J[..., 0, 1] = c, -2 * np.pi * x * s
+        J[..., 1, 0], J[..., 1, 1] = s, 2 * np.pi * x * c
+        return J
+
+
+def _tensor_axes(x, y):
+    """The 1D axes ``(x[:, 0], y[0, :])`` if ``x, y`` are an ``"ij"`` meshgrid, else ``None``."""
+    if x.ndim == 2 and x.shape[1] > 0 and x.shape[0] > 0:
+        if np.all(x == x[:, :1]) and np.all(y == y[:1, :]):
+            return x[:, 0], y[0, :]
+    return None
+
+
+class DomainCrossSection(CrossSection):
     """The poloidal cross-section ``eta3 = const`` of a struphy :class:`~struphy.geometry.base.Domain` as a 2D map.
 
     Physical points are expressed in an orthonormal basis ``(q1, q2)`` of the (planar) cross-section, centred at the
-    pole; the Jacobian is ``[q1 q2]^T DF[:, :2]`` from the domain's analytic Jacobian.
+    pole; the Jacobian is ``[q1 q2]^T DF[:, :2]`` from the domain's analytic Jacobian. Tensor grids (``"ij"``
+    meshgrids) are evaluated with one call of the domain.
     """
-
-    has_polar_axis = True
 
     def __init__(self, domain, eta3=0.0):
         self.domain, self.eta3 = domain, float(eta3)
@@ -60,59 +94,83 @@ class DomainCrossSection(Mapping2D):
         J = self.jacobian_matrix(np.array([0.5]), np.array([0.3]))
         if np.linalg.det(J[0]) < 0:
             self.basis[:, 1] *= -1
+        # the cross-section must be planar
+        e1, e2 = np.linspace(0, 1, 5), np.linspace(0, 1, 7)
+        P = self._map(e1, e2, e3).reshape(3, -1) - pole[:, None]
+        normal = np.cross(self.basis[:, 0], self.basis[:, 1])
+        size = np.max(np.linalg.norm(P, axis=0))
+        if np.max(np.abs(normal @ P)) > 1e-8 * size:
+            raise ValueError("the polar splines need a planar cross-section eta3 = const of the domain")
 
     def _map(self, e1, e2, e3):
         """Physical points of the domain on a tensor grid, on the host (the domain evaluates on any backend)."""
         return _host(self.domain(*(xp.asarray(e) for e in (e1, e2, e3))))
 
-    def _evaluate(self, function, x, y):
-        x, y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
-        flat_x, flat_y = x.ravel(), y.ravel()
-        values = []
-        # the domain evaluates on tensor grids: evaluate point by point along the flattened coordinates
-        for start in range(0, flat_x.size, 4096):
-            sx, sy = flat_x[start : start + 4096], flat_y[start : start + 4096]
-            values.append(function(sx, sy))
-        return x.shape, values
+    def _domain_jacobian(self, e1, e2):
+        return _host(self.domain.jacobian(*(xp.asarray(e) for e in (e1, e2, [self.eta3]))))
 
     def __call__(self, x, y):
-        shape, values = self._evaluate(self._points, x, y)
-        points = np.concatenate(values, axis=1)
-        return points[0].reshape(shape), points[1].reshape(shape)
-
-    def _points(self, x, y):
-        out = np.empty((2, x.size))
-        for unique_y in np.unique(y):
-            mask = y == unique_y
-            P = self._map(x[mask], np.array([unique_y]), np.array([self.eta3])).reshape(3, -1)
+        x, y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
+        axes = _tensor_axes(x, y)
+        if axes is not None:
+            P = self._map(axes[0], axes[1], np.array([self.eta3])).reshape(3, -1)
+            Q = (self.basis.T @ (P - self.pole[:, None])).reshape(2, *x.shape)
+            return Q[0], Q[1]
+        flat_x, flat_y = x.ravel(), y.ravel()
+        out = np.empty((2, flat_x.size))
+        for unique_y in np.unique(flat_y):
+            mask = flat_y == unique_y
+            P = self._map(flat_x[mask], np.array([unique_y]), np.array([self.eta3])).reshape(3, -1)
             out[:, mask] = self.basis.T @ (P - self.pole[:, None])
-        return out
-
-    def _jacobians(self, x, y):
-        out = np.empty((x.size, 2, 2))
-        for unique_y in np.unique(y):
-            mask = y == unique_y
-            DF = _host(self.domain.jacobian(*(xp.asarray(e) for e in (x[mask], [unique_y], [self.eta3]))))
-            DF = DF.reshape(3, 3, -1)[:, :2, :]
-            out[mask] = np.einsum("ka,kbn->nab", self.basis, DF)
-        return out
+        return out[0].reshape(x.shape), out[1].reshape(x.shape)
 
     def jacobian_matrix(self, x, y):
         x, y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
-        return self._jacobians(x.ravel(), y.ravel()).reshape(x.shape + (2, 2))
+        axes = _tensor_axes(x, y)
+        if axes is not None:
+            DF = self._domain_jacobian(axes[0], axes[1]).reshape(3, 3, -1)[:, :2, :]
+            return np.einsum("ka,kbn->nab", self.basis, DF).reshape(x.shape + (2, 2))
+        flat_x, flat_y = x.ravel(), y.ravel()
+        out = np.empty((flat_x.size, 2, 2))
+        for unique_y in np.unique(flat_y):
+            mask = flat_y == unique_y
+            DF = self._domain_jacobian(flat_x[mask], [unique_y]).reshape(3, 3, -1)[:, :2, :]
+            out[mask] = np.einsum("ka,kbn->nab", self.basis, DF)
+        return out.reshape(x.shape + (2, 2))
 
 
 def cross_section_mapping(domain, cross_section="domain"):
-    """The 2D reference cross-section of the polar complex: ``"domain"``, ``"unit_disk"`` or a :class:`Mapping2D`."""
-    if isinstance(cross_section, Mapping2D):
+    """The 2D reference cross-section of the polar complex: ``"domain"``, ``"unit_disk"`` or a 2D map (an object
+    with ``__call__`` and ``jacobian_matrix``)."""
+    if not isinstance(cross_section, str):
         return cross_section
     if cross_section == "unit_disk":
-        return DiskMapping()
+        return UnitDiskCrossSection()
     if cross_section == "domain":
         if domain is None:
             raise ValueError("the cross-section 'domain' needs a domain")
         return DomainCrossSection(domain)
-    raise ValueError("polar_cross_section must be 'domain', 'unit_disk' or a Mapping2D")
+    raise ValueError("polar_cross_section must be 'domain', 'unit_disk' or a 2D map")
+
+
+def _warn_if_cross_section_varies(mapping):
+    """The polynomials are projected on the cross-section ``eta3 = 0``; on other cross-sections of a different shape
+    (e.g. a rotating ellipse) the polar splines of regularity ``r >= 2`` are only approximately ``C^r``."""
+    import warnings
+
+    e1, e2 = np.linspace(0, 1, 5), np.linspace(0, 1, 9)
+    X0, Y0 = mapping(*np.meshgrid(e1, e2, indexing="ij"))
+    size = np.max(np.hypot(X0, Y0))
+    for eta3 in (0.29, 0.61):
+        other = DomainCrossSection(mapping.domain, eta3)
+        X, Y = other(*np.meshgrid(e1, e2, indexing="ij"))
+        if max(np.max(np.abs(X - X0)), np.max(np.abs(Y - Y0))) > 1e-8 * size:
+            warnings.warn(
+                "the cross-sections eta3 = const of the domain differ in shape: the polar splines of regularity >= 2 "
+                "are built on the cross-section eta3 = 0 and are only approximately C^r on the others",
+                stacklevel=3,
+            )
+            return
 
 
 def polar_radius(mapping, eta1):
@@ -133,38 +191,6 @@ def scaled_zernike_basis(regularity, radius):
     return PolynomialBasis([lambda x, y, f=f: radius * f(x, y) for f in basis.functions], regularity)
 
 
-# ------------------------------------------------------------------------------------------------- index matching
-def _struphy_to_core(struphy_space, core_space):
-    """Core index of every struphy 1D basis function (matched by values; raises if not a permutation)."""
-    from feectools.core.bsplines import collocation_matrix
-
-    x = (np.arange(97) + 0.37) / 97
-    S = collocation_matrix(struphy_space.knots, struphy_space.degree, struphy_space.periodic, struphy_space.basis, x)
-    C = core_space.basis_matrix(x).toarray()
-    if S.shape != C.shape:
-        raise ValueError(f"struphy space {S.shape} and core space {C.shape} differ")
-    differences = np.max(np.abs(S[:, :, None] - C[:, None, :]), axis=0)
-    match = np.argmin(differences, axis=1)
-    if np.unique(match).size != match.size or np.max(differences[np.arange(match.size), match]) > 1e-12:
-        raise ValueError("the struphy and core 1D bases do not match")
-    return match
-
-
-class _Layout2D:
-    """A 2D tensor-product component in struphy ordering ``s = i * n2 + j`` and in core ordering ``c = i + j * nx``."""
-
-    def __init__(self, core_x, core_y):
-        self.core_x, self.core_y = core_x, core_y  # core index of each struphy index
-        self.nx, self.ny = core_x.size, core_y.size
-        i, j = np.meshgrid(np.arange(self.nx), np.arange(self.ny), indexing="ij")
-        core = (core_x[i] + core_y[j] * self.nx).ravel()  # struphy index order (i slow, j fast)
-        self.P = sp.csr_matrix((np.ones(core.size), (np.arange(core.size), core)), shape=(core.size, core.size))
-
-    @property
-    def size(self):
-        return self.nx * self.ny
-
-
 # ------------------------------------------------------------------------------------------------- blocks
 class PolarExtractionBlocksHomotopy:
     """High-order polar extraction blocks for :class:`~struphy.feec.psydac_derham.Derham`.
@@ -181,7 +207,7 @@ class PolarExtractionBlocksHomotopy:
         ``"cochain_chain"`` (paper), ``"cochain"`` or ``"none"``.
     polynomial_projection : str
         ``"commuting"`` (paper) or ``"l2"``.
-    cross_section : str or Mapping2D
+    cross_section : str or CrossSection
         Reference cross-section of the 2D polar complex: ``"domain"`` (the domain at ``eta3 = 0``), ``"unit_disk"``
         (as PolarFEEC.jl for general 3D maps) or a 2D mapping.
     """
@@ -200,11 +226,14 @@ class PolarExtractionBlocksHomotopy:
     ):
         assert not derham.spl_kind[0], "polar splines need clamped splines in eta1"
         assert derham.spl_kind[1], "polar splines need periodic splines in eta2"
-        p1, p2 = derham.degree[0], derham.degree[1]
+        p1 = derham.degree[0]
         N1, N2 = derham.num_elements[0], derham.num_elements[1]
         self.regularity = r = int(regularity)
-        radial, angular = ClampedBSplineSpace(p1, N1), PeriodicBSplineSpace(p2, N2)
+        # the 1D spaces of the Derham complex, coefficients in Struphy's ordering
+        radial, angular, _ = derham_factors(derham)
         mapping = cross_section_mapping(domain, cross_section)
+        if isinstance(mapping, DomainCrossSection) and r >= 2:
+            _warn_if_cross_section_varies(mapping)
         self.polar_radius = polar_radius(mapping, min(1.0, p1 / N1))
         self.complex2d = c = PolarComplex2D(
             radial,
@@ -215,35 +244,25 @@ class PolarExtractionBlocksHomotopy:
             polynomial_projection=polynomial_projection,
             basis=scaled_zernike_basis(r, self.polar_radius),
             check_assumptions=check_assumptions,
+            layout=STRUPHY,
         )
-
-        # struphy <-> core index maps of the 1D spaces
-        H1, L2 = derham.H1_1d_serial, derham.L2_1d_serial
-        Bx = _struphy_to_core(H1[0].spaces[0], radial)
-        Mx = _struphy_to_core(L2[0].spaces[0], radial.scaled)
-        By = _struphy_to_core(H1[1].spaces[0], angular)
-        My = _struphy_to_core(L2[1].spaces[0], angular.scaled)
-        self.layouts = {
-            "0": _Layout2D(Bx, By),
-            "1x": _Layout2D(Mx, By),
-            "1y": _Layout2D(Bx, My),
-            "2": _Layout2D(Mx, My),
-        }
+        nx0, ny0, nx1, ny1 = c._shapes
+        # shapes (rings, angular coefficients) of the 2D tensor-product components
+        self.shapes = {"0": (nx0, ny0), "1x": (nx1, ny0), "1y": (nx0, ny1), "2": (nx1, ny1)}
         self.n2 = N2
         self.n3 = {"B": derham.H1_1d_serial[2].spaces[0].nbasis, "M": derham.L2_1d_serial[2].spaces[0].nbasis}
         self.spl_kind3 = derham.spl_kind[2]
 
-        # 2D extraction and duals per 2D tensor-product component, struphy ordering
-        nx0, ny0, nx1, ny1 = c._shapes
+        # 2D extraction and duals per 2D tensor-product component (Struphy ordering)
         first = nx1 * ny0
         E, F = [c.extraction(k) for k in range(3)], [c.duals(k).tolil() for k in range(3)]
         # F~ = Z F: remove the non-conforming ring-0 y-component from the 1-form duals
-        F[1][first + np.arange(ny1) * nx0, :] = 0.0
+        F[1][first + STRUPHY.index(0, np.arange(ny1), nx0, ny1), :] = 0.0
         F = [f.tocsr() for f in F]
         rows = {"0": slice(0, nx0 * ny0), "1x": slice(0, first), "1y": slice(first, None), "2": slice(0, nx1 * ny1)}
         degree = {"0": 0, "1x": 1, "1y": 1, "2": 2}
-        self._E2D = {key: (self.layouts[key].P @ E[degree[key]][rows[key]]).tocsc() for key in rows}
-        self._F2D = {key: (self.layouts[key].P @ F[degree[key]][rows[key]]).tocsc() for key in rows}
+        self._E2D = {key: E[degree[key]][rows[key]].tocsc() for key in rows}
+        self._F2D = {key: F[degree[key]][rows[key]].tocsc() for key in rows}
 
         # polar rings per 2D component and the polar coefficient sets (columns of the 2D extractions)
         self.rings = {"0": r + 2, "1x": r + 1, "1y": r + 2, "2": r + 1}
@@ -286,17 +305,17 @@ class PolarExtractionBlocksHomotopy:
         if key == "1x":
             E = c.extraction(1)
             lead = _first_rows(E)
-            ring = lead % nx1
+            ring = STRUPHY.ring(lead, nx1, ny0)
             mask = (lead < first) & (ring < self.rings["1x"]) & (np.arange(E.shape[1]) >= c[1].central_count)
             return np.flatnonzero(mask)
         E = c.extraction(degree)
         lead = _first_rows(E)
         if key == "1y":
-            ring = np.where(lead >= first, (lead - first) % nx0, -1)
+            ring = np.where(lead >= first, STRUPHY.ring(lead - first, nx0, ny1), -1)
             external = (np.arange(E.shape[1]) >= central_count) & (lead >= first) & (ring < self.rings["1y"])
         else:
-            nx = nx0 if key == "0" else nx1
-            external = (np.arange(E.shape[1]) >= central_count) & (lead % nx < self.rings[key])
+            nx, ny = self.shapes[key]
+            external = (np.arange(E.shape[1]) >= central_count) & (STRUPHY.ring(lead, nx, ny) < self.rings[key])
         return np.concatenate([np.arange(central_count), np.flatnonzero(external)])
 
     def _check_structure(self):
@@ -304,7 +323,7 @@ class PolarExtractionBlocksHomotopy:
         for degree, keys in ((0, ["0"]), (1, ["1x", "1y"]), (2, ["2"])):
             polar = np.unique(np.concatenate([self._sets[k] for k in keys]))
             for key in keys:
-                limit = self.rings[key] * self.layouts[key].ny
+                limit = self.rings[key] * self.shapes[key][1]
                 for M in (self._E2D[key], self._F2D[key]):
                     block = M[:, polar]
                     if block.nnz and block.nonzero()[0].max() >= limit:
@@ -334,7 +353,7 @@ class PolarExtractionBlocksHomotopy:
                 if type_m != type_n:
                     row.append(None)
                     continue
-                limit = self.rings[key] * self.layouts[key].ny
+                limit = self.rings[key] * self.shapes[key][1]
                 if group_m == group_n:
                     block = sign * matrices[key][:limit, self._sets[polar_key]].T
                 else:
@@ -345,7 +364,7 @@ class PolarExtractionBlocksHomotopy:
 
     # ------------------------------------------------------------------ derivatives
     def _derivative_terms(self, name):
-        """Terms ``(tp_out, tp_in, sign, A2D (core layout), eta3 factor)`` of the 3D derivative ``name``."""
+        """Terms ``(tp_out, tp_in, sign, A2D, eta3 factor)`` of the 3D derivative ``name``."""
         c = self.complex2d
         nx0, ny0, nx1, ny1 = c._shapes
         first = nx1 * ny0
@@ -388,7 +407,7 @@ class PolarExtractionBlocksHomotopy:
                 rows_pp, rows_pt, rows_e3 = [], [], []
                 out_key, _, type_out, _ = W["tp"][m]
                 n_rings_out = self.rings[out_key]
-                n2 = self.layouts[out_key].ny
+                n2 = self.shapes[out_key][1]
                 limit = (n_rings_out + 1) * n2
                 for n, (polar_in, group_in) in enumerate(V["polar"]):
                     kinds = set()
@@ -399,9 +418,8 @@ class PolarExtractionBlocksHomotopy:
                         key_in, sign_in, _, tp_group_in = V["tp"][k_in]
                         if tp_group_in != group_in:
                             continue
-                        A_s = self.layouts[key_out].P @ A @ self.layouts[key_in].P.T
                         # 3D tensor-product coefficients of component k_out of the derivative of the polar basis
-                        image = sign * sign_in * (A_s @ self._E2D[key_in][:, self._sets[polar_in]])
+                        image = sign * sign_in * (A @ self._E2D[key_in][:, self._sets[polar_in]])
                         image = _clean(image)
                         if image.nnz == 0:
                             continue

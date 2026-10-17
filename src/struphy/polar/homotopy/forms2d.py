@@ -3,8 +3,12 @@
 Port of ``src/tensor_forms.jl`` and ``src/physical_forms.jl`` of PolarFEEC.jl, restricted to two dimensions.
 
 Coefficient layout: components are stacked (``0``-forms: one, ``1``-forms: ``x``- then ``y``-component, ``2``-forms:
-one); within a component the radial index ``i`` varies fastest, linear index ``i + j * n_x``. Kronecker products are
-written ``kron(A_y, A_x)``. The derivatives are ``G = [I (x) dx; dy (x) I]`` and ``C = [-dy (x) I, I (x) dx]``.
+one); within a component the coefficients are ordered by a :class:`~struphy.polar.homotopy.layout.Layout`: Struphy's
+``i * n_y + j`` (:data:`~struphy.polar.homotopy.layout.STRUPHY`) or PolarFEEC.jl's ``i + j * n_x``
+(:data:`~struphy.polar.homotopy.layout.CORE`, the default). The derivatives are ``G = [dx (x) I; I (x) dy]`` and
+``C = [-I (x) dy, dx (x) I]`` (radial factor first). The 1D factors are
+:class:`~struphy.polar.homotopy.derham_spaces.DerhamSpace1D` (the spaces of a Derham complex) or the reference spaces
+of :mod:`struphy.polar.homotopy.spaces1d`.
 """
 
 from functools import cached_property
@@ -13,6 +17,7 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
+from struphy.polar.homotopy.layout import CORE
 from struphy.polar.homotopy.spaces1d import _drop_small, mass_additional_order
 
 
@@ -38,10 +43,10 @@ class FormComponent:
 class FormSpace2D:
     """Logical tensor-product ``k``-form space ``(k = 0, 1, 2)`` built from the 1D 0-form spaces ``x`` and ``y``."""
 
-    def __init__(self, k, x, y):
+    def __init__(self, k, x, y, layout=CORE):
         if k not in (0, 1, 2):
             raise ValueError("form degree must be 0, 1 or 2")
-        self.k, self.x, self.y = k, x, y
+        self.k, self.x, self.y, self.layout = k, x, y, layout
         if k == 0:
             self.components = [FormComponent(x, y, (False, False))]
         elif k == 1:
@@ -59,7 +64,7 @@ class FormSpace2D:
         return self.n
 
     def with_degree(self, k):
-        return FormSpace2D(k, self.x, self.y)
+        return FormSpace2D(k, self.x, self.y, self.layout)
 
     @property
     def shape(self):
@@ -75,13 +80,13 @@ class FormSpace2D:
     @cached_property
     def derivative_matrix(self):
         """Coefficient matrix of the exterior derivative ``d: V^k -> V^{k+1}``."""
-        x, y = self.x, self.y
+        x, y, kron = self.x, self.y, self.layout.kron
         if self.k == 0:
             Ix, Iy = sp.identity(x.n), sp.identity(y.n)
-            return sp.vstack([sp.kron(Iy, x.derivative_matrix()), sp.kron(y.derivative_matrix(), Ix)]).tocsr()
+            return sp.vstack([kron(x.derivative_matrix(), Iy), kron(Ix, y.derivative_matrix())]).tocsr()
         if self.k == 1:
             Ix1, Iy1 = sp.identity(x.scaled.n), sp.identity(y.scaled.n)
-            return sp.hstack([-sp.kron(y.derivative_matrix(), Ix1), sp.kron(Iy1, x.derivative_matrix())]).tocsr()
+            return sp.hstack([-kron(Ix1, y.derivative_matrix()), kron(x.derivative_matrix(), Iy1)]).tocsr()
         raise ValueError("the top-degree form space has no exterior derivative")
 
     # ------------------------------------------------------------------ geometric degrees of freedom
@@ -97,7 +102,7 @@ class FormSpace2D:
         return result
 
     def histopolation_matrix(self):
-        blocks = [sp.kron(c.fy.histopolation_matrix, c.fx.histopolation_matrix) for c in self.components]
+        blocks = [self.layout.kron(c.fx.histopolation_matrix, c.fy.histopolation_matrix) for c in self.components]
         return sp.block_diag(blocks).tocsr()
 
     def solve_histopolation(self, dofs):
@@ -106,15 +111,16 @@ class FormSpace2D:
         vector = dofs.ndim == 1
         dofs = dofs.reshape(self.n, -1)
         result = np.empty_like(dofs)
+        order = self.layout.order
         for index, c in enumerate(self.components):
             lu_x, lu_y = self._histopolation_factorizations[index]
             nx, ny = c.shape
-            block = dofs[self.component_range(index)].reshape(nx, ny, -1, order="F")
-            block = lu_x.solve(block.reshape(nx, -1, order="F")).reshape(nx, ny, -1, order="F")
-            block = np.moveaxis(block, 1, 0).reshape(ny, -1, order="F")
-            block = lu_y.solve(block).reshape(ny, nx, -1, order="F")
+            block = dofs[self.component_range(index)].reshape(nx, ny, -1, order=order)
+            block = lu_x.solve(np.ascontiguousarray(block).reshape(nx, -1)).reshape(nx, ny, -1)
+            block = np.ascontiguousarray(np.moveaxis(block, 1, 0))
+            block = lu_y.solve(block.reshape(ny, -1)).reshape(ny, nx, -1)
             block = np.moveaxis(block, 0, 1)
-            result[self.component_range(index)] = block.reshape(nx * ny, -1, order="F")
+            result[self.component_range(index)] = block.reshape(nx * ny, -1, order=order)
         return result[:, 0] if vector else result
 
     def geometric_dofs(self, f, additional_order=2):
@@ -127,7 +133,7 @@ class FormSpace2D:
             if self.k == 1:
                 values = values[index]
             values = np.broadcast_to(np.asarray(values, dtype=float), X.shape)
-            result[self.component_range(index)] = (Rx @ values @ Ry.T).ravel(order="F")
+            result[self.component_range(index)] = (Rx @ values @ Ry.T).ravel(order=self.layout.order)
         return result
 
     def commuting_projection(self, f, additional_order=2):
@@ -145,9 +151,9 @@ class FormSpace2D:
         return rules
 
     def basis_at(self, px, py, component):
-        """Sparse matrix of the component's basis values at the tensor points (``x`` fastest)."""
+        """Sparse matrix of the component's basis values at the tensor points (rows in the order of the layout)."""
         c = self.components[component]
-        return sp.kron(c.fy.basis_matrix(py), c.fx.basis_matrix(px)).tocsr()
+        return self.layout.kron(c.fx.basis_matrix(px), c.fy.basis_matrix(py)).tocsr()
 
     def evaluate(self, coefficients, x, y):
         """Logical proxy of the element with the given coefficients at the tensor grid ``x (x) y``.
@@ -158,7 +164,9 @@ class FormSpace2D:
         values = []
         for index in range(len(self.components)):
             B = self.basis_at(x, y, index)
-            values.append((B @ coefficients[self.component_range(index)]).reshape(len(x), len(y), order="F"))
+            values.append(
+                (B @ coefficients[self.component_range(index)]).reshape(len(x), len(y), order=self.layout.order)
+            )
         return values if self.k == 1 else values[0]
 
     def evaluate_points(self, coefficients, x, y):
@@ -168,7 +176,7 @@ class FormSpace2D:
         x, y = x.ravel(), y.ravel()
         values = []
         for index, c in enumerate(self.components):
-            C = np.asarray(coefficients[self.component_range(index)]).reshape(c.fx.n, c.fy.n, order="F")
+            C = np.asarray(coefficients[self.component_range(index)]).reshape(c.fx.n, c.fy.n, order=self.layout.order)
             Bx, By = c.fx.basis_matrix(x), c.fy.basis_matrix(y)
             values.append(np.asarray(By.multiply(Bx @ C).sum(axis=1)).reshape(shape))
         return values if self.k == 1 else values[0]
@@ -177,13 +185,15 @@ class FormSpace2D:
         """Logical mass matrix (Kronecker products of 1D masses without a coefficient)."""
         if coefficient is None:
             mass_additional_order(None, additional_quadrature_order)
-            return sp.block_diag([sp.kron(c.fy.mass_matrix(), c.fx.mass_matrix()) for c in self.components]).tocsr()
+            return sp.block_diag(
+                [self.layout.kron(c.fx.mass_matrix(), c.fy.mass_matrix()) for c in self.components]
+            ).tocsr()
         additional = mass_additional_order(coefficient, additional_quadrature_order)
         blocks = []
         for index in range(len(self.components)):
             (px, wx), (py, wy) = self.quadrature_points(additional, index)
             X, Y = np.meshgrid(px, py, indexing="ij")
-            w = (np.outer(wx, wy) * coefficient(X, Y)).ravel(order="F")
+            w = (np.outer(wx, wy) * coefficient(X, Y)).ravel(order=self.layout.order)
             B = self.basis_at(px, py, index)
             blocks.append(B.T @ sp.diags(w) @ B)
         return _drop_small(sp.block_diag(blocks))
@@ -208,8 +218,8 @@ class PhysicalFormSpace2D:
         self.mapping = mapping
 
     @classmethod
-    def from_factors(cls, k, x, y, mapping):
-        return cls(FormSpace2D(k, x, y), mapping)
+    def from_factors(cls, k, x, y, mapping, layout=CORE):
+        return cls(FormSpace2D(k, x, y, layout), mapping)
 
     def __repr__(self):
         return f"PhysicalFormSpace2D({self.logical!r}, {type(self.mapping).__name__})"
@@ -217,6 +227,10 @@ class PhysicalFormSpace2D:
     @property
     def k(self):
         return self.logical.k
+
+    @property
+    def layout(self):
+        return self.logical.layout
 
     @property
     def n(self):
@@ -298,12 +312,12 @@ class PhysicalFormSpace2D:
         W = self.metric_weight(X, Y)
         bases = [self.logical.basis_at(px, py, c) for c in range(len(self.logical.components))]
         if self.k != 1:
-            weights = (w * W).ravel(order="F")
+            weights = (w * W).ravel(order=self.layout.order)
             return _drop_small(bases[0].T @ sp.diags(weights) @ bases[0])
         blocks = [[None, None], [None, None]]
         for a in range(2):
             for b in range(2):
-                weights = (w * W[..., a, b]).ravel(order="F")
+                weights = (w * W[..., a, b]).ravel(order=self.layout.order)
                 blocks[a][b] = bases[a].T @ sp.diags(weights) @ bases[b]
         return _drop_small(sp.bmat(blocks))
 
@@ -317,12 +331,14 @@ class PhysicalFormSpace2D:
         values = target(X, Y)
         result = np.empty(self.n)
         if self.k != 1:
-            weighted = (w * W * np.broadcast_to(values, X.shape)).ravel(order="F")
+            weighted = (w * W * np.broadcast_to(values, X.shape)).ravel(order=self.layout.order)
             return self.logical.basis_at(px, py, 0).T @ weighted
         vx, vy = (np.broadcast_to(v, X.shape) for v in values)
         weighted = [w * (W[..., 0, 0] * vx + W[..., 0, 1] * vy), w * (W[..., 1, 0] * vx + W[..., 1, 1] * vy)]
         for c in range(2):
-            result[self.logical.component_range(c)] = self.logical.basis_at(px, py, c).T @ weighted[c].ravel(order="F")
+            result[self.logical.component_range(c)] = self.logical.basis_at(px, py, c).T @ weighted[c].ravel(
+                order=self.layout.order
+            )
         return result
 
     def geometric_dofs(self, f, additional_order=2, representation="physical"):
@@ -391,6 +407,9 @@ class PhysicalFormSpace2D:
         X, Y = self.mapping(Xl, Yl)
         factor = 1.0 if self.k == 0 else self.mapping.jacobian(Xl, Yl)
         dofs = np.column_stack(
-            [(Rx @ (factor * np.broadcast_to(f(X, Y), X.shape)) @ Ry.T).ravel(order="F") for f in functions]
+            [
+                (Rx @ (factor * np.broadcast_to(f(X, Y), X.shape)) @ Ry.T).ravel(order=self.layout.order)
+                for f in functions
+            ]
         )
         return self.logical.solve_histopolation(dofs)

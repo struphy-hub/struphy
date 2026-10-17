@@ -348,10 +348,15 @@ derivatives and with the homotopies. In 3D the polar complex is the total comple
 :math:`\bar W^m = \bigoplus_{p+q=m} \bar V^{p,\mathfrak r} \otimes V^q_3` with the 1D complex in :math:`\eta_3`;
 it has the cohomology of the solid torus.
 
-The polar spaces are built from the serial core :mod:`struphy.polar.homotopy` (2D spaces, extraction matrices
-:math:`E` and duals :math:`F` with :math:`F^T E = I`, homotopies and solvers, also with trigonometric functions in
-:math:`\eta_2`) by :class:`~struphy.polar.homotopy.derham_blocks.PolarExtractionBlocksHomotopy`, which provides
-the blocks of the polar operators of :mod:`struphy.polar.linear_operators`:
+The polar spaces are built by :class:`~struphy.polar.homotopy.complex2d.PolarComplex2D` (extraction matrices
+:math:`E` and duals :math:`F` with :math:`F^T E = I`, homotopies and cohomology projections) from the 1D spline
+spaces of the ``Derham`` complex itself (:class:`~struphy.polar.homotopy.derham_spaces.DerhamSpace1D`: feectools
+basis values, the derivative ``grad_1d_matrix`` and the projection grids of ``get_pts_and_wts``), in Struphy's
+coefficient ordering (:mod:`struphy.polar.homotopy.layout`) and on the cross-section of the Struphy domain
+(:class:`~struphy.polar.homotopy.derham_blocks.DomainCrossSection`). The central polynomials are scaled to the size
+of the polar rings, which keeps the polar matrices as well conditioned as the tensor-product ones.
+:class:`~struphy.polar.homotopy.derham_blocks.PolarExtractionBlocksHomotopy` provides the blocks of the polar
+operators of :mod:`struphy.polar.linear_operators`:
 
 * per tensor-product component the first ``n_rings`` rings hold the polar coefficients:
   :math:`\mathfrak r + 2` rings for 0-forms, :math:`(\mathfrak r + 1, \mathfrak r + 2)` for the two components of
@@ -361,8 +366,10 @@ the blocks of the polar operators of :mod:`struphy.polar.linear_operators`:
   coefficients of physical fields both coincide;
 * the commuting projectors apply the tensor-product projection followed by the polar duals, so that the polar
   inter-/histopolation matrix is the identity (no shift of the projection points off the pole is needed);
-* the polynomials are projected on the reference cross-section ``polar_cross_section``: the domain at
-  :math:`\eta_3 = 0` (default) or the unit disk.
+* the polynomials are projected on the reference cross-section ``polar_cross_section``: the (planar) domain at
+  :math:`\eta_3 = 0` (default) or the unit disk; for regularity :math:`\mathfrak r \geq 2` a warning is given if the
+  cross-sections change shape along :math:`\eta_3` (the splines are then only approximately
+  :math:`C^{\mathfrak r}` away from :math:`\eta_3 = 0`).
 
 The options ``polar_enrichment`` (``"cochain_chain"``, ``"cochain"``, ``"none"``) and
 ``polar_polynomial_projection`` (``"commuting"``, ``"l2"``) select the variants of the paper. The requirements are

@@ -571,29 +571,3 @@ class ScaledTrigonometricSpace(TrigonometricSpace):
     @cached_property
     def scaled(self):
         raise ValueError("scaled spaces have no scaled companion")
-
-
-def periodic_primitive_matrix(space, normalization="mean"):
-    """Periodic primitive ``P`` of a zero-integral periodic 1-form, ``derivative_matrix(space) @ P @ a = a``.
-
-    With ``normalization="mean"`` the primitive has zero mean; with a real ``normalization`` it vanishes there.
-    """
-    n = space.n
-    primitive = np.zeros((n, n))
-    if isinstance(space, PeriodicBSplineSpace):
-        primitive[np.tril_indices(n, -1)] = 1.0
-    elif isinstance(space, TrigonometricSpace):
-        for k in range(1, space.modes + 1):
-            sine, cosine = 2 * k - 1, 2 * k
-            primitive[sine, cosine] = 1.0
-            primitive[cosine, sine] = -1.0
-    else:
-        raise TypeError("periodic primitives need a periodic B-spline or trigonometric space")
-    constant = space.constant_coefficients()
-    if isinstance(normalization, str):
-        if normalization != "mean":
-            raise ValueError("normalization must be 'mean' or a point")
-        functional = space.coefficient_integrals
-    else:
-        functional = space.basis_matrix(np.array([float(normalization)])).toarray().ravel()
-    return sp.csr_matrix(primitive - np.outer(constant, functional @ primitive))

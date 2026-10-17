@@ -277,7 +277,8 @@ class DerhamOptions(OptionsBase):
 
     polar_polynomial_projection : str
         Projection of the polynomials onto the tensor-product spaces in the polar construction:
-        ``"commuting"`` (geometric degrees of freedom, the paper's choice) or ``"l2"``.
+        ``"commuting"`` (geometric degrees of freedom, the paper's choice) or ``"l2"`` (a research option, well-defined
+        only when the polynomials are exactly representable, i.e. not with B-splines in ``eta_2``).
 
     polar_cross_section : str
         Reference cross-section of the polar complex: ``"domain"`` (the domain at ``eta_3 = 0``)

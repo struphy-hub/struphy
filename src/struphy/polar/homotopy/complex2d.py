@@ -23,14 +23,9 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
 from struphy.polar.homotopy.forms2d import PhysicalFormSpace2D
+from struphy.polar.homotopy.layout import CORE
 from struphy.polar.homotopy.linalg import SparsePlusLowRank, clean, identity_minus, matmul, max_abs
 from struphy.polar.homotopy.polynomials import center_shifted_basis, polynomial_dimension, zernike_basis
-from struphy.polar.homotopy.spaces1d import (
-    ClampedBSplineSpace,
-    PeriodicBSplineSpace,
-    TrigonometricSpace,
-    periodic_primitive_matrix,
-)
 
 ENRICHMENTS = ("cochain_chain", "cochain", "none")
 
@@ -42,14 +37,37 @@ def cumulative_sum_matrix(n):
     return sp.csr_matrix((np.ones(rows.size), (rows, columns)), shape=(n + 1, n))
 
 
-def radial_indices(nx, ny, internal_rings, offset=0):
+def radial_indices(nx, ny, internal_rings, offset=0, layout=CORE):
     """Linear indices of the internal (radial index ``< internal_rings``) and external coefficients."""
-    if not 0 <= internal_rings <= nx:
-        raise ValueError(f"the number of internal rings must lie between 0 and {nx}")
-    i, j = np.meshgrid(np.arange(nx), np.arange(ny), indexing="ij")
-    linear = (offset + i + j * nx).ravel(order="F")
-    ring = i.ravel(order="F")
-    return linear[ring < internal_rings], linear[ring >= internal_rings]
+    return layout.radial_indices(nx, ny, internal_rings, offset)
+
+
+def periodic_primitive_matrix(space, normalization="mean"):
+    """Periodic primitive ``P`` of a zero-integral periodic 1-form, ``derivative_matrix(space) @ P @ a = a``.
+
+    ``space`` is a periodic B-spline space (forward-difference derivative) or a trigonometric space (``modes``
+    attribute). With ``normalization="mean"`` the primitive has zero mean; with a real ``normalization`` it vanishes
+    there.
+    """
+    n = space.n
+    primitive = np.zeros((n, n))
+    if getattr(space, "is_bspline", False) and space.periodic:
+        primitive[np.tril_indices(n, -1)] = 1.0
+    elif hasattr(space, "modes"):
+        for k in range(1, space.modes + 1):
+            sine, cosine = 2 * k - 1, 2 * k
+            primitive[sine, cosine] = 1.0
+            primitive[cosine, sine] = -1.0
+    else:
+        raise TypeError("periodic primitives need a periodic B-spline or trigonometric space")
+    constant = space.constant_coefficients()
+    if isinstance(normalization, str):
+        if normalization != "mean":
+            raise ValueError("normalization must be 'mean' or a point")
+        functional = space.coefficient_integrals
+    else:
+        functional = space.basis_matrix(np.array([float(normalization)])).toarray().ravel()
+    return sp.csr_matrix(primitive - np.outer(constant, functional @ primitive))
 
 
 def identity_columns(n, indices):
@@ -139,12 +157,14 @@ class PolarComplex2D:
 
     Parameters
     ----------
-    radial : ClampedBSplineSpace
-        Radial 0-form space (logical ``x``).
-    angular : PeriodicBSplineSpace or TrigonometricSpace
-        Angular 0-form space (logical ``y``).
+    radial : DerhamSpace1D or ClampedBSplineSpace
+        Radial (clamped) 0-form space (logical ``x``), e.g. of a Derham complex
+        (:func:`~struphy.polar.homotopy.derham_spaces.derham_factors`).
+    angular : DerhamSpace1D, PeriodicBSplineSpace or TrigonometricSpace
+        Angular (periodic) 0-form space (logical ``y``).
     mapping : Mapping2D
-        Disk-like mapping that collapses ``x = 0`` to the pole.
+        Disk-like mapping that collapses ``x = 0`` to the pole (e.g. the cross-section of a Struphy domain,
+        :class:`~struphy.polar.homotopy.derham_blocks.DomainCrossSection`).
     regularity : int
         The regularity ``r`` at the pole (polynomial degree of the enrichment).
     basis : PolynomialBasis, optional
@@ -156,6 +176,9 @@ class PolarComplex2D:
         ``"dirichlet"`` builds the relative complex (``P(1, y) = 0``, ``A_y(1, y) = 0``).
     polynomial_projection : {"commuting", "l2"}
         Projection of the polynomials onto the tensor-product spaces.
+    layout : Layout
+        Ordering of the tensor-product coefficients (:data:`~struphy.polar.homotopy.layout.STRUPHY` for the Derham
+        complex, :data:`~struphy.polar.homotopy.layout.CORE` as PolarFEEC.jl).
     """
 
     def __init__(
@@ -171,6 +194,7 @@ class PolarComplex2D:
         additional_quadrature_order=None,
         rank_tolerance=None,
         check_assumptions=True,
+        layout=CORE,
     ):
         if enrichment not in ENRICHMENTS:
             raise ValueError(f"enrichment must be one of {ENRICHMENTS}")
@@ -185,6 +209,7 @@ class PolarComplex2D:
         self.rank_tolerance = rank_tolerance
         self.mapping = mapping
         self.radial, self.angular = radial, angular
+        self.layout = layout
         self._validate(check_assumptions)
 
         basis = zernike_basis(r) if basis is None else basis
@@ -192,18 +217,27 @@ class PolarComplex2D:
             raise ValueError("the polynomial basis must have the degree of the regularity")
         self.polynomial_basis = basis if enrichment == "none" else center_shifted_basis(basis)
 
-        self.spaces = [PhysicalFormSpace2D.from_factors(k, radial, angular, mapping) for k in range(3)]
+        self.spaces = [PhysicalFormSpace2D.from_factors(k, radial, angular, mapping, layout) for k in range(3)]
         V0, V1, V2 = self.spaces
         nx0, ny0 = radial.n, angular.n
         nx1, ny1 = radial.scaled.n, angular.scaled.n
         self._shapes = (nx0, ny0, nx1, ny1)
 
-        E0, F0 = self._zero_form_matrices()
-        E1, E2, central_one, central_two = self._higher_form_extractions(E0)
-        F2 = self._two_form_duals(E2, central_two)
-        self._P0 = (E0 @ F0.T).tocsr()
-        self._P2 = (E2 @ F2.T).tocsr()
-        F1 = self._one_form_duals(E1, central_one)
+        try:
+            E0, F0 = self._zero_form_matrices()
+            E1, E2, central_one, central_two = self._higher_form_extractions(E0)
+            F2 = self._two_form_duals(E2, central_two)
+            self._P0 = (E0 @ F0.T).tocsr()
+            self._P2 = (E2 @ F2.T).tocsr()
+            F1 = self._one_form_duals(E1, central_one)
+        except ValueError as error:
+            if polynomial_projection == "l2":
+                raise ValueError(
+                    f"{error}. The L2 polynomial projection (a research option of PolarFEEC.jl) is well-defined only "
+                    "when the polynomials are exactly representable in the tensor-product spaces (trigonometric "
+                    "angular spaces and a compatible mapping); use polynomial_projection='commuting'."
+                ) from error
+            raise
 
         if boundary == "dirichlet":
             E0, keep0 = _remove_boundary_columns(E0, self.zero_form_dirichlet_rows(), "the zero-form extraction")
@@ -243,9 +277,9 @@ class PolarComplex2D:
 
     def _validate(self, check_assumptions):
         x, y, r = self.radial, self.angular, self.regularity
-        if not isinstance(x, ClampedBSplineSpace):
-            raise TypeError("the radial factor must be a ClampedBSplineSpace")
-        if not isinstance(y, (PeriodicBSplineSpace, TrigonometricSpace)):
+        if getattr(x, "periodic", False) or not getattr(x, "is_bspline", False):
+            raise TypeError("the radial factor must be a clamped B-spline space")
+        if not getattr(y, "periodic", False):
             raise TypeError("the angular factor must be periodic or trigonometric")
         if r + 2 > x.n:
             raise ValueError(
@@ -271,17 +305,19 @@ class PolarComplex2D:
 
     # ------------------------------------------------------------------ degree 0
     def _zero_form_matrices(self):
+        L = self.layout
         nx, ny = self.radial.n, self.angular.n
         n = nx * ny
         rings = self.regularity + 1
-        internal, external = radial_indices(nx, ny, rings)
+        internal, external = L.radial_indices(nx, ny, rings)
         external_identity = identity_columns(n, external)
         constant = self.angular.constant_coefficients()
         denominator = constant @ constant
+        first_ring = L.index(0, np.arange(ny), nx, ny)
         if self.enrichment == "none":
             center_dual = np.zeros(n)
-            center_dual[np.arange(ny) * nx] = constant / denominator
-            external_constant = constant[external // nx]
+            center_dual[first_ring] = constant / denominator
+            external_constant = constant[L.angle(external, nx, ny)]
             F = external_identity - sp.csr_matrix(np.outer(center_dual, external_constant))
             return external_identity, F
         # project on the full tensor-product space first, then truncate to the internal rings
@@ -290,7 +326,7 @@ class PolarComplex2D:
         duals = dual_columns(internal_columns, self.rank_tolerance, "the zero-form polynomial extraction")
         # the first dual reproduces the centre value, which makes the projectors commute with the homotopies
         center_dual = np.zeros(internal.size)
-        center_dual[np.arange(ny) * rings] = constant / denominator
+        center_dual[np.searchsorted(internal, first_ring)] = constant / denominator
         duals[:, 0] = center_dual
         tolerance = max(1e-10, 1000 * _rank_tolerance(internal_columns, self.rank_tolerance)) * np.linalg.cond(
             internal_columns
@@ -311,26 +347,26 @@ class PolarComplex2D:
         """``Pi~^{2,r}``: rings ``0..r`` are accumulated in ring ``r`` and later rings are copied (``r = 0``: identity)."""
         nx, ny = self.radial.scaled.n, self.angular.scaled.n
         i, j = np.meshgrid(np.arange(nx), np.arange(ny), indexing="ij")
-        columns = (i + j * nx).ravel(order="F")
-        rows = (np.maximum(i, regularity) + j * nx).ravel(order="F")
+        columns = self.layout.index(i, j, nx, ny).ravel()
+        rows = self.layout.index(np.maximum(i, regularity), j, nx, ny).ravel()
         return sp.csr_matrix((np.ones(rows.size), (rows, columns)), shape=(nx * ny, nx * ny))
 
     @cached_property
     def gradient_homotopy_matrix(self):
         """Full-space radial homotopy ``G^dagger = [I (x) Sigma, 0]`` from 1-forms to 0-forms."""
         nx0, ny0, nx1, ny1 = self._shapes
-        radial = sp.kron(sp.identity(ny0), cumulative_sum_matrix(nx1))
+        radial = self.layout.kron(cumulative_sum_matrix(nx1), sp.identity(ny0))
         return sp.hstack([radial, sp.csr_matrix((radial.shape[0], nx0 * ny1))]).tocsr()
 
     @cached_property
     def curl_homotopy_matrix(self):
         """Full-space radial homotopy ``C^dagger = [0; I (x) Sigma]`` from 2-forms to 1-forms."""
         nx0, ny0, nx1, ny1 = self._shapes
-        radial = sp.kron(sp.identity(ny1), cumulative_sum_matrix(nx1))
+        radial = self.layout.kron(cumulative_sum_matrix(nx1), sp.identity(ny1))
         return sp.vstack([sp.csr_matrix((nx1 * ny0, radial.shape[1])), radial]).tocsr()
 
     def _higher_form_extractions(self, E0):
-        r = self.regularity
+        r, L = self.regularity, self.layout
         nx0, ny0, nx1, ny1 = self._shapes
         V1, V2 = self.spaces[1], self.spaces[2]
         G = self.spaces[0].derivative_matrix
@@ -345,23 +381,23 @@ class PolarComplex2D:
             conforming = self.reduced_two_form_projector(1) @ raw
             compact = np.zeros_like(conforming)
             for j in range(ny1):
-                internal = j * nx1 + np.arange(r)
+                internal = L.index(np.arange(r), j, nx1, ny1)
                 compact[internal] = conforming[internal]
                 # the first external ring cancels the radial sum of each angular column
-                compact[j * nx1 + r] = -conforming[internal].sum(axis=0)
+                compact[L.index(r, j, nx1, ny1)] = -conforming[internal].sum(axis=0)
             compact = sp.csr_matrix(compact)
         else:
             compact = sp.csr_matrix((V2.n, 0))
         # curl homotopy lifts; their entries vanish exactly from ring r + 2 on (zero radial sums)
         curl_columns = (self.curl_homotopy_matrix @ compact).toarray()
         first = nx1 * ny0
-        for j in range(ny1):
-            curl_columns[first + j * nx0 + r + 1 : first + (j + 1) * nx0] = 0.0
+        _, outer_y = L.radial_indices(nx0, ny1, r + 1, offset=first)
+        curl_columns[outer_y] = 0.0
         curl_columns = sp.csr_matrix(curl_columns)
-        _, external_x = radial_indices(nx1, ny0, r)
-        _, external_y = radial_indices(nx0, ny1, r + 1, offset=first)
+        _, external_x = L.radial_indices(nx1, ny0, r)
+        _, external_y = L.radial_indices(nx0, ny1, r + 1, offset=first)
         external_one = identity_columns(V1.n, np.concatenate([external_x, external_y]))
-        _, external_two = radial_indices(nx1, ny1, r)
+        _, external_two = L.radial_indices(nx1, ny1, r)
         E1 = sp.hstack([gradient_columns, curl_columns, external_one]).tocsr()
         E2 = sp.hstack([compact, identity_columns(V2.n, external_two)]).tocsr()
         return E1, E2, gradient_columns.shape[1] + compact.shape[1], compact.shape[1]
@@ -369,7 +405,7 @@ class PolarComplex2D:
     def _two_form_duals(self, E2, central_count):
         r = self.regularity
         nx, ny = self.radial.scaled.n, self.angular.scaled.n
-        internal, external = radial_indices(nx, ny, r)
+        internal, external = self.layout.radial_indices(nx, ny, r)
         central = np.zeros((E2.shape[0], central_count))
         if central_count > 0:
             central[internal] = dual_columns(
@@ -423,11 +459,11 @@ class PolarComplex2D:
     # ------------------------------------------------------------------ boundary helpers
     def zero_form_dirichlet_rows(self):
         nx, ny = self.radial.n, self.angular.n
-        return nx - 1 + np.arange(ny) * nx
+        return self.layout.index(nx - 1, np.arange(ny), nx, ny)
 
     def one_form_dirichlet_rows(self):
         nx0, ny0, nx1, ny1 = self._shapes
-        return nx1 * ny0 + nx0 - 1 + np.arange(ny1) * nx0
+        return nx1 * ny0 + self.layout.index(nx0 - 1, np.arange(ny1), nx0, ny1)
 
     @cached_property
     def center_projection_full(self):
@@ -435,13 +471,15 @@ class PolarComplex2D:
         nx, ny = self.radial.n, self.angular.n
         constant = self.angular.constant_coefficients()
         functional = np.zeros(nx * ny)
-        functional[np.arange(ny) * nx] = constant / (constant @ constant)
-        return np.kron(constant, np.ones(nx)), functional
+        functional[self.layout.index(0, np.arange(ny), nx, ny)] = constant / (constant @ constant)
+        return self.layout.kron_vector(np.ones(nx), constant), functional
 
     @cached_property
     def two_form_integral_vector(self):
         """Integrals of the full tensor-product 2-form basis functions (logical, hence physical)."""
-        return np.kron(self.angular.scaled.coefficient_integrals, self.radial.scaled.coefficient_integrals)
+        return self.layout.kron_vector(
+            self.radial.scaled.coefficient_integrals, self.angular.scaled.coefficient_integrals
+        )
 
     # ------------------------------------------------------------------ operators in polar coefficients
     def derivative(self, k):
@@ -540,7 +578,7 @@ class PolarComplex2D:
         nx, ny = self.radial.n, self.angular.n
         closed_part = identity_minus(self.homotopy(2) @ self.derivative(1))
         radial_potential = matmul(sp.csr_matrix(self.gradient_homotopy_matrix @ self.forms[1].extraction), closed_part)
-        constant = np.kron(self.angular.constant_coefficients(), self.radial.constant_coefficients())
+        constant = self.layout.kron_vector(self.radial.constant_coefficients(), self.angular.constant_coefficients())
         boundary_mean = np.zeros(nx * ny)
         boundary_mean[self.zero_form_dirichlet_rows()] = self.angular.coefficient_integrals
         # the boundary trace of the potential is constant; subtract its mean
