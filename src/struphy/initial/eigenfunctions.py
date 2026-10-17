@@ -66,6 +66,14 @@ class InitialMHDAxisymHdivEigFun:
         nnz_pol = derham.boundary_ops["2"].dim_nz_pol
         nnz_tor = derham.boundary_ops["2"].dim_nz_tor
 
+        # the eigenvectors must have the layout of the 2-forms of this Derham complex (spectra of the former C1 polar
+        # splines, which had fewer polar rings, cannot be read with the polar splines of regularity >= 1)
+        assert U2_eig.shape[0] == sum(nnz_pol), (
+            f"the spectrum {spec_path} has {U2_eig.shape[0]} coefficients per eigenvector, but the 2-forms of this "
+            f"Derham complex have {sum(nnz_pol)} poloidal coefficients; recompute the spectrum with the same "
+            "polar splines, resolution and boundary conditions."
+        )
+
         eig_vec_1 = U2_eig[
             0 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2],
             mode,

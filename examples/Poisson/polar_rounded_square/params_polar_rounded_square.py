@@ -49,7 +49,7 @@ construction, see struphy.polar.homotopy) replace the r + 1 innermost rings of c
 of degree r: the 0-forms are C^r at the centre, conforming, and form a de Rham complex with commuting projections.
 
 Setup. RoundedSquareCylinder(eps=0.15), {args.cells} x {6 * args.cells} x 1 cells, splines of degree {args.degree}
-(one periodic cell in eta3: a 2D problem), DerhamOptions(polar_splines=True, polar_method="homotopy",
+(one periodic cell in eta3: a 2D problem), DerhamOptions(polar_splines=True,
 polar_regularity={args.regularity}), homogeneous Dirichlet conditions at eta1 = 1. The manufactured solution of
 PolarFEEC.jl example 05 is phi = g (1 + sin(2x + y)), which vanishes on the boundary; rho = -Laplace phi.
 CG with preconditioner {precond}.
@@ -94,7 +94,6 @@ derham_opts = DerhamOptions(
     degree=degree,
     bcs=(("free", "dirichlet"), None, None),
     polar_splines=True,
-    polar_method="homotopy",
     polar_regularity=args.regularity,
     nquads=(args.degree + 3, args.degree + 3, 2),
 )

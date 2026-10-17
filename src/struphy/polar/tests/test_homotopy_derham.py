@@ -11,9 +11,7 @@ def _derham(domain, num_elements=(8, 12, 1), degree=(3, 3, 1), regularity=2, bcs
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
 
-    opts = DerhamOptions(
-        degree=degree, bcs=bcs, polar_splines=True, polar_method="homotopy", polar_regularity=regularity, **kw
-    )
+    opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True, polar_regularity=regularity, **kw)
     # eta1 is not decomposed: the process at the pole holds all polar rings
     grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(False, True, True))
     return Derham(grid, opts, comm=MPI.COMM_WORLD, domain=domain)

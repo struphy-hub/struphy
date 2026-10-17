@@ -714,8 +714,8 @@ Every mapping runs on the GPU: the spline mappings (`kind_map` 0–2) join the a
   NumPy backend, and the control points are copied to the active backend once. Found and tested without a GPU with
   cunumpy's fake CuPy (`CUNUMPY_FAKE_CUPY=1`), which rejects host/device mixing like CuPy.
 - **Still host-only.** `EQDSKequilibrium` cannot be created on CuPy (a `Tokamak` on CuPy takes an equilibrium created
-  on the NumPy backend, or builds its default one there; fixed in #696). Polar splines: `PolarExtractionBlocksC1` builds SciPy sparse
-  matrices from the control points, and the polar extraction operators apply them to the stencil data, which lives on
+  on the NumPy backend, or builds its default one there; fixed in #696). Polar splines: the polar extraction blocks (then `PolarExtractionBlocksC1`) are SciPy sparse
+  matrices, and the polar extraction operators apply them to the stencil data, which lives on
   the device on CuPy; `Derham` raised `NotImplementedError` for `polar_splines=True` on CuPy (resolved in #695, see
   [Polar splines on CuPy](#polar-splines-on-cupy-695)).
 - **Device helpers.** `b_splines_slim`, `b_der_splines_slim` (`bsplines/bsplines_kernels.cuh`), `evaluation_kernel_2d`
@@ -828,8 +828,8 @@ the [porting order](#porting-order); part of #688).
 
 ## Polar splines on CuPy (#695)
 
-- **Blocks on the host.** `PolarExtractionBlocksC1` builds every block (extraction, DOF extraction, polar
-  derivatives) with NumPy/SciPy from a host copy of the control points (`xp.to_numpy(domain.cx)`), on every backend:
+- **Blocks on the host.** `PolarExtractionBlocksHomotopy` builds every block (extraction, duals, polar
+  derivatives) with NumPy/SciPy from host evaluations of the domain, on every backend:
   they are setup data, and `.toarray()`, `.T` and the restart left inverse (`SplineFunction._restart_extraction_op`)
   keep working on them.
 - **Products on the device.** `PolarExtractionOperator` and `PolarLinearOperator` keep their `blocks_*` as host

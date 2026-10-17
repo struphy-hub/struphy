@@ -143,7 +143,6 @@ def test_scalar_wave_matches_core_leapfrog(tmp_path):
         degree=(3, 3, 1),
         bcs=(("free", "dirichlet"), None, None),
         polar_splines=True,
-        polar_method="homotopy",
         polar_regularity=2,
     )
     out = _run_simulation(ScalarWave(), domains.PerturbedDiskCylinder(), derham_opts, dt, 3 * dt, tmp_path, setup)

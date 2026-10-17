@@ -1,6 +1,6 @@
 """Assembly cost of the polar mass matrices against the spline degree (counterpart of PolarFEEC.jl
 ``examples/08_assembly_performance.jl`` for the Struphy :class:`~struphy.feec.psydac_derham.Derham` with
-``polar_method="homotopy"``).
+``polar_splines=True``).
 
 PolarFEEC.jl assembles 3D masses by sum factorization (Julia threads); Struphy assembles the tensor-product weighted
 mass matrices with its own (pyccel) kernels, and the polar matrices are applied as ``E M E^T`` with the polar
@@ -28,7 +28,6 @@ def study(degrees=(1, 2, 3, 4, 5), cells=(12, 12, 12), regularity=1, repeats=3, 
             degree=(p,) * 3,
             bcs=(("free", "free"), None, None),
             polar_splines=True,
-            polar_method="homotopy",
             polar_regularity=min(regularity, p),
         )
         derham = Derham(TensorProductGrid(num_elements=cells), options, domain=domain)

@@ -73,6 +73,84 @@ def smoothness_defects(u):
     return np.array([nonpolynomial_part(D[k], alpha, k) / np.max(np.abs(D[k])) for k in range(1, 4)])
 
 
+def _inverse_series(x, order):
+    """Taylor coefficients of ``eta(s)`` for the polynomial ``s = x(eta)`` with ``x[0] = 0``, up to ``s^order``."""
+    from numpy.polynomial import polynomial as P
+
+    identity = np.zeros(order + 1)
+    identity[1] = 1.0
+    eta = identity / x[1]
+    for _ in range(order + 1):
+        eta = eta + (identity - _compose(x, eta, order)) / x[1]
+    return eta
+
+
+def _compose(u, eta, order):
+    """Taylor coefficients of ``u(eta(s))`` up to ``s^order`` (``u``, ``eta`` coefficient arrays, ``eta[0] = 0``)."""
+    from numpy.polynomial import polynomial as P
+
+    out, power = np.zeros(order + 1), np.zeros(order + 1)
+    power[0] = 1.0
+    for c in u:
+        out[: power.size] += c * power[: order + 1]
+        power = P.polymul(power, eta)[: order + 1]
+    return out
+
+
+def line_derivative_jumps(field, domain, num_cells, degree, eta3=0.0, orders=5):
+    """Jumps ``|d^k u/dx^k(0+) - d^k u/dx^k(0-)|``, ``k = 0, ..., orders - 1``, of a Struphy 0-form across the pole
+    along the line through the rays ``eta2 = 0`` and ``eta2 = 1/2``.
+
+    On the first radial cell the field and the mapping are polynomials of degree ``degree`` in ``eta1`` along each
+    ray, so the one-sided derivatives in the distance ``x`` to the pole are exact (polynomial fit in ``eta1`` and
+    series inversion of ``x(eta1)``)."""
+    import math
+
+    import cunumpy as xp
+    from numpy.polynomial import polynomial as P
+
+    e1 = np.linspace(0, 1 / num_cells, 3 * degree + 3)
+    pole = np.array([xp.to_numpy(c) for c in domain(xp.zeros(1), xp.zeros(1), xp.asarray([eta3]))]).reshape(3)
+    derivatives = []
+    for e2 in (0.0, 0.5):
+        etas = (xp.asarray(e1), xp.asarray([e2]), xp.asarray([eta3]))
+        points = np.array([xp.to_numpy(c).ravel() for c in domain(*etas)])
+        distance = np.hypot(points[0] - pole[0], points[1] - pole[1]) * (1 if e2 == 0.0 else -1)
+        u = P.polyfit(e1, xp.to_numpy(field(*etas)).ravel(), degree)
+        x = P.polyfit(e1, distance, degree)
+        x[0] = 0.0
+        series = _compose(u, _inverse_series(x, degree), degree)
+        derivatives.append([math.factorial(k) * series[k] for k in range(orders)])
+    return np.abs(np.subtract(*derivatives))
+
+
+def field_smoothness_defects(field, domain, eta3=0.0, a=0.06, degree=10, samples=40):
+    """The defects ``delta_k`` of a Struphy 0-form ``field`` (a :class:`~struphy.feec.psydac_derham.SplineFunction`)
+    on a domain whose cross-section is parametrized by the polar angle ``2 pi eta2`` (e.g.
+    ``PerturbedDiskCylinder``, ``HollowCylinder(a1=0)``): the field is sampled along each ray ``eta2 = alpha / 2 pi``
+    and fitted by a polynomial in the distance ``s`` to the pole."""
+    import cunumpy as xp
+
+    alpha = rays()
+    t = 1 - np.cos(np.pi * np.arange(1, 4 * samples + 1) / (8 * samples))
+    pole = np.array([xp.to_numpy(c) for c in domain(xp.zeros(1), xp.zeros(1), xp.asarray([eta3]))]).reshape(3)
+    D = []
+    for angle in alpha:
+        e1, e2, e3 = xp.asarray(t), xp.asarray([angle / (2 * np.pi)]), xp.asarray([eta3])
+        points = np.array([xp.to_numpy(c).ravel() for c in domain(e1, e2, e3)])
+        s = np.hypot(points[0] - pole[0], points[1] - pole[1])
+        assert np.allclose(np.arctan2(points[1] - pole[1], points[0] - pole[0]) % (2 * np.pi), angle % (2 * np.pi)), (
+            "the domain is not parametrized by the polar angle 2 pi eta2"
+        )
+        values = xp.to_numpy(field(e1, e2, e3)).ravel()
+        inside = s <= a
+        V = (s[inside, None] / a) ** np.arange(degree + 1)[None, :]
+        c = np.linalg.lstsq(V, values[inside], rcond=None)[0]
+        D.append([_factorial(k) * c[k] / a**k for k in range(4)])
+    D = np.array(D).T
+    return np.array([nonpolynomial_part(D[k], alpha, k) / np.max(np.abs(D[k])) for k in range(1, 4)])
+
+
 def build(radial=None, angular=None, regularities=(0, 1, 2, 3), mapping=None):
     """Tensor-product 0-form space and the polar complexes of the study."""
     mapping = star_disk() if mapping is None else mapping

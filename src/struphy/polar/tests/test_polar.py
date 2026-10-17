@@ -5,6 +5,14 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
+def _pole_safe(num_elements):
+    """At least five elements in eta1 per process: the process at the pole holds the polar rings of regularity 1
+    (three rings of 0-forms) and two tensor-product rings, also when eta1 is decomposed."""
+    from maybempi import MPI
+
+    return [max(num_elements[0], 5 * MPI.COMM_WORLD.Get_size()), *num_elements[1:]]
+
+
 @pytest.mark.parametrize("num_elements", [[8, 9, 6]])
 @pytest.mark.parametrize("degree", [[3, 2, 4]])
 @pytest.mark.parametrize(
@@ -16,13 +24,14 @@ logger = logging.getLogger("struphy")
 )
 def test_spaces(num_elements, degree, bcs):
     from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import HollowCylinder
     from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
     from struphy.topology.grids import TensorProductGrid
 
     grid = TensorProductGrid(num_elements=num_elements)
-    derham_opts = DerhamOptions(degree=degree, bcs=bcs)
-    derham = Derham(grid, derham_opts)
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
+    derham = Derham(grid, derham_opts, domain=HollowCylinder(a1=0.0, a2=1.0, Lz=3.0))
 
     logger.info("polar V0:")
     V = PolarDerhamSpace(derham, "H1")
@@ -195,13 +204,14 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
     from struphy.geometry.domains import IGAPolarCylinder
     from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
-    from struphy.polar.extraction_operators import PolarExtractionBlocksC1
     from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
     from struphy.topology.grids import TensorProductGrid
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+
+    num_elements = _pole_safe(num_elements)
 
     # create control points
     params_map = {"num_elements": num_elements[:2], "degree": degree[:2], "Lz": 3.0, "a": 1.0}
@@ -317,8 +327,8 @@ def test_extraction_ops_and_derivatives(num_elements, degree, bcs):
 
 @pytest.mark.parametrize("num_elements", [[8, 3, 2], [8, 6, 2]])
 def test_polar_adjoints_small_nel2(num_elements):
-    """<A x, y> = <x, A^T y> for polar extraction operators and derivatives,
-    including Nel2 = 3 where n_polar == n2 for H1 and H1vec."""
+    """<A x, y> = <x, A^T y> for polar extraction operators and derivatives, including the smallest number of
+    angular elements Nel2 = 3 of regularity 1."""
     import cunumpy as xp
     from maybempi import MPI
 
@@ -330,6 +340,7 @@ def test_polar_adjoints_small_nel2(num_elements):
     from struphy.topology.grids import TensorProductGrid
 
     degree = [2, 2, 1]
+    num_elements = _pole_safe(num_elements)
     domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
@@ -379,7 +390,7 @@ def test_polar_ops_eta1_decomposition():
     comm = MPI.COMM_WORLD
 
     degree = [2, 2, 1]
-    num_elements = [16, 6, 4]
+    num_elements = _pole_safe([16, 6, 4])
     domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
     grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, False, False))
     derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
@@ -443,7 +454,7 @@ def test_polar_vector_ghost_sync():
     comm = MPI.COMM_WORLD
 
     degree = [2, 2, 1]
-    num_elements = [16, 6, 4]
+    num_elements = _pole_safe([16, 6, 4])
     domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=1.0, a=1.0)
     grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, False, False))
     derham_opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
@@ -524,11 +535,10 @@ def _rel_err(a, b):
         (("free", "dirichlet"), None, ("dirichlet", "dirichlet")),
     ],
 )
-@pytest.mark.parametrize("poloidal_solver", ["schur", "lu", "ilu"])
-def test_projectors(num_elements, degree, bcs, poloidal_solver):
-    """Polar commuting projectors: the 2D x 1D Kronecker inter-/histopolation matrices agree with
-    P * I * E^T, projection of splines is the identity (with and without boundary conditions),
-    grad P0 = P1 grad, and exactness of the polar sequence."""
+def test_projectors(num_elements, degree, bcs):
+    """Polar commuting projectors: the polar inter-/histopolation matrix P * I * E^T is the identity, projection of
+    splines is the identity (with and without boundary conditions), grad P0 = P1 grad, and exactness of the polar
+    sequence."""
     import cunumpy as xp
     from maybempi import MPI
 
@@ -539,11 +549,10 @@ def test_projectors(num_elements, degree, bcs, poloidal_solver):
 
     comm = MPI.COMM_WORLD
 
+    num_elements = _pole_safe(num_elements)
     domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=3.0, a=1.0)
     grid = TensorProductGrid(num_elements=num_elements)
-    derham_opts = DerhamOptions(
-        degree=degree, bcs=bcs, nquads_proj=[6, 6, 6], polar_splines=True, polar_poloidal_solver=poloidal_solver
-    )
+    derham_opts = DerhamOptions(degree=degree, bcs=bcs, nquads_proj=[6, 6, 6], polar_splines=True)
     derham = Derham(grid, derham_opts, comm=comm, domain=domain)
 
     # projection of a spline returns the spline, with and without boundary conditions
@@ -553,11 +562,9 @@ def test_projectors(num_elements, degree, bcs, poloidal_solver):
         x = _rand_polar_vector(derham, P.I.domain, seed=1234)
         y = _rand_polar_vector(derham, P.I.domain, seed=5678)
 
-        # 2D x 1D Kronecker operators: P * I * E^T and its transpose
+        # polar inter-/histopolation matrix P * I * E^T (the identity) and its transpose
         Pd, Eb, B = P.dofs_extraction_op, P.base_extraction_op, P.boundary_op
-        if poloidal_solver == "schur":
-            # (the operators do not depend on the poloidal solver; the Kronecker dot product is slow)
-            assert _rel_err(P.I.dot(x), Pd.dot(P.projector_tensor.imat_kronecker.dot(Eb.T.dot(x)))) < 1e-12, form
+        assert _rel_err(P.I.dot(x), Pd.dot(P.projector_tensor.imat_kronecker.dot(Eb.T.dot(x)))) < 1e-12, form
         assert xp.isclose(P.IT.dot(x).dot(y), x.dot(P.I.dot(y)), rtol=1e-12), form
         assert xp.isclose(P.I0T.dot(x).dot(y), x.dot(P.I0.dot(y)), rtol=1e-12), form
         assert _rel_err(P.I0.dot(x), B.dot(P.I.dot(B.dot(x)))) < 1e-12, form
@@ -648,7 +655,7 @@ def test_polar_mass_preconditioner(mapping, bcs, poloidal_solver):
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
 
-    num_elements, degree = [8, 12, 4], [3, 3, 2]
+    num_elements, degree = _pole_safe([8, 12, 4]), [3, 3, 2]
     domain = getattr(domains, mapping)(num_elements=num_elements[:2], degree=degree[:2])
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
@@ -699,7 +706,7 @@ def test_polar_stiffness_preconditioner(mapping, bcs, poloidal_solver):
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
 
-    num_elements, degree = [8, 12, 6], [3, 3, 2]
+    num_elements, degree = _pole_safe([8, 12, 6]), [3, 3, 2]
     domain = getattr(domains, mapping)(num_elements=num_elements[:2], degree=degree[:2])
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs, polar_splines=True)
@@ -827,7 +834,7 @@ def test_polar_weighted_average_projection(mapping, stab, directions):
     from struphy.polar.kron_2dx1d import _interior
     from struphy.topology.grids import TensorProductGrid
 
-    num_elements, degree = [8, 12, 6], [3, 3, 2]
+    num_elements, degree = _pole_safe([8, 12, 6]), [3, 3, 2]
     domain = getattr(domains, mapping)(num_elements=num_elements[:2], degree=degree[:2])
     grid = TensorProductGrid(num_elements=num_elements)
     derham_opts = DerhamOptions(degree=degree, bcs=(("free", "dirichlet"), None, None), polar_splines=True)

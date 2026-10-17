@@ -32,7 +32,7 @@ exp(-((x - 0.05)^2 + y^2) / (2 * 0.04^2)) at rest next to the polar axis.
 
 Physics. The pulse is centred next to the axis of the cylinder (the pole of the polar coordinates of the
 cross-section), so the expanding wave crosses the coordinate singularity. Tensor-product splines are discontinuous
-there; the high-order polar splines (R. Remmerswaal, homotopy construction, DerhamOptions(polar_method="homotopy"))
+there; the high-order polar splines (R. Remmerswaal, homotopy construction, DerhamOptions(polar_splines=True, polar_regularity=r))
 are C^r at the axis. The talk compares r = 0 (continuity) with higher regularities: low regularity leaves spurious
 waves and kinks at the axis, and limits the convergence of nearly resolved waves.
 
@@ -88,7 +88,6 @@ derham_opts = DerhamOptions(
     degree=(args.degree, args.degree, 1),
     bcs=(("free", "dirichlet"), None, None),
     polar_splines=True,
-    polar_method="homotopy",
     polar_regularity=args.regularity,
 )
 

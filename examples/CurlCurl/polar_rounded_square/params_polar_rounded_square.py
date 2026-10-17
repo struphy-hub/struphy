@@ -37,7 +37,7 @@ with one 2-form mass solve and the homotopy operator ("a free two-dimensional lu
 the stabilized stiffness system of the CurlCurl model is solved (sigma = {args.sigma}), which gives the same curl A.
 
 Setup. RoundedSquareCylinder(eps=0.15), {args.cells} x {6 * args.cells} x 1 cells, degree {args.degree},
-DerhamOptions(polar_method="homotopy", polar_regularity={args.regularity}), Dirichlet conditions at eta1 = 1.
+DerhamOptions(polar_splines=True, polar_regularity={args.regularity}), Dirichlet conditions at eta1 = 1.
 
 Expected result. The L2 error of curl A converges like h^p (PolarFEEC.jl example 05).
 """
@@ -64,7 +64,6 @@ derham_opts = DerhamOptions(
     degree=(args.degree, args.degree, 1),
     bcs=(("free", "dirichlet"), None, None),
     polar_splines=True,
-    polar_method="homotopy",
     polar_regularity=args.regularity,
     nquads=(args.degree + 3, args.degree + 3, 2),
 )

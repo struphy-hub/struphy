@@ -2,8 +2,7 @@ r"""
 2D x 1D Kronecker structure of linear operators on polar spline spaces.
 
 Polar extraction operators only act in the poloidal plane :math:`(\eta_1, \eta_2)` and are the identity
-in :math:`\eta_3`. Inter-/histopolation matrices of the commuting projectors and (axisymmetric) weighted
-mass matrices thus have the structure
+in :math:`\eta_3`. (Axisymmetric) weighted mass matrices thus have the structure
 
 .. math::
 
@@ -792,34 +791,6 @@ class _PolarKron2Dx1DBase(LinearOperator):
         return xp.ascontiguousarray(T3.backward(op_3(X)).T).reshape(l1, l2, l3)
 
 
-class PolarKron2Dx1DOperator(_PolarKron2Dx1DBase):
-    r"""
-    Linear operator :math:`\bigoplus_G \mathbb A^G_\textnormal{pol} \otimes \mathbb A^G_3` on a PolarDerhamSpace.
-
-    Parameters
-    ----------
-    space : PolarDerhamSpace
-        Domain and codomain.
-
-    groups : list[Kron2Dx1DGroup]
-        The factors of each group of components.
-    """
-
-    def dot(self, v: PolarVector, out: PolarVector | None = None) -> PolarVector:
-        if xp.is_gpu(v.pol[0]):
-            if not hasattr(self, "_device_factors"):
-                self._device_factors = [(xp.asarray(g.A_3), DeviceSparseMatrix(g.A_pol)) for g in self._groups]
-            factors = self._device_factors
-        else:
-            factors = [(g.A_3, g.A_pol) for g in self._groups]
-        ops_3 = [lambda X, A=A: A @ X for A, _ in factors]
-        ops_pol = [lambda Y, modes, A=A: A.dot(Y) for _, A in factors]
-        return self._apply(v, out, ops_3, ops_pol)
-
-    def transpose(self, conjugate=False) -> "PolarKron2Dx1DOperator":
-        return PolarKron2Dx1DOperator(self._space, [g.transpose() for g in self._groups])
-
-
 class PolarKron2Dx1DSolver(_PolarKron2Dx1DBase):
     r"""
     (Approximate) inverse :math:`\bigoplus_G (\mathbb A^G_\textnormal{pol})^{-1} \otimes (\mathbb A^G_3)^{-1}` on a PolarDerhamSpace.
@@ -1101,54 +1072,6 @@ def _scalar_spaces(fem_space) -> tuple[TensorFemSpace, ...]:
 def spline_bases(fem_space) -> list[list[str]]:
     """``bases[c][d]``: spline basis (``"B"`` or ``"M"``) of component c in direction d of a Tensor-/VectorFemSpace."""
     return [[s.basis for s in comp.spaces] for comp in _scalar_spaces(fem_space)]
-
-
-def _spline_space_1d(fem_space, c: int, d: int):
-    return _scalar_spaces(fem_space)[c].spaces[d]
-
-
-def collocation_matrix_1d(fem_space, c: int, d: int) -> np.ndarray:
-    """1d interpolation (B-splines) or histopolation (M-splines) matrix of component c in direction d."""
-    S = _spline_space_1d(fem_space, c, d)
-    return np.asarray(S.imat if S.basis == "B" else S.hmat, dtype=float)
-
-
-def projector_groups(
-    space: PolarDerhamSpace, fem_space, dofs_extraction_op, base_extraction_op
-) -> list[Kron2Dx1DGroup]:
-    r"""
-    Factors of the polar inter-/histopolation matrix :math:`\mathbb P \mathcal I \mathbb E^T = \bigoplus_G (\mathbb P_\textnormal{pol} (\mathcal I_1 \otimes \mathcal I_2) \mathbb E_\textnormal{pol}^T) \otimes \mathcal I_3`.
-
-    Parameters
-    ----------
-    space : PolarDerhamSpace
-        The polar space.
-
-    fem_space : TensorFemSpace | VectorFemSpace
-        The tensor-product FE space of the projector.
-
-    dofs_extraction_op, base_extraction_op : PolarExtractionOperator
-        DOF and basis extraction operators.
-    """
-    groups = []
-    for comps in component_groups(space):
-        P = poloidal_extraction_matrix(
-            space, comps, dofs_extraction_op.blocks_ten_to_pol, dofs_extraction_op.blocks_ten_to_ten
-        )
-        E = poloidal_extraction_matrix(space, comps, base_extraction_op.blocks_ten_to_pol, None)
-        tp_blocks = []
-        outer = []
-        for c in comps:
-            A1 = collocation_matrix_1d(fem_space, c, 0)
-            A2 = collocation_matrix_1d(fem_space, c, 1)
-            tp_blocks.append(spa.kron(spa.csr_matrix(A1), spa.csr_matrix(A2)))
-            nr = space.n_rings[c]
-            outer.append((A1[nr + 1 :, nr + 1 :], A2))
-        A_pol = (P @ spa.block_diag(tp_blocks, format="csr") @ E.T).tocsr()
-        A_pol.eliminate_zeros()
-        A_3 = collocation_matrix_1d(fem_space, comps[0], 2)
-        groups.append(Kron2Dx1DGroup(comps, A_pol, A_3, outer, pole_mask(space, comps)))
-    return groups
 
 
 # --------------------------------------------------------------------------------------

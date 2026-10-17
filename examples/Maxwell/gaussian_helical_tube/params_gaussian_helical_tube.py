@@ -30,8 +30,8 @@ a three-petal cross-section of radius 0.3 that turns once around the torus. E x 
 Physics. The initial field B = curl A_0 is a magnetic pulse next to the magnetic axis (the line eta1 = 0 of the polar
 coordinates), A_0 = a(x) grad(zeta)-like with the Gaussian a of width 0.04 * 0.3 around the cross-section point of
 logical coordinates (0.05, 0) and of width 0.1 along the axis (as the pulse of the talk). The wave crosses the axis,
-where the tensor-product splines are not conforming; the high-order polar splines (DerhamOptions(polar_method=
-"homotopy")) are the total complex of the 2D polar splines of the cross-section and the splines along the axis.
+where the tensor-product splines are not conforming; the high-order polar splines (DerhamOptions(polar_splines=
+True, polar_regularity=r)) are the total complex of the 2D polar splines of the cross-section and the splines along the axis.
 Since B_0 is the exact curl of a 1-form given as logical components, its commuting projection is the discrete curl
 of the projection of A_0: div B = 0 holds exactly in polar coefficients.
 
@@ -77,7 +77,6 @@ derham_opts = DerhamOptions(
     degree=degree,
     bcs=(("free", "dirichlet"), None, None),
     polar_splines=True,
-    polar_method="homotopy",
     polar_regularity=args.regularity,
 )
 

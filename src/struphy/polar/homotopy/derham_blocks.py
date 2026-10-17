@@ -6,8 +6,8 @@ The 3D polar complex is the total complex of the 2D polar complex on the poloida
 
     V^m = sum_{p + q = m} V2D^p (x) V1D^q.
 
-The blocks have the interface of :class:`~struphy.polar.extraction_operators.PolarExtractionBlocksC1`, so the polar
-operators of :mod:`struphy.polar.linear_operators` apply them unchanged. Per tensor-product component, the first
+The blocks are applied by the polar operators of :mod:`struphy.polar.linear_operators`. Regularity 1 spans the C1
+polar splines of Toshniwal et al. (2017) and Holderied & Possanner (2022), which they replace. Per tensor-product component, the first
 ``n_rings`` rings hold the polar coefficients (the central polar basis functions and the external basis functions of
 these rings); all later rings are standard tensor-product coefficients. The ring counts ``r + 2`` (0-forms),
 ``(r + 1, r + 2)`` (1-forms) and ``r + 1`` (2-forms) of regularity ``r`` are chosen such that
@@ -26,6 +26,7 @@ import scipy.sparse as sp
 
 from struphy.polar.homotopy.complex2d import PolarComplex2D
 from struphy.polar.homotopy.mappings import DiskMapping, Mapping2D
+from struphy.polar.homotopy.polynomials import PolynomialBasis, zernike_basis
 from struphy.polar.homotopy.spaces1d import ClampedBSplineSpace, PeriodicBSplineSpace
 
 
@@ -114,6 +115,24 @@ def cross_section_mapping(domain, cross_section="domain"):
     raise ValueError("polar_cross_section must be 'domain', 'unit_disk' or a Mapping2D")
 
 
+def polar_radius(mapping, eta1):
+    """Mean distance of the circle ``eta1 = const`` of a 2D cross-section from its pole (its physical size)."""
+    eta2 = (np.arange(16) + 0.5) / 16
+    x, y = mapping(np.full_like(eta2, eta1), eta2)
+    x0, y0 = mapping(np.zeros(1), np.zeros(1))
+    return float(np.mean(np.hypot(x - x0[0], y - y0[0])))
+
+
+def scaled_zernike_basis(regularity, radius):
+    """The Zernike polynomials of the disk of ``radius`` scaled to values of order one on that disk.
+
+    The central polar basis functions are the projections of these polynomials onto the polar rings; with the radius
+    of the polar rings (about ``p / N1`` of the cross-section) they are as large as the tensor-product splines, which
+    keeps the polar mass and stiffness matrices as well conditioned as the tensor-product ones under refinement."""
+    basis = zernike_basis(regularity, radius=radius)
+    return PolynomialBasis([lambda x, y, f=f: radius * f(x, y) for f in basis.functions], regularity)
+
+
 # ------------------------------------------------------------------------------------------------- index matching
 def _struphy_to_core(struphy_space, core_space):
     """Core index of every struphy 1D basis function (matched by values; raises if not a permutation)."""
@@ -185,13 +204,16 @@ class PolarExtractionBlocksHomotopy:
         N1, N2 = derham.num_elements[0], derham.num_elements[1]
         self.regularity = r = int(regularity)
         radial, angular = ClampedBSplineSpace(p1, N1), PeriodicBSplineSpace(p2, N2)
+        mapping = cross_section_mapping(domain, cross_section)
+        self.polar_radius = polar_radius(mapping, min(1.0, p1 / N1))
         self.complex2d = c = PolarComplex2D(
             radial,
             angular,
-            cross_section_mapping(domain, cross_section),
+            mapping,
             r,
             enrichment=enrichment,
             polynomial_projection=polynomial_projection,
+            basis=scaled_zernike_basis(r, self.polar_radius),
             check_assumptions=check_assumptions,
         )
 
@@ -410,7 +432,7 @@ class PolarExtractionBlocksHomotopy:
             setattr(self, f"_{name}_pol_to_ten", pol_to_ten)
             setattr(self, f"_{name}_e3", e3)
 
-    # ------------------------------------------------------------------ interface of PolarExtractionBlocksC1
+    # ------------------------------------------------------------------ interface of the polar operators
     @property
     def n_polar(self):
         return [self.space_layout(form)[0] for form in ("0", "1", "2", "3")]

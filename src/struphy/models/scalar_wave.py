@@ -105,7 +105,7 @@ class ScalarWave(StruphyModel):
     def doc_long_description(cls):
         r"""The 0-form wave equation in H1 with the field :math:`\phi` and its time derivative :math:`\psi`, integrated
         by the symplectic leapfrog. It is the model problem of the high-order polar-spline studies (smoothness of the
-        waves crossing the polar axis, see ``DerhamOptions(polar_method="homotopy")``)."""
+        waves crossing the polar axis, see ``DerhamOptions(polar_splines=True, polar_regularity=r)``)."""
 
     @classmethod
     def doc_examples(cls):

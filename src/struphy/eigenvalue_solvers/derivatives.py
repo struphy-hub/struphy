@@ -127,35 +127,10 @@ def discrete_derivatives_3d(space):
         D = [[D1, D2, D3]]
         D = spa.bmat(D, format="csr")
 
-    # C^k polar derivatives
     else:
-        # discrete grad (full space)
-        G1 = spa.kron(space.polar_splines.G1.copy(), spa.identity(grad_1d_3.shape[1]))
-        G2 = spa.kron(space.polar_splines.G2.copy(), spa.identity(grad_1d_3.shape[1]))
-        G3 = spa.kron(spa.identity(space.polar_splines.Nbase0), grad_1d_3)
-
-        G = [[G1], [G2], [G3]]
-        G = spa.bmat(G, format="csr")
-
-        # discrete curl (full space)
-        C12 = spa.kron(space.polar_splines.VC.copy(), spa.identity(grad_1d_3.shape[0]))
-        C21 = spa.kron(space.polar_splines.SC.copy(), spa.identity(grad_1d_3.shape[1]))
-
-        C11_12 = -spa.kron(spa.identity(space.polar_splines.Nbase1C_2), grad_1d_3)
-        C11_21 = spa.kron(spa.identity(space.polar_splines.Nbase1C_1), grad_1d_3)
-
-        C11 = spa.bmat([[None, C11_12], [C11_21, None]])
-
-        C = [[C11, C12], [C21, None]]
-        C = spa.bmat(C, format="csr")
-
-        # discrete div (full space)
-        D1 = spa.kron(space.polar_splines.D1.copy(), spa.identity(grad_1d_3.shape[0]))
-        D2 = spa.kron(space.polar_splines.D2.copy(), spa.identity(grad_1d_3.shape[0]))
-        D3 = spa.kron(spa.identity(space.polar_splines.Nbase2), grad_1d_3)
-
-        D = [[D1, D2, D3]]
-        D = spa.bmat(D, format="csr")
+        raise NotImplementedError(
+            "polar splines are provided by struphy.feec.psydac_derham.Derham (polar_splines=True)"
+        )
 
     # apply boundary operators
     G0 = space.B1.dot(G.dot(space.B0.T))

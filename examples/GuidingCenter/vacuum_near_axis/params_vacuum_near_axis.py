@@ -45,7 +45,7 @@ axis. The talk shows that the energy error of RK4 decreases like dt^4 only for s
 r-compatible) splines.
 
 Setup. Cylinder of radius {A} and length 2 pi (HollowCylinder(a1=0)), {args.num_elements} elements, degree
-{args.degree}, DerhamOptions(polar_method="homotopy", polar_regularity={args.regularity}), HelicalVacuumField(B0=1,
+{args.degree}, DerhamOptions(polar_splines=True, polar_regularity={args.regularity}), HelicalVacuumField(B0=1,
 delta=0.5, m=2, k=3). Eight markers at distances 0.01 ... 0.04 from the axis, co- and counter-passing (v_par = +-1)
 with mu = 1e-3, epsilon = {args.epsilon}. RK4 with dt = {args.dt} for {args.periods} transits (t = {tend:.4g}).
 
@@ -96,7 +96,6 @@ derham_opts = DerhamOptions(
     degree=(args.degree, args.degree, 3),
     bcs=(("free", "free"), None, None),
     polar_splines=True,
-    polar_method="homotopy",
     polar_regularity=args.regularity,
 )
 equil = equils.HelicalVacuumField(B0=1.0, delta=0.5, m=2, k=3.0)

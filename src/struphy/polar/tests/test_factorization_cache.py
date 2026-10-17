@@ -79,10 +79,11 @@ def test_1d_factors_reuse_exact_values_and_release_old_entries(monkeypatch):
     assert len(cache) == 0
 
 
-def test_projectors_share_factors_across_spaces_and_solver_instances(monkeypatch):
-    _, derham, _ = make_polar_derham("IGAPolarCylinder", with_mass=False)
-    projectors = [getattr(derham, "P" + form) for form in ("0", "1", "2", "3")]
-    solvers = [P.pc for P in projectors]
+def test_preconditioners_share_factors_across_spaces_and_solver_instances(monkeypatch):
+    from struphy.feec.preconditioner import PolarMassMatrixPreconditioner
+
+    _, derham, mass = make_polar_derham("IGAPolarCylinder")
+    solvers = [PolarMassMatrixPreconditioner(getattr(mass, "M" + form)).solver for form in ("0", "1", "2", "3")]
     assert all(s.domain._factorization_cache is solvers[0].domain._factorization_cache for s in solvers)
     seen = {}
     reused = 0
@@ -104,7 +105,7 @@ def test_projectors_share_factors_across_spaces_and_solver_instances(monkeypatch
     assert duplicate._lu_3[0] is solvers[1]._lu_3[0]
     assert duplicate._pol_solvers[0] is solvers[1]._pol_solvers[0]
     _, other_derham, _ = make_polar_derham("IGAPolarCylinder", with_mass=False)
-    assert other_derham.P0.I.domain._factorization_cache is not solvers[0].domain._factorization_cache
+    assert other_derham.V0pol._factorization_cache is not solvers[0].domain._factorization_cache
 
 
 def test_mass_weight_update_reuses_1d_factors_and_rebuilds_poloidal_factors():
@@ -145,8 +146,10 @@ def check_device_factor_reuse(fake=False):
             assert device_factor is not host_factor
             assert kron._factorized_1d(matrix.copy(), cache) is device_factor
             np.testing.assert_allclose(xp.to_numpy(device_factor.solve(xp.asarray(matrix))), np.eye(2), atol=1e-12)
-            _, derham, _ = make_polar_derham("IGAPolarCylinder", with_mass=False)
-            first = derham.P1.pc
+            from struphy.feec.preconditioner import PolarMassMatrixPreconditioner
+
+            _, derham, mass = make_polar_derham("IGAPolarCylinder")
+            first = PolarMassMatrixPreconditioner(mass.M1).solver
             x = fill(first.domain.zeros(), seed=91)
             expected = first.dot(x)
             duplicate = kron.PolarKron2Dx1DSolver(first.domain, first.groups)

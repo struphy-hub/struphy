@@ -1,6 +1,6 @@
 """A stellarator-like magnetic field in the 3D polar complex of a twisted tube (port of PolarFEEC.jl
 ``examples/07_torus_3d.jl``, on the Struphy :class:`~struphy.feec.psydac_derham.Derham` with
-``polar_method="homotopy"``).
+``polar_splines=True``).
 
 The tube :class:`~struphy.geometry.domains.HelicalTube` ``("islands")`` has a helical magnetic axis with four field
 periods and an elliptical cross-section ``a x b = 0.28 x 0.14`` that rotates by half a turn per period. In logical
@@ -43,7 +43,6 @@ def build(num_elements=(8, 24, 32), degree=(3, 3, 3), regularity=2, domain_resol
         degree=degree,
         bcs=(("free", "free"), None, None),
         polar_splines=True,
-        polar_method="homotopy",
         polar_regularity=regularity,
         nquads_proj=tuple(p + 3 for p in degree),
     )

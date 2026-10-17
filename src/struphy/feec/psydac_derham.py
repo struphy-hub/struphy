@@ -50,7 +50,6 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
-from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.utils import check_option
@@ -284,11 +283,6 @@ class SplineAttributes1D:
         Number of quadrature points in each logical direction used to build
         projection point/weight sets.
 
-    polar_splines : bool, default=False
-        Polar spline regularity flag. ``False`` selects standard tensor-product
-        splines, while ``True`` enables C1 polar splines (including the optional
-        shift of points near ``eta_1 = 0`` where required).
-
     local_projectors : bool, default=False
         If ``True``, also computes quasi-interpolation point/weight grids used
         by local commuting projectors.
@@ -313,7 +307,6 @@ class SplineAttributes1D:
         femspace: TensorFemSpace | VectorFemSpace,
         nquads: tuple[int, int, int],
         nquads_proj: tuple[int, int, int],
-        polar_splines: bool = False,
         local_projectors: bool = False,
     ):
         # inputs
@@ -322,7 +315,6 @@ class SplineAttributes1D:
         self._nquads = nquads
         self._nq_pr = nquads_proj
         self._local_projectors = local_projectors
-        self._polar_splines = polar_splines
 
         # grid attributes
         self._nbasis = []
@@ -388,10 +380,7 @@ class SplineAttributes1D:
                 ]
 
                 if local_projectors:
-                    ptsloc, wtsloc = get_pts_and_wts_quasi(
-                        space,
-                        polar_shift=d == 0 and self.polar_splines,
-                    )
+                    ptsloc, wtsloc = get_pts_and_wts_quasi(space)
                     self._proj_loc_grid_pts[-1] += [ptsloc]
                     self._proj_loc_grid_wts[-1] += [wtsloc]
 
@@ -400,7 +389,6 @@ class SplineAttributes1D:
                     s,
                     e,
                     n_quad=self.nquads_proj[d],
-                    polar_shift=d == 0 and self.polar_splines,
                 )
                 self._proj_grid_subs[-1] += [subs]
 
@@ -458,11 +446,6 @@ class SplineAttributes1D:
     def nquads_proj(self) -> tuple[int, int, int]:
         """The number of quadrature points in each direction for the projection."""
         return self._nq_pr
-
-    @property
-    def polar_splines(self) -> bool:
-        """The polar splines flag."""
-        return self._polar_splines
 
     @property
     def local_projectors(self) -> bool:
@@ -550,7 +533,7 @@ class Derham:
     """High-level discrete de Rham complex on the 3D logical unit cube.
 
     The class builds a tensor-product base complex through ``DiscreteDerham``
-    and augments it with optional boundary enforcement, optional C1 polar
+    and augments it with optional boundary enforcement, optional polar
     extraction operators, and commuting projectors. It also stores convenient
     metadata (1D spline attributes, decomposition helpers, index arrays) used
     by initialization, evaluation, and kernel interfaces.
@@ -668,14 +651,9 @@ class Derham:
             assert len(nquads_proj) == 3
             self._nq_pr = tuple(nquads_proj)
 
-        # smoothness at the polar singularity: default False for standard tensor product splines, or True for C1 polar splines
+        # smoothness at the polar singularity: False for standard tensor product splines, True for polar splines of
+        # regularity polar_regularity
         self._polar_splines = polar_splines
-
-        # solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections
-        self._polar_poloidal_solver = options.polar_poloidal_solver
-
-        # construction of the polar splines: C1 or high-order (homotopy) polar subspaces
-        self._polar_method = options.polar_method
         self._polar_regularity = options.polar_regularity
         self._polar_enrichment = options.polar_enrichment
         self._polar_polynomial_projection = options.polar_polynomial_projection
@@ -722,35 +700,30 @@ class Derham:
             derham.V0,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._V1splines = SplineAttributes1D(
             derham.V1,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._V2splines = SplineAttributes1D(
             derham.V2,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._V3splines = SplineAttributes1D(
             derham.V3,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
         self._Vvsplines = SplineAttributes1D(
             derham.Vv,
             self.nquads,
             self.nquads_proj,
-            polar_splines=self.polar_splines and self.polar_method == "c1",
             local_projectors=local_projectors,
         )
 
@@ -762,7 +735,6 @@ class Derham:
                     H1_space,
                     (self.nquads[n],),
                     (self.nquads_proj[n],),
-                    polar_splines=False,  # the 1d spaces are not polar, even if the 3d space is
                     local_projectors=False,
                 )
             ]
@@ -771,7 +743,6 @@ class Derham:
                     L2_space,
                     (self.nquads[n],),
                     (self.nquads_proj[n],),
-                    polar_splines=False,  # the 1d spaces are not polar, even if the 3d space is
                     local_projectors=False,
                 )
             ]
@@ -813,7 +784,7 @@ class Derham:
         # polar spaces, these will be just the tensor prodict spaces if polar_splines=False, and the polar subspaces if polar_splines=True, TODO: separate clearly tensor from polar
         if not self.polar_splines:
             self._ck_blocks = None
-        elif self.polar_method == "homotopy":
+        else:
             from struphy.polar.homotopy.derham_blocks import PolarExtractionBlocksHomotopy
 
             self._ck_blocks = PolarExtractionBlocksHomotopy(
@@ -824,9 +795,6 @@ class Derham:
                 polynomial_projection=self.polar_polynomial_projection,
                 cross_section=self.polar_cross_section,
             )
-        else:
-            assert self.domain is not None
-            self._ck_blocks = PolarExtractionBlocksC1(self.domain, self)
 
         # Polar spaces share live factors; obsolete mass-weight factors are not retained.
         self._polar_factorization_cache = WeakValueDictionary()
@@ -1028,18 +996,9 @@ class Derham:
 
     @property
     def polar_splines(self) -> bool:
-        """C^k smoothness at eta_1=0. Is False for standard tensor product splines and True for C^1 polar splines."""
+        """Smoothness at eta_1=0: False for standard tensor product splines, True for polar splines of regularity
+        ``polar_regularity``."""
         return self._polar_splines
-
-    @property
-    def polar_poloidal_solver(self) -> str:
-        """Solver for the poloidal matrices in the 2D x 1D Kronecker solves of polar projections ("schur", "lu" or "ilu")."""
-        return self._polar_poloidal_solver
-
-    @property
-    def polar_method(self) -> str:
-        """Construction of the polar splines: "c1" or "homotopy" (high-order polar subspaces)."""
-        return self._polar_method
 
     @property
     def polar_regularity(self) -> int:
@@ -1262,8 +1221,9 @@ class Derham:
         }
 
     @property
-    def ck_blocks(self) -> PolarExtractionBlocksC1 | None:
-        """Polar extraction blocks for C1 polar splines. Is None if polar_splines is False (standard tensor product splines)."""
+    def ck_blocks(self):
+        """Polar extraction blocks (:class:`~struphy.polar.homotopy.derham_blocks.PolarExtractionBlocksHomotopy`). Is
+        None if polar_splines is False (standard tensor product splines)."""
         return self._ck_blocks
 
     @property
@@ -1972,7 +1932,7 @@ class Derham:
                     pol_space,
                 )
 
-            # C^1 polar spline case
+            # polar spline case
             else:
                 pol_space = PolarDerhamSpace(self, sp_id)
 
@@ -1997,10 +1957,9 @@ class Derham:
         return tuple(Vh_pol)
 
     def _assemble_projectors(self, *projectors: GlobalGeometricProjector) -> tuple[CommutingProjector, ...]:
-        homotopy = self.polar_splines and self.polar_method == "homotopy"
         tmp = []
         for (sp_id, sp_form), projector in zip(self.space_to_form.items(), projectors):
-            if homotopy:
+            if self.polar_splines:
                 # the polar commuting projection is pi_bar = F~^T pi (paper): the polar "DOFs" are the polar
                 # coefficients F~^T I^{-1} dofs, and the polar inter-/histopolation matrix is the identity
                 self._dofs_extraction_ops[sp_form] = self._dofs_extraction_ops[sp_form] @ projector.solver
@@ -2011,8 +1970,7 @@ class Derham:
                     dofs_extraction_op=self._dofs_extraction_ops[sp_form],
                     base_extraction_op=self._extraction_ops[sp_form],
                     boundary_op=self.boundary_ops[sp_form],
-                    poloidal_solver=self.polar_poloidal_solver,
-                    homotopy=homotopy,
+                    polar=self.polar_splines,
                 )
             )
         return tuple(tmp)

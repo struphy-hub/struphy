@@ -60,7 +60,7 @@ def build_domain(case):
     return PoloidalSplineStraight(num_elements=num_elements, degree=degree, cx=cx, cy=cy, Lz=1.0)
 
 
-def build_derham(case, method="homotopy", polar=True):
+def build_derham(case, polar=True):
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.topology.grids import TensorProductGrid
@@ -69,7 +69,6 @@ def build_derham(case, method="homotopy", polar=True):
         degree=(case.degree, case.degree, 1),
         bcs=(("free", "free"), None, None),
         polar_splines=polar,
-        polar_method=method,
         polar_regularity=1,
     )
     grid = TensorProductGrid(num_elements=(*case.num_elements, 1))
@@ -170,3 +169,15 @@ def test_regularity_one_zero_forms_are_affine_on_the_first_rings(case):
     assert np.linalg.matrix_rank(Q) == 3
     assert np.linalg.matrix_rank(np.vstack([Q, E0]), tol=1e-9) == 3
     assert np.linalg.matrix_rank(E0, tol=1e-9) == 3
+
+
+def test_deprecated_polar_options():
+    """``polar_method="c1"`` selects regularity 1 (the C1 spaces) and ``polar_poloidal_solver`` is ignored, both
+    with a deprecation warning."""
+    from struphy.io.options import DerhamOptions
+
+    with pytest.warns(DeprecationWarning, match="polar_method"):
+        options = DerhamOptions(polar_splines=True, polar_method="c1", polar_regularity=3)
+    assert options.polar_regularity == 1
+    with pytest.warns(DeprecationWarning, match="polar_poloidal_solver"):
+        DerhamOptions(polar_splines=True, polar_poloidal_solver="ilu")

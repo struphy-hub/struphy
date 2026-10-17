@@ -42,7 +42,7 @@ def device_sparse_module():
 class DeviceSparseMatrix:
     """Device CSR copy of a host polar matrix, for products with device arrays.
 
-    The polar blocks (:class:`~struphy.polar.extraction_operators.PolarExtractionBlocksC1`) are setup data built
+    The polar blocks (:class:`~struphy.polar.homotopy.derham_blocks.PolarExtractionBlocksHomotopy`) are setup data built
     with SciPy on the host. On the CuPy backend the polar operators apply them to coefficients that live on the
     device; this class holds a CSR copy of a block on the device (``cupyx.scipy.sparse``) and computes ``A @ x``
     there (SpMV/SpMM on the GPU). Blocks without non-zero entries (or with an empty dimension) are not copied,

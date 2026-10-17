@@ -266,15 +266,21 @@ See Fig. 5 for an example with :math:`p=4`.
 Polar splines
 ^^^^^^^^^^^^^
 
-For domains with a polar singularity at :math:`\eta_1 = 0` (e.g. ``IGAPolarCylinder``, ``IGAPolarTorus``),
-``DerhamOptions(polar_splines=True)`` builds the C1 polar spline spaces of
-`Holderied and Possanner (JCP 2022) <https://doi.org/10.1016/j.jcp.2022.111329>`_.
-The first two rings of tensor-product splines around the pole are replaced by a few polar basis functions,
-via extraction operators :math:`\mathbb E` (basis) and :math:`\mathbb P` (degrees of freedom) that act in the
-poloidal plane :math:`(\eta_1, \eta_2)` only.
+For domains with a polar singularity at :math:`\eta_1 = 0` (e.g. ``HollowCylinder(a1=0)``, ``IGAPolarCylinder``,
+``IGAPolarTorus``), ``DerhamOptions(polar_splines=True, polar_regularity=r)`` builds polar spline spaces that are
+:math:`C^{\mathfrak r}` at the pole (see :ref:`polar_splines_homotopy` for the construction). Regularity
+:math:`\mathfrak r = 1` (the default) spans exactly the C1 polar spline spaces of
+`Toshniwal et al. (CMAME 2017) <https://doi.org/10.1016/j.cma.2017.04.028>`_ and
+`Holderied and Possanner (JCP 2022) <https://doi.org/10.1016/j.jcp.2022.111329>`_, which Struphy used before
+(``src/struphy/polar/tests/test_polar_regularity_one.py`` compares all degrees with the former C1 extraction
+matrices); unlike the former construction, it needs neither a spline mapping nor a multiple of 3 elements in
+:math:`\eta_2`. The innermost rings of tensor-product splines around the pole are replaced by polar basis
+functions, via extraction operators :math:`\mathbb E` (basis) and dual coefficients :math:`\tilde{\mathbb F}` that act
+in the poloidal plane :math:`(\eta_1, \eta_2)` only. The commuting projectors are the tensor-product projections
+followed by the polar duals, :math:`\bar\pi = \tilde{\mathbb F}^T \pi`, so that their polar inter-/histopolation
+matrix is the identity.
 
-Hence, the inter-/histopolation matrices of the commuting projectors, :math:`\mathbb P \mathcal I \mathbb E^T`,
-and the mass matrices with weights independent of :math:`\eta_3` have a 2D x 1D Kronecker structure
+The mass matrices with weights independent of :math:`\eta_3` have a 2D x 1D Kronecker structure
 :math:`\mathbb A_\textnormal{pol} \otimes \mathbb A_3` (:mod:`struphy.polar.kron_2dx1d`).
 They are solved with a 1d direct solver in :math:`\eta_3` and one of the following solvers for the
 sparse poloidal matrix :math:`\mathbb A_\textnormal{pol}`:
@@ -284,7 +290,6 @@ sparse poloidal matrix :math:`\mathbb A_\textnormal{pol}`:
 * ``"lu"``: sparse LU factorization,
 * ``"ilu"``: incomplete LU factorization, used as preconditioner of an iterative solver.
 
-The solver of the projectors is set with ``DerhamOptions(polar_poloidal_solver=...)``.
 For weighted mass matrices, use :class:`~struphy.feec.preconditioner.PolarMassMatrixPreconditioner`
 (``precond="PolarMassMatrixPreconditioner"`` in the propagator options);
 it is exact for axisymmetric weights and mappings.
@@ -305,7 +310,7 @@ and are included in the polar stiffness preconditioner (the average over :math:`
 On the CuPy backend, extraction, derivatives, Kronecker operators and these solves keep their
 coefficients on the device. Factorization and mass-preconditioner assembly run once on the host;
 cached device factors apply subsequent solves. Identical factors are shared across polar spaces
-and projector/preconditioner instances of the same Derham. Matrix contents and solver settings
+and preconditioner instances of the same Derham. Matrix contents and solver settings
 are matched exactly; updated weights use new factors, and unused entries are released. Polar MPI collectives support CUDA-aware device
 buffers or host staging through ``cunumpy.mpi.mpi_buffer``. The feectools halo exchanges require
 CUDA-aware MPI on real GPUs. ``SplineFunction.__call__`` dispatches CUDA kernels for marker
@@ -317,11 +322,10 @@ host-only; distributed field-evaluation MPI handling and coverage are separate f
 
 .. _polar_splines_homotopy:
 
-High-order polar splines (homotopy construction)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Construction of the polar splines (homotopy operators)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``DerhamOptions(polar_splines=True, polar_method="homotopy", polar_regularity=r)`` builds the high-order polar
-subspaces of R. Remmerswaal (*High-order FEEC discretization on 2D and 3D domains with a disk-like coordinate
+``DerhamOptions(polar_splines=True, polar_regularity=r)`` builds the polar subspaces of R. Remmerswaal (*High-order FEEC discretization on 2D and 3D domains with a disk-like coordinate
 singularity*, draft, and the Julia package `PolarFEEC.jl <https://gitlab.mpcdf.mpg.de/rwr/polarfeec.jl>`_).
 For a regularity :math:`\mathfrak r` the 2D polar spaces of the cross-section are
 
@@ -378,7 +382,7 @@ Zernike basis, centre-shifted polynomial basis                            :mod:`
 homotopies, boundary homotopies, mean projection :math:`\mathfrak B`
 ``stiffness_solver``, ``range_projection`` (2D curl-curl "free lunch")    :mod:`struphy.polar.homotopy.solvers`
 ``TensorProductComplex``, ``PeriodicComplex``, ``PolarComplex3D``         :mod:`struphy.polar.homotopy.complex3d`
-3D polar complex of a domain                                              ``DerhamOptions(polar_method="homotopy")``
+3D polar complex of a domain                                              ``DerhamOptions(polar_splines=True)``
 ========================================================================  ==========================================================
 
 The studies of PolarFEEC.jl and of the NMPP seminar talk (2026) are reproduced by the demos

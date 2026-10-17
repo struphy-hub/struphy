@@ -28,11 +28,9 @@ class PolarDerhamSpace(VectorSpace):
         assert not derham.spl_kind[0], "Spline basis in eta1 must be clamped"
         assert derham.spl_kind[1], "Spline basis in eta2 must be periodic"
 
-        # high-order (homotopy) polar splines provide their own layout of polar coefficients and rings
-        layout = getattr(derham.ck_blocks, "space_layout", None)
-        if layout is None:
-            assert (derham.num_elements[1] / 3) % 1 == 0.0, "Number of elements in eta2 must be a multiple of 3"
-            assert derham.degree[0] > 1 and derham.degree[1] > 1, "Spline degrees in (eta1, eta2) must be at least two"
+        # the polar extraction blocks define the layout of the polar coefficients and rings
+        assert derham.ck_blocks is not None, "the Derham complex has no polar splines (polar_splines=False)"
+        layout = derham.ck_blocks.space_layout
 
         # other properties
         self._dtype = float
@@ -51,79 +49,23 @@ class PolarDerhamSpace(VectorSpace):
         self._ends = self._parent_space.ends
 
         # polar properties
-        if layout is not None:
-            form = derham.space_to_form[space_id]
-            self._n_polar, self._n_rings = layout(form)
-            spaces = {
-                "H1": derham.V0splines,
-                "Hcurl": derham.V1splines,
-                "Hdiv": derham.V2splines,
-                "L2": derham.V3splines,
-                "H1vec": derham.Vvsplines,
-            }[space_id]
-            nbasis = spaces.nbasis  # per component, per direction
-            self._n2 = tuple(nb[1] for nb in nbasis)
-            self._n3 = tuple(nb[2] for nb in nbasis)
-            self._type_of_basis_3 = tuple(st[2] for st in spaces.spline_types)
-            self._dimension = sum(
-                (nb[0] - nr) * nb[1] * nb[2] + npol * nb[2]
-                for nb, nr, npol in zip(nbasis, self._n_rings, self._n_polar)
-            )
-        elif space_id == "H1":
-            self._n_polar = (3,)
-            self._n_rings = (2,)
-            self._dimension = ((self.n[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]
-            self._n2 = (self.n[1],)
-            self._n3 = (self.n[2],)
-            self._type_of_basis_3 = (derham.V0splines.spline_types[0][2],)
-        elif space_id == "Hcurl":
-            self._n_polar = (0, 2, 3)
-            self._n_rings = (1, 2, 2)
-            dim1 = ((self.d[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]
-            dim2 = ((self.n[0] - self.n_rings[1]) * self.d[1] + self.n_polar[1]) * self.n[2]
-            dim3 = ((self.n[0] - self.n_rings[2]) * self.n[1] + self.n_polar[2]) * self.d[2]
-            self._dimension = dim1 + dim2 + dim3
-            self._n2 = (self.n[1], self.d[1], self.n[1])
-            self._n3 = (self.n[2], self.n[2], self.d[2])
-            self._type_of_basis_3 = (
-                derham.V1splines.spline_types[0][2],
-                derham.V1splines.spline_types[1][2],
-                derham.V1splines.spline_types[2][2],
-            )
-        elif space_id == "Hdiv":
-            self._n_polar = (2, 0, 0)
-            self._n_rings = (2, 1, 1)
-            dim1 = ((self.n[0] - self.n_rings[0]) * self.d[1] + self.n_polar[0]) * self.d[2]
-            dim2 = ((self.d[0] - self.n_rings[1]) * self.n[1] + self.n_polar[1]) * self.d[2]
-            dim3 = ((self.d[0] - self.n_rings[2]) * self.d[1] + self.n_polar[2]) * self.n[2]
-            self._dimension = dim1 + dim2 + dim3
-            self._n2 = (self.d[1], self.n[1], self.d[1])
-            self._n3 = (self.d[2], self.d[2], self.n[2])
-            self._type_of_basis_3 = (
-                derham.V2splines.spline_types[0][2],
-                derham.V2splines.spline_types[1][2],
-                derham.V2splines.spline_types[2][2],
-            )
-        elif space_id == "L2":
-            self._n_polar = (0,)
-            self._n_rings = (1,)
-            self._dimension = ((self.d[0] - self.n_rings[0]) * self.d[1] + self.n_polar[0]) * self.d[2]
-            self._n2 = (self.d[1],)
-            self._n3 = (self.d[2],)
-            self._type_of_basis_3 = (derham.V3splines.spline_types[0][2],)
-        elif space_id == "H1vec":
-            self._n_polar = (3, 3, 3)
-            self._n_rings = (2, 2, 2)
-            self._dimension = (((self.n[0] - self.n_rings[0]) * self.n[1] + self.n_polar[0]) * self.n[2]) * 3
-            self._n2 = (self.n[1], self.n[1], self.n[1])
-            self._n3 = (self.n[2], self.n[2], self.n[2])
-            self._type_of_basis_3 = (
-                derham.Vvsplines.spline_types[0][2],
-                derham.Vvsplines.spline_types[1][2],
-                derham.Vvsplines.spline_types[2][2],
-            )
-        else:
-            raise ValueError("Space not supported.")
+        assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec"), "Space not supported."
+        form = derham.space_to_form[space_id]
+        self._n_polar, self._n_rings = layout(form)
+        spaces = {
+            "H1": derham.V0splines,
+            "Hcurl": derham.V1splines,
+            "Hdiv": derham.V2splines,
+            "L2": derham.V3splines,
+            "H1vec": derham.Vvsplines,
+        }[space_id]
+        nbasis = spaces.nbasis  # per component, per direction
+        self._n2 = tuple(nb[1] for nb in nbasis)
+        self._n3 = tuple(nb[2] for nb in nbasis)
+        self._type_of_basis_3 = tuple(st[2] for st in spaces.spline_types)
+        self._dimension = sum(
+            (nb[0] - nr) * nb[1] * nb[2] + npol * nb[2] for nb, nr, npol in zip(nbasis, self._n_rings, self._n_polar)
+        )
 
         self._n_comps = len(self.n_polar)
 

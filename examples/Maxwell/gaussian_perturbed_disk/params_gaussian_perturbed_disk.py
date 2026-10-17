@@ -40,7 +40,7 @@ B_z = exp(-((x - 0.05)^2 + y^2) / (2 * 0.04^2)) - mean at t = 0.
 
 Physics. The pulse of B_z = curl A is centred next to the axis of the cylinder (the pole of the polar coordinates),
 so the wave crosses the coordinate singularity. The tensor-product 1-form space is not conforming there; the
-high-order polar splines (R. Remmerswaal, homotopy construction, DerhamOptions(polar_method="homotopy")) are
+high-order polar splines (R. Remmerswaal, homotopy construction, DerhamOptions(polar_splines=True, polar_regularity=r)) are
 conforming for r >= 1 and C^(r-1) at the axis. The talk compares r = 0 (non-conforming) with higher regularities and
 the enrichments "cochain" (gradients of polynomials only, too poor) and "cochain_chain" (with the homotopy images of
 polynomial 2-forms). The mean of B_z is conserved (E x n = 0) and is subtracted, since it does not propagate.
@@ -97,7 +97,6 @@ derham_opts = DerhamOptions(
     degree=(args.degree, args.degree, 1),
     bcs=(("free", "dirichlet"), None, None),
     polar_splines=True,
-    polar_method="homotopy",
     polar_regularity=args.regularity,
     polar_enrichment=args.enrichment,
 )
