@@ -81,8 +81,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
 
     Notes
     -----
-    All Struphy models must be subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
-    in one of the modules: ``fluid.py``, ``kinetic.py``, ``hybrid.py``, or ``toy.py``.
+    All Struphy models must be subclasses of ``StruphyModel``. Each model lives in its own module
+    ``struphy/models/<model_name>.py`` (snake case of the class name) and is registered in
+    ``struphy/models/__init__.py`` and ``struphy/api/models/__init__.py``.
 
     Time integration is performed by calling the ``integrate()`` method with a time step and
     splitting algorithm (Lie-Trotter or Strang). The model manages the execution of all propagators
