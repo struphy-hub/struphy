@@ -6,6 +6,7 @@ from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
 from maybempi import MPI
+from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.feec.kronecker_block import basis_projection_operator, derivative_operator
@@ -341,23 +342,26 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             (Pi_par, Pi_par.T, [kron_par, kron_curl @ kron_par]),
         ]
 
+    @profile
     def _build_precond(self, dt: float):
         """Hiptmair-Xu preconditioner of S ~ dt^2/4 (C^T M2gyro C + 4/dt^2 M1) (sigma = 4/dt^2 with the unscaled M2gyro in
         the middle, as the vector auxiliary space correction of Hiptmair-Xu assumes a unit-scale curl-curl term), plus
         the field-aligned auxiliary space corrections N P N^T, P the Kronecker preconditioner of
         N^T (M1 + dt^2/4 C^T M2gyro C) N on V0."""
         sigma = 4.0 / dt**2
-        hx = HiptmairXuPreconditioner(
-            None, self.mass_ops, sigma=sigma, mid="M2gyro", aux_weight=self.options.hx_aux_weight
-        )
+        with ProfileManager.profile_region("init HiptmairXu"):
+            hx = HiptmairXuPreconditioner(
+                None, self.mass_ops, sigma=sigma, mid="M2gyro", aux_weight=self.options.hx_aux_weight
+            )
         pc = sigma * hx
         if self.options.aux_correction:
-            mid = (dt**2 / 4) * self.mass_ops.M2gyro
-            corrections = [
-                (N, NT, preconditioner.StiffnessPreconditioner(self.mass_ops, ops, sigma=0.0, mid=["M1", mid]))
-                for N, NT, ops in self._aux_spaces
-            ]
-            pc = preconditioner.AuxiliarySpacePreconditioner(pc, corrections)
+            with ProfileManager.profile_region("add auxiliary space corrections"):
+                mid = (dt**2 / 4) * self.mass_ops.M2gyro
+                corrections = [
+                    (N, NT, preconditioner.StiffnessPreconditioner(self.mass_ops, ops, sigma=0.0, mid=["M1", mid]))
+                    for N, NT, ops in self._aux_spaces
+                ]
+                pc = preconditioner.AuxiliarySpacePreconditioner(pc, corrections)
         return pc
 
     @profile
@@ -371,7 +375,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             # at the first time step, rebuilt when dt changes (sigma = 4/dt^2 with the unscaled M2gyro in the middle,
             # as the vector auxiliary space correction of Hiptmair-Xu assumes a unit-scale curl-curl term)
             if self.options.precond == "HiptmairXu" and dt != self._hx_dt:
-                self._schur_solver.precond = self._build_precond(dt)
+                with ProfileManager.profile_region("build_HiptmairXu_precond"):
+                    self._schur_solver.precond = self._build_precond(dt)
                 self._hx_dt = dt
 
             # solve for new b coeffs

@@ -28,6 +28,7 @@ from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, Stenc
 from line_profiler import profile
 from maybempi import MPI, SerialComm
 from scipy import sparse
+from scope_profiler import ProfileManager
 
 from struphy.feec.kronecker_block import KroneckerBlockOperator
 from struphy.feec.linear_operators import BoundaryOperator
@@ -112,12 +113,14 @@ class KroneckerPreconditioner(LinearOperator):
         self._bc = _boundary_conditions(mass_operator, apply_bc)
 
         # approximation of the core operator and its exact inverse
-        self._matrix, self._solver = self._build_approximation(self._bc)
+        with ProfileManager.profile_region(f"build_approximation", functions=[self._build_approximation]):
+            self._matrix, self._solver = self._build_approximation(self._bc)
 
         # diagonal scaling S (a sequence of diagonal operators, applied in this order before the
         # solver and in reverse order after it)
-        self._scaling = self._build_scaling() if diagonal_scaling else ()
-        self._tmp_core = tuple(self._matrix.codomain.zeros() for _ in range(2)) if self._scaling else ()
+        with ProfileManager.profile_region(f"build_scaling", functions=[self._build_scaling]):
+            self._scaling = self._build_scaling() if diagonal_scaling else ()
+            self._tmp_core = tuple(self._matrix.codomain.zeros() for _ in range(2)) if self._scaling else ()
 
         # operator to be inverted (with boundary operators B, E if apply_bc), needed in solve
         self._M, self._mass_index, self._tmp_vectors = _operator_to_invert(mass_operator, self._bc is not None)
@@ -194,7 +197,8 @@ class KroneckerPreconditioner(LinearOperator):
 
     def _build_scaling(self) -> tuple[LinearOperator, ...]:
         """Diagonal scaling :math:`S = \\hat D^{1/2} D^{-1/2}` as one diagonal operator."""
-        D = _local_diagonal(self._core_diagonal())
+        with ProfileManager.profile_region(f"local_diagonal of core", functions=[_local_diagonal, self._core_diagonal]):
+            D = _local_diagonal(self._core_diagonal())
         D_hat = _local_diagonal(self._scaling_matrix())
         S = [xp.where(d > 0, xp.sqrt(xp.abs(dh) / xp.where(d > 0, d, 1.0)), 1.0) for d, dh in zip(D, D_hat)]
         return (_diagonal_operator(self._matrix.domain, S),)
@@ -738,36 +742,37 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         ops = list(derivative) if isinstance(derivative, (list, tuple)) else [derivative]
         self._general = all(isinstance(op, KroneckerBlockOperator) for op in ops)
         if self._general:
-            # general operators L_i: no diagonal scaling, kernel correction or averaged stabilization
-            if stab_average is not None:
-                raise NotImplementedError("stab_average is not supported for a general operator.")
-            diagonal_scaling = False
-            kernel_correction = False
-            assert len({op.domain_space for op in ops}) == 1, "The operators L_i must have the same domain."
-            mids = list(mid) if isinstance(mid, (list, tuple)) else [mid] * len(ops)
-            assert len(mids) == len(ops), "Give one mid per operator L_i."
-            form_dom = derham.space_to_form[ops[0].domain_space]
-            form_mid = derham.space_to_form[ops[0].codomain_space]
-            # pairs (L_i, terms of mid_i)
-            self._general_pairs = [
-                (
-                    op,
-                    _mass_terms(
-                        _resolve_mass_operator(
-                            mass_ops, m, getattr(mass_ops, f"M{derham.space_to_form[op.codomain_space]}")
-                        )
-                    ),
-                )
-                for op, m in zip(ops, mids)
-            ]
-            for op, mid_terms in self._general_pairs:
-                ref = getattr(mass_ops, f"M{derham.space_to_form[op.codomain_space]}")
-                for _, t in mid_terms:
-                    assert t.domain == ref.domain and t.codomain == ref.codomain, (
-                        f"Each mid must have the domain and codomain of the mass operator of the codomain "
-                        f"({op.codomain_space}) of its operator."
+            with ProfileManager.profile_region("StiffnessPreconditioner: general L_i"):
+                # general operators L_i: no diagonal scaling, kernel correction or averaged stabilization
+                if stab_average is not None:
+                    raise NotImplementedError("stab_average is not supported for a general operator.")
+                diagonal_scaling = False
+                kernel_correction = False
+                assert len({op.domain_space for op in ops}) == 1, "The operators L_i must have the same domain."
+                mids = list(mid) if isinstance(mid, (list, tuple)) else [mid] * len(ops)
+                assert len(mids) == len(ops), "Give one mid per operator L_i."
+                form_dom = derham.space_to_form[ops[0].domain_space]
+                form_mid = derham.space_to_form[ops[0].codomain_space]
+                # pairs (L_i, terms of mid_i)
+                self._general_pairs = [
+                    (
+                        op,
+                        _mass_terms(
+                            _resolve_mass_operator(
+                                mass_ops, m, getattr(mass_ops, f"M{derham.space_to_form[op.codomain_space]}")
+                            )
+                        ),
                     )
-            mid = mids[0]
+                    for op, m in zip(ops, mids)
+                ]
+                for op, mid_terms in self._general_pairs:
+                    ref = getattr(mass_ops, f"M{derham.space_to_form[op.codomain_space]}")
+                    for _, t in mid_terms:
+                        assert t.domain == ref.domain and t.codomain == ref.codomain, (
+                            f"Each mid must have the domain and codomain of the mass operator of the codomain "
+                            f"({op.codomain_space}) of its operator."
+                        )
+                mid = mids[0]
         elif len(ops) > 1 or not isinstance(derivative, str):
             raise TypeError("derivative must be 'grad', 'curl', 'div', a KroneckerBlockOperator or a list of these.")
         else:
@@ -789,15 +794,16 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         self._weights = weights
 
         # matrix in the middle and stabilization, as sums of weighted mass operators
-        mass_mid_default = getattr(mass_ops, f"M{form_mid}")
-        self._mid = mid
-        self._mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, mass_mid_default))
-        self._stab = stab
-        self._stab_is_identity = isinstance(stab, str) and stab == "Id"
-        mass_k = getattr(mass_ops, f"M{form_dom}")
-        self._stab_terms = (
-            None if self._stab_is_identity else _mass_terms(_resolve_mass_operator(mass_ops, stab, mass_k))
-        )
+        with ProfileManager.profile_region("StiffnessPreconditioner: resolve mass operators"):
+            mass_mid_default = getattr(mass_ops, f"M{form_mid}")
+            self._mid = mid
+            self._mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, mass_mid_default))
+            self._stab = stab
+            self._stab_is_identity = isinstance(stab, str) and stab == "Id"
+            mass_k = getattr(mass_ops, f"M{form_dom}")
+            self._stab_terms = (
+                None if self._stab_is_identity else _mass_terms(_resolve_mass_operator(mass_ops, stab, mass_k))
+            )
         for terms, ref, name in ((self._mid_terms, mass_mid_default, "mid"), (self._stab_terms or [], mass_k, "stab")):
             for _, op in terms:
                 assert op.domain == ref.domain and op.codomain == ref.codomain, (
@@ -813,25 +819,27 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         # tensor-product derivative without boundary operators (no polar splines), or the general operator
         self._d = derivative if self._general else getattr(derham, f"{derivative}_bcfree")
 
-        super().__init__(mass_k, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+        with ProfileManager.profile_region("KroneckerPreconditioner init", functions=[KroneckerPreconditioner.__init__]):
+            super().__init__(mass_k, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
 
         # correction on the kernel of the derivative: sigma^{-1} d_prev P_prev d_prev^T,
         # where A = sigma * stab; P_prev approximates the inverse of d_prev^T stab d_prev
         self._kernel_correction = None
         if kernel_correction:
-            prev = "grad" if derivative == "curl" else "curl"
-            d_prev = getattr(derham, prev)
-            P_prev = StiffnessPreconditioner(
-                mass_ops,
-                prev,
-                apply_bc=apply_bc,
-                diagonal_scaling=diagonal_scaling,
-                kernel_correction=False,
-                weights=weights,
-                mid=None if self._stab_is_identity else stab,
-            )
-            self._kernel_correction = (1.0 / sigma) * (d_prev @ P_prev @ d_prev.T)
-            self._tmp_kernel = self.codomain.zeros()
+            with ProfileManager.profile_region("StiffnessPreconditioner: kernel correction"):
+                prev = "grad" if derivative == "curl" else "curl"
+                d_prev = getattr(derham, prev)
+                P_prev = StiffnessPreconditioner(
+                    mass_ops,
+                    prev,
+                    apply_bc=apply_bc,
+                    diagonal_scaling=diagonal_scaling,
+                    kernel_correction=False,
+                    weights=weights,
+                    mid=None if self._stab_is_identity else stab,
+                )
+                self._kernel_correction = (1.0 / sigma) * (d_prev @ P_prev @ d_prev.T)
+                self._tmp_kernel = self.codomain.zeros()
 
     @property
     def derivative(self) -> str | KroneckerBlockOperator:
@@ -1638,29 +1646,32 @@ class HiptmairXuPreconditioner(LinearOperator):
 
         # smoother and gradient correction
         if smoother == "block_jacobi":
+            with ProfileManager.profile_region("block_jacobi smoother", functions=[StiffnessPreconditioner.__init__]):
             # block Jacobi plus the correction sigma^{-1} G P_0 G^T on the gradients
-            self._S = StiffnessPreconditioner(
-                mass_ops, "curl", sigma=sigma, mid=mid, stab=stab, kernel_correction=True, **kron_kwargs
-            )
-            self._grad_correction = None
+                self._S = StiffnessPreconditioner(
+                    mass_ops, "curl", sigma=sigma, mid=mid, stab=stab, kernel_correction=True, **kron_kwargs
+                )
+                self._grad_correction = None
         else:
-            assert A is not None, "smoother='jacobi' needs the operator A."
-            assert A.domain is self._space and A.codomain is self._space
-            self._S = inverse_diagonal(DiagonalComputer(derham.degree)(A))
-            P_0 = StiffnessPreconditioner(mass_ops, "grad", mid=None if stab == "Id" else stab, **kron_kwargs)
-            self._grad_correction = (1.0 / sigma) * (derham.grad @ P_0 @ derham.grad.T)
+            with ProfileManager.profile_region("jacobi smoother", functions=[StiffnessPreconditioner.__init__]):
+                assert A is not None, "smoother='jacobi' needs the operator A."
+                assert A.domain is self._space and A.codomain is self._space
+                self._S = inverse_diagonal(DiagonalComputer(derham.degree)(A))
+                P_0 = StiffnessPreconditioner(mass_ops, "grad", mid=None if stab == "Id" else stab, **kron_kwargs)
+                self._grad_correction = (1.0 / sigma) * (derham.grad @ P_0 @ derham.grad.T)
 
         # vector auxiliary space: Pi P_v Pi^T
         self._Pi = None
         if aux_weight != 0.0:
-            identity = [[(lambda e1, e2, e3: 1.0 + 0.0 * e1) if m == n else None for n in range(3)] for m in range(3)]
-            basis_ops = BasisProjectionOperators(derham, mass_ops.domain)
-            self._Pi = basis_ops.create_basis_op(identity, "H1vec", "Hcurl", assemble=True, name="Pi_v1")
-            self._PiT = self._Pi.T
-            self._P_v = StiffnessPreconditioner(mass_ops, "grad", sigma=sigma, **kron_kwargs)
-            self._aux = derham.coeff_spaces["v"]
-            self._tmp_v = (self._aux.zeros(), self._aux.zeros())
-            self._tmp_0 = (self._P_v.domain.zeros(), self._P_v.codomain.zeros())
+            with ProfileManager.profile_region("auxiliary_space correction"):
+                identity = [[(lambda e1, e2, e3: 1.0 + 0.0 * e1) if m == n else None for n in range(3)] for m in range(3)]
+                basis_ops = BasisProjectionOperators(derham, mass_ops.domain)
+                self._Pi = basis_ops.create_basis_op(identity, "H1vec", "Hcurl", assemble=True, name="Pi_v1")
+                self._PiT = self._Pi.T
+                self._P_v = StiffnessPreconditioner(mass_ops, "grad", sigma=sigma, **kron_kwargs)
+                self._aux = derham.coeff_spaces["v"]
+                self._tmp_v = (self._aux.zeros(), self._aux.zeros())
+                self._tmp_0 = (self._P_v.domain.zeros(), self._P_v.codomain.zeros())
 
         self._tmp = self._space.zeros()
 

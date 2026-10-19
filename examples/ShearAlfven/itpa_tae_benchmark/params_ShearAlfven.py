@@ -238,4 +238,4 @@ model.mhd.velocity.add_perturbation(perturbation=perturbation_radial)
 model.mhd.velocity.add_perturbation(perturbation=perturbation_poloidal)
 
 if __name__ == "__main__":
-    sim.run()
+    sim.run(one_time_step=True, profiling_activated=True)
