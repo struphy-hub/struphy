@@ -67,10 +67,10 @@ Read this before creating or renaming a model in `src/struphy/models/`. The gene
   ```
   Use `-n 4` instead if the model has particles.
 - `struphy params <Name>` must produce a valid `params_<Name>.py`.
-- Add a verification test against an analytic or reference result where possible:
+- Add a verification test against an analytic or reference result where possible, and where the test is not too expensive. Name it:
   `src/struphy/models/tests/verification/test_verif_<Name>.py` (e.g. `test_verif_Maxwell.py`). It is collected by folder.
 - Add at least one example in `examples/<Name>/<case>/params_<case>.py`, with optional `pproc_<case>.py` and
   `regress_<case>.py`. Follow an existing example: module docstring, `name`, a `description` (summary, Physics, Setup,
-  Expected result, References) and the argparse options (`--out-folder`, `--sim-folder`, `--num-elements`, `--test-run`).
+  Expected result, References) and the argparse options (e.g. `--test-run`).
   `test_examples.py` runs every example with `--test-run`, so keep that mode small and fast.
 - Don't edit `CHANGELOG.md` in the PR; it is written at release time.

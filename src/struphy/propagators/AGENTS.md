@@ -38,7 +38,7 @@ All of the following are abstract; the class can't be instantiated without them.
   (e.g. by a `Pusher`). The current time is `self.time_state[0]`.
 
 Linear solves: configure with `SolverParameters` (`src/struphy/linear_algebra/solver.py`) and choose solver and
-preconditioner through `Literal` options. Never put `KroneckerStencilMatrix.dot` (pure Python) in a Krylov loop.
+preconditioner through `Literal` options.
 
 ## Docstring
 
