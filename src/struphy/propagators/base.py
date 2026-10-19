@@ -66,7 +66,7 @@ class Propagator(metaclass=ABCMeta):
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
-        opt1: str = ("implicit",)
+        opt1: OptsTemplate = "implicit"
 
         def __post_init__(self):
             # checks

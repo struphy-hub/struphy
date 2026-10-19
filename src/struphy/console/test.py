@@ -44,6 +44,7 @@ def struphy_test(
 
     if "unit" in group:
         list_of_tests = [
+            f"{LIBPATH}/api/tests/",
             f"{LIBPATH}/bsplines/tests/",
             f"{LIBPATH}/console/tests/",
             f"{LIBPATH}/dispersion_relations/tests/",
