@@ -182,7 +182,7 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profiling options
-profiling_opts = ProfilingOptions(use_line_profiler=True)
+profiling_opts = ProfilingOptions(use_line_profiler=False)
 
 # Simulation object
 sim = Simulation(
@@ -238,4 +238,4 @@ model.mhd.velocity.add_perturbation(perturbation=perturbation_radial)
 model.mhd.velocity.add_perturbation(perturbation=perturbation_poloidal)
 
 if __name__ == "__main__":
-    sim.run(one_time_step=True, profiling_activated=True)
+    sim.run(profiling_activated=True)
