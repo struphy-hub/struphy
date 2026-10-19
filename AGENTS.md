@@ -35,7 +35,7 @@ General contributor information is in `CONTRIBUTING.md` and `doc/sections/dev_gu
 ## MPI
 
 - Import MPI as `from maybempi import MPI` (also `SerialComm`, `launched_under_mpi`), in library code **and** tests.
-  Never `from mpi4py import MPI`, because Struphy must run without mpi4py installed. `feectools.ddm.mpi` no longer exists.
+  Never `from mpi4py import MPI`, because Struphy must run without mpi4py installed.
   Exception: annotation-only imports under `if TYPE_CHECKING:`.
 - Collective operations must run on **all** ranks. This includes `Derham.create_spline_function`, evaluating a
   `SplineFunction`, mass-matrix/projector solves, `AccumulatorVector`, and `inner`/norms.
@@ -75,9 +75,6 @@ General contributor information is in `CONTRIBUTING.md` and `doc/sections/dev_gu
 
 ## Performance pitfalls
 
-- `feectools` `KroneckerStencilMatrix.dot` and `.tostencil()` are pure-Python loops. Don't use them in a Krylov loop
-  or any hot path. Apply the 1D factors directly, or use `KroneckerLinearSolver`.
-  Also, `KroneckerStencilMatrix.transpose().dot` is known to give wrong results when distributed.
 - When timing under MPI, limit BLAS threads (`OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1`, exported with `mpirun -x`).
   Oversubscribed threaded BLAS makes timings meaningless (issue #743).
 
@@ -85,8 +82,7 @@ General contributor information is in `CONTRIBUTING.md` and `doc/sections/dev_gu
 
 Use the `Output` API: `out = sim.run(...)`, `sim.output` or `Output(path_out)`, then
 `out.fields.<species>.<name>`, `out.scalars`, `out.evaluate("em_fields/phi")`, ...
-`sim.pproc()`, `sim.load_plotting_data()` and `sim.plotting_data` are deprecated, so don't use them in new code,
-examples or notebooks. Details are in `doc/markdown/output-api.md`.
+Details are in `doc/markdown/output-api.md`.
 
 ## Changes to the feectools submodule
 
@@ -96,8 +92,3 @@ examples or notebooks. Details are in `doc/markdown/output-api.md`.
    so the full struphy test suite validates the change.
 3. Mention each PR in the other's description. Don't raise struphy's `feectools` version pin before the new
    version is on PyPI.
-
-## Agent etiquette
-
-- Ask before pushing, opening PRs, or any other action visible outside the local checkout.
-- Report test results faithfully. Say what was run (which tests, how many ranks) and what was skipped.
