@@ -89,8 +89,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             Z: int = 1,
             diagnostic: FEECVariable | None = None,
         ):
-            self.gc_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
+            # both pushers move the guiding centers; with the Poisson solve between them, a Strang step
+            # bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2) pushes with the potential of the current positions
+            # (the two bxe(dt/2) of consecutive steps act as one bxe(dt) with the potential frozen)
             self.push_gc_bxe = PushGuidingCenterBxEstar(phi=phi)
+            self.gc_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
             self.push_gc_para = PushGuidingCenterParallel(phi=phi)
 
     ## abstract methods
@@ -138,8 +141,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         )
 
         # 4. assign variables to propagators
-        self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
+        self.propagators.gc_poisson.variables.phi = self.em_fields.phi
         self.propagators.push_gc_para.variables.ions = self.kinetic_ions.var
 
         # 5. define scalars to be tracked during simulation
@@ -182,6 +185,18 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         average_matrix_z = AverageOperator(derham, direction=2)
         average_matrix_teta = AverageOperator(derham, direction=1)
         self.average_matrix = average_matrix_z @ average_matrix_teta
+
+    def update_scalar_quantities(self):
+        """Solve the Poisson equation for the current marker positions, then update the scalars.
+
+        A time step ends with a push (bxe with Strang, para with Lie-Trotter), so the potential would lag behind the
+        markers in ``en_phi``, ``en_tot`` and the saved data (which is extracted after this call). The extra solve,
+        once per saved step, does not change the dynamics: the next Poisson solve of the time stepping overwrites it.
+
+        :meta private:
+        """
+        self.propagators.gc_poisson(1.0)
+        super().update_scalar_quantities()
 
     def _compute_en_phi(self):
         phi = self.em_fields.phi.spline.vector
@@ -277,17 +292,23 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def doc_discretization(cls):
         """Time integration is performed by the following propagators (in sequence):
 
-        1. :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`
-        2. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
+        2. :class:`~struphy.propagators.gyrokinetic_poisson_solve.GyrokineticPoissonSolve`
         3. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
         """
-        doc = rf"""**1. ImplicitDiffusion:**
+        doc = rf"""The Poisson solve sits between the two pushers, which both move the guiding centers. With Strang
+splitting, bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2), the parallel push and the closing bxe(dt/2) use a freshly
+solved potential; the two bxe(dt/2) at a step boundary act as one bxe(dt) with the potential solved before it. With
+Lie-Trotter splitting the parallel push uses a fresh potential and the E* x b push the one of the previous step.
+Before the scalars and the field data are saved, the Poisson equation is solved for the current marker positions.
 
-{GyrokineticPoissonSolve.__doc__}
-
-**2. PushGuidingCenterBxEstar:**
+**1. PushGuidingCenterBxEstar:**
 
 {PushGuidingCenterBxEstar.__doc__}
+
+**2. GyrokineticPoissonSolve:**
+
+{GyrokineticPoissonSolve.__doc__}
 
 **3. PushGuidingCenterParallel:**
 
