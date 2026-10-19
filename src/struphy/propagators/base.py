@@ -101,6 +101,17 @@ class Propagator(metaclass=ABCMeta):
             Time step size.
         """
 
+    def prepare_time_step(self, dt: float):
+        """Set up the data that depends on the time step (e.g. preconditioners) for ``dt``, before the first call
+        with ``dt``, so that it is part of the setup rather than of the first time step (see
+        :meth:`~struphy.simulation.sim.Simulation.run`). Optional; does nothing by default.
+
+        Parameters
+        ----------
+        dt : float
+            Time step size of the first call.
+        """
+
     @property
     def _solve_region(self) -> str:
         """Name of the profiling region for the linear solve(s) of this propagator."""

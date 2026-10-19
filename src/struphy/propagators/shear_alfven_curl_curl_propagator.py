@@ -132,7 +132,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         precond : LiteralOptions.OptsShearAlfvenCurlCurlPrecond, default="HiptmairXu"
             Preconditioner of the Schur system: Hiptmair-Xu for the curl-curl operator with ``M2gyro`` in the middle
             (``"HiptmairXu"``, implicit algorithm with ``solver="pcg"`` only, no polar splines; it depends on the time
-            step, so it is built at the first time step and rebuilt when the time step changes), or a preconditioner
+            step, so it is built in the setup (:meth:`prepare_time_step`) and rebuilt when the time step changes), or a
+            preconditioner
             of the mass matrix ``M1`` (``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``). With
             ``algo="explicit"``, ``"HiptmairXu"`` is replaced by ``"MassMatrixPreconditioner"`` (for ``M1``).
         aux_correction : bool, default=False
@@ -364,6 +365,15 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
                 pc = preconditioner.AuxiliarySpacePreconditioner(pc, corrections)
         return pc
 
+    def prepare_time_step(self, dt: float):
+        """Hiptmair-Xu preconditioner of S ~ dt^2/4 (C^T M2gyro C + 4/dt^2 M1) for the time step ``dt``: built in the
+        setup, rebuilt when dt changes (sigma = 4/dt^2 with the unscaled M2gyro in the middle, as the vector auxiliary
+        space correction of Hiptmair-Xu assumes a unit-scale curl-curl term)."""
+        if self.options.algo == "implicit" and self.options.precond == "HiptmairXu" and dt != self._hx_dt:
+            with ProfileManager.profile_region("build_HiptmairXu_precond"):
+                self._schur_solver.precond = self._build_precond(dt)
+            self._hx_dt = dt
+
     @profile
     def __call__(self, dt):
         # current FE coeffs
@@ -371,13 +381,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         bn = self.variables.b.spline.vector
 
         if self.options.algo == "implicit":
-            # Hiptmair-Xu preconditioner of S ~ dt^2/4 (C^T M2gyro C + 4/dt^2 M1), for the current time step: built
-            # at the first time step, rebuilt when dt changes (sigma = 4/dt^2 with the unscaled M2gyro in the middle,
-            # as the vector auxiliary space correction of Hiptmair-Xu assumes a unit-scale curl-curl term)
-            if self.options.precond == "HiptmairXu" and dt != self._hx_dt:
-                with ProfileManager.profile_region("build_HiptmairXu_precond"):
-                    self._schur_solver.precond = self._build_precond(dt)
-                self._hx_dt = dt
+            # Hiptmair-Xu preconditioner for the current time step (no-op unless dt changed since the setup)
+            self.prepare_time_step(dt)
 
             # solve for new b coeffs
             byn = self._B.dot(un, out=self._byn)

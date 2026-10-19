@@ -727,6 +727,10 @@ class Simulation(SimulationBase):
 
                 # CUDA kernels (CuPy backend only): compile them now rather than in the first time step
                 self.compile_cuda_kernels()
+
+                # time step dependent data of the propagators (e.g. preconditioners), rather than in the first step
+                with ProfileManager.profile_region("setup: prepare time step", functions=[self._prepare_time_step]):
+                    self._prepare_time_step()
                 with ProfileManager.profile_region("setup: run metadata", functions=[self._write_run_metadata]):
                     self._write_run_metadata(
                         one_time_step=one_time_step,
@@ -1360,6 +1364,16 @@ class Simulation(SimulationBase):
         #             self._pointer[key] = val["obj"].vector
 
     @profile
+    def _prepare_time_step(self):
+        """Call :meth:`~struphy.propagators.base.Propagator.prepare_time_step` of each propagator with the time step
+        it receives from :meth:`~struphy.models.base.StruphyModel.integrate` (``dt / 2`` for all but the last
+        propagator with Strang splitting)."""
+        dt = self.time_opts.dt
+        props = self.model.prop_list
+        for n, prop in enumerate(props):
+            half = self.time_opts.split_algo == "Strang" and n < len(props) - 1
+            prop.prepare_time_step(dt / 2 if half else dt)
+
     def _allocate_propagators(self):
         """Allocate propagators and bind shared FEEC/domain operators.
 
