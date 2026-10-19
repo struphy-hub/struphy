@@ -18,6 +18,14 @@ General contributor information is in `CONTRIBUTING.md` and `doc/sections/dev_gu
 - Keep unrelated work out of an open PR: put it on a separate (possibly stacked) branch.
 - Fetch before pushing. GitHub "Update branch" creates merge commits on the remote.
 
+## Adding a model or propagator
+
+Before creating, renaming or substantially changing a model or a propagator, **read the matching guide first**:
+- models: `src/struphy/models/AGENTS.md`
+- propagators: `src/struphy/propagators/AGENTS.md`
+
+They list the required structure, documentation, registration and tests; CI checks several of them.
+
 ## Code style
 
 - Format and lint with ruff before pushing (settings in `pyproject.toml`, line length 120), since CI runs
