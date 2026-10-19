@@ -819,7 +819,9 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         # tensor-product derivative without boundary operators (no polar splines), or the general operator
         self._d = derivative if self._general else getattr(derham, f"{derivative}_bcfree")
 
-        with ProfileManager.profile_region("KroneckerPreconditioner init", functions=[KroneckerPreconditioner.__init__]):
+        with ProfileManager.profile_region(
+            "KroneckerPreconditioner init", functions=[KroneckerPreconditioner.__init__]
+        ):
             super().__init__(mass_k, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
 
         # correction on the kernel of the derivative: sigma^{-1} d_prev P_prev d_prev^T,
@@ -1124,10 +1126,20 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
     def _core_diagonal(self):
         # without the average: it couples all degrees of freedom along the averaged directions,
-        # which probing cannot resolve; its diagonal is small (O(1/n)) and left out on both sides
+        # which neither the stencil data nor probing resolve; its diagonal is small (O(1/n)) and left out on both sides
         # (see _scaling_matrix), which keeps the preconditioner exact on the logical cube
         space = self._matrix.domain
-        return _diagonal_operator(space, _probe_diagonal(self._core(with_average=False), space))
+        diags = _stiffness_local_diagonal(self._d, self._mid_terms)
+        if diags is None:
+            # mass operators not given by stencil matrices: probe the core operator
+            return _diagonal_operator(space, _probe_diagonal(self._core(with_average=False), space))
+        if self._sigma != 0.0:
+            if self._stab_is_identity:
+                stab = [xp.ones_like(d) for d in diags]
+            else:
+                stab = _local_diagonal(_terms_matrix(self._stab_terms))
+            diags = [d + self._sigma * sd for d, sd in zip(diags, stab)]
+        return _diagonal_operator(space, diags)
 
     def _scaling_matrix(self) -> LinearOperator:
         return self._matrix_without_average
@@ -1647,7 +1659,7 @@ class HiptmairXuPreconditioner(LinearOperator):
         # smoother and gradient correction
         if smoother == "block_jacobi":
             with ProfileManager.profile_region("block_jacobi smoother", functions=[StiffnessPreconditioner.__init__]):
-            # block Jacobi plus the correction sigma^{-1} G P_0 G^T on the gradients
+                # block Jacobi plus the correction sigma^{-1} G P_0 G^T on the gradients
                 self._S = StiffnessPreconditioner(
                     mass_ops, "curl", sigma=sigma, mid=mid, stab=stab, kernel_correction=True, **kron_kwargs
                 )
@@ -1664,7 +1676,9 @@ class HiptmairXuPreconditioner(LinearOperator):
         self._Pi = None
         if aux_weight != 0.0:
             with ProfileManager.profile_region("auxiliary_space correction"):
-                identity = [[(lambda e1, e2, e3: 1.0 + 0.0 * e1) if m == n else None for n in range(3)] for m in range(3)]
+                identity = [
+                    [(lambda e1, e2, e3: 1.0 + 0.0 * e1) if m == n else None for n in range(3)] for m in range(3)
+                ]
                 basis_ops = BasisProjectionOperators(derham, mass_ops.domain)
                 self._Pi = basis_ops.create_basis_op(identity, "H1vec", "Hcurl", assemble=True, name="Pi_v1")
                 self._PiT = self._Pi.T
@@ -2624,6 +2638,129 @@ def _probe_diagonal(op: LinearOperator, space: VectorSpace) -> list[xp.ndarray]:
             x.ghost_regions_in_sync = False
             op.dot(x, out=y)
             diag[mask] = ys[c]._data[local][mask]
+        diags.append(diag)
+    return diags
+
+
+def _stiffness_local_diagonal(
+    derivative: LinearOperator, mid_terms: list[tuple[float, WeightedMassOperator]]
+) -> list[xp.ndarray] | None:
+    """
+    Local diagonal of ``d^T M d`` (one array per block of the domain of ``d``), ``M`` the sum of ``mid_terms`` and
+    ``d = derivative`` a tensor-product derivative without boundary operators, computed exactly from the stencil
+    data of ``M`` instead of probing (no operator applications).
+
+    Each block ``(a, c)`` of ``d`` is a Kronecker product of 1d factors, so its column ``i`` has a few non-zeros
+    ``D^a[i + o, i]`` (``o`` in {-1, 0} in the differentiated direction, ``o = 0`` in the others), and
+
+        diag(d^T M d)_i = sum_{a, b} sum_{o, o'} D^a[i + o, i] D^b[i + o', i] M^{ab}[i + o, i + o'].
+
+    The band entries ``M^{ab}[r, r + o' - o]`` (including the entries that wrap onto it in a periodic direction with
+    few points) are taken at the owned rows ``r`` and read at ``r = i + o`` through the ghost regions of a vector,
+    since the row can be owned by the neighbouring process; this is collective. Returns None if a block of ``M`` is
+    not a StencilMatrix (e.g. matrix-free mass operators).
+    """
+
+    def block(op, r, c):
+        if isinstance(op, BlockLinearOperator):
+            return op[r, c]
+        return op if r == c == 0 else None
+
+    n_rows = derivative.n_block_rows if isinstance(derivative, BlockLinearOperator) else 1
+    n_cols = derivative.n_block_cols if isinstance(derivative, BlockLinearOperator) else 1
+    for _, t in mid_terms:
+        for a, b in itertools.product(range(n_rows), repeat=2):
+            M = block(t.matrix, a, b)
+            if M is not None and not isinstance(M, StencilMatrix):
+                return None
+
+    dom = derivative.domain
+    dom_spaces = dom.spaces if isinstance(dom, BlockVectorSpace) else (dom,)
+    assert len(dom_spaces) == n_cols
+
+    # 1d factors of the blocks (a, c): per direction, {o: D[i + o, i] at the owned indices i of the domain}
+    factors = {}
+    for c, V in enumerate(dom_spaces):
+        for a in range(n_rows):
+            op = block(derivative, a, c)
+            if op is None:
+                continue
+            assert isinstance(op, DirectionalDerivativeOperator) and not op.transposed
+            per_dir = []
+            for D_1d, s, e, periodic in zip(op.tokronstencil().mats, V.starts, V.ends, V.periods):
+                # the sign of a negated block is included in its 1d factor
+                D = np.asarray(xp.to_numpy(D_1d.toarray()), dtype=float)
+                n_out, n_in = D.shape
+                offsets = sorted({int(j - i) for j, i in zip(*np.nonzero(D))})
+                if periodic:
+                    offsets = sorted({(o + n_in // 2) % n_in - n_in // 2 for o in offsets})
+                i = np.arange(s, e + 1)
+                F = {}
+                for o in offsets:
+                    rows = i + o
+                    if periodic:
+                        vals = D[rows % n_out, i]
+                    else:
+                        valid = (rows >= 0) & (rows < n_out)
+                        vals = np.zeros(i.size)
+                        vals[valid] = D[rows[valid], i[valid]]
+                    F[o] = xp.asarray(vals)
+                per_dir.append(F)
+            factors[a, c] = per_dir
+
+    # band of M^{ab} at the column offset k (owned rows plus ghost regions), summed over the terms
+    bands = {}
+
+    def band(a: int, b: int, k: tuple[int, ...]) -> StencilVector | None:
+        if (a, b, k) not in bands:
+            vec = None
+            for coeff, t in mid_terms:
+                M = block(t.matrix, a, b)
+                if M is None:
+                    continue
+                W = M.codomain
+                assert all(m == 1 for m in W.shifts) and all(m == 1 for m in M.domain.shifts), "Only shifts 1."
+                if vec is None:
+                    vec = W.zeros()
+                rows = tuple(slice(p, p + e - s + 1) for p, s, e in zip(W.pads, W.starts, W.ends))
+                aliases = [
+                    [kk for kk in range(-p, p + 1) if (kk - kd) % n == 0] if periodic else [kd] * (abs(kd) <= p)
+                    for kd, n, p, periodic in zip(k, W.npts, M.pads, W.periods)
+                ]
+                for ks in itertools.product(*aliases):
+                    vec._data[rows] += coeff * M._data[rows + tuple(p + kk for p, kk in zip(M.pads, ks))]
+            if vec is not None:
+                vec.ghost_regions_in_sync = False
+                vec.update_ghost_regions()
+            bands[a, b, k] = vec
+        return bands[a, b, k]
+
+    diags = []
+    for c, V in enumerate(dom_spaces):
+        diag = xp.zeros(tuple(e - s + 1 for s, e in zip(V.starts, V.ends)), dtype=float)
+        rs = [a for a in range(n_rows) if (a, c) in factors]
+        for a, b in itertools.product(rs, rs):
+            Fa, Fb = factors[a, c], factors[b, c]
+            for oa in itertools.product(*Fa):
+                for ob in itertools.product(*Fb):
+                    vec = band(a, b, tuple(y - x for x, y in zip(oa, ob)))
+                    if vec is None:
+                        continue
+                    # rows i + oa of the band, from the ghost regions where not owned
+                    W = vec.space
+                    read = tuple(
+                        slice(s + o - sw + p, e + o - sw + p + 1)
+                        for s, e, o, sw, p in zip(V.starts, V.ends, oa, W.starts, W.pads)
+                    )
+                    assert all(sl.start >= 0 and sl.stop <= n for sl, n in zip(read, vec._data.shape))
+                    w = reduce(
+                        xp.multiply,
+                        [
+                            (Fa[d][oa[d]] * Fb[d][ob[d]]).reshape([-1 if e == d else 1 for e in range(len(oa))])
+                            for d in range(len(oa))
+                        ],
+                    )
+                    diag += w * vec._data[read]
         diags.append(diag)
     return diags
 
