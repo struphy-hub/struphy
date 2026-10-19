@@ -59,6 +59,22 @@ Parallel simulations are run for example with
 
 You can also put the run command in a batch script.
 
+## AI coding agents
+
+Struphy ships a usage guide for AI coding agents (Claude Code, Codex, Copilot, Cursor, ...) that matches your installed version. It explains how to set up, run and post-process simulations. Print it with
+
+```
+struphy agents
+```
+
+To make it available in your own project, run this in the project folder:
+
+```
+struphy agents --install
+```
+
+This copies the Struphy skills (`setup-simulation`, `postprocess-simulation`) to `.claude/skills/` and adds a short pointer to the guide to `AGENTS.md` and `CLAUDE.md`, so your agent finds it automatically. Run it again after upgrading Struphy. Developers changing Struphy itself find the coding guidelines in [AGENTS.md](https://github.com/struphy-hub/struphy/blob/devel/AGENTS.md).
+
 ## Available models
 
 Check the list of currently available models in the [documentation](https://struphy-hub.github.io/struphy/sections/models.html). If you want to see a particular model implemented, please let us know via [issues](https://github.com/struphy-hub/struphy/issues).

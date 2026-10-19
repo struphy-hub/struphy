@@ -246,4 +246,43 @@ As all data structures in Struphy are written for MPI, you can run the same scri
 
     mpirun -n 4 python params_Poisson.py
 
+.. _quickstart_agents:
+
+Using Struphy With AI Coding Agents
+-----------------------------------
+
+Struphy ships a usage guide for AI coding agents such as Claude Code, Codex, Copilot or Cursor.
+It is part of the installed package, so it always matches your Struphy version, and it covers
+setting up a parameter file, running it and post-processing the output. Print it with:
+
+.. code-block:: bash
+
+    struphy agents
+
+``struphy agents --path`` prints only the folder that holds the guide (``USAGE.md``) and its skills.
+
+To let an agent find the guide automatically in your own project, run in the project folder:
+
+.. code-block:: bash
+
+    struphy agents --install
+
+This
+
+* copies the skills ``setup-simulation`` and ``postprocess-simulation`` to ``.claude/skills/``
+  (Claude Code loads them when a request matches, e.g. "set up a Maxwell simulation" or
+  "plot the energy of sim_1"),
+* adds a short section to ``AGENTS.md`` (read by most agents) that tells the agent to run
+  ``struphy agents`` before writing Struphy scripts,
+* creates ``CLAUDE.md`` importing ``AGENTS.md``, or adds the same section to an existing ``CLAUDE.md``.
+
+Running it again replaces the skills by the current version and leaves the pointers unchanged,
+so repeat it after upgrading Struphy. Pass a folder to install elsewhere: ``struphy agents --install path/to/project``.
+
+You can then simply ask your agent, for example, *"Set up a Struphy simulation of the two-stream
+instability with VlasovAmpereOneSpecies, run it on 4 processes and plot the electric energy."*
+
+If you develop Struphy itself, the coding guidelines for agents are in ``AGENTS.md`` at the root of
+the repository.
+
             
