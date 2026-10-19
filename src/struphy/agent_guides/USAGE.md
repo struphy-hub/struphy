@@ -36,9 +36,9 @@ compiled fails at runtime. Install help: https://struphy-hub.github.io/struphy/s
 | `struphy --fluid` / `--kinetic` / `--hybrid` | list one group of models |
 | `struphy params <Model> [-y]` | write a default `params_<Model>.py` |
 | `struphy params <Model> --check-file <file>` | validate a params file |
-| `struphy output info\|keys\|pproc\|report <folder>` | inspect, post-process or report a run's output |
+| `struphy output {info,keys,pproc,report} <folder>` | inspect, post-process or report a run's output |
 | `struphy compile [--status]` | compile the kernels, or show their status |
-| `struphy agents [--install [DIR]]` | print this guide, or install the skills into a project |
+| `struphy agents [--path \| --install [DIR]]` | print this guide (or its folder), or install the skills into a project |
 
 ## Running
 

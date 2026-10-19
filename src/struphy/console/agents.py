@@ -11,9 +11,12 @@ MARKER = "<!-- struphy agents -->"
 
 
 def examples_url() -> str:
-    """URL of the examples folder for the installed Struphy version."""
-    version = importlib.metadata.version("struphy")
-    return f"https://github.com/struphy-hub/struphy/tree/v{version}/examples"
+    """URL of the examples folder for the installed Struphy version (devel when not installed)."""
+    try:
+        ref = "v" + importlib.metadata.version("struphy")
+    except importlib.metadata.PackageNotFoundError:
+        ref = "devel"
+    return f"https://github.com/struphy-hub/struphy/tree/{ref}/examples"
 
 
 def skill_names() -> list[str]:
@@ -63,13 +66,25 @@ def install_skills(project: Path):
     """Copy the skills into ``project/.claude/skills/`` and point the project's agent files to them."""
     if not project.is_dir():
         raise FileNotFoundError(f"{project.resolve()} is not a directory")
+    if (project / "src" / "struphy" / "agent_guides").resolve() == GUIDES.resolve():
+        # its .claude/skills/ link to the guides already, and its AGENTS.md holds the coding guidelines
+        print(f"{project.resolve()} is the Struphy repository of this installation, nothing to install")
+        return
 
     target = project / ".claude" / "skills"
     for name in skill_names():
+        source = GUIDES / "skills" / name
         dest = target / name
-        if dest.exists():
+        if dest.resolve() == source.resolve():
+            # e.g. the symlinks in .claude/skills/ of the Struphy repository
+            print(f"Skill {name} in {dest} already links to the installed version")
+            continue
+        if dest.is_symlink():
+            dest.unlink()
+        elif dest.exists():
             shutil.rmtree(dest)
-        shutil.copytree(GUIDES / "skills" / name, dest)
+            print(f"Replaced the existing skill {name} in {dest}")
+        shutil.copytree(source, dest)
         print(f"Installed skill {name} in {dest}")
 
     # AGENTS.md is read by most agents; Claude Code reads CLAUDE.md, which can import AGENTS.md
@@ -79,7 +94,7 @@ def install_skills(project: Path):
     if not claude_md.exists():
         claude_md.write_text("@AGENTS.md\n")
         print(f"Created {claude_md} (imports AGENTS.md)")
-    elif "@AGENTS.md" not in claude_md.read_text():
+    elif not any(line.strip() == "@AGENTS.md" for line in claude_md.read_text().splitlines()):
         add_pointer(claude_md)
 
 

@@ -106,7 +106,7 @@ model.<kinetic_species>.set_markers(
 )
 
 # 7. Propagator options — wire each propagator listed in the model to its variables.
-#    Names/required args are model-specific; check the model source or an example.
+#    Names/required args are model-specific; check help(<ModelName>), `struphy params <ModelName>` or an example.
 model.propagators.<name>.options = model.propagators.<name>.Options(...)
 
 # 8. Backgrounds, perturbations, initial conditions
@@ -147,7 +147,10 @@ Lists of what is available, with parameters, under https://struphy-hub.github.io
 ## Common pitfalls
 
 - Don't invent propagator or option names — every model has a different propagator
-  set; read the model file or copy from a matching example instead of guessing.
+  set; read `help(<ModelName>)`, generate `struphy params <ModelName>` or copy from a matching example
+  instead of guessing.
+- The output folder is `EnvironmentOptions.sim_folder` (default `sim_1`) inside `out_folders`; the
+  post-processing script must open the same folder.
 - For kinetic species, a background is required even if only using perturbations;
   perturbations attach to distribution moments (via `maxwellians.*`), not directly to
   the species variable like field perturbations do.

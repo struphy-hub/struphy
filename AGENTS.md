@@ -76,7 +76,7 @@ They list the required structure, documentation, registration and tests; CI chec
   ```bash
   mpirun -n 2 python -m pytest -p no:xdist --with-mpi src/struphy/feec/tests/...
   ```
-  `-p no:xdist` is required: with pytest-xdist loaded, feectools' conftest skips every `mpi`-marked test.
+  `-p no:xdist` is required: with pytest-xdist loaded, `mpi`-marked tests are skipped.
 - Keep local runs small (e.g. ≤ 32³ cells). Never use the full-size profiling cases as tests.
 
 ## Performance pitfalls
@@ -101,7 +101,8 @@ Coding guidelines (`AGENTS.md`/`CLAUDE.md`) must not go into the package.
 ## Changes to the feectools submodule
 
 1. Commit on a feature branch in `feectools/` and open the feectools PR into **`devel-tiny`**.
-   Every PR there must raise the **minor** version in feectools' `pyproject.toml` (e.g. 0.1.11 → 0.2.0), or CI fails.
+   Every PR there must raise the **minor** version in feectools' `pyproject.toml` (e.g. 0.1.11 → 0.2.0).
+   CI fails if the version is not higher than the latest release on PyPI.
 2. Open a paired struphy PR into `devel` whose submodule pointer is the feectools feature-branch commit,
    so the full struphy test suite validates the change.
 3. Mention each PR in the other's description. Don't raise struphy's `feectools` version pin before the new

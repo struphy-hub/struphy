@@ -454,13 +454,14 @@ def add_parser_agents(subparsers):
         "agents",
         help="print the usage guide for AI coding agents, or install its skills into a project",
     )
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--path",
         dest="show_path",
         action="store_true",
         help="print only the folder of the guide and its skills",
     )
-    parser.add_argument(
+    group.add_argument(
         "--install",
         nargs="?",
         const=".",
