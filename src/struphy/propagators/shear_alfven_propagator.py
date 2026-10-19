@@ -105,7 +105,7 @@ class ShearAlfvenPropagator(Propagator):
             the velocity components, ``u_space="Hdiv"`` and no polar splines), with the auxiliary space correction of
             the :math:`\mathbf E \times \mathbf B` flows if ``exb_correction`` (see there). Both need the implicit
             algorithm with ``solver="pcg"``. The Schur operator depends on the time step, so these preconditioners are
-            built at the first time step (and updated if the time step changes).
+            built in the setup (:meth:`prepare_time_step`) and updated if the time step changes.
             The multigrid preconditioner is experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG
             iterations than the mass matrix preconditioner and is much slower (the smoother does not treat the large
             kernel of the curl term on 2-forms). The Kronecker preconditioner (with ``exb_correction``) needs about 11
@@ -278,6 +278,42 @@ class ShearAlfvenPropagator(Propagator):
         self._u_tmp2 = self.variables.u.spline.vector.space.zeros()
         self._b_tmp1 = self.variables.b.spline.vector.space.zeros()
 
+    def prepare_time_step(self, dt: float):
+        """Preconditioner of the Schur operator for the time step ``dt`` (multigrid or Kronecker): built in the setup,
+        updated or rebuilt when dt changes."""
+        if self.options.algo != "implicit":
+            return
+        # the multigrid preconditioner of the Schur operator A - dt^2 B C: updated (re-using the coarse mass and
+        # derivative operators) when dt changes
+        if self.options.precond == "MultiGrid" and dt != self._multigrid_dt:
+            schur = self._schur_solver.A - dt**2 * self._schur_solver.BC
+            if self._schur_solver.precond is None:
+                self._schur_solver.precond = MultiGridPreconditioner(
+                    schur, self.derham, self.domain, self.options.multigrid, mass_ops=self.mass_ops
+                )
+            else:
+                self._schur_solver.precond.update(schur)
+            self._multigrid_dt = dt
+
+        # the Kronecker preconditioner of S = M + dt^2/4 T^T C^T M2 C T (plus the E x B correction), rebuilt when dt
+        # changes
+        if self.options.precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
+            mid = (dt**2 / 4) * self.mass_ops.M2
+            pc = preconditioner.StiffnessPreconditioner(
+                self.mass_ops, self._kron_curl_T, sigma=1.0, mid=mid, stab=self._id_M
+            )
+            if self.options.exb_correction:
+                # N^T S N = N^T M N + dt^2/4 (C T N)^T M2 (C T N) on V0
+                pc_phi = preconditioner.StiffnessPreconditioner(
+                    self.mass_ops,
+                    [self._kron_exb, self._kron_curl_T_exb],
+                    sigma=0.0,
+                    mid=[self._id_M, mid],
+                )
+                pc = preconditioner.AuxiliarySpacePreconditioner(pc, [(self._exb_N, self._exb_NT, pc_phi)])
+            self._schur_solver.precond = pc
+            self._schur_precond_dt = dt
+
     @profile
     def __call__(self, dt):
         # current FE coeffs
@@ -285,36 +321,8 @@ class ShearAlfvenPropagator(Propagator):
         bn = self.variables.b.spline.vector
 
         if self.options.algo == "implicit":
-            # the multigrid preconditioner of the Schur operator A - dt^2 B C, for the current time step: built at the
-            # first time step, updated (re-using the coarse mass and derivative operators) when dt changes
-            if self.options.precond == "MultiGrid" and dt != self._multigrid_dt:
-                schur = self._schur_solver.A - dt**2 * self._schur_solver.BC
-                if self._schur_solver.precond is None:
-                    self._schur_solver.precond = MultiGridPreconditioner(
-                        schur, self.derham, self.domain, self.options.multigrid, mass_ops=self.mass_ops
-                    )
-                else:
-                    self._schur_solver.precond.update(schur)
-                self._multigrid_dt = dt
-
-            # the Kronecker preconditioner of S = M + dt^2/4 T^T C^T M2 C T (plus the E x B correction), rebuilt when dt
-            # changes
-            if self.options.precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
-                mid = (dt**2 / 4) * self.mass_ops.M2
-                pc = preconditioner.StiffnessPreconditioner(
-                    self.mass_ops, self._kron_curl_T, sigma=1.0, mid=mid, stab=self._id_M
-                )
-                if self.options.exb_correction:
-                    # N^T S N = N^T M N + dt^2/4 (C T N)^T M2 (C T N) on V0
-                    pc_phi = preconditioner.StiffnessPreconditioner(
-                        self.mass_ops,
-                        [self._kron_exb, self._kron_curl_T_exb],
-                        sigma=0.0,
-                        mid=[self._id_M, mid],
-                    )
-                    pc = preconditioner.AuxiliarySpacePreconditioner(pc, [(self._exb_N, self._exb_NT, pc_phi)])
-                self._schur_solver.precond = pc
-                self._schur_precond_dt = dt
+            # preconditioner for the current time step (no-op unless dt changed since the setup)
+            self.prepare_time_step(dt)
 
             # solve for new u coeffs
             byn = self._B.dot(bn, out=self._byn)
