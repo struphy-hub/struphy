@@ -795,18 +795,24 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
         # matrix in the middle and stabilization, as sums of weighted mass operators
         with ProfileManager.profile_region("StiffnessPreconditioner: resolve mass operators"):
-            mass_mid_default = getattr(mass_ops, f"M{form_mid}")
+            # the default M{form_mid} is resolved (and assembled) only if needed
             self._mid = mid
-            self._mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, mass_mid_default))
+            self._mid_terms = _mass_terms(
+                _resolve_mass_operator(mass_ops, f"M{form_mid}" if mid is None else mid, None)
+            )
             self._stab = stab
             self._stab_is_identity = isinstance(stab, str) and stab == "Id"
             mass_k = getattr(mass_ops, f"M{form_dom}")
             self._stab_terms = (
                 None if self._stab_is_identity else _mass_terms(_resolve_mass_operator(mass_ops, stab, mass_k))
             )
-        for terms, ref, name in ((self._mid_terms, mass_mid_default, "mid"), (self._stab_terms or [], mass_k, "stab")):
+        mid_space = derham.coeff_spaces[form_mid]
+        for terms, ref_dom, ref_cod, name in (
+            (self._mid_terms, mid_space, mid_space, "mid"),
+            (self._stab_terms or [], mass_k.domain, mass_k.codomain, "stab"),
+        ):
             for _, op in terms:
-                assert op.domain == ref.domain and op.codomain == ref.codomain, (
+                assert op.domain == ref_dom and op.codomain == ref_cod, (
                     f"{name} must have the domain and codomain of M{form_mid if name == 'mid' else form_dom}."
                 )
 
