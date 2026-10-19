@@ -1363,7 +1363,6 @@ class Simulation(SimulationBase):
 
         #             self._pointer[key] = val["obj"].vector
 
-    @profile
     def _prepare_time_step(self):
         """Call :meth:`~struphy.propagators.base.Propagator.prepare_time_step` of each propagator with the time step
         it receives from :meth:`~struphy.models.base.StruphyModel.integrate` (``dt / 2`` for all but the last
@@ -1374,6 +1373,7 @@ class Simulation(SimulationBase):
             half = self.time_opts.split_algo == "Strang" and n < len(props) - 1
             prop.prepare_time_step(dt / 2 if half else dt)
 
+    @profile
     def _allocate_propagators(self):
         """Allocate propagators and bind shared FEEC/domain operators.
 

@@ -113,12 +113,12 @@ class KroneckerPreconditioner(LinearOperator):
         self._bc = _boundary_conditions(mass_operator, apply_bc)
 
         # approximation of the core operator and its exact inverse
-        with ProfileManager.profile_region(f"build_approximation", functions=[self._build_approximation]):
+        with ProfileManager.profile_region("build_approximation", functions=[self._build_approximation]):
             self._matrix, self._solver = self._build_approximation(self._bc)
 
         # diagonal scaling S (a sequence of diagonal operators, applied in this order before the
         # solver and in reverse order after it)
-        with ProfileManager.profile_region(f"build_scaling", functions=[self._build_scaling]):
+        with ProfileManager.profile_region("build_scaling", functions=[self._build_scaling]):
             self._scaling = self._build_scaling() if diagonal_scaling else ()
             self._tmp_core = tuple(self._matrix.codomain.zeros() for _ in range(2)) if self._scaling else ()
 
@@ -197,7 +197,7 @@ class KroneckerPreconditioner(LinearOperator):
 
     def _build_scaling(self) -> tuple[LinearOperator, ...]:
         """Diagonal scaling :math:`S = \\hat D^{1/2} D^{-1/2}` as one diagonal operator."""
-        with ProfileManager.profile_region(f"local_diagonal of core", functions=[_local_diagonal, self._core_diagonal]):
+        with ProfileManager.profile_region("local_diagonal of core", functions=[_local_diagonal, self._core_diagonal]):
             D = _local_diagonal(self._core_diagonal())
         D_hat = _local_diagonal(self._scaling_matrix())
         S = [xp.where(d > 0, xp.sqrt(xp.abs(dh) / xp.where(d > 0, d, 1.0)), 1.0) for d, dh in zip(D, D_hat)]
