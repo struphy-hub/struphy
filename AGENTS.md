@@ -51,8 +51,6 @@ They list the required structure, documentation, registration and tests; CI chec
   `mpirun -n >1`. Compute on all ranks first, then restrict only printing and plotting to rank 0.
 - In serial runs the comm is a stand-in. Don't rely on collectives returning useful values there; when in doubt,
   guard with `if comm.Get_size() > 1`.
-- Post-processing under MPI: call `out.pproc(...)` explicitly on every rank before accessing data.
-  Lazy materialization only works in serial.
 
 ## Pyccel kernels
 
@@ -86,11 +84,19 @@ They list the required structure, documentation, registration and tests; CI chec
 - When timing under MPI, limit BLAS threads (`OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1`, exported with `mpirun -x`).
   Oversubscribed threaded BLAS makes timings meaningless (issue #743).
 
-## Post-processing API
+## Usage guidelines (shipped with the package)
 
-Use the `Output` API: `out = sim.run(...)`, `sim.output` or `Output(path_out)`, then
-`out.fields.<species>.<name>`, `out.scalars`, `out.evaluate("em_fields/phi")`, ...
-Details are in `doc/markdown/output-api.md`.
+This file is about changing Struphy's code. How to *use* Struphy (writing params files, running, post-processing)
+is in `src/struphy/agent_guides/`, which is part of the pip package so that users' agents get the guide that
+matches their installed version:
+- `USAGE.md`: the entry point, printed by `struphy agents`;
+- `skills/setup-simulation/` and `skills/postprocess-simulation/`: skills, linked into `.claude/skills/` of
+  this repo and installed into users' projects by `struphy agents --install`.
+
+Keep them in sync with the code. A PR that changes user-facing API (params-file classes, `Simulation`, `Output`,
+the CLI) must update the affected guide in the same PR. The guides must work without a source checkout: refer
+to CLI commands, importable names and documentation URLs, not to repository paths.
+Coding guidelines (`AGENTS.md`/`CLAUDE.md`) must not go into the package.
 
 ## Changes to the feectools submodule
 

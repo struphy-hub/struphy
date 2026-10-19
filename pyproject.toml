@@ -142,6 +142,9 @@ struphy = [
     "compile_struphy.mk",
     "**/*.cu",
     "**/*.cuh",
+    # usage guide for AI coding agents (not the coding guidelines AGENTS.md/CLAUDE.md in the source tree)
+    "agent_guides/*.md",
+    "agent_guides/skills/*/*.md",
 ]
 
 [tool.ruff]

@@ -122,6 +122,22 @@ mpirun -n 4 python params_Maxwell.py
 
 You can also put the run command in a batch script.
 
+## AI coding agents
+
+Struphy ships a usage guide for AI coding agents (Claude Code, Codex, Copilot, Cursor, ...) that matches your installed version. It explains how to set up, run and post-process simulations. Print it with
+
+```
+struphy agents
+```
+
+To make it available in your own project, run this in the project folder:
+
+```
+struphy agents --install
+```
+
+This copies the Struphy skills (`setup-simulation`, `postprocess-simulation`) to `.claude/skills/` and adds a short pointer to the guide to `AGENTS.md` and `CLAUDE.md`, so your agent finds it automatically. Run it again after upgrading Struphy. Developers changing Struphy itself find the coding guidelines in [AGENTS.md](https://github.com/struphy-hub/struphy/blob/devel/AGENTS.md).
+
 ## Docker
 
 If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:
