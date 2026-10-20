@@ -99,10 +99,12 @@ jobs:
       - name: Compile Struphy
         uses: ./.github/actions/compile
 
-      - name: Build Sphinx docs
+      # The preview is for inspecting the rendered docs, so notebooks are not
+      # executed (their stored outputs are used); this speeds up the build.
+      - name: Build Sphinx docs (without executing notebooks)
         run: |
           cd doc
-          make html
+          make html SPHINXOPTS="-D nbsphinx_execute=never"
 
       - name: Checkout docs-preview repo
         uses: actions/checkout@v5
