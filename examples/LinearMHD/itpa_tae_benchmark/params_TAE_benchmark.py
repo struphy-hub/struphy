@@ -71,12 +71,12 @@ parser.add_argument("--sim-folder", default="sim_data", help="Name of the output
 parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 44, 8], help="Number of elements per direction.")
 parser.add_argument(
     "--precond",
-    default="MassMatrixPreconditioner",
+    default="StiffnessPreconditioner",
     choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner"],
-    help="Preconditioner of the shear Alfven solve: of the mass matrix (default), a geometric multigrid V-cycle of "
-    "the whole Schur operator (experimental, currently slower here), or the Kronecker (fast diagonalization) "
-    "preconditioner of the whole Schur operator with the E x B auxiliary space correction (8x32x4, dt = 0.1: about "
-    "11 instead of 31 PCG iterations per step, 2x faster; larger gains for larger time steps).",
+    help="Preconditioner of the shear Alfven solve: the Kronecker (fast diagonalization) preconditioner of the whole "
+    "Schur operator with the E x B auxiliary space correction (default; 24x44x8, dt = 0.5, 4 MPI ranks: 2.5 s per "
+    "time step instead of 17 s with the mass matrix preconditioner), of the mass matrix, or a geometric multigrid "
+    "V-cycle of the whole Schur operator (experimental, currently slower here).",
 )
 parser.add_argument(
     "--test-run",
