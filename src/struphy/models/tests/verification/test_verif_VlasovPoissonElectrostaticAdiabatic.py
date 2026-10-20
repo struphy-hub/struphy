@@ -162,7 +162,7 @@ def test_neutral_full_f_background():
 
     Without the control variate, the Poisson solve subtracts the neutralizing background :math:`n_0` from the deposited
     ion density; the charge number is part of the source coefficient, not of the background. A background
-    :math:`Z n_0` would give :math:`\phi = -Z \varepsilon T_0 = -2` everywhere.
+    :math:`Z n_0` would give :math:`\phi = -Z (Z - 1) \varepsilon T_0`, here :math:`-2`, everywhere.
     """
     model = VlasovPoissonElectrostaticAdiabatic(charge_number=2, mass_number=4.0, alpha=1.0, epsilon=1.0)
 
