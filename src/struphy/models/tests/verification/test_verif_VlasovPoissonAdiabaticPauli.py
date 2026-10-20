@@ -2,13 +2,12 @@
 guiding-center orbits of the GuidingCenter model in an ad hoc tokamak (banana and passing orbits), with
 time steps larger than the cyclotron period (Xiao and Qin, Comput. Phys. Commun. 265, 107981 (2021)).
 
-Run the MPI test with::
+Run it on several processes with::
 
     mpirun -n 4 pytest -p no:xdist --with-mpi src/struphy/models/tests/verification/test_verif_VlasovPoissonAdiabaticPauli.py
 """
 
 import numpy as np
-import pytest
 from maybempi import MPI
 
 # normalized cyclotron period 2 pi epsilon = 0.063
@@ -195,7 +194,6 @@ def orbit_errors(orbits_gc, orbits_pauli):
     return dist_time, dist_curve, width
 
 
-@pytest.mark.mpi(min_size=1)
 def test_pauli_vs_guiding_center(tmp_path_factory):
     """Classical Pauli particles pushed with the Boris scheme with dt = 4 and 8 cyclotron periods follow the
     guiding-center orbits (explicit RK4 pushers of GuidingCenter, dt = 0.8 cyclotron periods) of trapped and passing

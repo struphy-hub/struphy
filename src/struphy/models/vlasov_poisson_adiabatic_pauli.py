@@ -177,11 +177,15 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
 
     def _compute_mu_prime_max(self):
         r"""Maximum over all markers of :math:`\mu'_p = |\mathbf v_p \times \mathbf b_0|^2 / (2 |\mathbf B_0|)`."""
-        mu_prime = self.kinetic_ions.var.particles.mu_prime()
+        particles = self.kinetic_ions.var.particles
+        mu_prime = particles.mu_prime()
         value = float(mu_prime.max()) if mu_prime.size > 0 else 0.0
+        # maximum within the clone and between clones
         comm = Propagator.derham.comm
         if comm is not None and comm.Get_size() > 1:
             value = comm.allreduce(value, op=MPI.MAX)
+        if particles.clone_config is not None:
+            value = particles.clone_config.inter_comm.allreduce(value, op=MPI.MAX)
         return value
 
     ## default parameters

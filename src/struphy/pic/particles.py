@@ -313,9 +313,12 @@ class PauliParticles6D(Particles6D):
 
     def initialize_weights(self, **kwargs):
         """Compute the initial weights and sampling densities as for :class:`Particles6D` with the drawn
-        velocities, then reduce the markers to the slow manifold (:meth:`reduce_to_slow_manifold`)."""
+        velocities, then reduce the markers to the slow manifold (:meth:`reduce_to_slow_manifold`).
+        Markers loaded from a file (``loading="restart"`` or ``"external"``) are already on the slow manifold
+        and carry their magnetic moments (column :attr:`mu_idx`), so they are not reduced again."""
         super().initialize_weights(**kwargs)
-        self.reduce_to_slow_manifold()
+        if self.loading not in ("restart", "external"):
+            self.reduce_to_slow_manifold()
 
     def reduce_to_slow_manifold(self):
         r"""Set the magnetic moments :math:`\mu_p = |\mathbf v_{\perp,p}|^2 / (2 |\mathbf B_0|)` and remove the
