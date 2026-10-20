@@ -7,7 +7,11 @@ Struphy is a Python API for solving PDEs with structure-preserving discretizatio
 This quickstart shows how to solve a simple problem with minimal input: a 1D Poisson solve.
 
 For interactive tutorials (no local install), use `mybinder <https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main>`_.
-For more examples, see :ref:`userguide` and the :ref:`tutorial collection <tutorials>`.
+For ready-to-run simulations of many models, see the `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_
+repository (:ref:`quickstart_examples`); for more on the API, see :ref:`userguide` and the
+:ref:`tutorial collection <tutorials>`.
+An overview of the models, the numerical methods and a gallery of examples is on the Struphy website
+`<https://struphy-hub.github.io/>`_.
 
 Solve Poisson In A Few Steps
 ----------------------------
@@ -253,6 +257,36 @@ As all data structures in Struphy are written for MPI, you can run the same scri
 .. code-block:: bash
 
     mpirun -n 4 python params_Poisson.py
+
+.. _quickstart_examples:
+
+Ready-To-Run Examples: struphy-examples
+---------------------------------------
+
+The repository `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_ collects
+simulations of physics scenarios and numerical test cases, for example Landau damping, the two-stream
+and Weibel instabilities, the ITPA TAE benchmark, the Cyclone base case or elliptic problems on tori.
+The folders are sorted by model and then by case; each case contains
+
+* ``params_*.py``: the parameter file, which sets up and runs the simulation,
+* ``pproc_*.py``: the post-processing script, which reads the output and creates the figures.
+
+The physics and the expected results are described in the docstring at the top of each parameter file.
+The repository is updated with every Struphy release and tagged with its version, so clone the tag that
+matches your installation (``struphy --version`` prints it):
+
+.. code-block:: bash
+
+    git clone --branch vX.Y.Z https://github.com/struphy-hub/struphy-examples.git
+    cd struphy-examples/VlasovAmpereOneSpecies/two_stream
+    python params_two_stream.py              # or: mpirun -n 4 python params_two_stream.py
+    python pproc_two_stream.py
+
+The output folder is created beside the scripts, and the post-processing script finds it there;
+both scripts accept ``--help``.
+A good way to set up your own simulation is to copy the closest example and adapt it.
+To add an example, open a pull request into the ``devel`` branch of Struphy with your case in its
+`examples/ <https://github.com/struphy-hub/struphy/tree/devel/examples>`_ folder.
 
 .. _quickstart_agents:
 
