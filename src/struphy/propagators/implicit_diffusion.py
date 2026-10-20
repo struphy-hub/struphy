@@ -17,6 +17,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
+from struphy.pic.particles import DeltaFParticles6D
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -76,13 +77,27 @@ class ImplicitDiffusion(Propagator):
         Multiplicative coefficient(s) for ``rho`` sources.
         If a scalar is provided, it is applied to a single source.
         If a sequence is provided, it has one entry per entry of ``rho``
-        (the neutralising background of a full-f accumulator gets the coefficient
-        of its accumulator), or one entry per collected source.
+        (the neutralising background of a full-f ``"H1"`` accumulator gets the coefficient
+        of its accumulator), or one entry per collected source (no background source is collected
+        with ``delta_f_source=True``, the control variate or delta-f markers).
         If ``None``, all coefficients default to ``1.0``.
 
     diagnostic : FEECVariable, default=None
         If not None, updates at each call to the propagator, takes the value of the right-hand side.
         Otherwise does not provide diagnostic.
+
+    delta_f_source : bool, default=False
+        Deposit particle sources with the delta-f weights :math:`(f - f_0)/s` also for full-f markers (without
+        the control variate): the weights are updated before and the full-f weights restored after the deposit,
+        and no background source is added. The Monte-Carlo noise is then that of :math:`f - f_0` instead of
+        :math:`f`, which is much smaller for small perturbations; meant for the initial Poisson solve of full-f models.
+
+    Note
+    ----
+    The deposited particle density is :math:`f - f_0` with the control variate (the weights are updated before
+    each deposit), with delta-f markers (:class:`~struphy.pic.particles.DeltaFParticles6D`) and with
+    ``delta_f_source=True``. Otherwise (full-f), for ``"H1"`` accumulators the neutralizing background
+    :math:`-n_0` is added as a separate source with the coefficient of the particle source.
 
     Notes
     -----
@@ -118,6 +133,7 @@ class ImplicitDiffusion(Propagator):
         rho: FEECVariable | ParticlesToGrid | Callable | list = None,
         rho_coeffs: float | list = None,
         diagnostic: FEECVariable | None = None,
+        delta_f_source: bool = False,
     ):
         if isinstance(rho, list):
             for r in rho:
@@ -132,6 +148,7 @@ class ImplicitDiffusion(Propagator):
         self.rho = rho
         self.rho_coeffs = rho_coeffs
         self.diagnostic = diagnostic
+        self.delta_f_source = delta_f_source
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -353,7 +370,7 @@ class ImplicitDiffusion(Propagator):
                     filter_params=filter_params,
                 )
 
-                if not rhs.particles.control_variate and rhs.space_id == "H1":
+                if not self._deposits_delta_f(rhs.particles) and rhs.space_id == "H1":
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
                     # neutralising background -n0: the accumulator deposits the particle density (weights) and the
                     # charge (number and sign) is in the coefficient of the source, which the background shares
@@ -482,6 +499,15 @@ class ImplicitDiffusion(Propagator):
             self._m0_ones = self.mass_ops.M0.dot(self._ones)
             self._ones_m0_ones = self._ones.inner(self._m0_ones)
 
+    @staticmethod
+    def _is_full_f(particles) -> bool:
+        """True if the marker weights are full-f weights f / s (no control variate, no delta-f markers)."""
+        return not particles.control_variate and not isinstance(particles, DeltaFParticles6D)
+
+    def _deposits_delta_f(self, particles) -> bool:
+        """True if the particle source deposits f - f0 (so that no neutralizing background is needed)."""
+        return not self._is_full_f(particles) or self.delta_f_source
+
     @property
     def operator_is_singular(self) -> bool:
         """True if the diffusion operator ``grad.T @ diffusion_mat @ grad`` is known to be singular
@@ -567,7 +593,9 @@ class ImplicitDiffusion(Propagator):
                 v = src.spline.vector
                 self._rhs2 += sig_3 * coeff * self.mass_ops.M0.dot(v, out=self._tmp_src)
             elif isinstance(src, AccumulatorVector):
-                if src.particles.control_variate:
+                # delta-f weights for full-f markers, restored after the deposit (delta_f_source)
+                restore_full_f = self.delta_f_source and self._is_full_f(src.particles)
+                if src.particles.control_variate or restore_full_f:
                     src.particles.update_weights()
 
                 if src.space_id == "H1":
@@ -587,6 +615,9 @@ class ImplicitDiffusion(Propagator):
                     vec = -self.derham.grad.T.dot(src.vectors[0], out=self._tmp_src)
                 else:
                     raise ValueError(f"Unsupported source space {src.space_id}.")
+
+                if restore_full_f:
+                    src.particles.weights = src.particles.weights0.copy()
 
                 self._rhs2 += sig_3 * coeff * vec
 

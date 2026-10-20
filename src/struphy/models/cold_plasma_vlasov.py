@@ -186,6 +186,7 @@ class ColdPlasmaVlasov(StruphyModel):
         self.initial_poisson = PoissonSolve(
             rho=particles_to_grid,
             rho_coeffs=hot_alpha**2 / hot_epsilon,
+            delta_f_source=True,
         )
         self.initial_poisson.variables.phi = self.em_fields.phi
 
@@ -204,8 +205,9 @@ class ColdPlasmaVlasov(StruphyModel):
         """
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # The right-hand side is the charge of f - f0 in both cases: with the control variate the solve deposits the
-        # delta-f weights (it calls update_weights), without it the full-f weights minus the background n0.
+        # The right-hand side is the charge of f - f0, deposited with the delta-f weights also for full-f markers
+        # (delta_f_source=True, the full-f weights are restored after the deposit): much less noise than the full-f
+        # weights minus the background n0.
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field

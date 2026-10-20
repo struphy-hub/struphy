@@ -263,10 +263,11 @@ def test_energy_conservation(control_variate: bool, exit_before_run: bool = Fals
 
 
 def test_initial_poisson_full_f():
-    r"""The initial Poisson solve with full-f markers subtracts the background :math:`n_0` once.
+    r"""The initial Poisson solve with full-f markers deposits the charge of :math:`f - f_0` (delta-f weights, no
+    background source), i.e. subtracts :math:`n_0` once.
 
     A uniform Maxwellian is neutral, so with :math:`\phi = 0` at the walls in :math:`x` the initial potential is at
-    noise level. Subtracting :math:`n_0` twice (delta-f weights plus the full-f background source) gives
+    noise level. Subtracting :math:`n_0` twice (delta-f weights plus a full-f background source) gives
     :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e. :math:`\phi = -x(1 - x)/2` with root mean square 0.09.
     This runs zero time steps.
     """
@@ -312,8 +313,68 @@ def test_initial_poisson_full_f():
         shutil.rmtree(test_folder)
 
 
+def test_initial_poisson_full_f_noise():
+    r"""The initial Poisson solve deposits the delta-f weights also for full-f markers.
+
+    For a density perturbation :math:`\delta n = a \cos(k x)` of a uniform Maxwellian, the exact initial potential is
+    :math:`\phi = (\alpha^2/\varepsilon)\, a \cos(k x) / k^2`. With the delta-f weights the Monte-Carlo noise is that
+    of :math:`f - f_0` (relative error of about 1% here), with the full-f weights minus the background :math:`n_0` it
+    is that of :math:`f` (relative error of about 400%). This runs zero time steps.
+    """
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f_noise")
+
+    r1, amp = 12.56, 1e-2
+    k = 2 * xp.pi / r1
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=100, seed=1234),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+    model.initial_poisson.options = model.initial_poisson.Options()
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    perturbation = perturbations.ModesCos(ls=(1,), amps=(amp,))
+    model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, perturbation)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=Time(dt=0.05, Tend=0.0),
+        domain=domains.Cuboid(r1=r1),
+        grid=grids.TensorProductGrid(num_elements=(32, 1, 1)),
+        derham_opts=DerhamOptions(degree=(3, 1, 1)),
+    )
+    sim.run()
+
+    # relative L2 error of phi along x (spline evaluation is collective, on all ranks)
+    e1 = xp.linspace(0.0, 1.0, 200, endpoint=False)
+    num = Propagator.domain.push(model.em_fields.phi.spline, e1, 0.5, 0.5, kind="0").squeeze()
+    exact = amp / k**2 * xp.cos(k * r1 * e1)
+    error = float(xp.sqrt(xp.mean((num - exact) ** 2) / xp.mean(exact**2)))
+    logger.info(f"{error =}")
+    assert error < 0.05, f"Initial potential too noisy: relative error {error} (full-f weights give about 4)."
+
+    # the full-f weights of the time stepping are restored after the delta-f deposit (rank-local check)
+    particles = model.kinetic_ions.var.particles
+    assert xp.allclose(particles.weights, particles.weights0), "Full-f weights not restored after the initial solve."
+
+    MPI.COMM_WORLD.Barrier()
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        shutil.rmtree(test_folder)
+
+
 if __name__ == "__main__":
     test_weak_Landau(do_plot=True)
+    test_initial_poisson_full_f_noise()
     test_initial_poisson_full_f()
     test_energy_conservation(control_variate=False)
     test_energy_conservation(control_variate=True)
