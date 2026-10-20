@@ -33,12 +33,59 @@ The code is freely available under an [MIT license](https://github.com/struphy-h
 Struphy is available on [PyPI](https://pypi.org/project/struphy/), so you can install it with pip:
 
     pip install -U struphy
-    struphy compile
+    struphy compile -j 4
 
-In case you face troubles with install/compile:
+`-j 4` compiles the kernels in parallel on four cores. In case you face troubles with install/compile:
 
 1.  check the [prerequisites](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
 2.  visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
+
+## Examples
+
+Ready-to-run simulations, each with a parameter file and a post-processing script, are in the repository [struphy-examples](https://github.com/struphy-hub/struphy-examples), one folder per model and case. Its tags match the Struphy releases, so clone the tag of your installed version (`struphy --version`), for example
+
+```
+git clone --branch vX.Y.Z https://github.com/struphy-hub/struphy-examples.git
+cd struphy-examples/VlasovAmpereOneSpecies/two_stream
+python params_two_stream.py
+python pproc_two_stream.py
+```
+
+![Two-stream instability: phase space of the electrons at t = 0, 25 and 50](https://raw.githubusercontent.com/struphy-hub/struphy/devel/doc/pics/readme_two_stream.png)
+
+*Two-stream instability: the electron distribution function f(x, v) at t = 0, 25 and 50, computed with the model [VlasovAmpereOneSpecies](https://struphy-hub.github.io/models/vlasov-ampere-one-species/) in a FEEC-PIC discretization (particle-in-cell markers for the electrons, finite element exterior calculus splines for the electric field). Two counter-streaming beams roll up into a phase-space vortex.*
+
+To look at finished examples and their results without running anything, browse the [examples gallery](https://struphy-hub.github.io/examples/) on the Struphy website.
+
+## AI coding agents
+
+Struphy ships a usage guide for AI coding agents (Claude Code, Codex, Copilot, Cursor, ...) that matches your installed version. It explains how to set up, run and post-process simulations. Print it with
+
+```
+struphy agents
+```
+
+To make it available in your own project, run this in the project folder:
+
+```
+struphy agents --install
+```
+
+This copies the Struphy skills (`setup-simulation`, `postprocess-simulation`) to `.claude/skills/` and adds a short pointer to the guide to `AGENTS.md` and `CLAUDE.md`, so your agent finds it automatically. Run it again after upgrading Struphy. Developers changing Struphy itself find the coding guidelines in [AGENTS.md](https://github.com/struphy-hub/struphy/blob/devel/AGENTS.md).
+
+## Available models
+
+Check the list of currently [available models](https://struphy-hub.github.io/struphy/sections/models.html). If you want to see a particular model implemented, please let us know via [issues](https://github.com/struphy-hub/struphy/issues).
+
+## Documentation
+
+The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
+
+- [Website](https://struphy-hub.github.io/) (overview of models, numerics and examples)
+- [Install](https://struphy-hub.github.io/struphy/sections/install.html)
+- [Userguide](https://struphy-hub.github.io/struphy/sections/userguide.html)
+- [Available models](https://struphy-hub.github.io/struphy/sections/models.html)
+- [Numerical methods](https://struphy-hub.github.io/struphy/sections/numerics.html)
 
 ## Example: solve Maxwell’s equations
 
@@ -60,47 +107,6 @@ Parallel simulations are run for example with
     mpirun -n 4 python params_Maxwell.py
 
 You can also put the run command in a batch script.
-
-## Examples
-
-Ready-to-run simulations, each with a parameter file and a post-processing script, are in the repository [struphy-examples](https://github.com/struphy-hub/struphy-examples), one folder per model and case. Its tags match the Struphy releases, so clone the tag of your installed version (`struphy --version`), for example
-
-```
-git clone --branch vX.Y.Z https://github.com/struphy-hub/struphy-examples.git
-cd struphy-examples/VlasovAmpereOneSpecies/two_stream
-python params_two_stream.py
-python pproc_two_stream.py
-```
-
-## AI coding agents
-
-Struphy ships a usage guide for AI coding agents (Claude Code, Codex, Copilot, Cursor, ...) that matches your installed version. It explains how to set up, run and post-process simulations. Print it with
-
-```
-struphy agents
-```
-
-To make it available in your own project, run this in the project folder:
-
-```
-struphy agents --install
-```
-
-This copies the Struphy skills (`setup-simulation`, `postprocess-simulation`) to `.claude/skills/` and adds a short pointer to the guide to `AGENTS.md` and `CLAUDE.md`, so your agent finds it automatically. Run it again after upgrading Struphy. Developers changing Struphy itself find the coding guidelines in [AGENTS.md](https://github.com/struphy-hub/struphy/blob/devel/AGENTS.md).
-
-## Available models
-
-Check the list of currently available models in the [documentation](https://struphy-hub.github.io/struphy/sections/models.html). If you want to see a particular model implemented, please let us know via [issues](https://github.com/struphy-hub/struphy/issues).
-
-## Documentation
-
-The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
-
-- [Website](https://struphy-hub.github.io/) (overview of models, numerics and examples)
-- [Install](https://struphy-hub.github.io/struphy/sections/install.html)
-- [Userguide](https://struphy-hub.github.io/struphy/sections/userguide.html)
-- [Available models](https://struphy-hub.github.io/struphy/sections/models.html)
-- [Numerical methods](https://struphy-hub.github.io/struphy/sections/numerics.html)
 
 ## Python API
 

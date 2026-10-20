@@ -58,8 +58,10 @@ python -m venv struphy_env
 source struphy_env/bin/activate
 pip install -U pip
 pip install -U struphy
-struphy compile
+struphy compile -j 4
 ```
+
+`-j 4` compiles the kernels in parallel on four cores.
 
 In case you face troubles with install/compile:
 
@@ -134,6 +136,12 @@ cd struphy-examples/VlasovAmpereOneSpecies/two_stream
 python params_two_stream.py
 python pproc_two_stream.py
 ```
+
+![Two-stream instability: phase space of the electrons at t = 0, 25 and 50](https://raw.githubusercontent.com/struphy-hub/struphy/devel/doc/pics/readme_two_stream.png)
+
+*Two-stream instability: the electron distribution function f(x, v) at t = 0, 25 and 50, computed with the model [VlasovAmpereOneSpecies](https://struphy-hub.github.io/models/vlasov-ampere-one-species/) in a FEEC-PIC discretization (particle-in-cell markers for the electrons, finite element exterior calculus splines for the electric field). Two counter-streaming beams roll up into a phase-space vortex.*
+
+To look at finished examples and their results without running anything, browse the [examples gallery](https://struphy-hub.github.io/examples/) on the Struphy website.
 
 ## AI coding agents
 
