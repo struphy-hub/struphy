@@ -105,7 +105,9 @@ class LiteralOptions:
     OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
 
     # markers
-    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles5Dvperp", "Particles3D"]
+    OptsPICSpace = Literal[
+        "Particles6D", "DeltaFParticles6D", "PauliParticles6D", "Particles5D", "Particles5Dvperp", "Particles3D"
+    ]
     OptsMarkerBC = Literal["periodic", "reflect", "remove", "refill"]
     OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
     OptsRefillBC = Literal["inner", "outer"]

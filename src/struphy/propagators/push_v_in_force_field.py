@@ -9,6 +9,7 @@ from line_profiler import profile
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
+from struphy.pic.pushing.kernels.push_v_with_efield_mu import push_v_with_efield_mu
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -30,6 +31,18 @@ class PushVinForceField(Propagator):
 
     which is solved analytically. :math:`\mathbf F` can optionally be defined
     through a potential, :math:`\mathbf F = - \nabla \phi`.
+
+    With ``magnetic_moment=True``, each marker carries a magnetic moment :math:`\mu_p` (classical Pauli particle,
+    see :class:`~struphy.pic.particles.PauliParticles6D`) and the force is augmented by the magnetic-moment force
+    of the equilibrium field,
+
+    .. math::
+
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon}\mathbf{F}(\mathbf{x}_p)
+        - \mu_p \nabla |\mathbf B_0|(\mathbf{x}_p) \,,
+
+    i.e. :math:`\mathbf F = -\nabla(\phi + \varepsilon \mu_p |\mathbf B_0|)`, where :math:`\nabla |\mathbf B_0|`
+    is the projected 1-form ``gradB1`` of the equilibrium (the same as in the guiding-center pushers).
     """
 
     class Variables:
@@ -51,13 +64,14 @@ class PushVinForceField(Propagator):
         @var.setter
         def var(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "PauliParticles6D", "ParticlesSPH")
             self._var = new
 
     def __init__(
         self,
         force_field: FEECVariable | tuple[Callable] = None,
         potential: FEECVariable | Callable = None,
+        magnetic_moment: bool = False,
     ):
         """
         Parameters
@@ -70,6 +84,9 @@ class PushVinForceField(Propagator):
             Scalar potential from which the force field is built as
             ``-grad(potential)``. Accepted forms are an ``H1`` FEEC variable or a callable projected
             via ``L2Projector``.
+        magnetic_moment : bool, default=False
+            Whether to add the magnetic-moment force :math:`-\mu_p \nabla |\mathbf B_0|` of each marker
+            (needs :class:`~struphy.pic.particles.PauliParticles6D` and an equilibrium with magnetic field).
         """
         self.variables = self.Variables()
 
@@ -87,6 +104,7 @@ class PushVinForceField(Propagator):
 
         self.force_field = force_field
         self.potential = potential
+        self.magnetic_moment = magnetic_moment
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -135,12 +153,28 @@ class PushVinForceField(Propagator):
             self.force_vector[0]._data,
             self.force_vector[1]._data,
             self.force_vector[2]._data,
-            1.0 / self.epsilon,
         )
+
+        if self.magnetic_moment:
+            assert self.variables.var.space == "PauliParticles6D", (
+                f"magnetic_moment=True needs markers with a magnetic moment (PauliParticles6D), not {self.variables.var.space}."
+            )
+            assert self.projected_equil is not None, "magnetic_moment=True needs an equilibrium with magnetic field."
+            self._gradB1 = self.projected_equil.gradB1
+            kernel = push_v_with_efield_mu
+            args_kernel += (
+                self._gradB1[0]._data,
+                self._gradB1[1]._data,
+                self._gradB1[2]._data,
+            )
+        else:
+            kernel = push_v_with_efield
+
+        args_kernel += (1.0 / self.epsilon,)
 
         self._pusher = Pusher(
             self.variables.var.particles,
-            push_v_with_efield,
+            kernel,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -155,5 +189,6 @@ class PushVinForceField(Propagator):
             self.force_vector *= -1.0
             self.force_vector.update_ghost_regions()
             self._pusher(dt)
-        else:
-            pass
+        elif self.magnetic_moment:
+            # zero force field, only the magnetic-moment force
+            self._pusher(dt)
