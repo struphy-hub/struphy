@@ -96,9 +96,9 @@ jobs:
         with:
           optional-deps: 'dev,doc'
 
-      # The preview is for inspecting the rendered docs, so notebooks are not
-      # executed and Struphy is not compiled (faster build). Notebooks are stored
-      # without outputs, so the tutorial pages show code cells only.
+      # The preview is for inspecting the rendered docs, so Struphy is not compiled,
+      # which makes doc/conf.py set nbsphinx_execute = "never" (faster build).
+      # Notebooks are stored without outputs, so the tutorial pages show code cells only.
       # Per-notebook "nbsphinx": {"execute": ...} metadata overrides the global
       # setting, so it is removed here (only in this CI checkout).
       - name: Disable per-notebook execution
@@ -117,7 +117,7 @@ jobs:
       - name: Build Sphinx docs (without executing notebooks)
         run: |
           cd doc
-          make html SPHINXOPTS="-D nbsphinx_execute=never"
+          make html
 
       - name: Checkout docs-preview repo
         uses: actions/checkout@v5
