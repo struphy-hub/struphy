@@ -2,7 +2,7 @@
 
 import pytest
 
-from struphy.console.agents import GUIDES, MARKER, skill_names, struphy_agents
+from struphy.console.agents import GUIDES, MARKER, examples_url, skill_names, struphy_agents
 
 # console commands, no parallel code involved; tmp_path differs per rank
 pytestmark = pytest.mark.mpi_skip
@@ -21,7 +21,7 @@ def test_guides_shipped():
 def test_print_guide(capsys):
     struphy_agents()
     out = capsys.readouterr().out
-    assert "USAGE.md" in out and "/examples" in out
+    assert "USAGE.md" in out and examples_url() in out
     assert "# Using Struphy" in out
 
     struphy_agents(show_path=True)

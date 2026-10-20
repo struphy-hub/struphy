@@ -7,7 +7,11 @@ Struphy is a Python API for solving PDEs with structure-preserving discretizatio
 This quickstart shows how to solve a simple problem with minimal input: a 1D Poisson solve.
 
 For interactive tutorials (no local install), use `mybinder <https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main>`_.
-For more examples, see :ref:`userguide` and the :ref:`tutorial collection <tutorials>`.
+For ready-to-run simulations of many models, see the `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_
+repository (:ref:`quickstart_examples`); for more on the API, see :ref:`userguide` and the
+:ref:`tutorial collection <tutorials>`.
+An overview of the models, the numerical methods and a gallery of examples is on the Struphy website
+`<https://struphy-hub.github.io/>`_.
 
 Solve Poisson In A Few Steps
 ----------------------------
@@ -127,7 +131,14 @@ For periodic boundary conditions we will stabilize via ``options``.
     eta = np.linspace(0, 1, 100)
     phi_2d = out.evaluate("em_fields/phi", eta1=eta, eta2=eta, t=-1)
     phi_2d.plot(x="X", y="Y")
+    plt.savefig("quickstart_poisson_phi_2d.png", dpi=150)
     plt.show()
+
+.. figure:: ../pics/quickstart_poisson_phi_2d.png
+    :figwidth: 70%
+    :alt: Poisson quickstart solution on the 2D domain
+
+    Struphy solution :math:`\phi(x, y)` from Step 8 in physical coordinates.
 
 ``out`` can also be created later from the output folder alone, e.g. in a separate
 post-processing script, via ``out = Output("sim_1")``; the model, domain and numerical
@@ -198,6 +209,7 @@ Full script (save as ``params_poisson.py`` and run with ``python params_poisson.
         eta = np.linspace(0, 1, 100)
         phi_2d = out.evaluate("em_fields/phi", eta1=eta, eta2=eta, t=-1)
         phi_2d.plot(x="X", y="Y")
+        plt.savefig("quickstart_poisson_phi_2d.png", dpi=150)
         plt.show()
 
 
@@ -245,6 +257,36 @@ As all data structures in Struphy are written for MPI, you can run the same scri
 .. code-block:: bash
 
     mpirun -n 4 python params_Poisson.py
+
+.. _quickstart_examples:
+
+Ready-To-Run Examples: struphy-examples
+---------------------------------------
+
+The repository `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_ collects
+simulations of physics scenarios and numerical test cases, for example Landau damping, the two-stream
+and Weibel instabilities, the ITPA TAE benchmark, the Cyclone base case or elliptic problems on tori.
+The folders are sorted by model and then by case; each case contains
+
+* ``params_*.py``: the parameter file, which sets up and runs the simulation,
+* ``pproc_*.py``: the post-processing script, which reads the output and creates the figures.
+
+The physics and the expected results are described in the docstring at the top of each parameter file.
+The repository is updated with every Struphy release and tagged with its version, so clone the tag that
+matches your installation (``struphy --version`` prints it):
+
+.. code-block:: bash
+
+    git clone --branch vX.Y.Z https://github.com/struphy-hub/struphy-examples.git
+    cd struphy-examples/VlasovAmpereOneSpecies/two_stream
+    python params_two_stream.py              # or: mpirun -n 4 python params_two_stream.py
+    python pproc_two_stream.py
+
+The output folder is created beside the scripts, and the post-processing script finds it there;
+both scripts accept ``--help``.
+A good way to set up your own simulation is to copy the closest example and adapt it.
+To add an example, open a pull request into the ``devel`` branch of Struphy with your case in its
+`examples/ <https://github.com/struphy-hub/struphy/tree/devel/examples>`_ folder.
 
 .. _quickstart_agents:
 

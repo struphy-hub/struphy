@@ -11,12 +11,13 @@ MARKER = "<!-- struphy agents -->"
 
 
 def examples_url() -> str:
-    """URL of the examples folder for the installed Struphy version (devel when not installed)."""
+    """URL of the struphy-examples repository at the tag of the installed Struphy version
+    (the examples folder on devel when not installed)."""
     try:
-        ref = "v" + importlib.metadata.version("struphy")
+        version = importlib.metadata.version("struphy")
     except importlib.metadata.PackageNotFoundError:
-        ref = "devel"
-    return f"https://github.com/struphy-hub/struphy/tree/{ref}/examples"
+        return "https://github.com/struphy-hub/struphy/tree/devel/examples"
+    return f"https://github.com/struphy-hub/struphy-examples/tree/v{version}"
 
 
 def skill_names() -> list[str]:
