@@ -199,6 +199,22 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
 
+        # Full-f markers: the time stepping conserves the charge of the full-f weights, while the initial solve used
+        # the delta-f weights. The Gauss-law diagnostic therefore deposits the full-f weights and subtracts the
+        # constant offset alpha^2/eps (rho_full - rho_delta_f) at t=0 (the initial f0 deposit minus n0).
+        # On restart, post_allocate runs before the markers are restored, so the offset belongs to freshly loaded
+        # t=0 markers: consistent with the restored run only for reproducible loading (fixed seed, same decomposition).
+        self._gauss_offset = None
+        particles = self.kinetic_ions.var.particles
+        if self.measure_gauss_law and not particles.control_variate:
+            self.charge_accum()
+            rho_full = self.charge_accum.vectors[0].copy()
+            particles.update_weights()
+            self.charge_accum()
+            particles.weights = particles.weights0.copy()
+            rho_full -= self.charge_accum.vectors[0]
+            self._gauss_offset = self.initial_poisson.coeffs[0] * rho_full
+
     def calculate_gauss_error(self):
         r"""Maximum norm of the weak Gauss-law residual
 
@@ -206,23 +222,23 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
             \mathbb G^\top \mathbb M^1 \mathbf e + \frac{\alpha^2}{\varepsilon} \boldsymbol \rho\,,
 
-        where :math:`\boldsymbol \rho` is the charge density of :math:`f - f_0` deposited as in the initial
-        Poisson solve, i.e. with the delta-f weights (also for full-f markers). Since
-        :math:`\mathbf e = -\mathbb G \boldsymbol \phi` it vanishes at :math:`t=0`, up to the net charge (the kernel
-        of the periodic Poisson problem). For :math:`t > 0` it measures the Gauss-law violation only with the control
-        variate: for full-f markers the time stepping conserves the full-f charge, so the residual also contains
-        the change of the Monte-Carlo noise of the :math:`f_0` deposit."""
+        where :math:`\boldsymbol \rho` is the charge density of :math:`f - f_0`: with the control variate deposited
+        with the delta-f weights, as in the initial Poisson solve; for full-f markers deposited with the full-f
+        weights (whose charge the time stepping conserves) minus the constant offset
+        :math:`\boldsymbol \rho_\textnormal{full}(0) - \boldsymbol \rho_{\delta f}(0)` of the initial solve, which used
+        the delta-f weights. Since :math:`\mathbf e = -\mathbb G \boldsymbol \phi` it vanishes at :math:`t=0`, up to
+        the net charge (the kernel of the periodic Poisson problem)."""
         particles = self.kinetic_ions.var.particles
-        particles.update_weights()
+        if particles.control_variate:
+            particles.update_weights()
         self.charge_accum()
         rho = self.charge_accum.vectors[0]
-        # restore the weights of the time stepping (full-f without the control variate)
-        if not particles.control_variate:
-            particles.weights = particles.weights0.copy()
 
         e = self.em_fields.e_field.spline.vector
         residual = self.op.dot(e)
         residual += self.initial_poisson.coeffs[0] * rho
+        if self._gauss_offset is not None:
+            residual -= self._gauss_offset
 
         # maximum residual over the local MPI rank, then over all ranks of the domain decomposition
         # (all clones hold the same accumulated charge density)
