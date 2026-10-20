@@ -28,7 +28,8 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
     are unweighted),
     :math:`\epsilon \in \mathbb R` is the gyrokinetic ratio defined in units, Z the charge number of ions and
     :math:`\langle \phi \rangle` the (weighted) average over :math:`\eta_3` or over :math:`\eta_2, \eta_3`
-    (``which_geometry``): the electrons do not respond to the flux-surface averaged potential.
+    (``which_geometry``, or zero for ``which_geometry=None``): the electrons do not respond to the flux-surface
+    averaged potential.
     For a full-f particle source (no control variate) the neutralizing background :math:`-n_0` is added to
     :math:`\rho_i` automatically (see :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion`).
     Boundary terms from integration by parts are assumed to vanish.
@@ -101,10 +102,13 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
             - ``"Id"``: identity operator.
             - ``"M0ad_withT"``: adiabatic-electron weighted 0-form mass operator (weight :math:`n_0/T_0`).
 
-        which_geometry: {"cylindrical", "toroidal"}, default="cylindrical"
+        which_geometry: {"cylindrical", "toroidal", None}, default="cylindrical"
             Geometry of the problem, determines the meaning of `<\phi>` in the stabilization term:
             the average over ``eta3`` (cylindrical) or over ``eta2`` and ``eta3`` (toroidal), i.e.
-            ``stab_average`` of :class:`ImplicitDiffusion` is ``"eta3"`` or ``"eta2 eta3"``. The average
+            ``stab_average`` of :class:`ImplicitDiffusion` is ``"eta3"`` or ``"eta2 eta3"``. With ``None`` there is
+            no average, :math:`\langle \phi \rangle = 0`: the electrons respond adiabatically to all modes (e.g. for
+            a comparison with the full-orbit model in a slab, see
+            :class:`~struphy.propagators.adiabatic_poisson_solve.AdiabaticPoissonSolve`). The average
             is weighted with ``stab_mat`` (for equilibrium density and temperature constant on the
             averaged surfaces, the flux-surface average with the volume element), which keeps the
             operator symmetric (:class:`~struphy.feec.mass.WeightedAverageProjection`).
@@ -152,7 +156,7 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
         # specific literals
         OptsStabMat = Literal["M0", "M0ad", "Id", "M0ad_withT"]
         OptsDiffusionMat = Literal["M1", "M1perp", "M1gyro"]
-        OptsGeometry = Literal["cylindrical", "toroidal"]
+        OptsGeometry = Literal["cylindrical", "toroidal", None]
         # propagator options
         stab_mat: OptsStabMat = "M0ad_withT"
         diffusion_mat: OptsDiffusionMat = "M1gyro"
@@ -185,9 +189,9 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
                 self.multigrid = MultiGridOptions()
 
         @property
-        def stab_average(self) -> str:
+        def stab_average(self) -> str | None:
             """Directions averaged in the stabilization, see ``which_geometry``."""
-            return {"cylindrical": "eta3", "toroidal": "eta2 eta3"}[self.which_geometry]
+            return {"cylindrical": "eta3", "toroidal": "eta2 eta3", None: None}[self.which_geometry]
 
     def allocate(self):
         epsilon = self.epsilon

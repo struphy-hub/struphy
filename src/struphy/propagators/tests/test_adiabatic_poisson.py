@@ -12,6 +12,7 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.adiabatic_poisson_solve import AdiabaticPoissonSolve
 from struphy.propagators.base import Propagator
+from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
 from struphy.propagators.implicit_diffusion import ImplicitDiffusion
 from struphy.topology.grids import TensorProductGrid
 
@@ -148,6 +149,40 @@ def test_adiabatic_poisson_quasi_neutral():
     err = _max_error(domain, phi, sol_xyz)
     logger.info(f"{err =}")
     assert err < 1e-4
+
+
+@pytest.mark.parametrize("which_geometry", [None, "cylindrical"])
+def test_gyrokinetic_poisson_average(which_geometry):
+    """GyrokineticPoissonSolve with and without the flux-surface average, for a solution that does not depend on
+    eta3: (1/(Z eps^2)) n0/T0 (phi - <phi>) - div_perp(n0/|B0|^2 grad_perp phi) = rho / eps, with <phi> = phi for
+    the average over eta3 ("cylindrical") and <phi> = 0 without average (None)."""
+    domain, phi = _setup([16, 16, 1], [3, 3, 1])
+    epsilon, Z = 0.5, 1
+    kx, ky = 2 * xp.pi / Lx, 2 * xp.pi / Ly
+    # n0 / |B0|^2 of the HomogenSlab of _setup
+    n0_over_B2 = N0
+
+    def sol_xyz(x, y, z):
+        return xp.sin(kx * x) * xp.cos(ky * y)
+
+    def rho_xyz(x, y, z):
+        adiabatic = N0_OVER_T0 / (Z * epsilon**2) * sol_xyz(x, y, z) if which_geometry is None else 0.0 * x
+        return epsilon * (adiabatic + n0_over_B2 * (kx**2 + ky**2) * sol_xyz(x, y, z))
+
+    solver = GyrokineticPoissonSolve(rho=_pulled(domain, rho_xyz), epsilon=epsilon, Z=Z)
+    solver.variables.phi = phi
+    solver.options = solver.Options(which_geometry=which_geometry, solver_params=SOLVER_PARAMS)
+    solver.allocate()
+    solver(1.0)
+
+    e1 = xp.linspace(0.0, 1.0, 21)
+    e2 = xp.linspace(0.0, 1.0, 21)
+    num = domain.push(phi.spline, e1, e2, 0.5, kind="0")
+    x, y, z = domain(e1, e2, 0.5)
+    exact = sol_xyz(x, y, z)
+    err = xp.max(xp.abs(num - exact)) / xp.max(xp.abs(exact))
+    logger.info(f"{which_geometry =}, {err =}")
+    assert err < 1e-3
 
 
 def test_invalid_options():
