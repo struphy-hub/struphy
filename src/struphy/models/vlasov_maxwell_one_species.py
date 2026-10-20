@@ -174,16 +174,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         """
         self._tmp = xp.empty(1, dtype=float)
 
-        particles = self.kinetic_ions.var.particles
-
         if self.measure_gauss_law:
             self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
 
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # charge of f - f0 for the Poisson right-hand side (see below for the weights of the time stepping)
-        particles.update_weights()
-
+        # The right-hand side is the charge of f - f0 in both cases: with the control variate the solve deposits the
+        # delta-f weights (it calls update_weights), without it the full-f weights minus the background n0.
         self.initial_poisson.allocate()
 
         # keep the AccumulatorVector built by the propagator for the Gauss-law diagnostic below
@@ -200,11 +197,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
 
-        # The Poisson right-hand side is the charge of f - f0 in any case; the time stepping uses the delta-f
-        # weights only with the control variate (and the scalars must be computed with the same weights at t=0).
-        if not particles.control_variate:
-            particles.weights = particles.weights0.copy()
-
     def calculate_gauss_error(self):
         r"""Maximum norm of the weak Gauss-law residual
 
@@ -213,20 +205,21 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             \mathbb G^\top \mathbb M^1 \mathbf e + \frac{\alpha^2}{\varepsilon} \boldsymbol \rho\,,
 
         where :math:`\boldsymbol \rho` is the charge density of :math:`f - f_0` deposited as in the initial
-        Poisson solve. Since :math:`\mathbf e = -\mathbb G \boldsymbol \phi` it vanishes at :math:`t=0`,
+        Poisson solve: the delta-f weights with the control variate, the full-f weights minus the background
+        :math:`n_0` without it. Since :math:`\mathbf e = -\mathbb G \boldsymbol \phi` it vanishes at :math:`t=0`,
         up to the net charge (the kernel of the periodic Poisson problem)."""
-        # control variate method
         particles = self.kinetic_ions.var.particles
-        particles.update_weights()
+        if particles.control_variate:
+            particles.update_weights()
         self.charge_accum()
         rho = self.charge_accum.vectors[0]
-        # restore the weights of the time stepping (full-f without the control variate)
-        if not particles.control_variate:
-            particles.weights = particles.weights0.copy()
 
         e = self.em_fields.e_field.spline.vector
         residual = self.op.dot(e)
         residual += self.initial_poisson.coeffs[0] * rho
+        # full-f: the neutralizing background source (n0, Lambda^0) of the initial Poisson solve
+        for src, coeff in zip(self.initial_poisson.sources[1:], self.initial_poisson.coeffs[1:]):
+            residual += coeff * src
 
         # maximum residual over the local MPI rank, then over all ranks of the domain decomposition
         # (all clones hold the same accumulated charge density)

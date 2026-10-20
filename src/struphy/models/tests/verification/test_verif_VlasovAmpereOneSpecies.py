@@ -27,6 +27,7 @@ from struphy import (
 )
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import VlasovAmpereOneSpecies
+from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
 
@@ -261,7 +262,58 @@ def test_energy_conservation(control_variate: bool, exit_before_run: bool = Fals
         shutil.rmtree(env.path_out)
 
 
+def test_initial_poisson_full_f():
+    r"""The initial Poisson solve with full-f markers subtracts the background :math:`n_0` once.
+
+    A uniform Maxwellian is neutral, so with :math:`\phi = 0` at the walls in :math:`x` the initial potential is at
+    noise level. Subtracting :math:`n_0` twice (delta-f weights plus the full-f background source) gives
+    :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e. :math:`\phi = -x(1 - x)/2` with root mean square 0.09.
+    This runs zero time steps.
+    """
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f")
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=200, seed=1234),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+    model.initial_poisson.options = model.initial_poisson.Options()
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=Time(dt=0.05, Tend=0.0),
+        domain=domains.Cuboid(),
+        grid=grids.TensorProductGrid(num_elements=(16, 1, 1)),
+        derham_opts=DerhamOptions(degree=(3, 1, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
+    )
+    sim.run()
+
+    # root mean square of phi over the unit cube (collective, on all ranks)
+    phi = model.em_fields.phi.spline.vector
+    phi_rms = float(xp.sqrt(Propagator.mass_ops.M0.dot_inner(phi, phi)))
+    logger.info(f"{phi_rms =}")
+    assert phi_rms < 0.02, (
+        f"Initial potential of a neutral full-f plasma: {phi_rms =} (n0 subtracted twice gives 0.09)."
+    )
+
+    MPI.COMM_WORLD.Barrier()
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        shutil.rmtree(test_folder)
+
+
 if __name__ == "__main__":
     test_weak_Landau(do_plot=True)
+    test_initial_poisson_full_f()
     test_energy_conservation(control_variate=False)
     test_energy_conservation(control_variate=True)

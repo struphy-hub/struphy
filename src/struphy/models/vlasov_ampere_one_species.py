@@ -166,10 +166,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
         """
         logger.info("\nINITIAL POISSON SOLVE:")
 
-        # charge of f - f0 for the Poisson right-hand side (see below for the weights of the time stepping)
-        particles = self.kinetic_ions.var.particles
-        particles.update_weights()
-
+        # The right-hand side is the charge of f - f0 in both cases: with the control variate the solve deposits the
+        # delta-f weights (it calls update_weights), without it the full-f weights minus the background n0.
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
@@ -182,11 +180,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
         self.em_fields.e_field.spline.vector.update_ghost_regions()
         logger.info("... Done.")
-
-        # The Poisson right-hand side is the charge of f - f0 in any case; the time stepping uses the delta-f
-        # weights only with the control variate (and the scalars must be computed with the same weights at t=0).
-        if not particles.control_variate:
-            particles.weights = particles.weights0.copy()
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
