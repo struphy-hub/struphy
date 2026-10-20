@@ -125,12 +125,12 @@ def gc_orbits(tmp_folder, comm, t_end=T_END, dt_gc=DT_GC):
 
 
 def pauli_orbits(tmp_folder, comm, dt_pauli, t_end=T_END):
-    """Orbits (R, Z) of the test markers at all time steps of VlasovPoissonAdiabaticPauli (Boris scheme, phi = 0),
+    """Orbits (R, Z) of the test markers at all time steps of VlasovPoissonAdiabaticPauli (Boris scheme, no Poisson solve),
     the largest relative error of the energy v^2/2 + mu |B0| and the largest mu' / mu."""
     from struphy import maxwellians
     from struphy.models import VlasovPoissonAdiabaticPauli
 
-    pauli = VlasovPoissonAdiabaticPauli(epsilon=EPSILON)
+    pauli = VlasovPoissonAdiabaticPauli(epsilon=EPSILON, with_poisson=False)
     pauli.propagators.push_vxb.options = pauli.propagators.push_vxb.Options(algo="implicit")
     sim = _simulation(tmp_folder, f"pauli_{dt_pauli}", pauli, maxwellians.Maxwellian3D(), dt_pauli, comm)
     particles = pauli.kinetic_ions.var.particles
@@ -155,8 +155,7 @@ def pauli_orbits(tmp_folder, comm, dt_pauli, t_end=T_END):
         pairs = [pair for rank_pairs in comm.allgather(pairs) for pair in rank_pairs]
     en0 = dict(pairs)
 
-    # no electric field: the Strang step of the model without the Poisson solve
-    pauli.em_fields.phi.spline.vector *= 0.0
+    # the Strang step of the model (without the Poisson solve)
     props = pauli.propagators
     orbits = [_gather_RZ(particles, sim.domain, comm)]
     max_en_err = 0.0

@@ -22,9 +22,10 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
     r"""Guiding-center ion dynamics with adiabatic electrons, computed from classical Pauli particles.
 
     The ions are full-orbit (6D) markers with a magnetic moment (classical Pauli particles, Xiao and Qin 2021),
-    loaded on the slow manifold without gyration. They follow the guiding-center dynamics of
-    :class:`~struphy.models.DriftKineticElectrostaticAdiabatic` with the full-orbit pushers of
+    loaded on the slow manifold without gyration. They follow guiding-center orbits with the full-orbit pushers of
     :class:`~struphy.models.VlasovPoissonAdiabatic`, with time steps larger than the cyclotron period.
+    Only full-f weights are supported (no control variate); without the Poisson solve (``with_poisson=False``)
+    the model computes guiding-center orbits in the equilibrium magnetic field.
 
     Parameters
     ----------
@@ -40,6 +41,9 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
     epsilon : float, optional
         Normalized inverse cyclotron frequency :math:`1 / (\hat{\Omega}_\mathrm{c} \hat{t})`.
         If ``None``, computed from ``base_units`` and the charge/mass numbers.
+    with_poisson : bool
+        Whether to solve the Poisson equation for the self-consistent potential (default: True);
+        if False, the markers move in the equilibrium magnetic field only (orbit studies).
     """
 
     ## species
@@ -70,12 +74,14 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
             epsilon: float = 1.0,
             alpha: float = 1.0,
             Z: int = 1,
+            with_poisson: bool = True,
         ):
             # as in VlasovPoissonAdiabatic; with Strang splitting the last propagator (push_vxb) makes one full
             # step between the two half kicks, i.e. the Boris scheme for push_vxb with algo="implicit"
             self.push_eta = PushEta()
-            self.poisson = AdiabaticPoissonSolve(rho=rho, epsilon=epsilon, alpha=alpha, Z=Z)
-            self.push_v_E = PushVinForceField(potential=phi, magnetic_moment=True)
+            if with_poisson:
+                self.poisson = AdiabaticPoissonSolve(rho=rho, epsilon=epsilon, alpha=alpha, Z=Z)
+            self.push_v_E = PushVinForceField(potential=phi if with_poisson else None, magnetic_moment=True)
             self.push_vxb = PushVxB()
 
     ## abstract methods
@@ -87,9 +93,11 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
         mass_number: float = 1.0,
         alpha: float = None,
         epsilon: float = None,
+        with_poisson: bool = True,
     ):
         # the magnetic moment needs the background magnetic field
         self.with_B0 = True
+        self.with_poisson = with_poisson
 
         # 0. store input parameters
         self.params = copy.deepcopy(locals())
@@ -120,25 +128,44 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
             epsilon=epsilon,
             alpha=alpha,
             Z=charge_number,
+            with_poisson=with_poisson,
         )
 
         # 4. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        self.propagators.poisson.variables.phi = self.em_fields.phi
+        if with_poisson:
+            self.propagators.poisson.variables.phi = self.em_fields.phi
         self.propagators.push_v_E.variables.var = self.kinetic_ions.var
         self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
         # 5. define scalars to be tracked during simulation
-        en_phi = FunctionScalarFEEC(self._compute_en_phi)
         en_particles = KineticEnergyPIC(self.kinetic_ions.var)
         en_mu = FunctionScalarPIC(self._compute_en_mu, self.kinetic_ions.var)
-        self.scalars = Scalars(
-            en_phi=en_phi,
-            en_particles=en_particles,
-            en_mu=en_mu,
-            en_tot=en_phi + en_particles + en_mu,
-            mu_prime_max=FunctionScalarFEEC(self._compute_mu_prime_max),
-        )
+        mu_prime_max = FunctionScalarFEEC(self._compute_mu_prime_max)
+        if with_poisson:
+            en_phi = FunctionScalarFEEC(self._compute_en_phi)
+            self.scalars = Scalars(
+                en_phi=en_phi,
+                en_particles=en_particles,
+                en_mu=en_mu,
+                en_tot=en_phi + en_particles + en_mu,
+                mu_prime_max=mu_prime_max,
+            )
+        else:
+            self.scalars = Scalars(
+                en_particles=en_particles,
+                en_mu=en_mu,
+                en_tot=en_particles + en_mu,
+                mu_prime_max=mu_prime_max,
+            )
+
+    def post_allocate(self):
+        """Solve the initial Poisson equation (if ``with_poisson``) and allocate helper arrays.
+
+        :meta private:
+        """
+        if self.with_poisson:
+            super().post_allocate()
 
     def _compute_en_mu(self):
         r"""Local part of the magnetic-moment energy :math:`\sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`."""
@@ -165,12 +192,15 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
             for line in f:
                 if "if model.with_B0:" in line:
                     continue
+                elif "poisson.Options" in line:
+                    new_file += ["if model.with_poisson:\n"]
+                    new_file += ["    " + line]
                 elif "push_vxb.Options" in line:
                     new_file += [
                         "model.propagators.push_vxb.options = model.propagators.push_vxb.Options(algo='implicit')\n"
                     ]
-                elif "split_algo=" in line:
-                    new_file += [line.replace("LieTrotter", "Strang")]
+                elif "time_opts = Time(" in line:
+                    new_file += ["time_opts = Time(split_algo='Strang')\n"]
                 else:
                     new_file += [line]
 
@@ -205,6 +235,7 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
         is the guiding-center density (no gyro-average); the polarization density comes out of the marker orbits.
         As in :class:`~struphy.models.VlasovPoissonAdiabatic`, the vacuum term is dropped in the quasi-neutral limit
         (option ``quasi_neutral``) and the flux-surface average :math:`\langle \phi \rangle` is optional.
+        With ``with_poisson=False`` the Poisson equation is not solved and :math:`\phi = 0`.
         """
 
     @classmethod
@@ -223,13 +254,12 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation** (the sum of the energies is conserved by the model equations):
 
-        - Field energy: ``en_phi``
+        - Field energy (only if ``with_poisson``): ``en_phi``
           :math:`= \frac{1}{2\alpha^2} \int |\nabla \phi|^2 \, \mathrm d \mathbf x + \frac{1}{2 Z \varepsilon^2} \int \frac{n_0}{T_0} \phi (\phi - \langle \phi \rangle) \, \mathrm d \mathbf x`
           (the first term only if ``quasi_neutral=False``)
         - Kinetic energy: ``en_particles`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
         - Magnetic-moment energy: ``en_mu`` :math:`= \sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`
         - Total energy: ``en_tot`` = ``en_phi + en_particles + en_mu``
-          (of :math:`f - f_0` with the control variate)
         - Distance from the slow manifold: ``mu_prime_max``
           :math:`= \max_p |\mathbf v_p \times \mathbf b_0|^2 / (2 |\mathbf B_0|)`, Eq. (7) of Xiao and Qin;
           it must stay small compared to the magnetic moments."""
@@ -242,6 +272,8 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
         2. :class:`~struphy.propagators.adiabatic_poisson_solve.AdiabaticPoissonSolve`
         3. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField` (with ``magnetic_moment=True``)
         4. :class:`~struphy.propagators.push_vxb.PushVxB`
+
+        Without the Poisson solve (``with_poisson=False``), propagator 2 is left out.
         """
         doc = rf"""Time integration is performed by the following propagators (in sequence).
 With Strang splitting, a time step is a drift by dt/2, the Poisson solve, a kick by dt/2 with the modified field
@@ -251,7 +283,8 @@ classical Pauli particle (BAP2 in Xiao and Qin 2021), which gives the E x B and 
 dt / epsilon. The exact rotation (``algo="analytic"``) and Lie-Trotter splitting do not; they need dt < epsilon.
 
 The markers are loaded with :class:`~struphy.pic.particles.PauliParticles6D`: the magnetic moment of each marker
-is computed from its drawn perpendicular velocity, which is then set to zero.
+is computed from its drawn perpendicular velocity, which is then set to zero. Without the Poisson solve
+(``with_poisson=False``), propagator 2 is left out and the kick has only the magnetic-moment force.
 
 **1. PushEta:**
 
@@ -289,9 +322,17 @@ is computed from its drawn perpendicular velocity, which is then set to zero.
         finite-Larmor-radius effects) and :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`
         (guiding centers with the polarization density in the Poisson equation): the ions have no gyration, hence
         no finite-Larmor-radius effects, and the polarization drift comes out of the orbits. The magnetic moment of
-        each marker is taken from its drawn perpendicular velocity (:class:`~struphy.pic.particles.PauliParticles6D`);
-        the kinetic backgrounds must be gyrotropic Maxwellians (isotropic thermal velocities, no mean perpendicular
-        velocity) given in the guiding-center position."""
+        each marker is taken from its drawn perpendicular velocity (:class:`~struphy.pic.particles.PauliParticles6D`),
+        such that the markers represent the gyro-average of the initial condition, given in the guiding-center
+        position.
+
+        Only full-f weights are supported. The polarization drift on the slow manifold is compressible, so the
+        phase-space density of the markers is not constant along their orbits; a control variate (delta-f), which
+        subtracts the background :math:`f_0` along the markers, would cancel the polarization density (in a slab
+        drift wave this gives the frequency without polarization and a gradient-driven instability). Full-f
+        simulations of small perturbations are dominated by the noise, since the perpendicular ion response is that
+        of cold ions. The main use of the model is therefore the computation of guiding-center orbits with a
+        full-orbit pusher (``with_poisson=False``)."""
 
     @classmethod
     def doc_examples(cls):
@@ -305,6 +346,9 @@ is computed from its drawn perpendicular velocity, which is then set to zero.
             model.em_fields.phi
             model.kinetic_ions.var
 
+            # guiding-center orbits in the equilibrium magnetic field, without the Poisson solve
+            model = VlasovPoissonAdiabaticPauli(epsilon=0.01, with_poisson=False)
+
             # Boris rotation (Cayley transform) for time steps larger than the cyclotron period
             model.propagators.push_vxb.options = model.propagators.push_vxb.Options(algo="implicit")
         """
@@ -313,16 +357,17 @@ is computed from its drawn perpendicular velocity, which is then set to zero.
     def doc_use_cases(cls):
         r"""This model is appropriate for:
 
-        - electrostatic guiding-center ion dynamics with adiabatic electrons, with time steps larger than the
-          cyclotron period (drift waves, slab ITG modes, ...)
         - guiding-center orbits (banana orbits, grad-B and curvature drifts) in general magnetic fields, with a
-          full-orbit pusher
-        - verification of guiding-center pushers"""
+          full-orbit pusher and time steps larger than the cyclotron period (``with_poisson=False``)
+        - verification of guiding-center pushers
+        - full-f electrostatic simulations with adiabatic electrons with many markers"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
+        - delta-f (control variate) simulations, see the long description; small perturbations in full-f are
+          dominated by the noise (use :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`)
         - finite-Larmor-radius effects (use :class:`~struphy.models.VlasovPoissonAdiabatic`)
         - magnetic fields without scale separation, where the magnetic moment is not an adiabatic invariant
         - time-dependent magnetic fields and electromagnetic dynamics"""

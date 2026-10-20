@@ -256,15 +256,14 @@ class PauliParticles6D(Particles6D):
         \mu_p = \frac{|\mathbf v_p \times \mathbf b_0(\mathbf x_p)|^2}{2 |\mathbf B_0(\mathbf x_p)|}\,,\qquad
         \mathbf v_p \to (\mathbf v_p \cdot \mathbf b_0)\, \mathbf b_0(\mathbf x_p)\,,
 
-    see :meth:`reduce_to_slow_manifold`. The marker position is from then on the guiding-center position.
-    The magnetic moment of the remaining perpendicular velocity, :math:`\mu'_p` (:meth:`mu_prime`),
-    stays close to zero as long as the dynamics remains on the slow manifold.
+    see :meth:`reduce_to_slow_manifold`. The marker position is from then on the guiding-center position, and
+    the markers represent the gyro-average of the initial condition. The magnetic moment of the remaining
+    perpendicular velocity, :math:`\mu'_p` (:meth:`mu_prime`), stays close to zero as long as the dynamics remains
+    on the slow manifold.
 
-    The distribution functions (background and initial condition) are evaluated at the gyrotropic velocity
-    :math:`v_\parallel \mathbf b_0 + \sqrt{2 \mu_p |\mathbf B_0|}\, \mathbf e_\perp` with some unit vector
-    :math:`\mathbf e_\perp \perp \mathbf b_0` (see :attr:`f_coords`), such that the control variate uses the
-    guiding-center background :math:`f_0(\mathbf x, v_\parallel, \mu)`. They must therefore be gyrotropic:
-    isotropic thermal velocities and a mean velocity parallel to :math:`\mathbf B_0` (no diamagnetic drift).
+    Only full-f weights are supported (no control variate): the polarization drift on the slow manifold is
+    compressible, so the phase-space density of the markers is not constant along their orbits, and subtracting
+    a background :math:`f_0` along the markers would cancel the polarization density.
 
     See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
     """
@@ -280,18 +279,14 @@ class PauliParticles6D(Particles6D):
         return self.first_diagnostics_idx
 
     def __post_init__(self):
-        """Check that the kinetic backgrounds are gyrotropic Maxwellians (isotropic thermal velocities)
-        and that there is a magnetic equilibrium."""
+        """Check that there is a magnetic equilibrium and that the weights are full-f."""
         super().__post_init__()
         assert isinstance(self.equil, FluidEquilibriumWithB), "Classical Pauli particles need an equilibrium with B."
-        for f in (self.background, self.initial_condition):
-            for maxw in _maxwellians_in(f):
-                assert isinstance(maxw, maxwellians.Maxwellian3D), (
-                    f"Classical Pauli particles need Maxwellian3D backgrounds, not {type(maxw).__name__}."
-                )
-                assert maxw.params["vth1"] == maxw.params["vth2"] == maxw.params["vth3"], (
-                    "Classical Pauli particles need gyrotropic backgrounds: set vth1 = vth2 = vth3."
-                )
+        assert not self.weights_params.control_variate, (
+            "Classical Pauli particles do not support the control variate (delta-f): the polarization drift on the "
+            "slow manifold is compressible, so subtracting f0 along the markers cancels the polarization density. "
+            "Use WeightsParameters(control_variate=False)."
+        )
 
     @property
     def magnetic_moments(self):
@@ -319,12 +314,8 @@ class PauliParticles6D(Particles6D):
     def initialize_weights(self, **kwargs):
         """Compute the initial weights and sampling densities as for :class:`Particles6D` with the drawn
         velocities, then reduce the markers to the slow manifold (:meth:`reduce_to_slow_manifold`)."""
-        self._on_slow_manifold = False
         super().initialize_weights(**kwargs)
         self.reduce_to_slow_manifold()
-        # the gyrotropic velocity of f_coords is the drawn one up to its direction, so the weights stay the same
-        if self.control_variate:
-            self.update_weights()
 
     def reduce_to_slow_manifold(self):
         r"""Set the magnetic moments :math:`\mu_p = |\mathbf v_{\perp,p}|^2 / (2 |\mathbf B_0|)` and remove the
@@ -336,7 +327,6 @@ class PauliParticles6D(Particles6D):
             v_perp = v - v_par * b
             self.magnetic_moments = xp.sum(v_perp**2, axis=0) / (2.0 * absB)
             self.velocities = v_par * b
-        self._on_slow_manifold = True
 
     def mu_prime(self):
         r"""Magnetic moment of the perpendicular marker velocities, :math:`\mu'_p = |\mathbf v_p \times \mathbf b_0|^2 / (2 |\mathbf B_0|)`
@@ -347,41 +337,6 @@ class PauliParticles6D(Particles6D):
         v = self.velocities
         v_perp = v - xp.sum(v * b, axis=0) * b
         return xp.sum(v_perp**2, axis=0) / (2.0 * absB)
-
-    @property
-    def f_coords(self):
-        r"""Coordinates of the distribution function: the positions and, on the slow manifold, the gyrotropic
-        velocities :math:`v_\parallel \mathbf b_0 + \sqrt{2 \mu_p |\mathbf B_0|}\, \mathbf e_\perp`."""
-        coords = super().f_coords
-        if not getattr(self, "_on_slow_manifold", False) or coords.shape[1] == 0:
-            return coords
-
-        b, absB = self._unit_b_and_absB(coords[:3])
-        v_par = xp.sum(coords[3:6] * b, axis=0)
-
-        # e_perp = b x e_k / |b x e_k| with the Cartesian unit vector e_k least aligned with b
-        k = xp.argmin(xp.abs(b), axis=0)
-        e_k = xp.zeros_like(b)
-        e_k[k, xp.arange(b.shape[1])] = 1.0
-        e_perp = xp.cross(b, e_k, axis=0)
-        e_perp /= xp.sqrt(xp.sum(e_perp**2, axis=0))
-
-        v_perp = xp.sqrt(2.0 * self.markers[self.mu_idx, self.valid_mks] * absB)
-        coords[3:6] = v_par * b + v_perp * e_perp
-        return coords
-
-    @f_coords.setter
-    def f_coords(self, new):
-        Particles6D.f_coords.fset(self, new)
-
-
-def _maxwellians_in(f):
-    """The Maxwellians of a kinetic background (summands of a :class:`~struphy.kinetic_background.base.SumKineticBackground`)."""
-    if f is None:
-        return []
-    if isinstance(f, SumKineticBackground):
-        return _maxwellians_in(f._f1) + _maxwellians_in(f._f2)
-    return [f]
 
 
 class Particles5D(Particles):
