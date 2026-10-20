@@ -33,7 +33,13 @@ def plasma_Z(zeta):
 
 def drift_wave_roots(n_harmonics=8):
     """Roots of the local kinetic dispersion relations (quasi-neutral, eta_i = 0) of the full-orbit model and of
-    the drift-kinetic model, for the wave vector of the initial perturbation; see kinetic_drift_waves.md."""
+    the drift-kinetic model, for the wave vector of the initial perturbation (slab, uniform density gradient):
+
+        full orbit:     1/T_e + (1/T_i) [1 + sum_n Gamma_n(b) (omega - omega_*i) / s Z((omega - n/eps) / s)] = 0
+        drift-kinetic:  b/T_i + 1/T_e + (1/T_i) [1 + (omega - omega_*i) / s Z(omega / s)] = 0
+
+    with s = sqrt(2) |k_z| sqrt(T_i), b = eps^2 k_perp^2 T_i, omega_*i = -eps k_y T_i kappa_n and the plasma
+    dispersion function Z."""
     eps, Te, Ti, kap = params.epsilon, params.Te, params.Ti, params.kappa_n
     kperp2 = params.kx**2 + params.ky**2
     b = eps**2 * kperp2 * Ti
