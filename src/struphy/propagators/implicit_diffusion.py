@@ -162,12 +162,13 @@ class ImplicitDiffusion(Propagator):
             If ``True``, divide ``sigma_1``, ``sigma_2`` and ``sigma_3`` by the
             time step passed to ``__call__(dt)`` before assembling the system.
 
-        stab_mat : {"M0", "M0ad", "Id"}, default="M0"
+        stab_mat : {"M0", "M0ad", "M0ad_withT", "Id"}, default="M0"
             Stabilization operator used in the term weighted by ``sigma_1`` and
             ``sigma_2``.
 
             - ``"M0"``: standard weighted 0-form mass operator.
-            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
+            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator (weight :math:`n_0`).
+            - ``"M0ad_withT"``: adiabatic-electron weighted 0-form mass operator (weight :math:`n_0/T_0`).
             - ``"Id"``: identity operator.
 
         stab_average : str, default=None
@@ -177,12 +178,14 @@ class ImplicitDiffusion(Propagator):
             average with the volume element for ``"M0"``), such that the operator stays symmetric.
             With ``precond="MultiGrid"``, the average is re-built on every coarse level.
 
-        diffusion_mat : {"M1", "M1perp"} or WeightedMassOperator, default="M1"
+        diffusion_mat : {"M1", "M1perp", None} or WeightedMassOperator, default="M1"
             Diffusion metric in the bilinear form
             ``grad.T @ diffusion_mat @ grad``.
             You can pass the name of a pre-built operator in ``mass_ops`` or a
             custom ``WeightedMassOperator`` compatible with the codomain of
-            ``grad``.
+            ``grad``. With ``None`` there is no diffusion term and the system is
+            ``sigma_1 * stab_mat`` only (a weighted L2 projection); then ``precond`` cannot be
+            ``"MultiGrid"`` or ``"StiffnessPreconditioner"``.
 
         x0 : StencilVector, default=None
             Initial guess for the iterative linear solver.
@@ -254,8 +257,8 @@ class ImplicitDiffusion(Propagator):
         """
 
         # specific literals
-        OptsStabMat = Literal["M0", "M0ad", "Id"]
-        OptsDiffusionMat = Literal["M1", "M1perp"]
+        OptsStabMat = Literal["M0", "M0ad", "M0ad_withT", "Id"]
+        OptsDiffusionMat = Literal["M1", "M1perp", None]
         # propagator options
         sigma_1: float = 1.0
         sigma_2: float = 0.0
@@ -281,6 +284,13 @@ class ImplicitDiffusion(Propagator):
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             if self.precond is not None:
                 assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+            if self.diffusion_mat is None:
+                assert self.precond not in ("MultiGrid", "StiffnessPreconditioner"), (
+                    f"precond={self.precond!r} needs a diffusion term (diffusion_mat=None)."
+                )
+                assert self.stab_average is None, (
+                    "Without a diffusion term the averaged part of phi is undetermined (stab_average must be None)."
+                )
             preconditioner._parse_directions(self.stab_average)
 
             # defaults
@@ -398,7 +408,9 @@ class ImplicitDiffusion(Propagator):
             avg = WeightedAverageProjection(self.derham, stab_mat, average_dirs)
             stab_mat = stab_mat @ (IdentityOperator(stab_mat.domain, stab_mat.codomain) - avg)
 
-        if isinstance(self.options.diffusion_mat, str):
+        if self.options.diffusion_mat is None:
+            diffusion_mat = None
+        elif isinstance(self.options.diffusion_mat, str):
             diffusion_mat = getattr(self.mass_ops, self.options.diffusion_mat)
         else:
             diffusion_mat = self.options.diffusion_mat
@@ -408,7 +420,10 @@ class ImplicitDiffusion(Propagator):
 
         # Set lhs matrices (without dt)
         self._stab_mat = stab_mat
-        self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
+        if diffusion_mat is None:
+            self._diffusion_op = None
+        else:
+            self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
         # the multigrid and stiffness preconditioners depend on sigma_1, they are updated in __call__
@@ -439,7 +454,7 @@ class ImplicitDiffusion(Propagator):
         # (only "pcg" takes a preconditioner)
         pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
         self._solver = inverse(
-            self._diffusion_op,
+            stab_mat if self._diffusion_op is None else self._diffusion_op,
             self.options.solver,
             **pc_kwargs,
             x0=self.x0,
@@ -470,6 +485,8 @@ class ImplicitDiffusion(Propagator):
         """True if the diffusion operator ``grad.T @ diffusion_mat @ grad`` is known to be singular
         with the constant functions (coefficient vector of all ones) in its kernel: no Dirichlet boundary
         conditions and tensor-product splines. Polar splines are conservatively treated as regular."""
+        if self._diffusion_op is None:
+            return False
         no_dirichlet = not any(any(bc) for bc in self.derham.dirichlet_bc)
         return (
             no_dirichlet
@@ -582,7 +599,10 @@ class ImplicitDiffusion(Propagator):
             self.diagnostic.spline.vector = proj.solve(rhs)
 
         # compute lhs
-        self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        if self._diffusion_op is None:
+            self._solver.linop = sig_1 * self._stab_mat
+        else:
+            self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
         if sig_1 != self._pc_sig_1:
             if self._mg is not None:
                 self._mg.update(self._solver.linop)
