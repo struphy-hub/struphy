@@ -186,18 +186,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         average_matrix_teta = AverageOperator(derham, direction=1)
         self.average_matrix = average_matrix_z @ average_matrix_teta
 
-    def update_scalar_quantities(self):
-        """Solve the Poisson equation for the current marker positions, then update the scalars.
-
-        A time step ends with a push (bxe with Strang, para with Lie-Trotter), so the potential would lag behind the
-        markers in ``en_phi``, ``en_tot`` and the saved data (which is extracted after this call). The extra solve,
-        once per saved step, does not change the dynamics: the next Poisson solve of the time stepping overwrites it.
-
-        :meta private:
-        """
-        self.propagators.gc_poisson(1.0)
-        super().update_scalar_quantities()
-
     def _compute_en_phi(self):
         phi = self.em_fields.phi.spline.vector
         epsilon = self.kinetic_ions.equation_params.epsilon
@@ -300,7 +288,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 splitting, bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2), the parallel push and the closing bxe(dt/2) use a freshly
 solved potential; the two bxe(dt/2) at a step boundary act as one bxe(dt) with the potential solved before it. With
 Lie-Trotter splitting the parallel push uses a fresh potential and the E* x b push the one of the previous step.
-Before the scalars and the field data are saved, the Poisson equation is solved for the current marker positions.
+Since a time step ends with a push, the saved potential and ``en_phi`` belong to the marker positions before that
+last push.
 
 **1. PushGuidingCenterBxEstar:**
 
