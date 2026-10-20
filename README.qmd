@@ -137,7 +137,7 @@ python params_two_stream.py
 python pproc_two_stream.py
 ```
 
-![Two-stream instability: phase space of the electrons at t = 0, 25 and 50](https://raw.githubusercontent.com/struphy-hub/struphy/devel/doc/pics/readme_two_stream.png)
+![Two-stream instability: phase space of the electrons at t = 0, 25 and 50](doc/pics/readme_two_stream.png)
 
 *Two-stream instability: the electron distribution function f(x, v) at t = 0, 25 and 50, computed with the model [VlasovAmpereOneSpecies](https://struphy-hub.github.io/models/vlasov-ampere-one-species/) in a FEEC-PIC discretization (particle-in-cell markers for the electrons, finite element exterior calculus splines for the electric field). Two counter-streaming beams roll up into a phase-space vortex.*
 
