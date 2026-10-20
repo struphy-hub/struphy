@@ -48,7 +48,7 @@ a period of about 73 time units (about 30 kHz with the default base units x_unit
 hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 6.8 periods; the pproc script asserts the
 measured frequency within 10% of omega_TAE and shows the energies, the components of the fields and the radial
 profiles of the (m, n) harmonics. With --model ShearAlfvenCurlCurl on the default grid (4 elements per poloidal
-mode), the 5000 time steps take about 1 h on 4 MPI ranks (measured: omega = 0.0863).
+mode), the 5000 time steps take about 1 h on 4 MPI ranks.
 
 References:
 - W. W. Heidbrink, "Basic physics of Alfven instabilities in toroidal plasmas", Phys. Plasmas 15, 055501 (2008).
@@ -183,7 +183,13 @@ equil = equils.AdhocTorus(
 grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 
 # Derham options
-derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
+# Boundary conditions at the walls (flux surfaces, B0.n = 0): ShearAlfven (magnetic field in H(div)) imposes
+# b.n = 0 and u.n = 0 strongly (Dirichlet). The curl-curl models (magnetic field in H(curl)) use free boundary
+# conditions: dropping the boundary term of the weak induction equation imposes u.n = 0 weakly, while Dirichlet would
+# force the tangential magnetic field to zero (unphysical; its radial Lorentz force at the walls damps the TAE in
+# ShearAlfvenCurlCurl).
+bcs_eta1 = ("dirichlet", "dirichlet") if args.model == "ShearAlfven" else ("free", "free")
+derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
 
 # Profiling options
 profiling_opts = ProfilingOptions(use_line_profiler=False)
@@ -220,7 +226,8 @@ model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precon
 
 # Perturbations for (some) FEEC variables
 # The m = 10 and m = 11 harmonics of the TAE (n = 6: logical mode number -1 along eta3), Gaussian around eta1_c (the
-# radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m sigma)
+# radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m)
+# ("d_exp" is the derivative of "exp")
 eta1_c = (0.5 - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
 sigma, amp = 0.1, 1e-3
 ms = (10, 11)
@@ -236,7 +243,7 @@ perturbation_radial = perturbations.TorusModesSin(
 perturbation_poloidal = perturbations.TorusModesCos(
     ms=ms,
     ns=(-1, -1),
-    amps=tuple(amp / (2 * np.pi * m * sigma) for m in ms),
+    amps=tuple(amp / (2 * np.pi * m) for m in ms),
     pfuns=("d_exp", "d_exp"),
     pfun_params=([eta1_c, sigma], [eta1_c, sigma]),
     comp=1,

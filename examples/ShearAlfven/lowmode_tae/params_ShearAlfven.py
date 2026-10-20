@@ -16,7 +16,7 @@ particles: the TAE is excited by the initial condition, not driven. The low mode
 much less resolution than the ITPA TAE benchmark (n = 6, m = 10 and 11), so that this case verifies the frequency of
 the three ShearAlfven models on a laptop. On 2 MPI ranks, the 1200 time steps take about 8 min with
 --model ShearAlfvenCurlCurl (magnetic field in H(curl), curl-curl solve preconditioned by Hiptmair-Xu; not energy
-conserving: it loses about 80% of the energy over the run, but the frequency stays within the tolerance), about
+conserving: it loses about 25% of the energy over the run, but the frequency stays within the tolerance), about
 40 min with --model ShearAlfvenCurlCurlwithProj (exactly energy conserving) and about 45 min with ShearAlfven.
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
@@ -36,7 +36,7 @@ with the velocity unit v_unit (the Alfven velocity of the base units, set by the
 
 Setup. Tokamak with circular flux surfaces (AdhocTorus): major radius R0 = 5, minor radius a = 1, toroidal field
 B0 = 1, safety factor q(r) = 1.25 + r^2/a^2 (q = 1.5 at r = 0.5), flat number density n = 1 (as in the ITPA
-benchmark, so that the gap is open over the whole radius) and on-axis beta 0.0018. The full torus is computed
+benchmark of Koenies et al. 2018) and on-axis beta 0.0018. The full torus is computed
 (HollowTorus with tor_period = 1 and a hole of radius 0.1): the logical mode number -1 along eta3 is the physical
 n = 1. The velocity is initialized with divergence-free m = 1 and m = 2 harmonics, localized around r = 0.5 (given as
 2-form components).
@@ -179,7 +179,13 @@ equil = equils.AdhocTorus(
 grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 
 # Derham options
-derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
+# Boundary conditions at the walls (flux surfaces, B0.n = 0): ShearAlfven (magnetic field in H(div)) imposes
+# b.n = 0 and u.n = 0 strongly (Dirichlet). The curl-curl models (magnetic field in H(curl)) use free boundary
+# conditions: dropping the boundary term of the weak induction equation imposes u.n = 0 weakly, while Dirichlet would
+# force the tangential magnetic field to zero (unphysical; its radial Lorentz force at the walls damps the TAE in
+# ShearAlfvenCurlCurl).
+bcs_eta1 = ("dirichlet", "dirichlet") if args.model == "ShearAlfven" else ("free", "free")
+derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
 
 # Profiling options
 profiling_opts = ProfilingOptions(use_line_profiler=False)
@@ -216,7 +222,8 @@ model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precon
 
 # Perturbations for (some) FEEC variables
 # The m = 1 and m = 2 harmonics of the TAE (n = 1: logical mode number -1 along eta3), Gaussian around eta1_c (the
-# radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m sigma)
+# radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m)
+# ("d_exp" is the derivative of "exp")
 eta1_c = (0.5 - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
 sigma, amp = 0.15, 1e-3
 ms = (1, 2)
@@ -232,7 +239,7 @@ perturbation_radial = perturbations.TorusModesSin(
 perturbation_poloidal = perturbations.TorusModesCos(
     ms=ms,
     ns=(-1, -1),
-    amps=tuple(amp / (2 * np.pi * m * sigma) for m in ms),
+    amps=tuple(amp / (2 * np.pi * m) for m in ms),
     pfuns=("d_exp", "d_exp"),
     pfun_params=([eta1_c, sigma], [eta1_c, sigma]),
     comp=1,

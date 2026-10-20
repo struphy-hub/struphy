@@ -966,11 +966,13 @@ class TorusModesSin(Perturbation):
             \begin{aligned}
             &\sin(l_s\pi\eta_1)\,,
             \\[2mm]
-            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            &\frac{1}{\sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
             \\[2mm]
-            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            & - \frac{\eta_1 - r_0}{\sigma^2 \sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
             \end{aligned}
             \right.
+
+        for ``"sin"``, ``"exp"`` and ``"d_exp"``, respectively; ``"d_exp"`` is the derivative of ``"exp"``.
 
         Can ony be used in logical space (use 'given_in_basis').
         """
@@ -1109,11 +1111,13 @@ class TorusModesCos(Perturbation):
             \begin{aligned}
             &\sin(\pi\eta_1)\,,
             \\[2mm]
-            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            &\frac{1}{\sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
             \\[2mm]
-            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            & - \frac{\eta_1 - r_0}{\sigma^2 \sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
             \end{aligned}
             \right.
+
+        for ``"sin"``, ``"exp"`` and ``"d_exp"``, respectively; ``"d_exp"`` is the derivative of ``"exp"``.
 
         Can only be used in logical space (use 'given_in_basis').
         """
