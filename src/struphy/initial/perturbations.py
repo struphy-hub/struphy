@@ -936,13 +936,13 @@ class TorusModesSin(Perturbation):
         Toroidal mode numbers.
 
     pfuns : tuple | list[str]
-        "sin" or "cos" or "exp" to define the profile functions.
+        "sin", "exp" or "d_exp" to define the profile functions.
 
     amps : tuple | list[float]
         Amplitudes of each mode (m_i, n_i).
 
     pfun_params : tuple | list
-        Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
+        Provides :math:`[r_0, \sigma]` parameters for each "exp" and "d_exp" profile function, and l_s for "sin".
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
@@ -966,13 +966,15 @@ class TorusModesSin(Perturbation):
             \begin{aligned}
             &\sin(l_s\pi\eta_1)\,,
             \\[2mm]
-            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            &\frac{1}{\sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
             \\[2mm]
-            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            & - \frac{\eta_1 - r_0}{\sigma^2 \sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
             \end{aligned}
             \right.
 
-        Can ony be used in logical space (use 'given_in_basis').
+        for ``"sin"``, ``"exp"`` and ``"d_exp"``, respectively; ``"d_exp"`` is the derivative of ``"exp"``.
+
+        Can only be used in logical space (use 'given_in_basis').
         """
 
     def __init__(
@@ -1079,13 +1081,13 @@ class TorusModesCos(Perturbation):
         Toroidal mode numbers.
 
     pfuns : tuple[str]
-        "sin" or "cos" or "exp" to define the profile functions.
+        "sin", "cos", "exp" or "d_exp" to define the profile functions.
 
     amps : tuple[float]
         Amplitudes of each mode (m_i, n_i).
 
     pfun_params : tuple | list
-        Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
+        Provides :math:`[r_0, \sigma]` parameters for each "exp" and "d_exp" profile function, and l_s for "sin".
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
@@ -1107,13 +1109,17 @@ class TorusModesCos(Perturbation):
 
             \chi_s(\eta_1) = \left\{
             \begin{aligned}
-            &\sin(\pi\eta_1)\,,
+            &\sin(l_s\pi\eta_1)\,,
             \\[2mm]
-            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            &\cos(\pi\eta_1)\,,
             \\[2mm]
-            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            &\frac{1}{\sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            \\[2mm]
+            & - \frac{\eta_1 - r_0}{\sigma^2 \sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
             \end{aligned}
             \right.
+
+        for ``"sin"``, ``"cos"``, ``"exp"`` and ``"d_exp"``, respectively; ``"d_exp"`` is the derivative of ``"exp"``.
 
         Can only be used in logical space (use 'given_in_basis').
         """

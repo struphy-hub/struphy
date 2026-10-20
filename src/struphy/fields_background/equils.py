@@ -845,11 +845,11 @@ class AdhocTorus(AxisymmMHDequilibrium):
     l : float
         Linear term factor for q profile if q_kind=2 (default: 0.).
     n1 : float
-        1st shape factor for ion number density profile (default: 0.).
+        1st shape factor for ion number density profile (default: 2.).
     n2 : float
-        2nd shape factor for ion number density profile (default: 0.).
+        2nd shape factor for ion number density profile (default: 1.).
     na : float
-        Ion number density at r=a (default: 1.).
+        Ion number density at r=a (default: 0.2).
     p_kind : int
         Kind of pressure profile, see :meth:`doc_formula` (0 or 1, default: 1).
     p0 : float
@@ -1323,11 +1323,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
     q1p : float
         Derivative of safety factor at r=a (w.r.t. poloidal flux function, default: 5.00).
     n1 : float
-        1st shape factor for ion number density profile (default: 0.).
+        1st shape factor for ion number density profile (default: 2.).
     n2 : float
-        2nd shape factor for ion number density profile (default: 0.).
+        2nd shape factor for ion number density profile (default: 1.).
     na : float
-        Ion number density at r=a (default: 1.).
+        Ion number density at r=a (default: 0.2).
     beta : float
         On-axis (r=0) plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
     p1 : float
@@ -1667,11 +1667,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     flux_resolution : float
         Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
     n1 : float
-        1st shape factor for ion number density profile n = n(psi) (default: 0.).
+        1st shape factor for ion number density profile n = n(psi) (default: 2.).
     n2 : float
-        2nd shape factor for ion number density profile n = n(psi) (default: 0.).
+        2nd shape factor for ion number density profile n = n(psi) (default: 1.).
     na : float
-        Ion number density at plasma boundary (default: 1.).
+        Ion number density at plasma boundary (default: 0.2).
     base_units : BaseUnits
         Struphy base units. If None, no rescaling of output is performed.
     """
