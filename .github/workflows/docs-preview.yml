@@ -100,7 +100,8 @@ jobs:
         uses: ./.github/actions/compile
 
       # The preview is for inspecting the rendered docs, so notebooks are not
-      # executed (their stored outputs are used); this speeds up the build.
+      # executed (faster build). Notebooks are stored without outputs, so the
+      # tutorial pages show code cells only.
       - name: Build Sphinx docs (without executing notebooks)
         run: |
           cd doc
