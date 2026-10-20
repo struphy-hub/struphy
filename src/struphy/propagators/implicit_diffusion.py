@@ -355,9 +355,11 @@ class ImplicitDiffusion(Propagator):
 
                 if not rhs.particles.control_variate and rhs.space_id == "H1":
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
-                    f0e = -rho.pic_variable.species.charge_number * rhs.particles.f0
-                    # neutralising background: get_dofs already returns (n0, Lambda^0)_L2,
-                    # i.e. the weak-form rhs, so it is added as a StencilVector (no extra M0)
+                    # neutralising background -n0: the accumulator deposits the particle density (weights) and the
+                    # charge (number and sign) is in the coefficient of the source, which the background shares
+                    f0e = -1 * rhs.particles.f0
+                    # get_dofs already returns (n0, Lambda^0)_L2, i.e. the weak-form rhs,
+                    # so it is added as a StencilVector (no extra M0)
                     rho_eh = l2_proj.get_dofs(f0e.n, apply_bc=True)
                     return [rhs, rho_eh]
 

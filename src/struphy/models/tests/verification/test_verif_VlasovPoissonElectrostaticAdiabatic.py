@@ -25,6 +25,7 @@ from struphy import (
     perturbations,
 )
 from struphy.models import VlasovPoissonElectrostaticAdiabatic
+from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
 
@@ -156,5 +157,58 @@ def test_ion_acoustic_Landau(quasi_neutral: bool, do_plot: bool = False, exit_be
         shutil.rmtree(test_folder)
 
 
+def test_neutral_full_f_background():
+    r"""A uniform full-f plasma of ions with charge number :math:`Z = 2` is neutral, so the potential is at noise level.
+
+    Without the control variate, the Poisson solve subtracts the neutralizing background :math:`n_0` from the deposited
+    ion density; the charge number is part of the source coefficient, not of the background. A background
+    :math:`Z n_0` would give :math:`\phi = -Z \varepsilon T_0 = -2` everywhere.
+    """
+    model = VlasovPoissonElectrostaticAdiabatic(charge_number=2, mass_number=4.0, alpha=1.0, epsilon=1.0)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "VlasovPoissonElectrostaticAdiabatic")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="neutral_full_f")
+
+    # n0 = 1 and T_e = p / n0 = beta |B0|^2 / 2 = 1
+    equil = equils.HomogenSlab(B0z=1.0, beta=2.0, n0=1.0)
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=200, seed=1234),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.poisson.options = model.propagators.poisson.Options()
+    model.propagators.push_v_E.options = model.propagators.push_v_E.Options()
+    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=Time(dt=0.05, Tend=0.05),
+        equil=equil,
+        domain=domains.Cuboid(),
+        grid=grids.TensorProductGrid(num_elements=(16, 1, 1)),
+        derham_opts=DerhamOptions(degree=(3, 1, 1)),
+    )
+    sim.run()
+
+    # root mean square of phi over the unit cube (collective, on all ranks)
+    phi = model.em_fields.phi.spline.vector
+    phi_rms = float(xp.sqrt(Propagator.mass_ops.M0.dot_inner(phi, phi)))
+    logger.info(f"{phi_rms =}")
+    assert phi_rms < 0.5, f"Full-f background not neutralizing: {phi_rms =} (a background Z n0 gives 2)."
+
+    MPI.COMM_WORLD.Barrier()
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        shutil.rmtree(test_folder)
+
+
 if __name__ == "__main__":
     test_ion_acoustic_Landau(True, do_plot=True)
+    test_neutral_full_f_background()
