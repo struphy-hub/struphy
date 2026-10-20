@@ -56,14 +56,16 @@ mpirun -n 4 python params_<name>.py     # MPI (needs `pip install mpi4py`); the 
 
 - Don't invent model, species, variable, propagator or option names. Get them from
   `struphy params <Model>`, `help(<class>)` or a matching example, because every model differs.
-- Examples (`examples/<Model>/<case>/`) are the best starting point. They are in the Struphy repository,
-  not in the pip package; `struphy agents` prints the URL for the installed version.
+- Examples (`<Model>/<case>/params_*.py` with a matching `pproc_*.py`) are the best starting point. They are
+  not in the pip package but in https://github.com/struphy-hub/struphy-examples, tagged per Struphy release;
+  `struphy agents` prints the URL of the tag for the installed version.
 - Post-processing reads the output folder (`Output("sim_1")`); never re-run or import the params file for it.
 - Under MPI, call collective operations (`sim.run()`, `out.pproc()`, `out.evaluate()`) on all ranks.
   Restrict only printing and plotting to rank 0.
 
 ## Documentation
 
+- Website (models, numerics, examples gallery): https://struphy-hub.github.io/
 - Quickstart: https://struphy-hub.github.io/struphy/sections/quickstart.html
 - User guide: https://struphy-hub.github.io/struphy/sections/userguide.html
 - Models: https://struphy-hub.github.io/struphy/sections/models.html

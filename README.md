@@ -22,6 +22,8 @@
 
 All models can be run on multiple cores through MPI (distributed memory) and OpenMP (shared memory). The compute-intensive parts of the code are translated and compiled (“transpiled”) using [pyccel](https://github.com/pyccel/pyccel), giving you the speed of Fortran or C while working within the familiar Python environment.
 
+Explore Struphy on its website **[struphy-hub.github.io](https://struphy-hub.github.io/)**: the models and their equations, the numerical methods, domains, equilibria and a gallery of examples.
+
 The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for Plasma Physics.
 
 ![Max Planck Institute Logo](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb_centered.png)
@@ -59,6 +61,17 @@ Parallel simulations are run for example with
 
 You can also put the run command in a batch script.
 
+## Examples
+
+Ready-to-run simulations, each with a parameter file and a post-processing script, are in the repository [struphy-examples](https://github.com/struphy-hub/struphy-examples), one folder per model and case. Its tags match the Struphy releases, so clone the tag of your installed version (`struphy --version`), for example
+
+```
+git clone --branch vX.Y.Z https://github.com/struphy-hub/struphy-examples.git
+cd struphy-examples/VlasovAmpereOneSpecies/two_stream
+python params_two_stream.py
+python pproc_two_stream.py
+```
+
 ## AI coding agents
 
 Struphy ships a usage guide for AI coding agents (Claude Code, Codex, Copilot, Cursor, ...) that matches your installed version. It explains how to set up, run and post-process simulations. Print it with
@@ -83,6 +96,7 @@ Check the list of currently available models in the [documentation](https://stru
 
 The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
 
+- [Website](https://struphy-hub.github.io/) (overview of models, numerics and examples)
 - [Install](https://struphy-hub.github.io/struphy/sections/install.html)
 - [Userguide](https://struphy-hub.github.io/struphy/sections/userguide.html)
 - [Available models](https://struphy-hub.github.io/struphy/sections/models.html)

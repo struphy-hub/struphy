@@ -22,9 +22,10 @@ This skill ships with the installed Struphy package, so it matches the installed
    Skip this if the user is clearly iterating on an existing working setup.
 
 2. **Pick a starting point, in this order of preference:**
-   - Find the closest existing example and adapt it. Examples live in `examples/<ModelName>/<case>/params_*.py`
-     of the Struphy repository (not in the pip package; `struphy agents` prints the URL). In a source
-     checkout, list them with `ls examples/`. They are the most reliable reference because model-specific
+   - Find the closest existing example and adapt it. Examples live in `<ModelName>/<case>/params_*.py` of
+     https://github.com/struphy-hub/struphy-examples (not in the pip package; `struphy agents` prints the URL
+     of the tag for the installed version, clone it with `git clone --branch vX.Y.Z ...`). In a Struphy source
+     checkout, they are in `examples/`. They are the most reliable reference because model-specific
      options (which propagators exist, what each species needs) vary per model and are easiest to get right
      by copying a working case.
    - If no example matches, scaffold a default with the CLI:
