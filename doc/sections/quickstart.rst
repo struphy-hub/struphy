@@ -260,8 +260,8 @@ simulations of physics scenarios and numerical test cases, for example Landau da
 and Weibel instabilities, the ITPA TAE benchmark, the Cyclone base case or elliptic problems on tori.
 The folders are sorted by model and then by case; each case contains
 
-* ``params_<case>.py``: the parameter file, which sets up and runs the simulation,
-* ``pproc_<case>.py``: the post-processing script, which reads the output and creates the figures.
+* ``params_*.py``: the parameter file, which sets up and runs the simulation,
+* ``pproc_*.py``: the post-processing script, which reads the output and creates the figures.
 
 The physics and the expected results are described in the docstring at the top of each parameter file.
 The repository is updated with every Struphy release and tagged with its version, so clone the tag that

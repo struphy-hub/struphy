@@ -27,8 +27,11 @@ git clone --branch vX.Y.Z https://github.com/struphy-hub/struphy-examples.git   
 
 The folders are sorted by model name and then by case: `<Model>/<case>/` contains
 
-- `params_<case>.py`: the parameter file, which sets up and runs the simulation;
-- `pproc_<case>.py`: the post-processing script, which reads the output and creates the figures.
+- `params_*.py`: the parameter file, which sets up and runs the simulation;
+- `pproc_*.py`: the post-processing script, which reads the output and creates the figures.
+
+Some cases are also used for performance profiling in Struphy; their `submit_*.py` scripts need the profiling
+driver of the Struphy repository and are therefore not included here.
 
 For example, the two-stream instability of the model `VlasovAmpereOneSpecies`:
 
