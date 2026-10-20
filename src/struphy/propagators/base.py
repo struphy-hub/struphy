@@ -66,7 +66,7 @@ class Propagator(metaclass=ABCMeta):
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
-        opt1: str = ("implicit",)
+        opt1: OptsTemplate = "implicit"
 
         def __post_init__(self):
             # checks
@@ -99,6 +99,17 @@ class Propagator(metaclass=ABCMeta):
         ----------
         dt : float
             Time step size.
+        """
+
+    def prepare_time_step(self, dt: float):
+        """Set up the data that depends on the time step (e.g. preconditioners) for ``dt``, before the first call
+        with ``dt``, so that it is part of the setup rather than of the first time step (see
+        :meth:`~struphy.simulation.sim.Simulation.run`). Optional; does nothing by default.
+
+        Parameters
+        ----------
+        dt : float
+            Time step size of the first call.
         """
 
     @property
