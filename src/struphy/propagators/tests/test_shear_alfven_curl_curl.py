@@ -101,6 +101,22 @@ def test_energy_dissipation(tmp_path):
     assert en[-1] > 0.9 * en[0], en
 
 
+def test_prepare_time_step(tmp_path):
+    """prepare_time_step (called in the setup of Simulation.run) builds the Hiptmair-Xu preconditioner, which a step
+    with the same dt reuses and one with another dt rebuilds."""
+    options = ShearAlfvenCurlCurlPropagator.Options(solver_params=SolverParameters(tol=1e-13, maxiter=1000))
+    model = allocate_model(tmp_path, "prepare", options)
+    shear_alf = model.propagators.shear_alf
+    assert shear_alf._hx_dt is None
+    shear_alf.prepare_time_step(0.5)
+    assert shear_alf._hx_dt == 0.5
+    pc = shear_alf._schur_solver.precond
+    shear_alf(0.5)
+    assert shear_alf._schur_solver.precond is pc
+    shear_alf(0.2)
+    assert shear_alf._hx_dt == 0.2 and shear_alf._schur_solver.precond is not pc
+
+
 def test_formulations_agree(tmp_path):
     """For a smooth mode, the steps with and without the projection in the curl-curl term differ by the projection
     error only."""
