@@ -127,7 +127,14 @@ For periodic boundary conditions we will stabilize via ``options``.
     eta = np.linspace(0, 1, 100)
     phi_2d = out.evaluate("em_fields/phi", eta1=eta, eta2=eta, t=-1)
     phi_2d.plot(x="X", y="Y")
+    plt.savefig("quickstart_poisson_phi_2d.png", dpi=150)
     plt.show()
+
+.. figure:: ../pics/quickstart_poisson_phi_2d.png
+    :figwidth: 70%
+    :alt: Poisson quickstart solution on the 2D domain
+
+    Struphy solution :math:`\phi(x, y)` from Step 8 in physical coordinates.
 
 ``out`` can also be created later from the output folder alone, e.g. in a separate
 post-processing script, via ``out = Output("sim_1")``; the model, domain and numerical
@@ -198,6 +205,7 @@ Full script (save as ``params_poisson.py`` and run with ``python params_poisson.
         eta = np.linspace(0, 1, 100)
         phi_2d = out.evaluate("em_fields/phi", eta1=eta, eta2=eta, t=-1)
         phi_2d.plot(x="X", y="Y")
+        plt.savefig("quickstart_poisson_phi_2d.png", dpi=150)
         plt.show()
 
 
