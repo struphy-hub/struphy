@@ -12,8 +12,7 @@ name = "ITPA TAE benchmark (ShearAlfven)"
 description = """
 Toroidal Alfven eigenmode (TAE) with the ShearAlfven model: the shear Alfven part of linear ideal MHD around a
 static (zero-flow) equilibrium, without pressure and density perturbations (no coupling to the magnetosonic waves;
-compare with the LinearMHD version of this benchmark, which still uses a peaked density profile and expects a
-higher frequency). No energetic particles: the TAE is excited by the initial
+compare with the LinearMHD version of this benchmark). No energetic particles: the TAE is excited by the initial
 condition, not driven. With --model ShearAlfvenCurlCurl, the magnetic field is in H(curl) and the implicit step
 solves a curl-curl system for it, preconditioned by Hiptmair-Xu
 (same physics, same expected frequency; the time step is not exactly energy conserving and damps the wave
