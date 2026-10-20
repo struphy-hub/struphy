@@ -15,49 +15,49 @@ from struphy.utils.utils import check_option
 
 class GyrokineticPoissonSolve(ImplicitDiffusion):
     r"""
-    Weak discretization of the Poisson equation, with adabatic response of electrons.
+    Weak discretization of the Poisson equation, with adiabatic response of electrons.
 
     Find :math:`\phi \in H^1` such that
 
     .. math::
 
-        \frac{1}{Z\epsilon^2} \int_\Omega \frac{n_0}{T_0} \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \frac{n_0}{|B_0|²} \nabla \psi^\top \,\mathbb D \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
+        \frac{1}{Z\epsilon^2} \int_\Omega \frac{n_0}{T_0} \psi\, (\phi - \langle \phi \rangle)\,\textrm d \mathbf x + \int_\Omega \frac{n_0}{|B_0|^2} \nabla \psi^\top \,\mathbb D \nabla \phi \,\textrm d \mathbf x = \frac{1}{\epsilon} \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
     where :math:`\mathbb D` can be an anisotropic (gyrokinetic) diffusion operator (or the identity),
-    :math:`\epsilon \in \mathbb R` is the gyrokinetic ratio defined in units, and Z the charge number of ions.
+    :math:`\epsilon \in \mathbb R` is the gyrokinetic ratio defined in units, Z the charge number of ions and
+    :math:`\langle \phi \rangle` the (weighted) average over :math:`\eta_3` or over :math:`\eta_2, \eta_3`
+    (``which_geometry``): the electrons do not respond to the flux-surface averaged potential.
     Boundary terms from integration by parts are assumed to vanish.
 
     The equation is discretized as
 
     .. math::
 
-        \left( \frac{1}{Z\epsilon^2}\,\mathbb M^0_ad + \mathbb G^\top \mathbb M^1_\textnormal{gyro} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
+        \left( \frac{1}{Z\epsilon^2}\,\mathbb M^0_{\textnormal{ad},T} (\mathbb I - \mathbb A) + \mathbb G^\top \mathbb M^1_\textnormal{gyro} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \frac{1}{\epsilon} \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
 
-    where :math:`\mathbb M^1_\textnormal{gyro}` is the gyrokinetic mass matrix
-    and :math:`\mathbb S` is a stabilization matrix.
+    where :math:`\mathbb M^0_{\textnormal{ad},T}` is the mass matrix weighted with :math:`n_0/T_0` (``stab_mat``,
+    default ``"M0ad_withT"``), :math:`\mathbb A` the weighted average projection and
+    :math:`\mathbb M^1_\textnormal{gyro}` the gyrokinetic mass matrix (``diffusion_mat``).
 
     Parameters
     ----------
-    phi : StencilVector
-        FE coefficients of the solution as a discrete 0-form.
-
-    stab_eps : float
-        Stabilization parameter multiplied on stab_mat (default=0.0).
-
-    stab_mat : str
-        Name of the stabilizing matrix.
-
     rho : FEECVariable or Callable or ParticlesToGrid or list
         (List of) right-hand side source term(s) of the Poisson problem (optional, can be set with
         a setter later). See :class:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion` for
         the accepted entries; particle sources are passed as
         :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`.
 
-    x0 : StencilVector
-        Initial guess for the iterative solver (optional, can be set with a setter later).
+    rho_coeffs : float or list
+        Multiplicative coefficient(s) applied to ``rho`` (default 1.0 for all sources).
 
-    solver : dict
-        Parameters for the iterative solver (see ``__init__`` for details).
+    epsilon : float
+        Gyrokinetic parameter.
+
+    Z : int
+        Charge number of the ions.
+
+    diagnostic : FEECVariable, optional
+        If given, the L2 projection of the right-hand side is stored in it.
     """
 
     def __init__(
@@ -89,18 +89,13 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
 
         Parameters
         ----------
-        epsilon : float, default=1.0
-            Gyrokinetic parameter
-
-        Z : float, default=1.0
-            Charge number of ions
-
-        stab_mat : {"M0", "M0ad", "Id"}, default="Id"
-            Stabilization matrix multiplied by ``stab_eps``.
+        stab_mat : {"M0", "M0ad", "Id", "M0ad_withT"}, default="M0ad_withT"
+            Mass matrix of the adiabatic term, multiplied by ``1 / (Z * epsilon**2)``.
 
             - ``"M0"``: standard weighted 0-form mass operator.
-            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
+            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator (weight :math:`n_0`).
             - ``"Id"``: identity operator.
+            - ``"M0ad_withT"``: adiabatic-electron weighted 0-form mass operator (weight :math:`n_0/T_0`).
 
         which_geometry: {"cylindrical", "toroidal"}, default="cylindrical"
             Geometry of the problem, determines the meaning of `<\phi>` in the stabilization term:
@@ -110,23 +105,8 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
             averaged surfaces, the flux-surface average with the volume element), which keeps the
             operator symmetric (:class:`~struphy.feec.mass.WeightedAverageProjection`).
 
-        diffusion_mat : {"M1", "M1perp", "M1gyro"}, defaults="M1gyro"
+        diffusion_mat : {"M1", "M1perp", "M1gyro"}, default="M1gyro"
             Diffusion matrix.
-
-        rho : FEECVariable or Callable or ParticlesToGrid or list, default=None
-            Right-hand side source term(s) of the Poisson problem.
-            Accepted entries are:
-
-            - ``None``: zero source.
-            - ``FEECVariable`` in ``H1``.
-            - ``Callable`` to be projected to ``H1`` via ``L2Projector``.
-            - :class:`~struphy.pic.accumulation.particles_to_grid.ParticlesToGrid`, describing a
-              particle-to-grid (charge/current) deposition.
-            - a ``list`` containing any mix of the entries above.
-
-        rho_coeffs : float or list, default=None
-            Multiplicative coefficient(s) applied to ``rho``.
-            If ``None``, coefficients default to ``1.0`` for all sources.
 
         x0 : StencilVector, default=None
             Initial guess for the iterative linear solver.
