@@ -14,10 +14,10 @@ Toroidal Alfven eigenmode (TAE) with low mode numbers with the ShearAlfven model
 ideal MHD around a static (zero-flow) equilibrium, without pressure and density perturbations. No energetic
 particles: the TAE is excited by the initial condition, not driven. The low mode numbers (n = 1, m = 1 and 2) need
 much less resolution than the ITPA TAE benchmark (n = 6, m = 10 and 11), so that this case verifies the frequency of
-the three ShearAlfven models on a laptop. On 2 MPI ranks, the 1200 time steps take about 8 min with
+the three ShearAlfven models on a laptop. On 2 MPI ranks, the 1200 time steps take about 10 min with
 --model ShearAlfvenCurlCurl (magnetic field in H(curl), curl-curl solve preconditioned by Hiptmair-Xu; not energy
 conserving: it loses about 25% of the energy over the run, but the frequency stays within the tolerance), about
-40 min with --model ShearAlfvenCurlCurlwithProj (exactly energy conserving) and about 45 min with ShearAlfven.
+2 h with --model ShearAlfvenCurlCurlwithProj (exactly energy conserving) and about 45 min with ShearAlfven.
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -53,6 +53,8 @@ References:
 - W. W. Heidbrink, "Basic physics of Alfven instabilities in toroidal plasmas", Phys. Plasmas 15, 055501 (2008).
 - C. Z. Cheng, L. Chen and M. S. Chance, "High-n ideal and resistive shear Alfven waves in tokamaks",
   Ann. Phys. 161, 21 (1985).
+- A. Koenies et al., "Benchmark of gyrokinetic, kinetic MHD and gyrofluid codes for the linear calculation of fast
+  particle driven TAE dynamics", Nucl. Fusion 58, 126027 (2018).
 """
 
 import argparse

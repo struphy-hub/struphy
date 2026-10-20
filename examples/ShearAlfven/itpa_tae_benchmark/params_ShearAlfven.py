@@ -12,7 +12,8 @@ name = "ITPA TAE benchmark (ShearAlfven)"
 description = """
 Toroidal Alfven eigenmode (TAE) with the ShearAlfven model: the shear Alfven part of linear ideal MHD around a
 static (zero-flow) equilibrium, without pressure and density perturbations (no coupling to the magnetosonic waves;
-compare with the LinearMHD version of this benchmark). No energetic particles: the TAE is excited by the initial
+compare with the LinearMHD version of this benchmark, which still uses a peaked density profile and expects a
+higher frequency). No energetic particles: the TAE is excited by the initial
 condition, not driven. With --model ShearAlfvenCurlCurl, the magnetic field is in H(curl) and the implicit step
 solves a curl-curl system for it, preconditioned by Hiptmair-Xu
 (same physics, same expected frequency; the time step is not exactly energy conserving and damps the wave
@@ -48,7 +49,7 @@ a period of about 73 time units (about 30 kHz with the default base units x_unit
 hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 6.8 periods; the pproc script asserts the
 measured frequency within 10% of omega_TAE and shows the energies, the components of the fields and the radial
 profiles of the (m, n) harmonics. With --model ShearAlfvenCurlCurl on the default grid (4 elements per poloidal
-mode), the 5000 time steps take about 1 h on 4 MPI ranks.
+mode), the 5000 time steps take 1-2 h on 4 MPI ranks.
 
 References:
 - W. W. Heidbrink, "Basic physics of Alfven instabilities in toroidal plasmas", Phys. Plasmas 15, 055501 (2008).
