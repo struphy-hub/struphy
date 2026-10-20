@@ -4,7 +4,7 @@ Run as ``python pproc_slab_drift_wave.py [sim_folder] [flags of params_slab_drif
 the flags must be those of the run. The figures are written into ``<sim_folder>/results`` (``--show`` shows them
 instead): the amplitude and phase of the initial (k_y, k_z) mode against time with the measured and predicted
 frequencies, the field energy, and phi in the (x, y) plane at the first, middle and last saved time. With
-``--compare FOLDER``, the output folder of a run of examples/VlasovPoissonElectrostaticAdiabatic/slab_drift_wave
+``--compare FOLDER``, the output folder of a run of examples/VlasovPoissonAdiabatic/slab_drift_wave
 (same physical setup), the mode of the full-orbit run is overlaid.
 """
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--compare",
         default=None,
-        help="Output folder of a run of examples/VlasovPoissonElectrostaticAdiabatic/slab_drift_wave to overlay.",
+        help="Output folder of a run of examples/VlasovPoissonAdiabatic/slab_drift_wave to overlay.",
     )
     parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
     args = parser.parse_args(other_flags)

@@ -21,7 +21,7 @@ from struphy.propagators.push_vxb import PushVxB
 logger = logging.getLogger("struphy")
 
 
-class VlasovPoissonElectrostaticAdiabatic(StruphyModel):
+class VlasovPoissonAdiabatic(StruphyModel):
     r"""Electrostatic full-orbit (6D) model for a single ion species with adiabatic electrons.
 
     The full-orbit counterpart of :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`:
@@ -321,9 +321,9 @@ saved potential and ``en_phi`` belong to the marker positions half a step earlie
 
         .. code-block:: python
 
-            from struphy.models import VlasovPoissonElectrostaticAdiabatic
+            from struphy.models import VlasovPoissonAdiabatic
 
-            model = VlasovPoissonElectrostaticAdiabatic()
+            model = VlasovPoissonAdiabatic()
             model.em_fields.phi
             model.kinetic_ions.var
 

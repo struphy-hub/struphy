@@ -24,7 +24,7 @@ from struphy import (
     maxwellians,
     perturbations,
 )
-from struphy.models import VlasovPoissonElectrostaticAdiabatic
+from struphy.models import VlasovPoissonAdiabatic
 from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
@@ -48,11 +48,11 @@ def test_ion_acoustic_Landau(quasi_neutral: bool, do_plot: bool = False, exit_be
     :math:`\gamma = -0.1936`.
     """
     # light-weight model instance (alpha only matters with the vacuum term, epsilon drops out for k parallel to B0)
-    model = VlasovPoissonElectrostaticAdiabatic(alpha=2.0, epsilon=1.0)
+    model = VlasovPoissonAdiabatic(alpha=2.0, epsilon=1.0)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-    out_folders = os.path.join(test_folder, "VlasovPoissonElectrostaticAdiabatic")
+    out_folders = os.path.join(test_folder, "VlasovPoissonAdiabatic")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"ion_acoustic_qn_{quasi_neutral}")
 
     # time stepping
@@ -164,10 +164,10 @@ def test_neutral_full_f_background():
     ion density; the charge number is part of the source coefficient, not of the background. A background
     :math:`Z n_0` would give :math:`\phi = -Z (Z - 1) \varepsilon T_0`, here :math:`-2`, everywhere.
     """
-    model = VlasovPoissonElectrostaticAdiabatic(charge_number=2, mass_number=4.0, alpha=1.0, epsilon=1.0)
+    model = VlasovPoissonAdiabatic(charge_number=2, mass_number=4.0, alpha=1.0, epsilon=1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-    out_folders = os.path.join(test_folder, "VlasovPoissonElectrostaticAdiabatic")
+    out_folders = os.path.join(test_folder, "VlasovPoissonAdiabatic")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="neutral_full_f")
 
     # n0 = 1 and T_e = p / n0 = beta |B0|^2 / 2 = 1
