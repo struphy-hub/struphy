@@ -15,7 +15,9 @@ Physics. The ions follow full Lorentz-force orbits,
     dx/dt = v,    dv/dt = (1/epsilon) (-grad phi + v x B0),
 and the electrons respond adiabatically, n_e = Z n0 (1 + e phi / T_e). In the quasi-neutral limit the potential
 follows from
-    n0 phi / (Z epsilon T0) = int f d^3v - n0.
+    n0 phi / (Z epsilon T0) = int f d^3v - n0,
+i.e. the electrons respond adiabatically to all modes (no flux-surface average, as in the drift-kinetic slab
+example examples/DriftKineticElectrostaticAdiabatic/slab_drift_wave with which_geometry=None).
 A perturbation with wave vector k = (k_x, k_y, k_z) in a density gradient kappa_n = -d ln n0 / dx (B0 = e_z)
 propagates in the electron diamagnetic direction (+y) with the drift-wave frequency. In the fluid limit with
 finite-Larmor-radius effects,

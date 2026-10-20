@@ -14,9 +14,12 @@ model VlasovPoissonElectrostaticAdiabatic, so that the two models can be compare
 Physics. The guiding-center distribution f(X, v_par, mu, t) is advected by the parallel streaming, the E x B drift and
 the parallel acceleration by E_par (uniform B0 = e_z, no curvature). The potential follows from the quasi-neutrality
 equation with the ion polarization density and adiabatic electrons,
-    -eps div_perp(n0 grad_perp phi) + n0 / (Z eps T0) (phi - <phi>) = n_gc - n0,
-where <phi> is the average over the flux surfaces x = const, i.e. over y and z (which_geometry="toroidal");
-only the zonal modes k_y = k_z = 0 have no electron response. A perturbation with wave vector
+    -eps div_perp(n0 grad_perp phi) + n0 / (Z eps T0) phi = n_gc - n0.
+As in the full-orbit example, the electrons respond adiabatically to all modes (which_geometry=None, no
+flux-surface average): the two examples use the same electron model. In the shearless slab the electrons
+could physically not respond to modes with k_z = 0 (no motion along B), which would be the average along the field
+lines (which_geometry="cylindrical", average over z); the mode studied here has k_z != 0, where both agree.
+A perturbation with wave vector
 k = (k_x, k_y, k_z) in a density gradient kappa_n = -d ln n0 / dx propagates in the electron diamagnetic direction (+y).
 In the fluid limit
     omega = omega_*e / (1 + k_perp^2 rho_s^2),   omega_*e = epsilon k_y Z T_e kappa_n,   rho_s = epsilon sqrt(Z T_e),
@@ -181,9 +184,10 @@ model.kinetic_ions.set_markers(
 # ------------------
 
 model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True)
-# in the slab the flux surfaces are x = const: the electrons do not respond to the average over y and z
-# ("toroidal" averages over eta2 and eta3; "cylindrical" would leave all modes with k_z = 0 without electron response)
-model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry="toroidal")
+# no flux-surface average: the electrons respond to all modes, as in the full-orbit example (with "cylindrical",
+# the modes with k_z = 0 have no electron response; their ion convective cells, omega ~ 3, made the explicit push
+# unstable at dt = 0.25)
+model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry=None)
 model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True)
 
 # ------------------
