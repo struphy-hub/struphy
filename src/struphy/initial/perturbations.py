@@ -1438,6 +1438,70 @@ class Erf_z(Perturbation):
         return val
 
 
+class Gaussian(Perturbation):
+    r"""Gaussian bump (e.g. a localized pulse as initial condition for wave propagation).
+
+    Parameters
+    ----------
+    amp : float
+        Amplitude.
+
+    center : tuple[float]
+        Center :math:`(x_0, y_0, z_0)` of the bump.
+
+    sigma : tuple[float]
+        Widths :math:`(\sigma_x, \sigma_y, \sigma_z)` per direction; ``None`` for a direction without variation.
+
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class). The coordinates are physical with
+        ``"physical"`` and logical otherwise.
+
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
+    """
+
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(x, y, z) = A \, \exp\left(-\frac{(x - x_0)^2}{2 \sigma_x^2} - \frac{(y - y_0)^2}{2 \sigma_y^2}
+            - \frac{(z - z_0)^2}{2 \sigma_z^2}\right)\,,
+
+        where a direction with :math:`\sigma = ` ``None`` is left out.
+        """
+
+    def __init__(
+        self,
+        amp: float = 1e-4,
+        center: tuple = (0.5, 0.5, 0.5),
+        sigma: tuple = (0.1, 0.1, None),
+        given_in_basis: LiteralOptions.GivenInBasis = None,
+        comp: int = 0,
+    ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        assert len(center) == 3 and len(sigma) == 3, "center and sigma need three entries (one per direction)."
+        assert any(s is not None for s in sigma), "At least one width must be given."
+
+        self._amp = amp
+        self._center = center
+        self._sigma = sigma
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
+    def __call__(self, x, y, z):
+        arg = 0.0 * x
+        for coord, c, s in zip((x, y, z), self._center, self._sigma):
+            if s is not None:
+                arg = arg + (coord - c) ** 2 / (2 * s**2)
+
+        return self._amp * xp.exp(-arg)
+
+
 class RestelliAnalyticSolutionVelocity(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
