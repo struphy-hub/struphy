@@ -182,7 +182,8 @@ class Magnetosonic(Propagator):
             _UT = _U.T
 
         self._B = -1 / 2.0 * _UT @ self.derham.div.T @ self.mass_ops.M3
-        self._C = 1 / 2.0 * self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U
+        # the factor 1/2 of Crank-Nicolson multiplies the whole pressure operator div(p0 u) + 2/3 p0 div u
+        self._C = 1 / 2.0 * (self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U)
 
         if self.b_field.space == "Hcurl":
             if u_space != "Hdiv":
