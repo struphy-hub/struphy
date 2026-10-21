@@ -20,12 +20,51 @@ def test_multigrid_options():
         ShearAlfvenPropagator.Options(precond="MultiGrid", solver="cg")
 
 
+@pytest.mark.mpi_skip
 def test_stiffness_preconditioner_options():
-    ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner")
-    with pytest.raises(AssertionError):
-        ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner", algo="explicit")
-    with pytest.raises(AssertionError):
-        ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner", u_space="Hcurl")
+    """The Kronecker preconditioner is the default; without its requirements it falls back to the (polar) mass matrix
+    one."""
+    from types import SimpleNamespace
+
+    from struphy.feec.preconditioner import ShearAlfvenSchurPreconditioner
+
+    assert ShearAlfvenPropagator.Options().precond == "StiffnessPreconditioner"
+    tp = SimpleNamespace(polar_splines=False, with_local_projectors=False)
+    polar = SimpleNamespace(polar_splines=True, with_local_projectors=False)
+    local = SimpleNamespace(polar_splines=False, with_local_projectors=True)
+    ok = {"algo": "implicit", "solver": "pcg", "u_space": "Hdiv"}
+    assert ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", tp, **ok) == "StiffnessPreconditioner"
+    for kwargs in ({"algo": "explicit"}, {"u_space": "Hcurl"}, {"solver": "cg"}):
+        args = {**ok, **kwargs}
+        assert (
+            ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", tp, **args) == "MassMatrixPreconditioner"
+        )
+        assert (
+            ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", polar, **args)
+            == "PolarMassMatrixPreconditioner"
+        )
+    assert ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", local, **ok) == "MassMatrixPreconditioner"
+    assert ShearAlfvenSchurPreconditioner.resolve("MultiGrid", polar, **ok) == "MultiGrid"
+
+
+@pytest.mark.mpi_skip
+def test_stiffness_preconditioner_polar_fallback(tmp_path):
+    """With polar splines, the default preconditioner falls back to the polar mass matrix preconditioner."""
+    from struphy import domains
+
+    model = ShearAlfven()
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="polar"),
+        domain=domains.IGAPolarCylinder(num_elements=(4, 6), degree=(2, 2), a=1.0, Lz=4.0),
+        equil=equils.ScrewPinch(a=1.0, R0=4.0 / (2 * xp.pi), B0=1.0),
+        grid=grids.TensorProductGrid(num_elements=(4, 6, 2)),
+        derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "free"), None, None), polar_splines=True),
+    )
+    sim.allocate()
+    shear_alf = model.propagators.shear_alf
+    assert shear_alf.options.precond == "StiffnessPreconditioner"
+    assert shear_alf._precond == "PolarMassMatrixPreconditioner"
 
 
 def shear_alfven_step(tmp_path, precond, dts, exb_correction=True, bcs=(None, None, None), monkeypatch=None):
