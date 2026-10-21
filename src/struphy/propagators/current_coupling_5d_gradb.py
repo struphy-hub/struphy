@@ -18,7 +18,7 @@ from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB import cc_lin_mhd_5d_gradB
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg import cc_lin_mhd_5d_gradB_dg
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg_init import cc_lin_mhd_5d_gradB_dg_init
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.diagnostics.kernels.eval_gradB_ediff import eval_gradB_ediff
 from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_Hdiv import push_gc_cc_J2_dg_Hdiv
 from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_init_Hdiv import push_gc_cc_J2_dg_init_Hdiv
@@ -273,15 +273,13 @@ class CurrentCoupling5DGradB(Propagator):
             self._PB_b = self._PB.codomain.zeros()
             self._grad_PB_b = self.derham.grad.codomain.zeros()
 
-            # define Accumulator and arguments
-            self._ACC = Accumulator(
+            # define Accumulator (vector only) and arguments
+            self._ACC = AccumulatorVector(
                 self.variables.energetic_ions.particles,
                 self.options.u_space,
                 cc_lin_mhd_5d_gradB,
                 self.mass_ops,
                 self.domain.args_domain,
-                add_vector=True,
-                symmetry="symm",
                 filter_params=self.options.filter_params,
             )
 
