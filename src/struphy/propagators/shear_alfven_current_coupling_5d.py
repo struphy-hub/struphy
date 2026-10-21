@@ -120,7 +120,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         ----------
         ep_scale : float, default=None
             Factor of the energetic-particle contributions (accumulation): the mass ratio
-            :math:`A_	extnormal{h}/A_	extnormal{b}` of the energetic ions and the MHD bulk if ``None``.
+            :math:`A_\textnormal{h}/A_\textnormal{b}` of the energetic ions and the MHD bulk if ``None``.
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for velocity variable ``u``.
         algo : {"implicit", "explicit"}, default="implicit"

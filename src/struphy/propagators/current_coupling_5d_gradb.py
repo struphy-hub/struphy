@@ -115,13 +115,13 @@ class CurrentCoupling5DGradB(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`CurrentCoupling5DGradB`.
+        r"""Configuration options for :class:`CurrentCoupling5DGradB`.
 
         Parameters
         ----------
         ep_scale : float, default=None
             Factor of the energetic-particle contributions (accumulation): the mass ratio
-            :math:`A_	extnormal{h}/A_	extnormal{b}` of the energetic ions and the MHD bulk if ``None``.
+            :math:`A_\textnormal{h}/A_\textnormal{b}` of the energetic ions and the MHD bulk if ``None``.
 
         algo : {"discrete_gradient", "explicit"}, default="explicit"
             Time integration algorithm.
