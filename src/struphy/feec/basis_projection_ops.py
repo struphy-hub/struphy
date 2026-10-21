@@ -21,7 +21,6 @@ from struphy.feec.utilities import LocalRotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.docstring_converter import auto_convert_docstring
 
 logger = logging.getLogger("struphy")
 
@@ -1598,7 +1597,6 @@ class BasisProjectionOperatorLocal(LinearOperator):
         return self._mat
 
 
-@auto_convert_docstring
 class BasisProjectionOperator(LinearOperator):
     r"""
     Class for assembling basis projection operators in 3d.
