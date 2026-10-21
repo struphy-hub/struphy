@@ -233,6 +233,91 @@ def test_curlb_matrix_free():
     assert abs(den_mf) < 1e-12
 
 
+@pytest.mark.parametrize("u_space", ["Hdiv", "Hcurl", "H1vec"])
+def test_density_matrix_free(u_space: str):
+    """The matrix-free density matrix of CurrentCoupling5DDensity (MarkerOperator with the kernels
+    cc_lin_mhd_5d_D_mf and cc_lin_mhd_5d_D_mf_dot) equals the assembled one (cc_lin_mhd_5d_D) and is antisymmetric."""
+    import numpy as np
+
+    from struphy import (
+        BoundaryParameters,
+        DerhamOptions,
+        LoadingParameters,
+        Simulation,
+        domains,
+        equils,
+        grids,
+        maxwellians,
+    )
+    from struphy.models import LinearMHDDriftkineticCC
+    from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D import cc_lin_mhd_5d_D
+    from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf import cc_lin_mhd_5d_D_mf
+    from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf_dot import cc_lin_mhd_5d_D_mf_dot
+    from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
+
+    model = LinearMHDDriftkineticCC(turn_off=tuple(p for p in ALL_PROPAGATORS if p != "CurrentCoupling5DDensity"))
+    model.energetic_ions.set_markers(
+        loading_params=LoadingParameters(Np=1000, seed=1234),
+        boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")),
+    )
+    model.energetic_ions.var.add_background(maxwellians.GyroMaxwellian2D(n=(0.1, None)))
+    Simulation(
+        model=model,
+        domain=domains.HollowTorus(a1=0.1, a2=1.0, R0=3.0, tor_period=1),
+        equil=equils.AdhocTorus(a=1.0, R0=3.0, B0=1.0, q0=1.25, q1=2.25),
+        grid=grids.TensorProductGrid(num_elements=(6, 6, 4)),
+        derham_opts=DerhamOptions(degree=(2, 2, 2), bcs=(("dirichlet", "dirichlet"), None, None)),
+    ).allocate()
+    prop = model.propagators.cc5d_density
+    particles = model.energetic_ions.var.particles
+    derham, mass_ops, args_domain = prop.derham, prop.mass_ops, prop.domain.args_domain
+    eq = prop.projected_equil
+    form_int = 0 if u_space == "H1vec" else int(derham.space_to_form[u_space])
+    args = (
+        model.energetic_ions.equation_params.epsilon,
+        2.0,
+        *[blk._data for blk in eq.b2.blocks],
+        *[blk._data for blk in eq.unit_b1.blocks],
+        *[blk._data for blk in eq.curl_unit_b2.blocks],
+        form_int,
+    )
+    column = particles.args_markers.first_free_idx
+
+    acc = Accumulator(particles, u_space, cc_lin_mhd_5d_D, mass_ops, args_domain, add_vector=False, symmetry="asym")
+    acc(*args)
+    assembled = acc.operators[0]
+
+    cc_lin_mhd_5d_D_mf(
+        particles.args_markers,
+        derham.args_derham,
+        args_domain,
+        *args,
+        column,
+        n_threads=particles.args_markers.n_markers,
+    )
+    matrix_free = MarkerOperator(
+        particles, u_space, cc_lin_mhd_5d_D_mf_dot, mass_ops, args_domain, (form_int, column), symmetry="asym"
+    )
+
+    rng = np.random.default_rng(0)
+
+    def random_vector():
+        v = matrix_free.domain.zeros()
+        for blk in v.blocks:
+            blk._data[:] = rng.standard_normal(blk._data.shape)
+        v.update_ghost_regions()
+        return v
+
+    for _ in range(2):
+        x, y = random_vector(), random_vector()
+        ref = assembled.dot(x)
+        res = matrix_free.dot(x)
+        assert np.linalg.norm((res - ref).toarray()) < 1e-12 * np.linalg.norm(ref.toarray())
+        # antisymmetric: (A x, y) = -(x, A y), and the transpose
+        assert abs(res.inner(y) + x.inner(matrix_free.dot(y))) < 1e-12 * abs(res.inner(y))
+        assert np.allclose(matrix_free.T.dot(y).toarray(), -matrix_free.dot(y).toarray())
+
+
 def test_current_coupling_5d_ep_scale():
     """The energetic-particle contributions are scaled by the mass ratio A_h/A_b by default."""
     from struphy import DerhamOptions, LoadingParameters, Simulation, equils, grids, maxwellians

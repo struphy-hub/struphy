@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 
-from feectools.linalg.basic import LinearOperator, Vector
 from line_profiler import profile
 from maybempi import MPI
 
@@ -16,7 +15,7 @@ from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb import cc_lin_mhd_5d_curlb
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf import cc_lin_mhd_5d_curlb_mf
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf_dot import cc_lin_mhd_5d_curlb_mf_dot
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
 from struphy.pic.pushing.kernels.push_gc_cc_J1_H1vec import push_gc_cc_J1_H1vec
 from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
 from struphy.pic.pushing.pusher import Pusher
@@ -142,7 +141,7 @@ class CurrentCoupling5DCurlb(Propagator):
         matrix_free : bool, default=True
             Apply the accumulated matrix :math:`\sum_p s_p (\vec \Lambda_p \cdot \mathbf e_p)
             (\vec \Lambda_p \cdot \mathbf e_p)^\top` (rank one per marker) in each iteration of the solver from data
-            stored per marker (:class:`MarkerRankOneOperator`), instead of assembling it: one spline evaluation and
+            stored per marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one spline evaluation and
             one deposition per marker and iteration instead of the 6 blocks of size :math:`n_\textnormal{basis}^2`
             per marker (much cheaper for cubic splines). Same result up to the solver tolerance.
         """
@@ -253,13 +252,14 @@ class CurrentCoupling5DCurlb(Propagator):
                 filter_params=self.options.filter_params,
             )
             self._args_accum_kernel += (column,)
-            _A_particles = MarkerRankOneOperator(
+            _A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
                 cc_lin_mhd_5d_curlb_mf_dot,
                 self.mass_ops,
                 self.domain.args_domain,
                 (self._u_form_int, column),
+                symmetry="symm",
             )
         else:
             self._ACC = Accumulator(
@@ -364,82 +364,3 @@ class CurrentCoupling5DCurlb(Propagator):
             logger.info(f"Iterations for CurrentCoupling5DCurlb: {info['niter']}")
             logger.info(f"Maxdiff up for CurrentCoupling5DCurlb: {diffs['u']}")
             logger.info("")
-
-
-class MarkerRankOneOperator(LinearOperator):
-    r"""Matrix-free particle operator :math:`A = \sum_p s_p (\vec \Lambda_p \cdot \mathbf e_p)
-    (\vec \Lambda_p \cdot \mathbf e_p)^\top` (a rank-one matrix per marker) on the FE coefficients of a vector
-    space, applied by a kernel that evaluates the spline of the input at the markers and deposits
-    :math:`s_p (\mathbf e_p \cdot \mathbf x_h(\boldsymbol \eta_p))\, \mathbf e_p` (an
-    :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`, without filter); :math:`\mathbf e_p` and
-    :math:`s_p` are stored in the marker array by the accumulation kernel of the vector. Symmetric. With the extraction
-    and boundary operators :math:`\mathbb E, \mathbb B` of the space, it is applied as
-    :math:`\mathbb B \mathbb E A \mathbb E^\top \mathbb B^\top`, like the assembled particle matrices.
-
-    Parameters
-    ----------
-    particles : Particles
-        The markers.
-
-    space_id : str
-        The FE space of the coefficients (``"Hdiv"`` or ``"H1vec"``).
-
-    kernel : Kernel
-        The kernel ``(args_markers, args_derham, args_domain, vec1, vec2, vec3, x1, x2, x3, *args)`` that deposits the
-        operator applied to the coefficients ``x``.
-
-    mass_ops : WeightedMassOperators
-        Weighted mass operators (for the de Rham sequence).
-
-    args_domain : DomainArguments
-        Arguments of the mapping.
-
-    args : tuple
-        Further arguments of the kernel.
-    """
-
-    def __init__(self, particles, space_id: str, kernel, mass_ops, args_domain, args: tuple):
-        derham = mass_ops.derham
-        form = derham.space_to_form[space_id]
-        self._E = derham.extraction_ops[form]
-        self._B = derham.boundary_ops[form]
-        self._acc = AccumulatorVector(particles, space_id, kernel, mass_ops, args_domain)
-        self._args = args
-        self._x_full = self._E.domain.zeros()
-        self._x_tmp = self._B.domain.zeros()
-        self._space = self._B.codomain
-
-    @property
-    def domain(self):
-        return self._space
-
-    @property
-    def codomain(self):
-        return self._space
-
-    @property
-    def dtype(self):
-        return self._space.dtype
-
-    def tosparse(self):
-        raise NotImplementedError("MarkerRankOneOperator is matrix-free.")
-
-    def toarray(self):
-        raise NotImplementedError("MarkerRankOneOperator is matrix-free.")
-
-    def transpose(self, conjugate=False):
-        return self
-
-    def dot(self, v: Vector, out: Vector = None) -> Vector:
-        assert v.space == self._space
-        # coefficients of the full space, with ghost regions for the evaluation at the markers
-        self._B.T.dot(v, out=self._x_tmp)
-        self._E.T.dot(self._x_tmp, out=self._x_full)
-        self._x_full.update_ghost_regions()
-        blocks = self._x_full.blocks if hasattr(self._x_full, "blocks") else [self._x_full]
-        self._acc(*[blk._data for blk in blocks], *self._args)
-        res = self._acc.vectors[0]
-        if out is None:
-            return res.copy()
-        res.copy(out=out)
-        return out

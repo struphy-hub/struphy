@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import cunumpy as xp
 from cunumpy.kernels import Kernel, PyccelKernel
+from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 from maybempi import MPI
@@ -766,3 +767,97 @@ class ParticlesToGrid:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+
+class MarkerOperator(LinearOperator):
+    r"""Matrix-free particle matrix :math:`A = \sum_p \vec \Lambda_p F_p \vec \Lambda_p^\top` on the FE coefficients
+    of a vector space, with 3x3 matrices :math:`F_p` (e.g. rank one, :math:`F_p = s_p \mathbf e_p \mathbf e_p^\top`,
+    or antisymmetric). Instead of assembling :math:`A` (a sum over the markers of :math:`n_\textnormal{basis}^2`
+    entries per block), it is applied by a kernel that evaluates the spline :math:`\mathbf x_h` of the input at the
+    markers and deposits :math:`F_p \mathbf x_h(\boldsymbol \eta_p)` (an :class:`AccumulatorVector` without
+    filter); the data of :math:`F_p` is stored in the marker array beforehand (e.g. by the accumulation kernel of a
+    vector). With the extraction and boundary operators :math:`\mathbb E, \mathbb B` of the space, it is applied as
+    :math:`\mathbb B \mathbb E A \mathbb E^\top \mathbb B^\top`, like the assembled particle matrices
+    (:class:`Accumulator`).
+
+    Parameters
+    ----------
+    particles : Particles
+        The markers.
+
+    space_id : str
+        The FE space of the coefficients (``"Hcurl"``, ``"Hdiv"`` or ``"H1vec"``).
+
+    kernel : Kernel
+        The kernel ``(args_markers, args_derham, args_domain, vec1, vec2, vec3, x1, x2, x3, *args)`` that deposits
+        :math:`A` applied to the coefficients ``x`` into ``vec``.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators (for the de Rham sequence).
+
+    args_domain : DomainArguments
+        Arguments of the mapping.
+
+    args : tuple
+        Further arguments of the kernel.
+
+    symmetry : str
+        ``"symm"`` (:math:`F_p^\top = F_p`) or ``"asym"`` (:math:`F_p^\top = -F_p`), for the transpose.
+    """
+
+    def __init__(
+        self,
+        particles: Particles,
+        space_id: str,
+        kernel: Kernel | PyccelKernel,
+        mass_ops: WeightedMassOperators,
+        args_domain: DomainArguments,
+        args: tuple = (),
+        symmetry: str = "symm",
+    ):
+        assert symmetry in ("symm", "asym")
+        derham = mass_ops.derham
+        form = derham.space_to_form[space_id]
+        self._E = derham.extraction_ops[form]
+        self._B = derham.boundary_ops[form]
+        self._acc = AccumulatorVector(particles, space_id, kernel, mass_ops, args_domain)
+        self._args = args
+        self._symmetry = symmetry
+        self._x_full = self._E.domain.zeros()
+        self._x_tmp = self._B.domain.zeros()
+        self._space = self._B.codomain
+
+    @property
+    def domain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def codomain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    def tosparse(self):
+        raise NotImplementedError("MarkerOperator is matrix-free.")
+
+    def toarray(self):
+        raise NotImplementedError("MarkerOperator is matrix-free.")
+
+    def transpose(self, conjugate=False):
+        return self if self._symmetry == "symm" else -1.0 * self
+
+    def dot(self, v: Vector, out: Vector = None) -> Vector:
+        assert v.space == self._space
+        # coefficients of the full space, with ghost regions for the evaluation at the markers
+        self._B.T.dot(v, out=self._x_tmp)
+        self._E.T.dot(self._x_tmp, out=self._x_full)
+        self._x_full.update_ghost_regions()
+        blocks = self._x_full.blocks if hasattr(self._x_full, "blocks") else [self._x_full]
+        self._acc(*[blk._data for blk in blocks], *self._args)
+        res = self._acc.vectors[0]
+        if out is None:
+            return res.copy()
+        res.copy(out=out)
+        return out

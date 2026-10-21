@@ -12,7 +12,9 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D import cc_lin_mhd_5d_D
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf import cc_lin_mhd_5d_D_mf
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf_dot import cc_lin_mhd_5d_D_mf_dot
+from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -106,6 +108,13 @@ class CurrentCoupling5DDensity(Propagator):
             The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
             but the propagator then no longer conserves the energy exactly (the filter is applied to the
             accumulated vectors only, not to the fields seen by the particles).
+
+        matrix_free : bool, default=True
+            Apply the particle matrix :math:`\sum_p \vec \Lambda_p F_p \vec \Lambda_p^\top` (antisymmetric 3x3
+            :math:`F_p`) in each iteration of the solver from data stored per marker
+            (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`) instead of assembling it: one spline
+            evaluation and one deposition per marker and iteration instead of 3 blocks of size
+            :math:`n_\textnormal{basis}^2` per marker. Same result up to the solver tolerance.
         """
 
         # propagator options
@@ -115,9 +124,11 @@ class CurrentCoupling5DDensity(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
+        matrix_free: bool = True
 
         def __post_init__(self):
             # checks
+            assert isinstance(self.matrix_free, bool)
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
@@ -172,17 +183,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._u_new = self.variables.u.spline.vector.space.zeros()
 
         # define Accumulator and arguments
-        self._ACC = Accumulator(
-            self.energetic_ions.particles,
-            self.options.u_space,
-            cc_lin_mhd_5d_D,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=False,
-            symmetry="asym",
-            filter_params=self.options.filter_params,
-        )
-
+        particles = self.energetic_ions.particles
         self._args_accum_kernel = (
             epsilon,
             self._ep_scale,
@@ -197,6 +198,31 @@ class CurrentCoupling5DDensity(Propagator):
             curl_unit_b2[2]._data,
             self._u_form_int,
         )
+        if self.options.matrix_free:
+            # the 3x3 filling matrices per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            self._args_accum_kernel += (column,)
+            self._A_particles = MarkerOperator(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_5d_D_mf_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (self._u_form_int, column),
+                symmetry="asym",
+            )
+        else:
+            self._ACC = Accumulator(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_5d_D,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=False,
+                symmetry="asym",
+                filter_params=self.options.filter_params,
+            )
+            self._A_particles = self._ACC.operators[0]
 
         # Preconditioner
         if self.options.precond is None:
@@ -226,13 +252,24 @@ class CurrentCoupling5DDensity(Propagator):
             b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
-        self._ACC(
-            *self._args_accum_kernel,
-        )
+        if self.options.matrix_free:
+            particles = self.energetic_ions.particles
+            with ProfileManager.profile_region("kernel: " + cc_lin_mhd_5d_D_mf.name):
+                cc_lin_mhd_5d_D_mf(
+                    particles.args_markers,
+                    self.derham.args_derham,
+                    self.domain.args_domain,
+                    *self._args_accum_kernel,
+                    n_threads=particles.args_markers.n_markers,
+                )
+        else:
+            self._ACC(
+                *self._args_accum_kernel,
+            )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        lhs = self._A - dt / 2 * self._ACC.operators[0]
-        rhs = self._A + dt / 2 * self._ACC.operators[0]
+        lhs = self._A - dt / 2 * self._A_particles
+        rhs = self._A + dt / 2 * self._A_particles
 
         # solve linear system for updated u coefficients (in-place)
         rhs = rhs.dot(un, out=self._rhs_v)
