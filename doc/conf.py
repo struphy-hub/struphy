@@ -13,8 +13,6 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("_ext"))
-
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
 
@@ -49,7 +47,6 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "rst_docstring",  # Custom extension to use __doc_rst__
     "sphinx_collections",
 ]
 
