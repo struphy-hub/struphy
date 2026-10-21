@@ -24,7 +24,8 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
     The ions are full-orbit (6D) markers with a magnetic moment (classical Pauli particles, Xiao and Qin 2021),
     loaded on the slow manifold without gyration. They follow guiding-center orbits with the full-orbit pushers of
     :class:`~struphy.models.VlasovPoissonAdiabatic`, with time steps larger than the cyclotron period.
-    Only full-f weights are supported (no control variate); without the Poisson solve (``with_poisson=False``)
+    With the control variate (delta-f), the polarization density must be added in the Poisson equation
+    (``AdiabaticPoissonSolve.Options(polarization=True)``); without the Poisson solve (``with_poisson=False``)
     the model computes guiding-center orbits in the equilibrium magnetic field.
 
     Parameters
@@ -166,6 +167,27 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
         """
         if self.with_poisson:
             super().post_allocate()
+            control_variate = self.kinetic_ions.var.particles.control_variate
+            polarization = self.propagators.poisson.options.polarization
+            if control_variate and not polarization:
+                logger.warning(
+                    "VlasovPoissonAdiabaticPauli with the control variate but without the polarization term: the "
+                    "control variate removes the polarization density, set poisson.Options(polarization=True)."
+                )
+            elif polarization and not control_variate:
+                logger.warning(
+                    "VlasovPoissonAdiabaticPauli with full-f weights and the polarization term: the full-f marker "
+                    "density already contains the polarization density, which is then counted twice."
+                )
+
+    def _compute_en_phi(self):
+        r"""Field energy of :class:`~struphy.models.VlasovPoissonAdiabatic`, plus the polarization energy
+        :math:`\frac{1}{2} \int \frac{n_0}{|\mathbf B_0|^2} |\nabla_\perp \phi|^2` with ``polarization=True``."""
+        en = super()._compute_en_phi()
+        if self.propagators.poisson.options.polarization:
+            e = Propagator.derham.grad.dot(self.em_fields.phi.spline.vector, out=self._grad_phi)
+            en += 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e, e)
+        return en
 
     def _compute_en_mu(self):
         r"""Local part of the magnetic-moment energy :math:`\sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`."""
@@ -236,7 +258,15 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
 
         where :math:`n_0` is the equilibrium ion density, :math:`T_0` the electron temperature and :math:`Z` the ion
         charge number. On the slow manifold the marker positions are guiding-center positions, so the charge density
-        is the guiding-center density (no gyro-average); the polarization density comes out of the marker orbits.
+        is the guiding-center density (no gyro-average). With full-f weights the polarization density comes out of
+        the marker orbits (compression by the polarization drift). With the control variate it is removed from the
+        deposited density (see the long description) and is added in the quasi-neutrality equation, as for guiding
+        centers (option ``polarization`` of the Poisson solve):
+
+        .. math::
+
+            -\varepsilon \nabla \cdot \left( \frac{n_0}{|\mathbf B_0|^2} \nabla_\perp \phi \right) + \frac{1}{Z \varepsilon} \frac{n_0}{T_0} \left( \phi - \langle \phi \rangle \right) = \int_0^\infty \int_{\mathbb{R}^3} (f - f_0) \, \mathrm{d}^3 \mathbf{v}\, \mathrm{d} \mu\,.
+
         As in :class:`~struphy.models.VlasovPoissonAdiabatic`, the vacuum term is dropped in the quasi-neutral limit
         (option ``quasi_neutral``) and the flux-surface average :math:`\langle \phi \rangle` is optional.
         With ``with_poisson=False`` the Poisson equation is not solved and :math:`\phi = 0`.
@@ -260,7 +290,8 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
 
         - Field energy (only if ``with_poisson``): ``en_phi``
           :math:`= \frac{1}{2\alpha^2} \int |\nabla \phi|^2 \, \mathrm d \mathbf x + \frac{1}{2 Z \varepsilon^2} \int \frac{n_0}{T_0} \phi (\phi - \langle \phi \rangle) \, \mathrm d \mathbf x`
-          (the first term only if ``quasi_neutral=False``)
+          (the first term only if ``quasi_neutral=False``), plus the polarization energy
+          :math:`\frac{1}{2} \int \frac{n_0}{|\mathbf B_0|^2} |\nabla_\perp \phi|^2 \, \mathrm d \mathbf x` with ``polarization=True``
         - Kinetic energy: ``en_particles`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
         - Magnetic-moment energy: ``en_mu`` :math:`= \sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`
         - Total energy: ``en_tot`` = ``en_phi + en_particles + en_mu``
@@ -330,13 +361,23 @@ is computed from its drawn perpendicular velocity, which is then set to zero. Wi
         such that the markers represent the gyro-average of the initial condition, given in the guiding-center
         position.
 
-        Only full-f weights are supported. The polarization drift on the slow manifold is compressible, so the
-        phase-space density of the markers is not constant along their orbits; a control variate (delta-f), which
-        subtracts the background :math:`f_0` along the markers, would cancel the polarization density (in a slab
-        drift wave this gives the frequency without polarization and a gradient-driven instability). Full-f
-        simulations of small perturbations are dominated by the noise, since the perpendicular ion response is that
-        of cold ions. The main use of the model is therefore the computation of guiding-center orbits with a
-        full-orbit pusher (``with_poisson=False``)."""
+        **Polarization and delta-f.** The polarization drift on the slow manifold is compressible, so the
+        phase-space density of the markers is not constant along their orbits. With full-f weights this compression
+        gives the polarization density. The control variate subtracts the background :math:`f_0` along the
+        markers, which removes the compression part :math:`n_0 \nabla \cdot \boldsymbol \xi` of the polarization density
+        (:math:`\boldsymbol \xi` the polarization displacement) from the deposited charge; the advection part
+        :math:`\boldsymbol \xi \cdot \nabla n_0` remains in the weights. Without correction, a slab drift wave then has
+        the frequency without polarization and becomes unstable at grid scale. With the guiding-center polarization
+        term in the Poisson equation (``polarization=True``, the symmetric operator
+        :math:`-\nabla \cdot (n_0 |\mathbf B_0|^{-2} \nabla_\perp \phi)` of the drift-kinetic model, which also
+        contains the advection part), the delta-f slab drift wave has the drift-kinetic frequency, also with time
+        steps of 8 and 16 cyclotron periods. A weak instability remains, which needs the density gradient and is
+        independent of the time step: in the slab example :math:`\mu'` grows by a factor of about 5 per 5 time units
+        and the field energy grows from t = 25 on (about one wave period). A likely cause is that
+        the compression part of the polarization is now instantaneous (field equation), while its advection part
+        follows the marker orbits, including their cyclotron response. Removing only the advection part from the
+        polarization term does not change it. Full-f simulations of small perturbations are dominated by the noise,
+        since the perpendicular ion response is that of cold ions."""
 
     @classmethod
     def doc_examples(cls):
@@ -350,6 +391,9 @@ is computed from its drawn perpendicular velocity, which is then set to zero. Wi
             model.em_fields.phi
             model.kinetic_ions.var
 
+            # with the control variate (delta-f): polarization density in the quasi-neutrality equation
+            model.propagators.poisson.options = model.propagators.poisson.Options(polarization=True)
+
             # guiding-center orbits in the equilibrium magnetic field, without the Poisson solve
             model = VlasovPoissonAdiabaticPauli(epsilon=0.01, with_poisson=False)
 
@@ -361,17 +405,17 @@ is computed from its drawn perpendicular velocity, which is then set to zero. Wi
     def doc_use_cases(cls):
         r"""This model is appropriate for:
 
+        - electrostatic guiding-center ion dynamics with adiabatic electrons (delta-f with ``polarization=True``),
+          with time steps larger than the cyclotron period (drift waves, slab ITG modes, ...)
         - guiding-center orbits (banana orbits, grad-B and curvature drifts) in general magnetic fields, with a
           full-orbit pusher and time steps larger than the cyclotron period (``with_poisson=False``)
-        - verification of guiding-center pushers
-        - full-f electrostatic simulations with adiabatic electrons with many markers"""
+        - verification of guiding-center pushers"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-        - delta-f (control variate) simulations, see the long description; small perturbations in full-f are
-          dominated by the noise (use :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`)
+        - small perturbations with full-f weights, which are dominated by the noise (use the control variate)
         - finite-Larmor-radius effects (use :class:`~struphy.models.VlasovPoissonAdiabatic`)
         - magnetic fields without scale separation, where the magnetic moment is not an adiabatic invariant
         - time-dependent magnetic fields and electromagnetic dynamics"""

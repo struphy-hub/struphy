@@ -46,16 +46,17 @@ def _configurations():
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("config", [0, 1])
-def test_pauli_particles_slow_manifold(config):
+@pytest.mark.parametrize("control_variate", [False, True])
+def test_pauli_particles_slow_manifold(config, control_variate):
     """PauliParticles6D draws the same markers as Particles6D, then sets mu = |v_perp|^2 / (2|B0|) and v = v_par b0;
-    the sampling densities and the (full-f) weights are those of Particles6D."""
+    the sampling densities and the (full-f or control-variate) weights are those of Particles6D."""
     import numpy as np
 
     from struphy.pic.particles import Particles6D, PauliParticles6D
 
     domain, equil = list(_configurations())[config]
-    ref = _particles(Particles6D, domain, equil)
-    pauli = _particles(PauliParticles6D, domain, equil)
+    ref = _particles(Particles6D, domain, equil, control_variate)
+    pauli = _particles(PauliParticles6D, domain, equil, control_variate)
     assert pauli.mu_idx == pauli.first_diagnostics_idx
     assert pauli.n_cols == ref.n_cols + 1
 
@@ -69,19 +70,31 @@ def test_pauli_particles_slow_manifold(config):
     assert np.allclose(pauli.magnetic_moments, v_perp2 / (2 * absB), rtol=1e-12, atol=1e-14)
     assert np.allclose(pauli.mu_prime(), 0.0, atol=1e-14)
 
+    # the gyrotropic velocity of f_coords has the drawn speed and parallel velocity
+    v_f = pauli.f_coords[3:6]
+    assert np.allclose(np.sum(v_f**2, axis=0), np.sum(v_ref**2, axis=0), rtol=1e-12)
+    assert np.allclose(np.sum(v_f * b, axis=0), v_par, rtol=1e-12, atol=1e-14)
+
     assert np.allclose(pauli.sampling_density_values, ref.sampling_density_values, rtol=1e-14)
     assert np.allclose(pauli.weights0, ref.weights0, rtol=1e-14)
-    assert np.allclose(pauli.weights, ref.weights, rtol=1e-14)
+    assert np.allclose(pauli.weights, ref.weights, rtol=1e-10, atol=1e-16)
 
 
 @pytest.mark.mpi_skip
-def test_pauli_particles_reject_control_variate():
-    """The control variate (delta-f) is not supported."""
-    from struphy import domains, equils
+def test_pauli_particles_need_gyrotropic_background():
+    """With the control variate, anisotropic thermal velocities are rejected."""
+    from struphy import BoundaryParameters, LoadingParameters, WeightsParameters, domains, equils, maxwellians
     from struphy.pic.particles import PauliParticles6D
 
     domain = domains.Cuboid()
     equil = equils.HomogenSlab()
     equil.domain = domain
     with pytest.raises(AssertionError):
-        _particles(PauliParticles6D, domain, equil, control_variate=True)
+        PauliParticles6D(
+            loading_params=LoadingParameters(Np=100, seed=1234),
+            weights_params=WeightsParameters(control_variate=True),
+            boundary_params=BoundaryParameters(),
+            domain=domain,
+            equil=equil,
+            background=maxwellians.Maxwellian3D(vth1=(2.0, None)),
+        )

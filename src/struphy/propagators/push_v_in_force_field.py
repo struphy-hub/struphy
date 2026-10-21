@@ -73,7 +73,7 @@ class PushVinForceField(Propagator):
         potential: FEECVariable | Callable = None,
         magnetic_moment: bool = False,
     ):
-        """
+        r"""
         Parameters
         ----------
         force_field : FEECVariable or tuple of Callables, default=None
