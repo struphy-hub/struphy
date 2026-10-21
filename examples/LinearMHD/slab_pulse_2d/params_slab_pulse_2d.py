@@ -40,8 +40,12 @@ pressure and u_z snapshots and plots the energies. In the periodic, homogeneous 
 (each Fourier mode evolves with the matrix exponential of its linear system): the pproc script measures the relative
 L2 errors of the pressure and of u_z with respect to it at t = 1.4 (default grid: about 1.3% and 3.7% with
 LinearMHD, 0.5% and 1% with the curl-curl models) and asserts them below 3% and 6%, and asserts the conservation of the
-perturbed energy within 1e-4 for LinearMHD and LinearMHDCurlCurlwithProj (no equilibrium current, so both splitting
-steps conserve the energy up to the solver tolerances; LinearMHDCurlCurl changes it by about 2e-5 here).
+perturbed energy en_tot = en_U + en_B + en_thermal within 1e-4 for LinearMHD and LinearMHDCurlCurlwithProj
+(LinearMHDCurlCurl changes it by about 2e-5 here). In general, linear MHD conserves the kinetic energy plus the
+potential energy delta W, which contains terms with the equilibrium current and pressure gradient and differs from
+en_B + en_thermal, so en_tot is not conserved. In this uniform equilibrium (J0 = 0, grad p0 = 0) with periodic
+boundaries, delta W = en_B + en_thermal, so en_tot is conserved, and both splitting steps conserve it up to the
+solver tolerances.
 
 References:
 - J. P. Goedbloed and S. Poedts, "Principles of Magnetohydrodynamics", Cambridge University Press (2004),

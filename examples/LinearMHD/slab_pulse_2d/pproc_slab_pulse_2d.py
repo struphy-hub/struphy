@@ -40,7 +40,9 @@ GAMMA = 5 / 3
 NUM_EVAL = 128  # evaluation points per direction
 # relative L2 errors of p and u_z at the last saved time (default grid 64x64, dt = 0.01: at most 1.3% and 3.7%)
 ERROR_TOL = {"p": 0.03, "u_z": 0.06}
-ENERGY_RTOL = 1e-4  # relative change of en_tot for the energy conserving models (5e-6 with solver tolerance 1e-8)
+# relative change of en_tot for the energy conserving models (5e-6 with solver tolerance 1e-8); en_tot is the
+# conserved energy only in a uniform equilibrium with periodic boundaries, as here
+ENERGY_RTOL = 1e-4
 CONSERVING = ("LinearMHD", "LinearMHDCurlCurlwithProj")
 
 
@@ -160,7 +162,9 @@ def plot_snapshots(run, results_dir, save_figs):
         fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), constrained_layout=True)
         # the color scale of p saturates at 30% of its maximum (after t = 0), to show the weaker fast front
         scales = (0.3 if t > 0 else 1.0, 1.0)
-        for ax, values, label, scale in zip(axes, (fields["p"], fields["u"][2]), ("pressure p", "velocity u_z"), scales):
+        for ax, values, label, scale in zip(
+            axes, (fields["p"], fields["u"][2]), ("pressure p", "velocity u_z"), scales
+        ):
             vmax = scale * np.max(np.abs(values)) or 1.0
             im = ax.pcolormesh(x, y, values.T, cmap="RdBu_r", vmin=-vmax, vmax=vmax, shading="auto")
             fig.colorbar(im, ax=ax, shrink=0.85)
