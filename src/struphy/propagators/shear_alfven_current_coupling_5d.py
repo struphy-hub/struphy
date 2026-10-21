@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
+import cunumpy as xp
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -12,6 +13,7 @@ from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
     BasisProjectionOperatorLocal,
 )
+from struphy.feec.utilities import LocalRotationMatrix
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
@@ -56,9 +58,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             {\mathbb M^{2,n}}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)
         \end{bmatrix} \,,
 
-    where 
-    :math:`\mathcal{T}^2 = \hat \Pi \left[\frac{\tilde{\mathbf B}^2}{\sqrt{g} \times \vec \Lambda^2\right]`  and
-    :math:`\mathbb M^{2,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density. 
+    where
+    :math:`\mathcal{T}^2 = \hat \Pi^1 \left[\frac{\mathbf B^2}{\sqrt{g}} \times \vec \Lambda^2\right]` with the total
+    field :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` (updated in each step) if ``nonlinear``, else the
+    equilibrium field :math:`\mathbf B_0`, and
+    :math:`\mathbb M^{2,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density.
     """
 
     class Variables:
@@ -110,38 +114,58 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
+        r"""Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
 
         Parameters
         ----------
-        ep_scale : float, default=1.0
-            Scaling factor for particle accumulation terms.
+        ep_scale : float, default=None
+            Factor of the energetic-particle contributions (accumulation): the mass ratio
+            :math:`A_\textnormal{h}/A_\textnormal{b}` of the energetic ions and the MHD bulk if ``None``.
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for velocity variable ``u``.
         algo : {"implicit", "explicit"}, default="implicit"
             Time stepping algorithm.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Preconditioner for mass-matrix block.
+        precond : LiteralOptions.OptsShearAlfvenPrecond, default="StiffnessPreconditioner"
+            Preconditioner of the linear solve: of the mass-matrix block (``"MassMatrixPreconditioner"``,
+            ``"PolarMassMatrixPreconditioner"``) or the Kronecker (fast diagonalization) preconditioner of the whole
+            Schur operator (``"StiffnessPreconditioner"``, the default,
+            :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`, built from the equilibrium part
+            :math:`\mathbb T` of the basis projection operator; with ``nonlinear=True`` it approximates the Schur
+            operator with :math:`\mathbb T + \mathbb T^B`, since :math:`|\tilde{\mathbf B}| \ll |\mathbf B_0|`). The
+            Kronecker preconditioner needs ``algo="implicit"``, ``solver="pcg"``, ``u_space="Hdiv"``, tensor-product
+            splines (no polar splines) and the global commuting projectors; otherwise it falls back (with a warning) to
+            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). ``"MultiGrid"`` is
+            not available here.
+        exb_correction : bool, default=True
+            For ``precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
+            :math:`\mathbf E \times \mathbf B` flows, see
+            :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`.
         solver_params : SolverParameters, default=None
             Solver controls.
         filter_params : FilterParameters, default=None
-            Particle-to-grid filtering parameters.
+            Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
+            The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
+            but the propagator then no longer conserves the energy exactly (the filter is applied to the
+            accumulated vectors only, not to the fields seen by the particles).
         butcher : ButcherTableau, default=None
             Explicit Runge-Kutta tableau for ``algo="explicit"``.
         nonlinear : bool, default=True
-            If ``True``, include nonlinear TB operator updates.
+            If ``True``, the basis projection operator :math:`\mathcal T^2` uses the total magnetic field
+            :math:`\mathbf B_0 + \tilde{\mathbf B}` (one operator, re-weighted in each step), else the equilibrium
+            field :math:`\mathbf B_0` only.
         """
 
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
-        ep_scale: float = 1.0
+        ep_scale: float = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsShearAlfvenPrecond = "StiffnessPreconditioner"
+        exb_correction: bool = True
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         butcher: ButcherTableau = None
@@ -152,8 +176,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
-            check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.ep_scale, float)
+            check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
+            assert self.precond != "MultiGrid", 'precond="MultiGrid" is not available for ShearAlfvenCurrentCoupling5D.'
+            assert self.ep_scale is None or isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
 
             # defaults
@@ -180,6 +205,12 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
     @profile
     def allocate(self):
+        # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
+        self._ep_scale = self.options.ep_scale
+        if self._ep_scale is None:
+            self._ep_scale = self.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
+
         self._u_form = self.derham.space_to_form[self.options.u_space]
 
         # call operatros
@@ -202,19 +233,28 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             filter_params=self.options.filter_params,
         )
 
-        # Preconditioner
-        if self.options.precond is None:
+        # Preconditioner (the Kronecker preconditioner of the Schur operator depends on dt, built in prepare_time_step)
+        self._schur_precond_dt = None
+        # the requested preconditioner, or the fallback if the Kronecker one is not possible here
+        self._precond = preconditioner.ShearAlfvenSchurPreconditioner.resolve(
+            self.options.precond, self.derham, self.options.algo, self.options.solver, self.options.u_space
+        )
+        if self._precond == "StiffnessPreconditioner":
+            # Kronecker operators of the equilibrium part T (built once, independent of dt)
+            self._schur_precond = preconditioner.ShearAlfvenSchurPreconditioner(
+                self.derham, self.mass_ops, self.basis_ops, _T, id_M, exb_correction=self.options.exb_correction
+            )
+        if self._precond in (None, "StiffnessPreconditioner"):
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.options.precond)
+            pc_class = getattr(preconditioner, self._precond)
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         if self.options.nonlinear:
-            # initialize operator TB
-            self._initialize_projection_operator_TB()
-
-            _T = _T + self._TB
-            _TT = _T.T + self._TBT
+            # one basis projection operator of the total field B0 + b (and its transpose), updated in each step
+            self._initialize_projection_operator_Ttot()
+            _T = self._Ttot
+            _TT = self._TtotT
 
         else:
             _TT = _T.T
@@ -284,19 +324,29 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             vector_field = {self.variables.u.spline.vector: f1, self.variables.b.spline.vector: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
+    def prepare_time_step(self, dt: float):
+        """Kronecker preconditioner of the Schur operator for the time step ``dt``: built in the setup, rebuilt when dt
+        changes."""
+        if self._precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
+            self._schur_solver.precond = self._schur_precond.build(dt)
+            self._schur_precond_dt = dt
+
     def __call__(self, dt):
         # update time-dependent operator TB
         if self.options.nonlinear:
-            self._update_weights_TB()
+            self._update_weights_Ttot()
 
         # current FE coeffs
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
 
         # accumulate
-        self._ACC(self.options.ep_scale)
+        self._ACC(self._ep_scale)
 
         if self.options.algo == "implicit":
+            # preconditioner for the current time step (no-op unless dt changed since the setup)
+            self.prepare_time_step(dt)
+
             # solve for new u coeffs (no tmps created here)
             byn = self._B.dot(bn, out=self._byn)
             b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
@@ -328,144 +378,102 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                 logger.info(f"Maxdiff b2 for ShearAlfvenCurrentCoupling5D: {diffs['b']}")
                 logger.info("")
 
-    def _initialize_projection_operator_TB(self):
-        r"""Initialize BasisProjectionOperator TB with the time-varying weight.
+    def _initialize_projection_operator_Ttot(self):
+        r"""Initialize the BasisProjectionOperator of the total magnetic field (time-varying weight), e.g. for
+        ``u_space="Hdiv"``
 
         .. math::
 
-            \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}²_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
+            \mathcal{T}^{\textnormal{tot}}_{(\mu,ijk),(\nu,mno)} := \hat \Pi^1_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu}
+            \frac{B^2_{0,\alpha} + \tilde{B}^2_\alpha}{\sqrt{g}} \Lambda^2_{\nu,mno} \right] \,,
 
+        and its transpose. One operator of the total field (instead of the sum of the equilibrium operator
+        :math:`\mathcal T` and of the operator of the perturbation) needs one projection per application.
         """
 
-        # Call the projector and the space
         P1 = self.derham.P1
         Vh = self.derham.fem_spaces[self._u_form]
 
-        # Femfield for the field evaluation
+        # spline function for the evaluation of the perturbed field
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
+        # the weights at the last evaluation points (the 3x3 weights of all blocks of a row share the points)
+        # the weights at the last evaluation points, and the equilibrium field (2-form components) at the evaluation
+        # points of the projector, which are the same in each step
+        self._weight_cache = _PointCache(maxsize=1)
+        self._b0_cache = _PointCache(maxsize=8)
+        eq = self.basis_ops.weights["eq_mhd"]
+        self._b0_funs = (eq.b2_1, eq.b2_2, eq.b2_3)
 
-        # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors:
-            self._TB = BasisProjectionOperatorLocal(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
-            self._TBT = BasisProjectionOperatorLocal(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=True,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
-        else:
-            self._TB = BasisProjectionOperator(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
-            self._TBT = BasisProjectionOperator(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=True,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
+        op_class = BasisProjectionOperatorLocal if self.derham._with_local_projectors else BasisProjectionOperator
+        ops = []
+        for transposed in (False, True):
+            ops += [
+                op_class(
+                    P1,
+                    Vh,
+                    [[None, None, None], [None, None, None], [None, None, None]],
+                    transposed=transposed,
+                    use_cache=True,
+                    polar_shift=True,
+                    V_extraction_op=self.derham.extraction_ops[self._u_form],
+                    V_boundary_op=self.derham.boundary_ops[self._u_form],
+                    P_boundary_op=self.derham.boundary_ops["1"],
+                )
+            ]
+        self._Ttot, self._TtotT = ops
 
-    def _update_weights_TB(self):
-        """Updats time-dependent weights of the BasisProjectionOperator TB"""
+    def _total_field_weights(self, e1, e2, e3):
+        """The 3x3 weights of the total-field operator at the points (e1, e2, e3): the rotation matrix of B0 + b (2-form
+        components), times the metric factor of the velocity space. Cached for the last points, since all blocks of
+        a row are evaluated at the same points."""
 
-        # Update Femfield
+        def compute():
+            b0 = self._b0_cache.get((e1, e2, e3), lambda: [fun(e1, e2, e3) for fun in self._b0_funs])
+            b = self._bf(e1, e2, e3, local=True)
+            rot = LocalRotationMatrix(*[(lambda *_, c=c: b0[c] + b[c]) for c in range(3)])(e1, e2, e3)
+            if self._u_form == "1":
+                rot = rot @ self.domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False)
+            elif self._u_form == "2":
+                rot = rot / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))[:, :, :, None, None]
+            return rot
+
+        return self._weight_cache.get((e1, e2, e3), compute)
+
+    def _update_weights_Ttot(self):
+        """Update the time-dependent weights of the total-field operator and of its transpose (one assembly)."""
+
         self.variables.b.spline.vector.copy(out=self._bf.vector)
+        self._weight_cache.clear()
 
-        # define callable weights
-        def bf1(x, y, z):
-            return self._bf(x, y, z, local=True)[0]
+        fun = [
+            [(lambda e1, e2, e3, m=m, n=n: self._total_field_weights(e1, e2, e3)[:, :, :, m, n]) for n in range(3)]
+            for m in range(3)
+        ]
 
-        def bf2(x, y, z):
-            return self._bf(x, y, z, local=True)[1]
-
-        def bf3(x, y, z):
-            return self._bf(x, y, z, local=True)[2]
-
-        from struphy.feec.utilities import LocalRotationMatrix
-
-        rot_B = LocalRotationMatrix(bf1, bf2, bf3)
-
-        fun = []
-
-        if self._u_form == "v":
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n],
-                    ]
-
-        elif self._u_form == "1":
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: (
-                            rot_B(e1, e2, e3)
-                            @ self.domain.metric_inv(
-                                e1,
-                                e2,
-                                e3,
-                                change_out_order=True,
-                                squeeze_out=False,
-                            )
-                        )[:, :, :, m, n],
-                    ]
-
+        self._Ttot.update_weights(fun)
+        if isinstance(self._Ttot, BasisProjectionOperator):
+            # the transpose re-uses the DOF matrix just assembled
+            self._TtotT.update_weights(fun, dof_mat=self._Ttot.dof_matrix)
         else:
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: (
-                            rot_B(e1, e2, e3)[:, :, :, m, n]
-                            / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))
-                        ),
-                    ]
+            self._TtotT.update_weights(fun)
+        self._weight_cache.clear()
 
-        # update BasisProjectionOperator
-        self._TB.update_weights(fun)
-        self._TBT.update_weights(fun)
+
+class _PointCache:
+    """Values computed at evaluation points (e1, e2, e3), for the last ``maxsize`` point sets (first in, first out)."""
+
+    def __init__(self, maxsize: int):
+        self._maxsize = maxsize
+        self._entries = []
+
+    def clear(self):
+        self._entries = []
+
+    def get(self, pts: tuple, compute):
+        """The cached value at the points ``pts``, or ``compute()`` (then cached)."""
+        for cached_pts, value in self._entries:
+            if all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(cached_pts, pts)):
+                return value
+        value = compute()
+        self._entries = (self._entries + [(tuple(a.copy() for a in pts), value)])[-self._maxsize :]
+        return value

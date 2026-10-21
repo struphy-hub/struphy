@@ -59,8 +59,9 @@ with `pip install "struphy[pproc]"`.
 | `GuidingCenter` | `screw_pinch_equilibrium`, `tokamak_equilibrium` |
 | `GyrokineticPoisson` | `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
 | `LinearMHD` | `itpa_tae_benchmark` (toroidal Alfvén eigenmode) |
+| `LinearMHDDriftkineticCC` | `lowmode_tae` (toroidal Alfvén eigenmode driven by energetic ions) |
 | `Poisson` | `gaussian_cube`, `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
-| `ShearAlfven` | `itpa_tae_benchmark` (toroidal Alfvén eigenmode) |
+| `ShearAlfven` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |
 | `ToyDrift` | `diocotron_instability` |
 | `Vlasov` | `maxwellian_uniform_field` |
 | `VlasovAmpereOneSpecies` | `bump_on` (bump-on-tail), `strong_Landau_damping`, `two_stream`, `weak_Landau_damping` |
