@@ -89,3 +89,14 @@ class LinearMHDCurlCurlwithProj(LinearMHDCurlCurl):
         - linear MHD wave propagation with exact energy conservation of the shear-Alfvén step
         - comparison with :class:`~struphy.models.linear_mhd_curl_curl.LinearMHDCurlCurl` and
           :class:`~struphy.models.linear_mhd.LinearMHD`"""
+
+    @classmethod
+    def doc_cannot_be_used_for(cls):
+        r"""This model is not suitable for:
+
+        - nonlinear MHD dynamics with finite-amplitude perturbations
+        - equilibria with non-zero background flow
+        - dissipative effects such as resistivity or viscosity
+        - kinetic or particle-field effects beyond the fluid MHD description
+        - large problems where the inner mass matrix solves of the shear-Alfvén step are too expensive (use
+          :class:`~struphy.models.linear_mhd_curl_curl.LinearMHDCurlCurl`)"""

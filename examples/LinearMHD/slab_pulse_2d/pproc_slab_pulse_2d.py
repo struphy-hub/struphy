@@ -194,7 +194,10 @@ def plot_comparison(runs, results_dir, save_figs):
         axes[1].plot(r, cut(x, y, fields["u"][2], b0, r), label=model_name(run))
         en_tot = run.scalars["en_tot"]
         axes[2].plot(en_tot.t, en_tot / en_tot[0], label=model_name(run))
-    # the exact solution of the initial state of the first run
+    # the exact solution of the initial state of the first run, at its last saved time and along its directions
+    _, _, b0 = speeds(runs[0])
+    perp = np.array([-b0[1], b0[0]])
+    t = float(runs[0].time[runs[0].standard_snapshots()[-1]])
     x, y, initial = evaluate(runs[0], 0)
     reference = exact(runs[0], x, y, initial, t)
     axes[0].plot(r, cut(x, y, reference["p"], perp, r), "k--", lw=0.9, label="exact")

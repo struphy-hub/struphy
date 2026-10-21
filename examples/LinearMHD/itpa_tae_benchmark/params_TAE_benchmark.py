@@ -16,7 +16,9 @@ and density perturbations. No energetic particles: the TAE is excited by the ini
 With --model LinearMHDCurlCurl, the magnetic field is in H(curl) and the implicit shear Alfven step solves a
 curl-curl system for it, preconditioned by Hiptmair-Xu (same physics, same expected frequency; the shear Alfven step
 is not exactly energy conserving and damps the wave numerically). --model LinearMHDCurlCurlwithProj is the version
-with the exactly energy conserving shear Alfven step (mass matrix preconditioner).
+with the exactly energy conserving shear Alfven step (mass matrix preconditioner). On 4 MPI ranks, the 1000 time
+steps take about 40 min with LinearMHD and with LinearMHDCurlCurl (2.2 s per step) and about 4 h with
+LinearMHDCurlCurlwithProj (14 s per step).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),

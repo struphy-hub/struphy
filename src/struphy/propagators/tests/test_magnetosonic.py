@@ -4,6 +4,7 @@ from feectools.linalg.solvers import inverse
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, perturbations
 from struphy.io.options import DerhamOptions
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.models import LinearMHD, LinearMHDCurlCurl
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -74,7 +75,7 @@ def _lorentz_force_difference(tmp_path, num_elements):
     equil = Propagator.projected_equil
     assert model.propagators.mag_sonic._MJ is mass_ops.M21J
 
-    M2_inv = inverse(mass_ops.M2, "pcg", tol=1e-14, maxiter=1000)
+    M2_inv = inverse(mass_ops.M2, "pcg", pc=MassMatrixPreconditioner(mass_ops.M2), tol=1e-12, maxiter=1000)
     f2 = M2_inv.dot(mass_ops.M2J.dot(equil.b2))
     f1 = M2_inv.dot(mass_ops.M21J.dot(equil.b1))
     diff = f2 - f1
