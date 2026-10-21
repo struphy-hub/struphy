@@ -34,7 +34,7 @@ from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.docstring_converter import auto_convert_docstring, info
+from struphy.utils.docstring_converter import info
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
@@ -225,7 +225,6 @@ class WeightedMassOperators:
     # Mass matrices related to L2-scalar products in all 3d derham spaces #
     #######################################################################
 
-    @auto_convert_docstring
     @property
     def M0(self):
         r"""
@@ -245,7 +244,6 @@ class WeightedMassOperators:
             )
         return self._M0
 
-    @auto_convert_docstring
     @property
     def M1(self):
         r"""
@@ -266,7 +264,6 @@ class WeightedMassOperators:
 
         return self._M1
 
-    @auto_convert_docstring
     @property
     def M2(self):
         r"""
@@ -288,7 +285,6 @@ class WeightedMassOperators:
 
         return self._M2
 
-    @auto_convert_docstring
     @property
     def M3(self):
         r"""
@@ -310,7 +306,6 @@ class WeightedMassOperators:
 
         return self._M3
 
-    @auto_convert_docstring
     @property
     def M3p_inv(self):
         r"""
@@ -340,7 +335,6 @@ class WeightedMassOperators:
             )
         return self._M3p_inv
 
-    @auto_convert_docstring
     @property
     def Mv(self):
         r"""
@@ -365,7 +359,6 @@ class WeightedMassOperators:
     ######################################
     # Predefined weighted mass operators #
     ######################################
-    @auto_convert_docstring
     @property
     def M2stab_for_rot(self):
         r"""
@@ -387,7 +380,6 @@ class WeightedMassOperators:
 
         return self._M2stab_for_rot
 
-    @auto_convert_docstring
     @property
     def M1n(self):
         r"""
@@ -415,7 +407,6 @@ class WeightedMassOperators:
 
         return self._M1n
 
-    @auto_convert_docstring
     @property
     def M2n(self):
         r"""
@@ -443,7 +434,6 @@ class WeightedMassOperators:
 
         return self._M2n
 
-    @auto_convert_docstring
     @property
     def M2gyro(self):
         r"""
@@ -481,7 +471,6 @@ class WeightedMassOperators:
             self._M2gyro = M2_B - M2para_B
         return self._M2gyro
 
-    @auto_convert_docstring
     @property
     def Mvn(self):
         r"""
@@ -509,7 +498,6 @@ class WeightedMassOperators:
 
         return self._Mvn
 
-    @auto_convert_docstring
     @property
     def M1ninv(self):
         r"""
@@ -537,7 +525,6 @@ class WeightedMassOperators:
 
         return self._M1ninv
 
-    @auto_convert_docstring
     @property
     def M1J(self):
         r"""
@@ -576,7 +563,6 @@ class WeightedMassOperators:
 
         return self._M1J
 
-    @auto_convert_docstring
     @property
     def M2J(self):
         r"""
@@ -615,7 +601,6 @@ class WeightedMassOperators:
 
         return self._M2J
 
-    @auto_convert_docstring
     @property
     def MvJ(self):
         r"""
@@ -654,7 +639,6 @@ class WeightedMassOperators:
 
         return self._MvJ
 
-    @auto_convert_docstring
     @property
     def M2B_div0(self):
         r"""
@@ -729,7 +713,6 @@ class WeightedMassOperators:
 
         return self._M2B_div0
 
-    @auto_convert_docstring
     @property
     def M2B(self):
         r"""
@@ -768,7 +751,6 @@ class WeightedMassOperators:
 
         return self._M2B
 
-    @auto_convert_docstring
     @property
     def M2Bn(self):
         r"""
@@ -813,7 +795,6 @@ class WeightedMassOperators:
 
         return self._M2Bn
 
-    @auto_convert_docstring
     @property
     def M1Bninv(self):
         r"""
@@ -858,7 +839,6 @@ class WeightedMassOperators:
 
         return self._M1Bninv
 
-    @auto_convert_docstring
     @property
     def M1para(self):
         r"""
@@ -883,7 +863,6 @@ class WeightedMassOperators:
             )
         return self._M1para
 
-    @auto_convert_docstring
     @property
     def M1perp(self):
         r"""
@@ -897,7 +876,6 @@ class WeightedMassOperators:
             self._M1perp = self.M1 - self.M1para
         return self._M1perp
 
-    @auto_convert_docstring
     @property
     def M1para_MHDeq(self):
         r"""
@@ -923,7 +901,6 @@ class WeightedMassOperators:
             )
         return self._M1para_MHDeq
 
-    @auto_convert_docstring
     @property
     def M1_MHDeq(self):
         r"""
@@ -947,7 +924,6 @@ class WeightedMassOperators:
             )
         return self._M1_MHDeq
 
-    @auto_convert_docstring
     @property
     def M1gyro(self):
         r"""
@@ -961,7 +937,6 @@ class WeightedMassOperators:
             self._M1gyro = self.M1_MHDeq - self.M1para_MHDeq
         return self._M1gyro
 
-    @auto_convert_docstring
     @property
     def M0ad(self):
         r"""
@@ -988,7 +963,6 @@ class WeightedMassOperators:
 
         return self._M0ad
 
-    @auto_convert_docstring
     @property
     def M0ad_withT(self):
         r"""
