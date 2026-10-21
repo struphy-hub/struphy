@@ -1621,6 +1621,9 @@ class WeightedMassOperator(LinearOperator):
         self._dry_run = dry_run
         self._dtype = V.coeff_space.dtype
 
+        # number of calls of assemble(), lets dependent objects (e.g. preconditioners) detect new data
+        self._assembly_count = 0
+
         # recipe for re-creating the operator with WeightedMassOperators.create_weighted_mass, see to_dict()
         self._creation_info: dict | None = None
 
@@ -2208,6 +2211,8 @@ class WeightedMassOperator(LinearOperator):
             # the data no longer stems from the creation recipe
             self._creation_info = None
 
+        self._assembly_count += 1
+
         if self._matrix_free:
             if weights is not None:
                 if self._is_scalar:
@@ -2382,6 +2387,11 @@ class WeightedMassOperator(LinearOperator):
                 self._mat[2, 1]._data[:] = -self._mat[1, 2].T._data
 
             logger.debug("Done.")
+
+    @property
+    def assembly_count(self) -> int:
+        """Number of calls of :meth:`assemble` (changes whenever the matrix data may have changed)."""
+        return self._assembly_count
 
     @property
     def is_reconstructible(self) -> bool:

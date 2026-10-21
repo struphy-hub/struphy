@@ -200,12 +200,12 @@ class VariationalViscosity(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
-            pc=pc,
-            tol=1e-16,
+            pc=self._Mrho_pc,
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -246,6 +246,9 @@ class VariationalViscosity(Propagator):
         self.tot_rhs = s.space.zeros()
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         if self._nonlin_solver.type == "Newton":
             self.__call_newton(dt)
         else:
@@ -408,7 +411,8 @@ class VariationalViscosity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]])
-                self.pc_jac.update_mass_operator(self.M_de_ds)
+                if self.pc_jac is not None:
+                    self.pc_jac.update_mass_operator(self.M_de_ds)
 
             elif self._model in ["full_q", "linear_q", "deltaf_q"]:
                 if self._model in ["deltaf_q", "linear_q"]:
@@ -421,7 +425,8 @@ class VariationalViscosity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]])
-                self.pc_jac.update_mass_operator(self.M_de_ds)
+                if self.pc_jac is not None:
+                    self.pc_jac.update_mass_operator(self.M_de_ds)
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
@@ -472,7 +477,7 @@ class VariationalViscosity(Propagator):
             self.mass_ops.M3,
             "pcg",
             pc=self.pc_M3,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -638,7 +643,8 @@ class VariationalViscosity(Propagator):
             deds *= self._mass_metric_term
 
             self.M_de_ds.assemble([[deds]])
-            self.pc_jac.update_mass_operator(self.M_de_ds)
+            if self.pc_jac is not None:
+                self.pc_jac.update_mass_operator(self.M_de_ds)
 
         elif self._model in ["full_q", "linear_q", "deltaf_q"]:
             metric = xp.power(
