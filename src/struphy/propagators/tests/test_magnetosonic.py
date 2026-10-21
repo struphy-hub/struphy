@@ -3,8 +3,8 @@ import pytest
 from feectools.linalg.solvers import inverse
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, perturbations
-from struphy.io.options import DerhamOptions
 from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.io.options import DerhamOptions
 from struphy.models import LinearMHD, LinearMHDCurlCurl
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
