@@ -1,15 +1,15 @@
 """Kinetic drift wave in a slab with full-orbit ions and adiabatic electrons
-(VlasovPoissonElectrostaticAdiabatic); the full-orbit counterpart of the drift-kinetic model
+(VlasovPoissonAdiabatic); the full-orbit counterpart of the drift-kinetic model
 DriftKineticElectrostaticAdiabatic."""
 
 # -----------------------------
 # Description of the simulation
 # -----------------------------
 
-name = "Slab drift wave (VlasovPoissonElectrostaticAdiabatic)"
+name = "Slab drift wave (VlasovPoissonAdiabatic)"
 description = """
 Drift wave in a slab with a density gradient, with full-orbit (6D) ions and adiabatic electrons
-(VlasovPoissonElectrostaticAdiabatic).
+(VlasovPoissonAdiabatic).
 
 Physics. The ions follow full Lorentz-force orbits,
     dx/dt = v,    dv/dt = (1/epsilon) (-grad phi + v x B0),
@@ -105,7 +105,7 @@ from struphy import (
     maxwellians,
 )
 from struphy.initial.base import GenericPerturbation
-from struphy.models import VlasovPoissonElectrostaticAdiabatic
+from struphy.models import VlasovPoissonAdiabatic
 
 # ---------------------
 # Physical parameters (also used by the pproc)
@@ -124,7 +124,7 @@ amp = 1e-2
 # ---------------------
 
 base_units = BaseUnits(kBT=1.0)
-model = VlasovPoissonElectrostaticAdiabatic(base_units=base_units, epsilon=epsilon)
+model = VlasovPoissonAdiabatic(base_units=base_units, epsilon=epsilon)
 
 model.em_fields.phi.save_data = True
 model.kinetic_ions.var.save_data = False
