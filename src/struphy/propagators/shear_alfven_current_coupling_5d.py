@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
+import cunumpy as xp
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -12,6 +13,7 @@ from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
     BasisProjectionOperatorLocal,
 )
+from struphy.feec.utilities import LocalRotationMatrix
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
@@ -56,9 +58,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             {\mathbb M^{2,n}}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)
         \end{bmatrix} \,,
 
-    where 
-    :math:`\mathcal{T}^2 = \hat \Pi \left[\frac{\tilde{\mathbf B}^2}{\sqrt{g} \times \vec \Lambda^2\right]`  and
-    :math:`\mathbb M^{2,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density. 
+    where
+    :math:`\mathcal{T}^2 = \hat \Pi^1 \left[\frac{\mathbf B^2}{\sqrt{g}} \times \vec \Lambda^2\right]` with the total
+    field :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` (updated in each step) if ``nonlinear``, else the
+    equilibrium field :math:`\mathbf B_0`, and
+    :math:`\mathbb M^{2,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density.
     """
 
     class Variables:
@@ -148,7 +152,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         butcher : ButcherTableau, default=None
             Explicit Runge-Kutta tableau for ``algo="explicit"``.
         nonlinear : bool, default=True
-            If ``True``, include nonlinear TB operator updates.
+            If ``True``, the basis projection operator :math:`\mathcal T^2` uses the total magnetic field
+            :math:`\mathbf B_0 + \tilde{\mathbf B}` (one operator, re-weighted in each step), else the equilibrium
+            field :math:`\mathbf B_0` only.
         """
 
         # specific literals
@@ -257,11 +263,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         if self.options.nonlinear:
-            # initialize operator TB
-            self._initialize_projection_operator_TB()
-
-            _T = _T + self._TB
-            _TT = _T.T + self._TBT
+            # one basis projection operator of the total field B0 + b (and its transpose), updated in each step
+            self._initialize_projection_operator_Ttot()
+            _T = self._Ttot
+            _TT = self._TtotT
 
         else:
             _TT = _T.T
@@ -341,7 +346,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
     def __call__(self, dt):
         # update time-dependent operator TB
         if self.options.nonlinear:
-            self._update_weights_TB()
+            self._update_weights_Ttot()
 
         # current FE coeffs
         un = self.variables.u.spline.vector
@@ -385,144 +390,91 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                 logger.info(f"Maxdiff b2 for ShearAlfvenCurrentCoupling5D: {diffs['b']}")
                 logger.info("")
 
-    def _initialize_projection_operator_TB(self):
-        r"""Initialize BasisProjectionOperator TB with the time-varying weight.
+    def _initialize_projection_operator_Ttot(self):
+        r"""Initialize the BasisProjectionOperator of the total magnetic field (time-varying weight), e.g. for
+        ``u_space="Hdiv"``
 
         .. math::
 
-            \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}²_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
+            \mathcal{T}^{\textnormal{tot}}_{(\mu,ijk),(\nu,mno)} := \hat \Pi^1_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu}
+            \frac{B^2_{0,\alpha} + \tilde{B}^2_\alpha}{\sqrt{g}} \Lambda^2_{\nu,mno} \right] \,,
 
+        and its transpose. One operator of the total field (instead of the sum of the equilibrium operator
+        :math:`\mathcal T` and of the operator of the perturbation) needs one projection per application.
         """
 
-        # Call the projector and the space
         P1 = self.derham.P1
         Vh = self.derham.fem_spaces[self._u_form]
 
-        # Femfield for the field evaluation
+        # spline function for the evaluation of the perturbed field
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
+        # the weights at the last evaluation points (the 3x3 weights of all blocks of a row share the points)
+        self._weight_pts = None
+        self._weight_vals = None
+        self._b0_cache = []
 
-        # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors:
-            self._TB = BasisProjectionOperatorLocal(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
-            self._TBT = BasisProjectionOperatorLocal(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=True,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
-        else:
-            self._TB = BasisProjectionOperator(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
-            self._TBT = BasisProjectionOperator(
-                P1,
-                Vh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=True,
-                use_cache=True,
-                polar_shift=True,
-                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                P_boundary_op=self.derham.boundary_ops["1"],
-            )
+        op_class = BasisProjectionOperatorLocal if self.derham._with_local_projectors else BasisProjectionOperator
+        ops = []
+        for transposed in (False, True):
+            ops += [
+                op_class(
+                    P1,
+                    Vh,
+                    [[None, None, None], [None, None, None], [None, None, None]],
+                    transposed=transposed,
+                    use_cache=True,
+                    polar_shift=True,
+                    V_extraction_op=self.derham.extraction_ops[self._u_form],
+                    V_boundary_op=self.derham.boundary_ops[self._u_form],
+                    P_boundary_op=self.derham.boundary_ops["1"],
+                )
+            ]
+        self._Ttot, self._TtotT = ops
 
-    def _update_weights_TB(self):
-        """Updats time-dependent weights of the BasisProjectionOperator TB"""
+    def _total_field_weights(self, e1, e2, e3):
+        """The 3x3 weights of the total-field operator at the points (e1, e2, e3): the rotation matrix of B0 + b (2-form
+        components), times the metric factor of the velocity space. Cached for the last points, since all blocks of
+        a row are evaluated at the same points."""
+        pts = self._weight_pts
+        if pts is None or not all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(pts, (e1, e2, e3))):
+            b0 = self._equilibrium_field(e1, e2, e3)
+            b = self._bf(e1, e2, e3, local=True)
+            rot = LocalRotationMatrix(*[(lambda *_, c=c: b0[c] + b[c]) for c in range(3)])(e1, e2, e3)
+            if self._u_form == "1":
+                rot = rot @ self.domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False)
+            elif self._u_form == "2":
+                rot = rot / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))[:, :, :, None, None]
+            self._weight_pts = (e1.copy(), e2.copy(), e3.copy())
+            self._weight_vals = rot
+        return self._weight_vals
 
-        # Update Femfield
+    def _equilibrium_field(self, e1, e2, e3):
+        """The 2-form components of the equilibrium field B0 at the points (e1, e2, e3), cached (the evaluation points
+        of the projector are the same in each step)."""
+        for pts, vals in self._b0_cache:
+            if all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(pts, (e1, e2, e3))):
+                return vals
+        eq = self.basis_ops.weights["eq_mhd"]
+        vals = [eq.b2_1(e1, e2, e3), eq.b2_2(e1, e2, e3), eq.b2_3(e1, e2, e3)]
+        self._b0_cache += [((e1.copy(), e2.copy(), e3.copy()), vals)]
+        return vals
+
+    def _update_weights_Ttot(self):
+        """Update the time-dependent weights of the total-field operator and of its transpose (one assembly)."""
+
         self.variables.b.spline.vector.copy(out=self._bf.vector)
+        self._weight_pts = None
 
-        # define callable weights
-        def bf1(x, y, z):
-            return self._bf(x, y, z, local=True)[0]
+        fun = [
+            [(lambda e1, e2, e3, m=m, n=n: self._total_field_weights(e1, e2, e3)[:, :, :, m, n]) for n in range(3)]
+            for m in range(3)
+        ]
 
-        def bf2(x, y, z):
-            return self._bf(x, y, z, local=True)[1]
-
-        def bf3(x, y, z):
-            return self._bf(x, y, z, local=True)[2]
-
-        from struphy.feec.utilities import LocalRotationMatrix
-
-        rot_B = LocalRotationMatrix(bf1, bf2, bf3)
-
-        fun = []
-
-        if self._u_form == "v":
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n],
-                    ]
-
-        elif self._u_form == "1":
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: (
-                            rot_B(e1, e2, e3)
-                            @ self.domain.metric_inv(
-                                e1,
-                                e2,
-                                e3,
-                                change_out_order=True,
-                                squeeze_out=False,
-                            )
-                        )[:, :, :, m, n],
-                    ]
-
+        self._Ttot.update_weights(fun)
+        if isinstance(self._Ttot, BasisProjectionOperator):
+            # the transpose re-uses the DOF matrix just assembled
+            self._TtotT.update_weights(fun, dof_mat=self._Ttot.dof_matrix)
         else:
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: (
-                            rot_B(e1, e2, e3)[:, :, :, m, n]
-                            / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))
-                        ),
-                    ]
-
-        # update BasisProjectionOperator
-        self._TB.update_weights(fun)
-        self._TBT.update_weights(fun)
+            self._TtotT.update_weights(fun)
+        self._weight_pts = None
+        self._weight_vals = None
