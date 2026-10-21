@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import cunumpy as xp
 
@@ -18,6 +19,8 @@ from struphy.pic.diagnostics.kernels.eval_guiding_center_from_6d import eval_gui
 from struphy.pic.diagnostics.kernels.eval_magnetic_background_energy import eval_magnetic_background_energy
 from struphy.pic.diagnostics.kernels.eval_magnetic_energy_PBb import eval_magnetic_energy_PBb
 from struphy.pic.diagnostics.kernels.eval_magnetic_moment_5d import eval_magnetic_moment_5d
+
+logger = logging.getLogger("struphy")
 
 
 class Particles6D(Particles):
@@ -299,6 +302,12 @@ class PauliParticles6D(Particles6D):
                         "Classical Pauli particles with the control variate need gyrotropic backgrounds: "
                         "set vth1 = vth2 = vth3."
                     )
+                    # a mean velocity must be parallel to B0, which cannot be checked on the parameters
+                    if any(maxw.params[u] != (0.0, None) for u in ("u1", "u2", "u3")):
+                        logger.warning(
+                            "PauliParticles6D with the control variate: the mean velocity of the background must be "
+                            "parallel to B0 (gyrotropic background), otherwise the delta-f weights are wrong."
+                        )
 
     @property
     def magnetic_moments(self):

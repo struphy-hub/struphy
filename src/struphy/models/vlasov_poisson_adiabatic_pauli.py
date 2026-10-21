@@ -294,7 +294,9 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
           :math:`\frac{1}{2} \int \frac{n_0}{|\mathbf B_0|^2} |\nabla_\perp \phi|^2 \, \mathrm d \mathbf x` with ``polarization=True``
         - Kinetic energy: ``en_particles`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
         - Magnetic-moment energy: ``en_mu`` :math:`= \sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`
-        - Total energy: ``en_tot`` = ``en_phi + en_particles + en_mu``
+        - Total energy: ``en_tot`` = ``en_phi + en_particles + en_mu``; with the control variate it is conserved
+          only approximately (the E x B kinetic energy of the background is represented by the polarization energy,
+          that of the delta-f weights remains in ``en_particles``)
         - Distance from the slow manifold: ``mu_prime_max``
           :math:`= \max_p |\mathbf v_p \times \mathbf b_0|^2 / (2 |\mathbf B_0|)`, Eq. (7) of Xiao and Qin;
           it must stay small compared to the magnetic moments."""
@@ -372,7 +374,8 @@ is computed from its drawn perpendicular velocity, which is then set to zero. Wi
         :math:`-\nabla \cdot (n_0 |\mathbf B_0|^{-2} \nabla_\perp \phi)` of the drift-kinetic model, which also
         contains the advection part), the delta-f slab drift wave has the drift-kinetic frequency, also with time
         steps of 8 and 16 cyclotron periods. A weak instability remains, which needs the density gradient and is
-        independent of the time step: in the slab example :math:`\mu'` grows by a factor of about 5 per 5 time units
+        independent of the time step: in the slab example :math:`\mu'` stays below :math:`5 \cdot 10^{-3}` up to
+        t = 25 and grows by a factor of about 5 per 5 time units
         and the field energy grows from t = 25 on (about one wave period). A likely cause is that
         the compression part of the polarization is now instantaneous (field equation), while its advection part
         follows the marker orbits, including their cyclotron response. Removing only the advection part from the

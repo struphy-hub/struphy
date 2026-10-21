@@ -111,7 +111,9 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
 
         polarization : bool, default=False
             If ``True``, add the polarization term :math:`-\nabla \cdot (n_0 |\mathbf B_0|^{-2} \nabla_\perp \phi)`
-            (diffusion matrix ``"M1gyro"``). Requires ``quasi_neutral=True``.
+            (diffusion matrix ``"M1gyro"``). Requires ``quasi_neutral=True``. Only for markers at guiding-center
+            positions whose deposited density lacks the polarization density (classical Pauli particles with the
+            control variate); for full-orbit ions or full-f Pauli particles the polarization density is counted twice.
 
         which_geometry : {None, "cylindrical", "toroidal"}, default=None
             Zonal correction :math:`\phi - \langle \phi \rangle` in the adiabatic electron response:
@@ -132,7 +134,7 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
 
         precond : LiteralOptions.OptsDiffusionPrecond, default=None
             Name of the preconditioner, see :class:`ImplicitDiffusion`. ``"MultiGrid"`` and
-            ``"StiffnessPreconditioner"`` need ``quasi_neutral=False``.
+            ``"StiffnessPreconditioner"`` need a diffusion term (``quasi_neutral=False`` or ``polarization=True``).
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the preconditioner, see :class:`ImplicitDiffusion`.
@@ -150,7 +152,9 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
         -----
         ``AdiabaticPoissonSolve`` reuses :class:`ImplicitDiffusion` with ``sigma_2 = 0``, ``divide_by_dt = False``,
         ``sigma_1 = 1 / (Z * epsilon**2)``, ``sigma_3 = 1 / epsilon`` and ``diffusion_mat=None`` (quasi-neutral),
-        or ``sigma_1 = alpha**2 / (Z * epsilon**2)``, ``sigma_3 = alpha**2 / epsilon`` and ``diffusion_mat="M1"``.
+        or ``sigma_1 = alpha**2 / (Z * epsilon**2)``, ``sigma_3 = alpha**2 / epsilon`` and ``diffusion_mat="M1"``,
+        or, with ``polarization=True``, ``sigma_1 = 1 / (Z * epsilon**2)``, ``sigma_3 = 1 / epsilon`` and
+        ``diffusion_mat="M1gyro"``.
         """
 
         # specific literals
