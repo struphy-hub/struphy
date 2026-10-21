@@ -211,6 +211,7 @@ class VlasovPoissonAdiabatic(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+        return params_path
 
     ## abstract methods for documentation
 

@@ -35,6 +35,21 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
     limit :math:`\alpha \to \infty` (``quasi_neutral=True``), where the equation becomes a weighted :math:`L^2`
     projection. Boundary terms from integration by parts are assumed to vanish.
 
+    With ``polarization=True`` (quasi-neutral only), the polarization density of guiding centers is added as in
+    :class:`~struphy.propagators.gyrokinetic_poisson_solve.GyrokineticPoissonSolve`,
+
+    .. math::
+
+        \frac{1}{Z\varepsilon^2} \int_\Omega \frac{n_0}{T_0}\, \psi\, (\phi - \langle \phi \rangle)\,\textrm d \mathbf x
+        + \int_\Omega \frac{n_0}{|\mathbf B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi \,\textrm d \mathbf x
+        = \frac{1}{\varepsilon} \int_\Omega \psi\, (n_i - n_0)\,\textrm d \mathbf x\,,
+
+    discretized with the gyrokinetic mass matrix :math:`\mathbb M^1_\textnormal{gyro}` in place of
+    :math:`\alpha^{-2} \mathbb M^1`. This is needed when :math:`n_i` is the density of the marker positions and
+    these are guiding-center positions whose density does not contain the polarization density
+    (e.g. classical Pauli particles with the control variate, see
+    :class:`~struphy.models.VlasovPoissonAdiabaticPauli`).
+
     In the quasi-neutral limit the ion-acoustic branch :math:`\omega = k c_s` has no Debye cutoff, so an explicit
     particle push needs :math:`\Delta t\, c_s k_\textnormal{max} \lesssim 2`, with :math:`k_\textnormal{max} \approx \pi / h`
     for the smallest cell size :math:`h`; refining the grid requires a smaller time step.
@@ -92,14 +107,21 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
         ----------
         quasi_neutral : bool, default=True
             If ``True``, drop the vacuum term :math:`\alpha^{-2}\Delta \phi` (limit :math:`\alpha \to \infty`);
-            the system is then a weighted mass-matrix solve.
+            the system is then a weighted mass-matrix solve (unless ``polarization=True``).
+
+        polarization : bool, default=False
+            If ``True``, add the polarization term :math:`-\nabla \cdot (n_0 |\mathbf B_0|^{-2} \nabla_\perp \phi)`
+            (diffusion matrix ``"M1gyro"``). Requires ``quasi_neutral=True``. Only for markers at guiding-center
+            positions whose deposited density lacks the polarization density (classical Pauli particles with the
+            control variate); for full-orbit ions or full-f Pauli particles the polarization density is counted twice.
 
         which_geometry : {None, "cylindrical", "toroidal"}, default=None
             Zonal correction :math:`\phi - \langle \phi \rangle` in the adiabatic electron response:
             no average (``None``), average over ``eta3`` (``"cylindrical"``) or over ``eta2`` and ``eta3``
             (``"toroidal"``), as in
             :class:`~struphy.propagators.gyrokinetic_poisson_solve.GyrokineticPoissonSolve`.
-            Requires ``quasi_neutral=False``: without the vacuum term the averaged potential is undetermined.
+            Requires ``quasi_neutral=False`` or ``polarization=True``: without a diffusion term the averaged potential is
+            undetermined.
 
         stab_mat : {"M0", "M0ad", "M0ad_withT", "Id"}, default="M0ad_withT"
             Mass matrix of the adiabatic term (``"M0ad_withT"`` has the weight :math:`n_0/T_0`).
@@ -112,7 +134,7 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
 
         precond : LiteralOptions.OptsDiffusionPrecond, default=None
             Name of the preconditioner, see :class:`ImplicitDiffusion`. ``"MultiGrid"`` and
-            ``"StiffnessPreconditioner"`` need ``quasi_neutral=False``.
+            ``"StiffnessPreconditioner"`` need a diffusion term (``quasi_neutral=False`` or ``polarization=True``).
 
         precond_params : dict, default=None
             Keyword arguments passed to the constructor of the preconditioner, see :class:`ImplicitDiffusion`.
@@ -130,7 +152,9 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
         -----
         ``AdiabaticPoissonSolve`` reuses :class:`ImplicitDiffusion` with ``sigma_2 = 0``, ``divide_by_dt = False``,
         ``sigma_1 = 1 / (Z * epsilon**2)``, ``sigma_3 = 1 / epsilon`` and ``diffusion_mat=None`` (quasi-neutral),
-        or ``sigma_1 = alpha**2 / (Z * epsilon**2)``, ``sigma_3 = alpha**2 / epsilon`` and ``diffusion_mat="M1"``.
+        or ``sigma_1 = alpha**2 / (Z * epsilon**2)``, ``sigma_3 = alpha**2 / epsilon`` and ``diffusion_mat="M1"``,
+        or, with ``polarization=True``, ``sigma_1 = 1 / (Z * epsilon**2)``, ``sigma_3 = 1 / epsilon`` and
+        ``diffusion_mat="M1gyro"``.
         """
 
         # specific literals
@@ -138,6 +162,7 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
         OptsGeometry = Literal["cylindrical", "toroidal", None]
         # propagator options
         quasi_neutral: bool = True
+        polarization: bool = False
         which_geometry: OptsGeometry = None
         stab_mat: OptsStabMat = "M0ad_withT"
         x0: StencilVector = None
@@ -158,13 +183,15 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
             check_option(self.which_geometry, self.OptsGeometry)
             if self.precond is not None:
                 assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
-            if self.quasi_neutral:
+            if self.polarization:
+                assert self.quasi_neutral, "polarization=True needs quasi_neutral=True (one diffusion matrix)."
+            if self.quasi_neutral and not self.polarization:
                 assert self.which_geometry is None, (
-                    "The zonal correction (which_geometry) needs quasi_neutral=False: "
+                    "The zonal correction (which_geometry) needs quasi_neutral=False or polarization=True: "
                     "without the vacuum term the averaged potential is undetermined."
                 )
                 assert self.precond not in ("MultiGrid", "StiffnessPreconditioner"), (
-                    f"precond={self.precond!r} needs quasi_neutral=False."
+                    f"precond={self.precond!r} needs quasi_neutral=False or polarization=True."
                 )
 
             # defaults
@@ -182,7 +209,10 @@ class AdiabaticPoissonSolve(ImplicitDiffusion):
 
         @property
         def diffusion_mat(self) -> str | None:
-            """Diffusion matrix of :class:`ImplicitDiffusion`: none in the quasi-neutral limit."""
+            """Diffusion matrix of :class:`ImplicitDiffusion`: none in the quasi-neutral limit, ``"M1gyro"`` with
+            the polarization term."""
+            if self.polarization:
+                return "M1gyro"
             return None if self.quasi_neutral else "M1"
 
     def allocate(self):

@@ -152,9 +152,11 @@ def test_adiabatic_poisson_quasi_neutral():
 
 
 @pytest.mark.parametrize("which_geometry", [None, "cylindrical"])
-def test_gyrokinetic_poisson_average(which_geometry):
-    """GyrokineticPoissonSolve with and without the flux-surface average, for a solution that does not depend on
-    eta3: (1/(Z eps^2)) n0/T0 (phi - <phi>) - div_perp(n0/|B0|^2 grad_perp phi) = rho / eps, with <phi> = phi for
+@pytest.mark.parametrize("cls", [GyrokineticPoissonSolve, AdiabaticPoissonSolve])
+def test_gyrokinetic_poisson_average(which_geometry, cls):
+    """GyrokineticPoissonSolve, and AdiabaticPoissonSolve with the polarization term, with and without the
+    flux-surface average, for a solution that does not depend on eta3:
+    (1/(Z eps^2)) n0/T0 (phi - <phi>) - div_perp(n0/|B0|^2 grad_perp phi) = rho / eps, with <phi> = phi for
     the average over eta3 ("cylindrical") and <phi> = 0 without average (None)."""
     domain, phi = _setup([16, 16, 1], [3, 3, 1])
     epsilon, Z = 0.5, 1
@@ -169,9 +171,12 @@ def test_gyrokinetic_poisson_average(which_geometry):
         adiabatic = N0_OVER_T0 / (Z * epsilon**2) * sol_xyz(x, y, z) if which_geometry is None else 0.0 * x
         return epsilon * (adiabatic + n0_over_B2 * (kx**2 + ky**2) * sol_xyz(x, y, z))
 
-    solver = GyrokineticPoissonSolve(rho=_pulled(domain, rho_xyz), epsilon=epsilon, Z=Z)
+    solver = cls(rho=_pulled(domain, rho_xyz), epsilon=epsilon, Z=Z)
     solver.variables.phi = phi
-    solver.options = solver.Options(which_geometry=which_geometry, solver_params=SOLVER_PARAMS)
+    if cls is AdiabaticPoissonSolve:
+        solver.options = solver.Options(polarization=True, which_geometry=which_geometry, solver_params=SOLVER_PARAMS)
+    else:
+        solver.options = solver.Options(which_geometry=which_geometry, solver_params=SOLVER_PARAMS)
     solver.allocate()
     solver(1.0)
 
@@ -199,9 +204,13 @@ def test_invalid_options():
         AdiabaticPoissonSolve.Options(quasi_neutral=True, which_geometry="cylindrical")
     with pytest.raises(AssertionError):
         AdiabaticPoissonSolve.Options(quasi_neutral=True, precond="StiffnessPreconditioner")
+    # the polarization term replaces the vacuum term (one diffusion matrix)
+    with pytest.raises(AssertionError):
+        AdiabaticPoissonSolve.Options(quasi_neutral=False, polarization=True)
     # valid combinations
     ImplicitDiffusion.Options(stab_mat="M0ad_withT", diffusion_mat=None)
     AdiabaticPoissonSolve.Options(quasi_neutral=False, which_geometry="toroidal", precond="StiffnessPreconditioner")
+    AdiabaticPoissonSolve.Options(polarization=True, which_geometry="cylindrical", precond="StiffnessPreconditioner")
 
 
 if __name__ == "__main__":
