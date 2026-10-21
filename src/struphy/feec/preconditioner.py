@@ -1836,6 +1836,95 @@ class AuxiliarySpacePreconditioner(LinearOperator):
         return self
 
 
+class ShearAlfvenSchurPreconditioner:
+    r"""
+    Kronecker (fast diagonalization) preconditioner of the Schur operator of the implicit shear Alfven step,
+
+    .. math::
+
+        S = \mathbb M^{2,n} + \frac{\Delta t^2}{4} \mathbb T^\top \mathbb C^\top \mathbb M^2 \mathbb C \mathbb T\,,
+
+    for the velocity in :math:`H(\textnormal{div})`: the :class:`StiffnessPreconditioner` with the operator
+    :math:`\mathbb C \tilde{\mathbb T}` (:math:`\tilde{\mathbb T}` is the Kronecker approximation of the basis
+    projection operator, :func:`~struphy.feec.kronecker_block.basis_projection_operator`), block Jacobi in the velocity
+    components, plus the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows
+    :math:`\mathbf B_0 \times \nabla \phi` if ``exb_correction``
+    (:class:`AuxiliarySpacePreconditioner` with :math:`\mathbb N = \hat \Pi^2[\mathbf B_0 \times \,\cdot\,] \, \mathbb G`).
+    Shared by :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` and
+    :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`.
+
+    The time-step independent Kronecker operators are built at instantiation; :meth:`build` returns the preconditioner
+    for a time step.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence (tensor-product splines and global commuting projectors, see :meth:`supported`).
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+
+    basis_ops : BasisProjectionOperators
+        Basis projection operators (with the MHD equilibrium weights).
+
+    T : BasisProjectionOperator
+        The basis projection operator :math:`\mathbb T` of :math:`\mathbf B_0 \times` (on 2-forms).
+
+    id_M : str
+        Name of the weighted mass matrix of the velocity in ``mass_ops`` (e.g. ``"M2n"``).
+
+    exb_correction : bool
+        Whether to add the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows.
+    """
+
+    def __init__(self, derham, mass_ops, basis_ops, T, id_M: str, exb_correction: bool = True):
+        from struphy.feec.kronecker_block import basis_projection_operator, derivative_operator
+        from struphy.feec.utilities import LocalRotationMatrix
+
+        assert self.supported(derham), (
+            "The shear Alfven Kronecker preconditioner needs tensor-product splines and the global commuting projectors."
+        )
+        self._mass_ops = mass_ops
+        self._id_M = id_M
+        self._exb_correction = exb_correction
+
+        # Kronecker approximation of the curl of the basis projection
+        self._kron_curl_T = derivative_operator(derham, "curl") @ basis_projection_operator(T, derham)
+        if exb_correction:
+            # E x B flows B0 x grad(phi): 2-form components eps_ijk b1_j d_k phi (b1: covariant components of B0)
+            eq = basis_ops.weights["eq_mhd"]
+            rot_b1 = LocalRotationMatrix(eq.b1_1, eq.b1_2, eq.b1_3)
+            fun = [
+                [(lambda e1, e2, e3, m=m, n=n: rot_b1(e1, e2, e3)[:, :, :, m, n]) for n in range(3)] for m in range(3)
+            ]
+            Pi_exb = basis_ops.create_basis_op(fun, "Hcurl", "Hdiv", assemble=True, name="Pi_ExB")
+            grad = derham.grad
+            self._exb_N = Pi_exb @ grad
+            self._exb_NT = grad.T @ Pi_exb.T
+            self._kron_exb = basis_projection_operator(Pi_exb, derham) @ derivative_operator(derham, "grad")
+            self._kron_curl_T_exb = self._kron_curl_T @ self._kron_exb
+
+    @staticmethod
+    def supported(derham) -> bool:
+        """Whether the preconditioner can be built for ``derham`` (no polar splines, global commuting projectors)."""
+        return not derham.polar_splines and not derham.with_local_projectors
+
+    def build(self, dt: float) -> LinearOperator:
+        """The preconditioner of the Schur operator for the time step ``dt``."""
+        mid = (dt**2 / 4) * self._mass_ops.M2
+        pc = StiffnessPreconditioner(self._mass_ops, self._kron_curl_T, sigma=1.0, mid=mid, stab=self._id_M)
+        if self._exb_correction:
+            # N^T S N = N^T M N + dt^2/4 (C T N)^T M2 (C T N) on V0
+            pc_phi = StiffnessPreconditioner(
+                self._mass_ops,
+                [self._kron_exb, self._kron_curl_T_exb],
+                sigma=0.0,
+                mid=[self._id_M, mid],
+            )
+            pc = AuxiliarySpacePreconditioner(pc, [(self._exb_N, self._exb_NT, pc_phi)])
+        return pc
+
+
 def _copy_owned(src: StencilVector, dst: StencilVector) -> None:
     """Copy the owned coefficients of ``src`` into ``dst`` (stencil vectors of equal shape on different spaces)."""
     assert tuple(src.space.starts) == tuple(dst.space.starts) and tuple(src.space.ends) == tuple(dst.space.ends)

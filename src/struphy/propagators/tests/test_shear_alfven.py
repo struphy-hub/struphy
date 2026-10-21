@@ -21,11 +21,31 @@ def test_multigrid_options():
 
 
 def test_stiffness_preconditioner_options():
-    ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner")
-    with pytest.raises(AssertionError):
-        ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner", algo="explicit")
-    with pytest.raises(AssertionError):
-        ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner", u_space="Hcurl")
+    """The Kronecker preconditioner is the default; without its requirements it falls back to the mass matrix one."""
+    assert ShearAlfvenPropagator.Options().precond == "StiffnessPreconditioner"
+    for kwargs in ({"algo": "explicit"}, {"u_space": "Hcurl"}, {"solver": "cg"}):
+        options = ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner", **kwargs)
+        assert options.precond == "MassMatrixPreconditioner"
+
+
+@pytest.mark.mpi_skip
+def test_stiffness_preconditioner_polar_fallback(tmp_path):
+    """With polar splines, the default preconditioner falls back to the polar mass matrix preconditioner."""
+    from struphy import domains
+
+    model = ShearAlfven()
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="polar"),
+        domain=domains.IGAPolarCylinder(num_elements=(4, 6), degree=(2, 2), a=1.0, Lz=4.0),
+        equil=equils.ScrewPinch(a=1.0, R0=4.0 / (2 * xp.pi), B0=1.0),
+        grid=grids.TensorProductGrid(num_elements=(4, 6, 2)),
+        derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "free"), None, None), polar_splines=True),
+    )
+    sim.allocate()
+    shear_alf = model.propagators.shear_alf
+    assert shear_alf.options.precond == "StiffnessPreconditioner"
+    assert shear_alf._precond == "PolarMassMatrixPreconditioner"
 
 
 def shear_alfven_step(tmp_path, precond, dts, exb_correction=True, bcs=(None, None, None), monkeypatch=None):
