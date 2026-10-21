@@ -57,7 +57,7 @@ class PushVxB(Propagator):
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "PauliParticles6D", "ParticlesSPH")
             self._ions = new
 
     def __init__(self, b2_var: FEECVariable = None):
