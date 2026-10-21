@@ -11,7 +11,6 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Var
 from struphy.pic.particles import Particles5D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.docstring_converter import auto_convert_docstring
 
 _DUMMY_VARIABLE = object()
 
@@ -209,9 +208,19 @@ def _mark_outdated(scalar: Scalar):
             _mark_outdated(variable)
 
 
-@auto_convert_docstring
 class BilinearEnergyFEEC(Scalar):
-    """Scalar from a bilinear FEEC form evaluated on one or two FEEC variables."""
+    r"""Scalar from a bilinear FEEC form evaluated on one or two FEEC variables.
+
+    For example, for a vector-valued variable :math:`\mathbf{u}` the computed energy when ``right_variable`` is None
+    reads
+
+    .. math::
+
+        \mathcal E = \alpha \frac{1}{2} \int_{\Omega} \mathbf{u}^\top A \mathbf u  \, d \mathbf x\,,
+
+    where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the
+    identity by default).
+    """
 
     def __init__(
         self,
@@ -257,17 +266,18 @@ class BilinearEnergyFEEC(Scalar):
         """Communication has been handled by psydac's .dot_inner, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
 
-    __doc_rst__ = r"""For example, for a vector-valued variable :math:`\mathbf{u}` the computed energy when right_variable is None reads
-
-.. math::
-
-    \mathcal E = \alpha \frac{1}{2} \int_{\Omega} \mathbf{u}^\top A \mathbf u  \, d \mathbf x\,,
-    
-where :math:`\alpha` is a normalization constant and :math:`A` is a symmetric positive definite matrix (the identity by default)."""
-
 
 class VolumeFormEnergyFEEC(Scalar):
-    """Scalar from a volume form integrated over the domain."""
+    r"""Scalar from a volume form integrated over the domain.
+
+    For example, for a volume form :math:`p` the computed energy reads
+
+    .. math::
+
+        \mathcal E = \alpha \int_{\Omega} p  \, d \mathbf x\,,
+
+    where :math:`\alpha` is a normalization constant.
+    """
 
     def __init__(
         self,
@@ -293,14 +303,6 @@ class VolumeFormEnergyFEEC(Scalar):
     def _mpi_sum(self):
         """Communication has been handled by psydac's .dot_inner, so no additional MPI operations are needed."""
         self.value[0] = self.local_value[0]
-
-    __doc_rst__ = r"""For example, for a volume form :math:`p` the computed energy reads
-
-.. math::
-
-    \mathcal E = \alpha \int_{\Omega} p  \, d \mathbf x\,,
-    
-where :math:`\alpha` is a normalization constant."""
 
 
 class FunctionScalarFEEC(Scalar):

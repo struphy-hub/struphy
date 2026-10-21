@@ -1272,49 +1272,6 @@ def rst_to_latex(rst_text: str) -> str:
     return latex
 
 
-def auto_convert_docstring(obj):
-    """
-    Decorator/hook to automatically convert RST docstrings to HTML.
-
-    - For classes: converts ``__doc_rst__`` to HTML and sets it as ``__doc__``.
-    - For properties: converts the getter's RST docstring to HTML, sets it as
-      the property docstring, and wraps ``fget`` so the returned value also
-      carries the HTML docstring (making ``instance.prop.__doc__`` work in
-      notebooks).
-    - For plain functions: converts the RST ``__doc__`` to HTML in-place.
-    """
-    if isinstance(obj, property):
-        doc = obj.fget.__doc__ if obj.fget else None
-        if doc:
-            html_doc = rst_to_html(doc)
-            original_fget = obj.fget
-
-            def wrapped_fget(self_inner):
-                result = original_fget(self_inner)
-                try:
-                    result.__doc__ = html_doc
-                except (AttributeError, TypeError):
-                    pass
-                return result
-
-            wrapped_fget.__doc__ = html_doc
-            wrapped_fget.__name__ = original_fget.__name__
-            wrapped_fget.__qualname__ = original_fget.__qualname__
-            return property(wrapped_fget, obj.fset, obj.fdel, html_doc)
-        return obj
-    elif callable(obj) and not isinstance(obj, type):
-        if obj.__doc__:
-            obj.__doc__ = rst_to_html(obj.__doc__)
-        return obj
-    else:
-        # Class behaviour: use __doc_rst__ if present, otherwise convert __doc__
-        if hasattr(obj, "__doc_rst__") and obj.__doc_rst__:
-            obj.__doc__ = rst_to_html(obj.__doc_rst__)
-        elif obj.__doc__:
-            obj.__doc__ = rst_to_html(obj.__doc__)
-        return obj
-
-
 def info(obj, use_rst: bool = True):
     """
     Render the docstring of an object in a Jupyter notebook.
@@ -1367,5 +1324,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     model = get_model_by_name(args.model_name)
-    auto_convert_docstring(model)
-    logger.info(model.__doc__)
+    logger.info(rst_to_html(model.__doc__))
