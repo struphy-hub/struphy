@@ -8,8 +8,6 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.kronecker_block import basis_projection_operator, derivative_operator
-from struphy.feec.utilities import LocalRotationMatrix
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.schur_solver import SchurSolver
@@ -92,20 +90,21 @@ class ShearAlfvenPropagator(Propagator):
             Time stepping algorithm.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used by implicit or explicit operators.
-        precond : LiteralOptions.OptsShearAlfvenPrecond, default="MassMatrixPreconditioner"
+        precond : LiteralOptions.OptsShearAlfvenPrecond, default="StiffnessPreconditioner"
             Preconditioner of the linear solve: of the mass-matrix block (``"MassMatrixPreconditioner"``,
             ``"PolarMassMatrixPreconditioner"``), or of the whole Schur operator
             :math:`\mathbb M^{2,n} + \frac{\Delta t^2}{4} \mathbb T^\top \mathbb C^\top \mathbb M^2 \mathbb C \mathbb T`:
             a geometric multigrid V-cycle (``"MultiGrid"``,
             :class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`) or the Kronecker
-            (fast diagonalization) preconditioner (``"StiffnessPreconditioner"``,
-            :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with the operator
-            :math:`\mathbb C \tilde{\mathbb T}`, where :math:`\tilde{\mathbb T}` is the Kronecker approximation of the
-            basis projection operator, :func:`~struphy.feec.kronecker_block.basis_projection_operator`; block Jacobi in
-            the velocity components, ``u_space="Hdiv"`` and no polar splines), with the auxiliary space correction of
-            the :math:`\mathbf E \times \mathbf B` flows if ``exb_correction`` (see there). Both need the implicit
-            algorithm with ``solver="pcg"``. The Schur operator depends on the time step, so these preconditioners are
-            built in the setup (:meth:`prepare_time_step`) and updated if the time step changes.
+            (fast diagonalization) preconditioner (``"StiffnessPreconditioner"``, the default,
+            :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`: block Jacobi in the velocity
+            components with the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows if
+            ``exb_correction``, see there). Both need the implicit algorithm with ``solver="pcg"``. The Kronecker
+            preconditioner also needs ``u_space="Hdiv"``, tensor-product splines (no polar splines) and the global
+            commuting projectors; otherwise ``"StiffnessPreconditioner"`` falls back (with a warning) to
+            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). The Schur operator
+            depends on the time step, so these preconditioners are built in the setup (:meth:`prepare_time_step`) and
+            updated if the time step changes.
             The multigrid preconditioner is experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG
             iterations than the mass matrix preconditioner and is much slower (the smoother does not treat the large
             kernel of the curl term on 2-forms). The Kronecker preconditioner (with ``exb_correction``) needs about 11
@@ -134,7 +133,7 @@ class ShearAlfvenPropagator(Propagator):
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsShearAlfvenPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsShearAlfvenPrecond = "StiffnessPreconditioner"
         exb_correction: bool = True
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
@@ -146,11 +145,9 @@ class ShearAlfvenPropagator(Propagator):
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
-            if self.precond in ("MultiGrid", "StiffnessPreconditioner"):
+            if self.precond == "MultiGrid":
                 assert self.algo == "implicit", f'precond="{self.precond}" requires algo="implicit".'
                 assert self.solver == "pcg", f'precond="{self.precond}" requires solver="pcg".'
-            if self.precond == "StiffnessPreconditioner":
-                assert self.u_space == "Hdiv", 'precond="StiffnessPreconditioner" requires u_space="Hdiv".'
             if self.precond == "MultiGrid" and self.multigrid is None:
                 self.multigrid = MultiGridOptions()
 
@@ -187,37 +184,23 @@ class ShearAlfvenPropagator(Propagator):
         _M2 = self.mass_ops.M2
         curl = self.derham.curl
 
-        # Preconditioner (the preconditioners of the Schur operator depend on dt and are built in __call__)
+        # Preconditioner (the preconditioners of the Schur operator depend on dt and are built in prepare_time_step)
         self._id_M = id_M
         self._multigrid_dt = None
         self._schur_precond_dt = None
-        if self.options.precond == "StiffnessPreconditioner":
-            assert not self.derham.polar_splines, 'precond="StiffnessPreconditioner" does not support polar splines.'
-            assert not self.derham.with_local_projectors, (
-                'precond="StiffnessPreconditioner" needs the global commuting projectors.'
+        # the requested preconditioner, or the fallback if the Kronecker one is not possible here
+        self._precond = preconditioner.ShearAlfvenSchurPreconditioner.resolve(
+            self.options.precond, self.derham, self.options.algo, self.options.solver, self.options.u_space
+        )
+        if self._precond == "StiffnessPreconditioner":
+            # Kronecker operators (built once, independent of dt)
+            self._schur_precond = preconditioner.ShearAlfvenSchurPreconditioner(
+                self.derham, self.mass_ops, self.basis_ops, _T, id_M, exb_correction=self.options.exb_correction
             )
-            # Kronecker approximation of the curl of the basis projection (built once, independent of dt)
-            self._kron_curl_T = derivative_operator(self.derham, "curl") @ basis_projection_operator(_T, self.derham)
-            if self.options.exb_correction:
-                # E x B flows B0 x grad(phi): 2-form components eps_ijk b1_j d_k phi (b1: covariant components of B0)
-                eq = self.basis_ops.weights["eq_mhd"]
-                rot_b1 = LocalRotationMatrix(eq.b1_1, eq.b1_2, eq.b1_3)
-                fun = [
-                    [(lambda e1, e2, e3, m=m, n=n: rot_b1(e1, e2, e3)[:, :, :, m, n]) for n in range(3)]
-                    for m in range(3)
-                ]
-                Pi_exb = self.basis_ops.create_basis_op(fun, "Hcurl", "Hdiv", assemble=True, name="Pi_ExB")
-                grad = self.derham.grad
-                self._exb_N = Pi_exb @ grad
-                self._exb_NT = grad.T @ Pi_exb.T
-                self._kron_exb = basis_projection_operator(Pi_exb, self.derham) @ derivative_operator(
-                    self.derham, "grad"
-                )
-                self._kron_curl_T_exb = self._kron_curl_T @ self._kron_exb
-        if self.options.precond in (None, "MultiGrid", "StiffnessPreconditioner"):
+        if self._precond in (None, "MultiGrid", "StiffnessPreconditioner"):
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.options.precond)
+            pc_class = getattr(preconditioner, self._precond)
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         if self.options.algo == "implicit":
@@ -285,7 +268,7 @@ class ShearAlfvenPropagator(Propagator):
             return
         # the multigrid preconditioner of the Schur operator A - dt^2 B C: updated (re-using the coarse mass and
         # derivative operators) when dt changes
-        if self.options.precond == "MultiGrid" and dt != self._multigrid_dt:
+        if self._precond == "MultiGrid" and dt != self._multigrid_dt:
             schur = self._schur_solver.A - dt**2 * self._schur_solver.BC
             if self._schur_solver.precond is None:
                 self._schur_solver.precond = MultiGridPreconditioner(
@@ -297,21 +280,8 @@ class ShearAlfvenPropagator(Propagator):
 
         # the Kronecker preconditioner of S = M + dt^2/4 T^T C^T M2 C T (plus the E x B correction), rebuilt when dt
         # changes
-        if self.options.precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
-            mid = (dt**2 / 4) * self.mass_ops.M2
-            pc = preconditioner.StiffnessPreconditioner(
-                self.mass_ops, self._kron_curl_T, sigma=1.0, mid=mid, stab=self._id_M
-            )
-            if self.options.exb_correction:
-                # N^T S N = N^T M N + dt^2/4 (C T N)^T M2 (C T N) on V0
-                pc_phi = preconditioner.StiffnessPreconditioner(
-                    self.mass_ops,
-                    [self._kron_exb, self._kron_curl_T_exb],
-                    sigma=0.0,
-                    mid=[self._id_M, mid],
-                )
-                pc = preconditioner.AuxiliarySpacePreconditioner(pc, [(self._exb_N, self._exb_NT, pc_phi)])
-            self._schur_solver.precond = pc
+        if self._precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
+            self._schur_solver.precond = self._schur_precond.build(dt)
             self._schur_precond_dt = dt
 
     @profile
