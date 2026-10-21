@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+from feectools.linalg.basic import LinearOperator, Vector
 from line_profiler import profile
 from maybempi import MPI
 
@@ -13,7 +14,9 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb import cc_lin_mhd_5d_curlb
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf import cc_lin_mhd_5d_curlb_mf
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf_dot import cc_lin_mhd_5d_curlb_mf_dot
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.pushing.kernels.push_gc_cc_J1_H1vec import push_gc_cc_J1_H1vec
 from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
 from struphy.pic.pushing.pusher import Pusher
@@ -135,6 +138,13 @@ class CurrentCoupling5DCurlb(Propagator):
             The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
             but the propagator then no longer conserves the energy exactly (the filter is applied to the
             accumulated vectors only, not to the fields seen by the particles).
+
+        matrix_free : bool, default=True
+            Apply the accumulated matrix :math:`\sum_p s_p (\vec \Lambda_p \cdot \mathbf e_p)
+            (\vec \Lambda_p \cdot \mathbf e_p)^\top` (rank one per marker) in each iteration of the solver from data
+            stored per marker (:class:`MarkerRankOneOperator`), instead of assembling it: one spline evaluation and
+            one deposition per marker and iteration instead of the 6 blocks of size :math:`n_\textnormal{basis}^2`
+            per marker (much cheaper for cubic splines). Same result up to the solver tolerance.
         """
 
         # propagator options
@@ -144,6 +154,7 @@ class CurrentCoupling5DCurlb(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
+        matrix_free: bool = True
 
         def __post_init__(self):
             # checks
@@ -151,6 +162,7 @@ class CurrentCoupling5DCurlb(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert self.ep_scale is None or isinstance(self.ep_scale, float)
+            assert isinstance(self.matrix_free, bool)
 
             # the accumulation kernel cc_lin_mhd_5d_curlb only has H1vec and Hdiv branches
             if self.u_space not in ("Hdiv", "H1vec"):
@@ -214,17 +226,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._u_avg = self.variables.u.spline.vector.space.zeros()
 
         # define Accumulator and arguments
-        self._ACC = Accumulator(
-            self.variables.energetic_ions.particles,
-            self.options.u_space,
-            cc_lin_mhd_5d_curlb,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=self.options.filter_params,
-        )
-
+        particles = self.variables.energetic_ions.particles
         self._args_accum_kernel = (
             epsilon,
             self._ep_scale,
@@ -239,6 +241,38 @@ class CurrentCoupling5DCurlb(Propagator):
             curl_unit_b2[2]._data,
             self._u_form_int,
         )
+        if self.options.matrix_free:
+            # the vector, and the data of the matrix per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            self._ACC = AccumulatorVector(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_5d_curlb_mf,
+                self.mass_ops,
+                self.domain.args_domain,
+                filter_params=self.options.filter_params,
+            )
+            self._args_accum_kernel += (column,)
+            _A_particles = MarkerRankOneOperator(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_5d_curlb_mf_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (self._u_form_int, column),
+            )
+        else:
+            self._ACC = Accumulator(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_5d_curlb,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+                filter_params=self.options.filter_params,
+            )
+            _A_particles = self._ACC.operators[0]
 
         # define Pusher
         if self.options.u_space == "Hdiv":
@@ -276,7 +310,7 @@ class CurrentCoupling5DCurlb(Propagator):
             pushes_eta=False,
         )
 
-        _BC = -1 / 4 * self._ACC.operators[0]
+        _BC = -1 / 4 * _A_particles
 
         self._schur_solver = SchurSolver(
             _A,
@@ -330,3 +364,82 @@ class CurrentCoupling5DCurlb(Propagator):
             logger.info(f"Iterations for CurrentCoupling5DCurlb: {info['niter']}")
             logger.info(f"Maxdiff up for CurrentCoupling5DCurlb: {diffs['u']}")
             logger.info("")
+
+
+class MarkerRankOneOperator(LinearOperator):
+    r"""Matrix-free particle operator :math:`A = \sum_p s_p (\vec \Lambda_p \cdot \mathbf e_p)
+    (\vec \Lambda_p \cdot \mathbf e_p)^\top` (a rank-one matrix per marker) on the FE coefficients of a vector
+    space, applied by a kernel that evaluates the spline of the input at the markers and deposits
+    :math:`s_p (\mathbf e_p \cdot \mathbf x_h(\boldsymbol \eta_p))\, \mathbf e_p` (an
+    :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`, without filter); :math:`\mathbf e_p` and
+    :math:`s_p` are stored in the marker array by the accumulation kernel of the vector. Symmetric. With the extraction
+    and boundary operators :math:`\mathbb E, \mathbb B` of the space, it is applied as
+    :math:`\mathbb B \mathbb E A \mathbb E^\top \mathbb B^\top`, like the assembled particle matrices.
+
+    Parameters
+    ----------
+    particles : Particles
+        The markers.
+
+    space_id : str
+        The FE space of the coefficients (``"Hdiv"`` or ``"H1vec"``).
+
+    kernel : Kernel
+        The kernel ``(args_markers, args_derham, args_domain, vec1, vec2, vec3, x1, x2, x3, *args)`` that deposits the
+        operator applied to the coefficients ``x``.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators (for the de Rham sequence).
+
+    args_domain : DomainArguments
+        Arguments of the mapping.
+
+    args : tuple
+        Further arguments of the kernel.
+    """
+
+    def __init__(self, particles, space_id: str, kernel, mass_ops, args_domain, args: tuple):
+        derham = mass_ops.derham
+        form = derham.space_to_form[space_id]
+        self._E = derham.extraction_ops[form]
+        self._B = derham.boundary_ops[form]
+        self._acc = AccumulatorVector(particles, space_id, kernel, mass_ops, args_domain)
+        self._args = args
+        self._x_full = self._E.domain.zeros()
+        self._x_tmp = self._B.domain.zeros()
+        self._space = self._B.codomain
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    def tosparse(self):
+        raise NotImplementedError("MarkerRankOneOperator is matrix-free.")
+
+    def toarray(self):
+        raise NotImplementedError("MarkerRankOneOperator is matrix-free.")
+
+    def transpose(self, conjugate=False):
+        return self
+
+    def dot(self, v: Vector, out: Vector = None) -> Vector:
+        assert v.space == self._space
+        # coefficients of the full space, with ghost regions for the evaluation at the markers
+        self._B.T.dot(v, out=self._x_tmp)
+        self._E.T.dot(self._x_tmp, out=self._x_full)
+        self._x_full.update_ghost_regions()
+        blocks = self._x_full.blocks if hasattr(self._x_full, "blocks") else [self._x_full]
+        self._acc(*[blk._data for blk in blocks], *self._args)
+        res = self._acc.vectors[0]
+        if out is None:
+            return res.copy()
+        res.copy(out=out)
+        return out

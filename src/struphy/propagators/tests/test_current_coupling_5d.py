@@ -178,6 +178,61 @@ def test_shear_alfven_cc5d_nonlinear():
     assert abs(energy() - en0) < 1e-11 * en0
 
 
+def test_curlb_matrix_free():
+    """The matrix-free CurrentCoupling5DCurlb (default) gives the same step as the assembled one, and conserves the
+    energy (in a torus, where the curvature of b0 does not vanish)."""
+    import numpy as np
+
+    from struphy import (
+        BoundaryParameters,
+        DerhamOptions,
+        LoadingParameters,
+        Simulation,
+        domains,
+        equils,
+        grids,
+        maxwellians,
+        perturbations,
+    )
+    from struphy.linear_algebra.solver import SolverParameters
+    from struphy.models import LinearMHDDriftkineticCC
+
+    def run(matrix_free: bool):
+        model = LinearMHDDriftkineticCC(turn_off=tuple(p for p in ALL_PROPAGATORS if p != "CurrentCoupling5DCurlb"))
+        model.energetic_ions.set_markers(
+            loading_params=LoadingParameters(Np=1000, seed=1234),
+            boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")),
+        )
+        model.energetic_ions.var.add_background(maxwellians.GyroMaxwellian2D(n=(0.1, None)))
+        model.mhd.velocity.add_perturbation(
+            perturbations.TorusModesSin(ms=(1,), ns=(-1,), amps=(1e-2,), comp=0, given_in_basis="2")
+        )
+        prop = model.propagators.cc5d_curlb
+        prop.options = prop.Options(matrix_free=matrix_free, solver_params=SolverParameters(tol=1e-14, maxiter=1000))
+        Simulation(
+            model=model,
+            domain=domains.HollowTorus(a1=0.1, a2=1.0, R0=3.0, tor_period=1),
+            equil=equils.AdhocTorus(a=1.0, R0=3.0, B0=1.0, q0=1.25, q1=2.25),
+            grid=grids.TensorProductGrid(num_elements=(6, 6, 4)),
+            derham_opts=DerhamOptions(degree=(2, 2, 2), bcs=(("dirichlet", "dirichlet"), None, None)),
+        ).allocate()
+        model.scalars.update()
+        en0 = float(np.squeeze(model.scalars.host_value("en_tot")))
+        for _ in range(2):
+            prop(0.1)
+        model.scalars.update()
+        en1 = float(np.squeeze(model.scalars.host_value("en_tot")))
+        particles = model.energetic_ions.var.particles
+        v_par = particles.markers[3, particles.valid_mks]
+        return model.mhd.velocity.spline.vector.toarray(), v_par, (en1 - en0) / en0
+
+    u_mf, v_mf, den_mf = run(True)
+    u_as, v_as, _ = run(False)
+    assert np.linalg.norm(u_mf - u_as) < 1e-10 * np.linalg.norm(u_as)
+    assert np.allclose(v_mf, v_as, rtol=1e-10, atol=1e-14)
+    assert abs(den_mf) < 1e-12
+
+
 def test_current_coupling_5d_ep_scale():
     """The energetic-particle contributions are scaled by the mass ratio A_h/A_b by default."""
     from struphy import DerhamOptions, LoadingParameters, Simulation, equils, grids, maxwellians
