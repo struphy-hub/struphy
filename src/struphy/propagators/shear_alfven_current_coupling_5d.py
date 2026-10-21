@@ -122,8 +122,21 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             Time stepping algorithm.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Preconditioner for mass-matrix block.
+        precond : LiteralOptions.OptsShearAlfvenPrecond, default="StiffnessPreconditioner"
+            Preconditioner of the linear solve: of the mass-matrix block (``"MassMatrixPreconditioner"``,
+            ``"PolarMassMatrixPreconditioner"``) or the Kronecker (fast diagonalization) preconditioner of the whole
+            Schur operator (``"StiffnessPreconditioner"``, the default,
+            :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`, built from the equilibrium part
+            :math:`\mathbb T` of the basis projection operator; with ``nonlinear=True`` it approximates the Schur
+            operator with :math:`\mathbb T + \mathbb T^B`, since :math:`|\tilde{\mathbf B}| \ll |\mathbf B_0|`). The
+            Kronecker preconditioner needs ``algo="implicit"``, ``solver="pcg"``, ``u_space="Hdiv"``, tensor-product
+            splines (no polar splines) and the global commuting projectors; otherwise it falls back (with a warning) to
+            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). ``"MultiGrid"`` is
+            not available here.
+        exb_correction : bool, default=True
+            For ``precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
+            :math:`\mathbf E \times \mathbf B` flows, see
+            :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`.
         solver_params : SolverParameters, default=None
             Solver controls.
         filter_params : FilterParameters, default=None
@@ -141,7 +154,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsShearAlfvenPrecond = "StiffnessPreconditioner"
+        exb_correction: bool = True
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         butcher: ButcherTableau = None
@@ -152,7 +166,16 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
-            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
+            assert self.precond != "MultiGrid", 'precond="MultiGrid" is not available for ShearAlfvenCurrentCoupling5D.'
+            if self.precond == "StiffnessPreconditioner" and (
+                self.algo != "implicit" or self.solver != "pcg" or self.u_space != "Hdiv"
+            ):
+                logger.warning(
+                    'precond="StiffnessPreconditioner" needs algo="implicit", solver="pcg" and u_space="Hdiv"; '
+                    'falling back to precond="MassMatrixPreconditioner".'
+                )
+                self.precond = "MassMatrixPreconditioner"
             assert isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
 
@@ -202,11 +225,26 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             filter_params=self.options.filter_params,
         )
 
-        # Preconditioner
-        if self.options.precond is None:
+        # Preconditioner (the Kronecker preconditioner of the Schur operator depends on dt, built in prepare_time_step)
+        self._schur_precond_dt = None
+        self._precond = self.options.precond
+        if self._precond == "StiffnessPreconditioner" and not preconditioner.ShearAlfvenSchurPreconditioner.supported(
+            self.derham
+        ):
+            self._precond = "PolarMassMatrixPreconditioner" if self.derham.polar_splines else "MassMatrixPreconditioner"
+            logger.warning(
+                'precond="StiffnessPreconditioner" needs tensor-product splines and the global commuting projectors; '
+                f'falling back to precond="{self._precond}".'
+            )
+        if self._precond == "StiffnessPreconditioner":
+            # Kronecker operators of the equilibrium part T (built once, independent of dt)
+            self._schur_precond = preconditioner.ShearAlfvenSchurPreconditioner(
+                self.derham, self.mass_ops, self.basis_ops, _T, id_M, exb_correction=self.options.exb_correction
+            )
+        if self._precond in (None, "StiffnessPreconditioner"):
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.options.precond)
+            pc_class = getattr(preconditioner, self._precond)
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         if self.options.nonlinear:
@@ -284,6 +322,13 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             vector_field = {self.variables.u.spline.vector: f1, self.variables.b.spline.vector: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
+    def prepare_time_step(self, dt: float):
+        """Kronecker preconditioner of the Schur operator for the time step ``dt``: built in the setup, rebuilt when dt
+        changes."""
+        if self._precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
+            self._schur_solver.precond = self._schur_precond.build(dt)
+            self._schur_precond_dt = dt
+
     def __call__(self, dt):
         # update time-dependent operator TB
         if self.options.nonlinear:
@@ -297,6 +342,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC(self.options.ep_scale)
 
         if self.options.algo == "implicit":
+            # preconditioner for the current time step (no-op unless dt changed since the setup)
+            self.prepare_time_step(dt)
+
             # solve for new u coeffs (no tmps created here)
             byn = self._B.dot(bn, out=self._byn)
             b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
