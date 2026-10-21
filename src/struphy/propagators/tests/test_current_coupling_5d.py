@@ -112,6 +112,27 @@ def test_shear_alfven_cc5d_stiffness_preconditioner(monkeypatch, nonlinear: bool
     assert all(n < m for n, m in zip(n_stiff, n_mass)), (n_stiff, n_mass)
 
 
+def test_current_coupling_5d_ep_scale():
+    """The energetic-particle contributions are scaled by the mass ratio A_h/A_b by default."""
+    from struphy import DerhamOptions, LoadingParameters, Simulation, equils, grids, maxwellians
+    from struphy.models import LinearMHDDriftkineticCC
+
+    model = LinearMHDDriftkineticCC(mhd_mass_number=1.0, hot_mass_number=2.0)
+    model.energetic_ions.set_markers(loading_params=LoadingParameters(Np=40, seed=1234))
+    model.energetic_ions.var.add_background(maxwellians.GyroMaxwellian2D())
+    model.propagators.cc5d_curlb.options = model.propagators.cc5d_curlb.Options(ep_scale=0.5)
+    sim = Simulation(
+        model=model,
+        equil=equils.HomogenSlab(),
+        grid=grids.TensorProductGrid(num_elements=(4, 4, 2)),
+        derham_opts=DerhamOptions(degree=(1, 1, 1)),
+    )
+    sim.allocate()
+    for name in ("shearalfen_cc5d", *PROPAGATORS.values()):
+        expected = 0.5 if name == "cc5d_curlb" else 2.0
+        assert getattr(model.propagators, name)._ep_scale == expected, name
+
+
 if __name__ == "__main__":
     for name in PROPAGATORS:
         test_current_coupling_5d_without_b_tilde(name)

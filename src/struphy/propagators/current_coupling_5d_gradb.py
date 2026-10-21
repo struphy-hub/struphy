@@ -119,8 +119,9 @@ class CurrentCoupling5DGradB(Propagator):
 
         Parameters
         ----------
-        ep_scale : float, default=1.0
-            Scaling factor applied in particle accumulation.
+        ep_scale : float, default=None
+            Factor of the energetic-particle contributions (accumulation): the mass ratio
+            :math:`A_	extnormal{h}/A_	extnormal{b}` of the energetic ions and the MHD bulk if ``None``.
 
         algo : {"discrete_gradient", "explicit"}, default="explicit"
             Time integration algorithm.
@@ -148,8 +149,10 @@ class CurrentCoupling5DGradB(Propagator):
             ``SolverParameters()``.
 
         filter_params : FilterParameters, default=None
-            Particle-to-grid filtering parameters used by the accumulator.
-            If ``None``, defaults to ``FilterParameters()``.
+            Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
+            The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
+            but the propagator then no longer conserves the energy exactly (the filter is applied to the
+            accumulated vectors only, not to the fields seen by the particles).
 
         dg_solver_params : DiscreteGradientSolverParameters, default=None
             Nonlinear solver controls for discrete-gradient mode. If ``None``
@@ -163,7 +166,7 @@ class CurrentCoupling5DGradB(Propagator):
             "explicit",
         ]
         # propagator options
-        ep_scale: float = 1.0
+        ep_scale: float = None
         algo: OptsAlgo = "explicit"
         butcher: ButcherTableau = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
@@ -179,7 +182,7 @@ class CurrentCoupling5DGradB(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.ep_scale, float)
+            assert self.ep_scale is None or isinstance(self.ep_scale, float)
 
             # supported u_space per algorithm (pusher kernels exist only for these)
             if self.algo == "explicit":
@@ -219,6 +222,11 @@ class CurrentCoupling5DGradB(Propagator):
 
     @profile
     def allocate(self):
+        # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
+        self._ep_scale = self.options.ep_scale
+        if self._ep_scale is None:
+            self._ep_scale = self.variables.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -279,7 +287,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             self._args_accum_kernel = (
                 epsilon,
-                self.options.ep_scale,
+                self._ep_scale,
                 self._b_full[0]._data,
                 self._b_full[1]._data,
                 self._b_full[2]._data,
@@ -357,7 +365,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             self._args_accum_kernel = (
                 epsilon,
-                self.options.ep_scale,
+                self._ep_scale,
                 b_tilde[0]._data,
                 b_tilde[1]._data,
                 b_tilde[2]._data,
@@ -565,7 +573,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_old
             particles.save_magnetic_energy(PB_b)
-            en_fB_old = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
+            en_fB_old = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self._ep_scale
             en_fB_old /= n_mks_tot
 
             buffer_array = xp.array([en_fB_old])
@@ -611,7 +619,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_new
             particles.save_magnetic_energy(PB_b)
-            en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
+            en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self._ep_scale
             en_fB_new /= n_mks_tot
 
             buffer_array = xp.array([en_fB_new])
@@ -702,7 +710,7 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_accum_kernel_en_fB_mid,
                     first_free_idx + 3,
                 )
-                en_fB_mid = xp.sum(markers[first_free_idx + 3, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
+                en_fB_mid = xp.sum(markers[first_free_idx + 3, ~holes].dot(markers[5, ~holes])) * self._ep_scale
 
                 en_fB_mid /= n_mks_tot
 
@@ -763,7 +771,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # update en_fB_new
                 particles.save_magnetic_energy(PB_b)
-                en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self.options.ep_scale
+                en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self._ep_scale
                 en_fB_new /= n_mks_tot
 
                 buffer_array = xp.array([en_fB_new])

@@ -84,9 +84,9 @@ class CurrentCoupling5DDensity(Propagator):
 
         Parameters
         ----------
-        ep_scale : float, default=1.0
-            Scaling factor applied in the energetic-particle accumulation
-            kernel.
+        ep_scale : float, default=None
+            Factor of the energetic-particle contributions (accumulation): the mass ratio
+            :math:`A_	extnormal{h}/A_	extnormal{b}` of the energetic ions and the MHD bulk if ``None``.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the unknown ``u`` variable.
@@ -102,12 +102,14 @@ class CurrentCoupling5DDensity(Propagator):
             ``SolverParameters()``.
 
         filter_params : FilterParameters, default=None
-            Particle-to-grid filtering parameters used by the accumulator.
-            If ``None``, defaults to ``FilterParameters()``.
+            Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
+            The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
+            but the propagator then no longer conserves the energy exactly (the filter is applied to the
+            accumulated vectors only, not to the fields seen by the particles).
         """
 
         # propagator options
-        ep_scale: float = 1.0
+        ep_scale: float = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -119,7 +121,7 @@ class CurrentCoupling5DDensity(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.ep_scale, float)
+            assert self.ep_scale is None or isinstance(self.ep_scale, float)
 
             # defaults
             if self.solver_params is None:
@@ -142,6 +144,11 @@ class CurrentCoupling5DDensity(Propagator):
 
     @profile
     def allocate(self):
+        # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
+        self._ep_scale = self.options.ep_scale
+        if self._ep_scale is None:
+            self._ep_scale = self.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -178,7 +185,7 @@ class CurrentCoupling5DDensity(Propagator):
 
         self._args_accum_kernel = (
             epsilon,
-            self.options.ep_scale,
+            self._ep_scale,
             self._b_full[0]._data,
             self._b_full[1]._data,
             self._b_full[2]._data,

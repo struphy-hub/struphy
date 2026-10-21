@@ -110,12 +110,13 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
+        r"""Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
 
         Parameters
         ----------
-        ep_scale : float, default=1.0
-            Scaling factor for particle accumulation terms.
+        ep_scale : float, default=None
+            Factor of the energetic-particle contributions (accumulation): the mass ratio
+            :math:`A_	extnormal{h}/A_	extnormal{b}` of the energetic ions and the MHD bulk if ``None``.
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for velocity variable ``u``.
         algo : {"implicit", "explicit"}, default="implicit"
@@ -140,7 +141,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         solver_params : SolverParameters, default=None
             Solver controls.
         filter_params : FilterParameters, default=None
-            Particle-to-grid filtering parameters.
+            Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
+            The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
+            but the propagator then no longer conserves the energy exactly (the filter is applied to the
+            accumulated vectors only, not to the fields seen by the particles).
         butcher : ButcherTableau, default=None
             Explicit Runge-Kutta tableau for ``algo="explicit"``.
         nonlinear : bool, default=True
@@ -150,7 +154,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
-        ep_scale: float = 1.0
+        ep_scale: float = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
@@ -176,7 +180,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                     'falling back to precond="MassMatrixPreconditioner".'
                 )
                 self.precond = "MassMatrixPreconditioner"
-            assert isinstance(self.ep_scale, float)
+            assert self.ep_scale is None or isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
 
             # defaults
@@ -203,6 +207,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
     @profile
     def allocate(self):
+        # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
+        self._ep_scale = self.options.ep_scale
+        if self._ep_scale is None:
+            self._ep_scale = self.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+
         self._u_form = self.derham.space_to_form[self.options.u_space]
 
         # call operatros
@@ -339,7 +348,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         bn = self.variables.b.spline.vector
 
         # accumulate
-        self._ACC(self.options.ep_scale)
+        self._ACC(self._ep_scale)
 
         if self.options.algo == "implicit":
             # preconditioner for the current time step (no-op unless dt changed since the setup)
