@@ -39,14 +39,14 @@ def cc_lin_mhd_5d_curlb_mf(
 ):
     r"""Accumulation kernel for the propagator
     :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb` (matrix-free). Accumulates the
-    vector and stores, per marker, the data of the matrix
-    :math:`A = \sum_p s_p (\vec \Lambda_p \cdot \mathbf e_p) (\vec \Lambda_p \cdot \mathbf e_p)^\top` in the marker
-    columns ``column`` to ``column + 3`` (:math:`\mathbf e_p` and :math:`s_p`), which is applied by
+    vector and stores, per marker, the data of the matrix with the rank-one filling
+    :math:`F_p = c_p\, \mathbf e_p \mathbf e_p^\top` (see :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`)
+    in the marker columns ``column`` to ``column + 3`` (:math:`\mathbf e_p` and :math:`c_p`), which is applied by
     :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf_dot.cc_lin_mhd_5d_curlb_mf_dot_kernels.cc_lin_mhd_5d_curlb_mf_dot`:
 
     .. math::
 
-        B_p^\mu = s_p\, e_{p,\mu}\,,\qquad s_p = w_p v_{\parallel,p}^2 \, \frac{A_\textnormal{h}}{A_\textnormal{b}}\,,\qquad
+        B_p^\mu = c_p\, e_{p,\mu}\,,\qquad c_p = w_p v_{\parallel,p}^2 \, \frac{A_\textnormal{h}}{A_\textnormal{b}}\,,\qquad
         \mathbf e_p = \frac{\hat{\mathbf B}^2 \times (\hat \nabla \times \hat{\mathbf b}^1_0)}{\hat B^*_\parallel \sqrt{g}}
 
     for :math:`\mathbf U` in :math:`H(\textnormal{div})` (``basis_u = 2``; without :math:`\sqrt g` for
@@ -96,18 +96,18 @@ def cc_lin_mhd_5d_curlb_mf(
         if basis_u == 2:
             e[:] = e / det_df
 
-        s = weight * v**2 * ep_scale
+        c = weight * v**2 * ep_scale
 
         markers[column, ip] = e[0]
         markers[column + 1, ip] = e[1]
         markers[column + 2, ip] = e[2]
-        markers[column + 3, ip] = s
+        markers[column + 3, ip] = c
 
         if basis_u == 0:
             particle_to_mat_kernels.vec_fill_v0vec(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, s * e[0], s * e[1], s * e[2]
+                args_derham, span1, span2, span3, vec1, vec2, vec3, c * e[0], c * e[1], c * e[2]
             )
         elif basis_u == 2:
             particle_to_mat_kernels.vec_fill_v2(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, s * e[0], s * e[1], s * e[2]
+                args_derham, span1, span2, span3, vec1, vec2, vec3, c * e[0], c * e[1], c * e[2]
             )

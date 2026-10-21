@@ -13,7 +13,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
-@stack_array("x")
+@stack_array("s_h")
 def cc_lin_mhd_5d_curlb_mf_dot(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
@@ -21,29 +21,30 @@ def cc_lin_mhd_5d_curlb_mf_dot(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    x1: "float[:,:,:]",
-    x2: "float[:,:,:]",
-    x3: "float[:,:,:]",
+    s1: "float[:,:,:]",
+    s2: "float[:,:,:]",
+    s3: "float[:,:,:]",
     basis_u: "int",
     column: "int",
 ):
-    r"""Applies the matrix :math:`A = \sum_p s_p (\vec \Lambda_p \cdot \mathbf e_p) (\vec \Lambda_p \cdot \mathbf e_p)^\top`
-    stored by
+    r"""Applies the particle matrix with the rank-one filling :math:`F_p = c_p\, \mathbf e_p \mathbf e_p^\top`
+    (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`) stored by
     :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf.cc_lin_mhd_5d_curlb_mf_kernels.cc_lin_mhd_5d_curlb_mf`
-    (:math:`\mathbf e_p` and :math:`s_p` in the marker columns ``column`` to ``column + 3``) to the FE coefficients
-    ``x``:
+    (:math:`\mathbf e_p` and :math:`c_p` in the marker columns ``column`` to ``column + 3``) to the FE coefficients
+    :math:`s` (component arrays ``s1, s2, s3``), with the filling
 
     .. math::
 
-        B_p^\mu = s_p \, \left(\mathbf e_p \cdot \mathbf x_h(\boldsymbol \eta_p)\right) e_{p,\mu}\,,
+        B_p^\mu = \big(F_p\, S_h(\boldsymbol \eta_p)\big)_\mu
+        = c_p \, \big(\mathbf e_p \cdot S_h(\boldsymbol \eta_p)\big)\, e_{p,\mu}\,,
 
-    with the spline :math:`\mathbf x_h` of the coefficients ``x`` (2-form for ``basis_u = 2``, vector field for
+    where :math:`S_h` is the spline function of :math:`s` (2-form for ``basis_u = 2``, vector field for
     ``basis_u = 0``).
     """
 
     markers = args_markers.markers
 
-    x = empty(3, dtype=float)
+    s_h = empty(3, dtype=float)
 
     n_markers_loc = args_markers.n_markers
 
@@ -59,11 +60,11 @@ def cc_lin_mhd_5d_curlb_mf_dot(
         e3 = markers[column + 2, ip]
 
         if basis_u == 0:
-            eval_vectorfield_spline_mpi(span1, span2, span3, args_derham, x1, x2, x3, x)
+            eval_vectorfield_spline_mpi(span1, span2, span3, args_derham, s1, s2, s3, s_h)
         elif basis_u == 2:
-            eval_2form_spline_mpi(span1, span2, span3, args_derham, x1, x2, x3, x)
+            eval_2form_spline_mpi(span1, span2, span3, args_derham, s1, s2, s3, s_h)
 
-        fill = markers[column + 3, ip] * (e1 * x[0] + e2 * x[1] + e3 * x[2])
+        fill = markers[column + 3, ip] * (e1 * s_h[0] + e2 * s_h[1] + e3 * s_h[2])
 
         if basis_u == 0:
             particle_to_mat_kernels.vec_fill_v0vec(

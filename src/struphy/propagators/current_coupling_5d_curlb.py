@@ -139,7 +139,7 @@ class CurrentCoupling5DCurlb(Propagator):
             accumulated vectors only, not to the fields seen by the particles).
 
         matrix_free : bool, default=True
-            Apply the accumulated matrix :math:`\sum_p s_p (\vec \Lambda_p \cdot \mathbf e_p)
+            Apply the accumulated matrix :math:`\sum_p c_p (\vec \Lambda_p \cdot \mathbf e_p)
             (\vec \Lambda_p \cdot \mathbf e_p)^\top` (rank one per marker) in each iteration of the solver from data
             stored per marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one spline evaluation and
             one deposition per marker and iteration instead of the 6 blocks of size :math:`n_\textnormal{basis}^2`
