@@ -602,6 +602,41 @@ class WeightedMassOperators:
         return self._M2J
 
     @property
+    def M21J(self):
+        r"""
+        Mixed mass matrix from 1-forms to 2-forms
+
+        .. math::
+
+            \mathbb M^{21,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(J) G^{-1} \vec{\Lambda}^1_{\nu,mno} \textnormal{d}\boldsymbol{\eta},
+
+        with the rotation matrix :math:`\mathcal{R}(J)` of :attr:`M2J`, such that
+        :math:`\mathbf v^\top \mathbb M^{21,J} \mathbf b = \int \mathbf V \cdot (\mathbf J_\textnormal{eq} \times \mathbf B)\, \textnormal d \mathbf x`
+        for a 2-form :math:`\mathbf V` and a 1-form :math:`\mathbf B`. The 1-form counterpart of :attr:`M2J` (which acts
+        on 2-forms).
+        """
+
+        if not hasattr(self, "_M21J"):
+            assert self.eq_mhd is not None, (
+                "M21J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
+            rot_J = LocalRotationMatrix(
+                self.eq_mhd.j2_1,
+                self.eq_mhd.j2_2,
+                self.eq_mhd.j2_3,
+            )
+
+            self._M21J = self.create_weighted_mass(
+                "Hcurl",
+                "Hdiv",
+                weights=(rot_J, "Ginv"),
+                name="M21J",
+                assemble=True,
+            )
+
+        return self._M21J
+
+    @property
     def MvJ(self):
         r"""
         Mass matrix

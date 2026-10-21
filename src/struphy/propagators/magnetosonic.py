@@ -28,6 +28,12 @@ class Magnetosonic(Propagator):
         \\[2mm]
         \frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) + \frac{2}{3}\,p_0\nabla\cdot\tilde{\mathbf{U}} &= 0
 
+    The magnetic field perturbation :math:`\tilde{\mathbf B}` is not updated (it enters only the Lorentz force) and is
+    either a 2-form (:math:`H(\textnormal{div})`, default, with
+    :attr:`~struphy.feec.mass.WeightedMassOperators.M2J`) or a 1-form (:math:`H(\textnormal{curl})`, with the mixed
+    mass matrix :attr:`~struphy.feec.mass.WeightedMassOperators.M21J`; only for
+    :math:`\tilde{\mathbf U} \in H(\textnormal{div})`).
+
     Time discretization: Crank-Nicolson (implicit mid-point).
 
     System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
@@ -87,11 +93,13 @@ class Magnetosonic(Propagator):
         Parameters
         ----------
         b_field : FEECVariable, default=None
-            Magnetic 2-form (``"Hdiv"`` space) providing the equilibrium magnetic field.
+            Magnetic field perturbation, as a 2-form (``"Hdiv"`` space) or a 1-form (``"Hcurl"`` space, requires
+            ``u_space="Hdiv"``), entering the Lorentz force :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}`.
             If ``None``, an empty ``FEECVariable(space="Hdiv")`` is created and allocated internally.
             Otherwise the given variable is treated as shared (e.g. the model's ``em_fields.b_field``)
             and must already be allocated when :meth:`allocate` is called; it is not re-allocated.
         """
+        assert b_field is None or b_field.space in ("Hcurl", "Hdiv"), "b_field must be in Hcurl or Hdiv."
         self.variables = self.Variables()
         self.b_field = b_field if b_field is not None else FEECVariable(space="Hdiv")
         self._allocate_b_field = b_field is None
@@ -176,7 +184,12 @@ class Magnetosonic(Propagator):
         self._B = -1 / 2.0 * _UT @ self.derham.div.T @ self.mass_ops.M3
         self._C = 1 / 2.0 * self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U
 
-        self._MJ = getattr(self.mass_ops, id_MJ)
+        if self.b_field.space == "Hcurl":
+            if u_space != "Hdiv":
+                raise NotImplementedError('A magnetic field in Hcurl requires u_space="Hdiv".')
+            self._MJ = self.mass_ops.M21J
+        else:
+            self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
         # only allocate the private default; a shared b_field is allocated (with initial conditions) by the model
