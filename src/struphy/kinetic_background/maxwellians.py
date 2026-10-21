@@ -442,6 +442,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     cache_size : int, optional
         Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
         Must be able to accomodate all markers on the current process.
+
+    shifted : bool, default=True
+        Whether to add the shift :math:`-\text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)} \frac{m_s F}{q_s B}
+        \mathcal{H}(\epsilon - \mu B)` (with the on-axis field :math:`B`) to the canonical toroidal momentum, such
+        that the profiles :math:`n(\psi_c)`, :math:`v_\text{th}(\psi_c)` are close to the profiles in the flux
+        label of the position. The shift is not a constant of motion for the trapped particles that bounce where the
+        field is larger than on the axis (the sign of :math:`v_\parallel` changes at the bounce points), so the
+        distribution is then not an exact equilibrium of the guiding-center motion: with steep profiles, use
+        ``shifted=False`` (the exact canonical toroidal momentum :math:`\psi + \frac{m_s F}{q_s B}v_\parallel`,
+        whose profiles are shifted by the drift-orbit width with respect to the position).
     """
 
     def __init__(
@@ -453,6 +463,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         equil: AxisymmMHDequilibrium = None,
         epsilon: float = 1.0,
         cache_size: int | None = None,
+        shifted: bool = True,
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
 
@@ -470,10 +481,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         # store additional parameters
         self._equil = equil
         self._epsilon = epsilon
+        self._shifted = shifted
         self.params["vth"] = vth
         self.params["equil"] = equil
         self.params["epsilon"] = epsilon
         self.params["cache_size"] = cache_size
+        self.params["shifted"] = shifted
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -686,15 +699,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            positive_mask = (energy - mu * B0) > 0
-            correction = xp.zeros_like(psi_c)
-            correction[positive_mask] = (
-                self._epsilon
-                * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                * R0
-            )
-            psi_c += correction
+            if self._shifted:
+                positive_mask = (energy - mu * B0) > 0
+                correction = xp.zeros_like(psi_c)
+                correction[positive_mask] = (
+                    self._epsilon
+                    * xp.sign(vparallel[positive_mask])
+                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                    * R0
+                )
+                psi_c += correction
         else:
             R = cbufs["R"][:n_markers]
             P = cbufs["P"][:n_markers]
@@ -712,15 +726,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            positive_mask[:] = (energy - mu * B0) > 0
-            correction[:] = 0.0
-            correction[positive_mask] = (
-                self._epsilon
-                * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                * R0
-            )
-            psi_c[:] += correction
+            if self._shifted:
+                positive_mask[:] = (energy - mu * B0) > 0
+                correction[:] = 0.0
+                correction[positive_mask] = (
+                    self._epsilon
+                    * xp.sign(vparallel[positive_mask])
+                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                    * R0
+                )
+                psi_c[:] += correction
         return psi_c
 
     def eval_rc(self, eta1, eta2, eta3, vparallel, mu):

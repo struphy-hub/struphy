@@ -87,10 +87,10 @@ parser.add_argument(
     "--precond",
     default=None,
     choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
-    help="Preconditioner of the shear Alfven solve: of the mass matrix (default for ShearAlfven), a geometric "
+    help="Preconditioner of the shear Alfven solve: of the mass matrix (default for ShearAlfvenCurlCurlwithProj), a geometric "
     "multigrid V-cycle of the whole Schur operator (ShearAlfven only; experimental, currently slower here), the "
     "Kronecker (fast diagonalization) preconditioner of the whole Schur operator with the E x B auxiliary space "
-    "correction (ShearAlfven only; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
+    "correction (ShearAlfven only, its default; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
     "larger gains for larger time steps), or Hiptmair-Xu for the curl-curl operator (curl-curl models only; the "
     "default of ShearAlfvenCurlCurl).",
 )
@@ -102,7 +102,9 @@ parser.add_argument(
 )
 args, _ = parser.parse_known_args()
 if args.precond is None:
-    args.precond = "HiptmairXu" if args.model == "ShearAlfvenCurlCurl" else "MassMatrixPreconditioner"
+    args.precond = {"ShearAlfven": "StiffnessPreconditioner", "ShearAlfvenCurlCurl": "HiptmairXu"}.get(
+        args.model, "MassMatrixPreconditioner"
+    )
 only = {"MultiGrid": "ShearAlfven", "StiffnessPreconditioner": "ShearAlfven"}
 if (
     args.precond in only

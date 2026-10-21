@@ -27,8 +27,22 @@ Particle subclasses
     :show-inheritance:
 
 
-Particel-to-grid accumulation
+Particle-to-grid accumulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Three classes deposit marker data on the FE spaces:
+
+* :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` assembles particle matrices (and optionally
+  vectors), :math:`\sum_p \Lambda^\alpha_{\mu, ijk}(\boldsymbol \eta_p) F_{p, \mu\nu}
+  \Lambda^\alpha_{\nu, mno}(\boldsymbol \eta_p)`; ``operators[0]`` is the assembled matrix as a linear operator;
+* :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` accumulates vectors only;
+* :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator` is the matrix-free counterpart of
+  ``Accumulator.operators[0]``: a linear operator that applies the particle matrix to coefficients :math:`s` by
+  evaluating their spline function :math:`S_h` (see :class:`~struphy.feec.psydac_derham.SplineFunction`) at the
+  markers and depositing :math:`F_p\, S_h(\boldsymbol \eta_p)`, in each iteration of a linear solver. This is cheaper
+  than assembling when the solver needs few iterations (e.g. ``matrix_free=True`` of
+  :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb` and
+  :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`).
 
 .. automodule:: struphy.pic.accumulation.particles_to_grid
     :members:

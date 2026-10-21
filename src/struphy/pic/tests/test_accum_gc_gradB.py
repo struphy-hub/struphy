@@ -46,7 +46,6 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
     )
 
     space = "H1vec" if basis_u == 0 else "Hdiv"
-    dummy_mat = np.zeros((1, 1, 1, 1, 1, 1))
 
     def accumulate(grad_PB, grad_PBeq):
         vec = derham.coeff_spaces[space].zeros()
@@ -54,7 +53,6 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
             args_markers,
             derham.args_derham,
             domain.args_domain,
-            *[dummy_mat] * 6,
             *[blk._data for blk in vec.blocks],
             0.1,
             1.0,
