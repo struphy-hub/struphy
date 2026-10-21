@@ -1,5 +1,5 @@
 """Kinetic drift wave in a slab with drift-kinetic ions and adiabatic electrons (DriftKineticElectrostaticAdiabatic);
-the same setup as examples/VlasovPoissonElectrostaticAdiabatic/slab_drift_wave, for comparison with full-orbit ions."""
+the same setup as examples/VlasovPoissonAdiabatic/slab_drift_wave, for comparison with full-orbit ions."""
 
 # -----------------------------
 # Description of the simulation
@@ -9,7 +9,7 @@ name = "Slab drift wave (DriftKineticElectrostaticAdiabatic)"
 description = """
 Drift wave in a slab with a density gradient, with drift-kinetic (guiding-center, 5D) ions and adiabatic electrons
 (DriftKineticElectrostaticAdiabatic). The physical setup is the one of the slab_drift_wave example of the full-orbit
-model VlasovPoissonElectrostaticAdiabatic, so that the two models can be compared directly.
+model VlasovPoissonAdiabatic, so that the two models can be compared directly.
 
 Physics. The guiding-center distribution f(X, v_par, mu, t) is advected by the parallel streaming, the E x B drift and
 the parallel acceleration by E_par (uniform B0 = e_z, no curvature). The potential follows from the quasi-neutrality
