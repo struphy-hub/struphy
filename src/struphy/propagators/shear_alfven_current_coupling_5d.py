@@ -178,14 +178,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
             assert self.precond != "MultiGrid", 'precond="MultiGrid" is not available for ShearAlfvenCurrentCoupling5D.'
-            if self.precond == "StiffnessPreconditioner" and (
-                self.algo != "implicit" or self.solver != "pcg" or self.u_space != "Hdiv"
-            ):
-                logger.warning(
-                    'precond="StiffnessPreconditioner" needs algo="implicit", solver="pcg" and u_space="Hdiv"; '
-                    'falling back to precond="MassMatrixPreconditioner".'
-                )
-                self.precond = "MassMatrixPreconditioner"
             assert self.ep_scale is None or isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
 
@@ -217,6 +209,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ep_scale = self.options.ep_scale
         if self._ep_scale is None:
             self._ep_scale = self.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
 
         self._u_form = self.derham.space_to_form[self.options.u_space]
 
@@ -242,15 +235,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # Preconditioner (the Kronecker preconditioner of the Schur operator depends on dt, built in prepare_time_step)
         self._schur_precond_dt = None
-        self._precond = self.options.precond
-        if self._precond == "StiffnessPreconditioner" and not preconditioner.ShearAlfvenSchurPreconditioner.supported(
-            self.derham
-        ):
-            self._precond = "PolarMassMatrixPreconditioner" if self.derham.polar_splines else "MassMatrixPreconditioner"
-            logger.warning(
-                'precond="StiffnessPreconditioner" needs tensor-product splines and the global commuting projectors; '
-                f'falling back to precond="{self._precond}".'
-            )
+        # the requested preconditioner, or the fallback if the Kronecker one is not possible here
+        self._precond = preconditioner.ShearAlfvenSchurPreconditioner.resolve(
+            self.options.precond, self.derham, self.options.algo, self.options.solver, self.options.u_space
+        )
         if self._precond == "StiffnessPreconditioner":
             # Kronecker operators of the equilibrium part T (built once, independent of dt)
             self._schur_precond = preconditioner.ShearAlfvenSchurPreconditioner(
@@ -409,9 +397,12 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # spline function for the evaluation of the perturbed field
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
         # the weights at the last evaluation points (the 3x3 weights of all blocks of a row share the points)
-        self._weight_pts = None
-        self._weight_vals = None
-        self._b0_cache = []
+        # the weights at the last evaluation points, and the equilibrium field (2-form components) at the evaluation
+        # points of the projector, which are the same in each step
+        self._weight_cache = _PointCache(maxsize=1)
+        self._b0_cache = _PointCache(maxsize=8)
+        eq = self.basis_ops.weights["eq_mhd"]
+        self._b0_funs = (eq.b2_1, eq.b2_2, eq.b2_3)
 
         op_class = BasisProjectionOperatorLocal if self.derham._with_local_projectors else BasisProjectionOperator
         ops = []
@@ -435,35 +426,24 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         """The 3x3 weights of the total-field operator at the points (e1, e2, e3): the rotation matrix of B0 + b (2-form
         components), times the metric factor of the velocity space. Cached for the last points, since all blocks of
         a row are evaluated at the same points."""
-        pts = self._weight_pts
-        if pts is None or not all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(pts, (e1, e2, e3))):
-            b0 = self._equilibrium_field(e1, e2, e3)
+
+        def compute():
+            b0 = self._b0_cache.get((e1, e2, e3), lambda: [fun(e1, e2, e3) for fun in self._b0_funs])
             b = self._bf(e1, e2, e3, local=True)
             rot = LocalRotationMatrix(*[(lambda *_, c=c: b0[c] + b[c]) for c in range(3)])(e1, e2, e3)
             if self._u_form == "1":
                 rot = rot @ self.domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False)
             elif self._u_form == "2":
                 rot = rot / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))[:, :, :, None, None]
-            self._weight_pts = (e1.copy(), e2.copy(), e3.copy())
-            self._weight_vals = rot
-        return self._weight_vals
+            return rot
 
-    def _equilibrium_field(self, e1, e2, e3):
-        """The 2-form components of the equilibrium field B0 at the points (e1, e2, e3), cached (the evaluation points
-        of the projector are the same in each step)."""
-        for pts, vals in self._b0_cache:
-            if all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(pts, (e1, e2, e3))):
-                return vals
-        eq = self.basis_ops.weights["eq_mhd"]
-        vals = [eq.b2_1(e1, e2, e3), eq.b2_2(e1, e2, e3), eq.b2_3(e1, e2, e3)]
-        self._b0_cache += [((e1.copy(), e2.copy(), e3.copy()), vals)]
-        return vals
+        return self._weight_cache.get((e1, e2, e3), compute)
 
     def _update_weights_Ttot(self):
         """Update the time-dependent weights of the total-field operator and of its transpose (one assembly)."""
 
         self.variables.b.spline.vector.copy(out=self._bf.vector)
-        self._weight_pts = None
+        self._weight_cache.clear()
 
         fun = [
             [(lambda e1, e2, e3, m=m, n=n: self._total_field_weights(e1, e2, e3)[:, :, :, m, n]) for n in range(3)]
@@ -476,5 +456,24 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             self._TtotT.update_weights(fun, dof_mat=self._Ttot.dof_matrix)
         else:
             self._TtotT.update_weights(fun)
-        self._weight_pts = None
-        self._weight_vals = None
+        self._weight_cache.clear()
+
+
+class _PointCache:
+    """Values computed at evaluation points (e1, e2, e3), for the last ``maxsize`` point sets (first in, first out)."""
+
+    def __init__(self, maxsize: int):
+        self._maxsize = maxsize
+        self._entries = []
+
+    def clear(self):
+        self._entries = []
+
+    def get(self, pts: tuple, compute):
+        """The cached value at the points ``pts``, or ``compute()`` (then cached)."""
+        for cached_pts, value in self._entries:
+            if all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(cached_pts, pts)):
+                return value
+        value = compute()
+        self._entries = (self._entries + [(tuple(a.copy() for a in pts), value)])[-self._maxsize :]
+        return value

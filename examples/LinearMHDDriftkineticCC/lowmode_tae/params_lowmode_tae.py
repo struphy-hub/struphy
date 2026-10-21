@@ -113,10 +113,10 @@ Fourier filter keeping only n = 1, which removes the marker noise in the other t
 The TAE is seeded by a small m = 1, 2 velocity perturbation localized at the gap (as in the ShearAlfven example).
 
 Expected result. After the initial transient, the TAE (the (m, n) = (1, 1) and (2, 1) harmonics of the radial
-velocity at r_c) oscillates with omega close to omega_TAE = 0.067 and grows exponentially. With the defaults, a run to
-t = 400 gave omega = 0.0615 (0.92 omega_TAE) and gamma = 0.003 (gamma/omega = 0.05); four times the energetic-ion
+velocity at r_c) oscillates with omega close to omega_TAE = 0.067 and grows exponentially. With the defaults, the run (to
+t = 800) gave omega = 0.0619 (0.92 omega_TAE) and gamma = 0.0026 (gamma/omega = 0.04); four times the energetic-ion
 density (--nh 0.02) excites an energetic-particle mode below the gap instead (omega = 0.046, gamma = 0.006). On 4 MPI
-ranks the run takes about 1.7 s per time step, about 25 min for the default end time. The pproc script
+ranks the run takes about 2 s per time step, about 30 min for the default end time. The pproc script
 measures omega (asserted within 10% of omega_TAE) and the growth rate gamma from the MHD kinetic energy
 (proportional to exp(2 gamma t), asserted positive), and plots the energies (MHD, magnetic, energetic ions), the
 fields and the radial profiles of the (m, n) harmonics.
@@ -271,8 +271,8 @@ props = model.propagators
 props.push_bxe.options = props.push_bxe.Options(algo="discrete_gradient_2nd_order")
 props.push_parallel.options = props.push_parallel.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
 props.shearalfen_cc5d.options = props.shearalfen_cc5d.Options(filter_params=filter_params)
-props.cc5d_density.options = props.cc5d_density.Options(filter_params=filter_params)
 props.cc5d_gradb.options = props.cc5d_gradb.Options(filter_params=filter_params)
+# (CurrentCoupling5DDensity accumulates no vector: nothing to filter)
 props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
 
 # ------------------

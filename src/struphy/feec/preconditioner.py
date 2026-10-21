@@ -1909,6 +1909,34 @@ class ShearAlfvenSchurPreconditioner:
         """Whether the preconditioner can be built for ``derham`` (no polar splines, global commuting projectors)."""
         return not derham.polar_splines and not derham.with_local_projectors
 
+    @staticmethod
+    def resolve(precond: str, derham, algo: str, solver: str, u_space: str) -> str:
+        """The preconditioner to use for the option ``precond`` of a shear Alfven propagator:
+        ``"StiffnessPreconditioner"`` only if its requirements hold (implicit algorithm with ``solver="pcg"``,
+        ``u_space="Hdiv"`` and :meth:`supported`), else the mass matrix preconditioner of the velocity space
+        (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. Other options are returned as
+        they are."""
+        if precond != "StiffnessPreconditioner":
+            return precond
+        missing = []
+        if algo != "implicit":
+            missing += ['algo="implicit"']
+        if solver != "pcg":
+            missing += ['solver="pcg"']
+        if u_space != "Hdiv":
+            missing += ['u_space="Hdiv"']
+        if derham.polar_splines:
+            missing += ["tensor-product splines"]
+        if derham.with_local_projectors:
+            missing += ["the global commuting projectors"]
+        if not missing:
+            return precond
+        fallback = "PolarMassMatrixPreconditioner" if derham.polar_splines else "MassMatrixPreconditioner"
+        logger.warning(
+            f'precond="StiffnessPreconditioner" needs {", ".join(missing)}; falling back to precond="{fallback}".'
+        )
+        return fallback
+
     def build(self, dt: float) -> LinearOperator:
         """The preconditioner of the Schur operator for the time step ``dt``."""
         mid = (dt**2 / 4) * self._mass_ops.M2

@@ -145,14 +145,6 @@ class ShearAlfvenPropagator(Propagator):
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
-            if self.precond == "StiffnessPreconditioner" and (
-                self.algo != "implicit" or self.solver != "pcg" or self.u_space != "Hdiv"
-            ):
-                logger.warning(
-                    'precond="StiffnessPreconditioner" needs algo="implicit", solver="pcg" and u_space="Hdiv"; '
-                    'falling back to precond="MassMatrixPreconditioner".'
-                )
-                self.precond = "MassMatrixPreconditioner"
             if self.precond == "MultiGrid":
                 assert self.algo == "implicit", f'precond="{self.precond}" requires algo="implicit".'
                 assert self.solver == "pcg", f'precond="{self.precond}" requires solver="pcg".'
@@ -196,15 +188,10 @@ class ShearAlfvenPropagator(Propagator):
         self._id_M = id_M
         self._multigrid_dt = None
         self._schur_precond_dt = None
-        self._precond = self.options.precond
-        if self._precond == "StiffnessPreconditioner" and not preconditioner.ShearAlfvenSchurPreconditioner.supported(
-            self.derham
-        ):
-            self._precond = "PolarMassMatrixPreconditioner" if self.derham.polar_splines else "MassMatrixPreconditioner"
-            logger.warning(
-                'precond="StiffnessPreconditioner" needs tensor-product splines and the global commuting projectors; '
-                f'falling back to precond="{self._precond}".'
-            )
+        # the requested preconditioner, or the fallback if the Kronecker one is not possible here
+        self._precond = preconditioner.ShearAlfvenSchurPreconditioner.resolve(
+            self.options.precond, self.derham, self.options.algo, self.options.solver, self.options.u_space
+        )
         if self._precond == "StiffnessPreconditioner":
             # Kronecker operators (built once, independent of dt)
             self._schur_precond = preconditioner.ShearAlfvenSchurPreconditioner(

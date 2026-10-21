@@ -194,6 +194,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._ep_scale = self.options.ep_scale
         if self._ep_scale is None:
             self._ep_scale = self.variables.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
 
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
@@ -243,6 +244,7 @@ class CurrentCoupling5DCurlb(Propagator):
         if self.options.matrix_free:
             # the vector, and the data of the matrix per marker (in the first free columns of the marker array)
             column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 4, "matrix_free needs 4 free (auxiliary) marker columns."
             self._ACC = AccumulatorVector(
                 particles,
                 self.options.u_space,
@@ -252,7 +254,7 @@ class CurrentCoupling5DCurlb(Propagator):
                 filter_params=self.options.filter_params,
             )
             self._args_accum_kernel += (column,)
-            _A_particles = MarkerOperator(
+            self._A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
                 cc_lin_mhd_5d_curlb_mf_dot,
@@ -272,7 +274,7 @@ class CurrentCoupling5DCurlb(Propagator):
                 symmetry="symm",
                 filter_params=self.options.filter_params,
             )
-            _A_particles = self._ACC.operators[0]
+            self._A_particles = self._ACC.operators[0]
 
         # define Pusher
         if self.options.u_space == "Hdiv":
@@ -310,7 +312,7 @@ class CurrentCoupling5DCurlb(Propagator):
             pushes_eta=False,
         )
 
-        _BC = -1 / 4 * _A_particles
+        _BC = -1 / 4 * self._A_particles
 
         self._schur_solver = SchurSolver(
             _A,

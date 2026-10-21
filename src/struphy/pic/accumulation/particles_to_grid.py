@@ -820,6 +820,9 @@ class MarkerOperator(LinearOperator):
         form = derham.space_to_form[space_id]
         self._E = derham.extraction_ops[form]
         self._B = derham.boundary_ops[form]
+        # the transposes are new operators: built once (dot is called in every iteration of a solver)
+        self._ET = self._E.T
+        self._BT = self._B.T
         self._acc = AccumulatorVector(particles, space_id, kernel, mass_ops, args_domain)
         self._args = args
         self._symmetry = symmetry
@@ -839,6 +842,10 @@ class MarkerOperator(LinearOperator):
     def dtype(self):
         return self._space.dtype
 
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this operator calls (the kernel that applies the matrix)."""
+        return self._acc.kernels()
+
     def tosparse(self):
         raise NotImplementedError("MarkerOperator is matrix-free.")
 
@@ -851,8 +858,8 @@ class MarkerOperator(LinearOperator):
     def dot(self, v: Vector, out: Vector = None) -> Vector:
         assert v.space == self._space
         # coefficients of the full space, with ghost regions for the evaluation at the markers
-        self._B.T.dot(v, out=self._x_tmp)
-        self._E.T.dot(self._x_tmp, out=self._x_full)
+        self._BT.dot(v, out=self._x_tmp)
+        self._ET.dot(self._x_tmp, out=self._x_full)
         self._x_full.update_ghost_regions()
         blocks = self._x_full.blocks if hasattr(self._x_full, "blocks") else [self._x_full]
         self._acc(*[blk._data for blk in blocks], *self._args)

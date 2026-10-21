@@ -226,6 +226,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._ep_scale = self.options.ep_scale
         if self._ep_scale is None:
             self._ep_scale = self.variables.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
 
         if self.options.u_space == "H1vec":
             self._u_form_int = 0

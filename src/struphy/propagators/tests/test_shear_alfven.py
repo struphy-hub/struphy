@@ -20,12 +20,31 @@ def test_multigrid_options():
         ShearAlfvenPropagator.Options(precond="MultiGrid", solver="cg")
 
 
+@pytest.mark.mpi_skip
 def test_stiffness_preconditioner_options():
-    """The Kronecker preconditioner is the default; without its requirements it falls back to the mass matrix one."""
+    """The Kronecker preconditioner is the default; without its requirements it falls back to the (polar) mass matrix
+    one."""
+    from types import SimpleNamespace
+
+    from struphy.feec.preconditioner import ShearAlfvenSchurPreconditioner
+
     assert ShearAlfvenPropagator.Options().precond == "StiffnessPreconditioner"
+    tp = SimpleNamespace(polar_splines=False, with_local_projectors=False)
+    polar = SimpleNamespace(polar_splines=True, with_local_projectors=False)
+    local = SimpleNamespace(polar_splines=False, with_local_projectors=True)
+    ok = {"algo": "implicit", "solver": "pcg", "u_space": "Hdiv"}
+    assert ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", tp, **ok) == "StiffnessPreconditioner"
     for kwargs in ({"algo": "explicit"}, {"u_space": "Hcurl"}, {"solver": "cg"}):
-        options = ShearAlfvenPropagator.Options(precond="StiffnessPreconditioner", **kwargs)
-        assert options.precond == "MassMatrixPreconditioner"
+        args = {**ok, **kwargs}
+        assert (
+            ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", tp, **args) == "MassMatrixPreconditioner"
+        )
+        assert (
+            ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", polar, **args)
+            == "PolarMassMatrixPreconditioner"
+        )
+    assert ShearAlfvenSchurPreconditioner.resolve("StiffnessPreconditioner", local, **ok) == "MassMatrixPreconditioner"
+    assert ShearAlfvenSchurPreconditioner.resolve("MultiGrid", polar, **ok) == "MultiGrid"
 
 
 @pytest.mark.mpi_skip

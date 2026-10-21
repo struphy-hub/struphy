@@ -159,6 +159,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._ep_scale = self.options.ep_scale
         if self._ep_scale is None:
             self._ep_scale = self.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
 
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
@@ -201,7 +202,10 @@ class CurrentCoupling5DDensity(Propagator):
         if self.options.matrix_free:
             # the 3x3 filling matrices per marker (in the first free columns of the marker array)
             column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 4, "matrix_free needs 4 free (auxiliary) marker columns."
             self._args_accum_kernel += (column,)
+            # the kernel that stores the filling matrices (called in __call__, kept for kernels())
+            self._store_kernel = cc_lin_mhd_5d_D_mf
             self._A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
@@ -254,8 +258,8 @@ class CurrentCoupling5DDensity(Propagator):
 
         if self.options.matrix_free:
             particles = self.energetic_ions.particles
-            with ProfileManager.profile_region("kernel: " + cc_lin_mhd_5d_D_mf.name):
-                cc_lin_mhd_5d_D_mf(
+            with ProfileManager.profile_region("kernel: " + self._store_kernel.name):
+                self._store_kernel(
                     particles.args_markers,
                     self.derham.args_derham,
                     self.domain.args_domain,
