@@ -106,7 +106,7 @@ class CurrentCoupling6DDensity(Propagator):
             Apply the density matrix matrix-free, with its antisymmetric filling stored per marker
             (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one
             spline evaluation and one deposition per marker and solver iteration instead of the products of all pairs
-            of basis functions per marker. Needs 3 auxiliary marker columns.
+            of basis functions per marker. Needs 3 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         # propagator options

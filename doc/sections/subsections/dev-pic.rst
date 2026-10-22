@@ -47,8 +47,9 @@ Three classes deposit marker data on the FE spaces:
   Assembling costs the products of all pairs of basis functions per marker, :math:`\mathcal O((p+1)^6)`, once per
   step; the matrix-free application costs one spline evaluation and one deposition per marker,
   :math:`\mathcal O((p+1)^3)`, per solver iteration. It is faster for 3D grids with higher degrees, expensive
-  fillings or few solver iterations. All propagators that assemble particle matrices have the option
-  ``matrix_free``: :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`,
+  fillings or few solver iterations. All propagators that assemble particle matrices (except the disabled
+  ``FaradayExtended``) have the option ``matrix_free``:
+  :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`,
   :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`,
   :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`,
   :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`,
