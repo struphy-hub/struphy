@@ -58,12 +58,12 @@ def homogeneous_slab(B0=(0.0, 1.0, 1.0), Lz=10.0, num_elements=16):
     return equil, domain, (1, 1, num_elements), (1, 1, 3)
 
 
-def allocate_ideal(tmp_path, name, model_class, setup, dt, perturb=None):
+def allocate_ideal(tmp_path, name, model_class, setup, dt, perturb=None, implicit_weights=None):
     """Allocate an ideal model of `model_class` for the `setup` (equil, domain, num_elements, degree).
 
     `perturb(model)` adds the perturbations of the perturbative variables. The full-f model gets the equilibrium
-    as background in addition. Models must be allocated and run one after the other, since they share the class
-    attributes of Propagator (derham, mass_ops, ...)."""
+    as background in addition. `implicit_weights` is passed to VariationalQBEvolve (None: its default). Models must be
+    allocated and run one after the other, since they share the class attributes of Propagator (derham, ...)."""
     equil, domain, num_elements, degree = setup
     model = model_class(with_viscosity=False, with_resistivity=False)
     variant = VARIANTS[model_class]
@@ -81,7 +81,7 @@ def allocate_ideal(tmp_path, name, model_class, setup, dt, perturb=None):
         )
     else:
         model.propagators.variat_qb.options = model.propagators.variat_qb.Options(
-            model=variant, solver_params=SOLVER, nonlin_solver=NONLIN
+            model=variant, solver_params=SOLVER, nonlin_solver=NONLIN, implicit_weights=implicit_weights
         )
 
     if variant == "full_q":

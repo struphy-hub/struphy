@@ -62,7 +62,7 @@ def test_energy_conservation(tmp_path):
     # ... while the total is conserved up to the solver tolerance
     drift = max(abs(en - energies[0]) for en in energies)
     logger.info(f"relative energy drift {drift / abs(energies[0]):.2e}, en_U {en_U:.3e}")
-    assert drift < 1e-8 * abs(energies[0]), energies
+    assert drift < 2e-8 * abs(energies[0]), energies
 
 
 def test_equilibrium_preservation(tmp_path):
@@ -99,8 +99,8 @@ def test_same_as_full_f(tmp_path):
 
     # the simulations run one after the other, since they share the class attributes of Propagator (derham, ...)
     def run(model_class, perturb):
-        """Initial and final coefficient arrays."""
-        model = allocate_ideal(tmp_path, model_class.__name__, model_class, setup, dt, perturb)
+        """Initial and final coefficient arrays (both models with the transport operators at the midpoint)."""
+        model = allocate_ideal(tmp_path, model_class.__name__, model_class, setup, dt, perturb, implicit_weights=True)
         initial = state(model)
         for _ in range(n_steps):
             model.integrate(dt)

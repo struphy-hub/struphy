@@ -83,8 +83,10 @@ class VariationalQBEvolve(Propagator):
 
     The scheme below is written for ``"full_q"``; for the other models the operators and linear forms are
     replaced by the sums above. Below, hats denote pullbacks to the logical domain (not the auxiliary variables).
-    The weights of the transport operators are taken at :math:`t^n` in the momentum, induction and pressure
-    equations alike, which makes the step energy conserving.
+    The weights of the transport operators are taken at the same time in the momentum, induction and pressure
+    equations, which makes the step energy conserving: at :math:`t^n` as written below (first order in time), or at
+    the midpoint :math:`t^{n+1/2}` with the option ``implicit_weights`` (second order in time, the default for
+    ``"linear_q"`` and ``"perturbative_q"``).
 
     On the logical domain:
 
@@ -213,7 +215,7 @@ class VariationalQBEvolve(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VariationalQBEvolve`.
+        r"""Configuration options for :class:`VariationalQBEvolve`.
 
         Parameters
         ----------
@@ -229,6 +231,12 @@ class VariationalQBEvolve(Propagator):
             Linear-solver controls.
         nonlin_solver : NonlinearSolverParameters, default=None
             Nonlinear/Picard iteration controls.
+        implicit_weights : bool, default=None
+            If ``True``, the weights of the transport operators (:math:`\mathbf B` and :math:`q`) are taken at the
+            midpoint :math:`t^{n+1/2}` and updated in every Picard iteration, which makes the step second-order
+            accurate in time. If ``False``, they are taken at :math:`t^n`; the step is then only first-order accurate
+            (e.g. for sound waves). Both conserve the energy. ``None`` means ``True`` for ``"linear_q"`` and
+            ``"perturbative_q"``, and ``False`` for ``"full_q"``.
         """
 
         # specific literals
@@ -240,6 +248,7 @@ class VariationalQBEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        implicit_weights: bool = None
 
         def __post_init__(self):
             # checks
@@ -253,6 +262,9 @@ class VariationalQBEvolve(Propagator):
 
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters()
+
+            if self.implicit_weights is None:
+                self.implicit_weights = self.model in ("linear_q", "perturbative_q")
 
     @property
     def options(self) -> Options:
@@ -273,6 +285,7 @@ class VariationalQBEvolve(Propagator):
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
         self._gamma = self.options.gamma
+        self._implicit_weights = self.options.implicit_weights
 
         if self.div_u is None:
             self._divu = None
@@ -358,7 +371,8 @@ class VariationalQBEvolve(Propagator):
 
     def __call_picard(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
-        # In fact it is linear due to the explicit update, only one iteration will be done at each time step
+        # With the operator weights at t^n (implicit_weights=False) the system is linear and one iteration suffices;
+        # with the weights at the midpoint the Picard iteration converges in a few iterations
         if self._info:
             logger.info("")
             logger.info("Newton iteration in VariationalQBEvolve")
@@ -392,6 +406,11 @@ class VariationalQBEvolve(Propagator):
             # Update the linear form
             self._update_linear_form_dl_db(bn, bn1)
             self._update_linear_form_dl_dq(qn, qn1)
+
+            # weights of the transport operators at the midpoint (computed in the linear forms above)
+            if self._implicit_weights:
+                self._update_Pib(self._tmp_bn12)
+                self._update_Projq(self._tmp_qn12)
 
             # Compute the advection terms
             if self._model == "linear_q":
