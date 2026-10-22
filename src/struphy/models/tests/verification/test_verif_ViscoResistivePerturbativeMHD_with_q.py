@@ -4,7 +4,7 @@ and resistivity, against conservation laws, analytic wave frequencies and the fu
 
 1. the energy with the auxiliary variables q^ and B^ is conserved (non-uniform equilibrium, nonlinear amplitude);
 2. a zero perturbation of a non-uniform equilibrium stays exactly zero, while the full-f model
-   (ViscoResistiveMHD_with_q) is driven by the discrete equilibrium force;
+   (VariationalMHD_with_q) is driven by the discrete equilibrium force;
 3. around a homogeneous equilibrium, where the discrete equilibrium force vanishes, the perturbative and full-f
    models give the same solution (the transport operators are linear in their coefficient), and the p-based
    perturbative model (ViscoResistivePerturbativeMHD) agrees up to a time discretization error of first order;
@@ -19,8 +19,8 @@ import pytest
 
 from struphy import set_logging_level
 from struphy.models import (
+    VariationalMHD_with_q,
     ViscoResistiveLinearPerturbativeMHD_with_q,
-    ViscoResistiveMHD_with_q,
     ViscoResistivePerturbativeMHD,
     ViscoResistivePerturbativeMHD_with_q,
 )
@@ -77,7 +77,7 @@ def test_equilibrium_preservation(tmp_path):
     for vec in state(pert):
         assert norm(vec) == 0.0
 
-    full = allocate_ideal(tmp_path, "full", ViscoResistiveMHD_with_q, setup, dt)
+    full = allocate_ideal(tmp_path, "full", VariationalMHD_with_q, setup, dt)
     for _ in range(n_steps):
         full.integrate(dt)
     u_full = norm(state(full)[1])
@@ -107,7 +107,7 @@ def test_same_as_full_f(tmp_path):
         return initial, state(model)
 
     pert_0, pert_n = run(ViscoResistivePerturbativeMHD_with_q, perturb_all_along_z(amp, Lz))
-    full_0, full_n = run(ViscoResistiveMHD_with_q, perturb_all_along_z(amp, Lz))
+    full_0, full_n = run(VariationalMHD_with_q, perturb_all_along_z(amp, Lz))
 
     for name, p0, p, f0, f in zip(("rho", "u", "q", "B"), pert_0, pert_n, full_0, full_n):
         # f0 - p0 are the background coefficients of the full-f model

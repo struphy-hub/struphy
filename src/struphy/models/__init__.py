@@ -38,12 +38,12 @@ _LAZY_IMPORTS = {
     "TwoFluidQuasiNeutralToy": "struphy.models.two_fluid_quasi_neutral_toy",
     "VariationalBarotropicFluid": "struphy.models.variational_barotropic_fluid",
     "VariationalCompressibleFluid": "struphy.models.variational_compressible_fluid",
+    "VariationalMHD": "struphy.models.variational_mhd",
+    "VariationalMHD_with_p": "struphy.models.variational_mhd_with_p",
+    "VariationalMHD_with_q": "struphy.models.variational_mhd_with_q",
     "VariationalPressurelessFluid": "struphy.models.variational_pressureless_fluid",
     "ViscoResistiveLinearPerturbativeMHD": "struphy.models.visco_resistive_linear_perturbative_mhd",
     "ViscoResistiveLinearPerturbativeMHD_with_q": "struphy.models.visco_resistive_linear_perturbative_mhd_with_q",
-    "ViscoResistiveMHD": "struphy.models.visco_resistive_mhd",
-    "ViscoResistiveMHD_with_p": "struphy.models.visco_resistive_mhd_with_p",
-    "ViscoResistiveMHD_with_q": "struphy.models.visco_resistive_mhd_with_q",
     "ViscoResistivePerturbativeMHD": "struphy.models.visco_resistive_perturbative_mhd",
     "ViscoResistivePerturbativeMHD_with_q": "struphy.models.visco_resistive_perturbative_mhd_with_q",
     "ViscousEulerSPH": "struphy.models.viscous_euler_sph",
@@ -85,12 +85,12 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
     from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
     from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
+    from struphy.models.variational_mhd import VariationalMHD
+    from struphy.models.variational_mhd_with_p import VariationalMHD_with_p
+    from struphy.models.variational_mhd_with_q import VariationalMHD_with_q
     from struphy.models.variational_pressureless_fluid import VariationalPressurelessFluid
     from struphy.models.visco_resistive_linear_perturbative_mhd import ViscoResistiveLinearPerturbativeMHD
     from struphy.models.visco_resistive_linear_perturbative_mhd_with_q import ViscoResistiveLinearPerturbativeMHD_with_q
-    from struphy.models.visco_resistive_mhd import ViscoResistiveMHD
-    from struphy.models.visco_resistive_mhd_with_p import ViscoResistiveMHD_with_p
-    from struphy.models.visco_resistive_mhd_with_q import ViscoResistiveMHD_with_q
     from struphy.models.visco_resistive_perturbative_mhd import ViscoResistivePerturbativeMHD
     from struphy.models.visco_resistive_perturbative_mhd_with_q import ViscoResistivePerturbativeMHD_with_q
     from struphy.models.viscous_euler_sph import ViscousEulerSPH
@@ -131,12 +131,12 @@ __all__ = [
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
+    "VariationalMHD",
+    "VariationalMHD_with_p",
+    "VariationalMHD_with_q",
     "VariationalPressurelessFluid",
     "ViscoResistiveLinearPerturbativeMHD",
     "ViscoResistiveLinearPerturbativeMHD_with_q",
-    "ViscoResistiveMHD",
-    "ViscoResistiveMHD_with_p",
-    "ViscoResistiveMHD_with_q",
     "ViscoResistivePerturbativeMHD",
     "ViscoResistivePerturbativeMHD_with_q",
     "ViscousEulerSPH",

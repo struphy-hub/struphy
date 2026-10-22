@@ -16,13 +16,13 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
 from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
-from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
+from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveMHD_with_q(StruphyModel):
-    """Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
+class VariationalMHD_with_p(StruphyModel):
+    """Full (non-linear) visco-resistive MHD equations, with the pressure variable, discretized with a variational method.
 
     Parameters
     ----------
@@ -51,7 +51,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         def __init__(self, mass_number: float = 1.0):
             self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="H1vec")
-            self.sqrt_p = FEECVariable(space="L2")
+            self.pressure = FEECVariable(space="L2")
             self.init_variables(mass_number=mass_number)
 
     class Diagnostics(DiagnosticSpecies):
@@ -65,13 +65,15 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     class Propagators:
         def __init__(
             self,
+            div_u: FEECVariable = None,
+            u2: FEECVariable = None,
             rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = VariationalDensityEvolve()
             self.variat_mom = VariationalMomentumAdvection()
-            self.variat_qb = VariationalQBEvolve()
+            self.variat_pb = VariationalPBEvolve(div_u=div_u, u2=u2)
             if with_viscosity:
                 self.variat_viscous = VariationalViscosity(rho=rho)
             if with_resistivity:
@@ -100,6 +102,8 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         # 3. instantiate all propagators
         self.propagators = self.Propagators(
+            div_u=self.diagnostics.div_u,
+            u2=self.diagnostics.u2,
             rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
@@ -109,14 +113,14 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         self.propagators.variat_dens.variables.rho = self.mhd.density
         self.propagators.variat_dens.variables.u = self.mhd.velocity
         self.propagators.variat_mom.variables.u = self.mhd.velocity
-        self.propagators.variat_qb.variables.u = self.mhd.velocity
-        self.propagators.variat_qb.variables.q = self.mhd.sqrt_p
-        self.propagators.variat_qb.variables.b = self.em_fields.b_field
+        self.propagators.variat_pb.variables.u = self.mhd.velocity
+        self.propagators.variat_pb.variables.p = self.mhd.pressure
+        self.propagators.variat_pb.variables.b = self.em_fields.b_field
         if with_viscosity:
-            self.propagators.variat_viscous.variables.s = self.mhd.sqrt_p
+            self.propagators.variat_viscous.variables.s = self.mhd.pressure
             self.propagators.variat_viscous.variables.u = self.mhd.velocity
         if with_resistivity:
-            self.propagators.variat_resist.variables.s = self.mhd.sqrt_p
+            self.propagators.variat_resist.variables.s = self.mhd.pressure
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
         # 5. define scalars to be tracked during simulation
@@ -160,9 +164,9 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
     def _compute_en_thermo(self):
-        q = self.mhd.sqrt_p.spline.vector
-        gamma = self.propagators.variat_qb.options.gamma
-        return 1.0 / (gamma - 1.0) * Propagator.mass_ops.M3.dot_inner(q, q)
+        p = self.mhd.pressure.spline.vector
+        gamma = self.propagators.variat_pb.options.gamma
+        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
 
     def _compute_tot_div_B(self):
         b = self.em_fields.b_field.spline.vector
@@ -177,19 +181,21 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_q')\n",
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_p')\n",
                     ]
-                elif "variat_qb.Options" in line:
-                    pass
+                elif "variat_pb.Options" in line:
+                    new_file += [
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='full_p')\n",
+                    ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q')\n",
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_p')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q')\n",
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_p')\n",
                     ]
-                elif "sqrt_p.add_background" in line:
+                elif "pressure.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:
@@ -213,13 +219,13 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         .. math::
 
-            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \frac{2 q}{\gamma - 1} \nabla q + \mathbf{B} \times \nabla \times \mathbf{B} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho \mathbf{u} \otimes \mathbf{u}) + \frac{1}{\gamma - 1} \nabla p + \mathbf{B} \times \nabla \times \mathbf{B} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right) = 0
 
-        Energy-like variable:
+        Pressure:
 
         .. math::
 
-            \partial_t q + \nabla \cdot (q \mathbf{u}) + \left( \frac{\gamma}{2} - 1 \right) q \nabla \cdot \mathbf{u} = \frac{2 q}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
+            \partial_t p + u \cdot \nabla p + \gamma p \nabla \cdot u = \frac{1}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \mathbf{B}|^2 \right)
 
         Induction:
 
@@ -232,7 +238,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
     @classmethod
     def doc_normalization(cls):
-        r"""The flow variables are normalized with the Alfvén speed:
+        r"""The characteristic flow speed is the Alfvén speed,
 
         .. math::
 
@@ -244,7 +250,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         r"""**The following scalars are tracked during simulation:**
 
         - Kinetic energy: ``en_U``
-        - Thermodynamic q-energy: ``en_thermo``
+        - Thermodynamic energy: ``en_thermo``
         - Magnetic energy: ``en_mag``
         - Total energy: ``en_tot``
         - Total density: ``dens_tot``
@@ -256,7 +262,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
         1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
         2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection`
-        3. :class:`~struphy.propagators.variational_qb_evolve.VariationalQBEvolve`
+        3. :class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`
         4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity` (if :attr:`with_viscosity` is True)
         5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
         """
@@ -268,9 +274,9 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
 {VariationalMomentumAdvection.__doc__}
 
-**3. VariationalQBEvolve:**
+**3. VariationalPBEvolve:**
 
-{VariationalQBEvolve.__doc__}
+{VariationalPBEvolve.__doc__}
 
 **4. VariationalViscosity:**
 
@@ -284,21 +290,20 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
     @classmethod
     def doc_long_description(cls):
-        r"""This model is the full nonlinear q-based dissipative MHD formulation.
-        It is useful when the square-root pressure variable is preferred in the
-        variational discretization while still retaining full nonlinear magnetic
-        dynamics."""
+        r"""This is the pressure-based full nonlinear dissipative MHD model. It is
+        the natural counterpart to the entropy- and q-based full MHD variants
+        when pressure is preferred as primitive thermodynamic variable."""
 
     @classmethod
     def doc_examples(cls):
-        r"""Create and initialize the q-based visco-resistive MHD model:
+        r"""Create and initialize the pressure-based visco-resistive MHD model:
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveMHD_with_q
+            from struphy.models import VariationalMHD_with_p
 
-            model = ViscoResistiveMHD_with_q()
-            model.mhd.sqrt_p
+            model = VariationalMHD_with_p()
+            model.mhd.pressure
             model.em_fields.b_field
         """
 
@@ -306,15 +311,15 @@ class ViscoResistiveMHD_with_q(StruphyModel):
     def doc_use_cases(cls):
         r"""This model is appropriate for:
 
-        - full nonlinear dissipative MHD in q-form
-        - comparison against the p- and entropy-based full models
-        - variational MHD studies where q is numerically advantageous"""
+        - full nonlinear dissipative MHD in p-formulation
+        - comparison against entropy- and q-based full MHD models
+        - variational resistive/viscous MHD benchmarks"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-        - ideal dissipation-free MHD
-        - kinetic or hybrid particle physics
-        - reduced linear perturbation problems
-        - pressure or entropy primitive-variable studies"""
+        - ideal MHD without dissipation
+        - kinetic plasma physics
+        - reduced linear perturbation studies
+        - thermodynamic formulations that require entropy or q as primitive variables"""

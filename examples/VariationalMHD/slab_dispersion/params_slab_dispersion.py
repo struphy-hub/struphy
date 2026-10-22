@@ -1,13 +1,13 @@
-"""MHD waves in a homogeneous slab with the nonlinear variational ideal MHD model (ViscoResistiveMHD without
+"""MHD waves in a homogeneous slab with the nonlinear variational ideal MHD model (VariationalMHD without
 viscosity and resistivity): Alfvén, slow and fast magnetosonic speeds from the space-time spectrum."""
 
 # -----------------------------
 # Description of the simulation
 # -----------------------------
 
-name = "Slab MHD dispersion (ViscoResistiveMHD)"
+name = "Slab MHD dispersion (VariationalMHD)"
 description = """
-Small-amplitude MHD waves in a homogeneous slab, computed with the nonlinear variational MHD model ViscoResistiveMHD
+Small-amplitude MHD waves in a homogeneous slab, computed with the nonlinear variational MHD model VariationalMHD
 (density, entropy, velocity and magnetic field, here without viscosity and resistivity, i.e. ideal MHD).
 
 Physics. Linearized around a homogeneous state (n0, p0, B0), ideal MHD supports three waves with wave vector k.
@@ -72,7 +72,7 @@ from struphy import (
     grids,
     perturbations,
 )
-from struphy.models import ViscoResistiveMHD
+from struphy.models import VariationalMHD
 
 # ---------------------
 # Physical parameters (also used by the pproc)
@@ -89,7 +89,7 @@ Lz = 60.0
 # ---------------------
 
 base_units = BaseUnits()
-model = ViscoResistiveMHD(base_units=base_units, with_viscosity=False, with_resistivity=False)
+model = VariationalMHD(base_units=base_units, with_viscosity=False, with_resistivity=False)
 
 model.em_fields.b_field.save_data = True
 model.mhd.density.save_data = True

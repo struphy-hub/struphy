@@ -1,7 +1,7 @@
 import pytest
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, grids, perturbations
-from struphy.models import ViscoResistiveLinearPerturbativeMHD_with_q, ViscoResistiveMHD
+from struphy.models import VariationalMHD, ViscoResistiveLinearPerturbativeMHD_with_q
 
 
 def _run(model, tmp_path):
@@ -37,7 +37,7 @@ def test_linear_q_viscosity_resistivity(fast, tmp_path):
 @pytest.mark.fluid
 def test_full_viscosity_resistivity(tmp_path):
     """model="full" evaluates the density 3-form in VariationalViscosity (issue #446)."""
-    model = ViscoResistiveMHD()
+    model = VariationalMHD()
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="full")
     props.variat_viscous.options = props.variat_viscous.Options(model="full", mu=0.1, mu_a=0.1)

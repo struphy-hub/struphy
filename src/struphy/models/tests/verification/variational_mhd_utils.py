@@ -18,9 +18,9 @@ from struphy import (
 )
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models import (
+    VariationalMHD_with_q,
     ViscoResistiveLinearPerturbativeMHD,
     ViscoResistiveLinearPerturbativeMHD_with_q,
-    ViscoResistiveMHD_with_q,
     ViscoResistivePerturbativeMHD,
     ViscoResistivePerturbativeMHD_with_q,
 )
@@ -36,7 +36,7 @@ NONLIN = NonlinearSolverParameters()
 # variational propagator option `model` for each model class
 VARIANTS = {
     ViscoResistivePerturbativeMHD_with_q: "perturbative_q",
-    ViscoResistiveMHD_with_q: "full_q",
+    VariationalMHD_with_q: "full_q",
     ViscoResistiveLinearPerturbativeMHD_with_q: "linear_q",
     ViscoResistivePerturbativeMHD: "perturbative",
     ViscoResistiveLinearPerturbativeMHD: "linear",
