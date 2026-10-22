@@ -13,7 +13,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D import cc_lin_mhd_5d_D
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf import cc_lin_mhd_5d_D_mf
-from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf_dot import cc_lin_mhd_5d_D_mf_dot
+from struphy.pic.accumulation.kernels.marker_operator_asym_dot import marker_operator_asym_dot
 from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -209,7 +209,7 @@ class CurrentCoupling5DDensity(Propagator):
             self._A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_D_mf_dot,
+                marker_operator_asym_dot,
                 self.mass_ops,
                 self.domain.args_domain,
                 (self._u_form_int, column),

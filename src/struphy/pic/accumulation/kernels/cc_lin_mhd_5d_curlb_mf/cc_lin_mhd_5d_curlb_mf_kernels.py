@@ -42,7 +42,7 @@ def cc_lin_mhd_5d_curlb_mf(
     vector and stores, per marker, the data of the matrix with the rank-one filling
     :math:`F_p = c_p\, \mathbf e_p \mathbf e_p^\top` (see :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`)
     in the marker columns ``column`` to ``column + 3`` (:math:`\mathbf e_p` and :math:`c_p`), which is applied by
-    :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf_dot.cc_lin_mhd_5d_curlb_mf_dot_kernels.cc_lin_mhd_5d_curlb_mf_dot`:
+    :func:`~struphy.pic.accumulation.kernels.marker_operator_rank1_dot.marker_operator_rank1_dot_kernels.marker_operator_rank1_dot`:
 
     .. math::
 

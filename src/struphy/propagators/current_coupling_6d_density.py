@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 
+import cunumpy as xp
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
 from maybempi import MPI
@@ -12,7 +13,9 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_6d_1 import cc_lin_mhd_6d_1
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.cc_lin_mhd_6d_1_mf import cc_lin_mhd_6d_1_mf
+from struphy.pic.accumulation.kernels.marker_operator_asym_dot import marker_operator_asym_dot
+from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -98,6 +101,12 @@ class CurrentCoupling6DDensity(Propagator):
 
         boundary_cut : tuple, default=(0.0, 0.0, 0.0)
             Boundary clipping parameters forwarded to the accumulation kernel.
+
+        matrix_free : bool, default=False
+            Apply the density matrix matrix-free, with its antisymmetric filling stored per marker
+            (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one
+            spline evaluation and one deposition per marker and solver iteration instead of the products of all pairs
+            of basis functions per marker. Needs 3 auxiliary marker columns.
         """
 
         # propagator options
@@ -107,12 +116,14 @@ class CurrentCoupling6DDensity(Propagator):
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         boundary_cut: tuple = (0.0, 0.0, 0.0)
+        matrix_free: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            assert isinstance(self.matrix_free, bool)
 
             # defaults
             if self.solver_params is None:
@@ -132,7 +143,10 @@ class CurrentCoupling6DDensity(Propagator):
 
     @profile
     def allocate(self):
-        self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
+        if self.options.u_space == "H1vec":
+            self._space_key_int = 0
+        else:
+            self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
         particles = self.energetic_ions.particles
         u = self.variables.u.spline.vector
@@ -180,17 +194,35 @@ class CurrentCoupling6DDensity(Propagator):
 
         self._boundary_cut_e1 = self.options.boundary_cut[0]
 
-        # load accumulator
-        self._accumulator = Accumulator(
-            particles,
-            self.options.u_space,
-            cc_lin_mhd_6d_1,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=False,
-            symmetry="asym",
-            filter_params=self.options.filter_params,
-        )
+        # load accumulator (the matrix-free kernels have no CUDA version)
+        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        if self._matrix_free:
+            # the filling of the matrix per marker (in the first free columns of the marker array)
+            self._column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 3, "matrix_free needs 3 free (auxiliary) marker columns."
+            # the kernel that stores the fillings (called in __call__)
+            self._store_kernel = cc_lin_mhd_6d_1_mf
+            self._A_particles = MarkerOperator(
+                particles,
+                self.options.u_space,
+                marker_operator_asym_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (self._space_key_int, self._column),
+                symmetry="asym",
+            )
+        else:
+            self._accumulator = Accumulator(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_6d_1,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=False,
+                symmetry="asym",
+                filter_params=self.options.filter_params,
+            )
+            self._A_particles = self._accumulator.operators[0]
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.extraction_ops["2"].transpose()
@@ -269,7 +301,7 @@ class CurrentCoupling6DDensity(Propagator):
         #                                     self._mat23],
         #                                    [self._mat31, self._mat32, None]])
         # else:
-        self._accumulator(
+        args_accum = (
             self._b_full2[0]._data,
             self._b_full2[1]._data,
             self._b_full2[2]._data,
@@ -277,10 +309,23 @@ class CurrentCoupling6DDensity(Propagator):
             self._coupling_const,
             self._boundary_cut_e1,
         )
+        if self._matrix_free:
+            particles = self.energetic_ions.particles
+            with ProfileManager.profile_region("kernel: " + self._store_kernel.name):
+                self._store_kernel(
+                    particles.args_markers,
+                    self.derham.args_derham,
+                    self.domain.args_domain,
+                    *args_accum,
+                    self._column,
+                    n_threads=particles.args_markers.n_markers,
+                )
+        else:
+            self._accumulator(*args_accum)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        lhs = self._M - dt / 2 * self._accumulator.operators[0]
-        rhs = self._M + dt / 2 * self._accumulator.operators[0]
+        lhs = self._M - dt / 2 * self._A_particles
+        rhs = self._M + dt / 2 * self._A_particles
 
         # solve linear system for updated u coefficients (in-place)
         rhs = rhs.dot(un, out=self._rhs_v)
